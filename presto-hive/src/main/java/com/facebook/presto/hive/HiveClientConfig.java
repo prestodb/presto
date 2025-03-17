@@ -189,6 +189,7 @@ public class HiveClientConfig
     private boolean verboseRuntimeStatsEnabled;
     private boolean useRecordPageSourceForCustomSplit = true;
     private boolean hudiMetadataEnabled;
+    private String hudiTablesUseMergedView;
 
     private boolean sizeBasedSplitWeightsEnabled = true;
     private double minimumAssignedSplitWeight = 0.05;
@@ -220,7 +221,6 @@ public class HiveClientConfig
     private Duration parquetQuickStatsFileMetadataFetchTimeout = new Duration(60, TimeUnit.SECONDS);
     private int parquetQuickStatsMaxConcurrentCalls = 500;
     private int quickStatsMaxConcurrentCalls = 100;
-    private DataSize affinitySchedulingFileSectionSize = new DataSize(256, MEGABYTE);
     private boolean legacyTimestampBucketing;
 
     @Min(0)
@@ -1616,6 +1616,19 @@ public class HiveClientConfig
         return this.hudiMetadataEnabled;
     }
 
+    @Config("hive.hudi-tables-use-merged-view")
+    @ConfigDescription("For Hudi tables, a comma-separated list in the form of <schema>.<table> which should prefer to fetch the list of files from the merged file system view")
+    public HiveClientConfig setHudiTablesUseMergedView(String hudiTablesUseMergedView)
+    {
+        this.hudiTablesUseMergedView = hudiTablesUseMergedView;
+        return this;
+    }
+
+    public String getHudiTablesUseMergedView()
+    {
+        return this.hudiTablesUseMergedView;
+    }
+
     @Config("hive.quick-stats.enabled")
     @ConfigDescription("Use quick stats to resolve stats")
     public HiveClientConfig setQuickStatsEnabled(boolean quickStatsEnabled)
@@ -1791,19 +1804,6 @@ public class HiveClientConfig
     public int getMaxParallelParsingConcurrency()
     {
         return this.maxParallelParsingConcurrency;
-    }
-
-    @NotNull
-    public DataSize getAffinitySchedulingFileSectionSize()
-    {
-        return affinitySchedulingFileSectionSize;
-    }
-
-    @Config("hive.affinity-scheduling-file-section-size")
-    public HiveClientConfig setAffinitySchedulingFileSectionSize(DataSize affinitySchedulingFileSectionSize)
-    {
-        this.affinitySchedulingFileSectionSize = affinitySchedulingFileSectionSize;
-        return this;
     }
 
     @Config("hive.skip-empty-files")

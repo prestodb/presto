@@ -16,7 +16,7 @@
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <dep.accumulo.version>1.10.1</dep.accumulo.version>
         <dep.curator.version>2.12.0</dep.curator.version>
-        <dep.reload4j.version>1.2.18.3</dep.reload4j.version>
+        <dep.log4j.version>2.24.3</dep.log4j.version>
     </properties>
 
     <dependencyManagement>
@@ -265,12 +265,6 @@
             <artifactId>jackson-databind</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>ch.qos.reload4j</groupId>
-            <artifactId>reload4j</artifactId>
-            <version>${dep.reload4j.version}</version>
-        </dependency>
-
         <!-- Presto SPI -->
         <dependency>
             <groupId>com.facebook.presto</groupId>
@@ -306,6 +300,26 @@
             <groupId>io.airlift</groupId>
             <artifactId>units</artifactId>
             <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-core</artifactId>
+            <version>${dep.log4j.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-api</artifactId>
+            <version>${dep.log4j.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-1.2-api</artifactId>
+            <version>${dep.log4j.version}</version>
         </dependency>
 
         <!-- for testing -->
@@ -363,6 +377,27 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <skipTests>true</skipTests>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>skipJdk17IncompatibleTests</id>
+            <activation>
+                <jdk>[17,)</jdk>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <excludes>
+                                <exclude>**/TestAccumuloDistributedQueries.java</exclude>
+                                <exclude>**/TestAccumuloIntegrationSmokeTest.java</exclude>
+                                <exclude>**/TestAccumuloClient.java</exclude>
+                            </excludes>
                         </configuration>
                     </plugin>
                 </plugins>

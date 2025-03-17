@@ -58,12 +58,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
-import static com.facebook.presto.iceberg.IcebergTableProperties.getFileFormat;
-import static com.facebook.presto.iceberg.IcebergTableProperties.getPartitioning;
-import static com.facebook.presto.iceberg.IcebergTableProperties.getSortOrder;
-import static com.facebook.presto.iceberg.IcebergTableProperties.getTableLocation;
 import static com.facebook.presto.iceberg.IcebergTableType.DATA;
 import static com.facebook.presto.iceberg.IcebergUtil.VIEW_OWNER;
 import static com.facebook.presto.iceberg.IcebergUtil.createIcebergViewProperties;
@@ -83,6 +80,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -95,6 +93,7 @@ public class IcebergNativeMetadata
 {
     private static final String VIEW_DIALECT = "presto";
 
+    private final Optional<String> warehouseDataDir;
     private final IcebergNativeCatalogFactory catalogFactory;
     private final CatalogType catalogType;
     private final ConcurrentMap<SchemaTableName, View> icebergViews = new ConcurrentHashMap<>();
@@ -108,11 +107,13 @@ public class IcebergNativeMetadata
             CatalogType catalogType,
             NodeVersion nodeVersion,
             FilterStatsCalculatorService filterStatsCalculatorService,
-            StatisticsFileCache statisticsFileCache)
+            StatisticsFileCache statisticsFileCache,
+            IcebergTableProperties tableProperties)
     {
-        super(typeManager, functionResolution, rowExpressionService, commitTaskCodec, nodeVersion, filterStatsCalculatorService, statisticsFileCache);
+        super(typeManager, functionResolution, rowExpressionService, commitTaskCodec, nodeVersion, filterStatsCalculatorService, statisticsFileCache, tableProperties);
         this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
         this.catalogType = requireNonNull(catalogType, "catalogType is null");
+        this.warehouseDataDir = Optional.ofNullable(catalogFactory.getCatalogWarehouseDataDir());
     }
 
     @Override
@@ -176,10 +177,15 @@ public class IcebergNativeMetadata
                     .collect(toList());
         }
 
-        return catalogFactory.getCatalog(session).listTables(toIcebergNamespace(schemaName, catalogFactory.isNestedNamespaceEnabled()))
-                .stream()
-                .map(tableIdentifier -> toPrestoSchemaTableName(tableIdentifier, catalogFactory.isNestedNamespaceEnabled()))
-                .collect(toList());
+        try {
+            return catalogFactory.getCatalog(session).listTables(toIcebergNamespace(schemaName, catalogFactory.isNestedNamespaceEnabled()))
+                    .stream()
+                    .map(tableIdentifier -> toPrestoSchemaTableName(tableIdentifier, catalogFactory.isNestedNamespaceEnabled()))
+                    .collect(toImmutableList());
+        }
+        catch (NoSuchNamespaceException e) {
+            return ImmutableList.of();
+        }
     }
 
     @Override
@@ -314,26 +320,26 @@ public class IcebergNativeMetadata
 
         Schema schema = toIcebergSchema(tableMetadata.getColumns());
 
-        PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()));
-        FileFormat fileFormat = getFileFormat(tableMetadata.getProperties());
+        PartitionSpec partitionSpec = parsePartitionFields(schema, tableProperties.getPartitioning(tableMetadata.getProperties()));
+        FileFormat fileFormat = tableProperties.getFileFormat(session, tableMetadata.getProperties());
 
         try {
             TableIdentifier tableIdentifier = toIcebergTableIdentifier(schemaTableName, catalogFactory.isNestedNamespaceEnabled());
-            String targetPath = getTableLocation(tableMetadata.getProperties());
+            String targetPath = tableProperties.getTableLocation(tableMetadata.getProperties());
             if (!isNullOrEmpty(targetPath)) {
                 transaction = catalogFactory.getCatalog(session).newCreateTableTransaction(
                         tableIdentifier,
                         schema,
                         partitionSpec,
                         targetPath,
-                        populateTableProperties(tableMetadata, fileFormat, session));
+                        populateTableProperties(this, tableMetadata, tableProperties, fileFormat, session));
             }
             else {
                 transaction = catalogFactory.getCatalog(session).newCreateTableTransaction(
                         tableIdentifier,
                         schema,
                         partitionSpec,
-                        populateTableProperties(tableMetadata, fileFormat, session));
+                        populateTableProperties(this, tableMetadata, tableProperties, fileFormat, session));
             }
         }
         catch (AlreadyExistsException e) {
@@ -342,7 +348,7 @@ public class IcebergNativeMetadata
 
         Table icebergTable = transaction.table();
         ReplaceSortOrder replaceSortOrder = transaction.replaceSortOrder();
-        SortOrder sortOrder = parseSortFields(schema, getSortOrder(tableMetadata.getProperties()));
+        SortOrder sortOrder = parseSortFields(schema, tableProperties.getSortOrder(tableMetadata.getProperties()));
         List<SortField> sortFields = getSupportedSortFields(icebergTable.schema(), sortOrder);
         for (SortField sortField : sortFields) {
             if (sortField.getSortOrder().isAscending()) {
@@ -402,5 +408,13 @@ public class IcebergNativeMetadata
     public void unregisterTable(ConnectorSession clientSession, SchemaTableName schemaTableName)
     {
         catalogFactory.getCatalog(clientSession).dropTable(toIcebergTableIdentifier(schemaTableName, catalogFactory.isNestedNamespaceEnabled()), false);
+    }
+
+    protected Optional<String> getDataLocationBasedOnWarehouseDataDir(SchemaTableName schemaTableName)
+    {
+        if (!catalogType.equals(HADOOP)) {
+            return Optional.empty();
+        }
+        return warehouseDataDir.map(base -> base + schemaTableName.getSchemaName() + "/" + schemaTableName.getTableName());
     }
 }

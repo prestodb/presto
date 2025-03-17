@@ -281,7 +281,7 @@ public final class QueryResourceUtil
                 .setCpuTimeMillis(stageExecutionStats.getTotalCpuTime().toMillis())
                 .setWallTimeMillis(stageExecutionStats.getTotalScheduledTime().toMillis())
                 .setProcessedRows(stageExecutionStats.getRawInputPositions())
-                .setProcessedBytes(stageExecutionStats.getRawInputDataSize().toBytes())
+                .setProcessedBytes(stageExecutionStats.getRawInputDataSizeInBytes())
                 .setNodes(countStageAndAddGlobalUniqueNodes(currentStageExecutionInfo.getTasks(), globalUniqueNodeIds));
 
         // Recurse into child stages to create their StageStats

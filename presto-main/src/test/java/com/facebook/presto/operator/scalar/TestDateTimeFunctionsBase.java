@@ -249,6 +249,24 @@ public abstract class TestDateTimeFunctionsBase
     }
 
     @Test
+    public void testFromUnixTimeWithTimeZoneOverflow()
+    {
+        String zoneId = "Asia/Shanghai";
+
+        // Test the largest possible valid value.
+        DateTime expected = new DateTime(73326, 9, 12, 4, 14, 45, DateTimeZone.forID(zoneId));
+        assertFunction(format("from_unixtime(2251799813685, '%s')", zoneId), TIMESTAMP_WITH_TIME_ZONE, toTimestampWithTimeZone(expected));
+
+        // Test the smallest possible valid value.
+        expected = new DateTime(-69387, 4, 22, 11, 50, 58, DateTimeZone.forID(zoneId));
+        assertFunction(format("from_unixtime(-2251799813685, '%s')", zoneId), TIMESTAMP_WITH_TIME_ZONE, toTimestampWithTimeZone(expected));
+
+        // Test the values just outside the range of valid values.
+        assertNumericOverflow(format("from_unixtime(2251799813686, '%s')", zoneId), "TimestampWithTimeZone overflow: 2251799813686000 ms");
+        assertNumericOverflow(format("from_unixtime(-2251799813686, '%s')", zoneId), "TimestampWithTimeZone overflow: -2251799813686000 ms");
+    }
+
+    @Test
     public void testToUnixTime()
     {
         assertFunction("to_unixtime(" + TIMESTAMP_LITERAL + ")", DOUBLE, TIMESTAMP.getMillis() / 1000.0);
@@ -269,6 +287,24 @@ public abstract class TestDateTimeFunctionsBase
         assertFunction("from_iso8601_timestamp('" + TIMESTAMP_ISO8601_STRING + "')", TIMESTAMP_WITH_TIME_ZONE, toTimestampWithTimeZone(TIMESTAMP_WITH_NUMERICAL_ZONE));
         assertFunction("from_iso8601_timestamp('" + WEIRD_TIMESTAMP_ISO8601_STRING + "')", TIMESTAMP_WITH_TIME_ZONE, toTimestampWithTimeZone(WEIRD_TIMESTAMP));
         assertFunction("from_iso8601_date('" + DATE_ISO8601_STRING + "')", DateType.DATE, toDate(DATE));
+    }
+
+    @Test
+    public void testFromISO8601Overflow()
+    {
+        String zoneId = "Z";
+
+        // Test the largest possible valid value.
+        DateTime expected = new DateTime(73326, 9, 11, 20, 14, 45, 247, DateTimeZone.forID(zoneId));
+        assertFunction(format("from_iso8601_timestamp('73326-09-11T20:14:45.247%s')", zoneId), TIMESTAMP_WITH_TIME_ZONE, toTimestampWithTimeZone(expected));
+
+        // Test the smallest possible valid value.
+        expected = new DateTime(-69387, 12, 31, 23, 59, 59, 999, DateTimeZone.forID(zoneId));
+        assertFunction(format("from_iso8601_timestamp('-69387-12-31T23:59:59.999%s')", zoneId), TIMESTAMP_WITH_TIME_ZONE, toTimestampWithTimeZone(expected));
+
+        // Test the values just outside the range of valid values.
+        assertNumericOverflow(format("from_iso8601_timestamp('73326-09-11T20:14:45.248%s')", zoneId), "TimestampWithTimeZone overflow: 2251799813685248 ms");
+        assertNumericOverflow(format("from_iso8601_timestamp('-69388-01-01T00:00:00.000%s')", zoneId), "TimestampWithTimeZone overflow: -2251841040000000 ms");
     }
 
     @Test
@@ -762,6 +798,25 @@ public abstract class TestDateTimeFunctionsBase
         assertFunction("parse_datetime('1960/01/22 03:04 +0500', 'YYYY/MM/DD HH:mm Z')",
                 TIMESTAMP_WITH_TIME_ZONE,
                 toTimestampWithTimeZone(new DateTime(1960, 1, 22, 3, 4, 0, 0, DateTimeZone.forOffsetHours(5))));
+    }
+
+    @Test
+    public void testParseDatetimeOverflow()
+    {
+        String zoneId = "Z";
+        String pattern = "yyyy/MM/dd HH:mm:ss.SSS Z";
+
+        // Test the largest possible valid value.
+        DateTime expected = new DateTime(73326, 9, 11, 20, 14, 45, 247, DateTimeZone.forID(zoneId));
+        assertFunction(format("parse_datetime('73326/09/11 20:14:45.247 %s', '%s')", zoneId, pattern), TIMESTAMP_WITH_TIME_ZONE, toTimestampWithTimeZone(expected));
+
+        // Test the smallest possible valid value.
+        expected = new DateTime(-69387, 12, 31, 23, 59, 59, 999, DateTimeZone.forID(zoneId));
+        assertFunction(format("parse_datetime('-69387/12/31 23:59:59.999 %s', '%s')", zoneId, pattern), TIMESTAMP_WITH_TIME_ZONE, toTimestampWithTimeZone(expected));
+
+        // Test the values just outside the range of valid values.
+        assertNumericOverflow(format("parse_datetime('73326/09/11 20:14:45.248 %s', '%s')", zoneId, pattern), "TimestampWithTimeZone overflow: 2251799813685248 ms");
+        assertNumericOverflow(format("parse_datetime('-69388/01/01 00:00:00.000 %s', '%s')", zoneId, pattern), "TimestampWithTimeZone overflow: -2251841040000000 ms");
     }
 
     @Test

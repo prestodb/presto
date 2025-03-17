@@ -47,6 +47,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
+import static com.facebook.presto.hive.HiveCommonSessionProperties.getAffinitySchedulingFileSectionSize;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getNodeSelectionStrategy;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getMinimumAssignedSplitWeight;
@@ -71,6 +72,7 @@ public class ChangelogSplitSource
     private final long targetSplitSize;
     private final List<IcebergColumnHandle> columnHandles;
     private final NodeSelectionStrategy nodeSelectionStrategy;
+    private final long affinitySchedulingSectionSize;
 
     public ChangelogSplitSource(
             ConnectorSession session,
@@ -86,6 +88,7 @@ public class ChangelogSplitSource
         this.nodeSelectionStrategy = getNodeSelectionStrategy(session);
         this.fileScanTaskIterable = closer.register(tableScan.planFiles());
         this.fileScanTaskIterator = closer.register(fileScanTaskIterable.iterator());
+        this.affinitySchedulingSectionSize = getAffinitySchedulingFileSectionSize(session).toBytes();
     }
 
     @Override
@@ -153,6 +156,7 @@ public class ChangelogSplitSource
                         changeTask.changeOrdinal(),
                         changeTask.commitSnapshotId(),
                         columnHandles)),
-                getDataSequenceNumber(task.file()));
+                getDataSequenceNumber(task.file()),
+                affinitySchedulingSectionSize);
     }
 }

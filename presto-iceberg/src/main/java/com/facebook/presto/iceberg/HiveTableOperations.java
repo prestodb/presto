@@ -105,7 +105,7 @@ public class HiveTableOperations
     private final String tableName;
     private final Optional<String> owner;
     private final Optional<String> location;
-    private final FileIO fileIO;
+    private final HdfsFileIO fileIO;
     private final IcebergHiveTableOperationsConfig config;
 
     private TableMetadata currentMetadata;
@@ -121,10 +121,11 @@ public class HiveTableOperations
             HdfsEnvironment hdfsEnvironment,
             HdfsContext hdfsContext,
             IcebergHiveTableOperationsConfig config,
+            ManifestFileCache manifestFileCache,
             String database,
             String table)
     {
-        this(new HdfsFileIO(hdfsEnvironment, hdfsContext),
+        this(new HdfsFileIO(manifestFileCache, hdfsEnvironment, hdfsContext),
                 metastore,
                 metastoreContext,
                 config,
@@ -140,12 +141,13 @@ public class HiveTableOperations
             HdfsEnvironment hdfsEnvironment,
             HdfsContext hdfsContext,
             IcebergHiveTableOperationsConfig config,
+            ManifestFileCache manifestFileCache,
             String database,
             String table,
             String owner,
             String location)
     {
-        this(new HdfsFileIO(hdfsEnvironment, hdfsContext),
+        this(new HdfsFileIO(manifestFileCache, hdfsEnvironment, hdfsContext),
                 metastore,
                 metastoreContext,
                 config,
@@ -156,7 +158,7 @@ public class HiveTableOperations
     }
 
     private HiveTableOperations(
-            FileIO fileIO,
+            HdfsFileIO fileIO,
             ExtendedHiveMetastore metastore,
             MetastoreContext metastoreContext,
             IcebergHiveTableOperationsConfig config,
@@ -409,7 +411,7 @@ public class HiveTableOperations
                             config.getTableRefreshMaxRetryTime().toMillis(),
                             config.getTableRefreshBackoffScaleFactor())
                     .run(metadataLocation -> newMetadata.set(
-                            TableMetadataParser.read(fileIO, io().newInputFile(metadataLocation))));
+                            TableMetadataParser.read(fileIO, fileIO.newCachedInputFile(metadataLocation))));
         }
         catch (RuntimeException e) {
             throw new TableNotFoundException(getSchemaTableName(), "Table metadata is missing", e);

@@ -26,7 +26,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.DataSize;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -88,16 +87,15 @@ public class ArbitraryOutputBuffer
     public ArbitraryOutputBuffer(
             String taskInstanceId,
             StateMachine<BufferState> state,
-            DataSize maxBufferSize,
+            long maxBufferSizeInBytes,
             Supplier<LocalMemoryContext> systemMemoryContextSupplier,
             Executor notificationExecutor)
     {
         this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
         this.state = requireNonNull(state, "state is null");
-        requireNonNull(maxBufferSize, "maxBufferSize is null");
-        checkArgument(maxBufferSize.toBytes() > 0, "maxBufferSize must be at least 1");
+        checkArgument(maxBufferSizeInBytes > 0, "maxBufferSizeInBytes must be at least 1");
         this.memoryManager = new OutputBufferMemoryManager(
-                maxBufferSize.toBytes(),
+                maxBufferSizeInBytes,
                 requireNonNull(systemMemoryContextSupplier, "systemMemoryContextSupplier is null"),
                 requireNonNull(notificationExecutor, "notificationExecutor is null"));
         this.pageTracker = new LifespanSerializedPageTracker(memoryManager);
@@ -279,13 +277,13 @@ public class ArbitraryOutputBuffer
     }
 
     @Override
-    public ListenableFuture<BufferResult> get(OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
+    public ListenableFuture<BufferResult> get(OutputBufferId bufferId, long startingSequenceId, long maxSizeInBytes)
     {
         checkState(!Thread.holdsLock(this), "Can not get pages while holding a lock on this");
         requireNonNull(bufferId, "bufferId is null");
-        checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
+        checkArgument(maxSizeInBytes > 0, "maxSize must be at least 1 byte");
 
-        return getBuffer(bufferId).getPages(startingSequenceId, maxSize, Optional.of(masterBuffer));
+        return getBuffer(bufferId).getPages(startingSequenceId, maxSizeInBytes, Optional.of(masterBuffer));
     }
 
     @Override
@@ -474,9 +472,8 @@ public class ArbitraryOutputBuffer
         }
 
         @Override
-        public synchronized List<SerializedPageReference> getPages(DataSize maxSize)
+        public synchronized List<SerializedPageReference> getPages(long maxSizeInBytes)
         {
-            long maxBytes = maxSize.toBytes();
             List<SerializedPageReference> pages = new ArrayList<>();
             long bytesRemoved = 0;
 
@@ -487,7 +484,7 @@ public class ArbitraryOutputBuffer
                 }
                 bytesRemoved += page.getRetainedSizeInBytes();
                 // break (and don't add) if this page would exceed the limit
-                if (!pages.isEmpty() && bytesRemoved > maxBytes) {
+                if (!pages.isEmpty() && bytesRemoved > maxSizeInBytes) {
                     break;
                 }
                 // this should not happen since we have a lock

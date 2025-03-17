@@ -64,10 +64,16 @@ toConnectorConfigs(const protocol::SessionRepresentation& session) {
   std::unordered_map<std::string, std::unordered_map<std::string, std::string>>
       connectorConfigs;
   for (const auto& entry : session.catalogProperties) {
+    std::unordered_map<std::string, std::string> connectorConfig;
+    // remove native prefix from native connector session property names
+    for (const auto& sessionProperty : entry.second) {
+      auto veloxConfig = (sessionProperty.first.rfind("native_", 0) == 0)
+          ? sessionProperty.first.substr(7)
+          : sessionProperty.first;
+      connectorConfig.emplace(veloxConfig, sessionProperty.second);
+    }
     connectorConfigs.insert(
-        {entry.first,
-         std::unordered_map<std::string, std::string>(
-             entry.second.begin(), entry.second.end())});
+        {entry.first, connectorConfig});
   }
 
   return connectorConfigs;

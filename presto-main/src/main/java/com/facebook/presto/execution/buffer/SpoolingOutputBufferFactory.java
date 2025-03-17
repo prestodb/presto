@@ -92,7 +92,7 @@ public class SpoolingOutputBufferFactory
                 outputBuffers,
                 state,
                 tempStorageManager.getTempStorage(LocalTempStorage.NAME),
-                featuresConfig.getSpoolingOutputBufferThreshold(),
+                featuresConfig.getSpoolingOutputBufferThreshold().toBytes(),
                 executor,
                 finalizerService);
     }

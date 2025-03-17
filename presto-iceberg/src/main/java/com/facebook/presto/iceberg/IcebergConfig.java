@@ -50,6 +50,7 @@ public class IcebergConfig
     private HiveCompressionCodec compressionCodec = GZIP;
     private CatalogType catalogType = HIVE;
     private String catalogWarehouse;
+    private String catalogWarehouseDataDir;
     private int catalogCacheSize = 10;
     private int maxPartitionsPerWriter = 100;
     private List<String> hadoopConfigResources = ImmutableList.of();
@@ -67,10 +68,11 @@ public class IcebergConfig
 
     private EnumSet<ColumnStatisticType> hiveStatisticsMergeFlags = EnumSet.noneOf(ColumnStatisticType.class);
     private String fileIOImpl = HadoopFileIO.class.getName();
-    private boolean manifestCachingEnabled;
+    private boolean manifestCachingEnabled = true;
     private long maxManifestCacheSize = IO_MANIFEST_CACHE_MAX_TOTAL_BYTES_DEFAULT;
     private long manifestCacheExpireDuration = IO_MANIFEST_CACHE_EXPIRATION_INTERVAL_MS_DEFAULT;
     private long manifestCacheMaxContentLength = IO_MANIFEST_CACHE_MAX_CONTENT_LENGTH_DEFAULT;
+    private DataSize manifestCacheMaxChunkSize = succinctDataSize(2, MEGABYTE);
     private int splitManagerThreads = Runtime.getRuntime().availableProcessors();
     private DataSize maxStatisticsFileCacheSize = succinctDataSize(256, MEGABYTE);
 
@@ -124,6 +126,19 @@ public class IcebergConfig
     public IcebergConfig setCatalogWarehouse(String catalogWarehouse)
     {
         this.catalogWarehouse = catalogWarehouse;
+        return this;
+    }
+
+    public String getCatalogWarehouseDataDir()
+    {
+        return catalogWarehouseDataDir;
+    }
+
+    @Config("iceberg.catalog.hadoop.warehouse.datadir")
+    @ConfigDescription("Iceberg catalog default root data writing directory. This is only supported with Hadoop catalog.")
+    public IcebergConfig setCatalogWarehouseDataDir(String catalogWarehouseDataDir)
+    {
+        this.catalogWarehouseDataDir = catalogWarehouseDataDir;
         return this;
     }
 
@@ -345,6 +360,20 @@ public class IcebergConfig
     public IcebergConfig setManifestCacheMaxContentLength(long manifestCacheMaxContentLength)
     {
         this.manifestCacheMaxContentLength = manifestCacheMaxContentLength;
+        return this;
+    }
+
+    public DataSize getManifestCacheMaxChunkSize()
+    {
+        return manifestCacheMaxChunkSize;
+    }
+
+    @Min(1024)
+    @Config("iceberg.io.manifest.cache.max-chunk-size")
+    @ConfigDescription("Maximum length of a buffer used to cache manifest file content. Only applicable to HIVE catalog.")
+    public IcebergConfig setManifestCacheMaxChunkSize(DataSize manifestCacheMaxChunkSize)
+    {
+        this.manifestCacheMaxChunkSize = manifestCacheMaxChunkSize;
         return this;
     }
 

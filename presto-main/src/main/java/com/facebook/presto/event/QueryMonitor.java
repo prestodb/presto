@@ -74,7 +74,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import org.joda.time.DateTime;
 
 import javax.inject.Inject;
 
@@ -94,6 +93,7 @@ import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textDistri
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Double.NaN;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
@@ -273,7 +273,8 @@ public class QueryMonitor
                 ImmutableSet.of(),
                 ImmutableSet.of(),
                 Optional.empty(),
-                ImmutableMap.of()));
+                ImmutableMap.of(),
+                Optional.empty()));
 
         logQueryTimeline(queryInfo);
     }
@@ -315,7 +316,8 @@ public class QueryMonitor
                         queryInfo.getAggregateFunctions(),
                         queryInfo.getWindowFunctions(),
                         queryInfo.getPrestoSparkExecutionContext(),
-                        getPlanHash(queryInfo.getPlanCanonicalInfo(), historyBasedPlanStatisticsTracker.getStatsEquivalentPlanRootNode(queryInfo.getQueryId()))));
+                        getPlanHash(queryInfo.getPlanCanonicalInfo(), historyBasedPlanStatisticsTracker.getStatsEquivalentPlanRootNode(queryInfo.getQueryId())),
+                        Optional.of(queryInfo.getPlanIdNodeMap())));
 
         logQueryTimeline(queryInfo);
     }
@@ -376,31 +378,31 @@ public class QueryMonitor
                         operatorSummary.getAddInputCalls(),
                         operatorSummary.getAddInputWall(),
                         operatorSummary.getAddInputCpu(),
-                        operatorSummary.getAddInputAllocation(),
-                        operatorSummary.getRawInputDataSize(),
+                        succinctBytes(operatorSummary.getAddInputAllocationInBytes()),
+                        succinctBytes(operatorSummary.getRawInputDataSizeInBytes()),
                         operatorSummary.getRawInputPositions(),
-                        operatorSummary.getInputDataSize(),
+                        succinctBytes(operatorSummary.getInputDataSizeInBytes()),
                         operatorSummary.getInputPositions(),
                         operatorSummary.getSumSquaredInputPositions(),
                         operatorSummary.getGetOutputCalls(),
                         operatorSummary.getGetOutputWall(),
                         operatorSummary.getGetOutputCpu(),
-                        operatorSummary.getGetOutputAllocation(),
-                        operatorSummary.getOutputDataSize(),
+                        succinctBytes(operatorSummary.getGetOutputAllocationInBytes()),
+                        succinctBytes(operatorSummary.getOutputDataSizeInBytes()),
                         operatorSummary.getOutputPositions(),
-                        operatorSummary.getPhysicalWrittenDataSize(),
+                        succinctBytes(operatorSummary.getPhysicalWrittenDataSizeInBytes()),
                         operatorSummary.getBlockedWall(),
                         operatorSummary.getFinishCalls(),
                         operatorSummary.getFinishWall(),
                         operatorSummary.getFinishCpu(),
-                        operatorSummary.getFinishAllocation(),
-                        operatorSummary.getUserMemoryReservation(),
-                        operatorSummary.getRevocableMemoryReservation(),
-                        operatorSummary.getSystemMemoryReservation(),
-                        operatorSummary.getPeakUserMemoryReservation(),
-                        operatorSummary.getPeakSystemMemoryReservation(),
-                        operatorSummary.getPeakTotalMemoryReservation(),
-                        operatorSummary.getSpilledDataSize(),
+                        succinctBytes(operatorSummary.getFinishAllocationInBytes()),
+                        succinctBytes(operatorSummary.getUserMemoryReservationInBytes()),
+                        succinctBytes(operatorSummary.getRevocableMemoryReservationInBytes()),
+                        succinctBytes(operatorSummary.getSystemMemoryReservationInBytes()),
+                        succinctBytes(operatorSummary.getPeakUserMemoryReservationInBytes()),
+                        succinctBytes(operatorSummary.getPeakSystemMemoryReservationInBytes()),
+                        succinctBytes(operatorSummary.getPeakTotalMemoryReservationInBytes()),
+                        succinctBytes(operatorSummary.getSpilledDataSizeInBytes()),
                         Optional.ofNullable(operatorSummary.getInfo()).map(operatorInfoCodec::toJson),
                         operatorSummary.getRuntimeStats(),
                         getPlanNodeEstimateOutputSize(operatorSummary.getPlanNodeId(), estimateMap, planNodeIdMap),
@@ -659,11 +661,11 @@ public class QueryMonitor
     {
         try {
             QueryStats queryStats = queryInfo.getQueryStats();
-            DateTime queryStartTime = queryStats.getCreateTime();
-            DateTime queryEndTime = queryStats.getEndTime();
+            long queryStartTime = queryStats.getCreateTimeInMillis();
+            long queryEndTime = queryStats.getEndTimeInMillis();
 
             // query didn't finish cleanly
-            if (queryStartTime == null || queryEndTime == null) {
+            if (queryStartTime == 0 || queryEndTime == 0) {
                 return;
             }
 
@@ -672,9 +674,9 @@ public class QueryMonitor
 
             List<StageInfo> stages = getAllStages(queryInfo.getOutputStage());
             // long lastSchedulingCompletion = 0;
-            long firstTaskStartTime = queryEndTime.getMillis();
-            long lastTaskStartTime = queryStartTime.getMillis() + planning;
-            long lastTaskEndTime = queryStartTime.getMillis() + planning;
+            long firstTaskStartTime = queryEndTime;
+            long lastTaskStartTime = queryStartTime + planning;
+            long lastTaskEndTime = queryStartTime + planning;
             for (StageInfo stage : stages) {
                 // only consider leaf stages
                 if (!stage.getSubStages().isEmpty()) {
@@ -684,27 +686,27 @@ public class QueryMonitor
                 for (TaskInfo taskInfo : stage.getLatestAttemptExecutionInfo().getTasks()) {
                     TaskStats taskStats = taskInfo.getStats();
 
-                    DateTime firstStartTime = taskStats.getFirstStartTime();
-                    if (firstStartTime != null) {
-                        firstTaskStartTime = Math.min(firstStartTime.getMillis(), firstTaskStartTime);
+                    long firstStartTimeInMillis = taskStats.getFirstStartTimeInMillis();
+                    if (firstStartTimeInMillis != 0) {
+                        firstTaskStartTime = Math.min(firstStartTimeInMillis, firstTaskStartTime);
                     }
 
-                    DateTime lastStartTime = taskStats.getLastStartTime();
-                    if (lastStartTime != null) {
-                        lastTaskStartTime = max(lastStartTime.getMillis(), lastTaskStartTime);
+                    long lastStartTimeInMillis = taskStats.getLastStartTimeInMillis();
+                    if (lastStartTimeInMillis != 0) {
+                        lastTaskStartTime = max(lastStartTimeInMillis, lastTaskStartTime);
                     }
 
-                    DateTime endTime = taskStats.getEndTime();
-                    if (endTime != null) {
-                        lastTaskEndTime = max(endTime.getMillis(), lastTaskEndTime);
+                    long endTimeInMillis = taskStats.getEndTimeInMillis();
+                    if (endTimeInMillis != 0) {
+                        lastTaskEndTime = max(endTimeInMillis, lastTaskEndTime);
                     }
                 }
             }
 
-            long elapsed = max(queryEndTime.getMillis() - queryStartTime.getMillis(), 0);
-            long scheduling = max(firstTaskStartTime - queryStartTime.getMillis() - planning, 0);
+            long elapsed = max(queryEndTime - queryStartTime, 0);
+            long scheduling = max(firstTaskStartTime - queryStartTime - planning, 0);
             long running = max(lastTaskEndTime - firstTaskStartTime, 0);
-            long finishing = max(queryEndTime.getMillis() - lastTaskEndTime, 0);
+            long finishing = max(queryEndTime - lastTaskEndTime, 0);
 
             logQueryTimeline(
                     queryInfo.getQueryId(),
@@ -724,15 +726,15 @@ public class QueryMonitor
 
     private static void logQueryTimeline(BasicQueryInfo queryInfo)
     {
-        DateTime queryStartTime = queryInfo.getQueryStats().getCreateTime();
-        DateTime queryEndTime = queryInfo.getQueryStats().getEndTime();
+        long queryStartTimeInMillis = queryInfo.getQueryStats().getCreateTimeInMillis();
+        long queryEndTimeInMillis = queryInfo.getQueryStats().getEndTimeInMillis();
 
         // query didn't finish cleanly
-        if (queryStartTime == null || queryEndTime == null) {
+        if (queryStartTimeInMillis == 0 || queryEndTimeInMillis == 0) {
             return;
         }
 
-        long elapsed = max(queryEndTime.getMillis() - queryStartTime.getMillis(), 0);
+        long elapsed = max(queryEndTimeInMillis - queryStartTimeInMillis, 0);
 
         logQueryTimeline(
                 queryInfo.getQueryId(),
@@ -742,8 +744,8 @@ public class QueryMonitor
                 0,
                 0,
                 0,
-                queryStartTime,
-                queryEndTime);
+                queryStartTimeInMillis,
+                queryEndTimeInMillis);
     }
 
     private static void logQueryTimeline(
@@ -754,10 +756,10 @@ public class QueryMonitor
             long schedulingMillis,
             long runningMillis,
             long finishingMillis,
-            DateTime queryStartTime,
-            DateTime queryEndTime)
+            long queryStartTimeInMillis,
+            long queryEndTimeInMillis)
     {
-        log.info("TIMELINE: Query %s :: Transaction:[%s] :: elapsed %sms :: planning %sms :: scheduling %sms :: running %sms :: finishing %sms :: begin %s :: end %s",
+        log.info("TIMELINE: Query %s :: Transaction:[%s] :: elapsed %sms :: planning %sms :: scheduling %sms :: running %sms :: finishing %sms :: begin %sms :: end %sms",
                 queryId,
                 transactionId,
                 elapsedMillis,
@@ -765,8 +767,8 @@ public class QueryMonitor
                 schedulingMillis,
                 runningMillis,
                 finishingMillis,
-                queryStartTime,
-                queryEndTime);
+                queryStartTimeInMillis,
+                queryEndTimeInMillis);
     }
 
     private static ResourceDistribution createResourceDistribution(
@@ -807,9 +809,9 @@ public class QueryMonitor
                 executionInfo.getStats().getTotalCpuTime(),
                 executionInfo.getStats().getRetriedCpuTime(),
                 executionInfo.getStats().getTotalBlockedTime(),
-                executionInfo.getStats().getRawInputDataSize(),
-                executionInfo.getStats().getProcessedInputDataSize(),
-                executionInfo.getStats().getPhysicalWrittenDataSize(),
+                succinctBytes(executionInfo.getStats().getRawInputDataSizeInBytes()),
+                succinctBytes(executionInfo.getStats().getProcessedInputDataSizeInBytes()),
+                succinctBytes(executionInfo.getStats().getPhysicalWrittenDataSizeInBytes()),
                 executionInfo.getStats().getGcInfo(),
                 createResourceDistribution(cpuDistribution.snapshot()),
                 createResourceDistribution(memoryDistribution.snapshot())));

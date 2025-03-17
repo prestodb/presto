@@ -1,6 +1,6 @@
-======================
-Command Line Interface
-======================
+==========
+Presto CLI
+==========
 
 .. contents::
     :local:
@@ -10,27 +10,46 @@ Command Line Interface
 Overview
 ========
 
-The Presto Command Line Interface (CLI) is a terminal-based interactive shell 
-for running queries, and is a
-`self-executing <http://skife.org/java/unix/2011/06/20/really_executable_jars.html>`_
-JAR file that acts like a normal UNIX executable. The Presto CLI communicates 
-with the Presto server over HTTP using a REST API, documented at 
-:doc:`Presto Client REST API </develop/client-protocol>`.
+The Presto Command Line Interface (CLI) is a terminal-based interactive shell for running queries.
+It is a `self-executing <http://skife.org/java/unix/2011/06/20/really_executable_jars.html>`_
+JAR file that acts like a normal UNIX executable and communicates with the Presto server
+over HTTP using :doc:`Presto Client REST API </develop/client-protocol>`.
 
-To install the Presto CLI, see :doc:`/installation/cli`.
+Installation
+============
 
-Configuration
-=============
+Download :maven_download:`cli`.
 
-The Presto CLI paginates query results using the ``less`` program, which 
-is configured with preset options. To change the pagination of query results, set the 
-environment variable ``PRESTO_PAGER`` to the name of a different program such as ``more``, 
-or set it to an empty value to disable pagination.
+Rename the JAR file to ``presto`` with the following command
+(replace ``*`` with the version number of the downloaded jar file):
 
-Connect to a Presto server using the Presto CLI
-===============================================
+.. code-block:: none
 
-To connect to a Presto server, run the CLI with the ``--server`` option.  
+    mv presto-cli-*-executable.jar presto
+
+Use ``chmod +x`` to make the renamed file executable:
+
+.. code-block:: none
+
+    chmod +x presto
+
+Running the Presto CLI
+======================
+
+Start the Presto CLI using the name you gave it using the ``mv`` command:
+
+.. code-block:: none
+
+    ./presto
+
+The Presto CLI starts and displays the prompt ``presto>``.
+
+To exit the Presto CLI, enter ``quit``.
+
+Connect to a Presto server
+==========================
+
+To connect to a Presto server, run the Presto CLI with the ``--server`` option.
 
 .. code-block:: none
 
@@ -39,14 +58,18 @@ To connect to a Presto server, run the CLI with the ``--server`` option.
 ``localhost:8080`` is the default for a Presto server, so if you have a Presto server running locally you can 
 leave it off. 
 
-To connect to a remote Presto server, use the Presto endpoint URL as in 
-the following example command:
+To connect to a remote Presto server, use the Presto endpoint URL as in the following example command:
 
 .. code-block:: none
 
     ./presto --server http://www.example.net:8080
 
+Pagination
+==========
 
+The Presto CLI paginates query results using the ``less`` program, which is configured with preset options.
+To change the pagination of query results, set the environment variable ``PRESTO_PAGER``
+to the name of a different program such as ``more``, or set it to an empty value to disable pagination.
 
 Examples
 ========
@@ -66,7 +89,7 @@ JSON format in a file named ``plan.json``.
 Online Help
 ===========
 
-Run the CLI with the ``--help`` option to see the online help.
+Run the Presto CLI with the ``--help`` option to see the online help.
 
 .. code-block:: none
 

@@ -116,7 +116,6 @@ import org.apache.spark.SparkException;
 import org.apache.spark.api.java.JavaFutureAction;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.util.CollectionAccumulator;
-import org.joda.time.DateTime;
 import scala.Option;
 
 import javax.inject.Inject;
@@ -156,7 +155,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Ticker.systemTicker;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -333,11 +331,11 @@ public class PrestoSparkQueryExecutionFactory
                 rootStage,
                 allStages,
                 peakRunningTasks,
-                succinctBytes(peakUserMemoryReservationInBytes),
-                succinctBytes(peakTotalMemoryReservationInBytes),
-                succinctBytes(peakTaskUserMemoryInBytes),
-                succinctBytes(peakTaskTotalMemoryInBytes),
-                succinctBytes(peakNodeTotalMemoryInBytes),
+                peakUserMemoryReservationInBytes,
+                peakTotalMemoryReservationInBytes,
+                peakTaskUserMemoryInBytes,
+                peakTaskTotalMemoryInBytes,
+                peakNodeTotalMemoryInBytes,
                 session.getRuntimeStats());
 
         Optional<PrestoSparkExecutionContext> prestoSparkExecutionContext = Optional.empty();
@@ -424,11 +422,11 @@ public class PrestoSparkQueryExecutionFactory
                 StageExecutionState.FINISHED,
                 Optional.empty(),
                 taskInfos,
-                DateTime.now(),
+                System.currentTimeMillis(),
                 new Distribution().snapshot(),
                 new RuntimeStats(),
-                succinctBytes(peakUserMemoryReservationInBytes),
-                succinctBytes(peakNodeTotalMemoryReservationInBytes),
+                peakUserMemoryReservationInBytes,
+                peakNodeTotalMemoryReservationInBytes,
                 1,
                 1);
         return new StageInfo(

@@ -294,7 +294,7 @@ public class TestScanFilterAndProjectOperator
         assertEquals(pageSource.getCompletedPositions(), expectedPage.getPositionCount());
 
         // Assert operator stats match the expected values
-        assertEquals(operator.getOperatorContext().getOperatorStats().getRawInputDataSize().toBytes(), expectedPage.getSizeInBytes());
+        assertEquals(operator.getOperatorContext().getOperatorStats().getRawInputDataSizeInBytes(), expectedPage.getSizeInBytes());
         assertEquals(operator.getOperatorContext().getOperatorStats().getInputPositions(), expected.getRowCount());
     }
 

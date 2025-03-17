@@ -13,6 +13,7 @@
  */
 
 #include "presto_cpp/main/types/PrestoToVeloxExpr.h"
+#include "presto_cpp/main/common/Utils.h"
 #include <boost/algorithm/string/case_conv.hpp>
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/presto_protocol/Base64Util.h"

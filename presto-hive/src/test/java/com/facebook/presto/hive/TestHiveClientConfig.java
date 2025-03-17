@@ -149,6 +149,7 @@ public class TestHiveClientConfig
                 .setUseRecordPageSourceForCustomSplit(true)
                 .setFileSplittable(true)
                 .setHudiMetadataEnabled(false)
+                .setHudiTablesUseMergedView(null)
                 .setThriftProtocol(Protocol.BINARY)
                 .setThriftBufferSize(new DataSize(128, BYTE))
                 .setCopyOnFirstWriteConfigurationEnabled(true)
@@ -165,7 +166,6 @@ public class TestHiveClientConfig
                 .setMaxConcurrentParquetQuickStatsCalls(500)
                 .setCteVirtualBucketCount(128)
                 .setSkipEmptyFilesEnabled(false)
-                .setAffinitySchedulingFileSectionSize(new DataSize(256, MEGABYTE))
                 .setLegacyTimestampBucketing(false));
     }
 
@@ -275,6 +275,7 @@ public class TestHiveClientConfig
                 .put("hive.use-record-page-source-for-custom-split", "false")
                 .put("hive.file-splittable", "false")
                 .put("hive.hudi-metadata-enabled", "true")
+                .put("hive.hudi-tables-use-merged-view", "default.user")
                 .put("hive.internal-communication.thrift-transport-protocol", "COMPACT")
                 .put("hive.internal-communication.thrift-transport-buffer-size", "256B")
                 .put("hive.copy-on-first-write-configuration-enabled", "false")
@@ -290,7 +291,6 @@ public class TestHiveClientConfig
                 .put("hive.quick-stats.parquet.max-concurrent-calls", "399")
                 .put("hive.quick-stats.max-concurrent-calls", "101")
                 .put("hive.cte-virtual-bucket-count", "256")
-                .put("hive.affinity-scheduling-file-section-size", "512MB")
                 .put("hive.skip-empty-files", "true")
                 .put("hive.legacy-timestamp-bucketing", "true")
                 .build();
@@ -397,6 +397,7 @@ public class TestHiveClientConfig
                 .setUseRecordPageSourceForCustomSplit(false)
                 .setFileSplittable(false)
                 .setHudiMetadataEnabled(true)
+                .setHudiTablesUseMergedView("default.user")
                 .setThriftProtocol(Protocol.COMPACT)
                 .setThriftBufferSize(new DataSize(256, BYTE))
                 .setCopyOnFirstWriteConfigurationEnabled(false)
@@ -411,10 +412,8 @@ public class TestHiveClientConfig
                 .setParquetQuickStatsFileMetadataFetchTimeout(new Duration(30, TimeUnit.SECONDS))
                 .setMaxConcurrentParquetQuickStatsCalls(399)
                 .setMaxConcurrentQuickStatsCalls(101)
-                .setAffinitySchedulingFileSectionSize(new DataSize(512, MEGABYTE))
                 .setSkipEmptyFilesEnabled(true)
                 .setCteVirtualBucketCount(256)
-                .setAffinitySchedulingFileSectionSize(new DataSize(512, MEGABYTE))
                 .setLegacyTimestampBucketing(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);

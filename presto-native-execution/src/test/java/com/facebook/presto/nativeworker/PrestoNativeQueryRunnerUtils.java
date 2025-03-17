@@ -25,6 +25,7 @@ import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.iceberg.FileFormat;
+import com.facebook.presto.iceberg.IcebergQueryRunner;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
@@ -55,7 +56,6 @@ import static com.facebook.presto.hive.HiveQueryRunner.createDatabaseMetastoreOb
 import static com.facebook.presto.hive.HiveQueryRunner.getFileHiveMetastore;
 import static com.facebook.presto.hive.HiveTestUtils.getProperty;
 import static com.facebook.presto.hive.metastore.PrestoTableType.EXTERNAL_TABLE;
-import static com.facebook.presto.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeSidecarProperties;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerHiveProperties;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerIcebergProperties;
@@ -90,7 +90,7 @@ public class PrestoNativeQueryRunnerUtils
 
     private PrestoNativeQueryRunnerUtils() {}
 
-    public static QueryRunner createQueryRunner(boolean addStorageFormatToPath, boolean isCoordinatorSidecarEnabled)
+    public static QueryRunner createQueryRunner(boolean addStorageFormatToPath, boolean isCoordinatorSidecarEnabled, boolean enableRuntimeMetricsCollection, boolean enableSsdCache)
             throws Exception
     {
         int cacheMaxSize = 4096; // 4GB size cache
@@ -102,7 +102,9 @@ public class PrestoNativeQueryRunnerUtils
                 cacheMaxSize,
                 DEFAULT_STORAGE_FORMAT,
                 addStorageFormatToPath,
-                isCoordinatorSidecarEnabled);
+                isCoordinatorSidecarEnabled,
+                enableRuntimeMetricsCollection,
+                enableSsdCache);
     }
 
     public static QueryRunner createQueryRunner(
@@ -112,7 +114,9 @@ public class PrestoNativeQueryRunnerUtils
             int cacheMaxSize,
             String storageFormat,
             boolean addStorageFormatToPath,
-            boolean isCoordinatorSidecarEnabled)
+            boolean isCoordinatorSidecarEnabled,
+            boolean enableRuntimeMetricsCollection,
+            boolean enableSsdCache)
             throws Exception
     {
         QueryRunner defaultQueryRunner = createJavaQueryRunner(dataDirectory, storageFormat, addStorageFormatToPath);
@@ -123,7 +127,8 @@ public class PrestoNativeQueryRunnerUtils
 
         defaultQueryRunner.close();
 
-        return createNativeQueryRunner(dataDirectory.get().toString(), prestoServerPath.get(), workerCount, cacheMaxSize, true, Optional.empty(), storageFormat, addStorageFormatToPath, false, isCoordinatorSidecarEnabled, false);
+        return createNativeQueryRunner(dataDirectory.get().toString(), prestoServerPath.get(), workerCount, cacheMaxSize, true, Optional.empty(),
+                storageFormat, addStorageFormatToPath, false, isCoordinatorSidecarEnabled, false, enableRuntimeMetricsCollection, enableSsdCache);
     }
 
     public static QueryRunner createJavaQueryRunner()
@@ -228,22 +233,19 @@ public class PrestoNativeQueryRunnerUtils
         ImmutableMap.Builder<String, String> icebergPropertiesBuilder = new ImmutableMap.Builder<>();
         icebergPropertiesBuilder.put("hive.parquet.writer.version", "PARQUET_1_0");
 
-        DistributedQueryRunner queryRunner = createIcebergQueryRunner(
-                ImmutableMap.of(
+        return IcebergQueryRunner.builder()
+                .setExtraProperties(ImmutableMap.of(
                         "regex-library", "RE2J",
                         "offset-clause-enabled", "true",
-                        "query.max-stage-count", "110"),
-                icebergPropertiesBuilder.build(),
-                FileFormat.valueOf(storageFormat),
-                false,
-                false,
-                OptionalInt.empty(),
-                Optional.empty(),
-                baseDataDirectory,
-                addStorageFormatToPath,
-                getNativeWorkerTpcdsProperties());
-
-        return queryRunner;
+                        "query.max-stage-count", "110"))
+                .setExtraConnectorProperties(icebergPropertiesBuilder.build())
+                .setAddJmxPlugin(false)
+                .setCreateTpchTables(false)
+                .setDataDirectory(baseDataDirectory)
+                .setAddStorageFormatToPath(addStorageFormatToPath)
+                .setFormat(FileFormat.valueOf(storageFormat))
+                .setTpcdsProperties(getNativeWorkerTpcdsProperties())
+                .build().getQueryRunner();
     }
 
     public static QueryRunner createNativeIcebergQueryRunner(boolean useThrift)
@@ -302,22 +304,22 @@ public class PrestoNativeQueryRunnerUtils
                 .build();
 
         // Make query runner with external workers for tests
-        return createIcebergQueryRunner(
-                ImmutableMap.<String, String>builder()
+        return IcebergQueryRunner.builder()
+                .setExtraProperties(ImmutableMap.<String, String>builder()
                         .put("http-server.http.port", "8080")
                         .put("experimental.internal-communication.thrift-transport-enabled", String.valueOf(useThrift))
                         .put("query.max-stage-count", "110")
                         .putAll(getNativeWorkerSystemProperties())
-                        .build(),
-                icebergProperties,
-                FileFormat.valueOf(storageFormat),
-                false,
-                false,
-                OptionalInt.of(workerCount.orElse(4)),
-                getExternalWorkerLauncher("iceberg", prestoServerPath, cacheMaxSize, remoteFunctionServerUds, false, false),
-                dataDirectory,
-                addStorageFormatToPath,
-                getNativeWorkerTpcdsProperties());
+                        .build())
+                .setFormat(FileFormat.valueOf(storageFormat))
+                .setCreateTpchTables(false)
+                .setAddJmxPlugin(false)
+                .setNodeCount(OptionalInt.of(workerCount.orElse(4)))
+                .setExternalWorkerLauncher(getExternalWorkerLauncher("iceberg", prestoServerPath, cacheMaxSize, remoteFunctionServerUds, false, false, false, false))
+                .setAddStorageFormatToPath(addStorageFormatToPath)
+                .setDataDirectory(dataDirectory)
+                .setTpcdsProperties(getNativeWorkerTpcdsProperties())
+                .build().getQueryRunner();
     }
 
     public static QueryRunner createNativeQueryRunner(
@@ -331,7 +333,9 @@ public class PrestoNativeQueryRunnerUtils
             boolean addStorageFormatToPath,
             Boolean failOnNestedLoopJoin,
             boolean isCoordinatorSidecarEnabled,
-            boolean singleNodeExecutionEnabled)
+            boolean singleNodeExecutionEnabled,
+            boolean enableRuntimeMetricsCollection,
+            boolean enableSsdCache)
             throws Exception
     {
         // The property "hive.allow-drop-table" needs to be set to true because security is always "legacy" in NativeQueryRunner.
@@ -361,7 +365,8 @@ public class PrestoNativeQueryRunnerUtils
                 hiveProperties,
                 workerCount,
                 Optional.of(Paths.get(addStorageFormatToPath ? dataDirectory + "/" + storageFormat : dataDirectory)),
-                getExternalWorkerLauncher("hive", prestoServerPath, cacheMaxSize, remoteFunctionServerUds, failOnNestedLoopJoin, isCoordinatorSidecarEnabled),
+                getExternalWorkerLauncher("hive", prestoServerPath, cacheMaxSize, remoteFunctionServerUds, failOnNestedLoopJoin,
+                        isCoordinatorSidecarEnabled, enableRuntimeMetricsCollection, enableSsdCache),
                 getNativeWorkerTpcdsProperties());
     }
 
@@ -405,14 +410,14 @@ public class PrestoNativeQueryRunnerUtils
                 hiveProperties,
                 workerCount,
                 Optional.of(Paths.get(addStorageFormatToPath ? dataDirectory + "/" + storageFormat : dataDirectory)),
-                getExternalWorkerLauncher("hive", prestoServerPath, cacheMaxSize, Optional.empty(), false, false),
+                getExternalWorkerLauncher("hive", prestoServerPath, cacheMaxSize, Optional.empty(), false, false, false, false),
                 getNativeWorkerTpcdsProperties());
     }
 
     public static QueryRunner createNativeQueryRunner(String remoteFunctionServerUds)
             throws Exception
     {
-        return createNativeQueryRunner(false, DEFAULT_STORAGE_FORMAT, Optional.ofNullable(remoteFunctionServerUds), false, false, false);
+        return createNativeQueryRunner(false, DEFAULT_STORAGE_FORMAT, Optional.ofNullable(remoteFunctionServerUds), false, false, false, false, false);
     }
 
     public static QueryRunner createNativeQueryRunner(boolean useThrift)
@@ -424,13 +429,13 @@ public class PrestoNativeQueryRunnerUtils
     public static QueryRunner createNativeQueryRunner(boolean useThrift, boolean failOnNestedLoopJoin)
             throws Exception
     {
-        return createNativeQueryRunner(useThrift, DEFAULT_STORAGE_FORMAT, Optional.empty(), failOnNestedLoopJoin, false, false);
+        return createNativeQueryRunner(useThrift, DEFAULT_STORAGE_FORMAT, Optional.empty(), failOnNestedLoopJoin, false, false, false, false);
     }
 
     public static QueryRunner createNativeQueryRunner(boolean useThrift, String storageFormat)
             throws Exception
     {
-        return createNativeQueryRunner(useThrift, storageFormat, Optional.empty(), false, false, false);
+        return createNativeQueryRunner(useThrift, storageFormat, Optional.empty(), false, false, false, false, false);
     }
 
     public static QueryRunner createNativeQueryRunner(
@@ -439,7 +444,9 @@ public class PrestoNativeQueryRunnerUtils
             Optional<String> remoteFunctionServerUds,
             Boolean failOnNestedLoopJoin,
             boolean isCoordinatorSidecarEnabled,
-            boolean singleNodeExecutionEnabled)
+            boolean singleNodeExecutionEnabled,
+            boolean enableRuntimeMetricsCollection,
+            boolean enableSSDCache)
             throws Exception
     {
         int cacheMaxSize = 0;
@@ -455,7 +462,9 @@ public class PrestoNativeQueryRunnerUtils
                 true,
                 failOnNestedLoopJoin,
                 isCoordinatorSidecarEnabled,
-                singleNodeExecutionEnabled);
+                singleNodeExecutionEnabled,
+                enableRuntimeMetricsCollection,
+                enableSSDCache);
     }
 
     // Start the remote function server. Return the UDS path used to communicate with it.
@@ -502,7 +511,15 @@ public class PrestoNativeQueryRunnerUtils
         return new NativeQueryRunnerParameters(prestoServerPath, dataDirectory, workerCount);
     }
 
-    public static Optional<BiFunction<Integer, URI, Process>> getExternalWorkerLauncher(String catalogName, String prestoServerPath, int cacheMaxSize, Optional<String> remoteFunctionServerUds, Boolean failOnNestedLoopJoin, boolean isCoordinatorSidecarEnabled)
+    public static Optional<BiFunction<Integer, URI, Process>> getExternalWorkerLauncher(
+            String catalogName,
+            String prestoServerPath,
+            int cacheMaxSize,
+            Optional<String> remoteFunctionServerUds,
+            Boolean failOnNestedLoopJoin,
+            boolean isCoordinatorSidecarEnabled,
+            boolean enableRuntimeMetricsCollection,
+            boolean enableSsdCache)
     {
         return
                 Optional.of((workerIndex, discoveryUri) -> {
@@ -522,6 +539,19 @@ public class PrestoNativeQueryRunnerUtils
                             configProperties = format("%s%n" +
                                     "native-sidecar=true%n" +
                                     "presto.default-namespace=native.default%n", configProperties);
+                        }
+
+                        if (enableRuntimeMetricsCollection) {
+                            configProperties = format("%s%n" +
+                                    "runtime-metrics-collection-enabled=true%n", configProperties);
+                        }
+
+                        if (enableSsdCache) {
+                            Path ssdCacheDir = Paths.get(tempDirectoryPath + "/velox-ssd-cache");
+                            Files.createDirectories(ssdCacheDir);
+                            configProperties = format("%s%n" +
+                                    "async-cache-ssd-gb=1%n" +
+                                    "async-cache-ssd-path=%s/%n", configProperties, ssdCacheDir);
                         }
 
                         if (remoteFunctionServerUds.isPresent()) {
@@ -567,7 +597,7 @@ public class PrestoNativeQueryRunnerUtils
                                 format("connector.name=tpch%n").getBytes());
 
                         // Disable stack trace capturing as some queries (using TRY) generate a lot of exceptions.
-                        return new ProcessBuilder(prestoServerPath, "--logtostderr=1", "--v=1")
+                        return new ProcessBuilder(prestoServerPath, "--logtostderr=1", "--v=1", "--velox_ssd_odirect=false")
                                 .directory(tempDirectoryPath.toFile())
                                 .redirectErrorStream(true)
                                 .redirectOutput(ProcessBuilder.Redirect.to(tempDirectoryPath.resolve("worker." + workerIndex + ".out").toFile()))

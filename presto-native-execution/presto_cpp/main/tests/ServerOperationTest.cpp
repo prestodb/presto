@@ -240,7 +240,8 @@ TEST_F(ServerOperationTest, systemConfigEndpoint) {
       {.target = ServerOperation::Target::kSystemConfig,
        .action = ServerOperation::Action::kGetProperty},
       &httpMessage);
-  EXPECT_EQ(getPropertyResponse, "16\n");
+  EXPECT_EQ(
+      std::stoi(getPropertyResponse), std::thread::hardware_concurrency());
 }
 
 } // namespace facebook::presto

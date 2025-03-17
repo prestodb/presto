@@ -101,7 +101,7 @@ int64_t sumOpSpillBytes(
       if (opStats.operatorType != opType) {
         continue;
       }
-      sum += opStats.spilledDataSize.getValue(protocol::DataUnit::BYTE);
+      sum += opStats.spilledDataSizeInBytes;
     }
   }
   return sum;
@@ -730,6 +730,7 @@ TEST_P(TaskManagerTest, tableScanAllSplitsAtOnce) {
       makeSource("0", filePaths, true, splitSequenceId));
   auto taskInfo = createOrUpdateTask(taskId, updateRequest, planFragment);
 
+  ASSERT_GT(taskInfo->stats.queuedTimeInNanos, 0);
   assertResults(taskId, rowType_, "SELECT * FROM tmp WHERE c0 % 5 = 0");
 }
 
@@ -1440,7 +1441,7 @@ TEST_P(TaskManagerTest, testCumulativeMemory) {
   veloxTask->start(1);
   prestoTask->taskStarted = true;
 
-  auto outputBufferManager = OutputBufferManager::getInstance().lock();
+  auto outputBufferManager = OutputBufferManager::getInstanceRef();
   ASSERT_TRUE(outputBufferManager != nullptr);
   // Wait until the task has produced all the output buffers so its memory usage
   // stay constant to ease test.

@@ -18,7 +18,6 @@ import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.DataSize;
 
 import java.util.List;
 import java.util.function.Consumer;
@@ -67,7 +66,7 @@ public interface OutputBuffer
      * If the buffer result is marked as complete, the client must call abort to acknowledge
      * receipt of the final state.
      */
-    ListenableFuture<BufferResult> get(OutputBufferId bufferId, long token, DataSize maxSize);
+    ListenableFuture<BufferResult> get(OutputBufferId bufferId, long token, long maxSizeInBytes);
 
     /**
      * Acknowledges the previously received pages from the output buffer.
@@ -116,6 +115,7 @@ public interface OutputBuffer
     /**
      * Notify buffer that no more pages will be added for the given lifespan.
      * Any future calls to enqueue a page of that lifespan are ignored.
+     *
      * @see OutputBuffer#setNoMorePages()
      */
     void setNoMorePagesForLifespan(Lifespan lifespan);
@@ -129,6 +129,7 @@ public interface OutputBuffer
     /**
      * A buffer is finished for the given lifespan once no-more-pages has been set for that lifespan
      * and all pages has been acknowledged.
+     *
      * @see OutputBuffer#isFinished()
      */
     boolean isFinishedForLifespan(Lifespan lifespan);

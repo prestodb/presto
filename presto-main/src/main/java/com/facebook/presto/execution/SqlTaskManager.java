@@ -57,7 +57,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
-import org.joda.time.DateTime;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -96,6 +95,7 @@ import static com.google.common.base.Predicates.notNull;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
 import static java.lang.String.format;
+import static java.lang.System.currentTimeMillis;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -154,7 +154,7 @@ public class SqlTaskManager
         infoCacheTime = config.getInfoMaxAge();
         clientTimeout = config.getClientTimeout();
 
-        DataSize maxBufferSize = config.getSinkMaxBufferSize();
+        long maxBufferSizeInBytes = config.getSinkMaxBufferSize().toBytes();
 
         taskNotificationExecutor = newFixedThreadPool(config.getTaskNotificationThreads(), threadsNamed("task-notification-%s"));
         taskNotificationExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) taskNotificationExecutor);
@@ -197,7 +197,7 @@ public class SqlTaskManager
                             finishedTaskStats.merge(sqlTask.getIoStats());
                             return null;
                         },
-                        maxBufferSize,
+                        maxBufferSizeInBytes,
                         failedTasks,
                         spoolingOutputBufferFactory)));
     }
@@ -444,14 +444,14 @@ public class SqlTaskManager
     }
 
     @Override
-    public ListenableFuture<BufferResult> getTaskResults(TaskId taskId, OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
+    public ListenableFuture<BufferResult> getTaskResults(TaskId taskId, OutputBufferId bufferId, long startingSequenceId, long maxSizeInBytes)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(bufferId, "bufferId is null");
         checkArgument(startingSequenceId >= 0, "startingSequenceId is negative");
-        requireNonNull(maxSize, "maxSize is null");
+        requireNonNull(maxSizeInBytes, "maxSize is null");
 
-        return tasks.getUnchecked(taskId).getTaskResults(bufferId, startingSequenceId, maxSize);
+        return tasks.getUnchecked(taskId).getTaskResults(bufferId, startingSequenceId, maxSizeInBytes);
     }
 
     public OutputBufferInfo getOutputBufferInfo(TaskId taskId)
@@ -506,12 +506,12 @@ public class SqlTaskManager
 
     public void removeOldTasks()
     {
-        DateTime oldestAllowedTask = DateTime.now().minus(infoCacheTime.toMillis());
+        long oldestAllowedTaskInMillis = currentTimeMillis() - infoCacheTime.toMillis();
         for (TaskInfo taskInfo : filter(transform(tasks.asMap().values(), SqlTask::getTaskInfo), notNull())) {
             TaskId taskId = taskInfo.getTaskId();
             try {
-                DateTime endTime = taskInfo.getStats().getEndTime();
-                if (endTime != null && endTime.isBefore(oldestAllowedTask)) {
+                long endTimeInMillis = taskInfo.getStats().getEndTimeInMillis();
+                if (endTimeInMillis != 0 && endTimeInMillis < oldestAllowedTaskInMillis) {
                     tasks.asMap().remove(taskId);
                 }
             }
@@ -523,8 +523,8 @@ public class SqlTaskManager
 
     public void failAbandonedTasks()
     {
-        DateTime now = DateTime.now();
-        DateTime oldestAllowedHeartbeat = now.minus(clientTimeout.toMillis());
+        long nowInMills = currentTimeMillis();
+        long oldestAllowedHeartbeatInMillis = nowInMills - clientTimeout.toMillis();
         for (SqlTask sqlTask : tasks.asMap().values()) {
             try {
                 TaskInfo taskInfo = sqlTask.getTaskInfo();
@@ -532,10 +532,10 @@ public class SqlTaskManager
                 if (taskStatus.getState().isDone()) {
                     continue;
                 }
-                DateTime lastHeartbeat = taskInfo.getLastHeartbeat();
-                if (lastHeartbeat != null && lastHeartbeat.isBefore(oldestAllowedHeartbeat)) {
+                long lastHeartbeatInMillis = taskInfo.getLastHeartbeatInMillis();
+                if (lastHeartbeatInMillis != 0 && lastHeartbeatInMillis < oldestAllowedHeartbeatInMillis) {
                     log.info("Failing abandoned task %s", taskInfo.getTaskId());
-                    sqlTask.failed(new PrestoException(ABANDONED_TASK, format("Task %s has not been accessed since %s: currentTime %s", taskInfo.getTaskId(), lastHeartbeat, now)));
+                    sqlTask.failed(new PrestoException(ABANDONED_TASK, format("Task %s has not been accessed since %sms: currentTime %sms", taskInfo.getTaskId(), lastHeartbeatInMillis, nowInMills)));
                 }
             }
             catch (RuntimeException e) {

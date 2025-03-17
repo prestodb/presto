@@ -22,14 +22,18 @@ import com.facebook.presto.spi.eventlistener.QueryCreatedEvent;
 import com.facebook.presto.spi.eventlistener.QueryProgressEvent;
 import com.facebook.presto.spi.eventlistener.QueryUpdatedEvent;
 import com.facebook.presto.spi.eventlistener.SplitCompletedEvent;
-import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.util.PropertiesUtil.loadProperties;
@@ -44,9 +48,17 @@ public class EventListenerManager
     private static final Logger log = Logger.get(EventListenerManager.class);
     private static final File EVENT_LISTENER_CONFIGURATION = new File("etc/event-listener.properties");
     private static final String EVENT_LISTENER_PROPERTY_NAME = "event-listener.name";
-
+    private final List<File> configFiles;
     private final Map<String, EventListenerFactory> eventListenerFactories = new ConcurrentHashMap<>();
-    private final AtomicReference<Optional<EventListener>> configuredEventListener = new AtomicReference<>(Optional.empty());
+    private final AtomicReference<List<EventListener>> configuredEventListeners =
+            new AtomicReference<>(ImmutableList.of());
+    private final AtomicBoolean loading = new AtomicBoolean(false);
+
+    @Inject
+    public EventListenerManager(EventListenerConfig config)
+    {
+        this.configFiles = ImmutableList.copyOf(config.getEventListenerFiles());
+    }
 
     public void addEventListenerFactory(EventListenerFactory eventListenerFactory)
     {
@@ -57,30 +69,41 @@ public class EventListenerManager
         }
     }
 
-    public void loadConfiguredEventListener()
-            throws Exception
+    public void loadConfiguredEventListeners()
     {
-        if (EVENT_LISTENER_CONFIGURATION.exists()) {
-            Map<String, String> properties = loadProperties(EVENT_LISTENER_CONFIGURATION);
-            checkArgument(
-                    !isNullOrEmpty(properties.get(EVENT_LISTENER_PROPERTY_NAME)),
-                    "Access control configuration %s does not contain %s",
-                    EVENT_LISTENER_CONFIGURATION.getAbsoluteFile(),
-                    EVENT_LISTENER_PROPERTY_NAME);
-            loadConfiguredEventListener(properties);
+        checkState(loading.compareAndSet(false, true), "Event listeners already loaded");
+        List<File> configFiles = this.configFiles;
+        if (configFiles.isEmpty()) {
+            if (!EVENT_LISTENER_CONFIGURATION.exists()) {
+                return;
+            }
+            configFiles = ImmutableList.of(EVENT_LISTENER_CONFIGURATION);
+        }
+        configFiles.forEach(this::createEventListener);
+    }
+
+    private void createEventListener(File configFile)
+    {
+        log.info("-- Loading event listener configuration file %s --", configFile);
+        if (configFile.exists()) {
+            configFile = configFile.getAbsoluteFile();
+            log.info("-- Loading event listener configuration file : %s --", configFile);
+            try {
+                Map<String, String> properties = new HashMap<>(loadProperties(configFile));
+                loadConfiguredEventListener(properties);
+                log.info("-- Loaded event listener configuration file %s --", configFile);
+            }
+            catch (IOException e) {
+                log.error(e, "IOException while loading configuration file: " + configFile);
+                throw new UncheckedIOException("Failed to read configuration file: " + configFile, e);
+            }
+        }
+        else {
+            log.info("Unable to locate configuration file %s --", configFile);
         }
     }
 
-    public void loadConfiguredEventListener(Map<String, String> properties)
-    {
-        properties = new HashMap<>(properties);
-        String eventListenerName = properties.remove(EVENT_LISTENER_PROPERTY_NAME);
-        checkArgument(!isNullOrEmpty(eventListenerName), "event-listener.name property must be present");
-        setConfiguredEventListener(eventListenerName, properties);
-    }
-
-    @VisibleForTesting
-    protected void setConfiguredEventListener(String name, Map<String, String> properties)
+    private void setConfiguredEventListener(String name, Map<String, String> properties)
     {
         requireNonNull(name, "name is null");
         requireNonNull(properties, "properties is null");
@@ -92,39 +115,51 @@ public class EventListenerManager
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(eventListenerFactory.getClass().getClassLoader())) {
             EventListener eventListener = eventListenerFactory.create(ImmutableMap.copyOf(properties));
-            this.configuredEventListener.set(Optional.of(eventListener));
+            ImmutableList<EventListener> eventListeners = ImmutableList.<EventListener>builder()
+                    .addAll(this.configuredEventListeners.get())
+                    .add(eventListener)
+                    .build();
+            this.configuredEventListeners.set(eventListeners);
         }
 
         log.info("-- Loaded event listener %s --", name);
     }
 
+    public void loadConfiguredEventListener(Map<String, String> properties)
+    {
+        properties = new HashMap<>(properties);
+        String eventListenerName = properties.remove(EVENT_LISTENER_PROPERTY_NAME);
+        checkArgument(!isNullOrEmpty(eventListenerName), "event-listener.name property must be present");
+        setConfiguredEventListener(eventListenerName, properties);
+    }
+
     public void queryCompleted(QueryCompletedEvent queryCompletedEvent)
     {
-        configuredEventListener.get()
-                .ifPresent(eventListener -> eventListener.queryCompleted(queryCompletedEvent));
+        configuredEventListeners.get()
+                .forEach(eventListener -> eventListener.queryCompleted(queryCompletedEvent));
     }
 
     public void queryCreated(QueryCreatedEvent queryCreatedEvent)
     {
-        configuredEventListener.get()
-                .ifPresent(eventListener -> eventListener.queryCreated(queryCreatedEvent));
+        configuredEventListeners.get()
+                .forEach(eventListener -> eventListener.queryCreated(queryCreatedEvent));
     }
 
     public void queryUpdated(QueryUpdatedEvent queryUpdatedEvent)
     {
-        configuredEventListener.get()
-                .ifPresent(eventListener -> eventListener.queryUpdated(queryUpdatedEvent));
+        configuredEventListeners.get()
+                .forEach(eventListener -> eventListener.queryUpdated(queryUpdatedEvent));
     }
 
     public void publishQueryProgress(QueryProgressEvent queryProgressEvent)
     {
-        configuredEventListener.get()
-                .ifPresent(eventListener -> eventListener.publishQueryProgress(queryProgressEvent));
+        configuredEventListeners.get()
+                .forEach(eventListener -> eventListener.publishQueryProgress(queryProgressEvent));
     }
 
     public void splitCompleted(SplitCompletedEvent splitCompletedEvent)
     {
-        configuredEventListener.get()
-                .ifPresent(eventListener -> eventListener.splitCompleted(splitCompletedEvent));
+        configuredEventListeners.get()
+                .forEach(eventListener -> eventListener.splitCompleted(splitCompletedEvent));
     }
 }

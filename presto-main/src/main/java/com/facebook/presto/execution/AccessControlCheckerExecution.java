@@ -36,9 +36,7 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
-import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
 
@@ -53,7 +51,6 @@ import static com.facebook.presto.util.AnalyzerUtil.getAnalyzerContext;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -128,39 +125,39 @@ public class AccessControlCheckerExecution
     }
 
     @Override
-    public DataSize getUserMemoryReservation()
+    public long getUserMemoryReservationInBytes()
     {
-        return new DataSize(0, BYTE);
+        return 0L;
     }
 
     @Override
-    public DataSize getTotalMemoryReservation()
+    public long getTotalMemoryReservationInBytes()
     {
-        return new DataSize(0, BYTE);
+        return 0L;
     }
 
     @Override
-    public DateTime getCreateTime()
+    public long getCreateTimeInMillis()
     {
-        return stateMachine.getCreateTime();
+        return stateMachine.getCreateTimeInMillis();
     }
 
     @Override
-    public Optional<DateTime> getExecutionStartTime()
+    public long getExecutionStartTimeInMillis()
     {
-        return stateMachine.getExecutionStartTime();
+        return stateMachine.getExecutionStartTimeInMillis();
     }
 
     @Override
-    public DateTime getLastHeartbeat()
+    public long getLastHeartbeatInMillis()
     {
-        return stateMachine.getLastHeartbeat();
+        return stateMachine.getLastHeartbeatInMillis();
     }
 
     @Override
-    public Optional<DateTime> getEndTime()
+    public long getEndTimeInMillis()
     {
-        return stateMachine.getEndTime();
+        return stateMachine.getEndTimeInMillis();
     }
 
     @Override
@@ -170,27 +167,27 @@ public class AccessControlCheckerExecution
     }
 
     @Override
-    public DataSize getRawInputDataSize()
+    public long getRawInputDataSizeInBytes()
     {
-        return DataSize.succinctBytes(0);
+        return 0L;
     }
 
     @Override
-    public DataSize getWrittenIntermediateDataSize()
+    public long getWrittenIntermediateDataSizeInBytes()
     {
-        return DataSize.succinctBytes(0);
+        return 0L;
     }
 
     @Override
     public long getOutputPositions()
     {
-        return 0;
+        return 0L;
     }
 
     @Override
-    public DataSize getOutputDataSize()
+    public long getOutputDataSizeInBytes()
     {
-        return DataSize.succinctBytes(0);
+        return 0L;
     }
 
     @Override

@@ -177,12 +177,13 @@ public class TestNodeScheduler
         {
             Duration defaultDuration = Duration.valueOf("5m");
             return new BasicQueryStats(
-                    null,
-                    null,
+                    0,
+                    0,
                     defaultDuration,
                     defaultDuration,
                     defaultDuration,
                     executionTime,
+                    defaultDuration,
                     0,
                     0,
                     0,

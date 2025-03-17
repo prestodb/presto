@@ -32,6 +32,12 @@ as a Hive connector.
     hive.metastore.uri=hostname:port
     iceberg.catalog.type=hive
 
+File-Based Metastore
+^^^^^^^^^^^^^^^^^^^^
+
+For testing or development purposes, this connector can be configured to use a local 
+filesystem directory as a Hive Metastore. See :ref:`installation/deployment:File-Based Metastore`.  
+
 Glue catalog
 ^^^^^^^^^^^^
 
@@ -256,14 +262,51 @@ Property Name                                           Description             
 ======================================================= ============================================================= ============
 ``iceberg.catalog.warehouse``                           The catalog warehouse root path for Iceberg tables.
 
+                                                        The Hadoop catalog requires a file system that supports
+                                                        an atomic rename operation, such as HDFS, to maintain
+                                                        metadata files in order to implement an atomic transaction
+                                                        commit.
+
                                                         Example: ``hdfs://nn:8020/warehouse/path``
+
+                                                        Do not set ``iceberg.catalog.warehouse`` to a path in object
+                                                        stores or local file systems in the production environment.
+
                                                         This property is required if the ``iceberg.catalog.type`` is
                                                         ``hadoop``. Otherwise, it will be ignored.
+
+``iceberg.catalog.hadoop.warehouse.datadir``            The catalog warehouse root data path for Iceberg tables.
+                                                        It is only supported with the Hadoop catalog.
+
+                                                        Example: ``s3://iceberg_bucket/warehouse``.
+
+                                                        This optional property can be set to a path in object
+                                                        stores or HDFS.
+                                                        If set, all tables in this Hadoop catalog default to saving
+                                                        their data and delete files in the specified root
+                                                        data directory.
 
 ``iceberg.catalog.cached-catalog-num``                  The number of Iceberg catalogs to cache. This property is     ``10``
                                                         required if the ``iceberg.catalog.type`` is ``hadoop``.
                                                         Otherwise, it will be ignored.
 ======================================================= ============================================================= ============
+
+Configure the `Amazon S3 <https://prestodb.io/docs/current/connector/hive.html#amazon-s3-configuration>`_
+properties to specify a S3 location as the warehouse data directory for the Hadoop catalog. This way,
+the data and delete files of Iceberg tables are stored in S3. An example configuration includes:
+
+.. code-block:: none
+
+    connector.name=iceberg
+    iceberg.catalog.type=hadoop
+    iceberg.catalog.warehouse=hdfs://nn:8020/warehouse/path
+    iceberg.catalog.hadoop.warehouse.datadir=s3://iceberg_bucket/warehouse
+
+    hive.s3.use-instance-credentials=false
+    hive.s3.aws-access-key=accesskey
+    hive.s3.aws-secret-key=secretkey
+    hive.s3.endpoint=http://192.168.0.103:9878
+    hive.s3.path-style-access=true
 
 Configuration Properties
 ------------------------
@@ -357,42 +400,52 @@ connector using a WITH clause:
 
 The following table properties are available, which are specific to the Presto Iceberg connector:
 
-=======================================   ===============================================================   =========================
-Property Name                             Description                                                       Default
-=======================================   ===============================================================   =========================
-``format``                                 Optionally specifies the format of table data files,             ``PARQUET``
-                                           either ``PARQUET`` or ``ORC``.
+========================================================   ===============================================================   =========================
+Property Name                                              Description                                                       Default
+========================================================   ===============================================================   =========================
+``commit.retry.num-retries``                               Determines the number of attempts for committing the metadata     ``4``
+                                                           in case of concurrent upsert requests, before failing.
 
-``partitioning``                           Optionally specifies table partitioning. If a table
-                                           is partitioned by columns ``c1`` and ``c2``, the partitioning
-                                           property is ``partitioning = ARRAY['c1', 'c2']``.
+``format-version``                                         Optionally specifies the format version of the Iceberg            ``2``
+                                                           specification to use for new tables, either ``1`` or ``2``.
 
-``location``                               Optionally specifies the file system location URI for
-                                           the table.
+``location``                                               Optionally specifies the file system location URI for
+                                                           the table.
 
-``format_version``                         Optionally specifies the format version of the Iceberg           ``2``
-                                           specification to use for new tables, either ``1`` or ``2``.
+``partitioning``                                           Optionally specifies table partitioning. If a table
+                                                           is partitioned by columns ``c1`` and ``c2``, the partitioning
+                                                           property is ``partitioning = ARRAY['c1', 'c2']``.
 
-``commit_retries``                         Determines the number of attempts for committing the metadata    ``4``
-                                           in case of concurrent upsert requests, before failing.
+``read.split.target-size``                                 The target size for an individual split when generating splits    ``134217728`` (128MB)
+                                                           for a table scan. Generated splits may still be larger or
+                                                           smaller than this value. Must be specified in bytes.
 
-``delete_mode``                            Optionally specifies the write delete mode of the Iceberg        ``merge-on-read``
-                                           specification to use for new tables, either ``copy-on-write``
-                                           or ``merge-on-read``.
+``write.data.path``                                        Optionally specifies the file system location URI for
+                                                           storing the data and delete files of the table. This only
+                                                           applies to files written after this property is set. Files
+                                                           previously written aren't relocated to reflect this
+                                                           parameter.
 
-``metadata_previous_versions_max``         Optionally specifies the max number of old metadata files to     ``100``
-                                           keep in current metadata log.
+``write.delete.mode``                                      Optionally specifies the write delete mode of the Iceberg         ``merge-on-read``
+                                                           specification to use for new tables, either ``copy-on-write``
+                                                           or ``merge-on-read``.
 
-``metadata_delete_after_commit``           Set to ``true`` to delete the oldest metadata file after         ``false``
-                                           each commit.
+``write.format.default``                                   Optionally specifies the format of table data files,              ``PARQUET``
+                                                           either ``PARQUET`` or ``ORC``.
 
-``metrics_max_inferred_column``            Optionally specifies the maximum number of columns for which     ``100``
-                                           metrics are collected.
+``write.metadata.previous-versions-max``                   Optionally specifies the max number of old metadata files to      ``100``
+                                                           keep in current metadata log.
 
-``read.split.target-size``                 The target size for an individual split when generating splits     ``134217728`` (128MB)
-                                           for a table scan. Generated splits may still be larger or
-                                           smaller than this value. Must be specified in bytes.
-=======================================   ===============================================================   =========================
+``write.metadata.delete-after-commit.enabled``             Set to ``true`` to delete the oldest metadata file after          ``false``
+                                                           each commit.
+
+``write.metadata.metrics.max-inferred-column-defaults``    Optionally specifies the maximum number of columns for which      ``100``
+                                                           metrics are collected.
+
+``write.update.mode``                                      Optionally specifies the write delete mode of the Iceberg         ``merge-on-read``
+                                                           specification to use for new tables, either ``copy-on-write``
+                                                           or ``merge-on-read``.
+========================================================   ===============================================================   =========================
 
 The table definition below specifies format ``ORC``, partitioning by columns ``c1`` and ``c2``,
 and a file system location of ``s3://test_bucket/test_schema/test_table``:
@@ -410,6 +463,26 @@ and a file system location of ``s3://test_bucket/test_schema/test_table``:
         location = 's3://test_bucket/test_schema/test_table')
     )
 
+Deprecated Table Properties
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Some table properties have been deprecated or removed. The following table lists the deprecated
+properties and their replacements. Update queries to use the new property names as soon as
+possible. They will be removed in a future version.
+
+=======================================   ===============================================================
+Deprecated Property Name                  New Property Name
+=======================================   ===============================================================
+``format``                                ``write.format.default``
+``format_version``                        ``format-version``
+``commit_retries``                        ``commit.retry.num-retries``
+``delete_mode``                           ``write.delete.mode``
+``metadata_previous_versions_max``        ``write.metadata.previous-versions-max``
+``metadata_delete_after_commit``          ``write.metadata.delete-after-commit.enabled``
+``metrics_max_inferred_column``           ``write.metadata.metrics.max-inferred-column-defaults``
+=======================================   ===============================================================
+
+
 Session Properties
 ------------------
 
@@ -425,9 +498,17 @@ Property Name                                         Description
 ``iceberg.rows_for_metadata_optimization_threshold``  Overrides the behavior of the connector property
                                                       ``iceberg.rows-for-metadata-optimization-threshold`` in the current
                                                       session.
-``iceberg.target_split_size``                         Overrides the target split size for all tables in a query in bytes.
+``iceberg.target_split_size_bytes``                   Overrides the target split size for all tables in a query in bytes.
                                                       Set to 0 to use the value in each Iceberg table's
                                                       ``read.split.target-size`` property.
+``iceberg.affinity_scheduling_file_section_size``     When the ``node_selection_strategy`` or
+                                                      ``hive.node-selection-strategy`` property is set to ``SOFT_AFFINITY``,
+                                                      this configuration property will change the size of a file chunk that
+                                                      is hashed to a particular node when determining the which worker to
+                                                      assign a split to. Splits which read data from the same file within
+                                                      the same chunk will hash to the same node. A smaller chunk size will
+                                                      result in a higher probability splits being distributed evenly across
+                                                      the cluster, but reduce locality.
 ===================================================== ======================================================================
 
 Caching Support
@@ -439,26 +520,22 @@ Manifest File Caching
 As of Iceberg version 1.1.0, Apache Iceberg provides a mechanism to cache the contents of Iceberg manifest files in memory. This feature helps
 to reduce repeated reads of small Iceberg manifest files from remote storage.
 
-.. note::
-
-    Currently, manifest file caching is supported for Hadoop and Nessie catalogs in the Presto Iceberg connector.
-
 The following configuration properties are available:
 
 ====================================================   =============================================================   ============
 Property Name                                          Description                                                     Default
 ====================================================   =============================================================   ============
-``iceberg.io.manifest.cache-enabled``                  Enable or disable the manifest caching feature. This feature    ``false``
-                                                       is only available if ``iceberg.catalog.type`` is ``hadoop``
-                                                       or ``nessie``.
+``iceberg.io.manifest.cache-enabled``                  Enable or disable the manifest caching feature.                 ``true``
 
 ``iceberg.io-impl``                                    Custom FileIO implementation to use in a catalog. It must       ``org.apache.iceberg.hadoop.HadoopFileIO``
-                                                       be set to enable manifest caching.
+                                                       be set to enable manifest caching. This is only needed for
+                                                       Hadoop, Nessie and REST catalogs.
 
 ``iceberg.io.manifest.cache.max-total-bytes``          Maximum size of cache size in bytes.                            ``104857600``
 
 ``iceberg.io.manifest.cache.expiration-interval-ms``   Maximum time duration in milliseconds for which an entry        ``60000``
-                                                       stays in the manifest cache.
+                                                       stays in the manifest cache. Set to 0 to disable entry
+                                                       expiration.
 
 ``iceberg.io.manifest.cache.max-content-length``       Maximum length of a manifest file to be considered for          ``8388608``
                                                        caching in bytes. Manifest files with a length exceeding
@@ -754,9 +831,13 @@ already exists but does not known by the catalog.
 
 The following arguments are available:
 
+
 ===================== ========== =============== =======================================================================
+
 Argument Name         required   type            Description
+
 ===================== ========== =============== =======================================================================
+
 ``schema``            ✔️         string          Schema of the table to register
 
 ``table_name``        ✔️         string          Name of the table to register
@@ -1545,8 +1626,8 @@ identified by unique snapshot IDs. The snapshot IDs are stored in the ``$snapsho
 metadata table. You can rollback the state of a table to a previous snapshot ID.
 It also supports time travel query using SYSTEM_VERSION (VERSION) and SYSTEM_TIME (TIMESTAMP) options.
 
-Example Queries
-^^^^^^^^^^^^^^^
+Example Time Travel Queries
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Similar to the example queries in `SCHEMA EVOLUTION`_, create an Iceberg
 table named `ctas_nation` from the TPCH `nation` table:
@@ -1806,8 +1887,8 @@ Map of Iceberg types to the relevant PrestoDB types:
     - ``TIME``
   * - ``TIMESTAMP``
     - ``TIMESTAMP``
-  * - ``TIMESTAMP``
-    - ``TIMESTAMP_WITH_TIMEZONE``
+  * - ``TIMESTAMP TZ``
+    - ``TIMESTAMP WITH TIME ZONE``
   * - ``UUID``
     - ``UUID``
   * - ``LIST``
@@ -1852,9 +1933,9 @@ Map of PrestoDB types to the relevant Iceberg types:
   * - ``TIME``
     - ``TIME``
   * - ``TIMESTAMP``
-    - ``TIMESTAMP WITHOUT ZONE``
-  * - ``TIMESTAMP WITH TIMEZONE``
-    - ``TIMESTAMP WITH ZONE``
+    - ``TIMESTAMP``
+  * - ``TIMESTAMP WITH TIME ZONE``
+    - ``TIMESTAMP TZ``
   * - ``UUID``
     - ``UUID``
   * - ``ARRAY``
@@ -1869,7 +1950,7 @@ No other types are supported.
 
 
 Sorted Tables
-^^^^^^^^^^^^^
+-------------
 
 The Iceberg connector supports the creation of sorted tables.
 Data in the Iceberg table is sorted as each file is written.

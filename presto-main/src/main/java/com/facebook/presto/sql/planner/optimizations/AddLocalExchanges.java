@@ -25,6 +25,7 @@ import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.DeleteNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.EquiJoinClause;
+import com.facebook.presto.spi.plan.InputDistribution;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
@@ -469,7 +470,7 @@ public class AddLocalExchanges
             if (!node.getInputDistribution().isPresent()) {
                 return visitPlan(node, parentPreferences);
             }
-            DeleteNode.InputDistribution inputDistribution = node.getInputDistribution().get();
+            InputDistribution inputDistribution = node.getInputDistribution().get();
             StreamPreferredProperties childRequirements = parentPreferences
                     .constrainTo(node.getSource().getOutputVariables())
                     .withDefaultParallelism(session)

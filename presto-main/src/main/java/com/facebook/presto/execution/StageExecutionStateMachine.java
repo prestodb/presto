@@ -23,7 +23,6 @@ import com.facebook.presto.operator.BlockedReason;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.util.Failures;
 import com.google.common.collect.ImmutableList;
-import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -63,10 +62,10 @@ import static com.facebook.presto.execution.StageExecutionState.TERMINAL_STAGE_S
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctNanos;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.lang.System.currentTimeMillis;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -84,7 +83,7 @@ public class StageExecutionStateMachine
     private final StateMachine<Optional<StageExecutionInfo>> finalInfo;
     private final AtomicReference<ExecutionFailureInfo> failureCause = new AtomicReference<>();
 
-    private final AtomicReference<DateTime> schedulingComplete = new AtomicReference<>();
+    private final AtomicLong schedulingComplete = new AtomicLong();
     private final Distribution getSplitDistribution = new Distribution();
 
     private final AtomicLong peakUserMemory = new AtomicLong();
@@ -147,7 +146,7 @@ public class StageExecutionStateMachine
 
     public synchronized boolean transitionToScheduled()
     {
-        schedulingComplete.compareAndSet(null, DateTime.now());
+        schedulingComplete.compareAndSet(0, currentTimeMillis());
         return state.setIf(SCHEDULED, currentState -> currentState == PLANNED || currentState == SCHEDULING || currentState == FINISHED_TASK_SCHEDULING || currentState == SCHEDULING_SPLITS);
     }
 
@@ -255,19 +254,19 @@ public class StageExecutionStateMachine
 
         double cumulativeUserMemory = 0;
         double cumulativeTotalMemory = 0;
-        long userMemoryReservation = 0;
-        long totalMemoryReservation = 0;
+        long userMemoryReservationInBytes = 0;
+        long totalMemoryReservationInBytes = 0;
 
         long totalScheduledTime = 0;
         long totalCpuTime = 0;
 
-        long rawInputDataSize = 0;
+        long rawInputDataSizeInBytes = 0;
         long rawInputPositions = 0;
 
         boolean fullyBlocked = true;
         Set<BlockedReason> blockedReasons = new HashSet<>();
 
-        long totalAllocation = 0;
+        long totalAllocationInBytes = 0;
 
         for (TaskInfo taskInfo : taskInfos) {
             TaskState taskState = taskInfo.getTaskStatus().getState();
@@ -282,8 +281,8 @@ public class StageExecutionStateMachine
 
             long taskUserMemory = taskStats.getUserMemoryReservationInBytes();
             long taskSystemMemory = taskStats.getSystemMemoryReservationInBytes();
-            userMemoryReservation += taskUserMemory;
-            totalMemoryReservation += taskUserMemory + taskSystemMemory;
+            userMemoryReservationInBytes += taskUserMemory;
+            totalMemoryReservationInBytes += taskUserMemory + taskSystemMemory;
 
             totalScheduledTime += taskStats.getTotalScheduledTimeInNanos();
             totalCpuTime += taskStats.getTotalCpuTimeInNanos();
@@ -292,10 +291,10 @@ public class StageExecutionStateMachine
                 blockedReasons.addAll(taskStats.getBlockedReasons());
             }
 
-            totalAllocation += taskStats.getTotalAllocationInBytes();
+            totalAllocationInBytes += taskStats.getTotalAllocationInBytes();
 
             if (containsTableScans) {
-                rawInputDataSize += taskStats.getRawInputDataSizeInBytes();
+                rawInputDataSizeInBytes += taskStats.getRawInputDataSizeInBytes();
                 rawInputPositions += taskStats.getRawInputPositions();
             }
         }
@@ -313,13 +312,13 @@ public class StageExecutionStateMachine
                 runningDrivers,
                 completedDrivers,
 
-                succinctBytes(rawInputDataSize),
+                rawInputDataSizeInBytes,
                 rawInputPositions,
 
                 cumulativeUserMemory,
                 cumulativeTotalMemory,
-                succinctBytes(userMemoryReservation),
-                succinctBytes(totalMemoryReservation),
+                userMemoryReservationInBytes,
+                totalMemoryReservationInBytes,
 
                 succinctNanos(totalCpuTime),
                 succinctNanos(totalScheduledTime),
@@ -327,7 +326,7 @@ public class StageExecutionStateMachine
                 fullyBlocked,
                 blockedReasons,
 
-                succinctBytes(totalAllocation),
+                totalAllocationInBytes,
 
                 progressPercentage);
     }
@@ -358,8 +357,8 @@ public class StageExecutionStateMachine
                 schedulingComplete.get(),
                 getSplitDistribution.snapshot(),
                 runtimeStats,
-                succinctBytes(peakUserMemory.get()),
-                succinctBytes(peakNodeTotalMemory.get()),
+                peakUserMemory.get(),
+                peakNodeTotalMemory.get(),
                 finishedLifespans,
                 totalLifespans);
     }

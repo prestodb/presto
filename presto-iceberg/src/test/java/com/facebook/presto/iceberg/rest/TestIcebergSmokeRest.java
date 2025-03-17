@@ -27,7 +27,6 @@ import com.facebook.presto.iceberg.IcebergQueryRunner;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.testing.QueryRunner;
-import com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.rest.RESTCatalog;
 import org.assertj.core.util.Files;
@@ -37,10 +36,8 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.util.Optional;
-import java.util.OptionalInt;
 
 import static com.facebook.presto.iceberg.CatalogType.REST;
-import static com.facebook.presto.iceberg.FileFormat.PARQUET;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergUtil.getNativeIcebergTable;
 import static com.facebook.presto.iceberg.rest.AuthenticationType.OAUTH2;
@@ -100,14 +97,11 @@ public class TestIcebergSmokeRest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return IcebergQueryRunner.createIcebergQueryRunner(
-                ImmutableMap.of(),
-                restConnectorProperties(serverUri),
-                PARQUET,
-                true,
-                false,
-                OptionalInt.empty(),
-                Optional.of(warehouseLocation.toPath()));
+        return IcebergQueryRunner.builder()
+                .setCatalogType(REST)
+                .setExtraConnectorProperties(restConnectorProperties(serverUri))
+                .setDataDirectory(Optional.of(warehouseLocation.toPath()))
+                .build().getQueryRunner();
     }
 
     protected IcebergNativeCatalogFactory getCatalogFactory(IcebergRestConfig restConfig)
@@ -211,5 +205,11 @@ public class TestIcebergSmokeRest
         RESTCatalog catalog = (RESTCatalog) catalogFactory.getCatalog(getSession().toConnectorSession());
 
         assertEquals(catalog.properties().get(OAUTH2_SERVER_URI), authEndpoint);
+    }
+
+    @Override
+    public void testDeprecatedTablePropertiesCreateTable()
+    {
+        // v1 table create fails due to Iceberg REST catalog bug (see: https://github.com/apache/iceberg/issues/8756)
     }
 }

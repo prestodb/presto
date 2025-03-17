@@ -46,6 +46,11 @@ function ClusterResourceGroupNavBar({titles, urls, current = 0} : Props) {
         <>{navBarItems}</>
     );
 }
+
+function isOffline() {
+    return window.location.protocol === 'file:';
+}
+
 export class PageTitle extends React.Component<Props, State> {
     timeoutId: TimeoutID;
 
@@ -98,7 +103,15 @@ export class PageTitle extends React.Component<Props, State> {
     }
 
     componentDidMount() {
-        this.refreshLoop();
+        if ( isOffline() ) {
+            this.setState({
+                noConnection: true,
+                lightShown: true,
+            });
+        }
+        else {
+            this.refreshLoop();
+        }
     }
 
     renderStatusLight(): any {
@@ -115,7 +128,7 @@ export class PageTitle extends React.Component<Props, State> {
 
     render(): any {
         const info = this.state.info;
-        if (!info) {
+        if (!isOffline() && !info) {
             return null;
         }
 
@@ -137,19 +150,19 @@ export class PageTitle extends React.Component<Props, State> {
                         </div>
                         <button className="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
                             <span className="navbar-toggler-icon"></span>
-                            </button>
+                        </button>
                         <div id="navbar" className="navbar-collapse collapse">
                             <ul className="nav navbar-nav navbar-right ms-auto">
                                 <li>
                                     <span className="navbar-cluster-info">
                                         <span className="uppercase">Version</span><br/>
-                                        <span className="text" id="version-number">{info.nodeVersion.version}</span>
+                                        <span className="text" id="version-number">{isOffline() ? 'N/A' : info?.nodeVersion?.version}</span>
                                     </span>
                                 </li>
                                 <li>
                                     <span className="navbar-cluster-info">
                                         <span className="uppercase">Environment</span><br/>
-                                        <span className="text" id="environment">{info.environment}</span>
+                                        <span className="text" id="environment">{isOffline() ? 'N/A' : info?.environment}</span>
                                     </span>
                                 </li>
                                 <li>
@@ -159,7 +172,7 @@ export class PageTitle extends React.Component<Props, State> {
                                         {this.renderStatusLight()}
                                          </span>
                                         &nbsp;
-                                        <span className="text" id="uptime">{info.uptime}</span>
+                                        <span className="text" id="uptime">{isOffline() ? 'Offline' : info?.uptime}</span>
                                     </span>
                                 </li>
                             </ul>

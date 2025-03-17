@@ -30,6 +30,7 @@ import java.time.Duration;
 import java.util.Optional;
 
 import static java.time.Duration.ofMillis;
+import static java.time.Instant.ofEpochMilli;
 import static java.util.Objects.requireNonNull;
 
 public class SplitMonitor
@@ -59,13 +60,13 @@ public class SplitMonitor
     private void splitCompletedEvent(TaskId taskId, DriverStats driverStats, @Nullable String failureType, @Nullable String failureMessage)
     {
         Optional<Duration> timeToStart = Optional.empty();
-        if (driverStats.getStartTime() != null) {
-            timeToStart = Optional.of(ofMillis(driverStats.getStartTime().getMillis() - driverStats.getCreateTime().getMillis()));
+        if (driverStats.getStartTimeInMillis() != 0) {
+            timeToStart = Optional.of(ofMillis(driverStats.getStartTimeInMillis() - driverStats.getCreateTimeInMillis()));
         }
 
         Optional<Duration> timeToEnd = Optional.empty();
-        if (driverStats.getEndTime() != null) {
-            timeToEnd = Optional.of(ofMillis(driverStats.getEndTime().getMillis() - driverStats.getCreateTime().getMillis()));
+        if (driverStats.getEndTimeInMillis() != 0) {
+            timeToEnd = Optional.of(ofMillis(driverStats.getEndTimeInMillis() - driverStats.getCreateTimeInMillis()));
         }
 
         Optional<SplitFailureInfo> splitFailureMetadata = Optional.empty();
@@ -80,16 +81,16 @@ public class SplitMonitor
                             taskId.getStageExecutionId().getStageId().toString(),
                             taskId.getStageExecutionId().toString(),
                             Integer.toString(taskId.getId()),
-                            driverStats.getCreateTime().toDate().toInstant(),
-                            Optional.ofNullable(driverStats.getStartTime()).map(startTime -> startTime.toDate().toInstant()),
-                            Optional.ofNullable(driverStats.getEndTime()).map(endTime -> endTime.toDate().toInstant()),
+                            ofEpochMilli(driverStats.getCreateTimeInMillis()),
+                            Optional.ofNullable(ofEpochMilli(driverStats.getStartTimeInMillis())),
+                            Optional.ofNullable(ofEpochMilli(driverStats.getEndTimeInMillis())),
                             new SplitStatistics(
                                     ofMillis(driverStats.getTotalCpuTime().toMillis()),
                                     ofMillis(driverStats.getElapsedTime().toMillis()),
                                     ofMillis(driverStats.getQueuedTime().toMillis()),
                                     ofMillis(driverStats.getRawInputReadTime().toMillis()),
                                     driverStats.getRawInputPositions(),
-                                    driverStats.getRawInputDataSize().toBytes(),
+                                    driverStats.getRawInputDataSizeInBytes(),
                                     timeToStart,
                                     timeToEnd),
                             splitFailureMetadata,

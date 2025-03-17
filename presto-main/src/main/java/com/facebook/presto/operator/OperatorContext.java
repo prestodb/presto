@@ -46,7 +46,6 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctNanos;
 import static java.lang.Math.max;
 import static java.lang.String.format;
@@ -541,26 +540,26 @@ public class OperatorContext
                 isBlockedTiming.getCalls(),
                 succinctNanos(isBlockedTiming.getWallNanos()),
                 succinctNanos(isBlockedTiming.getCpuNanos()),
-                succinctBytes(isBlockedTiming.getAllocationBytes()),
+                isBlockedTiming.getAllocationBytes(),
 
                 addInputTiming.getCalls(),
                 succinctNanos(addInputTiming.getWallNanos()),
                 succinctNanos(addInputTiming.getCpuNanos()),
-                succinctBytes(addInputTiming.getAllocationBytes()),
-                succinctBytes(rawInputDataSize.getTotalCount()),
+                addInputTiming.getAllocationBytes(),
+                rawInputDataSize.getTotalCount(),
                 rawInputPositions.getTotalCount(),
-                succinctBytes(inputDataSize.getTotalCount()),
+                inputDataSize.getTotalCount(),
                 inputPositionsCount,
                 (double) inputPositionsCount * inputPositionsCount,
 
                 getOutputTiming.getCalls(),
                 succinctNanos(getOutputTiming.getWallNanos()),
                 succinctNanos(getOutputTiming.getCpuNanos()),
-                succinctBytes(getOutputTiming.getAllocationBytes()),
-                succinctBytes(outputDataSize.getTotalCount()),
+                getOutputTiming.getAllocationBytes(),
+                outputDataSize.getTotalCount(),
                 outputPositions.getTotalCount(),
 
-                succinctBytes(physicalWrittenDataSize.get()),
+                physicalWrittenDataSize.get(),
 
                 succinctNanos(additionalCpuNanos.get()),
                 succinctNanos(blockedWallNanos.get()),
@@ -568,17 +567,17 @@ public class OperatorContext
                 finishTiming.getCalls(),
                 succinctNanos(finishTiming.getWallNanos()),
                 succinctNanos(finishTiming.getCpuNanos()),
-                succinctBytes(finishTiming.getAllocationBytes()),
+                finishTiming.getAllocationBytes(),
 
-                succinctBytes(operatorMemoryContext.getUserMemory()),
-                succinctBytes(getReservedRevocableBytes()),
-                succinctBytes(operatorMemoryContext.getSystemMemory()),
+                operatorMemoryContext.getUserMemory(),
+                getReservedRevocableBytes(),
+                operatorMemoryContext.getSystemMemory(),
 
-                succinctBytes(peakUserMemoryReservation.get()),
-                succinctBytes(peakSystemMemoryReservation.get()),
-                succinctBytes(peakTotalMemoryReservation.get()),
+                peakUserMemoryReservation.get(),
+                peakSystemMemoryReservation.get(),
+                peakTotalMemoryReservation.get(),
 
-                succinctBytes(spillContext.getSpilledBytes()),
+                spillContext.getSpilledBytes(),
 
                 memoryFuture.get().isDone() ? Optional.empty() : Optional.of(WAITING_FOR_MEMORY),
                 info,

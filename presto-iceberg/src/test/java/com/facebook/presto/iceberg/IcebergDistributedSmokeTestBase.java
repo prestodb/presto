@@ -16,21 +16,30 @@ package com.facebook.presto.iceberg;
 import com.facebook.presto.Session;
 import com.facebook.presto.Session.SessionBuilder;
 import com.facebook.presto.common.type.TimeZoneKey;
+import com.facebook.presto.hive.HdfsEnvironment;
+import com.facebook.presto.hive.HiveClientConfig;
+import com.facebook.presto.hive.MetastoreClientConfig;
+import com.facebook.presto.hive.s3.HiveS3Config;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.assertions.Assert;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
+import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableMap;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.UpdateProperties;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.nio.file.Path;
+import java.io.IOException;
+import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -41,17 +50,28 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
+import static com.facebook.presto.iceberg.IcebergTableProperties.COMMIT_RETRIES;
+import static com.facebook.presto.iceberg.IcebergTableProperties.DELETE_MODE;
+import static com.facebook.presto.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
+import static com.facebook.presto.iceberg.IcebergTableProperties.FORMAT_VERSION;
+import static com.facebook.presto.iceberg.IcebergTableProperties.METADATA_DELETE_AFTER_COMMIT;
+import static com.facebook.presto.iceberg.IcebergTableProperties.METADATA_PREVIOUS_VERSIONS_MAX;
+import static com.facebook.presto.iceberg.IcebergTableProperties.METRICS_MAX_INFERRED_COLUMN;
 import static com.facebook.presto.iceberg.IcebergUtil.MIN_FORMAT_VERSION_FOR_DELETE;
+import static com.facebook.presto.iceberg.IcebergWarningCode.USE_OF_DEPRECATED_TABLE_PROPERTY;
 import static com.facebook.presto.iceberg.procedure.RegisterTableProcedure.METADATA_FOLDER_NAME;
-import static com.facebook.presto.iceberg.procedure.TestIcebergRegisterAndUnregisterProcedure.getMetadataFileLocation;
+import static com.facebook.presto.iceberg.procedure.RegisterTableProcedure.getFileSystem;
+import static com.facebook.presto.iceberg.procedure.RegisterTableProcedure.resolveLatestMetadataLocation;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
+import static java.nio.file.Files.createTempDirectory;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
+import static org.apache.iceberg.util.LocationUtil.stripTrailingSlash;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -74,7 +94,7 @@ public abstract class IcebergDistributedSmokeTestBase
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return IcebergQueryRunner.createIcebergQueryRunner(ImmutableMap.of(), catalogType);
+        return IcebergQueryRunner.builder().setCatalogType(catalogType).build().getQueryRunner();
     }
 
     @Test
@@ -93,7 +113,7 @@ public abstract class IcebergDistributedSmokeTestBase
         assertQuerySucceeds("ALTER TABLE test_timestamp_with_timezone ADD COLUMN y timestamp with time zone");
         dropTable(getSession(), "test_timestamp_with_timezone");
 
-        assertQueryFails("CREATE TABLE test_timestamp_with_timezone (x) WITH ( format = 'ORC') AS SELECT TIMESTAMP '1969-12-01 00:00:00.000000 UTC'", "Unsupported Type: timestamp with time zone");
+        assertQueryFails("CREATE TABLE test_timestamp_with_timezone (x) WITH ( \"write.format.default\" = 'ORC') AS SELECT TIMESTAMP '1969-12-01 00:00:00.000000 UTC'", "Unsupported Type: timestamp with time zone");
     }
 
     @Test
@@ -141,16 +161,101 @@ public abstract class IcebergDistributedSmokeTestBase
                         "   \"comment\" varchar\n" +
                         ")\n" +
                         "WITH (\n" +
-                        "   delete_mode = 'merge-on-read',\n" +
-                        "   format = 'PARQUET',\n" +
-                        "   format_version = '2',\n" +
+                        "   \"format-version\" = '2',\n" +
                         "   location = '%s',\n" +
-                        "   metadata_delete_after_commit = false,\n" +
-                        "   metadata_previous_versions_max = 100,\n" +
-                        "   metrics_max_inferred_column = 100,\n" +
                         "   \"read.split.target-size\" = 134217728,\n" +
+                        "   \"write.delete.mode\" = 'merge-on-read',\n" +
+                        "   \"write.format.default\" = 'PARQUET',\n" +
+                        "   \"write.metadata.delete-after-commit.enabled\" = false,\n" +
+                        "   \"write.metadata.metrics.max-inferred-column-defaults\" = 100,\n" +
+                        "   \"write.metadata.previous-versions-max\" = 100,\n" +
                         "   \"write.update.mode\" = 'merge-on-read'\n" +
                         ")", schemaName, getLocation(schemaName, "orders")));
+    }
+
+    @Test
+    public void testTableWithSpecifiedWriteDataLocation()
+            throws IOException
+    {
+        String tableName = "test_table_with_specified_write_data_location";
+        String dataWriteLocation = createTempDirectory(tableName).toAbsolutePath().toString();
+        try {
+            assertUpdate(format("create table %s(a int, b varchar) with (\"write.data.path\" = '%s')", tableName, dataWriteLocation));
+            assertUpdate(format("insert into %s values(1, '1001'), (2, '1002'), (3, '1003')", tableName), 3);
+            assertQuery("select * from " + tableName, "values(1, '1001'), (2, '1002'), (3, '1003')");
+            assertUpdate(format("delete from %s where a > 2", tableName), 1);
+            assertQuery("select * from " + tableName, "values(1, '1001'), (2, '1002')");
+        }
+        finally {
+            try {
+                getQueryRunner().execute("drop table if exists " + tableName);
+            }
+            catch (Exception e) {
+                // ignored for hive catalog compatibility
+            }
+        }
+    }
+
+    @Test
+    public void testPartitionedTableWithSpecifiedWriteDataLocation()
+            throws IOException
+    {
+        String tableName = "test_partitioned_table_with_specified_write_data_location";
+        String dataWriteLocation = createTempDirectory(tableName).toAbsolutePath().toString();
+        try {
+            assertUpdate(format("create table %s(a int, b varchar) with (partitioning = ARRAY['a'], \"write.data.path\" = '%s')", tableName, dataWriteLocation));
+            assertUpdate(format("insert into %s values(1, '1001'), (2, '1002'), (3, '1003')", tableName), 3);
+            assertQuery("select * from " + tableName, "values(1, '1001'), (2, '1002'), (3, '1003')");
+            assertUpdate(format("delete from %s where a > 2", tableName), 1);
+            assertQuery("select * from " + tableName, "values(1, '1001'), (2, '1002')");
+        }
+        finally {
+            try {
+                getQueryRunner().execute("drop table if exists " + tableName);
+            }
+            catch (Exception e) {
+                // ignored for hive catalog compatibility
+            }
+        }
+    }
+
+    @Test
+    public void testShowCreateTableWithSpecifiedWriteDataLocation()
+            throws IOException
+    {
+        String tableName = "test_show_table_with_specified_write_data_location";
+        String dataWriteLocation = createTempDirectory("test1").toAbsolutePath().toString();
+        try {
+            assertUpdate(format("CREATE TABLE %s(a int, b varchar) with (\"write.data.path\" = '%s')", tableName, dataWriteLocation));
+            String schemaName = getSession().getSchema().get();
+            String location = getLocation(schemaName, tableName);
+            String createTableSql = "CREATE TABLE iceberg.%s.%s (\n" +
+                    "   \"a\" integer,\n" +
+                    "   \"b\" varchar\n" +
+                    ")\n" +
+                    "WITH (\n" +
+                    "   \"format-version\" = '2',\n" +
+                    "   location = '%s',\n" +
+                    "   \"read.split.target-size\" = 134217728,\n" +
+                    "   \"write.data.path\" = '%s',\n" +
+                    "   \"write.delete.mode\" = 'merge-on-read',\n" +
+                    "   \"write.format.default\" = 'PARQUET',\n" +
+                    "   \"write.metadata.delete-after-commit.enabled\" = false,\n" +
+                    "   \"write.metadata.metrics.max-inferred-column-defaults\" = 100,\n" +
+                    "   \"write.metadata.previous-versions-max\" = 100,\n" +
+                    "   \"write.update.mode\" = 'merge-on-read'\n" +
+                    ")";
+            assertThat(computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue())
+                    .isEqualTo(format(createTableSql, schemaName, tableName, location, dataWriteLocation));
+        }
+        finally {
+            try {
+                getQueryRunner().execute("DROP TABLE IF EXISTS " + tableName);
+            }
+            catch (Exception e) {
+                // ignored for hive catalog compatibility
+            }
+        }
     }
 
     @Test
@@ -192,7 +297,7 @@ public abstract class IcebergDistributedSmokeTestBase
         String afterTheDecimalPoint = "09876543210987654321098765432109876543".substring(0, scale);
         String decimalValue = format("%s.%s", beforeTheDecimalPoint, afterTheDecimalPoint);
 
-        assertUpdate(session, format("CREATE TABLE %s (x %s) WITH (format = '%s')", tableName, decimalType, format.name()));
+        assertUpdate(session, format("CREATE TABLE %s (x %s) WITH (\"write.format.default\" = '%s')", tableName, decimalType, format.name()));
         assertUpdate(session, format("INSERT INTO %s (x) VALUES (CAST('%s' AS %s))", tableName, decimalValue, decimalType), 1);
         assertQuery(session, format("SELECT * FROM %s", tableName), format("SELECT CAST('%s' AS %s)", decimalValue, decimalType));
         dropTable(session, tableName);
@@ -270,7 +375,7 @@ public abstract class IcebergDistributedSmokeTestBase
                 ", _date DATE" +
                 ") " +
                 "WITH (" +
-                "format = '" + fileFormat + "', " +
+                "\"write.format.default\" = '" + fileFormat + "', " +
                 "partitioning = ARRAY[" +
                 "  '_string'," +
                 "  '_integer'," +
@@ -331,7 +436,7 @@ public abstract class IcebergDistributedSmokeTestBase
                 ", _date DATE" +
                 ") " +
                 "WITH (" +
-                "format = '" + fileFormat + "', " +
+                "\"write.format.default\" = '" + fileFormat + "', " +
                 "partitioning = ARRAY['_date']" +
                 ")";
 
@@ -361,7 +466,7 @@ public abstract class IcebergDistributedSmokeTestBase
                 ", _date DATE" +
                 ") " +
                 "WITH (" +
-                "format = '" + fileFormat + "', " +
+                "\"write.format.default\" = '" + fileFormat + "', " +
                 "partitioning = ARRAY[" +
                 "  '_string'," +
                 "  '_integer'," +
@@ -407,7 +512,7 @@ public abstract class IcebergDistributedSmokeTestBase
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE test_create_partitioned_table_as_" + fileFormat.toString().toLowerCase(ENGLISH) + " " +
                 "WITH (" +
-                "format = '" + fileFormat + "', " +
+                "\"write.format.default\" = '" + fileFormat + "', " +
                 "partitioning = ARRAY['ORDER_STATUS', 'Ship_Priority', 'Bucket(order_key,9)']" +
                 ") " +
                 "AS " +
@@ -423,15 +528,15 @@ public abstract class IcebergDistributedSmokeTestBase
                         "   \"order_status\" varchar\n" +
                         ")\n" +
                         "WITH (\n" +
-                        "   delete_mode = 'merge-on-read',\n" +
-                        "   format = '" + fileFormat + "',\n" +
-                        "   format_version = '2',\n" +
+                        "   \"format-version\" = '2',\n" +
                         "   location = '%s',\n" +
-                        "   metadata_delete_after_commit = false,\n" +
-                        "   metadata_previous_versions_max = 100,\n" +
-                        "   metrics_max_inferred_column = 100,\n" +
                         "   partitioning = ARRAY['order_status','ship_priority','bucket(order_key, 9)'],\n" +
                         "   \"read.split.target-size\" = 134217728,\n" +
+                        "   \"write.delete.mode\" = 'merge-on-read',\n" +
+                        "   \"write.format.default\" = '" + fileFormat + "',\n" +
+                        "   \"write.metadata.delete-after-commit.enabled\" = false,\n" +
+                        "   \"write.metadata.metrics.max-inferred-column-defaults\" = 100,\n" +
+                        "   \"write.metadata.previous-versions-max\" = 100,\n" +
                         "   \"write.update.mode\" = 'merge-on-read'\n" +
                         ")",
                 getSession().getCatalog().get(),
@@ -461,7 +566,7 @@ public abstract class IcebergDistributedSmokeTestBase
         // create iceberg table partitioned by column of ShortDecimalType, and insert some data
         assertUpdate(session, "drop table if exists test_partition_columns_short_decimal");
         assertUpdate(session, format("create table test_partition_columns_short_decimal(a bigint, b decimal(9, 2))" +
-                " with (format = '%s', partitioning = ARRAY['b'])", format.name()));
+                " with (\"write.format.default\" = '%s', partitioning = ARRAY['b'])", format.name()));
         assertUpdate(session, "insert into test_partition_columns_short_decimal values(1, 12.31), (2, 133.28)", 2);
         assertQuery(session, "select * from test_partition_columns_short_decimal", "values(1, 12.31), (2, 133.28)");
 
@@ -487,7 +592,7 @@ public abstract class IcebergDistributedSmokeTestBase
         // create iceberg table partitioned by column of ShortDecimalType, and insert some data
         assertUpdate(session, "drop table if exists test_partition_columns_long_decimal");
         assertUpdate(session, format("create table test_partition_columns_long_decimal(a bigint, b decimal(20, 2))" +
-                " with (format = '%s', partitioning = ARRAY['b'])", format.name()));
+                " with (\"write.format.default\" = '%s', partitioning = ARRAY['b'])", format.name()));
         assertUpdate(session, "insert into test_partition_columns_long_decimal values(1, 11111111111111112.31), (2, 133.28)", 2);
         assertQuery(session, "select * from test_partition_columns_long_decimal", "values(1, 11111111111111112.31), (2, 133.28)");
 
@@ -513,7 +618,7 @@ public abstract class IcebergDistributedSmokeTestBase
     public void testTruncateShortDecimalTransform(Session session, FileFormat format)
     {
         assertUpdate(session, format("CREATE TABLE test_truncate_decimal_transform (d DECIMAL(9, 2), b BIGINT)" +
-                " WITH (format = '%s', partitioning = ARRAY['truncate(d, 10)'])", format.name()));
+                " WITH (\"write.format.default\" = '%s', partitioning = ARRAY['truncate(d, 10)'])", format.name()));
         String select = "SELECT d_trunc, row_count, d.min, d.max FROM \"test_truncate_decimal_transform$partitions\"";
 
         assertUpdate(session, "INSERT INTO test_truncate_decimal_transform VALUES" +
@@ -552,7 +657,7 @@ public abstract class IcebergDistributedSmokeTestBase
     public void testTruncateLongDecimalTransform(Session session, FileFormat format)
     {
         assertUpdate(session, format("CREATE TABLE test_truncate_long_decimal_transform (d DECIMAL(20, 2), b BIGINT)" +
-                " WITH (format = '%s', partitioning = ARRAY['truncate(d, 10)'])", format.name()));
+                " WITH (\"write.format.default\" = '%s', partitioning = ARRAY['truncate(d, 10)'])", format.name()));
         String select = "SELECT d_trunc, row_count, d.min, d.max FROM \"test_truncate_long_decimal_transform$partitions\"";
 
         assertUpdate(session, "INSERT INTO test_truncate_long_decimal_transform VALUES" +
@@ -617,8 +722,8 @@ public abstract class IcebergDistributedSmokeTestBase
                 ")\n" +
                 "COMMENT '%s'\n" +
                 "WITH (\n" +
-                "   format = 'ORC',\n" +
-                "   format_version = '2'\n" +
+                "   \"write.format.default\" = 'ORC',\n" +
+                "   \"format-version\" = '2'\n" +
                 ")";
 
         assertUpdate(format(createTable, schemaName, "test table comment"));
@@ -629,14 +734,14 @@ public abstract class IcebergDistributedSmokeTestBase
                 ")\n" +
                 "COMMENT '%s'\n" +
                 "WITH (\n" +
-                "   delete_mode = 'merge-on-read',\n" +
-                "   format = 'ORC',\n" +
-                "   format_version = '2',\n" +
+                "   \"format-version\" = '2',\n" +
                 "   location = '%s',\n" +
-                "   metadata_delete_after_commit = false,\n" +
-                "   metadata_previous_versions_max = 100,\n" +
-                "   metrics_max_inferred_column = 100,\n" +
                 "   \"read.split.target-size\" = 134217728,\n" +
+                "   \"write.delete.mode\" = 'merge-on-read',\n" +
+                "   \"write.format.default\" = 'ORC',\n" +
+                "   \"write.metadata.delete-after-commit.enabled\" = false,\n" +
+                "   \"write.metadata.metrics.max-inferred-column-defaults\" = 100,\n" +
+                "   \"write.metadata.previous-versions-max\" = 100,\n" +
                 "   \"write.update.mode\" = 'merge-on-read'\n" +
                 ")";
         String createTableSql = format(createTableTemplate, schemaName, "test table comment", getLocation(schemaName, "test_table_comments"));
@@ -692,7 +797,7 @@ public abstract class IcebergDistributedSmokeTestBase
 
     private void testSchemaEvolution(Session session, FileFormat fileFormat)
     {
-        assertUpdate(session, "CREATE TABLE test_schema_evolution_drop_end (col0 INTEGER, col1 INTEGER, col2 INTEGER) WITH (format = '" + fileFormat + "')");
+        assertUpdate(session, "CREATE TABLE test_schema_evolution_drop_end (col0 INTEGER, col1 INTEGER, col2 INTEGER) WITH (\"write.format.default\" = '" + fileFormat + "')");
         assertUpdate(session, "INSERT INTO test_schema_evolution_drop_end VALUES (0, 1, 2)", 1);
         assertQuery(session, "SELECT * FROM test_schema_evolution_drop_end", "VALUES(0, 1, 2)");
         assertUpdate(session, "ALTER TABLE test_schema_evolution_drop_end DROP COLUMN col2");
@@ -703,7 +808,7 @@ public abstract class IcebergDistributedSmokeTestBase
         assertQuery(session, "SELECT * FROM test_schema_evolution_drop_end", "VALUES(0, 1, NULL), (3, 4, 5)");
         dropTable(session, "test_schema_evolution_drop_end");
 
-        assertUpdate(session, "CREATE TABLE test_schema_evolution_drop_middle (col0 INTEGER, col1 INTEGER, col2 INTEGER) WITH (format = '" + fileFormat + "')");
+        assertUpdate(session, "CREATE TABLE test_schema_evolution_drop_middle (col0 INTEGER, col1 INTEGER, col2 INTEGER) WITH (\"write.format.default\" = '" + fileFormat + "')");
         assertUpdate(session, "INSERT INTO test_schema_evolution_drop_middle VALUES (0, 1, 2)", 1);
         assertQuery(session, "SELECT * FROM test_schema_evolution_drop_middle", "VALUES(0, 1, 2)");
         assertUpdate(session, "ALTER TABLE test_schema_evolution_drop_middle DROP COLUMN col1");
@@ -715,22 +820,22 @@ public abstract class IcebergDistributedSmokeTestBase
     }
 
     @Test
-    private void testCreateTableLike()
+    protected void testCreateTableLike()
     {
         Session session = getSession();
         String schemaName = session.getSchema().get();
 
-        assertUpdate(session, "CREATE TABLE test_create_table_like_original (col1 INTEGER, aDate DATE) WITH(format = 'PARQUET', partitioning = ARRAY['aDate'])");
+        assertUpdate(session, "CREATE TABLE test_create_table_like_original (col1 INTEGER, aDate DATE) WITH(\"write.format.default\" = 'PARQUET', partitioning = ARRAY['aDate'])");
         assertEquals(getTablePropertiesString("test_create_table_like_original"), format("WITH (\n" +
-                "   delete_mode = 'merge-on-read',\n" +
-                "   format = 'PARQUET',\n" +
-                "   format_version = '2',\n" +
+                "   \"format-version\" = '2',\n" +
                 "   location = '%s',\n" +
-                "   metadata_delete_after_commit = false,\n" +
-                "   metadata_previous_versions_max = 100,\n" +
-                "   metrics_max_inferred_column = 100,\n" +
                 "   partitioning = ARRAY['adate'],\n" +
                 "   \"read.split.target-size\" = 134217728,\n" +
+                "   \"write.delete.mode\" = 'merge-on-read',\n" +
+                "   \"write.format.default\" = 'PARQUET',\n" +
+                "   \"write.metadata.delete-after-commit.enabled\" = false,\n" +
+                "   \"write.metadata.metrics.max-inferred-column-defaults\" = 100,\n" +
+                "   \"write.metadata.previous-versions-max\" = 100,\n" +
                 "   \"write.update.mode\" = 'merge-on-read'\n" +
                 ")", getLocation(schemaName, "test_create_table_like_original")));
 
@@ -741,28 +846,28 @@ public abstract class IcebergDistributedSmokeTestBase
 
         assertUpdate(session, "CREATE TABLE test_create_table_like_copy1 (LIKE test_create_table_like_original)");
         assertEquals(getTablePropertiesString("test_create_table_like_copy1"), format("WITH (\n" +
-                "   delete_mode = 'merge-on-read',\n" +
-                "   format = 'PARQUET',\n" +
-                "   format_version = '2',\n" +
+                "   \"format-version\" = '2',\n" +
                 "   location = '%s',\n" +
-                "   metadata_delete_after_commit = false,\n" +
-                "   metadata_previous_versions_max = 100,\n" +
-                "   metrics_max_inferred_column = 100,\n" +
                 "   \"read.split.target-size\" = 134217728,\n" +
+                "   \"write.delete.mode\" = 'merge-on-read',\n" +
+                "   \"write.format.default\" = 'PARQUET',\n" +
+                "   \"write.metadata.delete-after-commit.enabled\" = false,\n" +
+                "   \"write.metadata.metrics.max-inferred-column-defaults\" = 100,\n" +
+                "   \"write.metadata.previous-versions-max\" = 100,\n" +
                 "   \"write.update.mode\" = 'merge-on-read'\n" +
                 ")", getLocation(schemaName, "test_create_table_like_copy1")));
         dropTable(session, "test_create_table_like_copy1");
 
         assertUpdate(session, "CREATE TABLE test_create_table_like_copy2 (LIKE test_create_table_like_original EXCLUDING PROPERTIES)");
         assertEquals(getTablePropertiesString("test_create_table_like_copy2"), format("WITH (\n" +
-                "   delete_mode = 'merge-on-read',\n" +
-                "   format = 'PARQUET',\n" +
-                "   format_version = '2',\n" +
+                "   \"format-version\" = '2',\n" +
                 "   location = '%s',\n" +
-                "   metadata_delete_after_commit = false,\n" +
-                "   metadata_previous_versions_max = 100,\n" +
-                "   metrics_max_inferred_column = 100,\n" +
                 "   \"read.split.target-size\" = 134217728,\n" +
+                "   \"write.delete.mode\" = 'merge-on-read',\n" +
+                "   \"write.format.default\" = 'PARQUET',\n" +
+                "   \"write.metadata.delete-after-commit.enabled\" = false,\n" +
+                "   \"write.metadata.metrics.max-inferred-column-defaults\" = 100,\n" +
+                "   \"write.metadata.previous-versions-max\" = 100,\n" +
                 "   \"write.update.mode\" = 'merge-on-read'\n" +
                 ")", getLocation(schemaName, "test_create_table_like_copy2")));
         dropTable(session, "test_create_table_like_copy2");
@@ -770,31 +875,31 @@ public abstract class IcebergDistributedSmokeTestBase
         if (!catalogType.equals(HADOOP)) {
             assertUpdate(session, "CREATE TABLE test_create_table_like_copy3 (LIKE test_create_table_like_original INCLUDING PROPERTIES)");
             assertEquals(getTablePropertiesString("test_create_table_like_copy3"), format("WITH (\n" +
-                            "   delete_mode = 'merge-on-read',\n" +
-                            "   format = 'PARQUET',\n" +
-                            "   format_version = '2',\n" +
+                            "   \"format-version\" = '2',\n" +
                             "   location = '%s',\n" +
-                            "   metadata_delete_after_commit = false,\n" +
-                            "   metadata_previous_versions_max = 100,\n" +
-                            "   metrics_max_inferred_column = 100,\n" +
                             "   partitioning = ARRAY['adate'],\n" +
                             "   \"read.split.target-size\" = 134217728,\n" +
+                            "   \"write.delete.mode\" = 'merge-on-read',\n" +
+                            "   \"write.format.default\" = 'PARQUET',\n" +
+                            "   \"write.metadata.delete-after-commit.enabled\" = false,\n" +
+                            "   \"write.metadata.metrics.max-inferred-column-defaults\" = 100,\n" +
+                            "   \"write.metadata.previous-versions-max\" = 100,\n" +
                             "   \"write.update.mode\" = 'merge-on-read'\n" +
                             ")",
                     getLocation(schemaName, "test_create_table_like_original")));
             dropTable(session, "test_create_table_like_copy3");
 
-            assertUpdate(session, "CREATE TABLE test_create_table_like_copy4 (LIKE test_create_table_like_original INCLUDING PROPERTIES) WITH (format = 'ORC')");
+            assertUpdate(session, "CREATE TABLE test_create_table_like_copy4 (LIKE test_create_table_like_original INCLUDING PROPERTIES) WITH (\"write.format.default\" = 'ORC')");
             assertEquals(getTablePropertiesString("test_create_table_like_copy4"), format("WITH (\n" +
-                            "   delete_mode = 'merge-on-read',\n" +
-                            "   format = 'ORC',\n" +
-                            "   format_version = '2',\n" +
+                            "   \"format-version\" = '2',\n" +
                             "   location = '%s',\n" +
-                            "   metadata_delete_after_commit = false,\n" +
-                            "   metadata_previous_versions_max = 100,\n" +
-                            "   metrics_max_inferred_column = 100,\n" +
                             "   partitioning = ARRAY['adate'],\n" +
                             "   \"read.split.target-size\" = 134217728,\n" +
+                            "   \"write.delete.mode\" = 'merge-on-read',\n" +
+                            "   \"write.format.default\" = 'ORC',\n" +
+                            "   \"write.metadata.delete-after-commit.enabled\" = false,\n" +
+                            "   \"write.metadata.metrics.max-inferred-column-defaults\" = 100,\n" +
+                            "   \"write.metadata.previous-versions-max\" = 100,\n" +
                             "   \"write.update.mode\" = 'merge-on-read'\n" +
                             ")",
                     getLocation(schemaName, "test_create_table_like_original")));
@@ -802,17 +907,17 @@ public abstract class IcebergDistributedSmokeTestBase
         }
         else {
             assertUpdate(session, "CREATE TABLE test_create_table_like_copy5 (LIKE test_create_table_like_original INCLUDING PROPERTIES)" +
-                    " WITH (location = '', format = 'ORC')");
+                    " WITH (location = '', \"write.format.default\" = 'ORC')");
             assertEquals(getTablePropertiesString("test_create_table_like_copy5"), format("WITH (\n" +
-                            "   delete_mode = 'merge-on-read',\n" +
-                            "   format = 'ORC',\n" +
-                            "   format_version = '2',\n" +
+                            "   \"format-version\" = '2',\n" +
                             "   location = '%s',\n" +
-                            "   metadata_delete_after_commit = false,\n" +
-                            "   metadata_previous_versions_max = 100,\n" +
-                            "   metrics_max_inferred_column = 100,\n" +
                             "   partitioning = ARRAY['adate'],\n" +
                             "   \"read.split.target-size\" = 134217728,\n" +
+                            "   \"write.delete.mode\" = 'merge-on-read',\n" +
+                            "   \"write.format.default\" = 'ORC',\n" +
+                            "   \"write.metadata.delete-after-commit.enabled\" = false,\n" +
+                            "   \"write.metadata.metrics.max-inferred-column-defaults\" = 100,\n" +
+                            "   \"write.metadata.previous-versions-max\" = 100,\n" +
                             "   \"write.update.mode\" = 'merge-on-read'\n" +
                             ")",
                     getLocation(schemaName, "test_create_table_like_copy5")));
@@ -836,8 +941,8 @@ public abstract class IcebergDistributedSmokeTestBase
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE test_create_table_with_format_version_" + formatVersion + " " +
                 "WITH (" +
-                "format = 'PARQUET', " +
-                "format_version = '" + formatVersion + "'" +
+                "\"write.format.default\" = 'PARQUET', " +
+                "\"format-version\" = '" + formatVersion + "'" +
                 ") " +
                 "AS " +
                 "SELECT orderkey AS order_key, shippriority AS ship_priority, orderstatus AS order_status " +
@@ -854,22 +959,22 @@ public abstract class IcebergDistributedSmokeTestBase
                         "   \"order_status\" varchar\n" +
                         ")\n" +
                         "WITH (\n" +
-                        "   delete_mode = '%s',\n" +
-                        "   format = 'PARQUET',\n" +
-                        "   format_version = '%s',\n" +
+                        "   \"format-version\" = '%s',\n" +
                         "   location = '%s',\n" +
-                        "   metadata_delete_after_commit = false,\n" +
-                        "   metadata_previous_versions_max = 100,\n" +
-                        "   metrics_max_inferred_column = 100,\n" +
                         "   \"read.split.target-size\" = 134217728,\n" +
+                        "   \"write.delete.mode\" = '%s',\n" +
+                        "   \"write.format.default\" = 'PARQUET',\n" +
+                        "   \"write.metadata.delete-after-commit.enabled\" = false,\n" +
+                        "   \"write.metadata.metrics.max-inferred-column-defaults\" = 100,\n" +
+                        "   \"write.metadata.previous-versions-max\" = 100,\n" +
                         "   \"write.update.mode\" = '%s'\n" +
                         ")",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
                 "test_create_table_with_format_version_" + formatVersion,
-                defaultDeleteMode,
                 formatVersion,
                 getLocation(getSession().getSchema().get(), "test_create_table_with_format_version_" + formatVersion),
+                defaultDeleteMode,
                 defaultDeleteMode);
 
         MaterializedResult actualResult = computeActual("SHOW CREATE TABLE test_create_table_with_format_version_" + formatVersion);
@@ -884,7 +989,7 @@ public abstract class IcebergDistributedSmokeTestBase
         test.accept("2", "merge-on-read");
     }
 
-    private String getTablePropertiesString(String tableName)
+    protected String getTablePropertiesString(String tableName)
     {
         MaterializedResult showCreateTable = computeActual("SHOW CREATE TABLE " + tableName);
         String createTable = (String) getOnlyElement(showCreateTable.getOnlyColumnAsSet());
@@ -905,7 +1010,7 @@ public abstract class IcebergDistributedSmokeTestBase
 
     private void testPredicating(Session session, FileFormat fileFormat)
     {
-        assertUpdate(session, "CREATE TABLE test_predicating_on_real (col REAL) WITH (format = '" + fileFormat + "')");
+        assertUpdate(session, "CREATE TABLE test_predicating_on_real (col REAL) WITH (\"write.format.default\" = '" + fileFormat + "')");
         assertUpdate(session, "INSERT INTO test_predicating_on_real VALUES 1.2", 1);
         assertQuery(session, "SELECT * FROM test_predicating_on_real WHERE col = 1.2", "VALUES 1.2");
         dropTable(session, "test_predicating_on_real");
@@ -928,7 +1033,7 @@ public abstract class IcebergDistributedSmokeTestBase
         String select = "SELECT d_trunc, row_count, d.min AS d_min, d.max AS d_max, b.min AS b_min, b.max AS b_max FROM \"test_truncate_transform$partitions\"";
 
         assertUpdate(session, format("CREATE TABLE test_truncate_transform (d VARCHAR, b BIGINT)" +
-                " WITH (format = '%s', partitioning = ARRAY['truncate(d, 2)'])", format.name()));
+                " WITH (\"write.format.default\" = '%s', partitioning = ARRAY['truncate(d, 2)'])", format.name()));
 
         String insertSql = "INSERT INTO test_truncate_transform VALUES" +
                 "('abcd', 1)," +
@@ -965,7 +1070,7 @@ public abstract class IcebergDistributedSmokeTestBase
         String select = "SELECT d_bucket, row_count, d.min AS d_min, d.max AS d_max, b.min AS b_min, b.max AS b_max FROM \"test_bucket_transform$partitions\"";
 
         assertUpdate(session, format("CREATE TABLE test_bucket_transform (d VARCHAR, b BIGINT)" +
-                " WITH (format = '%s', partitioning = ARRAY['bucket(d, 2)'])", format.name()));
+                " WITH (\"write.format.default\" = '%s', partitioning = ARRAY['bucket(d, 2)'])", format.name()));
         String insertSql = "INSERT INTO test_bucket_transform VALUES" +
                 "('abcd', 1)," +
                 "('abxy', 2)," +
@@ -1025,7 +1130,7 @@ public abstract class IcebergDistributedSmokeTestBase
                 ", str ROW(id INTEGER , vc VARCHAR)" +
                 ", dt DATE)" +
                 " WITH (partitioning = ARRAY['int']," +
-                " format = '" + fileFormat + "'" +
+                " \"write.format.default\" = '" + fileFormat + "'" +
                 ")";
 
         assertUpdate(session, createTable);
@@ -1052,7 +1157,7 @@ public abstract class IcebergDistributedSmokeTestBase
                 ", str ROW(id INTEGER, vc VARCHAR, arr ARRAY(INTEGER))" +
                 ", vc VARCHAR)" +
                 " WITH (partitioning = ARRAY['int']," +
-                " format = '" + fileFormat + "'" +
+                " \"write.format.default\" = '" + fileFormat + "'" +
                 ")";
 
         assertUpdate(session, createTable2);
@@ -1093,7 +1198,7 @@ public abstract class IcebergDistributedSmokeTestBase
         String tableName = format("test_%s_by_time", partitioned ? "partitioned" : "selected");
         try {
             String partitioning = partitioned ? ", partitioning = ARRAY['x']" : "";
-            assertUpdate(format("CREATE TABLE %s (x TIME, y BIGINT) WITH (format = '%s'%s)", tableName, format, partitioning));
+            assertUpdate(format("CREATE TABLE %s (x TIME, y BIGINT) WITH (\"write.format.default\" = '%s'%s)", tableName, format, partitioning));
             assertUpdate(format("INSERT INTO %s VALUES (TIME '10:12:34', 12345)", tableName), 1);
             assertQuery(format("SELECT COUNT(*) FROM %s", tableName), "SELECT 1");
             assertQuery(format("SELECT x FROM %s", tableName), "SELECT CAST('10:12:34' AS TIME)");
@@ -1217,8 +1322,8 @@ public abstract class IcebergDistributedSmokeTestBase
 
     protected Path getCatalogDirectory()
     {
-        Path dataDirectory = getDistributedQueryRunner().getCoordinator().getDataDirectory();
-        return getIcebergDataDirectoryPath(dataDirectory, catalogType.name(), new IcebergConfig().getFileFormat(), false);
+        java.nio.file.Path dataDirectory = getDistributedQueryRunner().getCoordinator().getDataDirectory();
+        return new Path(getIcebergDataDirectoryPath(dataDirectory, catalogType.name(), new IcebergConfig().getFileFormat(), false).toFile().toURI());
     }
 
     protected Table getIcebergTable(ConnectorSession session, String namespace, String tableName)
@@ -1228,7 +1333,7 @@ public abstract class IcebergDistributedSmokeTestBase
 
     protected void createTableWithMergeOnRead(Session session, String schema, String tableName)
     {
-        assertUpdate("CREATE TABLE " + tableName + " (id integer, value integer) WITH (format_version = '2')");
+        assertUpdate("CREATE TABLE " + tableName + " (id integer, value integer) WITH (\"format-version\" = '2')");
 
         CatalogManager catalogManager = getDistributedQueryRunner().getCoordinator().getCatalogManager();
         ConnectorId connectorId = catalogManager.getCatalog(ICEBERG_CATALOG).get().getConnectorId();
@@ -1520,7 +1625,7 @@ public abstract class IcebergDistributedSmokeTestBase
         assertUpdate("INSERT INTO " + tableName + " VALUES(1, 1)", 1);
 
         String metadataLocation = getLocation(schemaName, tableName);
-        String metadataFileName = getMetadataFileLocation(getSession().toConnectorSession(), schemaName, tableName, metadataLocation);
+        String metadataFileName = getMetadataFileLocation(getSession().toConnectorSession(), getHdfsEnvironment(), schemaName, tableName, metadataLocation);
 
         // Register new table with procedure
         String newTableName = tableName + "_new";
@@ -1539,7 +1644,7 @@ public abstract class IcebergDistributedSmokeTestBase
         assertUpdate("CREATE TABLE " + tableName + " (id integer, value integer)");
         assertUpdate("INSERT INTO " + tableName + " VALUES(1, 1)", 1);
 
-        String metadataLocation = getLocation(schemaName, tableName).replace("//", "/") + "_invalid";
+        String metadataLocation = getLocation(schemaName, tableName) + "_invalid";
 
         @Language("RegExp") String errorMessage = format("Unable to find metadata at location %s/%s", metadataLocation, METADATA_FOLDER_NAME);
         assertQueryFails("CALL system.register_table ('" + schemaName + "', '" + tableName + "', '" + metadataLocation + "')", errorMessage);
@@ -1579,7 +1684,7 @@ public abstract class IcebergDistributedSmokeTestBase
         // Test with default delete_mode i.e. merge-on-read
         String tableNameMor = "test_delete_mor";
 
-        assertUpdate("CREATE TABLE " + tableNameMor + " (id integer, value integer) WITH (format_version = '2')");
+        assertUpdate("CREATE TABLE " + tableNameMor + " (id integer, value integer) WITH (\"format-version\" = '2')");
         assertUpdate("INSERT INTO " + tableNameMor + " VALUES (1, 10)", 1);
         assertUpdate("INSERT INTO " + tableNameMor + " VALUES (2, 13)", 1);
         assertUpdate("INSERT INTO " + tableNameMor + " VALUES (3, 5)", 1);
@@ -1591,9 +1696,9 @@ public abstract class IcebergDistributedSmokeTestBase
 
         // Test with delete_mode set to copy-on-write
         String tableNameCow = "test_delete_cow";
-        @Language("RegExp") String errorMessage = "This connector only supports delete where one or more partitions are deleted entirely. Configure delete_mode table property to allow row level deletions.";
+        @Language("RegExp") String errorMessage = "This connector only supports delete where one or more partitions are deleted entirely. Configure write.delete.mode table property to allow row level deletions.";
 
-        assertUpdate("CREATE TABLE " + tableNameCow + " (id integer, value integer) WITH (format_version = '2', delete_mode = 'copy-on-write')");
+        assertUpdate("CREATE TABLE " + tableNameCow + " (id integer, value integer) WITH (\"format-version\" = '2', \"write.delete.mode\" = 'copy-on-write')");
         assertUpdate("INSERT INTO " + tableNameCow + " VALUES (1, 5)", 1);
         assertQuery("SELECT * FROM " + tableNameCow, "VALUES (1, 5)");
         assertQueryFails("DELETE FROM " + tableNameCow + " WHERE value = 5", errorMessage);
@@ -1609,7 +1714,7 @@ public abstract class IcebergDistributedSmokeTestBase
         // Test with default delete_mode i.e. merge-on-read:
         String tableNameMor = "test_delete_partitioned_mor";
 
-        assertUpdate("CREATE TABLE " + tableNameMor + " (id integer, value integer) WITH (format_version = '2', partitioning = Array['id'])");
+        assertUpdate("CREATE TABLE " + tableNameMor + " (id integer, value integer) WITH (\"format-version\" = '2', partitioning = Array['id'])");
         assertUpdate("INSERT INTO " + tableNameMor + " VALUES (1, 10)", 1);
         assertUpdate("INSERT INTO " + tableNameMor + " VALUES (2, 13)", 1);
         assertUpdate("INSERT INTO " + tableNameMor + " VALUES (3, 5)", 1);
@@ -1629,9 +1734,9 @@ public abstract class IcebergDistributedSmokeTestBase
 
         // Test with delete_mode set to copy-on-write
         String tableNameCow = "test_delete_partitioned_cow";
-        @Language("RegExp") String errorMessage = "This connector only supports delete where one or more partitions are deleted entirely. Configure delete_mode table property to allow row level deletions.";
+        @Language("RegExp") String errorMessage = "This connector only supports delete where one or more partitions are deleted entirely. Configure write.delete.mode table property to allow row level deletions.";
 
-        assertUpdate("CREATE TABLE " + tableNameCow + " (id integer, value integer) WITH (format_version = '2', partitioning = Array['id'], delete_mode = 'copy-on-write')");
+        assertUpdate("CREATE TABLE " + tableNameCow + " (id integer, value integer) WITH (\"format-version\" = '2', partitioning = Array['id'], \"write.delete.mode\" = 'copy-on-write')");
         assertUpdate("INSERT INTO " + tableNameCow + " VALUES (1, 10)", 1);
         assertUpdate("INSERT INTO " + tableNameCow + " VALUES (2, 1)", 1);
         assertUpdate("INSERT INTO " + tableNameCow + " VALUES (3, 5)", 1);
@@ -1653,7 +1758,7 @@ public abstract class IcebergDistributedSmokeTestBase
 
         Session session = getSession();
 
-        assertUpdate("CREATE TABLE " + tableName + " (a integer, b varchar) WITH (format_version = '2')");
+        assertUpdate("CREATE TABLE " + tableName + " (a integer, b varchar) WITH (\"format-version\" = '2')");
         assertUpdate("INSERT INTO " + tableName + " VALUES (1, '1001'), (2, '1002'), (3, '1003')", 3);
         assertQuery("SELECT * FROM " + tableName, "VALUES (1, '1001'), (2, '1002'), (3, '1003')");
         assertUpdate("DELETE FROM " + tableName + " WHERE b = '1001'", 1);
@@ -1682,7 +1787,7 @@ public abstract class IcebergDistributedSmokeTestBase
         Session session = getSession();
 
         String errorMessage = format("This connector only supports delete where one or more partitions are deleted entirely for table versions older than %d", MIN_FORMAT_VERSION_FOR_DELETE);
-        assertUpdate("CREATE TABLE " + tableName + " (id integer, value integer) WITH (format_version = '1', partitioning = Array['id'])");
+        assertUpdate("CREATE TABLE " + tableName + " (id integer, value integer) WITH (\"format-version\" = '1', partitioning = Array['id'])");
         assertUpdate("INSERT INTO " + tableName + " VALUES (1, 10)", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES (2, 1)", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES (3, 5)", 1);
@@ -1703,7 +1808,7 @@ public abstract class IcebergDistributedSmokeTestBase
         String tableName = "test_empty_partition_spec_table";
         try {
             // Create a table with no partition
-            assertUpdate("CREATE TABLE " + tableName + " (a INTEGER, b VARCHAR) WITH (format_version = '" + version + "', delete_mode = '" + mode + "')");
+            assertUpdate("CREATE TABLE " + tableName + " (a INTEGER, b VARCHAR) WITH (\"format-version\" = '" + version + "', \"write.delete.mode\" = '" + mode + "')");
 
             // Do not insert data, and evaluate the partition spec by adding a partition column `c`
             assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN c INTEGER WITH (partitioning = 'identity')");
@@ -1727,7 +1832,7 @@ public abstract class IcebergDistributedSmokeTestBase
         String tableName = "test_data_deleted_partition_spec_table";
         try {
             // Create a table with partition column `a`, and insert some data under this partition spec
-            assertUpdate("CREATE TABLE " + tableName + " (a INTEGER, b VARCHAR) WITH (format_version = '" + version + "', delete_mode = '" + mode + "', partitioning = ARRAY['a'])");
+            assertUpdate("CREATE TABLE " + tableName + " (a INTEGER, b VARCHAR) WITH (\"format-version\" = '" + version + "', \"write.delete.mode\" = '" + mode + "', partitioning = ARRAY['a'])");
             assertUpdate("INSERT INTO " + tableName + " VALUES (1, '1001'), (2, '1002')", 2);
 
             // Then evaluate the partition spec by adding a partition column `c`, and insert some data under the new partition spec
@@ -1774,7 +1879,7 @@ public abstract class IcebergDistributedSmokeTestBase
         Session session = sessionForTimezone("UTC", true);
         String tableName = "test_hour_transform_timestamp";
         try {
-            assertUpdate(session, "CREATE TABLE " + tableName + " (d TIMESTAMP, b BIGINT) WITH (format_version = '" + version + "', delete_mode = '" + mode + "', partitioning = ARRAY['hour(d)'])");
+            assertUpdate(session, "CREATE TABLE " + tableName + " (d TIMESTAMP, b BIGINT) WITH (\"format-version\" = '" + version + "', \"write.delete.mode\" = '" + mode + "', partitioning = ARRAY['hour(d)'])");
             assertUpdate(session, "INSERT INTO " + tableName + " VALUES (NULL, 101), (TIMESTAMP '1969-01-01 00:01:02.123', 10), (TIMESTAMP '1969-12-31 13:14:02.001', 11), (TIMESTAMP '1970-01-01 08:10:21.000', 1)", 4);
             assertQuery(session, "SELECT * FROM " + tableName, "VALUES (NULL, 101), (TIMESTAMP '1969-01-01 00:01:02.123', 10), (TIMESTAMP '1969-12-31 13:14:02.001', 11), (TIMESTAMP '1970-01-01 08:10:21.000', 1)");
 
@@ -1796,7 +1901,7 @@ public abstract class IcebergDistributedSmokeTestBase
         Session session = sessionForTimezone("UTC", true);
         String tableName = "test_day_transform_timestamp";
         try {
-            assertUpdate(session, "CREATE TABLE " + tableName + " (d TIMESTAMP, b BIGINT) WITH (format_version = '" + version + "', delete_mode = '" + mode + "', partitioning = ARRAY['day(d)'])");
+            assertUpdate(session, "CREATE TABLE " + tableName + " (d TIMESTAMP, b BIGINT) WITH (\"format-version\" = '" + version + "', \"write.delete.mode\" = '" + mode + "', partitioning = ARRAY['day(d)'])");
             assertUpdate(session, "INSERT INTO " + tableName + " VALUES (NULL, 101), (TIMESTAMP '1969-01-01 00:01:02.123', 10), (TIMESTAMP '1969-12-31 13:14:02.001', 11), (TIMESTAMP '1970-01-01 08:10:21.000', 1)", 4);
             assertQuery(session, "SELECT * FROM " + tableName, "VALUES (NULL, 101), (TIMESTAMP '1969-01-01 00:01:02.123', 10), (TIMESTAMP '1969-12-31 13:14:02.001', 11), (TIMESTAMP '1970-01-01 08:10:21.000', 1)");
 
@@ -1817,7 +1922,7 @@ public abstract class IcebergDistributedSmokeTestBase
     {
         String tableName = "test_month_transform_date";
         try {
-            assertUpdate("CREATE TABLE " + tableName + " (d DATE, b BIGINT) WITH (format_version = '" + version + "', delete_mode = '" + mode + "', partitioning = ARRAY['month(d)'])");
+            assertUpdate("CREATE TABLE " + tableName + " (d DATE, b BIGINT) WITH (\"format-version\" = '" + version + "', \"write.delete.mode\" = '" + mode + "', partitioning = ARRAY['month(d)'])");
             assertUpdate("INSERT INTO " + tableName + " VALUES (NULL, 101), (DATE '1958-03-02', 10), (DATE '1969-08-31', 11), (DATE '1970-08-01', 1)", 4);
             assertQuery("SELECT * FROM " + tableName, "VALUES (NULL, 101), (DATE '1958-03-02', 10), (DATE '1969-08-31', 11), (DATE '1970-08-01', 1)");
 
@@ -1838,7 +1943,7 @@ public abstract class IcebergDistributedSmokeTestBase
     {
         String tableName = "test_year_transform_date";
         try {
-            assertUpdate("CREATE TABLE " + tableName + " (d DATE, b BIGINT) WITH (format_version = '" + version + "', delete_mode = '" + mode + "', partitioning = ARRAY['year(d)'])");
+            assertUpdate("CREATE TABLE " + tableName + " (d DATE, b BIGINT) WITH (\"format-version\" = '" + version + "', \"write.delete.mode\" = '" + mode + "', partitioning = ARRAY['year(d)'])");
             assertUpdate("INSERT INTO " + tableName + " VALUES (NULL, 101), (DATE '1958-03-02', 10), (DATE '1969-08-31', 11), (DATE '1970-08-01', 1)", 4);
             assertQuery("SELECT * FROM " + tableName, "VALUES (NULL, 101), (DATE '1958-03-02', 10), (DATE '1969-08-31', 11), (DATE '1970-08-01', 1)");
 
@@ -1859,7 +1964,7 @@ public abstract class IcebergDistributedSmokeTestBase
     {
         String tableName = "test_truncate_transform";
         try {
-            assertUpdate("CREATE TABLE " + tableName + " (c VARCHAR, d DECIMAL(9, 2), b BIGINT) WITH (format_version = '" + version + "', delete_mode = '" + mode + "', partitioning = ARRAY['truncate(c, 2)', 'truncate(d, 10)'])");
+            assertUpdate("CREATE TABLE " + tableName + " (c VARCHAR, d DECIMAL(9, 2), b BIGINT) WITH (\"format-version\" = '" + version + "', \"write.delete.mode\" = '" + mode + "', partitioning = ARRAY['truncate(c, 2)', 'truncate(d, 10)'])");
             assertUpdate("INSERT INTO " + tableName + " VALUES (NULL, 11.59, 101), ('abcd', 12.34, 10), ('abxy', NULL, 11), ('Kielce', 12.30, 1), ('Kiev', 0.05, 2)", 5);
             assertQuery("SELECT * FROM " + tableName, "VALUES (NULL, 11.59, 101), ('abcd', 12.34, 10), ('abxy', NULL, 11), ('Kielce', 12.30, 1), ('Kiev', 0.05, 2)");
 
@@ -1897,9 +2002,9 @@ public abstract class IcebergDistributedSmokeTestBase
     {
         Session session = getSession();
         String tableName = "test_invalid_property_update";
-        assertUpdate(session, "CREATE TABLE " + tableName + " (c1 integer, c2 varchar) WITH(commit_retries = 4)");
-        assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES (format = 'PARQUET')"))
-                .hasMessage("Updating property format is not supported currently");
+        assertUpdate(session, "CREATE TABLE " + tableName + " (c1 integer, c2 varchar) WITH(\"commit.retry.num-retries\" = 4)");
+        assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES (\"write.format.default\" = 'PARQUET')"))
+                .hasMessage("Updating property write.format.default is not supported currently");
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -1908,7 +2013,7 @@ public abstract class IcebergDistributedSmokeTestBase
     {
         Session session = getSession();
         String tableName = "test_random_property_update";
-        assertUpdate(session, "CREATE TABLE " + tableName + " (c1 integer, c2 varchar) WITH(commit_retries = 4)");
+        assertUpdate(session, "CREATE TABLE " + tableName + " (c1 integer, c2 varchar) WITH(\"commit.retry.num-retries\" = 4)");
         assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES (some_config = 2)"))
                 .hasMessage("Catalog 'iceberg' does not support table property 'some_config'");
         assertUpdate("DROP TABLE " + tableName);
@@ -1919,10 +2024,10 @@ public abstract class IcebergDistributedSmokeTestBase
     {
         Session session = getSession();
         String tableName = "test_commit_retries_update";
-        assertUpdate(session, "CREATE TABLE " + tableName + " (c1 integer, c2 varchar) WITH(commit_retries = 4)");
+        assertUpdate(session, "CREATE TABLE " + tableName + " (c1 integer, c2 varchar) WITH(\"commit.retry.num-retries\" = 4)");
         assertQuery("SELECT value FROM \"" + tableName + "$properties\" WHERE key = 'commit.retry.num-retries'", "VALUES 4");
-        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES (commit_retries = 5)");
-        assertUpdate("ALTER TABLE IF EXISTS " + tableName + " SET PROPERTIES (commit_retries = 6)");
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES (\"commit.retry.num-retries\" = 5)");
+        assertUpdate("ALTER TABLE IF EXISTS " + tableName + " SET PROPERTIES (\"commit.retry.num-retries\" = 6)");
         assertQuery("SELECT value FROM \"" + tableName + "$properties\" WHERE key = 'commit.retry.num-retries'", "VALUES 6");
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -1930,8 +2035,70 @@ public abstract class IcebergDistributedSmokeTestBase
     @Test
     public void testUpdateNonExistentTable()
     {
-        assertQuerySucceeds("ALTER TABLE IF EXISTS non_existent_test_table1 SET PROPERTIES (commit_retries = 6)");
-        assertQueryFails("ALTER TABLE non_existent_test_table2 SET PROPERTIES (commit_retries = 6)",
+        assertQuerySucceeds("ALTER TABLE IF EXISTS non_existent_test_table1 SET PROPERTIES (\"commit.retry.num-retries\" = 6)");
+        assertQueryFails("ALTER TABLE non_existent_test_table2 SET PROPERTIES (\"commit.retry.num-retries\" = 6)",
                 format("Table does not exist: iceberg.%s.non_existent_test_table2", getSession().getSchema().get()));
+    }
+
+    protected HdfsEnvironment getHdfsEnvironment()
+    {
+        HiveClientConfig hiveClientConfig = new HiveClientConfig();
+        MetastoreClientConfig metastoreClientConfig = new MetastoreClientConfig();
+        HiveS3Config hiveS3Config = new HiveS3Config();
+        return IcebergDistributedTestBase.getHdfsEnvironment(hiveClientConfig, metastoreClientConfig, hiveS3Config);
+    }
+
+    private static String getMetadataFileLocation(ConnectorSession session, HdfsEnvironment hdfsEnvironment, String schema, String table, String metadataLocation)
+    {
+        metadataLocation = stripTrailingSlash(metadataLocation);
+        org.apache.hadoop.fs.Path metadataDir = new org.apache.hadoop.fs.Path(metadataLocation, METADATA_FOLDER_NAME);
+        FileSystem fileSystem = getFileSystem(session, hdfsEnvironment, new SchemaTableName(schema, table), metadataDir);
+        return resolveLatestMetadataLocation(
+                session,
+                fileSystem,
+                metadataDir).getName();
+    }
+
+    @Test
+    public void testDeprecatedTablePropertiesCreateTable()
+    {
+        Map<String, String> deprecatedProperties = ImmutableMap.<String, String>builder()
+                .put(FILE_FORMAT_PROPERTY, "'ORC'")
+                .put(FORMAT_VERSION, "'1'")
+                .put(COMMIT_RETRIES, "1234")
+                .put(DELETE_MODE, "'copy-on-write'")
+                .put(METADATA_PREVIOUS_VERSIONS_MAX, "567")
+                .put(METADATA_DELETE_AFTER_COMMIT, "true")
+                .put(METRICS_MAX_INFERRED_COLUMN, "123")
+                .build();
+        deprecatedProperties.forEach((oldProperty, value) -> {
+            Session session = Session.builder(getSession()).build();
+            String tableName = "test_deprecated_table_properties_" + oldProperty;
+            DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
+            MaterializedResult result = queryRunner.execute(session, "CREATE TABLE " + tableName + " (c1 integer) WITH (" + oldProperty + " = " + value + ")");
+            assertEquals(result.getWarnings().size(), 1);
+            assertTrue(result.getWarnings().stream()
+                    .anyMatch(code -> code.getWarningCode().equals(USE_OF_DEPRECATED_TABLE_PROPERTY.toWarningCode())));
+            assertUpdate(session, "DROP TABLE " + tableName);
+        });
+    }
+
+    @Test
+    public void testDeprecatedTablePropertiesAlterTable()
+    {
+        Map<String, String> deprecatedProperties = ImmutableMap.<String, String>builder()
+                .put(COMMIT_RETRIES, "1234")
+                .build();
+        deprecatedProperties.forEach((oldProperty, value) -> {
+            Session session = Session.builder(getSession()).build();
+            String tableName = "test_deprecated_table_properties_" + oldProperty;
+            DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
+            assertQuerySucceeds(session, "CREATE TABLE " + tableName + " (c1 integer) WITH (" + oldProperty + " = " + value + ")");
+            MaterializedResult result = queryRunner.execute(session, "ALTER TABLE " + tableName + " SET PROPERTIES (" + oldProperty + " = " + value + ")");
+            assertEquals(result.getWarnings().size(), 1);
+            assertTrue(result.getWarnings().stream()
+                    .anyMatch(code -> code.getWarningCode().equals(USE_OF_DEPRECATED_TABLE_PROPERTY.toWarningCode())));
+            assertUpdate(session, "DROP TABLE " + tableName);
+        });
     }
 }

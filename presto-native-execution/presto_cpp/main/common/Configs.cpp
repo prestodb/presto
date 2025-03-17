@@ -37,6 +37,15 @@ std::string bool2String(bool value) {
   return value ? "true" : "false";
 }
 
+int getThreadCount() {
+  auto numThreads = std::thread::hardware_concurrency();
+  // The spec says std::thread::hardware_concurrency() might return 0.
+  // But we depend on std::thread::hardware_concurrency() to create executors.
+  // Check to ensure numThreads is > 0.
+  VELOX_CHECK_GT(numThreads, 0);
+  return numThreads;
+}
+
 #define STR_PROP(_key_, _val_) \
   { std::string(_key_), std::string(_val_) }
 #define NUM_PROP(_key_, _val_) \
@@ -138,7 +147,7 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kHttpServerReusePort, false),
           BOOL_PROP(kHttpServerBindToNodeInternalAddressOnlyEnabled, false),
           NONE_PROP(kDiscoveryUri),
-          NUM_PROP(kMaxDriversPerTask, 16),
+          NUM_PROP(kMaxDriversPerTask, getThreadCount()),
           NONE_PROP(kTaskWriterCount),
           NONE_PROP(kTaskPartitionedWriterCount),
           NUM_PROP(kConcurrentLifespansPerTask, 1),
@@ -168,9 +177,9 @@ SystemConfig::SystemConfig() {
           STR_PROP(kSpillerDirectoryCreateConfig, ""),
           NONE_PROP(kSpillerSpillPath),
           NUM_PROP(kShutdownOnsetSec, 10),
-          NUM_PROP(kSystemMemoryGb, 40),
+          NUM_PROP(kSystemMemoryGb, 57),
           BOOL_PROP(kSystemMemPushbackEnabled, false),
-          NUM_PROP(kSystemMemLimitGb, 55),
+          NUM_PROP(kSystemMemLimitGb, 60),
           NUM_PROP(kSystemMemShrinkGb, 8),
           BOOL_PROP(kMallocMemHeapDumpEnabled, false),
           BOOL_PROP(kSystemMemPushbackAbortEnabled, false),
@@ -240,6 +249,7 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kEnableRuntimeMetricsCollection, false),
           BOOL_PROP(kPlanValidatorFailOnNestedLoopJoin, false),
           STR_PROP(kPrestoDefaultNamespacePrefix, "presto.default"),
+          STR_PROP(kPoolType, "DEFAULT"),
       };
 }
 
@@ -288,6 +298,19 @@ folly::Optional<std::string> SystemConfig::httpsClientCertAndKeyPath() const {
 
 std::string SystemConfig::prestoVersion() const {
   return requiredProperty(std::string(kPrestoVersion));
+}
+
+std::string SystemConfig::poolType() const {
+  static const std::unordered_set<std::string> kPoolTypes = {
+      "LEAF", "INTERMEDIATE", "DEFAULT"};
+  static constexpr std::string_view kPoolTypeDefault = "DEFAULT";
+  auto value = optionalProperty<std::string>(kPoolType).value_or(
+      std::string(kPoolTypeDefault));
+  VELOX_USER_CHECK(
+      kPoolTypes.count(value),
+      "{} must be one of 'LEAF', 'INTERMEDIATE', or 'DEFAULT'",
+      kPoolType);
+  return value;
 }
 
 bool SystemConfig::mutableConfig() const {
@@ -613,6 +636,63 @@ std::string SystemConfig::sharedArbitratorMemoryPoolMinFreeCapacityPct() const {
              kSharedArbitratorMemoryPoolMinFreeCapacityPct)
       .value_or(
           std::string(kSharedArbitratorMemoryPoolMinFreeCapacityPctDefault));
+}
+
+std::string SystemConfig::sharedArbitratorMemoryPoolAbortCapacityLimit() const {
+  static constexpr std::string_view
+      kSharedArbitratorMemoryPoolAbortCapacityLimitDefault = "1GB";
+  return optionalProperty<std::string>(
+             kSharedArbitratorMemoryPoolAbortCapacityLimit)
+      .value_or(
+          std::string(kSharedArbitratorMemoryPoolAbortCapacityLimitDefault));
+}
+
+std::string SystemConfig::sharedArbitratorMemoryPoolMinReclaimBytes() const {
+  static constexpr std::string_view
+      kSharedArbitratorMemoryPoolMinReclaimBytesDefault = "128MB";
+  return optionalProperty<std::string>(
+             kSharedArbitratorMemoryPoolMinReclaimBytes)
+      .value_or(std::string(kSharedArbitratorMemoryPoolMinReclaimBytesDefault));
+}
+
+std::string SystemConfig::sharedArbitratorMemoryReclaimThreadsHwMultiplier()
+    const {
+  static constexpr std::string_view
+      kSharedArbitratorMemoryReclaimThreadsHwMultiplierDefault = "0.5";
+  return optionalProperty<std::string>(
+             kSharedArbitratorMemoryReclaimThreadsHwMultiplier)
+      .value_or(std::string(
+          kSharedArbitratorMemoryReclaimThreadsHwMultiplierDefault));
+}
+
+std::string SystemConfig::sharedArbitratorGlobalArbitrationMemoryReclaimPct()
+    const {
+  static constexpr std::string_view
+      kSharedArbitratorGlobalArbitrationMemoryReclaimPctDefault = "10";
+  return optionalProperty<std::string>(
+             kSharedArbitratorGlobalArbitrationMemoryReclaimPct)
+      .value_or(std::string(
+          kSharedArbitratorGlobalArbitrationMemoryReclaimPctDefault));
+}
+
+std::string SystemConfig::sharedArbitratorGlobalArbitrationAbortTimeRatio()
+    const {
+  static constexpr std::string_view
+      kSharedArbitratorGlobalArbitrationAbortTimeRatioDefault = "0.5";
+  return optionalProperty<std::string>(
+             kSharedArbitratorGlobalArbitrationAbortTimeRatio)
+      .value_or(
+          std::string(kSharedArbitratorGlobalArbitrationAbortTimeRatioDefault));
+}
+
+std::string SystemConfig::sharedArbitratorGlobalArbitrationWithoutSpill()
+    const {
+  static constexpr std::string_view
+      kSharedArbitratorGlobalArbitrationWithoutSpillDefault = "false";
+  return optionalProperty<std::string>(
+             kSharedArbitratorGlobalArbitrationWithoutSpill)
+      .value_or(
+          std::string(kSharedArbitratorGlobalArbitrationWithoutSpillDefault));
 }
 
 bool SystemConfig::enableSystemMemoryPoolUsageTracking() const {

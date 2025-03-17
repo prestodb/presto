@@ -30,8 +30,10 @@ import javax.annotation.concurrent.Immutable;
 import java.util.OptionalDouble;
 import java.util.Set;
 
+import static com.facebook.presto.util.DateTimeUtils.toTimeStampInMillis;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static java.lang.System.currentTimeMillis;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -43,13 +45,14 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 @Immutable
 public class BasicQueryStats
 {
-    private final DateTime createTime;
-    private final DateTime endTime;
+    private final long createTimeInMillis;
+    private final long endTimeInMillis;
 
     private final Duration waitingForPrerequisitesTime;
     private final Duration queuedTime;
     private final Duration elapsedTime;
     private final Duration executionTime;
+    private final Duration analysisTime;
 
     private final int runningTasks;
     private final int peakRunningTasks;
@@ -80,46 +83,45 @@ public class BasicQueryStats
 
     private final OptionalDouble progressPercentage;
 
-    @ThriftConstructor
-    @JsonCreator
     public BasicQueryStats(
-            @JsonProperty("createTime") DateTime createTime,
-            @JsonProperty("endTime") DateTime endTime,
-            @JsonProperty("waitingForPrerequisitesTime") Duration waitingForPrerequisitesTime,
-            @JsonProperty("queuedTime") Duration queuedTime,
-            @JsonProperty("elapsedTime") Duration elapsedTime,
-            @JsonProperty("executionTime") Duration executionTime,
-            @JsonProperty("runningTasks") int runningTasks,
-            @JsonProperty("peakRunningTasks") int peakRunningTasks,
-            @JsonProperty("totalDrivers") int totalDrivers,
-            @JsonProperty("queuedDrivers") int queuedDrivers,
-            @JsonProperty("runningDrivers") int runningDrivers,
-            @JsonProperty("completedDrivers") int completedDrivers,
-            @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
-            @JsonProperty("rawInputPositions") long rawInputPositions,
-            @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
-            @JsonProperty("cumulativeTotalMemory") double cumulativeTotalMemory,
-            @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
-            @JsonProperty("totalMemoryReservation") DataSize totalMemoryReservation,
-            @JsonProperty("peakUserMemoryReservation") DataSize peakUserMemoryReservation,
-            @JsonProperty("peakTotalMemoryReservation") DataSize peakTotalMemoryReservation,
-            @JsonProperty("peakTaskTotalMemoryReservation") DataSize peakTaskTotalMemoryReservation,
-            @JsonProperty("peakNodeTotalMemoryReservation") DataSize peakNodeTotalMemoryReservation,
-            @JsonProperty("totalCpuTime") Duration totalCpuTime,
-            @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
-            @JsonProperty("fullyBlocked") boolean fullyBlocked,
-            @JsonProperty("blockedReasons") Set<BlockedReason> blockedReasons,
-            @JsonProperty("totalAllocation") DataSize totalAllocation,
-            @JsonProperty("progressPercentage") OptionalDouble progressPercentage)
+            long createTimeInMillis,
+            long endTimeInMillis,
+            Duration waitingForPrerequisitesTime,
+            Duration queuedTime,
+            Duration elapsedTime,
+            Duration executionTime,
+            Duration analysisTime,
+            int runningTasks,
+            int peakRunningTasks,
+            int totalDrivers,
+            int queuedDrivers,
+            int runningDrivers,
+            int completedDrivers,
+            DataSize rawInputDataSize,
+            long rawInputPositions,
+            double cumulativeUserMemory,
+            double cumulativeTotalMemory,
+            DataSize userMemoryReservation,
+            DataSize totalMemoryReservation,
+            DataSize peakUserMemoryReservation,
+            DataSize peakTotalMemoryReservation,
+            DataSize peakTaskTotalMemoryReservation,
+            DataSize peakNodeTotalMemoryReservation,
+            Duration totalCpuTime,
+            Duration totalScheduledTime,
+            boolean fullyBlocked,
+            Set<BlockedReason> blockedReasons,
+            DataSize totalAllocation,
+            OptionalDouble progressPercentage)
     {
-        this.createTime = createTime;
-        this.endTime = endTime;
+        this.createTimeInMillis = createTimeInMillis;
+        this.endTimeInMillis = endTimeInMillis;
 
         this.waitingForPrerequisitesTime = requireNonNull(waitingForPrerequisitesTime, "waitingForPrerequisitesTimex is null");
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
         this.elapsedTime = requireNonNull(elapsedTime, "elapsedTime is null");
         this.executionTime = requireNonNull(executionTime, "executionTime is null");
-
+        this.analysisTime = requireNonNull(analysisTime, "analysisTime is null");
         this.runningTasks = runningTasks;
         this.peakRunningTasks = peakRunningTasks;
 
@@ -154,14 +156,79 @@ public class BasicQueryStats
         this.progressPercentage = requireNonNull(progressPercentage, "progressPercentage is null");
     }
 
+    @ThriftConstructor
+    @JsonCreator
+    public BasicQueryStats(
+            @JsonProperty("createTime") DateTime createTime,
+            @JsonProperty("endTime") DateTime endTime,
+            @JsonProperty("waitingForPrerequisitesTime") Duration waitingForPrerequisitesTime,
+            @JsonProperty("queuedTime") Duration queuedTime,
+            @JsonProperty("elapsedTime") Duration elapsedTime,
+            @JsonProperty("executionTime") Duration executionTime,
+            @JsonProperty("analysisTime") Duration analysisTime,
+            @JsonProperty("runningTasks") int runningTasks,
+            @JsonProperty("peakRunningTasks") int peakRunningTasks,
+            @JsonProperty("totalDrivers") int totalDrivers,
+            @JsonProperty("queuedDrivers") int queuedDrivers,
+            @JsonProperty("runningDrivers") int runningDrivers,
+            @JsonProperty("completedDrivers") int completedDrivers,
+            @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
+            @JsonProperty("rawInputPositions") long rawInputPositions,
+            @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
+            @JsonProperty("cumulativeTotalMemory") double cumulativeTotalMemory,
+            @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
+            @JsonProperty("totalMemoryReservation") DataSize totalMemoryReservation,
+            @JsonProperty("peakUserMemoryReservation") DataSize peakUserMemoryReservation,
+            @JsonProperty("peakTotalMemoryReservation") DataSize peakTotalMemoryReservation,
+            @JsonProperty("peakTaskTotalMemoryReservation") DataSize peakTaskTotalMemoryReservation,
+            @JsonProperty("peakNodeTotalMemoryReservation") DataSize peakNodeTotalMemoryReservation,
+            @JsonProperty("totalCpuTime") Duration totalCpuTime,
+            @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
+            @JsonProperty("fullyBlocked") boolean fullyBlocked,
+            @JsonProperty("blockedReasons") Set<BlockedReason> blockedReasons,
+            @JsonProperty("totalAllocation") DataSize totalAllocation,
+            @JsonProperty("progressPercentage") OptionalDouble progressPercentage)
+    {
+        this(toTimeStampInMillis(createTime),
+                toTimeStampInMillis(endTime),
+                waitingForPrerequisitesTime,
+                queuedTime,
+                elapsedTime,
+                executionTime,
+                analysisTime,
+                runningTasks,
+                peakRunningTasks,
+                totalDrivers,
+                queuedDrivers,
+                runningDrivers,
+                completedDrivers,
+                rawInputDataSize,
+                rawInputPositions,
+                cumulativeUserMemory,
+                cumulativeTotalMemory,
+                userMemoryReservation,
+                totalMemoryReservation,
+                peakUserMemoryReservation,
+                peakTotalMemoryReservation,
+                peakTaskTotalMemoryReservation,
+                peakNodeTotalMemoryReservation,
+                totalCpuTime,
+                totalScheduledTime,
+                fullyBlocked,
+                blockedReasons,
+                totalAllocation,
+                progressPercentage);
+    }
+
     public BasicQueryStats(QueryStats queryStats)
     {
-        this(queryStats.getCreateTime(),
-                queryStats.getEndTime(),
+        this(queryStats.getCreateTimeInMillis(),
+                queryStats.getEndTimeInMillis(),
                 queryStats.getWaitingForPrerequisitesTime(),
                 queryStats.getQueuedTime(),
                 queryStats.getElapsedTime(),
                 queryStats.getExecutionTime(),
+                queryStats.getAnalysisTime(),
                 queryStats.getRunningTasks(),
                 queryStats.getPeakRunningTasks(),
                 queryStats.getTotalDrivers(),
@@ -188,10 +255,11 @@ public class BasicQueryStats
 
     public static BasicQueryStats immediateFailureQueryStats()
     {
-        DateTime now = DateTime.now();
+        long now = currentTimeMillis();
         return new BasicQueryStats(
                 now,
                 now,
+                new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
@@ -224,14 +292,24 @@ public class BasicQueryStats
     @JsonProperty
     public DateTime getCreateTime()
     {
-        return createTime;
+        return new DateTime(createTimeInMillis);
+    }
+
+    public long getCreateTimeInMillis()
+    {
+        return createTimeInMillis;
     }
 
     @ThriftField(2)
     @JsonProperty
     public DateTime getEndTime()
     {
-        return endTime;
+        return new DateTime(endTimeInMillis);
+    }
+
+    public long getEndTimeInMillis()
+    {
+        return endTimeInMillis;
     }
 
     @ThriftField(3)
@@ -413,5 +491,12 @@ public class BasicQueryStats
     public int getRunningTasks()
     {
         return runningTasks;
+    }
+
+    @ThriftField(29)
+    @JsonProperty
+    public Duration getAnalysisTime()
+    {
+        return analysisTime;
     }
 }

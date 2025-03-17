@@ -14,7 +14,9 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <grpc.version>1.68.0</grpc.version>
+        <google.auth.library.version>1.33.1</google.auth.library.version>
+        <google.auto.value.version>1.11.0</google.auto.value.version>
+        <google.http.client.version>1.46.3</google.http.client.version>
     </properties>
 
     <dependencyManagement>
@@ -48,7 +50,7 @@
             <dependency>
                 <groupId>com.google.auth</groupId>
                 <artifactId>google-auth-library-oauth2-http</artifactId>
-                <version>1.23.0</version>
+                <version>${google.auth.library.version}</version>
             </dependency>
 
             <dependency>
@@ -92,7 +94,7 @@
             <dependency>
                 <groupId>com.google.auth</groupId>
                 <artifactId>google-auth-library-credentials</artifactId>
-                <version>1.23.0</version>
+                <version>${google.auth.library.version}</version>
             </dependency>
 
             <dependency>
@@ -104,19 +106,19 @@
             <dependency>
                 <groupId>com.google.auto.value</groupId>
                 <artifactId>auto-value-annotations</artifactId>
-                <version>1.10.4</version>
+                <version>${google.auto.value.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>com.google.http-client</groupId>
                 <artifactId>google-http-client</artifactId>
-                <version>1.43.3</version>
+                <version>${google.http.client.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>com.google.http-client</groupId>
                 <artifactId>google-http-client-gson</artifactId>
-                <version>1.43.3</version>
+                <version>${google.http.client.version}</version>
             </dependency>
 
             <dependency>

@@ -42,12 +42,13 @@ class ConfigBase {
     config_ = std::move(config);
   }
 
-  /// Registers an extra property in the config.
+  /// DO NOT DELETE THIS METHOD!
+  /// The method is used to register new properties after the config class is created.
   /// Returns true if succeeded, false if failed (due to the property already
   /// registered).
   bool registerProperty(
-      const std::string& propertyName,
-      const folly::Optional<std::string>& defaultValue = {});
+    const std::string& propertyName,
+    const folly::Optional<std::string>& defaultValue = {});
 
   /// Adds or replaces value at the given key. Can be used by debugging or
   /// testing code.
@@ -490,6 +491,56 @@ class SystemConfig : public ConfigBase {
       kSharedArbitratorMemoryPoolMinFreeCapacityPct{
           "shared-arbitrator.memory-pool-min-free-capacity-pct"};
 
+  /// Specifies the starting memory capacity limit for global arbitration to
+  /// search for victim participant to reclaim used memory by abort. For
+  /// participants with capacity larger than the limit, the global arbitration
+  /// choose to abort the youngest participant which has the largest
+  /// participant id. This helps to let the old queries to run to completion.
+  /// The abort capacity limit is reduced by half if could not find a victim
+  /// participant until this reaches to zero.
+  ///
+  /// NOTE: the limit must be zero or a power of 2.
+  static constexpr std::string_view
+      kSharedArbitratorMemoryPoolAbortCapacityLimit{
+          "shared-arbitrator.memory-pool-abort-capacity-limit"};
+
+  /// Specifies the minimum bytes to reclaim from a participant at a time. The
+  /// global arbitration also avoids to reclaim from a participant if its
+  /// reclaimable used capacity is less than this threshold. This is to
+  /// prevent inefficient memory reclaim operations on a participant with
+  /// small reclaimable used capacity which could causes a large number of
+  /// small spilled file on disk.
+  static constexpr std::string_view kSharedArbitratorMemoryPoolMinReclaimBytes{
+      "shared-arbitrator.memory-pool-min-reclaim-bytes"};
+
+  /// Floating point number used in calculating how many threads we would use
+  /// for memory reclaim execution: hw_concurrency x multiplier. 0.5 is
+  /// default.
+  static constexpr std::string_view
+      kSharedArbitratorMemoryReclaimThreadsHwMultiplier{
+          "shared-arbitrator.memory-reclaim-threads-hw-multiplier"};
+
+  /// If not zero, specifies the minimum amount of memory to reclaim by global
+  /// memory arbitration as percentage of total arbitrator memory capacity.
+  static constexpr std::string_view
+      kSharedArbitratorGlobalArbitrationMemoryReclaimPct{
+          "shared-arbitrator.global-arbitration-memory-reclaim-pct"};
+
+  /// The ratio used with 'shared-arbitrator.memory-reclaim-max-wait-time',
+  /// beyond which, global arbitration will no longer reclaim memory by
+  /// spilling, but instead directly abort. It is only in effect when
+  /// 'global-arbitration-enabled' is true
+  static constexpr std::string_view
+      kSharedArbitratorGlobalArbitrationAbortTimeRatio{
+          "shared-arbitrator.global-arbitration-abort-time-ratio"};
+
+  /// If true, global arbitration will not reclaim memory by spilling, but
+  /// only by aborting. This flag is only effective if
+  /// 'shared-arbitrator.global-arbitration-enabled' is true
+  static constexpr std::string_view
+      kSharedArbitratorGlobalArbitrationWithoutSpill{
+          "shared-arbitrator.global-arbitration-without-spill"};
+
   /// Enables the memory usage tracking for the system memory pool used for
   /// cases such as disk spilling.
   static constexpr std::string_view kEnableSystemMemoryPoolUsageTracking{
@@ -658,6 +709,9 @@ class SystemConfig : public ConfigBase {
   // Specifies the default Presto namespace prefix.
   static constexpr std::string_view kPrestoDefaultNamespacePrefix{
       "presto.default-namespace"};
+
+  // Specifies the type of worker pool
+  static constexpr std::string_view kPoolType{"pool-type"};
 
   SystemConfig();
 
@@ -828,6 +882,18 @@ class SystemConfig : public ConfigBase {
 
   std::string sharedArbitratorMemoryPoolMinFreeCapacityPct() const;
 
+  std::string sharedArbitratorMemoryPoolAbortCapacityLimit() const;
+
+  std::string sharedArbitratorMemoryPoolMinReclaimBytes() const;
+
+  std::string sharedArbitratorMemoryReclaimThreadsHwMultiplier() const;
+
+  std::string sharedArbitratorGlobalArbitrationMemoryReclaimPct() const;
+
+  std::string sharedArbitratorGlobalArbitrationAbortTimeRatio() const;
+
+  std::string sharedArbitratorGlobalArbitrationWithoutSpill() const;
+
   int32_t queryMemoryGb() const;
 
   bool enableSystemMemoryPoolUsageTracking() const;
@@ -898,6 +964,8 @@ class SystemConfig : public ConfigBase {
 
   bool prestoNativeSidecar() const;
   std::string prestoDefaultNamespacePrefix() const;
+
+  std::string poolType() const;
 };
 
 /// Provides access to node properties defined in node.properties file.

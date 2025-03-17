@@ -7,7 +7,7 @@ Overview
 
 This connector allows reading `Delta Lake <https://delta.io/>`_
 tables in Presto. The connector uses the
-`Delta Standalone Library (DSR) <https://github.com/delta-io/connectors/wiki/Delta-Standalone-Reader>`_
+`Delta Kernel API <https://docs.delta.io/latest/delta-kernel.html>`_
 provided by Delta Lake project to read the table metadata.
 
 Configuration
@@ -21,6 +21,12 @@ replacing the properties as appropriate:
 
     connector.name=delta
     hive.metastore.uri=hostname:port
+
+File-Based Metastore
+^^^^^^^^^^^^^^^^^^^^
+
+For testing or development purposes, this connector can be configured to use a local 
+filesystem directory as a Hive Metastore. See :ref:`installation/deployment:File-Based Metastore`.  
 
 Configuration Properties
 ------------------------

@@ -247,7 +247,7 @@ public class TestHttpRemoteTask
 
         assertTrue(remoteTask.getTaskStatus().getState().isDone(), format("TaskStatus is not in a done state: %s", remoteTask.getTaskStatus()));
         assertThat(getOnlyElement(remoteTask.getTaskStatus().getFailures()).getMessage())
-                .matches("TaskUpdate size of .+? has exceeded the limit of 1kB");
+                .matches("TaskUpdate size of .+? has exceeded the limit of 1024 bytes");
     }
 
     @Test(dataProvider = "getUpdateSize")
@@ -276,15 +276,15 @@ public class TestHttpRemoteTask
     protected Object[][] getUpdateSize()
     {
         return new Object[][] {
-                {2000, 1000, "TaskUpdate size of 1.95kB has exceeded the limit of 1000B"},
-                {2000, 1024, "TaskUpdate size of 1.95kB has exceeded the limit of 1kB"},
-                {5000, 4 * 1024, "TaskUpdate size of 4.88kB has exceeded the limit of 4kB"},
-                {2 * 1024, 1024, "TaskUpdate size of 2kB has exceeded the limit of 1kB"},
-                {1024 * 1024, 512 * 1024, "TaskUpdate size of 1MB has exceeded the limit of 512kB"},
-                {16 * 1024 * 1024, 8 * 1024 * 1024, "TaskUpdate size of 16MB has exceeded the limit of 8MB"},
-                {485 * 1000 * 1000, 1024 * 1024 * 512, "TaskUpdate size of 462.53MB has exceeded the limit of 512MB"},
-                {1024 * 1024 * 1024, 1024 * 1024 * 512, "TaskUpdate size of 1GB has exceeded the limit of 512MB"},
-                {860492511, 524288000, "TaskUpdate size of 820.63MB has exceeded the limit of 500MB"}};
+                {2000, 1000, "TaskUpdate size of 2000 bytes has exceeded the limit of 1000 bytes"},
+                {2000, 1024, "TaskUpdate size of 2000 bytes has exceeded the limit of 1024 bytes"},
+                {5000, 4 * 1024, "TaskUpdate size of 5000 bytes has exceeded the limit of 4096 bytes"},
+                {2 * 1024, 1024, "TaskUpdate size of 2048 bytes has exceeded the limit of 1024 bytes"},
+                {1024 * 1024, 512 * 1024, "TaskUpdate size of 1048576 bytes has exceeded the limit of 524288 bytes"},
+                {16 * 1024 * 1024, 8 * 1024 * 1024, "TaskUpdate size of 16777216 bytes has exceeded the limit of 8388608 bytes"},
+                {485 * 1000 * 1000, 1024 * 1024 * 512, "TaskUpdate size of 485000000 bytes has exceeded the limit of 536870912 bytes"},
+                {1024 * 1024 * 1024, 1024 * 1024 * 512, "TaskUpdate size of 1073741824 bytes has exceeded the limit of 536870912 bytes"},
+                {860492511, 524288000, "TaskUpdate size of 860492511 bytes has exceeded the limit of 524288000 bytes"}};
     }
 
     private void runTest(FailureScenario failureScenario, boolean useThriftEncoding)
@@ -604,7 +604,7 @@ public class TestHttpRemoteTask
             return new TaskInfo(
                     initialTaskInfo.getTaskId(),
                     buildTaskStatus(),
-                    initialTaskInfo.getLastHeartbeat(),
+                    initialTaskInfo.getLastHeartbeatInMillis(),
                     initialTaskInfo.getOutputBuffers(),
                     initialTaskInfo.getNoMoreSplits(),
                     initialTaskInfo.getStats(),

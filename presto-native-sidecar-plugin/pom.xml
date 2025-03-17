@@ -214,7 +214,7 @@
         <dependency>
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
-            <scope>test</scope>
+            <scope>compile</scope>
         </dependency>
 
         <dependency>
@@ -247,6 +247,18 @@
                         <ignoredClassPattern>org.apache.avro.*</ignoredClassPattern>
                         <ignoredClassPattern>org.roaringbitmap.*</ignoredClassPattern>
                     </ignoredClassPatterns>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <ignoredUnusedDeclaredDependencies>
+                        <!--  OkHttp pulls in kotlin-stdlib in compile scope, but it is only used in tests here.
+                         Changing its scope causes Maven to flag it as unused, leading to build failures.
+                         We add it here to keep it in compile scope while only using it directly in tests.-->
+                        <ignoredUnusedDeclaredDependency>org.jetbrains:annotations</ignoredUnusedDeclaredDependency>
+                    </ignoredUnusedDeclaredDependencies>
                 </configuration>
             </plugin>
         </plugins>

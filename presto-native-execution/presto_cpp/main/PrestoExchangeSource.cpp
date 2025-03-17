@@ -255,6 +255,10 @@ void PrestoExchangeSource::handleDataResponse(
 
 void PrestoExchangeSource::processDataResponse(
     std::unique_ptr<http::HttpResponse> response) {
+  RECORD_HISTOGRAM_METRIC_VALUE(
+      kCounterExchangeRequestDuration, dataRequestRetryState_.durationMs());
+  RECORD_HISTOGRAM_METRIC_VALUE(
+      kCounterExchangeRequestNumTries, dataRequestRetryState_.numTries());
   if (closed_.load()) {
     // If PrestoExchangeSource is already closed, just free all buffers
     // allocated without doing any processing. This can happen when a super slow

@@ -313,9 +313,9 @@ void updatePipelineStats(
     protocol::PipelineStats& prestoPipelineStats) {
   prestoPipelineStats.inputPipeline = veloxPipelineStats.inputPipeline;
   prestoPipelineStats.outputPipeline = veloxPipelineStats.outputPipeline;
-  prestoPipelineStats.firstStartTime = prestoTaskStats.createTime;
-  prestoPipelineStats.lastStartTime = prestoTaskStats.endTime;
-  prestoPipelineStats.lastEndTime = prestoTaskStats.endTime;
+  prestoPipelineStats.firstStartTimeInMillis = prestoTaskStats.createTimeInMillis;
+  prestoPipelineStats.lastStartTimeInMillis = prestoTaskStats.endTimeInMillis;
+  prestoPipelineStats.lastEndTimeInMillis = prestoTaskStats.endTimeInMillis;
 
   prestoPipelineStats.operatorSummaries.resize(
       veloxPipelineStats.operatorStats.size());
@@ -361,11 +361,9 @@ void updatePipelineStats(
     prestoOp.inputPositions = veloxOp.inputPositions;
     prestoOp.sumSquaredInputPositions =
         ((double)veloxOp.inputPositions) * veloxOp.inputPositions;
-    prestoOp.inputDataSize =
-        protocol::DataSize(veloxOp.inputBytes, protocol::DataUnit::BYTE);
+    prestoOp.inputDataSizeInBytes = veloxOp.inputBytes;
     prestoOp.rawInputPositions = veloxOp.rawInputPositions;
-    prestoOp.rawInputDataSize =
-        protocol::DataSize(veloxOp.rawInputBytes, protocol::DataUnit::BYTE);
+    prestoOp.rawInputDataSizeInBytes = veloxOp.rawInputBytes;
 
     // Report raw input statistics on the Project node following TableScan, if
     // exists.
@@ -373,13 +371,11 @@ void updatePipelineStats(
         veloxPipelineStats.operatorStats[0].operatorType == "TableScan") {
       const auto& scanOp = veloxPipelineStats.operatorStats[0];
       prestoOp.rawInputPositions = scanOp.rawInputPositions;
-      prestoOp.rawInputDataSize =
-          protocol::DataSize(scanOp.rawInputBytes, protocol::DataUnit::BYTE);
+      prestoOp.rawInputDataSizeInBytes = scanOp.rawInputBytes;
     }
 
     prestoOp.outputPositions = veloxOp.outputPositions;
-    prestoOp.outputDataSize =
-        protocol::DataSize(veloxOp.outputBytes, protocol::DataUnit::BYTE);
+    prestoOp.outputDataSizeInBytes = veloxOp.outputBytes;
 
     setTiming(
         veloxOp.isBlockedTiming,
@@ -408,25 +404,14 @@ void updatePipelineStats(
     prestoOp.blockedWall = protocol::Duration(
         veloxOp.blockedWallNanos, protocol::TimeUnit::NANOSECONDS);
 
-    prestoOp.userMemoryReservation = protocol::DataSize(
-        veloxOp.memoryStats.userMemoryReservation, protocol::DataUnit::BYTE);
-    prestoOp.revocableMemoryReservation = protocol::DataSize(
-        veloxOp.memoryStats.revocableMemoryReservation,
-        protocol::DataUnit::BYTE);
-    prestoOp.systemMemoryReservation = protocol::DataSize(
-        veloxOp.memoryStats.systemMemoryReservation, protocol::DataUnit::BYTE);
-    prestoOp.peakUserMemoryReservation = protocol::DataSize(
-        veloxOp.memoryStats.peakUserMemoryReservation,
-        protocol::DataUnit::BYTE);
-    prestoOp.peakSystemMemoryReservation = protocol::DataSize(
-        veloxOp.memoryStats.peakSystemMemoryReservation,
-        protocol::DataUnit::BYTE);
-    prestoOp.peakTotalMemoryReservation = protocol::DataSize(
-        veloxOp.memoryStats.peakTotalMemoryReservation,
-        protocol::DataUnit::BYTE);
+    prestoOp.userMemoryReservationInBytes = veloxOp.memoryStats.userMemoryReservation;
+    prestoOp.revocableMemoryReservationInBytes = veloxOp.memoryStats.revocableMemoryReservation;
+    prestoOp.systemMemoryReservationInBytes = veloxOp.memoryStats.systemMemoryReservation;
+    prestoOp.peakUserMemoryReservationInBytes = veloxOp.memoryStats.peakUserMemoryReservation;
+    prestoOp.peakSystemMemoryReservationInBytes = veloxOp.memoryStats.peakSystemMemoryReservation;
+    prestoOp.peakTotalMemoryReservationInBytes = veloxOp.memoryStats.peakTotalMemoryReservation;
 
-    prestoOp.spilledDataSize =
-        protocol::DataSize(veloxOp.spilledBytes, protocol::DataUnit::BYTE);
+    prestoOp.spilledDataSizeInBytes = veloxOp.spilledBytes;
 
     if (veloxOp.operatorType == "HashBuild") {
       prestoOp.joinBuildKeyCount = veloxOp.inputPositions;
@@ -483,7 +468,7 @@ PrestoTask::PrestoTask(
 
 void PrestoTask::updateHeartbeatLocked() {
   lastHeartbeatMs = velox::getCurrentTimeMs();
-  info.lastHeartbeat = util::toISOTimestamp(lastHeartbeatMs);
+  info.lastHeartbeatInMillis = lastHeartbeatMs;
 }
 
 void PrestoTask::updateCoordinatorHeartbeat() {
@@ -706,18 +691,13 @@ void PrestoTask::updateTimeInfoLocked(
   prestoTaskStats.totalCpuTimeInNanos = {};
   prestoTaskStats.totalBlockedTimeInNanos = {};
 
-  prestoTaskStats.createTime =
-      util::toISOTimestamp(veloxTaskStats.executionStartTimeMs);
-  prestoTaskStats.firstStartTime =
-      util::toISOTimestamp(veloxTaskStats.firstSplitStartTimeMs);
+  prestoTaskStats.createTimeInMillis = veloxTaskStats.executionStartTimeMs;
+  prestoTaskStats.firstStartTimeInMillis = veloxTaskStats.firstSplitStartTimeMs;
   createTimeMs = veloxTaskStats.executionStartTimeMs;
   firstSplitStartTimeMs = veloxTaskStats.firstSplitStartTimeMs;
-  prestoTaskStats.lastStartTime =
-      util::toISOTimestamp(veloxTaskStats.lastSplitStartTimeMs);
-  prestoTaskStats.lastEndTime =
-      util::toISOTimestamp(veloxTaskStats.executionEndTimeMs);
-  prestoTaskStats.endTime =
-      util::toISOTimestamp(veloxTaskStats.executionEndTimeMs);
+  prestoTaskStats.lastStartTimeInMillis = veloxTaskStats.lastSplitStartTimeMs;
+  prestoTaskStats.lastEndTimeInMillis = veloxTaskStats.executionEndTimeMs;
+  prestoTaskStats.endTimeInMillis = veloxTaskStats.executionEndTimeMs;
   lastEndTimeMs = veloxTaskStats.executionEndTimeMs;
 
   if (veloxTaskStats.executionEndTimeMs > veloxTaskStats.executionStartTimeMs) {

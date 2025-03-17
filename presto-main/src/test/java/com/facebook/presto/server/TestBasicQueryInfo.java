@@ -57,10 +57,10 @@ public class TestBasicQueryInfo
                         Optional.empty(),
                         Optional.empty(),
                         new QueryStats(
-                                DateTime.parse("1991-09-06T05:00-05:30"),
-                                DateTime.parse("1991-09-06T05:01-05:30"),
-                                DateTime.parse("1991-09-06T05:02-05:30"),
-                                DateTime.parse("1991-09-06T06:00-05:30"),
+                                new DateTime("1991-09-06T05:00").getMillis(),
+                                new DateTime("1991-09-06T05:01").getMillis(),
+                                new DateTime("1991-09-06T05:02").getMillis(),
+                                new DateTime("1991-09-06T06:00").getMillis(),
                                 Duration.valueOf("8m"),
                                 Duration.valueOf("5m"),
                                 Duration.valueOf("7m"),
@@ -162,8 +162,8 @@ public class TestBasicQueryInfo
         assertEquals(basicInfo.getQueryHash(), "235ca215765cbfca");
         assertEquals(basicInfo.getQueryType(), Optional.of(QueryType.INSERT));
 
-        assertEquals(basicInfo.getQueryStats().getCreateTime(), DateTime.parse("1991-09-06T05:00-05:30"));
-        assertEquals(basicInfo.getQueryStats().getEndTime(), DateTime.parse("1991-09-06T06:00-05:30"));
+        assertEquals(basicInfo.getQueryStats().getCreateTime(), new DateTime("1991-09-06T05:00"));
+        assertEquals(basicInfo.getQueryStats().getEndTime(), new DateTime("1991-09-06T06:00"));
         assertEquals(basicInfo.getQueryStats().getElapsedTime(), Duration.valueOf("8m"));
         assertEquals(basicInfo.getQueryStats().getExecutionTime(), Duration.valueOf("44m"));
         assertEquals(basicInfo.getQueryStats().getWaitingForPrerequisitesTime(), Duration.valueOf("5m"));

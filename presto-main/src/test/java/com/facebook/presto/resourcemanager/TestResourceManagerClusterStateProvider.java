@@ -61,6 +61,7 @@ import static com.facebook.presto.memory.LocalMemoryManager.RESERVED_POOL;
 import static com.facebook.presto.metadata.SessionPropertyManager.createTestingSessionPropertyManager;
 import static com.facebook.presto.operator.BlockedReason.WAITING_FOR_MEMORY;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.String.format;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -121,6 +122,7 @@ public class TestResourceManagerClusterStateProvider
 
         assertQueryInfos(provider.getClusterQueries(), 0, 0);
     }
+
     @Test(timeOut = 15_000)
     public void testOutOfOrderUpdatesIgnored()
             throws Exception
@@ -426,12 +428,12 @@ public class TestResourceManagerClusterStateProvider
         assertMemoryPoolMap(provider, 2, RESERVED_POOL, 0, 0, 5, 3, 2, Optional.empty());
 
         // Add a larger query and verify that the largest query is updated
-        provider.registerQueryHeartbeat("nodeId2", createQueryInfo("2", RUNNING, "rg4", GENERAL_POOL, DataSize.valueOf("25GB")), query2Sequence++);
+        provider.registerQueryHeartbeat("nodeId2", createQueryInfo("2", RUNNING, "rg4", GENERAL_POOL, DataSize.valueOf("25GB").toBytes()), query2Sequence++);
         assertMemoryPoolMap(provider, 2, GENERAL_POOL, 2, 1, 1101, 24, 14, Optional.of("2"));
         assertMemoryPoolMap(provider, 2, RESERVED_POOL, 0, 0, 5, 3, 2, Optional.empty());
 
         // Adding a larger reserved pool query does not affect largest query in general pool
-        provider.registerQueryHeartbeat("nodeId1", createQueryInfo("3", RUNNING, "rg4", RESERVED_POOL, DataSize.valueOf("50GB")), query3Sequence++);
+        provider.registerQueryHeartbeat("nodeId1", createQueryInfo("3", RUNNING, "rg4", RESERVED_POOL, DataSize.valueOf("50GB").toBytes()), query3Sequence++);
         assertMemoryPoolMap(provider, 2, GENERAL_POOL, 2, 1, 1101, 24, 14, Optional.of("2"));
         assertMemoryPoolMap(provider, 2, RESERVED_POOL, 1, 0, 5, 3, 2, Optional.empty());
 
@@ -687,7 +689,7 @@ public class TestResourceManagerClusterStateProvider
         assertEquals(info.getQueuedQueries(), queuedQueries, format("Expected %s queued queries, found %s", queuedQueries, info.getQueuedQueries()));
         assertEquals(info.getRunningQueries(), runningQueries, format("Expected %s running queries, found %s", runningQueries, info.getRunningQueries()));
         assertEquals(info.getResourceGroupId(), rg, format("Expected resource group id %s, found %s", resourceGroupId, info.getResourceGroupId()));
-        assertEquals(info.getMemoryUsageBytes(), userMemoryReservation.toBytes(), format("Expected %s user memory reservation found %s", userMemoryReservation, DataSize.succinctBytes(info.getMemoryUsageBytes())));
+        assertEquals(info.getMemoryUsageBytes(), userMemoryReservation.toBytes(), format("Expected %s user memory reservation found %s", userMemoryReservation, succinctBytes(info.getMemoryUsageBytes())));
     }
 
     private void assertNonLeafResourceGroup(ResourceManagerClusterStateProvider provider, String excludingNode, String resourceGroupId, int queuedQueries, int runningQueries, int descendantQueuedQueries, int descendantRunningQueries)
@@ -729,10 +731,10 @@ public class TestResourceManagerClusterStateProvider
 
     private static BasicQueryInfo createQueryInfo(String queryId, QueryState state, String resourceGroupId, MemoryPoolId memoryPool)
     {
-        return createQueryInfo(queryId, state, resourceGroupId, memoryPool, DataSize.valueOf("24GB"));
+        return createQueryInfo(queryId, state, resourceGroupId, memoryPool, DataSize.valueOf("24GB").toBytes());
     }
 
-    private static BasicQueryInfo createQueryInfo(String queryId, QueryState state, String resourceGroupIdString, MemoryPoolId memoryPool, DataSize totalMemoryReservation)
+    private static BasicQueryInfo createQueryInfo(String queryId, QueryState state, String resourceGroupIdString, MemoryPoolId memoryPool, long totalMemoryReservation)
     {
         ResourceGroupId resourceGroupId = new ResourceGroupId(Arrays.asList(resourceGroupIdString.split("\\.")));
         return new BasicQueryInfo(
@@ -745,12 +747,13 @@ public class TestResourceManagerClusterStateProvider
                 URI.create("1"),
                 "",
                 new BasicQueryStats(
-                        DateTime.parse("1991-09-06T05:00-05:30"),
-                        DateTime.parse("1991-09-06T05:01-05:30"),
+                        new DateTime("1991-09-06T05:00").getMillis(),
+                        new DateTime("1991-09-06T05:01").getMillis(),
                         Duration.valueOf("6m"),
                         Duration.valueOf("8m"),
                         Duration.valueOf("7m"),
                         Duration.valueOf("34m"),
+                        Duration.valueOf("10m"),
                         11,
                         12,
                         13,
@@ -762,7 +765,7 @@ public class TestResourceManagerClusterStateProvider
                         23,
                         24,
                         DataSize.valueOf("1MB"),
-                        totalMemoryReservation,
+                        succinctBytes(totalMemoryReservation),
                         DataSize.valueOf("25GB"),
                         DataSize.valueOf("26GB"),
                         DataSize.valueOf("27GB"),

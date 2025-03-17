@@ -23,9 +23,7 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import org.joda.time.DateTime;
 
 import java.net.URI;
 import java.util.Optional;
@@ -34,7 +32,6 @@ import java.util.concurrent.Executor;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.server.BasicQueryInfo.immediateFailureQueryInfo;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -148,27 +145,27 @@ public class FailedDispatchQuery
     public void recordHeartbeat() {}
 
     @Override
-    public DateTime getLastHeartbeat()
+    public long getLastHeartbeatInMillis()
     {
-        return basicQueryInfo.getQueryStats().getEndTime();
+        return basicQueryInfo.getQueryStats().getEndTimeInMillis();
     }
 
     @Override
-    public DateTime getCreateTime()
+    public long getCreateTimeInMillis()
     {
-        return basicQueryInfo.getQueryStats().getCreateTime();
+        return basicQueryInfo.getQueryStats().getCreateTimeInMillis();
     }
 
     @Override
-    public Optional<DateTime> getExecutionStartTime()
+    public long getExecutionStartTimeInMillis()
     {
-        return getEndTime();
+        return getEndTimeInMillis();
     }
 
     @Override
-    public Optional<DateTime> getEndTime()
+    public long getEndTimeInMillis()
     {
-        return Optional.ofNullable(basicQueryInfo.getQueryStats().getEndTime());
+        return basicQueryInfo.getQueryStats().getEndTimeInMillis();
     }
 
     @Override
@@ -178,15 +175,15 @@ public class FailedDispatchQuery
     }
 
     @Override
-    public DataSize getTotalMemoryReservation()
+    public long getTotalMemoryReservationInBytes()
     {
-        return new DataSize(0, BYTE);
+        return 0L;
     }
 
     @Override
-    public DataSize getUserMemoryReservation()
+    public long getUserMemoryReservationInBytes()
     {
-        return new DataSize(0, BYTE);
+        return 0L;
     }
 
     @Override

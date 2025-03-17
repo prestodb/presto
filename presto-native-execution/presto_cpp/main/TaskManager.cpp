@@ -329,7 +329,7 @@ TaskManager::TaskManager(
     folly::Executor* driverExecutor,
     folly::Executor* httpSrvCpuExecutor,
     folly::Executor* spillerExecutor)
-    : bufferManager_(velox::exec::OutputBufferManager::getInstance().lock()),
+    : bufferManager_(velox::exec::OutputBufferManager::getInstanceRef()),
       queryContextManager_(std::make_unique<QueryContextManager>(
           driverExecutor,
           spillerExecutor)),
@@ -591,6 +591,8 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
     execTask->start(maxDrivers, concurrentLifespans);
 
     prestoTask->taskStarted = true;
+    prestoTask->info.stats.queuedTimeInNanos =
+        velox::getCurrentTimeMs() - prestoTask->createTimeMs;
     resultRequests = std::move(prestoTask->resultRequests);
     statusRequest = prestoTask->statusRequest;
     infoRequest = prestoTask->infoRequest;
@@ -678,8 +680,7 @@ TaskManager::deleteTask(const TaskId& taskId, bool /*abort*/, bool summarize) {
     if (state == exec::TaskState::kRunning) {
       execTask->requestAbort();
     }
-    prestoTask->info.stats.endTime =
-        util::toISOTimestamp(velox::getCurrentTimeMs());
+    prestoTask->info.stats.endTimeInMillis = velox::getCurrentTimeMs();
     prestoTask->updateInfoLocked(summarize);
   } else {
     // If task is not found than we observe DELETE message coming before
@@ -1075,8 +1076,7 @@ std::shared_ptr<PrestoTask> TaskManager::findOrCreateTask(
 
   prestoTask =
       std::make_shared<PrestoTask>(taskId, nodeId_, startProcessCpuTime);
-  prestoTask->info.stats.createTime =
-      util::toISOTimestamp(velox::getCurrentTimeMs());
+  prestoTask->info.stats.createTimeInMillis = velox::getCurrentTimeMs();
   prestoTask->info.needsPlan = true;
   prestoTask->info.metadataUpdates.connectorId = "unused";
 

@@ -75,10 +75,8 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.sun.management.ThreadMXBean;
-import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
-import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -138,6 +136,7 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.Math.addExact;
 import static java.lang.String.format;
+import static java.lang.System.currentTimeMillis;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -225,9 +224,8 @@ public final class HttpRemoteTask
     private final Protocol thriftProtocol;
     private final ConnectorTypeSerdeManager connectorTypeSerdeManager;
     private final HandleResolver handleResolver;
-    private final int maxTaskUpdateSizeInBytes;
+    private final long maxTaskUpdateSizeInBytes;
     private final int maxUnacknowledgedSplits;
-    private final DataSize maxTaskUpdateDataSize;
 
     private final TableWriteInfo tableWriteInfo;
 
@@ -266,7 +264,7 @@ public final class HttpRemoteTask
             boolean taskInfoThriftTransportEnabled,
             Protocol thriftProtocol,
             TableWriteInfo tableWriteInfo,
-            int maxTaskUpdateSizeInBytes,
+            long maxTaskUpdateSizeInBytes,
             MetadataManager metadataManager,
             QueryManager queryManager,
             DecayCounter taskUpdateRequestSize,
@@ -329,7 +327,6 @@ public final class HttpRemoteTask
             this.handleResolver = handleResolver;
             this.tableWriteInfo = tableWriteInfo;
             this.maxTaskUpdateSizeInBytes = maxTaskUpdateSizeInBytes;
-            this.maxTaskUpdateDataSize = DataSize.succinctBytes(this.maxTaskUpdateSizeInBytes);
             this.maxUnacknowledgedSplits = getMaxUnacknowledgedSplitsPerTask(session);
             checkArgument(maxUnacknowledgedSplits > 0, "maxUnacknowledgedSplits must be > 0, found: %s", maxUnacknowledgedSplits);
 
@@ -362,7 +359,7 @@ public final class HttpRemoteTask
                     .map(outputId -> new BufferInfo(outputId, false, 0, 0, PageBufferInfo.empty()))
                     .collect(toImmutableList());
 
-            TaskInfo initialTask = createInitialTask(taskId, location, bufferStates, new TaskStats(DateTime.now(), null), nodeId);
+            TaskInfo initialTask = createInitialTask(taskId, location, bufferStates, new TaskStats(currentTimeMillis(), 0), nodeId);
 
             this.taskStatusFetcher = new ContinuousTaskStatusFetcher(
                     this::failTask,
@@ -938,8 +935,7 @@ public final class HttpRemoteTask
 
     private String getExceededTaskUpdateSizeMessage(byte[] taskUpdateRequestJson)
     {
-        DataSize taskUpdateSize = DataSize.succinctBytes(taskUpdateRequestJson.length);
-        return format("TaskUpdate size of %s has exceeded the limit of %s", taskUpdateSize.toString(), this.maxTaskUpdateDataSize.toString());
+        return format("TaskUpdate size of %s bytes has exceeded the limit of %s bytes", taskUpdateRequestJson.length, this.maxTaskUpdateSizeInBytes);
     }
 
     private synchronized List<TaskSource> getSources()

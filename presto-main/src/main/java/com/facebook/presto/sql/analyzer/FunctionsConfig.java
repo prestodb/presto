@@ -18,6 +18,7 @@ import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggGroupImplementation;
 import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
 import com.facebook.presto.operator.aggregation.multimapagg.MultimapAggGroupImplementation;
+import com.facebook.presto.spi.function.Description;
 
 import javax.validation.constraints.Min;
 
@@ -47,6 +48,7 @@ public class FunctionsConfig
     private boolean warnOnPossibleNans;
     private boolean legacyCharToVarcharCoercion;
     private boolean legacyJsonCast = true;
+    private boolean canonicalizedJsonExtract;
     private String defaultNamespacePrefix = JAVA_BUILTIN_NAMESPACE.toString();
 
     @Config("deprecated.legacy-array-agg")
@@ -306,6 +308,19 @@ public class FunctionsConfig
     public boolean isLegacyJsonCast()
     {
         return legacyJsonCast;
+    }
+
+    @Config("canonicalized-json-extract")
+    @Description("Extracts json data in a canonicalized manner, and raises a PrestoException when encountering invalid json structures within the input json path")
+    public FunctionsConfig setCanonicalizedJsonExtract(boolean canonicalizedJsonExtract)
+    {
+        this.canonicalizedJsonExtract = canonicalizedJsonExtract;
+        return this;
+    }
+
+    public boolean isCanonicalizedJsonExtract()
+    {
+        return canonicalizedJsonExtract;
     }
 
     @Config("presto.default-namespace")

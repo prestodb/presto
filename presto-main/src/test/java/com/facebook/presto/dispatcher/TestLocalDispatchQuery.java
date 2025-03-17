@@ -20,6 +20,7 @@ import com.facebook.presto.cost.HistoryBasedOptimizationConfig;
 import com.facebook.presto.cost.HistoryBasedPlanStatisticsManager;
 import com.facebook.presto.event.QueryMonitor;
 import com.facebook.presto.event.QueryMonitorConfig;
+import com.facebook.presto.eventlistener.EventListenerConfig;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.ClusterSizeMonitor;
 import com.facebook.presto.execution.ExecutionFailureInfo;
@@ -464,7 +465,7 @@ public class TestLocalDispatchQuery
 
     private EventListenerManager createEventListenerManager(CountingEventListener countingEventListener)
     {
-        EventListenerManager eventListenerManager = new EventListenerManager();
+        EventListenerManager eventListenerManager = new EventListenerManager(new EventListenerConfig());
         eventListenerManager.addEventListenerFactory(new TestEventListenerFactory(countingEventListener));
         eventListenerManager.loadConfiguredEventListener(ImmutableMap.of("event-listener.name", TestEventListenerFactory.NAME));
         return eventListenerManager;

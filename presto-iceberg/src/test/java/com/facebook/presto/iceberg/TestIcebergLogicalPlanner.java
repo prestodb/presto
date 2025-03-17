@@ -87,7 +87,6 @@ import static com.facebook.presto.iceberg.IcebergAbstractMetadata.isEntireColumn
 import static com.facebook.presto.iceberg.IcebergColumnHandle.getSynthesizedIcebergColumnHandle;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.isPushedDownSubfield;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
-import static com.facebook.presto.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.PARQUET_DEREFERENCE_PUSHDOWN_ENABLED;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isPushdownFilterEnabled;
@@ -130,7 +129,10 @@ public class TestIcebergLogicalPlanner
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createIcebergQueryRunner(ImmutableMap.of("experimental.pushdown-subfields-enabled", "true"), ImmutableMap.of());
+        return IcebergQueryRunner.builder()
+                .setExtraProperties(ImmutableMap.of("experimental.pushdown-subfields-enabled", "true"))
+                .build()
+                .getQueryRunner();
     }
 
     @DataProvider(name = "push_down_filter_enabled")
@@ -648,7 +650,7 @@ public class TestIcebergLogicalPlanner
         String tableName = "test_empty_partition_spec_table";
         try {
             // Create a table with no partition
-            assertUpdate("CREATE TABLE " + tableName + " (a INTEGER, b VARCHAR) WITH (format_version = '1')");
+            assertUpdate("CREATE TABLE " + tableName + " (a INTEGER, b VARCHAR) WITH (\"format-version\" = '1')");
 
             // Do not insert data, and evaluate the partition spec by adding a partition column `c`
             assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN c INTEGER WITH (partitioning = 'identity')");
@@ -686,7 +688,7 @@ public class TestIcebergLogicalPlanner
         String tableName = "test_data_deleted_partition_spec_table";
         try {
             // Create a table with partition column `a`, and insert some data under this partition spec
-            assertUpdate("CREATE TABLE " + tableName + " (a INTEGER, b VARCHAR) WITH (format_version = '1', partitioning = ARRAY['a'])");
+            assertUpdate("CREATE TABLE " + tableName + " (a INTEGER, b VARCHAR) WITH (\"format-version\" = '1', partitioning = ARRAY['a'])");
             assertUpdate("INSERT INTO " + tableName + " VALUES (1, '1001'), (2, '1002')", 2);
 
             // Then evaluate the partition spec by adding a partition column `c`, and insert some data under the new partition spec
@@ -1779,7 +1781,7 @@ public class TestIcebergLogicalPlanner
                 "id bigint, " +
                 "x row(a bigint, b varchar, c double, d row(d1 bigint, d2 double))," +
                 "y array(row(a bigint, b varchar, c double, d row(d1 bigint, d2 double)))) " +
-                "with (format = 'PARQUET')");
+                "with (\"write.format.default\" = 'PARQUET')");
         assertUpdate("INSERT INTO test_pushdown_nestedcolumn_parquet(id, x) VALUES(1, (11, 'abcd', 1.1, (1, 5.0)))", 1);
 
         assertParquetDereferencePushDown("SELECT x.a FROM test_pushdown_nestedcolumn_parquet",

@@ -729,7 +729,7 @@ function StageSummary({ index, prestoStage }: { index: number, prestoStage: Outp
                                                 Cumulative
                                             </td>
                                             <td className="stage-table-stat-text">
-                                                {formatDataSizeBytes(prestoStage.latestAttemptExecutionInfo.stats.cumulativeUserMemory / 1000)}
+                                                {formatDataSize(prestoStage.latestAttemptExecutionInfo.stats.cumulativeUserMemory / 1000)}
                                             </td>
                                         </tr>
                                         <tr>
@@ -737,7 +737,7 @@ function StageSummary({ index, prestoStage }: { index: number, prestoStage: Outp
                                                 Cumulative Total
                                             </td>
                                             <td className="stage-table-stat-text">
-                                                {formatDataSizeBytes(prestoStage.latestAttemptExecutionInfo.stats.cumulativeTotalMemory / 1000)}
+                                                {formatDataSize(prestoStage.latestAttemptExecutionInfo.stats.cumulativeTotalMemory / 1000)}
                                             </td>
                                         </tr>
                                         <tr>
@@ -1338,7 +1338,7 @@ export default function QueryOverview({ data, show }: { data: QueryData, show: b
                                     Completion Time
                                 </td>
                                 <td className="info-text">
-                                    {data.queryStats.endTime ? formatShortDateTime(new Date(data.queryStats.endTime)) : ""}
+                                    {new Date(data.queryStats.endTime).getTime() !== 0 ? formatShortDateTime(new Date(data.queryStats.endTime)) : ""}
                                 </td>
                             </tr>
                             <tr>
@@ -1506,7 +1506,7 @@ export default function QueryOverview({ data, show }: { data: QueryData, show: b
                                             Cumulative User Memory
                                         </td>
                                         <td className="info-text">
-                                            {formatDataSizeBytes(data.queryStats.cumulativeUserMemory / 1000.0) + " seconds"}
+                                            {formatDataSize(data.queryStats.cumulativeUserMemory / 1000.0)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1514,7 +1514,7 @@ export default function QueryOverview({ data, show }: { data: QueryData, show: b
                                             Cumulative Total
                                         </td>
                                         <td className="info-text">
-                                            {formatDataSizeBytes(data.queryStats.cumulativeTotalMemory / 1000.0) + " seconds"}
+                                            {formatDataSize(data.queryStats.cumulativeTotalMemory / 1000.0)}
                                         </td>
                                     </tr>
                                     <tr>

@@ -1,6 +1,6 @@
-============================================
+=====================================
 Deploy Presto on a Mac using Homebrew
-============================================
+=====================================
 
 - If you are deploying Presto on an Intel Mac, see `Deploy Presto on an Intel Mac using Homebrew`_.
 
@@ -93,7 +93,7 @@ To run the Presto CLI, run the following command:
 
 The Presto CLI starts and displays the prompt ``presto>``. 
 
-For more information on the Presto CLI, see :doc:`Command Line Interface <cli>`.
+For more information, see :doc:`/clients/presto-cli`.
 
 Deploy Presto on an Apple Silicon Mac using Homebrew 
 ----------------------------------------------------
@@ -192,4 +192,4 @@ To run the Presto CLI, run the following command:
 
 The Presto CLI starts and displays the prompt ``presto>``. 
 
-For more information on the Presto CLI, see :doc:`Command Line Interface <cli>`.
+For more information, see :doc:`/clients/presto-cli`.
