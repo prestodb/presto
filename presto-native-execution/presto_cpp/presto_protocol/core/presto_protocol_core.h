@@ -1933,9 +1933,11 @@ void to_json(json& j, const Range& p);
 void from_json(const json& j, Range& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-struct RefreshMaterializedViewHandle {
+struct RefreshMaterializedViewHandle : public ExecutionWriterTarget {
   InsertTableHandle handle = {};
   SchemaTableName schemaTableName = {};
+
+  RefreshMaterializedViewHandle() noexcept;
 };
 void to_json(json& j, const RefreshMaterializedViewHandle& p);
 void from_json(const json& j, RefreshMaterializedViewHandle& p);
