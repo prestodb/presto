@@ -16,12 +16,10 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.metadata.TableFunctionHandle;
 import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.function.table.Argument;
-import com.facebook.presto.spi.function.table.NameAndPosition;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.WindowNode.Specification;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -43,7 +41,6 @@ public class TableFunctionNode
     private final List<VariableReferenceExpression> outputVariables;
     private final List<PlanNode> sources;
     private final List<TableArgumentProperties> tableArgumentProperties;
-    private final Map<NameAndPosition, Symbol> inputDescriptorMappings;
     private final TableFunctionHandle handle;
 
     @JsonCreator
@@ -54,10 +51,9 @@ public class TableFunctionNode
             @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables,
             @JsonProperty("sources") List<PlanNode> sources,
             @JsonProperty("tableArgumentProperties") List<TableArgumentProperties> tableArgumentProperties,
-            @JsonProperty("inputDescriptorMappings") Map<NameAndPosition, Symbol> inputDescriptorMappings,
             @JsonProperty("handle") TableFunctionHandle handle)
     {
-        this(Optional.empty(), id, Optional.empty(), name, arguments, outputVariables, sources, tableArgumentProperties, inputDescriptorMappings, handle);
+        this(Optional.empty(), id, Optional.empty(), name, arguments, outputVariables, sources, tableArgumentProperties, handle);
     }
 
     public TableFunctionNode(
@@ -69,7 +65,6 @@ public class TableFunctionNode
             List<VariableReferenceExpression> outputVariables,
             List<PlanNode> sources,
             List<TableArgumentProperties> tableArgumentProperties,
-            Map<NameAndPosition, Symbol> inputDescriptorMappings,
             TableFunctionHandle handle)
     {
         super(sourceLocation, id, statsEquivalentPlanNode);
@@ -78,7 +73,6 @@ public class TableFunctionNode
         this.outputVariables = requireNonNull(outputVariables, "properOutputs is null");
         this.sources = requireNonNull(sources, "sources is null");
         this.tableArgumentProperties = requireNonNull(tableArgumentProperties, "tableArgumentProperties is null");
-        this.inputDescriptorMappings = requireNonNull(inputDescriptorMappings, "inputDescriptorMappings is null");
         this.handle = requireNonNull(handle, "handle is null");
     }
 
@@ -107,12 +101,6 @@ public class TableFunctionNode
     }
 
     @JsonProperty
-    public Map<NameAndPosition, Symbol> getInputDescriptorMappings()
-    {
-        return inputDescriptorMappings;
-    }
-
-    @JsonProperty
     public TableFunctionHandle getHandle()
     {
         return handle;
@@ -135,13 +123,13 @@ public class TableFunctionNode
     public PlanNode replaceChildren(List<PlanNode> newSources)
     {
         checkArgument(sources.size() == newSources.size(), "wrong number of new children");
-        return new TableFunctionNode(getId(), name, arguments, outputVariables, newSources, tableArgumentProperties, inputDescriptorMappings, handle);
+        return new TableFunctionNode(getId(), name, arguments, outputVariables, newSources, tableArgumentProperties, handle);
     }
 
     @Override
     public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
     {
-        return new TableFunctionNode(getSourceLocation(), getId(), statsEquivalentPlanNode, name, arguments, outputVariables, sources, tableArgumentProperties, inputDescriptorMappings, handle);
+        return new TableFunctionNode(getSourceLocation(), getId(), statsEquivalentPlanNode, name, arguments, outputVariables, sources, tableArgumentProperties, handle);
     }
 
     public static class TableArgumentProperties
