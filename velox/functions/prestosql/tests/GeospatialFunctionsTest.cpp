@@ -54,25 +54,22 @@ TEST_F(GeospatialFunctionsTest, toBingTileCoordinates) {
   testToBingTile(std::nullopt, 1, 1);
   testToBingTile(1, std::nullopt, 1);
   testToBingTile(1, 1, std::nullopt);
-}
 
-TEST_F(GeospatialFunctionsTest, toBingTileCoordinatesErrors) {
-  const auto testToBingTileError = [&](std::optional<int32_t> x,
-                                       std::optional<int32_t> y,
-                                       std::optional<int8_t> zoom,
-                                       const std::string& errorMsg) {
-    VELOX_ASSERT_USER_THROW(
-        evaluateOnce<int64_t>("bing_tile(c0, c1, c2)", x, y, zoom), errorMsg);
-  };
-
-  testToBingTileError(
-      0, 1, 0, "Y coordinate 1 is greater than max coordinate 0 at zoom 0");
-  testToBingTileError(
-      256,
-      1,
-      8,
-      "X coordinate 256 is greater than max coordinate 255 at zoom 8");
-  testToBingTileError(0, 0, 24, "Zoom 24 is greater than max zoom 23");
+  VELOX_ASSERT_USER_THROW(
+      testToBingTile(0, 1, 0),
+      "Bing tile Y coordinate 1 is greater than max coordinate 0 at zoom 0");
+  VELOX_ASSERT_USER_THROW(
+      testToBingTile(256, 1, 8),
+      "Bing tile X coordinate 256 is greater than max coordinate 255 at zoom 8");
+  VELOX_ASSERT_USER_THROW(
+      testToBingTile(0, 0, 24),
+      "Bing tile zoom 24 is greater than max zoom 23");
+  VELOX_ASSERT_USER_THROW(
+      testToBingTile(-1, 1, 2), "Bing tile X coordinate -1 cannot be negative");
+  VELOX_ASSERT_USER_THROW(
+      testToBingTile(1, -1, 2), "Bing tile Y coordinate -1 cannot be negative");
+  VELOX_ASSERT_USER_THROW(
+      testToBingTile(1, 1, -1), "Bing tile zoom -1 cannot be negative");
 }
 
 TEST_F(GeospatialFunctionsTest, bingTileZoomLevelSignatures) {

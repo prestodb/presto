@@ -129,42 +129,7 @@ class BingTileType : public BigintType {
         (uint8_t)(bingTileY(tile) < coordinateBound);
   }
 
-  static std::optional<std::string> bingTileInvalidReason(uint64_t tile) {
-    // TODO?: We are duplicating some logic in isBingTileIntValid; maybe we
-    // should extract?
-
-    uint8_t version = BingTileType::bingTileVersion(tile);
-    if (version != BingTileType::kBingTileVersion) {
-      return fmt::format("Version {} not supported", version);
-    }
-
-    uint8_t zoom = BingTileType::bingTileZoom(tile);
-    if (zoom > BingTileType::kBingTileMaxZoomLevel) {
-      return fmt::format(
-          "Zoom {} is greater than max zoom {}",
-          zoom,
-          BingTileType::kBingTileMaxZoomLevel);
-    }
-
-    uint64_t coordinateBound = 1 << zoom;
-
-    if (BingTileType::bingTileX(tile) >= coordinateBound) {
-      return fmt::format(
-          "X coordinate {} is greater than max coordinate {} at zoom {}",
-          BingTileType::bingTileX(tile),
-          coordinateBound - 1,
-          zoom);
-    }
-    if (BingTileType::bingTileY(tile) >= coordinateBound) {
-      return fmt::format(
-          "Y coordinate {} is greater than max coordinate {} at zoom {}",
-          BingTileType::bingTileY(tile),
-          coordinateBound - 1,
-          zoom);
-    }
-
-    return std::nullopt;
-  }
+  static std::optional<std::string> bingTileInvalidReason(uint64_t tile);
 };
 
 inline bool isBingTileType(const TypePtr& type) {

@@ -30,6 +30,19 @@ struct BingTileFunction {
       const arg_type<int32_t>& x,
       const arg_type<int32_t>& y,
       const arg_type<int8_t>& zoom) {
+    if (FOLLY_UNLIKELY(x < 0)) {
+      return Status::UserError(
+          fmt::format("Bing tile X coordinate {} cannot be negative", x));
+    }
+    if (FOLLY_UNLIKELY(y < 0)) {
+      return Status::UserError(
+          fmt::format("Bing tile Y coordinate {} cannot be negative", y));
+    }
+    if (FOLLY_UNLIKELY(zoom < 0)) {
+      return Status::UserError(
+          fmt::format("Bing tile zoom {} cannot be negative", zoom));
+    }
+
     uint64_t tile = BingTileType::bingTileCoordsToInt(
         static_cast<uint32_t>(x),
         static_cast<uint32_t>(y),

@@ -622,7 +622,7 @@ class TypeBase : public Type {
     if (providesCustomComparison) {
       VELOX_CHECK(
           kindCanProvideCustomComparison<KIND>::value,
-          "Custom comparisons are only supported for primite types that are fixed width.");
+          "Custom comparisons are only supported for primitive types that are fixed width.");
     }
   }
 
