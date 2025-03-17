@@ -1540,6 +1540,7 @@ class StatementAnalyzer
                 if (withQuery.isPresent()) {
                     Query query = withQuery.get().getQuery();
                     analysis.registerNamedQuery(table, query, false);
+                    analysis.setRelationName(table, table.getName());
 
                     // re-alias the fields with the name assigned to the query in the WITH declaration
                     RelationType queryDescriptor = analysis.getOutputDescriptor(query);
@@ -1579,12 +1580,12 @@ class StatementAnalyzer
                                         field.isAliased()))
                                 .collect(toImmutableList());
                     }
-
                     return createAndAssignScope(table, scope, fields);
                 }
             }
 
             QualifiedObjectName name = createQualifiedObjectName(session, table, table.getName());
+            analysis.setRelationName(table, table.getName());
             if (name.getObjectName().isEmpty()) {
                 throw new SemanticException(MISSING_TABLE, table, "Table name is empty");
             }
@@ -1933,6 +1934,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitAliasedRelation(AliasedRelation relation, Optional<Scope> scope)
         {
+            analysis.setRelationName(relation, QualifiedName.of(relation.getAlias().getValue()));
             Scope relationScope = process(relation.getRelation(), scope);
 
             // todo this check should be inside of TupleDescriptor.withAlias, but the exception needs the node object
