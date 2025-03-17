@@ -1225,7 +1225,7 @@ public class Analysis
         {
             this.connectorId = requireNonNull(connectorId, "connectorId is null");
             this.functionName = requireNonNull(functionName, "functionName is null");
-            this.arguments = requireNonNull(arguments, "arguments is null");
+            this.arguments = ImmutableMap.copyOf(arguments);
             this.connectorTableFunctionHandle = requireNonNull(connectorTableFunctionHandle, "connectorTableFunctionHandle is null");
             this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
         }
