@@ -702,7 +702,6 @@ struct CastFromJsonTypedImpl {
           auto size = unescapeSizeForJsonCast(json.data(), json.size());
           vectorWriter.resize(size);
           unescapeForJsonCast(json.data(), json.size(), vectorWriter.data());
-          vectorWriter.finalize();
         } else {
           vectorWriter.append(json);
         }

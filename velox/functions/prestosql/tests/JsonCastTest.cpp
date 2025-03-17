@@ -1542,6 +1542,7 @@ TEST_F(JsonCastTest, castFromJsonWithEscaping) {
   });
   auto resultMap = evaluate(
       "cast(json_parse(c0) as map(varchar, json))", makeRowVector({svData}));
+
   test::assertEqualVectors(expected, resultMap);
 
   // Test cast from Json to ARRAY(JSON) gets escaped correctly.
@@ -1581,4 +1582,24 @@ TEST_F(JsonCastTest, castFromJsonWithEscaping) {
   auto resultVarchar =
       evaluate("cast(json_parse(c0) as varchar)", makeRowVector({svData}));
   test::assertEqualVectors(expectedVarchar, resultVarchar);
+
+  // Create a large vector to ensure vectors string buffer has its capacity
+  // computed correctly.
+  {
+    auto largeVector = makeFlatVector<StringView>(1000, [](auto _) {
+      return R"({"someKey": "some large enough string 😀"})"_sv;
+    });
+    auto resultLarge = evaluate(
+        "cast(json_parse(c0) as map(varchar, json))",
+        makeRowVector({largeVector}));
+    auto largeMap = resultLarge->as<MapVector>();
+    for (auto i = 0; i < 1000; i++) {
+      ASSERT_EQ(
+          largeMap->mapKeys()->asFlatVector<StringView>()->valueAt(i),
+          "someKey");
+      ASSERT_EQ(
+          largeMap->mapValues()->asFlatVector<StringView>()->valueAt(i),
+          "\"some large enough string 😀\"");
+    }
+  }
 }
