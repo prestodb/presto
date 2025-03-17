@@ -1476,31 +1476,8 @@ class StatementAnalyzer
                 if (argument.getValue() instanceof FunctionCall && ((FunctionCall) argument.getValue()).getName().hasSuffix(QualifiedName.of("decsriptor"))) { // function name is always compared case-insensitive
                     throw new SemanticException(INVALID_FUNCTION_ARGUMENT, argument, "'descriptor' function is not allowed as a table function argument");
                 }
-                // inline parameters
-                Expression inlined = ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
-                {
-                    @Override
-                    public Expression rewriteParameter(Parameter node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-                    {
-                        if (analysis.isDescribe()) {
-                            // We cannot handle DESCRIBE when a table function argument involves a parameter.
-                            // In DESCRIBE, the parameter values are not known. We cannot pass a dummy value for a parameter.
-                            // The value of a table function argument can affect the returned relation type. The returned
-                            // relation type can affect the assumed types for other parameters in the query.
-                            throw new SemanticException(NOT_SUPPORTED, node, "DESCRIBE is not supported if a table function uses parameters");
-                        }
-                        return analysis.getParameters().get(NodeRef.of(node));
-                    }
-                }, expression);
-                Type expectedArgumentType = ((ScalarArgumentSpecification) argumentSpecification).getType();
-                // currently, only constant arguments are supported
-                Object constantValue = ExpressionInterpreter.evaluateConstantExpression(inlined, expectedArgumentType, metadata, session, analysis.getParameters());
-                return ScalarArgument.builder()
-                        .type(expectedArgumentType)
-                        .value(constantValue)
-                        .build();
+                return analyzeScalarArgument(expression, ((ScalarArgumentSpecification) argumentSpecification).getType());
             }
-
             throw new IllegalStateException("Unexpected argument specification: " + argumentSpecification.getClass().getSimpleName());
         }
 
@@ -1523,6 +1500,32 @@ class StatementAnalyzer
             }
 
             throw new IllegalStateException("Unexpected argument specification: " + argumentSpecification.getClass().getSimpleName());
+        }
+
+        private Argument analyzeScalarArgument(Expression expression, Type type)
+        {
+            // inline parameters
+            Expression inlined = ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
+            {
+                @Override
+                public Expression rewriteParameter(Parameter node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+                {
+                    if (analysis.isDescribe()) {
+                        // We cannot handle DESCRIBE when a table function argument involves a parameter.
+                        // In DESCRIBE, the parameter values are not known. We cannot pass a dummy value for a parameter.
+                        // The value of a table function argument can affect the returned relation type. The returned
+                        // relation type can affect the assumed types for other parameters in the query.
+                        throw new SemanticException(NOT_SUPPORTED, node, "DESCRIBE is not supported if a table function uses parameters");
+                    }
+                    return analysis.getParameters().get(NodeRef.of(node));
+                }
+            }, expression);
+            // currently, only constant arguments are supported
+            Object constantValue = ExpressionInterpreter.evaluateConstantExpression(inlined, type, metadata, session, analysis.getParameters());
+            return ScalarArgument.builder()
+                    .type(type)
+                    .value(constantValue)
+                    .build();
         }
 
         @Override
