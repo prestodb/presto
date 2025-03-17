@@ -29,19 +29,14 @@ class IndexLookupJoin : public Operator {
 
   BlockingReason isBlocked(ContinueFuture* future) override;
 
-  bool needsInput() const override {
-    if (noMoreInput_ || input_ != nullptr) {
-      return false;
-    }
-    return true;
-  }
+  bool needsInput() const override;
 
   void addInput(RowVectorPtr input) override;
 
   RowVectorPtr getOutput() override;
 
   bool isFinished() override {
-    return noMoreInput_ && input_ == nullptr;
+    return noMoreInput_ && (numInputBatches() == 0);
   }
 
   void close() override;
@@ -56,35 +51,70 @@ class IndexLookupJoin : public Operator {
   static inline const std::string kConnectorLookupCpuTime{"lookupCpuNanos"};
 
  private:
+  using LookupResultIter = connector::IndexSource::LookupResultIterator;
+  using LookupResult = connector::IndexSource::LookupResult;
+
+  // Contains the state of an input batch processing.
+  struct InputBatchState {
+    // The input batch to process.
+    RowVectorPtr input;
+    // The reusable vector projected from 'input' as index lookup input.
+    RowVectorPtr lookupInput;
+    // Used to fetch lookup results for an input batch.
+    std::shared_ptr<LookupResultIter> lookupResultIter;
+    // Used for synchronization with the async fetch result from index source
+    // through 'lookupResultIter'.
+    ContinueFuture lookupFuture;
+    // Used to store the lookup result fetched from 'lookupResultIter' for
+    // output processing. We might split the output result into multiple output
+    // batches based on the operator's output batch size limit.
+    std::unique_ptr<LookupResult> lookupResult;
+
+    InputBatchState() : lookupFuture(ContinueFuture::makeEmpty()) {}
+
+    void reset() {
+      input = nullptr;
+      lookupResultIter = nullptr;
+      lookupFuture = ContinueFuture::makeEmpty();
+      lookupResult = nullptr;
+    }
+
+    // Indicates if this input batch is empty.
+    bool empty() const {
+      return input == nullptr;
+    }
+  };
+
+  void initInputBatches();
   // Initialize the lookup input and output type, and the output projections.
   void initLookupInput();
   void initLookupOutput();
   void initOutputProjections();
-  // Prepare lookup input for index source lookup for a given 'input_'.
-  void prepareLookupInput();
+  void ensureInputLoaded(const InputBatchState& batch);
+  // Prepare index source lookup for a given 'input_'.
+  void prepareLookup(InputBatchState& batch);
+  void startLookup(InputBatchState& batch);
 
-  void lookup();
-
-  RowVectorPtr getOutputFromLookupResult();
-  RowVectorPtr produceOutputForInnerJoin();
-  RowVectorPtr produceOutputForLeftJoin();
+  RowVectorPtr getOutputFromLookupResult(InputBatchState& batch);
+  RowVectorPtr produceOutputForInnerJoin(const InputBatchState& batch);
+  RowVectorPtr produceOutputForLeftJoin(const InputBatchState& batch);
   // Produces output for the remaining input rows that has no matches from the
   // lookup at the end of current input batch processing.
-  RowVectorPtr produceRemainingOutputForLeftJoin();
+  RowVectorPtr produceRemainingOutputForLeftJoin(const InputBatchState& batch);
 
   // Returns true if we have remaining output rows from the current
   // 'lookupResult_' after finishing processing all the output results from the
   // current 'lookupResultIter_'. For left join, we need to produce for the all
   // the input rows that have no matches in 'lookupResult_'.
-  bool hasRemainingOutputForLeftJoin() const;
+  bool hasRemainingOutputForLeftJoin(const InputBatchState& batch) const;
 
   // Checks if we have finished processing the current 'lookupResult_'. If so,
   // we reset 'lookupResult_' and corresponding processing state.
-  void maybeFinishLookupResult();
+  void maybeFinishLookupResult(InputBatchState& batch);
 
   // Invoked after finished processing the current 'input_' batch. The function
   // resets the input batch and the lookup result states.
-  void finishInput();
+  void finishInput(InputBatchState& batch);
 
   // Prepare output row mappings for the next output batch with max size of
   // 'outputBatchSize'. This is only used by left join which needs to fill nulls
@@ -99,6 +129,35 @@ class IndexLookupJoin : public Operator {
   // Invoked at operator close to record the lookup stats.
   void recordConnectorStats();
 
+  // Returns true if we support to fetch more than one input batch for index
+  // lookup prefetch.
+  bool lookupPrefetchEnabled() const {
+    return maxNumInputBatches_ > 1;
+  }
+
+  // Returns the number of input batches to process.
+  size_t numInputBatches() const {
+    VELOX_CHECK_LE(startBatchIndex_, endBatchIndex_);
+    return endBatchIndex_ - startBatchIndex_;
+  }
+
+  // Returns an empty batch for next input batch. The function also advances
+  // 'endBatchIndex_'.
+  InputBatchState& nextInputBatch() {
+    VELOX_CHECK_LT(numInputBatches(), maxNumInputBatches_);
+    VELOX_CHECK(inputBatches_[endBatchIndex_ % maxNumInputBatches_].empty());
+    return inputBatches_[endBatchIndex_++ % maxNumInputBatches_];
+  }
+
+  // Returns the current processing batch.
+  InputBatchState& currentInputBatch() {
+    return inputBatches_[startBatchIndex_ % maxNumInputBatches_];
+  }
+
+  const InputBatchState& currentInputBatch() const {
+    return inputBatches_[startBatchIndex_ % maxNumInputBatches_];
+  }
+
   // Maximum number of rows in the output batch.
   const vector_size_t outputBatchSize_;
   // Type of join.
@@ -112,6 +171,7 @@ class IndexLookupJoin : public Operator {
       lookupColumnHandles_;
   const std::shared_ptr<connector::ConnectorQueryCtx> connectorQueryCtx_;
   const std::shared_ptr<connector::Connector> connector_;
+  const size_t maxNumInputBatches_;
 
   // The lookup join plan node used to initialize this operator and reset after
   // that.
@@ -122,8 +182,16 @@ class IndexLookupJoin : public Operator {
   RowTypePtr lookupInputType_;
   // The column channels in probe 'input_' referenced by 'lookupInputType_'.
   std::vector<column_index_t> lookupInputChannels_;
-  // The reused row vector for lookup input.
-  RowVectorPtr lookupInput_;
+
+  // The input batches to process with ranges pointed by 'startBatchIndex_' and
+  // 'endBatchIndex_'.
+  std::vector<InputBatchState> inputBatches_;
+
+  // Points to the input batches in 'inputBatches_' for processing with range of
+  // '[startBatchIndex_ % maxNumInputBatches_, endBatchIndex_ %
+  // maxNumInputBatches_ - 1)'.
+  uint64_t startBatchIndex_{0};
+  uint64_t endBatchIndex_{0};
 
   // The data type of the lookup output from the lookup source.
   RowTypePtr lookupOutputType_;
@@ -133,18 +201,6 @@ class IndexLookupJoin : public Operator {
   std::vector<IdentityProjection> lookupOutputProjections_;
 
   std::shared_ptr<connector::IndexSource> indexSource_;
-
-  // Used for synchronization with the async fetch result from index source
-  // through 'lookupResultIter_'.
-  ContinueFuture lookupFuture_{ContinueFuture::makeEmpty()};
-  // Used to fetch lookup results for each input batch, and reset after
-  // processing all the outputs from the result.
-  std::shared_ptr<connector::IndexSource::LookupResultIterator>
-      lookupResultIter_;
-  // Used to store the lookup result fetched from 'lookupResultIter_' for output
-  // processing. We might split the output result into multiple output batches
-  // based on the operator's output batch size limit.
-  std::unique_ptr<connector::IndexSource::LookupResult> lookupResult_;
 
   // Points to the next output row in 'lookupResult_' for processing until
   // reaches to the end of 'lookupResult_'.

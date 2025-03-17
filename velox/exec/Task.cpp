@@ -320,6 +320,7 @@ Task::~Task() {
   SCOPE_EXIT {
     removeFromTaskList();
   };
+
   // TODO(spershin): Temporary code designed to reveal what causes SIGABRT in
   // jemalloc when destroying some Tasks.
   std::string clearStage;

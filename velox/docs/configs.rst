@@ -166,6 +166,11 @@ Generic Configuration
      - false
      - By default, if a key is found in multiple given maps, that key's value in the resulting map comes from the last one of those maps.
        If true, throws exception when duplicate keys are found. This configuration is needed by Spark functions `CreateMap`, `MapFromArrays`, `MapFromEntries`, `StringToMap`, `MapConcat`, `TransformKeys`.
+   * - index_lookup_join_max_prefetch_batches
+     - integer
+     - 0
+     - Specifies the max number of input batches to prefetch to do index lookup ahead. If it is zero,
+       then process one input batch at a time.
 
 .. _expression-evaluation-conf:
 

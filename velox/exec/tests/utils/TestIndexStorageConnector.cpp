@@ -300,6 +300,9 @@ void TestIndexSource::ResultIterator::asyncLookup(
   auto asyncPromise =
       std::make_shared<ContinuePromise>(std::move(lookupPromise));
   executor_->add([this, size, promise = std::move(asyncPromise)]() mutable {
+    TestValue::adjust(
+        "facebook::velox::exec::test::TestIndexSource::ResultIterator::asyncLookup",
+        this);
     VELOX_CHECK(!asyncResult_.has_value());
     VELOX_CHECK(hasPendingRequest_);
     TestValue::adjust(
@@ -385,6 +388,7 @@ void TestIndexSource::ResultIterator::evalJoinConditions() {
     return;
   }
 
+  std::lock_guard<std::mutex> l(source_->mutex_);
   const auto conditionInput = createConditionInput();
   source_->connectorQueryCtx_->expressionEvaluator()->evaluate(
       source_->conditionExprSet_.get(),
