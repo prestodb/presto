@@ -118,7 +118,7 @@ void registerMapFunctions(const std::string& prefix) {
   registerFunction<
       MapTopNKeysFunction,
       Array<Orderable<T1>>,
-      Map<Orderable<T1>, Orderable<T2>>,
+      Map<Orderable<T1>, Generic<T2>>,
       int64_t>({prefix + "map_top_n_keys"});
 
   registerFunction<

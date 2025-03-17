@@ -24,11 +24,11 @@ template <typename TExec, typename Compare>
 struct MapTopNImpl {
   VELOX_DEFINE_FUNCTION_TYPES(TExec);
 
-  using It = typename arg_type<Map<Orderable<T1>, Orderable<T2>>>::Iterator;
+  using It = typename arg_type<Map<Orderable<T1>, Generic<T2>>>::Iterator;
 
   void call(
       out_type<Array<Orderable<T1>>>& out,
-      const arg_type<Map<Orderable<T1>, Orderable<T2>>>& inputMap,
+      const arg_type<Map<Orderable<T1>, Generic<T2>>>& inputMap,
       int64_t n) {
     VELOX_USER_CHECK_GE(n, 0, "n must be greater than or equal to 0");
 

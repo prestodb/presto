@@ -25,7 +25,7 @@ template <typename TExec>
 struct CompareKeys {
   VELOX_DEFINE_FUNCTION_TYPES(TExec);
 
-  using It = typename arg_type<Map<Orderable<T1>, Orderable<T2>>>::Iterator;
+  using It = typename arg_type<Map<Orderable<T1>, Generic<T2>>>::Iterator;
 
   bool operator()(const It& l, const It& r) const {
     static const CompareFlags flags{

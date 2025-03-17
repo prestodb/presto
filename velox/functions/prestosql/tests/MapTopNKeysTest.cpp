@@ -121,5 +121,21 @@ TEST_F(MapTopNKeysTest, timestampWithTimeZone) {
   testMapTopNKeys({}, {}, {});
 }
 
+TEST_F(MapTopNKeysTest, nestedVarcharMap) {
+  // Create inner maps: MAP<VARCHAR, VARCHAR>
+  auto arrayVector = makeFlatVector<std::string>({"k1", "k2", "k3"});
+  auto innerMapsVector = makeMapVectorFromJson<std::string, std::string>(
+      {R"({"a":"test_value", "b":"test_value"})",
+       R"({"b":"3", "c":"test_value"})",
+       R"({"b":"3", "c":"test_value"})"});
+
+  auto mapvector = makeMapVector({0}, arrayVector, innerMapsVector);
+
+  RowVectorPtr input = makeRowVector({mapvector});
+  auto result = evaluate("map_top_n_keys(c0, 2)", input);
+  auto expected = makeArrayVectorFromJson<std::string>({"[\"k3\", \"k2\"]"});
+  assertEqualVectors(expected, result);
+}
+
 } // namespace
 } // namespace facebook::velox::functions
