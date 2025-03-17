@@ -16,6 +16,7 @@ package com.facebook.presto.spi.function.table;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -42,6 +43,25 @@ public class DescriptorArgument
     public Optional<Descriptor> getDescriptor()
     {
         return descriptor;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        DescriptorArgument that = (DescriptorArgument) o;
+        return descriptor.equals(that.descriptor);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(descriptor);
     }
 
     public static Builder builder()
