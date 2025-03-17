@@ -33,7 +33,6 @@ class TaskTraceMetadataWriter {
   const std::string traceDir_;
   const std::shared_ptr<filesystems::FileSystem> fs_;
   const std::string traceFilePath_;
-  memory::MemoryPool* const pool_;
   bool finished_{false};
 };
 } // namespace facebook::velox::exec::trace

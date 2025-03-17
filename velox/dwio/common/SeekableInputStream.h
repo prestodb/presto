@@ -131,7 +131,6 @@ class SeekableFileInputStream : public SeekableInputStream {
   const uint64_t start_;
   const uint64_t length_;
   const uint64_t blockSize_;
-  memory::MemoryPool* const pool_;
 
   DataBuffer<char> buffer_;
   uint64_t position_;

@@ -27,7 +27,7 @@ class OutputBufferManager {
   /// agree.
   struct Options {};
 
-  explicit OutputBufferManager(Options options) : options_(options) {}
+  explicit OutputBufferManager(Options) {}
 
   void initializeTask(
       std::shared_ptr<Task> task,
@@ -154,7 +154,5 @@ class OutputBufferManager {
 
   std::function<std::unique_ptr<OutputStreamListener>()> listenerFactory_{
       nullptr};
-
-  Options options_;
 };
 } // namespace facebook::velox::exec

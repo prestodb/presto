@@ -197,7 +197,6 @@ SeekableFileInputStream::SeekableFileInputStream(
       start_(offset),
       length_(byteCount),
       blockSize_(computeBlock(blockSize, length_)),
-      pool_(&pool),
       buffer_{pool} {
   position_ = 0;
   pushback_ = 0;

@@ -1753,7 +1753,6 @@ class StructColumnReader : public ColumnReader {
  private:
   const std::shared_ptr<const dwio::common::TypeWithId> requestedType_;
   std::vector<std::unique_ptr<ColumnReader>> children_;
-  folly::Executor* executor_;
   std::unique_ptr<dwio::common::ParallelFor> parallelForOnChildren_;
 
  public:
@@ -1796,8 +1795,7 @@ StructColumnReader::StructColumnReader(
     FlatMapContext flatMapContext,
     ColumnReaderFactory& factory)
     : ColumnReader(fileType, stripe, streamLabels, std::move(flatMapContext)),
-      requestedType_{requestedType},
-      executor_{executor} {
+      requestedType_{requestedType} {
   DWIO_ENSURE_EQ(
       fileType_->id(),
       fileType->id(),

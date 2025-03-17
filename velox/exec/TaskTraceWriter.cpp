@@ -25,11 +25,10 @@ namespace facebook::velox::exec::trace {
 
 TaskTraceMetadataWriter::TaskTraceMetadataWriter(
     std::string traceDir,
-    memory::MemoryPool* pool)
+    memory::MemoryPool* /* pool */)
     : traceDir_(std::move(traceDir)),
       fs_(filesystems::getFileSystem(traceDir_, nullptr)),
-      traceFilePath_(getTaskTraceMetaFilePath(traceDir_)),
-      pool_(pool) {
+      traceFilePath_(getTaskTraceMetaFilePath(traceDir_)) {
   VELOX_CHECK_NOT_NULL(fs_);
   VELOX_CHECK(!fs_->exists(traceFilePath_));
 }

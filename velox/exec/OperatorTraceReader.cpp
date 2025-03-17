@@ -65,10 +65,9 @@ OperatorTraceInputReader::getInputStream() const {
 
 OperatorTraceSummaryReader::OperatorTraceSummaryReader(
     std::string traceDir,
-    memory::MemoryPool* pool)
+    memory::MemoryPool* /* pool */)
     : traceDir_(std::move(traceDir)),
       fs_(filesystems::getFileSystem(traceDir_, nullptr)),
-      pool_(pool),
       summaryFile_(fs_->openFileForRead(getOpTraceSummaryFilePath(traceDir_))) {
 }
 

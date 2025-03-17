@@ -206,11 +206,6 @@ class VectorStream {
 
   const TypePtr type_;
   StreamArena* const streamArena_;
-  /// Indicates whether to serialize timestamps with nanosecond precision.
-  /// If false, they are serialized with millisecond precision which is
-  /// compatible with presto.
-  const bool useLosslessTimestamp_;
-  const bool nullsFirst_;
   const bool isLongDecimal_;
   const bool isUuid_;
   const bool isIpAddress_;

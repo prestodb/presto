@@ -65,7 +65,6 @@ class OperatorTraceSummaryReader {
  private:
   const std::string traceDir_;
   const std::shared_ptr<filesystems::FileSystem> fs_;
-  memory::MemoryPool* const pool_;
   const std::unique_ptr<ReadFile> summaryFile_;
 };
 

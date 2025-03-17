@@ -67,7 +67,6 @@ class OperatorTraceInputWriter {
 
   std::unique_ptr<WriteFile> traceFile_;
   std::unique_ptr<VectorStreamGroup> batch_;
-  bool limitExceeded_{false};
   bool finished_{false};
 };
 

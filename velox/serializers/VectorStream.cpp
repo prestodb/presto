@@ -66,8 +66,6 @@ VectorStream::VectorStream(
     const PrestoVectorSerde::PrestoOptions& opts)
     : type_(type),
       streamArena_(streamArena),
-      useLosslessTimestamp_(opts.useLosslessTimestamp),
-      nullsFirst_(opts.nullsFirst),
       isLongDecimal_(type_->isLongDecimal()),
       isUuid_(isUuidType(type_)),
       isIpAddress_(isIPAddressType(type_)),
