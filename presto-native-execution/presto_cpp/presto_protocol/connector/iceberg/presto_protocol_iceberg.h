@@ -289,6 +289,8 @@ struct IcebergTableHandle : public ConnectorTableHandle {
   std::shared_ptr<String> tableSchemaJson = {};
   std::shared_ptr<List<Integer>> partitionFieldIds = {};
   std::shared_ptr<List<Integer>> equalityFieldIds = {};
+  List<SortField> sortOrder = {};
+  List<IcebergColumnHandle> updatedColumns = {};
 
   IcebergTableHandle() noexcept;
 };
