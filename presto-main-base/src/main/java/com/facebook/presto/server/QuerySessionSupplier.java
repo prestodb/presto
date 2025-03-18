@@ -77,9 +77,9 @@ public class QuerySessionSupplier
     }
 
     @Override
-    public Session createSession(QueryId queryId, SessionContext context, WarningCollectorFactory warningCollectorFactory)
+    public Session createSession(QueryId queryId, SessionContext context, WarningCollectorFactory warningCollectorFactory, String query)
     {
-        Session session = createSessionBuilder(queryId, context, warningCollectorFactory).build();
+        Session session = createSessionBuilder(queryId, context, warningCollectorFactory, query).build();
         if (context.getTransactionId().isPresent()) {
             session = session.beginTransactionId(context.getTransactionId().get(), transactionManager, accessControl);
         }
