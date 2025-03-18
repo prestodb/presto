@@ -17,6 +17,7 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.StandardTypes;
 import com.google.common.collect.ImmutableList;
+import org.testng.annotations.Test;
 
 import java.util.List;
 
@@ -69,5 +70,35 @@ public class TestRealSumIfAggregation
     protected List<String> getFunctionParameterTypes()
     {
         return ImmutableList.of(StandardTypes.BOOLEAN, StandardTypes.REAL);
+    }
+
+    @Test
+    public void testAllValuesNullWithTrueCondition()
+    {
+        BlockBuilder conditions = BOOLEAN.createBlockBuilder(null, 5);
+        BlockBuilder values = REAL.createBlockBuilder(null, 5);
+
+        for (int i = 0; i < 5; i++) {
+            BOOLEAN.writeBoolean(conditions, true);
+            values.appendNull();
+        }
+
+        Block[] blocks = new Block[] {conditions.build(), values.build()};
+        testAggregation(null, blocks);
+    }
+
+    @Test
+    public void testAllValuesNullWithMixedCondition()
+    {
+        BlockBuilder conditions = BOOLEAN.createBlockBuilder(null, 5);
+        BlockBuilder values = REAL.createBlockBuilder(null, 5);
+
+        for (int i = 0; i < 5; i++) {
+            BOOLEAN.writeBoolean(conditions, i % 2 == 0);
+            values.appendNull();
+        }
+
+        Block[] blocks = new Block[] {conditions.build(), values.build()};
+        testAggregation(null, blocks);
     }
 }
