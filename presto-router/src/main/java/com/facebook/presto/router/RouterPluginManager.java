@@ -14,8 +14,8 @@ package com.facebook.presto.router;
  */
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.plugin.base.PluginClassLoader;
 import com.facebook.presto.router.scheduler.SchedulerManager;
-import com.facebook.presto.server.PluginClassLoader;
 import com.facebook.presto.server.PluginManagerConfig;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.RouterPlugin;
@@ -41,8 +41,8 @@ import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.presto.server.PluginDiscovery.discoverPlugins;
-import static com.facebook.presto.server.PluginDiscovery.writePluginServices;
+import static com.facebook.presto.plugin.base.PluginDiscovery.discoverPlugins;
+import static com.facebook.presto.plugin.base.PluginDiscovery.writePluginServices;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -78,7 +78,6 @@ public class RouterPluginManager
     private final ArtifactResolver resolver;
     private final AtomicBoolean pluginsLoading = new AtomicBoolean();
     private final AtomicBoolean pluginsLoaded = new AtomicBoolean();
-    private static final String PLUGIN_SERVICES_FILE = "META-INF/services/" + Plugin.class.getName();
     private static final String SERVICES_FILE = "META-INF/services/" + Plugin.class.getName();
 
     @Inject
@@ -142,9 +141,7 @@ public class RouterPluginManager
 
         for (Object plugin : plugins) {
             log.info("Installing %s", plugin.getClass().getName());
-            if (plugin instanceof Plugin) {
-                installPlugin((Plugin) plugin);
-            }
+
             if (plugin instanceof RouterPlugin) {
                 installRouterPlugin((RouterPlugin) plugin);
             }
@@ -152,11 +149,6 @@ public class RouterPluginManager
                 log.warn("Unknown plugin type: %s", plugin.getClass().getName());
             }
         }
-    }
-
-    public void installPlugin(Plugin plugin)
-    {
-        return;
     }
 
     public void installRouterPlugin(RouterPlugin plugin)

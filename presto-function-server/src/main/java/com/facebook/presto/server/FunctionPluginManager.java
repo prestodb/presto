@@ -15,6 +15,7 @@ package com.facebook.presto.server;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.plugin.base.PluginClassLoader;
 import com.facebook.presto.spi.CoordinatorPlugin;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
@@ -40,8 +41,8 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
-import static com.facebook.presto.server.PluginDiscovery.discoverPlugins;
-import static com.facebook.presto.server.PluginDiscovery.writePluginServices;
+import static com.facebook.presto.plugin.base.PluginDiscovery.discoverPlugins;
+import static com.facebook.presto.plugin.base.PluginDiscovery.writePluginServices;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe

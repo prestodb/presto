@@ -18,11 +18,10 @@ import com.facebook.presto.spi.router.ClusterInfo;
 import com.facebook.presto.spi.router.Scheduler;
 
 import java.net.URI;
-import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 //Metrics based scheduler uses coordinator and/or worker metrics for scheduling decisions
 public class MetricsBasedScheduler
@@ -31,39 +30,15 @@ public class MetricsBasedScheduler
     private static final Logger log = Logger.get(MetricsBasedScheduler.class);
     Map<URI, ClusterInfo> clusterInfos;
 
-    //Cluster with lowest number of queries will be on top of the queue
-    List<ClusterQueryInfo> clusterQueue = new ArrayList<>();
-
-    private List<URI> candidates;
-
-    private class ClusterQueryInfo
-    {
-        URI clusterUri;
-        long runningQueries;
-        long queuedQueries;
-        long totalQueries;
-
-        ClusterQueryInfo(URI clusterUri, long runningQueries, long queuedQueries)
-        {
-            this.clusterUri = clusterUri;
-            this.runningQueries = runningQueries;
-            this.queuedQueries = queuedQueries;
-            totalQueries = (long) (runningQueries + queuedQueries);
-            log.info("Cluster URI : " + clusterUri + ", runningQueries : " + runningQueries + ", queuedQueries : " + queuedQueries + ", totalQueries : " + totalQueries);
-        }
-    }
-
     @Override
     public Optional<URI> getDestination(String user, String query)
     {
         try {
             if (clusterInfos != null && !clusterInfos.isEmpty()) {
-                clusterQueue.clear();
-                clusterQueue.addAll(clusterInfos.keySet().stream()
-                        .map(uri -> new ClusterQueryInfo(uri, clusterInfos.get(uri).getRunningQueries(), clusterInfos.get(uri).getQueuedQueries()))
-                        .collect(Collectors.toList()));
-                clusterQueue.sort((x, y) -> (int) (x.totalQueries - y.totalQueries));
-                return Optional.of(clusterQueue.get(0).clusterUri);
+                //Cluster with lowest number of queries will be returned
+                return clusterInfos.entrySet().stream()
+                        .min(Comparator.comparingLong(entry -> entry.getValue().getRunningQueries() + entry.getValue().getQueuedQueries()))
+                        .map(Map.Entry::getKey);
             }
             return Optional.empty();
         }
@@ -74,10 +49,7 @@ public class MetricsBasedScheduler
     }
 
     @Override
-    public void setCandidates(List<URI> candidates)
-    {
-        this.candidates = candidates;
-    }
+    public void setCandidates(List<URI> candidates) {}
 
     @Override
     public void setClusterInfos(Map<URI, ClusterInfo> clusterInfos)

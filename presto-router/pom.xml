@@ -206,6 +206,11 @@
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main-base</artifactId>
         </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-plugin-toolkit</artifactId>
+        </dependency>
         <!-- test dependencies-->
         <dependency>
             <groupId>org.testng</groupId>

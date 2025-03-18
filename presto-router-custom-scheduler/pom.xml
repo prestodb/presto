@@ -5,12 +5,12 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.292-SNAPSHOT</version>
+        <version>0.293-SNAPSHOT</version>
     </parent>
 
     <groupId>com.facebook.presto.router</groupId>
     <artifactId>scheduler</artifactId>
-    <version>0.292-SNAPSHOT</version>
+    <version>0.293-SNAPSHOT</version>
     <packaging>jar</packaging>
     <name>presto-router-custom-scheduler</name>
     <description>SPI plugin project for presto router custom scheduler</description>
@@ -36,40 +36,8 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-engine</artifactId>
-            <version>5.9.1</version> <!-- Use the latest stable version -->
+            <version>5.10.2</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
-
-    <!-- Build configurations -->
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-assembly-plugin</artifactId>
-                <version>3.3.0</version>
-                <executions>
-                    <execution>
-                        <id>make-assembly</id>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>single</goal>
-                        </goals>
-                        <configuration>
-                            <descriptorRefs>
-                                <descriptorRef>jar-with-dependencies</descriptorRef>
-                            </descriptorRefs>
-                            <archive>
-                                <manifest>
-                                    <addClasspath>true</addClasspath>
-                                    <mainClass>com.facebook.presto.router.scheduler.RouterSchedulerPlugin</mainClass>
-                                </manifest>
-                            </archive>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-        </plugins>
-    </build>
-
 </project>
