@@ -146,18 +146,15 @@ public class QuerySessionSupplier
 
     private Identity authenticateIdentity(QueryId queryId, SessionContext context, String query)
     {
+        try {
+            validateQueryToken(accessControl, queryId, context, query);
 
-        if (isUnifiedPermissionsCheckEnabled(accessControl, context)) {
-            try {
-                validateQueryToken(accessControl, queryId, context, query);
-
-                if (isSkipPermissionsCheckEnabled(accessControl)) {
-                    return context.getIdentity();
-                }
+            if (isSkipPermissionsCheckEnabled(accessControl)) {
+                return context.getIdentity();
             }
-            catch (Exception e) {
-                logUnifiedPermissionsCheckFailure();
-            }
+        }
+        catch (Exception e) {
+            logUnifiedPermissionsCheckFailure();
         }
 
         checkPermissions(accessControl, securityConfig, queryId, context);
