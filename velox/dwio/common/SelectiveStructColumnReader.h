@@ -119,7 +119,8 @@ class SelectiveStructColumnReaderBase : public SelectiveColumnReader {
       : SelectiveColumnReader(requestedType, fileType, params, scanSpec),
         debugString_(
             getExceptionContext().message(VeloxException::Type::kSystem)),
-        isRoot_(isRoot) {}
+        isRoot_(isRoot),
+        rows_(memoryPool_) {}
 
   bool hasDeletion() const final {
     return hasDeletion_;

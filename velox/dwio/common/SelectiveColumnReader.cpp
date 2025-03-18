@@ -50,7 +50,14 @@ SelectiveColumnReader::SelectiveColumnReader(
       requestedType_(requestedType),
       fileType_(fileType),
       formatData_(params.toFormatData(fileType, scanSpec)),
-      scanSpec_(&scanSpec) {}
+      scanSpec_(&scanSpec),
+      outputRows_(memoryPool_),
+      valueRows_(memoryPool_),
+      outerNonNullRows_(memoryPool_),
+      innerNonNullRows_(memoryPool_) {
+  scanState_.rowsCopy = raw_vector<vector_size_t>(memoryPool_);
+  scanState_.filterCache = raw_vector<uint8_t>(memoryPool_);
+}
 
 void SelectiveColumnReader::filterRowGroups(
     uint64_t rowGroupSize,

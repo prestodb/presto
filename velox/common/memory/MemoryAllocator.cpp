@@ -135,10 +135,13 @@ MemoryAllocator::SizeMix MemoryAllocator::allocationSize(
 bool MemoryAllocator::isAlignmentValid(
     uint64_t allocateBytes,
     uint16_t alignmentBytes) {
+  // Check if the allocateBytes is conforming to the alignmentBytes.
+  // alignmentBytes must be a power of two, so we can replace the expensive
+  // modulo operation with bitwise and.
   return (alignmentBytes == kMinAlignment) ||
       (alignmentBytes >= kMinAlignment && alignmentBytes <= kMaxAlignment &&
-       allocateBytes % alignmentBytes == 0 &&
-       (alignmentBytes & (alignmentBytes - 1)) == 0);
+       bits::isPowerOfTwo(alignmentBytes) &&
+       (allocateBytes & (alignmentBytes - 1)) == 0);
 }
 
 void MemoryAllocator::alignmentCheck(

@@ -747,7 +747,7 @@ inline uint64_t nextPowerOfTwo(uint64_t size) {
 }
 
 inline bool isPowerOfTwo(uint64_t size) {
-  return bits::countBits(&size, 0, sizeof(uint64_t) * 8) <= 1;
+  return (size & (size - 1)) == 0;
 }
 
 // This is the Hash128to64 function from Google's cityhash (available

@@ -41,11 +41,8 @@ class SelectiveRepeatedColumnReader : public SelectiveColumnReader {
       FormatParams& params,
       velox::common::ScanSpec& scanSpec,
       std::shared_ptr<const dwio::common::TypeWithId> type)
-      : SelectiveColumnReader(
-            requestedType,
-            std::move(type),
-            params,
-            scanSpec) {}
+      : SelectiveColumnReader(requestedType, std::move(type), params, scanSpec),
+        nestedRowsHolder_(memoryPool_) {}
 
   /// Reads 'numLengths' next lengths into 'result'. If 'nulls' is
   /// non-null, each kNull bit signifies a null with a length of 0 to

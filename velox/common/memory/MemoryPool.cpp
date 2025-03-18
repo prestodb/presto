@@ -491,7 +491,9 @@ void* MemoryPoolImpl::allocate(
     std::optional<uint32_t> alignment) {
   if (alignment.has_value()) {
     const auto alignmentValue = alignment.value();
-    if (FOLLY_UNLIKELY(alignment_ % alignmentValue != 0)) {
+    if (FOLLY_UNLIKELY(
+            !(bits::isPowerOfTwo(alignmentValue) &&
+              alignmentValue <= alignment_))) {
       VELOX_UNSUPPORTED(
           "Memory pool only supports fixed alignment allocations. Requested "
           "alignment {} must already be aligned with this memory pool's fixed "

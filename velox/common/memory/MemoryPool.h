@@ -278,7 +278,7 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   virtual size_t preferredSize(size_t size);
 
   /// Returns the memory allocation alignment size applied internally by this
-  /// memory pool object.
+  /// memory pool object.  Must be a power of two.
   virtual uint16_t alignment() const {
     return alignment_;
   }
@@ -755,8 +755,8 @@ class MemoryPoolImpl : public MemoryPool {
         : std::max<int64_t>(0, reservationBytes_ - usedReservationBytes_);
   }
 
-  FOLLY_ALWAYS_INLINE int64_t sizeAlign(int64_t size) {
-    const auto remainder = size % alignment_;
+  FOLLY_ALWAYS_INLINE int64_t sizeAlign(int64_t size) const {
+    const auto remainder = size & (alignment_ - 1);
     return (remainder == 0) ? size : (size + alignment_ - remainder);
   }
 
