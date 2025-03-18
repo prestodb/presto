@@ -53,7 +53,7 @@ env:
   RELEASE_NOTES_COMMIT: ${{ inputs.release-notes-commit }}
 
 jobs:
-  tag-release:
+  publish-release-tag:
     if: ${{ github.event.inputs.publish_release_tag == 'true' }}
     runs-on: ubuntu-latest
     environment: release
@@ -94,7 +94,7 @@ jobs:
           git push origin ${{ env.RELEASE_BRANCH }} --tags
 
   publish-maven-artifacts:
-    needs: tag-release
+    needs: publish-release-tag
     if: |
       (github.event.inputs.publish_maven == 'true' || github.event.inputs.publish_docker == 'true' || github.event.inputs.publish_docs == 'true') &&
       (github.event.inputs.publish_release_tag != 'true' || success())
@@ -211,7 +211,7 @@ jobs:
             -pl '!presto-test-coverage'
 
   publish-docker-images:
-    if: ${{ github.event.inputs.publish_docker == 'true' && always() }}
+    if: ${{ github.event.inputs.publish_docker == 'true' && success() }}
     needs: publish-maven-artifacts
     runs-on: ubuntu-latest
     environment: release
@@ -241,7 +241,7 @@ jobs:
         uses: docker/setup-qemu-action@v3
 
       - name: Set up docker buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@v3
 
       - name: Create and use builder
         run: |
@@ -268,7 +268,7 @@ jobs:
             ${{ github.event.inputs.tag_image_as_latest == 'true' && format('{0}:latest', env.DOCKER_REPO) || '' }}
 
   publish-native-images:
-    needs: tag-release
+    needs: publish-release-tag
     if: |
       github.event.inputs.publish_native_docker == 'true' &&
       (github.event.inputs.publish_release_tag != 'true' || success())
@@ -350,7 +350,7 @@ jobs:
 
   publish-docs:
     needs: publish-maven-artifacts
-    if: ${{ github.event.inputs.publish_docs == 'true' && always() }}
+    if: ${{ github.event.inputs.publish_docs == 'true' && success() }}
     runs-on: ubuntu-latest
     environment: release
 
