@@ -232,7 +232,7 @@ jobs:
           path: ./
 
       - name: Login to dockerhub
-        uses: docker/login-action@v3.3.0
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -241,7 +241,7 @@ jobs:
         uses: docker/setup-qemu-action@v3
 
       - name: Set up docker buildx
-        uses: docker/setup-buildx-action@v3.9.0
+        uses: docker/setup-buildx-action@v4
 
       - name: Create and use builder
         run: |
@@ -293,13 +293,13 @@ jobs:
           echo "COMMIT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
       - name: Login to DockerHub
-        uses: docker/login-action@v3.3.0
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3.3.0
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -384,7 +384,8 @@ jobs:
           git config --global --add safe.directory ${{ github.workspace }}/prestodb.github.io
           git config --global user.email "ci@lists.prestodb.io"
           git config --global user.name "prestodb-ci"
-          git log --pretty="format:%ce: %s" -5
+          git config --global alias.ls 'log --pretty=format:"%cd %h %ce: %s" --date=short --no-merges'
+          git ls -5
 
       - name: Download artifacts
         uses: actions/download-artifact@v4

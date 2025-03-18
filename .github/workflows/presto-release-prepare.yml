@@ -14,6 +14,10 @@ on:
         default: true
         required: false
 
+env:
+  JAVA_VERSION: '11'
+  JAVA_DISTRIBUTION: 'temurin'
+
 jobs:
   prepare-release-branch:
     if: ${{ inputs.prepare_release }}
@@ -33,25 +37,27 @@ jobs:
           token: ${{ secrets.PRESTODB_CI_TOKEN }}
           ref: master
           show-progress: false
+          fetch-depth: 5
 
-      - name: Set up JDK 11
+      - name: Set up JDK
         uses: actions/setup-java@v4
         with:
-          java-version: '11'
-          distribution: 'temurin'
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
 
       - name: Configure git
         run: |
           git config --global --add safe.directory ${{github.workspace}}
           git config --global user.email "ci@lists.prestodb.io"
           git config --global user.name "prestodb-ci"
+          git config --global alias.ls 'log --pretty=format:"%cd %h %ce: %s" --date=short --no-merges'
           git config pull.rebase false
 
-      - name: Set maven version
+      - name: Set presto release version
         run: |
           unset MAVEN_CONFIG && ./mvnw versions:set -DremoveSnapshot -ntp
 
-      - name: Get Presto release version
+      - name: Get presto release version
         id: get-version
         run: |
           PRESTO_RELEASE_VERSION=$(mvn org.apache.maven.plugins:maven-help-plugin:3.2.0:evaluate \
@@ -59,7 +65,7 @@ jobs:
           echo "PRESTO_RELEASE_VERSION=$PRESTO_RELEASE_VERSION" >> $GITHUB_ENV
           echo "PRESTO_RELEASE_VERSION=$PRESTO_RELEASE_VERSION"
 
-      - name: Update version in master
+      - name: Prepare release tag and commits
         run: |
           git reset --hard
           unset MAVEN_CONFIG && ./mvnw release:prepare --batch-mode \
@@ -67,20 +73,27 @@ jobs:
             -DautoVersionSubmodules \
             -DdevelopmentVersion=${{ env.PRESTO_RELEASE_VERSION }} \
             -DreleaseVersion=${{ env.PRESTO_RELEASE_VERSION }}
-          grep -m 1 "<version>" pom.xml
-          git log --pretty="format:%ce: %s" -5
+          grep -m 2 "<version>" pom.xml
+          echo "commits on master branch"
+          git ls -5
 
-      - name: Push release branch
+      - name: Push release tag, branch and commits
         run: |
           echo "In case this job failed, please delete the tag ${{ env.PRESTO_RELEASE_VERSION }} and the branch release-${{ env.PRESTO_RELEASE_VERSION }}, and re-run the job"
           git checkout ${{ env.PRESTO_RELEASE_VERSION }}
           git switch -c release-${{ env.PRESTO_RELEASE_VERSION }}
           echo "Pushing release branch release-${{ env.PRESTO_RELEASE_VERSION }} and tag ${{ env.PRESTO_RELEASE_VERSION }}"
-          git log --pretty="format:%ce: %s" -3
+
+          echo "commits on release-${{ env.PRESTO_RELEASE_VERSION }} branch"
+          git ls -4
           git push origin release-${{ env.PRESTO_RELEASE_VERSION }} --tags
-          echo "Pusing master branch"
-          git log --pretty="format:%ce: %s" -5
+          echo -e "\nPushed release tag to: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ env.PRESTO_RELEASE_VERSION }}"
+          echo "Pushed release branch to: ${{ github.server_url }}/${{ github.repository }}/tree/release-${{ env.PRESTO_RELEASE_VERSION }}"
+
+          echo "Pushing master branch"
           git checkout master
+          echo "commits on master branch"
+          git ls -5
           git push origin master
 
   prepare-release-notes:
@@ -98,11 +111,11 @@ jobs:
           ref: master
           show-progress: false
 
-      - name: Set up JDK 11
+      - name: Set up JDK
         uses: actions/setup-java@v4
         with:
-          java-version: '11'
-          distribution: 'temurin'
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
 
       - name: Configure git
         run: |
