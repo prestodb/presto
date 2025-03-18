@@ -54,6 +54,11 @@ public class TaskStats
     private final int blockedDrivers;
     private final int completedDrivers;
 
+    private final int totalSplits;
+    private final int queuedSplits;
+    private final int runningSplits;
+    private final int completedSplits;
+
     private final double cumulativeUserMemory;
     private final double cumulativeTotalMemory;
     private final long userMemoryReservationInBytes;
@@ -109,6 +114,10 @@ public class TaskStats
                 0L,
                 0,
                 0,
+                0,
+                0,
+                0,
+                0,
                 0.0,
                 0.0,
                 0L,
@@ -152,6 +161,10 @@ public class TaskStats
                 0,
                 0,
                 0L,
+                0,
+                0,
+                0,
+                0,
                 0,
                 0,
                 0.0,
@@ -199,6 +212,11 @@ public class TaskStats
             long runningPartitionedSplitsWeight,
             int blockedDrivers,
             int completedDrivers,
+
+            int totalSplits,
+            int queuedSplits,
+            int runningSplits,
+            int completedSplits,
 
             double cumulativeUserMemory,
             double cumulativeTotalMemory,
@@ -267,6 +285,18 @@ public class TaskStats
         checkArgument(completedDrivers >= 0, "completedDrivers is negative");
         this.completedDrivers = completedDrivers;
 
+        checkArgument(totalSplits >= 0, "totalSplits is negative");
+        this.totalSplits = totalSplits;
+
+        checkArgument(queuedSplits >= 0, "queuedSplits is negative");
+        this.queuedSplits = queuedSplits;
+
+        checkArgument(runningSplits >= 0, "runningSplits is negative");
+        this.runningSplits = runningSplits;
+
+        checkArgument(completedSplits >= 0, "completedSplits is negative");
+        this.completedSplits = completedSplits;
+
         this.cumulativeUserMemory = cumulativeUserMemory;
         this.cumulativeTotalMemory = cumulativeTotalMemory;
         this.userMemoryReservationInBytes = userMemoryReservationInBytes;
@@ -327,6 +357,10 @@ public class TaskStats
             @JsonProperty("runningPartitionedSplitsWeight") long runningPartitionedSplitsWeight,
             @JsonProperty("blockedDrivers") int blockedDrivers,
             @JsonProperty("completedDrivers") int completedDrivers,
+            @JsonProperty("totalSplits") int totalSplits,
+            @JsonProperty("queuedSplits") int queuedSplits,
+            @JsonProperty("runningSplits") int runningSplits,
+            @JsonProperty("completedSplits") int completedSplits,
 
             @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
             @JsonProperty("cumulativeTotalMemory") double cumulativeTotalMemory,
@@ -381,6 +415,10 @@ public class TaskStats
                 runningPartitionedSplitsWeight,
                 blockedDrivers,
                 completedDrivers,
+                totalSplits,
+                queuedSplits,
+                runningSplits,
+                completedSplits,
 
                 cumulativeUserMemory,
                 cumulativeTotalMemory,
@@ -734,6 +772,34 @@ public class TaskStats
         return runtimeStats;
     }
 
+    @JsonProperty
+    @ThriftField(42)
+    public int getTotalSplits()
+    {
+        return totalSplits;
+    }
+
+    @JsonProperty
+    @ThriftField(43)
+    public int getQueuedSplits()
+    {
+        return queuedSplits;
+    }
+
+    @JsonProperty
+    @ThriftField(44)
+    public int getRunningSplits()
+    {
+        return runningSplits;
+    }
+
+    @JsonProperty
+    @ThriftField(45)
+    public int getCompletedSplits()
+    {
+        return completedSplits;
+    }
+
     public TaskStats summarize()
     {
         return new TaskStats(
@@ -753,6 +819,10 @@ public class TaskStats
                 runningPartitionedSplitsWeight,
                 blockedDrivers,
                 completedDrivers,
+                totalSplits,
+                queuedSplits,
+                runningSplits,
+                completedSplits,
                 cumulativeUserMemory,
                 cumulativeTotalMemory,
                 userMemoryReservationInBytes,
@@ -799,6 +869,10 @@ public class TaskStats
                 runningPartitionedSplitsWeight,
                 blockedDrivers,
                 completedDrivers,
+                totalSplits,
+                queuedSplits,
+                runningSplits,
+                completedSplits,
                 cumulativeUserMemory,
                 cumulativeTotalMemory,
                 userMemoryReservationInBytes,
