@@ -22,6 +22,11 @@ import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.connector.informationSchema.InformationSchemaConnector;
 import com.facebook.presto.connector.system.SystemConnector;
+import com.facebook.presto.connector.tvf.TestingTableFunctions.DescriptorArgumentFunction;
+import com.facebook.presto.connector.tvf.TestingTableFunctions.TableArgumentFunction;
+import com.facebook.presto.connector.tvf.TestingTableFunctions.TableArgumentRowSemanticsFunction;
+import com.facebook.presto.connector.tvf.TestingTableFunctions.TwoScalarArgumentsFunction;
+import com.facebook.presto.connector.tvf.TestingTableFunctions.TwoTableArgumentsFunction;
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerConfig;
 import com.facebook.presto.functionNamespace.execution.NoopSqlFunctionExecutor;
@@ -60,6 +65,7 @@ import com.facebook.presto.testing.TestingWarningCollectorConfig;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
 
@@ -149,6 +155,17 @@ public class AbstractAnalyzerTest
                         new SqlInvokedFunctionNamespaceManagerConfig().setSupportedFunctionLanguages("sql")));
 
         metadata.getFunctionAndTypeManager().createFunction(SQL_FUNCTION_SQUARE, true);
+
+        metadata.getFunctionAndTypeManager().getTableFunctionRegistry().addTableFunctions(
+                TPCH_CONNECTOR_ID,
+                ImmutableSet.of(
+                        new TwoScalarArgumentsFunction(),
+                        new TableArgumentFunction(),
+                        new TableArgumentRowSemanticsFunction(),
+                        new DescriptorArgumentFunction(),
+                        new TwoTableArgumentsFunction()
+                )
+        );
 
         Catalog tpchTestCatalog = createTestingCatalog(TPCH_CATALOG, TPCH_CONNECTOR_ID);
         catalogManager.registerCatalog(tpchTestCatalog);
