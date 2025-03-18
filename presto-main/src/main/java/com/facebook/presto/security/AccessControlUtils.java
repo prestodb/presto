@@ -29,12 +29,6 @@ public class AccessControlUtils
 {
     private AccessControlUtils() {}
 
-    public static boolean isUnifiedPermissionsCheckEnabled(AccessControl accessControl, SessionContext sessionContext)
-    {
-        Identity identity = sessionContext.getIdentity();
-        return accessControl.isUnifiedPermissionsCheckEnabled(identity);
-    }
-
     public static boolean isSkipPermissionsCheckEnabled(AccessControl accessControl)
     {
         return accessControl.isSkipPermissionsCheckEnabled();
@@ -55,8 +49,7 @@ public class AccessControlUtils
                         Optional.empty(),
                         Optional.ofNullable(sessionContext.getCatalog()),
                         Optional.ofNullable(sessionContext.getSchema())),
-                query
-        );
+                query);
     }
 
     /**

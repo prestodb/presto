@@ -236,12 +236,6 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public boolean isUnifiedPermissionsCheckEnabled(Identity identity)
-    {
-        return false;
-    }
-
-    @Override
     public boolean isSkipPermissionsCheckEnabled()
     {
         return false;

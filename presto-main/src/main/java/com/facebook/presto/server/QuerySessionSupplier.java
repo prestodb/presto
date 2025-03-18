@@ -43,7 +43,6 @@ import static com.facebook.presto.common.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.security.AccessControlUtils.checkPermissions;
 import static com.facebook.presto.security.AccessControlUtils.getAuthorizedIdentity;
 import static com.facebook.presto.security.AccessControlUtils.isSkipPermissionsCheckEnabled;
-import static com.facebook.presto.security.AccessControlUtils.isUnifiedPermissionsCheckEnabled;
 import static com.facebook.presto.security.AccessControlUtils.validateQueryToken;
 import static java.util.Map.Entry;
 import static java.util.Objects.requireNonNull;
