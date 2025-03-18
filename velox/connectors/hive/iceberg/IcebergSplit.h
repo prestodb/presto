@@ -18,10 +18,9 @@
 #include <string>
 
 #include "velox/connectors/hive/HiveConnectorSplit.h"
+#include "velox/connectors/hive/iceberg/IcebergDeleteFile.h"
 
 namespace facebook::velox::connector::hive::iceberg {
-
-struct IcebergDeleteFile;
 
 struct HiveIcebergSplit : public connector::hive::HiveConnectorSplit {
   std::vector<IcebergDeleteFile> deleteFiles;
