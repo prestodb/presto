@@ -15,6 +15,7 @@
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <fmt/format.h>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -524,6 +525,23 @@ static void __matches(std::istream& __input, std::string_view __expected) {
   return __parse_string(__input);
 }
 
+[[nodiscard]] static auto __binary_find(
+    const __rules_storage_type& __rules_db,
+    const std::string& __rule_name) {
+  auto __end = __rules_db.end();
+  auto __ret = std::lower_bound(
+      __rules_db.begin(),
+      __rules_db.end(),
+      __rule_name,
+      [](const auto& rule, const auto& name) { return rule.first < name; });
+  if (__ret == __end)
+    return __end;
+
+  // When the value does not match the predicate it's equal and a valid result
+  // was found.
+  return __rule_name >= __ret->first ? __ret : __end;
+}
+
 [[nodiscard]] static facebook::velox::tzdb::__continuation __parse_continuation(
     __rules_storage_type& __rules,
     std::istream& __input) {
@@ -542,6 +560,39 @@ static void __matches(std::istream& __input, std::string_view __expected) {
   __skip_mandatory_whitespace(__input);
   __result.__format = __parse_string(__input);
   __skip_optional_whitespace(__input);
+
+  if (std::holds_alternative<std::string>(__result.__rules)) {
+    const auto&  rule_name = std::get<std::string>(__result.__rules);
+    const auto rules = __binary_find(__rules, rule_name);
+    if (rules == std::end(__rules))
+      std::__throw_runtime_error(
+          (fmt::format("corrupt tzdb: rule '{}' does not exist", rule_name)).c_str());
+    size_t numForeverRules = 0;
+    std::pair<std::vector<__rule>::const_iterator, std::vector<__rule>::const_iterator>& foreverRules = __result.__forever_rules;
+    for (auto iter = rules->second.cbegin(); iter < rules->second.cend(); ++iter) {
+      if (iter->__to == date::year::max()) {
+        // We found a forever rule that started to apply prior to year.
+        numForeverRules++;
+        if (numForeverRules == 1) {
+          std::get<0>(foreverRules) = iter;
+        } else if (numForeverRules == 2) {
+          std::get<1>(foreverRules) = iter;
+        } else {
+          // If we find more than 2 forever rules we have to go
+          // through the loop (currently this is impossible).
+          break;
+        }
+      }
+    }
+
+    if (numForeverRules > 0) {
+      if (numForeverRules != 2) {
+        throw std::runtime_error(fmt::format("Found {} forever rules for time zone rule {}, expected 2", numForeverRules, rule_name));
+      }
+
+      __result.__has_forever_rules = true;
+    }  
+  }
 
   if (__is_eol(__input.peek()))
     return __result;
@@ -587,8 +638,10 @@ static __rule& __create_entry(
     __rules_storage_type& __rules,
     const std::string& __name) {
   auto __result = [&]() -> __rule& {
-    auto& rule = __rules.emplace_back(__name, std::vector<__rule>{});
-    return rule.second.emplace_back();
+    auto rule = __rules.emplace(std::upper_bound(__rules.begin(), __rules.end(), __name, [](const auto& __left, const auto& __right) {
+        return __left < __right.first;
+      }), __name, std::vector<__rule>{});
+    return rule->second.emplace_back();
   };
 
   if (__rules.empty())

@@ -52,6 +52,8 @@ struct expanded_ttinfo
     std::chrono::seconds offset;
     std::string          abbrev;
     bool                 is_dst;
+
+    expanded_ttinfo(std::chrono::seconds offset, const std::string& abbrev, bool is_dst) : offset(offset), abbrev(abbrev), is_dst(is_dst) {}
 };
 
 struct transition

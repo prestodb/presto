@@ -107,6 +107,8 @@ struct __continuation {
       std::string /*, size_t*/>;
 
   __rules_t __rules;
+  bool __has_forever_rules = false;
+  std::pair<std::vector<__rule>::const_iterator, std::vector<__rule>::const_iterator> __forever_rules{};
 
   std::string __format;
   // TODO TZDB the until field can contain more than just a year.

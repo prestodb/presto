@@ -308,7 +308,7 @@ load_data(std::istream& inf,
                             info.tt_isdst != 0});
     }
     auto i = 0u;
-    transitions.emplace(transitions.begin(), min_seconds - std::chrono::seconds(1));
+    transitions.emplace(transitions.begin(), min_seconds);
     auto tf = std::find_if(ttinfos.begin(), ttinfos.end(),
                             [](const expanded_ttinfo& ti)
                                 {return ti.is_dst == 0;});

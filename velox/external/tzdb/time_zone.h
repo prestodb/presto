@@ -167,6 +167,8 @@ class time_zone {
 
   [[nodiscard]] std::string_view __name() const noexcept;
 
+
+  [[nodiscard]] sys_info __get_info_to_populate_transition(date::sys_seconds __time) const;
   [[nodiscard]] sys_info __get_info(date::sys_seconds __time) const;
   [[nodiscard]] local_info __get_info(date::local_seconds __time) const;
 

@@ -37,6 +37,7 @@
 #include <optional>
 
 #include "velox/external/date/date.h"
+#include "velox/external/date/tz.h"
 #include "velox/external/tzdb/time_zone_private.h"
 #include "velox/external/tzdb/types_private.h"
 
@@ -918,6 +919,46 @@ class __named_rule_until {
   }
   time_zone result;
   result.__impl_ = std::move(__p);
+
+  // If there is more than one continuation and the second to last continuation
+  // uses a string rule, make sure we have all the transitions populated for at
+  // least 2 years after the start of the last continuation.
+  //
+  // Note that the end of the second to last continuation is the start of the last
+  // continuation, and the last continuation is used forever.
+  const auto& continuations = result.__impl_->__continuations();
+  auto& transitions = result.__impl_->transitions();
+  auto& ttinfos = result.__impl_->ttinfos();
+  if (continuations.size() > 1 &&
+      (std::holds_alternative<std::string>(continuations[continuations.size() - 2].__rules) || std::holds_alternative<std::string>(continuations[continuations.size() - 1].__rules))) {
+    const auto endTime = __until_to_sys_seconds(continuations[continuations.size() - 2]) + date::years(2);
+    if (endTime > transitions.back().timepoint) {
+      auto sys_info = result.__get_info_to_populate_transition(transitions.back().timepoint);
+      auto max = date::sys_seconds::max();
+      while ((sys_info.end < max) && (endTime > transitions.back().timepoint)) {
+        sys_info = result.__get_info_to_populate_transition(sys_info.end);
+        ttinfos.emplace_back(sys_info.offset, sys_info.abbrev, sys_info.save > std::chrono::minutes(0));
+        transitions.emplace_back(sys_info.end, &ttinfos.back());
+      }
+    }
+  }
+
+  // If the last continuation uses forever rules (rules that alternate every year,
+  // like daylight savings time) make sure we have all the transitions populated for
+  // at least 2 years after the start of the forever rules.
+  if (continuations.back().__has_forever_rules) { 
+    const auto& foreverRules = continuations.back().__forever_rules;   
+    const auto endTime = __from_to_sys_seconds(continuations.back().__stdoff, *std::get<1>(foreverRules), std::get<0>(foreverRules)->__from + date::years(2));
+    if (transitions.back().timepoint < endTime) {
+    auto sys_info = result.__get_info_to_populate_transition(transitions.back().timepoint);
+      while (transitions.back().timepoint < endTime) {
+        sys_info = result.__get_info_to_populate_transition(sys_info.end);
+        ttinfos.emplace_back(sys_info.offset, sys_info.abbrev, sys_info.save > std::chrono::minutes(0));
+        transitions.emplace_back(sys_info.end, &ttinfos.back());
+      }
+    }
+  }
+
   return result;
 }
 
@@ -945,7 +986,9 @@ time_zone::load_sys_info(std::vector<date::transition>::const_iterator i) const
     return r;
 }
 
-[[nodiscard]] sys_info time_zone::__get_info(date::sys_seconds __time) const {
+[[nodiscard]] sys_info time_zone::__get_info_to_populate_transition(date::sys_seconds __time) const {
+  // This function could be way more efficient, but we only use it when initially
+  // populating the time zone database.
   const auto& transitions = __impl_->transitions();
   const auto iter = upper_bound(transitions.begin(), transitions.end(), __time,
                                      [](const date::sys_seconds& x, const date::transition& t)
@@ -1135,6 +1178,75 @@ time_zone::load_sys_info(std::vector<date::transition>::const_iterator i) const
   std::__throw_runtime_error("tzdb: corrupt db");
 }
 
+[[nodiscard]] sys_info time_zone::__get_info(date::sys_seconds __time) const {
+  const auto& transitions = __impl_->transitions();
+  auto iter = upper_bound(transitions.begin(), transitions.end(), __time,
+                                     [](const date::sys_seconds& x, const date::transition& t)
+                                     {
+                                         return x < t.timepoint;
+                                     });
+
+  if (iter == transitions.begin()) {
+    return sys_info{
+      date::sys_days(date::year::min()/date::January/1),
+      iter + 1 != transitions.end() ? iter[1].timepoint :
+                                      date::sys_seconds(date::sys_days(date::year::max()/date::December/31)),
+      iter[0].info->offset,
+      iter[0].info->is_dst ? std::chrono::minutes{1} : std::chrono::minutes{0},
+      iter[0].info->abbrev
+    };
+  }
+
+  if (iter == transitions.end() && __impl_->__continuations().back().__has_forever_rules) {
+    const auto& continuation = __impl_->__continuations().back();
+    const auto& foreverRules = continuation.__forever_rules;
+    date::year transitionYear = date::year_month_day{std::chrono::floor<date::days>(__time)}.year() - date::years(1);
+    date::sys_seconds firstTransition = 
+          __rule_to_sys_seconds(continuation.__stdoff, std::get<1>(foreverRules)->__save.__time, *std::get<0>(foreverRules), transitionYear);
+    date::sys_seconds secondTransition =
+          __rule_to_sys_seconds(continuation.__stdoff, std::get<0>(foreverRules)->__save.__time, *std::get<1>(foreverRules), transitionYear);
+
+    const std::vector<__rule>::const_iterator* currentRule;
+    const std::vector<__rule>::const_iterator* nextRule;
+    date::sys_seconds currentTransition;
+    date::sys_seconds nextTransition;
+    
+    if (firstTransition < secondTransition) {
+      currentRule = &std::get<0>(foreverRules);
+      nextRule = &std::get<1>(foreverRules);
+      currentTransition = firstTransition;
+      nextTransition = secondTransition;
+    } else {
+      currentRule = &std::get<1>(foreverRules);
+      nextRule = &std::get<0>(foreverRules);
+      currentTransition = secondTransition;
+      nextTransition = firstTransition;
+    }
+
+    while (__time >= nextTransition) {
+      transitionYear++;
+
+      for (int i = 0; i < 2 && __time >= nextTransition; i++) {
+        currentTransition = nextTransition;
+        nextTransition = __rule_to_sys_seconds(continuation.__stdoff, (*nextRule)->__save.__time, *(*currentRule), transitionYear);
+        std::swap(currentRule, nextRule);
+      }
+    }
+
+    return sys_info{
+      currentTransition,
+      nextTransition,
+      continuation.__stdoff + (*currentRule)->__save.__time,
+      std::chrono::duration_cast<std::chrono::minutes>(
+                  (*currentRule)->__save.__time),
+      __format(
+                  continuation, (*currentRule)->__letters, (*currentRule)->__save.__time)
+    };
+  }
+
+  return load_sys_info(iter);
+}
+
 // Is the "__local_time" present in "__first" and "__second". If so the
 // local_info has an ambiguous result.
 [[nodiscard]] static bool __is_ambiguous(
@@ -1277,7 +1389,7 @@ time_zone::load_sys_info(std::vector<date::transition>::const_iterator i) const
         __local_time, __info, __get_info(__info.end));
 
   // Case 2 in __info
-  if (__info.begin != date::sys_seconds::min()) {
+  if (__info.begin != date::sys_days(date::year::min()/date::January/1)) {
     // Case 2.1 Not at the beginning, when not ambiguous the result should test
     // case 2.3.
     sys_info __prev = __get_info(__info.begin - 1s);
@@ -1285,7 +1397,7 @@ time_zone::load_sys_info(std::vector<date::transition>::const_iterator i) const
       return {local_info::ambiguous, __prev, __info};
   }
 
-  if (__info.end == date::sys_seconds::max())
+  if (__info.end == date::sys_days(date::year::max()/date::December/31))
     // At the end so it's case 2.2
     return {local_info::unique, __info, sys_info{}};
 
