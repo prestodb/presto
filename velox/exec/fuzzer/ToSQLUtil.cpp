@@ -179,6 +179,7 @@ std::string toCallSql(const core::CallTypedExprPtr& call) {
     }
     sql << ")";
   } else if (call->name() == "like") {
+    sql << "(";
     toCallInputsSql({call->inputs()[0]}, sql);
     sql << " like ";
     toCallInputsSql({call->inputs()[1]}, sql);
@@ -186,6 +187,7 @@ std::string toCallSql(const core::CallTypedExprPtr& call) {
       sql << " escape ";
       toCallInputsSql({call->inputs()[2]}, sql);
     }
+    sql << ")";
   } else if (call->name() == "or" || call->name() == "and") {
     sql << "(";
     const auto& inputs = call->inputs();
