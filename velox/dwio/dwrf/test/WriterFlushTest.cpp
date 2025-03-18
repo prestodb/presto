@@ -166,6 +166,7 @@ class MockMemoryPool : public velox::memory::MemoryPool {
       const std::string& name,
       MemoryPool::Kind kind,
       bool /*unused*/,
+      const std::function<size_t(size_t)>& /*unused*/,
       std::unique_ptr<memory::MemoryReclaimer> /*unused*/) override {
     return std::make_shared<MockMemoryPool>(
         name, kind, parent, parent->capacity());

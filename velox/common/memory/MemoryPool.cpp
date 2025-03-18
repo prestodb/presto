@@ -227,10 +227,15 @@ MemoryPool::MemoryPool(
       trackUsage_(options.trackUsage),
       threadSafe_(options.threadSafe),
       debugEnabled_(options.debugEnabled),
-      coreOnAllocationFailureEnabled_(options.coreOnAllocationFailureEnabled) {
+      coreOnAllocationFailureEnabled_(options.coreOnAllocationFailureEnabled),
+      getPreferredSize_(
+          options.getPreferredSize == nullptr
+              ? [](size_t size) { return MemoryPool::getPreferredSize(size); }
+              : options.getPreferredSize) {
   VELOX_CHECK(!isRoot() || !isLeaf());
   VELOX_CHECK_GT(
       maxCapacity_, 0, "Memory pool {} max capacity can't be zero", name_);
+  VELOX_CHECK_NOT_NULL(getPreferredSize_);
   MemoryAllocator::alignmentCheck(0, alignment_);
 }
 
@@ -334,6 +339,7 @@ std::shared_ptr<MemoryPool> MemoryPool::addLeafChild(
       name,
       MemoryPool::Kind::kLeaf,
       threadSafe,
+      getPreferredSize_,
       std::move(_reclaimer));
   children_.emplace(name, child);
   return child;
@@ -363,6 +369,7 @@ std::shared_ptr<MemoryPool> MemoryPool::addAggregateChild(
       name,
       MemoryPool::Kind::kAggregate,
       true,
+      getPreferredSize_,
       std::move(_reclaimer));
   children_.emplace(name, child);
   return child;
@@ -395,6 +402,13 @@ std::exception_ptr MemoryPool::abortError() const {
 }
 
 size_t MemoryPool::preferredSize(size_t size) {
+  const auto preferredSize = getPreferredSize_(size);
+  VELOX_CHECK_GE(preferredSize, size);
+  return preferredSize;
+}
+
+// static.
+size_t MemoryPool::getPreferredSize(size_t size) {
   if (size < 8) {
     return 8;
   }
@@ -739,6 +753,7 @@ std::shared_ptr<MemoryPool> MemoryPoolImpl::genChild(
     const std::string& name,
     Kind kind,
     bool threadSafe,
+    const std::function<size_t(size_t)>& getPreferredSize,
     std::unique_ptr<MemoryReclaimer> reclaimer) {
   return std::make_shared<MemoryPoolImpl>(
       manager_,
@@ -751,7 +766,8 @@ std::shared_ptr<MemoryPool> MemoryPoolImpl::genChild(
           .trackUsage = trackUsage_,
           .threadSafe = threadSafe,
           .debugEnabled = debugEnabled_,
-          .coreOnAllocationFailureEnabled = coreOnAllocationFailureEnabled_});
+          .coreOnAllocationFailureEnabled = coreOnAllocationFailureEnabled_,
+          .getPreferredSize = getPreferredSize});
 }
 
 bool MemoryPoolImpl::maybeReserve(uint64_t increment) {

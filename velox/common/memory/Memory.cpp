@@ -97,6 +97,7 @@ MemoryManager::MemoryManager(const MemoryManagerOptions& options)
       debugEnabled_(options.debugEnabled),
       coreOnAllocationFailureEnabled_(options.coreOnAllocationFailureEnabled),
       disableMemoryPoolTracking_(options.disableMemoryPoolTracking),
+      getPreferredSize_(options.getPreferredSize),
       poolDestructionCb_([&](MemoryPool* pool) { dropPool(pool); }),
       sysRoot_{std::make_shared<MemoryPoolImpl>(
           this,
@@ -112,7 +113,8 @@ MemoryManager::MemoryManager(const MemoryManagerOptions& options)
               .trackUsage = options.trackDefaultUsage,
               .debugEnabled = options.debugEnabled,
               .coreOnAllocationFailureEnabled =
-                  options.coreOnAllocationFailureEnabled})},
+                  options.coreOnAllocationFailureEnabled,
+              .getPreferredSize = getPreferredSize_})},
       spillPool_{addLeafPool("__sys_spilling__")},
       cachePool_{addLeafPool("__sys_caching__")},
       tracePool_{addLeafPool("__sys_tracing__")},
@@ -247,6 +249,7 @@ std::shared_ptr<MemoryPool> MemoryManager::addRootPool(
   options.trackUsage = true;
   options.debugEnabled = debugEnabled_;
   options.coreOnAllocationFailureEnabled = coreOnAllocationFailureEnabled_;
+  options.getPreferredSize = getPreferredSize_;
 
   auto pool = createRootPool(poolName, reclaimer, options);
   if (!disableMemoryPoolTracking_) {

@@ -409,6 +409,7 @@ class TestMemoryPool : public memory::MemoryPool {
       const std::string& /* unused */,
       Kind /* unused */,
       bool /* unused */,
+      const std::function<size_t(size_t)>& /* unused */,
       std::unique_ptr<memory::MemoryReclaimer> /* unused */) override {
     return nullptr;
   }

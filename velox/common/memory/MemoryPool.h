@@ -138,6 +138,10 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
     /// Terminates the process and generates a core file on an allocation
     /// failure
     bool coreOnAllocationFailureEnabled{false};
+
+    /// Provides the customized get preferred size function. If not set, uses
+    /// the memory pool's default function.
+    std::function<size_t(size_t)> getPreferredSize{nullptr};
   };
 
   /// Constructs a named memory pool with specified 'name', 'parent' and 'kind'.
@@ -472,6 +476,8 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
  protected:
   static constexpr uint64_t kMB = 1 << 20;
 
+  static size_t getPreferredSize(size_t size);
+
   /// Invoked by the memory arbitrator to enter memory arbitration processing.
   /// It is a noop if 'reclaimer' is not set, otherwise invoke the reclaimer's
   /// corresponding method.
@@ -506,6 +512,7 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
       const std::string& name,
       Kind kind,
       bool threadSafe,
+      const std::function<size_t(size_t)>& getPreferredSize,
       std::unique_ptr<MemoryReclaimer> reclaimer) = 0;
 
   virtual std::exception_ptr abortError() const;
@@ -523,6 +530,7 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   const bool threadSafe_;
   const bool debugEnabled_;
   const bool coreOnAllocationFailureEnabled_;
+  const std::function<size_t(size_t)> getPreferredSize_;
 
   /// Indicates if the memory pool has been aborted by the memory arbitrator or
   /// not.
@@ -743,6 +751,7 @@ class MemoryPoolImpl : public MemoryPool {
       const std::string& name,
       Kind kind,
       bool threadSafe,
+      const std::function<size_t(size_t)>& getPreferredSize,
       std::unique_ptr<MemoryReclaimer> reclaimer) override;
 
   FOLLY_ALWAYS_INLINE int64_t capacityLocked() const {

@@ -168,6 +168,11 @@ struct MemoryManagerOptions {
 
   /// Additional configs that are arbitrator implementation specific.
   std::unordered_map<std::string, std::string> extraArbitratorConfigs{};
+
+  /// Provides the customized get preferred size function for memory pool
+  /// allocation. It returns the actual allocation size for a given input size.
+  /// If not set, uses the memory pool's default get preferred size function.
+  std::function<size_t(size_t)> getPreferredSize{nullptr};
 };
 
 /// 'MemoryManager' is responsible for creating allocator, arbitrator and
@@ -308,6 +313,7 @@ class MemoryManager {
   const bool debugEnabled_;
   const bool coreOnAllocationFailureEnabled_;
   const bool disableMemoryPoolTracking_;
+  const std::function<size_t(size_t)> getPreferredSize_;
 
   // The destruction callback set for the allocated root memory pools which are
   // tracked by 'pools_'. It is invoked on the root pool destruction and removes
