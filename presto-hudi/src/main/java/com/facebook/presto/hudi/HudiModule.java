@@ -43,6 +43,7 @@ import com.facebook.presto.hive.metastore.HivePartitionMutator;
 import com.facebook.presto.hive.metastore.InvalidateMetastoreCacheProcedure;
 import com.facebook.presto.hive.metastore.MetastoreCacheStats;
 import com.facebook.presto.hive.metastore.MetastoreConfig;
+import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastoreConfig;
 import com.facebook.presto.hudi.split.ForHudiBackgroundSplitLoader;
 import com.facebook.presto.hudi.split.ForHudiSplitAsyncQueue;
 import com.facebook.presto.hudi.split.ForHudiSplitSource;
@@ -102,6 +103,7 @@ public class HudiModule
         configBinder(binder).bindConfig(FileMergeCacheConfig.class);
         binder.bind(CacheStats.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(MetastoreClientConfig.class);
+        configBinder(binder).bindConfig(ThriftHiveMetastoreConfig.class);
         configBinder(binder).bindConfig(HiveGcsConfig.class);
         binder.bind(GcsConfigurationInitializer.class).to(HiveGcsConfigurationInitializer.class).in(Scopes.SINGLETON);
         binder.bind(HdfsConfiguration.class).annotatedWith(ForMetastoreHdfsEnvironment.class).to(HiveCachingHdfsConfiguration.class).in(Scopes.SINGLETON);
