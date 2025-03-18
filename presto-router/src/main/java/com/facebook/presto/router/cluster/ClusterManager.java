@@ -123,7 +123,7 @@ public class ClusterManager
                 return scheduler.getDestination(requestInfo.getUser(), requestInfo.getQuery());
             }
             catch (Exception e) {
-                log.error("Custom Plugin Scheduler failed to schedule the query!");
+                log.error("Custom Plugin Scheduler failed to schedule the query!", e);
                 return Optional.empty();
             }
         }
