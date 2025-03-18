@@ -326,7 +326,5 @@ public interface AccessControl
      */
     void checkCanAddConstraints(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName constraintName);
 
-    boolean isUnifiedPermissionsCheckEnabled(Identity identity);
-
     boolean isSkipPermissionsCheckEnabled();
 }

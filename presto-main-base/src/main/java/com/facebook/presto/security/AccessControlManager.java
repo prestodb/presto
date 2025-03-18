@@ -799,12 +799,6 @@ public class AccessControlManager
     }
 
     @Override
-    public boolean isUnifiedPermissionsCheckEnabled(Identity identity)
-    {
-        return systemAccessControl.get().isUnifiedPermissionsCheckEnabled(identity);
-    }
-
-    @Override
     public boolean isSkipPermissionsCheckEnabled()
     {
         return systemAccessControl.get().isSkipPermissionsCheckEnabled();
