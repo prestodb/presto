@@ -1416,11 +1416,11 @@ class StatementAnalyzer
                 for (TableFunctionArgument argument : arguments) {
                     String argumentName = argument.getName().orElseThrow(() -> new IllegalStateException("Missing table function argument name")).getCanonicalValue();
                     if (!uniqueArgumentNames.add(argumentName)) {
-                        throw new SemanticException(INVALID_FUNCTION_ARGUMENT, argument, "Duplicate argument name: ", argumentName);
+                        throw new SemanticException(INVALID_FUNCTION_ARGUMENT, argument, "Duplicate argument name: " + argumentName);
                     }
                     ArgumentSpecification argumentSpecification = argumentSpecificationsByName.remove(argumentName);
                     if (argumentSpecification == null) {
-                        throw new SemanticException(INVALID_FUNCTION_ARGUMENT, argument, "Unexpected argument name: ", argumentName);
+                        throw new SemanticException(INVALID_FUNCTION_ARGUMENT, argument, "Unexpected argument name: " + argumentName);
                     }
                     ArgumentAnalysis argumentAnalysis = analyzeArgument(argumentSpecification, argument, scope);
                     passedArguments.put(argumentSpecification.getName(), argumentAnalysis.getArgument());
@@ -1484,7 +1484,7 @@ class StatementAnalyzer
                     }
                     throw new SemanticException(INVALID_FUNCTION_ARGUMENT, argument, "Invalid argument %s. Expected descriptor, got %s", argumentSpecification.getName(), actualType);
                 }
-                throw new SemanticException(NOT_SUPPORTED, argument, "Descriptor arguments are not yet supported for table functions");
+                return analyzeDescriptorArgument((TableFunctionDescriptorArgument) argument.getValue());
             }
             if (argumentSpecification instanceof ScalarArgumentSpecification) {
                 if (!(argument.getValue() instanceof Expression)) {
@@ -1617,7 +1617,7 @@ class StatementAnalyzer
                                                             return functionAndTypeResolver.getType(parseTypeSignature(type));
                                                         }
                                                         catch (IllegalArgumentException e) {
-                                                            throw new SemanticException(TYPE_MISMATCH, type, "Unknown type: %s", type);
+                                                            throw new SemanticException(TYPE_MISMATCH, field, "Unknown type: %s", type);
                                                         }
                                                     })))
                                             .collect(toImmutableList())))
@@ -1715,16 +1715,16 @@ class StatementAnalyzer
                         candidates = qualifiedInputs.get(QualifiedName.of(fullyQualifiedName.getCatalogName(), fullyQualifiedName.getSchemaName(), fullyQualifiedName.getObjectName()));
                     }
                     if (candidates.isEmpty()) {
-                        throw new SemanticException(INVALID_COPARTITIONING, name.getOriginalParts().get(0), "No table argument found for name: " + name);
+                        throw new SemanticException(INVALID_COPARTITIONING, "No table argument found for name: " + name);
                     }
                     if (candidates.size() > 1) {
-                        throw new SemanticException(INVALID_COPARTITIONING, name.getOriginalParts().get(0), "Ambiguous reference: multiple table arguments found for name: " + name);
+                        throw new SemanticException(INVALID_COPARTITIONING, "Ambiguous reference: multiple table arguments found for name: " + name);
                     }
                     TableArgumentAnalysis argument = getOnlyElement(candidates);
                     if (!referencedArguments.add(argument.getArgumentName())) {
                         // multiple references to argument in COPARTITION clause are implicitly prohibited by
                         // ISO/IEC TR REPORT 19075-7, p.33, Feature B203, “More than one copartition specification”
-                        throw new SemanticException(INVALID_COPARTITIONING, name.getOriginalParts().get(0), "Multiple references to table argument: %s in COPARTITION clause", name);
+                        throw new SemanticException(INVALID_COPARTITIONING, "Multiple references to table argument: %s in COPARTITION clause", name);
                     }
                     copartitionListBuilder.add(argument);
                 }
@@ -1753,7 +1753,7 @@ class StatementAnalyzer
                         .map(List::size)
                         .distinct()
                         .count() > 1) {
-                    throw new SemanticException(INVALID_COPARTITIONING, nameList.get(0).getOriginalParts().get(0), "Numbers of partitioning columns in copartitioned tables do not match");
+                    throw new SemanticException(INVALID_COPARTITIONING, "Numbers of partitioning columns in copartitioned tables do not match");
                 }
 
                 // coerce corresponding copartition columns to common supertype
@@ -1763,7 +1763,7 @@ class StatementAnalyzer
                     for (List<Expression> columnList : partitioningColumns) {
                         Optional<Type> superType = functionAndTypeResolver.getCommonSuperType(commonSuperType, analysis.getType(columnList.get(index)));
                         if (!superType.isPresent()) {
-                            throw new SemanticException(TYPE_MISMATCH, nameList.get(0).getOriginalParts().get(0), "Partitioning columns in copartitioned tables have incompatible types");
+                            throw new SemanticException(TYPE_MISMATCH, "Partitioning columns in copartitioned tables have incompatible types");
                         }
                         commonSuperType = superType.get();
                     }
@@ -1844,7 +1844,7 @@ class StatementAnalyzer
             }
 
             QualifiedObjectName name = createQualifiedObjectName(session, table, table.getName());
-            analysis.setRelationName(table, table.getName());
+            analysis.setRelationName(table, QualifiedName.of(name.getCatalogName(), name.getSchemaName(), name.getObjectName()));
             if (name.getObjectName().isEmpty()) {
                 throw new SemanticException(MISSING_TABLE, table, "Table name is empty");
             }

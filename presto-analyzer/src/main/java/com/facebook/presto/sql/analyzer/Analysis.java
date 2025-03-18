@@ -1343,11 +1343,157 @@ public class Analysis
         }
     }
 
+    public static class TableArgumentAnalysis
+    {
+        private final String argumentName;
+        private final Optional<QualifiedName> name;
+        private final Relation relation;
+        private final Optional<List<Expression>> partitionBy; // it is allowed to partition by empty list
+        private final Optional<OrderBy> orderBy;
+        private final boolean pruneWhenEmpty;
+        private final boolean rowSemantics;
+        private final boolean passThroughColumns;
+
+        private TableArgumentAnalysis(
+                String argumentName,
+                Optional<QualifiedName> name,
+                Relation relation,
+                Optional<List<Expression>> partitionBy,
+                Optional<OrderBy> orderBy,
+                boolean pruneWhenEmpty,
+                boolean rowSemantics,
+                boolean passThroughColumns)
+        {
+            this.argumentName = requireNonNull(argumentName, "argumentName is null");
+            this.name = requireNonNull(name, "name is null");
+            this.relation = requireNonNull(relation, "relation is null");
+            this.partitionBy = requireNonNull(partitionBy, "partitionBy is null").map(ImmutableList::copyOf);
+            this.orderBy = requireNonNull(orderBy, "orderBy is null");
+            this.pruneWhenEmpty = pruneWhenEmpty;
+            this.rowSemantics = rowSemantics;
+            this.passThroughColumns = passThroughColumns;
+        }
+
+        public String getArgumentName()
+        {
+            return argumentName;
+        }
+
+        public Optional<QualifiedName> getName()
+        {
+            return name;
+        }
+
+        public Relation getRelation()
+        {
+            return relation;
+        }
+
+        public Optional<List<Expression>> getPartitionBy()
+        {
+            return partitionBy;
+        }
+
+        public Optional<OrderBy> getOrderBy()
+        {
+            return orderBy;
+        }
+
+        public boolean isPruneWhenEmpty()
+        {
+            return pruneWhenEmpty;
+        }
+
+        public boolean isRowSemantics()
+        {
+            return rowSemantics;
+        }
+
+        public boolean isPassThroughColumns()
+        {
+            return passThroughColumns;
+        }
+
+        public static Builder builder()
+        {
+            return new Builder();
+        }
+
+        public static final class Builder
+        {
+            private String argumentName;
+            private Optional<QualifiedName> name = Optional.empty();
+            private Relation relation;
+            private Optional<List<Expression>> partitionBy = Optional.empty();
+            private Optional<OrderBy> orderBy = Optional.empty();
+            private boolean pruneWhenEmpty;
+            private boolean rowSemantics;
+            private boolean passThroughColumns;
+
+            private Builder() {}
+
+            public Builder withArgumentName(String argumentName)
+            {
+                this.argumentName = argumentName;
+                return this;
+            }
+
+            public Builder withName(QualifiedName name)
+            {
+                this.name = Optional.of(name);
+                return this;
+            }
+
+            public Builder withRelation(Relation relation)
+            {
+                this.relation = relation;
+                return this;
+            }
+
+            public Builder withPartitionBy(List<Expression> partitionBy)
+            {
+                this.partitionBy = Optional.of(partitionBy);
+                return this;
+            }
+
+            public Builder withOrderBy(OrderBy orderBy)
+            {
+                this.orderBy = Optional.of(orderBy);
+                return this;
+            }
+
+            public Builder withPruneWhenEmpty(boolean pruneWhenEmpty)
+            {
+                this.pruneWhenEmpty = pruneWhenEmpty;
+                return this;
+            }
+
+            public Builder withRowSemantics(boolean rowSemantics)
+            {
+                this.rowSemantics = rowSemantics;
+                return this;
+            }
+
+            public Builder withPassThroughColumns(boolean passThroughColumns)
+            {
+                this.passThroughColumns = passThroughColumns;
+                return this;
+            }
+
+            public TableArgumentAnalysis build()
+            {
+                return new TableArgumentAnalysis(argumentName, name, relation, partitionBy, orderBy, pruneWhenEmpty, rowSemantics, passThroughColumns);
+            }
+        }
+    }
+
     public static class TableFunctionInvocationAnalysis
     {
         private final ConnectorId connectorId;
         private final String functionName;
         private final Map<String, Argument> arguments;
+        private final List<TableArgumentAnalysis> tableArgumentAnalyses;
+        private final List<List<String>> copartitioningLists;
         private final ConnectorTableFunctionHandle connectorTableFunctionHandle;
         private final ConnectorTransactionHandle transactionHandle;
 
@@ -1355,6 +1501,8 @@ public class Analysis
                 ConnectorId connectorId,
                 String functionName,
                 Map<String, Argument> arguments,
+                List<TableArgumentAnalysis> tableArgumentAnalyses,
+                List<List<String>> copartitioningLists,
                 ConnectorTableFunctionHandle connectorTableFunctionHandle,
                 ConnectorTransactionHandle transactionHandle)
         {
@@ -1363,11 +1511,23 @@ public class Analysis
             this.arguments = ImmutableMap.copyOf(arguments);
             this.connectorTableFunctionHandle = requireNonNull(connectorTableFunctionHandle, "connectorTableFunctionHandle is null");
             this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
+            this.tableArgumentAnalyses = ImmutableList.copyOf(tableArgumentAnalyses);
+            this.copartitioningLists = ImmutableList.copyOf(copartitioningLists);
         }
 
         public ConnectorId getConnectorId()
         {
             return connectorId;
+        }
+
+        public List<TableArgumentAnalysis> getTableArgumentAnalyses()
+        {
+            return tableArgumentAnalyses;
+        }
+
+        public List<List<String>> getCopartitioningLists()
+        {
+            return copartitioningLists;
         }
 
         public String getFunctionName()

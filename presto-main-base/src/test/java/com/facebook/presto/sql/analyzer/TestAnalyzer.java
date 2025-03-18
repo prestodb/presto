@@ -2061,7 +2061,7 @@ public class TestAnalyzer
     {
         analyze("SELECT * FROM TABLE(system.descriptor_argument_function(schema => DESCRIPTOR(x integer, y boolean)))");
 
-        assertFails(INVALID_FUNCTION_ARGUMENT,
+        assertFailsExact(INVALID_FUNCTION_ARGUMENT,
                 "line 1:57: Invalid descriptor argument SCHEMA. Descriptors should be formatted as 'DESCRIPTOR(name [type], ...)'",
                 "SELECT * FROM TABLE(system.descriptor_argument_function(schema => DESCRIPTOR(1 + 2)))");
 
@@ -2074,7 +2074,7 @@ public class TestAnalyzer
                 "SELECT * FROM TABLE(system.descriptor_argument_function(schema => TABLE(t1)))");
 
         assertFails(TYPE_MISMATCH,
-                "line 1:80: Unknown type: verybigint",
+                "line 1:78: Unknown type: verybigint",
                 "SELECT * FROM TABLE(system.descriptor_argument_function(schema => DESCRIPTOR(x verybigint)))");
     }
 
@@ -2119,14 +2119,14 @@ public class TestAnalyzer
                     "COPARTITION (t1, t2)))");
 
         assertFails(INVALID_COPARTITIONING,
-                "line 4:22: No table argument found for name: s1.foo",
+                "No table argument found for name: s1.foo",
                 "SELECT * FROM TABLE(system.two_table_arguments_function(" +
                     "input1 => TABLE(t1) PARTITION BY (a, b)," +
                     "input2 => TABLE(t2) PARTITION BY (a, b)" +
                     "COPARTITION (t1, s1.foo)))");
 
         // Both table arguments are matched by fully qualified name: tpch.s1.t1
-        assertFails(INVALID_COPARTITIONING, "line 4:18: Ambiguous reference: multiple table arguments found for name: t1",
+        assertFails(INVALID_COPARTITIONING, "Ambiguous reference: multiple table arguments found for name: t1",
                 "SELECT * FROM TABLE(system.two_table_arguments_function(" +
                     "input1 => TABLE(t1) PARTITION BY (a, b)," +
                     "input2 => TABLE(t1) PARTITION BY (a, b)" +
@@ -2134,14 +2134,14 @@ public class TestAnalyzer
 
         // Both table arguments are matched by unqualified name: t1
         assertFails(INVALID_COPARTITIONING,
-                "line 4:18: Ambiguous reference: multiple table arguments found for name: t1",
+                "Ambiguous reference: multiple table arguments found for name: t1",
                 "SELECT * FROM TABLE(system.two_table_arguments_function(" +
                     "input1 => TABLE(SELECT 1, 2) t1(a, b) PARTITION BY (a, b)," +
                     "input2 => TABLE(SELECT 3, 4) t1(c, d) PARTITION BY (c, d)" +
                     "COPARTITION (t1, t2)))");
 
         assertFails(INVALID_COPARTITIONING,
-                "line 4:22: Multiple references to table argument: t1 in COPARTITION clause",
+                "Multiple references to table argument: t1 in COPARTITION clause",
                 "SELECT * FROM TABLE(system.two_table_arguments_function(" +
                     "input1 => TABLE(t1) PARTITION BY (a, b)," +
                     "input2 => TABLE(t2) PARTITION BY (a, b)" +
@@ -2152,28 +2152,28 @@ public class TestAnalyzer
     public void testCopartitionColumns()
     {
         assertFails(INVALID_COPARTITIONING,
-                "line 2:15: Table tpch.s1.t1 referenced in COPARTITION clause is not partitioned",
+                "line 1:67: Table tpch.s1.t1 referenced in COPARTITION clause is not partitioned",
                 "SELECT * FROM TABLE(system.two_table_arguments_function(" +
                     "input1 => TABLE(t1)," +
                     "input2 => TABLE(t2) PARTITION BY (a, b)" +
                     "COPARTITION (t1, t2)))");
 
         assertFails(INVALID_COPARTITIONING,
-                "line 2:15: No partitioning columns specified for table tpch.s1.t1 referenced in COPARTITION clause",
+                "line 1:67: No partitioning columns specified for table tpch.s1.t1 referenced in COPARTITION clause",
                 "SELECT * FROM TABLE(system.two_table_arguments_function(" +
                     "input1 => TABLE(t1) PARTITION BY ()," +
                     "input2 => TABLE(t2) PARTITION BY ()" +
                     "COPARTITION (t1, t2)))");
 
         assertFails(INVALID_COPARTITIONING,
-                "line 4:18: Numbers of partitioning columns in copartitioned tables do not match",
+                "Numbers of partitioning columns in copartitioned tables do not match",
                 "SELECT * FROM TABLE(system.two_table_arguments_function(" +
                     "input1 => TABLE(t1) PARTITION BY (a, b)," +
                     "input2 => TABLE(t2) PARTITION BY (a)" +
                     "COPARTITION (t1, t2)))");
 
         assertFails(TYPE_MISMATCH,
-                "line 4:18: Partitioning columns in copartitioned tables have incompatible types",
+                "Partitioning columns in copartitioned tables have incompatible types",
                 "SELECT * FROM TABLE(system.two_table_arguments_function(" +
                     "input1 => TABLE(SELECT 1) t1(a) PARTITION BY (a)," +
                     "input2 => TABLE(SELECT 'x') t2(b) PARTITION BY (b)" +

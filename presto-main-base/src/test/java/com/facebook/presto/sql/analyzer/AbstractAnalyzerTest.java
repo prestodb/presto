@@ -163,9 +163,7 @@ public class AbstractAnalyzerTest
                         new TableArgumentFunction(),
                         new TableArgumentRowSemanticsFunction(),
                         new DescriptorArgumentFunction(),
-                        new TwoTableArgumentsFunction()
-                )
-        );
+                        new TwoTableArgumentsFunction()));
 
         Catalog tpchTestCatalog = createTestingCatalog(TPCH_CATALOG, TPCH_CONNECTOR_ID);
         catalogManager.registerCatalog(tpchTestCatalog);
@@ -523,12 +521,22 @@ public class AbstractAnalyzerTest
 
     protected void assertFails(SemanticErrorCode error, String message, @Language("SQL") String query)
     {
-        assertFails(CLIENT_SESSION, error, message, query);
+        assertFails(CLIENT_SESSION, error, message, query, false);
+    }
+
+    protected void assertFailsExact(SemanticErrorCode error, String message, @Language("SQL") String query)
+    {
+        assertFails(CLIENT_SESSION, error, message, query, true);
     }
 
     protected void assertFails(Session session, SemanticErrorCode error, @Language("SQL") String query)
     {
         assertFails(session, error, Optional.empty(), query);
+    }
+
+    protected void assertFails(Session session, SemanticErrorCode error, String message, @Language("SQL") String query)
+    {
+        assertFails(session, error, message, query, false);
     }
 
     private void assertFails(Session session, SemanticErrorCode error, Optional<NodeLocation> location, @Language("SQL") String query)
@@ -559,7 +567,7 @@ public class AbstractAnalyzerTest
         }
     }
 
-    protected void assertFails(Session session, SemanticErrorCode error, String message, @Language("SQL") String query)
+    protected void assertFails(Session session, SemanticErrorCode error, String message, @Language("SQL") String query, boolean exact)
     {
         try {
             analyze(session, query);
@@ -570,7 +578,7 @@ public class AbstractAnalyzerTest
                 fail(format("Expected error %s, but found %s: %s", error, e.getCode(), e.getMessage()), e);
             }
 
-            if (!e.getMessage().matches(message)) {
+            if (!(exact ? e.getMessage().equals(message) : e.getMessage().matches(message))) {
                 fail(format("Expected error '%s', but got '%s'", message, e.getMessage()), e);
             }
         }
