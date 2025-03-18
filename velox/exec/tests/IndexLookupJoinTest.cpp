@@ -1820,16 +1820,6 @@ DEBUG_ONLY_TEST_P(IndexLookupJoinTest, runtimeStats) {
       runtimeStats.at(IndexLookupJoin::kConnectorLookupCpuTime).count,
       numProbeBatches);
   ASSERT_GT(runtimeStats.at(IndexLookupJoin::kConnectorLookupCpuTime).sum, 0);
-  if (GetParam().asyncLookup) {
-    ASSERT_GE(
-        runtimeStats.at(IndexLookupJoin::kLookupBlockWaitTime).count,
-        numProbeBatches);
-    ASSERT_GE(runtimeStats.at(IndexLookupJoin::kLookupBlockWaitTime).sum, 0);
-  } else {
-    ASSERT_TRUE(
-        runtimeStats.find(IndexLookupJoin::kLookupBlockWaitTime) ==
-        runtimeStats.end());
-  }
   ASSERT_THAT(
       operatorStats.toString(true, true),
       testing::MatchesRegex(

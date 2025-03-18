@@ -42,9 +42,6 @@ class IndexLookupJoin : public Operator {
   void close() override;
 
   /// Defines lookup runtime stats.
-  /// The walltime the lookup operator blocked waiting for the lookup result
-  /// from the index source.
-  static inline const std::string kLookupBlockWaitTime{"lookupWaitWallNanos"};
   /// The walltime time that the index connector do the lookup.
   static inline const std::string kConnectorLookupWallTime{"lookupWallNanos"};
   /// The cpu time that the index connector do the lookup.
@@ -122,9 +119,6 @@ class IndexLookupJoin : public Operator {
   void prepareOutputRowMappings(size_t outputBatchSize);
   // Prepare 'output_' for the next output batch with size of 'numOutputRows'.
   void prepareOutput(vector_size_t numOutputRows);
-
-  void startLookupBlockWait();
-  void endLookupBlockWait();
 
   // Invoked at operator close to record the lookup stats.
   void recordConnectorStats();
@@ -227,9 +221,5 @@ class IndexLookupJoin : public Operator {
 
   // The reusable output vector for the join output.
   RowVectorPtr output_;
-
-  // The start time of the current lookup driver block wait, and reset after the
-  // driver wait completes.
-  std::optional<size_t> blockWaitStartNs_;
 };
 } // namespace facebook::velox::exec

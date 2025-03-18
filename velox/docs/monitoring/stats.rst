@@ -142,10 +142,6 @@ These stats are reported only by IndexLookupJoin operator
    * - Stats
      - Unit
      - Description
-   * - lookupWaitWallNanos
-     - nanos
-     - The walltime in nanoseconds the lookup operator blocked waiting for the lookup
-       result from the index source.
    * - lookupWallNanos
      - nanos
      - The walltime in nanoseconds that the index connector do the lookup.

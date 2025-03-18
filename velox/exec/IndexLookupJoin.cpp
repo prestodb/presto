@@ -376,7 +376,6 @@ bool IndexLookupJoin::needsInput() const {
 BlockingReason IndexLookupJoin::isBlocked(ContinueFuture* future) {
   auto& batch = currentInputBatch();
   if (!batch.lookupFuture.valid()) {
-    endLookupBlockWait();
     return BlockingReason::kNotBlocked;
   }
   if (lookupPrefetchEnabled() && (numInputBatches() < maxNumInputBatches_) &&
@@ -385,28 +384,7 @@ BlockingReason IndexLookupJoin::isBlocked(ContinueFuture* future) {
   }
   *future = std::move(batch.lookupFuture);
   VELOX_CHECK(!batch.lookupFuture.valid());
-  startLookupBlockWait();
   return BlockingReason::kWaitForIndexLookup;
-}
-
-void IndexLookupJoin::startLookupBlockWait() {
-  VELOX_CHECK(!blockWaitStartNs_.has_value());
-  blockWaitStartNs_ = getCurrentTimeNano();
-}
-
-void IndexLookupJoin::endLookupBlockWait() {
-  if (!blockWaitStartNs_.has_value()) {
-    return;
-  }
-  SCOPE_EXIT {
-    blockWaitStartNs_ = std::nullopt;
-  };
-  const auto blockWaitEndNs = getCurrentTimeNano();
-  VELOX_CHECK_GE(blockWaitEndNs, blockWaitStartNs_.value());
-  const auto blockWaitNs = blockWaitEndNs - blockWaitStartNs_.value();
-  stats_.wlock()->addRuntimeStat(
-      kLookupBlockWaitTime,
-      RuntimeCounter(blockWaitNs, RuntimeCounter::Unit::kNanos));
 }
 
 void IndexLookupJoin::addInput(RowVectorPtr input) {
