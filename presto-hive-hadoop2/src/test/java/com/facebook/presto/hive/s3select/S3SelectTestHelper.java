@@ -57,6 +57,7 @@ import com.facebook.presto.hive.metastore.thrift.BridgingHiveMetastore;
 import com.facebook.presto.hive.metastore.thrift.HiveCluster;
 import com.facebook.presto.hive.metastore.thrift.TestingHiveCluster;
 import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastore;
+import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastoreConfig;
 import com.facebook.presto.hive.s3.HiveS3Config;
 import com.facebook.presto.hive.s3.PrestoS3ConfigurationUpdater;
 import com.facebook.presto.hive.s3.S3ConfigurationUpdater;
@@ -110,6 +111,7 @@ public class S3SelectTestHelper
     private HiveClientConfig config;
     private CacheConfig cacheConfig;
     private MetastoreClientConfig metastoreClientConfig;
+    private ThriftHiveMetastoreConfig thriftHiveMetastoreConfig;
 
     public S3SelectTestHelper(String host,
             int port,
@@ -128,13 +130,14 @@ public class S3SelectTestHelper
         config = hiveClientConfig;
         cacheConfig = new CacheConfig();
         metastoreClientConfig = new MetastoreClientConfig();
+        thriftHiveMetastoreConfig = new ThriftHiveMetastoreConfig();
 
         String proxy = System.getProperty("hive.metastore.thrift.client.socks-proxy");
         if (proxy != null) {
             metastoreClientConfig.setMetastoreSocksProxy(HostAndPort.fromString(proxy));
         }
 
-        HiveCluster hiveCluster = new TestingHiveCluster(metastoreClientConfig, host, port);
+        HiveCluster hiveCluster = new TestingHiveCluster(metastoreClientConfig, thriftHiveMetastoreConfig, host, port);
         executor = newCachedThreadPool(daemonThreadsNamed("hive-%s"));
         HivePartitionManager hivePartitionManager = new HivePartitionManager(FUNCTION_AND_TYPE_MANAGER, config);
 
