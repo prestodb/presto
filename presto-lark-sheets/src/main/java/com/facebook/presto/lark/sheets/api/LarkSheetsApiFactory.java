@@ -21,9 +21,9 @@ import com.larksuite.oapi.core.DefaultStore;
 import com.larksuite.oapi.core.Domain;
 import com.larksuite.oapi.service.drive_permission.v2.DrivePermissionService;
 import com.larksuite.oapi.service.sheets.v2.SheetsService;
+import jakarta.inject.Inject;
 
 import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
 
 import java.util.function.Supplier;
 

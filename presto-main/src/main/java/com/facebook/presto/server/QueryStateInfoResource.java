@@ -22,9 +22,9 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.google.re2j.Pattern;
 import io.airlift.slice.Slices;
+import jakarta.inject.Inject;
 
 import javax.annotation.security.RolesAllowed;
-import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;

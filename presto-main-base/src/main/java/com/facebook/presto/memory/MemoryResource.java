@@ -15,9 +15,9 @@ package com.facebook.presto.memory;
 
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.spi.memory.MemoryPoolInfo;
+import jakarta.inject.Inject;
 
 import javax.annotation.security.RolesAllowed;
-import javax.inject.Inject;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;

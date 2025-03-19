@@ -17,10 +17,9 @@ import com.facebook.presto.hive.PartitionUpdate.FileWriteInfo;
 import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import jakarta.inject.Inject;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-
-import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.List;

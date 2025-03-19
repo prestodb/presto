@@ -16,9 +16,9 @@ package com.facebook.presto.resourcemanager;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.QueryId;
+import jakarta.inject.Inject;
 
 import javax.annotation.security.RolesAllowed;
-import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;

@@ -24,10 +24,10 @@ import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.server.ForStatementResource;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.transaction.TransactionManager;
+import jakarta.inject.Inject;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
-import javax.inject.Inject;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;

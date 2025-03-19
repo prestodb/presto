@@ -27,8 +27,7 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.google.common.collect.ImmutableList;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.List;
 

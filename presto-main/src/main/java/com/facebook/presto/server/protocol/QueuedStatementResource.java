@@ -35,13 +35,13 @@ import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import jakarta.inject.Inject;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.security.RolesAllowed;
-import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.DefaultValue;
