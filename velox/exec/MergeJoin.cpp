@@ -282,6 +282,30 @@ void copyRow(
 }
 } // namespace
 
+inline void addNull(
+    VectorPtr& target,
+    const vector_size_t index,
+    const BufferPtr& indices,
+    const vector_size_t outputBatchSize,
+    const VectorPtr& currentInput) {
+  // When we call wrapInDictionary on the input projections, if they are
+  // Constants, we will get back a resized ConstantVector rather than a
+  // DictionaryVector.  This works great unless we want to add nulls due to join
+  // misses. This branch handles converting the ConstantVector to a
+  // DictionaryVector in this case. The assumption here is this check is cheap
+  // and misses are rare so the cost of this check is outweighed by the benefits
+  // of propagating ConstantVectors.
+  if (target->isConstantEncoding()) {
+    target = BaseVector::wrapInDictionary(
+        allocateNulls(outputBatchSize, target->pool()),
+        indices,
+        outputBatchSize,
+        BaseVector::wrapInConstant(currentInput->size(), 0, target));
+  }
+
+  target->setNull(index, true);
+}
+
 void MergeJoin::addOutputRowForLeftJoin(
     const RowVectorPtr& left,
     vector_size_t leftIndex) {
@@ -290,8 +314,9 @@ void MergeJoin::addOutputRowForLeftJoin(
   rawLeftIndices_[outputSize_] = leftIndex;
 
   for (const auto& projection : rightProjections_) {
-    const auto& target = output_->childAt(projection.outputChannel);
-    target->setNull(outputSize_, true);
+    auto& target = output_->childAt(projection.outputChannel);
+    addNull(
+        target, outputSize_, rightIndices_, outputBatchSize_, currentRight_);
   }
 
   if (joinTracker_) {
@@ -309,8 +334,8 @@ void MergeJoin::addOutputRowForRightJoin(
   rawRightIndices_[outputSize_] = rightIndex;
 
   for (const auto& projection : leftProjections_) {
-    const auto& target = output_->childAt(projection.outputChannel);
-    target->setNull(outputSize_, true);
+    auto& target = output_->childAt(projection.outputChannel);
+    addNull(target, outputSize_, leftIndices_, outputBatchSize_, currentLeft_);
   }
 
   if (joinTracker_) {
