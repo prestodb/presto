@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.presto.UnknownTypeException;
 import com.facebook.presto.common.type.EnumType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeWithName;
@@ -152,7 +153,7 @@ public final class ExpressionTreeUtils
                 return Optional.of((TypeWithName) baseType);
             }
         }
-        catch (IllegalArgumentException e) {
+        catch (UnknownTypeException e) {
             return Optional.empty();
         }
         return Optional.empty();
