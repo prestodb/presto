@@ -96,7 +96,7 @@ import java.util.function.Function;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionOperator.EQUAL;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
@@ -759,7 +759,7 @@ public final class ExpressionFormatter
             if (groupingElement instanceof SimpleGroupBy) {
                 List<Expression> columns = ((SimpleGroupBy) groupingElement).getExpressions();
                 if (columns.size() == 1) {
-                    result = formatExpression(getOnlyElement(columns), parameters);
+                    result = formatExpression(columns.stream().collect(onlyElement()), parameters);
                 }
                 else {
                     result = formatGroupingSet(columns, parameters);
