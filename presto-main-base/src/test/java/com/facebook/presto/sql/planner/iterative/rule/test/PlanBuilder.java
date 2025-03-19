@@ -32,6 +32,7 @@ import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.AggregationNode.Step;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.CteProducerNode;
+import com.facebook.presto.spi.plan.DataOrganizationSpecification;
 import com.facebook.presto.spi.plan.DeleteNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.EquiJoinClause;
@@ -933,7 +934,7 @@ public class PlanBuilder
         return this;
     }
 
-    public WindowNode window(WindowNode.Specification specification, Map<VariableReferenceExpression, WindowNode.Function> functions, PlanNode source)
+    public WindowNode window(DataOrganizationSpecification specification, Map<VariableReferenceExpression, WindowNode.Function> functions, PlanNode source)
     {
         return new WindowNode(
                 Optional.empty(),
@@ -946,7 +947,7 @@ public class PlanBuilder
                 0);
     }
 
-    public WindowNode window(WindowNode.Specification specification, Map<VariableReferenceExpression, WindowNode.Function> functions, VariableReferenceExpression hashVariable, PlanNode source)
+    public WindowNode window(DataOrganizationSpecification specification, Map<VariableReferenceExpression, WindowNode.Function> functions, VariableReferenceExpression hashVariable, PlanNode source)
     {
         return new WindowNode(
                 Optional.empty(),

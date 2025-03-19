@@ -1530,23 +1530,27 @@ public class PlanPrinter
                 .collect(Collectors.joining(", "));
     }
 
-
-    public class Context {
+    public class Context
+    {
         private final Optional<String> tag;
 
-        public Context() {
+        public Context()
+        {
             this(Optional.empty());
         }
 
-        public Context(String tag) {
+        public Context(String tag)
+        {
             this(Optional.of(tag));
         }
 
-        public Context(Optional<String> tag) {
+        public Context(Optional<String> tag)
+        {
             this.tag = requireNonNull(tag, "tag is null");
         }
 
-        public Optional<String> getTag() {
+        public Optional<String> getTag()
+        {
             return tag;
         }
     }

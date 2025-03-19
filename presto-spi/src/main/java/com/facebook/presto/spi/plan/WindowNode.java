@@ -47,7 +47,7 @@ public class WindowNode
 {
     private final PlanNode source;
     private final Set<VariableReferenceExpression> prePartitionedInputs;
-    private final Specification specification;
+    private final DataOrganizationSpecification specification;
     private final int preSortedOrderPrefix;
     private final Map<VariableReferenceExpression, Function> windowFunctions;
     private final Optional<VariableReferenceExpression> hashVariable;
@@ -57,7 +57,7 @@ public class WindowNode
             @JsonProperty("sourceLocation") Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
-            @JsonProperty("specification") Specification specification,
+            @JsonProperty("specification") DataOrganizationSpecification specification,
             @JsonProperty("windowFunctions") Map<VariableReferenceExpression, Function> windowFunctions,
             @JsonProperty("hashVariable") Optional<VariableReferenceExpression> hashVariable,
             @JsonProperty("prePartitionedInputs") Set<VariableReferenceExpression> prePartitionedInputs,
@@ -71,7 +71,7 @@ public class WindowNode
             PlanNodeId id,
             Optional<PlanNode> statsEquivalentPlanNode,
             PlanNode source,
-            Specification specification,
+            DataOrganizationSpecification specification,
             Map<VariableReferenceExpression, Function> windowFunctions,
             Optional<VariableReferenceExpression> hashVariable,
             Set<VariableReferenceExpression> prePartitionedInputs,
@@ -122,7 +122,7 @@ public class WindowNode
     }
 
     @JsonProperty
-    public Specification getSpecification()
+    public DataOrganizationSpecification getSpecification()
     {
         return specification;
     }
@@ -134,7 +134,7 @@ public class WindowNode
 
     public Optional<OrderingScheme> getOrderingScheme()
     {
-        return specification.orderingScheme;
+        return specification.getOrderingScheme();
     }
 
     @JsonProperty
@@ -186,60 +186,6 @@ public class WindowNode
     public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
     {
         return new WindowNode(getSourceLocation(), getId(), statsEquivalentPlanNode, source, specification, windowFunctions, hashVariable, prePartitionedInputs, preSortedOrderPrefix);
-    }
-
-    @Immutable
-    public static class Specification
-    {
-        private final List<VariableReferenceExpression> partitionBy;
-        private final Optional<OrderingScheme> orderingScheme;
-
-        @JsonCreator
-        public Specification(
-                @JsonProperty("partitionBy") List<VariableReferenceExpression> partitionBy,
-                @JsonProperty("orderingScheme") Optional<OrderingScheme> orderingScheme)
-        {
-            requireNonNull(partitionBy, "partitionBy is null");
-            requireNonNull(orderingScheme, "orderingScheme is null");
-
-            this.partitionBy = unmodifiableList(new ArrayList<>(partitionBy));
-            this.orderingScheme = requireNonNull(orderingScheme, "orderingScheme is null");
-        }
-
-        @JsonProperty
-        public List<VariableReferenceExpression> getPartitionBy()
-        {
-            return partitionBy;
-        }
-
-        @JsonProperty
-        public Optional<OrderingScheme> getOrderingScheme()
-        {
-            return orderingScheme;
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(partitionBy, orderingScheme);
-        }
-
-        @Override
-        public boolean equals(Object obj)
-        {
-            if (this == obj) {
-                return true;
-            }
-
-            if (obj == null || getClass() != obj.getClass()) {
-                return false;
-            }
-
-            Specification other = (Specification) obj;
-
-            return Objects.equals(this.partitionBy, other.partitionBy) &&
-                    Objects.equals(this.orderingScheme, other.orderingScheme);
-        }
     }
 
     @Immutable

@@ -15,7 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.block.SortOrder;
-import com.facebook.presto.spi.plan.WindowNode;
+import com.facebook.presto.spi.plan.DataOrganizationSpecification;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
@@ -81,7 +81,7 @@ public class TestCanonicalize
     @Test
     public void testDuplicatesInWindowOrderBy()
     {
-        ExpectedValueProvider<WindowNode.Specification> specification = specification(
+        ExpectedValueProvider<DataOrganizationSpecification> specification = specification(
                 ImmutableList.of(),
                 ImmutableList.of("A"),
                 ImmutableMap.of("A", SortOrder.ASC_NULLS_LAST));

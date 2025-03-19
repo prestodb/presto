@@ -24,6 +24,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.DataOrganizationSpecification;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.JoinNode;
@@ -342,7 +343,7 @@ public class TestEffectivePredicateExtractor
                                 equals(AV, BV),
                                 equals(BV, CV),
                                 lessThan(CV, bigintLiteral(10)))),
-                new WindowNode.Specification(
+                new DataOrganizationSpecification(
                         ImmutableList.of(AV),
                         Optional.of(new OrderingScheme(
                                 ImmutableList.of(new Ordering(AV, SortOrder.ASC_NULLS_LAST))))),

@@ -16,9 +16,9 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.metadata.TableFunctionHandle;
 import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.function.table.Argument;
+import com.facebook.presto.spi.plan.DataOrganizationSpecification;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.spi.plan.WindowNode.Specification;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -139,14 +139,14 @@ public class TableFunctionNode
         private final boolean rowSemantics;
         private final boolean pruneWhenEmpty;
         private final boolean passThroughColumns;
-        private final Specification specification;
+        private final DataOrganizationSpecification specification;
 
         @JsonCreator
         public TableArgumentProperties(
                 @JsonProperty("rowSemantics") boolean rowSemantics,
                 @JsonProperty("pruneWhenEmpty") boolean pruneWhenEmpty,
                 @JsonProperty("passThroughColumns") boolean passThroughColumns,
-                @JsonProperty("specification") Specification specification)
+                @JsonProperty("specification") DataOrganizationSpecification specification)
         {
             this.rowSemantics = rowSemantics;
             this.pruneWhenEmpty = pruneWhenEmpty;
@@ -173,7 +173,7 @@ public class TableFunctionNode
         }
 
         @JsonProperty
-        public Specification getSpecification()
+        public DataOrganizationSpecification getSpecification()
         {
             return specification;
         }

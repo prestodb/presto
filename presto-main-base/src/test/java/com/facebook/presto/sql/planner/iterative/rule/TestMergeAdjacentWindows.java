@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.DataOrganizationSpecification;
 import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.WindowNode;
@@ -93,7 +94,7 @@ public class TestMergeAdjacentWindows
     private static final FunctionHandle LAG_FUNCTION_HANDLE = createTestMetadataManager().getFunctionAndTypeManager().lookupFunction("lag", fromTypes(DOUBLE));
     private static final FunctionHandle RANK_FUNCTION_HANDLE = createTestMetadataManager().getFunctionAndTypeManager().lookupFunction("rank", ImmutableList.of());
     private static final String columnAAlias = "ALIAS_A";
-    private static final ExpectedValueProvider<WindowNode.Specification> specificationA =
+    private static final ExpectedValueProvider<DataOrganizationSpecification> specificationA =
             specification(ImmutableList.of(columnAAlias), ImmutableList.of(), ImmutableMap.of());
 
     @Test
@@ -275,14 +276,14 @@ public class TestMergeAdjacentWindows
                                                         values(columnAAlias, unusedAlias))))));
     }
 
-    private static WindowNode.Specification newWindowNodeSpecification(PlanBuilder planBuilder, String symbolName)
+    private static DataOrganizationSpecification newWindowNodeSpecification(PlanBuilder planBuilder, String symbolName)
     {
-        return new WindowNode.Specification(ImmutableList.of(planBuilder.variable(symbolName, BIGINT)), Optional.empty());
+        return new DataOrganizationSpecification(ImmutableList.of(planBuilder.variable(symbolName, BIGINT)), Optional.empty());
     }
 
-    private static WindowNode.Specification newWindowNodeSpecification(PlanBuilder planBuilder, String symbolName, String sortkey)
+    private static DataOrganizationSpecification newWindowNodeSpecification(PlanBuilder planBuilder, String symbolName, String sortkey)
     {
-        return new WindowNode.Specification(ImmutableList.of(planBuilder.variable(symbolName, BIGINT)),
+        return new DataOrganizationSpecification(ImmutableList.of(planBuilder.variable(symbolName, BIGINT)),
                 Optional.of(new OrderingScheme(
                         ImmutableList.of(new Ordering(planBuilder.variable(sortkey, BIGINT), SortOrder.ASC_NULLS_FIRST)))));
     }

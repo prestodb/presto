@@ -14,9 +14,9 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.spi.plan.DataOrganizationSpecification;
 import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
-import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -33,7 +33,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 public class SpecificationProvider
-        implements ExpectedValueProvider<WindowNode.Specification>
+        implements ExpectedValueProvider<DataOrganizationSpecification>
 {
     private final List<SymbolAlias> partitionBy;
     private final List<SymbolAlias> orderBy;
@@ -50,7 +50,7 @@ public class SpecificationProvider
     }
 
     @Override
-    public WindowNode.Specification getExpectedValue(SymbolAliases aliases)
+    public DataOrganizationSpecification getExpectedValue(SymbolAliases aliases)
     {
         Optional<OrderingScheme> orderingScheme = Optional.empty();
         if (!orderBy.isEmpty()) {
@@ -64,7 +64,7 @@ public class SpecificationProvider
                             .collect(toImmutableList())));
         }
 
-        return new WindowNode.Specification(
+        return new DataOrganizationSpecification(
                 partitionBy
                         .stream()
                         .map(alias -> new VariableReferenceExpression(Optional.empty(), alias.toSymbol(aliases).getName(), UNKNOWN))
@@ -87,7 +87,7 @@ public class SpecificationProvider
      * VariableReferenceExpression::equals to check whether two specification are equivalent once they include VariableReferenceExpression.
      * TODO Directly use equals once SymbolAlias is converted to something with type information.
      */
-    public static boolean matchSpecification(WindowNode.Specification actual, WindowNode.Specification expected)
+    public static boolean matchSpecification(DataOrganizationSpecification actual, DataOrganizationSpecification expected)
     {
         return actual.getPartitionBy().stream().map(VariableReferenceExpression::getName).collect(toImmutableList())
                 .equals(expected.getPartitionBy().stream().map(VariableReferenceExpression::getName).collect(toImmutableList())) &&
@@ -104,7 +104,7 @@ public class SpecificationProvider
                         .orElse(true);
     }
 
-    public static boolean matchSpecification(WindowNode.Specification actual, SpecificationProvider expected)
+    public static boolean matchSpecification(DataOrganizationSpecification actual, SpecificationProvider expected)
     {
         return actual.getPartitionBy().stream().map(VariableReferenceExpression::getName).collect(toImmutableList())
                 .equals(expected.partitionBy.stream().map(SymbolAlias::toString).collect(toImmutableList())) &&

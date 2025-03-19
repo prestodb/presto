@@ -23,6 +23,7 @@ import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.CteConsumerNode;
 import com.facebook.presto.spi.plan.CteProducerNode;
 import com.facebook.presto.spi.plan.CteReferenceNode;
+import com.facebook.presto.spi.plan.DataOrganizationSpecification;
 import com.facebook.presto.spi.plan.DeleteNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.EquiJoinClause;
@@ -813,9 +814,9 @@ public class UnaliasSymbolReferences
             return builder.build();
         }
 
-        private WindowNode.Specification canonicalizeAndDistinct(WindowNode.Specification specification)
+        private DataOrganizationSpecification canonicalizeAndDistinct(DataOrganizationSpecification specification)
         {
-            return new WindowNode.Specification(
+            return new DataOrganizationSpecification(
                     canonicalizeAndDistinct(specification.getPartitionBy()),
                     specification.getOrderingScheme().map(this::canonicalizeAndDistinct));
         }
