@@ -1114,7 +1114,6 @@ public class Analysis
         return polymorphicTableFunctions.contains(NodeRef.of(invocation));
     }
 
-
     @Immutable
     public static final class Insert
     {

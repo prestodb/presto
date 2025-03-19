@@ -2226,15 +2226,11 @@ public class TestAnalyzer
         analyze("SELECT * FROM TABLE(system.polymorphic_static_return_type_function(input => TABLE(t1)))");
         analyze("SELECT * FROM TABLE(system.polymorphic_static_return_type_function(input => TABLE(t1))) f(x, y)");
 
-        // TODO enable this test when ONLY PASS THROUGH functions are fully analyzed (currently they fail with NOT_SUPPORTED).
-        //  An ONLY PASS THROUGH function had to be used here, because it's the only kind which does not take an alias.
-//        // sampled
-//        assertFails(INVALID_TABLE_FUNCTION_INVOCATION,
-//                "line 1:21: Cannot apply sample to polymorphic table function invocation",
-//                "SELECT * FROM TABLE(system.only_pass_through_function(TABLE(t1))) TABLESAMPLE BERNOULLI (10)");
+        // sampled
+        assertFails(INVALID_TABLE_FUNCTION_INVOCATION,
+                "line 1:21: Cannot apply sample to polymorphic table function invocation",
+                "SELECT * FROM TABLE(system.only_pass_through_function(TABLE(t1))) TABLESAMPLE BERNOULLI (10)");
 
-        // TODO enable this test when ONLY PASS THROUGH functions are fully analyzed (currently they fail with NOT_SUPPORTED)
-        //  An ONLY PASS THROUGH function had to be used here, because it's the only kind which does not take an alias.
 //        // row pattern matching
 //        assertFails(INVALID_TABLE_FUNCTION_INVOCATION,
 //                "line 2:12: Cannot apply row pattern matching to polymorphic table function invocation",
@@ -2249,14 +2245,12 @@ public class TestAnalyzer
 //        assertFails(INVALID_TABLE_FUNCTION_INVOCATION,
 //                "line 2:6: Cannot apply row pattern matching to polymorphic table function invocation",
 //                "SELECT * FROM TABLE(system.two_arguments_function('a', 1)) f(x) MATCH_RECOGNIZE( PATTERN (a*) DEFINE a AS true ) t(y)");
-
-        // TODO enable this test when ONLY PASS THROUGH functions are fully analyzed (currently they fail with NOT_SUPPORTED)
-        //  An ONLY PASS THROUGH function had to be used here, because it's the only kind which does not take an alias.
+//
 //        // row pattern matching + sampled
 //        assertFails(INVALID_TABLE_FUNCTION_INVOCATION,
 //                "line 2:12: Cannot apply row pattern matching to polymorphic table function invocation",
 //                "SELECT * FROM TABLE(system.only_pass_through_function(TABLE(t1))) MATCH_RECOGNIZE( PATTERN (a*) DEFINE a AS true) TABLESAMPLE BERNOULLI (10)");
-
+//
 //        // aliased + row pattern matching + sampled
 //        assertFails(INVALID_TABLE_FUNCTION_INVOCATION,
 //                "line 2:6: Cannot apply row pattern matching to polymorphic table function invocation",
@@ -2304,7 +2298,19 @@ public class TestAnalyzer
                 "line 1:21: Duplicate name of table function proper column: col",
                 "SELECT * FROM TABLE(system.monomorphic_static_return_type_function()) table_alias(col, COL)");
 
-        // TODO test pass-through columns wen we support them: they mustn't be aliased, and must be referenced by the original range variables of their corresponding table arguments
-    }
+        // pass-through columns of an input table must not be aliased, and must be referenced by the original range variables of their corresponding table arguments
+        // the function pass_through_function has one proper column ("x" : BOOLEAN), and one table argument with pass-through property
+        // tha alias applies only to the proper column
+        analyze("SELECT table_alias.x, t1.a, t1.b, t1.c, t1.d FROM TABLE(system.pass_through_function(TABLE(t1))) table_alias");
 
+        analyze("SELECT table_alias.x, arg_alias.a, arg_alias.b, arg_alias.c, arg_alias.d FROM TABLE(system.pass_through_function(TABLE(t1) arg_alias)) table_alias");
+
+        assertFails(MISSING_ATTRIBUTE,
+                "line 1:23: 't1.a' cannot be resolved",
+                "SELECT table_alias.x, t1.a FROM TABLE(system.pass_through_function(TABLE(t1) arg_alias)) table_alias");
+
+        assertFails(MISSING_ATTRIBUTE,
+                "line 1:23: 'table_alias.a' cannot be resolved",
+                "SELECT table_alias.x, table_alias.a FROM TABLE(system.pass_through_function(TABLE(t1))) table_alias");
+    }
 }

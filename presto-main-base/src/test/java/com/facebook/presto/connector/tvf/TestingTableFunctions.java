@@ -307,4 +307,30 @@ public class TestingTableFunctions
                     .build();
         }
     }
+
+    public static class PassThroughFunction
+            extends AbstractConnectorTableFunction
+    {
+        public PassThroughFunction()
+        {
+            super(
+                    SCHEMA_NAME,
+                    "pass_through_function",
+                    ImmutableList.of(TableArgumentSpecification.builder()
+                            .name("INPUT")
+                            .passThroughColumns()
+                            .build()),
+                    new DescribedTable(Descriptor.descriptor(
+                            ImmutableList.of("x"),
+                            ImmutableList.of(BOOLEAN))));
+        }
+
+        @Override
+        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        {
+            return TableFunctionAnalysis.builder()
+                    .handle(HANDLE)
+                    .build();
+        }
+    }
 }

@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.metadata.TableFunctionHandle;
 import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.function.table.Argument;
-import com.facebook.presto.spi.function.table.NameAndPosition;
 import com.facebook.presto.spi.plan.DataOrganizationSpecification;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
