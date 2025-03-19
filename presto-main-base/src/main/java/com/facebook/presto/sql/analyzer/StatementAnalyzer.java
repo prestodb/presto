@@ -277,6 +277,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_TYPE_UNK
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUMN_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_PARAMETER_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_PROPERTY;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RANGE_VARIABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ARGUMENTS;
@@ -287,6 +288,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_FUNCTIO
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_OFFSET_ROW_COUNT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_TABLE_FUNCTION_INVOCATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_WINDOW_FRAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MATERIALIZED_VIEW_ALREADY_EXISTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MATERIALIZED_VIEW_IS_RECURSIVE;
@@ -1342,14 +1344,6 @@ class StatementAnalyzer
 
             TableFunctionAnalysis functionAnalysis = function.analyze(session.toConnectorSession(connectorId), transactionHandle, argumentsAnalysis.getPassedArguments());
             List<List<String>> copartitioningLists = analyzeCopartitioning(node.getCopartitioning(), argumentsAnalysis.getTableArgumentAnalyses());
-            analysis.setTableFunctionAnalysis(node, new TableFunctionInvocationAnalysis(
-                    connectorId,
-                    function.getName(),
-                    argumentsAnalysis.getPassedArguments(),
-                    argumentsAnalysis.getTableArgumentAnalyses(),
-                    copartitioningLists,
-                    functionAnalysis.getHandle(),
-                    transactionHandle));
 
             // determine the result relation type.
             // The result relation type of a table function consists of:
@@ -1358,18 +1352,33 @@ class StatementAnalyzer
             // - for tables without the "pass through columns" option, these are the partitioning columns of the table, if any.
             // 2. columns created by the table function, called the proper columns.
             ReturnTypeSpecification returnTypeSpecification = function.getReturnTypeSpecification();
+            if (returnTypeSpecification == GENERIC_TABLE || !argumentsAnalysis.getTableArgumentAnalyses().isEmpty()) {
+                analysis.addPolymorphicTableFunction(node);
+            }
             Optional<Descriptor> analyzedProperColumnsDescriptor = functionAnalysis.getReturnedType();
             Descriptor properColumnsDescriptor;
             if (returnTypeSpecification == ONLY_PASS_THROUGH) {
+                if (analysis.isAliased(node)) {
+                    // According to SQL standard ISO/IEC 9075-2, 7.6 <table reference>, p. 409,
+                    // table alias is prohibited for a table function with ONLY PASS THROUGH returned type.
+                    throw new SemanticException(INVALID_TABLE_FUNCTION_INVOCATION, node, "Alias specified for table function with ONLY PASS THROUGH return type");
+                }
                 // this option is only allowed if there are input tables
                 throw new SemanticException(NOT_SUPPORTED, node, "Returning only pass through columns is not yet supported for table functions");
             }
-            if (returnTypeSpecification == GENERIC_TABLE) {
+            else if (returnTypeSpecification == GENERIC_TABLE) {
+                // According to SQL standard ISO/IEC 9075-2, 7.6 <table reference>, p. 409,
+                // table alias is mandatory for a polymorphic table function invocation which produces proper columns.
+                // We don't enforce this requirement.
                 properColumnsDescriptor = analyzedProperColumnsDescriptor
                         .orElseThrow(() -> new SemanticException(MISSING_RETURN_TYPE, node, "Cannot determine returned relation type for table function " + node.getName()));
             }
             else {
                 // returned type is statically declared at function declaration and cannot be overridden
+                // According to SQL standard ISO/IEC 9075-2, 7.6 <table reference>, p. 409,
+                // table alias is mandatory for a polymorphic table function invocation which produces proper columns.
+                // We don't enforce this requirement.
+                // the declared type cannot be overridden
                 if (analyzedProperColumnsDescriptor.isPresent()) {
                     throw new SemanticException(AMBIGUOUS_RETURN_TYPE, node, "Returned relation type for table function %s is ambiguous", node.getName());
                 }
@@ -1377,11 +1386,21 @@ class StatementAnalyzer
             }
 
             // currently we don't support input tables, so the output consists of proper columns only
-            // TODO implement SQL standard ISO/IEC 9075-2, 4.33 SQL-invoked routines, p. 123
+            // TODO implement SQL standard ISO/IEC 9075-2, 4.33 SQL-invoked routines, p. 123, 413, 414
             List<Field> fields = properColumnsDescriptor.getFields().stream()
                     // per spec, field names are mandatory
                     .map(field -> Field.newUnqualified(Optional.of(field.getName()), field.getType().orElseThrow(() -> new IllegalStateException("missing returned type for proper field"))))
                     .collect(toImmutableList());
+
+            analysis.setTableFunctionAnalysis(node, new TableFunctionInvocationAnalysis(
+                    connectorId,
+                    function.getName(),
+                    argumentsAnalysis.getPassedArguments(),
+                    argumentsAnalysis.getTableArgumentAnalyses(),
+                    copartitioningLists,
+                    properColumnsDescriptor.getFields().size(),
+                    functionAnalysis.getHandle(),
+                    transactionHandle));
 
             return createAndAssignScope(node, scope, fields);
         }
@@ -2218,10 +2237,17 @@ class StatementAnalyzer
         protected Scope visitAliasedRelation(AliasedRelation relation, Optional<Scope> scope)
         {
             analysis.setRelationName(relation, QualifiedName.of(relation.getAlias().getValue()));
+            analysis.addAliased(relation.getRelation());
             Scope relationScope = process(relation.getRelation(), scope);
+            RelationType relationType = relationScope.getRelationType();
+
+            // special-handle table function invocation
+            if (relation.getRelation() instanceof TableFunctionInvocation) {
+                return createAndAssignScope(relation, scope,
+                        aliasTableFunctionInvocation(relation, relationType, (TableFunctionInvocation)relation.getRelation()));
+            }
 
             // todo this check should be inside of TupleDescriptor.withAlias, but the exception needs the node object
-            RelationType relationType = relationScope.getRelationType();
             if (relation.getColumnNames() != null) {
                 int totalColumns = relationType.getVisibleFieldCount();
                 if (totalColumns != relation.getColumnNames().size()) {
@@ -2239,6 +2265,85 @@ class StatementAnalyzer
             RelationType descriptor = relationType.withAlias(relation.getAlias().getValue(), aliases);
 
             return createAndAssignScope(relation, scope, descriptor);
+        }
+
+        // As described by the SQL standard ISO/IEC 9075-2, 7.6 <table reference>, p. 409
+        private RelationType aliasTableFunctionInvocation(AliasedRelation relation, RelationType relationType, TableFunctionInvocation function)
+        {
+            TableFunctionInvocationAnalysis tableFunctionAnalysis = analysis.getTableFunctionAnalysis(function);
+            int properColumnsCount = tableFunctionAnalysis.getProperColumnsCount();
+
+            // check that relation alias is different from range variables of all table arguments
+            tableFunctionAnalysis.getTableArgumentAnalyses().stream()
+                    .map(TableArgumentAnalysis::getName)
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    .filter(name -> name.hasSuffix(QualifiedName.of(ImmutableList.of(relation.getAlias().getValue()))))
+                    .findFirst()
+                    .ifPresent(name -> {
+                        throw new SemanticException(DUPLICATE_RANGE_VARIABLE, relation.getAlias(), "Relation alias: %s is a duplicate of input table name: %s", relation.getAlias(), name);
+                    });
+
+            // build the new relation type. the alias must be applied to the proper columns only,
+            // and it must not shadow the range variables exposed by the table arguments
+            ImmutableList.Builder<Field> fieldsBuilder = ImmutableList.builder();
+            // first, put the table function's proper columns with alias
+            if (relation.getColumnNames() != null) {
+                // check that number of column aliases matches number of table function's proper columns
+                if (properColumnsCount != relation.getColumnNames().size()) {
+                    throw new SemanticException(MISMATCHED_COLUMN_ALIASES, relation, "Column alias list has %s entries but table function has %s proper columns", relation.getColumnNames().size(), properColumnsCount);
+                }
+                for (int i = 0; i < properColumnsCount; i++) {
+                    // proper columns are not hidden, so we don't need to skip hidden fields
+                    Field field = relationType.getFieldByIndex(i);
+                    fieldsBuilder.add(Field.newQualified(
+                            field.getNodeLocation(),
+                            QualifiedName.of(ImmutableList.of(relation.getAlias().getValue())),
+                            Optional.of(relation.getColumnNames().get(i).getCanonicalValue()), // although the canonical name is recorded, fields are resolved case-insensitive
+                            field.getType(),
+                            field.isHidden(),
+                            field.getOriginTable(),
+                            field.getOriginColumnName(),
+                            field.isAliased()));
+                }
+            }
+            else {
+                for (int i = 0; i < properColumnsCount; i++) {
+                    Field field = relationType.getFieldByIndex(i);
+                    fieldsBuilder.add(Field.newQualified(
+                            field.getNodeLocation(),
+                            QualifiedName.of(ImmutableList.of(relation.getAlias().getValue())),
+                            field.getName(),
+                            field.getType(),
+                            field.isHidden(),
+                            field.getOriginTable(),
+                            field.getOriginColumnName(),
+                            field.isAliased()));
+                }
+            }
+
+            // append remaining fields. They are not being aliased, so hidden fields are included
+            for (int i = properColumnsCount; i < relationType.getAllFieldCount(); i++) {
+                fieldsBuilder.add(relationType.getFieldByIndex(i));
+            }
+
+            List<Field> fields = fieldsBuilder.build();
+
+            // check that there are no duplicate names within the table function's proper columns
+            Set<String> names = new HashSet<>();
+            fields.subList(0, properColumnsCount).stream()
+                    .map(Field::getName)
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    // field names are resolved case-insensitive
+                    .map(name -> name.toLowerCase(ENGLISH))
+                    .forEach(name -> {
+                        if (!names.add(name)) {
+                            throw new SemanticException(DUPLICATE_COLUMN_NAME, relation.getRelation(), "Duplicate name of table function proper column: " + name);
+                        }
+                    });
+
+            return new RelationType(fields);
         }
 
         @Override
@@ -2284,7 +2389,31 @@ class StatementAnalyzer
 
             analysis.setSampleRatio(relation, samplePercentageValue / 100);
             Scope relationScope = process(relation.getRelation(), scope);
+
+            // TABLESAMPLE cannot be applied to a polymorphic table function (SQL standard ISO/IEC 9075-2, 7.6 <table reference>, p. 409)
+            // Note: the below method finds a table function immediately nested in SampledRelation, or aliased.
+            // Potentially, a table function could be also nested with intervening PatternRecognitionRelation.
+            // Such case is handled in visitPatternRecognitionRelation().
+            validateNoNestedTableFunction(relation.getRelation(), "sample");
+
             return createAndAssignScope(relation, scope, relationScope.getRelationType());
+        }
+
+        // this method should run after the `base` relation is processed, so that it is
+        // determined whether the table function is polymorphic
+        private void validateNoNestedTableFunction(Relation base, String context)
+        {
+            TableFunctionInvocation tableFunctionInvocation = null;
+            if (base instanceof TableFunctionInvocation) {
+                tableFunctionInvocation = (TableFunctionInvocation)base;
+            }
+            else if (base instanceof AliasedRelation  &&
+                    ((AliasedRelation)base).getRelation() instanceof TableFunctionInvocation) {
+                tableFunctionInvocation = (TableFunctionInvocation) ((AliasedRelation)base).getRelation();
+            }
+            if (tableFunctionInvocation != null && analysis.isPolymorphicTableFunction(tableFunctionInvocation)) {
+                throw new SemanticException(INVALID_TABLE_FUNCTION_INVOCATION, base, "Cannot apply %s to polymorphic table function invocation", context);
+            }
         }
 
         @Override
