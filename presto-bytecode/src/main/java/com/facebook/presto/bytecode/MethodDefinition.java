@@ -16,7 +16,6 @@ package com.facebook.presto.bytecode;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.tree.InsnNode;
@@ -32,7 +31,8 @@ import static com.facebook.presto.bytecode.Access.STATIC;
 import static com.facebook.presto.bytecode.Access.toAccessModifier;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.transform;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Streams.stream;
 import static org.objectweb.asm.Opcodes.RETURN;
 
 @SuppressWarnings("UnusedDeclaration")
@@ -84,8 +84,8 @@ public class MethodDefinition
             this.returnType = type(void.class);
         }
         this.parameters = ImmutableList.copyOf(parameters);
-        this.parameterTypes = Lists.transform(this.parameters, Parameter::getType);
-        this.parameterAnnotations = ImmutableList.copyOf(transform(parameters, input -> new ArrayList<>()));
+        this.parameterTypes = this.parameters.stream().map(Parameter::getType).collect(toImmutableList());
+        this.parameterAnnotations = stream(parameters).<List<AnnotationDefinition>>map(input -> new ArrayList<>()).collect(toImmutableList());
         Optional<ParameterizedType> thisType = Optional.empty();
         if (!declaringClass.isInterface() && !access.contains(STATIC)) {
             thisType = Optional.of(declaringClass.getType());
@@ -264,7 +264,7 @@ public class MethodDefinition
         Joiner.on(' ').appendTo(sb, access).append(' ');
         sb.append(returnType.getJavaClassName()).append(' ');
         sb.append(name).append('(');
-        Joiner.on(", ").appendTo(sb, transform(parameters, Parameter::getSourceString)).append(')');
+        Joiner.on(", ").appendTo(sb, parameters.stream().map(Parameter::getSourceString).collect(toImmutableList())).append(')');
         return sb.toString();
     }
 
@@ -283,7 +283,7 @@ public class MethodDefinition
     {
         return methodDescription(
                 type(returnType),
-                Lists.transform(parameterTypes, ParameterizedType::type));
+                parameterTypes.stream().map(ParameterizedType::type).collect(toImmutableList()));
     }
 
     public static String methodDescription(
@@ -299,7 +299,7 @@ public class MethodDefinition
     {
         StringBuilder sb = new StringBuilder();
         sb.append("(");
-        Joiner.on("").appendTo(sb, transform(parameterTypes, ParameterizedType::getType));
+        Joiner.on("").appendTo(sb, parameterTypes.stream().map(ParameterizedType::getType).iterator());
         sb.append(")");
         sb.append(returnType.getType());
         return sb.toString();
