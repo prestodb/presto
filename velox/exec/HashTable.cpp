@@ -1842,7 +1842,7 @@ int32_t HashTable<ignoreNullKeys>::listJoinResults(
     folly::Range<char**> hits,
     uint64_t maxBytes) {
   VELOX_CHECK_LE(inputRows.size(), hits.size());
-  iter.outputBatchBytes = 0;
+
   if (iter.estimatedRowSize.has_value() && !hasDuplicates_) {
     // When there is no duplicates, and row size is estimable, we are able to
     // go through fast path.
@@ -1852,6 +1852,7 @@ int32_t HashTable<ignoreNullKeys>::listJoinResults(
 
   size_t numOut = 0;
   auto maxOut = inputRows.size();
+  uint64_t totalBytes{0};
   while (iter.lastRowIndex < iter.rows->size()) {
     auto row = (*iter.rows)[iter.lastRowIndex];
     auto hit = (*iter.hits)[row]; // NOLINT
@@ -1874,7 +1875,7 @@ int32_t HashTable<ignoreNullKeys>::listJoinResults(
       hits[numOut] = hit;
       numOut++;
       iter.lastRowIndex++;
-      iter.outputBatchBytes += iter.estimatedRowSize.has_value()
+      totalBytes += iter.estimatedRowSize.has_value()
           ? iter.estimatedRowSize.value()
           : (joinProjectedVarColumnsSize(iter.varSizeListColumns, hit) +
              iter.fixedSizeListColumnsSizeSum);
@@ -1890,20 +1891,19 @@ int32_t HashTable<ignoreNullKeys>::listJoinResults(
       iter.lastDuplicateRowIndex += num;
       numOut += num;
       if (iter.estimatedRowSize.has_value()) {
-        iter.outputBatchBytes += iter.estimatedRowSize.value() * numRows;
+        totalBytes += iter.estimatedRowSize.value() * numRows;
       } else {
-        iter.outputBatchBytes +=
+        totalBytes +=
             joinProjectedVarColumnsSize(iter.varSizeListColumns, rows);
-        iter.outputBatchBytes +=
-            (iter.fixedSizeListColumnsSizeSum * rows->size());
-        iter.outputBatchBytes += (iter.fixedSizeListColumnsSizeSum * numRows);
+        totalBytes += (iter.fixedSizeListColumnsSizeSum * rows->size());
+        totalBytes += (iter.fixedSizeListColumnsSizeSum * numRows);
       }
       if (iter.lastDuplicateRowIndex >= numRows) {
         iter.lastDuplicateRowIndex = 0;
         iter.lastRowIndex++;
       }
     }
-    if (numOut >= maxOut || iter.outputBatchBytes >= maxBytes) {
+    if (numOut >= maxOut || totalBytes >= maxBytes) {
       return numOut;
     }
   }
@@ -1967,7 +1967,6 @@ int32_t HashTable<ignoreNullKeys>::listJoinResultsFastPath(
   }
 
   iter.lastRowIndex = i;
-  iter.outputBatchBytes += numOut * iter.estimatedRowSize.value();
   return numOut;
 }
 

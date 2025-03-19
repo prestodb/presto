@@ -141,9 +141,9 @@ class HashProbe : public Operator {
   // for right join and full join.
   RowVectorPtr getBuildSideOutput();
 
-  // Apply 'filter_' to 'outputTableRows_' from 'offset' for 'numRows' entries,
-  // updating 'outputRowMapping_'. Returns the number of passing rows.
-  vector_size_t evalFilter(vector_size_t offset, vector_size_t numRows);
+  // Applies 'filter_' to 'outputTableRows_' and updates 'outputRowMapping_'.
+  // Returns the number of passing rows.
+  vector_size_t evalFilter(vector_size_t numRows);
 
   inline bool filterPassed(vector_size_t row) {
     return filterInputRows_.isValid(row) &&
@@ -154,7 +154,7 @@ class HashProbe : public Operator {
   // Create a temporary input vector to be passed to the filter. This ensures it
   // gets destroyed in case its wrapping an unloaded vector which eventually
   // needs to be wrapped in fillOutput().
-  RowVectorPtr createFilterInput(vector_size_t offset, vector_size_t size);
+  RowVectorPtr createFilterInput(vector_size_t size);
 
   // Prepare filter row selectivity for null-aware join. 'numRows'
   // specifies the number of rows in 'filterInputRows_' to process. If
@@ -163,14 +163,12 @@ class HashProbe : public Operator {
   void prepareFilterRowsForNullAwareJoin(
       RowVectorPtr& filterInput,
       vector_size_t numRows,
-      bool filterPropagateNulls,
-      vector_size_t* rawOutputProbeRowMapping);
+      bool filterPropagateNulls);
 
   // Evaluate the filter for null-aware anti or left semi project join.
   SelectivityVector evalFilterForNullAwareJoin(
       vector_size_t numRows,
-      bool filterPropagateNulls,
-      vector_size_t* rawOutputProbeRowMapping);
+      bool filterPropagateNulls);
 
   // Prepares the hashers for probing with null keys.
   // Initializes `nullKeyProbeHashers_` if empty, ensuring it has exactly one
