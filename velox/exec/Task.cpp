@@ -3012,7 +3012,8 @@ void Task::createExchangeClientLocked(
       numberOfConsumers,
       queryCtx()->queryConfig().minExchangeOutputBatchBytes(),
       addExchangeClientPool(planNodeId, pipelineId),
-      queryCtx()->executor());
+      queryCtx()->executor(),
+      queryCtx()->queryConfig().requestDataSizesMaxWaitSec());
   exchangeClientByPlanNode_.emplace(planNodeId, exchangeClients_[pipelineId]);
 }
 

@@ -161,7 +161,7 @@ void ExchangeClient::request(std::vector<RequestSpec>&& requestSpecs) {
   for (auto& spec : requestSpecs) {
     auto future = folly::SemiFuture<ExchangeSource::Response>::makeEmpty();
     if (spec.maxBytes == 0) {
-      future = spec.source->requestDataSizes(kRequestDataSizesMaxWait);
+      future = spec.source->requestDataSizes(kRequestDataSizesMaxWaitSec_);
     } else {
       future = spec.source->request(spec.maxBytes, kRequestDataMaxWait);
     }

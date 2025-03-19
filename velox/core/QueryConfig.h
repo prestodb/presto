@@ -516,6 +516,10 @@ class QueryConfig {
   static constexpr const char* kIndexLookupJoinMaxPrefetchBatches =
       "index_lookup_join_max_prefetch_batches";
 
+  // Max wait time for exchange request in seconds.
+  static constexpr const char* kRequestDataSizesMaxWaitSec =
+      "request_data_sizes_max_wait_sec";
+
   bool selectiveNimbleReaderEnabled() const {
     return get<bool>(kSelectiveNimbleReaderEnabled, false);
   }
@@ -943,6 +947,10 @@ class QueryConfig {
 
   std::string shuffleCompressionKind() const {
     return get<std::string>(kShuffleCompressionKind, "none");
+  }
+
+  int32_t requestDataSizesMaxWaitSec() const {
+    return get<int32_t>(kRequestDataSizesMaxWaitSec, 10);
   }
 
   bool throwExceptionOnDuplicateMapKeys() const {
