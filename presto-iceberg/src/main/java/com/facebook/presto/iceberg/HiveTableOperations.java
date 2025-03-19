@@ -61,6 +61,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
 
+import static com.facebook.presto.hive.MetadataUtils.constructSchemaName;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.DELETE;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.INSERT;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
@@ -101,6 +102,7 @@ public class HiveTableOperations
 
     private final ExtendedHiveMetastore metastore;
     private final MetastoreContext metastoreContext;
+    private final Optional<String> catalogName;
     private final String database;
     private final String tableName;
     private final Optional<String> owner;
@@ -123,12 +125,14 @@ public class HiveTableOperations
             IcebergHiveTableOperationsConfig config,
             ManifestFileCache manifestFileCache,
             String database,
-            String table)
+            String table,
+            String catalogName)
     {
         this(new HdfsFileIO(manifestFileCache, hdfsEnvironment, hdfsContext),
                 metastore,
                 metastoreContext,
                 config,
+                Optional.ofNullable(catalogName),
                 database,
                 table,
                 Optional.empty(),
@@ -141,6 +145,7 @@ public class HiveTableOperations
             HdfsEnvironment hdfsEnvironment,
             HdfsContext hdfsContext,
             IcebergHiveTableOperationsConfig config,
+            String catalogName,
             ManifestFileCache manifestFileCache,
             String database,
             String table,
@@ -151,6 +156,7 @@ public class HiveTableOperations
                 metastore,
                 metastoreContext,
                 config,
+                Optional.ofNullable(catalogName),
                 database,
                 table,
                 Optional.of(requireNonNull(owner, "owner is null")),
@@ -162,6 +168,7 @@ public class HiveTableOperations
             ExtendedHiveMetastore metastore,
             MetastoreContext metastoreContext,
             IcebergHiveTableOperationsConfig config,
+            Optional<String> catalogName,
             String database,
             String table,
             Optional<String> owner,
@@ -170,6 +177,7 @@ public class HiveTableOperations
         this.fileIO = requireNonNull(fileIO, "fileIO is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.metastoreContext = requireNonNull(metastoreContext, "metastore context is null");
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.database = requireNonNull(database, "database is null");
         this.tableName = requireNonNull(table, "table is null");
         this.owner = requireNonNull(owner, "owner is null");
@@ -237,7 +245,7 @@ public class HiveTableOperations
     public void commit(@Nullable TableMetadata base, TableMetadata metadata)
     {
         requireNonNull(metadata, "metadata is null");
-
+        requireNonNull(catalogName, "catalogName is null");
         // if the metadata is already out of date, reject it
         if (!Objects.equals(base, current())) {
             throw new CommitFailedException("Cannot commit: stale table metadata for %s", getSchemaTableName());
@@ -269,6 +277,7 @@ public class HiveTableOperations
                         parameters.put(TABLE_COMMENT, tableComment);
                     }
                     Table.Builder builder = Table.builder()
+                            .setCatalogName(catalogName)
                             .setDatabaseName(database)
                             .setTableName(tableName)
                             .setOwner(owner.orElseThrow(() -> new IllegalStateException("Owner not set")))
@@ -287,6 +296,7 @@ public class HiveTableOperations
                         throw new CommitFailedException("Metadata location [%s] is not same as table metadata location [%s] for %s", currentMetadataLocation, metadataLocation, getSchemaTableName());
                     }
                     table = Table.builder(currentTable)
+                            .setCatalogName(catalogName)
                             .setDataColumns(toHiveColumns(metadata.schema().columns()))
                             .withStorage(storage -> storage.setLocation(metadata.location()))
                             .setParameter(METADATA_LOCATION, newMetadataLocation)
@@ -317,11 +327,12 @@ public class HiveTableOperations
                 metastore.createTable(metastoreContext, table, privileges, emptyList());
             }
             else {
-                PartitionStatistics tableStats = metastore.getTableStatistics(metastoreContext, database, tableName);
-                metastore.replaceTable(metastoreContext, database, tableName, table, privileges);
+                String schemaName = constructSchemaName(catalogName, database);
+                PartitionStatistics tableStats = metastore.getTableStatistics(metastoreContext, schemaName, tableName);
+                metastore.replaceTable(metastoreContext, schemaName, tableName, table, privileges);
 
                 // attempt to put back previous table statistics
-                metastore.updateTableStatistics(metastoreContext, database, tableName, oldStats -> tableStats);
+                metastore.updateTableStatistics(metastoreContext, schemaName, tableName, oldStats -> tableStats);
             }
             deleteRemovedMetadataFiles(base, metadata);
         }
@@ -372,7 +383,7 @@ public class HiveTableOperations
 
     private Table getTable()
     {
-        return metastore.getTable(metastoreContext, database, tableName)
+        return metastore.getTable(metastoreContext, constructSchemaName(catalogName, database), tableName)
                 .orElseThrow(() -> new TableNotFoundException(getSchemaTableName()));
     }
 

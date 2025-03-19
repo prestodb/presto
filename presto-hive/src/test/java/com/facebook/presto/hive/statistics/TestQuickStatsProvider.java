@@ -148,6 +148,7 @@ public class TestQuickStatsProvider
                 ImmutableMap.of(),
                 ImmutableMap.of());
         Partition mockPartition = new Partition(
+                Optional.of("catalogName"),
                 TEST_SCHEMA,
                 TEST_TABLE,
                 ImmutableList.of(),
@@ -161,6 +162,7 @@ public class TestQuickStatsProvider
                 0,
                 Optional.empty());
         Table mockTable = new Table(
+                Optional.of("catalogName"),
                 TEST_SCHEMA,
                 TEST_TABLE,
                 "owner",

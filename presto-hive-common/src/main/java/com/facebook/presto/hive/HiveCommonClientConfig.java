@@ -46,6 +46,7 @@ public class HiveCommonClientConfig
     private boolean readNullMaskedParquetEncryptedValueEnabled;
     private boolean useParquetColumnNames;
     private boolean zstdJniDecompressionEnabled;
+    private String catalogName;
     private DataSize affinitySchedulingFileSectionSize = new DataSize(256, MEGABYTE);
 
     public NodeSelectionStrategy getNodeSelectionStrategy()
@@ -283,6 +284,19 @@ public class HiveCommonClientConfig
     public HiveCommonClientConfig setZstdJniDecompressionEnabled(boolean zstdJniDecompressionEnabled)
     {
         this.zstdJniDecompressionEnabled = zstdJniDecompressionEnabled;
+        return this;
+    }
+
+    public String getCatalogName()
+    {
+        return catalogName;
+    }
+
+    @Config("hive.metastore.catalog.name")
+    @ConfigDescription("Specified property to store the metastore catalog name.")
+    public HiveCommonClientConfig setCatalogName(String catalogName)
+    {
+        this.catalogName = catalogName;
         return this;
     }
 

@@ -38,6 +38,8 @@ Property Name                           Description                             
 ======================================= ============================================= ===========
 ``hudi.metadata-table-enabled``         Fetch the list of file names and sizes from   false
                                         Hudi's metadata table rather than storage.
+``hive.metastore.catalog.name``         Specifies the catalog name to be passed to
+                                        the metastore.
 ======================================= ============================================= ===========
 
 File-Based Metastore

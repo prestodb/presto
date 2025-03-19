@@ -594,7 +594,7 @@ public class TestIcebergHiveStatistics
                 new IcebergHiveTableOperationsConfig(),
                 new ManifestFileCache(CacheBuilder.newBuilder().build(), false, 0, 1024),
                 getQueryRunner().getDefaultSession().toConnectorSession(connectorId),
-                SchemaTableName.valueOf("tpch." + tableName));
+                SchemaTableName.valueOf("tpch." + tableName), null);
     }
 
     protected ExtendedHiveMetastore getFileHiveMetastore()

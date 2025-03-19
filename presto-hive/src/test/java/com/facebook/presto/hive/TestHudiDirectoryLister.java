@@ -91,6 +91,7 @@ public class TestHudiDirectoryLister
     private Table getMockTable()
     {
         return new Table(
+                Optional.of("catalogName"),
                 "schema",
                 "hudi_non_part_cow",
                 "user",
@@ -116,6 +117,7 @@ public class TestHudiDirectoryLister
     private Table getMockMORTableWithPartition()
     {
         return new Table(
+                Optional.empty(),
                 "schema",
                 "hudi_mor_part_update",
                 "user",
@@ -288,6 +290,7 @@ public class TestHudiDirectoryLister
     public void testDirectoryListerForNonHudiTable()
     {
         Table mockTable = new Table(
+                Optional.of("catalogName"),
                 "schema",
                 "non_hudi_table",
                 "user",
