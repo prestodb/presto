@@ -28,8 +28,6 @@
 
 namespace facebook::velox::functions {
 void registerJsonVectorFunctions() {
-  VELOX_REGISTER_VECTOR_FUNCTION(
-      udf_json_extract_scalar, "json_extract_scalar");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_json_extract, "json_extract");
 }
 } // namespace facebook::velox::functions
@@ -198,6 +196,8 @@ class JsonBenchmark : public velox::functions::test::FunctionBenchmarkBase {
         {"folly_json_array_length"});
     registerFunction<FollyJsonExtractScalarFunction, Varchar, Json, Varchar>(
         {"folly_json_extract_scalar"});
+    registerFunction<JsonExtractScalarFunction, Varchar, Json, Varchar>(
+        {"json_extract_scalar"});
     registerFunction<FollyJsonExtractFunction, Varchar, Json, Varchar>(
         {"folly_json_extract"});
     registerFunction<JsonSizeFunction, int64_t, Json, Varchar>({"json_size"});

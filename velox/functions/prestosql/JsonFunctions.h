@@ -169,6 +169,86 @@ struct JsonArrayGetFunction {
   }
 };
 
+// json_extract_scalar(json, json_path) -> varchar
+// Like json_extract(), but returns the result value as a string (as opposed
+// to being encoded as JSON). The value referenced by json_path must be a scalar
+// (boolean, number or string)
+template <typename T>
+struct JsonExtractScalarFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<Varchar>& result,
+      const arg_type<Json>& json,
+      const arg_type<Varchar>& jsonPath) {
+    return callImpl(result, json, jsonPath) == simdjson::SUCCESS;
+  }
+
+ private:
+  FOLLY_ALWAYS_INLINE simdjson::error_code callImpl(
+      out_type<Varchar>& result,
+      const arg_type<Json>& json,
+      const arg_type<Varchar>& jsonPath) {
+    bool resultPopulated = false;
+    std::optional<std::string> resultStr;
+
+    auto consumer = [&resultStr, &resultPopulated](auto& v) {
+      if (resultPopulated) {
+        // We should just get a single value, if we see multiple, it's an error
+        // and we should return null.
+        resultStr = std::nullopt;
+        return simdjson::SUCCESS;
+      }
+
+      resultPopulated = true;
+
+      SIMDJSON_ASSIGN_OR_RAISE(auto vtype, v.type());
+      switch (vtype) {
+        case simdjson::ondemand::json_type::boolean: {
+          SIMDJSON_ASSIGN_OR_RAISE(bool vbool, v.get_bool());
+          resultStr = vbool ? "true" : "false";
+          break;
+        }
+        case simdjson::ondemand::json_type::string: {
+          SIMDJSON_ASSIGN_OR_RAISE(resultStr, v.get_string());
+          break;
+        }
+        case simdjson::ondemand::json_type::object:
+        case simdjson::ondemand::json_type::array:
+        case simdjson::ondemand::json_type::null:
+          // Do nothing.
+          break;
+        default: {
+          SIMDJSON_ASSIGN_OR_RAISE(resultStr, simdjson::to_json_string(v));
+        }
+      }
+      return simdjson::SUCCESS;
+    };
+
+    auto& extractor = SIMDJsonExtractor::getInstance(jsonPath);
+
+    // Check for valid json
+    simdjson::padded_string paddedJson(json.data(), json.size());
+    {
+      SIMDJSON_ASSIGN_OR_RAISE(auto jsonDoc, simdjsonParse(paddedJson));
+      simdjson::ondemand::document parsedDoc;
+      if (simdjsonParse(paddedJson).get(parsedDoc)) {
+        return simdjson::TAPE_ERROR;
+      }
+    }
+
+    bool isDefinitePath = true;
+    SIMDJSON_TRY(extractor.extract(paddedJson, consumer, isDefinitePath));
+
+    if (resultStr.has_value()) {
+      result.copy_from(*resultStr);
+      return simdjson::SUCCESS;
+    } else {
+      return simdjson::NO_SUCH_FIELD;
+    }
+  }
+};
+
 template <typename T>
 struct JsonSizeFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
