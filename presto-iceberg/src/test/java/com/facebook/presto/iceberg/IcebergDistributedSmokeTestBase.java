@@ -1578,6 +1578,100 @@ public abstract class IcebergDistributedSmokeTestBase
     }
 
     @Test
+    public void testPartitionTransformOnTimestampWithTimeZone()
+    {
+        //TODO: Not yet support identity transform for timestamp with time zone, which was supported by Iceberg
+        assertUpdate("create table test_identity_transform_timestamp_tz(col_timestamp_tz timestamp with time zone)" +
+                "with (partitioning = ARRAY['col_timestamp_tz'])");
+        assertQueryFails("insert into test_identity_transform_timestamp_tz " +
+                        "values(CAST('2023-01-01 00:00:00.000 UTC' AS TIMESTAMP WITH TIME ZONE))",
+                "Type not supported as partition column: timestamp with time zone");
+        assertUpdate("drop table if exists test_identity_transform_timestamp_tz");
+
+        //TODO: Not yet support bucket transform for timestamp with time zone, which was supported by Iceberg
+        assertUpdate("create table test_bucket_transform_timestamp_tz(col_timestamp_tz timestamp with time zone)" +
+                "with (partitioning = ARRAY['bucket(col_timestamp_tz, 2)'])");
+        assertQueryFails("insert into test_bucket_transform_timestamp_tz " +
+                        "values(CAST('2023-01-01 00:00:00.000 UTC' AS TIMESTAMP WITH TIME ZONE))",
+                "Unsupported type for 'bucket': 1000: col_timestamp_tz_bucket: bucket\\[2\\]\\(1\\)");
+        assertUpdate("drop table if exists test_bucket_transform_timestamp_tz");
+
+        //TODO: Not yet support year transform for timestamp with time zone, which was supported by Iceberg
+        assertUpdate("create table test_year_transform_timestamp_tz(col_timestamp_tz timestamp with time zone)" +
+                "with (partitioning = ARRAY['year(col_timestamp_tz)'])");
+        assertQueryFails("insert into test_year_transform_timestamp_tz " +
+                        "values(CAST('2023-01-01 00:00:00.000 UTC' AS TIMESTAMP WITH TIME ZONE))",
+                "Unsupported type for 'year': 1000: col_timestamp_tz_year: year\\(1\\)");
+        assertUpdate("drop table if exists test_year_transform_timestamp_tz");
+
+        //TODO: Not yet support month transform for timestamp with time zone, which was supported by Iceberg
+        assertUpdate("create table test_month_transform_timestamp_tz(col_timestamp_tz timestamp with time zone)" +
+                "with (partitioning = ARRAY['month(col_timestamp_tz)'])");
+        assertQueryFails("insert into test_month_transform_timestamp_tz " +
+                        "values(CAST('2023-01-01 00:00:00.000 UTC' AS TIMESTAMP WITH TIME ZONE))",
+                "Unsupported type for 'month': 1000: col_timestamp_tz_month: month\\(1\\)");
+        assertUpdate("drop table if exists test_month_transform_timestamp_tz");
+
+        //TODO: Not yet support day transform for timestamp with time zone, which was supported by Iceberg
+        assertUpdate("create table test_day_transform_timestamp_tz(col_timestamp_tz timestamp with time zone)" +
+                "with (partitioning = ARRAY['day(col_timestamp_tz)'])");
+        assertQueryFails("insert into test_day_transform_timestamp_tz " +
+                        "values(CAST('2023-01-01 00:00:00.000 UTC' AS TIMESTAMP WITH TIME ZONE))",
+                "Unsupported type for 'day': 1000: col_timestamp_tz_day: day\\(1\\)");
+        assertUpdate("drop table if exists test_day_transform_timestamp_tz");
+
+        //TODO: Not yet support hour transform for timestamp with time zone, which was supported by Iceberg
+        assertUpdate("create table test_hour_transform_timestamp_tz(col_timestamp_tz timestamp with time zone)" +
+                "with (partitioning = ARRAY['hour(col_timestamp_tz)'])");
+        assertQueryFails("insert into test_hour_transform_timestamp_tz " +
+                        "values(CAST('2023-01-01 00:00:00.000 UTC' AS TIMESTAMP WITH TIME ZONE))",
+                "Unsupported type for 'hour': 1000: col_timestamp_tz_hour: hour\\(1\\)");
+        assertUpdate("drop table if exists test_hour_transform_timestamp_tz");
+    }
+
+    @Test
+    public void testPartitionTransformOnUUID()
+    {
+        //TODO: Not yet support identity transform for uuid, which was supported by Iceberg
+        assertUpdate("create table test_identity_transform_uuid(col_uuid uuid)" +
+                "with (partitioning = ARRAY['col_uuid'])");
+        assertQueryFails("insert into test_identity_transform_uuid " +
+                        "values(cast ('d2177dd0-eaa2-11de-a572-001b779c76e1' as uuid))",
+                "Type not supported as partition column: uuid");
+        assertUpdate("drop table if exists test_identity_transform_uuid");
+
+        //TODO: Not yet support bucket transform for uuid, which was supported by Iceberg
+        assertUpdate("create table test_bucket_transform_uuid(col_uuid uuid)" +
+                "with (partitioning = ARRAY['bucket(col_uuid, 2)'])");
+        assertQueryFails("insert into test_bucket_transform_uuid " +
+                        "values(cast ('d2177dd0-eaa2-11de-a572-001b779c76e1' as uuid))",
+                "Unsupported type for 'bucket': 1000: col_uuid_bucket: bucket\\[2\\]\\(1\\)");
+        assertUpdate("drop table if exists test_bucket_transform_uuid");
+    }
+
+    @Test
+    public void testBucketTransformOnTime()
+    {
+        //TODO: Not yet support bucket transform for time, which was supported by Iceberg
+        assertUpdate("create table test_bucket_transform_time(col_time time)" +
+                "with (partitioning = ARRAY['bucket(col_time, 2)'])");
+        assertQueryFails("insert into test_bucket_transform_time values(time '01:02:03.123')",
+                "Unsupported type for 'bucket': 1000: col_time_bucket: bucket\\[2\\]\\(1\\)");
+        assertUpdate("drop table if exists test_bucket_transform_time");
+    }
+
+    @Test
+    public void testBucketTransformOnTimestamp()
+    {
+        //TODO: Not yet support bucket transform for timestamp, which was supported by Iceberg
+        assertUpdate("create table test_bucket_transform_timestamp(col_timestamp timestamp)" +
+                "with (partitioning = ARRAY['bucket(col_timestamp, 2)'])");
+        assertQueryFails("insert into test_bucket_transform_timestamp values(timestamp '1984-01-08 01:02:03.123')",
+                "Unsupported type for 'bucket': 1000: col_timestamp_bucket: bucket\\[2\\]\\(1\\)");
+        assertUpdate("drop table if exists test_bucket_transform_timestamp");
+    }
+
+    @Test
     public void testRegisterTable()
     {
         String schemaName = getSession().getSchema().get();

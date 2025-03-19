@@ -57,7 +57,6 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkFailure;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
 import com.facebook.presto.spark.execution.AbstractPrestoSparkQueryExecution;
-import com.facebook.presto.spark.execution.nativeprocess.NativeExecutionModule;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.WarningCollector;
@@ -244,7 +243,7 @@ public class PrestoSparkQueryRunner
                         .build(),
                 ImmutableMap.of(),
                 dataDirectory,
-                ImmutableList.of(new NativeExecutionModule()),
+                ImmutableList.of(),
                 DEFAULT_AVAILABLE_CPU_COUNT);
         ExtendedHiveMetastore metastore = queryRunner.getMetastore();
         if (!metastore.getDatabase(METASTORE_CONTEXT, "tpch").isPresent()) {
@@ -744,9 +743,6 @@ public class PrestoSparkQueryRunner
                 if (prestoSparkService.getTaskExecutorFactory() != null) {
                     prestoSparkService.getTaskExecutorFactory().close();
                 }
-                if (prestoSparkService.getNativeTaskExecutorFactory() != null) {
-                    prestoSparkService.getNativeTaskExecutorFactory().close();
-                }
             }
             instances.remove(instanceId);
         }
@@ -766,12 +762,6 @@ public class PrestoSparkQueryRunner
         public IPrestoSparkTaskExecutorFactory get()
         {
             return instances.get(instanceId).getPrestoSparkService().getTaskExecutorFactory();
-        }
-
-        @Override
-        public IPrestoSparkTaskExecutorFactory getNative()
-        {
-            return instances.get(instanceId).getPrestoSparkService().getNativeTaskExecutorFactory();
         }
     }
 

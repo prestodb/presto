@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spark.execution.task;
 
-import com.facebook.airlift.http.server.BasicPrincipal;
 import com.facebook.airlift.json.Codec;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
@@ -51,6 +50,7 @@ import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskMemoryReservationSummary;
 import com.facebook.presto.operator.TaskStats;
+import com.facebook.presto.spark.BasicPrincipal;
 import com.facebook.presto.spark.PrestoSparkConfig;
 import com.facebook.presto.spark.PrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.accesscontrol.PrestoSparkAuthenticatorProvider;

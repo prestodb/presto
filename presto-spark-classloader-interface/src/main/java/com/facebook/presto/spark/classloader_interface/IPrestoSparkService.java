@@ -20,7 +20,5 @@ public interface IPrestoSparkService
 
     IPrestoSparkTaskExecutorFactory getTaskExecutorFactory();
 
-    IPrestoSparkTaskExecutorFactory getNativeTaskExecutorFactory();
-
     void close();
 }

@@ -1213,6 +1213,30 @@ Create an Iceberg table partitioned by ``ts``::
         partitioning = ARRAY['hour(ts)']
     );
 
+Types for partition transforms
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The list of supported types in Presto for each partition transform is as follows:
+
+===================== =======================================================================
+Transform Name        Source Types
+===================== =======================================================================
+``Identity``          ``boolean``, ``int``, ``bigint``, ``real``, ``double``, ``decimal``,
+                      ``varchar``, ``varbinary``, ``date``, ``time``, ``timestamp``
+
+``Bucket``            ``int``, ``bigint``, ``decimal``, ``varchar``, ``varbinary``, ``date``
+
+``Truncate``          ``int``, ``bigint``, ``decimal``, ``varchar``, ``varbinary``
+
+``Year``              ``date``, ``timestamp``
+
+``Month``             ``date``, ``timestamp``
+
+``Day``               ``date``, ``timestamp``
+
+``Hour``              ``timestamp``
+===================== =======================================================================
+
 CREATE VIEW
 ^^^^^^^^^^^
 

@@ -22,7 +22,7 @@ namespace facebook::presto::http::filters {
 class InternalAuthenticationFilter : public proxygen::Filter {
  public:
   explicit InternalAuthenticationFilter(proxygen::RequestHandler* upstream)
-      : Filter(upstream), requestRejected_(false) {}
+      : Filter(upstream) {}
 
   /// For details on the filter request handling see Filters.h and
   /// RequestHandler.h.
@@ -54,8 +54,6 @@ class InternalAuthenticationFilter : public proxygen::Filter {
   void processAndVerifyJwt(
       const std::string& token,
       std::unique_ptr<proxygen::HTTPMessage> msg);
-
-  bool requestRejected_;
 };
 
 class InternalAuthenticationFilterFactory
