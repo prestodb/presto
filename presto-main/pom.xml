@@ -137,7 +137,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift.discovery</groupId>
+            <groupId>com.facebook.airlift</groupId>
             <artifactId>discovery-server</artifactId>
         </dependency>
 
