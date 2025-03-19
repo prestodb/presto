@@ -636,6 +636,10 @@ void to_json(json& j, const std::shared_ptr<PlanNode>& p) {
     j = *std::static_pointer_cast<GroupIdNode>(p);
     return;
   }
+  if (type == ".DeleteNode") {
+    j = *std::static_pointer_cast<DeleteNode>(p);
+    return;
+  }
   if (type == ".DistinctLimitNode") {
     j = *std::static_pointer_cast<DistinctLimitNode>(p);
     return;
@@ -752,6 +756,12 @@ void from_json(const json& j, std::shared_ptr<PlanNode>& p) {
   }
   if (type == "com.facebook.presto.sql.planner.plan.GroupIdNode") {
     std::shared_ptr<GroupIdNode> k = std::make_shared<GroupIdNode>();
+    j.get_to(*k);
+    p = std::static_pointer_cast<PlanNode>(k);
+    return;
+  }
+  if (type == ".DeleteNode") {
+    std::shared_ptr<DeleteNode> k = std::make_shared<DeleteNode>();
     j.get_to(*k);
     p = std::static_pointer_cast<PlanNode>(k);
     return;
@@ -1218,6 +1228,62 @@ void from_json(const json& j, Assignments& p) {
       "Assignments",
       "Map<VariableReferenceExpression, std::shared_ptr<RowExpression>>",
       "assignments");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+BaseInputDistribution::BaseInputDistribution() noexcept {
+  _type = ".BaseInputDistribution";
+}
+
+void to_json(json& j, const BaseInputDistribution& p) {
+  j = json::object();
+  j["@type"] = ".BaseInputDistribution";
+  to_json_key(
+      j,
+      "partitionBy",
+      p.partitionBy,
+      "BaseInputDistribution",
+      "List<VariableReferenceExpression>",
+      "partitionBy");
+  to_json_key(
+      j,
+      "orderingScheme",
+      p.orderingScheme,
+      "BaseInputDistribution",
+      "OrderingScheme",
+      "orderingScheme");
+  to_json_key(
+      j,
+      "inputVariables",
+      p.inputVariables,
+      "BaseInputDistribution",
+      "List<VariableReferenceExpression>",
+      "inputVariables");
+}
+
+void from_json(const json& j, BaseInputDistribution& p) {
+  p._type = j["@type"];
+  from_json_key(
+      j,
+      "partitionBy",
+      p.partitionBy,
+      "BaseInputDistribution",
+      "List<VariableReferenceExpression>",
+      "partitionBy");
+  from_json_key(
+      j,
+      "orderingScheme",
+      p.orderingScheme,
+      "BaseInputDistribution",
+      "OrderingScheme",
+      "orderingScheme");
+  from_json_key(
+      j,
+      "inputVariables",
+      p.inputVariables,
+      "BaseInputDistribution",
+      "List<VariableReferenceExpression>",
+      "inputVariables");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
@@ -3216,6 +3282,101 @@ void from_json(const json& j, DeleteHandle& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+void to_json(json& j, const std::shared_ptr<InputDistribution>& p) {
+  if (p == nullptr) {
+    return;
+  }
+  String type = p->_type;
+
+  if (type == ".BaseInputDistribution") {
+    j = *std::static_pointer_cast<BaseInputDistribution>(p);
+    return;
+  }
+
+  throw TypeError(type + " no abstract type InputDistribution ");
+}
+
+void from_json(const json& j, std::shared_ptr<InputDistribution>& p) {
+  String type;
+  try {
+    type = p->getSubclassKey(j);
+  } catch (json::parse_error& e) {
+    throw ParseError(
+        std::string(e.what()) + " InputDistribution  InputDistribution");
+  }
+
+  if (type == ".BaseInputDistribution") {
+    std::shared_ptr<BaseInputDistribution> k =
+        std::make_shared<BaseInputDistribution>();
+    j.get_to(*k);
+    p = std::static_pointer_cast<InputDistribution>(k);
+    return;
+  }
+
+  throw TypeError(type + " no abstract type InputDistribution ");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+DeleteNode::DeleteNode() noexcept {
+  _type = ".DeleteNode";
+}
+
+void to_json(json& j, const DeleteNode& p) {
+  j = json::object();
+  j["@type"] = ".DeleteNode";
+  to_json_key(j, "id", p.id, "DeleteNode", "PlanNodeId", "id");
+  to_json_key(j, "source", p.source, "DeleteNode", "PlanNode", "source");
+  to_json_key(
+      j,
+      "rowId",
+      p.rowId,
+      "DeleteNode",
+      "VariableReferenceExpression",
+      "rowId");
+  to_json_key(
+      j,
+      "outputVariables",
+      p.outputVariables,
+      "DeleteNode",
+      "List<VariableReferenceExpression>",
+      "outputVariables");
+  to_json_key(
+      j,
+      "inputDistribution",
+      p.inputDistribution,
+      "DeleteNode",
+      "InputDistribution",
+      "inputDistribution");
+}
+
+void from_json(const json& j, DeleteNode& p) {
+  p._type = j["@type"];
+  from_json_key(j, "id", p.id, "DeleteNode", "PlanNodeId", "id");
+  from_json_key(j, "source", p.source, "DeleteNode", "PlanNode", "source");
+  from_json_key(
+      j,
+      "rowId",
+      p.rowId,
+      "DeleteNode",
+      "VariableReferenceExpression",
+      "rowId");
+  from_json_key(
+      j,
+      "outputVariables",
+      p.outputVariables,
+      "DeleteNode",
+      "List<VariableReferenceExpression>",
+      "outputVariables");
+  from_json_key(
+      j,
+      "inputDistribution",
+      p.inputDistribution,
+      "DeleteNode",
+      "InputDistribution",
+      "inputDistribution");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 DistinctLimitNode::DistinctLimitNode() noexcept {
   _type = ".DistinctLimitNode";
 }
@@ -4090,10 +4251,10 @@ void to_json(json& j, const DriverStats& p) {
   j = json::object();
   to_json_key(j, "lifespan", p.lifespan, "DriverStats", "Lifespan", "lifespan");
   to_json_key(
-      j, "createTime", p.createTime, "DriverStats", "DateTime", "createTime");
+      j, "createTimeInMillis", p.createTimeInMillis, "DriverStats", "int64_t", "createTimeInMillis");
   to_json_key(
-      j, "startTime", p.startTime, "DriverStats", "DateTime", "startTime");
-  to_json_key(j, "endTime", p.endTime, "DriverStats", "DateTime", "endTime");
+      j, "startTimeInMillis", p.startTimeInMillis, "DriverStats", "int64_t", "startTimeInMillis");
+  to_json_key(j, "endTimeInMillis", p.endTimeInMillis, "DriverStats", "int64_t", "endTimeInMillis");
   to_json_key(
       j, "queuedTime", p.queuedTime, "DriverStats", "Duration", "queuedTime");
   to_json_key(
@@ -4230,10 +4391,10 @@ void from_json(const json& j, DriverStats& p) {
   from_json_key(
       j, "lifespan", p.lifespan, "DriverStats", "Lifespan", "lifespan");
   from_json_key(
-      j, "createTime", p.createTime, "DriverStats", "DateTime", "createTime");
+      j, "createTimeInMillis", p.createTimeInMillis, "DriverStats", "int64_t", "createTimeInMillis");
   from_json_key(
-      j, "startTime", p.startTime, "DriverStats", "DateTime", "startTime");
-  from_json_key(j, "endTime", p.endTime, "DriverStats", "DateTime", "endTime");
+      j, "startTimeInMillis", p.startTimeInMillis, "DriverStats", "int64_t", "startTimeInMillis");
+  from_json_key(j, "endTimeInMillis", p.endTimeInMillis, "DriverStats", "int64_t", "endTimeInMillis");
   from_json_key(
       j, "queuedTime", p.queuedTime, "DriverStats", "Duration", "queuedTime");
   from_json_key(
@@ -6973,25 +7134,25 @@ void to_json(json& j, const PipelineStats& p) {
       j, "pipelineId", p.pipelineId, "PipelineStats", "int", "pipelineId");
   to_json_key(
       j,
-      "firstStartTime",
-      p.firstStartTime,
+      "firstStartTimeInMillis",
+      p.firstStartTimeInMillis,
       "PipelineStats",
-      "DateTime",
-      "firstStartTime");
+      "int64_t",
+      "firstStartTimeInMillis");
   to_json_key(
       j,
-      "lastStartTime",
-      p.lastStartTime,
+      "lastStartTimeInMillis",
+      p.lastStartTimeInMillis,
       "PipelineStats",
-      "DateTime",
-      "lastStartTime");
+      "int64_t",
+      "lastStartTimeInMillis");
   to_json_key(
       j,
-      "lastEndTime",
-      p.lastEndTime,
+      "lastEndTimeInMillis",
+      p.lastEndTimeInMillis,
       "PipelineStats",
-      "DateTime",
-      "lastEndTime");
+      "int64_t",
+      "lastEndTimeInMillis");
   to_json_key(
       j,
       "inputPipeline",
@@ -7211,25 +7372,25 @@ void from_json(const json& j, PipelineStats& p) {
       j, "pipelineId", p.pipelineId, "PipelineStats", "int", "pipelineId");
   from_json_key(
       j,
-      "firstStartTime",
-      p.firstStartTime,
+      "firstStartTimeInMillis",
+      p.firstStartTimeInMillis,
       "PipelineStats",
-      "DateTime",
-      "firstStartTime");
+      "int64_t",
+      "firstStartTimeInMillis");
   from_json_key(
       j,
-      "lastStartTime",
-      p.lastStartTime,
+      "lastStartTimeInMillis",
+      p.lastStartTimeInMillis,
       "PipelineStats",
-      "DateTime",
-      "lastStartTime");
+      "int64_t",
+      "lastStartTimeInMillis");
   from_json_key(
       j,
-      "lastEndTime",
-      p.lastEndTime,
+      "lastEndTimeInMillis",
+      p.lastEndTimeInMillis,
       "PipelineStats",
-      "DateTime",
-      "lastEndTime");
+      "int64_t",
+      "lastEndTimeInMillis");
   from_json_key(
       j,
       "inputPipeline",
@@ -9766,24 +9927,24 @@ namespace facebook::presto::protocol {
 void to_json(json& j, const TaskStats& p) {
   j = json::object();
   to_json_key(
-      j, "createTime", p.createTime, "TaskStats", "DateTime", "createTime");
+      j, "createTimeInMillis", p.createTimeInMillis, "TaskStats", "int64_t", "createTimeInMillis");
   to_json_key(
       j,
-      "firstStartTime",
-      p.firstStartTime,
+      "firstStartTimeInMillis",
+      p.firstStartTimeInMillis,
       "TaskStats",
-      "DateTime",
-      "firstStartTime");
+      "int64_t",
+      "firstStartTimeInMillis");
   to_json_key(
       j,
-      "lastStartTime",
-      p.lastStartTime,
+      "lastStartTimeInMillis",
+      p.lastStartTimeInMillis,
       "TaskStats",
-      "DateTime",
-      "lastStartTime");
+      "int64_t",
+      "lastStartTimeInMillis");
   to_json_key(
-      j, "lastEndTime", p.lastEndTime, "TaskStats", "DateTime", "lastEndTime");
-  to_json_key(j, "endTime", p.endTime, "TaskStats", "DateTime", "endTime");
+      j, "lastEndTimeInMillis", p.lastEndTimeInMillis, "TaskStats", "int64_t", "lastEndTimeInMillis");
+  to_json_key(j, "endTimeInMillis", p.endTimeInMillis, "TaskStats", "int64_t", "endTimeInMillis");
   to_json_key(
       j,
       "elapsedTimeInNanos",
@@ -10020,24 +10181,24 @@ void to_json(json& j, const TaskStats& p) {
 
 void from_json(const json& j, TaskStats& p) {
   from_json_key(
-      j, "createTime", p.createTime, "TaskStats", "DateTime", "createTime");
+      j, "createTimeInMillis", p.createTimeInMillis, "TaskStats", "int64_t", "createTimeInMillis");
   from_json_key(
       j,
-      "firstStartTime",
-      p.firstStartTime,
+      "firstStartTimeInMillis",
+      p.firstStartTimeInMillis,
       "TaskStats",
-      "DateTime",
-      "firstStartTime");
+      "int64_t",
+      "firstStartTimeInMillis");
   from_json_key(
       j,
-      "lastStartTime",
-      p.lastStartTime,
+      "lastStartTimeInMillis",
+      p.lastStartTimeInMillis,
       "TaskStats",
-      "DateTime",
-      "lastStartTime");
+      "int64_t",
+      "lastStartTimeInMillis");
   from_json_key(
-      j, "lastEndTime", p.lastEndTime, "TaskStats", "DateTime", "lastEndTime");
-  from_json_key(j, "endTime", p.endTime, "TaskStats", "DateTime", "endTime");
+      j, "lastEndTimeInMillis", p.lastEndTimeInMillis, "TaskStats", "int64_t", "lastEndTimeInMillis");
+  from_json_key(j, "endTimeInMillis", p.endTimeInMillis, "TaskStats", "int64_t", "endTimeInMillis");
   from_json_key(
       j,
       "elapsedTimeInNanos",
@@ -10577,11 +10738,11 @@ void to_json(json& j, const TaskInfo& p) {
       j, "taskStatus", p.taskStatus, "TaskInfo", "TaskStatus", "taskStatus");
   to_json_key(
       j,
-      "lastHeartbeat",
-      p.lastHeartbeat,
+      "lastHeartbeatInMillis",
+      p.lastHeartbeatInMillis,
       "TaskInfo",
-      "DateTime",
-      "lastHeartbeat");
+      "int64_t",
+      "lastHeartbeatInMillis");
   to_json_key(
       j,
       "outputBuffers",
@@ -10614,11 +10775,11 @@ void from_json(const json& j, TaskInfo& p) {
       j, "taskStatus", p.taskStatus, "TaskInfo", "TaskStatus", "taskStatus");
   from_json_key(
       j,
-      "lastHeartbeat",
-      p.lastHeartbeat,
+      "lastHeartbeatInMillis",
+      p.lastHeartbeatInMillis,
       "TaskInfo",
-      "DateTime",
-      "lastHeartbeat");
+      "int64_t",
+      "lastHeartbeatInMillis");
   from_json_key(
       j,
       "outputBuffers",

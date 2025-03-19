@@ -208,14 +208,14 @@ public abstract class IcebergDistributedTestBase
     public void testDeleteOnV1Table()
     {
         // Test delete all rows
-        long totalCount = (long) getQueryRunner().execute("CREATE TABLE test_delete with (format_version = '1') as select * from lineitem")
+        long totalCount = (long) getQueryRunner().execute("CREATE TABLE test_delete with (\"format-version\" = '1') as select * from lineitem")
                 .getOnlyValue();
         assertUpdate("DELETE FROM test_delete", totalCount);
         assertEquals(getQueryRunner().execute("SELECT count(*) FROM test_delete").getOnlyValue(), 0L);
         assertQuerySucceeds("DROP TABLE test_delete");
 
         // Test delete whole partitions identified by one partition column
-        totalCount = (long) getQueryRunner().execute("CREATE TABLE test_partitioned_drop WITH (format_version = '1', partitioning = ARRAY['bucket(orderkey, 2)', 'linenumber', 'linestatus']) as select * from lineitem")
+        totalCount = (long) getQueryRunner().execute("CREATE TABLE test_partitioned_drop WITH (\"format-version\" = '1', partitioning = ARRAY['bucket(orderkey, 2)', 'linenumber', 'linestatus']) as select * from lineitem")
                 .getOnlyValue();
         long countPart1 = (long) getQueryRunner().execute("SELECT count(*) FROM test_partitioned_drop where linenumber = 1").getOnlyValue();
         assertUpdate("DELETE FROM test_partitioned_drop WHERE linenumber = 1", countPart1);
@@ -229,7 +229,7 @@ public abstract class IcebergDistributedTestBase
         assertQuerySucceeds("DROP TABLE test_partitioned_drop");
 
         // Test delete whole partitions identified by two partition columns
-        totalCount = (long) getQueryRunner().execute("CREATE TABLE test_partitioned_drop WITH (format_version = '1', partitioning = ARRAY['bucket(orderkey, 2)', 'linenumber', 'linestatus']) as select * from lineitem")
+        totalCount = (long) getQueryRunner().execute("CREATE TABLE test_partitioned_drop WITH (\"format-version\" = '1', partitioning = ARRAY['bucket(orderkey, 2)', 'linenumber', 'linestatus']) as select * from lineitem")
                 .getOnlyValue();
         long countPart1F = (long) getQueryRunner().execute("SELECT count(*) FROM test_partitioned_drop where linenumber = 1 and linestatus = 'F'").getOnlyValue();
         assertUpdate("DELETE FROM test_partitioned_drop WHERE linenumber = 1 and linestatus = 'F'", countPart1F);
@@ -247,7 +247,7 @@ public abstract class IcebergDistributedTestBase
 
         String errorMessage1 = "This connector only supports delete where one or more partitions are deleted entirely for table versions older than 2";
         // Do not support delete with filters on non-identity partition column on v1 table
-        assertUpdate("CREATE TABLE test_partitioned_drop WITH (format_version = '1', partitioning = ARRAY['bucket(orderkey, 2)', 'linenumber', 'linestatus']) as select * from lineitem", totalCount);
+        assertUpdate("CREATE TABLE test_partitioned_drop WITH (\"format-version\" = '1', partitioning = ARRAY['bucket(orderkey, 2)', 'linenumber', 'linestatus']) as select * from lineitem", totalCount);
         assertQueryFails("DELETE FROM test_partitioned_drop WHERE orderkey = 1", errorMessage1);
 
         // Do not allow delete data at specified snapshot
@@ -500,7 +500,7 @@ public abstract class IcebergDistributedTestBase
     {
         String tableName = "test_v2_row_delete_" + randomTableSuffix();
         try {
-            assertUpdate("CREATE TABLE " + tableName + "(a int, b varchar) WITH (format_version = '2', delete_mode = 'merge-on-read')");
+            assertUpdate("CREATE TABLE " + tableName + "(a int, b varchar) WITH (\"format-version\" = '2', \"write.delete.mode\" = 'merge-on-read')");
             assertUpdate("INSERT INTO " + tableName + " VALUES (1, '1001'), (2, '1002'), (3, '1003')", 3);
 
             // execute row level deletion
@@ -581,7 +581,7 @@ public abstract class IcebergDistributedTestBase
     {
         try {
             // create iceberg table partitioned by column of TimestampType, and insert some data
-            assertQuerySucceeds(session, format("create table test_partition_columns(a bigint, b timestamp) with (partitioning = ARRAY['b'], format = '%s')", fileFormat.name()));
+            assertQuerySucceeds(session, format("create table test_partition_columns(a bigint, b timestamp) with (partitioning = ARRAY['b'], \"write.format.default\" = '%s')", fileFormat.name()));
             assertQuerySucceeds(session, "insert into test_partition_columns values(1, timestamp '1984-12-08 00:10:00'), (2, timestamp '2001-01-08 12:01:01')");
 
             // validate return data of TimestampType
@@ -728,7 +728,7 @@ public abstract class IcebergDistributedTestBase
             String comma = Strings.isNullOrEmpty(columns.trim()) ? "" : ", ";
 
             // The columns number of `test_stats_with_column_limits` for which metrics are collected is set to `columnCount`
-            assertUpdate("CREATE TABLE test_stats_with_column_limits (column_0 int, column_1 varchar, " + columns + comma + "column_10001 varchar) with(metrics_max_inferred_column = " + columnCount + ")");
+            assertUpdate("CREATE TABLE test_stats_with_column_limits (column_0 int, column_1 varchar, " + columns + comma + "column_10001 varchar) with(\"write.metadata.metrics.max-inferred-column-defaults\" = " + columnCount + ")");
             assertTrue(getQueryRunner().tableExists(getSession(), "test_stats_with_column_limits"));
             List<String> columnNames = IntStream.iterate(0, i -> i + 1).limit(columnCount)
                     .mapToObj(idx -> "column_" + idx).collect(Collectors.toList());
@@ -1104,7 +1104,7 @@ public abstract class IcebergDistributedTestBase
             throws Exception
     {
         String tableName = "test_v2_row_delete_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " with (format = '" + fileFormat + "') AS SELECT * FROM tpch.tiny.nation order by nationkey", 25);
+        assertUpdate("CREATE TABLE " + tableName + " with (\"write.format.default\" = '" + fileFormat + "') AS SELECT * FROM tpch.tiny.nation order by nationkey", 25);
         Table icebergTable = updateTable(tableName);
         String dataFilePath = (String) computeActual("SELECT file_path FROM \"" + tableName + "$files\" LIMIT 1").getOnlyValue();
 
@@ -1143,7 +1143,7 @@ public abstract class IcebergDistributedTestBase
         Session session = deleteAsJoinEnabled(joinRewriteEnabled);
         String tableName = "test_v2_row_delete_" + randomTableSuffix();
         try {
-            assertUpdate("CREATE TABLE " + tableName + "(a int, b varchar) WITH (format = '" + fileFormat + "', partitioning=ARRAY['a'])");
+            assertUpdate("CREATE TABLE " + tableName + "(a int, b varchar) WITH (\"write.format.default\" = '" + fileFormat + "', partitioning=ARRAY['a'])");
             assertUpdate("INSERT INTO " + tableName + " VALUES (1, '1001'), (2, '1002'), (2, '1010'), (3, '1003')", 4);
 
             Table icebergTable = updateTable(tableName);
@@ -1182,7 +1182,7 @@ public abstract class IcebergDistributedTestBase
     {
         Session session = deleteAsJoinEnabled(joinRewriteEnabled);
         String tableName = "test_v2_equality_delete" + randomTableSuffix();
-        assertUpdate(session, "CREATE TABLE " + tableName + " with (format = '" + fileFormat + "') AS SELECT * FROM tpch.tiny.nation", 25);
+        assertUpdate(session, "CREATE TABLE " + tableName + " with (\"write.format.default\" = '" + fileFormat + "') AS SELECT * FROM tpch.tiny.nation", 25);
         Table icebergTable = updateTable(tableName);
 
         writeEqualityDeleteToNationTable(icebergTable, ImmutableMap.of("regionkey", 1L));
@@ -1198,7 +1198,7 @@ public abstract class IcebergDistributedTestBase
         Session session = deleteAsJoinEnabled(joinRewriteEnabled);
         // Specify equality delete filter with different column order from table definition
         String tableName = "test_v2_equality_delete_different_order" + randomTableSuffix();
-        assertUpdate(session, "CREATE TABLE " + tableName + " with (format = '" + fileFormat + "') AS SELECT * FROM tpch.tiny.nation", 25);
+        assertUpdate(session, "CREATE TABLE " + tableName + " with (\"write.format.default\" = '" + fileFormat + "') AS SELECT * FROM tpch.tiny.nation", 25);
         Table icebergTable = updateTable(tableName);
 
         writeEqualityDeleteToNationTable(icebergTable, ImmutableMap.of("regionkey", 1L, "name", "ARGENTINA"));
@@ -1215,7 +1215,7 @@ public abstract class IcebergDistributedTestBase
         Session disable = deleteAsJoinEnabled(false);
         // Specify equality delete filter with different column order from table definition
         String tableName = "test_v2_equality_delete_different_order" + randomTableSuffix();
-        assertUpdate(session, "CREATE TABLE " + tableName + " with (format = '" + fileFormat + "') AS SELECT * FROM tpch.tiny.nation", 25);
+        assertUpdate(session, "CREATE TABLE " + tableName + " with (\"write.format.default\" = '" + fileFormat + "') AS SELECT * FROM tpch.tiny.nation", 25);
         Table icebergTable = updateTable(tableName);
 
         writeEqualityDeleteToNationTable(icebergTable, ImmutableMap.of("regionkey", 1L, "name", "ARGENTINA"));
@@ -1233,7 +1233,7 @@ public abstract class IcebergDistributedTestBase
     {
         Session session = deleteAsJoinEnabled(joinRewriteEnabled);
         String tableName = "test_v2_row_delete_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " with (format = '" + fileFormat + "') AS SELECT * FROM tpch.tiny.nation order by nationkey", 25);
+        assertUpdate("CREATE TABLE " + tableName + " with (\"write.format.default\" = '" + fileFormat + "') AS SELECT * FROM tpch.tiny.nation order by nationkey", 25);
         Table icebergTable = updateTable(tableName);
         String dataFilePath = (String) computeActual("SELECT file_path FROM \"" + tableName + "$files\" LIMIT 1").getOnlyValue();
 
@@ -1254,7 +1254,7 @@ public abstract class IcebergDistributedTestBase
     {
         Session session = deleteAsJoinEnabled(joinRewriteEnabled);
         String tableName = "test_v2_equality_delete" + randomTableSuffix();
-        assertUpdate(session, "CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['nationkey'], format = '" + fileFormat + "') " + " AS SELECT * FROM tpch.tiny.nation", 25);
+        assertUpdate(session, "CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['nationkey'], \"write.format.default\" = '" + fileFormat + "') " + " AS SELECT * FROM tpch.tiny.nation", 25);
         Table icebergTable = updateTable(tableName);
         writeEqualityDeleteToNationTable(icebergTable, ImmutableMap.of("regionkey", 1L, "nationkey", 1L), ImmutableMap.of("nationkey", 1L));
         assertQuery(session, "SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1 or nationkey != 1 ");
@@ -1267,7 +1267,7 @@ public abstract class IcebergDistributedTestBase
     {
         Session session = deleteAsJoinEnabled(joinRewriteEnabled);
         String tableName = "test_v2_row_delete_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " with (format = '" + fileFormat + "', partitioning = ARRAY['nationkey']) AS SELECT * FROM tpch.tiny.nation order by nationkey", 25);
+        assertUpdate("CREATE TABLE " + tableName + " with (\"write.format.default\" = '" + fileFormat + "', partitioning = ARRAY['nationkey']) AS SELECT * FROM tpch.tiny.nation order by nationkey", 25);
         Table icebergTable = updateTable(tableName);
 
         List<Long> partitions = Arrays.asList(1L, 2L, 3L, 17L, 24L);
@@ -1286,7 +1286,7 @@ public abstract class IcebergDistributedTestBase
     {
         Session session = deleteAsJoinEnabled(joinRewriteEnabled);
         String tableName = "test_v2_row_delete_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " with (format = '" + fileFormat + "', partitioning = ARRAY['bucket(nationkey,100)']) AS SELECT * FROM tpch.tiny.nation order by nationkey", 25);
+        assertUpdate("CREATE TABLE " + tableName + " with (\"write.format.default\" = '" + fileFormat + "', partitioning = ARRAY['bucket(nationkey,100)']) AS SELECT * FROM tpch.tiny.nation order by nationkey", 25);
         Table icebergTable = updateTable(tableName);
 
         PartitionTransforms.ColumnTransform columnTransform = PartitionTransforms.getColumnTransform(icebergTable.spec().fields().get(0), BIGINT);
@@ -1311,7 +1311,7 @@ public abstract class IcebergDistributedTestBase
     {
         Session session = deleteAsJoinEnabled(joinRewriteEnabled);
         String tableName = "test_v2_row_delete_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " with (format = '" + fileFormat + "') AS SELECT * FROM tpch.tiny.nation order by nationkey", 25);
+        assertUpdate("CREATE TABLE " + tableName + " with (\"write.format.default\" = '" + fileFormat + "') AS SELECT * FROM tpch.tiny.nation order by nationkey", 25);
         Table icebergTable = updateTable(tableName);
 
         writeEqualityDeleteToNationTable(icebergTable, ImmutableMap.of("regionkey", 0L, "name", "ALGERIA"));
@@ -1327,7 +1327,7 @@ public abstract class IcebergDistributedTestBase
     {
         Session session = deleteAsJoinEnabled(joinRewriteEnabled);
         String tableName = "test_v2_row_delete_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " with (format = '" + fileFormat + "') AS SELECT * FROM tpch.tiny.nation order by nationkey", 25);
+        assertUpdate("CREATE TABLE " + tableName + " with (\"write.format.default\" = '" + fileFormat + "') AS SELECT * FROM tpch.tiny.nation order by nationkey", 25);
         Table icebergTable = updateTable(tableName);
 
         writeEqualityDeleteToNationTable(icebergTable, ImmutableMap.of("regionkey", 1L));
@@ -1346,7 +1346,7 @@ public abstract class IcebergDistributedTestBase
     {
         Session session = deleteAsJoinEnabled(joinRewriteEnabled);
         String tableName = "test_v2_row_delete_" + randomTableSuffix();
-        assertUpdate(session, "CREATE TABLE " + tableName + " with (format = '" + fileFormat + "') AS SELECT * FROM tpch.tiny.nation order by nationkey", 25);
+        assertUpdate(session, "CREATE TABLE " + tableName + " with (\"write.format.default\" = '" + fileFormat + "') AS SELECT * FROM tpch.tiny.nation order by nationkey", 25);
         Table icebergTable = updateTable(tableName);
         String dataFilePath = (String) computeActual("SELECT file_path FROM \"" + tableName + "$files\" LIMIT 1").getOnlyValue();
 
@@ -1377,7 +1377,7 @@ public abstract class IcebergDistributedTestBase
     {
         Session session = deleteAsJoinEnabled(joinRewriteEnabled);
         String tableName = "test_v2_row_delete_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName + "(a int, b varchar) WITH (format = '" + fileFormat + "')");
+        assertUpdate("CREATE TABLE " + tableName + "(a int, b varchar) WITH (\"write.format.default\" = '" + fileFormat + "')");
         assertUpdate("INSERT INTO " + tableName + " VALUES (1, '1001'), (2, '1002'), (3, '1003')", 3);
 
         Table icebergTable = updateTable(tableName);
@@ -1537,7 +1537,7 @@ public abstract class IcebergDistributedTestBase
     {
         String tableName = "test_v2_row_delete_" + randomTableSuffix();
         try {
-            assertUpdate("CREATE TABLE " + tableName + "(a int, b varchar) WITH (format_version = '2', delete_mode = 'merge-on-read')");
+            assertUpdate("CREATE TABLE " + tableName + "(a int, b varchar) WITH (\"format-version\" = '2', \"write.delete.mode\" = 'merge-on-read')");
             assertUpdate("INSERT INTO " + tableName + " VALUES (1, '1001'), (2, '1002'), (3, '1003')", 3);
 
             // execute row level deletion
@@ -1619,7 +1619,7 @@ public abstract class IcebergDistributedTestBase
     {
         String tableName = "test_v2_row_delete_" + randomTableSuffix();
         try {
-            assertUpdate("CREATE TABLE " + tableName + "(a int, b varchar) WITH (format_version = '2', delete_mode = 'merge-on-read', partitioning = ARRAY['a'])");
+            assertUpdate("CREATE TABLE " + tableName + "(a int, b varchar) WITH (\"format-version\" = '2', \"write.delete.mode\" = 'merge-on-read', partitioning = ARRAY['a'])");
             assertUpdate("INSERT INTO " + tableName + " VALUES (1, '1001'), (2, '1002'), (3, '1003')", 3);
 
             // execute row level deletion
@@ -1657,7 +1657,7 @@ public abstract class IcebergDistributedTestBase
         String tableName = "test_empty_partition_spec_table";
         try {
             // Create a table with no partition
-            assertUpdate("CREATE TABLE " + tableName + " (a INTEGER, b VARCHAR) WITH (format_version = '2', delete_mode = 'merge-on-read')");
+            assertUpdate("CREATE TABLE " + tableName + " (a INTEGER, b VARCHAR) WITH (\"format-version\" = '2', \"write.delete.mode\" = 'merge-on-read')");
 
             // Do not insert data, and evaluate the partition spec by adding a partition column `c`
             assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN c INTEGER WITH (partitioning = 'identity')");
@@ -1688,7 +1688,7 @@ public abstract class IcebergDistributedTestBase
         String tableName = "test_data_deleted_partition_spec_table";
         try {
             // Create a table with partition column `a`, and insert some data under this partition spec
-            assertUpdate("CREATE TABLE " + tableName + " (a INTEGER, b VARCHAR) WITH (format_version = '2', delete_mode = 'merge-on-read', partitioning = ARRAY['a'])");
+            assertUpdate("CREATE TABLE " + tableName + " (a INTEGER, b VARCHAR) WITH (\"format-version\" = '2', \"write.delete.mode\" = 'merge-on-read', partitioning = ARRAY['a'])");
             assertUpdate("INSERT INTO " + tableName + " VALUES (1, '1001'), (2, '1002')", 2);
 
             Table icebergTable = loadTable(tableName);
@@ -1737,7 +1737,7 @@ public abstract class IcebergDistributedTestBase
             // Create a table with setting properties that maintain only 1 previous metadata version in current metadata,
             //  and delete unuseful metadata files after each commit
             assertUpdate("CREATE TABLE " + settingTableName + " (a INTEGER, b VARCHAR)" +
-                    " WITH (metadata_previous_versions_max = 1, metadata_delete_after_commit = true)");
+                    " WITH (\"write.metadata.previous-versions-max\" = 1, \"write.metadata.delete-after-commit.enabled\" = true)");
 
             // Create a table with default table properties that maintain 100 previous metadata versions in current metadata,
             //  and do not automatically delete any metadata files
@@ -1889,7 +1889,7 @@ public abstract class IcebergDistributedTestBase
                     "   c_array ARRAY(BIGINT), " +
                     "   c_map MAP(VARCHAR, INT), " +
                     "   c_row ROW(a INT, b VARCHAR) " +
-                    ") WITH (format = 'PARQUET')", tmpTableName));
+                    ") WITH (\"write.format.default\" = 'PARQUET')", tmpTableName));
 
             assertUpdate(format("" +
                     "INSERT INTO %s " +
@@ -2318,6 +2318,7 @@ public abstract class IcebergDistributedTestBase
         assertQuery("SELECT table_name FROM iceberg.information_schema.tables WHERE table_schema ='test_schema2'", "VALUES 'iceberg_t3', 'iceberg_t4'");
         //query on non-existing schema
         assertQueryReturnsEmptyResult("SELECT table_name FROM iceberg.information_schema.tables WHERE table_schema = 'NON_EXISTING_SCHEMA'");
+        assertQueryReturnsEmptyResult("SELECT table_name FROM iceberg.information_schema.tables WHERE table_schema = 'non_existing_schema'");
 
         assertQuerySucceeds("DROP TABLE ICEBERG.TEST_SCHEMA1.ICEBERG_T1");
         assertQuerySucceeds("DROP TABLE ICEBERG.TEST_SCHEMA1.ICEBERG_T2");

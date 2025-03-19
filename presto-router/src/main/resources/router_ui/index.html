@@ -27,6 +27,12 @@
     <!-- Sparkline -->
     <script type="text/javascript" src="vendor/jquery.sparkline/jquery.sparkline.min.js"></script>
 
+    <script type="text/javascript" >
+        jQuery.htmlPrefilter = function( html ) {
+            return html;
+        };
+    </script>
+
     <!-- CSS loader -->
     <link href="vendor/css-loaders/loader.css" rel="stylesheet">
 

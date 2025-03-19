@@ -146,6 +146,7 @@ import static com.google.common.base.CaseFormat.UPPER_UNDERSCORE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.String.format;
 import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
@@ -375,6 +376,21 @@ public class PlanPrinter
         return new JsonRenderer(functionAndTypeManager).render(fragmentJsonMap.build());
     }
 
+    public static String formattedFragmentString(StageExecutionStats stageExecutionStats,
+            double avgPositionsPerTask, double sdAmongTasks, int taskSize)
+    {
+        return format("CPU: %s, Scheduled: %s, Input: %s (%s); per task: avg.: %s std.dev.: %s, Output: %s (%s), %s tasks%n",
+                stageExecutionStats.getTotalCpuTime().convertToMostSuccinctTimeUnit(),
+                stageExecutionStats.getTotalScheduledTime().convertToMostSuccinctTimeUnit(),
+                formatPositions(stageExecutionStats.getProcessedInputPositions()),
+                succinctBytes(stageExecutionStats.getProcessedInputDataSizeInBytes()),
+                formatDouble(avgPositionsPerTask),
+                formatDouble(sdAmongTasks),
+                formatPositions(stageExecutionStats.getOutputPositions()),
+                succinctBytes(stageExecutionStats.getOutputDataSizeInBytes()),
+                taskSize);
+    }
+
     private static String formatFragment(
             FunctionAndTypeManager functionAndTypeManager,
             Session session,
@@ -397,16 +413,7 @@ public class PlanPrinter
             double sdAmongTasks = Math.sqrt(squaredDifferences / tasks.size());
 
             builder.append(indentString(1))
-                    .append(format("CPU: %s, Scheduled: %s, Input: %s (%s); per task: avg.: %s std.dev.: %s, Output: %s (%s), %s tasks%n",
-                            stageExecutionStats.getTotalCpuTime().convertToMostSuccinctTimeUnit(),
-                            stageExecutionStats.getTotalScheduledTime().convertToMostSuccinctTimeUnit(),
-                            formatPositions(stageExecutionStats.getProcessedInputPositions()),
-                            stageExecutionStats.getProcessedInputDataSizeInBytes(),
-                            formatDouble(avgPositionsPerTask),
-                            formatDouble(sdAmongTasks),
-                            formatPositions(stageExecutionStats.getOutputPositions()),
-                            stageExecutionStats.getOutputDataSizeInBytes(),
-                            tasks.size()));
+                    .append(formattedFragmentString(stageExecutionStats, avgPositionsPerTask, sdAmongTasks, tasks.size()));
         }
 
         PartitioningScheme partitioningScheme = fragment.getPartitioningScheme();

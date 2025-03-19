@@ -604,7 +604,7 @@ public class TestHttpRemoteTask
             return new TaskInfo(
                     initialTaskInfo.getTaskId(),
                     buildTaskStatus(),
-                    initialTaskInfo.getLastHeartbeat(),
+                    initialTaskInfo.getLastHeartbeatInMillis(),
                     initialTaskInfo.getOutputBuffers(),
                     initialTaskInfo.getNoMoreSplits(),
                     initialTaskInfo.getStats(),

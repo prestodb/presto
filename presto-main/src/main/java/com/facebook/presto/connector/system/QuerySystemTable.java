@@ -31,7 +31,6 @@ import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import io.airlift.units.Duration;
-import org.joda.time.DateTime;
 
 import javax.inject.Inject;
 
@@ -44,6 +43,7 @@ import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.spi.SystemTable.Distribution.ALL_COORDINATORS;
+import static com.facebook.presto.util.DateTimeUtils.toTimeStampInMillis;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
@@ -119,10 +119,10 @@ public class QuerySystemTable
                     toMillis(queryStats.getQueuedTime()),
                     toMillis(queryStats.getAnalysisTime()),
 
-                    toTimeStamp(queryStats.getCreateTime()),
-                    toTimeStamp(queryStats.getExecutionStartTime()),
-                    toTimeStamp(queryStats.getLastHeartbeat()),
-                    toTimeStamp(queryStats.getEndTime()));
+                    toTimeStampInMillis(queryStats.getCreateTime()),
+                    toTimeStampInMillis(queryStats.getExecutionStartTime()),
+                    toTimeStampInMillis(queryStats.getLastHeartbeat()),
+                    toTimeStampInMillis(queryStats.getEndTime()));
         }
         return table.build().cursor();
     }
@@ -144,13 +144,5 @@ public class QuerySystemTable
             return null;
         }
         return duration.toMillis();
-    }
-
-    private static Long toTimeStamp(DateTime dateTime)
-    {
-        if (dateTime == null) {
-            return null;
-        }
-        return dateTime.getMillis();
     }
 }

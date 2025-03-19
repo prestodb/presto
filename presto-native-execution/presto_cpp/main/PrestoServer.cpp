@@ -103,7 +103,7 @@ protocol::NodeState convertNodeState(presto::NodeState nodeState) {
 }
 
 void enableChecksum() {
-  velox::exec::OutputBufferManager::getInstance().lock()->setListenerFactory(
+  velox::exec::OutputBufferManager::getInstanceRef()->setListenerFactory(
       []() {
         return std::make_unique<
             velox::serializer::presto::PrestoOutputStreamListener>();
@@ -283,7 +283,6 @@ void PrestoServer::run() {
   registerPrestoToVeloxConnector(
       std::make_unique<SystemPrestoToVeloxConnector>("$system@system"));
 
-  velox::exec::OutputBufferManager::initialize({});
   initializeVeloxMemory();
   initializeThreadPools();
 
@@ -917,7 +916,20 @@ void PrestoServer::initializeVeloxMemory() {
         {std::string(SharedArbitratorConfig::kSlowCapacityGrowPct),
          systemConfig->sharedArbitratorSlowCapacityGrowPct()},
         {std::string(SharedArbitratorConfig::kCheckUsageLeak),
-         folly::to<std::string>(systemConfig->enableMemoryLeakCheck())}};
+         folly::to<std::string>(systemConfig->enableMemoryLeakCheck())},
+        {std::string(SharedArbitratorConfig::kMemoryPoolAbortCapacityLimit),
+         systemConfig->sharedArbitratorMemoryPoolAbortCapacityLimit()},
+        {std::string(SharedArbitratorConfig::kMemoryPoolMinReclaimBytes),
+         systemConfig->sharedArbitratorMemoryPoolMinReclaimBytes()},
+        {std::string(SharedArbitratorConfig::kMemoryReclaimThreadsHwMultiplier),
+         systemConfig->sharedArbitratorMemoryReclaimThreadsHwMultiplier()},
+        {std::string(
+             SharedArbitratorConfig::kGlobalArbitrationMemoryReclaimPct),
+         systemConfig->sharedArbitratorGlobalArbitrationMemoryReclaimPct()},
+        {std::string(SharedArbitratorConfig::kGlobalArbitrationAbortTimeRatio),
+         systemConfig->sharedArbitratorGlobalArbitrationAbortTimeRatio()},
+        {std::string(SharedArbitratorConfig::kGlobalArbitrationWithoutSpill),
+         systemConfig->sharedArbitratorGlobalArbitrationWithoutSpill()}};
   }
   velox::memory::initializeMemoryManager(options);
   PRESTO_STARTUP_LOG(INFO) << "Memory manager has been setup: "

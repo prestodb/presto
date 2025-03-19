@@ -24,7 +24,6 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
-import org.joda.time.DateTime;
 
 import java.net.URI;
 import java.util.Optional;
@@ -146,27 +145,27 @@ public class FailedDispatchQuery
     public void recordHeartbeat() {}
 
     @Override
-    public DateTime getLastHeartbeat()
+    public long getLastHeartbeatInMillis()
     {
-        return basicQueryInfo.getQueryStats().getEndTime();
+        return basicQueryInfo.getQueryStats().getEndTimeInMillis();
     }
 
     @Override
-    public DateTime getCreateTime()
+    public long getCreateTimeInMillis()
     {
-        return basicQueryInfo.getQueryStats().getCreateTime();
+        return basicQueryInfo.getQueryStats().getCreateTimeInMillis();
     }
 
     @Override
-    public Optional<DateTime> getExecutionStartTime()
+    public long getExecutionStartTimeInMillis()
     {
-        return getEndTime();
+        return getEndTimeInMillis();
     }
 
     @Override
-    public Optional<DateTime> getEndTime()
+    public long getEndTimeInMillis()
     {
-        return Optional.ofNullable(basicQueryInfo.getQueryStats().getEndTime());
+        return basicQueryInfo.getQueryStats().getEndTimeInMillis();
     }
 
     @Override

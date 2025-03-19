@@ -11,25 +11,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spark;
+package com.facebook.presto.iceberg;
 
-import com.facebook.presto.nativeworker.AbstractTestNativeAggregations;
-import com.facebook.presto.testing.ExpectedQueryRunner;
-import com.facebook.presto.testing.QueryRunner;
+import com.facebook.presto.spi.WarningCode;
+import com.facebook.presto.spi.WarningCodeSupplier;
 
-public class TestPrestoSparkNativeAggregations
-        extends AbstractTestNativeAggregations
+public enum IcebergWarningCode
+        implements WarningCodeSupplier
 {
-    @Override
-    protected QueryRunner createQueryRunner()
+    SORT_COLUMN_TRANSFORM_NOT_SUPPORTED_WARNING(1),
+    USE_OF_DEPRECATED_TABLE_PROPERTY(2)
+    /**/;
+
+    public static final int WARNING_CODE_MASK = 0x0200_0000;
+
+    private final WarningCode warningCode;
+
+    IcebergWarningCode(int code)
     {
-        return PrestoSparkNativeQueryRunnerUtils.createHiveRunner();
+        warningCode = new WarningCode(code + WARNING_CODE_MASK, name());
     }
 
     @Override
-    protected ExpectedQueryRunner createExpectedQueryRunner()
-            throws Exception
+    public WarningCode toWarningCode()
     {
-        return PrestoSparkNativeQueryRunnerUtils.createJavaQueryRunner();
+        return warningCode;
     }
 }

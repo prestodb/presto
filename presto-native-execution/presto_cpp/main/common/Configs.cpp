@@ -638,6 +638,63 @@ std::string SystemConfig::sharedArbitratorMemoryPoolMinFreeCapacityPct() const {
           std::string(kSharedArbitratorMemoryPoolMinFreeCapacityPctDefault));
 }
 
+std::string SystemConfig::sharedArbitratorMemoryPoolAbortCapacityLimit() const {
+  static constexpr std::string_view
+      kSharedArbitratorMemoryPoolAbortCapacityLimitDefault = "1GB";
+  return optionalProperty<std::string>(
+             kSharedArbitratorMemoryPoolAbortCapacityLimit)
+      .value_or(
+          std::string(kSharedArbitratorMemoryPoolAbortCapacityLimitDefault));
+}
+
+std::string SystemConfig::sharedArbitratorMemoryPoolMinReclaimBytes() const {
+  static constexpr std::string_view
+      kSharedArbitratorMemoryPoolMinReclaimBytesDefault = "128MB";
+  return optionalProperty<std::string>(
+             kSharedArbitratorMemoryPoolMinReclaimBytes)
+      .value_or(std::string(kSharedArbitratorMemoryPoolMinReclaimBytesDefault));
+}
+
+std::string SystemConfig::sharedArbitratorMemoryReclaimThreadsHwMultiplier()
+    const {
+  static constexpr std::string_view
+      kSharedArbitratorMemoryReclaimThreadsHwMultiplierDefault = "0.5";
+  return optionalProperty<std::string>(
+             kSharedArbitratorMemoryReclaimThreadsHwMultiplier)
+      .value_or(std::string(
+          kSharedArbitratorMemoryReclaimThreadsHwMultiplierDefault));
+}
+
+std::string SystemConfig::sharedArbitratorGlobalArbitrationMemoryReclaimPct()
+    const {
+  static constexpr std::string_view
+      kSharedArbitratorGlobalArbitrationMemoryReclaimPctDefault = "10";
+  return optionalProperty<std::string>(
+             kSharedArbitratorGlobalArbitrationMemoryReclaimPct)
+      .value_or(std::string(
+          kSharedArbitratorGlobalArbitrationMemoryReclaimPctDefault));
+}
+
+std::string SystemConfig::sharedArbitratorGlobalArbitrationAbortTimeRatio()
+    const {
+  static constexpr std::string_view
+      kSharedArbitratorGlobalArbitrationAbortTimeRatioDefault = "0.5";
+  return optionalProperty<std::string>(
+             kSharedArbitratorGlobalArbitrationAbortTimeRatio)
+      .value_or(
+          std::string(kSharedArbitratorGlobalArbitrationAbortTimeRatioDefault));
+}
+
+std::string SystemConfig::sharedArbitratorGlobalArbitrationWithoutSpill()
+    const {
+  static constexpr std::string_view
+      kSharedArbitratorGlobalArbitrationWithoutSpillDefault = "false";
+  return optionalProperty<std::string>(
+             kSharedArbitratorGlobalArbitrationWithoutSpill)
+      .value_or(
+          std::string(kSharedArbitratorGlobalArbitrationWithoutSpillDefault));
+}
+
 bool SystemConfig::enableSystemMemoryPoolUsageTracking() const {
   return optionalProperty<bool>(kEnableSystemMemoryPoolUsageTracking)
       .value_or(true);

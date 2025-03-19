@@ -2,7 +2,7 @@
 Presto C++ Configuration Properties
 ===================================
 
-This section describes Presto C++ configuration properties.
+This section describes Presto C++ configuration properties. 
 
 The following is not a complete list of all configuration properties,
 and does not include any connector-specific catalog configuration properties
@@ -288,6 +288,75 @@ The configuration properties of Presto C++ workers are described here, in alphab
 
   See description for ``shared-arbitrator.memory-pool-min-free-capacity``
 
+``shared-arbitrator.memory-pool-abort-capacity-limit``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Default value:** ``1GB``
+
+  Specifies the starting memory capacity limit for global arbitration to
+  search for victim participant to reclaim used memory by abort. For
+  participants with capacity larger than the limit, the global arbitration
+  chooses to abort the youngest participant which has the largest
+  participant id. This helps to let the old queries to run to completion.
+  The abort capacity limit is reduced by half if could not find a victim
+  participant until this reaches to zero.
+
+  NOTE: the limit value must be either zero, or a power of 2.
+
+``shared-arbitrator.memory-pool-min-reclaim-bytes``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Default value:** ``128MB``
+
+  Specifies the minimum bytes to reclaim from a participant at a time. The
+  global arbitration also avoids reclaiming from a participant if its
+  reclaimable used capacity is less than this threshold. This is to
+  prevent inefficient memory reclaim operations on a participant with
+  small reclaimable used capacity, which could cause a large number of
+  small spilled files on disk.
+
+``shared-arbitrator.memory-reclaim-threads-hw-multiplier``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Default value:** ``0.5``
+
+  Floating point number used in calculating how many threads to use
+  for memory reclaim execution: hw_concurrency x multiplier. 0.5 is
+  default.
+
+``shared-arbitrator.global-arbitration-memory-reclaim-pct``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Default value:** ``10``
+
+  If not zero, specifies the minimum amount of memory to reclaim by global
+  memory arbitration as percentage of total arbitrator memory capacity.
+
+``shared-arbitrator.global-arbitration-abort-time-ratio``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Default value:** ``0.5``
+
+  The ratio used with ``shared-arbitrator.memory-reclaim-max-wait-time``,
+  beyond which global arbitration will no longer reclaim memory by
+  spilling, but instead directly abort. It is only in effect when
+  ``global-arbitration-enabled`` is ``true``.
+
+``shared-arbitrator.global-arbitration-without-spill``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Default value:** ``false``
+
+  If ``true``, global arbitration does not reclaim memory by spilling, but
+  only by aborting. This flag is only effective if
+  ``shared-arbitrator.global-arbitration-enabled`` is ``true``.
+
 Cache Properties
 ----------------
 
@@ -310,12 +379,12 @@ The configuration properties of AsyncDataCache and SSD cache are described here.
   In-memory cache.
 
 ``async-cache-ssd-gb``
-^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``integer``
 * **Default value:** ``0``
 
-  The size of the SSD. Unit is in GiB (gibibytes).
+  The size of the SSD. Unit is in GiB (gibibytes). 
 
 ``async-cache-ssd-path``
 ^^^^^^^^^^^^^^^^^^^^^^^^

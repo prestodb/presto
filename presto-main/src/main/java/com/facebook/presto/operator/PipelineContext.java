@@ -23,19 +23,18 @@ import com.facebook.presto.memory.QueryContextVisitor;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.memory.context.MemoryTrackingContext;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ListMultimap;
 import com.google.common.util.concurrent.ListenableFuture;
-import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -43,14 +42,12 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.System.currentTimeMillis;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toMap;
 
 @ThreadSafe
 public class PipelineContext
@@ -71,9 +68,9 @@ public class PipelineContext
     private final AtomicInteger completedDrivers = new AtomicInteger();
     private final AtomicLong completedSplitsWeight = new AtomicLong();
 
-    private final AtomicReference<DateTime> executionStartTime = new AtomicReference<>();
-    private final AtomicReference<DateTime> lastExecutionStartTime = new AtomicReference<>();
-    private final AtomicReference<DateTime> lastExecutionEndTime = new AtomicReference<>();
+    private final AtomicLong executionStartTime = new AtomicLong();
+    private final AtomicLong lastExecutionStartTime = new AtomicLong();
+    private final AtomicLong lastExecutionEndTime = new AtomicLong();
 
     private final Distribution queuedTime = new Distribution();
     private final Distribution elapsedTime = new Distribution();
@@ -95,7 +92,7 @@ public class PipelineContext
 
     private final AtomicLong physicalWrittenDataSize = new AtomicLong();
 
-    private final ConcurrentMap<Integer, OperatorStats> operatorStatsById = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Integer, OperatorStats> operatorSummaries = new ConcurrentHashMap<>();
 
     private final MemoryTrackingContext pipelineMemoryContext;
 
@@ -182,7 +179,7 @@ public class PipelineContext
         }
 
         // always update last execution end time
-        lastExecutionEndTime.set(DateTime.now());
+        lastExecutionEndTime.set(currentTimeMillis());
 
         DriverStats driverStats = driverContext.getDriverStats();
 
@@ -201,10 +198,10 @@ public class PipelineContext
 
         totalAllocation.getAndAdd(driverStats.getTotalAllocationInBytes());
 
+        // merge the operator stats into the operator summary
         List<OperatorStats> operators = driverStats.getOperatorStats();
         for (OperatorStats operator : operators) {
-            operatorStatsById.compute(operator.getOperatorId(),
-                    (operatorId, summaryStats) -> summaryStats == null ? operator : OperatorStats.merge(ImmutableList.of(operator, summaryStats)).orElse(null));
+            operatorSummaries.compute(operator.getOperatorId(), (operatorId, summaryStats) -> summaryStats == null ? operator : summaryStats.add(operator));
         }
 
         rawInputDataSize.update(driverStats.getRawInputDataSizeInBytes());
@@ -221,8 +218,8 @@ public class PipelineContext
 
     public void start()
     {
-        DateTime now = DateTime.now();
-        executionStartTime.compareAndSet(null, now);
+        long now = currentTimeMillis();
+        executionStartTime.compareAndSet(0, now);
         // always update last execution start time
         lastExecutionStartTime.set(now);
 
@@ -344,10 +341,10 @@ public class PipelineContext
     {
         // check for end state to avoid callback ordering problems
         if (taskContext.getState().isDone()) {
-            DateTime now = DateTime.now();
-            executionStartTime.compareAndSet(null, now);
-            lastExecutionStartTime.compareAndSet(null, now);
-            lastExecutionEndTime.compareAndSet(null, now);
+            long now = currentTimeMillis();
+            executionStartTime.compareAndSet(0, now);
+            lastExecutionStartTime.compareAndSet(0, now);
+            lastExecutionEndTime.compareAndSet(0, now);
         }
 
         int completedDrivers = this.completedDrivers.get();
@@ -380,16 +377,14 @@ public class PipelineContext
         boolean hasUnfinishedDrivers = false;
         boolean unfinishedDriversFullyBlocked = true;
 
+        TreeMap<Integer, OperatorStats> operatorSummaries = new TreeMap<>(this.operatorSummaries);
+        ListMultimap<Integer, OperatorStats> runningOperators = ArrayListMultimap.create();
         ImmutableList.Builder<DriverStats> drivers = ImmutableList.builderWithExpectedSize(driverContexts.size());
-        // Make deep copy of each list
-        Map<Integer, List<OperatorStats>> operatorStatsById = this.operatorStatsById.entrySet().stream()
-                .collect(toMap(Map.Entry::getKey, e -> new ArrayList<>(Arrays.asList(e.getValue()))));
-
         for (DriverContext driverContext : driverContexts) {
             DriverStats driverStats = driverContext.getDriverStats();
             drivers.add(driverStats);
             pipelineStatusBuilder.accumulate(driverStats, driverContext.getSplitWeight());
-            if (driverStats.getStartTime() != null && driverStats.getEndTime() == null) {
+            if (driverStats.getStartTimeInMillis() != 0 && driverStats.getEndTimeInMillis() == 0) {
                 // driver has started running, but not yet completed
                 hasUnfinishedDrivers = true;
                 unfinishedDriversFullyBlocked &= driverStats.isFullyBlocked();
@@ -406,7 +401,7 @@ public class PipelineContext
             totalAllocation += driverStats.getTotalAllocationInBytes();
 
             for (OperatorStats operatorStats : driverStats.getOperatorStats()) {
-                operatorStatsById.computeIfAbsent(operatorStats.getOperatorId(), k -> new ArrayList<>()).add(operatorStats);
+                runningOperators.put(operatorStats.getOperatorId(), operatorStats);
             }
 
             rawInputDataSize += driverStats.getRawInputDataSizeInBytes();
@@ -419,6 +414,26 @@ public class PipelineContext
             outputPositions += driverStats.getOutputPositions();
 
             physicalWrittenDataSize += driverStats.getPhysicalWrittenDataSizeInBytes();
+        }
+
+        // merge the running operator stats into the operator summary
+        for (Integer operatorId : runningOperators.keySet()) {
+            List<OperatorStats> runningStats = runningOperators.get(operatorId);
+            if (runningStats.isEmpty()) {
+                continue;
+            }
+            OperatorStats current = operatorSummaries.get(operatorId);
+            OperatorStats combined;
+            if (current != null) {
+                combined = current.add(runningStats);
+            }
+            else {
+                combined = runningStats.get(0);
+                if (runningStats.size() > 1) {
+                    combined = combined.add(runningStats.subList(1, runningStats.size()));
+                }
+            }
+            operatorSummaries.put(operatorId, combined);
         }
 
         PipelineStatus pipelineStatus = pipelineStatusBuilder.build();
@@ -470,11 +485,7 @@ public class PipelineContext
 
                 physicalWrittenDataSize,
 
-                operatorStatsById.values().stream()
-                        .map(OperatorStats::merge)
-                        .filter(Optional::isPresent)
-                        .map(Optional::get)
-                        .collect(toImmutableList()),
+                ImmutableList.copyOf(operatorSummaries.values()),
                 drivers.build());
     }
 
@@ -556,7 +567,7 @@ public class PipelineContext
 
         public void accumulate(DriverStats driverStats, long splitWeight)
         {
-            if (driverStats.getStartTime() == null) {
+            if (driverStats.getStartTimeInMillis() == 0) {
                 // driver has not started running
                 physicallyQueuedDrivers++;
             }

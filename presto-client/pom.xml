@@ -86,6 +86,17 @@
             <artifactId>okhttp-urlconnection</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>com.squareup.okio</groupId>
+            <artifactId>okio-jvm</artifactId>
+        </dependency>
+
+        <!-- pull up to the version used in okio-jvm to avoid conlict with okhttp-* -->
+        <dependency>
+            <groupId>org.jetbrains.kotlin</groupId>
+            <artifactId>kotlin-stdlib-jdk8</artifactId>
+        </dependency>
+
         <!-- for testing -->
         <dependency>
             <groupId>com.facebook.presto</groupId>
@@ -117,4 +128,20 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <ignoredUnusedDeclaredDependencies>
+                        <!-- This is needed to keep Okio in the build and prevent conflicts with OkHttp and Kotlin dependencies. -->
+                        <ignoredUnusedDeclaredDependency>com.squareup.okio:okio-jvm</ignoredUnusedDeclaredDependency>
+                        <ignoredUnusedDeclaredDependency>org.jetbrains.kotlin:kotlin-stdlib-jdk8</ignoredUnusedDeclaredDependency>
+                    </ignoredUnusedDeclaredDependencies>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>

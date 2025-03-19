@@ -31,9 +31,9 @@ public class TestDriverStats
     public static final DriverStats EXPECTED = new DriverStats(
             Lifespan.driverGroup(21),
 
-            new DateTime(1),
-            new DateTime(2),
-            new DateTime(3),
+            1L,
+            2L,
+            3L,
 
             new Duration(4, NANOSECONDS),
             new Duration(5, NANOSECONDS),
@@ -79,9 +79,9 @@ public class TestDriverStats
     {
         assertEquals(actual.getLifespan(), Lifespan.driverGroup(21));
 
-        assertEquals(actual.getCreateTime(), new DateTime(1, UTC));
-        assertEquals(actual.getStartTime(), new DateTime(2, UTC));
-        assertEquals(actual.getEndTime(), new DateTime(3, UTC));
+        assertEquals(actual.getCreateTimeInMillis(), new DateTime(1, UTC).getMillis());
+        assertEquals(actual.getStartTimeInMillis(), new DateTime(2, UTC).getMillis());
+        assertEquals(actual.getEndTimeInMillis(), new DateTime(3, UTC).getMillis());
         assertEquals(actual.getQueuedTime(), new Duration(4, NANOSECONDS));
         assertEquals(actual.getElapsedTime(), new Duration(5, NANOSECONDS));
 

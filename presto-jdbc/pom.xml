@@ -256,6 +256,34 @@
                             <dependencyReducedPomLocation>${project.build.directory}/pom.xml</dependencyReducedPomLocation>
                             <relocations>
                                 <relocation>
+                                    <pattern>org.intellij</pattern>
+                                    <shadedPattern>${shadeBase}.org.intellij</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>jvmMain.okio</pattern>
+                                    <shadedPattern>${shadeBase}.jvmMain.okio</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>commonMain.okio</pattern>
+                                    <shadedPattern>${shadeBase}.commonMain.okio</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>okhttp.internal.tls</pattern>
+                                    <shadedPattern>${shadeBase}.okhttp.internal.tls</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>kotlin</pattern>
+                                    <shadedPattern>${shadeBase}.kotlin</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.jetbrains.kotlin</pattern>
+                                    <shadedPattern>${shadeBase}.org.jetbrains.kotlin</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.jetbrains.annotations</pattern>
+                                    <shadedPattern>${shadeBase}.org.jetbrains.annotations</shadedPattern>
+                                </relocation>
+                                <relocation>
                                     <pattern>com.facebook.presto.client</pattern>
                                     <shadedPattern>${shadeBase}.client</shadedPattern>
                                 </relocation>

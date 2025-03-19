@@ -362,7 +362,7 @@ void PeriodicTaskManager::updateTaskStats() {
   }
   RECORD_METRIC_VALUE(
       kCounterTotalPartitionedOutputBuffer,
-      velox::exec::OutputBufferManager::getInstance().lock()->numBuffers());
+      velox::exec::OutputBufferManager::getInstanceRef()->numBuffers());
 }
 
 void PeriodicTaskManager::addTaskStatsTask() {

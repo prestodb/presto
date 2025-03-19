@@ -105,11 +105,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
-            <artifactId>http-client</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
         </dependency>
@@ -182,11 +177,6 @@
         <dependency>
             <groupId>org.openjdk.jol</groupId>
             <artifactId>jol-core</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>joda-time</groupId>
-            <artifactId>joda-time</artifactId>
         </dependency>
 
         <dependency>

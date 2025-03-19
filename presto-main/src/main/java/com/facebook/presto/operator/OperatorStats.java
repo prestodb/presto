@@ -21,13 +21,12 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.util.Mergeable;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
-import java.util.HashSet;
-import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -741,77 +740,67 @@ public class OperatorStats
         return isBlockedAllocationInBytes;
     }
 
-    public static Optional<OperatorStats> merge(List<OperatorStats> operators)
+    public OperatorStats add(OperatorStats operatorStats)
     {
-        if (operators.isEmpty()) {
-            return Optional.empty();
-        }
+        return add(ImmutableList.of(operatorStats));
+    }
 
-        OperatorStats first = operators.stream().findFirst().get();
-        int stageId = first.getStageId();
-        int operatorId = first.getOperatorId();
-        int stageExecutionId = first.getStageExecutionId();
-        int pipelineId = first.getPipelineId();
-        PlanNodeId planNodeId = first.getPlanNodeId();
-        String operatorType = first.getOperatorType();
+    public OperatorStats add(Iterable<OperatorStats> operators)
+    {
+        long totalDrivers = this.totalDrivers;
 
-        long totalDrivers = 0;
+        long isBlockedCalls = this.isBlockedCalls;
+        long isBlockedWall = this.isBlockedWall.roundTo(NANOSECONDS);
+        long isBlockedCpu = this.isBlockedCpu.roundTo(NANOSECONDS);
+        long isBlockedAllocation = this.isBlockedAllocationInBytes;
 
-        long isBlockedCalls = 0;
-        long isBlockedWall = 0;
-        long isBlockedCpu = 0;
-        long isBlockedAllocation = 0;
+        long addInputCalls = this.addInputCalls;
+        long addInputWall = this.addInputWall.roundTo(NANOSECONDS);
+        long addInputCpu = this.addInputCpu.roundTo(NANOSECONDS);
+        long addInputAllocation = this.addInputAllocationInBytes;
+        long rawInputDataSize = this.rawInputDataSizeInBytes;
+        long rawInputPositions = this.rawInputPositions;
+        long inputDataSize = this.inputDataSizeInBytes;
+        long inputPositions = this.inputPositions;
+        double sumSquaredInputPositions = this.sumSquaredInputPositions;
 
-        long addInputCalls = 0;
-        long addInputWall = 0;
-        long addInputCpu = 0;
-        long addInputAllocation = 0;
-        long rawInputDataSize = 0;
-        long rawInputPositions = 0;
-        long inputDataSize = 0;
-        long inputPositions = 0;
+        long getOutputCalls = this.getOutputCalls;
+        long getOutputWall = this.getOutputWall.roundTo(NANOSECONDS);
+        long getOutputCpu = this.getOutputCpu.roundTo(NANOSECONDS);
+        long getOutputAllocation = this.getOutputAllocationInBytes;
+        long outputDataSize = this.outputDataSizeInBytes;
+        long outputPositions = this.outputPositions;
 
-        double sumSquaredInputPositions = 0.0;
+        long physicalWrittenDataSize = this.physicalWrittenDataSizeInBytes;
 
-        long getOutputCalls = 0;
-        long getOutputWall = 0;
-        long getOutputCpu = 0;
-        long getOutputAllocation = 0;
-        long outputDataSize = 0;
-        long outputPositions = 0;
+        long additionalCpu = this.additionalCpu.roundTo(NANOSECONDS);
+        long blockedWall = this.blockedWall.roundTo(NANOSECONDS);
 
-        long physicalWrittenDataSize = 0;
+        long finishCalls = this.finishCalls;
+        long finishWall = this.finishWall.roundTo(NANOSECONDS);
+        long finishCpu = this.finishCpu.roundTo(NANOSECONDS);
+        long finishAllocation = this.finishAllocationInBytes;
 
-        long finishCalls = 0;
-        long finishWall = 0;
-        long finishCpu = 0;
-        long finishAllocation = 0;
+        long memoryReservation = this.userMemoryReservationInBytes;
+        long revocableMemoryReservation = this.revocableMemoryReservationInBytes;
+        long systemMemoryReservation = this.systemMemoryReservationInBytes;
+        long peakUserMemory = this.peakUserMemoryReservationInBytes;
+        long peakSystemMemory = this.peakSystemMemoryReservationInBytes;
+        long peakTotalMemory = this.peakTotalMemoryReservationInBytes;
 
-        long additionalCpu = 0;
-        long blockedWall = 0;
+        long spilledDataSize = this.spilledDataSizeInBytes;
 
-        long memoryReservation = 0;
-        long revocableMemoryReservation = 0;
-        long systemMemoryReservation = 0;
+        Optional<BlockedReason> blockedReason = this.blockedReason;
 
-        long peakUserMemory = 0;
-        long peakSystemMemory = 0;
-        long peakTotalMemory = 0;
+        RuntimeStats runtimeStats = RuntimeStats.copyOf(this.runtimeStats);
+        DynamicFilterStats dynamicFilterStats = DynamicFilterStats.copyOf(this.dynamicFilterStats);
 
-        long spilledDataSize = 0;
+        long nullJoinBuildKeyCount = this.nullJoinBuildKeyCount;
+        long joinBuildKeyCount = this.joinBuildKeyCount;
+        long nullJoinProbeKeyCount = this.nullJoinProbeKeyCount;
+        long joinProbeKeyCount = this.joinProbeKeyCount;
 
-        long nullJoinBuildKeyCount = 0;
-        long joinBuildKeyCount = 0;
-        long nullJoinProbeKeyCount = 0;
-        long joinProbeKeyCount = 0;
-
-        RuntimeStats runtimeStats = new RuntimeStats();
-        DynamicFilterStats dynamicFilterStats = new DynamicFilterStats(new HashSet<>());
-
-        Optional<BlockedReason> blockedReason = Optional.empty();
-
-        Mergeable<OperatorInfo> base = null;
-
+        Mergeable<OperatorInfo> base = getMergeableInfoOrNull(info);
         for (OperatorStats operator : operators) {
             checkArgument(operator.getOperatorId() == operatorId, "Expected operatorId to be %s but was %s", operatorId, operator.getOperatorId());
 
@@ -864,10 +853,7 @@ public class OperatorStats
             }
 
             OperatorInfo info = operator.getInfo();
-            if (base == null) {
-                base = getMergeableInfoOrNull(info);
-            }
-            else if (info != null && base.getClass() == info.getClass()) {
+            if (base != null && info != null && base.getClass() == info.getClass()) {
                 base = mergeInfo(base, info);
             }
 
@@ -880,7 +866,7 @@ public class OperatorStats
             joinProbeKeyCount += operator.getJoinProbeKeyCount();
         }
 
-        return Optional.of(new OperatorStats(
+        return new OperatorStats(
                 stageId,
                 stageExecutionId,
                 pipelineId,
@@ -939,7 +925,7 @@ public class OperatorStats
                 nullJoinBuildKeyCount,
                 joinBuildKeyCount,
                 nullJoinProbeKeyCount,
-                joinProbeKeyCount));
+                joinProbeKeyCount);
     }
 
     @SuppressWarnings("unchecked")

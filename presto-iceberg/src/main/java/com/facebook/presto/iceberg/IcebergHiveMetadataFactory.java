@@ -44,6 +44,7 @@ public class IcebergHiveMetadataFactory
     final StatisticsFileCache statisticsFileCache;
     final String catalogName;
     final ManifestFileCache manifestFileCache;
+    final IcebergTableProperties tableProperties;
 
     @Inject
     public IcebergHiveMetadataFactory(
@@ -58,7 +59,8 @@ public class IcebergHiveMetadataFactory
             IcebergHiveTableOperationsConfig operationsConfig,
             StatisticsFileCache statisticsFileCache,
             HiveCommonClientConfig commonConfig,
-            ManifestFileCache manifestFileCache)
+            ManifestFileCache manifestFileCache,
+            IcebergTableProperties tableProperties)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -73,6 +75,7 @@ public class IcebergHiveMetadataFactory
         requireNonNull(commonConfig, "config is null");
         this.catalogName = commonConfig.getCatalogName();
         this.manifestFileCache = requireNonNull(manifestFileCache, "manifestFileCache is null");
+        this.tableProperties = requireNonNull(tableProperties, "icebergTableProperties is null");
     }
 
     public ConnectorMetadata create()
@@ -89,6 +92,7 @@ public class IcebergHiveMetadataFactory
                 operationsConfig,
                 statisticsFileCache,
                 catalogName,
-                manifestFileCache);
+                manifestFileCache,
+                tableProperties);
     }
 }

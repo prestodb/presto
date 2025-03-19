@@ -7,6 +7,7 @@ Administration
 
     admin/web-interface
     admin/tuning
+    admin/benchmark-driver
     admin/properties
     admin/properties-session
     admin/spill
