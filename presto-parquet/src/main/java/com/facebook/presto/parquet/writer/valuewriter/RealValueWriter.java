@@ -17,6 +17,8 @@ import com.facebook.presto.common.block.Block;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.schema.PrimitiveType;
 
+import java.util.function.Supplier;
+
 import static com.facebook.presto.common.type.RealType.REAL;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
@@ -24,9 +26,9 @@ import static java.lang.Math.toIntExact;
 public class RealValueWriter
         extends PrimitiveValueWriter
 {
-    public RealValueWriter(ValuesWriter valuesWriter, PrimitiveType parquetType)
+    public RealValueWriter(Supplier<ValuesWriter> valuesWriterSupplier, PrimitiveType parquetType)
     {
-        super(parquetType, valuesWriter);
+        super(parquetType, valuesWriterSupplier);
     }
 
     @Override
