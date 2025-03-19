@@ -395,10 +395,7 @@ public class MockHttpServletRequest
     }
 
     @Override
-    public void setAttribute(String name, Object o)
-    {
-        throw new UnsupportedOperationException();
-    }
+    public void setAttribute(String name, Object o) {}
 
     @Override
     public void removeAttribute(String name)

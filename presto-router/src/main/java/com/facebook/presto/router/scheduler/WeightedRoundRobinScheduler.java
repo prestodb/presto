@@ -51,26 +51,24 @@ public class WeightedRoundRobinScheduler
             this.generateServerList();
         }
 
-        synchronized (candidateIndexByGroup) {
-            if (!candidateIndexByGroup.containsKey(candidateGroupName)) {
-                candidateIndexByGroup.put(candidateGroupName, 0);
-            }
-            else {
-                serverIndex = candidateIndexByGroup.get(candidateGroupName) + 1;
-            }
-            if (serverIndex >= serverList.size()) {
-                serverIndex = 0;
-            }
-            candidateIndexByGroup.put(candidateGroupName, serverIndex);
-
-            //If server list is empty (servers got filtered out due to 0 weight)
-            //select the first candidate from candidate list
-            if (serverList.isEmpty() && !candidates.isEmpty()) {
-                return Optional.of(candidates.get(0));
-            }
-
-            return Optional.of(serverList.get(serverIndex));
+        if (!candidateIndexByGroup.containsKey(candidateGroupName)) {
+            candidateIndexByGroup.put(candidateGroupName, 0);
         }
+        else {
+            serverIndex = candidateIndexByGroup.get(candidateGroupName) + 1;
+        }
+        if (serverIndex >= serverList.size()) {
+            serverIndex = 0;
+        }
+        candidateIndexByGroup.put(candidateGroupName, serverIndex);
+
+        //If server list is empty (servers got filtered out due to 0 weight)
+        //select the first candidate from candidate list
+        if (serverList.isEmpty() && !candidates.isEmpty()) {
+            return Optional.of(candidates.get(0));
+        }
+
+        return Optional.of(serverList.get(serverIndex));
     }
 
     public void setCandidates(List<URI> candidates)
