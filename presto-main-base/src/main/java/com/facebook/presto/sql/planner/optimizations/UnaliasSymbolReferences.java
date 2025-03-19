@@ -478,25 +478,46 @@ public class UnaliasSymbolReferences
         }
 
         @Override
-        public PlanNode visitTableFunction(TableFunctionNode node, RewriteContext<Void> context)
+        public PlanAndMappings visitTableFunction(TableFunctionNode node, UnaliasContext context)
         {
-            // TODO rewrite sources, and tableArgumentProperties when we add support for input tables
-            /*
             Map<Symbol, Symbol> mapping = new HashMap<>(context.getCorrelationMapping());
             SymbolMapper mapper = symbolMapper(mapping);
 
-            List<Symbol> newProperOutputs = mapper.map(node.getProperOutputs());*/
+            List<Symbol> newProperOutputs = mapper.map(node.getProperOutputs());
 
-            return new TableFunctionNode(
-                    node.getSourceLocation(),
-                    node.getId(),
-                    Optional.empty(),
-                    node.getName(),
-                    node.getArguments(),
-                    node.getOutputVariables(),
-                    node.getSources(),
-                    node.getTableArgumentProperties(),
-                    node.getHandle());
+            ImmutableList.Builder<PlanNode> newSources = ImmutableList.builder();
+            ImmutableList.Builder<TableArgumentProperties> newTableArgumentProperties = ImmutableList.builder();
+
+            for (int i = 0; i < node.getSources().size(); i++) {
+                PlanAndMappings newSource = node.getSources().get(i).accept(this, context);
+                newSources.add(newSource.getRoot());
+
+                SymbolMapper inputMapper = symbolMapper(new HashMap<>(newSource.getMappings()));
+                TableArgumentProperties properties = node.getTableArgumentProperties().get(i);
+                ImmutableMultimap.Builder<String, Symbol> newColumnMapping = ImmutableMultimap.builder();
+                properties.getColumnMapping().entries().stream()
+                        .forEach(entry -> newColumnMapping.put(entry.getKey(), inputMapper.map(entry.getValue())));
+                Optional<DataOrganizationSpecification> newSpecification = properties.getSpecification().map(inputMapper::mapAndDistinct);
+                newTableArgumentProperties.add(new TableArgumentProperties(
+                        properties.getArgumentName(),
+                        newColumnMapping.build(),
+                        properties.isRowSemantics(),
+                        properties.isPruneWhenEmpty(),
+                        properties.isPassThroughColumns(),
+                        newSpecification));
+            }
+
+            return new PlanAndMappings(
+                    new TableFunctionNode(
+                            node.getId(),
+                            node.getName(),
+                            node.getArguments(),
+                            newProperOutputs,
+                            newSources.build(),
+                            newTableArgumentProperties.build(),
+                            node.getCopartitioningLists(),
+                            node.getHandle()),
+                    mapping);
         }
 
         @Override

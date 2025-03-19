@@ -331,6 +331,45 @@ public class TestingTableFunctions
         }
     }
 
+    public static class DifferentArgumentTypesFunction
+            extends AbstractConnectorTableFunction
+    {
+        public DifferentArgumentTypesFunction()
+        {
+            super(
+                    SCHEMA_NAME,
+                    "different_arguments_function",
+                    ImmutableList.of(
+                            TableArgumentSpecification.builder()
+                                    .name("INPUT_1")
+                                    .passThroughColumns()
+                                    .build(),
+                            DescriptorArgumentSpecification.builder()
+                                    .name("LAYOUT")
+                                    .build(),
+                            TableArgumentSpecification.builder()
+                                    .name("INPUT_2")
+                                    .rowSemantics()
+                                    .passThroughColumns()
+                                    .build(),
+                            ScalarArgumentSpecification.builder()
+                                    .name("ID")
+                                    .type(BIGINT)
+                                    .build(),
+                            TableArgumentSpecification.builder()
+                                    .name("INPUT_3")
+                                    .pruneWhenEmpty()
+                                    .build()),
+                    GENERIC_TABLE);
+        }
+
+        @Override
+        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        {
+            return ANALYSIS;
+        }
+    }
+
     public static class TestingTableFunctionHandle
             implements ConnectorTableFunctionHandle
     {
