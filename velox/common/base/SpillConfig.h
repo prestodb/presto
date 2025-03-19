@@ -34,6 +34,15 @@ namespace facebook::velox::common {
       "{}",                                                         \
       errorMessage);
 
+#define VELOX_GENERIC_SPILL_FAILURE(errorMessage)                   \
+  _VELOX_THROW(                                                     \
+      ::facebook::velox::VeloxRuntimeError,                         \
+      ::facebook::velox::error_source::kErrorSourceRuntime.c_str(), \
+      ::facebook::velox::error_code::kGenericSpillFailure.c_str(),  \
+      /* isRetriable */ true,                                       \
+      "{}",                                                         \
+      errorMessage);
+
 /// Defining type for a callback function that returns the spill directory path.
 /// Implementations can use it to ensure the path exists before returning.
 using GetSpillDirectoryPathCB = std::function<std::string_view()>;

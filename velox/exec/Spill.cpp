@@ -133,7 +133,12 @@ void SpillState::setPartitionSpilled(uint32_t partition) {
 void SpillState::validateSpillBytesSize(uint64_t bytes) {
   static constexpr uint64_t kMaxSpillBytesPerWrite =
       std::numeric_limits<int32_t>::max();
-  VELOX_CHECK_LT(bytes, kMaxSpillBytesPerWrite, "Spill bytes will overflow.");
+  if (bytes >= kMaxSpillBytesPerWrite) {
+    VELOX_GENERIC_SPILL_FAILURE(fmt::format(
+        "Spill bytes will overflow. Bytes {}, kMaxSpillBytesPerWrite: {}",
+        bytes,
+        kMaxSpillBytesPerWrite));
+  }
 }
 
 void SpillState::updateSpilledInputBytes(uint64_t bytes) {
