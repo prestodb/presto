@@ -98,12 +98,24 @@ public class DwrfMetadataReader
     }
 
     @Override
-    public PostScript readPostScript(byte[] data, int offset, int length)
+    public PostScript readPostScript(OrcDataSourceId orcDataSourceId, byte[] data, int offset, int length)
             throws IOException
     {
+        // corrupted or non-ORC files often have some garbage at the end of the file instead of the PostScript length
+        if (length <= 0) {
+            throw new OrcCorruptionException(orcDataSourceId, "Invalid PostScript length %s, likely a corrupted or non-ORC file", length);
+        }
+
         long cpuStart = THREAD_MX_BEAN.getCurrentThreadCpuTime();
         CodedInputStream input = CodedInputStream.newInstance(data, offset, length);
         DwrfProto.PostScript postScript = DwrfProto.PostScript.parseFrom(input);
+        if (!postScript.hasFooterLength()) {
+            throw new OrcCorruptionException(orcDataSourceId, "PostScript doesn't have Footer length, likely a corrupted or non-ORC file");
+        }
+
+        if (postScript.getFooterLength() <= 0) {
+            throw new OrcCorruptionException(orcDataSourceId, "Invalid Footer length %s, likely a corrupted or non-ORC file", postScript.getFooterLength());
+        }
 
         HiveWriterVersion writerVersion = postScript.hasWriterVersion() && postScript.getWriterVersion() > 0 ? ORC_HIVE_8732 : ORIGINAL;
 
