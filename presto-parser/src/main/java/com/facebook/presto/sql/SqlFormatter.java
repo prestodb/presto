@@ -266,7 +266,11 @@ public final class SqlFormatter
         protected Void visitTableArgument(TableFunctionTableArgument node, Integer indent)
         {
             Relation relation = node.getTable();
-            Relation unaliased = relation instanceof AliasedRelation ? ((AliasedRelation) relation).getRelation() : relation;
+            Node unaliased = relation instanceof AliasedRelation ? ((AliasedRelation) relation).getRelation() : relation;
+            if (unaliased instanceof TableSubquery) {
+                // unpack the relation from TableSubquery to avoid adding another pair of parentheses
+                unaliased = ((TableSubquery) unaliased).getQuery();
+            }
             builder.append("TABLE(");
             process(unaliased, indent);
             builder.append(")");
