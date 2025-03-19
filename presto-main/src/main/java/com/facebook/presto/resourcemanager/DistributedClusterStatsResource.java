@@ -23,9 +23,9 @@ import com.facebook.presto.spi.NodeState;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.memory.MemoryPoolInfo;
 import io.airlift.units.Duration;
+import jakarta.inject.Inject;
 
 import javax.annotation.security.RolesAllowed;
-import javax.inject.Inject;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;

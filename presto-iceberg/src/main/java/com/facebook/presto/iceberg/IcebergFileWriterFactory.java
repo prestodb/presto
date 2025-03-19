@@ -33,14 +33,13 @@ import com.facebook.presto.parquet.writer.ParquetWriterOptions;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableMap;
+import jakarta.inject.Inject;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.types.Types;
-
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.util.List;

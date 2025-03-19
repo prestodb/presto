@@ -32,10 +32,10 @@ import com.google.common.collect.RangeMap;
 import com.google.common.collect.TreeRangeMap;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
+import jakarta.inject.Inject;
 import org.apache.hadoop.fs.Path;
 
 import javax.annotation.PreDestroy;
-import javax.inject.Inject;
 
 import java.io.File;
 import java.io.FileInputStream;

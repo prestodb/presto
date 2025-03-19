@@ -40,13 +40,13 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
+import jakarta.inject.Inject;
 import org.weakref.jmx.Managed;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
 
 import java.net.URI;
 import java.net.URISyntaxException;

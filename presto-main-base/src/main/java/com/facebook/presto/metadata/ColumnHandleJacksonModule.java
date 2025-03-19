@@ -14,8 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ColumnHandle;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 public class ColumnHandleJacksonModule
         extends AbstractTypedJacksonModule<ColumnHandle>
