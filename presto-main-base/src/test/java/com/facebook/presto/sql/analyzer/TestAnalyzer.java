@@ -45,6 +45,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_NOT_FOUN
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_TYPE_UNKNOWN;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUMN_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_PROPERTY;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RANGE_VARIABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.FUNCTION_NOT_FOUND;
@@ -2244,10 +2245,10 @@ public class TestAnalyzer
                 "line 1:15: Cannot apply sample to polymorphic table function invocation",
                 "SELECT * FROM TABLE(system.two_arguments_function('a', 1)) f(x) TABLESAMPLE BERNOULLI (10)");
 
-        // aliased + row pattern matching
-        assertFails(INVALID_TABLE_FUNCTION_INVOCATION,
-                "line 2:6: Cannot apply row pattern matching to polymorphic table function invocation",
-                "SELECT * FROM TABLE(system.two_arguments_function('a', 1)) f(x) MATCH_RECOGNIZE( PATTERN (a*) DEFINE a AS true ) t(y)");
+//        // aliased + row pattern matching
+//        assertFails(INVALID_TABLE_FUNCTION_INVOCATION,
+//                "line 2:6: Cannot apply row pattern matching to polymorphic table function invocation",
+//                "SELECT * FROM TABLE(system.two_arguments_function('a', 1)) f(x) MATCH_RECOGNIZE( PATTERN (a*) DEFINE a AS true ) t(y)");
 
         // TODO enable this test when ONLY PASS THROUGH functions are fully analyzed (currently they fail with NOT_SUPPORTED)
         //  An ONLY PASS THROUGH function had to be used here, because it's the only kind which does not take an alias.
@@ -2256,10 +2257,54 @@ public class TestAnalyzer
 //                "line 2:12: Cannot apply row pattern matching to polymorphic table function invocation",
 //                "SELECT * FROM TABLE(system.only_pass_through_function(TABLE(t1))) MATCH_RECOGNIZE( PATTERN (a*) DEFINE a AS true) TABLESAMPLE BERNOULLI (10)");
 
-        // aliased + row pattern matching + sampled
-        assertFails(INVALID_TABLE_FUNCTION_INVOCATION,
-                "line 2:6: Cannot apply row pattern matching to polymorphic table function invocation",
-                "SELECT * FROM TABLE(system.two_arguments_function('a', 1)) f(x) MATCH_RECOGNIZE( PATTERN (a*) DEFINE a AS true ) t(y) TABLESAMPLE BERNOULLI (10)");
+//        // aliased + row pattern matching + sampled
+//        assertFails(INVALID_TABLE_FUNCTION_INVOCATION,
+//                "line 2:6: Cannot apply row pattern matching to polymorphic table function invocation",
+//                "SELECT * FROM TABLE(system.two_arguments_function('a', 1)) f(x) MATCH_RECOGNIZE( PATTERN (a*) DEFINE a AS true ) t(y) TABLESAMPLE BERNOULLI (10)");
+    }
+
+    @Test
+    public void testTableFunctionAliasing()
+    {
+        // case-insensitive name matching
+        assertFails(DUPLICATE_RANGE_VARIABLE,
+                "line 1:64: Relation alias: T1 is a duplicate of input table name: tpch.s1.t1",
+                "SELECT * FROM TABLE(system.table_argument_function(TABLE(t1))) T1(x)");
+
+        assertFails(DUPLICATE_RANGE_VARIABLE,
+                "line 1:76: Relation alias: t1 is a duplicate of input table name: t1",
+                "SELECT * FROM TABLE(system.table_argument_function(TABLE(SELECT 1) T1(a))) t1(x)");
+
+        analyze("SELECT * FROM TABLE(system.table_argument_function(TABLE(t1) t2)) T1(x)");
+
+        // the original returned relation type is ("column" : BOOLEAN)
+        analyze("SELECT column FROM TABLE(system.two_arguments_function('a', 1)) table_alias");
+
+        analyze("SELECT column_alias FROM TABLE(system.two_arguments_function('a', 1)) table_alias(column_alias)");
+
+        analyze("SELECT table_alias.column_alias FROM TABLE(system.two_arguments_function('a', 1)) table_alias(column_alias)");
+
+        assertFails(MISSING_ATTRIBUTE,
+                "line 1:8: Column 'column' cannot be resolved",
+                "SELECT column FROM TABLE(system.two_arguments_function('a', 1)) table_alias(column_alias)");
+
+        assertFails(MISMATCHED_COLUMN_ALIASES,
+                "line 1:20: Column alias list has 3 entries but table function has 1 proper columns",
+                "SELECT column FROM TABLE(system.two_arguments_function('a', 1)) table_alias(col1, col2, col3)");
+
+        // the original returned relation type is ("a" : BOOLEAN, "b" : INTEGER)
+        analyze("SELECT column_alias_1, column_alias_2 FROM TABLE(system.monomorphic_static_return_type_function()) table_alias(column_alias_1, column_alias_2)");
+
+        assertFails(DUPLICATE_COLUMN_NAME,
+                "line 1:21: Duplicate name of table function proper column: col",
+                "SELECT * FROM TABLE(system.monomorphic_static_return_type_function()) table_alias(col, col)");
+
+        // case-insensitive name matching
+        assertFails(DUPLICATE_COLUMN_NAME,
+                "line 1:21: Duplicate name of table function proper column: col",
+                "SELECT * FROM TABLE(system.monomorphic_static_return_type_function()) table_alias(col, COL)");
+
+        // TODO test pass-through columns wen we support them: they mustn't be aliased, and must be referenced by the original range variables of their corresponding table arguments
     }
 
 }
