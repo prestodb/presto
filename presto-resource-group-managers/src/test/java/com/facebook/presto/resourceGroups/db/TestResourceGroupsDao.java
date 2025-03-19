@@ -82,15 +82,15 @@ public class TestResourceGroupsDao
         dao.insertResourceGroup(2, "bi", "50%", 50, 50, 50, null, 0, null, null, null, null, null, null, 0, 1L, ENVIRONMENT);
         List<ResourceGroupSpecBuilder> records = dao.getResourceGroups(ENVIRONMENT);
         assertEquals(records.size(), 2);
-        map.put(1L, new ResourceGroupSpecBuilder(1, new ResourceGroupNameTemplate("global"), "100%", 100, Optional.of(100), 100, Optional.empty(), Optional.of(0), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(0), null));
-        map.put(2L, new ResourceGroupSpecBuilder(2, new ResourceGroupNameTemplate("bi"), "50%", 50, Optional.of(50), 50, Optional.empty(), Optional.of(0), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(0), Optional.of(1L)));
+        map.put(1L, new ResourceGroupSpecBuilder(1, new ResourceGroupNameTemplate("global"), "100%", 100, Optional.of(100), 100, Optional.empty(), Optional.of(0), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(0), null, Optional.empty()));
+        map.put(2L, new ResourceGroupSpecBuilder(2, new ResourceGroupNameTemplate("bi"), "50%", 50, Optional.of(50), 50, Optional.empty(), Optional.of(0), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(0), Optional.of(1L), Optional.empty()));
         compareResourceGroups(map, records);
     }
 
     private static void testResourceGroupUpdate(H2ResourceGroupsDao dao, Map<Long, ResourceGroupSpecBuilder> map)
     {
         dao.updateResourceGroup(2, "bi", "40%", 40, 30, 30, null, 0, true, null, null, null, null, null, 0, 1L, ENVIRONMENT);
-        ResourceGroupSpecBuilder updated = new ResourceGroupSpecBuilder(2, new ResourceGroupNameTemplate("bi"), "40%", 40, Optional.of(30), 30, Optional.empty(), Optional.of(0), Optional.of(true), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(0), Optional.of(1L));
+        ResourceGroupSpecBuilder updated = new ResourceGroupSpecBuilder(2, new ResourceGroupNameTemplate("bi"), "40%", 40, Optional.of(30), 30, Optional.empty(), Optional.of(0), Optional.of(true), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(0), Optional.of(1L), Optional.empty());
         map.put(2L, updated);
         compareResourceGroups(map, dao.getResourceGroups(ENVIRONMENT));
     }
