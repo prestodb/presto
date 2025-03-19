@@ -20,6 +20,7 @@ import com.facebook.presto.bytecode.MethodDefinition;
 import com.facebook.presto.bytecode.MethodGenerationContext;
 import com.facebook.presto.bytecode.ParameterizedType;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Streams;
 import org.objectweb.asm.MethodVisitor;
 
 import java.lang.reflect.Field;
@@ -30,7 +31,6 @@ import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.transform;
 import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
 
@@ -162,13 +162,17 @@ public abstract class BytecodeExpression
 
         return invoke(methodName,
                 returnType,
-                ImmutableList.copyOf(transform(parameters, BytecodeExpression::getType)),
+                Streams.stream(parameters).map(BytecodeExpression::getType).collect(toImmutableList()),
                 parameters);
     }
 
     public final BytecodeExpression invoke(String methodName, Class<?> returnType, Iterable<? extends Class<?>> parameterTypes, BytecodeExpression... parameters)
     {
-        return invoke(methodName, type(returnType), transform(parameterTypes, ParameterizedType::type), ImmutableList.copyOf(requireNonNull(parameters, "parameters is null")));
+        return invoke(
+                methodName,
+                type(returnType),
+                Streams.stream(parameterTypes).map(ParameterizedType::type).collect(toImmutableList()),
+                ImmutableList.copyOf(requireNonNull(parameters, "parameters is null")));
     }
 
     public final BytecodeExpression invoke(String methodName, ParameterizedType returnType, Iterable<ParameterizedType> parameterTypes, BytecodeExpression... parameters)
