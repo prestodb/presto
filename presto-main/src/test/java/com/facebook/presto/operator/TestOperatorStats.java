@@ -30,7 +30,6 @@ import java.util.Optional;
 import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
 
 public class TestOperatorStats
@@ -40,10 +39,10 @@ public class TestOperatorStats
     private static final String TEST_METRIC_NAME = "test_metric";
     private static final RuntimeMetric TEST_RUNTIME_METRIC_1 = new RuntimeMetric(TEST_METRIC_NAME, NONE, 10, 2, 9, 1);
     private static final RuntimeMetric TEST_RUNTIME_METRIC_2 = new RuntimeMetric(TEST_METRIC_NAME, NONE, 5, 2, 3, 2);
-    private static final DynamicFilterStats TEST_DYNAMIC_FILTER_STATS_1 = new DynamicFilterStats(new HashSet<>(Arrays.asList(new PlanNodeId("1"),
-            new PlanNodeId("2"))));
-    private static final DynamicFilterStats TEST_DYNAMIC_FILTER_STATS_2 = new DynamicFilterStats(new HashSet<>(Arrays.asList(new PlanNodeId("2"),
-            new PlanNodeId("3"))));
+    private static final DynamicFilterStats TEST_DYNAMIC_FILTER_STATS_1 = new DynamicFilterStats(new HashSet<>(Arrays.asList(new PlanNodeId[] {new PlanNodeId("1"),
+            new PlanNodeId("2")})));
+    private static final DynamicFilterStats TEST_DYNAMIC_FILTER_STATS_2 = new DynamicFilterStats(new HashSet<>(Arrays.asList(new PlanNodeId[] {new PlanNodeId("2"),
+            new PlanNodeId("3")})));
 
     public static final OperatorStats EXPECTED = new OperatorStats(
             0,
@@ -228,16 +227,16 @@ public class TestOperatorStats
     }
 
     @Test
-    public void testMergeWithNonMergeableInfo()
+    public void testAdd()
     {
-        OperatorStats actual = OperatorStats.merge(ImmutableList.of(EXPECTED, EXPECTED, EXPECTED)).get();
+        OperatorStats actual = EXPECTED.add(ImmutableList.of(EXPECTED, EXPECTED));
 
         assertEquals(actual.getStageId(), 0);
         assertEquals(actual.getStageExecutionId(), 10);
         assertEquals(actual.getOperatorId(), 41);
         assertEquals(actual.getOperatorType(), "test");
 
-        assertEquals(actual.getTotalDrivers(), 3);
+        assertEquals(actual.getTotalDrivers(), 3 * 1);
         assertEquals(actual.getAddInputCalls(), 3 * 2);
         assertEquals(actual.getAddInputWall(), new Duration(3 * 3, NANOSECONDS));
         assertEquals(actual.getAddInputCpu(), new Duration(3 * 4, NANOSECONDS));
@@ -278,16 +277,16 @@ public class TestOperatorStats
     }
 
     @Test
-    public void testMergeWithMergeableInfo()
+    public void testAddMergeable()
     {
-        OperatorStats actual = OperatorStats.merge(ImmutableList.of(MERGEABLE, MERGEABLE, MERGEABLE)).get();
+        OperatorStats actual = MERGEABLE.add(ImmutableList.of(MERGEABLE, MERGEABLE));
 
         assertEquals(actual.getStageId(), 0);
         assertEquals(actual.getStageExecutionId(), 10);
         assertEquals(actual.getOperatorId(), 41);
         assertEquals(actual.getOperatorType(), "test");
 
-        assertEquals(actual.getTotalDrivers(), 3);
+        assertEquals(actual.getTotalDrivers(), 3 * 1);
         assertEquals(actual.getAddInputCalls(), 3 * 2);
         assertEquals(actual.getAddInputWall(), new Duration(3 * 3, NANOSECONDS));
         assertEquals(actual.getAddInputCpu(), new Duration(3 * 4, NANOSECONDS));
@@ -327,12 +326,5 @@ public class TestOperatorStats
         expectedMetric.mergeWith(TEST_RUNTIME_METRIC_2);
         assertRuntimeMetricEquals(actual.getRuntimeStats().getMetric(TEST_METRIC_NAME), expectedMetric);
         assertEquals(actual.getDynamicFilterStats().getProducerNodeIds(), TEST_DYNAMIC_FILTER_STATS_2.getProducerNodeIds());
-    }
-
-    @Test
-    public void testMergeEmptyCollection()
-    {
-        Optional<OperatorStats> merged = OperatorStats.merge(ImmutableList.of());
-        assertFalse(merged.isPresent());
     }
 }
