@@ -330,6 +330,7 @@ public final class SystemSessionProperties
     public static final String SINGLE_NODE_EXECUTION_ENABLED = "single_node_execution_enabled";
     public static final String EXPRESSION_OPTIMIZER_NAME = "expression_optimizer_name";
     public static final String ADD_EXCHANGE_BELOW_PARTIAL_AGGREGATION_OVER_GROUP_ID = "add_exchange_below_partial_aggregation_over_group_id";
+    public static final String OPTIMIZE_UNION_TO_UNION_ALL = "optimize_union_to_union_all";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_AGGREGATION_SPILL_ALL = "native_aggregation_spill_all";
@@ -1869,6 +1870,10 @@ public final class SystemSessionProperties
                 booleanProperty(ADD_EXCHANGE_BELOW_PARTIAL_AGGREGATION_OVER_GROUP_ID,
                         "Enable adding an exchange below partial aggregation over a GroupId node to improve partial aggregation performance",
                         featuresConfig.getAddExchangeBelowPartialAggregationOverGroupId(),
+                        false),
+                booleanProperty(OPTIMIZE_UNION_TO_UNION_ALL,
+                        "Optimize union by converting to union all",
+                        featuresConfig.isOptimizeUnionToUnionAll(),
                         false));
     }
 
@@ -3184,5 +3189,10 @@ public final class SystemSessionProperties
     public static boolean isCanonicalizedJsonExtract(Session session)
     {
         return session.getSystemProperty(CANONICALIZED_JSON_EXTRACT, Boolean.class);
+    }
+
+    public static boolean isOptimizeUnionToUnionAll(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZE_UNION_TO_UNION_ALL, Boolean.class);
     }
 }
