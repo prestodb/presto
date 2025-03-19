@@ -69,6 +69,7 @@ import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZER_USE_HISTOGRAMS;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_CASE_EXPRESSION_PREDICATE;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
+import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_UNION_TO_UNION_ALL;
 import static com.facebook.presto.SystemSessionProperties.PREFILTER_FOR_GROUPBY_LIMIT;
 import static com.facebook.presto.SystemSessionProperties.PREFILTER_FOR_GROUPBY_LIMIT_TIMEOUT_MS;
 import static com.facebook.presto.SystemSessionProperties.PRE_PROCESS_METADATA_CALLS;
@@ -8006,6 +8007,96 @@ public abstract class AbstractTestQueries
         assertQuery(session,
                 "SELECT a * 2, a - 1 FROM (SELECT x * 2 as a FROM (VALUES 15) t(x))",
                 "SELECT * FROM (VALUES (60, 29))");
+    }
+
+    @Test
+    public void testUnionWithUnionAll()
+    {
+        Session session = getSession();
+        Session optimizeUnionSession = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_UNION_TO_UNION_ALL, "true")
+                .build();
+
+        @Language("SQL") String testQuery = "SELECT orderkey FROM orders UNION ALL SELECT orderkey FROM lineitem";
+        MaterializedResult materializedRows = computeActual(session, testQuery);
+        int count = materializedRows.getMaterializedRows().size();
+
+        testQuery = "SELECT orderkey FROM orders UNION SELECT orderkey FROM lineitem";
+        assertNotEquals(count, computeActual(session, testQuery).getMaterializedRows().size());
+        assertEquals(count, computeActual(optimizeUnionSession, testQuery).getMaterializedRows().size());
+    }
+
+    @Test
+    public void testUnionWithUnionDistinct()
+    {
+        Session session = getSession();
+        Session optimizeUnionSession = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_UNION_TO_UNION_ALL, "true")
+                .build();
+
+        @Language("SQL") String testQuery = "SELECT orderkey FROM orders UNION ALL SELECT orderkey FROM lineitem";
+        MaterializedResult materializedRows = computeActual(session, testQuery);
+        List<MaterializedRow> rows = materializedRows.getMaterializedRows();
+
+        testQuery = "SELECT orderkey FROM orders UNION DISTINCT SELECT orderkey FROM lineitem";
+        assertNotEquals(rows.size(), computeActual(session, testQuery).getMaterializedRows().size());
+        assertNotEquals(rows.size(), computeActual(optimizeUnionSession, testQuery).getMaterializedRows().size());
+    }
+
+    @Test
+    public void testUnionRewriteWithUnionSubquery()
+    {
+        Session defaultSession = getSession();
+        Session optimizeUnionSession = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_UNION_TO_UNION_ALL, "true")
+                .build();
+
+        @Language("SQL") String testQuery = "SELECT * FROM (SELECT * FROM nation UNION ALL SELECT * from nation) n, region r WHERE n.regionkey=r.regionkey";
+        MaterializedResult materializedRows = computeActual(defaultSession, testQuery);
+        List<MaterializedRow> rows = materializedRows.getMaterializedRows();
+
+        testQuery = "SELECT * FROM (SELECT * FROM nation UNION SELECT * from nation) n, region r WHERE n.regionkey=r.regionkey";
+        assertNotEquals(rows.size(), computeActual(defaultSession, testQuery).getMaterializedRows().size());
+        assertEquals(rows.size(), computeActual(optimizeUnionSession, testQuery).getMaterializedRows().size());
+        assertEqualsIgnoreOrder(rows, computeActual(optimizeUnionSession, testQuery).getMaterializedRows());
+    }
+
+    @Test
+    public void testUnionRewriteWithAgg()
+    {
+        Session defaultSession = getSession();
+        Session optimizeUnionSession = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_UNION_TO_UNION_ALL, "true")
+                .build();
+
+        @Language("SQL") String testQuery = "select count(custkey) from (select custkey from orders union all select custkey from customer)";
+        MaterializedResult materializedRows = computeActual(defaultSession, testQuery);
+        List<MaterializedRow> rows = materializedRows.getMaterializedRows();
+
+        testQuery = "select count(custkey) from (select custkey from orders union select custkey from customer)";
+        assertNotEquals(rows, computeActual(defaultSession, testQuery).getMaterializedRows());
+        assertEquals(rows, computeActual(optimizeUnionSession, testQuery).getMaterializedRows());
+    }
+
+    @Test
+    public void testUnionRewriteWithRowNumber()
+    {
+        Session defaultSession = getSession();
+        Session optimizeUnionSession = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_UNION_TO_UNION_ALL, "true")
+                .build();
+
+        @Language("SQL") String testQuery = "select max(rn) from (select row_number() over(partition by custkey) as rn from (select custkey from orders union all select custkey from customer))";
+        MaterializedResult materializedResult = computeActual(defaultSession, testQuery);
+        List<MaterializedRow> rows = materializedResult.getMaterializedRows();
+
+        testQuery = "select max(rn) from (select row_number() over(partition by custkey) as rn from (select custkey from orders union select custkey from customer))";
+        assertEquals(rows, computeActual(optimizeUnionSession, testQuery).getMaterializedRows());
+
+        List<MaterializedRow> materializedRows = computeActual(defaultSession, testQuery).getMaterializedRows();
+        assertNotEquals(rows, materializedRows);
+        assertEquals(materializedRows.size(), 1);
+        assertEquals(materializedRows.get(0).getField(0).toString(), "1");
     }
 
     private List<MaterializedRow> getNativeWorkerSessionProperties(List<MaterializedRow> inputRows, String sessionPropertyName)

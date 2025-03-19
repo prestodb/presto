@@ -299,6 +299,8 @@ public class FeaturesConfig
     private String expressionOptimizerName = DEFAULT_EXPRESSION_OPTIMIZER_NAME;
     private boolean addExchangeBelowPartialAggregationOverGroupId;
 
+    public boolean isOptimizeUnionToUnionAll;
+
     public enum PartitioningPrecisionStrategy
     {
         // Let Presto decide when to repartition
@@ -2958,5 +2960,18 @@ public class FeaturesConfig
     public boolean getAddExchangeBelowPartialAggregationOverGroupId()
     {
         return addExchangeBelowPartialAggregationOverGroupId;
+    }
+
+    @Config("optimizer.optimize_union_to_union_all")
+    @ConfigDescription("Optimize query by replacing union with union all")
+    public FeaturesConfig setOptimizeUnionToUnionAll(boolean optimizeUnionToUnionAll)
+    {
+        isOptimizeUnionToUnionAll = optimizeUnionToUnionAll;
+        return this;
+    }
+
+    public boolean isOptimizeUnionToUnionAll()
+    {
+        return isOptimizeUnionToUnionAll;
     }
 }

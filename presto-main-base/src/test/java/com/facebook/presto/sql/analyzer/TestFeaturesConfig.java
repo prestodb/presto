@@ -254,7 +254,8 @@ public class TestFeaturesConfig
                 .setEnhancedCTESchedulingEnabled(true)
                 .setExpressionOptimizerName("default")
                 .setExcludeInvalidWorkerSessionProperties(false)
-                .setAddExchangeBelowPartialAggregationOverGroupId(false));
+                .setAddExchangeBelowPartialAggregationOverGroupId(false)
+                .setOptimizeUnionToUnionAll(false));
     }
 
     @Test
@@ -458,6 +459,7 @@ public class TestFeaturesConfig
                 .put("expression-optimizer-name", "custom")
                 .put("exclude-invalid-worker-session-properties", "true")
                 .put("optimizer.add-exchange-below-partial-aggregation-over-group-id", "true")
+                .put("optimizer.optimize_union_to_union_all", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -658,7 +660,8 @@ public class TestFeaturesConfig
                 .setEnhancedCTESchedulingEnabled(false)
                 .setExpressionOptimizerName("custom")
                 .setExcludeInvalidWorkerSessionProperties(true)
-                .setAddExchangeBelowPartialAggregationOverGroupId(true);
+                .setAddExchangeBelowPartialAggregationOverGroupId(true)
+                .setOptimizeUnionToUnionAll(true);
         assertFullMapping(properties, expected);
     }
 
