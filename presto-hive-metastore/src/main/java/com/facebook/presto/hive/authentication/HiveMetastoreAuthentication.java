@@ -15,9 +15,10 @@ package com.facebook.presto.hive.authentication;
 
 import org.apache.thrift.transport.TTransport;
 
+import java.security.Principal;
 import java.util.Optional;
 
 public interface HiveMetastoreAuthentication
 {
-    TTransport authenticate(TTransport rawTransport, String hiveMetastoreHost, Optional<String> tokenString);
+    TTransport authenticate(TTransport rawTransport, String hiveMetastoreHost, Optional<String> tokenString, Optional<Principal> principal);
 }

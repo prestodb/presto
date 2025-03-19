@@ -36,6 +36,7 @@ import io.airlift.units.Duration;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.security.Principal;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -595,7 +596,7 @@ public class TestInMemoryCachingHiveMetastore
         }
 
         @Override
-        public HiveMetastoreClient createMetastoreClient(Optional<String> token)
+        public HiveMetastoreClient createMetastoreClient(Optional<String> token, Optional<Principal> principal)
         {
             return client;
         }
