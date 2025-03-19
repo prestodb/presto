@@ -17,14 +17,16 @@ import com.facebook.presto.common.block.Block;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.schema.PrimitiveType;
 
+import java.util.function.Supplier;
+
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 
 public class BooleanValueWriter
         extends PrimitiveValueWriter
 {
-    public BooleanValueWriter(ValuesWriter valuesWriter, PrimitiveType parquetType)
+    public BooleanValueWriter(Supplier<ValuesWriter> valuesWriterSupplier, PrimitiveType parquetType)
     {
-        super(parquetType, valuesWriter);
+        super(parquetType, valuesWriterSupplier);
     }
 
     @Override

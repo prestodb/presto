@@ -22,6 +22,7 @@ import javax.annotation.concurrent.NotThreadSafe;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.function.Supplier;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 
@@ -32,9 +33,9 @@ public class UuidValuesWriter
     private final ByteBuffer writeBuffer = ByteBuffer.allocate(2 * SIZE_OF_LONG)
             .order(ByteOrder.BIG_ENDIAN);
 
-    public UuidValuesWriter(ValuesWriter valuesWriter, PrimitiveType parquetType)
+    public UuidValuesWriter(Supplier<ValuesWriter> valuesWriterSupplier, PrimitiveType parquetType)
     {
-        super(parquetType, valuesWriter);
+        super(parquetType, valuesWriterSupplier);
     }
 
     @Override
