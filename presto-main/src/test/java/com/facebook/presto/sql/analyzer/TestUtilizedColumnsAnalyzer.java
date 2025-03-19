@@ -597,14 +597,17 @@ public class TestUtilizedColumnsAnalyzer
 
     public void testInvokerView()
     {
-        @Language("SQL") String query = "SELECT v6.a, v6.c, v7.y FROM v6 left join v7 on v7.y = v6.c";
-
-        assertUtilizedTableColumns(query, ImmutableSet.of(
+        assertUtilizedTableColumns("SELECT v6.a, v6.c, v7.y FROM v6 left join v7 on v7.y = v6.c", ImmutableSet.of(
                 ImmutableMap.of(
                         QualifiedObjectName.valueOf("tpch.s1.v6"), ImmutableSet.of("a", "c"),
                         QualifiedObjectName.valueOf("tpch.s1.v7"), ImmutableSet.of("y")),
                 ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t1"), ImmutableSet.of("a", "c")),
                 ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t13"), ImmutableSet.of("y"))));
+
+        assertUtilizedTableColumns("SELECT v10.c1, v10.c3 FROM v10", ImmutableSet.of(
+                ImmutableMap.of(
+                        QualifiedObjectName.valueOf("tpch.s1.v10"), ImmutableSet.of("c1", "c3")),
+                ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t1"), ImmutableSet.of("a", "c"))));
     }
 
     public void testDefinerView()

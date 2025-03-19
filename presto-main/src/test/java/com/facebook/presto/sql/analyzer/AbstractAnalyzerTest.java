@@ -435,6 +435,29 @@ public class AbstractAnalyzerTest
                         new ColumnMetadata("y", BIGINT),
                         new ColumnMetadata("z", BIGINT)));
         inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, viewMetadata9, viewData9, false));
+
+
+        String viewData10 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
+                new ViewDefinition(
+                        "WITH cte as (SELECT a + 1 as c1, b +1 as c2, c +1 as c3 FROM t1) SELECT c1, c2, c3 from cte where c1 > 5",
+                        Optional.of(TPCH_CATALOG),
+                        Optional.of("s1"),
+                        ImmutableList.of(
+                                new ViewDefinition.ViewColumn("c1", BIGINT),
+                                new ViewDefinition.ViewColumn("c2", BIGINT),
+                                new ViewDefinition.ViewColumn("c3", BIGINT)),
+                        Optional.empty(),
+                        true));
+        ConnectorTableMetadata viewMetadata10 = new ConnectorTableMetadata(
+                new SchemaTableName("s1", "v10"),
+                ImmutableList.of(
+                        new ColumnMetadata("c1", BIGINT),
+                        new ColumnMetadata("c2", BIGINT),
+                        new ColumnMetadata("c3", BIGINT)));
+        inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, viewMetadata10, viewData10, false));
+
+
+
     }
 
     private void inSetupTransaction(Consumer<Session> consumer)
