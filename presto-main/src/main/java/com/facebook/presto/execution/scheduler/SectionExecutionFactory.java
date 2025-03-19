@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution.scheduler;
 
+import com.facebook.airlift.concurrent.ThreadPoolExecutorMBean;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.ForQueryExecution;
 import com.facebook.presto.execution.NodeTaskMap;
@@ -51,6 +52,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import javax.inject.Inject;
 
@@ -63,10 +66,12 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.SystemSessionProperties.getConcurrentLifespansPerNode;
 import static com.facebook.presto.SystemSessionProperties.getMaxTasksPerStage;
 import static com.facebook.presto.SystemSessionProperties.getWriterMinSize;
@@ -93,6 +98,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 
@@ -108,6 +114,8 @@ public class SectionExecutionFactory
     private final NodeScheduler nodeScheduler;
     private final int splitBatchSize;
     private final boolean isEnableWorkerIsolation;
+    private final ExecutorService taskSchedulerExecutorService;
+    private final ThreadPoolExecutorMBean executorMBean;
 
     @Inject
     public SectionExecutionFactory(
@@ -131,7 +139,8 @@ public class SectionExecutionFactory
                 schedulerStats,
                 nodeScheduler,
                 requireNonNull(queryManagerConfig, "queryManagerConfig is null").getScheduleSplitBatchSize(),
-                queryManagerConfig.isEnableWorkerIsolation());
+                queryManagerConfig.isEnableWorkerIsolation(),
+                queryManagerConfig.getTaskSchedulerThreads());
     }
 
     public SectionExecutionFactory(
@@ -144,7 +153,8 @@ public class SectionExecutionFactory
             SplitSchedulerStats schedulerStats,
             NodeScheduler nodeScheduler,
             int splitBatchSize,
-            boolean isEnableWorkerIsolation)
+            boolean isEnableWorkerIsolation,
+            int taskSchedulerThreads)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
@@ -156,6 +166,8 @@ public class SectionExecutionFactory
         this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
         this.splitBatchSize = splitBatchSize;
         this.isEnableWorkerIsolation = isEnableWorkerIsolation;
+        this.taskSchedulerExecutorService = taskSchedulerThreads > 0 ? newFixedThreadPool(taskSchedulerThreads, daemonThreadsNamed("nikhil-hive-task-scheduler")) : null;
+        this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) executor);
     }
 
     /**
@@ -305,7 +317,7 @@ public class SectionExecutionFactory
             SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeSelector, stageExecution::getAllTasks);
 
             checkArgument(!plan.getFragment().getStageExecutionDescriptor().isStageGroupedExecution());
-            return newSourcePartitionedSchedulerAsStageScheduler(stageExecution, planNodeId, splitSource, placementPolicy, splitBatchSize);
+            return newSourcePartitionedSchedulerAsStageScheduler(stageExecution, planNodeId, splitSource, placementPolicy, splitBatchSize, taskSchedulerExecutorService);
         }
         else if (partitioningHandle.equals(SCALED_WRITER_DISTRIBUTION)) {
             Supplier<Collection<TaskStatus>> sourceTasksProvider = () -> childStageExecutions.stream()
@@ -488,5 +500,12 @@ public class SectionExecutionFactory
         }
 
         return future;
+    }
+
+    @Managed
+    @Nested
+    public ThreadPoolExecutorMBean getExecutor()
+    {
+        return executorMBean;
     }
 }
