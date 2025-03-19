@@ -42,7 +42,6 @@ import org.intellij.lang.annotations.Language;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -178,9 +177,9 @@ public final class StandaloneQueryRunner
     }
 
     @Override
-    public Optional<EventListener> getEventListener()
+    public List<EventListener> getEventListeners()
     {
-        return server.getEventListener();
+        return server.getEventListeners();
     }
 
     @Override

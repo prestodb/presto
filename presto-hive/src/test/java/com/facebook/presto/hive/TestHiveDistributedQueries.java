@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.CTE_MATERIALIZATION_STRATEGY;
@@ -36,6 +35,7 @@ import static io.airlift.tpch.TpchTable.getTables;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
@@ -60,10 +60,10 @@ public class TestHiveDistributedQueries
     public void close()
             throws Exception
     {
-        Optional<EventListener> eventListener = getQueryRunner().getEventListener();
-        assertTrue(eventListener.isPresent());
-        assertTrue(eventListener.get() instanceof TestingHiveEventListener, eventListener.get().getClass().getName());
-        Set<QueryId> runningQueryIds = ((TestingHiveEventListener) eventListener.get()).getRunningQueries();
+        assertFalse(getQueryRunner().getEventListeners().isEmpty());
+        EventListener eventListener = getQueryRunner().getEventListeners().get(0);
+        assertTrue(eventListener instanceof TestingHiveEventListener, eventListener.getClass().getName());
+        Set<QueryId> runningQueryIds = ((TestingHiveEventListener) eventListener).getRunningQueries();
 
         if (!runningQueryIds.isEmpty()) {
             // Await query events to propagate and finish

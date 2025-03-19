@@ -713,9 +713,9 @@ public class LocalQueryRunner
     }
 
     @Override
-    public Optional<EventListener> getEventListener()
+    public List<EventListener> getEventListeners()
     {
-        return Optional.empty();
+        return ImmutableList.of();
     }
 
     public CostCalculator getCostCalculator()

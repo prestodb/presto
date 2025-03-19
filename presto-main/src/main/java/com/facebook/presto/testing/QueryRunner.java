@@ -60,7 +60,16 @@ public interface QueryRunner
 
     StatsCalculator getStatsCalculator();
 
-    Optional<EventListener> getEventListener();
+    @Deprecated
+    default Optional<EventListener> getEventListener()
+    {
+        if (getEventListeners().isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(getEventListeners().get(0));
+    }
+
+    List<EventListener> getEventListeners();
 
     TestingAccessControlManager getAccessControl();
 
