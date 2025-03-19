@@ -994,6 +994,14 @@ public class DistributedQueryRunner
         }
     }
 
+    @Override
+    public void loadTypeManager(String typeManagerName)
+    {
+        for (TestingPrestoServer server : servers) {
+            server.getMetadata().getFunctionAndTypeManager().loadTypeManager(typeManagerName);
+        }
+    }
+
     private static void closeUnchecked(AutoCloseable closeable)
     {
         try {

@@ -15,6 +15,7 @@ package com.facebook.presto.sidecar;
 
 import com.facebook.presto.sidecar.functionNamespace.NativeFunctionNamespaceManagerFactory;
 import com.facebook.presto.sidecar.sessionpropertyproviders.NativeSystemSessionPropertyProviderFactory;
+import com.facebook.presto.sidecar.typemanager.NativeTypeManagerFactory;
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableMap;
 
@@ -32,5 +33,6 @@ public class NativeSidecarPluginQueryRunnerUtils
                 ImmutableMap.of(
                         "supported-function-languages", "CPP",
                         "function-implementation-type", "CPP"));
+        queryRunner.loadTypeManager(NativeTypeManagerFactory.NAME);
     }
 }
