@@ -35,8 +35,11 @@ import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.function.table.ReturnTypeSpecification.DescribedTable;
 import static com.facebook.presto.spi.function.table.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
+import static com.facebook.presto.spi.function.table.ReturnTypeSpecification.OnlyPassThrough.ONLY_PASS_THROUGH;
 import static io.airlift.slice.Slices.utf8Slice;
 
 public class TestingTableFunctions
@@ -230,6 +233,78 @@ public class TestingTableFunctions
         public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
         {
             return ANALYSIS;
+        }
+    }
+
+    public static class OnlyPassThroughFunction
+            extends AbstractConnectorTableFunction
+    {
+        public OnlyPassThroughFunction()
+        {
+            super(
+                    SCHEMA_NAME,
+                    "only_pass_through_function",
+                    ImmutableList.of(
+                            TableArgumentSpecification.builder()
+                                    .name("INPUT")
+                                    .build()),
+                    ONLY_PASS_THROUGH);
+        }
+
+        @Override
+        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        {
+            return TableFunctionAnalysis.builder()
+                    .handle(HANDLE)
+                    .build();
+        }
+    }
+
+    public static class MonomorphicStaticReturnTypeFunction
+            extends AbstractConnectorTableFunction
+    {
+        public MonomorphicStaticReturnTypeFunction()
+        {
+            super(
+                    SCHEMA_NAME,
+                    "monomorphic_static_return_type_function",
+                    ImmutableList.of(),
+                    new DescribedTable(Descriptor.descriptor(
+                            ImmutableList.of("a", "b"),
+                            ImmutableList.of(BOOLEAN, INTEGER))));
+        }
+
+        @Override
+        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        {
+            return TableFunctionAnalysis.builder()
+                    .handle(HANDLE)
+                    .build();
+        }
+    }
+
+    public static class PolymorphicStaticReturnTypeFunction
+            extends AbstractConnectorTableFunction
+    {
+        public PolymorphicStaticReturnTypeFunction()
+        {
+            super(
+                    SCHEMA_NAME,
+                    "polymorphic_static_return_type_function",
+                    ImmutableList.of(TableArgumentSpecification.builder()
+                            .name("INPUT")
+                            .build()),
+                    new DescribedTable(Descriptor.descriptor(
+                            ImmutableList.of("a", "b"),
+                            ImmutableList.of(BOOLEAN, INTEGER))));
+        }
+
+        @Override
+        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        {
+            return TableFunctionAnalysis.builder()
+                    .handle(HANDLE)
+                    .build();
         }
     }
 }

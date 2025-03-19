@@ -23,6 +23,9 @@ import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.connector.informationSchema.InformationSchemaConnector;
 import com.facebook.presto.connector.system.SystemConnector;
 import com.facebook.presto.connector.tvf.TestingTableFunctions.DescriptorArgumentFunction;
+import com.facebook.presto.connector.tvf.TestingTableFunctions.MonomorphicStaticReturnTypeFunction;
+import com.facebook.presto.connector.tvf.TestingTableFunctions.OnlyPassThroughFunction;
+import com.facebook.presto.connector.tvf.TestingTableFunctions.PolymorphicStaticReturnTypeFunction;
 import com.facebook.presto.connector.tvf.TestingTableFunctions.TableArgumentFunction;
 import com.facebook.presto.connector.tvf.TestingTableFunctions.TableArgumentRowSemanticsFunction;
 import com.facebook.presto.connector.tvf.TestingTableFunctions.TwoScalarArgumentsFunction;
@@ -163,7 +166,10 @@ public class AbstractAnalyzerTest
                         new TableArgumentFunction(),
                         new TableArgumentRowSemanticsFunction(),
                         new DescriptorArgumentFunction(),
-                        new TwoTableArgumentsFunction()));
+                        new TwoTableArgumentsFunction(),
+                        new OnlyPassThroughFunction(),
+                        new MonomorphicStaticReturnTypeFunction(),
+                        new PolymorphicStaticReturnTypeFunction()));
 
         Catalog tpchTestCatalog = createTestingCatalog(TPCH_CATALOG, TPCH_CONNECTOR_ID);
         catalogManager.registerCatalog(tpchTestCatalog);

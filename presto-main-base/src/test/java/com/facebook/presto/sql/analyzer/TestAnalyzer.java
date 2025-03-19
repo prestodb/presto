@@ -60,6 +60,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_SCHEMA_NAME;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_TABLE_FUNCTION_INVOCATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_WINDOW_FRAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_COLUMN_ALIASES;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_SET_COLUMN_TYPES;
@@ -2204,4 +2205,61 @@ public class TestAnalyzer
         // the default value for the second argument is null
         analyze("SELECT * FROM TABLE(system.two_arguments_function('a'))");
     }
+
+    @Test
+    public void testTableFunctionInvocationContext()
+    {
+        // cannot specify relation alias for table function with ONLY PASS THROUGH return type
+        assertFails(INVALID_TABLE_FUNCTION_INVOCATION,
+                "line 1:21: Alias specified for table function with ONLY PASS THROUGH return type",
+                "SELECT * FROM TABLE(system.only_pass_through_function(TABLE(t1))) f(x)");
+
+        // per SQL standard, relation alias is required for table function with GENERIC TABLE return type. We don't require it.
+        analyze("SELECT * FROM TABLE(system.two_arguments_function('a', 1)) f(x)");
+        analyze("SELECT * FROM TABLE(system.two_arguments_function('a', 1))");
+
+        // per SQL standard, relation alias is required for table function with statically declared return type, only if the function is polymorphic.
+        // We don't require aliasing polymorphic functions.
+        analyze("SELECT * FROM TABLE(system.monomorphic_static_return_type_function())");
+        analyze("SELECT * FROM TABLE(system.monomorphic_static_return_type_function()) f(x, y)");
+        analyze("SELECT * FROM TABLE(system.polymorphic_static_return_type_function(input => TABLE(t1)))");
+        analyze("SELECT * FROM TABLE(system.polymorphic_static_return_type_function(input => TABLE(t1))) f(x, y)");
+
+        // TODO enable this test when ONLY PASS THROUGH functions are fully analyzed (currently they fail with NOT_SUPPORTED).
+        //  An ONLY PASS THROUGH function had to be used here, because it's the only kind which does not take an alias.
+//        // sampled
+//        assertFails(INVALID_TABLE_FUNCTION_INVOCATION,
+//                "line 1:21: Cannot apply sample to polymorphic table function invocation",
+//                "SELECT * FROM TABLE(system.only_pass_through_function(TABLE(t1))) TABLESAMPLE BERNOULLI (10)");
+
+        // TODO enable this test when ONLY PASS THROUGH functions are fully analyzed (currently they fail with NOT_SUPPORTED)
+        //  An ONLY PASS THROUGH function had to be used here, because it's the only kind which does not take an alias.
+//        // row pattern matching
+//        assertFails(INVALID_TABLE_FUNCTION_INVOCATION,
+//                "line 2:12: Cannot apply row pattern matching to polymorphic table function invocation",
+//                "SELECT * FROM TABLE(system.only_pass_through_function(TABLE(t1))) MATCH_RECOGNIZE( PATTERN (a*) DEFINE a AS true)");
+
+        // aliased + sampled
+        assertFails(INVALID_TABLE_FUNCTION_INVOCATION,
+                "line 1:15: Cannot apply sample to polymorphic table function invocation",
+                "SELECT * FROM TABLE(system.two_arguments_function('a', 1)) f(x) TABLESAMPLE BERNOULLI (10)");
+
+        // aliased + row pattern matching
+        assertFails(INVALID_TABLE_FUNCTION_INVOCATION,
+                "line 2:6: Cannot apply row pattern matching to polymorphic table function invocation",
+                "SELECT * FROM TABLE(system.two_arguments_function('a', 1)) f(x) MATCH_RECOGNIZE( PATTERN (a*) DEFINE a AS true ) t(y)");
+
+        // TODO enable this test when ONLY PASS THROUGH functions are fully analyzed (currently they fail with NOT_SUPPORTED)
+        //  An ONLY PASS THROUGH function had to be used here, because it's the only kind which does not take an alias.
+//        // row pattern matching + sampled
+//        assertFails(INVALID_TABLE_FUNCTION_INVOCATION,
+//                "line 2:12: Cannot apply row pattern matching to polymorphic table function invocation",
+//                "SELECT * FROM TABLE(system.only_pass_through_function(TABLE(t1))) MATCH_RECOGNIZE( PATTERN (a*) DEFINE a AS true) TABLESAMPLE BERNOULLI (10)");
+
+        // aliased + row pattern matching + sampled
+        assertFails(INVALID_TABLE_FUNCTION_INVOCATION,
+                "line 2:6: Cannot apply row pattern matching to polymorphic table function invocation",
+                "SELECT * FROM TABLE(system.two_arguments_function('a', 1)) f(x) MATCH_RECOGNIZE( PATTERN (a*) DEFINE a AS true ) t(y) TABLESAMPLE BERNOULLI (10)");
+    }
+
 }
