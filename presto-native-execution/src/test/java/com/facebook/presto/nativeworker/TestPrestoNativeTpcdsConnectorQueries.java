@@ -16,25 +16,14 @@ package com.facebook.presto.nativeworker;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 
-import java.util.Optional;
-
-public class TestPrestoNativeSystemQueriesSingleNode
-        extends AbstractTestNativeSystemQueries
+public class TestPrestoNativeTpcdsConnectorQueries
+        extends AbstractTestNativeTpcdsConnectorQueries
 {
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(
-                true,
-                "DWRF",
-                Optional.empty(),
-                false,
-                false,
-                true,
-                false,
-                false,
-                false);
+        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(false, false, true);
     }
 
     @Override

@@ -72,6 +72,10 @@
 #include "presto_cpp/main/RemoteFunctionRegisterer.h"
 #endif
 
+#ifdef PRESTO_ENABLE_TPCDS_CONNECTOR
+#include "velox/connectors/tpcds/TpcdsConnector.h"
+#endif
+
 #ifdef __linux__
 // Required by BatchThreadFactory
 #include <pthread.h>
@@ -271,6 +275,12 @@ void PrestoServer::run() {
       std::make_unique<IcebergPrestoToVeloxConnector>("iceberg"));
   registerPrestoToVeloxConnector(
       std::make_unique<TpchPrestoToVeloxConnector>("tpch"));
+
+#ifdef PRESTO_ENABLE_TPCDS_CONNECTOR
+  registerPrestoToVeloxConnector(
+      std::make_unique<TpcdsPrestoToVeloxConnector>("tpcds"));
+#endif
+
   // Presto server uses system catalog or system schema in other catalogs
   // in different places in the code. All these resolve to the SystemConnector.
   // Depending on where the operator or column is used, different prefixes can
@@ -1195,6 +1205,14 @@ void PrestoServer::registerConnectorFactories() {
     velox::connector::registerConnectorFactory(
         std::make_shared<velox::connector::tpch::TpchConnectorFactory>());
   }
+
+#ifdef PRESTO_ENABLE_TPCDS_CONNECTOR
+  if (!velox::connector::hasConnectorFactory(
+          velox::connector::tpcds::TpcdsConnectorFactory::kTpcdsConnectorName)) {
+    velox::connector::registerConnectorFactory(
+        std::make_shared<velox::connector::tpcds::TpcdsConnectorFactory>());
+  }
+#endif
 }
 
 std::vector<std::string> PrestoServer::registerConnectors(
