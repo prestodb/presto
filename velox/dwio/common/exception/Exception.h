@@ -194,66 +194,66 @@ containing information about the file, line, and function where it happened.
       ##__VA_ARGS__)
 
 #define DWIO_ENSURE_NOT_NULL(p, ...) \
-  DWIO_ENSURE(p != nullptr, "[Null pointer] : ", ##__VA_ARGS__);
+  DWIO_ENSURE(p != nullptr, "[Null pointer]: ", ##__VA_ARGS__);
 
-#define DWIO_ENSURE_NE(l, r, ...)       \
-  DWIO_ENSURE(                          \
-      l != r,                           \
-      "[Range Constraint Violation : ", \
-      l,                                \
-      "!=",                             \
-      r,                                \
-      "] : ",                           \
+#define DWIO_ENSURE_NE(l, r, ...)         \
+  DWIO_ENSURE(                            \
+      l != r,                             \
+      "[Equality Constraint Violation: ", \
+      l,                                  \
+      "!=",                               \
+      r,                                  \
+      "]: ",                              \
       ##__VA_ARGS__);
 
-#define DWIO_ENSURE_EQ(l, r, ...)       \
-  DWIO_ENSURE(                          \
-      l == r,                           \
-      "[Range Constraint Violation : ", \
-      l,                                \
-      "==",                             \
-      r,                                \
-      "] : ",                           \
+#define DWIO_ENSURE_EQ(l, r, ...)         \
+  DWIO_ENSURE(                            \
+      l == r,                             \
+      "[Equality Constraint Violation: ", \
+      l,                                  \
+      "==",                               \
+      r,                                  \
+      "]: ",                              \
       ##__VA_ARGS__);
 
-#define DWIO_ENSURE_LT(l, r, ...)       \
-  DWIO_ENSURE(                          \
-      l < r,                            \
-      "[Range Constraint Violation : ", \
-      l,                                \
-      "<",                              \
-      r,                                \
-      "] : ",                           \
+#define DWIO_ENSURE_LT(l, r, ...)      \
+  DWIO_ENSURE(                         \
+      l < r,                           \
+      "[Range Constraint Violation: ", \
+      l,                               \
+      "<",                             \
+      r,                               \
+      "]: ",                           \
       ##__VA_ARGS__);
 
-#define DWIO_ENSURE_LE(l, r, ...)       \
-  DWIO_ENSURE(                          \
-      l <= r,                           \
-      "[Range Constraint Violation : ", \
-      l,                                \
-      "<=",                             \
-      r,                                \
-      "] : ",                           \
+#define DWIO_ENSURE_LE(l, r, ...)      \
+  DWIO_ENSURE(                         \
+      l <= r,                          \
+      "[Range Constraint Violation: ", \
+      l,                               \
+      "<=",                            \
+      r,                               \
+      "]: ",                           \
       ##__VA_ARGS__);
 
-#define DWIO_ENSURE_GT(l, r, ...)       \
-  DWIO_ENSURE(                          \
-      l > r,                            \
-      "[Range Constraint Violation : ", \
-      l,                                \
-      ">",                              \
-      r,                                \
-      "] : ",                           \
+#define DWIO_ENSURE_GT(l, r, ...)      \
+  DWIO_ENSURE(                         \
+      l > r,                           \
+      "[Range Constraint Violation: ", \
+      l,                               \
+      ">",                             \
+      r,                               \
+      "]: ",                           \
       ##__VA_ARGS__);
 
-#define DWIO_ENSURE_GE(l, r, ...)       \
-  DWIO_ENSURE(                          \
-      l >= r,                           \
-      "[Range Constraint Violation : ", \
-      l,                                \
-      ">=",                             \
-      r,                                \
-      "] : ",                           \
+#define DWIO_ENSURE_GE(l, r, ...)      \
+  DWIO_ENSURE(                         \
+      l >= r,                          \
+      "[Range Constraint Violation: ", \
+      l,                               \
+      ">=",                            \
+      r,                               \
+      "]: ",                           \
       ##__VA_ARGS__);
 
 } // namespace dwio
