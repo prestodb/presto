@@ -22,6 +22,8 @@ import com.facebook.presto.spi.plan.WindowNode.Specification;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -69,10 +71,10 @@ public class TableFunctionNode
     {
         super(sourceLocation, id, statsEquivalentPlanNode);
         this.name = requireNonNull(name, "name is null");
-        this.arguments = requireNonNull(arguments, "arguments is null");
-        this.outputVariables = requireNonNull(outputVariables, "properOutputs is null");
-        this.sources = requireNonNull(sources, "sources is null");
-        this.tableArgumentProperties = requireNonNull(tableArgumentProperties, "tableArgumentProperties is null");
+        this.arguments = ImmutableMap.copyOf(arguments);
+        this.outputVariables = ImmutableList.copyOf(outputVariables);
+        this.sources = ImmutableList.copyOf(sources);
+        this.tableArgumentProperties = ImmutableList.copyOf(tableArgumentProperties);
         this.handle = requireNonNull(handle, "handle is null");
     }
 
