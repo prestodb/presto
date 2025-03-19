@@ -26,10 +26,10 @@ import com.google.common.hash.HashFunction;
 import com.google.common.util.concurrent.FluentFuture;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
+import jakarta.inject.Inject;
 
 import javax.annotation.PreDestroy;
 import javax.annotation.security.PermitAll;
-import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;

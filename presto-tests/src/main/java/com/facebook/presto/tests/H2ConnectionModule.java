@@ -19,12 +19,12 @@ import com.facebook.presto.functionNamespace.mysql.MySqlFunctionNamespaceManager
 import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.TypeLiteral;
+import jakarta.inject.Inject;
+import jakarta.inject.Provider;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 
 import javax.annotation.PreDestroy;
-import javax.inject.Inject;
-import javax.inject.Provider;
 
 import java.sql.DriverManager;
 

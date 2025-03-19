@@ -16,10 +16,9 @@ package com.facebook.presto.verifier.source;
 import com.facebook.presto.verifier.framework.SnapshotQuery;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import jakarta.inject.Provider;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
-
-import javax.inject.Provider;
 
 import java.util.List;
 import java.util.Map;

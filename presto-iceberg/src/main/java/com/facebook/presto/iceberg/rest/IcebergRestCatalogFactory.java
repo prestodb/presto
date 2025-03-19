@@ -25,13 +25,12 @@ import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.jsonwebtoken.Jwts;
+import jakarta.inject.Inject;
 import org.apache.iceberg.CatalogProperties;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.SessionCatalog.SessionContext;
 import org.apache.iceberg.rest.HTTPClient;
 import org.apache.iceberg.rest.RESTCatalog;
-
-import javax.inject.Inject;
 
 import java.util.Date;
 import java.util.Map;

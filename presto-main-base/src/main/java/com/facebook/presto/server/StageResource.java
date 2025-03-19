@@ -15,9 +15,9 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.StageId;
+import jakarta.inject.Inject;
 
 import javax.annotation.security.RolesAllowed;
-import javax.inject.Inject;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;

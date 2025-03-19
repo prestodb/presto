@@ -86,9 +86,8 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.Multibinder;
+import jakarta.inject.Singleton;
 import org.weakref.jmx.MBeanExporter;
-
-import javax.inject.Singleton;
 
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;

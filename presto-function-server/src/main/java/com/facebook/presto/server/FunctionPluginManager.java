@@ -22,10 +22,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import io.airlift.resolver.ArtifactResolver;
 import io.airlift.resolver.DefaultArtifact;
+import jakarta.inject.Inject;
 import org.sonatype.aether.artifact.Artifact;
 
 import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;

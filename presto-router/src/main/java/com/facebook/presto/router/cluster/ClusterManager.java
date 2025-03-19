@@ -23,8 +23,7 @@ import com.facebook.presto.router.spec.SelectorRuleSpec;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.net.URI;
 import java.util.HashMap;

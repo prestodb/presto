@@ -24,9 +24,8 @@ import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
+import jakarta.inject.Inject;
 import org.apache.accumulo.core.client.Connector;
-
-import javax.inject.Inject;
 
 import java.util.List;
 

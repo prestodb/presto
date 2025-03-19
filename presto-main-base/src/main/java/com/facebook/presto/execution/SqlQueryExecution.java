@@ -65,9 +65,9 @@ import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
+import jakarta.inject.Inject;
 
 import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;

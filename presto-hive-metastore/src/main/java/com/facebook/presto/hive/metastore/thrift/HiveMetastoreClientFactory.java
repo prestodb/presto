@@ -19,9 +19,9 @@ import com.facebook.presto.hive.authentication.HiveMetastoreAuthentication;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
+import jakarta.inject.Inject;
 import org.apache.thrift.transport.TTransportException;
 
-import javax.inject.Inject;
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
@@ -73,10 +73,10 @@ public class HiveMetastoreClientFactory
     public HiveMetastoreClientFactory(MetastoreClientConfig metastoreClientConfig, ThriftHiveMetastoreConfig thriftHiveMetastoreConfig, HiveMetastoreAuthentication metastoreAuthentication)
     {
         this(buildSslContext(thriftHiveMetastoreConfig.isTlsEnabled(),
-                Optional.ofNullable(thriftHiveMetastoreConfig.getKeystorePath()),
-                Optional.ofNullable(thriftHiveMetastoreConfig.getKeystorePassword()),
-                Optional.ofNullable(thriftHiveMetastoreConfig.getTruststorePath()),
-                Optional.ofNullable(thriftHiveMetastoreConfig.getTrustStorePassword())),
+                        Optional.ofNullable(thriftHiveMetastoreConfig.getKeystorePath()),
+                        Optional.ofNullable(thriftHiveMetastoreConfig.getKeystorePassword()),
+                        Optional.ofNullable(thriftHiveMetastoreConfig.getTruststorePath()),
+                        Optional.ofNullable(thriftHiveMetastoreConfig.getTrustStorePassword())),
                 Optional.ofNullable(metastoreClientConfig.getMetastoreSocksProxy()),
                 metastoreClientConfig.getMetastoreTimeout(), metastoreAuthentication);
     }
@@ -89,6 +89,7 @@ public class HiveMetastoreClientFactory
 
     /**
      * Reads the truststore and keystore and returns the SSLContext
+     *
      * @param tlsEnabled
      * @param keystorePath
      * @param keystorePassword
@@ -97,10 +98,10 @@ public class HiveMetastoreClientFactory
      * @return SSLContext
      */
     private static Optional<SSLContext> buildSslContext(boolean tlsEnabled,
-                                                        Optional<File> keystorePath,
-                                                        Optional<String> keystorePassword,
-                                                        Optional<File> truststorePath,
-                                                        Optional<String> trustStorePassword)
+            Optional<File> keystorePath,
+            Optional<String> keystorePassword,
+            Optional<File> truststorePath,
+            Optional<String> trustStorePassword)
     {
         if (!tlsEnabled || (!keystorePath.isPresent() && !truststorePath.isPresent())) {
             return Optional.empty();
@@ -159,6 +160,7 @@ public class HiveMetastoreClientFactory
 
     /**
      * Reads the truststore certificate and returns it
+     *
      * @param trustStorePath
      * @param trustStorePassword
      * @throws IOException
@@ -191,10 +193,12 @@ public class HiveMetastoreClientFactory
 
     /**
      * Validate keystore certificate
+     *
      * @param keyStore
      * @throws GeneralSecurityException
      */
-    private static void validateKeyStoreCertificates(KeyStore keyStore) throws GeneralSecurityException
+    private static void validateKeyStoreCertificates(KeyStore keyStore)
+            throws GeneralSecurityException
     {
         for (String alias : list(keyStore.aliases())) {
             if (!keyStore.isKeyEntry(alias)) {

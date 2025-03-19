@@ -16,8 +16,8 @@ package com.facebook.presto.server;
 import com.facebook.presto.resourcemanager.ForResourceManager;
 import com.facebook.presto.resourcemanager.ResourceManagerClusterStateProvider;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import jakarta.inject.Inject;
 
-import javax.inject.Inject;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;

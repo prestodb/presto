@@ -243,9 +243,9 @@ import com.google.inject.multibindings.MapBinder;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import jakarta.inject.Singleton;
 
 import javax.annotation.PreDestroy;
-import javax.inject.Singleton;
 import javax.servlet.Filter;
 import javax.servlet.Servlet;
 

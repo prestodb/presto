@@ -26,8 +26,7 @@ import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.Map;
 import java.util.Optional;
