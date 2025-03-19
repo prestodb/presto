@@ -24,7 +24,6 @@ import com.facebook.presto.router.cluster.ClusterManager;
 import com.facebook.presto.router.cluster.RequestInfo;
 import com.facebook.presto.server.security.ServerSecurityModule;
 import com.facebook.presto.server.testing.TestingPrestoServer;
-import com.facebook.presto.testing.assertions.Assert;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -33,6 +32,7 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import javax.servlet.http.HttpServletRequest;
@@ -50,6 +50,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.fail;
 
 public class TestSelectors
 {
@@ -80,6 +81,9 @@ public class TestSelectors
 
         prestoServers = builder.build();
 
+        //TODO:
+        //Use router spec and populate the values, and write to json
+
         for (TestingPrestoServer s : prestoServers) {
             configTemplate = configTemplate.replaceFirst("\\$\\{SERVERS}", String.format("[ \"%s\" ]", s.getBaseUrl().toString()));
         }
@@ -98,7 +102,9 @@ public class TestSelectors
                 .add(new RouterModule())
                 .build());
 
-        Injector injector = app.doNotInitializeLogging().setRequiredConfigurationProperty("router.config-file", configFile.getAbsolutePath()).quiet().initialize();
+        Injector injector = app.doNotInitializeLogging()
+                .setRequiredConfigurationProperty("router.config-file", configFile.getAbsolutePath())
+                .quiet().initialize();
         clusterManager = injector.getInstance(ClusterManager.class);
         lifeCycleManager = injector.getInstance(LifeCycleManager.class);
     }
@@ -107,59 +113,63 @@ public class TestSelectors
     public void tearDownServer()
             throws Exception
     {
-        for (TestingPrestoServer prestoServer : prestoServers) {
-            prestoServer.close();
-        }
-        lifeCycleManager.stop();
-    }
-
-    @Test
-    public void testSelectorRules()
-    {
-        synchronized (prestoServers) {
-            String[][] headers = {
-                    {"user1", "source1", "[tag1]"},
-                    {"user2", "source2", "[tag2]"},
-                    {"user3", "source3", "[tag3]"},
-            };
-
-            int groupIndex = 0;
-            for (String[] header : headers) {
-                Optional<URI> destinationWrapper = getDestinationWrapper(header[0], header[1], header[2]);
-                if (destinationWrapper.isPresent()) {
-                    URI destination = destinationWrapper.get();
-                    assertEquals(destination.getPort(), prestoServers.get(groupIndex).getBaseUrl().getPort());
-                }
-                else {
-                    Assert.fail();
-                }
-                groupIndex++;
+        if (prestoServers != null) {
+            for (TestingPrestoServer prestoServer : prestoServers) {
+                prestoServer.close();
             }
+        }
+
+        if (lifeCycleManager != null) {
+            lifeCycleManager.stop();
         }
     }
 
-    @Test
-    public void testMissingSelectorRules()
+    @DataProvider(name = "headerData")
+    public Object[][] provideHeaderData()
     {
-        synchronized (prestoServers) {
-            String[][] headers = {
-                    {"NA", "source4", "[]"},
-                    {"NA", "source5", "[]"},
-                    {"NA", "source6", "[]"},
-            };
+        return new Object[][]
+                {
+                        {"user1", "source1", "[tag1]", "0"},
+                        {"user2", "source2", "[tag2]", "1"},
+                        {"user3", "source3", "[tag3]", "2"},
+                };
+    }
 
-            int groupIndex = 3;
-            for (String[] header : headers) {
-                Optional<URI> destinationWrapper = getDestinationWrapper(header[0], header[1], header[2]);
-                if (destinationWrapper.isPresent()) {
-                    URI destination = destinationWrapper.get();
-                    assertEquals(destination.getPort(), prestoServers.get(groupIndex).getBaseUrl().getPort());
-                }
-                else {
-                    Assert.fail();
-                }
-                groupIndex++;
-            }
+    @Test(dataProvider = "headerData")
+    public void testSelectorRules(String user, String source, String tag, String groupIndexStr)
+    {
+        int groupIndex = Integer.getInteger(groupIndexStr);
+        Optional<URI> destinationWrapper = getDestinationWrapper(user, source, tag);
+        if (destinationWrapper.isPresent()) {
+            URI destination = destinationWrapper.get();
+            assertEquals(destination.getPort(), prestoServers.get(groupIndex).getBaseUrl().getPort());
+        }
+        else {
+            fail();
+        }
+    }
+
+    @DataProvider(name = "headerDataMissingRules")
+    public Object[][] provideHeaderDataMissingRules()
+    {
+        return new Object[][]{
+                {"NA", "source4", "[]", "3"},
+                {"NA", "source5", "[]", "4"},
+                {"NA", "source6", "[]", "5"},
+        };
+    }
+
+    @Test
+    public void testMissingSelectorRules(String user, String source, String tag, String groupIndexStr)
+    {
+        int groupIndex = Integer.getInteger(groupIndexStr);
+        Optional<URI> destinationWrapper = getDestinationWrapper(user, source, tag);
+        if (destinationWrapper.isPresent()) {
+            URI destination = destinationWrapper.get();
+            assertEquals(destination.getPort(), prestoServers.get(groupIndex).getBaseUrl().getPort());
+        }
+        else {
+            fail();
         }
     }
 

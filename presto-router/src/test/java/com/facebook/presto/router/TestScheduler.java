@@ -20,10 +20,13 @@ import com.facebook.presto.router.scheduler.UserHashScheduler;
 import com.facebook.presto.router.scheduler.WeightedRandomChoiceScheduler;
 import com.facebook.presto.router.scheduler.WeightedRoundRobinScheduler;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 
 import static org.testng.Assert.assertEquals;
@@ -67,10 +70,8 @@ public class TestScheduler
         }
 
         //testing that each destination is hit a similar number of times over 100,000 queries
-        assertTrue(((float) hitCounter.get(servers.get(1)) / hitCounter.get(servers.get(0)) > 0.8));
-        assertTrue(((float) hitCounter.get(servers.get(1)) / hitCounter.get(servers.get(0)) < 1.2));
-        assertTrue(((float) hitCounter.get(servers.get(2)) / hitCounter.get(servers.get(1)) > 0.8));
-        assertTrue(((float) hitCounter.get(servers.get(2)) / hitCounter.get(servers.get(1)) < 1.2));
+        assertEquals(((float) hitCounter.get(servers.get(1)) / hitCounter.get(servers.get(0))), 1, 1E-1);
+        assertEquals(((float) hitCounter.get(servers.get(2)) / hitCounter.get(servers.get(1))), 1, 1E-1);
     }
 
     @Test
@@ -145,20 +146,42 @@ public class TestScheduler
         assertEquals(target4.getPath(), "192.168.0.1");
     }
 
-    @Test
-    public void testWeightedRoundRobinScheduler()
+    @DataProvider(name = "weights")
+    public Object[][] provideWeights()
+    {
+        return new Object[][]
+                {
+                        {1, 10, 100},
+                        {1, 5, 10},
+                        {10, 20, 30},
+                };
+    }
+
+    @Test(dataProvider = "weights")
+    public void testWeightedRoundRobinScheduler(int... weightArr)
             throws Exception
     {
         Scheduler scheduler = new WeightedRoundRobinScheduler();
         scheduler.setCandidates(servers);
+        weights.clear();
+        weights.put(servers.get(0), weightArr[0]);
+        weights.put(servers.get(1), weightArr[1]);
+        weights.put(servers.get(2), weightArr[2]);
+
         scheduler.setWeights(weights);
         scheduler.setCandidateGroupName("");
 
         //explicitly checking that each server is accessed repeatedly a number of times equal to their assigned weight
+        int weightSum = Arrays.stream(weightArr).sum();
+        testScheduler(weightSum, scheduler);
+    }
+
+    private void testScheduler(int weightSum, Scheduler scheduler) throws URISyntaxException
+    {
         int serverDiffCount = 0;
         int serverRepeatCount = 0;
         URI priorURI = null;
-        for (int i = 0; i < 111; i++) {
+        for (int i = 0; i < weightSum; i++) {
             URI target = scheduler.getDestination("test").orElse(new URI("invalid"));
             assertTrue(servers.contains(target));
             assertTrue(weights.containsKey(target));
