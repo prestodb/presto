@@ -65,6 +65,10 @@ public final class ConfigurationUtils
     public static void copy(Configuration from, Configuration to)
     {
         for (Map.Entry<String, String> entry : from) {
+            if (entry.getKey().equals("io.bytes.per.checksum")) {
+                to.set("dfs.bytes-per-checksum", entry.getValue());
+                continue;
+            }
             to.set(entry.getKey(), entry.getValue());
         }
     }
