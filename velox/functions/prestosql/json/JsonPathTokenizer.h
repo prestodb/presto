@@ -106,7 +106,8 @@ namespace facebook::velox::functions {
 ///   "[0][1]"
 ///   "$['store'][book][1]"
 ///
-/// TODO: Add support for unicode charaters after dot notation.
+/// TODO: Add support for optional dot after closing square bracket, eg.
+/// $.[0]key should be valid.
 class JsonPathTokenizer {
  public:
   enum class Selector { KEY, WILDCARD, KEY_OR_INDEX, RECURSIVE };

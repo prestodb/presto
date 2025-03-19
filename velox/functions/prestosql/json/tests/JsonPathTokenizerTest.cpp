@@ -239,11 +239,6 @@ TEST(JsonPathTokenizerTest, validPaths) {
           {"*a", Selector::KEY_OR_INDEX},
       });
   assertValidPath(
-      "$.*a",
-      TokenList{
-          {"*a", Selector::KEY_OR_INDEX},
-      });
-  assertValidPath(
       "$['*a']",
       TokenList{
           {"*a", Selector::KEY},
@@ -379,18 +374,13 @@ TEST(JsonPathTokenizerTest, validPaths) {
 
   assertQuotedToken(
       "!@#$%^&*()[]{}/?'"s, TokenList{{"!@#$%^&*()[]{}/?'"s, Selector::KEY}});
-  assertQuotedToken("ab\u0001c"s, TokenList{{"ab\u0001c"s, Selector::KEY}});
-  assertQuotedToken("ab\0c"s, TokenList{{"ab\0c"s, Selector::KEY}});
+
   assertQuotedToken("ab\t\n\rc"s, TokenList{{"ab\t\n\rc"s, Selector::KEY}});
   assertQuotedToken("."s, TokenList{{"."s, Selector::KEY}});
-  assertQuotedToken("]"s, TokenList{{"]"s, Selector::KEY}});
   assertQuotedToken("["s, TokenList{{"["s, Selector::KEY}});
   assertQuotedToken(
       "!@#$%^&*(){}[]<>?/|.,`~\r\n\t \0"s,
       TokenList{{"!@#$%^&*(){}[]<>?/|.,`~\r\n\t \0"s, Selector::KEY}});
-  assertQuotedToken("a\\\\b\\\""s, TokenList{{"a\\b\""s, Selector::KEY}});
-  assertQuotedToken(
-      "ab\\\"cd\\\"ef"s, TokenList{{"ab\"cd\"ef"s, Selector::KEY}});
 }
 
 TEST(JsonPathTokenizerTest, recursiveOperator) {
@@ -558,6 +548,70 @@ TEST(JsonPathTokenizerTest, recursiveOperator) {
   EXPECT_FALSE(getTokens("$.foo..["));
 }
 
+TEST(JsonPathTokenizerTest, dotKeyFormat) {
+  assertValidPath(
+      "$.~foo~"s,
+      TokenList{
+          {"~foo~", Selector::KEY_OR_INDEX},
+      });
+  assertValidPath(
+      "$.foo_bar"s,
+      TokenList{
+          {"foo_bar", Selector::KEY_OR_INDEX},
+      });
+  assertValidPath(
+      "$.foo]"s,
+      TokenList{
+          {"foo]", Selector::KEY_OR_INDEX},
+      });
+  assertValidPath(
+      "$.foo)"s,
+      TokenList{
+          {"foo)", Selector::KEY_OR_INDEX},
+      });
+  assertValidPath(
+      "$.foo+bar^fizz*soda&bazz/jazz<opt>"s,
+      TokenList{
+          {"foo+bar^fizz*soda&bazz/jazz<opt>", Selector::KEY_OR_INDEX},
+      });
+  assertValidPath(
+      "$.$foo"s,
+      TokenList{
+          {"$foo", Selector::KEY_OR_INDEX},
+      });
+
+  assertValidPath(
+      "a\\b\""s,
+      TokenList{
+          {"a\\b\""s, Selector::KEY_OR_INDEX},
+      });
+  assertValidPath(
+      "ab\"cd\"ef"s,
+      TokenList{
+          {"ab\"cd\"ef"s, Selector::KEY_OR_INDEX},
+      });
+  assertValidPath(
+      "ab\u0001c"s,
+      TokenList{
+          {"ab\u0001c"s, Selector::KEY_OR_INDEX},
+      });
+  assertValidPath(
+      "$.ab\0c"s,
+      TokenList{
+          {"ab\0c"s, Selector::KEY_OR_INDEX},
+      });
+  assertValidPath(
+      "屬性"s,
+      TokenList{
+          {"屬性"s, Selector::KEY_OR_INDEX},
+      });
+
+  EXPECT_FALSE(getTokens("$.foo(@!)"));
+  EXPECT_FALSE(getTokens("$.fo o"));
+  EXPECT_FALSE(getTokens("$. foo"));
+  EXPECT_FALSE(getTokens("$.*a"));
+}
+
 TEST(JsonPathTokenizerTest, invalidPaths) {
   JsonPathTokenizer tokenizer;
 
@@ -584,7 +638,7 @@ TEST(JsonPathTokenizerTest, invalidPaths) {
   EXPECT_FALSE(getTokens("$. foo"s));
   EXPECT_FALSE(getTokens("$. 1"s));
 
-  // Unicode characters after dot operator.
+  // Unicode characters in unquoted string inside bracket
   EXPECT_FALSE(getTokens("$.[屬性]"));
 
   // Array Slice

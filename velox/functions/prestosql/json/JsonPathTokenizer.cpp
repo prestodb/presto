@@ -21,7 +21,6 @@ namespace facebook::velox::functions {
 namespace {
 const char ROOT = '$';
 const char DOT = '.';
-const char COLON = ':';
 const char DASH = '-';
 const char DOUBLE_QUOTE = '"';
 const char SINGLE_QUOTE = '\'';
@@ -31,15 +30,16 @@ const char UNDER_SCORE = '_';
 const char OPEN_BRACKET = '[';
 const char CLOSE_BRACKET = ']';
 const char AT = '@';
-const char COMMA = ',';
+const char OPEN_PARANTHESIS = '(';
 
 bool isUnquotedBracketKeyFormat(char c) {
   return c == UNDER_SCORE || c == STAR || c == DASH || std::isalnum(c);
 }
 
+// Whitespaces are not allowed in dot key format. We check for it explicitly
+// outside of this function.
 bool isDotKeyFormat(char c) {
-  return c == COLON || isUnquotedBracketKeyFormat(c) || c == DOUBLE_QUOTE ||
-      c == SINGLE_QUOTE || c == AT || c == COMMA || c == ROOT;
+  return c != OPEN_BRACKET && c != DOT && c != OPEN_PARANTHESIS;
 }
 
 } // namespace
@@ -117,17 +117,21 @@ bool JsonPathTokenizer::match(char expected) {
 }
 
 std::optional<JsonPathTokenizer::Token> JsonPathTokenizer::matchDotKey() {
+  if (hasNext() && path_[index_] == STAR) {
+    index_++;
+    return JsonPathTokenizer::Token{"", Selector::WILDCARD};
+  }
   auto start = index_;
   while (hasNext() && isDotKeyFormat(path_[index_])) {
+    if (std::isspace(path_[index_])) {
+      return std::nullopt;
+    }
     index_++;
   }
   if (index_ == start) {
     return std::nullopt;
   }
   auto key = path_.substr(start, index_ - start);
-  if (key.size() == 1 && key[0] == STAR) {
-    return JsonPathTokenizer::Token{"", Selector::WILDCARD};
-  }
   return JsonPathTokenizer::Token{std::string(key), Selector::KEY_OR_INDEX};
 }
 

@@ -188,9 +188,9 @@ TEST_F(JsonExtractScalarTest, invalidPath) {
   VELOX_ASSERT_THROW(
       jsonExtractScalar(R"({"k1":"v1"})", "$.k1."), "Invalid JSON path");
   VELOX_ASSERT_THROW(
-      jsonExtractScalar(R"({"k1":"v1"})", "$.k1]"), "Invalid JSON path");
+      jsonExtractScalar(R"({"k1":"v1"})", "$.k1["), "Invalid JSON path");
   VELOX_ASSERT_THROW(
-      jsonExtractScalar(R"({"k1":"v1)", "$.k1]"), "Invalid JSON path");
+      jsonExtractScalar(R"({"k1":"v1)", "$.k1["), "Invalid JSON path");
 }
 
 // simdjson, like Presto java, returns the large number as-is as a string,

@@ -952,8 +952,8 @@ TEST_F(JsonFunctionsTest, invalidPath) {
   VELOX_ASSERT_THROW(jsonSize(R"([0,1,2])", "$-1"), "Invalid JSON path");
   VELOX_ASSERT_THROW(jsonSize(R"({"k1":"v1"})", "$k1"), "Invalid JSON path");
   VELOX_ASSERT_THROW(jsonSize(R"({"k1":"v1"})", "$.k1."), "Invalid JSON path");
-  VELOX_ASSERT_THROW(jsonSize(R"({"k1":"v1"})", "$.k1]"), "Invalid JSON path");
-  VELOX_ASSERT_THROW(jsonSize(R"({"k1":"v1)", "$.k1]"), "Invalid JSON path");
+  VELOX_ASSERT_THROW(jsonSize(R"({"k1":"v1"})", "$.k1["), "Invalid JSON path");
+  VELOX_ASSERT_THROW(jsonSize(R"({"k1":"v1)", "$.k1["), "Invalid JSON path");
 }
 
 TEST_F(JsonFunctionsTest, jsonExtract) {
@@ -1058,6 +1058,12 @@ TEST_F(JsonFunctionsTest, jsonExtract) {
       "[[123, 456]]", jsonExtract(R"({"a": {"b": [123, 456]}})", "$.a..b"));
   EXPECT_EQ("[]", jsonExtract(R"({"a": {"b": [123, 456]}})", "$.a..c"));
   EXPECT_EQ(std::nullopt, jsonExtract(R"({"a": {"b": [123, 456]}})", "$.c..b"));
+
+  // Unicode keys
+  EXPECT_EQ(R"({"á": 1, "â": 2})", jsonExtract(R"({"á": 1, "â": 2})", "$"));
+  EXPECT_EQ("1", jsonExtract(R"({"á": 1, "â": 2})", "$.á"));
+  EXPECT_EQ("1", jsonExtract(R"({"á": 1, "â": 2})", "$.[\"á\"]"));
+  EXPECT_EQ("1", jsonExtract(R"({"á": 1, "â": 2})", "$.[\"\u00E1\"]"));
 
   // TODO The following paths are supported by Presto via Jayway, but do not
   // work in Velox yet. Figure out how to add support for these.
