@@ -13,10 +13,9 @@
  */
 package com.facebook.presto.verifier.source;
 
+import jakarta.inject.Inject;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
-
-import javax.inject.Inject;
 
 import java.sql.DriverManager;
 

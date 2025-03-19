@@ -252,13 +252,13 @@
         </dependency>
 
         <dependency>
-            <groupId>javax.validation</groupId>
-            <artifactId>validation-api</artifactId>
+            <groupId>jakarta.validation</groupId>
+            <artifactId>jakarta.validation-api</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>javax.inject</groupId>
-            <artifactId>javax.inject</artifactId>
+            <groupId>jakarta.inject</groupId>
+            <artifactId>jakarta.inject-api</artifactId>
         </dependency>
 
         <dependency>
@@ -389,7 +389,7 @@
                         <requireUpperBoundDeps>
                             <excludes combine.children="append">
                                 <exclude>com.fasterxml.jackson.core:jackson-core</exclude>
-                                <exclude>javax.annotation:javax.annotation-api</exclude>
+                                <exclude>jakarta.annotation:jakarta.annotation-api</exclude>
                                 <exclude>com.fasterxml.jackson.core:jackson-databind</exclude>
                                 <exclude>com.google.api.grpc:proto-google-common-protos</exclude>
                             </excludes>

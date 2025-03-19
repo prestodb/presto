@@ -14,9 +14,8 @@
 package com.facebook.presto.hive.gcs;
 
 import com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem;
+import jakarta.inject.Inject;
 import org.apache.hadoop.conf.Configuration;
-
-import javax.inject.Inject;
 
 import static com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystemBase.AUTHENTICATION_PREFIX;
 import static com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystemConfiguration.AUTH_SERVICE_ACCOUNT_ENABLE;

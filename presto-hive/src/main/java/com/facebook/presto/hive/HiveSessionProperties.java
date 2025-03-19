@@ -20,9 +20,8 @@ import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import jakarta.inject.Inject;
 import org.apache.parquet.column.ParquetProperties;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;

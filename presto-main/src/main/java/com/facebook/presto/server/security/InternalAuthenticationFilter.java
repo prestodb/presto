@@ -14,9 +14,9 @@
 package com.facebook.presto.server.security;
 
 import com.facebook.presto.server.InternalAuthenticationManager;
+import jakarta.inject.Inject;
 
 import javax.annotation.security.RolesAllowed;
-import javax.inject.Inject;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.container.ContainerRequestFilter;
 import javax.ws.rs.container.ResourceInfo;
