@@ -141,7 +141,7 @@ import static com.facebook.presto.sql.ExpressionFormatter.formatOrderBy;
 import static com.facebook.presto.sql.ExpressionFormatter.formatStringLiteral;
 import static com.facebook.presto.sql.tree.ConstraintSpecification.ConstraintType.UNIQUE;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 
@@ -378,7 +378,7 @@ public final class SqlFormatter
             }
             else {
                 builder.append(' ');
-                process(getOnlyElement(node.getSelectItems()), indent);
+                process(node.getSelectItems().stream().collect(onlyElement()), indent);
             }
 
             builder.append('\n');
