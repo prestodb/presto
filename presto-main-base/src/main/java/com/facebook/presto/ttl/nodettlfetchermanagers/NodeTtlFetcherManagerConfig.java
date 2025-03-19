@@ -14,7 +14,7 @@
 package com.facebook.presto.ttl.nodettlfetchermanagers;
 
 import com.facebook.airlift.configuration.Config;
-import io.airlift.units.Duration;
+import com.facebook.airlift.units.Duration;
 
 public class NodeTtlFetcherManagerConfig
 {

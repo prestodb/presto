@@ -15,6 +15,7 @@ package com.facebook.presto.accumulo;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.spi.PrestoException;
+import jakarta.inject.Inject;
 import org.apache.accumulo.core.client.AccumuloException;
 import org.apache.accumulo.core.client.AccumuloSecurityException;
 import org.apache.accumulo.core.client.Connector;
@@ -24,8 +25,6 @@ import org.apache.accumulo.core.client.TableExistsException;
 import org.apache.accumulo.core.client.TableNotFoundException;
 import org.apache.accumulo.core.iterators.IteratorUtil.IteratorScope;
 import org.apache.hadoop.io.Text;
-
-import javax.inject.Inject;
 
 import java.util.EnumSet;
 import java.util.Map;

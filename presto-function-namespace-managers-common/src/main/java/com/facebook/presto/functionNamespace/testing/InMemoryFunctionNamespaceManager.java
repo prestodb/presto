@@ -28,8 +28,7 @@ import com.facebook.presto.spi.function.ScalarFunctionImplementation;
 import com.facebook.presto.spi.function.SqlFunctionHandle;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
-
-import javax.annotation.concurrent.ThreadSafe;
+import com.google.errorprone.annotations.ThreadSafe;
 
 import java.util.Collection;
 import java.util.List;
@@ -109,7 +108,7 @@ public class InMemoryFunctionNamespaceManager
         checkArgument(
                 !userDefinedTypes.containsKey(name),
                 "Parametric type %s already registered",
-                        name);
+                name);
         userDefinedTypes.put(name, type);
     }
 

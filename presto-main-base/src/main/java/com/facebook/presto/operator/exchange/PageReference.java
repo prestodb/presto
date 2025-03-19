@@ -14,8 +14,7 @@
 package com.facebook.presto.operator.exchange;
 
 import com.facebook.presto.common.Page;
-
-import javax.annotation.concurrent.ThreadSafe;
+import com.google.errorprone.annotations.ThreadSafe;
 
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 

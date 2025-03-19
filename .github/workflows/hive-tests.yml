@@ -34,7 +34,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ 8.0.442, 17.0.13 ]
+        java: [ 17.0.13 ]
     runs-on: ubuntu-latest
     needs: changes
     timeout-minutes: 60
@@ -88,7 +88,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ 8.0.442, 17.0.13 ]
+        java: [ 17.0.13 ]
     runs-on: ubuntu-latest
     needs: changes
     timeout-minutes: 20

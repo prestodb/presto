@@ -30,9 +30,8 @@ import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.verifier.framework.Column;
 import com.facebook.presto.verifier.framework.Column.Category;
 import com.google.common.collect.ImmutableList;
-
-import javax.inject.Inject;
-import javax.inject.Provider;
+import jakarta.inject.Inject;
+import jakarta.inject.Provider;
 
 import java.util.List;
 import java.util.Map;

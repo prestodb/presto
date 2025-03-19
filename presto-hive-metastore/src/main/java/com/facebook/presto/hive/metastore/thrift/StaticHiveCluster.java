@@ -14,9 +14,8 @@
 package com.facebook.presto.hive.metastore.thrift;
 
 import com.google.common.net.HostAndPort;
+import jakarta.inject.Inject;
 import org.apache.thrift.TException;
-
-import javax.inject.Inject;
 
 import java.net.URI;
 import java.util.ArrayList;
