@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>104</version>
+        <version>105</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
@@ -44,7 +44,7 @@
         <air.maven.version>3.3.9</air.maven.version>
 
         <dep.antlr.version>4.7.1</dep.antlr.version>
-        <dep.airlift.version>0.216</dep.airlift.version>
+        <dep.airlift.version>0.218</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.38</dep.slice.version>
         <dep.testing-mysql-server-5.version>0.6</dep.testing-mysql-server-5.version>
@@ -76,19 +76,19 @@
         <dep.docker-java.version>3.4.1</dep.docker-java.version>
         <dep.jayway.version>2.9.0</dep.jayway.version>
         <dep.ratis.version>3.1.3</dep.ratis.version>
-        <dep.errorprone.version>2.36.0</dep.errorprone.version>
+        <dep.errorprone.version>2.37.0</dep.errorprone.version>
         <dep.guava.version>32.1.0-jre</dep.guava.version>
         <dep.jackson.version>2.15.4</dep.jackson.version>
         <dep.j2objc.version>3.0.0</dep.j2objc.version>
         <dep.avro.version>1.11.4</dep.avro.version>
         <dep.commons.compress.version>1.26.2</dep.commons.compress.version>
         <dep.protobuf-java.version>4.29.0</dep.protobuf-java.version>
+        <dep.jetty.version>12.0.18</dep.jetty.version>
         <dep.netty.version>4.1.119.Final</dep.netty.version>
         <dep.snakeyaml.version>2.0</dep.snakeyaml.version>
-        <dep.jetty.version>9.4.56.v20240826</dep.jetty.version>
         <dep.gson.version>2.12.1</dep.gson.version>
         <dep.commons.lang3.version>3.17.0</dep.commons.lang3.version>
-        <dep.guice.version>5.1.0</dep.guice.version>
+        <dep.guice.version>7.0.0</dep.guice.version>
         <dep.arrow.version>17.0.0</dep.arrow.version>
 
         <!--
@@ -415,9 +415,9 @@
             </dependency>
 
             <dependency>
-                <groupId>javax.annotation</groupId>
-                <artifactId>javax.annotation-api</artifactId>
-                <version>1.3.2</version>
+                <groupId>jakarta.ws.rs</groupId>
+                <artifactId>jakarta.ws.rs-api</artifactId>
+                <version>4.0.0</version>
             </dependency>
 
             <dependency>
@@ -1616,9 +1616,9 @@
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift.discovery</groupId>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>discovery-server</artifactId>
-                <version>1.33</version>
+                <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
