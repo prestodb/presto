@@ -26,6 +26,7 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.analyzer.FunctionAndTypeResolver;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
@@ -73,10 +74,11 @@ public class TestRemoveUnsupportedDynamicFilters
     public void setup()
     {
         metadata = getQueryRunner().getMetadata();
+        FunctionAndTypeResolver functionAndTypeResolver = metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver();
         logicalRowExpressions = new LogicalRowExpressions(
                 new RowExpressionDeterminismEvaluator(metadata.getFunctionAndTypeManager()),
-                new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver()),
-                metadata.getFunctionAndTypeManager());
+                new FunctionResolution(functionAndTypeResolver),
+                functionAndTypeResolver);
         builder = new PlanBuilder(getQueryRunner().getDefaultSession(), new PlanNodeIdAllocator(), metadata);
         ConnectorId connectorId = getCurrentConnectorId();
         TableHandle lineitemTableHandle = new TableHandle(

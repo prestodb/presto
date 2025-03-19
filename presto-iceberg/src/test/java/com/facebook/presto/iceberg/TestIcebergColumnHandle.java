@@ -64,7 +64,7 @@ public class TestIcebergColumnHandle
     private void testRoundTrip(IcebergColumnHandle expected)
     {
         ObjectMapperProvider objectMapperProvider = new JsonObjectMapperProvider();
-        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(createTestFunctionAndTypeManager())));
+        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(createTestFunctionAndTypeManager().getFunctionAndTypeResolver())));
         JsonCodec<IcebergColumnHandle> codec = new JsonCodecFactory(objectMapperProvider).jsonCodec(IcebergColumnHandle.class);
         String json = codec.toJson(expected);
         IcebergColumnHandle actual = codec.fromJson(json);

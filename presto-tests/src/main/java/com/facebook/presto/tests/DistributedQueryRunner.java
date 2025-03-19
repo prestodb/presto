@@ -989,8 +989,16 @@ public class DistributedQueryRunner
         for (TestingPrestoServer server : servers) {
             server.getMetadata().getSessionPropertyManager().loadSessionPropertyProvider(
                     sessionPropertyProviderName,
-                    Optional.ofNullable(server.getMetadata().getFunctionAndTypeManager()),
+                    Optional.ofNullable(server.getMetadata().getFunctionAndTypeManager().getFunctionAndTypeResolver()),
                     Optional.ofNullable(server.getPluginNodeManager()));
+        }
+    }
+
+    @Override
+    public void loadTypeManager(String typeManagerName)
+    {
+        for (TestingPrestoServer server : servers) {
+            server.getMetadata().getFunctionAndTypeManager().loadTypeManager(typeManagerName);
         }
     }
 
