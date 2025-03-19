@@ -26,12 +26,11 @@ import com.google.common.io.Files;
 import io.airlift.airline.Command;
 import io.airlift.airline.HelpOption;
 import io.airlift.units.Duration;
+import jakarta.inject.Inject;
 import jline.console.history.FileHistory;
 import jline.console.history.History;
 import jline.console.history.MemoryHistory;
 import org.fusesource.jansi.AnsiConsole;
-
-import javax.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;

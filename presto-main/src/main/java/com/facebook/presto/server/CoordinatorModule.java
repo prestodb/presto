@@ -102,10 +102,10 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.MapBinder;
 import io.airlift.units.Duration;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 
 import javax.annotation.PreDestroy;
-import javax.inject.Inject;
-import javax.inject.Singleton;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;

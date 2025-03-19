@@ -14,8 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.HiveColumnConverter;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 public class HiveColumnConverterProvider
         implements ColumnConverterProvider

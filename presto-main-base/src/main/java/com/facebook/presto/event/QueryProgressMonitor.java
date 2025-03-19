@@ -16,11 +16,11 @@ package com.facebook.presto.event;
 import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.server.BasicQueryInfo;
 import io.airlift.units.Duration;
+import jakarta.inject.Inject;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
-import javax.inject.Inject;
 
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;

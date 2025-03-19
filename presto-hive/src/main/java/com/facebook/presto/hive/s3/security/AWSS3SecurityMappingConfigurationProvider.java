@@ -19,9 +19,8 @@ import com.facebook.presto.hive.aws.security.AWSSecurityMapping;
 import com.facebook.presto.hive.aws.security.AWSSecurityMappings;
 import com.facebook.presto.hive.aws.security.AWSSecurityMappingsSupplier;
 import com.google.common.collect.ImmutableSet;
+import jakarta.inject.Inject;
 import org.apache.hadoop.conf.Configuration;
-
-import javax.inject.Inject;
 
 import java.net.URI;
 import java.util.Set;

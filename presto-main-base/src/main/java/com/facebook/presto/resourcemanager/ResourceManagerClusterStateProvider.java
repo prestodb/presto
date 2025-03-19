@@ -32,9 +32,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import io.airlift.units.Duration;
+import jakarta.inject.Inject;
 
 import javax.annotation.concurrent.GuardedBy;
-import javax.inject.Inject;
 
 import java.net.URI;
 import java.util.Collection;

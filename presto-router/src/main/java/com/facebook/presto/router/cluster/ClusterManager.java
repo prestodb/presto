@@ -28,11 +28,9 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.sun.nio.file.SensitivityWatchEventModifier;
-import io.airlift.units.Duration;
+import jakarta.annotation.PostConstruct;
+import jakarta.inject.Inject;
 import org.weakref.jmx.Managed;
-
-import javax.annotation.PostConstruct;
-import javax.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;
@@ -250,7 +248,7 @@ public class ClusterManager
 
         private final ClusterManager clusterManager;
         private final ScheduledExecutorService queryInfoUpdateExecutor;
-        private final Duration pollingInterval;
+        private final io.airlift.units.Duration pollingInterval;
 
         @Inject
         public ClusterStatusTracker(ClusterManager clusterManager, RemoteStateConfig remoteStateConfig)

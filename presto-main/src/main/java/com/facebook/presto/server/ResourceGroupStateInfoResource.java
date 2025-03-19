@@ -21,9 +21,9 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import io.airlift.units.Duration;
+import jakarta.inject.Inject;
 
 import javax.annotation.security.RolesAllowed;
-import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.DefaultValue;
 import javax.ws.rs.Encoded;

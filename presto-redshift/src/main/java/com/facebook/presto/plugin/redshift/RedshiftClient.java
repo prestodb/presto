@@ -21,9 +21,8 @@ import com.facebook.presto.plugin.jdbc.JdbcIdentity;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import jakarta.inject.Inject;
 import org.postgresql.Driver;
-
-import javax.inject.Inject;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;

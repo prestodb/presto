@@ -16,8 +16,7 @@ package com.facebook.presto.router.cluster;
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import io.airlift.units.Duration;
-
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 

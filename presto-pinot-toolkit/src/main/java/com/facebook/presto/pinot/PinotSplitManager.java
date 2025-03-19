@@ -26,9 +26,8 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.Iterables;
+import jakarta.inject.Inject;
 import org.apache.pinot.spi.config.table.TableType;
-
-import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Collections;

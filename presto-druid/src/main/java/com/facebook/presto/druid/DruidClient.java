@@ -33,9 +33,8 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
+import jakarta.inject.Inject;
 import org.checkerframework.checker.nullness.qual.Nullable;
-
-import javax.inject.Inject;
 
 import java.io.BufferedReader;
 import java.io.IOException;

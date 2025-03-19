@@ -79,8 +79,8 @@
         </dependency>
 
         <dependency>
-            <groupId>javax.annotation</groupId>
-            <artifactId>javax.annotation-api</artifactId>
+            <groupId>jakarta.annotation</groupId>
+            <artifactId>jakarta.annotation-api</artifactId>
         </dependency>
 
         <dependency>
@@ -122,7 +122,7 @@
                 <configuration>
                     <usedDependencies>
                         <!-- Used by generated GrpcUdfInvokeGrpc.java, but not picked up by plugin -->
-                        <dependency>javax.annotation:javax.annotation-api</dependency>
+                        <dependency>jakarta.annotation:jakarta.annotation-api</dependency>
                     </usedDependencies>
                 </configuration>
             </plugin>
