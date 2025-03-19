@@ -21,7 +21,7 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
 
-import java.util.List;
+import java.util.Collection;
 
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
@@ -32,9 +32,9 @@ import static java.util.Objects.requireNonNull;
 public class OutputMatcher
         implements Matcher
 {
-    private final List<String> aliases;
+    private final Collection<String> aliases;
 
-    OutputMatcher(List<String> aliases)
+    OutputMatcher(Collection<String> aliases)
     {
         this.aliases = ImmutableList.copyOf(requireNonNull(aliases, "aliases is null"));
     }
