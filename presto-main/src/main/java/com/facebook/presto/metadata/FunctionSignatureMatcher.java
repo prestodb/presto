@@ -19,6 +19,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
+import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -35,6 +36,7 @@ import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static com.facebook.presto.type.TypeUtils.resolveTypes;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -124,15 +126,29 @@ public final class FunctionSignatureMatcher
     private List<ApplicableFunction> identifyApplicableFunctions(Collection<? extends SqlFunction> candidates, List<TypeSignatureProvider> actualParameters, boolean allowCoercion)
     {
         ImmutableList.Builder<ApplicableFunction> applicableFunctions = ImmutableList.builder();
+        Optional<SemanticException> invalidParameterUsageException = Optional.empty();
         for (SqlFunction function : candidates) {
             Signature declaredSignature = function.getSignature();
-            Optional<Signature> boundSignature = new SignatureBinder(functionAndTypeManager, declaredSignature, allowCoercion)
-                    .bind(actualParameters);
-            if (boundSignature.isPresent()) {
-                applicableFunctions.add(new ApplicableFunction(declaredSignature, boundSignature.get(), function.isCalledOnNullInput()));
+            try {
+                Optional<Signature> boundSignature = new SignatureBinder(functionAndTypeManager, declaredSignature, allowCoercion)
+                        .bind(actualParameters);
+                boundSignature.ifPresent(signature -> applicableFunctions.add(new ApplicableFunction(declaredSignature, signature, function.isCalledOnNullInput())));
+            }
+            catch (SemanticException e) {
+                if (e.getCode().equals(INVALID_PARAMETER_USAGE)) {
+                    invalidParameterUsageException = Optional.of(e);
+                    continue;
+                }
+                throw e;
             }
         }
-        return applicableFunctions.build();
+
+        List<ApplicableFunction> applicableFunctionsList = applicableFunctions.build();
+        // todo: fix this hack
+        if (invalidParameterUsageException.isPresent() && applicableFunctionsList.isEmpty()) {
+            throw invalidParameterUsageException.get();
+        }
+        return applicableFunctionsList;
     }
 
     private List<ApplicableFunction> selectMostSpecificFunctions(List<ApplicableFunction> applicableFunctions, List<TypeSignatureProvider> parameters)
