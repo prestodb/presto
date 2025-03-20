@@ -54,9 +54,11 @@ import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.sun.management.ThreadMXBean;
 import io.airlift.units.Duration;
+import org.apache.http.client.utils.URIBuilder;
 
 import java.lang.management.ManagementFactory;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -74,7 +76,6 @@ import java.util.stream.Collectors;
 
 import static com.facebook.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static com.facebook.airlift.concurrent.MoreFutures.whenAnyComplete;
-import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static com.facebook.presto.SystemSessionProperties.getMaxConcurrentMaterializations;
 import static com.facebook.presto.SystemSessionProperties.getPartialResultsCompletionRatioThreshold;
 import static com.facebook.presto.SystemSessionProperties.getPartialResultsMaxExecutionTimeMultiplier;
@@ -335,7 +336,17 @@ public class SqlQueryScheduler
     private static URI getBufferLocation(RemoteTask remoteTask, OutputBufferId rootBufferId)
     {
         URI location = remoteTask.getTaskStatus().getSelf();
-        return uriBuilderFrom(location).appendPath("results").appendPath(rootBufferId.toString()).build();
+        try {
+            URIBuilder builder = new URIBuilder(location);
+            List<String> segments = builder.getPathSegments();
+            segments.add("results");
+            segments.add(rootBufferId.toString());
+            builder.setPathSegments(segments);
+            return builder.build();
+        }
+        catch (URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /**
