@@ -95,4 +95,89 @@ TEST_F(BingTileTypeTest, coordinateRoundtrip) {
   testBingTileCoordinates(0, 3000, 20);
 }
 
+TEST_F(BingTileTypeTest, bingTileParent) {
+  const auto testBingTileParent = [&](uint32_t x,
+                                      uint32_t y,
+                                      uint8_t zoom,
+                                      uint8_t parentZoom,
+                                      std::optional<std::string> errorMsg) {
+    uint64_t tile = BingTileType::bingTileCoordsToInt(x, y, zoom);
+    int32_t shift = zoom - parentZoom;
+    auto parentResult = BingTileType::bingTileParent(tile, parentZoom);
+    if (errorMsg.has_value()) {
+      ASSERT_TRUE(parentResult.hasError());
+      ASSERT_EQ(errorMsg.value(), parentResult.error());
+    } else {
+      ASSERT_TRUE(parentResult.hasValue());
+      uint64_t parent = parentResult.value();
+      ASSERT_EQ(x >> shift, BingTileType::bingTileX(parent));
+      ASSERT_EQ(y >> shift, BingTileType::bingTileY(parent));
+      ASSERT_EQ(parentZoom, BingTileType::bingTileZoom(parent));
+    }
+  };
+
+  testBingTileParent(0, 0, 0, 0, std::nullopt);
+  testBingTileParent(0, 0, 1, 0, std::nullopt);
+  testBingTileParent(1, 1, 1, 0, std::nullopt);
+  testBingTileParent(0, 127, 8, 6, std::nullopt);
+  testBingTileParent(0, 127, 8, 8, std::nullopt);
+  testBingTileParent((1 << 21) - 1, 1 << 20, 23, 22, std::nullopt);
+  testBingTileParent((1 << 21) - 1, 1 << 20, 23, 8, std::nullopt);
+  testBingTileParent((1 << 21) - 1, 1 << 20, 23, 0, std::nullopt);
+
+  testBingTileParent(0, 0, 0, 1, "Parent zoom 1 must be <= tile zoom 0");
+  testBingTileParent(5, 17, 5, 8, "Parent zoom 8 must be <= tile zoom 5");
+}
+
+TEST_F(BingTileTypeTest, bingTileChildren) {
+  const auto testBingTileChildren = [&](uint32_t x,
+                                        uint32_t y,
+                                        uint8_t zoom,
+                                        uint8_t childZoom,
+                                        std::optional<std::string> errorMsg) {
+    uint64_t tile = BingTileType::bingTileCoordsToInt(x, y, zoom);
+    int32_t shift = childZoom - zoom;
+    auto childrenResult = BingTileType::bingTileChildren(tile, childZoom);
+    if (errorMsg.has_value()) {
+      ASSERT_TRUE(childrenResult.hasError());
+      ASSERT_EQ(errorMsg.value(), childrenResult.error());
+    } else {
+      ASSERT_TRUE(childrenResult.hasValue());
+      std::vector<uint64_t> children = childrenResult.value();
+      uint32_t numChildrenPerOrdinate = 1 << shift;
+      uint32_t numChildren = numChildrenPerOrdinate * numChildrenPerOrdinate;
+      ASSERT_EQ(children.size(), numChildren);
+
+      std::set<uint32_t> deltaXs;
+      std::set<uint32_t> deltaYs;
+      for (uint64_t child : children) {
+        deltaXs.insert(BingTileType::bingTileX(child) - (x << shift));
+        deltaYs.insert(BingTileType::bingTileY(child) - (y << shift));
+        ASSERT_EQ(x, BingTileType::bingTileX(child) >> shift);
+        ASSERT_EQ(y, BingTileType::bingTileY(child) >> shift);
+        ASSERT_EQ(childZoom, BingTileType::bingTileZoom(child));
+      }
+
+      std::set<uint32_t> expectedDeltas;
+      for (uint32_t i = 0; i < numChildrenPerOrdinate; i++) {
+        expectedDeltas.insert(i);
+      }
+      ASSERT_EQ(deltaXs, expectedDeltas);
+      ASSERT_EQ(deltaYs, expectedDeltas);
+    }
+  };
+
+  testBingTileChildren(0, 0, 0, 0, std::nullopt);
+  testBingTileChildren(0, 0, 0, 1, std::nullopt);
+  testBingTileChildren(0, 0, 0, 2, std::nullopt);
+  testBingTileChildren(1, 1, 1, 2, std::nullopt);
+  testBingTileChildren(0, 127, 8, 12, std::nullopt);
+  testBingTileChildren(0, 127, 8, 8, std::nullopt);
+  testBingTileChildren((1 << 21) - 1, 1 << 20, 21, 23, std::nullopt);
+  testBingTileChildren((1 << 18) - 1, 1 << 17, 18, 23, std::nullopt);
+
+  testBingTileChildren(0, 0, 2, 1, "Child zoom 1 must be >= tile zoom 2");
+  testBingTileChildren(0, 0, 23, 24, "Child zoom 24 must be <= max zoom 23");
+}
+
 } // namespace facebook::velox::test

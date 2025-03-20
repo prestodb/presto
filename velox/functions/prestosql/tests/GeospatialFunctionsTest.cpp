@@ -22,7 +22,57 @@
 using namespace facebook::velox;
 using namespace facebook::velox::test;
 
-class GeospatialFunctionsTest : public functions::test::FunctionBaseTest {};
+class GeospatialFunctionsTest : public functions::test::FunctionBaseTest {
+ public:
+  RowVectorPtr makeSingleXYZoomRow(
+      std::optional<uint32_t> x,
+      std::optional<uint32_t> y,
+      std::optional<uint8_t> zoom) {
+    std::vector<std::optional<int32_t>> xVec = {x};
+    auto inputX = makeNullableFlatVector<int32_t>(xVec);
+    std::vector<std::optional<int32_t>> yVec = {y};
+    auto inputY = makeNullableFlatVector<int32_t>(yVec);
+    std::vector<std::optional<int8_t>> zVec = {zoom};
+    auto inputZ = makeNullableFlatVector<int8_t>(zVec);
+    return makeRowVector({inputX, inputY, inputZ});
+  }
+
+  RowVectorPtr makeSingleXYZoomZoomRow(
+      std::optional<uint32_t> x,
+      std::optional<uint32_t> y,
+      std::optional<uint8_t> zoom,
+      std::optional<uint8_t> zoom2) {
+    std::vector<std::optional<int32_t>> xVec = {x};
+    auto inputX = makeNullableFlatVector<int32_t>(xVec);
+    std::vector<std::optional<int32_t>> yVec = {y};
+    auto inputY = makeNullableFlatVector<int32_t>(yVec);
+    std::vector<std::optional<int8_t>> zVec = {zoom};
+    auto inputZ = makeNullableFlatVector<int8_t>(zVec);
+    std::vector<std::optional<int8_t>> z2Vec = {zoom2};
+    auto inputZ2 = makeNullableFlatVector<int8_t>(z2Vec);
+    return makeRowVector({inputX, inputY, inputZ, inputZ2});
+  }
+
+  folly::Expected<std::vector<int64_t>, std::string> makeExpectedChildren(
+      int32_t x,
+      int32_t y,
+      int8_t tileZoom,
+      int8_t childZoom) {
+    uint64_t tileInt = BingTileType::bingTileCoordsToInt(x, y, tileZoom);
+    // Making children is tested in BingTileTypeTest; this test is for whether
+    // we call it correctly.
+    auto childrenRes = BingTileType::bingTileChildren(tileInt, childZoom);
+    if (childrenRes.hasError()) {
+      return folly::makeUnexpected(childrenRes.error());
+    }
+    std::vector<int64_t> children;
+    for (uint64_t child : childrenRes.value()) {
+      children.push_back(static_cast<int64_t>(child));
+    }
+    std::sort(children.begin(), children.end());
+    return children;
+  }
+};
 
 TEST_F(GeospatialFunctionsTest, toBingTileSignatures) {
   auto signatures = getSignatureStrings("bing_tile");
@@ -113,13 +163,7 @@ TEST_F(GeospatialFunctionsTest, bingTileCoordinates) {
   const auto testBingTileCoordinates = [&](std::optional<int32_t> x,
                                            std::optional<int32_t> y,
                                            std::optional<int8_t> zoom) {
-    std::vector<std::optional<int32_t>> xVec = {x};
-    auto inputX = makeNullableFlatVector<int32_t>(xVec);
-    std::vector<std::optional<int32_t>> yVec = {y};
-    auto inputY = makeNullableFlatVector<int32_t>(yVec);
-    std::vector<std::optional<int8_t>> zVec = {zoom};
-    auto inputZ = makeNullableFlatVector<int8_t>(zVec);
-    auto input = makeRowVector({inputX, inputY, inputZ});
+    auto input = makeSingleXYZoomRow(x, y, zoom);
 
     VectorPtr output =
         evaluate("bing_tile_coordinates(bing_tile(c0, c1, c2))", input);
@@ -145,4 +189,184 @@ TEST_F(GeospatialFunctionsTest, bingTileCoordinates) {
   testBingTileCoordinates(std::nullopt, 1, 1);
   testBingTileCoordinates(1, std::nullopt, 1);
   testBingTileCoordinates(1, 1, std::nullopt);
+}
+
+TEST_F(GeospatialFunctionsTest, bingTileParentSignatures) {
+  auto signatures = getSignatureStrings("bing_tile_parent");
+  ASSERT_EQ(2, signatures.size());
+
+  ASSERT_EQ(1, signatures.count("(bingtile) -> bingtile"));
+  ASSERT_EQ(1, signatures.count("(bingtile,tinyint) -> bingtile"));
+}
+
+TEST_F(GeospatialFunctionsTest, bingTileParentNoZoom) {
+  const auto testBingTileParent = [&](std::optional<int32_t> x,
+                                      std::optional<int32_t> y,
+                                      std::optional<int8_t> zoom) {
+    std::optional<int64_t> tile = evaluateOnce<int64_t>(
+        "CAST(bing_tile_parent(bing_tile(c0, c1, c2)) AS BIGINT)", x, y, zoom);
+    if (x.has_value() && y.has_value() && zoom.has_value()) {
+      ASSERT_TRUE(tile.has_value());
+      ASSERT_EQ(
+          BingTileType::bingTileCoordsToInt(
+              static_cast<uint32_t>(*x) >> 1,
+              static_cast<uint32_t>(*y) >> 1,
+              *zoom - 1),
+          *tile);
+    } else {
+      ASSERT_FALSE(tile.has_value());
+    }
+  };
+
+  testBingTileParent(0, 0, 1);
+  testBingTileParent(1, 1, 1);
+  testBingTileParent(0, 127, 8);
+  testBingTileParent((1 << 21) - 1, 1 << 20, 23);
+  testBingTileParent(std::nullopt, 1, 1);
+  testBingTileParent(1, std::nullopt, 1);
+  testBingTileParent(1, 1, std::nullopt);
+
+  VELOX_ASSERT_USER_THROW(
+      testBingTileParent(0, 0, 0),
+      "Cannot call bing_tile_parent on zoom 0 tile");
+}
+
+TEST_F(GeospatialFunctionsTest, bingTileParentZoom) {
+  const auto testBingTileParent = [&](std::optional<int32_t> x,
+                                      std::optional<int32_t> y,
+                                      std::optional<int8_t> zoom,
+                                      std::optional<int8_t> parentZoom) {
+    std::optional<int64_t> tile = evaluateOnce<int64_t>(
+        "CAST(bing_tile_parent(bing_tile(c0, c1, c2), c3) AS BIGINT)",
+        x,
+        y,
+        zoom,
+        parentZoom);
+    if (x.has_value() && y.has_value() && zoom.has_value() &&
+        parentZoom.has_value()) {
+      ASSERT_TRUE(tile.has_value());
+      int32_t shift = *zoom - *parentZoom;
+      ASSERT_EQ(
+          BingTileType::bingTileCoordsToInt(
+              static_cast<uint32_t>(*x) >> shift,
+              static_cast<uint32_t>(*y) >> shift,
+              *parentZoom),
+          *tile);
+    } else {
+      ASSERT_FALSE(tile.has_value());
+    }
+  };
+
+  testBingTileParent(0, 0, 0, 0);
+  testBingTileParent(0, 0, 1, 0);
+  testBingTileParent(1, 1, 1, 0);
+  testBingTileParent(0, 127, 8, 6);
+  testBingTileParent(0, 127, 8, 8);
+  testBingTileParent((1 << 21) - 1, 1 << 20, 23, 22);
+  testBingTileParent((1 << 21) - 1, 1 << 20, 23, 8);
+  testBingTileParent((1 << 21) - 1, 1 << 20, 23, 0);
+  testBingTileParent(std::nullopt, 1, 1, 0);
+  testBingTileParent(1, std::nullopt, 1, 0);
+  testBingTileParent(1, 1, std::nullopt, 0);
+  testBingTileParent(1, 1, 1, std::nullopt);
+
+  VELOX_ASSERT_USER_THROW(
+      testBingTileParent(0, 0, 2, -1),
+      "Cannot call bing_tile_parent with negative zoom");
+  VELOX_ASSERT_USER_THROW(
+      testBingTileParent(0, 0, 0, 1), "Parent zoom 1 must be <= tile zoom 0");
+  VELOX_ASSERT_USER_THROW(
+      testBingTileParent(5, 17, 5, 8), "Parent zoom 8 must be <= tile zoom 5");
+}
+
+TEST_F(GeospatialFunctionsTest, bingTileChildrenSignatures) {
+  auto signatures = getSignatureStrings("bing_tile_children");
+  ASSERT_EQ(2, signatures.size());
+
+  ASSERT_EQ(1, signatures.count("(bingtile) -> array(bingtile)"));
+  ASSERT_EQ(1, signatures.count("(bingtile,tinyint) -> array(bingtile)"));
+}
+
+TEST_F(GeospatialFunctionsTest, bingTileChildren) {
+  const auto testBingTileChildren = [&](std::optional<int32_t> x,
+                                        std::optional<int32_t> y,
+                                        std::optional<int8_t> zoom) {
+    RowVectorPtr input = makeSingleXYZoomRow(x, y, zoom);
+
+    VectorPtr output = evaluate(
+        "ARRAY_SORT(TRANSFORM(bing_tile_children(bing_tile(c0, c1, c2)) , x -> CAST(x AS BIGINT)))",
+        input);
+
+    if (x.has_value() && y.has_value() && zoom.has_value()) {
+      ASSERT_EQ(output->getNullCount().value_or(0), 0);
+      auto expectedRes =
+          makeExpectedChildren(*x, *y, *zoom, static_cast<int8_t>(*zoom + 1));
+      ASSERT_TRUE(expectedRes.hasValue());
+      std::vector<int64_t> expected = expectedRes.value();
+
+      VectorPtr elements = output->asChecked<ArrayVector>()->elements();
+      ASSERT_EQ(output->getNullCount().value_or(0), 0);
+      FlatVectorPtr<int64_t> expectedVector = makeFlatVector<int64_t>(expected);
+      test::assertEqualVectors(elements, expectedVector);
+    } else {
+      // Null inputs mean null output
+      ASSERT_TRUE(output->isNullAt(0));
+    }
+  };
+
+  testBingTileChildren(0, 0, 0);
+  testBingTileChildren(0, 1, 1);
+  testBingTileChildren(7, 127, 8);
+  testBingTileChildren((1 << 22) - 1, 1 << 20, 22);
+  testBingTileChildren(std::nullopt, 1, 1);
+  testBingTileChildren(1, std::nullopt, 1);
+  testBingTileChildren(1, 1, std::nullopt);
+
+  VELOX_ASSERT_USER_THROW(
+      testBingTileChildren(0, 0, 23),
+      "Cannot call bing_tile_children on zoom 23 tile");
+}
+
+TEST_F(GeospatialFunctionsTest, bingTileChildrenZoom) {
+  const auto testBingTileChildren = [&](std::optional<int32_t> x,
+                                        std::optional<int32_t> y,
+                                        std::optional<int8_t> zoom,
+                                        std::optional<int8_t> childZoom) {
+    RowVectorPtr input = makeSingleXYZoomZoomRow(x, y, zoom, childZoom);
+
+    VectorPtr output = evaluate(
+        "ARRAY_SORT(TRANSFORM(bing_tile_children(bing_tile(c0, c1, c2), c3) , x -> CAST(x AS BIGINT)))",
+        input);
+
+    if (x.has_value() && y.has_value() && zoom.has_value() &&
+        childZoom.has_value()) {
+      auto expectedRes = makeExpectedChildren(*x, *y, *zoom, *childZoom);
+      ASSERT_TRUE(expectedRes.hasValue());
+      std::vector<int64_t> expected = expectedRes.value();
+
+      VectorPtr elements = output->asChecked<ArrayVector>()->elements();
+      ASSERT_EQ(output->getNullCount().value_or(0), 0);
+      FlatVectorPtr<int64_t> expectedVector = makeFlatVector<int64_t>(expected);
+      test::assertEqualVectors(elements, expectedVector);
+    } else {
+      // Null inputs mean null output
+      ASSERT_TRUE(output->isNullAt(0));
+    }
+  };
+
+  testBingTileChildren(0, 0, 0, 0);
+  testBingTileChildren(0, 0, 0, 1);
+  testBingTileChildren(0, 0, 0, 2);
+  testBingTileChildren(7, 127, 8, 12);
+  testBingTileChildren((1 << 18) - 1, 1 << 10, 18, 22);
+  testBingTileChildren(std::nullopt, 1, 1, 2);
+  testBingTileChildren(1, std::nullopt, 1, 2);
+  testBingTileChildren(1, 1, std::nullopt, 2);
+  testBingTileChildren(1, 1, 1, std::nullopt);
+
+  VELOX_ASSERT_USER_THROW(
+      testBingTileChildren(0, 0, 1, -1),
+      "Cannot call bing_tile_children with negative zoom");
+  VELOX_ASSERT_USER_THROW(
+      testBingTileChildren(0, 0, 2, 1), "Child zoom 1 must be >= tile zoom 2");
 }

@@ -37,6 +37,16 @@ void registerBingTileFunctions(const std::string& prefix) {
       BingTileCoordinatesFunction,
       Row<int32_t, int32_t>,
       BingTile>({prefix + "bing_tile_coordinates"});
+
+  // Parent/child tiles
+  registerFunction<BingTileParentFunction, BingTile, BingTile>(
+      {prefix + "bing_tile_parent"});
+  registerFunction<BingTileParentFunction, BingTile, BingTile, int8_t>(
+      {prefix + "bing_tile_parent"});
+  registerFunction<BingTileChildrenFunction, Array<BingTile>, BingTile>(
+      {prefix + "bing_tile_children"});
+  registerFunction<BingTileChildrenFunction, Array<BingTile>, BingTile, int8_t>(
+      {prefix + "bing_tile_children"});
 }
 
 } // namespace

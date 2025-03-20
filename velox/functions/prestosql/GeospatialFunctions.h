@@ -91,4 +91,84 @@ struct BingTileCoordinatesFunction {
   }
 };
 
+template <typename T>
+struct BingTileParentFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE Status
+  call(out_type<BingTile>& result, const arg_type<BingTile>& tile) {
+    uint64_t tileInt = tile;
+    uint8_t tileZoom = BingTileType::bingTileZoom(tile);
+    if (FOLLY_UNLIKELY(tileZoom == 0)) {
+      return Status::UserError(
+          fmt::format("Cannot call bing_tile_parent on zoom 0 tile"));
+    }
+    auto parent = BingTileType::bingTileParent(tileInt, tileZoom - 1);
+    if (FOLLY_UNLIKELY(parent.hasError())) {
+      return Status::UserError(parent.error());
+    }
+    result = parent.value();
+    return Status::OK();
+  }
+
+  FOLLY_ALWAYS_INLINE Status call(
+      out_type<BingTile>& result,
+      const arg_type<BingTile>& tile,
+      const arg_type<int8_t>& parentZoom) {
+    uint64_t tileInt = tile;
+    if (FOLLY_UNLIKELY(parentZoom < 0)) {
+      return Status::UserError(
+          fmt::format("Cannot call bing_tile_parent with negative zoom"));
+    }
+    auto parent = BingTileType::bingTileParent(tileInt, parentZoom);
+    if (FOLLY_UNLIKELY(parent.hasError())) {
+      return Status::UserError(parent.error());
+    }
+    result = parent.value();
+    return Status::OK();
+  }
+};
+
+template <typename T>
+struct BingTileChildrenFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE Status
+  call(out_type<Array<BingTile>>& result, const arg_type<BingTile>& tile) {
+    uint64_t tileInt = tile;
+    uint8_t tileZoom = BingTileType::bingTileZoom(tile);
+    if (FOLLY_UNLIKELY(tileZoom >= BingTileType::kBingTileMaxZoomLevel)) {
+      return Status::UserError(
+          fmt::format("Cannot call bing_tile_children on zoom 23 tile"));
+    }
+    auto childrenRes = BingTileType::bingTileChildren(tileInt, tileZoom + 1);
+    if (FOLLY_UNLIKELY(childrenRes.hasError())) {
+      return Status::UserError(childrenRes.error());
+    }
+    std::vector<uint64_t> children = childrenRes.value();
+    result.reserve(children.size());
+    result.add_items(children);
+    return Status::OK();
+  }
+
+  FOLLY_ALWAYS_INLINE Status call(
+      out_type<Array<BingTile>>& result,
+      const arg_type<BingTile>& tile,
+      const arg_type<int8_t>& childZoom) {
+    uint64_t tileInt = tile;
+    if (FOLLY_UNLIKELY(childZoom < 0)) {
+      return Status::UserError(
+          fmt::format("Cannot call bing_tile_children with negative zoom"));
+    }
+    auto childrenRes = BingTileType::bingTileChildren(tileInt, childZoom);
+    if (FOLLY_UNLIKELY(childrenRes.hasError())) {
+      return Status::UserError(childrenRes.error());
+    }
+    std::vector<uint64_t> children = childrenRes.value();
+    result.reserve(children.size());
+    result.add_items(children);
+    return Status::OK();
+  }
+};
+
 } // namespace facebook::velox::functions

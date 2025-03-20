@@ -58,4 +58,57 @@ std::optional<std::string> BingTileType::bingTileInvalidReason(uint64_t tile) {
   return std::nullopt;
 }
 
+folly::Expected<uint64_t, std::string> BingTileType::bingTileParent(
+    uint64_t tile,
+    uint8_t parentZoom) {
+  uint8_t tileZoom = bingTileZoom(tile);
+  if (FOLLY_UNLIKELY(tileZoom == parentZoom)) {
+    return tile;
+  }
+  uint32_t x = bingTileX(tile);
+  uint32_t y = bingTileY(tile);
+
+  if (FOLLY_UNLIKELY(tileZoom < parentZoom)) {
+    return folly::makeUnexpected(fmt::format(
+        "Parent zoom {} must be <= tile zoom {}", parentZoom, tileZoom));
+  }
+  uint8_t shift = tileZoom - parentZoom;
+  return bingTileCoordsToInt((x >> shift), (y >> shift), parentZoom);
+}
+
+folly::Expected<std::vector<uint64_t>, std::string>
+BingTileType::bingTileChildren(uint64_t tile, uint8_t childZoom) {
+  uint8_t tileZoom = bingTileZoom(tile);
+  if (FOLLY_UNLIKELY(tileZoom == childZoom)) {
+    return std::vector<uint64_t>{tile};
+  }
+  uint32_t x = bingTileX(tile);
+  uint32_t y = bingTileY(tile);
+
+  if (FOLLY_UNLIKELY(childZoom < tileZoom)) {
+    return folly::makeUnexpected(fmt::format(
+        "Child zoom {} must be >= tile zoom {}", childZoom, tileZoom));
+  }
+  if (FOLLY_UNLIKELY(childZoom > kBingTileMaxZoomLevel)) {
+    return folly::makeUnexpected(fmt::format(
+        "Child zoom {} must be <= max zoom {}",
+        childZoom,
+        kBingTileMaxZoomLevel));
+  }
+
+  uint8_t shift = childZoom - tileZoom;
+  uint32_t xBase = (x << shift);
+  uint32_t yBase = (y << shift);
+  uint32_t numChildrenPerOrdinate = 1 << shift;
+  std::vector<uint64_t> children;
+  children.reserve(numChildrenPerOrdinate * numChildrenPerOrdinate);
+  for (uint32_t deltaX = 0; deltaX < numChildrenPerOrdinate; ++deltaX) {
+    for (uint32_t deltaY = 0; deltaY < numChildrenPerOrdinate; ++deltaY) {
+      children.push_back(
+          bingTileCoordsToInt(xBase + deltaX, yBase + deltaY, childZoom));
+    }
+  }
+  return children;
+}
+
 } // namespace facebook::velox

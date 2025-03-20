@@ -32,8 +32,31 @@ for more details.
 
 .. function:: bing_tile_coordinates(tile: BingTile) -> coords: row(integer,integer)
 
-   Returns the `x`, `y` coordinates of a given Bing tile as `row(x, y)`.
+    Returns the `x`, `y` coordinates of a given Bing tile as `row(x, y)`.
 
 .. function:: bing_tile_zoom_level(tile: BingTile) -> zoom_level: tinyint
 
-   Returns the zoom level of a given Bing tile.
+    Returns the zoom level of a given Bing tile.
+
+.. function:: bing_tile_parent(tile) -> parent: BingTile
+
+    Returns the parent of the Bing tile at one lower zoom level. Throws an
+    exception if tile is at zoom level 0.
+
+.. function:: bing_tile_parent(tile, parentZoom) -> parent: BingTile
+
+    Returns the parent of the Bing tile at the specified lower zoom level.
+    Throws an exception if parentZoom is less than 0, or parentZoom is greater
+    than the tile’s zoom.
+
+.. function:: bing_tile_children(tile) -> children: array(BingTile)
+
+    Returns the children of the Bing tile at one higher zoom level. Throws an
+    exception if tile is at max zoom level.
+
+.. function:: bing_tile_children(tile, childZoom) -> children: array(BingTile)
+
+    Returns the children of the Bing tile at the specified higher zoom level.
+    Throws an exception if childZoom is greater than the max zoom level, or
+    childZoom is less than the tile’s zoom.  The order is deterministic but not
+    specified.
