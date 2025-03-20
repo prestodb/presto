@@ -93,8 +93,7 @@ public class TestExchangeOperator
                 new Duration(1, TimeUnit.MINUTES),
                 true,
                 0.2,
-                httpClient,
-                new TestingDriftClient<>(),
+                new HttpShuffleClientProvider(httpClient),
                 scheduler,
                 systemMemoryUsageListener,
                 pageBufferClientCallbackExecutor);
