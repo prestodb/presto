@@ -200,7 +200,7 @@ void RowVector::copy(
   DecodedVector decodedSource(*source);
   if (decodedSource.isIdentityMapping()) {
     if (source->mayHaveNulls()) {
-      auto rawNulls = source->rawNulls();
+      auto* rawNulls = source->loadedVector()->rawNulls();
       rows.applyToSelected([&](auto row) {
         auto idx = toSourceRow ? toSourceRow[row] : row;
         VELOX_DCHECK_GT(source->size(), idx);

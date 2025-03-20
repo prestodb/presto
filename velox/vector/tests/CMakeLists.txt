@@ -17,6 +17,7 @@ add_executable(
   velox_vector_test
   CopyPreserveEncodingsTest.cpp
   DecodedVectorTest.cpp
+  EncodedVectorCopyTest.cpp
   EncodingTest.cpp
   EnsureWritableVectorTest.cpp
   IsWritableVectorTest.cpp
@@ -43,11 +44,13 @@ target_link_libraries(
   velox_vector_test_lib
   velox_buffer
   velox_vector
+  velox_vector_fuzzer
   velox_serialization
   velox_memory
   velox_presto_serializer
   velox_presto_types
   velox_temp_path
+  velox_test_util
   velox_type_test_lib
   velox_vector_fuzzer
   Boost::atomic

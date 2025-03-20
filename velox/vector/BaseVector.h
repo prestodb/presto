@@ -1079,6 +1079,16 @@ std::string printIndices(
     const BufferPtr& indices,
     vector_size_t maxIndicesToPrint = 10);
 
+template <typename OutputStream>
+OutputStream& operator<<(
+    OutputStream& out,
+    const BaseVector::CopyRange& range) {
+  out << "{sourceIndex=" << range.sourceIndex
+      << " targetIndex=" << range.targetIndex << " count=" << range.count
+      << "}";
+  return out;
+}
+
 } // namespace facebook::velox
 
 namespace folly {
