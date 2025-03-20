@@ -240,7 +240,7 @@ Property Name                                                         Descriptio
 
 ``hive.metastore.thrift.client.tls.truststore.path``     Path to the PEM or JKS trust store.                             NONE
 
-``hive.metastore.thrift.client.tls.truststore.password`` Password for the trust store                                    NONE
+``hive.metastore.thrift.client.tls.truststore.password`` Password for the trust store.                                   NONE
 
 ======================================================== ============================================================= ============
 
