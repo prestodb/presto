@@ -14,7 +14,6 @@
 project(Arrow)
 
 if(VELOX_ENABLE_ARROW)
-  find_package(Thrift)
   if(Thrift_FOUND)
     set(THRIFT_SOURCE "SYSTEM")
   else()
