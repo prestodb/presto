@@ -559,8 +559,7 @@ public class TestExchangeClient
                 new Duration(1, MINUTES),
                 true,
                 0.2,
-                new TestingHttpClient(processor, testingHttpClientExecutor),
-                new TestingDriftClient<>(),
+                new HttpShuffleClientProvider(new TestingHttpClient(processor, testingHttpClientExecutor)),
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor);

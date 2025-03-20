@@ -13,14 +13,10 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.airlift.http.client.HttpClient;
-import com.facebook.drift.client.DriftClient;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.PageBufferClient.ClientCallback;
 import com.facebook.presto.operator.WorkProcessor.ProcessState;
-import com.facebook.presto.server.thrift.ThriftTaskClient;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.page.PageCodecMarker;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.google.common.collect.ImmutableList;
@@ -39,7 +35,6 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -50,7 +45,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.common.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
@@ -86,8 +80,7 @@ public class ExchangeClient
     private final int concurrentRequestMultiplier;
     private final Duration maxErrorDuration;
     private final boolean acknowledgePages;
-    private final HttpClient httpClient;
-    private final DriftClient<ThriftTaskClient> driftClient;
+    private final RpcShuffleClientProvider rpcShuffleClientProvider;
     private final ScheduledExecutorService scheduler;
 
     @GuardedBy("this")
@@ -131,8 +124,7 @@ public class ExchangeClient
             Duration maxErrorDuration,
             boolean acknowledgePages,
             double responseSizeExponentialMovingAverageDecayingAlpha,
-            HttpClient httpClient,
-            DriftClient<ThriftTaskClient> driftClient,
+            RpcShuffleClientProvider rpcShuffleClientProvider,
             ScheduledExecutorService scheduler,
             LocalMemoryContext systemMemoryContext,
             Executor pageBufferClientCallbackExecutor)
@@ -143,8 +135,7 @@ public class ExchangeClient
         this.concurrentRequestMultiplier = concurrentRequestMultiplier;
         this.maxErrorDuration = maxErrorDuration;
         this.acknowledgePages = acknowledgePages;
-        this.httpClient = httpClient;
-        this.driftClient = driftClient;
+        this.rpcShuffleClientProvider = rpcShuffleClientProvider;
         this.scheduler = scheduler;
         this.systemMemoryContext = systemMemoryContext;
         this.maxBufferRetainedSizeInBytes = Long.MIN_VALUE;
@@ -193,21 +184,8 @@ public class ExchangeClient
 
         checkState(!noMoreLocations, "No more locations already set");
 
-        RpcShuffleClient resultClient;
-        switch (location.getScheme().toLowerCase(Locale.ENGLISH)) {
-            case "http":
-            case "https":
-                resultClient = new HttpRpcShuffleClient(httpClient, location);
-                break;
-            case "thrift":
-                resultClient = new ThriftRpcShuffleClient(driftClient, location);
-                break;
-            default:
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, "unsupported task result client scheme " + location.getScheme());
-        }
-
         PageBufferClient client = new PageBufferClient(
-                resultClient,
+                rpcShuffleClientProvider.get(location),
                 maxErrorDuration,
                 acknowledgePages,
                 location,
