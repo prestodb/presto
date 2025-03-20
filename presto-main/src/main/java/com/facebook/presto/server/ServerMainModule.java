@@ -114,12 +114,16 @@ import com.facebook.presto.operator.FileFragmentResultCacheManager;
 import com.facebook.presto.operator.ForExchange;
 import com.facebook.presto.operator.FragmentCacheStats;
 import com.facebook.presto.operator.FragmentResultCacheManager;
+import com.facebook.presto.operator.HttpAndThriftRpcShuffleClientProvider;
+import com.facebook.presto.operator.HttpShuffleClientProvider;
 import com.facebook.presto.operator.LookupJoinOperators;
 import com.facebook.presto.operator.NoOpFragmentResultCacheManager;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PagesIndex;
+import com.facebook.presto.operator.RpcShuffleClientProvider;
 import com.facebook.presto.operator.TableCommitContext;
 import com.facebook.presto.operator.TaskMemoryReservationSummary;
+import com.facebook.presto.operator.ThriftShuffleClientProvider;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.resourcemanager.ClusterMemoryManagerService;
 import com.facebook.presto.resourcemanager.ClusterQueryTrackerService;
@@ -561,6 +565,16 @@ public class ServerMainModule
         thriftCodecBinder(binder).bindThriftCodec(TaskInfo.class);
 
         // exchange client
+        binder.bind(RpcShuffleClientProvider.class)
+                .annotatedWith(ForExchange.class)
+                .to(HttpAndThriftRpcShuffleClientProvider.class);
+        binder.bind(HttpShuffleClientProvider.class)
+                .annotatedWith(ForExchange.class)
+                .to(HttpShuffleClientProvider.class);
+        binder.bind(ThriftShuffleClientProvider.class)
+                .annotatedWith(ForExchange.class)
+                .to(ThriftShuffleClientProvider.class);
+        binder.bind(ExchangeClientSupplier.class).to(ExchangeClientFactory.class).in(Scopes.SINGLETON);
         binder.bind(ExchangeClientSupplier.class).to(ExchangeClientFactory.class).in(Scopes.SINGLETON);
         httpClientBinder(binder).bindHttpClient("exchange", ForExchange.class)
                 .withTracing()
