@@ -17,11 +17,13 @@
 #include "velox/dwio/common/DirectBufferedInput.h"
 #include "velox/common/memory/Allocation.h"
 #include "velox/common/process/TraceContext.h"
+#include "velox/common/testutil/TestValue.h"
 #include "velox/dwio/common/DirectInputStream.h"
 
 DECLARE_int32(cache_prefetch_min_pct);
 
 using ::facebook::velox::common::Region;
+using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::dwio::common {
 
@@ -184,7 +186,7 @@ void DirectBufferedInput::readRegion(
     return;
   }
   auto load = std::make_shared<DirectCoalescedLoad>(
-      input_, ioStats_, groupId_, requests, *pool_, options_.loadQuantum());
+      input_, ioStats_, groupId_, requests, pool_, options_.loadQuantum());
   coalescedLoads_.push_back(load);
   streamToCoalescedLoad_.withWLock([&](auto& loads) {
     for (auto& request : requests) {
@@ -210,9 +212,12 @@ void DirectBufferedInput::readRegions(
     for (auto i = 0; i < coalescedLoads_.size(); ++i) {
       auto& load = coalescedLoads_[i];
       if (load->state() == CoalescedLoad::State::kPlanned) {
-        executor_->add([pendingLoad = load]() {
+        AsyncLoadHolder loadHolder{
+            .load = load, .pool = pool_->shared_from_this()};
+        executor_->add([asyncLoad = std::move(loadHolder)]() {
           process::TraceContext trace("Read Ahead");
-          pendingLoad->loadOrFuture(nullptr);
+          VELOX_CHECK_NOT_NULL(asyncLoad.load);
+          asyncLoad.load->loadOrFuture(nullptr);
         });
       }
     }
@@ -293,7 +298,7 @@ std::vector<cache::CachePin> DirectCoalescedLoad::loadData(bool prefetch) {
       }
       const auto numPages =
           memory::AllocationTraits::numPages(request.loadSize);
-      pool_.allocateNonContiguous(numPages, request.data);
+      pool_->allocateNonContiguous(numPages, request.data);
       appendRanges(request.data, request.loadSize, buffers);
     } else {
       request.loadSize = region.length;
@@ -318,6 +323,8 @@ std::vector<cache::CachePin> DirectCoalescedLoad::loadData(bool prefetch) {
   if (prefetch) {
     ioStats_->prefetch().increment(size + overread);
   }
+  TestValue::adjust(
+      "facebook::velox::cache::DirectCoalescedLoad::loadData", this);
   return {};
 }
 

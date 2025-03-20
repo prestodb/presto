@@ -54,13 +54,14 @@ class DirectCoalescedLoad : public cache::CoalescedLoad {
       std::shared_ptr<IoStatistics> ioStats,
       uint64_t /* groupId */,
       const std::vector<LoadRequest*>& requests,
-      memory::MemoryPool& pool,
+      memory::MemoryPool* pool,
       int32_t loadQuantum)
       : CoalescedLoad({}, {}),
         ioStats_(ioStats),
         input_(std::move(input)),
         loadQuantum_(loadQuantum),
         pool_(pool) {
+    VELOX_DCHECK_NOT_NULL(pool_);
     VELOX_DCHECK(
         std::is_sorted(requests.begin(), requests.end(), [](auto* x, auto* y) {
           return x->region.offset < y->region.offset;
@@ -96,7 +97,7 @@ class DirectCoalescedLoad : public cache::CoalescedLoad {
   const std::shared_ptr<IoStatistics> ioStats_;
   const std::shared_ptr<ReadFileInputStream> input_;
   const int32_t loadQuantum_;
-  memory::MemoryPool& pool_;
+  memory::MemoryPool* const pool_;
   std::vector<LoadRequest> requests_;
 };
 
@@ -232,6 +233,24 @@ class DirectBufferedInput : public BufferedInput {
       const std::vector<LoadRequest*>& requests,
       bool prefetch,
       const std::vector<int32_t>& groupEnds);
+
+  // Holds the reference on the memory pool for async load in case of early task
+  // terminate.
+  struct AsyncLoadHolder {
+    std::shared_ptr<cache::CoalescedLoad> load;
+    std::shared_ptr<memory::MemoryPool> pool;
+
+    ~AsyncLoadHolder() {
+      // Release the load reference before the memory pool reference.
+      // This is to make sure the memory pool is not destroyed before we free up
+      // the allocated buffers.
+      // This is to handle the case that the associated task has already
+      // destroyed before the async load is done. The async load holds
+      // the last reference to the memory pool in that case.
+      load.reset();
+      pool.reset();
+    }
+  };
 
   const uint64_t fileNum_;
   const std::shared_ptr<cache::ScanTracker> tracker_;

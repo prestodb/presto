@@ -23,6 +23,7 @@
 
 #include "velox/common/base/Fs.h"
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/caching/AsyncDataCache.h"
 #include "velox/common/caching/tests/CacheTestUtil.h"
 #include "velox/common/file/tests/FaultyFile.h"
 #include "velox/common/file/tests/FaultyFileSystem.h"
@@ -341,6 +342,66 @@ TEST_F(TableScanTest, directBufferInputRawInputBytes) {
       rawInputBytes + overreadBytes);
   ASSERT_GT(getTableScanRuntimeStats(task)["totalScanTime"].sum, 0);
   ASSERT_GT(getTableScanRuntimeStats(task)["ioWaitWallNanos"].sum, 0);
+}
+
+DEBUG_ONLY_TEST_F(TableScanTest, pendingCoalescedIoWhenTaskFailed) {
+  gflags::FlagSaver gflagSaver;
+  // Always trigger prefetch.
+  FLAGS_cache_prefetch_min_pct = 0;
+  facebook::velox::VectorFuzzer::Options opts;
+  opts.vectorSize = 1024;
+  facebook::velox::VectorFuzzer fuzzer(opts, pool_.get());
+  const auto tableType = ROW({"a", "b"}, {BIGINT(), BIGINT()});
+  const int numBatches{10};
+  std::vector<RowVectorPtr> tableInputs;
+  tableInputs.reserve(numBatches);
+  for (int i = 0; i < numBatches; ++i) {
+    tableInputs.push_back(fuzzer.fuzzInputRow(tableType));
+  }
+  auto filePath = TempFilePath::create();
+  writeToFile(filePath->getPath(), tableInputs);
+
+  auto plan = PlanBuilder(pool_.get())
+                  .startTableScan()
+                  .outputType(tableType)
+                  .endTableScan()
+                  .planNode();
+
+  std::unordered_map<std::string, std::string> config;
+  std::unordered_map<std::string, std::shared_ptr<config::ConfigBase>>
+      connectorConfigs = {};
+  // Create query ctx without cache to read through direct buffer input.
+  auto queryCtx = core::QueryCtx::create(
+      executor_.get(),
+      core::QueryConfig(std::move(config)),
+      connectorConfigs,
+      /*cache=*/nullptr);
+
+  // Inject error right after the coalesce io gets triggered and before the
+  // on-demand load.
+  const std::string errMsg{"injectedError"};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::connector::hive::HiveDataSource::next",
+      std::function<void(connector::hive::HiveDataSource*)>(
+          [&](connector::hive::HiveDataSource* /*unused*/) {
+            VELOX_FAIL(errMsg);
+          }));
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::cache::DirectCoalescedLoad::loadData",
+      std::function<void(cache::CoalescedLoad*)>(
+          [&](cache::CoalescedLoad* /*unused*/) {
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+          }));
+  std::thread queryThread([&]() {
+    VELOX_ASSERT_THROW(
+        AssertQueryBuilder(duckDbQueryRunner_)
+            .plan(plan)
+            .splits(makeHiveConnectorSplits({filePath}))
+            .queryCtx(queryCtx)
+            .copyResults(pool_.get()),
+        errMsg);
+  });
+  queryThread.join();
 }
 
 TEST_F(TableScanTest, connectorStats) {
