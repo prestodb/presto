@@ -56,6 +56,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -347,8 +348,11 @@ public class TestMemoryRevokingScheduler
             scheduler.awaitAsynchronousCallbacksRun();
             assertMemoryRevokingNotRequested();
 
+            CompletableFuture<Void> future = new CompletableFuture<>();
+            scheduler.submitAsynchronousCallable(() -> future.get());
             operatorContext1.localRevocableMemoryContext().setBytes(11);
             operatorContext2.localRevocableMemoryContext().setBytes(12);
+            future.complete(null);
 
             scheduler.awaitAsynchronousCallbacksRun();
             assertMemoryRevokingRequestedFor(operatorContext1, operatorContext2);
