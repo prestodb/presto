@@ -213,9 +213,9 @@ Metastore Configuration Properties
 
 The required Hive metastore can be configured with a number of properties.
 
-======================================================= ============================================================= ============
+======================================================== ============================================================= ============
 Property Name                                                         Description                                       Default
-======================================================= ============================================================= ============
+======================================================== ============================================================= ============
 ``hive.metastore-timeout``                               Timeout for Hive metastore requests.                           ``10s``
 
 ``hive.metastore-cache-ttl``                             Duration how long cached metastore data should be considered   ``0s``
@@ -242,7 +242,7 @@ Property Name                                                         Descriptio
 
 ``hive.metastore.thrift.client.tls.truststore.password`` Password for the trust store                                    NONE
 
-======================================================= ============================================================= ============
+======================================================== ============================================================= ============
 
 AWS Glue Catalog Configuration Properties
 -----------------------------------------
