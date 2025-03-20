@@ -6669,7 +6669,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, exceptionDuringFinishJoinBuild) {
       std::function<void(HashBuild*)>([&](HashBuild* buildOp) {
         try {
           VELOX_FAIL("Simulated failure");
-        } catch (VeloxException& e) {
+        } catch (VeloxException&) {
           buildOp->testingOperatorCtx()->task()->setError(
               std::current_exception());
         }

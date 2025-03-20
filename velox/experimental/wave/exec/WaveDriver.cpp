@@ -370,7 +370,7 @@ RowVectorPtr WaveDriver::getOutput() {
           break;
       }
     }
-  } catch (const std::exception& e) {
+  } catch (const std::exception&) {
     updateStats();
     setError();
     throw;

@@ -536,7 +536,7 @@ void Table::toFile(const std::string& path) {
   auto fileSystem = filesystems::getFileSystem(path, nullptr);
   try {
     fileSystem->remove(path);
-  } catch (const std::exception& e) {
+  } catch (const std::exception&) {
   }
   auto file = fileSystem->openFileForWrite(path);
   std::vector<std::string> footers;

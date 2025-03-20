@@ -70,7 +70,7 @@ struct GetJsonObjectFunction {
       if (!extractStringResult(rawResult, result)) {
         return false;
       }
-    } catch (simdjson::simdjson_error& e) {
+    } catch (simdjson::simdjson_error&) {
       return false;
     }
 

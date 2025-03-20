@@ -134,7 +134,7 @@ class RemoteFunction : public exec::VectorFunction {
         }
         try {
           throw std::runtime_error(errorsVector->valueAt(i));
-        } catch (const std::exception& ex) {
+        } catch (const std::exception&) {
           context.setError(i, std::current_exception());
         }
       });

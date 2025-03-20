@@ -107,7 +107,7 @@ void LocalRunner::abort() {
     try {
       state_ = State::kCancelled;
       VELOX_FAIL("Query cancelled");
-    } catch (const std::exception& e) {
+    } catch (const std::exception&) {
       error_ = std::current_exception();
     }
   }

@@ -3819,7 +3819,7 @@ TEST_F(MockSharedArbitrationTest, noArbitratiognFromAbortedPool) {
   reclaimedOp->allocate(128);
   try {
     VELOX_MEM_POOL_ABORTED("Manual abort pool");
-  } catch (VeloxException& e) {
+  } catch (VeloxException&) {
     reclaimedOp->pool()->abort(std::current_exception());
   }
   ASSERT_TRUE(reclaimedOp->pool()->aborted());
