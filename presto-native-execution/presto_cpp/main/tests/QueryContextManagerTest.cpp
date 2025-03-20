@@ -108,7 +108,10 @@ TEST_F(QueryContextManagerTest, defaultSessionProperties) {
   EXPECT_EQ(queryConfig.maxSpillLevel(), defaultQC->maxSpillLevel());
   EXPECT_EQ(
       queryConfig.spillCompressionKind(), defaultQC->spillCompressionKind());
+  EXPECT_EQ(queryConfig.spillEnabled(), defaultQC->spillEnabled());
+  EXPECT_EQ(queryConfig.aggregationSpillEnabled(), defaultQC->aggregationSpillEnabled());
   EXPECT_EQ(queryConfig.joinSpillEnabled(), defaultQC->joinSpillEnabled());
+  EXPECT_EQ(queryConfig.orderBySpillEnabled(), defaultQC->orderBySpillEnabled());
   EXPECT_EQ(
       queryConfig.validateOutputFromOperators(),
       defaultQC->validateOutputFromOperators());
@@ -116,7 +119,7 @@ TEST_F(QueryContextManagerTest, defaultSessionProperties) {
       queryConfig.spillWriteBufferSize(), defaultQC->spillWriteBufferSize());
 }
 
-TEST_F(QueryContextManagerTest, overrdingSessionProperties) {
+TEST_F(QueryContextManagerTest, overridingSessionProperties) {
   protocol::TaskId taskId = "scan.0.0.1.0";
   const auto& systemConfig = SystemConfig::instance();
   {
@@ -124,18 +127,35 @@ TEST_F(QueryContextManagerTest, overrdingSessionProperties) {
     auto queryCtx =
         taskManager_->getQueryContextManager()->findOrCreateQueryCtx(
             taskId, session);
+    // When session properties are not explicitly set, they should be set to 
+    // system config values.
     EXPECT_EQ(
         queryCtx->queryConfig().queryMaxMemoryPerNode(),
         systemConfig->queryMaxMemoryPerNode());
     EXPECT_EQ(
         queryCtx->queryConfig().spillFileCreateConfig(),
         systemConfig->spillerFileCreateConfig());
+    EXPECT_EQ(
+        queryCtx->queryConfig().spillEnabled(),
+        systemConfig->spillEnabled());
+    EXPECT_EQ(
+        queryCtx->queryConfig().aggregationSpillEnabled(),
+        systemConfig->aggregationSpillEnabled());
+    EXPECT_EQ(
+        queryCtx->queryConfig().joinSpillEnabled(),
+        systemConfig->joinSpillEnabled());
+    EXPECT_EQ(
+        queryCtx->queryConfig().orderBySpillEnabled(),
+        systemConfig->orderBySpillEnabled());
   }
   {
     protocol::SessionRepresentation session{
         .systemProperties = {
             {"query_max_memory_per_node", "1GB"},
-            {"spill_file_create_config", "encoding:replica_2"}}};
+            {"spill_file_create_config", "encoding:replica_2"},
+            {"spill_enabled", "true"},
+            {"aggregation_spill_enabled", "false"},
+            {"join_spill_enabled", "true"}}};
     auto queryCtx =
         taskManager_->getQueryContextManager()->findOrCreateQueryCtx(
             taskId, session);
@@ -144,6 +164,28 @@ TEST_F(QueryContextManagerTest, overrdingSessionProperties) {
         1UL * 1024 * 1024 * 1024);
     EXPECT_EQ(
         queryCtx->queryConfig().spillFileCreateConfig(), "encoding:replica_2");
+    // Override with different value
+    EXPECT_EQ(
+        queryCtx->queryConfig().spillEnabled(), true);
+    EXPECT_NE(
+        queryCtx->queryConfig().spillEnabled(),
+        systemConfig->spillEnabled());
+    // Override with different value
+    EXPECT_EQ(
+        queryCtx->queryConfig().aggregationSpillEnabled(), false);
+    EXPECT_NE(
+        queryCtx->queryConfig().aggregationSpillEnabled(),
+        systemConfig->aggregationSpillEnabled());
+    // Override with same value
+    EXPECT_EQ(
+        queryCtx->queryConfig().joinSpillEnabled(), true);
+    EXPECT_EQ(
+        queryCtx->queryConfig().joinSpillEnabled(),
+        systemConfig->joinSpillEnabled());
+    // No override
+    EXPECT_EQ(
+        queryCtx->queryConfig().orderBySpillEnabled(),
+        systemConfig->orderBySpillEnabled());
   }
 }
 
