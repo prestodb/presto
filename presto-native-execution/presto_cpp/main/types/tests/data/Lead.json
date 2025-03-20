@@ -3,6 +3,7 @@
     {
       "docString": "presto.default.lead",
       "functionKind": "WINDOW",
+      "longVariableConstraints":[],
       "outputType": "t",
       "paramTypes": [
         "t"
@@ -27,6 +28,7 @@
     {
       "docString": "presto.default.lead",
       "functionKind": "WINDOW",
+      "longVariableConstraints":[],
       "outputType": "t",
       "paramTypes": [
         "t",
@@ -52,6 +54,7 @@
     {
       "docString": "presto.default.lead",
       "functionKind": "WINDOW",
+      "longVariableConstraints":[],
       "outputType": "t",
       "paramTypes": [
         "t",
