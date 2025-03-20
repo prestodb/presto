@@ -473,6 +473,9 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
     return bits::roundUp(size, 8 * kMB);
   }
 
+  // Overrides getPreferredSize to allow specializing behavior for this pool.
+  void setPreferredSize(std::function<size_t(size_t)> getPreferredSizeFunc);
+
  protected:
   static constexpr uint64_t kMB = 1 << 20;
 
@@ -530,7 +533,7 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   const bool threadSafe_;
   const bool debugEnabled_;
   const bool coreOnAllocationFailureEnabled_;
-  const std::function<size_t(size_t)> getPreferredSize_;
+  std::function<size_t(size_t)> getPreferredSize_;
 
   /// Indicates if the memory pool has been aborted by the memory arbitrator or
   /// not.

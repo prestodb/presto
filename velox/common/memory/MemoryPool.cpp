@@ -426,6 +426,12 @@ size_t MemoryPool::getPreferredSize(size_t size) {
   return lower * 2;
 }
 
+void MemoryPool::setPreferredSize(
+    std::function<size_t(size_t)> getPreferredSizeFunc) {
+  VELOX_CHECK_NOT_NULL(getPreferredSizeFunc);
+  getPreferredSize_ = getPreferredSizeFunc;
+}
+
 MemoryPoolImpl::MemoryPoolImpl(
     MemoryManager* memoryManager,
     const std::string& name,
