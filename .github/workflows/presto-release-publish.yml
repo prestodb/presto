@@ -298,19 +298,12 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Set dependency image tag
         run: |
           if [[ -n "${{ github.event.inputs.dependency_image }}" ]]; then
             echo "DEPENDENCY_IMAGE=${{ github.event.inputs.dependency_image }}" >> $GITHUB_ENV
           else
-            echo "DEPENDENCY_IMAGE=ghcr.io/${{ github.repository_owner }}/presto-native-dependency:${{ env.RELEASE_TAG }}-${{ env.COMMIT_SHA }}" >> $GITHUB_ENV
+            echo "DEPENDENCY_IMAGE=${{ github.repository_owner }}/presto-native-dependency:${{ env.RELEASE_TAG }}-${{ env.COMMIT_SHA }}" >> $GITHUB_ENV
           fi
 
       - name: Build Dependency Image
@@ -322,8 +315,8 @@ jobs:
           else
             echo "Building new depedency image"
             docker compose build centos-native-dependency
-            docker tag presto/prestissimo-dependency:centos9 ghcr.io/${{ github.repository_owner }}/presto-native-dependency:${{ env.RELEASE_TAG }}-${{ env.COMMIT_SHA }}
-            docker push ghcr.io/${{ github.repository_owner }}/presto-native-dependency:${{ env.RELEASE_TAG }}-${{ env.COMMIT_SHA }}
+            docker tag presto/prestissimo-dependency:centos9 ${{ github.repository_owner }}/presto-native-dependency:${{ env.RELEASE_TAG }}-${{ env.COMMIT_SHA }}
+            docker push ${{ github.repository_owner }}/presto-native-dependency:${{ env.RELEASE_TAG }}-${{ env.COMMIT_SHA }}
           fi
           docker images
 
