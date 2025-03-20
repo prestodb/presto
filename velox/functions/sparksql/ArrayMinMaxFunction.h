@@ -28,44 +28,6 @@ struct ArrayMinMaxFunction {
   // Results refer to strings in the first argument.
   static constexpr int32_t reuse_strings_from_arg = 0;
 
-  template <typename T>
-  void update(T& currentValue, const T& candidateValue) {
-    // NaN is greater than any non-NaN elements for double/float type.
-    if constexpr (std::is_floating_point_v<T>) {
-      if constexpr (isMax) {
-        if (std::isnan(candidateValue) ||
-            (!std::isnan(currentValue) && candidateValue > currentValue)) {
-          currentValue = candidateValue;
-        }
-      } else {
-        if (std::isnan(currentValue) ||
-            (!std::isnan(candidateValue) && candidateValue < currentValue)) {
-          currentValue = candidateValue;
-        }
-      }
-      return;
-    }
-
-    if constexpr (isMax) {
-      if (candidateValue > currentValue) {
-        currentValue = candidateValue;
-      }
-    } else {
-      if (candidateValue < currentValue) {
-        currentValue = candidateValue;
-      }
-    }
-  }
-
-  template <typename T>
-  void assign(T& out, const T& value) {
-    out = value;
-  }
-
-  void assign(out_type<Varchar>& out, const arg_type<Varchar>& value) {
-    out.setNoCopy(value);
-  }
-
   template <typename TReturn, typename TInput>
   bool call(TReturn& out, const TInput& array) {
     // Result is null if array is empty.
@@ -105,6 +67,89 @@ struct ArrayMinMaxFunction {
 
     assign(out, currentValue);
     return true;
+  }
+
+  bool call(
+      out_type<Orderable<T1>>& out,
+      const arg_type<Array<Orderable<T1>>>& array) {
+    // Result is null if array is empty.
+    if (array.size() == 0) {
+      return false;
+    }
+
+    int currentIndex = -1;
+    for (auto i = 0; i < array.size(); i++) {
+      if (array[i].has_value()) {
+        if (currentIndex == -1) {
+          currentIndex = i;
+        } else {
+          auto currentValue = array[currentIndex].value();
+          auto candidateValue = array[i].value();
+          if (compare(currentValue, candidateValue)) {
+            currentIndex = i;
+          }
+        }
+      }
+    }
+    if (currentIndex == -1) {
+      // If array contains only NULL elements, return NULL.
+      return false;
+    }
+    out.copy_from(array[currentIndex].value());
+    return true;
+  }
+
+ private:
+  template <typename T>
+  void update(T& currentValue, const T& candidateValue) {
+    // NaN is greater than any non-NaN elements for double/float type.
+    if constexpr (std::is_floating_point_v<T>) {
+      if constexpr (isMax) {
+        if (std::isnan(candidateValue) ||
+            (!std::isnan(currentValue) && candidateValue > currentValue)) {
+          currentValue = candidateValue;
+        }
+      } else {
+        if (std::isnan(currentValue) ||
+            (!std::isnan(candidateValue) && candidateValue < currentValue)) {
+          currentValue = candidateValue;
+        }
+      }
+      return;
+    }
+
+    if constexpr (isMax) {
+      if (candidateValue > currentValue) {
+        currentValue = candidateValue;
+      }
+    } else {
+      if (candidateValue < currentValue) {
+        currentValue = candidateValue;
+      }
+    }
+  }
+
+  template <typename T>
+  void assign(T& out, const T& value) {
+    out = value;
+  }
+
+  void assign(out_type<Varchar>& out, const arg_type<Varchar>& value) {
+    out.setNoCopy(value);
+  }
+
+  bool compare(
+      exec::GenericView currentValue,
+      exec::GenericView candidateValue) {
+    static constexpr CompareFlags kFlags = {
+        .nullHandlingMode = CompareFlags::NullHandlingMode::kNullAsValue};
+
+    auto compareResult = candidateValue.compare(currentValue, kFlags).value();
+    if constexpr (isMax) {
+      return compareResult > 0;
+    } else {
+      return compareResult < 0;
+    }
   }
 };
 

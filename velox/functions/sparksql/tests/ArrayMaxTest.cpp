@@ -29,9 +29,11 @@ namespace {
 class ArrayMaxTest : public SparkFunctionBaseTest {
  protected:
   template <typename T>
-  std::optional<T> arrayMax(const std::vector<std::optional<T>>& input) {
+  std::optional<T> arrayMax(
+      const std::vector<std::optional<T>>& input,
+      const TypePtr& type = ARRAY(CppToType<T>::create())) {
     auto row = makeRowVector({makeNullableArrayVector(
-        std::vector<std::vector<std::optional<T>>>{input})});
+        std::vector<std::vector<std::optional<T>>>{input}, type)});
     return evaluateOnce<T>("array_max(C0)", row);
   }
 };
@@ -45,6 +47,17 @@ TEST_F(ArrayMaxTest, boolean) {
   EXPECT_EQ(arrayMax<bool>({std::nullopt, true, false, true}), true);
   EXPECT_EQ(arrayMax<bool>({false, false, false}), false);
   EXPECT_EQ(arrayMax<bool>({true, true, true}), true);
+}
+
+TEST_F(ArrayMaxTest, varbinary) {
+  EXPECT_EQ(arrayMax<std::string>({"red", "blue"}, ARRAY(VARBINARY())), "red");
+  EXPECT_EQ(
+      arrayMax<std::string>(
+          {std::nullopt, "blue", "yellow", "orange"}, ARRAY(VARBINARY())),
+      "yellow");
+  EXPECT_EQ(arrayMax<std::string>({}, ARRAY(VARBINARY())), std::nullopt);
+  EXPECT_EQ(
+      arrayMax<std::string>({std::nullopt}, ARRAY(VARBINARY())), std::nullopt);
 }
 
 TEST_F(ArrayMaxTest, varchar) {
@@ -85,6 +98,30 @@ TEST_F(ArrayMaxTest, timestamp) {
       Timestamp::max());
   EXPECT_EQ(arrayMax<Timestamp>({}), std::nullopt);
   EXPECT_EQ(arrayMax<Timestamp>({ts(0), std::nullopt}), ts(0));
+}
+
+TEST_F(ArrayMaxTest, complexTypes) {
+  auto testExpression = [&](const VectorPtr& input, const VectorPtr& expected) {
+    auto result = evaluate("array_max(c0)", makeRowVector({input}));
+    assertEqualVectors(expected, result);
+  };
+  testExpression(
+      makeNestedArrayVectorFromJson<int64_t>(
+          {"[[1, 1, 1], [1, 2, 2], [1, 3, 1]]"}),
+      makeArrayVectorFromJson<int64_t>({"[1, 3, 1]"}));
+
+  testExpression(
+      makeNestedArrayVectorFromJson<double>(
+          {"[[2.0, null], [null, 2.0], [NaN, 1.0]]"}),
+      makeArrayVectorFromJson<double>({"[NaN, 1.0]"}));
+
+  testExpression(
+      makeNestedArrayVectorFromJson<int64_t>({"[[1, null], [null, 2], [1]]"}),
+      makeArrayVectorFromJson<int64_t>({"[1, null]"}));
+
+  testExpression(
+      makeNestedArrayVectorFromJson<int64_t>({"[null, null]"}),
+      makeArrayVectorFromJson<int64_t>({"null"}));
 }
 
 template <typename Type>

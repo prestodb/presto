@@ -103,9 +103,11 @@ inline void registerArrayMinMaxFunctions(const std::string& prefix) {
   registerArrayMinMaxFunctions<float>(prefix);
   registerArrayMinMaxFunctions<double>(prefix);
   registerArrayMinMaxFunctions<bool>(prefix);
+  registerArrayMinMaxFunctions<Varbinary>(prefix);
   registerArrayMinMaxFunctions<Varchar>(prefix);
   registerArrayMinMaxFunctions<Timestamp>(prefix);
   registerArrayMinMaxFunctions<Date>(prefix);
+  registerArrayMinMaxFunctions<Orderable<T1>>(prefix);
 }
 
 template <typename T>
