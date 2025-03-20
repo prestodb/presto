@@ -15,9 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.DefunctConfig;
-import com.facebook.airlift.http.client.HttpClientConfig;
 import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDataSize;
 import io.airlift.units.MinDuration;
@@ -27,15 +25,18 @@ import javax.validation.constraints.NotNull;
 
 import java.util.concurrent.TimeUnit;
 
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.airlift.units.DataSize.succinctDataSize;
+
 @DefunctConfig("exchange.async-page-transport-enabled")
 public class ExchangeClientConfig
 {
-    private DataSize maxBufferSize = new DataSize(32, Unit.MEGABYTE);
+    private DataSize maxBufferSize = new DataSize(32, MEGABYTE);
     private int concurrentRequestMultiplier = 3;
     private Duration minErrorDuration = new Duration(1, TimeUnit.MINUTES);
     private Duration maxErrorDuration = new Duration(5, TimeUnit.MINUTES);
     private Duration asyncPageTransportTimeout = new Duration(60, TimeUnit.SECONDS);
-    private DataSize maxResponseSize = new HttpClientConfig().getMaxContentLength();
+    private DataSize maxResponseSize = succinctDataSize(16, MEGABYTE);
     private int clientThreads = 25;
     private int pageBufferClientMaxCallbackThreads = 25;
     private boolean acknowledgePages = true;

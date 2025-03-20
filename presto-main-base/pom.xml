@@ -123,16 +123,6 @@
 
         <dependency>
             <groupId>com.facebook.airlift</groupId>
-            <artifactId>discovery</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.airlift</groupId>
-            <artifactId>event</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.airlift</groupId>
             <artifactId>log</artifactId>
         </dependency>
 
@@ -277,11 +267,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
-            <artifactId>http-client</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
             <scope>provided</scope>
@@ -317,10 +302,6 @@
             <artifactId>jts-core</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>io.jsonwebtoken</groupId>
-            <artifactId>jjwt-api</artifactId>
-        </dependency>
 
         <dependency>
             <groupId>org.apache.datasketches</groupId>
@@ -340,6 +321,18 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-function-namespace-managers-common</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpclient</artifactId>
+            <exclusions>
+                <exclusion>
+                    <!-- conflict with classes from airlift:log-manager -->
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <!-- for testing -->
@@ -416,18 +409,6 @@
             <groupId>io.airlift.tpch</groupId>
             <artifactId>tpch</artifactId>
             <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.airlift</groupId>
-            <artifactId>jaxrs-testing</artifactId>
-            <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.glassfish.hk2.external</groupId>
-                    <artifactId>javax.inject</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>

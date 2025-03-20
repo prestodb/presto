@@ -82,6 +82,11 @@
         </dependency>
 
         <dependency>
+            <groupId>com.facebook.drift</groupId>
+            <artifactId>drift-transport-spi</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
         </dependency>
@@ -195,6 +200,10 @@
         <dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>stats</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-memory-context</artifactId>
         </dependency>
         <dependency>
             <groupId>javax.inject</groupId>

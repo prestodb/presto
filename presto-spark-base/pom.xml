@@ -280,18 +280,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
-            <artifactId>jaxrs-testing</artifactId>
-            <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.glassfish.hk2.external</groupId>
-                    <artifactId>javax.inject</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main-base</artifactId>
             <type>test-jar</type>

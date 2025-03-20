@@ -14,7 +14,6 @@
 package com.facebook.presto.failureDetector;
 
 import com.facebook.airlift.concurrent.ThreadPoolExecutorMBean;
-import com.facebook.airlift.discovery.client.ServiceDescriptor;
 import com.facebook.airlift.discovery.client.ServiceSelector;
 import com.facebook.airlift.discovery.client.ServiceType;
 import com.facebook.airlift.http.client.HttpClient;
@@ -227,12 +226,12 @@ public class HeartbeatFailureDetector
     @VisibleForTesting
     void updateMonitoredServices()
     {
-        Set<ServiceDescriptor> online = selector.selectAllServices().stream()
+        Set<com.facebook.airlift.discovery.client.ServiceDescriptor> online = selector.selectAllServices().stream()
                 .filter(descriptor -> !nodeInfo.getNodeId().equals(descriptor.getNodeId()))
                 .collect(toImmutableSet());
 
         Set<UUID> onlineIds = online.stream()
-                .map(ServiceDescriptor::getId)
+                .map(com.facebook.airlift.discovery.client.ServiceDescriptor::getId)
                 .collect(toImmutableSet());
 
         // make sure only one thread is updating the registrations
@@ -252,16 +251,17 @@ public class HeartbeatFailureDetector
                     .forEach(MonitoringTask::disable);
 
             // 3. create tasks for new services
-            Set<ServiceDescriptor> newServices = online.stream()
+            Set<com.facebook.airlift.discovery.client.ServiceDescriptor> newServices = online.stream()
                     .filter(service -> !tasks.keySet().contains(service.getId()))
                     .collect(toImmutableSet());
 
-            for (ServiceDescriptor service : newServices) {
-                URI uri = getHttpUri(service);
+            for (com.facebook.airlift.discovery.client.ServiceDescriptor service : newServices) {
+                ServiceDescriptor descriptor = convertDiscoveryDescriptor(service);
+                URI uri = getHttpUri(descriptor);
 
                 if (uri != null) {
                     URI pingURI = uriBuilderFrom(uri).appendPath("/v1/status").build();
-                    tasks.put(service.getId(), new MonitoringTask(service, pingURI));
+                    tasks.put(service.getId(), new MonitoringTask(descriptor, pingURI));
                 }
             }
 
@@ -269,6 +269,33 @@ public class HeartbeatFailureDetector
             tasks.values().stream()
                     .filter(task -> onlineIds.contains(task.getService().getId()))
                     .forEach(MonitoringTask::enable);
+        }
+    }
+
+    public static ServiceDescriptor convertDiscoveryDescriptor(com.facebook.airlift.discovery.client.ServiceDescriptor descriptor)
+    {
+        return new ServiceDescriptor(
+                descriptor.getId(),
+                descriptor.getNodeId(),
+                descriptor.getType(),
+                descriptor.getPool(),
+                descriptor.getLocation(),
+                convertDiscoveryServiceState(descriptor.getState()),
+                descriptor.getProperties());
+    }
+
+    public static ServiceState convertDiscoveryServiceState(com.facebook.airlift.discovery.client.ServiceState serviceState)
+    {
+        if (serviceState == null) {
+            return null;
+        }
+        switch (serviceState) {
+            case STOPPED:
+                return ServiceState.STOPPED;
+            case RUNNING:
+                return ServiceState.RUNNING;
+            default:
+                throw new UnsupportedOperationException();
         }
     }
 
