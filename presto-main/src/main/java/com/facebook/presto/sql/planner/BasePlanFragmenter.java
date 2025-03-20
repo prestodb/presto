@@ -270,6 +270,24 @@ public abstract class BasePlanFragmenter
         return context.defaultRewrite(node, context.get());
     }
 
+    // Brought over from Trino PlanFragmenter
+    // TODO: Missing the node implementations.
+    @Override
+    public PlanNode visitTableFunction(TableFunctionNode node, RewriteContext<FragmentProperties> context)
+    {
+        throw new IllegalStateException(format("Unexpected node: TableFunctionNode (%s)", node.getName()));
+    }
+
+    @Override
+    public PlanNode visitTableFunctionProcessor(TableFunctionProcessorNode node, RewriteContext<FragmentProperties> context)
+    {
+        if (node.getSource().isEmpty()) {
+            // context is mutable. The leaf node should set the PartitioningHandle.
+            context.get().addSourceDistribution(node.getId(), SOURCE_DISTRIBUTION, metadata, session);
+        }
+        return context.defaultRewrite(node, context.get());
+    }
+
     @Override
     public PlanNode visitExchange(ExchangeNode exchange, RewriteContext<FragmentProperties> context)
     {
