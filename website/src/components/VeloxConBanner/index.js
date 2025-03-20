@@ -11,10 +11,10 @@ export default function VeloxConBanner() {
       <div className="container">
         <div className="row">
           <div className="col col--9">
-            <h2>See the VeloxCon 2024 Recordings</h2>
+            <h2>Join us at VeloxCon 2025, April 15-16 at Meta HQ</h2>
           </div>
           <div className="col col--3">
-            <a className="button button--info button--lg" href="https://www.youtube.com/playlist?list=PLJvBe8nQAEsEBSoUY0lRFVZr2_YeHYkUR" target="_blank" rel="noopener noreferrer">Watch</a>
+            <a className="button button--info button--lg" href="https://veloxcon.io/" target="_blank" rel="noopener noreferrer">Free Registration</a>
           </div>
         </div>
       </div>
