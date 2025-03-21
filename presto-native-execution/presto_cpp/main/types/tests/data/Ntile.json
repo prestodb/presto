@@ -3,6 +3,7 @@
     {
       "docString": "presto.default.ntile",
       "functionKind": "WINDOW",
+      "longVariableConstraints":[],
       "outputType": "bigint",
       "paramTypes": [
         "bigint"

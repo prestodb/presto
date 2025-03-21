@@ -1541,6 +1541,7 @@ struct JsonBasedUdfFunctionMetadata {
   std::shared_ptr<SqlFunctionId> functionId = {};
   std::shared_ptr<String> version = {};
   std::shared_ptr<List<TypeVariableConstraint>> typeVariableConstraints = {};
+  std::shared_ptr<List<LongVariableConstraint>> longVariableConstraints = {};
 };
 void to_json(json& j, const JsonBasedUdfFunctionMetadata& p);
 void from_json(const json& j, JsonBasedUdfFunctionMetadata& p);

@@ -88,6 +88,10 @@ TEST_F(FunctionMetadataTest, lead) {
   testFunction("lead", "Lead.json", 3);
 }
 
+TEST_F(FunctionMetadataTest, mod) {
+  testFunction("mod", "Mod.json", 7);
+}
+
 TEST_F(FunctionMetadataTest, ntile) {
   testFunction("ntile", "Ntile.json", 1);
 }
