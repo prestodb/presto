@@ -46,7 +46,7 @@ jobs:
     name: Build wheels on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         os: [8-core-ubuntu, macos-13, macos-14]
     steps:
@@ -86,8 +86,6 @@ jobs:
           echo "build_version=${VERSION}a${COMMITS_SINCE_TAG}" >> $GITHUB_OUTPUT
 
       - name: "Restore ccache"
-        # CCache doesn't hit in cibuildwheel
-        if: startsWith(matrix.os, 'macos')
         uses: apache/infrastructure-actions/stash/restore@3354c1565d4b0e335b78a76aedd82153a9e144d4
         id: restore-cache
         with:
@@ -102,14 +100,22 @@ jobs:
           path: "dependencies"
           key: dependencies-pyvelox-${{ matrix.os }}-${{ hashFiles('scripts/setup-macos.sh') }}
 
+      - name: Install macOS dependencies from brew
+        if: startsWith(matrix.os, 'macos')
+        run: |
+            export INSTALL_PREFIX="$GITHUB_WORKSPACE/dependencies"
+            echo "CMAKE_PREFIX_PATH=$INSTALL_PREFIX" >> $GITHUB_ENV
+            echo "DYLD_LIBRARY_PATH=$INSTALL_PREFIX/lib:$DYLD_LIBRARY_PATH" >> $GITHUB_ENV
+
+            source scripts/setup-macos.sh
+            install_build_prerequisites
+            install_velox_deps_from_brew
+
       - name: Install macOS dependencies
         if: ${{ startsWith(matrix.os, 'macos') && steps.restore-deps.outputs.stash-hit != 'true' }}
         env:
           MACOSX_DEPLOYMENT_TARGET: "13.0"
         run: |
-          export INSTALL_PREFIX="$GITHUB_WORKSPACE/dependencies"
-          echo "CMAKE_PREFIX_PATH=$INSTALL_PREFIX" >> $GITHUB_ENV
-          echo "DYLD_LIBRARY_PATH=$INSTALL_PREFIX/lib:$DYLD_LIBRARY_PATH" >> $GITHUB_ENV
           bash scripts/setup-macos.sh
 
       - name: "Save macOS Dependencies"
@@ -130,26 +136,25 @@ jobs:
       - name: Build wheels
         uses: pypa/cibuildwheel@6cccd09a31908ffd175b012fb8bf4e1dbda3bc6c # v2
         env:
-          MACOSX_DEPLOYMENT_TARGET: ${{ matrix.os == 'macos-14' && '14' || '13' }}
+          BUILD_VERSION: "${{ inputs.version || steps.version.outputs.build_version }}"
           CIBW_ARCHS: "native"
           # Only build for 3.12 for now
           CIBW_BUILD: ${{ github.event_name == 'pull_request' && 'cp312-*' || 'cp312-*' }}
-          CIBW_SKIP: "*musllinux* cp36-*"
+          CIBW_SKIP: "*musllinux* cp36-* cp38-*"
           CIBW_MANYLINUX_X86_64_IMAGE: "ghcr.io/facebookincubator/velox-dev:pyvelox"
           CIBW_ENVIRONMENT_PASS_LINUX:  "BUILD_VERSION"
-          # Don't waste time writing out to cache
-          CIBW_ENVIRONMENT_LINUX: "CCACHE_DISABLE=true"
+          CIBW_BEFORE_ALL: "ccache -sz"
+          CIBW_ENVIRONMENT_LINUX: "CCACHE_DIR=/host${{ github.workspace }}/ccache"
+          CIBW_BEFORE_TEST: "ccache -s"
           CIBW_TEST_EXTRAS: "tests"
-          CIBW_TEST_COMMAND: "cd {project}/pyvelox && python -m unittest -v"
-          CIBW_TEST_SKIP: "*"
+          CIBW_TEST_COMMAND: "echo Adding tests later." #"cd {project}/pyvelox && python -m unittest -v"
+          # for macos
+          MACOSX_DEPLOYMENT_TARGET: ${{ matrix.os == 'macos-14' && '14' || '13' }}
           CCACHE_DIR: "${{ github.workspace }}/ccache" 
-          BUILD_VERSION: "${{ inputs.version || steps.version.outputs.build_version }}"
         with:
           output-dir: wheelhouse
 
       - name: "Save ccache"
-        # CCache doesn't hit in cibuildwheel
-        if: startsWith(matrix.os, 'macos')
         uses: apache/infrastructure-actions/stash/save@3354c1565d4b0e335b78a76aedd82153a9e144d4
         with:
           path: "ccache"
