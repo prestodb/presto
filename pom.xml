@@ -212,6 +212,7 @@
         <module>presto-native-sidecar-plugin</module>
         <module>presto-base-arrow-flight</module>
         <module>presto-function-server</module>
+        <module>presto-router-custom-scheduler</module>
     </modules>
 
     <dependencyManagement>
