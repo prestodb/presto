@@ -25,6 +25,7 @@ import com.facebook.presto.hive.HiveStorageFormat;
 import com.facebook.presto.hive.HiveTableHandle;
 import com.facebook.presto.hive.HiveTableLayoutHandle;
 import com.facebook.presto.hive.HiveTransactionManager;
+import com.facebook.presto.hive.LazyLoadedPartitions;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
@@ -195,7 +196,7 @@ public class HiveFilterPushdown
                                     .setRemainingPredicate(remainingExpressions.getRemainingExpression())
                                     .setPredicateColumns(predicateColumns)
                                     .setPartitionColumnPredicate(hivePartitionResult.getEnforcedConstraint())
-                                    .setPartitions(hivePartitionResult.getPartitions())
+                                    .setPartitions(new LazyLoadedPartitions(hivePartitionResult.getPartitions()))
                                     .setBucketHandle(hivePartitionResult.getBucketHandle())
                                     .setBucketFilter(hivePartitionResult.getBucketFilter())
                                     .setPushdownFilterEnabled(true)
