@@ -88,7 +88,7 @@ class BitwiseAndAggregate : public BitwiseAggregateBase<T> {
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    SimpleNumericAggregate<T, T, T>::template updateOneGroup(
+    SimpleNumericAggregate<T, T, T>::updateOneGroup(
         group,
         rows,
         args[0],
