@@ -2110,12 +2110,11 @@ std::vector<core::TypedExprPtr> PlanBuilder::exprs(
     auto typedExpression = core::Expressions::inferTypes(
         parse::parseExpr(expr, options_), inputType, pool_);
 
-    if (auto field = dynamic_cast<const core::FieldAccessTypedExpr*>(
+    if (dynamic_cast<const core::FieldAccessTypedExpr*>(
             typedExpression.get())) {
       typedExpressions.push_back(typedExpression);
-    } else if (
-        auto constant = dynamic_cast<const core::ConstantTypedExpr*>(
-            typedExpression.get())) {
+    } else if (dynamic_cast<const core::ConstantTypedExpr*>(
+                   typedExpression.get())) {
       typedExpressions.push_back(typedExpression);
     } else {
       VELOX_FAIL("Expected field name or constant: {}", expr);
