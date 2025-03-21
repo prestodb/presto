@@ -218,15 +218,15 @@
     </modules>
 
     <repositories>
-        <repository>
-            <id>central</id>
-            <name>Central Repository</name>
-            <url>https://repo.maven.apache.org/maven2</url>
-            <layout>default</layout>
-            <snapshots>
-                <enabled>false</enabled>
-            </snapshots>
-        </repository>
+<!--        <repository>-->
+<!--            <id>central</id>-->
+<!--            <name>Central Repository</name>-->
+<!--            <url>https://repo.maven.apache.org/maven2</url>-->
+<!--            <layout>default</layout>-->
+<!--            <snapshots>-->
+<!--                <enabled>true</enabled>-->
+<!--            </snapshots>-->
+<!--        </repository>-->
         <repository>
             <id>jitpack.io</id>
             <url>https://jitpack.io</url>
@@ -251,7 +251,7 @@
             <dependency>
                 <groupId>com.github.imjalpreet</groupId>
                 <artifactId>presto-hadoop-apache2</artifactId>
-                <version>3.4.1-1-Java17-2-SNAPSHOT</version>
+                <version>upgrade_3.4.1_15</version>
             </dependency>
 
             <dependency>
