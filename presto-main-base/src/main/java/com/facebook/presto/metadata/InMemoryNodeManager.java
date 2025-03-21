@@ -21,9 +21,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import jakarta.inject.Inject;
-
-import javax.annotation.concurrent.GuardedBy;
 
 import java.net.URI;
 import java.util.ArrayList;

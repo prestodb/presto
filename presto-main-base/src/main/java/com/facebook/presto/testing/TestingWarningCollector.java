@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.testing;
 
+import com.facebook.airlift.concurrent.ThreadSafe;
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.WarningCode;
@@ -21,9 +22,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
-
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;

@@ -13,11 +13,10 @@
  */
 package com.facebook.presto.operator.index;
 
+import com.facebook.airlift.concurrent.ThreadSafe;
 import com.facebook.airlift.stats.CounterStat;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 @ThreadSafe
 public class IndexJoinLookupStats

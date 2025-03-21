@@ -13,16 +13,15 @@
  */
 package com.facebook.presto.execution.executor;
 
+import com.facebook.airlift.concurrent.ThreadSafe;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import jakarta.inject.Inject;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.ArrayList;
 import java.util.Collection;

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.airlift.concurrent.ThreadSafe;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.airlift.stats.Distribution;
 import com.facebook.presto.Session;
@@ -28,8 +29,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.util.concurrent.ListenableFuture;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.Iterator;
 import java.util.List;
