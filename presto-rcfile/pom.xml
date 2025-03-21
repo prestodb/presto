@@ -65,9 +65,14 @@
         </dependency>
 
         <!-- for hadoop compression -->
+<!--        <dependency>-->
+<!--            <groupId>com.facebook.presto.hadoop</groupId>-->
+<!--            <artifactId>hadoop-apache2</artifactId>-->
+<!--            <scope>provided</scope>-->
+<!--        </dependency>-->
         <dependency>
-            <groupId>com.facebook.presto.hadoop</groupId>
-            <artifactId>hadoop-apache2</artifactId>
+            <groupId>com.github.nishithakbhaskaran</groupId>
+            <artifactId>presto-hadoop-apache2</artifactId>
             <scope>provided</scope>
         </dependency>
 

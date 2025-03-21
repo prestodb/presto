@@ -248,6 +248,12 @@
             </dependency>
 
             <dependency>
+                <groupId>com.github.nishithakbhaskaran</groupId>
+                <artifactId>presto-hadoop-apache2</artifactId>
+                <version>upgrade_3.4.1_10</version>
+            </dependency>
+
+            <dependency>
                 <groupId>com.squareup.okio</groupId>
                 <artifactId>okio-jvm</artifactId>
                 <version>3.9.1</version>
@@ -1010,11 +1016,11 @@
                 <version>2.5.2</version>
             </dependency>
 
-            <dependency>
-                <groupId>com.facebook.presto.hadoop</groupId>
-                <artifactId>hadoop-apache2</artifactId>
-                <version>2.7.4-12</version>
-            </dependency>
+<!--            <dependency>-->
+<!--                <groupId>com.facebook.presto.hadoop</groupId>-->
+<!--                <artifactId>hadoop-apache2</artifactId>-->
+<!--                <version>2.7.4-12</version>-->
+<!--            </dependency>-->
 
             <dependency>
                 <groupId>com.github.imjalpreet</groupId>
