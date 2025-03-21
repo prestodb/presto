@@ -244,6 +244,74 @@ TEST_F(ParquetReaderTest, parseLegacyListWithMultipleChildren) {
       "c");
 }
 
+TEST_F(ParquetReaderTest, parseArrayOfRowHiveReservedKeywords) {
+  // array_of_row_hive_reserved_keywords.parquet was created using Hive's
+  // built-in Parquet writer with the following schema:
+  //  message hive_schema {
+  //    optional int32 id;
+  //    optional group items (LIST) {
+  //      repeated group bag {
+  //        optional group array_element {
+  //          optional binary name (STRING);
+  //          optional int32 quantity;
+  //          optional double price;
+  //        }
+  //      }
+  //    }
+  //  }
+  const std::string expectedVeloxType =
+      "ROW<id:INTEGER,items:ARRAY<ROW<name:VARCHAR,quantity:INTEGER,price:DOUBLE>>>";
+  const std::string sample(
+      getExampleFilePath("array_of_row_hive_reserved_keywords.parquet"));
+
+  dwio::common::ReaderOptions readerOpts{leafPool_.get()};
+  auto reader = createReader(sample, readerOpts);
+  EXPECT_EQ(reader->rowType()->toString(), expectedVeloxType);
+  EXPECT_EQ(reader->numberOfRows(), 6ULL);
+
+  auto type = reader->typeWithId();
+  EXPECT_EQ(type->size(), 2ULL);
+
+  auto col0 = type->childAt(0);
+  EXPECT_EQ(col0->type()->kind(), TypeKind::INTEGER);
+  EXPECT_EQ(
+      std::static_pointer_cast<const ParquetTypeWithId>(col0)->name_, "id");
+
+  auto col1 = type->childAt(1);
+  EXPECT_EQ(col1->type()->kind(), TypeKind::ARRAY);
+  EXPECT_EQ(
+      std::static_pointer_cast<const ParquetTypeWithId>(col1)->name_, "items");
+  EXPECT_EQ(col1->size(), 1ULL);
+
+  auto arrayElement = col1->childAt(0);
+  EXPECT_EQ(arrayElement->type()->kind(), TypeKind::ROW);
+  EXPECT_EQ(
+      std::static_pointer_cast<const ParquetTypeWithId>(arrayElement)->name_,
+      "array_element");
+  EXPECT_EQ(arrayElement->size(), 3ULL);
+
+  EXPECT_EQ(arrayElement->childAt(0)->type()->kind(), TypeKind::VARCHAR);
+  EXPECT_EQ(
+      std::static_pointer_cast<const ParquetTypeWithId>(
+          arrayElement->childAt(0))
+          ->name_,
+      "name");
+
+  EXPECT_EQ(arrayElement->childAt(1)->type()->kind(), TypeKind::INTEGER);
+  EXPECT_EQ(
+      std::static_pointer_cast<const ParquetTypeWithId>(
+          arrayElement->childAt(1))
+          ->name_,
+      "quantity");
+
+  EXPECT_EQ(arrayElement->childAt(2)->type()->kind(), TypeKind::DOUBLE);
+  EXPECT_EQ(
+      std::static_pointer_cast<const ParquetTypeWithId>(
+          arrayElement->childAt(2))
+          ->name_,
+      "price");
+}
+
 TEST_F(ParquetReaderTest, parseSampleRange1) {
   const std::string sample(getExampleFilePath("sample.parquet"));
 

@@ -32,7 +32,7 @@ bool isParquetReservedKeyword(
     uint32_t curSchemaIdx) {
   return ((parentSchemaIdx == 0 && curSchemaIdx == 0) || name == "key_value" ||
           name == "key" || name == "value" || name == "list" ||
-          name == "element")
+          name == "element" || name == "bag" || name == "array_element")
       ? true
       : false;
 }
