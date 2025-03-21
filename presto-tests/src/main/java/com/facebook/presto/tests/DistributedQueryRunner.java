@@ -607,10 +607,10 @@ public class DistributedQueryRunner
     }
 
     @Override
-    public Optional<EventListener> getEventListener()
+    public List<EventListener> getEventListeners()
     {
         checkState(coordinators.size() == 1, "Expected a single coordinator");
-        return coordinators.get(0).getEventListener();
+        return coordinators.get(0).getEventListeners();
     }
 
     @Override

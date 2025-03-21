@@ -25,6 +25,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.hive.HiveSessionProperties.DYNAMIC_SPLIT_SIZES_ENABLED;
 import static io.airlift.tpch.TpchTable.ORDERS;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
@@ -72,10 +73,10 @@ public class TestHiveSplitScheduling
 
     private TestHiveEventListenerPlugin.TestingHiveEventListener getEventListener()
     {
-        Optional<EventListener> eventListener = getQueryRunner().getEventListener();
-        assertTrue(eventListener.isPresent());
-        assertTrue(eventListener.get() instanceof TestHiveEventListenerPlugin.TestingHiveEventListener, eventListener.get().getClass().getName());
-        return (TestHiveEventListenerPlugin.TestingHiveEventListener) eventListener.get();
+        assertFalse(getQueryRunner().getEventListeners().isEmpty());
+        EventListener eventListener = getQueryRunner().getEventListeners().get(0);
+        assertTrue(eventListener instanceof TestHiveEventListenerPlugin.TestingHiveEventListener, eventListener.getClass().getName());
+        return (TestHiveEventListenerPlugin.TestingHiveEventListener) eventListener;
     }
 
     private Session dynamicSplitsSession()

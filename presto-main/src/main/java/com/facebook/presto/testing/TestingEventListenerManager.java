@@ -22,16 +22,17 @@ import com.facebook.presto.spi.eventlistener.QueryCreatedEvent;
 import com.facebook.presto.spi.eventlistener.QueryProgressEvent;
 import com.facebook.presto.spi.eventlistener.QueryUpdatedEvent;
 import com.facebook.presto.spi.eventlistener.SplitCompletedEvent;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 
-import java.util.Optional;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class TestingEventListenerManager
         extends EventListenerManager
 {
-    private final AtomicReference<Optional<EventListener>> configuredEventListener = new AtomicReference<>(Optional.empty());
+    private final AtomicReference<List<EventListener>> configuredEventListeners = new AtomicReference<>(ImmutableList.of());
 
     @Inject
     public TestingEventListenerManager(EventListenerConfig config)
@@ -42,51 +43,46 @@ public class TestingEventListenerManager
     @Override
     public void addEventListenerFactory(EventListenerFactory eventListenerFactory)
     {
-        configuredEventListener.set(Optional.of(eventListenerFactory.create(ImmutableMap.of())));
+        configuredEventListeners.set(ImmutableList.of(eventListenerFactory.create(ImmutableMap.of())));
     }
 
     @Override
     public void queryCompleted(QueryCompletedEvent queryCompletedEvent)
     {
-        if (configuredEventListener.get().isPresent()) {
-            configuredEventListener.get().get().queryCompleted(queryCompletedEvent);
-        }
+        configuredEventListeners.get()
+                .forEach(eventListener -> eventListener.queryCompleted(queryCompletedEvent));
     }
 
     @Override
     public void queryCreated(QueryCreatedEvent queryCreatedEvent)
     {
-        if (configuredEventListener.get().isPresent()) {
-            configuredEventListener.get().get().queryCreated(queryCreatedEvent);
-        }
+        configuredEventListeners.get()
+                .forEach(eventListener -> eventListener.queryCreated(queryCreatedEvent));
     }
 
     @Override
     public void queryUpdated(QueryUpdatedEvent queryUpdatedEvent)
     {
-        if (configuredEventListener.get().isPresent()) {
-            configuredEventListener.get().get().queryUpdated(queryUpdatedEvent);
-        }
+        configuredEventListeners.get()
+                .forEach(eventListener -> eventListener.queryUpdated(queryUpdatedEvent));
     }
 
     @Override
     public void publishQueryProgress(QueryProgressEvent queryProgressEvent)
     {
-        if (configuredEventListener.get().isPresent()) {
-            configuredEventListener.get().get().publishQueryProgress(queryProgressEvent);
-        }
+        configuredEventListeners.get()
+                .forEach(eventListener -> eventListener.publishQueryProgress(queryProgressEvent));
     }
 
     @Override
     public void splitCompleted(SplitCompletedEvent splitCompletedEvent)
     {
-        if (configuredEventListener.get().isPresent()) {
-            configuredEventListener.get().get().splitCompleted(splitCompletedEvent);
-        }
+        configuredEventListeners.get()
+                .forEach(eventListener -> eventListener.splitCompleted(splitCompletedEvent));
     }
 
-    public Optional<EventListener> getEventListener()
+    public List<EventListener> getEventListeners()
     {
-        return configuredEventListener.get();
+        return configuredEventListeners.get();
     }
 }

@@ -498,9 +498,9 @@ public class PrestoSparkQueryRunner
     }
 
     @Override
-    public Optional<EventListener> getEventListener()
+    public List<EventListener> getEventListeners()
     {
-        return Optional.empty();
+        return ImmutableList.of();
     }
 
     @Override

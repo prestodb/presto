@@ -50,7 +50,6 @@ import com.google.common.collect.ImmutableSet;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.locks.Lock;
 
 import static com.facebook.airlift.testing.Closeables.closeQuietly;
@@ -244,9 +243,9 @@ public final class ThriftQueryRunner
         }
 
         @Override
-        public Optional<EventListener> getEventListener()
+        public List<EventListener> getEventListeners()
         {
-            return source.getEventListener();
+            return source.getEventListeners();
         }
 
         @Override
