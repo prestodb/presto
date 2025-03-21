@@ -66,3 +66,4 @@ presto-native-execution/deps-install
 # Compiled executables used for docker build
 /docker/presto-cli-*-executable.jar
 /docker/presto-server-*.tar.gz
+/docker/presto-function-server-executable.jar
