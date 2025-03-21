@@ -78,8 +78,7 @@ target_link_libraries(
   fmt::fmt
   GTest::gtest
   GTest::gtest_main
-  GTest::gmock
-  gflags::gflags)
+  GTest::gmock)
 
 add_executable(velox_spark_function_registry_test RegisterTest.cpp)
 

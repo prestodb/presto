@@ -65,7 +65,6 @@ target_link_libraries(
   GTest::gtest_main
   GTest::gmock
   Folly::folly
-  gflags::gflags
   glog::glog
   fmt::fmt
   dl)
@@ -83,7 +82,6 @@ target_link_libraries(
   GTest::gtest
   GTest::gtest_main
   Folly::folly
-  gflags::gflags
   glog::glog
   fmt::fmt)
 
@@ -98,6 +96,5 @@ target_link_libraries(
   GTest::gtest
   GTest::gtest_main
   Folly::folly
-  gflags::gflags
   glog::glog
   fmt::fmt)

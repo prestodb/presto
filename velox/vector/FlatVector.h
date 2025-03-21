@@ -18,7 +18,6 @@
 #include <folly/container/F14Map.h>
 #include <folly/container/F14Set.h>
 #include <folly/dynamic.h>
-#include <gflags/gflags_declare.h>
 
 #include "velox/common/base/SimdUtil.h"
 #include "velox/vector/BaseVector.h"

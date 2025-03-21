@@ -43,5 +43,4 @@ target_link_libraries(
   velox_dwio_common_test_utils
   GTest::gtest
   GTest::gtest_main
-  GTest::gmock
-  gflags::gflags)
+  GTest::gmock)

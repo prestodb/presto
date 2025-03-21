@@ -26,7 +26,6 @@ target_link_libraries(
   Folly::folly
   fmt::fmt
   glog::glog
-  gflags::gflags
   GTest::gtest
   velox_dwio_common
   velox_dwio_common_exception

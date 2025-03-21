@@ -26,7 +26,6 @@ target_link_libraries(
   velox_row_fast
   GTest::gtest
   GTest::gtest_main
-  gflags::gflags
   glog::glog)
 
 if(VELOX_ENABLE_BENCHMARKS)
@@ -39,6 +38,5 @@ if(VELOX_ENABLE_BENCHMARKS)
     velox_vector_fuzzer
     GTest::gtest
     GTest::gtest_main
-    gflags::gflags
     glog::glog)
 endif()

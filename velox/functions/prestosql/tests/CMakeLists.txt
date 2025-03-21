@@ -127,6 +127,5 @@ target_link_libraries(
   velox_expression_fuzzer
   GTest::gtest
   GTest::gtest_main
-  gflags::gflags
   GTest::gmock
   GTest::gmock_main)

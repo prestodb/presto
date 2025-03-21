@@ -20,5 +20,4 @@ target_link_libraries(
   GTest::gtest
   GTest::gtest_main
   glog::glog
-  gflags::gflags
   Folly::folly)

@@ -39,7 +39,6 @@ target_link_libraries(
   GTest::gtest
   GTest::gtest_main
   GTest::gmock
-  gflags::gflags
   glog::glog)
 
 if(VELOX_ENABLE_BENCHMARKS)
@@ -53,7 +52,6 @@ if(VELOX_ENABLE_BENCHMARKS)
     Folly::follybenchmark
     GTest::gtest
     GTest::gtest_main
-    gflags::gflags
     glog::glog)
 
   add_executable(velox_negated_values_filter_benchmark
@@ -67,7 +65,6 @@ if(VELOX_ENABLE_BENCHMARKS)
     Folly::follybenchmark
     GTest::gtest
     GTest::gtest_main
-    gflags::gflags
     glog::glog)
 
   add_executable(velox_negated_bytes_values_benchmark
@@ -81,7 +78,6 @@ if(VELOX_ENABLE_BENCHMARKS)
     Folly::follybenchmark
     GTest::gtest
     GTest::gtest_main
-    gflags::gflags
     glog::glog)
 
   add_executable(velox_negated_bigint_range_benchmark
@@ -95,7 +91,6 @@ if(VELOX_ENABLE_BENCHMARKS)
     Folly::follybenchmark
     GTest::gtest
     GTest::gtest_main
-    gflags::gflags
     glog::glog)
 
   add_executable(velox_negated_bytes_range_benchmark
@@ -109,7 +104,6 @@ if(VELOX_ENABLE_BENCHMARKS)
     Folly::follybenchmark
     GTest::gtest
     GTest::gtest_main
-    gflags::gflags
     glog::glog)
 
   add_executable(velox_string_view_benchmark StringViewBenchmark.cpp)
@@ -121,6 +115,5 @@ if(VELOX_ENABLE_BENCHMARKS)
     Folly::follybenchmark
     GTest::gtest
     GTest::gtest_main
-    gflags::gflags
     glog::glog)
 endif()

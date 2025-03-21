@@ -21,7 +21,6 @@
 #include "velox/common/memory/MmapAllocator.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 
-#include <gflags/gflags.h>
 #include <gtest/gtest.h>
 
 using namespace facebook::velox;
