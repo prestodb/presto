@@ -4338,10 +4338,26 @@ void to_json(json& j, const DriverStats& p) {
   j = json::object();
   to_json_key(j, "lifespan", p.lifespan, "DriverStats", "Lifespan", "lifespan");
   to_json_key(
-      j, "createTimeInMillis", p.createTimeInMillis, "DriverStats", "int64_t", "createTimeInMillis");
+      j,
+      "createTimeInMillis",
+      p.createTimeInMillis,
+      "DriverStats",
+      "int64_t",
+      "createTimeInMillis");
   to_json_key(
-      j, "startTimeInMillis", p.startTimeInMillis, "DriverStats", "int64_t", "startTimeInMillis");
-  to_json_key(j, "endTimeInMillis", p.endTimeInMillis, "DriverStats", "int64_t", "endTimeInMillis");
+      j,
+      "startTimeInMillis",
+      p.startTimeInMillis,
+      "DriverStats",
+      "int64_t",
+      "startTimeInMillis");
+  to_json_key(
+      j,
+      "endTimeInMillis",
+      p.endTimeInMillis,
+      "DriverStats",
+      "int64_t",
+      "endTimeInMillis");
   to_json_key(
       j, "queuedTime", p.queuedTime, "DriverStats", "Duration", "queuedTime");
   to_json_key(
@@ -4478,10 +4494,26 @@ void from_json(const json& j, DriverStats& p) {
   from_json_key(
       j, "lifespan", p.lifespan, "DriverStats", "Lifespan", "lifespan");
   from_json_key(
-      j, "createTimeInMillis", p.createTimeInMillis, "DriverStats", "int64_t", "createTimeInMillis");
+      j,
+      "createTimeInMillis",
+      p.createTimeInMillis,
+      "DriverStats",
+      "int64_t",
+      "createTimeInMillis");
   from_json_key(
-      j, "startTimeInMillis", p.startTimeInMillis, "DriverStats", "int64_t", "startTimeInMillis");
-  from_json_key(j, "endTimeInMillis", p.endTimeInMillis, "DriverStats", "int64_t", "endTimeInMillis");
+      j,
+      "startTimeInMillis",
+      p.startTimeInMillis,
+      "DriverStats",
+      "int64_t",
+      "startTimeInMillis");
+  from_json_key(
+      j,
+      "endTimeInMillis",
+      p.endTimeInMillis,
+      "DriverStats",
+      "int64_t",
+      "endTimeInMillis");
   from_json_key(
       j, "queuedTime", p.queuedTime, "DriverStats", "Duration", "queuedTime");
   from_json_key(
@@ -10014,7 +10046,12 @@ namespace facebook::presto::protocol {
 void to_json(json& j, const TaskStats& p) {
   j = json::object();
   to_json_key(
-      j, "createTimeInMillis", p.createTimeInMillis, "TaskStats", "int64_t", "createTimeInMillis");
+      j,
+      "createTimeInMillis",
+      p.createTimeInMillis,
+      "TaskStats",
+      "int64_t",
+      "createTimeInMillis");
   to_json_key(
       j,
       "firstStartTimeInMillis",
@@ -10030,8 +10067,19 @@ void to_json(json& j, const TaskStats& p) {
       "int64_t",
       "lastStartTimeInMillis");
   to_json_key(
-      j, "lastEndTimeInMillis", p.lastEndTimeInMillis, "TaskStats", "int64_t", "lastEndTimeInMillis");
-  to_json_key(j, "endTimeInMillis", p.endTimeInMillis, "TaskStats", "int64_t", "endTimeInMillis");
+      j,
+      "lastEndTimeInMillis",
+      p.lastEndTimeInMillis,
+      "TaskStats",
+      "int64_t",
+      "lastEndTimeInMillis");
+  to_json_key(
+      j,
+      "endTimeInMillis",
+      p.endTimeInMillis,
+      "TaskStats",
+      "int64_t",
+      "endTimeInMillis");
   to_json_key(
       j,
       "elapsedTimeInNanos",
@@ -10268,7 +10316,12 @@ void to_json(json& j, const TaskStats& p) {
 
 void from_json(const json& j, TaskStats& p) {
   from_json_key(
-      j, "createTimeInMillis", p.createTimeInMillis, "TaskStats", "int64_t", "createTimeInMillis");
+      j,
+      "createTimeInMillis",
+      p.createTimeInMillis,
+      "TaskStats",
+      "int64_t",
+      "createTimeInMillis");
   from_json_key(
       j,
       "firstStartTimeInMillis",
@@ -10284,8 +10337,19 @@ void from_json(const json& j, TaskStats& p) {
       "int64_t",
       "lastStartTimeInMillis");
   from_json_key(
-      j, "lastEndTimeInMillis", p.lastEndTimeInMillis, "TaskStats", "int64_t", "lastEndTimeInMillis");
-  from_json_key(j, "endTimeInMillis", p.endTimeInMillis, "TaskStats", "int64_t", "endTimeInMillis");
+      j,
+      "lastEndTimeInMillis",
+      p.lastEndTimeInMillis,
+      "TaskStats",
+      "int64_t",
+      "lastEndTimeInMillis");
+  from_json_key(
+      j,
+      "endTimeInMillis",
+      p.endTimeInMillis,
+      "TaskStats",
+      "int64_t",
+      "endTimeInMillis");
   from_json_key(
       j,
       "elapsedTimeInNanos",

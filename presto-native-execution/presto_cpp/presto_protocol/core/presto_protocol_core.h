@@ -104,6 +104,7 @@ using Subfield = std::string;
 using HiveType = std::string;
 using Type = std::string;
 
+using DateTime = std::string;
 using Locale = std::string;
 using TimeZoneKey = long;
 using URI = std::string;
@@ -1191,9 +1192,9 @@ void from_json(const json& j, OperatorStats& p);
 namespace facebook::presto::protocol {
 struct DriverStats {
   Lifespan lifespan = {};
-  long createTimeInMillis = {};
-  long startTimeInMillis = {};
-  long endTimeInMillis = {};
+  int64_t createTimeInMillis = {};
+  int64_t startTimeInMillis = {};
+  int64_t endTimeInMillis = {};
   Duration queuedTime = {};
   Duration elapsedTime = {};
   int64_t userMemoryReservationInBytes = {};

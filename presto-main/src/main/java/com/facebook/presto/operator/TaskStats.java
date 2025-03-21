@@ -23,8 +23,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.joda.time.DateTime;
 
-import javax.annotation.Nullable;
-
 import java.util.List;
 import java.util.Set;
 
@@ -138,11 +136,11 @@ public class TaskStats
 
     public TaskStats(DateTime createTime, DateTime endTime)
     {
-        this(createTime,
-                null,
-                null,
-                null,
-                endTime,
+        this(toTimeStampInMillis(createTime),
+                0L,
+                0L,
+                0L,
+                toTimeStampInMillis(endTime),
                 0L,
                 0L,
                 0,
@@ -181,59 +179,61 @@ public class TaskStats
                 new RuntimeStats());
     }
 
+    @JsonCreator
+    @ThriftConstructor
     public TaskStats(
-            long createTimeInMillis,
-            long firstStartTimeInMillis,
-            long lastStartTimeInMillis,
-            long lastEndTimeInMillis,
-            long endTimeInMillis,
-            long elapsedTimeInNanos,
-            long queuedTimeInNanos,
+            @JsonProperty("createTimeInMillis") long createTimeInMillis,
+            @JsonProperty("firstStartTimeInMillis") long firstStartTimeInMillis,
+            @JsonProperty("lastStartTimeInMillis") long lastStartTimeInMillis,
+            @JsonProperty("lastEndTimeInMillis") long lastEndTimeInMillis,
+            @JsonProperty("endTimeInMillis") long endTimeInMillis,
+            @JsonProperty("elapsedTimeInNanos") long elapsedTimeInNanos,
+            @JsonProperty("queuedTimeInNanos") long queuedTimeInNanos,
 
-            int totalDrivers,
-            int queuedDrivers,
-            int queuedPartitionedDrivers,
-            long queuedPartitionedSplitsWeight,
-            int runningDrivers,
-            int runningPartitionedDrivers,
-            long runningPartitionedSplitsWeight,
-            int blockedDrivers,
-            int completedDrivers,
+            @JsonProperty("totalDrivers") int totalDrivers,
+            @JsonProperty("queuedDrivers") int queuedDrivers,
+            @JsonProperty("queuedPartitionedDrivers") int queuedPartitionedDrivers,
+            @JsonProperty("queuedPartitionedSplitsWeight") long queuedPartitionedSplitsWeight,
+            @JsonProperty("runningDrivers") int runningDrivers,
+            @JsonProperty("runningPartitionedDrivers") int runningPartitionedDrivers,
+            @JsonProperty("runningPartitionedSplitsWeight") long runningPartitionedSplitsWeight,
+            @JsonProperty("blockedDrivers") int blockedDrivers,
+            @JsonProperty("completedDrivers") int completedDrivers,
 
-            double cumulativeUserMemory,
-            double cumulativeTotalMemory,
-            long userMemoryReservationInBytes,
-            long revocableMemoryReservationInBytes,
-            long systemMemoryReservationInBytes,
+            @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
+            @JsonProperty("cumulativeTotalMemory") double cumulativeTotalMemory,
+            @JsonProperty("userMemoryReservationInBytes") long userMemoryReservationInBytes,
+            @JsonProperty("revocableMemoryReservationInBytes") long revocableMemoryReservationInBytes,
+            @JsonProperty("systemMemoryReservationInBytes") long systemMemoryReservationInBytes,
 
-            long peakTotalMemoryInBytes,
-            long peakUserMemoryInBytes,
-            long peakNodeTotalMemoryInBytes,
+            @JsonProperty("peakTotalMemoryInBytes") long peakTotalMemoryInBytes,
+            @JsonProperty("peakUserMemoryInBytes") long peakUserMemoryInBytes,
+            @JsonProperty("peakNodeTotalMemoryInBytes") long peakNodeTotalMemoryInBytes,
 
-            long totalScheduledTimeInNanos,
-            long totalCpuTimeInNanos,
-            long totalBlockedTimeInNanos,
-            boolean fullyBlocked,
-            Set<BlockedReason> blockedReasons,
+            @JsonProperty("totalScheduledTimeInNanos") long totalScheduledTimeInNanos,
+            @JsonProperty("totalCpuTimeInNanos") long totalCpuTimeInNanos,
+            @JsonProperty("totalBlockedTimeInNanos") long totalBlockedTimeInNanos,
+            @JsonProperty("fullyBlocked") boolean fullyBlocked,
+            @JsonProperty("blockedReasons") Set<BlockedReason> blockedReasons,
 
-            long totalAllocationInBytes,
+            @JsonProperty("totalAllocationInBytes") long totalAllocationInBytes,
 
-            long rawInputDataSizeInBytes,
-            long rawInputPositions,
+            @JsonProperty("rawInputDataSizeInBytes") long rawInputDataSizeInBytes,
+            @JsonProperty("rawInputPositions") long rawInputPositions,
 
-            long processedInputDataSizeInBytes,
-            long processedInputPositions,
+            @JsonProperty("processedInputDataSizeInBytes") long processedInputDataSizeInBytes,
+            @JsonProperty("processedInputPositions") long processedInputPositions,
 
-            long outputDataSizeInBytes,
-            long outputPositions,
+            @JsonProperty("outputDataSizeInBytes") long outputDataSizeInBytes,
+            @JsonProperty("outputPositions") long outputPositions,
 
-            long physicalWrittenDataSizeInBytes,
+            @JsonProperty("physicalWrittenDataSizeInBytes") long physicalWrittenDataSizeInBytes,
 
-            int fullGcCount,
-            long fullGcTimeInMillis,
+            @JsonProperty("fullGcCount") int fullGcCount,
+            @JsonProperty("fullGcTimeInMillis") long fullGcTimeInMillis,
 
-            List<PipelineStats> pipelines,
-            RuntimeStats runtimeStats)
+            @JsonProperty("pipelines") List<PipelineStats> pipelines,
+            @JsonProperty("runtimeStats") RuntimeStats runtimeStats)
     {
         checkArgument(createTimeInMillis >= 0, "createTimeInMillis is negative");
         this.createTimeInMillis = createTimeInMillis;
@@ -307,176 +307,61 @@ public class TaskStats
         this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
     }
 
-    @JsonCreator
-    @ThriftConstructor
-    public TaskStats(
-            @JsonProperty("createTime") DateTime createTime,
-            @JsonProperty("firstStartTime") DateTime firstStartTime,
-            @JsonProperty("lastStartTime") DateTime lastStartTime,
-            @JsonProperty("lastEndTime") DateTime lastEndTime,
-            @JsonProperty("endTime") DateTime endTime,
-            @JsonProperty("elapsedTimeInNanos") long elapsedTimeInNanos,
-            @JsonProperty("queuedTimeInNanos") long queuedTimeInNanos,
-
-            @JsonProperty("totalDrivers") int totalDrivers,
-            @JsonProperty("queuedDrivers") int queuedDrivers,
-            @JsonProperty("queuedPartitionedDrivers") int queuedPartitionedDrivers,
-            @JsonProperty("queuedPartitionedSplitsWeight") long queuedPartitionedSplitsWeight,
-            @JsonProperty("runningDrivers") int runningDrivers,
-            @JsonProperty("runningPartitionedDrivers") int runningPartitionedDrivers,
-            @JsonProperty("runningPartitionedSplitsWeight") long runningPartitionedSplitsWeight,
-            @JsonProperty("blockedDrivers") int blockedDrivers,
-            @JsonProperty("completedDrivers") int completedDrivers,
-
-            @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
-            @JsonProperty("cumulativeTotalMemory") double cumulativeTotalMemory,
-            @JsonProperty("userMemoryReservationInBytes") long userMemoryReservationInBytes,
-            @JsonProperty("revocableMemoryReservationInBytes") long revocableMemoryReservationInBytes,
-            @JsonProperty("systemMemoryReservationInBytes") long systemMemoryReservationInBytes,
-
-            @JsonProperty("peakTotalMemoryInBytes") long peakTotalMemoryInBytes,
-            @JsonProperty("peakUserMemoryInBytes") long peakUserMemoryInBytes,
-            @JsonProperty("peakNodeTotalMemoryInBytes") long peakNodeTotalMemoryInBytes,
-
-            @JsonProperty("totalScheduledTimeInNanos") long totalScheduledTimeInNanos,
-            @JsonProperty("totalCpuTimeInNanos") long totalCpuTimeInNanos,
-            @JsonProperty("totalBlockedTimeInNanos") long totalBlockedTimeInNanos,
-            @JsonProperty("fullyBlocked") boolean fullyBlocked,
-            @JsonProperty("blockedReasons") Set<BlockedReason> blockedReasons,
-
-            @JsonProperty("totalAllocationInBytes") long totalAllocationInBytes,
-
-            @JsonProperty("rawInputDataSizeInBytes") long rawInputDataSizeInBytes,
-            @JsonProperty("rawInputPositions") long rawInputPositions,
-
-            @JsonProperty("processedInputDataSizeInBytes") long processedInputDataSizeInBytes,
-            @JsonProperty("processedInputPositions") long processedInputPositions,
-
-            @JsonProperty("outputDataSizeInBytes") long outputDataSizeInBytes,
-            @JsonProperty("outputPositions") long outputPositions,
-
-            @JsonProperty("physicalWrittenDataSizeInBytes") long physicalWrittenDataSizeInBytes,
-
-            @JsonProperty("fullGcCount") int fullGcCount,
-            @JsonProperty("fullGcTimeInMillis") long fullGcTimeInMillis,
-
-            @JsonProperty("pipelines") List<PipelineStats> pipelines,
-            @JsonProperty("runtimeStats") RuntimeStats runtimeStats)
-    {
-        this(toTimeStampInMillis(createTime),
-                toTimeStampInMillis(firstStartTime),
-                toTimeStampInMillis(lastStartTime),
-                toTimeStampInMillis(lastEndTime),
-                toTimeStampInMillis(endTime),
-
-                elapsedTimeInNanos,
-                queuedTimeInNanos,
-
-                totalDrivers,
-                queuedDrivers,
-                queuedPartitionedDrivers,
-                queuedPartitionedSplitsWeight,
-                runningDrivers,
-                runningPartitionedDrivers,
-                runningPartitionedSplitsWeight,
-                blockedDrivers,
-                completedDrivers,
-
-                cumulativeUserMemory,
-                cumulativeTotalMemory,
-                userMemoryReservationInBytes,
-                revocableMemoryReservationInBytes,
-                systemMemoryReservationInBytes,
-
-                peakTotalMemoryInBytes,
-                peakUserMemoryInBytes,
-                peakNodeTotalMemoryInBytes,
-
-                totalScheduledTimeInNanos,
-                totalCpuTimeInNanos,
-                totalBlockedTimeInNanos,
-                fullyBlocked,
-                blockedReasons,
-
-                totalAllocationInBytes,
-
-                rawInputDataSizeInBytes,
-                rawInputPositions,
-
-                processedInputDataSizeInBytes,
-                processedInputPositions,
-
-                outputDataSizeInBytes,
-                outputPositions,
-
-                physicalWrittenDataSizeInBytes,
-
-                fullGcCount,
-                fullGcTimeInMillis,
-
-                pipelines,
-                runtimeStats);
-    }
-
-    @JsonProperty
-    @ThriftField(1)
     public DateTime getCreateTime()
     {
         return new DateTime(createTimeInMillis);
     }
 
+    @JsonProperty
+    @ThriftField(1)
     public long getCreateTimeInMillis()
     {
         return createTimeInMillis;
     }
 
-    @Nullable
-    @JsonProperty
-    @ThriftField(2)
     public DateTime getFirstStartTime()
     {
         return new DateTime(firstStartTimeInMillis);
     }
 
+    @JsonProperty
+    @ThriftField(2)
     public long getFirstStartTimeInMillis()
     {
         return firstStartTimeInMillis;
     }
 
-    @Nullable
-    @JsonProperty
-    @ThriftField(3)
     public DateTime getLastStartTime()
     {
         return new DateTime(lastStartTimeInMillis);
     }
 
+    @JsonProperty
+    @ThriftField(3)
     public long getLastStartTimeInMillis()
     {
         return lastStartTimeInMillis;
     }
 
-    @Nullable
-    @JsonProperty
-    @ThriftField(4)
     public DateTime getLastEndTime()
     {
         return new DateTime(lastEndTimeInMillis);
     }
 
+    @JsonProperty
+    @ThriftField(4)
     public long getLastEndTimeInMillis()
     {
         return lastEndTimeInMillis;
     }
 
-    @Nullable
-    @JsonProperty
-    @ThriftField(5)
     public DateTime getEndTime()
     {
         return new DateTime(endTimeInMillis);
     }
 
+    @JsonProperty
+    @ThriftField(5)
     public long getEndTimeInMillis()
     {
         return endTimeInMillis;
@@ -737,11 +622,11 @@ public class TaskStats
     public TaskStats summarize()
     {
         return new TaskStats(
-                new DateTime(createTimeInMillis),
-                new DateTime(firstStartTimeInMillis),
-                new DateTime(lastStartTimeInMillis),
-                new DateTime(lastEndTimeInMillis),
-                new DateTime(endTimeInMillis),
+                createTimeInMillis,
+                firstStartTimeInMillis,
+                lastStartTimeInMillis,
+                lastEndTimeInMillis,
+                endTimeInMillis,
                 elapsedTimeInNanos,
                 queuedTimeInNanos,
                 totalDrivers,
@@ -783,11 +668,11 @@ public class TaskStats
     public TaskStats summarizeFinal()
     {
         return new TaskStats(
-                new DateTime(createTimeInMillis),
-                new DateTime(firstStartTimeInMillis),
-                new DateTime(lastStartTimeInMillis),
-                new DateTime(lastEndTimeInMillis),
-                new DateTime(endTimeInMillis),
+                createTimeInMillis,
+                firstStartTimeInMillis,
+                lastStartTimeInMillis,
+                lastEndTimeInMillis,
+                endTimeInMillis,
                 elapsedTimeInNanos,
                 queuedTimeInNanos,
                 totalDrivers,
