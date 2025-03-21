@@ -89,9 +89,9 @@ public class MapColumnWriter
     }
 
     @Override
-    public void reset()
+    public void resetChunk()
     {
-        keyWriter.reset();
-        valueWriter.reset();
+        keyWriter.resetChunk();
+        valueWriter.resetChunk();
     }
 }

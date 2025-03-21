@@ -19,6 +19,8 @@ import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.schema.OriginalType;
 import org.apache.parquet.schema.PrimitiveType;
 
+import java.util.function.Supplier;
+
 import static com.facebook.presto.common.type.DateTimeEncoding.unpackMillisUtc;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -29,9 +31,9 @@ public class TimestampWithTimezoneValueWriter
     private final Type type;
     private final boolean writeMicroseconds;
 
-    public TimestampWithTimezoneValueWriter(ValuesWriter valuesWriter, Type type, PrimitiveType parquetType)
+    public TimestampWithTimezoneValueWriter(Supplier<ValuesWriter> valuesWriterSupplier, Type type, PrimitiveType parquetType)
     {
-        super(parquetType, valuesWriter);
+        super(parquetType, valuesWriterSupplier);
         this.type = requireNonNull(type, "type is null");
         this.writeMicroseconds = parquetType.isPrimitive() && parquetType.getOriginalType() == OriginalType.TIMESTAMP_MICROS;
     }

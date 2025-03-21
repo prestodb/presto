@@ -34,7 +34,7 @@ public interface ColumnWriter
 
     long getRetainedBytes();
 
-    void reset();
+    void resetChunk();
 
     class BufferData
     {
