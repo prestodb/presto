@@ -19,8 +19,7 @@ import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.concurrent.ThreadLocalRandom;
 

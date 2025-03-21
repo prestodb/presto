@@ -16,8 +16,7 @@ package com.facebook.presto.operator.index;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.operator.LookupSource;
-
-import javax.annotation.concurrent.Immutable;
+import com.google.errorprone.annotations.Immutable;
 
 import static java.util.Objects.requireNonNull;
 

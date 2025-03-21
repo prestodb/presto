@@ -18,7 +18,7 @@ import com.facebook.airlift.http.client.Request.Builder;
 import static com.facebook.presto.PrestoMediaTypes.APPLICATION_JACKSON_SMILE;
 import static com.google.common.net.HttpHeaders.ACCEPT;
 import static com.google.common.net.MediaType.JSON_UTF_8;
-import static javax.ws.rs.core.HttpHeaders.CONTENT_TYPE;
+import static jakarta.ws.rs.core.HttpHeaders.CONTENT_TYPE;
 
 public class RequestHelpers
 {

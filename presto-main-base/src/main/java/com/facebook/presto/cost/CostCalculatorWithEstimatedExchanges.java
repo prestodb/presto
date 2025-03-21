@@ -14,6 +14,7 @@
 
 package com.facebook.presto.cost;
 
+import com.facebook.airlift.concurrent.ThreadSafe;
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.IntersectNode;
@@ -29,8 +30,6 @@ import com.facebook.presto.sql.planner.iterative.rule.ReorderJoins;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
 import jakarta.inject.Inject;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.Objects;
 import java.util.Optional;
