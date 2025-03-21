@@ -54,7 +54,7 @@ env:
 
 jobs:
   publish-release-tag:
-    if: ${{ github.event.inputs.publish_release_tag == 'true' }}
+    if: github.event.inputs.publish_release_tag == 'true'
     runs-on: ubuntu-latest
     environment: release
     steps:
@@ -97,7 +97,7 @@ jobs:
     needs: publish-release-tag
     if: |
       (github.event.inputs.publish_maven == 'true' || github.event.inputs.publish_docker == 'true' || github.event.inputs.publish_docs == 'true') &&
-      (github.event.inputs.publish_release_tag != 'true' || success())
+      (success() || (github.event.inputs.publish_release_tag != 'true' && !failure() && !cancelled()))
     runs-on: ubuntu-latest
     environment: release
     timeout-minutes: 60
@@ -211,8 +211,8 @@ jobs:
             -pl '!presto-test-coverage'
 
   publish-docker-images:
-    if: ${{ github.event.inputs.publish_docker == 'true' && success() }}
     needs: publish-maven-artifacts
+    if: github.event.inputs.publish_docker == 'true' && !failure() && !cancelled()
     runs-on: ubuntu-latest
     environment: release
     timeout-minutes: 150
@@ -271,7 +271,7 @@ jobs:
     needs: publish-release-tag
     if: |
       github.event.inputs.publish_native_docker == 'true' &&
-      (github.event.inputs.publish_release_tag != 'true' || success())
+      (success() || (github.event.inputs.publish_release_tag != 'true' && !failure() && !cancelled()))
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -343,7 +343,7 @@ jobs:
 
   publish-docs:
     needs: publish-maven-artifacts
-    if: ${{ github.event.inputs.publish_docs == 'true' && success() }}
+    if: github.event.inputs.publish_docs == 'true' && !failure() && !cancelled()
     runs-on: ubuntu-latest
     environment: release
 
