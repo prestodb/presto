@@ -52,9 +52,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.units.DataSize;
+import jakarta.annotation.Nullable;
 import org.openjdk.jol.info.ClassLayout;
-
-import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;

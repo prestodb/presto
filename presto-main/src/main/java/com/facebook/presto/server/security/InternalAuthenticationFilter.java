@@ -17,12 +17,12 @@ import com.facebook.presto.server.InternalAuthenticationManager;
 import jakarta.inject.Inject;
 
 import javax.annotation.security.RolesAllowed;
-import javax.ws.rs.container.ContainerRequestContext;
-import javax.ws.rs.container.ContainerRequestFilter;
-import javax.ws.rs.container.ResourceInfo;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.ext.Provider;
+import jakarta.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.container.ContainerRequestFilter;
+import jakarta.ws.rs.container.ResourceInfo;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.ext.Provider;
 
 import java.lang.reflect.Method;
 import java.security.Principal;
@@ -31,8 +31,8 @@ import java.util.Optional;
 
 import static com.facebook.presto.server.security.RoleType.INTERNAL;
 import static java.util.Objects.requireNonNull;
-import static javax.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
-import static javax.ws.rs.core.Response.ResponseBuilder;
+import static jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
+import static jakarta.ws.rs.core.Response.ResponseBuilder;
 
 @Provider
 public class InternalAuthenticationFilter

@@ -22,10 +22,9 @@ import com.facebook.presto.util.Mergeable;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.Immutable;
 import io.airlift.units.Duration;
-
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.Immutable;
+import jakarta.annotation.Nullable;
 
 import java.util.Optional;
 

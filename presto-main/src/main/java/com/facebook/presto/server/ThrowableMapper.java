@@ -18,14 +18,14 @@ import com.google.common.base.Throwables;
 import jakarta.inject.Inject;
 
 import javax.servlet.http.HttpServletRequest;
-import javax.ws.rs.WebApplicationException;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.Response.ResponseBuilder;
-import javax.ws.rs.ext.ExceptionMapper;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.Response.ResponseBuilder;
+import jakarta.ws.rs.ext.ExceptionMapper;
 
-import static javax.ws.rs.core.HttpHeaders.CONTENT_TYPE;
-import static javax.ws.rs.core.MediaType.TEXT_PLAIN;
+import static jakarta.ws.rs.core.HttpHeaders.CONTENT_TYPE;
+import static jakarta.ws.rs.core.MediaType.TEXT_PLAIN;
 
 public class ThrowableMapper
         implements ExceptionMapper<Throwable>
