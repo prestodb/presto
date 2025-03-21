@@ -13,13 +13,12 @@
  */
 package com.facebook.presto.execution.scheduler;
 
+import com.facebook.airlift.concurrent.ThreadSafe;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.airlift.stats.DistributionStat;
 import com.facebook.airlift.stats.TimeStat;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 

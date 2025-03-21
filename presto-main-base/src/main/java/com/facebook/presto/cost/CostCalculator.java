@@ -14,11 +14,10 @@
 
 package com.facebook.presto.cost;
 
+import com.facebook.airlift.concurrent.ThreadSafe;
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.google.inject.BindingAnnotation;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;

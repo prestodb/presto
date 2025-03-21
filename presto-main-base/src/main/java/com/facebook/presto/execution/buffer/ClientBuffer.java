@@ -13,16 +13,15 @@
  */
 package com.facebook.presto.execution.buffer;
 
+import com.facebook.airlift.concurrent.ThreadSafe;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.execution.buffer.SerializedPageReference.PagesReleasedListener;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.Immutable;
-import javax.annotation.concurrent.ThreadSafe;
+import com.google.errorprone.annotations.Immutable;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 
 import java.util.ArrayList;
 import java.util.Collection;

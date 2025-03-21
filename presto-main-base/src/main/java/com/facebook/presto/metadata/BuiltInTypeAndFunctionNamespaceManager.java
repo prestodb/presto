@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.airlift.concurrent.ThreadSafe;
 import com.facebook.presto.UnknownTypeException;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.Page;
@@ -297,8 +298,6 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.slice.Slice;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
