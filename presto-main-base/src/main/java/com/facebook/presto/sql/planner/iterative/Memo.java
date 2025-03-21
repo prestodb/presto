@@ -21,8 +21,7 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.Multiset;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.HashMap;
 import java.util.HashSet;

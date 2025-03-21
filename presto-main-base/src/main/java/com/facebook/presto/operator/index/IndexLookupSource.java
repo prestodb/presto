@@ -13,11 +13,10 @@
  */
 package com.facebook.presto.operator.index;
 
+import com.facebook.airlift.concurrent.NotThreadSafe;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.operator.LookupSource;
-
-import javax.annotation.concurrent.NotThreadSafe;
 
 import static com.facebook.presto.operator.index.IndexSnapshot.UNLOADED_INDEX_KEY;
 import static com.google.common.base.Preconditions.checkState;

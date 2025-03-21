@@ -13,9 +13,8 @@
  */
 package com.facebook.presto.execution.scheduler;
 
+import com.facebook.airlift.concurrent.ThreadSafe;
 import com.facebook.presto.spi.HostAddress;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.List;
 

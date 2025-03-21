@@ -31,8 +31,7 @@ import com.facebook.presto.sql.tree.NodeLocation;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import io.airlift.slice.SliceTooLargeException;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.Collection;

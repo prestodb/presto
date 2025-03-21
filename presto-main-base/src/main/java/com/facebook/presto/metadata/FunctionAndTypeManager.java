@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.airlift.concurrent.ThreadSafe;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.Page;
@@ -73,8 +74,6 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import jakarta.inject.Inject;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.Arrays;
 import java.util.Collection;

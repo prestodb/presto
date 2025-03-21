@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.util;
 
-import javax.validation.ConstraintValidator;
-import javax.validation.ConstraintValidatorContext;
+import jakarta.validation.ConstraintValidator;
+import jakarta.validation.ConstraintValidatorContext;
 
 public class PowerOfTwoValidator
         implements ConstraintValidator<PowerOfTwo, Integer>

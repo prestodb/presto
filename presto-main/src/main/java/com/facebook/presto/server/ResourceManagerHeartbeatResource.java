@@ -18,12 +18,12 @@ import com.facebook.presto.resourcemanager.ResourceManagerClusterStateProvider;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import jakarta.inject.Inject;
 
-import javax.ws.rs.Consumes;
-import javax.ws.rs.PUT;
-import javax.ws.rs.Path;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.PUT;
+import jakarta.ws.rs.Path;
 
 import static java.util.Objects.requireNonNull;
-import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
+import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
 
 @Path("/v1/heartbeat")
 public class ResourceManagerHeartbeatResource

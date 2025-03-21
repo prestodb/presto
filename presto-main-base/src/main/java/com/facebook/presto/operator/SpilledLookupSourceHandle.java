@@ -13,13 +13,12 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.airlift.concurrent.ThreadSafe;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
+import jakarta.annotation.Nullable;
 
 import java.util.function.Supplier;
 

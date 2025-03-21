@@ -22,9 +22,8 @@ import com.facebook.presto.spi.eventlistener.SplitFailureInfo;
 import com.facebook.presto.spi.eventlistener.SplitStatistics;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.Nullable;
 import jakarta.inject.Inject;
-
-import javax.annotation.Nullable;
 
 import java.time.Duration;
 import java.util.Optional;

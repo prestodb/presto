@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.airlift.concurrent.ThreadSafe;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.ClientRequestFilterManager;
@@ -69,8 +70,6 @@ import io.airlift.resolver.ArtifactResolver;
 import io.airlift.resolver.DefaultArtifact;
 import jakarta.inject.Inject;
 import org.sonatype.aether.artifact.Artifact;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.File;
 import java.io.IOException;

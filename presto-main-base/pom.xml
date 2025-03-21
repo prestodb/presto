@@ -83,11 +83,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.google.code.findbugs</groupId>
-            <artifactId>jsr305</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>bootstrap</artifactId>
         </dependency>
@@ -130,6 +125,7 @@
         <dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>log-manager</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>
@@ -155,6 +151,7 @@
         <dependency>
             <groupId>com.facebook.drift</groupId>
             <artifactId>drift-server</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -165,6 +162,7 @@
         <dependency>
             <groupId>com.facebook.drift</groupId>
             <artifactId>drift-transport-spi</artifactId>
+            <scope>compile</scope>
         </dependency>
 
         <dependency>
@@ -190,6 +188,7 @@
         <dependency>
             <groupId>com.facebook.drift</groupId>
             <artifactId>drift-codec-utils</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -203,18 +202,13 @@
         </dependency>
 
         <dependency>
-            <groupId>jakarta.servlet</groupId>
-            <artifactId>jakarta.servlet-api</artifactId>
+            <groupId>com.google.errorprone</groupId>
+            <artifactId>error_prone_annotations</artifactId>
         </dependency>
 
         <dependency>
             <groupId>jakarta.annotation</groupId>
             <artifactId>jakarta.annotation-api</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>jakarta.ws.rs</groupId>
-            <artifactId>jakarta.ws.rs-api</artifactId>
         </dependency>
 
         <dependency>
@@ -322,6 +316,7 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-function-namespace-managers-common</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -530,6 +525,8 @@
                     <ignoredDependencies>
                         <ignoredDependency>com.facebook.presto:presto-ui:jar</ignoredDependency>
                     </ignoredDependencies>
+                    <!-- Not used, but required to compile due to use of an implementation which uses the "Address" type from this dependency -->
+                    <ignoredNonTestScopedDependencies>com.facebook.drift:drift-transport-spi</ignoredNonTestScopedDependencies>
                 </configuration>
             </plugin>
         </plugins>

@@ -15,8 +15,7 @@ package com.facebook.presto.cost;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.presto.spi.function.Description;
-
-import javax.validation.constraints.Min;
+import jakarta.validation.constraints.Min;
 
 public class HistoryBasedOptimizationConfig
 {
