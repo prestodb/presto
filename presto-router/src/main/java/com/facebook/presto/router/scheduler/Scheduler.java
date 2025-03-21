@@ -42,4 +42,6 @@ public interface Scheduler
     {
         throw new PrestoException(NOT_SUPPORTED, "This scheduler does not support setting weights");
     }
+
+    default void setCandidateGroupName(String candidateGroupName) {}
 }
