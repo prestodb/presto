@@ -96,6 +96,7 @@ add_executable(
   SliceTest.cpp
   SplitTest.cpp
   SplitToMapTest.cpp
+  SplitToMultiMapTest.cpp
   StringFunctionsTest.cpp
   TimestampWithTimeZoneCastTest.cpp
   TransformKeysTest.cpp

@@ -18,6 +18,7 @@
 #include "velox/functions/prestosql/RegexpReplace.h"
 #include "velox/functions/prestosql/SplitPart.h"
 #include "velox/functions/prestosql/SplitToMap.h"
+#include "velox/functions/prestosql/SplitToMultiMap.h"
 #include "velox/functions/prestosql/StringFunctions.h"
 #include "velox/functions/prestosql/WordStem.h"
 
@@ -110,6 +111,13 @@ void registerSimpleFunctions(const std::string& prefix) {
 
   registerFunction<Re2RegexpSplit, Array<Varchar>, Varchar, Varchar>(
       {prefix + "regexp_split"});
+
+  registerFunction<
+      SplitToMultiMapFunction,
+      Map<Varchar, Array<Varchar>>,
+      Varchar,
+      Varchar,
+      Varchar>({prefix + "split_to_multimap"});
 }
 
 void registerSplitToMap(const std::string& prefix) {

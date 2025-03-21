@@ -186,6 +186,14 @@ String Functions
         SELECT(split_to_map('a:1;b:2;a:3', ';', ':', (k, v1, v2) -> v1)); -- {"a": "1", "b": "2"}
         SELECT(split_to_map('a:1;b:2;a:3', ';', ':', (k, v1, v2) -> v2)); -- {"a": "3", "b": "2"}
 
+.. function:: split_to_multimap(string, entryDelimiter, keyValueDelimiter) -> map<varchar, array<varchar>>
+
+    Splits ``string`` by ``entryDelimiter`` and ``keyValueDelimiter`` and returns a map containing an array of values for each unique key.
+    ``entryDelimiter`` splits ``string`` into key-value pairs. ``keyValueDelimiter`` splits each pair into key and value.
+    The values for each key will be in the same order as they appeared in ``string``.
+
+    Note that ``entryDelimiter`` and ``keyValueDelimiter`` are interpreted literally, i.e., as full string matches.
+
 .. function:: starts_with(string, substring) -> boolean
 
     Returns whether ``string`` starts with ``substring``.
