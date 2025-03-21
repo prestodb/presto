@@ -1484,6 +1484,7 @@ TEST_F(MockSharedArbitrationTest, badNonReclaimableQuery) {
          memoryCapacity / 4,
          false},
         {true, false, memoryCapacity / 4, 0, 0, false}}},
+
       {{{true,
          true,
          memoryCapacity / 2,
@@ -1503,6 +1504,7 @@ TEST_F(MockSharedArbitrationTest, badNonReclaimableQuery) {
          memoryCapacity / 4 - memoryCapacity / 8,
          false},
         {true, false, memoryCapacity / 8, 0, 0, false}}},
+
       {{
           {true,
            true,
@@ -1519,6 +1521,7 @@ TEST_F(MockSharedArbitrationTest, badNonReclaimableQuery) {
           // The newest participant is chosen to abort.
           {false, true, memoryCapacity / 4, 0, 0, true},
       }},
+
       {{
           {false,
            true,
@@ -1535,6 +1538,7 @@ TEST_F(MockSharedArbitrationTest, badNonReclaimableQuery) {
           // The newest participant is chosen to abort.
           {true, true, memoryCapacity / 2, 0, 0, true},
       }},
+
       {{
           {true,
            true,
@@ -1556,7 +1560,7 @@ TEST_F(MockSharedArbitrationTest, badNonReclaimableQuery) {
     SCOPED_TRACE(testData.debugString());
 
     // Make simple settings to focus shrink capacity logic testing.
-    setupMemory(memoryCapacity);
+    setupMemory(memoryCapacity, 0, 0, 0, 0, 0, 0, 0, 0, memoryCapacity / 8);
     std::vector<TestTaskContainer> taskContainers;
     for (const auto& testTask : testData.testTasks) {
       auto task = addTask(memoryCapacity);
@@ -1591,7 +1595,7 @@ TEST_F(MockSharedArbitrationTest, badNonReclaimableQuery) {
           taskContainer.testTask.expectedAbortAfterArbitration);
     }
   }
-}
+} // namespace facebook::velox::memory
 
 // This test verifies memory pool can allocate reserve memory during global
 // arbitration.
@@ -1895,6 +1899,64 @@ TEST_F(MockSharedArbitrationTest, globalArbitrationWithoutSpill) {
   ASSERT_TRUE(abortTask->error() != nullptr);
   VELOX_ASSERT_THROW(
       std::rethrow_exception(abortTask->error()),
+      "Memory pool aborted to reclaim used memory");
+}
+
+TEST_F(MockSharedArbitrationTest, globalArbitrationSmallParticipantLargeGrow) {
+  // This test tests global arbitration takes into consideration the additional
+  // attempting grow capacity when selecting abort partitipants.
+  const int64_t kMemoryCapacity = 512 << 20;
+  const uint64_t kMemoryPoolInitCapacity = kMemoryCapacity / 2;
+  setupMemory(
+      kMemoryCapacity,
+      0,
+      kMemoryPoolInitCapacity,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      kMemoryCapacity, // Set abort capacity limit to differenciate capacity.
+      0,
+      kMemoryReclaimThreadsHwMultiplier,
+      nullptr,
+      true,
+      5 * 60 * 1'000'000'000UL,
+      true);
+
+  auto task0 = addTask(kMemoryCapacity);
+  auto* op0 = task0->addMemoryOp(false);
+  op0->allocate(kMemoryCapacity / 2);
+
+  // task1 has 256MB in second abort capacity limit bucket.
+  auto task1 = addTask(kMemoryCapacity / 2);
+  auto* op1 = task1->addMemoryOp(true);
+  op1->allocate(kMemoryCapacity / 2);
+  ASSERT_EQ(task0->capacity(), kMemoryCapacity / 2);
+
+  std::unordered_map<std::string, RuntimeMetric> runtimeStats;
+  auto statsWriter = std::make_unique<TestRuntimeStatWriter>(runtimeStats);
+  setThreadLocalRunTimeStatWriter(statsWriter.get());
+
+  // task0 has 256MB + 256MB (attempt) = 512MB in top abort capacity limit
+  // bucket, which shall be evaluated first, and hence killed by global
+  // arbitration.
+  VELOX_ASSERT_THROW(op0->allocate(kMemoryCapacity / 2), "aborted");
+
+  ASSERT_EQ(
+      runtimeStats[SharedArbitrator::kMemoryArbitrationWallNanos].count, 1);
+  ASSERT_GT(runtimeStats[SharedArbitrator::kMemoryArbitrationWallNanos].sum, 0);
+  ASSERT_EQ(
+      runtimeStats[SharedArbitrator::kGlobalArbitrationWaitCount].count, 1);
+  ASSERT_EQ(runtimeStats[SharedArbitrator::kGlobalArbitrationWaitCount].sum, 1);
+  ASSERT_EQ(runtimeStats[SharedArbitrator::kLocalArbitrationCount].count, 0);
+
+  ASSERT_TRUE(task1->error() == nullptr);
+  ASSERT_EQ(task1->capacity(), kMemoryCapacity / 2);
+  ASSERT_TRUE(task0->error() != nullptr);
+  VELOX_ASSERT_THROW(
+      std::rethrow_exception(task0->error()),
       "Memory pool aborted to reclaim used memory");
 }
 
@@ -3002,6 +3064,7 @@ TEST_F(MockSharedArbitrationTest, minReclaimBytes) {
     std::vector<TestTask> testTasks;
     uint64_t minReclaimBytes;
     uint64_t targetBytes;
+    bool expectedAbortAfterReclaim;
 
     std::string debugString() const {
       std::stringstream tasksOss;
@@ -3011,10 +3074,11 @@ TEST_F(MockSharedArbitrationTest, minReclaimBytes) {
         tasksOss << "], \n";
       }
       return fmt::format(
-          "testTasks: \n[{}]\ntargetBytes: {}",
+          "testTasks: \n[{}]\ntargetBytes: {}\nexpectedAbortAfterReclaim: {}",
           tasksOss.str(),
           succinctBytes(minReclaimBytes),
-          succinctBytes(targetBytes));
+          succinctBytes(targetBytes),
+          expectedAbortAfterReclaim);
     }
   } testSettings[] = {
       {{{memoryCapacity / 4,
@@ -3029,7 +3093,8 @@ TEST_F(MockSharedArbitrationTest, minReclaimBytes) {
          memoryCapacity / 4,
          false}},
        memoryCapacity / 4,
-       MB},
+       MB,
+       false},
 
       {{{memoryCapacity / 4,
          true,
@@ -3043,7 +3108,8 @@ TEST_F(MockSharedArbitrationTest, minReclaimBytes) {
          memoryCapacity / 4,
          false}},
        memoryCapacity / 2,
-       MB},
+       MB,
+       false},
 
       {{{memoryCapacity / 4,
          true,
@@ -3062,7 +3128,8 @@ TEST_F(MockSharedArbitrationTest, minReclaimBytes) {
          false},
         {memoryCapacity / 4, true, 0, 0, true}},
        memoryCapacity / 2,
-       MB},
+       MB,
+       false},
 
       {{{memoryCapacity / 4,
          true,
@@ -3077,7 +3144,8 @@ TEST_F(MockSharedArbitrationTest, minReclaimBytes) {
         {memoryCapacity / 4, true, 0, 0, true},
         {memoryCapacity / 4, true, 0, 0, true}},
        memoryCapacity / 2,
-       memoryCapacity / 2},
+       memoryCapacity / 2,
+       true},
 
       {{{memoryCapacity / 4,
          false,
@@ -3092,7 +3160,8 @@ TEST_F(MockSharedArbitrationTest, minReclaimBytes) {
         {memoryCapacity / 4, false, 0, 0, true},
         {memoryCapacity / 4, false, 0, 0, true}},
        memoryCapacity / 8,
-       memoryCapacity / 2},
+       memoryCapacity / 2,
+       true},
 
       {{{memoryCapacity / 4,
          false,
@@ -3111,7 +3180,8 @@ TEST_F(MockSharedArbitrationTest, minReclaimBytes) {
          false},
         {memoryCapacity / 4, false, 0, 0, true}},
        memoryCapacity / 8,
-       MB}};
+       MB,
+       false}};
 
   struct TestTaskContainer {
     std::shared_ptr<MockTask> task;
@@ -3134,7 +3204,17 @@ TEST_F(MockSharedArbitrationTest, minReclaimBytes) {
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
     // Make simple settings to focus shrink capacity logic testing.
-    setupMemory(memoryCapacity, 0, 0, 0, 0, 0, 0, 0, testData.minReclaimBytes);
+    setupMemory(
+        memoryCapacity,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        testData.minReclaimBytes,
+        memoryCapacity);
     std::vector<TestTaskContainer> taskContainers;
     for (const auto& testTask : testData.testTasks) {
       auto task = addTask();
@@ -3150,7 +3230,14 @@ TEST_F(MockSharedArbitrationTest, minReclaimBytes) {
 
     auto arbitrationTask = addTask();
     auto* arbitrationOp = arbitrationTask->addMemoryOp(true);
-    arbitrationOp->allocate(testData.targetBytes);
+    if (testData.expectedAbortAfterReclaim) {
+      VELOX_ASSERT_THROW(
+          arbitrationOp->allocate(testData.targetBytes), "aborted");
+      continue;
+    } else {
+      arbitrationOp->allocate(testData.targetBytes);
+    }
+
     test::SharedArbitratorTestHelper arbitratorHelper(arbitrator_);
     arbitratorHelper.waitForGlobalArbitrationToFinish();
 
@@ -3301,33 +3388,39 @@ TEST_F(MockSharedArbitrationTest, noEligibleAbortCandidate) {
 
 TEST_F(MockSharedArbitrationTest, growWithArbitrationAbort) {
   const int memCapacity = 256 * MB;
-  const int minPoolCapacity = 8 * MB;
-  setupMemory(memCapacity, 0, minPoolCapacity, 0);
-  auto* reclaimableOp = addMemoryOp(nullptr, true);
-  ASSERT_EQ(reclaimableOp->capacity(), minPoolCapacity);
-  auto* nonReclaimableOp = addMemoryOp(nullptr, false);
-  ASSERT_EQ(nonReclaimableOp->capacity(), minPoolCapacity);
-  auto* arbitrateOp = addMemoryOp();
-  ASSERT_EQ(arbitrateOp->capacity(), minPoolCapacity);
+  const int initPoolCapacity = 8 * MB;
+  setupMemory(memCapacity, 0, initPoolCapacity, 0, 0, 0, 0, 0, 0, memCapacity);
 
-  reclaimableOp->allocate(minPoolCapacity);
-  ASSERT_EQ(reclaimableOp->capacity(), minPoolCapacity);
-  nonReclaimableOp->allocate(minPoolCapacity);
-  ASSERT_EQ(nonReclaimableOp->capacity(), minPoolCapacity);
-  arbitrateOp->allocate(memCapacity);
+  auto* reclaimableOp = addMemoryOp(nullptr, true);
+  ASSERT_EQ(reclaimableOp->capacity(), initPoolCapacity);
+
+  auto* nonReclaimableOp = addMemoryOp(nullptr, false);
+  ASSERT_EQ(nonReclaimableOp->capacity(), initPoolCapacity);
+
+  auto* arbitrateOp = addMemoryOp();
+  ASSERT_EQ(arbitrateOp->capacity(), initPoolCapacity);
+
+  reclaimableOp->allocate(memCapacity / 8);
+  ASSERT_EQ(reclaimableOp->capacity(), memCapacity / 8 + initPoolCapacity);
+
+  nonReclaimableOp->allocate(memCapacity / 8 * 7);
+  ASSERT_EQ(nonReclaimableOp->capacity(), memCapacity / 8 * 7);
+
+  arbitrateOp->allocate(memCapacity / 4);
   ASSERT_TRUE(nonReclaimableOp->pool()->aborted());
-  verifyReclaimerStats(nonReclaimableOp->reclaimer()->stats());
-  verifyReclaimerStats(reclaimableOp->reclaimer()->stats(), 1);
+
+  verifyReclaimerStats(nonReclaimableOp->reclaimer()->stats(), 0, 1);
+  verifyReclaimerStats(reclaimableOp->reclaimer()->stats(), 1, 1);
   verifyReclaimerStats(arbitrateOp->reclaimer()->stats(), 0, 1);
   verifyArbitratorStats(
       arbitrator_->stats(),
       memCapacity,
+      memCapacity - memCapacity / 4,
       0,
+      3,
       0,
-      1,
-      0,
-      minPoolCapacity * 2,
-      8388608);
+      memCapacity,
+      24 * MB);
 }
 
 TEST_F(MockSharedArbitrationTest, singlePoolGrowCapacityWithArbitration) {
@@ -3441,7 +3534,7 @@ TEST_F(MockSharedArbitrationTest, arbitrateWithMemoryReclaim) {
   const uint64_t memoryCapacity = 256 * MB;
   const uint64_t reservedMemoryCapacity = 128 * MB;
   const uint64_t reservedPoolCapacity = 8 * MB;
-  const uint64_t memoryPoolAbortCapacityLimit = 32 * MB;
+  const uint64_t memoryPoolAbortCapacityLimit = 256 * MB;
   const std::vector<bool> isLeafReclaimables = {true, false};
   for (const auto isLeafReclaimable : isLeafReclaimables) {
     SCOPED_TRACE(fmt::format("isLeafReclaimable {}", isLeafReclaimable));
@@ -3464,7 +3557,7 @@ TEST_F(MockSharedArbitrationTest, arbitrateWithMemoryReclaim) {
     auto* arbitrateOp = addMemoryOp();
     if (!isLeafReclaimable) {
       auto leafTask = tasks().front();
-      ASSERT_NO_THROW(arbitrateOp->allocate(reservedMemoryCapacity / 2));
+      ASSERT_NO_THROW(arbitrateOp->allocate(reservedPoolCapacity * 2));
 
       ASSERT_NE(leafTask->error(), nullptr);
       ASSERT_EQ(arbitrator_->stats().numFailures, 0);

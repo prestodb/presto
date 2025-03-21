@@ -624,10 +624,12 @@ class SharedArbitrator : public memory::MemoryArbitrator {
   // and abort the youngest participant whose capacity is larger than the limit.
   // If there is no such participant, it goes to the next limit and so on.
   std::vector<uint64_t> globalArbitrationAbortCapacityLimits_;
+
   // The global arbitration control thread which runs the global arbitration at
   // the background, and dispatch the actual memory reclaim work on different
   // participants to 'globalArbitrationExecutor_' and collects the results back.
   std::unique_ptr<std::thread> globalArbitrationController_;
+
   // Signal used to wakeup 'globalArbitrationController_' to run global
   // arbitration on-demand.
   std::condition_variable_any globalArbitrationThreadCv_;

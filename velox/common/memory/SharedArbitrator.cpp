@@ -541,7 +541,15 @@ void SharedArbitrator::sortCandidatesByReclaimableUsedCapacity(
 
 std::optional<ArbitrationCandidate> SharedArbitrator::findAbortCandidate(
     bool force) {
-  const auto candidates = getCandidates();
+  auto candidates = getCandidates();
+
+  // Account in attempting global arbitration capacity for fair selection, to
+  // avoid unfairness caused by small participant requesting large grow.
+  for (auto& candidate : candidates) {
+    candidate.currentCapacity +=
+        candidate.participant->globalArbitrationGrowCapacity();
+  }
+
   if (candidates.empty()) {
     return std::nullopt;
   }
@@ -560,8 +568,8 @@ std::optional<ArbitrationCandidate> SharedArbitrator::findAbortCandidate(
         candidateIdx = i;
         continue;
       }
-      // With the same capacity size bucket, we favor the old participant to
-      // let long running query proceed first.
+      // With the same capacity size bucket, we favor the old participant to not
+      // to be killed, to let long running query proceed first.
       if (candidates[candidateIdx].participant->id() <
           candidates[i].participant->id()) {
         candidateIdx = i;
@@ -821,6 +829,7 @@ void SharedArbitrator::startAndWaitGlobalArbitration(ArbitrationOperation& op) {
       arbitrationWaitFuture = arbitrationWait->resumePromise.getSemiFuture();
       globalArbitrationWaiters_.emplace(
           op.participant()->id(), arbitrationWait.get());
+      op.participant()->setPendingArbitrationGrowCapacity(op.requestBytes());
     }
   }
 
@@ -829,6 +838,9 @@ void SharedArbitrator::startAndWaitGlobalArbitration(ArbitrationOperation& op) {
       this);
 
   if (arbitrationWaitFuture.valid()) {
+    SCOPE_EXIT {
+      op.participant()->clearGlobalArbitrationGrowCapacity();
+    };
     VELOX_CHECK_NOT_NULL(arbitrationWait);
     op.recordGlobalArbitrationStartTime();
     wakeupGlobalArbitrationThread();
@@ -1188,8 +1200,10 @@ uint64_t SharedArbitrator::reclaimUsedMemoryByAbort(bool force) {
   try {
     VELOX_MEM_POOL_ABORTED(fmt::format(
         "Memory pool aborted to reclaim used memory, current capacity {}, "
-        "memory pool stats:\n{}\n{}",
+        "requesting capacity from global arbitration {} memory pool "
+        "stats:\n{}\n{}",
         succinctBytes(victim.participant->pool()->capacity()),
+        succinctBytes(victim.participant->globalArbitrationGrowCapacity()),
         victim.participant->pool()->toString(),
         victim.participant->pool()->treeMemoryUsage()));
   } catch (VeloxRuntimeError&) {

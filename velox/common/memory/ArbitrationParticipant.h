@@ -260,6 +260,14 @@ class ArbitrationParticipant
   /// waiting operation to start execution if there is one.
   void finishArbitration(ArbitrationOperation* op);
 
+  /// Invoked to set the capacity 'this' participant attempts to grow through
+  /// global arbitration.
+  void setPendingArbitrationGrowCapacity(int64_t growCapacity);
+
+  void clearGlobalArbitrationGrowCapacity();
+
+  int64_t globalArbitrationGrowCapacity() const;
+
   /// Returns true if there is a running arbitration operation on this
   /// participant.
   bool hasRunningOp() const;
@@ -344,9 +352,14 @@ class ArbitrationParticipant
     ArbitrationOperation* op;
     ContinuePromise waitPromise;
   };
-  /// The resume promises of the arbitration operations on this participant
-  /// waiting for serial execution.
+  // The resume promises of the arbitration operations on this participant
+  // waiting for serial execution.
   std::deque<WaitOp> waitOps_;
+
+  // The additional capacity 'this' participant attempts to grow in global
+  // arbitration. This will be used in addition to its current capacity for
+  // abort candidate selection.
+  tsan_atomic<int64_t> globalArbitrationGrowCapacity_{0};
 
   tsan_atomic<uint32_t> numRequests_{0};
   tsan_atomic<uint32_t> numReclaims_{0};

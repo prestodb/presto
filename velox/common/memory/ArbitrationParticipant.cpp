@@ -259,6 +259,21 @@ void ArbitrationParticipant::finishArbitration(ArbitrationOperation* op) {
   }
 }
 
+void ArbitrationParticipant::setPendingArbitrationGrowCapacity(
+    int64_t growCapacity) {
+  VELOX_CHECK_EQ(globalArbitrationGrowCapacity_, 0);
+  globalArbitrationGrowCapacity_ = growCapacity;
+}
+
+void ArbitrationParticipant::clearGlobalArbitrationGrowCapacity() {
+  VELOX_CHECK_NE(globalArbitrationGrowCapacity_, 0);
+  globalArbitrationGrowCapacity_ = 0;
+}
+
+int64_t ArbitrationParticipant::globalArbitrationGrowCapacity() const {
+  return globalArbitrationGrowCapacity_;
+}
+
 uint64_t ArbitrationParticipant::reclaim(
     uint64_t targetBytes,
     uint64_t maxWaitTimeNs,
