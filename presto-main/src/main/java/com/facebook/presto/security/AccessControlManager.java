@@ -798,6 +798,12 @@ public class AccessControlManager
         }
     }
 
+    @Override
+    public boolean isSkipPermissionsCheckEnabled()
+    {
+        return systemAccessControl.get().isSkipPermissionsCheckEnabled();
+    }
+
     private CatalogAccessControlEntry getConnectorAccessControl(TransactionId transactionId, String catalogName)
     {
         return transactionManager.getOptionalCatalogMetadata(transactionId, catalogName)

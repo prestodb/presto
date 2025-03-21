@@ -380,4 +380,9 @@ public interface SystemAccessControl
     {
         denyAddConstraint(table.toString());
     }
+
+    default boolean isSkipPermissionsCheckEnabled()
+    {
+        return false;
+    }
 }
