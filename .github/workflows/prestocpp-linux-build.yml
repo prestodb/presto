@@ -86,3 +86,34 @@ jobs:
         with:
           path: '${{ env.CCACHE_DIR }}'
           key: ccache-prestocpp-linux-build-engine
+
+      - name: Regenerate the protocol files
+        run: |
+          export PRESTO_HOME=$(pwd)
+          cd presto-native-execution/presto_cpp/presto_protocol
+          make presto_protocol
+
+      - name: Incrementally rebuild presto_server with the new protocol
+        run: |
+          cd presto-native-execution
+          cmake \
+            -B _build/debug \
+            -GNinja \
+            -DTREAT_WARNINGS_AS_ERRORS=1 \
+            -DENABLE_ALL_WARNINGS=1 \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DPRESTO_ENABLE_PARQUET=ON \
+            -DPRESTO_ENABLE_S3=ON \
+            -DPRESTO_ENABLE_GCS=ON \
+            -DPRESTO_ENABLE_ABFS=OFF \
+            -DPRESTO_ENABLE_HDFS=ON \
+            -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON \
+            -DPRESTO_ENABLE_JWT=ON \
+            -DPRESTO_STATS_REPORTER_TYPE=PROMETHEUS \
+            -DPRESTO_MEMORY_CHECKER_TYPE=LINUX_MEMORY_CHECKER \
+            -DPRESTO_ENABLE_TESTING=OFF \
+            -DCMAKE_PREFIX_PATH=/usr/local \
+            -DThrift_ROOT=/usr/local \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DMAX_LINK_JOBS=4
+          ninja -C _build/debug -j 4
