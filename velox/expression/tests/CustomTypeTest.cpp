@@ -231,7 +231,8 @@ TEST_F(CustomTypeTest, getCustomTypeNames) {
           "IPADDRESS",
           "IPPREFIX",
           "BINGTILE",
-          "TDIGEST"}),
+          "TDIGEST",
+          "GEOMETRY"}),
       names);
 
   ASSERT_TRUE(registerCustomType(
@@ -248,7 +249,8 @@ TEST_F(CustomTypeTest, getCustomTypeNames) {
           "IPPREFIX",
           "BINGTILE",
           "FANCY_INT",
-          "TDIGEST"}),
+          "TDIGEST",
+          "GEOMETRY"}),
       names);
 
   ASSERT_TRUE(unregisterCustomType("fancy_int"));

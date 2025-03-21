@@ -173,6 +173,7 @@ TIMESTAMP WITH TIME ZONE  BIGINT
 UUID                      HUGEINT
 IPADDRESS                 HUGEINT
 IPPREFIX                  ROW(HUGEINT,TINYINT)
+GEOMETRY                  VARBINARY
 ========================  =====================
 
 TIMESTAMP WITH TIME ZONE represents a time point in milliseconds precision
