@@ -94,18 +94,6 @@ class OutputBufferManager {
 
   void removeTask(const std::string& taskId);
 
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  /// Initializes singleton with 'options'. May be called once before
-  /// getInstance().
-  static void initialize(const Options& options) {
-    getInstanceRef(options);
-  }
-
-  static std::weak_ptr<OutputBufferManager> getInstance() {
-    return getInstanceRef(Options());
-  }
-#endif
-
   static const std::shared_ptr<OutputBufferManager>& getInstanceRef();
 
   static const std::shared_ptr<OutputBufferManager>& getInstanceRef(
