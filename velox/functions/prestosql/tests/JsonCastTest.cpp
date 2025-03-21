@@ -889,6 +889,30 @@ TEST_F(JsonCastTest, toInteger) {
   testCast<JsonNativeType, int64_t>(
       JSON(),
       BIGINT(),
+      {"1.5"_sv, "2.0001"_sv, "2.59"_sv, "-0.59"_sv, "-1.23"_sv},
+      {2, 2, 3, -1, -1});
+
+  testCast<JsonNativeType, int32_t>(
+      JSON(),
+      INTEGER(),
+      {"1.5"_sv, "2.0001"_sv, "2.59"_sv, "-0.59"_sv, "-1.23"_sv},
+      {2, 2, 3, -1, -1});
+
+  testCast<JsonNativeType, int16_t>(
+      JSON(),
+      SMALLINT(),
+      {"1.5"_sv, "2.0001"_sv, "2.59"_sv, "-0.59"_sv, "-1.23"_sv},
+      {2, 2, 3, -1, -1});
+
+  testCast<JsonNativeType, int8_t>(
+      JSON(),
+      TINYINT(),
+      {"1.5"_sv, "2.0001"_sv, "2.59"_sv, "-0.59"_sv, "-1.23"_sv},
+      {2, 2, 3, -1, -1});
+
+  testCast<JsonNativeType, int64_t>(
+      JSON(),
+      BIGINT(),
       {"1"_sv,
        "-3"_sv,
        "0"_sv,

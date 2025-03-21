@@ -624,7 +624,14 @@ simdjson::error_code convertIfInRange(From x, exec::GenericWriter& writer) {
     if (!(kMin <= x && x <= kMax)) {
       return simdjson::NUMBER_OUT_OF_RANGE;
     }
-    return convertIfInRange<To, int64_t>(x, writer);
+
+    // Need to round to nearest integer to be conformant with Java.
+    simdjson::error_code err{simdjson::NUMBER_OUT_OF_RANGE};
+    folly::tryTo<To>(std::round(x)).then([&err, &writer](To y) {
+      err = convertIfInRange<To, int64_t>(y, writer);
+    });
+
+    return err;
   }
 }
 
