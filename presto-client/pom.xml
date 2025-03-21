@@ -116,7 +116,6 @@
         <dependency>
             <groupId>jakarta.inject</groupId>
             <artifactId>jakarta.inject-api</artifactId>
-            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -149,6 +148,9 @@
                         <ignoredUnusedDeclaredDependency>com.squareup.okio:okio-jvm</ignoredUnusedDeclaredDependency>
                         <ignoredUnusedDeclaredDependency>org.jetbrains.kotlin:kotlin-stdlib-jdk8</ignoredUnusedDeclaredDependency>
                     </ignoredUnusedDeclaredDependencies>
+                    <ignoredNonTestScopedDependencies>
+                        <ignoredNonTestScopedDependency>jakarta.inject:jakarta.inject-api</ignoredNonTestScopedDependency>
+                    </ignoredNonTestScopedDependencies>
                 </configuration>
             </plugin>
         </plugins>

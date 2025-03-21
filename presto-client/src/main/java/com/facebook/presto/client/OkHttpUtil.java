@@ -34,12 +34,12 @@ import javax.net.ssl.X509TrustManager;
 import javax.security.auth.x500.X500Principal;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.CookieManager;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
+import java.nio.file.Paths;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 import java.security.SecureRandom;
@@ -57,6 +57,7 @@ import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static java.net.Proxy.Type.HTTP;
 import static java.net.Proxy.Type.SOCKS;
+import static java.nio.file.Files.newInputStream;
 import static java.util.Collections.list;
 import static java.util.Objects.requireNonNull;
 
@@ -197,7 +198,7 @@ public final class OkHttpUtil
                 char[] keyManagerPassword;
                 try {
                     // attempt to read the key store as a PEM file
-                    keyStore = PemReader.loadKeyStore(new File(keyStorePath.get()), new File(keyStorePath.get()), keyStorePassword);
+                    keyStore = PemReader.loadKeyStore(Paths.get(keyStorePath.get()).toFile(), Paths.get(keyStorePath.get()).toFile(), keyStorePassword);
                     // for PEM encoded keys, the password is used to decrypt the specific key (and does not protect the keystore itself)
                     keyManagerPassword = new char[0];
                 }
@@ -205,7 +206,7 @@ public final class OkHttpUtil
                     keyManagerPassword = keyStorePassword.map(String::toCharArray).orElse(null);
 
                     keyStore = KeyStore.getInstance(keystoreType.get());
-                    try (InputStream in = new FileInputStream(keyStorePath.get())) {
+                    try (InputStream in = newInputStream(Paths.get(keyStorePath.get()))) {
                         keyStore.load(in, keyManagerPassword);
                     }
                 }
@@ -219,7 +220,7 @@ public final class OkHttpUtil
             KeyStore trustStore = keyStore;
             if (trustStorePath.isPresent()) {
                 checkArgument(trustStoreType.isPresent(), "truststore type is not present");
-                trustStore = loadTrustStore(new File(trustStorePath.get()), trustStorePassword, trustStoreType.get());
+                trustStore = loadTrustStore(Paths.get(trustStorePath.get()).toFile(), trustStorePassword, trustStoreType.get());
             }
 
             // create TrustManagerFactory
@@ -288,7 +289,7 @@ public final class OkHttpUtil
         catch (IOException | GeneralSecurityException ignored) {
         }
 
-        try (InputStream in = new FileInputStream(trustStorePath)) {
+        try (InputStream in = newInputStream(trustStorePath.toPath())) {
             trustStore.load(in, trustStorePassword.map(String::toCharArray).orElse(null));
         }
         return trustStore;

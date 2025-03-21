@@ -17,7 +17,6 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -52,7 +51,7 @@ public class RelationType
     {
         requireNonNull(fields, "fields is null");
         this.allFields = ImmutableList.copyOf(fields);
-        this.visibleFields = ImmutableList.copyOf(Iterables.filter(fields, not(Field::isHidden)));
+        this.visibleFields = ImmutableList.copyOf(fields.stream().filter(not(Field::isHidden)).iterator());
 
         int index = 0;
         ImmutableMap.Builder<Field, Integer> builder = ImmutableMap.builder();

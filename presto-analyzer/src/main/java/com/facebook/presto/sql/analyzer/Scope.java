@@ -31,7 +31,7 @@ import static com.facebook.presto.sql.analyzer.SemanticExceptions.ambiguousAttri
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.missingAttributeException;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -137,7 +137,7 @@ public class Scope
             throw ambiguousAttributeException(node, name);
         }
         else if (matches.size() == 1) {
-            return Optional.of(asResolvedField(getOnlyElement(matches), fieldIndexOffset, local));
+            return Optional.of(asResolvedField(matches.stream().collect(onlyElement()), fieldIndexOffset, local));
         }
         else {
             if (isColumnReference(name, relation)) {
