@@ -28,7 +28,7 @@
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
 namespace facebook::velox::exec::test {
-class OperatorTestBase : public testing::Test,
+class OperatorTestBase : public virtual testing::Test,
                          public velox::test::VectorTestBase {
  public:
   /// The following methods are used by google unit test framework to do

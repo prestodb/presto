@@ -60,7 +60,7 @@ void LocalRunnerTestBase::setupConnector() {
   connector::unregisterConnector(kHiveConnectorId);
 
   std::unordered_map<std::string, std::string> configs;
-  configs[connector::hive::HiveConfig::kLocalDataPath] = files_->getPath();
+  configs[connector::hive::HiveConfig::kLocalDataPath] = testDataPath_;
   configs[connector::hive::HiveConfig::kLocalFileFormat] = "dwrf";
   auto hiveConnector =
       connector::getConnectorFactory(
@@ -75,9 +75,16 @@ void LocalRunnerTestBase::setupConnector() {
 void LocalRunnerTestBase::makeTables(
     std::vector<TableSpec> specs,
     std::shared_ptr<TempDirectoryPath>& directory) {
-  directory = exec::test::TempDirectoryPath::create();
+  if (initialized_) {
+    return;
+  }
+  initialized_ = true;
+  if (testDataPath_.empty()) {
+    directory = exec::test::TempDirectoryPath::create();
+    testDataPath_ = directory->getPath();
+  }
   for (auto& spec : specs) {
-    auto tablePath = fmt::format("{}/{}", directory->getPath(), spec.name);
+    auto tablePath = fmt::format("{}/{}", testDataPath_, spec.name);
     auto fs = filesystems::getFileSystem(tablePath, {});
     fs->mkdir(tablePath);
     for (auto i = 0; i < spec.numFiles; ++i) {
