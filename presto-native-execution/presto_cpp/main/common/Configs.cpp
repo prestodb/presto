@@ -254,6 +254,7 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kJoinSpillEnabled, true),
           BOOL_PROP(kAggregationSpillEnabled, true),
           BOOL_PROP(kOrderBySpillEnabled, true),
+          NUM_PROP(kRequestDataSizesMaxWaitSec, 10),
       };
 }
 
@@ -331,6 +332,10 @@ bool SystemConfig::aggregationSpillEnabled() const {
 
 bool SystemConfig::orderBySpillEnabled() const {
   return optionalProperty<bool>(kOrderBySpillEnabled).value();
+}
+
+int SystemConfig::requestDataSizesMaxWaitSec() const {
+  return optionalProperty<int>(kRequestDataSizesMaxWaitSec).value();
 }
 
 bool SystemConfig::mutableConfig() const {
