@@ -142,12 +142,32 @@ These stats are reported only by IndexLookupJoin operator
    * - Stats
      - Unit
      - Description
-   * - lookupWallNanos
+   * - connectorlookupWallNanos
      - nanos
-     - The walltime in nanoseconds that the index connector do the lookup.
-   * - lookupCpuNanos
+     - The end-to-end walltime in nanoseconds that the index connector do the lookup.
+   * - connectorlookupWaitWallNanos
      - nanos
-     - The cpu time in nanoseconds that the index connector do the lookup.
+     - The walltime in nanoseconds that the index connector wait for the lookup from
+       remote storage.
+   * - connectorResultPrepareCpuNanos
+     - nanos
+     - The cpu time in nanoseconds that the index connector process response from storages
+       client for followup processing by index join operator.
+   * - clientRequestProcessCpuNanos
+     - nanos
+     - The cpu time in nanoseconds that the storage client process request for remote
+       storage lookup such as encoding the lookup input data into remotr storage request.
+   * - clientResultProcessCpuNanos
+     - nanos
+     - The cpu time in nanoseconds that the storage client process response from remote
+       storage lookup such as decoding the response data into velox vectors.
+   * - clientLookupResultRawSize
+     - bytes
+     - The byte size of the raw result received from the remote storage lookup.
+   * - clientLookupResultSize
+     - bytes
+     - The byte size of the result data in velox vectors that are decoded from the raw data
+       received from the remote storage lookup.
 
 Spilling
 --------

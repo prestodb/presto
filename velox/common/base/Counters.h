@@ -360,4 +360,19 @@ constexpr folly::StringPiece kMetricStorageGlobalThrottled{
 
 constexpr folly::StringPiece kMetricStorageNetworkThrottled{
     "velox.storage_network_throttled_count"};
+
+constexpr folly::StringPiece kMetricIndexLookupResultRawBytes{
+    "velox.index_lookup_result_raw_bytes"};
+
+constexpr folly::StringPiece kMetricIndexLookupResultBytes{
+    "velox.index_lookup_result_bytes"};
+
+constexpr folly::StringPiece kMetricIndexLookupTimeMs{
+    "velox.index_lookup_time_ms"};
+
+constexpr folly::StringPiece kMetricIndexLookupWaitTimeMs{
+    "velox.index_lookup_wait_time_ms"};
+
+constexpr folly::StringPiece kMetricTableScanBatchProcessTimeMs{
+    "velox.table_scan_batch_process_time_ms"};
 } // namespace facebook::velox

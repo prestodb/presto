@@ -560,3 +560,47 @@ Hive Connector
      - The distribution of hive sort writer finish processing time slice in range
        of[0, 120s] with 60 buckets. It is configured to report latency at P50,
        P90, P99, and P100 percentiles.
+
+Index Join
+----------
+
+.. list-table::
+   :widths: 40 10 50
+   :header-rows: 1
+
+   * - Metric Name
+     - Type
+     - Description
+   * - index_lookup_wait_time_ms
+     - Histogram
+     - The time distribution of index lookup time in range of [0, 16s] with 512
+       buckets and reports P50, P90, P99, and P100.
+   * - index_lookup_wait_time_ms
+     - Histogram
+     - The time distribution of index lookup time in range of [0, 16s] with 512
+       buckets and reports P50, P90, P99, and P100.
+   * - index_lookup_result_raw_bytes
+     - Histogram
+     - The distribution of index lookup result raw bytes in range of [0, 128MB]
+       with 128 buckets. It is configured to report the capacity at P50, P90, P99,
+       and P100 percentiles.
+   * - index_lookup_result_bytes
+     - Histogram
+     - The distribution of index lookup result bytes in range of [0, 128MB] with
+       128 buckets. It is configured to report the capacity at P50, P90, P99, and
+       P100 percentiles.
+
+Table Scan
+----------
+
+.. list-table::
+   :widths: 40 10 50
+   :header-rows: 1
+
+   * - Metric Name
+     - Type
+     - Description
+   * - table_scan_batch_process_time_ms
+     - Histogram
+     - The time distribution of table scan batch processing time in range of [0,
+       16s] with 512 buckets and reports P50, P90, P99, and P100.

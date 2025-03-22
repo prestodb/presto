@@ -49,11 +49,12 @@ TEST_F(RuntimeMetricsTest, basic) {
 
   ASSERT_EQ(
       fmt::format(
-          "sum:{}, count:{}, min:{}, max:{}",
+          "sum:{}, count:{}, min:{}, max:{}, avg: {}",
           rm1.sum,
           rm1.count,
           rm1.min,
-          rm1.max),
+          rm1.max,
+          rm1.sum / rm1.count),
       rm1.toString());
 
   RuntimeMetric rm2;
@@ -74,11 +75,13 @@ TEST_F(RuntimeMetricsTest, basic) {
 
   RuntimeMetric byteRm(RuntimeCounter::Unit::kBytes);
   byteRm.addValue(5);
-  ASSERT_EQ(byteRm.toString(), "sum:5B, count:1, min:5B, max:5B");
+  ASSERT_EQ(byteRm.toString(), "sum:5B, count:1, min:5B, max:5B, avg: 5B");
 
   RuntimeMetric timeRm(RuntimeCounter::Unit::kNanos);
   timeRm.addValue(2'000);
-  ASSERT_EQ(timeRm.toString(), "sum:2.00us, count:1, min:2.00us, max:2.00us");
+  ASSERT_EQ(
+      timeRm.toString(),
+      "sum:2.00us, count:1, min:2.00us, max:2.00us, avg: 2.00us");
 }
 
 } // namespace facebook::velox

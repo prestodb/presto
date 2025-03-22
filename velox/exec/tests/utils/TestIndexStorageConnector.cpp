@@ -208,14 +208,26 @@ void TestIndexSource::initOutputProjections() {
 void TestIndexSource::recordCpuTiming(const CpuWallTiming& timing) {
   VELOX_CHECK_EQ(timing.count, 1);
   std::lock_guard<std::mutex> l(mutex_);
-  addOperatorRuntimeStats(
-      IndexLookupJoin::kConnectorLookupWallTime,
-      RuntimeCounter(timing.wallNanos, RuntimeCounter::Unit::kNanos),
-      runtimeStats_);
-  addOperatorRuntimeStats(
-      IndexLookupJoin::kConnectorLookupCpuTime,
-      RuntimeCounter(timing.cpuNanos, RuntimeCounter::Unit::kNanos),
-      runtimeStats_);
+  if (timing.wallNanos != 0) {
+    addOperatorRuntimeStats(
+        IndexLookupJoin::kConnectorLookupWallTime,
+        RuntimeCounter(timing.wallNanos, RuntimeCounter::Unit::kNanos),
+        runtimeStats_);
+    // This is just for testing purpose to check if the runtime stats has been
+    // set properly.
+    addOperatorRuntimeStats(
+        IndexLookupJoin::kClientLookupWaitWallTime,
+        RuntimeCounter(timing.wallNanos, RuntimeCounter::Unit::kNanos),
+        runtimeStats_);
+  }
+  if (timing.cpuNanos != 0) {
+    // This is just for testing purpose to check if the runtime stats has been
+    // set properly.
+    addOperatorRuntimeStats(
+        IndexLookupJoin::kConnectorResultPrepareTime,
+        RuntimeCounter(timing.cpuNanos, RuntimeCounter::Unit::kNanos),
+        runtimeStats_);
+  }
 }
 
 std::unordered_map<std::string, RuntimeMetric> TestIndexSource::runtimeStats() {

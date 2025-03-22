@@ -779,14 +779,15 @@ void IndexLookupJoin::recordConnectorStats() {
     lockedStats->runtimeStats.erase(name);
     lockedStats->runtimeStats.emplace(name, std::move(value));
   }
-  if (connectorStats.count(kConnectorLookupCpuTime) != 0) {
-    VELOX_CHECK_EQ(
-        connectorStats[kConnectorLookupCpuTime].count,
-        connectorStats[kConnectorLookupWallTime].count);
+  if (connectorStats.count(kConnectorLookupWallTime) != 0) {
     const CpuWallTiming backgroundTiming{
-        static_cast<uint64_t>(connectorStats[kConnectorLookupCpuTime].count),
+        static_cast<uint64_t>(connectorStats[kConnectorLookupWallTime].count),
         static_cast<uint64_t>(connectorStats[kConnectorLookupWallTime].sum),
-        static_cast<uint64_t>(connectorStats[kConnectorLookupCpuTime].sum)};
+        // NOTE: this might not be accurate as it doesn't include the time spent
+        // inside the index storage client.
+        static_cast<uint64_t>(connectorStats[kConnectorResultPrepareTime].sum) +
+            connectorStats[kClientRequestProcessTime].sum +
+            connectorStats[kClientResultProcessTime].sum};
     lockedStats->backgroundTiming.clear();
     lockedStats->backgroundTiming.add(backgroundTiming);
   }

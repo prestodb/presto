@@ -42,10 +42,35 @@ class IndexLookupJoin : public Operator {
   void close() override;
 
   /// Defines lookup runtime stats.
-  /// The walltime time that the index connector do the lookup.
-  static inline const std::string kConnectorLookupWallTime{"lookupWallNanos"};
-  /// The cpu time that the index connector do the lookup.
-  static inline const std::string kConnectorLookupCpuTime{"lookupCpuNanos"};
+  /// The end-to-end walltime in nanoseconds that the index connector do the
+  /// lookup.
+  static inline const std::string kConnectorLookupWallTime{
+      "connectorLookupWallNanos"};
+  /// The cpu time in nanoseconds that the index connector process response from
+  /// storage client for followup processing by index join operator.
+  static inline const std::string kConnectorResultPrepareTime{
+      "connectorResultPrepareCpuNanos"};
+  /// The cpu time in nanoseconds that the storage client process request for
+  /// remote storage lookup such as encoding the lookup input data into remotr
+  /// storage request.
+  static inline const std::string kClientRequestProcessTime{
+      "clientRequestProcessCpuNanos"};
+  /// The walltime in nanoseconds that the storage client wait for the lookup
+  /// from remote storage.
+  static inline const std::string kClientLookupWaitWallTime{
+      "clientlookupWaitWallNanos"};
+  /// The cpu time in nanoseconds that the storage client process response from
+  /// remote storage lookup such as decoding the response data into velox
+  /// vectors.
+  static inline const std::string kClientResultProcessTime{
+      "clientResultProcessCpuNanos"};
+  /// The byte size of the raw result received from the remote storage lookup.
+  static inline const std::string kClientLookupResultRawSize{
+      "clientLookupResultRawSize"};
+  /// The byte size of the result data in velox vectors that are decoded from
+  /// the raw data received from the remote storage lookup.
+  static inline const std::string kClientLookupResultSize{
+      "clientLookupResultSize"};
 
  private:
   using LookupResultIter = connector::IndexSource::LookupResultIterator;

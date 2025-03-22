@@ -282,6 +282,10 @@ RowVectorPtr TableScan::getOutput() {
               {maxFilteringRatio_,
                1.0 * data->size() / readBatchSize,
                1.0 / kMaxSelectiveBatchSizeMultiplier});
+          if (ioTimeUs > 0) {
+            RECORD_HISTOGRAM_METRIC_VALUE(
+                velox::kMetricTableScanBatchProcessTimeMs, ioTimeUs / 1'000);
+          }
           return data;
         }
         continue;

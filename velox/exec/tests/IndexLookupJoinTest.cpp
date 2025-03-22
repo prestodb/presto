@@ -1817,13 +1817,22 @@ DEBUG_ONLY_TEST_P(IndexLookupJoinTest, runtimeStats) {
       numProbeBatches);
   ASSERT_GT(runtimeStats.at(IndexLookupJoin::kConnectorLookupWallTime).sum, 0);
   ASSERT_EQ(
-      runtimeStats.at(IndexLookupJoin::kConnectorLookupCpuTime).count,
+      runtimeStats.at(IndexLookupJoin::kClientLookupWaitWallTime).count,
       numProbeBatches);
-  ASSERT_GT(runtimeStats.at(IndexLookupJoin::kConnectorLookupCpuTime).sum, 0);
+  ASSERT_GT(runtimeStats.at(IndexLookupJoin::kClientLookupWaitWallTime).sum, 0);
+  ASSERT_EQ(
+      runtimeStats.at(IndexLookupJoin::kConnectorResultPrepareTime).count,
+      numProbeBatches);
+  ASSERT_GT(
+      runtimeStats.at(IndexLookupJoin::kConnectorResultPrepareTime).sum, 0);
+  ASSERT_EQ(runtimeStats.count(IndexLookupJoin::kClientRequestProcessTime), 0);
+  ASSERT_EQ(runtimeStats.count(IndexLookupJoin::kClientResultProcessTime), 0);
+  ASSERT_EQ(runtimeStats.count(IndexLookupJoin::kClientLookupResultSize), 0);
+  ASSERT_EQ(runtimeStats.count(IndexLookupJoin::kClientLookupResultRawSize), 0);
   ASSERT_THAT(
       operatorStats.toString(true, true),
       testing::MatchesRegex(
-          ".*Runtime stats.*lookupWallNanos.*lookupCpuNanos.*"));
+          ".*Runtime stats.*connectorLookupWallNanos:.*clientlookupWaitWallNanos.*connectorResultPrepareCpuNanos.*"));
 }
 
 TEST_P(IndexLookupJoinTest, joinFuzzer) {
