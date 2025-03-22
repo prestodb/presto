@@ -172,6 +172,7 @@ public final class ArrayDistinctFunction
                 if (array.isNull(position)) {
                     if (!containsNull) {
                         BIGINT.appendTo(array, position, distinctElementBlockBuilder);
+                        containsNull = true;  // Set the flag after adding the first null
                     }
                 }
                 else if (set.add(BIGINT.getLong(array, position))) {
