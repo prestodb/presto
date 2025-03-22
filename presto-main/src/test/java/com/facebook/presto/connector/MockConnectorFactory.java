@@ -27,12 +27,15 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.facebook.presto.tpch.TpchColumnHandle;
@@ -41,6 +44,7 @@ import com.facebook.presto.tpch.TpchRecordSetProvider;
 import com.facebook.presto.tpch.TpchSplitManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
 import java.util.Map;
@@ -52,6 +56,7 @@ import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_JOIN_PUSHDOWN;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
@@ -64,19 +69,22 @@ public class MockConnectorFactory
     private final BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews;
     private final BiFunction<ConnectorSession, ConnectorTableHandle, Map<String, TpchColumnHandle>> getColumnHandles;
     private final Supplier<TableStatistics> getTableStatistics;
+    private final Set<ConnectorCapabilities> connectorCapabilities;
 
     private MockConnectorFactory(
             Function<ConnectorSession, List<String>> listSchemaNames,
             BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables,
             BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews,
             BiFunction<ConnectorSession, ConnectorTableHandle, Map<String, TpchColumnHandle>> getColumnHandles,
-            Supplier<TableStatistics> getTableStatistics)
+            Supplier<TableStatistics> getTableStatistics,
+            Set<ConnectorCapabilities> connectorCapabilities)
     {
         this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
         this.listTables = requireNonNull(listTables, "listTables is null");
         this.getViews = requireNonNull(getViews, "getViews is null");
         this.getColumnHandles = requireNonNull(getColumnHandles, "getColumnHandles is null");
         this.getTableStatistics = requireNonNull(getTableStatistics, "getTableStatistics is null");
+        this.connectorCapabilities = requireNonNull(connectorCapabilities, "connectorCapabilities is null");
     }
 
     @Override
@@ -94,7 +102,7 @@ public class MockConnectorFactory
     @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        return new MockConnector(context, listSchemaNames, listTables, getViews, getColumnHandles, getTableStatistics);
+        return new MockConnector(context, listSchemaNames, listTables, getViews, getColumnHandles, getTableStatistics, connectorCapabilities);
     }
 
     public static Builder builder()
@@ -111,6 +119,7 @@ public class MockConnectorFactory
         private final BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews;
         private final BiFunction<ConnectorSession, ConnectorTableHandle, Map<String, TpchColumnHandle>> getColumnHandles;
         private final Supplier<TableStatistics> getTableStatistics;
+        private final Set<ConnectorCapabilities> connectorCapabilities;
 
         public MockConnector(
                 ConnectorContext context,
@@ -118,7 +127,8 @@ public class MockConnectorFactory
                 BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables,
                 BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews,
                 BiFunction<ConnectorSession, ConnectorTableHandle, Map<String, TpchColumnHandle>> getColumnHandles,
-                Supplier<TableStatistics> getTableStatistics)
+                Supplier<TableStatistics> getTableStatistics,
+                Set<ConnectorCapabilities> connectorCapabilities)
         {
             this.context = requireNonNull(context, "context is null");
             this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
@@ -126,6 +136,7 @@ public class MockConnectorFactory
             this.getViews = requireNonNull(getViews, "getViews is null");
             this.getColumnHandles = requireNonNull(getColumnHandles, "getColumnHandles is null");
             this.getTableStatistics = requireNonNull(getTableStatistics, "getTableStatistics is null");
+            this.connectorCapabilities = requireNonNull(connectorCapabilities, "connectorCapabilities is null");
         }
 
         @Override
@@ -150,6 +161,12 @@ public class MockConnectorFactory
         public ConnectorRecordSetProvider getRecordSetProvider()
         {
             return new TpchRecordSetProvider();
+        }
+
+        @Override
+        public Set<ConnectorCapabilities> getCapabilities()
+        {
+            return this.connectorCapabilities;
         }
 
         private class MockConnectorMetadata
@@ -236,6 +253,12 @@ public class MockConnectorFactory
             {
                 return getTableStatistics.get();
             }
+
+            @Override
+            public boolean isPushdownSupportedForFilter(ConnectorSession session, ConnectorTableHandle tableHandle, RowExpression filter, Map<VariableReferenceExpression, ColumnHandle> symbolToColumnHandleMap)
+            {
+                return connectorCapabilities.contains(SUPPORTS_JOIN_PUSHDOWN);
+            }
         }
     }
 
@@ -246,10 +269,17 @@ public class MockConnectorFactory
         private BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews = (session, schemaTablePrefix) -> ImmutableMap.of();
         private BiFunction<ConnectorSession, ConnectorTableHandle, Map<String, TpchColumnHandle>> getColumnHandles = (session, tableHandle) -> notSupported();
         private Supplier<TableStatistics> getTableStatistics = TableStatistics::empty;
+        private Set<ConnectorCapabilities> connectorCapabilities = ImmutableSet.of();
 
         public Builder withListSchemaNames(Function<ConnectorSession, List<String>> listSchemaNames)
         {
             this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
+            return this;
+        }
+
+        public Builder withConnectorCapabilities(Set<ConnectorCapabilities> connectorCapabilities)
+        {
+            this.connectorCapabilities = connectorCapabilities;
             return this;
         }
 
@@ -279,7 +309,7 @@ public class MockConnectorFactory
 
         public MockConnectorFactory build()
         {
-            return new MockConnectorFactory(listSchemaNames, listTables, getViews, getColumnHandles, getTableStatistics);
+            return new MockConnectorFactory(listSchemaNames, listTables, getViews, getColumnHandles, getTableStatistics, connectorCapabilities);
         }
 
         private static <T> T notSupported()

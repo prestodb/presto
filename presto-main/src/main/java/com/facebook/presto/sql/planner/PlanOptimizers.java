@@ -154,6 +154,7 @@ import com.facebook.presto.sql.planner.optimizations.AddLocalExchanges;
 import com.facebook.presto.sql.planner.optimizations.ApplyConnectorOptimization;
 import com.facebook.presto.sql.planner.optimizations.CheckSubqueryNodesAreRewritten;
 import com.facebook.presto.sql.planner.optimizations.CteProjectionAndPredicatePushDown;
+import com.facebook.presto.sql.planner.optimizations.GroupInnerJoinsByConnectorRuleSet;
 import com.facebook.presto.sql.planner.optimizations.HashGenerationOptimizer;
 import com.facebook.presto.sql.planner.optimizations.HistoricalStatisticsEquivalentPlanMarkingOptimizer;
 import com.facebook.presto.sql.planner.optimizations.ImplementIntersectAndExceptAsUnion;
@@ -727,7 +728,6 @@ public class PlanOptimizers
                 new ApplyConnectorOptimization(() -> planOptimizerManager.getOptimizers(LOGICAL)),
                 projectionPushDown,
                 new PruneUnreferencedOutputs());
-
         // Pass after connector optimizer, as it relies on connector optimizer to identify empty input tables and convert them to empty ValuesNode
         builder.add(new SimplifyPlanWithEmptyInput(),
                 new PruneUnreferencedOutputs());
@@ -772,6 +772,15 @@ public class PlanOptimizers
 
         builder.add(new IterativeOptimizer(
                 metadata,
+                ruleStats,
+                statsCalculator,
+                estimatedExchangesCostCalculator,
+                new GroupInnerJoinsByConnectorRuleSet(metadata).rules()));
+        // GroupInnerJoinsByConnectorRuleSet pulls up filters, we need to push these down again
+        builder.add(predicatePushDown, simplifyRowExpressionOptimizer);
+
+        builder.add(new IterativeOptimizer(
+                metadata,
                 // Because ReorderJoins runs only once,
                 // PredicatePushDown, PruneUnreferencedOutputs and RemoveRedundantIdentityProjections
                 // need to run beforehand in order to produce an optimal join order
@@ -779,7 +788,8 @@ public class PlanOptimizers
                 ruleStats,
                 statsCalculator,
                 estimatedExchangesCostCalculator,
-                ImmutableSet.of(new ReorderJoins(costComparator, metadata))));
+                ImmutableSet.of(
+                        new ReorderJoins(costComparator, metadata))));
 
         // After ReorderJoins, `statsEquivalentPlanNode` will be unassigned to intermediate join nodes.
         // We run it again to mark this for intermediate join nodes.
