@@ -18,11 +18,13 @@
 #include <folly/Random.h>
 #include <gtest/gtest.h>
 #include <vector>
+#include "folly/experimental/EventCount.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/memory/ByteStream.h"
 #include "velox/functions/prestosql/types/IPAddressType.h"
 #include "velox/functions/prestosql/types/IPPrefixType.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
+#include "velox/serializers/PrestoBatchVectorSerializer.h"
 #include "velox/serializers/PrestoVectorLexer.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
@@ -1819,6 +1821,107 @@ TEST_F(PrestoSerializerTest, serdeSingleColumn) {
   }
 }
 
+TEST_P(PrestoSerializerTest, nullVector) {
+  std::ostringstream out;
+  facebook::velox::serializer::presto::PrestoOutputStreamListener listener;
+  OStreamOutputStream output(&out, &listener);
+  const auto paramOptions = getParamSerdeOptions(nullptr);
+  const std::vector<IndexRange> ranges = {{0, 1}};
+  Scratch scratch;
+  auto serializer = serde_->createBatchSerializer(pool_.get(), &paramOptions);
+
+  VELOX_ASSERT_THROW(
+      serializer->serialize(nullptr, ranges, scratch, &output),
+      "Vector to serialize is null.");
+}
+
+TEST_P(PrestoSerializerTest, nullStream) {
+  const auto paramOptions = getParamSerdeOptions(nullptr);
+  const auto row =
+      makeRowVector({BaseVector::createNullConstant(BIGINT(), 1, pool_.get())});
+  auto serializer = serde_->createBatchSerializer(pool_.get(), &paramOptions);
+
+  VELOX_ASSERT_THROW(
+      serializer->serialize(row, nullptr),
+      "Stream to serialize out to is null.");
+}
+
+DEBUG_ONLY_TEST_P(PrestoSerializerTest, invalidRange) {
+  std::ostringstream out;
+  facebook::velox::serializer::presto::PrestoOutputStreamListener listener;
+  OStreamOutputStream output(&out, &listener);
+  const auto paramOptions = getParamSerdeOptions(nullptr);
+  const auto row =
+      makeRowVector({BaseVector::createNullConstant(BIGINT(), 1, pool_.get())});
+  Scratch scratch;
+  auto serializer = serde_->createBatchSerializer(pool_.get(), &paramOptions);
+
+  std::vector<IndexRange> ranges = {{-1, 1}};
+  VELOX_ASSERT_THROW(
+      serializer->serialize(row, ranges, scratch, &output),
+      "Invalid range at index 0");
+
+  ranges = {{0, 2}};
+  VELOX_ASSERT_THROW(
+      serializer->serialize(row, ranges, scratch, &output),
+      "Invalid range at index 0");
+
+  ranges = {{0, 1}, {-1, 1}};
+  VELOX_ASSERT_THROW(
+      serializer->serialize(row, ranges, scratch, &output),
+      "Invalid range at index 1");
+
+  ranges = {{0, 1}, {1, 1}};
+  VELOX_ASSERT_THROW(
+      serializer->serialize(row, ranges, scratch, &output),
+      "Invalid range at index 1");
+}
+
+DEBUG_ONLY_TEST_P(PrestoSerializerTest, concurrency) {
+  facebook::velox::common::testutil::TestValue::enable();
+
+  std::ostringstream out;
+  facebook::velox::serializer::presto::PrestoOutputStreamListener listener;
+  OStreamOutputStream output(&out, &listener);
+  const auto paramOptions = getParamSerdeOptions(nullptr);
+  const auto row =
+      makeRowVector({BaseVector::createNullConstant(BIGINT(), 1, pool_.get())});
+  const std::vector<IndexRange> ranges = {{0, 1}};
+  Scratch scratch;
+  auto serializer = serde_->createBatchSerializer(pool_.get(), &paramOptions);
+
+  folly::EventCount firstSerializeGo;
+  std::atomic_bool firstSerializeGoFlag{false};
+  folly::EventCount secondSerializeGo;
+  std::atomic_bool secondSerializeGoFlag{false};
+
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::serializers::PrestoBatchVectorSerializer::serialize",
+      std::function<void(facebook::velox::serializer::presto::detail::
+                             PrestoBatchVectorSerializer*)>(
+          ([&](facebook::velox::serializer::presto::detail::
+                   PrestoBatchVectorSerializer* /*unused*/) {
+            if (!secondSerializeGoFlag.load()) {
+              secondSerializeGoFlag = true;
+              secondSerializeGo.notifyAll();
+              firstSerializeGo.await(
+                  [&]() { return firstSerializeGoFlag.load(); });
+            }
+          })));
+
+  std::thread t(
+      [&]() { serializer->serialize(row, ranges, scratch, &output); });
+
+  secondSerializeGo.await([&]() { return secondSerializeGoFlag.load(); });
+  VELOX_ASSERT_THROW(
+      serializer->serialize(row, ranges, scratch, &output),
+      "PrestoBatchVectorSerializer::serialize being called concurrently on the same object.");
+  firstSerializeGoFlag = true;
+  firstSerializeGo.notifyAll();
+
+  t.join();
+}
+
 class PrestoSerializerBatchEstimateSizeTest : public testing::Test,
                                               public VectorTestBase {
  protected:
@@ -1861,8 +1964,8 @@ class PrestoSerializerBatchEstimateSizeTest : public testing::Test,
     serializer_->estimateSerializedSize(row, ranges, sizesPtrs.data(), scratch);
 
     for (int i = 0; i < expectedSizes.size(); i++) {
-      // Add 4 bytes for each row in the wrapper. This is needed because we wrap
-      // the input in a RowVector.
+      // Add 4 bytes for each row in the wrapper. This is needed because we
+      // wrap the input in a RowVector.
       ASSERT_EQ(sizes[i], expectedSizes[i] + 4 * ranges[i].size)
           << "Mismatched estimated size for range" << i << " "
           << ranges[i].begin << ":" << ranges[i].size;
@@ -1986,9 +2089,8 @@ TEST_F(PrestoSerializerBatchEstimateSizeTest, map) {
       makeFlatVector<double>(32, [](vector_size_t row) { return row; });
   auto mapVector = makeMapVector(offsets, keys, values);
 
-  // The ints in the map are 4 bytes each, the doubles are 8 bytes, and the map
-  // length is another 4 bytes per row.
-  // 4 * 32 + 8 * 32 + 4 * 16 = 448
+  // The ints in the map are 4 bytes each, the doubles are 8 bytes, and the
+  // map length is another 4 bytes per row. 4 * 32 + 8 * 32 + 4 * 16 = 448
   testEstimateSerializedSize(mapVector, 448);
 
   std::vector<vector_size_t> offsetsWithEmptyOrNulls{
@@ -1996,17 +2098,16 @@ TEST_F(PrestoSerializerBatchEstimateSizeTest, map) {
   auto mapVectorWithEmptyMaps =
       makeMapVector(offsetsWithEmptyOrNulls, keys, values);
 
-  // The ints in the map are 4 bytes each, the doubles are 8 bytes, and the map
-  // length is another 4 bytes per row.
-  // 4 * 32 + 8 * 32 + 4 * 16 = 448
+  // The ints in the map are 4 bytes each, the doubles are 8 bytes, and the
+  // map length is another 4 bytes per row. 4 * 32 + 8 * 32 + 4 * 16 = 448
   testEstimateSerializedSize(mapVectorWithEmptyMaps, 448);
 
   std::vector<vector_size_t> nullOffsets{1, 3, 5, 7, 9, 11, 13, 15};
   auto mapVectorWithNulls =
       makeMapVector(offsetsWithEmptyOrNulls, keys, values, nullOffsets);
 
-  // The ints in the map are 4 bytes each, the doubles are 8 bytes, and the map
-  // length is another 4 bytes per non-null row, and 1 null bit per row.
+  // The ints in the map are 4 bytes each, the doubles are 8 bytes, and the
+  // map length is another 4 bytes per non-null row, and 1 null bit per row.
   // 4 * 32 + 8 * 32 + 4 * 8 + 16 / 8 = 216
   testEstimateSerializedSize(mapVectorWithNulls, {{0, 16}}, {418});
   testEstimateSerializedSize(mapVectorWithNulls, {{0, 8}, {8, 8}}, {209, 209});
@@ -2072,9 +2173,8 @@ TEST_F(PrestoSerializerBatchEstimateSizeTest, constant) {
       BaseVector::wrapInConstant(32, 0, arrayVectorWithConstantElements);
 
   // The single constant array is 4 bytes for the length, and 4 bytes for each
-  // of the 2 integer elements (encodings for children of encoded complex types
-  // are not currently preserved).
-  // 4 + 2 * 4 = 12
+  // of the 2 integer elements (encodings for children of encoded complex
+  // types are not currently preserved). 4 + 2 * 4 = 12
   testEstimateSerializedSize(
       constantArrayWithConstantElements, {{0, 32}}, {12});
   testEstimateSerializedSize(
@@ -2107,10 +2207,9 @@ TEST_F(PrestoSerializerBatchEstimateSizeTest, dictionary) {
       BaseVector::wrapInDictionary(nullptr, indices, 32, flatVectorWithNulls);
 
   // The indices are 4 bytes, half the dictionary entries are 8 byte doubles.
-  // Note that the bytes for the null bits in the entries are not accounted for,
-  // this is a limitation of having non-contiguous ranges selected from the
-  // dictionary values.
-  // 4 * 32 + 8 * 8 = 192
+  // Note that the bytes for the null bits in the entries are not accounted
+  // for, this is a limitation of having non-contiguous ranges selected from
+  // the dictionary values. 4 * 32 + 8 * 8 = 192
   testEstimateSerializedSize(dictionaryNullElements, {{0, 32}}, {192});
   testEstimateSerializedSize(
       dictionaryNullElements, {{0, 16}, {16, 16}}, {128, 128});
@@ -2124,9 +2223,9 @@ TEST_F(PrestoSerializerBatchEstimateSizeTest, dictionary) {
   auto dictionaryArray =
       BaseVector::wrapInDictionary(nullptr, arrayIndices, 16, arrayVector);
 
-  // The indices are 4 bytes, and the dictionary entries are 4 bytes length + 4
-  // bytes for each of the 2 array elements.
-  // 4 * 16 + 4 * 8 + 2 * 8 * 4 = 160
+  // The indices are 4 bytes, and the dictionary entries are 4 bytes length +
+  // 4 bytes for each of the 2 array elements. 4 * 16 + 4 * 8 + 2 * 8 * 4 =
+  // 160
   testEstimateSerializedSize(dictionaryArray, {{0, 16}}, {160});
   testEstimateSerializedSize(dictionaryArray, {{0, 8}, {8, 8}}, {128, 128});
   testEstimateSerializedSize(
@@ -2137,10 +2236,10 @@ TEST_F(PrestoSerializerBatchEstimateSizeTest, dictionary) {
   auto dictionaryArrayWithConstantElements = BaseVector::wrapInDictionary(
       nullptr, arrayIndices, 16, arrayVectorWithConstantElements);
 
-  // The indices are 4 bytes, and the dictionary entries are 4 bytes length + 4
-  // bytes for each of the 2 array elements (encodings for children of encoded
-  // complex types are not currently preserved).
-  // 4 * 16 + 4 * 8 + 2 * 8 * 4 = 160
+  // The indices are 4 bytes, and the dictionary entries are 4 bytes length +
+  // 4 bytes for each of the 2 array elements (encodings for children of
+  // encoded complex types are not currently preserved). 4 * 16 + 4 * 8 + 2 *
+  // 8 * 4 = 160
   testEstimateSerializedSize(
       dictionaryArrayWithConstantElements, {{0, 16}}, {160});
   testEstimateSerializedSize(
@@ -2156,8 +2255,8 @@ TEST_F(PrestoSerializerBatchEstimateSizeTest, dictionary) {
       32,
       flatVector);
 
-  // When nulls are present in the dictionary, currently we flatten the data. So
-  // there are 4 bytes per row.  Null bits are only accounted for the null
+  // When nulls are present in the dictionary, currently we flatten the data.
+  // So there are 4 bytes per row.  Null bits are only accounted for the null
   // elements because the non-null elements in the wrapped vector or
   // non-contiguous.
   // 4 * 16 + 16 / 8 = 66

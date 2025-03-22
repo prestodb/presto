@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <folly/ThreadLocal.h>
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/vector/VectorStream.h"
 
@@ -52,5 +53,8 @@ class PrestoBatchVectorSerializer : public BatchVectorSerializer {
   memory::MemoryPool* const pool_;
   const std::unique_ptr<folly::compression::Codec> codec_;
   const PrestoVectorSerde::PrestoOptions opts_;
+  // Used to protect against concurrent calls to serailize which can lead to
+  // concurrency bugs.
+  std::atomic_bool inUse{false};
 };
 } // namespace facebook::velox::serializer::presto::detail

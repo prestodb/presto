@@ -26,6 +26,32 @@ void PrestoBatchVectorSerializer::serialize(
     const folly::Range<const IndexRange*>& ranges,
     Scratch& scratch,
     OutputStream* stream) {
+  VELOX_CHECK_NOT_NULL(vector, "Vector to serialize is null.");
+  VELOX_CHECK_NOT_NULL(stream, "Stream to serialize out to is null.");
+
+#ifndef NDEBUG
+  for (int i = 0; i < ranges.size(); i++) {
+    VELOX_CHECK_GE(ranges[i].begin, 0, "Invalid range at index {}", i);
+    VELOX_CHECK_LE(
+        ranges[i].begin + ranges[i].size,
+        vector->size(),
+        "Invalid range at index {}",
+        i);
+  }
+#endif
+
+  SCOPE_EXIT {
+    inUse.store(false);
+  };
+
+  VELOX_CHECK(
+      !inUse.exchange(true),
+      "PrestoBatchVectorSerializer::serialize being called concurrently on the same object.");
+
+  common::testutil::TestValue::adjust(
+      "facebook::velox::serializers::PrestoBatchVectorSerializer::serialize",
+      this);
+
   const auto numRows = rangesTotalSize(ranges);
   const auto rowType = vector->type();
   const auto numChildren = vector->childrenSize();
