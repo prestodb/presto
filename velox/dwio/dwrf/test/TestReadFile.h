@@ -49,6 +49,10 @@ class TestReadFile : public velox::ReadFile {
     for (fill = 0; fill < available; ++fill) {
       reinterpret_cast<char*>(buffer)[fill] = content + fill;
     }
+    if (stats) {
+      stats->addCounter(
+          "read", RuntimeCounter(fill, RuntimeCounter::Unit::kBytes));
+    }
     return std::string_view(static_cast<const char*>(buffer), fill);
   }
 
@@ -57,6 +61,12 @@ class TestReadFile : public velox::ReadFile {
       const std::vector<folly::Range<char*>>& buffers,
       filesystems::File::IoStats* stats = nullptr) const override {
     auto res = ReadFile::preadv(offset, buffers, stats);
+    if (stats) {
+      stats->addCounter(
+          "read",
+          RuntimeCounter(
+              static_cast<int64_t>(res), RuntimeCounter::Unit::kBytes));
+    }
     ++numIos_;
     return res;
   }

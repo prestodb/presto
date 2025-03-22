@@ -186,7 +186,13 @@ void DirectBufferedInput::readRegion(
     return;
   }
   auto load = std::make_shared<DirectCoalescedLoad>(
-      input_, ioStats_, groupId_, requests, pool_, options_.loadQuantum());
+      input_,
+      ioStats_,
+      fsStats_,
+      groupId_,
+      requests,
+      pool_,
+      options_.loadQuantum());
   coalescedLoads_.push_back(load);
   streamToCoalescedLoad_.withWLock([&](auto& loads) {
     for (auto& request : requests) {

@@ -65,7 +65,9 @@ class DirectBufferedInputTest : public testing::Test {
     executor_->join();
   }
 
-  std::unique_ptr<DirectBufferedInput> makeInput() {
+  std::unique_ptr<DirectBufferedInput> makeInput(
+      const std::shared_ptr<facebook::velox::filesystems::File::IoStats>&
+          fsStats) {
     return std::make_unique<DirectBufferedInput>(
         file_,
         dwio::common::MetricsLog::voidLog(),
@@ -73,16 +75,20 @@ class DirectBufferedInputTest : public testing::Test {
         tracker_,
         2,
         ioStats_,
-        fsStats_,
+        fsStats,
         executor_.get(),
         *opts_);
   }
 
   // Reads and checks the result of reading ''regions' and checks that this
   // causes 'numIos' accesses to the file.
-  void testLoads(std::vector<TestRegion> regions, int32_t numIos) {
+  void testLoads(
+      std::vector<TestRegion> regions,
+      int32_t numIos,
+      const std::shared_ptr<facebook::velox::filesystems::File::IoStats>&
+          fsStats) {
     auto previous = file_->numIos();
-    auto input = makeInput();
+    auto input = makeInput(fsStats);
     std::vector<std::unique_ptr<SeekableInputStream>> streams;
     for (auto i = 0; i < regions.size(); ++i) {
       if (regions[i].length > 0) {
@@ -147,7 +153,8 @@ TEST_F(DirectBufferedInputTest, basic) {
        {1000, 7000000},
        {7004000, 2000000},
        {20000000, 10000000}},
-      4);
+      4,
+      fsStats_);
 
   // All but the last coalesce into one , the last is read in 2 parts. The
   // columns are now dense and coalesce goes up to 128MB if gaps are small
@@ -158,40 +165,56 @@ TEST_F(DirectBufferedInputTest, basic) {
        {1000, 7000000},
        {7004000, 2000000},
        {20000000, 10000000}},
-      3);
+      3,
+      fsStats_);
 
   // Mark the first 4 ranges as densely accessed.
   makeDense(4);
 
   // The first and first part of second coalesce.
-  testLoads({{100, 100}, {1000, 10000000}}, 2);
+  testLoads({{100, 100}, {1000, 10000000}}, 2, fsStats_);
 
   // The first is read in two parts, the tail of the first does not coalesce
   // with the second.
-  testLoads({{1000, 10000000}, {10001000, 1000}}, 3);
+  testLoads({{1000, 10000000}, {10001000, 1000}}, 3, fsStats_);
 
   // One large standalone read in 2 parts.
-  testLoads({{1000, 10000000}}, 2);
+  testLoads({{1000, 10000000}}, 2, fsStats_);
 
   // Small standalone read in 1 part.
-  testLoads({{100, 100}}, 1);
+  testLoads({{100, 100}}, 1, fsStats_);
 
   // Two small far apart
-  testLoads({{100, 100}, {1000000, 100}}, 2);
+  testLoads({{100, 100}, {1000000, 100}}, 2, fsStats_);
   // The two coalesce because the first fits within load quantum + max coalesce
   // distance.
-  testLoads({{1000, 8500000}, {8510000, 1000000}}, 1);
+  testLoads({{1000, 8500000}, {8510000, 1000000}}, 1, fsStats_);
 
   // The two coalesce because the first fits within load quantum + max coalesce
   // distance. The tail of the second does not coalesce.
-  testLoads({{1000, 8500000}, {8510000, 8400000}}, 2);
+  testLoads({{1000, 8500000}, {8510000, 8400000}}, 2, fsStats_);
 
   // The first reads in 2 parts and does not coalesce to the second, which reads
   // in one part.
-  testLoads({{1000, 9000000}, {9010000, 1000000}}, 3);
+  testLoads({{1000, 9000000}, {9010000, 1000000}}, 3, fsStats_);
 }
 
 TEST_F(DirectBufferedInputTest, noRedownloadCoalescedPrefetch) {
-  testLoads({{100, 100}, {201, 1, false}, {202, 100}}, 1);
-  testLoads({{100, 100}, {201, 1, true}, {202, 100}}, 1);
+  testLoads({{100, 100}, {201, 1, false}, {202, 100}}, 1, fsStats_);
+  testLoads({{100, 100}, {201, 1, true}, {202, 100}}, 1, fsStats_);
+}
+
+TEST_F(DirectBufferedInputTest, ioStatsLifeTimeTest) {
+  for (size_t i = 0; i < 10; i++) {
+    auto stats =
+        std::make_shared<facebook::velox::filesystems::File::IoStats>();
+    // Induce a tiny sleep so that we're more likely to destruct the thread as
+    // we're trying to bump ioStats inside the test file
+    std::thread t([s = stats]() mutable {
+      std::this_thread::sleep_for(std::chrono::microseconds(2));
+      s.reset();
+    });
+    testLoads({{1000, 9000000}, {9010000, 1000000}}, 3, stats);
+    t.join();
+  }
 }

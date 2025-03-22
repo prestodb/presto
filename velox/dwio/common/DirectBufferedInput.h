@@ -52,12 +52,14 @@ class DirectCoalescedLoad : public cache::CoalescedLoad {
   DirectCoalescedLoad(
       std::shared_ptr<ReadFileInputStream> input,
       std::shared_ptr<IoStatistics> ioStats,
+      std::shared_ptr<filesystems::File::IoStats> fsStats,
       uint64_t /* groupId */,
       const std::vector<LoadRequest*>& requests,
       memory::MemoryPool* pool,
       int32_t loadQuantum)
       : CoalescedLoad({}, {}),
         ioStats_(ioStats),
+        fsStats_(fsStats),
         input_(std::move(input)),
         loadQuantum_(loadQuantum),
         pool_(pool) {
@@ -95,6 +97,7 @@ class DirectCoalescedLoad : public cache::CoalescedLoad {
 
  private:
   const std::shared_ptr<IoStatistics> ioStats_;
+  const std::shared_ptr<filesystems::File::IoStats> fsStats_;
   const std::shared_ptr<ReadFileInputStream> input_;
   const int32_t loadQuantum_;
   memory::MemoryPool* const pool_;
