@@ -197,6 +197,55 @@ void JsonInputGenerator::makeRandomVariation(std::string& json) {
       json, rng_, RandomStrVariationOptions{0.1, 0.0, 0.1});
 }
 
+PhoneNumberInputGenerator::PhoneNumberInputGenerator(
+    size_t seed,
+    const TypePtr& type,
+    double nullRatio)
+    : AbstractInputGenerator(seed, type, nullptr, nullRatio) {}
+
+PhoneNumberInputGenerator::~PhoneNumberInputGenerator() = default;
+
+variant PhoneNumberInputGenerator::generate() {
+  if (coinToss(rng_, nullRatio_)) {
+    return variant::null(type_->kind());
+  }
+  std::string phone = generateImpl();
+  return variant(phone);
+}
+
+std::string PhoneNumberInputGenerator::generateImpl() {
+  std::string phoneNumber = "";
+  if (coinToss(rng_, 0.5)) {
+    phoneNumber += "+";
+  }
+  uint32_t numDigits = 0;
+  // Generate valid number of digits
+  if (coinToss(rng_, 0.8)) {
+    numDigits = rand<uint32_t>(rng_, 4, 19);
+  } else if (coinToss(rng_, 0.5)) {
+    numDigits = rand<uint32_t>(rng_, 0, 3);
+  } else {
+    numDigits = rand<uint32_t>(rng_, 20, 25);
+  }
+  phoneNumber.reserve(numDigits);
+  const std::string digitsString = "0123456789";
+  const std::string randomCharacters = "abc!@#$. -()";
+  for (int i = 0; i < numDigits; i++) {
+    // Add random characters
+    if (coinToss(rng_, 0.1)) {
+      auto random_character_index =
+          rand<uint32_t>(rng_, 0, randomCharacters.length() - 1);
+      phoneNumber += randomCharacters[random_character_index];
+    }
+    auto random_index = rand<uint32_t>(rng_, 0, digitsString.length() - 1);
+    phoneNumber += digitsString[random_index];
+  }
+  // Add more randomness
+  makeRandomStrVariation(
+      phoneNumber, rng_, RandomStrVariationOptions{0.1, 0.1, 0.1});
+  return phoneNumber;
+}
+
 // Utility functions
 template <bool, TypeKind KIND>
 std::unique_ptr<AbstractInputGenerator> getRandomInputGeneratorPrimitive(

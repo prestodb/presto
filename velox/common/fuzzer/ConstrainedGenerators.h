@@ -375,4 +375,16 @@ class JsonInputGenerator : public AbstractInputGenerator {
 
   folly::json::serialization_opts opts_;
 };
+
+class PhoneNumberInputGenerator : public AbstractInputGenerator {
+ public:
+  PhoneNumberInputGenerator(size_t seed, const TypePtr& type, double nullRatio);
+
+  ~PhoneNumberInputGenerator() override;
+
+  variant generate() override;
+
+ private:
+  std::string generateImpl();
+};
 } // namespace facebook::velox::fuzzer

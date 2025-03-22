@@ -93,4 +93,41 @@ std::vector<core::TypedExprPtr> StringEscapeArgValuesGenerator::generate(
       signature.args[0], state.inputRowNames_.back());
   return inputExpressions;
 };
+
+std::vector<core::TypedExprPtr> PhoneNumberArgValuesGenerator::generate(
+    const CallableSignature& signature,
+    const VectorFuzzer::Options& options,
+    FuzzerGenerator& rng,
+    ExpressionFuzzerState& state) {
+  populateInputTypesAndNames(signature, state);
+
+  const auto representedType = facebook::velox::randType(rng, 0);
+  const auto seed = rand<uint32_t>(rng);
+  const auto nullRatio = options.nullRatio;
+  std::vector<core::TypedExprPtr> inputExpressions;
+
+  if (functionName_ == "fb_phone_region_code") {
+    // Populate state.customInputGenerators_ and inputExpressions with custom
+    // input generator for required phone number string field
+    VELOX_CHECK_GE(signature.args.size(), 1);
+    state.customInputGenerators_.emplace_back(
+        std::make_shared<fuzzer::PhoneNumberInputGenerator>(
+            seed, signature.args[0], nullRatio));
+
+    VELOX_CHECK_GE(state.inputRowNames_.size(), 1);
+    inputExpressions.emplace_back(std::make_shared<core::FieldAccessTypedExpr>(
+        signature.args[0],
+        signature.args.size() == 1
+            ? state.inputRowNames_.back()
+            : state.inputRowNames_[state.inputRowNames_.size() - 2]));
+
+    //  Populate state.customInputGenerators_ and inputExpressions with nullptr
+    //  for inputs that do not require custom input generators
+    if (signature.args.size() == 2) {
+      state.customInputGenerators_.emplace_back(nullptr);
+      inputExpressions.emplace_back(nullptr);
+    }
+  }
+  return inputExpressions;
+}
 } // namespace facebook::velox::fuzzer
