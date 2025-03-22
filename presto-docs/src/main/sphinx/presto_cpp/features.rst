@@ -250,4 +250,30 @@ Users can enable collection of worker level metrics by setting the property:
 * **Default value:** ``false``
 
   When true, the default behavior is a no-op. There is a prior setup that must be done before enabling this flag. To enable
-  metrics collection in Prometheus Data Format refer `here <https://github.com/prestodb/presto/tree/master/presto-native-execution#build-prestissimo>`_. 
+  metrics collection in Prometheus Data Format refer `here <https://github.com/prestodb/presto/tree/master/presto-native-execution#build-prestissimo>`_.
+
+  When Presto C++ workers communicate with S3 Filesystem with this property enabled, the following metrics are additionally collected.
+
+  ===================================== ===========================================================
+  Metric Name                           Description
+  ===================================== ===========================================================
+  ``velox.s3.active_connections``       The number of connections open for S3 read operations.
+
+  ``velox.s3.started_uploads``          The number of S3 upload calls that started.
+
+  ``velox.s3.successful_uploads``       The number of S3 upload calls that were completed.
+
+  ``velox.s3.failed_uploads``           The number of S3 upload calls that failed.
+
+  ``velox.s3.metadata_calls``           The number of S3 head (metadata) calls.
+
+  ``velox.s3.get_metadata_errors``      The number of S3 head (metadata) calls that failed.
+
+  ``velox.s3.get_metadata_retries``     The number of retries made during S3 head (metadata) calls.
+
+  ``velox.s3.get_object_calls``         The number of S3 getObject calls.
+
+  ``velox.s3.get_object_errors``        The number of S3 getObject calls that failed.
+
+  ``velox.s3.get_object_retries``       The number of retries made during S3 getObject calls.
+  ===================================== ===========================================================
