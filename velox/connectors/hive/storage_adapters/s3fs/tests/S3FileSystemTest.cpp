@@ -32,12 +32,14 @@ class S3FileSystemTest : public S3Test {
   void SetUp() override {
     S3Test::SetUp();
     auto hiveConfig = minioServer_->hiveConfig({});
-    filesystems::initializeS3("Info");
+    filesystems::initializeS3("Info", kLogLocation_);
   }
 
   static void TearDownTestSuite() {
     filesystems::finalizeS3();
   }
+
+  std::string_view kLogLocation_ = "/tmp/foobar/";
 };
 } // namespace
 
@@ -180,6 +182,27 @@ TEST_F(S3FileSystemTest, logLevel) {
   // It does not change with a new config.
   config["hive.s3.log-level"] = "Trace";
   checkLogLevelName("INFO");
+}
+
+TEST_F(S3FileSystemTest, logLocation) {
+  // From aws-cpp-sdk-core/include/aws/core/Aws.h .
+  std::string_view kDefaultPrefix = "aws_sdk_";
+  std::unordered_map<std::string, std::string> config;
+  auto checkLogPrefix = [&config](std::string_view expected) {
+    auto s3Config =
+        std::make_shared<const config::ConfigBase>(std::move(config));
+    filesystems::S3FileSystem s3fs("", s3Config);
+    EXPECT_EQ(s3fs.getLogPrefix(), expected);
+  };
+
+  const auto expected = fmt::format("{}{}", kLogLocation_, kDefaultPrefix);
+  // Test is configured with the default.
+  checkLogPrefix(expected);
+
+  // S3 log location is set once during initialization.
+  // It does not change with a new config.
+  config["hive.s3.log-location"] = "/home/foobar";
+  checkLogPrefix(expected);
 }
 
 TEST_F(S3FileSystemTest, writeFileAndRead) {

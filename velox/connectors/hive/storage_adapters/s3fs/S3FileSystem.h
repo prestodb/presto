@@ -20,7 +20,9 @@
 
 namespace facebook::velox::filesystems {
 
-bool initializeS3(std::string_view logLevel = "FATAL");
+bool initializeS3(
+    std::string_view logLevel = "FATAL",
+    std::optional<std::string_view> logLocation = std::nullopt);
 
 void finalizeS3();
 
@@ -72,6 +74,8 @@ class S3FileSystem : public FileSystem {
   }
 
   std::string getLogLevelName() const;
+
+  std::string getLogPrefix() const;
 
  protected:
   class Impl;

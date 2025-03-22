@@ -54,6 +54,9 @@ class S3Config {
   /// S3FileSystem default identity.
   static constexpr const char* kDefaultS3Identity = "s3-default-identity";
 
+  /// Log location of AWS C++ SDK.
+  static constexpr const char* kS3LogLocation = "hive.s3.log-location";
+
   /// Keys to identify the config.
   enum class Keys {
     kBegin,
