@@ -11,6 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.presto.hive.util;
 
 import com.google.common.collect.ImmutableList;
@@ -21,6 +22,7 @@ import org.apache.hudi.common.util.Option;
 import org.apache.hudi.hadoop.BootstrapBaseFileSplit;
 import org.apache.hudi.hadoop.realtime.HoodieRealtimeBootstrapBaseFileSplit;
 import org.apache.hudi.hadoop.realtime.HoodieRealtimeFileSplit;
+import org.apache.hudi.storage.StoragePath;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -44,7 +46,7 @@ public class TestCustomSplitConversionUtils
             throws IOException
     {
         List<String> deltaLogPaths = Arrays.asList("test1", "test2", "test3");
-        List<HoodieLogFile> deltaLogFiles = deltaLogPaths.stream().map(p -> new HoodieLogFile(new Path(p))).collect(Collectors.toList());
+        List<HoodieLogFile> deltaLogFiles = deltaLogPaths.stream().map(p -> new HoodieLogFile(new StoragePath(p))).collect(Collectors.toList());
         String expectedMaxCommitTime = "max_commit_time";
 
         FileSplit baseSplit = new FileSplit(FILE_PATH, SPLIT_START_POS, SPLIT_LENGTH, SPLIT_HOSTS);
@@ -125,7 +127,7 @@ public class TestCustomSplitConversionUtils
             throws IOException
     {
         List<String> deltaLogPaths = Arrays.asList("test1", "test2", "test3");
-        List<HoodieLogFile> deltaLogFiles = deltaLogPaths.stream().map(p -> new HoodieLogFile(new Path(p))).collect(Collectors.toList());
+        List<HoodieLogFile> deltaLogFiles = deltaLogPaths.stream().map(p -> new HoodieLogFile(new StoragePath(p))).collect(Collectors.toList());
         String maxCommitTime = "max_commit_time";
 
         Path bootstrapSourceFilePath = new Path("/test/source/test.parquet");
