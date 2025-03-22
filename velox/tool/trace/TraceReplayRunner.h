@@ -21,6 +21,7 @@
 #include "velox/tool/trace/OperatorReplayerBase.h"
 
 #include <folly/executors/IOThreadPoolExecutor.h>
+#include "velox/exec/TaskTraceReader.h"
 
 DECLARE_string(root_dir);
 DECLARE_bool(summary);
@@ -60,6 +61,9 @@ class TraceReplayRunner {
   const std::unique_ptr<folly::CPUThreadPoolExecutor> cpuExecutor_;
   const std::unique_ptr<folly::IOThreadPoolExecutor> ioExecutor_;
   std::shared_ptr<filesystems::FileSystem> fs_;
+  std::unique_ptr<exec::trace::TaskTraceMetadataReader>
+      taskTraceMetadataReader_;
+  core::PlanNodePtr tracePlanNode_;
 };
 
 } // namespace facebook::velox::tool::trace

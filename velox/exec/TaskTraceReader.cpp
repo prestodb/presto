@@ -29,28 +29,28 @@ TaskTraceMetadataReader::TaskTraceMetadataReader(
     : traceDir_(std::move(traceDir)),
       fs_(filesystems::getFileSystem(traceDir_, nullptr)),
       traceFilePath_(getTaskTraceMetaFilePath(traceDir_)),
-      pool_(pool) {
-  VELOX_CHECK_NOT_NULL(fs_);
-  VELOX_CHECK(
-      fs_->exists(traceFilePath_),
-      "Task trace file not found: {}",
-      traceFilePath_);
-}
+      pool_(pool),
+      metadataObj_(getTaskMetadata(traceFilePath_, fs_)),
+      tracePlanNode_(ISerializable::deserialize<core::PlanNode>(
+          metadataObj_[TraceTraits::kPlanNodeKey],
+          pool_)) {}
 
-void TaskTraceMetadataReader::read(
-    std::unordered_map<std::string, std::string>& queryConfigs,
-    std::unordered_map<
-        std::string,
-        std::unordered_map<std::string, std::string>>& connectorProperties,
-    core::PlanNodePtr& queryPlan) const {
-  folly::dynamic metaObj = getTaskMetadata(traceFilePath_, fs_);
-  const auto& queryConfigObj = metaObj[TraceTraits::kQueryConfigKey];
+std::unordered_map<std::string, std::string>
+TaskTraceMetadataReader::queryConfigs() const {
+  std::unordered_map<std::string, std::string> queryConfigs;
+  const auto& queryConfigObj = metadataObj_[TraceTraits::kQueryConfigKey];
   for (const auto& [key, value] : queryConfigObj.items()) {
     queryConfigs[key.asString()] = value.asString();
   }
+  return queryConfigs;
+}
 
+std::unordered_map<std::string, std::unordered_map<std::string, std::string>>
+TaskTraceMetadataReader::connectorProperties() const {
+  std::unordered_map<std::string, std::unordered_map<std::string, std::string>>
+      connectorProperties;
   const auto& connectorPropertiesObj =
-      metaObj[TraceTraits::kConnectorPropertiesKey];
+      metadataObj_[TraceTraits::kConnectorPropertiesKey];
   for (const auto& [connectorId, configs] : connectorPropertiesObj.items()) {
     const auto connectorIdStr = connectorId.asString();
     connectorProperties[connectorIdStr] = {};
@@ -58,8 +58,30 @@ void TaskTraceMetadataReader::read(
       connectorProperties[connectorIdStr][key.asString()] = value.asString();
     }
   }
+  return connectorProperties;
+}
 
-  queryPlan = ISerializable::deserialize<core::PlanNode>(
-      metaObj[TraceTraits::kPlanNodeKey], pool_);
+core::PlanNodePtr TaskTraceMetadataReader::queryPlan() const {
+  return tracePlanNode_;
+}
+
+std::string TaskTraceMetadataReader::nodeName(const std::string& nodeId) const {
+  const auto* traceNode = core::PlanNode::findFirstNode(
+      tracePlanNode_.get(),
+      [&nodeId](const core::PlanNode* node) { return node->id() == nodeId; });
+  return std::string(traceNode->name());
+}
+
+std::string TaskTraceMetadataReader::connectorId(
+    const std::string& nodeId) const {
+  const auto* traceNode = core::PlanNode::findFirstNode(
+      tracePlanNode_.get(),
+      [&nodeId](const core::PlanNode* node) { return node->id() == nodeId; });
+  const auto* tableScanNode =
+      dynamic_cast<const core::TableScanNode*>(traceNode);
+  VELOX_CHECK_NOT_NULL(tableScanNode);
+  const auto connectorId = tableScanNode->tableHandle()->connectorId();
+  VELOX_CHECK(!connectorId.empty());
+  return connectorId;
 }
 } // namespace facebook::velox::exec::trace

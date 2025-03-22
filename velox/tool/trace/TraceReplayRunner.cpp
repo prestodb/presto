@@ -123,11 +123,9 @@ void printTaskMetadata(
     std::ostringstream& oss) {
   auto taskMetaReader = std::make_unique<exec::trace::TaskTraceMetadataReader>(
       taskTraceDir, pool);
-  std::unordered_map<std::string, std::string> queryConfigs;
-  std::unordered_map<std::string, std::unordered_map<std::string, std::string>>
-      connectorProperties;
-  core::PlanNodePtr queryPlan;
-  taskMetaReader->read(queryConfigs, connectorProperties, queryPlan);
+  const auto queryConfigs = taskMetaReader->queryConfigs();
+  const auto connectorProperties = taskMetaReader->connectorProperties();
+  const auto queryPlan = taskMetaReader->queryPlan();
 
   oss << "\n++++++Query configs++++++\n";
   for (const auto& queryConfigEntry : queryConfigs) {
@@ -299,6 +297,11 @@ void TraceReplayRunner::init() {
   }
 
   fs_ = filesystems::getFileSystem(FLAGS_root_dir, nullptr);
+  const auto taskTraceDir = exec::trace::getTaskTraceDirectory(
+      FLAGS_root_dir, FLAGS_query_id, FLAGS_task_id);
+  taskTraceMetadataReader_ =
+      std::make_unique<exec::trace::TaskTraceMetadataReader>(
+          taskTraceDir, memory::MemoryManager::getInstance()->tracePool());
 }
 
 std::unique_ptr<tool::trace::OperatorReplayerBase>
@@ -306,11 +309,7 @@ TraceReplayRunner::createReplayer() const {
   std::unique_ptr<tool::trace::OperatorReplayerBase> replayer;
   const auto taskTraceDir = exec::trace::getTaskTraceDirectory(
       FLAGS_root_dir, FLAGS_query_id, FLAGS_task_id);
-  const auto traceNodeName = exec::trace::getNodeName(
-      FLAGS_node_id,
-      exec::trace::getTaskTraceMetaFilePath(taskTraceDir),
-      fs_,
-      memory::MemoryManager::getInstance()->tracePool());
+  const auto traceNodeName = taskTraceMetadataReader_->nodeName(FLAGS_node_id);
   const auto queryCapacityBytes = (1ULL * FLAGS_query_memory_capacity_mb) << 20;
   if (traceNodeName == "TableWrite") {
     VELOX_USER_CHECK(
@@ -348,11 +347,8 @@ TraceReplayRunner::createReplayer() const {
         queryCapacityBytes,
         cpuExecutor_.get());
   } else if (traceNodeName == "TableScan") {
-    const auto connectorId = exec::trace::getHiveConnectorId(
-        FLAGS_node_id,
-        exec::trace::getTaskTraceMetaFilePath(taskTraceDir),
-        fs_,
-        memory::MemoryManager::getInstance()->tracePool());
+    const auto connectorId =
+        taskTraceMetadataReader_->connectorId(FLAGS_node_id);
     if (const auto& collectors = connector::getAllConnectors();
         collectors.find(connectorId) == collectors.end()) {
       const auto hiveConnector =

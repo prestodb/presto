@@ -26,6 +26,7 @@
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/tool/trace/OperatorReplayerBase.h"
+
 #include "velox/tool/trace/TraceReplayTaskRunner.h"
 
 using namespace facebook::velox;
@@ -66,10 +67,13 @@ OperatorReplayerBase::OperatorReplayerBase(
   } else {
     VELOX_USER_CHECK_EQ(pipelineIds_.size(), 1);
   }
+  VELOX_CHECK_NOT_NULL(executor_);
 
   const auto taskMetaReader = exec::trace::TaskTraceMetadataReader(
       taskTraceDir_, memory::MemoryManager::getInstance()->tracePool());
-  taskMetaReader.read(queryConfigs_, connectorConfigs_, planFragment_);
+  queryConfigs_ = taskMetaReader.queryConfigs();
+  connectorConfigs_ = taskMetaReader.connectorProperties();
+  planFragment_ = taskMetaReader.queryPlan();
   queryConfigs_[core::QueryConfig::kQueryTraceEnabled] = "false";
 }
 

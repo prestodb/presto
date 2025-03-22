@@ -24,17 +24,28 @@ class TaskTraceMetadataReader {
  public:
   TaskTraceMetadataReader(std::string traceDir, memory::MemoryPool* pool);
 
-  void read(
-      std::unordered_map<std::string, std::string>& queryConfigs,
-      std::unordered_map<
-          std::string,
-          std::unordered_map<std::string, std::string>>& connectorProperties,
-      core::PlanNodePtr& queryPlan) const;
+  /// Returns trace query config;
+  std::unordered_map<std::string, std::string> queryConfigs() const;
+
+  /// Returns trace query connector properties;
+  std::unordered_map<std::string, std::unordered_map<std::string, std::string>>
+  connectorProperties() const;
+
+  /// Returns trace query plan;
+  core::PlanNodePtr queryPlan() const;
+
+  /// Returns node name in the trace query plan by ID.
+  std::string nodeName(const std::string& nodeId) const;
+
+  /// Returns connector ID in the TableScanNode.
+  std::string connectorId(const std::string& nodeId) const;
 
  private:
   const std::string traceDir_;
   const std::shared_ptr<filesystems::FileSystem> fs_;
   const std::string traceFilePath_;
   memory::MemoryPool* const pool_;
+  const folly::dynamic metadataObj_;
+  const core::PlanNodePtr tracePlanNode_;
 };
 } // namespace facebook::velox::exec::trace

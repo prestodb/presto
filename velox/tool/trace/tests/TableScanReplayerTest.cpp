@@ -129,11 +129,9 @@ TEST_F(TableScanReplayerTest, runner) {
 
   const auto taskTraceDir =
       exec::trace::getTaskTraceDirectory(traceRoot, *task);
-  const auto connectorId = exec::trace::getHiveConnectorId(
-      traceNodeId_,
-      exec::trace::getTaskTraceMetaFilePath(taskTraceDir),
-      fs,
-      memory::MemoryManager::getInstance()->tracePool());
+  const auto taskTraceReader =
+      exec::trace::TaskTraceMetadataReader(taskTraceDir, pool());
+  const auto connectorId = taskTraceReader.connectorId(traceNodeId_);
   ASSERT_EQ("test-hive", connectorId);
   const auto opTraceDir = exec::trace::getOpTraceDirectory(
       taskTraceDir,
