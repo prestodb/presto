@@ -1655,4 +1655,110 @@ public final class MathFunctions
 
         return Math.sqrt(norm);
     }
+
+    @Description("cosine similarity between two vectors given as arrays")
+    @ScalarFunction("cosine_similarity_dense")
+    @SqlNullable
+    @SqlType(StandardTypes.DOUBLE)
+    public static Double cosineSimilarityDense(@SqlType("array(double)") Block leftArray, @SqlType("array(double)") Block rightArray)
+    {
+        Double normLeftArray = arrayL2Norm(leftArray);
+        Double normRightArray = arrayL2Norm(rightArray);
+
+        if (normLeftArray == null || normRightArray == null) {
+            return null;
+        }
+
+        double dotProduct = arrayDotProduct(leftArray, rightArray);
+
+        return dotProduct / (normLeftArray * normRightArray);
+    }
+
+    private static double arrayDotProduct(Block leftArray, Block rightArray)
+    {
+        int maxIndex = 0;
+        double result = 0.0;
+
+        if (leftArray.getPositionCount() < rightArray.getPositionCount()) {
+            maxIndex = leftArray.getPositionCount();
+        }
+        else {
+            maxIndex = rightArray.getPositionCount();
+        }
+
+        for (int i = 0; i < maxIndex; i++) {
+            result += DOUBLE.getDouble(leftArray, i) * DOUBLE.getDouble(rightArray, i);
+        }
+
+        return result;
+    }
+
+    private static Double arrayL2Norm(Block array)
+    {
+        double l2norm = 0.0;
+
+        for (int i = 0; i < array.getPositionCount(); i++) {
+            if (array.isNull(i)) {
+                return null;
+            }
+            l2norm += DOUBLE.getDouble(array, i) * DOUBLE.getDouble(array, i);
+        }
+        return Math.sqrt(l2norm);
+    }
+
+    @Description("euclidean distance between two dense vectors given as arrays")
+    @ScalarFunction("euclidean_distance_dense")
+    @SqlNullable
+    @SqlType(StandardTypes.DOUBLE)
+    public static Double euclideanDistanceDense(@SqlType("array(double)") Block leftArray, @SqlType("array(double)") Block rightArray)
+    {
+        Double squaredSum = squaredSumDifferences(leftArray, rightArray);
+        if (squaredSum == null) {
+            return null;
+        }
+
+        return Math.sqrt(squaredSum);
+    }
+
+    private static Double squaredSumDifferences(Block leftArray, Block rightArray)
+    {
+        int maxIndex = 0;
+        Double squaredSum = 0.0;
+
+        if (leftArray.getPositionCount() < rightArray.getPositionCount()) {
+            maxIndex = leftArray.getPositionCount();
+            squaredSum = squaredSumArray(rightArray, maxIndex);
+        }
+        else {
+            maxIndex = rightArray.getPositionCount();
+            squaredSum = squaredSumArray(leftArray, maxIndex);
+        }
+
+        if (squaredSum == null) {
+            return null;
+        }
+
+        for (int i = 0; i < maxIndex; i++) {
+            if (leftArray.isNull(i) || rightArray.isNull(i)) {
+                return null;
+            }
+            squaredSum += Math.pow(DOUBLE.getDouble(leftArray, i) - DOUBLE.getDouble(rightArray, i), 2);
+        }
+
+        return squaredSum;
+    }
+
+    private static Double squaredSumArray(Block array, int maxIndex)
+    {
+        Double squaredSum = 0.0;
+
+        for (int i = maxIndex; i < array.getPositionCount(); i++) {
+            if (array.isNull(i)) {
+                return null;
+            }
+            squaredSum += Math.pow(DOUBLE.getDouble(array, i), 2);
+        }
+
+        return squaredSum;
+    }
 }
