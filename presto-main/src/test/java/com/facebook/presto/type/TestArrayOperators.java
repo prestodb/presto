@@ -1205,6 +1205,11 @@ public class TestArrayOperators
         assertFunction("ARRAY_DISTINCT(ARRAY [CAST(5 AS BIGINT), NULL, CAST(12 AS BIGINT), NULL])", new ArrayType(BIGINT), asList(5L, null, 12L));
         assertFunction("ARRAY_DISTINCT(ARRAY [CAST(100 AS BIGINT), NULL, CAST(100 AS BIGINT), NULL, 0, -2, 0])", new ArrayType(BIGINT), asList(100L, null, 0L, -2L));
 
+        // Special test cases for BIGINT with NULLs
+        assertFunction("ARRAY_DISTINCT(ARRAY [CAST(5 AS BIGINT), NULL, CAST(12 AS BIGINT), NULL])", new ArrayType(BIGINT), asList(5L, null, 12L));
+        assertFunction("ARRAY_DISTINCT(ARRAY [CAST(5 AS BIGINT), NULL, CAST(5 AS BIGINT), NULL, NULL])", new ArrayType(BIGINT), asList(5L, null));
+        assertFunction("ARRAY_DISTINCT(ARRAY [NULL, CAST(7882878217071785844 AS BIGINT), NULL, CAST(7882878217071785844 AS BIGINT), NULL])", new ArrayType(BIGINT), asList(null, 7882878217071785844L));
+
         assertFunction(
                 "ARRAY_DISTINCT(ARRAY [2.3, 2.3, 2.2])",
                 new ArrayType(createDecimalType(2, 1)),
