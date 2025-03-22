@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.repartition;
 
+import com.facebook.presto.CompressionCodec;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockEncodingManager;
@@ -152,8 +153,8 @@ public class BenchmarkPartitionedOutputOperator
         private static final ScheduledExecutorService SCHEDULER = newScheduledThreadPool(1, daemonThreadsNamed("test-%s"));
 
         @SuppressWarnings("unused")
-        @Param({"true", "false"})
-        private boolean enableCompression;
+        @Param({"NONE", "LZ4"})
+        private String codec = "NONE";
 
         @Param({"1", "2"})
         private int channelCount = 1;
@@ -284,6 +285,26 @@ public class BenchmarkPartitionedOutputOperator
             types = updateBlockTypesWithHashBlockAndNullBlock(types, true, false);
         }
 
+        private CompressionCodec getCompressionCodec(String compressionCodec)
+        {
+            switch (compressionCodec) {
+                case "NONE":
+                    return CompressionCodec.NONE;
+                case "SNAPPY":
+                    return CompressionCodec.SNAPPY;
+                case "LZ4":
+                    return CompressionCodec.LZ4;
+                case "ZLIB":
+                    return CompressionCodec.ZLIB;
+                case "GZIP":
+                    return CompressionCodec.GZIP;
+                case "ZSTD":
+                    return CompressionCodec.ZSTD;
+                default:
+                    throw new UnsupportedOperationException("Unsupported compression codec: " + compressionCodec);
+            }
+        }
+
         private PartitionedOutputBuffer createPartitionedOutputBuffer()
         {
             OutputBuffers buffers = createInitialEmptyOutputBuffers(PARTITIONED);
@@ -305,7 +326,7 @@ public class BenchmarkPartitionedOutputOperator
                     IntStream.range(0, PARTITION_COUNT).toArray());
             OutputPartitioning outputPartitioning = createOutputPartitioning(partitionFunction);
 
-            PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new BlockEncodingManager(), enableCompression);
+            PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new BlockEncodingManager(), getCompressionCodec(codec));
             PartitionedOutputBuffer buffer = createPartitionedOutputBuffer();
 
             OptimizedPartitionedOutputFactory operatorFactory = new OptimizedPartitionedOutputFactory(buffer, MAX_PARTITION_BUFFER_SIZE);
@@ -320,7 +341,7 @@ public class BenchmarkPartitionedOutputOperator
             PartitionFunction partitionFunction = new LocalPartitionGenerator(new PrecomputedHashGenerator(0), PARTITION_COUNT);
             OutputPartitioning outputPartitioning = createOutputPartitioning(partitionFunction);
 
-            PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new BlockEncodingManager(), enableCompression);
+            PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new BlockEncodingManager(), getCompressionCodec(codec));
             PartitionedOutputBuffer buffer = createPartitionedOutputBuffer();
 
             PartitionedOutputFactory operatorFactory = new PartitionedOutputFactory(buffer, MAX_PARTITION_BUFFER_SIZE);

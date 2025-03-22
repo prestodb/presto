@@ -27,8 +27,8 @@ import com.facebook.presto.sql.gen.OrderingCompiler;
 
 import java.util.List;
 
+import static com.facebook.presto.SystemSessionProperties.getExchangeCompressionCodec;
 import static com.facebook.presto.SystemSessionProperties.isExchangeChecksumEnabled;
-import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionEnabled;
 import static java.util.Objects.requireNonNull;
 
 public class HttpRemoteSourceFactory
@@ -52,7 +52,7 @@ public class HttpRemoteSourceFactory
                 operatorId,
                 planNodeId,
                 taskExchangeClientManager,
-                new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session), isExchangeChecksumEnabled(session)));
+                new PagesSerdeFactory(blockEncodingSerde, getExchangeCompressionCodec(session), isExchangeChecksumEnabled(session)));
     }
 
     @Override
@@ -69,7 +69,7 @@ public class HttpRemoteSourceFactory
                 operatorId,
                 planNodeId,
                 taskExchangeClientManager,
-                new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session), isExchangeChecksumEnabled(session)),
+                new PagesSerdeFactory(blockEncodingSerde, getExchangeCompressionCodec(session), isExchangeChecksumEnabled(session)),
                 orderingCompiler,
                 types,
                 outputChannels,
