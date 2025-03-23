@@ -572,6 +572,12 @@ public abstract class DelegatingMetadataManager
     }
 
     @Override
+    public ListenableFuture<Void> commitPageSinkAsync(Session session, DeleteTableHandle tableHandle, Collection<Slice> fragments)
+    {
+        return delegate.commitPageSinkAsync(session, tableHandle, fragments);
+    }
+
+    @Override
     public MetadataUpdates getMetadataUpdateResults(Session session, QueryManager queryManager, MetadataUpdates metadataUpdates, QueryId queryId)
     {
         return delegate.getMetadataUpdateResults(session, queryManager, metadataUpdates, queryId);

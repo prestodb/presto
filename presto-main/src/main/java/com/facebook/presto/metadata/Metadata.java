@@ -481,6 +481,12 @@ public interface Metadata
     @Experimental
     ListenableFuture<Void> commitPageSinkAsync(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments);
 
+    /**
+     * Commits page sink for table deletion.
+     */
+    @Experimental
+    ListenableFuture<Void> commitPageSinkAsync(Session session, DeleteTableHandle tableHandle, Collection<Slice> fragments);
+
     MetadataUpdates getMetadataUpdateResults(Session session, QueryManager queryManager, MetadataUpdates metadataUpdates, QueryId queryId);
 
     // TODO: metadata should not provide FunctionAndTypeManager

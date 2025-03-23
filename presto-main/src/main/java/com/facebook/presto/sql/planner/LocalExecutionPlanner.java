@@ -3519,6 +3519,9 @@ public class LocalExecutionPlanner
             else if (target instanceof InsertHandle) {
                 return metadata.commitPageSinkAsync(session, ((InsertHandle) target).getHandle(), fragments);
             }
+            else if (target instanceof DeleteHandle) {
+                return metadata.commitPageSinkAsync(session, ((DeleteHandle) target).getHandle(), fragments);
+            }
             else if (target instanceof RefreshMaterializedViewHandle) {
                 return metadata.commitPageSinkAsync(session, ((RefreshMaterializedViewHandle) target).getHandle(), fragments);
             }
