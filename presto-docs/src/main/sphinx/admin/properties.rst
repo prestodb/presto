@@ -392,7 +392,7 @@ The corresponding session property is :ref:`admin/properties-session:\`\`aggrega
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``string``
-* **Allowed value:** ``NONE``, ``LZ4``
+* **Allowed value:** ``SNAPPY``, ``NONE``, ``GZIP``, ``LZ4``, ``LZO``,, ``ZLIB`` ``ZSTD``
 * **Default value:** ``NONE``
 
 The data compression codec to be used for pages spilled to disk.

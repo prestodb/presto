@@ -45,7 +45,12 @@ public class TestPagesSerde
     public Object[][] createTestCompressionCodec()
     {
         return new Object[][] {
+                {CompressionCodec.GZIP},
                 {CompressionCodec.LZ4},
+                {CompressionCodec.LZO},
+                {CompressionCodec.SNAPPY},
+                {CompressionCodec.ZLIB},
+                {CompressionCodec.ZSTD},
                 {CompressionCodec.NONE}
         };
     }

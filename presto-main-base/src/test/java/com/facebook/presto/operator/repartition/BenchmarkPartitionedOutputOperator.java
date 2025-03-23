@@ -290,8 +290,16 @@ public class BenchmarkPartitionedOutputOperator
             switch (compressionCodec) {
                 case "NONE":
                     return CompressionCodec.NONE;
+                case "SNAPPY":
+                    return CompressionCodec.SNAPPY;
                 case "LZ4":
                     return CompressionCodec.LZ4;
+                case "ZLIB":
+                    return CompressionCodec.ZLIB;
+                case "GZIP":
+                    return CompressionCodec.GZIP;
+                case "ZSTD":
+                    return CompressionCodec.ZSTD;
                 default:
                     throw new UnsupportedOperationException("Unsupported compression codec: " + compressionCodec);
             }
