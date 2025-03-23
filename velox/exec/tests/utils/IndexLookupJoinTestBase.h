@@ -42,6 +42,8 @@ class IndexLookupJoinTestBase
   // Generate probe input for lookup join.
   // @param numBatches: number of probe batches.
   // @param batchSize: number of rows in each probe batch.
+  // @param numDuplicateProbeRows: number of duplicates for each probe row so
+  // the actual batch size is batchSize * numDuplicatesProbeRows.
   // @param tableData: contains the sequence table data including key vectors
   // and min/max key values.
   // @param probeJoinKeys: the prefix key colums used for equality joins.
@@ -56,6 +58,7 @@ class IndexLookupJoinTestBase
   std::vector<facebook::velox::RowVectorPtr> generateProbeInput(
       size_t numBatches,
       size_t batchSize,
+      size_t numDuplicateProbeRows,
       SequenceTableData& tableData,
       std::shared_ptr<facebook::velox::memory::MemoryPool>& pool,
       const std::vector<std::string>& probeJoinKeys,

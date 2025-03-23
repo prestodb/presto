@@ -729,6 +729,7 @@ TEST_P(IndexLookupJoinTest, equalJoin) {
     auto probeVectors = generateProbeInput(
         testData.numProbeBatches,
         testData.numRowsPerProbeBatch,
+        1,
         tableData,
         pool_,
         {"t0", "t1", "t2"},
@@ -1182,6 +1183,7 @@ TEST_P(IndexLookupJoinTest, betweenJoinCondition) {
     auto probeVectors = generateProbeInput(
         testData.numProbeBatches,
         testData.numProbeRowsPerBatch,
+        1,
         tableData,
         pool_,
         {"t0", "t1"},
@@ -1504,6 +1506,7 @@ TEST_P(IndexLookupJoinTest, inJoinCondition) {
     auto probeVectors = generateProbeInput(
         testData.numProbeBatches,
         testData.numProbeRowsPerBatch,
+        1,
         tableData,
         pool_,
         {"t0", "t1"},
@@ -1554,7 +1557,7 @@ DEBUG_ONLY_TEST_P(IndexLookupJoinTest, connectorError) {
   SequenceTableData tableData;
   generateIndexTableData({100, 1, 1}, tableData, pool_);
   const std::vector<RowVectorPtr> probeVectors = generateProbeInput(
-      20, 100, tableData, pool_, {"t0", "t1", "t2"}, {}, {}, 100);
+      20, 100, 1, tableData, pool_, {"t0", "t1", "t2"}, {}, {}, 100);
 
   const std::string errorMsg{"injectedError"};
   std::atomic_int lookupCount{0};
@@ -1607,7 +1610,15 @@ DEBUG_ONLY_TEST_P(IndexLookupJoinTest, prefetch) {
   const int numProbeBatches{20};
   ASSERT_GT(numProbeBatches, GetParam().numPrefetches);
   const std::vector<RowVectorPtr> probeVectors = generateProbeInput(
-      numProbeBatches, 100, tableData, pool_, {"t0", "t1", "t2"}, {}, {}, 100);
+      numProbeBatches,
+      100,
+      1,
+      tableData,
+      pool_,
+      {"t0", "t1", "t2"},
+      {},
+      {},
+      100);
   createDuckDbTable("t", probeVectors);
   createDuckDbTable("u", {tableData.tableData});
 
@@ -1704,6 +1715,7 @@ TEST_P(IndexLookupJoinTest, outputBatchSize) {
     const auto probeVectors = generateProbeInput(
         testData.numProbeBatches,
         testData.numRowsPerProbeBatch,
+        1,
         tableData,
         pool_,
         {"t0", "t1", "t2"},
@@ -1765,7 +1777,15 @@ DEBUG_ONLY_TEST_P(IndexLookupJoinTest, runtimeStats) {
   generateIndexTableData({100, 1, 1}, tableData, pool_);
   const int numProbeBatches{2};
   const std::vector<RowVectorPtr> probeVectors = generateProbeInput(
-      numProbeBatches, 100, tableData, pool_, {"t0", "t1", "t2"}, {}, {}, 100);
+      numProbeBatches,
+      100,
+      1,
+      tableData,
+      pool_,
+      {"t0", "t1", "t2"},
+      {},
+      {},
+      100);
   createDuckDbTable("t", probeVectors);
   createDuckDbTable("u", {tableData.tableData});
 
@@ -1839,7 +1859,7 @@ TEST_P(IndexLookupJoinTest, joinFuzzer) {
   SequenceTableData tableData;
   generateIndexTableData({1024, 1, 1}, tableData, pool_);
   const auto probeVectors =
-      generateProbeInput(50, 256, tableData, pool_, {"t0", "t1", "t2"});
+      generateProbeInput(50, 256, 1, tableData, pool_, {"t0", "t1", "t2"});
 
   createDuckDbTable("t", probeVectors);
   createDuckDbTable("u", {tableData.tableData});

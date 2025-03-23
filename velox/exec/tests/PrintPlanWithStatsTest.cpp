@@ -176,7 +176,7 @@ TEST_F(PrintPlanWithStatsTest, innerJoinWithTableScan) {
        {"     HashProbe: Input: 2000 rows \\(.+\\), Output: 2000 rows \\(.+\\), Cpu time: .+, Blocked wall time: .+, Peak memory: .+, Memory allocations: .+, Threads: 1, CPU breakdown: B/I/O/F (.+/.+/.+/.+)"},
        // These lines may or may not appear depending on whether the operator
        // gets blocked during a run.
-       {"        blockedWaitForJoinBuildTimes        sum: 1, count: 1, min: 1, max: 1, avg: 1"},
+       {"        blockedWaitForJoinBuildTimes\\s+sum: 1, count: 1, min: 1, max: 1, avg: 1"},
        {"        blockedWaitForJoinBuildWallNanos\\s+sum: .+, count: 1, min: .+, max: .+"},
        {"        dynamicFiltersProduced\\s+sum: 1, count: 1, min: 1, max: 1, avg: 1"},
        {"        queuedWallNanos\\s+sum: .+, count: 1, min: .+, max: .+"},

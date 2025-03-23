@@ -41,6 +41,7 @@ std::vector<facebook::velox::RowVectorPtr>
 IndexLookupJoinTestBase::generateProbeInput(
     size_t numBatches,
     size_t batchSize,
+    size_t numDuplicateProbeRows,
     SequenceTableData& tableData,
     std::shared_ptr<facebook::velox::memory::MemoryPool>& pool,
     const std::vector<std::string>& probeJoinKeys,
@@ -54,11 +55,10 @@ IndexLookupJoinTestBase::generateProbeInput(
   std::vector<facebook::velox::RowVectorPtr> probeInputs;
   probeInputs.reserve(numBatches);
   facebook::velox::VectorFuzzer::Options opts;
-  opts.vectorSize = batchSize;
+  opts.vectorSize = batchSize * numDuplicateProbeRows;
   opts.allowSlice = false;
   // TODO: add nullable handling later.
   opts.nullRatio = 0.0;
-  opts.allowDictionaryVector = false;
   facebook::velox::VectorFuzzer fuzzer(opts, pool.get());
   for (int i = 0; i < numBatches; ++i) {
     probeInputs.push_back(fuzzer.fuzzInputRow(probeType_));
@@ -91,17 +91,23 @@ IndexLookupJoinTestBase::generateProbeInput(
             probeInputs[i]->size(),
             pool.get()));
       }
-      for (int row = 0; row < probeInputs[i]->size(); ++row, ++totalRows) {
-        if (totalRows % 100 < equalMatchPct.value()) {
+      for (int row = 0; row < probeInputs[i]->size();
+           row += numDuplicateProbeRows, totalRows += numDuplicateProbeRows) {
+        if ((totalRows / numDuplicateProbeRows) % 100 < equalMatchPct.value()) {
           const auto matchKeyRow = folly::Random::rand64(numTableRows);
           for (int j = 0; j < probeJoinKeys.size(); ++j) {
-            probeKeyVectors[j]->set(
-                row, tableKeyVectors[j]->valueAt(matchKeyRow));
+            for (int k = 0; k < numDuplicateProbeRows; ++k) {
+              probeKeyVectors[j]->set(
+                  row + k, tableKeyVectors[j]->valueAt(matchKeyRow));
+            }
           }
         } else {
           for (int j = 0; j < probeJoinKeys.size(); ++j) {
-            probeKeyVectors[j]->set(
-                row, tableData.maxKeys[j] + 1 + folly::Random::rand32());
+            const auto randomValue = folly::Random::rand32() % 4096;
+            for (int k = 0; k < numDuplicateProbeRows; ++k) {
+              probeKeyVectors[j]->set(
+                  row + k, tableData.maxKeys[j] + 1 + randomValue);
+            }
           }
         }
       }
@@ -278,7 +284,6 @@ void IndexLookupJoinTestBase::generateIndexTableData(
   opts.vectorSize = numRows;
   opts.nullRatio = 0.0;
   opts.allowSlice = false;
-  opts.allowDictionaryVector = false;
   facebook::velox::VectorFuzzer fuzzer(opts, pool.get());
 
   tableData.keyData = fuzzer.fuzzInputFlatRow(keyType_);
