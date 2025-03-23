@@ -29,6 +29,7 @@ import com.google.common.io.Files;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.slice.InputStreamSliceInput;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -66,33 +67,32 @@ public class TestFileSingleStreamSpiller
         deleteRecursively(tempDirectory.toPath(), ALLOW_INSECURE);
     }
 
-    @Test
-    public void testSpill()
-            throws Exception
+    @DataProvider(name = "testCompressionCodec")
+    public Object[][] createTestCompressionCodec()
     {
-        assertSpill(CompressionCodec.NONE, false);
+        return new Object[][] {
+                {CompressionCodec.GZIP},
+                {CompressionCodec.LZ4},
+                {CompressionCodec.LZO},
+                {CompressionCodec.SNAPPY},
+                {CompressionCodec.ZLIB},
+                {CompressionCodec.ZSTD},
+                {CompressionCodec.NONE}
+        };
     }
 
-    @Test
-    public void testSpillCompression()
+    @Test(dataProvider = "testCompressionCodec")
+    public void testSpillCompression(CompressionCodec codec)
             throws Exception
     {
-        assertSpill(CompressionCodec.LZ4, false);
+        assertSpill(codec, false);
     }
 
-    @Test
-    public void testSpillEncryption()
+    @Test(dataProvider = "testCompressionCodec")
+    public void testSpillEncryptionWithCompression(CompressionCodec codec)
             throws Exception
     {
-        // Both with compression enabled and disabled
-        assertSpill(CompressionCodec.NONE, true);
-    }
-
-    @Test
-    public void testSpillEncryptionWithCompression()
-            throws Exception
-    {
-        assertSpill(CompressionCodec.LZ4, true);
+        assertSpill(codec, true);
     }
 
     private void assertSpill(CompressionCodec compressionCodec, boolean encryption)

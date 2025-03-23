@@ -21,8 +21,15 @@ import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.spiller.SpillCipher;
 import io.airlift.compress.lz4.Lz4Compressor;
 import io.airlift.compress.lz4.Lz4Decompressor;
+import io.airlift.compress.lzo.LzoCompressor;
+import io.airlift.compress.lzo.LzoDecompressor;
+import io.airlift.compress.snappy.SnappyCompressor;
+import io.airlift.compress.snappy.SnappyDecompressor;
+import io.airlift.compress.zstd.ZstdCompressor;
+import io.airlift.compress.zstd.ZstdDecompressor;
 
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static java.util.Objects.requireNonNull;
 
@@ -62,8 +69,18 @@ public class PagesSerdeFactory
     private Optional<PageCompressor> getPageCompressor()
     {
         switch (compressionCodec) {
+            case GZIP:
+                return Optional.of(new AirliftCompressorAdapter(new GzipCompressor()));
             case LZ4:
                 return Optional.of(new AirliftCompressorAdapter(new Lz4Compressor()));
+            case LZO:
+                return Optional.of(new AirliftCompressorAdapter(new LzoCompressor()));
+            case SNAPPY:
+                return Optional.of(new AirliftCompressorAdapter(new SnappyCompressor()));
+            case ZLIB:
+                return Optional.of(new AirliftCompressorAdapter(new ZlibCompressor(OptionalInt.empty())));
+            case ZSTD:
+                return Optional.of(new AirliftCompressorAdapter(new ZstdCompressor()));
             case NONE:
             default:
                 return Optional.empty();
@@ -73,8 +90,18 @@ public class PagesSerdeFactory
     private Optional<PageDecompressor> getPageDecompressor()
     {
         switch (compressionCodec) {
+            case GZIP:
+                return Optional.of(new AirliftDecompressorAdapter(new GzipDecompressor()));
             case LZ4:
                 return Optional.of(new AirliftDecompressorAdapter(new Lz4Decompressor()));
+            case LZO:
+                return Optional.of(new AirliftDecompressorAdapter(new LzoDecompressor()));
+            case SNAPPY:
+                return Optional.of(new AirliftDecompressorAdapter(new SnappyDecompressor()));
+            case ZLIB:
+                return Optional.of(new AirliftDecompressorAdapter(new ZlibDecompressor()));
+            case ZSTD:
+                return Optional.of(new AirliftDecompressorAdapter(new ZstdDecompressor()));
             case NONE:
             default:
                 return Optional.empty();
