@@ -1355,6 +1355,64 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       sourceVeloxPlan);
 }
 
+std::shared_ptr<const core::TableWriteNode>
+VeloxQueryPlanConverterBase::toVeloxQueryPlan(
+    const std::shared_ptr<const protocol::DeleteNode>& node,
+    const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+    const protocol::TaskId& taskId) {
+  std::string connectorId;
+  std::shared_ptr<connector::ConnectorInsertTableHandle> connectorInsertHandle;
+  if (
+      auto deleteHandle = std::dynamic_pointer_cast<protocol::DeleteHandle>(
+          tableWriteInfo->writerTarget)) {
+    connectorId = deleteHandle->handle.connectorId;
+    auto& connector =
+        getPrestoToVeloxConnector(deleteHandle->handle.connectorHandle->_type);
+    auto veloxHandle =
+        connector.toVeloxInsertTableHandle(deleteHandle.get(), typeParser_);
+    connectorInsertHandle = std::shared_ptr(std::move(veloxHandle));
+  }
+
+  if (!connectorInsertHandle) {
+    VELOX_UNSUPPORTED(
+        "Unsupported table writer handle: {}",
+        toJsonString(tableWriteInfo->writerTarget));
+  }
+
+  auto insertTableHandle = std::make_shared<core::InsertTableHandle>(
+      connectorId, connectorInsertHandle);
+
+  const auto outputType = toRowType(
+      generateOutputVariables(node->outputVariables, nullptr),
+      typeParser_);
+  
+  const auto sourceVeloxPlan =
+      toVeloxQueryPlan(node->source, tableWriteInfo, taskId);
+
+  // get columns and partition keys from InputDistribution
+  auto inputDistribution = std::dynamic_pointer_cast<protocol::BaseInputDistribution>(
+      node->inputDistribution);
+
+  if (!inputDistribution) {
+    VELOX_UNSUPPORTED(
+        "Unsupported input distribution type: {}",
+        toJsonString(node->inputDistribution));
+  }
+
+  auto inputColumns = toRowType(inputDistribution->inputVariables, typeParser_);
+
+  return std::make_shared<core::TableWriteNode>(
+      node->id,
+      inputColumns,
+      inputColumns->names(),
+      nullptr, // aggregationNode
+      std::move(insertTableHandle),
+      true, // delete only supported on partitioned tables
+      outputType,
+      getCommitStrategy(),
+      sourceVeloxPlan);
+}
+
 std::shared_ptr<const core::TableWriteMergeNode>
 VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const std::shared_ptr<const protocol::TableWriterMergeNode>& node,
@@ -1695,6 +1753,10 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   if (auto tableWriter =
           std::dynamic_pointer_cast<const protocol::TableWriterNode>(node)) {
     return toVeloxQueryPlan(tableWriter, tableWriteInfo, taskId);
+  }
+  if (auto deleteNode =
+          std::dynamic_pointer_cast<const protocol::DeleteNode>(node)) {
+    return toVeloxQueryPlan(deleteNode, tableWriteInfo, taskId);
   }
   if (auto tableWriteMerger =
           std::dynamic_pointer_cast<const protocol::TableWriterMergeNode>(
