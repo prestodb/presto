@@ -14,6 +14,7 @@
 package com.facebook.presto.memory;
 
 import com.facebook.airlift.stats.TestingGcMonitor;
+import com.facebook.presto.CompressionCodec;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.execution.buffer.TestingPagesSerdeFactory;
@@ -133,7 +134,7 @@ public class TestMemoryPools
                     TableScanOperator.class.getSimpleName());
 
             OutputFactory outputFactory = new PageConsumerOutputFactory(types -> (page -> {}));
-            Operator outputOperator = outputFactory.createOutputOperator(2, new PlanNodeId("output"), ImmutableList.of(), Function.identity(), Optional.empty(), new TestingPagesSerdeFactory())
+            Operator outputOperator = outputFactory.createOutputOperator(2, new PlanNodeId("output"), ImmutableList.of(), Function.identity(), Optional.empty(), new TestingPagesSerdeFactory(CompressionCodec.LZ4))
                     .createOperator(driverContext);
             RevocableMemoryOperator revocableMemoryOperator = new RevocableMemoryOperator(revokableOperatorContext, reservedPerPage, numberOfPages);
             createOperator.set(revocableMemoryOperator);
