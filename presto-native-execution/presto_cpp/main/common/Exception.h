@@ -106,10 +106,10 @@ class VeloxToPrestoExceptionTranslator {
                {0x00000000,
                 "GENERIC_USER_ERROR",
                 protocol::ErrorType::USER_ERROR}},
-
               {velox::error_code::kUnsupported,
                {0x0000000D, "NOT_SUPPORTED", protocol::ErrorType::USER_ERROR}},
-
+              {velox::error_code::kUnsupportedInputUncatchable,
+               {0x0000000D, "NOT_SUPPORTED", protocol::ErrorType::USER_ERROR}},
               {velox::error_code::kArithmeticError,
                {0x00000000,
                 "GENERIC_USER_ERROR",
