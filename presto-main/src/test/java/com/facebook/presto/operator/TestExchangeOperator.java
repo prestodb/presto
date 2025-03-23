@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.testing.TestingHttpClient;
+import com.facebook.presto.CompressionCodec;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.Location;
@@ -63,7 +64,7 @@ import static org.testng.Assert.assertTrue;
 public class TestExchangeOperator
 {
     private static final List<Type> TYPES = ImmutableList.of(VARCHAR);
-    private static final PagesSerdeFactory SERDE_FACTORY = new TestingPagesSerdeFactory();
+    private static final PagesSerdeFactory SERDE_FACTORY = new TestingPagesSerdeFactory(CompressionCodec.LZ4);
 
     private static final String TASK_1_ID = "task1.0.0.0.0";
     private static final String TASK_2_ID = "task2.0.0.0.0";

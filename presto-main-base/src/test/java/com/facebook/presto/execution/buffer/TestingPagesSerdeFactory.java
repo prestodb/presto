@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution.buffer;
 
+import com.facebook.presto.CompressionCodec;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
@@ -32,10 +33,10 @@ import java.util.Optional;
 public class TestingPagesSerdeFactory
         extends PagesSerdeFactory
 {
-    public TestingPagesSerdeFactory()
+    public TestingPagesSerdeFactory(CompressionCodec compressionCodec)
     {
         // compression should be enabled in as many tests as possible
-        super(new BlockEncodingManager(), true);
+        super(new BlockEncodingManager(), compressionCodec);
     }
 
     public static PagesSerde testingPagesSerde()

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spiller;
 
+import com.facebook.presto.CompressionCodec;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.BlockEncodingManager;
@@ -83,7 +84,7 @@ public class TestFileSingleStreamSpillerFactory
                 new SpillerStats(),
                 spillPaths,
                 1.0,
-                false,
+                CompressionCodec.NONE,
                 false);
 
         assertEquals(listFiles(spillPath1.toPath()).size(), 0);
@@ -123,7 +124,7 @@ public class TestFileSingleStreamSpillerFactory
                 new SpillerStats(),
                 spillPaths,
                 0.0,
-                false,
+                CompressionCodec.NONE,
                 false);
 
         spillerFactory.create(types, new TestingSpillContext(), newSimpleAggregatedMemoryContext().newLocalMemoryContext("test"));
@@ -140,7 +141,7 @@ public class TestFileSingleStreamSpillerFactory
                 new SpillerStats(),
                 spillPaths,
                 1.0,
-                false,
+                CompressionCodec.NONE,
                 false);
         spillerFactory.create(types, new TestingSpillContext(), newSimpleAggregatedMemoryContext().newLocalMemoryContext("test"));
     }
@@ -170,7 +171,7 @@ public class TestFileSingleStreamSpillerFactory
                 new SpillerStats(),
                 spillPaths,
                 1.0,
-                false,
+                CompressionCodec.NONE,
                 false);
         spillerFactory.cleanupOldSpillFiles();
 

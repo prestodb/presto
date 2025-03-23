@@ -96,7 +96,7 @@ public class FileFragmentResultCacheManager
         this.maxSinglePagesBytes = cacheConfig.getMaxSinglePagesSize().toBytes();
         this.maxCacheBytes = cacheConfig.getMaxCacheSize().toBytes();
         // pagesSerde is not thread safe
-        this.pagesSerdeFactory = new PagesSerdeFactory(blockEncodingSerde, cacheConfig.isBlockEncodingCompressionEnabled());
+        this.pagesSerdeFactory = new PagesSerdeFactory(blockEncodingSerde, cacheConfig.getBlockEncodingCompressionCodec());
         this.fragmentCacheStats = requireNonNull(fragmentCacheStats, "fragmentCacheStats is null");
         this.flushExecutor = requireNonNull(flushExecutor, "flushExecutor is null");
         this.removalExecutor = requireNonNull(removalExecutor, "removalExecutor is null");

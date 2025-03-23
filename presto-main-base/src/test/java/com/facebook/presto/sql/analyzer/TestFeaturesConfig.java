@@ -15,6 +15,7 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.airlift.configuration.ConfigurationFactory;
 import com.facebook.airlift.configuration.testing.ConfigAssertions;
+import com.facebook.presto.CompressionCodec;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationIfToFilterRewriteStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.CteMaterializationStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
@@ -126,7 +127,7 @@ public class TestFeaturesConfig
                 .setIgnoreStatsCalculatorFailures(true)
                 .setPrintStatsForNonJoinQuery(false)
                 .setDefaultFilterFactorEnabled(false)
-                .setExchangeCompressionEnabled(false)
+                .setExchangeCompressionCodec(CompressionCodec.NONE)
                 .setExchangeChecksumEnabled(false)
                 .setEnableIntermediateAggregations(false)
                 .setPushAggregationThroughJoin(true)
@@ -330,7 +331,7 @@ public class TestFeaturesConfig
                 .put("experimental.spiller.single-stream-spiller-choice", "TEMP_STORAGE")
                 .put("experimental.spiller.spiller-temp-storage", "crail")
                 .put("experimental.spiller.max-revocable-task-memory", "1GB")
-                .put("exchange.compression-enabled", "true")
+                .put("exchange.compression-codec", "LZ4")
                 .put("exchange.checksum-enabled", "true")
                 .put("optimizer.enable-intermediate-aggregations", "true")
                 .put("optimizer.force-single-node-output", "false")
@@ -529,7 +530,7 @@ public class TestFeaturesConfig
                 .setSingleStreamSpillerChoice(SingleStreamSpillerChoice.TEMP_STORAGE)
                 .setSpillerTempStorage("crail")
                 .setMaxRevocableMemoryPerTask(new DataSize(1, GIGABYTE))
-                .setExchangeCompressionEnabled(true)
+                .setExchangeCompressionCodec(CompressionCodec.LZ4)
                 .setExchangeChecksumEnabled(true)
                 .setEnableIntermediateAggregations(true)
                 .setForceSingleNodeOutput(false)
