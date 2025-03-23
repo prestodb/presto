@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spiller;
 
+import com.facebook.presto.CompressionCodec;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
@@ -42,7 +43,7 @@ public class TestSpillCipherPagesSerde
     public void test()
     {
         SpillCipher cipher = new AesSpillCipher();
-        PagesSerde serde = new TestingPagesSerdeFactory().createPagesSerdeForSpill(Optional.of(cipher));
+        PagesSerde serde = new TestingPagesSerdeFactory(CompressionCodec.LZ4).createPagesSerdeForSpill(Optional.of(cipher));
         List<Type> types = ImmutableList.of(VARCHAR);
         Page emptyPage = new Page(VARCHAR.createBlockBuilder(null, 0).build());
         assertPageEquals(types, serde.deserialize(serde.serialize(emptyPage)), emptyPage);

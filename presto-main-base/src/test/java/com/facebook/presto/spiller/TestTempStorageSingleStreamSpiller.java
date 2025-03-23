@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spiller;
 
+import com.facebook.presto.CompressionCodec;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.BlockEncodingManager;
@@ -80,14 +81,14 @@ public class TestTempStorageSingleStreamSpiller
     public void testSpill()
             throws Exception
     {
-        assertSpill(false, false);
+        assertSpill(CompressionCodec.NONE, false);
     }
 
     @Test
     public void testSpillCompression()
             throws Exception
     {
-        assertSpill(true, false);
+        assertSpill(CompressionCodec.LZ4, false);
     }
 
     @Test
@@ -95,17 +96,17 @@ public class TestTempStorageSingleStreamSpiller
             throws Exception
     {
         // Both with compression enabled and disabled
-        assertSpill(false, true);
+        assertSpill(CompressionCodec.NONE, true);
     }
 
     @Test
     public void testSpillEncryptionWithCompression()
             throws Exception
     {
-        assertSpill(true, true);
+        assertSpill(CompressionCodec.LZ4, true);
     }
 
-    private void assertSpill(boolean compression, boolean encryption)
+    private void assertSpill(CompressionCodec compressionCodec, boolean encryption)
             throws Exception
     {
         File spillPath = new File(tempDirectory, UUID.randomUUID().toString());
@@ -115,7 +116,7 @@ public class TestTempStorageSingleStreamSpiller
                 executor, // executor won't be closed, because we don't call destroy() on the spiller factory
                 new BlockEncodingManager(),
                 new SpillerStats(),
-                compression,
+                compressionCodec,
                 encryption,
                 LocalTempStorage.NAME);
         LocalMemoryContext memoryContext = newSimpleAggregatedMemoryContext().newLocalMemoryContext("test");
@@ -153,7 +154,7 @@ public class TestTempStorageSingleStreamSpiller
             Iterator<SerializedPage> serializedPages = PagesSerdeUtil.readSerializedPages(new InputStreamSliceInput(is));
             assertTrue(serializedPages.hasNext(), "at least one page should be successfully read back");
             byte markers = serializedPages.next().getPageCodecMarkers();
-            assertEquals(PageCodecMarker.COMPRESSED.isSet(markers), compression);
+            assertEquals(PageCodecMarker.COMPRESSED.isSet(markers), compressionCodec != CompressionCodec.NONE);
             assertEquals(PageCodecMarker.ENCRYPTED.isSet(markers), encryption);
         }
 

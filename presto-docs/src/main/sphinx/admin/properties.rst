@@ -388,13 +388,14 @@ Limit for memory used for unspilling a single aggregation operator instance.
 
 The corresponding session property is :ref:`admin/properties-session:\`\`aggregation_operator_unspill_memory_limit\`\``. 
 
-``experimental.spill-compression-enabled``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``experimental.spill-compression-codec``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``boolean``
-* **Default value:** ``false``
+* **Type:** ``string``
+* **Allowed value:** ``NONE``, ``LZ4``
+* **Default value:** ``NONE``
 
-Enables data compression for pages spilled to disk.
+The data compression codec to be used for pages spilled to disk.
 
 ``experimental.spill-encryption-enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

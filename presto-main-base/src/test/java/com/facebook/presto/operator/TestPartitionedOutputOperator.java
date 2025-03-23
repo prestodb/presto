@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.CompressionCodec;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncodingManager;
@@ -182,7 +183,7 @@ public class TestPartitionedOutputOperator
                     false,
                     OptionalInt.empty());
         }
-        PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new BlockEncodingManager(), false);
+        PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new BlockEncodingManager(), CompressionCodec.NONE);
 
         DriverContext driverContext = TestingTaskContext.builder(EXECUTOR, SCHEDULER, TEST_SESSION)
                 .setMemoryPoolSize(MAX_MEMORY)

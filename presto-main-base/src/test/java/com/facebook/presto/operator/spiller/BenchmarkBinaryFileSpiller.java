@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.spiller;
 
+import com.facebook.presto.CompressionCodec;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.BlockEncodingManager;
@@ -96,8 +97,8 @@ public class BenchmarkBinaryFileSpiller
         @Param("10")
         private int pagesCount = 10;
 
-        @Param("false")
-        private boolean compressionEnabled;
+        @Param("NONE")
+        private CompressionCodec compressionCodec;
 
         @Param("false")
         private boolean encryptionEnabled;
@@ -118,7 +119,7 @@ public class BenchmarkBinaryFileSpiller
                     spillerStats,
                     ImmutableList.of(SPILL_PATH),
                     1.0,
-                    compressionEnabled,
+                    compressionCodec,
                     encryptionEnabled);
             spillerFactory = new GenericSpillerFactory(singleStreamSpillerFactory);
             pages = createInputPages();

@@ -160,7 +160,7 @@ public final class SystemSessionProperties
     public static final String ITERATIVE_OPTIMIZER_TIMEOUT = "iterative_optimizer_timeout";
     public static final String QUERY_ANALYZER_TIMEOUT = "query_analyzer_timeout";
     public static final String RUNTIME_OPTIMIZER_ENABLED = "runtime_optimizer_enabled";
-    public static final String EXCHANGE_COMPRESSION = "exchange_compression";
+    public static final String EXCHANGE_COMPRESSION_CODEC = "exchange_compression_codec";
     public static final String EXCHANGE_CHECKSUM = "exchange_checksum";
     public static final String LEGACY_TIMESTAMP = "legacy_timestamp";
     public static final String ENABLE_INTERMEDIATE_AGGREGATIONS = "enable_intermediate_aggregations";
@@ -840,11 +840,15 @@ public final class SystemSessionProperties
                         "Experimental: enable runtime optimizer",
                         featuresConfig.isRuntimeOptimizerEnabled(),
                         false),
-                booleanProperty(
-                        EXCHANGE_COMPRESSION,
-                        "Enable compression in exchanges",
-                        featuresConfig.isExchangeCompressionEnabled(),
-                        false),
+                new PropertyMetadata<>(
+                        EXCHANGE_COMPRESSION_CODEC,
+                        "Exchange compression codec",
+                        VARCHAR,
+                        CompressionCodec.class,
+                        featuresConfig.getExchangeCompressionCodec(),
+                        false,
+                        value -> CompressionCodec.valueOf(((String) value).toUpperCase()),
+                        CompressionCodec::name),
                 booleanProperty(
                         EXCHANGE_CHECKSUM,
                         "Enable checksum in exchanges",
@@ -2291,9 +2295,9 @@ public final class SystemSessionProperties
         return session.getSystemProperty(QUERY_ANALYZER_TIMEOUT, Duration.class);
     }
 
-    public static boolean isExchangeCompressionEnabled(Session session)
+    public static CompressionCodec getExchangeCompressionCodec(Session session)
     {
-        return session.getSystemProperty(EXCHANGE_COMPRESSION, Boolean.class);
+        return session.getSystemProperty(EXCHANGE_COMPRESSION_CODEC, CompressionCodec.class);
     }
 
     public static boolean isExchangeChecksumEnabled(Session session)

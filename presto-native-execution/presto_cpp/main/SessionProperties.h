@@ -283,9 +283,9 @@ class SessionProperties {
   static constexpr const char* kPrefixSortMinRows =
       "native_prefixsort_min_rows";
 
-  /// If true, enable the shuffle compression.
-  static constexpr const char* kShuffleCompressionEnabled =
-      "exchange_compression";
+  /// The compression algorithm type to compress the shuffle.
+  static constexpr const char* kShuffleCompressionCodec =
+      "exchange_compression_codec";
 
   /// If set to true, enables scaled processing for table scans.
   static constexpr const char* kTableScanScaledProcessingEnabled =
