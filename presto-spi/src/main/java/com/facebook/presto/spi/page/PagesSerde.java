@@ -41,7 +41,7 @@ import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 @NotThreadSafe
 public class PagesSerde
 {
-    private static final double MINIMUM_COMPRESSION_RATIO = 0.8;
+    private static final double MINIMUM_COMPRESSION_RATIO = 0.9;
 
     private final BlockEncodingSerde blockEncodingSerde;
     private final Optional<PageCompressor> compressor;
