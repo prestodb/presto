@@ -33,6 +33,8 @@ import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
+import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -161,7 +163,11 @@ public class TableWriteInfo
 
     private static Optional<DeleteScanInfo> createDeleteScanInfo(DeleteNode delete, Metadata metadata, Session session)
     {
-        TableScanNode tableScan = getDeleteTableScan(delete);
+        Optional<TableScanNode> tableScanOpt = getDeleteTableScan(delete);
+        if (!tableScanOpt.isPresent()) {
+            return Optional.empty();
+        }
+        TableScanNode tableScan = tableScanOpt.get();
         TupleDomain<ColumnHandle> originalEnforcedConstraint = tableScan.getEnforcedConstraint();
         TableLayoutResult layoutResult = metadata.getLayout(
                 session,
@@ -203,10 +209,10 @@ public class TableWriteInfo
                 .collect(toImmutableList());
     }
 
-    private static TableScanNode getDeleteTableScan(PlanNode node)
+    private static Optional<TableScanNode> getDeleteTableScan(PlanNode node)
     {
         if (node instanceof TableScanNode) {
-            return (TableScanNode) node;
+            return Optional.of((TableScanNode) node);
         }
         if (node instanceof DeleteNode) {
             return getDeleteTableScan(((DeleteNode) node).getSource());
@@ -224,6 +230,18 @@ public class TableWriteInfo
             JoinNode joinNode = (JoinNode) node;
             return getDeleteTableScan(joinNode.getLeft());
         }
+        if (node instanceof ExchangeNode) {
+            ExchangeNode exchangeNode = (ExchangeNode) node;
+            if (exchangeNode.getSources().size() != 1) {
+                throw new IllegalArgumentException("DeleteNode cannot use ExchangeNode with <> 1 source, actual count = " + exchangeNode.getSources().size());
+            }
+            return getDeleteTableScan(((ExchangeNode) node).getSources().get(0));
+        }
+        if (node instanceof RemoteSourceNode) {
+            return Optional.empty();
+        }
+
+        // TODO: should we remove this and return Optional.empty()?
         throw new IllegalArgumentException("Invalid descendant for DeleteNode: " + node.getClass().getName());
     }
 
