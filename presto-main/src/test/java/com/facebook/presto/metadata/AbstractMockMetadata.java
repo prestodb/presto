@@ -591,6 +591,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public ListenableFuture<Void> commitPageSinkAsync(Session session, DeleteTableHandle tableHandle, Collection<Slice> fragments)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public MetadataUpdates getMetadataUpdateResults(Session session, QueryManager queryManager, MetadataUpdates metadataUpdateRequests, QueryId queryId)
     {
         throw new UnsupportedOperationException();

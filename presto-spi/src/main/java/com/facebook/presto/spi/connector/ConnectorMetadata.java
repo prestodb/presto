@@ -808,6 +808,17 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Commits page sink for table insertion.
+     * To enable recoverable grouped execution, it is required that output connector supports page sink commit.
+     * This method is unstable and subject to change in the future.
+     */
+    @Experimental
+    default CompletableFuture<Void> commitPageSinkAsync(ConnectorSession session, ConnectorDeleteTableHandle tableHandle, Collection<Slice> fragments)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support page sink commit");
+    }
+
+    /**
      * Handles metadata update requests and sends the results back to worker
      */
     default List<ConnectorMetadataUpdateHandle> getMetadataUpdateResults(List<ConnectorMetadataUpdateHandle> metadataUpdateRequests, QueryId queryId)
