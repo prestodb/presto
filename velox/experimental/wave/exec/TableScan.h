@@ -116,7 +116,6 @@ class TableScan : public WaveSourceOperator {
   memory::MemoryPool* const connectorPool_;
   ContinueFuture blockingFuture_{ContinueFuture::makeEmpty()};
   exec::BlockingReason blockingReason_;
-  int64_t currentSplitWeight_{0};
   bool needNewSplit_ = true;
   std::shared_ptr<connector::Connector> connector_;
   std::shared_ptr<connector::ConnectorQueryCtx> connectorQueryCtx_;
@@ -148,13 +147,6 @@ class TableScan : public WaveSourceOperator {
   int32_t numReadyPreloadedSplits_{0};
 
   vector_size_t readBatchSize_;
-  vector_size_t maxReadBatchSize_;
-
-  // Exits getOutput() method after this many milliseconds.
-  // Zero means 'no limit'.
-  size_t getOutputTimeLimitMs_{0};
-
-  double maxFilteringRatio_{0};
 
   // String shown in ExceptionContext inside DataSource and LazyVector loading.
   std::string debugString_;

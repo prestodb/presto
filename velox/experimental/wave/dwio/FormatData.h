@@ -373,7 +373,6 @@ class FormatParams {
  private:
   memory::MemoryPool& pool_;
   dwio::common::ColumnReaderStatistics& stats_;
-  int32_t currentRow_{0};
 };
 
 }; // namespace facebook::velox::wave

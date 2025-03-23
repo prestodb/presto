@@ -62,7 +62,7 @@ TEST(PointersTest, uniquePtrConvert) {
     explicit Foo3(int32_t c) : c_(c) {}
 
    private:
-    int32_t c_;
+    [[maybe_unused]] int32_t c_; // Retained for testing
   };
   std::unique_ptr<Foo3> foo3;
 

@@ -2323,8 +2323,11 @@ TEST_P(MemoryPoolTest, validCheck) {
 // Class used to test operations on MemoryPool.
 class MemoryPoolTester {
  public:
-  MemoryPoolTester(int32_t id, int64_t maxMemory, memory::MemoryPool& pool)
-      : id_(id), maxMemory_(maxMemory), pool_(pool) {}
+  MemoryPoolTester(
+      int32_t /* id */,
+      int64_t maxMemory,
+      memory::MemoryPool& pool)
+      : maxMemory_(maxMemory), pool_(pool) {}
 
   ~MemoryPoolTester() {
     for (auto& allocation : contiguousAllocations_) {
@@ -2432,7 +2435,6 @@ class MemoryPoolTester {
   }
 
  private:
-  const int32_t id_;
   const int64_t maxMemory_;
   memory::MemoryPool& pool_;
   uint64_t reservedBytes_{0};

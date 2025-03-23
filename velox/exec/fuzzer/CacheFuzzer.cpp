@@ -169,7 +169,6 @@ class CacheFuzzer {
   int32_t lastNumSsdCacheShards_;
   int64_t lastSsdCheckpointIntervalBytes_;
   bool lastEnableChecksum_;
-  bool lastEnableChecksumReadVerification_;
 };
 
 template <typename T>
