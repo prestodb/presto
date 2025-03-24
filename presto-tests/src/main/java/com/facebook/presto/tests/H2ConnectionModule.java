@@ -24,7 +24,7 @@ import jakarta.inject.Provider;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 
-import javax.annotation.PreDestroy;
+import jakarta.annotation.PreDestroy;
 
 import java.sql.DriverManager;
 
