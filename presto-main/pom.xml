@@ -197,7 +197,6 @@
         <dependency>
             <groupId>com.facebook.drift</groupId>
             <artifactId>drift-protocol</artifactId>
-            <scope>runtime</scope>
         </dependency>
         <dependency>
             <groupId>com.facebook.airlift</groupId>
@@ -350,6 +349,16 @@
                     <ignorePackages>
                         <ignorePackage>com.facebook.presto.testing.assertions</ignorePackage>
                     </ignorePackages>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <ignoredNonTestScopedDependencies>
+                        <!-- TTransportException needed from drift-protocol to compile -->
+                        <ignoredNonTestScopedDependency>com.facebook.drift:drift-protocol</ignoredNonTestScopedDependency>
+                    </ignoredNonTestScopedDependencies>
                 </configuration>
             </plugin>
         </plugins>
