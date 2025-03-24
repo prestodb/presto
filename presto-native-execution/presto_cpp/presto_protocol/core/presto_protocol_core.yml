@@ -124,10 +124,11 @@ AbstractClasses:
   ExecutionWriterTarget:
     super: JsonEncodedSubclass
     subclasses:
-      - { name: CreateHandle,                   key: CreateHandle }
-      - { name: InsertHandle,                   key: InsertHandle }
-      - { name: DeleteHandle,                   key: DeleteHandle }
-      - { name: RefreshMaterializedViewHandle,  key: RefreshMaterializedViewHandle }
+      - { name: CreateHandle,  key: CreateHandle }
+      - { name: InsertHandle,  key: RefreshMaterializedViewHandle }
+      - { name: InsertHandle,  key: InsertHandle }
+      - { name: DeleteHandle,  key: DeleteHandle }
+
 
   InputDistribution:
     super: JsonEncodedSubclass
