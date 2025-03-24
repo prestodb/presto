@@ -17,9 +17,8 @@ import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.sun.management.OperatingSystemMXBean;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
-
-import javax.annotation.security.RolesAllowed;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.HEAD;
 import jakarta.ws.rs.Path;
@@ -31,8 +30,8 @@ import java.lang.management.MemoryMXBean;
 
 import static com.facebook.presto.server.security.RoleType.INTERNAL;
 import static io.airlift.units.Duration.nanosSince;
-import static java.util.Objects.requireNonNull;
 import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
+import static java.util.Objects.requireNonNull;
 
 @Path("/v1/status")
 @RolesAllowed(INTERNAL)

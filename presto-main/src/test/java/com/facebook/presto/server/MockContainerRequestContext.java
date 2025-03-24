@@ -14,7 +14,6 @@
 package com.facebook.presto.server;
 
 import com.google.common.collect.ListMultimap;
-
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.core.Cookie;
 import jakarta.ws.rs.core.MediaType;

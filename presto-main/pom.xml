@@ -13,6 +13,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <project.build.targetJdk>17</project.build.targetJdk>
     </properties>
 
     <dependencies>
@@ -150,8 +151,8 @@
             <artifactId>guava</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.google.code.findbugs</groupId>
-            <artifactId>jsr305</artifactId>
+            <groupId>com.google.errorprone</groupId>
+            <artifactId>error_prone_annotations</artifactId>
         </dependency>
         <dependency>
             <groupId>com.facebook.drift</groupId>
@@ -196,6 +197,7 @@
         <dependency>
             <groupId>com.facebook.drift</groupId>
             <artifactId>drift-protocol</artifactId>
+            <scope>runtime</scope>
         </dependency>
         <dependency>
             <groupId>com.facebook.airlift</groupId>
@@ -316,6 +318,13 @@
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>mockwebserver</artifactId>
             <scope>test</scope>
+            <exclusions>
+                <!-- conflicts with org.hamcrest:hamcrest:3.0 from jaxrs-testing -->
+                <exclusion>
+                    <groupId>org.hamcrest</groupId>
+                    <artifactId>hamcrest-core</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
     </dependencies>
 

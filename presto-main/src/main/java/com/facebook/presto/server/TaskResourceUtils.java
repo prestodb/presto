@@ -25,7 +25,6 @@ import com.facebook.presto.server.thrift.Any;
 import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
 import com.facebook.presto.spi.ConnectorTypeSerde;
 import com.google.common.collect.ImmutableList;
-
 import jakarta.ws.rs.core.HttpHeaders;
 
 import java.util.List;

@@ -32,9 +32,9 @@ import io.jsonwebtoken.SigningKeyResolver;
 import io.jsonwebtoken.UnsupportedJwtException;
 import io.jsonwebtoken.jackson.io.JacksonDeserializer;
 import jakarta.inject.Inject;
+import jakarta.servlet.http.HttpServletRequest;
 
 import javax.crypto.spec.SecretKeySpec;
-import javax.servlet.http.HttpServletRequest;
 
 import java.io.File;
 import java.io.IOException;

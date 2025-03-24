@@ -20,9 +20,8 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.hash.Hashing;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
+import jakarta.ws.rs.container.ResourceInfo;
 import org.testng.annotations.Test;
-
-import javax.ws.rs.container.ResourceInfo;
 
 import java.lang.reflect.Method;
 import java.time.ZonedDateTime;
@@ -30,9 +29,9 @@ import java.util.Date;
 import java.util.Optional;
 
 import static com.facebook.presto.server.InternalAuthenticationManager.PRESTO_INTERNAL_BEARER;
+import static jakarta.servlet.http.HttpServletResponse.SC_OK;
+import static jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static javax.servlet.http.HttpServletResponse.SC_OK;
-import static javax.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
