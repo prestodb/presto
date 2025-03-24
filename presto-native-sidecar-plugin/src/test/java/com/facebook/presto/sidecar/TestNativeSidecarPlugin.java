@@ -184,6 +184,8 @@ public class TestNativeSidecarPlugin
         assertQuery("SELECT min(orderkey) OVER (PARTITION BY orderdate ORDER BY orderdate, totalprice) FROM orders");
         assertQuery("SELECT sum(rn) FROM (SELECT row_number() over() rn, * from orders) WHERE rn = 10");
         assertQuery("SELECT * FROM (SELECT row_number() over(partition by orderstatus order by orderkey) rn, * from orders) WHERE rn = 1");
+        assertQuery("SELECT first_value(orderdate) OVER (PARTITION BY orderkey ORDER BY totalprice RANGE BETWEEN 5 PRECEDING AND CURRENT ROW) FROM orders");
+        assertQuery("SELECT lead(orderkey, 5) OVER (PARTITION BY custkey, orderdate ORDER BY totalprice desc ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING) FROM orders");
     }
 
     @Test
