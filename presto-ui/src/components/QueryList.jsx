@@ -255,7 +255,7 @@ export class QueryListItem extends React.Component {
                         <div className="row stat-row">
                             {driverDetails}
                         </div>
-                        { query.queryStats.completedSplits &&
+                        { query.progress.completedSplits &&
                             <div className="row stat-row">
                                 {splitDetails}
                             </div>
