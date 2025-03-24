@@ -1415,6 +1415,11 @@ public class PlanPrinter
                     .append(Joiner.on(", ").join(argumentProperties.requiredColumns()))
                     .append("]");
              */
+
+            properties.append("required columns: [")
+                    .append(Joiner.on(", ").join(argumentProperties.getRequiredColumns()))
+                    .append("]");
+
             if (argumentProperties.pruneWhenEmpty()) {
                 properties.append(", prune when empty");
             }

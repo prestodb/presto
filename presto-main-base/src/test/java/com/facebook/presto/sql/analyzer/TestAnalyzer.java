@@ -48,6 +48,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_PROPE
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RANGE_VARIABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ARGUMENTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_COLUMN_REFERENCE;
@@ -2312,5 +2313,21 @@ public class TestAnalyzer
         assertFails(MISSING_ATTRIBUTE,
                 "line 1:23: 'table_alias.a' cannot be resolved",
                 "SELECT table_alias.x, table_alias.a FROM TABLE(system.pass_through_function(TABLE(t1))) table_alias");
+    }
+
+    @Test
+    public void testTableFunctionRequiredColumns()
+    {
+        // the function required_column_function specifies columns 0 and 1 from table argument "INPUT" as required.
+        analyze("SELECT * FROM TABLE(system.required_columns_function(input => TABLE(t1)))");
+
+        analyze("SELECT * FROM TABLE(system.required_columns_function(input => TABLE(SELECT 1, 2, 3)))");
+
+        assertFails(FUNCTION_IMPLEMENTATION_ERROR,
+                "Invalid index: 1 of required column from table argument INPUT",
+                "SELECT * FROM TABLE(system.required_columns_function(input => TABLE(SELECT 1)))");
+
+        // table s1.t5 has two columns. The second column is hidden. Table function can require a hidden column.
+        analyze("SELECT * FROM TABLE(system.required_columns_function(input => TABLE(s1.t5)))");
     }
 }

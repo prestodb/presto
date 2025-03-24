@@ -279,6 +279,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_PARAM
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_PROPERTY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RANGE_VARIABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ARGUMENTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_COLUMN_REFERENCE;
@@ -1385,6 +1386,35 @@ class StatementAnalyzer
                 properColumnsDescriptor = ((ReturnTypeSpecification.DescribedTable) returnTypeSpecification).getDescriptor();
             }
 
+            // validate the required input columns
+            Map<String, List<Integer>> requiredColumns = functionAnalysis.getRequiredColumns();
+            Map<String, TableArgumentAnalysis> tableArgumentsByName = argumentsAnalysis.getTableArgumentAnalyses().stream()
+                    .collect(toImmutableMap(TableArgumentAnalysis::getArgumentName, Function.identity()));
+            Set<String> allInputs = ImmutableSet.copyOf(tableArgumentsByName.keySet());
+            requiredColumns.forEach((name, columns) -> {
+                if (!allInputs.contains(name)) {
+                    throw new SemanticException(FUNCTION_IMPLEMENTATION_ERROR, "Table function %s specifies required columns from table argument %s which cannot be found", node.getName(), name);
+                }
+                if (columns.isEmpty()) {
+                    throw new SemanticException(FUNCTION_IMPLEMENTATION_ERROR, "Table function %s specifies empty list of required columns from table argument %s", node.getName(), name);
+                }
+                // the scope is recorded, because table arguments are already analyzed
+                Scope inputScope = analysis.getScope(tableArgumentsByName.get(name).getRelation());
+                columns.stream()
+                        .filter(column -> column < 0 || column >= inputScope.getRelationType().getAllFieldCount()) // hidden columns can be required as well as visible columns
+                        .findFirst()
+                        .ifPresent(column -> {
+                            throw new SemanticException(FUNCTION_IMPLEMENTATION_ERROR, "Invalid index: %s of required column from table argument %s", column, name);
+                        });
+            });
+            Set<String> requiredInputs = ImmutableSet.copyOf(requiredColumns.keySet());
+            allInputs.stream()
+                    .filter(input -> !requiredInputs.contains(input))
+                    .findFirst()
+                    .ifPresent(input -> {
+                        throw new SemanticException(FUNCTION_IMPLEMENTATION_ERROR, "Table function %s does not specify required input columns from table argument %s", node.getName(), input);
+                    });
+
             // The result relation type of a table function consists of:
             // 1. columns created by the table function, called the proper columns.
             // 2. passed columns from input tables:
@@ -1405,8 +1435,6 @@ class StatementAnalyzer
                     .filter(argumentSpecification -> argumentSpecification instanceof TableArgumentSpecification)
                     .map(ArgumentSpecification::getName)
                     .collect(toImmutableList());
-            Map<String, TableArgumentAnalysis> tableArgumentsByName = argumentsAnalysis.getTableArgumentAnalyses().stream()
-                    .collect(toImmutableMap(TableArgumentAnalysis::getArgumentName, Function.identity()));
 
             // table arguments in order of argument declarations
             ImmutableList.Builder<TableArgumentAnalysis> orderedTableArguments = ImmutableList.builder();
@@ -1431,6 +1459,7 @@ class StatementAnalyzer
                     function.getName(),
                     argumentsAnalysis.getPassedArguments(),
                     orderedTableArguments.build(),
+                    functionAnalysis.getRequiredColumns(),
                     copartitioningLists,
                     properColumnsDescriptor == null ? 0 : properColumnsDescriptor.getFields().size(),
                     functionAnalysis.getHandle(),

@@ -82,7 +82,6 @@ import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
@@ -506,18 +505,15 @@ public class UnaliasSymbolReferences
                         warningCollector);
 
                 TableFunctionNode.TableArgumentProperties properties = node.getTableArgumentProperties().get(i);
-                ImmutableMultimap.Builder<String, VariableReferenceExpression> newColumnMapping = ImmutableMultimap.builder();
-                properties.getColumnMapping().entries().stream()
-                        .forEach(entry -> newColumnMapping.put(entry.getKey(), inputMapper.map(entry.getValue())));
 
                 Optional<DataOrganizationSpecification> newSpecification = properties.specification().map(inputMapper::mapAndDistinct);
 
                 newTableArgumentProperties.add(new TableFunctionNode.TableArgumentProperties(
                         properties.getArgumentName(),
-                        newColumnMapping.build(),
                         properties.rowSemantics(),
                         properties.pruneWhenEmpty(),
                         properties.passThroughColumns(),
+                        inputMapper.map(properties.getRequiredColumns()),
                         newSpecification));
             }
 
