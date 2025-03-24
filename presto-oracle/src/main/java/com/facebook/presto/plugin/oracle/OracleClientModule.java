@@ -30,6 +30,8 @@ import java.util.Optional;
 import java.util.Properties;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static oracle.jdbc.OracleConnection.CONNECTION_PROPERTY_THIN_JAVAX_NET_SSL_TRUSTSTORE;
+import static oracle.jdbc.OracleConnection.CONNECTION_PROPERTY_THIN_JAVAX_NET_SSL_TRUSTSTOREPASSWORD;
 
 public class OracleClientModule
         implements Module
@@ -49,6 +51,12 @@ public class OracleClientModule
             throws SQLException
     {
         Properties connectionProperties = new Properties();
+        if (oracleConfig.getTrustStorePath() != null) {
+            connectionProperties.setProperty(CONNECTION_PROPERTY_THIN_JAVAX_NET_SSL_TRUSTSTORE, oracleConfig.getTrustStorePath());
+        }
+        if (oracleConfig.getTruststorePassword() != null) {
+            connectionProperties.setProperty(CONNECTION_PROPERTY_THIN_JAVAX_NET_SSL_TRUSTSTOREPASSWORD, oracleConfig.getTruststorePassword());
+        }
         connectionProperties.setProperty(OracleConnection.CONNECTION_PROPERTY_INCLUDE_SYNONYMS, String.valueOf(oracleConfig.isSynonymsEnabled()));
 
         return new DriverConnectionFactory(
