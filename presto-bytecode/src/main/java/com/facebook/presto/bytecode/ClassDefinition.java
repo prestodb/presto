@@ -18,8 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.objectweb.asm.ClassVisitor;
 
-import javax.annotation.concurrent.NotThreadSafe;
-
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
@@ -36,7 +34,6 @@ import static java.util.stream.Stream.concat;
 import static org.objectweb.asm.Opcodes.ACC_SUPER;
 import static org.objectweb.asm.Opcodes.V1_8;
 
-@NotThreadSafe
 public class ClassDefinition
 {
     private final EnumSet<Access> access;
