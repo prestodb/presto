@@ -145,7 +145,10 @@ public class TestingMetadata
         for (SchemaTableName tableName : listTables(session, prefix.getSchemaName())) {
             ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
             for (ColumnMetadata column : tables.get(tableName).getColumns()) {
-                columns.add(new ColumnMetadata(column.getName(), column.getType()));
+                columns.add(ColumnMetadata.builder()
+                        .setName(column.getName())
+                        .setType(column.getType())
+                        .build());
             }
             tableColumns.put(tableName, columns.build());
         }
@@ -285,7 +288,12 @@ public class TestingMetadata
         SchemaTableName tableName = getTableName(tableHandle);
         ColumnMetadata columnMetadata = getColumnMetadata(session, tableHandle, source);
         List<ColumnMetadata> columns = new ArrayList<>(tableMetadata.getColumns());
-        columns.set(columns.indexOf(columnMetadata), new ColumnMetadata(target, columnMetadata.getType(), columnMetadata.getComment(), columnMetadata.isHidden()));
+        columns.set(columns.indexOf(columnMetadata), ColumnMetadata.builder()
+                .setName(target)
+                .setType(columnMetadata.getType())
+                .setComment(columnMetadata.getComment().orElse(null))
+                .setHidden(columnMetadata.isHidden())
+                .build());
         tables.put(tableName, new ConnectorTableMetadata(tableName, ImmutableList.copyOf(columns), tableMetadata.getProperties(), tableMetadata.getComment()));
     }
 

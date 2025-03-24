@@ -50,7 +50,10 @@ public class ArrowColumnHandle
 
     public ColumnMetadata getColumnMetadata()
     {
-        return new ColumnMetadata(columnName, columnType);
+        return ColumnMetadata.builder()
+                .setName(columnName)
+                .setType(columnType)
+                .build();
     }
 
     @Override

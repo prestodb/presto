@@ -138,7 +138,11 @@ public class HiveColumnHandle
 
     public ColumnMetadata getColumnMetadata(TypeManager typeManager)
     {
-        return new ColumnMetadata(getName(), typeManager.getType(typeName), null, isHidden());
+        return ColumnMetadata.builder()
+                .setName(getName())
+                .setType(typeManager.getType(typeName))
+                .setHidden(isHidden())
+                .build();
     }
 
     @JsonProperty

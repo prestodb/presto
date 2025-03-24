@@ -602,7 +602,7 @@ TEST_F(RowExpressionTest, castToVarchar) {
     std::shared_ptr<protocol::CallExpression> p =
         json::parse(makeCastToVarchar(true, "varchar", "varchar(3)"));
 
-    ASSERT_THROW(converter_->toVeloxExpr(p), VeloxRuntimeError);
+    ASSERT_THROW(converter_->toVeloxExpr(p), VeloxUserError);
   }
   // CAST(nonvarchar_col AS varchar(3))
   {

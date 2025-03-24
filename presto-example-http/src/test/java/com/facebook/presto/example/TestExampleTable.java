@@ -34,8 +34,8 @@ public class TestExampleTable
     public void testColumnMetadata()
     {
         assertEquals(exampleTable.getColumnsMetadata(), ImmutableList.of(
-                new ColumnMetadata("a", createUnboundedVarcharType()),
-                new ColumnMetadata("b", BIGINT)));
+                ColumnMetadata.builder().setName("a").setType(createUnboundedVarcharType()).build(),
+                ColumnMetadata.builder().setName("b").setType(BIGINT).build()));
     }
 
     @Test

@@ -26,6 +26,7 @@ struct IcebergOutputTableHandle : public ConnectorOutputTableHandle {
   FileFormat fileFormat = {};
   hive::HiveCompressionCodec compressionCodec = {};
   Map<String, String> storageProperties = {};
+  List<SortField> sortOrder = {};
 
   IcebergOutputTableHandle() noexcept;
 };

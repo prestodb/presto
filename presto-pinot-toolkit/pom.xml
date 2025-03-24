@@ -14,6 +14,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <dep.calcite.version>1.38.0</dep.calcite.version>
     </properties>
 
     <dependencies>
@@ -275,7 +276,7 @@
         <dependency>
             <groupId>org.apache.calcite</groupId>
             <artifactId>calcite-core</artifactId>
-            <version>1.32.0</version>
+            <version>${dep.calcite.version}</version>
             <exclusions>
                 <exclusion>
                     <groupId>commons-logging</groupId>
@@ -381,7 +382,7 @@
         <dependency>
             <groupId>org.apache.calcite</groupId>
             <artifactId>calcite-babel</artifactId>
-            <version>1.29.0</version>
+            <version>${dep.calcite.version}</version>
         </dependency>
         <dependency>
             <groupId>io.perfmark</groupId>

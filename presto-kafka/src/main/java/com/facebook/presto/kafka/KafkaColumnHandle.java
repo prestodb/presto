@@ -167,7 +167,11 @@ public final class KafkaColumnHandle
 
     ColumnMetadata getColumnMetadata()
     {
-        return new ColumnMetadata(name, type, null, hidden);
+        return ColumnMetadata.builder()
+                .setName(name)
+                .setType(type)
+                .setHidden(hidden)
+                .build();
     }
 
     @Override

@@ -193,7 +193,10 @@ public class MockConnectorFactory
             public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
             {
                 TpchColumnHandle tpchColumnHandle = (TpchColumnHandle) columnHandle;
-                return new ColumnMetadata(tpchColumnHandle.getColumnName(), tpchColumnHandle.getType());
+                return ColumnMetadata.builder()
+                        .setName(tpchColumnHandle.getColumnName())
+                        .setType(tpchColumnHandle.getType())
+                        .build();
             }
 
             @Override
@@ -202,7 +205,7 @@ public class MockConnectorFactory
                 return listTables(session, prefix.getSchemaName()).stream()
                         .collect(toImmutableMap(table -> table, table -> IntStream.range(0, 100)
                                 .boxed()
-                                .map(i -> new ColumnMetadata("column_" + i, createUnboundedVarcharType()))
+                                .map(i -> ColumnMetadata.builder().setName("column_" + i).setType(createUnboundedVarcharType()).build())
                                 .collect(toImmutableList())));
             }
 

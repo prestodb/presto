@@ -413,21 +413,21 @@ public class TestVarbinaryFunctions
     public void testFnv()
     {
         // ground truth result is generated via https://nqv.github.io/fnv/
-        assertFunction("fnv1_32(from_hex(''))", BIGINT, 0x811c9dc5L + Integer.MIN_VALUE * 2L);
-        assertFunction("fnv1_32(from_hex('19'))", BIGINT, 0x050c5d06L);
-        assertFunction("fnv1_32(from_hex('F5'))", BIGINT, 0x050c5deaL); // Check for sign extension bug
-        assertFunction("fnv1_32(from_hex('0919'))", BIGINT, 0x087689bbL); // Check for byte ordering
-        assertFunction("fnv1_32(from_hex('F50919'))", BIGINT, 0x67a7fdecL);
-        assertFunction("fnv1_32(from_hex('232706FC6BF50919'))", BIGINT, 0x9f2263f3L + Integer.MIN_VALUE * 2L);
+        assertFunction("fnv1_32(from_hex(''))", INTEGER, 0x811c9dc5);
+        assertFunction("fnv1_32(from_hex('19'))", INTEGER, 0x050c5d06);
+        assertFunction("fnv1_32(from_hex('F5'))", INTEGER, 0x050c5dea); // Check for sign extension bug
+        assertFunction("fnv1_32(from_hex('0919'))", INTEGER, 0x087689bb); // Check for byte ordering
+        assertFunction("fnv1_32(from_hex('F50919'))", INTEGER, 0x67a7fdec);
+        assertFunction("fnv1_32(from_hex('232706FC6BF50919'))", INTEGER, 0x9f2263f3);
         assertFunction("fnv1_64(from_hex(''))", BIGINT, 0xcbf29ce484222325L);
         assertFunction("fnv1_64(from_hex('232706FC6BF50919'))", BIGINT, 0x4a65ff96675a9f33L);
 
-        assertFunction("fnv1a_32(from_hex(''))", BIGINT, 0x811c9dc5L + Integer.MIN_VALUE * 2L);
-        assertFunction("fnv1a_32(from_hex('19'))", BIGINT, 0x1c0c8154L);
-        assertFunction("fnv1a_32(from_hex('F5'))", BIGINT, 0x700b7290L); // Check for sign extension bug
-        assertFunction("fnv1a_32(from_hex('0919'))", BIGINT, 0x34881807L); // Check for byte ordering
-        assertFunction("fnv1a_32(from_hex('F50919'))", BIGINT, 0xeb80c366L + Integer.MIN_VALUE * 2L);
-        assertFunction("fnv1a_32(from_hex('232706FC6BF50919'))", BIGINT, 0x0951d55fL);
+        assertFunction("fnv1a_32(from_hex(''))", INTEGER, 0x811c9dc5);
+        assertFunction("fnv1a_32(from_hex('19'))", INTEGER, 0x1c0c8154);
+        assertFunction("fnv1a_32(from_hex('F5'))", INTEGER, 0x700b7290); // Check for sign extension bug
+        assertFunction("fnv1a_32(from_hex('0919'))", INTEGER, 0x34881807); // Check for byte ordering
+        assertFunction("fnv1a_32(from_hex('F50919'))", INTEGER, 0xeb80c366);
+        assertFunction("fnv1a_32(from_hex('232706FC6BF50919'))", INTEGER, 0x0951d55f);
         assertFunction("fnv1a_64(from_hex(''))", BIGINT, 0xcbf29ce484222325L);
         assertFunction("fnv1a_64(from_hex('232706FC6BF50919'))", BIGINT, 0x68addc0b0febac5fL);
     }

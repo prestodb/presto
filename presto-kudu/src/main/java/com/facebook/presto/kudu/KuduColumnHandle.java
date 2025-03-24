@@ -67,7 +67,10 @@ public class KuduColumnHandle
 
     public ColumnMetadata getColumnMetadata()
     {
-        return new ColumnMetadata(name, type);
+        return ColumnMetadata.builder()
+                .setName(name)
+                .setType(type)
+                .build();
     }
 
     public boolean isVirtualRowId()

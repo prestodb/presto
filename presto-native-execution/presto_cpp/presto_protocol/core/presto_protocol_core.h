@@ -104,6 +104,7 @@ using Subfield = std::string;
 using HiveType = std::string;
 using Type = std::string;
 
+using DateTime = std::string;
 using Locale = std::string;
 using TimeZoneKey = long;
 using URI = std::string;
@@ -310,6 +311,11 @@ namespace facebook::presto::protocol {
 struct ConnectorOutputTableHandle : public JsonEncodedSubclass {};
 void to_json(json& j, const std::shared_ptr<ConnectorOutputTableHandle>& p);
 void from_json(const json& j, std::shared_ptr<ConnectorOutputTableHandle>& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct ConnectorDeleteTableHandle : public JsonEncodedSubclass {};
+void to_json(json& j, const std::shared_ptr<ConnectorDeleteTableHandle>& p);
+void from_json(const json& j, std::shared_ptr<ConnectorDeleteTableHandle>& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 struct InputDistribution : public JsonEncodedSubclass {};
@@ -1026,8 +1032,17 @@ void to_json(json& j, const CreateHandle& p);
 void from_json(const json& j, CreateHandle& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+struct DeleteTableHandle {
+  ConnectorId connectorId = {};
+  std::shared_ptr<ConnectorTransactionHandle> transactionHandle = {};
+  std::shared_ptr<ConnectorDeleteTableHandle> connectorHandle = {};
+};
+void to_json(json& j, const DeleteTableHandle& p);
+void from_json(const json& j, DeleteTableHandle& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 struct DeleteHandle : public ExecutionWriterTarget {
-  TableHandle handle = {};
+  DeleteTableHandle handle = {};
   SchemaTableName schemaTableName = {};
 
   DeleteHandle() noexcept;
@@ -1177,9 +1192,9 @@ void from_json(const json& j, OperatorStats& p);
 namespace facebook::presto::protocol {
 struct DriverStats {
   Lifespan lifespan = {};
-  long createTimeInMillis = {};
-  long startTimeInMillis = {};
-  long endTimeInMillis = {};
+  int64_t createTimeInMillis = {};
+  int64_t startTimeInMillis = {};
+  int64_t endTimeInMillis = {};
   Duration queuedTime = {};
   Duration elapsedTime = {};
   int64_t userMemoryReservationInBytes = {};
@@ -1933,9 +1948,11 @@ void to_json(json& j, const Range& p);
 void from_json(const json& j, Range& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-struct RefreshMaterializedViewHandle {
+struct RefreshMaterializedViewHandle : public ExecutionWriterTarget {
   InsertTableHandle handle = {};
   SchemaTableName schemaTableName = {};
+
+  RefreshMaterializedViewHandle() noexcept;
 };
 void to_json(json& j, const RefreshMaterializedViewHandle& p);
 void from_json(const json& j, RefreshMaterializedViewHandle& p);

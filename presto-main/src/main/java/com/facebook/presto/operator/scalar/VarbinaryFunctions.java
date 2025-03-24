@@ -395,7 +395,7 @@ public final class VarbinaryFunctions
 
     @Description("compute fnv-1 32 bit")
     @ScalarFunction("fnv1_32")
-    @SqlType(StandardTypes.BIGINT)
+    @SqlType(StandardTypes.INTEGER)
     public static long fnv1Hash32(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
         return FnvHash.fnv1Hash32(slice);
@@ -411,7 +411,7 @@ public final class VarbinaryFunctions
 
     @Description("compute fnv-1a 32 bit")
     @ScalarFunction("fnv1a_32")
-    @SqlType(StandardTypes.BIGINT)
+    @SqlType(StandardTypes.INTEGER)
     public static long fnv1aHash32(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
         return FnvHash.fnv1aHash32(slice);

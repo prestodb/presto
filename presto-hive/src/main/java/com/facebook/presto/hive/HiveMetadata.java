@@ -581,7 +581,7 @@ public class HiveMetadata
         }
         Map<String, String> sortedTableParameters = ImmutableSortedMap.copyOf(table.get().getParameters());
         List<ColumnMetadata> columns = sortedTableParameters.keySet().stream()
-                .map(key -> new ColumnMetadata(key, VARCHAR))
+                .map(key -> ColumnMetadata.builder().setName(key).setType(VARCHAR).build())
                 .collect(toImmutableList());
         List<Type> types = columns.stream()
                 .map(ColumnMetadata::getType)
@@ -613,11 +613,12 @@ public class HiveMetadata
                 .collect(toImmutableList());
 
         List<ColumnMetadata> partitionSystemTableColumns = partitionColumns.stream()
-                .map(column -> new ColumnMetadata(
-                        column.getName(),
-                        typeManager.getType(column.getTypeSignature()),
-                        column.getComment().orElse(null),
-                        column.isHidden()))
+                .map(column -> ColumnMetadata.builder()
+                        .setName(column.getName())
+                        .setType(typeManager.getType(column.getTypeSignature()))
+                        .setComment(column.getComment().orElse(null))
+                        .setHidden(column.isHidden())
+                        .build())
                 .collect(toImmutableList());
 
         Map<Integer, HiveColumnHandle> fieldIdToColumnHandle =
@@ -1443,7 +1444,7 @@ public class HiveMetadata
         }
 
         MetastoreContext metastoreContext = getMetastoreContext(session);
-        metastore.addColumn(metastoreContext, constructSchemaName(Optional.ofNullable(catalogName), handle.getSchemaName()), handle.getTableName(), column.getName(), toHiveType(typeTranslator, column.getType()), column.getComment());
+        metastore.addColumn(metastoreContext, constructSchemaName(Optional.ofNullable(catalogName), handle.getSchemaName()), handle.getTableName(), column.getName(), toHiveType(typeTranslator, column.getType()), column.getComment().orElse(null));
     }
 
     @Override
@@ -3615,7 +3616,7 @@ public class HiveMetadata
                     column.getType().getTypeSignature(),
                     ordinal,
                     columnType,
-                    Optional.ofNullable(column.getComment()),
+                    column.getComment(),
                     Optional.empty()));
             ordinal++;
         }
@@ -3682,14 +3683,15 @@ public class HiveMetadata
 
         Map<String, Optional<String>> typeMetadata = typeMetadataBuilder.build();
 
-        return handle -> new ColumnMetadata(
-                handle.getName(),
-                typeManager.getType(columnConverter.getTypeSignature(handle.getHiveType(), typeMetadata.getOrDefault(handle.getName(), Optional.empty()))),
-                !notNullColumns.contains(handle.getName()),
-                columnComment.get(handle.getName()).orElse(null),
-                columnExtraInfo(handle.isPartitionKey()),
-                handle.isHidden(),
-                ImmutableMap.of());
+        return handle -> ColumnMetadata.builder()
+                .setName(handle.getName())
+                .setType(typeManager.getType(columnConverter.getTypeSignature(handle.getHiveType(), typeMetadata.getOrDefault(handle.getName(), Optional.empty()))))
+                .setNullable(!notNullColumns.contains(handle.getName()))
+                .setComment(columnComment.get(handle.getName()).orElse(null))
+                .setExtraInfo(columnExtraInfo(handle.isPartitionKey()))
+                .setHidden(handle.isHidden())
+                .setProperties(ImmutableMap.of())
+                .build();
     }
 
     @Override
