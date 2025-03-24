@@ -38,12 +38,7 @@ public class MySqlClientModule
 
     private static void ensureCatalogIsEmpty(String connectionUrl)
     {
-        try {
-            checkArgument(ConnectionUrlParser.isConnectionStringSupported(connectionUrl), "Invalid JDBC URL for MySQL connector");
-            checkArgument(StringUtils.isNullOrEmpty(ConnectionUrl.getConnectionUrlInstance(connectionUrl, null).getDatabase()), "Database (catalog) must not be specified in JDBC URL for MySQL connector");
-        }
-        catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        checkArgument(ConnectionUrlParser.isConnectionStringSupported(connectionUrl), "Invalid JDBC URL for MySQL connector");
+        checkArgument(StringUtils.isNullOrEmpty(ConnectionUrl.getConnectionUrlInstance(connectionUrl, null).getDatabase()), "Database (catalog) must not be specified in JDBC URL for MySQL connector");
     }
 }
