@@ -34,6 +34,7 @@ import org.weakref.jmx.Nested;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -124,6 +125,8 @@ public class InternalResourceGroup
     private boolean jmxExport;
     @GuardedBy("root")
     private ResourceGroupQueryLimits perQueryLimits = NO_LIMITS;
+    @GuardedBy("root")
+    private List<String> tags = new ArrayList<String>();
 
     // Live data structures
     // ====================
@@ -209,7 +212,8 @@ public class InternalResourceGroup
                             .map(group -> summarizeSubgroups ? group.getSummaryInfo() : group.getResourceGroupInfo(includeQueryInfo, false, includeStaticSubgroupsOnly))
                             .collect(toImmutableList()),
                     includeQueryInfo ? getAggregatedRunningQueriesInfo() : null,
-                    workersPerQueryLimit);
+                    workersPerQueryLimit,
+                    tags);
         }
     }
 
@@ -234,7 +238,8 @@ public class InternalResourceGroup
                             .map(InternalResourceGroup::getSummaryInfo)
                             .collect(toImmutableList()),
                     null,
-                    workersPerQueryLimit);
+                    workersPerQueryLimit,
+                    tags);
         }
     }
 
@@ -256,7 +261,8 @@ public class InternalResourceGroup
                     eligibleSubGroups.size(),
                     null,
                     null,
-                    workersPerQueryLimit);
+                    workersPerQueryLimit,
+                    tags);
         }
     }
 
@@ -651,6 +657,22 @@ public class InternalResourceGroup
     {
         synchronized (root) {
             return perQueryLimits;
+        }
+    }
+
+    @Override
+    public void setTags(List<String> tags)
+    {
+        synchronized (root) {
+            this.tags = tags;
+        }
+    }
+
+    @Override
+    public List<String> getTags()
+    {
+        synchronized (root) {
+            return tags;
         }
     }
 

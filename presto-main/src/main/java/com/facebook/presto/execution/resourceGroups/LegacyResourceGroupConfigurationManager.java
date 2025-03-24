@@ -65,7 +65,7 @@ public class LegacyResourceGroupConfigurationManager
         @Override
         public ResourceGroupConfigurationManager<?> create(Map<String, String> config, ResourceGroupConfigurationManagerContext context)
         {
-            String hardConcurrencyLimitString = requireNonNull(config.get(HARD_CONCURRENCY_LIMIT), "LegacyResourceGroupConfigurationManager must have config hard_concurrency_liimt");
+            String hardConcurrencyLimitString = requireNonNull(config.get(HARD_CONCURRENCY_LIMIT), "LegacyResourceGroupConfigurationManager must have config hard_concurrency_limit");
             int hardConcurrencyLimit = Integer.parseInt(hardConcurrencyLimitString);
             String maxQueuedString = requireNonNull(config.get(MAX_QUEUED_QUERIES), "LegacyResourceGroupConfigurationManager must have config max_queued_queries");
             int maxQueued = Integer.parseInt(maxQueuedString);
