@@ -18,7 +18,6 @@ import com.facebook.presto.spi.QueryId;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriInfo;
 
