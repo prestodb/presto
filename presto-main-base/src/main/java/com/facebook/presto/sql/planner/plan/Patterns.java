@@ -233,6 +233,11 @@ public class Patterns
         return typeOf(TableFunctionNode.class);
     }
 
+    public static Pattern<TableFunctionProcessorNode> tableFunctionProcessor()
+    {
+        return typeOf(TableFunctionProcessorNode.class);
+    }
+
     public static Pattern<RowNumberNode> rowNumber()
     {
         return typeOf(RowNumberNode.class);

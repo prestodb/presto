@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -104,22 +105,17 @@ public class TableFunctionNode
 
         variables.addAll(outputVariables);
 
-        for (int i = 0; i < sources.size(); i++) {
-            TableArgumentProperties sourceProperties = tableArgumentProperties.get(i);
-            if (sourceProperties.passThroughColumns()) {
-                variables.addAll(sources.get(i).getOutputVariables());
-            }
-            else {
-                sourceProperties.specification()
-                        .map(DataOrganizationSpecification::getPartitionBy)
-                        .ifPresent(variables::addAll);
-            }
-        }
+        tableArgumentProperties.stream()
+                .map(TableArgumentProperties::getPassThroughSpecification)
+                .map(PassThroughSpecification::getColumns)
+                .flatMap(Collection::stream)
+                .map(PassThroughColumn::getOutputVariables)
+                .forEach(variables::add);
 
         return variables.build();
     }
 
-    public List<VariableReferenceExpression> getProperOutput()
+    public List<VariableReferenceExpression> getProperOutputs()
     {
         return outputVariables;
     }
@@ -173,7 +169,7 @@ public class TableFunctionNode
         private final String argumentName;
         private final boolean rowSemantics;
         private final boolean pruneWhenEmpty;
-        private final boolean passThroughColumns;
+        private final PassThroughSpecification passThroughSpecification;
         private final List<VariableReferenceExpression> requiredColumns;
         private final Optional<DataOrganizationSpecification> specification;
 
@@ -182,14 +178,14 @@ public class TableFunctionNode
                 @JsonProperty("argumentName") String argumentName,
                 @JsonProperty("rowSemantics") boolean rowSemantics,
                 @JsonProperty("pruneWhenEmpty") boolean pruneWhenEmpty,
-                @JsonProperty("passThroughColumns") boolean passThroughColumns,
+                @JsonProperty("passThroughSpecification") PassThroughSpecification passThroughSpecification,
                 @JsonProperty("requiredColumns") List<VariableReferenceExpression> requiredColumns,
                 @JsonProperty("specification") Optional<DataOrganizationSpecification> specification)
         {
             this.argumentName = requireNonNull(argumentName, "argumentName is null");
             this.rowSemantics = rowSemantics;
             this.pruneWhenEmpty = pruneWhenEmpty;
-            this.passThroughColumns = passThroughColumns;
+            this.passThroughSpecification = requireNonNull(passThroughSpecification, "passThroughSpecification is null");
             this.requiredColumns = ImmutableList.copyOf(requiredColumns);
             this.specification = requireNonNull(specification, "specification is null");
         }
@@ -213,9 +209,9 @@ public class TableFunctionNode
         }
 
         @JsonProperty
-        public boolean passThroughColumns()
+        public PassThroughSpecification getPassThroughSpecification()
         {
-            return passThroughColumns;
+            return passThroughSpecification;
         }
 
         @JsonProperty
@@ -228,6 +224,53 @@ public class TableFunctionNode
         public Optional<DataOrganizationSpecification> specification()
         {
             return specification;
+        }
+    }
+
+    public static class PassThroughSpecification
+    {
+        private final boolean declaredAsPassThrough;
+        private final List<PassThroughColumn> columns;
+
+        public PassThroughSpecification(boolean declaredAsPassThrough, List<PassThroughColumn> columns)
+        {
+            this.declaredAsPassThrough = declaredAsPassThrough;
+            this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
+            checkArgument(
+                    declaredAsPassThrough || this.columns.stream().allMatch(PassThroughColumn::isPartitioningColumn),
+                    "non-partitioning pass-through column for non-pass-through source of a table function");
+        }
+
+        public boolean isDeclaredAsPassThrough()
+        {
+            return declaredAsPassThrough;
+        }
+
+        public List<PassThroughColumn> getColumns()
+        {
+            return columns;
+        }
+    }
+
+    public static class PassThroughColumn
+    {
+        private final VariableReferenceExpression outputVariables;
+        private final boolean isPartitioningColumn;
+
+        public PassThroughColumn(VariableReferenceExpression outputVariables, boolean isPartitioningColumn)
+        {
+            this.outputVariables = requireNonNull(outputVariables, "symbol is null");
+            this.isPartitioningColumn = isPartitioningColumn;
+        }
+
+        public VariableReferenceExpression getOutputVariables()
+        {
+            return outputVariables;
+        }
+
+        public boolean isPartitioningColumn()
+        {
+            return isPartitioningColumn;
         }
     }
 }

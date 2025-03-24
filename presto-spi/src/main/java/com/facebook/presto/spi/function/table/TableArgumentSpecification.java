@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.spi.function.table;
 
+import static com.facebook.presto.spi.function.table.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNull;
+
 public class TableArgumentSpecification
         extends ArgumentSpecification
 {
@@ -23,6 +26,9 @@ public class TableArgumentSpecification
     private TableArgumentSpecification(String name, boolean rowSemantics, boolean pruneWhenEmpty, boolean passThroughColumns)
     {
         super(name, true, null);
+
+        requireNonNull(pruneWhenEmpty, "The pruneWhenEmpty property is not set");
+        checkArgument(!rowSemantics || pruneWhenEmpty, "Cannot set the KEEP WHEN EMPTY property for a table argument with row semantics");
 
         this.rowSemantics = rowSemantics;
         this.pruneWhenEmpty = pruneWhenEmpty;
@@ -74,6 +80,12 @@ public class TableArgumentSpecification
         public Builder pruneWhenEmpty()
         {
             this.pruneWhenEmpty = true;
+            return this;
+        }
+
+        public Builder keepWhenEmpty()
+        {
+            this.pruneWhenEmpty = false;
             return this;
         }
 

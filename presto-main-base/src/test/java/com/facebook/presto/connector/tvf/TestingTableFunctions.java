@@ -160,6 +160,7 @@ public class TestingTableFunctions
                     ImmutableList.of(
                             TableArgumentSpecification.builder()
                                     .name("INPUT")
+                                    .keepWhenEmpty()
                                     .build()),
                     GENERIC_TABLE);
         }
@@ -236,9 +237,11 @@ public class TestingTableFunctions
                     ImmutableList.of(
                             TableArgumentSpecification.builder()
                                     .name("INPUT1")
+                                    .keepWhenEmpty()
                                     .build(),
                             TableArgumentSpecification.builder()
                                     .name("INPUT2")
+                                    .keepWhenEmpty()
                                     .build()),
                     GENERIC_TABLE);
         }
@@ -266,6 +269,7 @@ public class TestingTableFunctions
                     ImmutableList.of(
                             TableArgumentSpecification.builder()
                                     .name("INPUT")
+                                    .keepWhenEmpty()
                                     .build()),
                     ONLY_PASS_THROUGH);
         }
@@ -310,6 +314,7 @@ public class TestingTableFunctions
                     "polymorphic_static_return_type_function",
                     ImmutableList.of(TableArgumentSpecification.builder()
                             .name("INPUT")
+                            .keepWhenEmpty()
                             .build()),
                     new DescribedTable(Descriptor.descriptor(
                             ImmutableList.of("a", "b"),
@@ -334,6 +339,7 @@ public class TestingTableFunctions
                     ImmutableList.of(TableArgumentSpecification.builder()
                             .name("INPUT")
                             .passThroughColumns()
+                            .keepWhenEmpty()
                             .build()),
                     new DescribedTable(Descriptor.descriptor(
                             ImmutableList.of("x"),
@@ -359,6 +365,7 @@ public class TestingTableFunctions
                             TableArgumentSpecification.builder()
                                     .name("INPUT_1")
                                     .passThroughColumns()
+                                    .keepWhenEmpty()
                                     .build(),
                             DescriptorArgumentSpecification.builder()
                                     .name("LAYOUT")
@@ -403,6 +410,7 @@ public class TestingTableFunctions
                     ImmutableList.of(
                             TableArgumentSpecification.builder()
                                     .name("INPUT")
+                                    .keepWhenEmpty()
                                     .build()),
                     GENERIC_TABLE);
         }
