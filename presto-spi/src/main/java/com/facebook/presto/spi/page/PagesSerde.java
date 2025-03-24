@@ -21,8 +21,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 
-import javax.annotation.concurrent.NotThreadSafe;
-
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.util.Optional;
@@ -38,7 +36,6 @@ import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 
-@NotThreadSafe
 public class PagesSerde
 {
     private static final double MINIMUM_COMPRESSION_RATIO = 0.9;
