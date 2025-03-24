@@ -111,6 +111,13 @@ public class SymbolMapper
         return new VariableReferenceExpression(variable.getSourceLocation(), canonical, types.get(new SymbolReference(getNodeLocation(variable.getSourceLocation()), canonical)));
     }
 
+    public List<VariableReferenceExpression> map(List<VariableReferenceExpression> symbols)
+    {
+        return symbols.stream()
+                .map(this::map)
+                .collect(toImmutableList());
+    }
+
     public Expression map(Expression value)
     {
         return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
