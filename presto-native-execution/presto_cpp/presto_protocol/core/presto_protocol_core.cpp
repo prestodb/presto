@@ -2410,16 +2410,16 @@ void to_json(json& j, const std::shared_ptr<ExecutionWriterTarget>& p) {
     j = *std::static_pointer_cast<CreateHandle>(p);
     return;
   }
+  if (type == "RefreshMaterializedViewHandle") {
+    j = *std::static_pointer_cast<InsertHandle>(p);
+    return;
+  }
   if (type == "InsertHandle") {
     j = *std::static_pointer_cast<InsertHandle>(p);
     return;
   }
   if (type == "DeleteHandle") {
     j = *std::static_pointer_cast<DeleteHandle>(p);
-    return;
-  }
-  if (type == "RefreshMaterializedViewHandle") {
-    j = *std::static_pointer_cast<RefreshMaterializedViewHandle>(p);
     return;
   }
 
@@ -2442,6 +2442,12 @@ void from_json(const json& j, std::shared_ptr<ExecutionWriterTarget>& p) {
     p = std::static_pointer_cast<ExecutionWriterTarget>(k);
     return;
   }
+  if (type == "RefreshMaterializedViewHandle") {
+    std::shared_ptr<InsertHandle> k = std::make_shared<InsertHandle>();
+    j.get_to(*k);
+    p = std::static_pointer_cast<ExecutionWriterTarget>(k);
+    return;
+  }
   if (type == "InsertHandle") {
     std::shared_ptr<InsertHandle> k = std::make_shared<InsertHandle>();
     j.get_to(*k);
@@ -2450,13 +2456,6 @@ void from_json(const json& j, std::shared_ptr<ExecutionWriterTarget>& p) {
   }
   if (type == "DeleteHandle") {
     std::shared_ptr<DeleteHandle> k = std::make_shared<DeleteHandle>();
-    j.get_to(*k);
-    p = std::static_pointer_cast<ExecutionWriterTarget>(k);
-    return;
-  }
-  if (type == "RefreshMaterializedViewHandle") {
-    std::shared_ptr<RefreshMaterializedViewHandle> k =
-        std::make_shared<RefreshMaterializedViewHandle>();
     j.get_to(*k);
     p = std::static_pointer_cast<ExecutionWriterTarget>(k);
     return;
@@ -8461,13 +8460,9 @@ void from_json(const json& j, Range& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-RefreshMaterializedViewHandle::RefreshMaterializedViewHandle() noexcept {
-  _type = "RefreshMaterializedViewHandle";
-}
 
 void to_json(json& j, const RefreshMaterializedViewHandle& p) {
   j = json::object();
-  j["@type"] = "RefreshMaterializedViewHandle";
   to_json_key(
       j,
       "handle",
@@ -8485,7 +8480,6 @@ void to_json(json& j, const RefreshMaterializedViewHandle& p) {
 }
 
 void from_json(const json& j, RefreshMaterializedViewHandle& p) {
-  p._type = j["@type"];
   from_json_key(
       j,
       "handle",
