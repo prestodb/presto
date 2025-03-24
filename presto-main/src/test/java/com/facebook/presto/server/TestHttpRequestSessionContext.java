@@ -28,10 +28,9 @@ import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.ws.rs.WebApplicationException;
 import org.testng.annotations.Test;
-
-import javax.servlet.http.HttpServletRequest;
-import javax.ws.rs.WebApplicationException;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;

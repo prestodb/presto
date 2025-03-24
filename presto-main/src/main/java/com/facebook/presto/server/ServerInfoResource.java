@@ -19,9 +19,8 @@ import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.metadata.StaticCatalogStore;
 import com.facebook.presto.spi.NodeState;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
-
-import javax.annotation.security.RolesAllowed;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.PUT;
@@ -40,11 +39,11 @@ import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.spi.NodeState.INACTIVE;
 import static com.facebook.presto.spi.NodeState.SHUTTING_DOWN;
 import static io.airlift.units.Duration.nanosSince;
-import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
 import static jakarta.ws.rs.core.MediaType.TEXT_PLAIN;
 import static jakarta.ws.rs.core.Response.Status.BAD_REQUEST;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 @Path("/v1/info")
 public class ServerInfoResource

@@ -27,10 +27,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
-
-import javax.annotation.security.RolesAllowed;
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.ws.rs.Encoded;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
@@ -57,8 +56,8 @@ import static com.facebook.airlift.http.client.JsonResponseHandler.createJsonRes
 import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
 import static com.facebook.presto.server.security.RoleType.ADMIN;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static java.util.Objects.requireNonNull;
 import static jakarta.ws.rs.core.Response.Status.NOT_FOUND;
+import static java.util.Objects.requireNonNull;
 
 @Path("/v1/resourceGroupState")
 @RolesAllowed(ADMIN)
