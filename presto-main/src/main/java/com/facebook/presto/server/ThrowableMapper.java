@@ -16,8 +16,7 @@ package com.facebook.presto.server;
 import com.facebook.airlift.log.Logger;
 import com.google.common.base.Throwables;
 import jakarta.inject.Inject;
-
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.Response;

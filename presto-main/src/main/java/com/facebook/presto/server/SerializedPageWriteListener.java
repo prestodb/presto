@@ -16,10 +16,9 @@ package com.facebook.presto.server;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.spi.page.SerializedPage;
 import io.airlift.slice.SliceOutput;
-
-import javax.servlet.AsyncContext;
-import javax.servlet.ServletOutputStream;
-import javax.servlet.WriteListener;
+import jakarta.servlet.AsyncContext;
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.WriteListener;
 
 import java.io.IOException;
 import java.util.ArrayDeque;
