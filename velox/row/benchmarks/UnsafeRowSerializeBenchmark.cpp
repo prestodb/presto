@@ -19,7 +19,6 @@
 #include "velox/common/memory/HashStringAllocator.h"
 #include "velox/exec/ContainerRowSerde.h"
 #include "velox/row/CompactRow.h"
-#include "velox/row/UnsafeRowDeserializers.h"
 #include "velox/row/UnsafeRowFast.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
@@ -49,7 +48,7 @@ class SerializeBenchmark {
     auto serialized = serialize(fast, data->size(), buffer);
     suspender.dismiss();
 
-    auto copy = UnsafeRowDeserializer::deserialize(serialized, rowType, pool());
+    auto copy = UnsafeRowFast::deserialize(serialized, rowType, pool());
     VELOX_CHECK_EQ(copy->size(), data->size());
   }
 
@@ -145,17 +144,17 @@ class SerializeBenchmark {
     return totalSize;
   }
 
-  std::vector<std::optional<std::string_view>> serialize(
+  std::vector<char*> serialize(
       UnsafeRowFast& unsafeRow,
       vector_size_t numRows,
       BufferPtr& buffer) {
-    std::vector<std::optional<std::string_view>> serialized;
+    std::vector<char*> serialized;
     auto rawBuffer = buffer->asMutable<char>();
 
     size_t offset = 0;
     for (auto i = 0; i < numRows; ++i) {
       auto rowSize = unsafeRow.serialize(i, rawBuffer + offset);
-      serialized.push_back(std::string_view(rawBuffer + offset, rowSize));
+      serialized.push_back(rawBuffer + offset);
       offset += rowSize;
     }
 

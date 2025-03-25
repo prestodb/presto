@@ -15,7 +15,6 @@
  */
 #include "velox/serializers/UnsafeRowSerializer.h"
 #include <folly/lang/Bits.h>
-#include "velox/row/UnsafeRowDeserializers.h"
 #include "velox/row/UnsafeRowFast.h"
 #include "velox/serializers/RowSerializer.h"
 
@@ -44,10 +43,10 @@ void UnsafeRowVectorSerde::deserialize(
     RowTypePtr type,
     RowVectorPtr* result,
     const Options* options) {
-  std::vector<std::optional<std::string_view>> serializedRows;
+  std::vector<char*> serializedRows;
   std::vector<std::unique_ptr<std::string>> serializedBuffers;
-  RowDeserializer<std::optional<std::string_view>>::deserialize<
-      RowIteratorImpl>(source, serializedRows, serializedBuffers, options);
+  RowDeserializer<char*>::deserialize<RowIteratorImpl>(
+      source, serializedRows, serializedBuffers, options);
 
   if (serializedRows.empty()) {
     *result = BaseVector::create<RowVector>(type, 0, pool);
@@ -55,8 +54,7 @@ void UnsafeRowVectorSerde::deserialize(
   }
 
   *result = std::dynamic_pointer_cast<RowVector>(
-      velox::row::UnsafeRowDeserializer::deserialize(
-          serializedRows, type, pool));
+      row::UnsafeRowFast::deserialize(serializedRows, type, pool));
 }
 
 // static
