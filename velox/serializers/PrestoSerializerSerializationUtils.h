@@ -310,7 +310,7 @@ inline FlushSizes flushCompressed(
       "UncompressedSize exceeds limit");
   auto iobuf = out.getIOBuf();
   const auto compressedBuffer = codec.compress(iobuf.get());
-  const int32_t compressedSize = compressedBuffer->length();
+  const int32_t compressedSize = compressedBuffer->computeChainDataLength();
   if (compressedSize > uncompressedSize * minCompressionRatio) {
     flushSerialization(
         numRows,
