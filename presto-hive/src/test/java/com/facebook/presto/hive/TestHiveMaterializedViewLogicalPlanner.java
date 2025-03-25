@@ -2735,7 +2735,7 @@ public class TestHiveMaterializedViewLogicalPlanner
 
     private void appendTableParameter(ExtendedHiveMetastore metastore, String tableName, String parameterKey, String parameterValue)
     {
-        MetastoreContext metastoreContext = new MetastoreContext(getSession().getUser(), getSession().getQueryId().getId(), Optional.empty(), Collections.emptySet(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, getSession().getWarningCollector(), getSession().getRuntimeStats());
+        MetastoreContext metastoreContext = new MetastoreContext(getSession().getUser(), Optional.empty(), getSession().getQueryId().getId(), Optional.empty(), Collections.emptySet(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, getSession().getWarningCollector(), getSession().getRuntimeStats());
         Optional<Table> table = metastore.getTable(metastoreContext, getSession().getSchema().get(), tableName);
         if (table.isPresent()) {
             Table originalTable = table.get();
