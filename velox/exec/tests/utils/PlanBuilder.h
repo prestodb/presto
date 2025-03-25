@@ -349,6 +349,15 @@ class PlanBuilder {
       return *this;
     }
 
+    /// @param insertHandle TableInsertHandle (optional). Other builder
+    /// arguments such as the `connectorId`, `outputDirectoryPath`, `fileFormat`
+    /// and so on will be ignored.
+    TableWriterBuilder& insertHandle(
+        std::shared_ptr<core::InsertTableHandle> insertHandle) {
+      insertHandle_ = std::move(insertHandle);
+      return *this;
+    }
+
     /// @param partitionBy Specifies the partition key columns.
     TableWriterBuilder& partitionBy(std::vector<std::string> partitionBy) {
       partitionBy_ = std::move(partitionBy);
@@ -432,6 +441,7 @@ class PlanBuilder {
     std::string outputDirectoryPath_;
     std::string outputFileName_;
     std::string connectorId_{kHiveDefaultConnectorId};
+    std::shared_ptr<core::InsertTableHandle> insertHandle_;
 
     std::vector<std::string> partitionBy_;
     int32_t bucketCount_{0};
