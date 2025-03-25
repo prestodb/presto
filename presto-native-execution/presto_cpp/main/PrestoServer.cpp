@@ -48,6 +48,7 @@
 #include "velox/common/memory/MmapAllocator.h"
 #include "velox/common/memory/SharedArbitrator.h"
 #include "velox/connectors/Connector.h"
+#include "velox/connectors/clp/ClpConnector.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/HiveDataSink.h"
 #include "velox/connectors/hive/storage_adapters/abfs/RegisterAbfsFileSystem.h"
@@ -271,6 +272,8 @@ void PrestoServer::run() {
       std::make_unique<IcebergPrestoToVeloxConnector>("iceberg"));
   registerPrestoToVeloxConnector(
       std::make_unique<TpchPrestoToVeloxConnector>("tpch"));
+  registerPrestoToVeloxConnector(
+      std::make_unique<ClpPrestoToVeloxConnector>("clp"));
   // Presto server uses system catalog or system schema in other catalogs
   // in different places in the code. All these resolve to the SystemConnector.
   // Depending on where the operator or column is used, different prefixes can
@@ -1182,6 +1185,11 @@ void PrestoServer::registerConnectorFactories() {
           velox::connector::tpch::TpchConnectorFactory::kTpchConnectorName)) {
     velox::connector::registerConnectorFactory(
         std::make_shared<velox::connector::tpch::TpchConnectorFactory>());
+  }
+  if (!velox::connector::hasConnectorFactory(
+            velox::connector::clp::ClpConnectorFactory::kClpConnectorName)) {
+    velox::connector::registerConnectorFactory(
+        std::make_shared<velox::connector::clp::ClpConnectorFactory>());
   }
 }
 

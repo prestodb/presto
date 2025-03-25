@@ -23,6 +23,7 @@ add_executable(
   SessionPropertiesTest.cpp
   TaskManagerTest.cpp
   QueryContextManagerTest.cpp)
+target_link_options(presto_server_test PRIVATE "-no-pie")
 
 if(DEFINED PRESTO_MEMORY_CHECKER_TYPE AND PRESTO_MEMORY_CHECKER_TYPE STREQUAL
                                           "LINUX_MEMORY_CHECKER")
@@ -44,6 +45,7 @@ target_link_libraries(
   $<TARGET_OBJECTS:presto_types>
   velox_hive_connector
   velox_tpch_connector
+  velox_clp_connector
   velox_presto_serializer
   velox_functions_prestosql
   velox_aggregates
