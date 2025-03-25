@@ -111,13 +111,33 @@ void registerSimpleFunctions(const std::string& prefix) {
 
   registerFunction<Re2RegexpSplit, Array<Varchar>, Varchar, Varchar>(
       {prefix + "regexp_split"});
+}
 
+void registerSplitToMultiMap(const std::string& prefix) {
   registerFunction<
       SplitToMultiMapFunction,
       Map<Varchar, Array<Varchar>>,
       Varchar,
       Varchar,
       Varchar>({prefix + "split_to_multimap"});
+  registerFunction<
+      SplitToMultiMapFunction,
+      Map<Varchar, Array<Varchar>>,
+      Varchar,
+      UnknownValue,
+      Varchar>({prefix + "split_to_multimap"});
+  registerFunction<
+      SplitToMultiMapFunction,
+      Map<Varchar, Array<Varchar>>,
+      Varchar,
+      Varchar,
+      UnknownValue>({prefix + "split_to_multimap"});
+  registerFunction<
+      SplitToMultiMapFunction,
+      Map<Varchar, Array<Varchar>>,
+      Varchar,
+      UnknownValue,
+      UnknownValue>({prefix + "split_to_multimap"});
 }
 
 void registerSplitToMap(const std::string& prefix) {
@@ -161,6 +181,7 @@ void registerStringFunctions(const std::string& prefix) {
   VELOX_REGISTER_VECTOR_FUNCTION(udf_split, prefix + "split");
 
   registerSplitToMap(prefix);
+  registerSplitToMultiMap(prefix);
 
   VELOX_REGISTER_VECTOR_FUNCTION(udf_concat, prefix + "concat");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_replaceFirst, prefix + "replace_first");

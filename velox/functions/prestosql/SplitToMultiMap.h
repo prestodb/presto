@@ -47,6 +47,19 @@ struct SplitToMultiMapFunction {
         toStringView(keyValueDelimiter));
   }
 
+  // Overloaded call function to handle UnknownValue cases
+  template <typename TEntryDelimiter, typename TKeyValueDelimiter>
+  void call(
+      out_type<Map<Varchar, Array<Varchar>>>& out,
+      const arg_type<Varchar>& input,
+      const TEntryDelimiter& entryDelimiter,
+      const TKeyValueDelimiter& keyValueDelimiter) {
+    static_assert(
+        std::is_same_v<TEntryDelimiter, arg_type<UnknownValue>> ||
+        std::is_same_v<TKeyValueDelimiter, arg_type<UnknownValue>>);
+    return;
+  }
+
  private:
   static std::string_view toStringView(const arg_type<Varchar>& input) {
     return std::string_view(input.data(), input.size());

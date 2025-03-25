@@ -204,8 +204,12 @@ TEST_F(SplitToMultiMapTest, invalidInput) {
       "Key-value delimiter must appear exactly once in each entry. Bad input: \'1:10:20");
 }
 
-TEST_F(SplitToMultiMapTest, nullInput) {
-  // Test null input string
+TEST_F(SplitToMultiMapTest, testNullInArgsShouldReturnNull) {
+  const auto nullMapVector = makeMapVector(
+      {0}, makeFlatVector<std::string>({}), makeArrayVector<std::string>({}));
+  nullMapVector->setNull(0, true);
+
+  // Test1:  null input string
   auto data = makeRowVector({
       makeNullableFlatVector<std::string>({std::nullopt}),
   });
@@ -213,10 +217,33 @@ TEST_F(SplitToMultiMapTest, nullInput) {
   auto result = evaluate(
       fmt::format("split_to_multimap(c0, '{}', '{}')", ',', ':'), data);
 
-  auto expected = makeMapVector(
-      {0}, makeFlatVector<std::string>({}), makeArrayVector<std::string>({}));
-  expected->setNull(0, true);
-  velox::test::assertEqualVectors(expected, result);
+  velox::test::assertEqualVectors(nullMapVector, result);
+
+  // Test2:  null entry delimiter
+  data = makeRowVector({
+      makeNullableFlatVector<std::string>({"1:10,2:20,1:30"}),
+  });
+
+  result =
+      evaluate(fmt::format("split_to_multimap(c0, null, '{}')", ':'), data);
+  velox::test::assertEqualVectors(nullMapVector, result);
+
+  // Test3:  null key-value delimiter
+  data = makeRowVector({
+      makeNullableFlatVector<std::string>({"1:10,2:20,1:30"}),
+  });
+
+  result =
+      evaluate(fmt::format("split_to_multimap(c0, '{}', null)", ':'), data);
+  velox::test::assertEqualVectors(nullMapVector, result);
+
+  // Test4 :  null entry delimiter and key-value delimiter
+  data = makeRowVector({
+      makeNullableFlatVector<std::string>({"1:10,2:20,1:30"}),
+  });
+
+  result = evaluate(fmt::format("split_to_multimap(c0, null, null)"), data);
+  velox::test::assertEqualVectors(nullMapVector, result);
 }
 
 } // namespace
