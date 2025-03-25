@@ -69,6 +69,7 @@ import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode;
+import com.facebook.presto.sql.planner.plan.TableFunctionNode.PassThroughColumn;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
@@ -160,12 +161,15 @@ public final class ValidateDependenciesChecker
                                 source.getOutputVariables());
                     });
                 });
+                Set<VariableReferenceExpression> passThroughVariable = argumentProperties.getPassThroughSpecification().getColumns().stream()
+                        .map(PassThroughColumn::getOutputVariables)
+                        .collect(toImmutableSet());
                 checkDependencies(
                         inputs,
-                        argumentProperties.getPassThroughVariables(),
+                        passThroughVariable,
                         "Invalid node. Pass-through symbols for source %s (%s) not in source plan output (%s)",
                         argumentProperties.getArgumentName(),
-                        argumentProperties.getPassThroughVariables(),
+                        passThroughVariable,
                         source.getOutputVariables());
             }
             return null;

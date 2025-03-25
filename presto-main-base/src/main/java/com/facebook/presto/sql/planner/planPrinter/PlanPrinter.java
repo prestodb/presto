@@ -1408,11 +1408,9 @@ public class PlanPrinter
                 });
             });
 
-            /* TODO: Come back here eventually
             properties.append("required columns: [")
-                    .append(Joiner.on(", ").join(argumentProperties.requiredColumns()))
+                    .append(Joiner.on(", ").join(argumentProperties.getRequiredColumns()))
                     .append("]");
-             */
 
             properties.append("required columns: [")
                     .append(Joiner.on(", ").join(argumentProperties.getRequiredColumns()))
@@ -1422,11 +1420,10 @@ public class PlanPrinter
                 properties.append(", prune when empty");
             }
 
-            /* TODO: Come back here as well
-            if (argumentProperties.getPassThroughSpecification().declaredAsPassThrough()) {
+            if (argumentProperties.getPassThroughSpecification().isDeclaredAsPassThrough()) {
                 properties.append(", pass through columns");
             }
-             */
+
             return format("%s => TableArgument{%s}", argumentName, properties);
         }
 

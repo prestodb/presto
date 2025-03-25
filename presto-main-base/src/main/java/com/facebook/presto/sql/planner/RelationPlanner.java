@@ -59,6 +59,8 @@ import com.facebook.presto.sql.planner.optimizations.SampleNodeUtil;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode;
+import com.facebook.presto.sql.planner.plan.TableFunctionNode.PassThroughColumn;
+import com.facebook.presto.sql.planner.plan.TableFunctionNode.PassThroughSpecification;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode.TableArgumentProperties;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.tree.AliasedRelation;
@@ -99,6 +101,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.UnmodifiableIterator;
@@ -305,12 +308,18 @@ class RelationPlanner
             }
 
             // add output symbols passed from the table argument
-            ImmutableList.Builder<VariableReferenceExpression> passThroughVariables = ImmutableList.builder();
+            ImmutableList.Builder<PassThroughColumn> passThroughColumns = ImmutableList.builder();
             if (tableArgument.isPassThroughColumns()) {
                 // the original output symbols from the source node, not coerced
                 // note: hidden columns are included. They are present in sourcePlan.fieldMappings
                 outputVariables.addAll(sourcePlan.getFieldMappings());
-                passThroughVariables.addAll(sourcePlan.getFieldMappings());
+                Set<VariableReferenceExpression> partitionBy = specification
+                        .map(DataOrganizationSpecification::getPartitionBy)
+                        .map(ImmutableSet::copyOf)
+                        .orElse(ImmutableSet.of());
+                sourcePlan.getFieldMappings().stream()
+                        .map(variable -> new PassThroughColumn(variable, partitionBy.contains(variable)))
+                        .forEach(passThroughColumns::add);
             }
             else if (tableArgument.getPartitionBy().isPresent()) {
                 tableArgument.getPartitionBy().get().stream()
@@ -318,7 +327,7 @@ class RelationPlanner
                         .map(sourcePlanBuilder::translate)
                         .forEach(variable -> {
                             outputVariables.add(variable);
-                            passThroughVariables.add(variable);
+                            passThroughColumns.add(new PassThroughColumn(variable, true));
                         });
             }
 
@@ -327,8 +336,7 @@ class RelationPlanner
                     tableArgument.getArgumentName(),
                     tableArgument.isRowSemantics(),
                     tableArgument.isPruneWhenEmpty(),
-                    tableArgument.isPassThroughColumns(),
-                    passThroughVariables.build(),
+                    new PassThroughSpecification(tableArgument.isPassThroughColumns(), passThroughColumns.build()),
                     requiredColumns,
                     specification));
         }

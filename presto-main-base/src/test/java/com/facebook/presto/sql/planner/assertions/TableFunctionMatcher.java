@@ -27,7 +27,6 @@ import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode.TableArgumentProperties;
 import com.facebook.presto.sql.tree.SymbolReference;
@@ -40,9 +39,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.BiPredicate;
 import java.util.stream.IntStream;
-import java.util.Set;
 
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
@@ -126,7 +125,7 @@ public class TableFunctionMatcher
                 }
                 if (expectedTableArgument.rowSemantics() != argumentProperties.rowSemantics() ||
                         expectedTableArgument.pruneWhenEmpty() != argumentProperties.pruneWhenEmpty() ||
-                        expectedTableArgument.passThroughColumns() != argumentProperties.passThroughColumns()) {
+                        expectedTableArgument.passThroughColumns() != argumentProperties.getPassThroughSpecification().isDeclaredAsPassThrough()) {
                     return NO_MATCH;
                 }
                 boolean specificationMatches = customDataOrganizationSpecificationEquals(
@@ -139,8 +138,8 @@ public class TableFunctionMatcher
                 Set<SymbolReference> expectedPassThrough = expectedTableArgument.passThroughVariables().stream()
                         .map(symbolAliases::get)
                         .collect(toImmutableSet());
-                Set<SymbolReference> actualPassThrough = argumentProperties.getPassThroughVariables().stream()
-                        .map(var -> new SymbolReference(var.getName()))
+                Set<SymbolReference> actualPassThrough = argumentProperties.getPassThroughSpecification().getColumns().stream()
+                        .map(var -> new SymbolReference(var.getOutputVariables().getName()))
                         .collect(toImmutableSet());
                 if (!expectedPassThrough.equals(actualPassThrough)) {
                     return NO_MATCH;
