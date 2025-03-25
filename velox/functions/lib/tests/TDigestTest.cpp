@@ -28,6 +28,18 @@ namespace {
 constexpr double kSumError = 1e-4;
 constexpr double kRankError = 0.01;
 
+// Small hack to modify the TDigest sum in the serilaized buffer, so we can test
+// that the relative error algorithm in sum testing code works.
+void alterTDigestSumInTheBuffer(std::string& buf, const TDigest<>& digest) {
+  // Find and adjust the sum in the buffer.
+  double originalSum = digest.sum();
+  // Based on the TDigest::serialize() we expect the sum at this position.
+  const size_t sumOffset = sizeof(int8_t) * 2 + sizeof(double) * 2;
+  ASSERT_EQ(memcmp(buf.data() + sumOffset, &originalSum, sizeof(double)), 0);
+
+  *(double*)(buf.data() + sumOffset) += TDigest<>::kEpsilon * 2;
+}
+
 constexpr double kQuantiles[] = {
     0.0001, 0.0200, 0.0300, 0.04000, 0.0500, 0.1000, 0.2000,
     0.3000, 0.4000, 0.5000, 0.6000,  0.7000, 0.8000, 0.9000,
@@ -387,7 +399,11 @@ TEST(TDigestTest, merge) {
   std::default_random_engine gen(common::testutil::getRandomSeed(42));
   std::vector<double> values;
   std::string buf;
-  auto test = [&](int numDigests, int size, double mean, double stddev) {
+  auto test = [&](int numDigests,
+                  int size,
+                  double mean,
+                  double stddev,
+                  bool alterSum = false) {
     SCOPED_TRACE(fmt::format(
         "numDigests={} size={} mean={} stddev={}",
         numDigests,
@@ -408,6 +424,9 @@ TEST(TDigestTest, merge) {
       current.compress(positions);
       buf.resize(current.serializedByteSize());
       current.serialize(buf.data());
+      if (alterSum) {
+        alterTDigestSumInTheBuffer(buf, current);
+      }
       digest.mergeDeserialized(positions, buf.data());
     }
     digest.compress(positions);
@@ -417,6 +436,8 @@ TEST(TDigestTest, merge) {
   test(2, 5e4, 0, 50);
   test(100, 1000, 500, 20);
   test(1e4, 10, 500, 20);
+
+  test(5, 5e4, 0, 50, true);
 }
 
 TEST(TDigestTest, infinity) {

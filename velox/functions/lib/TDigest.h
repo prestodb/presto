@@ -109,10 +109,11 @@ class TDigest {
     return compression_;
   }
 
- private:
   static constexpr int8_t kSerializationVersion = 1;
   static constexpr double kEpsilon = 1e-3;
+  static constexpr double kRelativeErrorEpsilon = 1e-4;
 
+ private:
   void mergeNewValues(std::vector<int16_t>& positions, double compression);
 
   void merge(
@@ -134,6 +135,11 @@ class TDigest {
     double x = (x1 * w1 + x2 * w2) / (w1 + w2);
     return std::max(x1, std::min(x, x2));
   }
+
+  // Performs sanity check for the sum: verifies that the given sum is close to
+  // the calculated sum.
+  static void
+  checkTheSum(int32_t numEntries, double sum, double* weights, double* means);
 
   std::vector<double, Allocator> weights_;
   std::vector<double, Allocator> means_;
@@ -460,22 +466,20 @@ void TDigest<A>::mergeDeserialized(
     weights_.resize(numOld + numNew);
     auto* weights = weights_.data() + numOld;
     tdigest::detail::read(input, weights, numNew);
-    for (int i = 0; i < numNew; ++i) {
+    for (auto i = 0; i < numNew; ++i) {
       VELOX_CHECK_GT(weights[i], 0);
     }
     means_.resize(numOld + numNew);
     auto* means = means_.data() + numOld;
     tdigest::detail::read(input, means, numNew);
-    for (int i = 0; i < numNew; ++i) {
+    for (auto i = 0; i < numNew; ++i) {
       VELOX_CHECK(!std::isnan(means[i]));
     }
+
     if (version >= 1) {
-      double actualSum = 0;
-      for (int i = 0; i < numNew; ++i) {
-        actualSum += weights[i] * means[i];
-      }
-      VELOX_CHECK_LT(std::abs(actualSum - sum), kEpsilon);
+      checkTheSum(numNew, sum, weights, means);
     }
+
     double actualTotalWeight = std::accumulate(weights, weights + numNew, 0.0);
     VELOX_CHECK_LT(std::abs(actualTotalWeight - totalWeight), kEpsilon);
   } else {
@@ -484,6 +488,42 @@ void TDigest<A>::mergeDeserialized(
   }
   if (weights_.size() >= maxBufferSize_) {
     mergeNewValues(positions, 2 * compression_);
+  }
+}
+
+template <typename A>
+void TDigest<A>::checkTheSum(
+    int32_t numEntries,
+    double sum,
+    double* weights,
+    double* means) {
+  double actualSum = 0;
+  for (auto i = 0; i < numEntries; ++i) {
+    actualSum += weights[i] * means[i];
+  }
+
+  // Simple check for sums matching first.
+  const double difference = std::abs(sum - actualSum);
+  if (FOLLY_UNLIKELY(difference >= kEpsilon)) {
+    // According to http://floating-point-gui.de/errors/comparison/
+    const double controlMean = sum / numEntries;
+    const double testMean = actualSum / numEntries;
+    bool sumIsGood = true;
+    if (std::abs(controlMean) < kEpsilon || std::abs(testMean) < kEpsilon) {
+      sumIsGood =
+          std::abs(controlMean) < kEpsilon && std::abs(testMean) < kEpsilon;
+    } else {
+      const double relativeError = difference /
+          std::min((std::abs(sum) + std::abs(actualSum)) / 2,
+                   std::numeric_limits<double>::max());
+      sumIsGood = relativeError < kRelativeErrorEpsilon;
+    }
+    VELOX_CHECK(
+        sumIsGood,
+        "TDigest declared sum: {} and actual sum: {} differ too much: {}",
+        sum,
+        actualSum,
+        difference);
   }
 }
 
