@@ -51,9 +51,24 @@ struct JsonObjectKeysFunction {
     }
 
     for (auto field : jsonObject) {
+      if (isFatal(field.error())) {
+        // On-Demand only fully validates the values used and the structure
+        // leading to it.
+        return false;
+      }
       out.add_item().copy_from(std::string_view(field.unescaped_key()));
     }
     return true;
+  }
+
+ private:
+  // TODO: After upgrade simdjson v3.12.3, we could replace with simdjson
+  // function relevant simdjson function:
+  // https://github.com/simdjson/simdjson/blob/master/include/simdjson/error-inl.h#L10-L12
+  bool isFatal(simdjson::error_code error) noexcept {
+    // Indicates the document is not valid JSON.
+    return error == simdjson::error_code::TAPE_ERROR ||
+        error == simdjson::error_code::INCOMPLETE_ARRAY_OR_OBJECT;
   }
 };
 
