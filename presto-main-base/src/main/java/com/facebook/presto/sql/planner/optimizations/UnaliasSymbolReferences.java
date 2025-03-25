@@ -513,6 +513,7 @@ public class UnaliasSymbolReferences
                         properties.rowSemantics(),
                         properties.pruneWhenEmpty(),
                         properties.passThroughColumns(),
+                        inputMapper.map(properties.getPassThroughVariables()),
                         inputMapper.map(properties.getRequiredColumns()),
                         newSpecification));
             }

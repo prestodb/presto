@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.TableFunctionHandle;
 import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.function.table.Argument;
 import com.facebook.presto.spi.plan.DataOrganizationSpecification;
+import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -104,17 +105,9 @@ public class TableFunctionNode
 
         variables.addAll(outputVariables);
 
-        for (int i = 0; i < sources.size(); i++) {
-            TableArgumentProperties sourceProperties = tableArgumentProperties.get(i);
-            if (sourceProperties.passThroughColumns()) {
-                variables.addAll(sources.get(i).getOutputVariables());
-            }
-            else {
-                sourceProperties.specification()
-                        .map(DataOrganizationSpecification::getPartitionBy)
-                        .ifPresent(variables::addAll);
-            }
-        }
+        tableArgumentProperties.stream()
+                .map(TableArgumentProperties::getPassThroughVariables)
+                .forEach(variables::addAll);
 
         return variables.build();
     }
@@ -174,6 +167,7 @@ public class TableFunctionNode
         private final boolean rowSemantics;
         private final boolean pruneWhenEmpty;
         private final boolean passThroughColumns;
+        private final List<VariableReferenceExpression> passThroughVariables;
         private final List<VariableReferenceExpression> requiredColumns;
         private final Optional<DataOrganizationSpecification> specification;
 
@@ -183,6 +177,7 @@ public class TableFunctionNode
                 @JsonProperty("rowSemantics") boolean rowSemantics,
                 @JsonProperty("pruneWhenEmpty") boolean pruneWhenEmpty,
                 @JsonProperty("passThroughColumns") boolean passThroughColumns,
+                @JsonProperty("passThroughVariables") List<VariableReferenceExpression> passThroughVariables,
                 @JsonProperty("requiredColumns") List<VariableReferenceExpression> requiredColumns,
                 @JsonProperty("specification") Optional<DataOrganizationSpecification> specification)
         {
@@ -190,6 +185,7 @@ public class TableFunctionNode
             this.rowSemantics = rowSemantics;
             this.pruneWhenEmpty = pruneWhenEmpty;
             this.passThroughColumns = passThroughColumns;
+            this.passThroughVariables = ImmutableList.copyOf(passThroughVariables);
             this.requiredColumns = ImmutableList.copyOf(requiredColumns);
             this.specification = requireNonNull(specification, "specification is null");
         }
@@ -228,6 +224,12 @@ public class TableFunctionNode
         public Optional<DataOrganizationSpecification> specification()
         {
             return specification;
+        }
+
+        @JsonProperty
+        public List<VariableReferenceExpression> getPassThroughVariables()
+        {
+            return passThroughVariables;
         }
     }
 }

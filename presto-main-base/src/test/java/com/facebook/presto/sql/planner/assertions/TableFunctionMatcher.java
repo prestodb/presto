@@ -27,6 +27,7 @@ import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode.TableArgumentProperties;
 import com.facebook.presto.sql.tree.SymbolReference;
@@ -41,6 +42,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiPredicate;
 import java.util.stream.IntStream;
+import java.util.Set;
 
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
@@ -48,6 +50,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 public class TableFunctionMatcher
@@ -131,6 +134,15 @@ public class TableFunctionMatcher
                         argumentProperties.specification(),
                         (v1, v2) -> v1.getName().equals(v2.getName()));
                 if (!specificationMatches) {
+                    return NO_MATCH;
+                }
+                Set<SymbolReference> expectedPassThrough = expectedTableArgument.passThroughVariables().stream()
+                        .map(symbolAliases::get)
+                        .collect(toImmutableSet());
+                Set<SymbolReference> actualPassThrough = argumentProperties.getPassThroughVariables().stream()
+                        .map(var -> new SymbolReference(var.getName()))
+                        .collect(toImmutableSet());
+                if (!expectedPassThrough.equals(actualPassThrough)) {
                     return NO_MATCH;
                 }
             }
@@ -281,14 +293,16 @@ public class TableFunctionMatcher
         private final boolean pruneWhenEmpty;
         private final boolean passThroughColumns;
         private final Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification;
+        private final Set<String> passThroughVariables;
 
-        public TableArgumentValue(int sourceIndex, boolean rowSemantics, boolean pruneWhenEmpty, boolean passThroughColumns, Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification)
+        public TableArgumentValue(int sourceIndex, boolean rowSemantics, boolean pruneWhenEmpty, boolean passThroughColumns, Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification, Set<String> passThroughVariables)
         {
             this.sourceIndex = sourceIndex;
             this.rowSemantics = rowSemantics;
             this.pruneWhenEmpty = pruneWhenEmpty;
             this.passThroughColumns = passThroughColumns;
             this.specification = requireNonNull(specification, "specification is null");
+            this.passThroughVariables = ImmutableSet.copyOf(passThroughVariables);
         }
 
         public int sourceIndex()
@@ -311,6 +325,11 @@ public class TableFunctionMatcher
             return passThroughColumns;
         }
 
+        public Set<String> passThroughVariables()
+        {
+            return passThroughVariables;
+        }
+
         public Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification()
         {
             return specification;
@@ -323,6 +342,7 @@ public class TableFunctionMatcher
             private boolean pruneWhenEmpty;
             private boolean passThroughColumns;
             private Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification = Optional.empty();
+            private Set<String> passThroughVariables = ImmutableSet.of();
 
             private Builder(int sourceIndex)
             {
@@ -359,9 +379,15 @@ public class TableFunctionMatcher
                 return this;
             }
 
+            public Builder passThroughVariables(Set<String> variables)
+            {
+                this.passThroughVariables = variables;
+                return this;
+            }
+
             private TableArgumentValue build()
             {
-                return new TableArgumentValue(sourceIndex, rowSemantics, pruneWhenEmpty, passThroughColumns, specification);
+                return new TableArgumentValue(sourceIndex, rowSemantics, pruneWhenEmpty, passThroughColumns, specification, passThroughVariables);
             }
         }
     }
