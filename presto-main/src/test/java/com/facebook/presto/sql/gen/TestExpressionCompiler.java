@@ -45,8 +45,6 @@ import io.airlift.joni.Regex;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.Duration;
-import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
@@ -58,6 +56,9 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -86,7 +87,7 @@ import static com.facebook.presto.common.type.VarcharType.createUnboundedVarchar
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.operator.scalar.JoniRegexpCasts.joniRegexp;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
-import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
+import static com.facebook.presto.util.DateTimeZoneIndex.getZoneOffset;
 import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
@@ -94,12 +95,11 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Math.cos;
 import static java.lang.Runtime.getRuntime;
 import static java.lang.String.format;
+import static java.time.ZoneOffset.UTC;
 import static java.util.Collections.singletonList;
 import static java.util.concurrent.Executors.newFixedThreadPool;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
-import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
@@ -126,10 +126,10 @@ public class TestExpressionCompiler
     private static final BigDecimal[] decimalRights = {new BigDecimal("3.0"), new BigDecimal("-3.0"), new BigDecimal("3.1"), new BigDecimal("-3.1"), null};
     private static final BigDecimal[] decimalMiddle = {new BigDecimal("9.0"), new BigDecimal("-3.1"), new BigDecimal("88.0"), null};
 
-    private static final DateTime[] dateTimeValues = {
-            new DateTime(2001, 1, 22, 3, 4, 5, 321, UTC),
-            new DateTime(1960, 1, 22, 3, 4, 5, 321, UTC),
-            new DateTime(1970, 1, 1, 0, 0, 0, 0, UTC),
+    private static final ZonedDateTime[] dateTimeValues = {
+            ZonedDateTime.of(2001, 1, 22, 3, 4, 5, 321000, UTC),
+            ZonedDateTime.of(1960, 1, 22, 3, 4, 5, 321000, UTC),
+            ZonedDateTime.of(1970, 1, 1, 0, 0, 0, 0, UTC),
             null
     };
 
@@ -222,10 +222,19 @@ public class TestExpressionCompiler
         assertExecute("bound_string", VARCHAR, "hello");
         assertExecute("bound_double", DOUBLE, 12.34);
         assertExecute("bound_boolean", BOOLEAN, true);
-        assertExecute("bound_timestamp", BIGINT, new DateTime(2001, 8, 22, 3, 4, 5, 321, UTC).getMillis());
+        ZonedDateTime temporal = ZonedDateTime.of(2001, 8, 22, 3, 4, 5, 0, UTC);
+        Instant from = Instant.from(temporal);
+        // toEpochMilli has a bug when converting nanoseconds. It divides by a million instead of 1000.
+        // That is, it converts the nanos to seconds instead of milliseconds.
+        // OpenJDK internal review ID : 9077166
+        // Bug present from JDK 8 through 21, perhaps longer:
+        // https://github.com/openjdk/jdk/blob/2c1da6c6fa2e50856ea71c0e266961171bee1037/src/java.base/share/classes/java/time/Instant.java#L1286
+        long epochMilli = from.toEpochMilli() + 321;
+        assertExecute("bound_timestamp", BIGINT, epochMilli);
         assertExecute("bound_pattern", VARCHAR, "%el%");
         assertExecute("bound_null_string", VARCHAR, null);
-        assertExecute("bound_timestamp_with_timezone", TIMESTAMP_WITH_TIME_ZONE, new SqlTimestampWithTimeZone(new DateTime(1970, 1, 1, 0, 1, 0, 999, DateTimeZone.UTC).getMillis(), TimeZoneKey.getTimeZoneKey("Z")));
+        long milliseconds = Instant.from(ZonedDateTime.of(1970, 1, 1, 0, 1, 0, 0, UTC)).toEpochMilli() + 999;
+        assertExecute("bound_timestamp_with_timezone", TIMESTAMP_WITH_TIME_ZONE, new SqlTimestampWithTimeZone(milliseconds, TimeZoneKey.getTimeZoneKey("Z")));
         assertExecute("bound_binary_literal", VARBINARY, new SqlVarbinary(new byte[] {(byte) 0xab}));
 
         // todo enable when null output type is supported
@@ -1485,16 +1494,18 @@ public class TestExpressionCompiler
     public void testExtract()
             throws Exception
     {
-        for (DateTime left : dateTimeValues) {
+        for (ZonedDateTime left : dateTimeValues) {
             for (Field field : Field.values()) {
                 Long expected = null;
                 Long millis = null;
+                Instant instant = null;
                 if (left != null) {
-                    millis = left.getMillis();
+                    instant = Instant.from(left);
+                    millis = instant.toEpochMilli();
                     expected = callExtractFunction(TEST_SESSION.toConnectorSession(), millis, field);
                 }
-                DateTimeZone zone = getDateTimeZone(TEST_SESSION.getTimeZoneKey());
-                long zoneOffsetMinutes = millis != null ? MILLISECONDS.toMinutes(zone.getOffset(millis)) : 0;
+                ZoneOffset zoneOffset = getZoneOffset(instant, TEST_SESSION.getTimeZoneKey());
+                long zoneOffsetMinutes = zoneOffset != null ? zoneOffset.getTotalSeconds() / 60 : 0;
                 String expressionPattern = format(
                         "extract(%s from from_unixtime(%%s / 1000.0E0, %s, %s))",
                         field,
