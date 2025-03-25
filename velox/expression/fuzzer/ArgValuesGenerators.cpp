@@ -127,6 +127,59 @@ std::vector<core::TypedExprPtr> PhoneNumberArgValuesGenerator::generate(
       state.customInputGenerators_.emplace_back(nullptr);
       inputExpressions.emplace_back(nullptr);
     }
+  } else if (functionName_ == "fb_canonicalize_phone_number") {
+    VELOX_CHECK_GE(signature.args.size(), 1);
+    // Populate state.customInputGenerators_ and inputExpressions with custom
+    // input generator for required phone number string field
+    state.customInputGenerators_.emplace_back(
+        std::make_shared<fuzzer::PhoneNumberInputGenerator>(
+            seed, signature.args[0], nullRatio));
+
+    VELOX_CHECK_GE(state.inputRowNames_.size(), signature.args.size());
+    inputExpressions.emplace_back(std::make_shared<core::FieldAccessTypedExpr>(
+        signature.args[0],
+        signature.args.size() == 1
+            ? state.inputRowNames_.back()
+            : state.inputRowNames_
+                  [state.inputRowNames_.size() - signature.args.size()]));
+
+    for (int i = 1; i < signature.args.size(); i++) {
+      if (i == 1) {
+        // For country code, use a random string generator with ASCII, UTF8
+        // specifying max length to be greater than 2 (max length of country
+        // code)
+        state.customInputGenerators_.emplace_back(
+            std::make_shared<RandomInputGenerator<StringView>>(
+                seed,
+                signature.args[i],
+                nullRatio,
+                4,
+                std::vector<UTF8CharList>{
+                    UTF8CharList::ASCII,
+                    UTF8CharList::UNICODE_CASE_SENSITIVE}));
+      } else {
+        // For phoneFormat, use a random string generator with ASCII, UTF8,
+        // MATHEMATICAL_SYMBOLS. Specify max length to be greater than 12 to
+        // have enough randomization yet not too long
+        state.customInputGenerators_.emplace_back(
+            std::make_shared<RandomInputGenerator<StringView>>(
+                seed,
+                signature.args[i],
+                nullRatio,
+                12,
+                std::vector<UTF8CharList>{
+                    UTF8CharList::ASCII,
+                    UTF8CharList::UNICODE_CASE_SENSITIVE,
+                    UTF8CharList::EXTENDED_UNICODE,
+                    UTF8CharList::MATHEMATICAL_SYMBOLS}));
+      }
+      VELOX_CHECK_GE(state.inputRowNames_.size(), signature.args.size() - i);
+      inputExpressions.emplace_back(
+          std::make_shared<core::FieldAccessTypedExpr>(
+              signature.args[i],
+              state.inputRowNames_
+                  [state.inputRowNames_.size() + i - signature.args.size()]));
+    }
   }
   return inputExpressions;
 }
