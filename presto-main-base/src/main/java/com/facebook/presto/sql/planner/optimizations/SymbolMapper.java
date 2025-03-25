@@ -52,6 +52,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.spi.StandardWarningCode.MULTIPLE_ORDER_BY;
@@ -141,6 +142,27 @@ public class SymbolMapper
                 return map(variable);
             }
         }, value);
+    }
+
+    public OrderingSchemeWithPreSortedPrefix map(OrderingScheme orderingScheme, int preSorted)
+    {
+        ImmutableList.Builder<Ordering> newOrderings = ImmutableList.builder();
+        int newPreSorted = preSorted;
+
+        Set<VariableReferenceExpression> added = new HashSet<>(orderingScheme.getOrderBy().size());
+
+        for (int i = 0; i < orderingScheme.getOrderBy().size(); i++) {
+            VariableReferenceExpression variable = orderingScheme.getOrderBy().get(i).getVariable();
+            VariableReferenceExpression canonical = map(variable);
+            if (added.add(canonical)) {
+                newOrderings.add(new Ordering(canonical, orderingScheme.getOrdering(variable)));
+            }
+            else if (i < preSorted) {
+                newPreSorted--;
+            }
+        }
+
+        return new OrderingSchemeWithPreSortedPrefix(new OrderingScheme(newOrderings.build()), newPreSorted);
     }
 
     public OrderingScheme map(OrderingScheme orderingScheme)
@@ -356,6 +378,18 @@ public class SymbolMapper
         return builder.build();
     }
 
+    private SpecificationWithPreSortedPrefix mapAndDistinct(DataOrganizationSpecification specification, int preSorted)
+    {
+        Optional<OrderingSchemeWithPreSortedPrefix> newOrderingScheme = specification.getOrderingScheme()
+                .map(orderingScheme -> map(orderingScheme, preSorted));
+
+        return new SpecificationWithPreSortedPrefix(
+                new DataOrganizationSpecification(
+                        mapAndDistinctVariable(specification.getPartitionBy()),
+                        newOrderingScheme.map(OrderingSchemeWithPreSortedPrefix::getOrderingScheme)),
+                newOrderingScheme.map(OrderingSchemeWithPreSortedPrefix::getPreSorted).orElse(preSorted));
+    }
+
     DataOrganizationSpecification mapAndDistinct(DataOrganizationSpecification specification)
     {
         return new DataOrganizationSpecification(
@@ -392,6 +426,50 @@ public class SymbolMapper
         public void put(VariableReferenceExpression from, VariableReferenceExpression to)
         {
             mappingsBuilder.put(from, to);
+        }
+    }
+
+    private static class OrderingSchemeWithPreSortedPrefix
+    {
+        private final OrderingScheme orderingScheme;
+        private final int preSorted;
+
+        public OrderingSchemeWithPreSortedPrefix(OrderingScheme orderingScheme, int preSorted)
+        {
+            this.orderingScheme = requireNonNull(orderingScheme, "orderingScheme is null");
+            this.preSorted = preSorted;
+        }
+
+        public OrderingScheme getOrderingScheme()
+        {
+            return orderingScheme;
+        }
+
+        public int getPreSorted()
+        {
+            return preSorted;
+        }
+    }
+
+    private static class SpecificationWithPreSortedPrefix
+    {
+        private final DataOrganizationSpecification specification;
+        private final int preSorted;
+
+        public SpecificationWithPreSortedPrefix(DataOrganizationSpecification specification, int preSorted)
+        {
+            this.specification = requireNonNull(specification, "specification is null");
+            this.preSorted = preSorted;
+        }
+
+        public DataOrganizationSpecification getSpecification()
+        {
+            return specification;
+        }
+
+        public int getPreSorted()
+        {
+            return preSorted;
         }
     }
 }
