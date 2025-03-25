@@ -805,14 +805,11 @@ PlanBuilder& PlanBuilder::finalAggregation() {
   if (!exec::isRawInput(aggNode->step())) {
     // If aggregation node is not the partial aggregation, keep looking again.
     aggNode = findPartialAggregation(aggNode->sources()[0].get());
-    if (!exec::isRawInput(aggNode->step())) {
-      VELOX_CHECK_NOT_NULL(
-          aggNode,
-          "Plan node before current plan node must be a partial aggregation.");
-      VELOX_CHECK(exec::isRawInput(aggNode->step()));
-      VELOX_CHECK(exec::isPartialOutput(aggNode->step()));
-    }
+    VELOX_CHECK_NOT_NULL(aggNode);
   }
+
+  VELOX_CHECK(exec::isRawInput(aggNode->step()));
+  VELOX_CHECK(exec::isPartialOutput(aggNode->step()));
 
   auto step = core::AggregationNode::Step::kFinal;
 
