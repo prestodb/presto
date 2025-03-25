@@ -35,7 +35,7 @@ void registerHyperLogFunctions(const std::string& prefix = "");
 
 void registerTDigestFunctions(const std::string& prefix = "");
 
-void registerGeospatialFunctions(const std::string& prefix = "");
+void registerBingTileFunctions(const std::string& prefix = "");
 
 void registerGeneralFunctions(const std::string& prefix = "");
 

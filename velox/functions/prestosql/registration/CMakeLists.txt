@@ -18,13 +18,13 @@ velox_add_library(
   ArrayFunctionsRegistration.cpp
   ArrayNGramsRegistration.cpp
   BinaryFunctionsRegistration.cpp
+  BingTileFunctionsRegistration.cpp
   BitwiseFunctionsRegistration.cpp
   CheckedArithmeticRegistration.cpp
   ComparisonFunctionsRegistration.cpp
   DateTimeFunctionsRegistration.cpp
   DataSizeFunctionsRegistration.cpp
   GeneralFunctionsRegistration.cpp
-  GeospatialFunctionsRegistration.cpp
   HyperLogFunctionsRegistration.cpp
   IntegerFunctionsRegistration.cpp
   JsonFunctionsRegistration.cpp
