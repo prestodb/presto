@@ -22,6 +22,8 @@ namespace facebook::velox::dwio::common {
 
 namespace {
 
+// Call the field reader `read` with the correct row set based on whether the
+// row set has been filtered or not after its parent is read.
 RowSet read(
     SelectiveStructColumnReaderBase* structReader,
     SelectiveColumnReader* fieldReader,
@@ -55,7 +57,8 @@ RowSet read(
   structReader->advanceFieldReader(fieldReader, offset);
   fieldReader->scanSpec()->setValueHook(hook);
   fieldReader->read(offset, effectiveRows, incomingNulls);
-  if (fieldReader->fileType().type()->isRow()) {
+  if (fieldReader->fileType().type()->isRow() ||
+      fieldReader->scanSpec()->isFlatMapAsStruct()) {
     // 'fieldReader_' may itself produce LazyVectors. For this it must have its
     // result row numbers set.
     static_cast<SelectiveStructColumnReaderBase*>(fieldReader)

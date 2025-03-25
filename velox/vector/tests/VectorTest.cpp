@@ -3817,6 +3817,51 @@ TEST_F(VectorTest, mapUpdateMultipleUpdates) {
   }
 }
 
+TEST_F(VectorTest, mapUpdateConstant) {
+  auto base = makeNullableMapVector<int64_t, int64_t>({
+      {{{1, 1}, {2, 1}}},
+      {{}},
+      {{{3, 1}}},
+      std::nullopt,
+      {{{4, 1}}},
+  });
+  auto update = BaseVector::wrapInConstant(
+      base->size(), 0, makeMapVector<int64_t, int64_t>({{{2, 2}}}));
+  DecodedVector decoded(*update);
+  auto actual = base->update(folly::Range(&decoded, 1));
+  auto expected = makeNullableMapVector<int64_t, int64_t>({
+      {{{2, 2}, {1, 1}}},
+      {{{2, 2}}},
+      {{{2, 2}, {3, 1}}},
+      std::nullopt,
+      {{{2, 2}, {4, 1}}},
+  });
+  test::assertEqualVectors(expected, actual);
+}
+
+TEST_F(VectorTest, mapUpdateDictionary) {
+  auto base = makeNullableMapVector<int64_t, int64_t>({
+      {{{1, 1}, {2, 1}}},
+      {{}},
+      {{{3, 1}}},
+      std::nullopt,
+      {{{4, 1}}},
+  });
+  auto update = wrapInDictionary(
+      makeIndices({0, 0, 1, 1, 0}),
+      makeMapVector<int64_t, int64_t>({{{2, 2}}, {}}));
+  DecodedVector decoded(*update);
+  auto actual = base->update(folly::Range(&decoded, 1));
+  auto expected = makeNullableMapVector<int64_t, int64_t>({
+      {{{2, 2}, {1, 1}}},
+      {{{2, 2}}},
+      {{{3, 1}}},
+      std::nullopt,
+      {{{2, 2}, {4, 1}}},
+  });
+  test::assertEqualVectors(expected, actual);
+}
+
 TEST_F(VectorTest, pushDictionaryToRowVectorLeaves) {
   auto iota = makeFlatVector<int64_t>(10, folly::identity);
   auto output = RowVector::pushDictionaryToRowVectorLeaves(iota);

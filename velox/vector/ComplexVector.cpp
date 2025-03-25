@@ -1616,30 +1616,22 @@ class UpdateMapRow<void> {
 
 template <TypeKind kKeyTypeKind>
 MapVectorPtr MapVector::updateImpl(
-    const std::vector<MapVectorPtr>& others) const {
+    const folly::Range<DecodedVector*>& others) const {
   auto newNulls = nulls();
-  bool allocatedNewNulls = false;
   for (auto& other : others) {
-    if (!other->nulls()) {
+    if (!other.nulls()) {
       continue;
     }
-    if (!newNulls) {
-      newNulls = other->nulls();
-      continue;
-    }
-    if (!allocatedNewNulls) {
-      auto* prevNewNulls = newNulls->as<uint64_t>();
+    if (newNulls.get() == nulls().get()) {
       newNulls = allocateNulls(size(), pool());
-      allocatedNewNulls = true;
       bits::andBits(
           newNulls->asMutable<uint64_t>(),
-          prevNewNulls,
-          other->rawNulls(),
+          rawNulls(),
+          other.nulls(),
           0,
           size());
     } else {
-      bits::andBits(
-          newNulls->asMutable<uint64_t>(), other->rawNulls(), 0, size());
+      bits::andBits(newNulls->asMutable<uint64_t>(), other.nulls(), 0, size());
     }
   }
 
@@ -1652,14 +1644,15 @@ MapVectorPtr MapVector::updateImpl(
   keys.reserve(1 + others.size());
   keys.emplace_back(*keys_);
   for (auto& other : others) {
-    VELOX_CHECK(*keys_->type() == *other->keys_->type());
-    keys.emplace_back(*other->keys_);
+    auto& otherKeys = other.base()->asChecked<MapVector>()->keys_;
+    VELOX_CHECK(*keys_->type() == *otherKeys->type());
+    keys.emplace_back(*otherKeys);
   }
   std::vector<std::vector<BaseVector::CopyRange>> ranges(1 + others.size());
 
   // Subscript symbols in this function:
   //
-  // i : Top level row index.
+  // i, ii : Top level row index.  `ii' is the index into other base at i.
   // j, jj : Key/value vector index.  `jj' is the offset version of `j'.
   // k : Index into `others' and `ranges' for choosing a map vector.
   UpdateMapRow<typename TypeTraits<kKeyTypeKind>::NativeType> mapRow;
@@ -1672,7 +1665,8 @@ MapVectorPtr MapVector::updateImpl(
     }
     bool needUpdate = false;
     for (auto& other : others) {
-      if (other->sizeAt(i) > 0) {
+      auto ii = other.index(i);
+      if (other.base()->asUnchecked<MapVector>()->sizeAt(ii) > 0) {
         needUpdate = true;
         break;
       }
@@ -1687,9 +1681,11 @@ MapVectorPtr MapVector::updateImpl(
       continue;
     }
     for (int k = 0; k < keys.size(); ++k) {
-      auto* vector = k == 0 ? this : others[k - 1].get();
-      auto offset = vector->offsetAt(i);
-      auto size = vector->sizeAt(i);
+      auto* vector =
+          k == 0 ? this : others[k - 1].base()->asUnchecked<MapVector>();
+      auto ii = k == 0 ? i : others[k - 1].index(i);
+      auto offset = vector->offsetAt(ii);
+      auto size = vector->sizeAt(ii);
       for (vector_size_t j = 0; j < size; ++j) {
         auto jj = offset + j;
         VELOX_DCHECK(!keys[k].isNullAt(jj));
@@ -1710,7 +1706,8 @@ MapVectorPtr MapVector::updateImpl(
   auto newKeys = BaseVector::create(mapKeys()->type(), numEntries, pool());
   auto newValues = BaseVector::create(mapValues()->type(), numEntries, pool());
   for (int k = 0; k < ranges.size(); ++k) {
-    auto* vector = k == 0 ? this : others[k - 1].get();
+    auto* vector =
+        k == 0 ? this : others[k - 1].base()->asUnchecked<MapVector>();
     newKeys->copyRanges(vector->mapKeys().get(), ranges[k]);
     newValues->copyRanges(vector->mapValues().get(), ranges[k]);
   }
@@ -1726,13 +1723,23 @@ MapVectorPtr MapVector::updateImpl(
       std::move(newValues));
 }
 
-MapVectorPtr MapVector::update(const std::vector<MapVectorPtr>& others) const {
+MapVectorPtr MapVector::update(
+    const folly::Range<DecodedVector*>& others) const {
   VELOX_CHECK(!others.empty());
   VELOX_CHECK_LT(others.size(), std::numeric_limits<int8_t>::max());
   for (auto& other : others) {
-    VELOX_CHECK_EQ(size(), other->size());
+    VELOX_CHECK_EQ(size(), other.size());
   }
   return VELOX_DYNAMIC_TYPE_DISPATCH(updateImpl, keys_->typeKind(), others);
+}
+
+MapVectorPtr MapVector::update(const std::vector<MapVectorPtr>& others) const {
+  std::vector<DecodedVector> decoded;
+  decoded.reserve(others.size());
+  for (auto& other : others) {
+    decoded.emplace_back(*other);
+  }
+  return update(folly::Range(decoded.data(), decoded.size()));
 }
 
 void RowVector::appendNulls(vector_size_t numberOfRows) {

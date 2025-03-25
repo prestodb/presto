@@ -703,6 +703,10 @@ class MapVector : public ArrayVectorBase {
   std::shared_ptr<MapVector> update(
       const std::vector<std::shared_ptr<MapVector>>& others) const;
 
+  /// Same as the other `update' but can handle encodings on inputs.
+  std::shared_ptr<MapVector> update(
+      const folly::Range<DecodedVector*>& others) const;
+
  protected:
   virtual void resetDataDependentFlags(const SelectivityVector* rows) override {
     BaseVector::resetDataDependentFlags(rows);
@@ -720,7 +724,7 @@ class MapVector : public ArrayVectorBase {
 
   template <TypeKind kKeyTypeKind>
   std::shared_ptr<MapVector> updateImpl(
-      const std::vector<std::shared_ptr<MapVector>>& others) const;
+      const folly::Range<DecodedVector*>& others) const;
 
   VectorPtr keys_;
   VectorPtr values_;
