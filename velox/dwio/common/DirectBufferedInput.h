@@ -34,6 +34,12 @@ struct LoadRequest {
   LoadRequest(velox::common::Region& _region, cache::TrackingId _trackingId)
       : region(_region), trackingId(_trackingId) {}
 
+  bool operator<(const LoadRequest& other) const {
+    return region.offset < other.region.offset ||
+        (region.offset == other.region.offset &&
+         region.length > other.region.length);
+  }
+
   velox::common::Region region;
   cache::TrackingId trackingId;
 

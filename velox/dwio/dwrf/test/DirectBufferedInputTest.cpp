@@ -204,6 +204,13 @@ TEST_F(DirectBufferedInputTest, noRedownloadCoalescedPrefetch) {
   testLoads({{100, 100}, {201, 1, true}, {202, 100}}, 1, fsStats_);
 }
 
+TEST_F(DirectBufferedInputTest, coalesedPrefetchOverlap) {
+  testLoads(
+      {{100, 100}, {201, 1, false}, {201, 2, false}, {203, 100}}, 2, fsStats_);
+  testLoads(
+      {{100, 100}, {201, 1, true}, {201, 2, true}, {203, 100}}, 2, fsStats_);
+}
+
 TEST_F(DirectBufferedInputTest, ioStatsLifeTimeTest) {
   for (size_t i = 0; i < 10; i++) {
     auto stats =

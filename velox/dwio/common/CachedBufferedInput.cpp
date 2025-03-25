@@ -151,13 +151,11 @@ uint64_t getOffset(const CacheRequest& request) {
 }
 
 template <bool kSsd>
-std::pair<uint64_t, uint64_t> toRegion(const CacheRequest& request) {
-  return std::make_pair(getOffset<kSsd>(request), request.size);
-}
-
-template <bool kSsd>
 bool lessThan(const CacheRequest* left, const CacheRequest* right) {
-  return toRegion<kSsd>(*left) < toRegion<kSsd>(*right);
+  auto leftOffset = getOffset<kSsd>(*left);
+  auto rightOffset = getOffset<kSsd>(*right);
+  return leftOffset < rightOffset ||
+      (leftOffset == rightOffset && left->size > right->size);
 }
 
 } // namespace

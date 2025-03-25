@@ -199,8 +199,13 @@ class BufferedInput {
         }
         while (i < noPrefetch.size() &&
                getRegionEnd(noPrefetch[i]) <= coalesceEnd) {
-          prefetch[k++] = noPrefetch[i++];
-          ++numMoved;
+          if (getRegionOffset(noPrefetch[i]) >= coalesceStart) {
+            coalesceStart = getRegionEnd(noPrefetch[i]);
+            prefetch[k++] = noPrefetch[i++];
+            ++numMoved;
+          } else {
+            noPrefetch[l++] = noPrefetch[i++];
+          }
         }
         prefetch[k++] = oldPrefetch[j++];
       }

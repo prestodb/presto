@@ -84,7 +84,7 @@ bool isPrefetchablePct(int32_t pct) {
 }
 
 bool lessThan(const LoadRequest* left, const LoadRequest* right) {
-  return left->region < right->region;
+  return *left < *right;
 }
 
 } // namespace
