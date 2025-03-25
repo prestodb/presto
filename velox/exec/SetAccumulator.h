@@ -523,4 +523,9 @@ template <typename T>
 using SetAccumulator =
     typename detail::SetAccumulatorTypeTraits<T>::AccumulatorType;
 
+/// Specialization for floating point types to handle NaNs, where NaNs are
+/// treated as distinct values.
+template <typename T>
+using FloatSetAccumulatorNaNUnaware = typename detail::SetAccumulator<T>;
+
 } // namespace facebook::velox::aggregate::prestosql

@@ -24,6 +24,14 @@ namespace {
 template <typename T>
 using SparkSetAggAggregate = SetAggAggregate<T, true, false>;
 
+// NaN inputs are treated as distinct values.
+template <typename T>
+using FloatSetAggAggregateNaNUnaware = SetAggAggregate<
+    T,
+    true,
+    false,
+    velox::aggregate::prestosql::FloatSetAccumulatorNaNUnaware<T>>;
+
 } // namespace
 
 void registerCollectSetAggAggregate(
@@ -72,9 +80,11 @@ void registerCollectSetAggAggregate(
                 "Non-decimal use of HUGEINT is not supported");
             return std::make_unique<SparkSetAggAggregate<int128_t>>(resultType);
           case TypeKind::REAL:
-            return std::make_unique<SparkSetAggAggregate<float>>(resultType);
+            return std::make_unique<FloatSetAggAggregateNaNUnaware<float>>(
+                resultType);
           case TypeKind::DOUBLE:
-            return std::make_unique<SparkSetAggAggregate<double>>(resultType);
+            return std::make_unique<FloatSetAggAggregateNaNUnaware<double>>(
+                resultType);
           case TypeKind::TIMESTAMP:
             return std::make_unique<SparkSetAggAggregate<Timestamp>>(
                 resultType);

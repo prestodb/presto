@@ -70,6 +70,7 @@ TEST_F(CollectSetAggregateTest, global) {
   testAggregations(
       {data}, {}, {"collect_set(c0)"}, {"spark_array_sort(a0)"}, {expected});
 
+  // NaN inputs are treated as distinct values.
   data = makeRowVector({
       makeFlatVector<double>(
           {1,
@@ -80,7 +81,10 @@ TEST_F(CollectSetAggregateTest, global) {
 
   expected = makeRowVector({
       makeArrayVector<double>({
-          {1, std::numeric_limits<double>::quiet_NaN()},
+          {1,
+           std::numeric_limits<double>::quiet_NaN(),
+           std::nan("1"),
+           std::nan("2")},
       }),
   });
 
