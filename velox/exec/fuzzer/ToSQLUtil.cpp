@@ -123,6 +123,7 @@ void toCallInputsSql(
 const std::unordered_map<std::string, std::string>& unaryOperatorMap() {
   static std::unordered_map<std::string, std::string> unaryOperatorMap{
       {"negate", "-"},
+      {"not", "not"},
   };
   return unaryOperatorMap;
 }
