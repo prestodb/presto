@@ -1178,8 +1178,8 @@ uint32_t DateTimeFormatter::maxResultSize(const tz::TimeZone* timezone) const {
         size += 2;
         break;
       case DateTimeFormatSpecifier::YEAR_OF_ERA:
-        // Timestamp is in [-32767-01-01, 32767-12-31] range.
-        size += std::max((int)token.pattern.minRepresentDigits, 6);
+        // Timestamp is in [-292275054-01-01, 292278993-12-31] range.
+        size += std::max((int)token.pattern.minRepresentDigits, 9);
         break;
       case DateTimeFormatSpecifier::DAY_OF_WEEK_0_BASED:
       case DateTimeFormatSpecifier::DAY_OF_WEEK_1_BASED:
@@ -1193,12 +1193,14 @@ uint32_t DateTimeFormatter::maxResultSize(const tz::TimeZone* timezone) const {
         break;
       case DateTimeFormatSpecifier::WEEK_YEAR:
       case DateTimeFormatSpecifier::YEAR:
-        // Timestamp is in [-32767-01-01, 32767-12-31] range.
+        // Timestamp is in [-292275054-01-01, 292278993-12-31] range.
         size += token.pattern.minRepresentDigits == 2
             ? 2
-            : std::max((int)token.pattern.minRepresentDigits, 6);
+            : std::max((int)token.pattern.minRepresentDigits, 10);
         break;
       case DateTimeFormatSpecifier::CENTURY_OF_ERA:
+        size += std::max((int)token.pattern.minRepresentDigits, 8);
+        break;
       case DateTimeFormatSpecifier::DAY_OF_YEAR:
         size += std::max((int)token.pattern.minRepresentDigits, 3);
         break;
@@ -1239,11 +1241,6 @@ uint32_t DateTimeFormatter::maxResultSize(const tz::TimeZone* timezone) const {
           // 'ZZ' means output the time zone offset with a colon.
           size += 9;
         } else {
-          // 'ZZZ' (or more) means otuput the time zone ID.
-          if (timezone == nullptr) {
-            VELOX_USER_FAIL("Timezone unknown");
-          }
-
           // The longest time zone ID is 32, America/Argentina/ComodRivadavia.
           size += 32;
         }
@@ -1289,12 +1286,12 @@ int32_t DateTimeFormatter::format(
       switch (token.pattern.specifier) {
         case DateTimeFormatSpecifier::ERA: {
           const std::string_view piece =
-              static_cast<signed>(calDate.year()) > 0 ? "AD" : "BC";
+              static_cast<int64_t>(calDate.year()) > 0 ? "AD" : "BC";
           std::memcpy(result, piece.data(), piece.length());
           result += piece.length();
         } break;
         case DateTimeFormatSpecifier::CENTURY_OF_ERA: {
-          auto year = static_cast<signed>(calDate.year());
+          auto year = static_cast<int64_t>(calDate.year());
           year = (year < 0 ? -year : year);
           auto century = year / 100;
           result += padContent(
@@ -1306,7 +1303,7 @@ int32_t DateTimeFormatter::format(
         } break;
 
         case DateTimeFormatSpecifier::YEAR_OF_ERA: {
-          auto year = static_cast<signed>(calDate.year());
+          auto year = static_cast<int64_t>(calDate.year());
           if (token.pattern.minRepresentDigits == 2) {
             result +=
                 padContent(std::abs(year) % 100, '0', 2, maxResultEnd, result);
@@ -1351,10 +1348,10 @@ int32_t DateTimeFormatter::format(
 
         case DateTimeFormatSpecifier::WEEK_YEAR:
         case DateTimeFormatSpecifier::YEAR: {
-          auto year = static_cast<signed>(calDate.year());
+          auto year = static_cast<int64_t>(calDate.year());
           if (token.pattern.specifier == DateTimeFormatSpecifier::WEEK_YEAR) {
             const auto isoWeek = date::iso_week::year_weeknum_weekday{calDate};
-            year = isoWeek.year().ok() ? static_cast<signed>(isoWeek.year())
+            year = isoWeek.year().ok() ? static_cast<int64_t>(isoWeek.year())
                                        : year;
           }
           if (token.pattern.minRepresentDigits == 2) {
@@ -1504,6 +1501,10 @@ int32_t DateTimeFormatter::format(
             std::memcpy(result, zeroOffsetText->data(), zeroOffsetText->size());
             result += zeroOffsetText->size();
             break;
+          }
+
+          if (timezone == nullptr) {
+            VELOX_USER_FAIL("Timezone unknown");
           }
 
           if (token.pattern.minRepresentDigits >= 3) {

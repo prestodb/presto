@@ -308,6 +308,28 @@ TEST_F(DateTimeFunctionsTest, fromUnixtimeWithTimeZone) {
   EXPECT_EQ(
       fromUnixtime(1.7300479933495E9, "America/Costa_Rica"),
       TimestampWithTimezone(1730047993350, "America/Costa_Rica"));
+
+  // Maximum timestamp.
+  EXPECT_EQ(
+      fromUnixtime(2251799813685.247, "GMT"),
+      TimestampWithTimezone(2251799813685247, "GMT"));
+  EXPECT_EQ(
+      fromUnixtime(2251799813685.247, "America/Costa_Rica"),
+      TimestampWithTimezone(2251799813685247, "America/Costa_Rica"));
+  // Minimum timestamp.
+  EXPECT_EQ(
+      fromUnixtime(-2251799813685.248, "GMT"),
+      TimestampWithTimezone(-2251799813685248, "GMT"));
+  EXPECT_EQ(
+      fromUnixtime(-2251799813685.248, "America/Costa_Rica"),
+      TimestampWithTimezone(-2251799813685248, "America/Costa_Rica"));
+
+  // Test overflow in either direction.
+  VELOX_ASSERT_THROW(
+      fromUnixtime(2251799813685.248, "GMT"), "TimestampWithTimeZone overflow");
+  VELOX_ASSERT_THROW(
+      fromUnixtime(-2251799813685.249, "GMT"),
+      "TimestampWithTimeZone overflow");
 }
 
 TEST_F(DateTimeFunctionsTest, fromUnixtimeTzOffset) {
@@ -2686,20 +2708,20 @@ TEST_F(DateTimeFunctionsTest, dateDiffTimestamp) {
 
   // Check for integer overflow when result unit is month or larger.
   EXPECT_EQ(
-      -622191233,
+      106751991167,
       dateDiff("day", Timestamp(0, 0), Timestamp(9223372036854775, 0)));
   EXPECT_EQ(
-      -88884461,
+      15250284452,
       dateDiff("week", Timestamp(0, 0), Timestamp(9223372036854775, 0)));
-  VELOX_ASSERT_THROW(
-      dateDiff("month", Timestamp(0, 0), Timestamp(9223372036854775, 0)),
-      "Causes arithmetic overflow:");
-  VELOX_ASSERT_THROW(
-      dateDiff("quarter", Timestamp(0, 0), Timestamp(9223372036854775, 0)),
-      "Causes arithmetic overflow:");
-  VELOX_ASSERT_THROW(
-      dateDiff("year", Timestamp(0, 0), Timestamp(9223372036854775, 0)),
-      "Causes arithmetic overflow:");
+  EXPECT_EQ(
+      3507324295,
+      dateDiff("month", Timestamp(0, 0), Timestamp(9223372036854775, 0)));
+  EXPECT_EQ(
+      1169108098,
+      dateDiff("quarter", Timestamp(0, 0), Timestamp(9223372036854775, 0)));
+  EXPECT_EQ(
+      292277024,
+      dateDiff("year", Timestamp(0, 0), Timestamp(9223372036854775, 0)));
 
   // Simple tests
   EXPECT_EQ(
@@ -3370,6 +3392,18 @@ TEST_F(DateTimeFunctionsTest, parseDatetime) {
       TimestampWithTimezone(1708840800000, "GMT"),
       parseDatetime("GMT/2024-02-25+06:00:99", "ZZZ/yyyy-MM-dd+HH:mm:99"));
 
+  // Maximum timestamp.
+  EXPECT_EQ(
+      TimestampWithTimezone(2251799813685247, "UTC"),
+      parseDatetime(
+          "73326/09/11 20:14:45.247 UTC", "yyyy/MM/dd HH:mm:ss.SSS ZZZ"));
+
+  // Minimum timestamp.
+  EXPECT_EQ(
+      TimestampWithTimezone(-2251799813685248, "UTC"),
+      parseDatetime(
+          "-69387/04/22 03:45:14.752 UCT", "yyyy/MM/dd HH:mm:ss.SSS ZZZ"));
+
   // Test an invalid time zone without a prefix. (zzz should be used to match
   // abbreviations)
   VELOX_ASSERT_THROW(
@@ -3397,6 +3431,16 @@ TEST_F(DateTimeFunctionsTest, parseDatetime) {
           "2024-02-25+06:00:99 Pacific Standard Time",
           "yyyy-MM-dd+HH:mm:99 zzzzzzzzzz"),
       "Parsing time zone long names is not supported.");
+
+  // Test overflow in either direction.
+  VELOX_ASSERT_THROW(
+      parseDatetime(
+          "73326/09/11 20:14:45.248 UTC", "yyyy/MM/dd HH:mm:ss.SSS ZZZ"),
+      "TimestampWithTimeZone overflow");
+  VELOX_ASSERT_THROW(
+      parseDatetime(
+          "-69387/04/22 03:45:14.751 UTC", "yyyy/MM/dd HH:mm:ss.SSS ZZZ"),
+      "TimestampWithTimeZone overflow");
 }
 
 TEST_F(DateTimeFunctionsTest, formatDateTime) {
@@ -3630,6 +3674,32 @@ TEST_F(DateTimeFunctionsTest, formatDateTime) {
   EXPECT_EQ(
       "0010",
       formatDatetime(parseTimestamp("2022-01-01 03:30:30.001"), "SSSS"));
+
+  // Test the max and min years are formatted correctly.
+  EXPECT_EQ(
+      "2922789",
+      formatDatetime(parseTimestamp("292278993-12-31 23:59:59.999"), "C"));
+  EXPECT_EQ(
+      "292278993",
+      formatDatetime(parseTimestamp("292278993-12-31 23:59:59.999"), "YYYY"));
+  EXPECT_EQ(
+      "292278993",
+      formatDatetime(parseTimestamp("292278993-12-31 23:59:59.999"), "xxxx"));
+  EXPECT_EQ(
+      "292278993",
+      formatDatetime(parseTimestamp("292278993-12-31 23:59:59.999"), "yyyy"));
+  EXPECT_EQ(
+      "2922750",
+      formatDatetime(parseTimestamp("-292275054-01-01 00:00:00.000"), "C"));
+  EXPECT_EQ(
+      "292275055",
+      formatDatetime(parseTimestamp("-292275054-01-01 00:00:00.000"), "YYYY"));
+  EXPECT_EQ(
+      "-292275054",
+      formatDatetime(parseTimestamp("-292275054-01-01 00:00:00.000"), "xxxx"));
+  EXPECT_EQ(
+      "-292275054",
+      formatDatetime(parseTimestamp("-292275054-01-01 00:00:00.000"), "yyyy"));
 
   // Time zone test cases - 'Z'
   setQueryTimeZone("Asia/Kolkata");
@@ -4236,6 +4306,16 @@ TEST_F(DateTimeFunctionsTest, fromIso8601Timestamp) {
 
   EXPECT_EQ(TimestampWithTimezone(millis, "UTC"), fromIso(ts));
 
+  // Maximum timestamp.
+  EXPECT_EQ(
+      TimestampWithTimezone(2251799813685247, "UTC"),
+      fromIso("73326-09-11T20:14:45.247"));
+
+  // Minimum timestamp.
+  EXPECT_EQ(
+      TimestampWithTimezone(-2251799813685248, "UTC"),
+      fromIso("-69387-04-22T03:45:14.752"));
+
   // Partial strings with different session time zones.
   struct {
     const tz::TimeZone* timezone;
@@ -4417,6 +4497,13 @@ TEST_F(DateTimeFunctionsTest, fromIso8601Timestamp) {
   VELOX_ASSERT_THROW(
       fromIso("1970-01-02 "),
       R"(Unable to parse timestamp value: "1970-01-02 ")");
+
+  // Test overflow in either direction.
+  setQueryTimeZone("UTC");
+  VELOX_ASSERT_THROW(
+      fromIso("73326-09-11T20:14:45.248"), "TimestampWithTimeZone overflow");
+  VELOX_ASSERT_THROW(
+      fromIso("-69387-04-22T03:45:14.751"), "TimestampWithTimeZone overflow");
 }
 
 TEST_F(DateTimeFunctionsTest, dateParseMonthOfYearText) {
@@ -5075,20 +5162,19 @@ TEST_F(DateTimeFunctionsTest, lastDayOfMonthTimestampWithTimezone) {
 }
 
 TEST_F(DateTimeFunctionsTest, fromUnixtimeDouble) {
-  auto input = makeFlatVector<double>({
-      1623748302.,
-      1623748302.0,
-      1623748302.02,
-      1623748302.023,
-      1623748303.123,
-      1623748304.009,
-      1623748304.001,
-      1623748304.999,
-      1623748304.001290,
-      1623748304.001890,
-      1623748304.999390,
-      1623748304.999590,
-  });
+  auto input = makeFlatVector<double>(
+      {1623748302.,
+       1623748302.0,
+       1623748302.02,
+       1623748302.023,
+       1623748303.123,
+       1623748304.009,
+       1623748304.001,
+       1623748304.999,
+       1623748304.001290,
+       1623748304.001890,
+       1623748304.999390,
+       1623748304.999590});
   auto actual =
       evaluate("cast(from_unixtime(c0) as varchar)", makeRowVector({input}));
   auto expected = makeFlatVector<StringView>({

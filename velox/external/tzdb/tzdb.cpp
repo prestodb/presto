@@ -343,7 +343,7 @@ static void __matches(std::istream& __input, std::string_view __expected) {
     __input.get();
 
   int64_t __result = __parse_integral(__input, true);
-  if (__result > static_cast<int>(date::year::max())) {
+  if (__result > static_cast<int64_t>(date::year::max())) {
     if (__negative)
       std::__throw_runtime_error(
           "corrupt tzdb year: year is less than the minimum");

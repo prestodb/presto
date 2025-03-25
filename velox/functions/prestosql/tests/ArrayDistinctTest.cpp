@@ -389,12 +389,8 @@ TEST_F(ArrayDistinctTest, timestampWithTimezone) {
   testArrayDistinct({}, {});
   testArrayDistinct({pack(0, 0)}, {pack(0, 0)});
   testArrayDistinct({pack(1, 0)}, {pack(1, 0)});
-  testArrayDistinct(
-      {pack(std::numeric_limits<int64_t>::min(), 0)},
-      {pack(std::numeric_limits<int64_t>::min(), 0)});
-  testArrayDistinct(
-      {pack(std::numeric_limits<int64_t>::max(), 0)},
-      {pack(std::numeric_limits<int64_t>::max(), 0)});
+  testArrayDistinct({pack(kMinMillisUtc, 0)}, {pack(kMinMillisUtc, 0)});
+  testArrayDistinct({pack(kMaxMillisUtc, 0)}, {pack(kMaxMillisUtc, 0)});
   testArrayDistinct({std::nullopt}, {std::nullopt});
   testArrayDistinct({pack(-1, 0)}, {pack(-1, 0)});
   testArrayDistinct(

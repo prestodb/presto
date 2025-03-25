@@ -382,20 +382,6 @@ TEST(TimestampTest, decreaseOperator) {
   VELOX_ASSERT_THROW(--kMin, "Timestamp nanos out of range");
 }
 
-TEST(TimestampTest, outOfRange) {
-  // external/date cannot handle years larger than 32k (date::year::max()).
-  // Any conversions exceeding that threshold will fail right away.
-  auto* timezone = tz::locateZone("GMT");
-  Timestamp t1(-3217830796800, 0);
-
-  std::string expected = "Timepoint is outside of supported year range";
-  VELOX_ASSERT_THROW(t1.toTimePointMs(), expected);
-  VELOX_ASSERT_THROW(t1.toTimezone(*timezone), expected);
-
-  timezone = tz::locateZone("America/Los_Angeles");
-  VELOX_ASSERT_THROW(t1.toGMT(*timezone), expected);
-}
-
 // In debug mode, Timestamp constructor will throw exception if range check
 // fails.
 #ifdef NDEBUG

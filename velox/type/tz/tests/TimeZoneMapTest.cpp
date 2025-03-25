@@ -140,16 +140,23 @@ TEST(TimeZoneMapTest, timePointBoundary) {
   EXPECT_NO_THROW(tryLocalYear(year::max()));
   EXPECT_NO_THROW(tryLocalYear(year::min()));
 
-  std::string expected = "Timepoint is outside of supported year range";
-  VELOX_ASSERT_THROW(trySysYear(year(int(year::max()) + 1)), expected);
-  VELOX_ASSERT_THROW(trySysYear(year(int(year::min()) - 1)), expected);
+  std::string expected =
+      "Timepoint is outside of supported timestamp seconds since epoch range:";
+  VELOX_ASSERT_THROW(
+      trySysYear(year(int64_t(year::max()) + 1)),
+      "Timepoint is outside of supported year range");
+  VELOX_ASSERT_THROW(trySysYear(year(int64_t(year::min()) - 1)), expected);
 
-  VELOX_ASSERT_THROW(tryLocalYear(year(int(year::max()) + 1)), expected);
-  VELOX_ASSERT_THROW(tryLocalYear(year(int(year::min()) - 1)), expected);
+  VELOX_ASSERT_THROW(
+      tryLocalYear(year(int64_t(year::max()) + 1)),
+      "Timepoint is outside of supported year range");
+  VELOX_ASSERT_THROW(tryLocalYear(year(int64_t(year::min()) - 1)), expected);
 
   // This time point triggers an assertion failure in external/date. Make sure
   // we catch and throw before getting to that point.
-  VELOX_ASSERT_THROW(tz->to_sys(seconds{-1096193779200l - 86400l}), expected);
+  VELOX_ASSERT_THROW(
+      tz->to_sys(seconds{std::numeric_limits<int64_t>::max()}),
+      "Timepoint is outside of supported timestamp seconds since epoch range:");
 }
 
 TEST(TimeZoneMapTest, getTimeZoneName) {

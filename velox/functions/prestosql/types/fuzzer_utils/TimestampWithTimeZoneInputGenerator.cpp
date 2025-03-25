@@ -40,6 +40,6 @@ variant TimestampWithTimeZoneInputGenerator::generate() {
   int16_t timeZoneId =
       timeZoneIds_[rand<size_t>(rng_, 0, timeZoneIds_.size() - 1)];
 
-  return pack(rand<int64_t>(rng_), timeZoneId);
+  return pack(rand<int64_t>(rng_, kMinMillisUtc, kMaxMillisUtc), timeZoneId);
 }
 } // namespace facebook::velox::fuzzer

@@ -389,7 +389,8 @@ FOLLY_ALWAYS_INLINE int64_t diffTimestamp(
       static_cast<unsigned>(toCalLastYearMonthDay.day());
 
   if (unit == DateTimeUnit::kMonth || unit == DateTimeUnit::kQuarter) {
-    int64_t diff = (int(toCalDate.year()) - int(fromCalDate.year())) * 12 +
+    int64_t diff =
+        (int64_t(toCalDate.year()) - int64_t(fromCalDate.year())) * 12 +
         int(toMonth) - int(fromMonth);
 
     if ((toDay != toLastYearMonthDay && fromDay > toDay) ||

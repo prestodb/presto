@@ -244,6 +244,18 @@ void validateRangeImpl(time_point<TDuration> timePoint) {
   static constexpr auto kMinYear = year::min();
   static constexpr auto kMaxYear = year::max();
 
+  if (timePoint.time_since_epoch() <
+          std::chrono::seconds(std::numeric_limits<int64_t>::min() / 1000) ||
+      timePoint.time_since_epoch() >
+          std::chrono::seconds(std::numeric_limits<int64_t>::max() / 1000)) {
+    VELOX_FAIL_UNSUPPORTED_INPUT_UNCATCHABLE(
+        "Timepoint is outside of supported timestamp seconds since epoch range: [{}, {}], got {}",
+        std::chrono::seconds(std::numeric_limits<int64_t>::min() / 1000)
+            .count(),
+        std::chrono::seconds(std::numeric_limits<int64_t>::max() / 1000)
+            .count(),
+        static_cast<int64_t>(timePoint.time_since_epoch().count()));
+  }
   auto year = year_month_day(floor<days>(timePoint)).year();
 
   if (year < kMinYear || year > kMaxYear) {
@@ -251,9 +263,9 @@ void validateRangeImpl(time_point<TDuration> timePoint) {
     // VeloxRuntimeError to avoid it being suppressed by TRY().
     VELOX_FAIL_UNSUPPORTED_INPUT_UNCATCHABLE(
         "Timepoint is outside of supported year range: [{}, {}], got {}",
-        static_cast<int>(kMinYear),
-        static_cast<int>(kMaxYear),
-        static_cast<int>(year));
+        static_cast<int64_t>(kMinYear),
+        static_cast<int64_t>(kMaxYear),
+        static_cast<int64_t>(year));
   }
 }
 

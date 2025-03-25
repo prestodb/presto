@@ -337,12 +337,10 @@ TEST_F(DateTimeFunctionsTest, unixTimestampDateInput) {
   EXPECT_EQ(1727766000, unixTimestamp(parseDate("2024-10-01")));
   EXPECT_EQ(-126065866022, unixTimestamp(parseDate("-2025-02-18")));
   EXPECT_EQ(2398320000, unixTimestamp(parseDate("2045-12-31")));
-
-  // Test invalid inputs.
-  VELOX_ASSERT_THROW(
-      unixTimestamp(kMax), "Timepoint is outside of supported year range");
-  VELOX_ASSERT_THROW(
-      unixTimestamp(kMin), "Timepoint is outside of supported year range");
+  EXPECT_EQ(
+      185542587126000, unixTimestamp(std::numeric_limits<int32_t>::max()));
+  EXPECT_EQ(
+      -185542587158822, unixTimestamp(std::numeric_limits<int32_t>::min()));
 }
 
 // unix_timestamp and to_unix_timestamp are aliases.

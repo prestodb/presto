@@ -1331,20 +1331,20 @@ TEST_F(JodaDateTimeFormatterTest, formatResultSize) {
   auto* timezone = tz::locateZone("GMT");
 
   EXPECT_EQ(
-      getJodaDateTimeFormatter("yyyy-MM-dd")->maxResultSize(timezone), 12);
-  EXPECT_EQ(getJodaDateTimeFormatter("yyyy-MM")->maxResultSize(timezone), 9);
-  EXPECT_EQ(getJodaDateTimeFormatter("y")->maxResultSize(timezone), 6);
+      getJodaDateTimeFormatter("yyyy-MM-dd")->maxResultSize(timezone), 16);
+  EXPECT_EQ(getJodaDateTimeFormatter("yyyy-MM")->maxResultSize(timezone), 13);
+  EXPECT_EQ(getJodaDateTimeFormatter("y")->maxResultSize(timezone), 10);
   EXPECT_EQ(
       getJodaDateTimeFormatter("yyyy////MM////dd")->maxResultSize(timezone),
-      18);
+      22);
   EXPECT_EQ(
       getJodaDateTimeFormatter("yyyy-MM-dd HH:mm:ss.SSS")
           ->maxResultSize(timezone),
-      31);
-  // No padding. CENTURY_OF_ERA can be at most 3 digits.
-  EXPECT_EQ(getJodaDateTimeFormatter("C")->maxResultSize(timezone), 3);
-  // Needs to pad to make result contain 4 digits.
-  EXPECT_EQ(getJodaDateTimeFormatter("CCCC")->maxResultSize(timezone), 4);
+      35);
+  // No padding. CENTURY_OF_ERA can be at most 8 digits.
+  EXPECT_EQ(getJodaDateTimeFormatter("C")->maxResultSize(timezone), 8);
+  // Needs to pad to make result contain 9 digits.
+  EXPECT_EQ(getJodaDateTimeFormatter("CCCCCCCCC")->maxResultSize(timezone), 9);
 }
 
 TEST_F(JodaDateTimeFormatterTest, betterErrorMessaging) {
@@ -1460,11 +1460,13 @@ TEST_F(MysqlDateTimeTest, formatYear) {
       formatMysqlDateTime("%Y", fromTimestampString("-1-01-01"), timezone),
       "-0001");
   EXPECT_THROW(
-      formatMysqlDateTime("%Y", fromTimestampString("-99999-01-01"), timezone),
-      VeloxRuntimeError);
+      formatMysqlDateTime(
+          "%Y", fromTimestampString("-292275056-01-01"), timezone),
+      VeloxUserError);
   EXPECT_THROW(
-      formatMysqlDateTime("%Y", fromTimestampString("99999-01-01"), timezone),
-      VeloxRuntimeError);
+      formatMysqlDateTime(
+          "%Y", fromTimestampString("292278995-01-01"), timezone),
+      VeloxUserError);
 }
 
 TEST_F(MysqlDateTimeTest, formatMonthDay) {
