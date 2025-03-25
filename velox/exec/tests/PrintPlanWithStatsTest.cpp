@@ -176,10 +176,13 @@ TEST_F(PrintPlanWithStatsTest, innerJoinWithTableScan) {
        {"     HashProbe: Input: 2000 rows \\(.+\\), Output: 2000 rows \\(.+\\), Cpu time: .+, Blocked wall time: .+, Peak memory: .+, Memory allocations: .+, Threads: 1, CPU breakdown: B/I/O/F (.+/.+/.+/.+)"},
        // These lines may or may not appear depending on whether the operator
        // gets blocked during a run.
-       {"        blockedWaitForJoinBuildTimes\\s+sum: 1, count: 1, min: 1, max: 1, avg: 1"},
-       {"        blockedWaitForJoinBuildWallNanos\\s+sum: .+, count: 1, min: .+, max: .+"},
-       {"        dynamicFiltersProduced\\s+sum: 1, count: 1, min: 1, max: 1, avg: 1"},
-       {"        queuedWallNanos\\s+sum: .+, count: 1, min: .+, max: .+"},
+       {"        blockedWaitForJoinBuildTimes\\s+sum: 1, count: 1, min: 1, max: 1, avg: 1",
+        true},
+       {"        blockedWaitForJoinBuildWallNanos\\s+sum: .+, count: 1, min: .+, max: .+",
+        true},
+       {"        dynamicFiltersProduced\\s+sum: 1, count: 1, min: 1, max: 1, avg: 1",
+        true},
+       {"        queuedWallNanos\\s+sum: .+, count: 1, min: .+, max: .+", true},
        // This line may or may not appear depending on how the threads
        // running the Drivers are executed, this only appears if the
        // HashProbe has to wait for the HashBuild construction.
@@ -200,9 +203,11 @@ TEST_F(PrintPlanWithStatsTest, innerJoinWithTableScan) {
        {"          numStripes[ ]* sum: .+, count: 1, min: .+, max: .+"},
        {"          overreadBytes[ ]* sum: 0B, count: 1, min: 0B, max: 0B, avg: 0B"},
        {"          prefetchBytes       [ ]* sum: .+, count: 1, min: .+, max: .+"},
-       {"          preloadedSplits[ ]+sum: .+, count: .+, min: .+, max: .+"},
+       {"          preloadedSplits[ ]+sum: .+, count: .+, min: .+, max: .+",
+        true},
        {"          ramReadBytes        [ ]* sum: .+, count: 1, min: .+, max: .+"},
-       {"          readyPreloadedSplits[ ]+sum: .+, count: .+, min: .+, max: .+"},
+       {"          readyPreloadedSplits[ ]+sum: .+, count: .+, min: .+, max: .+",
+        true},
        {"          runningAddInputWallNanos\\s+sum: .+, count: 1, min: .+, max: .+"},
        {"          runningFinishWallNanos\\s+sum: .+, count: 1, min: .+, max: .+"},
        {"          runningGetOutputWallNanos\\s+sum: .+, count: 1, min: .+, max: .+"},
