@@ -87,6 +87,7 @@ class LocalRunnerTestBase : public HiveConnectorTestBase {
   // The top level directory with the test data.
   inline static bool initialized_;
   inline static std::string testDataPath_;
+  inline static std::string localFileFormat_{"dwrf"};
   inline static std::shared_ptr<TempDirectoryPath> files_;
   /// Map from table name to list of file system paths.
   inline static std::unordered_map<std::string, std::vector<std::string>>

@@ -61,7 +61,7 @@ void LocalRunnerTestBase::setupConnector() {
 
   std::unordered_map<std::string, std::string> configs;
   configs[connector::hive::HiveConfig::kLocalDataPath] = testDataPath_;
-  configs[connector::hive::HiveConfig::kLocalFileFormat] = "dwrf";
+  configs[connector::hive::HiveConfig::kLocalFileFormat] = localFileFormat_;
   auto hiveConnector =
       connector::getConnectorFactory(
           connector::hive::HiveConnectorFactory::kHiveConnectorName)
