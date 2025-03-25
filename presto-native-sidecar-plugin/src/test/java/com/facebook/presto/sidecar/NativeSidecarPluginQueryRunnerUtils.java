@@ -13,16 +13,22 @@
  */
 package com.facebook.presto.sidecar;
 
+import com.facebook.presto.metadata.InMemoryNodeManager;
+import com.facebook.presto.nodeManager.PluginNodeManager;
+import com.facebook.presto.sidecar.expressions.NativeExpressionOptimizerFactory;
 import com.facebook.presto.sidecar.functionNamespace.NativeFunctionNamespaceManagerFactory;
 import com.facebook.presto.sidecar.sessionpropertyproviders.NativeSystemSessionPropertyProviderFactory;
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableMap;
+
+import java.io.IOException;
 
 public class NativeSidecarPluginQueryRunnerUtils
 {
     private NativeSidecarPluginQueryRunnerUtils() {};
 
     public static void setupNativeSidecarPlugin(QueryRunner queryRunner)
+            throws IOException
     {
         queryRunner.installCoordinatorPlugin(new NativeSidecarPlugin());
         queryRunner.loadSessionPropertyProvider(NativeSystemSessionPropertyProviderFactory.NAME);
@@ -32,5 +38,7 @@ public class NativeSidecarPluginQueryRunnerUtils
                 ImmutableMap.of(
                         "supported-function-languages", "CPP",
                         "function-implementation-type", "CPP"));
+        queryRunner.getExpressionManager().loadExpressionOptimizerFactory(NativeExpressionOptimizerFactory.NAME, "native", ImmutableMap.of());
+        queryRunner.getPlanCheckerProviderManager().loadPlanCheckerProviders(new PluginNodeManager(new InMemoryNodeManager()));
     }
 }

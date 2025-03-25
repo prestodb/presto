@@ -432,6 +432,12 @@ public class PrestoNativeQueryRunnerUtils
         return createNativeQueryRunner(useThrift, DEFAULT_STORAGE_FORMAT, Optional.empty(), failOnNestedLoopJoin, false, false, false, false);
     }
 
+    public static QueryRunner createNativeQueryRunner(boolean useThrift, boolean failOnNestedLoopJoin, boolean isCoordinatorSidecarEnabled)
+            throws Exception
+    {
+        return createNativeQueryRunner(useThrift, DEFAULT_STORAGE_FORMAT, Optional.empty(), failOnNestedLoopJoin, isCoordinatorSidecarEnabled, false);
+    }
+
     public static QueryRunner createNativeQueryRunner(boolean useThrift, String storageFormat)
             throws Exception
     {
@@ -521,6 +527,11 @@ public class PrestoNativeQueryRunnerUtils
             boolean enableRuntimeMetricsCollection,
             boolean enableSsdCache)
     {
+        return getExternalWorkerLauncher(catalogName, prestoServerPath, OptionalInt.empty(), cacheMaxSize, remoteFunctionServerUds, failOnNestedLoopJoin, isCoordinatorSidecarEnabled);
+    }
+
+    public static Optional<BiFunction<Integer, URI, Process>> getExternalWorkerLauncher(String catalogName, String prestoServerPath, OptionalInt port, int cacheMaxSize, Optional<String> remoteFunctionServerUds, Boolean failOnNestedLoopJoin, boolean isCoordinatorSidecarEnabled)
+    {
         return
                 Optional.of((workerIndex, discoveryUri) -> {
                     try {
@@ -533,7 +544,8 @@ public class PrestoNativeQueryRunnerUtils
                         String configProperties = format("discovery.uri=%s%n" +
                                 "presto.version=testversion%n" +
                                 "system-memory-gb=4%n" +
-                                "http-server.http.port=0%n", discoveryUri);
+                                "native-sidecar=true%n" +
+                                "http-server.http.port=%d", discoveryUri, port.orElse(0));
 
                         if (isCoordinatorSidecarEnabled) {
                             configProperties = format("%s%n" +
