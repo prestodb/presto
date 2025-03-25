@@ -101,6 +101,7 @@ public class QueryManagerConfig
     private int rateLimiterCacheWindowMinutes = 5;
 
     private int minColumnarEncodingChannelsToPreferRowWiseEncoding = 1000;
+    private int taskSchedulerThreads = 50;
 
     @Min(1)
     public int getScheduleSplitBatchSize()
@@ -750,6 +751,18 @@ public class QueryManagerConfig
     public QueryManagerConfig setMinColumnarEncodingChannelsToPreferRowWiseEncoding(int minColumnarEncodingChannelsToPreferRowWiseEncoding)
     {
         this.minColumnarEncodingChannelsToPreferRowWiseEncoding = minColumnarEncodingChannelsToPreferRowWiseEncoding;
+        return this;
+    }
+
+    public int getTaskSchedulerThreads()
+    {
+        return taskSchedulerThreads;
+    }
+
+    @Config("task-scheduler-threads")
+    public QueryManagerConfig setTaskSchedulerThreads(int taskSchedulerThreads)
+    {
+        this.taskSchedulerThreads = taskSchedulerThreads;
         return this;
     }
 

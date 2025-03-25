@@ -475,7 +475,7 @@ public final class SqlStageExecution
         return Optional.of(scheduleTask(node, new TaskId(stateMachine.getStageExecutionId(), partition, DEFAULT_TASK_ATTEMPT_NUMBER), ImmutableMultimap.of()));
     }
 
-    public synchronized Set<RemoteTask> scheduleSplits(InternalNode node, Multimap<PlanNodeId, Split> splits, Multimap<PlanNodeId, Lifespan> noMoreSplitsNotification)
+    public Set<RemoteTask> scheduleSplits(InternalNode node, Multimap<PlanNodeId, Split> splits, Multimap<PlanNodeId, Lifespan> noMoreSplitsNotification)
     {
         requireNonNull(node, "node is null");
         requireNonNull(splits, "splits is null");
@@ -513,7 +513,7 @@ public final class SqlStageExecution
         return newTasks.build();
     }
 
-    private synchronized RemoteTask scheduleTask(InternalNode node, TaskId taskId, Multimap<PlanNodeId, Split> sourceSplits)
+    private RemoteTask scheduleTask(InternalNode node, TaskId taskId, Multimap<PlanNodeId, Split> sourceSplits)
     {
         checkArgument(!allTasks.contains(taskId), "A task with id %s already exists", taskId);
 
