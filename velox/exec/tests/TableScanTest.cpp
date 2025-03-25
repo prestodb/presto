@@ -203,19 +203,8 @@ class TableScanTest : public virtual HiveConnectorTestBase {
                   .planNode();
 
     std::string partitionValueStr;
-    if (partitionType->isTimestamp() && partitionValue.has_value()) {
-      auto t = util::fromTimestampString(
-                   StringView(*partitionValue),
-                   util::TimestampParseMode::kPrestoCast)
-                   .thenOrThrow(folly::identity, [&](const Status& status) {
-                     VELOX_USER_FAIL("{}", status.message());
-                   });
-      t.toGMT(Timestamp::defaultTimezone());
-      partitionValueStr = "'" + t.toString() + "'";
-    } else {
-      partitionValueStr =
-          partitionValue.has_value() ? "'" + *partitionValue + "'" : "null";
-    }
+    partitionValueStr =
+        partitionValue.has_value() ? "'" + *partitionValue + "'" : "null";
     assertQuery(
         op, split, fmt::format("SELECT {}, * FROM tmp", partitionValueStr));
 
@@ -2062,48 +2051,187 @@ TEST_F(TableScanTest, partitionedTableTimestampKey) {
   writeToFile(filePath->getPath(), vectors);
   createDuckDbTable(vectors);
   const std::string partitionValue = "2023-10-27 00:12:35";
-  testPartitionedTable(filePath->getPath(), TIMESTAMP(), partitionValue);
+
+  auto partitionType = TIMESTAMP();
+  // Test partition value is null.
+  testPartitionedTable(filePath->getPath(), partitionType, std::nullopt);
+
+  auto split = exec::test::HiveConnectorSplitBuilder(filePath->getPath())
+                   .partitionKey("pkey", partitionValue)
+                   .build();
+
+  ColumnHandleMap assignments = {
+      {"pkey", partitionKey("pkey", TIMESTAMP())},
+      {"c0", regularColumn("c0", BIGINT())},
+      {"c1", regularColumn("c1", DOUBLE())}};
+
+  Timestamp ts =
+      util::fromTimestampString(
+          StringView(partitionValue), util::TimestampParseMode::kPrestoCast)
+          .thenOrThrow(folly::identity, [&](const Status& status) {
+            VELOX_USER_FAIL("{}", status.message());
+          });
+  // Read timestamp partition value as UTC.
+  std::string tsValue = "'" + ts.toString() + "'";
+
+  Timestamp tsAsLocalTime = ts;
+  tsAsLocalTime.toGMT(Timestamp::defaultTimezone());
+  // Read timestamp partition value as local time.
+  std::string tsValueAsLocal = "'" + tsAsLocalTime.toString() + "'";
+
+  {
+    auto plan =
+        PlanBuilder()
+            .startTableScan()
+            .tableName("hive_table")
+            .outputType(
+                ROW({"pkey", "c0", "c1"}, {partitionType, BIGINT(), DOUBLE()}))
+            .assignments(assignments)
+            .endTableScan()
+            .planNode();
+
+    auto expect = [&](bool asLocalTime) {
+      AssertQueryBuilder(plan, duckDbQueryRunner_)
+          .connectorSessionProperty(
+              kHiveConnectorId,
+              connector::hive::HiveConfig::
+                  kReadTimestampPartitionValueAsLocalTimeSession,
+              asLocalTime ? "true" : "false")
+          .splits({split})
+          .assertResults(fmt::format(
+              "SELECT {}, * FROM tmp", asLocalTime ? tsValueAsLocal : tsValue));
+    };
+
+    expect(true);
+    expect(false);
+  }
+
+  {
+    auto plan =
+        PlanBuilder()
+            .startTableScan()
+            .tableName("hive_table")
+            .outputType(
+                ROW({"c0", "pkey", "c1"}, {BIGINT(), partitionType, DOUBLE()}))
+            .assignments(assignments)
+            .endTableScan()
+            .planNode();
+
+    auto expect = [&](bool asLocalTime) {
+      AssertQueryBuilder(plan, duckDbQueryRunner_)
+          .connectorSessionProperty(
+              kHiveConnectorId,
+              connector::hive::HiveConfig::
+                  kReadTimestampPartitionValueAsLocalTimeSession,
+              asLocalTime ? "true" : "false")
+          .splits({split})
+          .assertResults(fmt::format(
+              "SELECT c0, {}, c1 FROM tmp",
+              asLocalTime ? tsValueAsLocal : tsValue));
+    };
+    expect(true);
+    expect(false);
+  }
+
+  {
+    auto plan =
+        PlanBuilder()
+            .startTableScan()
+            .tableName("hive_table")
+            .outputType(
+                ROW({"c0", "c1", "pkey"}, {BIGINT(), DOUBLE(), partitionType}))
+            .assignments(assignments)
+            .endTableScan()
+            .planNode();
+
+    auto expect = [&](bool asLocalTime) {
+      AssertQueryBuilder(plan, duckDbQueryRunner_)
+          .connectorSessionProperty(
+              kHiveConnectorId,
+              connector::hive::HiveConfig::
+                  kReadTimestampPartitionValueAsLocalTimeSession,
+              asLocalTime ? "true" : "false")
+          .splits({split})
+          .assertResults(fmt::format(
+              "SELECT c0, c1, {} FROM tmp",
+              asLocalTime ? tsValueAsLocal : tsValue));
+    };
+    expect(true);
+    expect(false);
+  }
+
+  {
+    // Select only partition key.
+    auto plan =
+        PlanBuilder()
+            .startTableScan()
+            .tableName("hive_table")
+            .outputType(ROW({"pkey"}, {partitionType}))
+            .assignments({{"pkey", partitionKey("pkey", partitionType)}})
+            .endTableScan()
+            .planNode();
+
+    auto expect = [&](bool asLocalTime) {
+      AssertQueryBuilder(plan, duckDbQueryRunner_)
+          .connectorSessionProperty(
+              kHiveConnectorId,
+              connector::hive::HiveConfig::
+                  kReadTimestampPartitionValueAsLocalTimeSession,
+              asLocalTime ? "true" : "false")
+          .splits({split})
+          .assertResults(fmt::format(
+              "SELECT {} FROM tmp", asLocalTime ? tsValueAsLocal : tsValue));
+    };
+    expect(true);
+    expect(false);
+  }
 
   // Test partition filter on TIMESTAMP column.
   {
-    auto split = exec::test::HiveConnectorSplitBuilder(filePath->getPath())
-                     .partitionKey("pkey", partitionValue)
-                     .build();
-    auto outputType =
-        ROW({"pkey", "c0", "c1"}, {TIMESTAMP(), BIGINT(), DOUBLE()});
-    ColumnHandleMap assignments = {
-        {"pkey", partitionKey("pkey", TIMESTAMP())},
-        {"c0", regularColumn("c0", BIGINT())},
-        {"c1", regularColumn("c1", DOUBLE())}};
+    auto planWithSubfilter = [&](bool asLocalTime) {
+      auto outputType =
+          ROW({"pkey", "c0", "c1"}, {TIMESTAMP(), BIGINT(), DOUBLE()});
+      common::SubfieldFilters filters;
+      // pkey = 2023-10-27 00:12:35.
+      auto lower =
+          util::fromTimestampString(
+              StringView(partitionValue), util::TimestampParseMode::kPrestoCast)
+              .value();
+      if (asLocalTime) {
+        lower.toGMT(Timestamp::defaultTimezone());
+      }
+      filters[common::Subfield("pkey")] =
+          std::make_unique<common::TimestampRange>(lower, lower, false);
+      auto tableHandle = std::make_shared<HiveTableHandle>(
+          "test-hive",
+          "hive_table",
+          true,
+          std::move(filters),
+          nullptr,
+          nullptr);
 
-    common::SubfieldFilters filters;
-    // pkey = 2023-10-27 00:12:35.
-    auto lower = util::fromTimestampString(
-                     StringView("2023-10-27 00:12:35"),
-                     util::TimestampParseMode::kPrestoCast)
-                     .value();
-    lower.toGMT(Timestamp::defaultTimezone());
-    filters[common::Subfield("pkey")] =
-        std::make_unique<common::TimestampRange>(lower, lower, false);
+      return PlanBuilder()
+          .startTableScan()
+          .tableHandle(tableHandle)
+          .outputType(outputType)
+          .assignments(assignments)
+          .endTableScan()
+          .planNode();
+    };
 
-    auto tableHandle = std::make_shared<HiveTableHandle>(
-        "test-hive", "hive_table", true, std::move(filters), nullptr, nullptr);
-    auto op = std::make_shared<TableScanNode>(
-        "0",
-        std::move(outputType),
-        std::move(tableHandle),
-        std::move(assignments));
-
-    auto t =
-        util::fromTimestampString(
-            StringView(partitionValue), util::TimestampParseMode::kPrestoCast)
-            .thenOrThrow(folly::identity, [&](const Status& status) {
-              VELOX_USER_FAIL("{}", status.message());
-            });
-    t.toGMT(Timestamp::defaultTimezone());
-    std::string partitionValueStr = "'" + t.toString() + "'";
-    assertQuery(
-        op, split, fmt::format("SELECT {}, * FROM tmp", partitionValueStr));
+    auto expect = [&](bool asLocalTime) {
+      AssertQueryBuilder(planWithSubfilter(asLocalTime), duckDbQueryRunner_)
+          .connectorSessionProperty(
+              kHiveConnectorId,
+              connector::hive::HiveConfig::
+                  kReadTimestampPartitionValueAsLocalTimeSession,
+              asLocalTime ? "true" : "false")
+          .splits({split})
+          .assertResults(fmt::format(
+              "SELECT {}, * FROM tmp", asLocalTime ? tsValueAsLocal : tsValue));
+    };
+    expect(true);
+    expect(false);
   }
 }
 

@@ -295,7 +295,9 @@ bool SplitReader::filterOnStats(
           baseReader_.get(),
           hiveSplit_->filePath,
           hiveSplit_->partitionKeys,
-          *partitionKeys_)) {
+          *partitionKeys_,
+          hiveConfig_->readTimestampPartitionValueAsLocalTime(
+              connectorQueryCtx_->sessionProperties()))) {
     return true;
   }
   ++runtimeStats.skippedSplits;
