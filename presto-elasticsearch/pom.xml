@@ -135,7 +135,7 @@
                     <artifactId>httpcore</artifactId>
                 </exclusion>
 
-                    <!-- elasticsearch-rest-high-level-client 6.0.0 brings in commons-codec 1.10 vs (1.9) -->
+                <!-- elasticsearch-rest-high-level-client 6.0.0 brings in commons-codec 1.10 vs (1.9) -->
                 <exclusion>
                     <groupId>commons-codec</groupId>
                     <artifactId>commons-codec</artifactId>
@@ -201,6 +201,20 @@
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-common</artifactId>
             <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.facebook.airlift</groupId>
+                    <artifactId>http-client</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.facebook.drift</groupId>
+                    <artifactId>drift-codec</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.facebook.drift</groupId>
+                    <artifactId>drift-protocol</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -351,10 +365,10 @@
             <version>${dep.elasticsearch.version}</version>
             <scope>test</scope>
             <exclusions>
-                 <exclusion>
+                <exclusion>
                     <groupId>io.netty</groupId>
                     <artifactId>*</artifactId>
-                 </exclusion>
+                </exclusion>
             </exclusions>
         </dependency>
 

@@ -83,7 +83,7 @@
                 </exclusion>
                 <exclusion>
                     <groupId>org.glassfish.hk2.external</groupId>
-                    <artifactId> aopalliance-repackaged</artifactId>
+                    <artifactId>aopalliance-repackaged</artifactId>
                 </exclusion>
                 <exclusion>
                     <groupId>com.google.errorprone</groupId>
@@ -523,6 +523,12 @@
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-common</artifactId>
             <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId></groupId>
+                    <artifactId></artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
