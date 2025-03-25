@@ -532,6 +532,7 @@ public class PrestoNativeQueryRunnerUtils
                         // Write config file - use an ephemeral port for the worker.
                         String configProperties = format("discovery.uri=%s%n" +
                                 "presto.version=testversion%n" +
+                                "native-execution-enabled=true" +
                                 "system-memory-gb=4%n" +
                                 "http-server.http.port=0%n", discoveryUri);
 

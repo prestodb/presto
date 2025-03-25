@@ -65,10 +65,13 @@ public class WindowFilterPushDown
     private final RowExpressionDomainTranslator domainTranslator;
     private final LogicalRowExpressions logicalRowExpressions;
 
-    public WindowFilterPushDown(Metadata metadata)
+    private boolean isNativeExecution;
+
+    public WindowFilterPushDown(Metadata metadata, boolean isNativeExecution)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.domainTranslator = new RowExpressionDomainTranslator(metadata);
+        this.isNativeExecution = isNativeExecution;
         this.logicalRowExpressions = new LogicalRowExpressions(
                 new RowExpressionDeterminismEvaluator(metadata.getFunctionAndTypeManager()),
                 new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver()),
@@ -84,7 +87,7 @@ public class WindowFilterPushDown
         requireNonNull(variableAllocator, "variableAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        Rewriter rewriter = new Rewriter(idAllocator, metadata, domainTranslator, logicalRowExpressions, session);
+        Rewriter rewriter = new Rewriter(idAllocator, metadata, domainTranslator, logicalRowExpressions, session, isNativeExecution);
         PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, null);
         return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());
     }
@@ -97,15 +100,17 @@ public class WindowFilterPushDown
         private final RowExpressionDomainTranslator domainTranslator;
         private final LogicalRowExpressions logicalRowExpressions;
         private final Session session;
+        private final boolean isNativeExecution;
         private boolean planChanged;
 
-        private Rewriter(PlanNodeIdAllocator idAllocator, Metadata metadata, RowExpressionDomainTranslator domainTranslator, LogicalRowExpressions logicalRowExpressions, Session session)
+        private Rewriter(PlanNodeIdAllocator idAllocator, Metadata metadata, RowExpressionDomainTranslator domainTranslator, LogicalRowExpressions logicalRowExpressions, Session session, boolean isNativeExecution)
         {
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.domainTranslator = requireNonNull(domainTranslator, "domainTranslator is null");
             this.logicalRowExpressions = logicalRowExpressions;
             this.session = requireNonNull(session, "session is null");
+            this.isNativeExecution = isNativeExecution;
         }
 
         public boolean isPlanChanged()
@@ -138,6 +143,7 @@ public class WindowFilterPushDown
         public PlanNode visitLimit(LimitNode node, RewriteContext<Void> context)
         {
             // Operators can handle MAX_VALUE rows per page, so do not optimize if count is greater than this value
+            // TODO (Aditi) : Don't think this check is needed for Native engine.
             if (node.getCount() > Integer.MAX_VALUE) {
                 return context.defaultRewrite(node);
             }
@@ -152,11 +158,11 @@ public class WindowFilterPushDown
                 planChanged = true;
                 source = rowNumberNode;
             }
-            else if (source instanceof WindowNode && canOptimizeWindowFunction((WindowNode) source, metadata.getFunctionAndTypeManager()) && isOptimizeTopNRowNumber(session)) {
+            else if (source instanceof WindowNode && canOptimizeWindowFunction((WindowNode) source, metadata.getFunctionAndTypeManager(), isNativeExecution) && isOptimizeTopNRowNumber(session)) {
                 WindowNode windowNode = (WindowNode) source;
                 // verify that unordered row_number window functions are replaced by RowNumberNode
                 verify(windowNode.getOrderingScheme().isPresent());
-                TopNRowNumberNode topNRowNumberNode = convertToTopNRowNumber(windowNode, limit);
+                TopNRowNumberNode topNRowNumberNode = convertToTopNRowNumber(windowNode, limit, metadata.getFunctionAndTypeManager());
                 if (windowNode.getPartitionBy().isEmpty()) {
                     return topNRowNumberNode;
                 }
@@ -183,13 +189,13 @@ public class WindowFilterPushDown
                     return rewriteFilterSource(node, source, rowNumberVariable, upperBound.getAsInt());
                 }
             }
-            else if (source instanceof WindowNode && canOptimizeWindowFunction((WindowNode) source, metadata.getFunctionAndTypeManager()) && isOptimizeTopNRowNumber(session)) {
+            else if (source instanceof WindowNode && canOptimizeWindowFunction((WindowNode) source, metadata.getFunctionAndTypeManager(), isNativeExecution) && isOptimizeTopNRowNumber(session)) {
                 WindowNode windowNode = (WindowNode) source;
                 VariableReferenceExpression rowNumberVariable = getOnlyElement(windowNode.getCreatedVariable());
                 OptionalInt upperBound = extractUpperBound(tupleDomain, rowNumberVariable);
 
                 if (upperBound.isPresent()) {
-                    source = convertToTopNRowNumber(windowNode, upperBound.getAsInt());
+                    source = convertToTopNRowNumber(windowNode, upperBound.getAsInt(), metadata.getFunctionAndTypeManager());
                     planChanged = true;
                     return rewriteFilterSource(node, source, rowNumberVariable, upperBound.getAsInt());
                 }
@@ -273,13 +279,23 @@ public class WindowFilterPushDown
             return new RowNumberNode(node.getSourceLocation(), node.getId(), node.getSource(), node.getPartitionBy(), node.getRowNumberVariable(), Optional.of(newRowCountPerPartition), false, node.getHashVariable());
         }
 
-        private TopNRowNumberNode convertToTopNRowNumber(WindowNode windowNode, int limit)
+        private TopNRowNumberNode convertToTopNRowNumber(WindowNode windowNode, int limit, FunctionAndTypeManager functionAndTypeManager)
         {
+            VariableReferenceExpression rowNumberVariable = getOnlyElement(windowNode.getWindowFunctions().keySet());
+            FunctionMetadata functionMetadata = functionAndTypeManager.getFunctionMetadata(windowNode.getWindowFunctions().get(rowNumberVariable).getFunctionHandle());
+
+            TopNRowNumberNode.RankingFunction rankingFunction =
+                    isRowNumberMetadata(functionAndTypeManager, functionMetadata) ?
+                            TopNRowNumberNode.RankingFunction.ROW_NUMBER :
+                            isRankMetadata(functionAndTypeManager, functionMetadata) ?
+                                    TopNRowNumberNode.RankingFunction.RANK :
+                                    TopNRowNumberNode.RankingFunction.DENSE_RANK;
             return new TopNRowNumberNode(
                     windowNode.getSourceLocation(),
                     idAllocator.getNextId(),
                     windowNode.getSource(),
                     windowNode.getSpecification(),
+                    rankingFunction,
                     getOnlyElement(windowNode.getCreatedVariable()),
                     limit,
                     false,
@@ -288,22 +304,48 @@ public class WindowFilterPushDown
 
         private static boolean canReplaceWithRowNumber(WindowNode node, FunctionAndTypeManager functionAndTypeManager)
         {
-            return canOptimizeWindowFunction(node, functionAndTypeManager) && !node.getOrderingScheme().isPresent();
+            if (node.getWindowFunctions().size() != 1) {
+                return false;
+            }
+            VariableReferenceExpression rowNumberVariable = getOnlyElement(node.getWindowFunctions().keySet());
+
+            return isRowNumberMetadata(functionAndTypeManager,
+                    functionAndTypeManager.getFunctionMetadata(node.getWindowFunctions().get(rowNumberVariable).getFunctionHandle()))
+                    && !node.getOrderingScheme().isPresent();
         }
 
-        private static boolean canOptimizeWindowFunction(WindowNode node, FunctionAndTypeManager functionAndTypeManager)
+        private static boolean canOptimizeWindowFunction(WindowNode node, FunctionAndTypeManager functionAndTypeManager, boolean isNativeExecution)
         {
             if (node.getWindowFunctions().size() != 1) {
                 return false;
             }
             VariableReferenceExpression rowNumberVariable = getOnlyElement(node.getWindowFunctions().keySet());
-            return isRowNumberMetadata(functionAndTypeManager, functionAndTypeManager.getFunctionMetadata(node.getWindowFunctions().get(rowNumberVariable).getFunctionHandle()));
+            FunctionMetadata functionMetadata = functionAndTypeManager.getFunctionMetadata(node.getWindowFunctions().get(rowNumberVariable).getFunctionHandle());
+            if (isNativeExecution) {
+                return isRowNumberMetadata(functionAndTypeManager, functionMetadata)
+                        || node.getOrderingScheme().isPresent() && (isRankMetadata(functionAndTypeManager, functionMetadata)
+                        || isDenseRankMetadata(functionAndTypeManager, functionMetadata));
+            }
+
+            return isRowNumberMetadata(functionAndTypeManager, functionMetadata);
         }
 
         private static boolean isRowNumberMetadata(FunctionAndTypeManager functionAndTypeManager, FunctionMetadata functionMetadata)
         {
             FunctionHandle rowNumberFunction = functionAndTypeManager.lookupFunction("row_number", ImmutableList.of());
             return functionMetadata.equals(functionAndTypeManager.getFunctionMetadata(rowNumberFunction));
+        }
+
+        private static boolean isRankMetadata(FunctionAndTypeManager functionAndTypeManager, FunctionMetadata functionMetadata)
+        {
+            FunctionHandle rankFunction = functionAndTypeManager.lookupFunction("rank", ImmutableList.of());
+            return functionMetadata.equals(functionAndTypeManager.getFunctionMetadata(rankFunction));
+        }
+
+        private static boolean isDenseRankMetadata(FunctionAndTypeManager functionAndTypeManager, FunctionMetadata functionMetadata)
+        {
+            FunctionHandle rankFunction = functionAndTypeManager.lookupFunction("dense_rank", ImmutableList.of());
+            return functionMetadata.equals(functionAndTypeManager.getFunctionMetadata(rankFunction));
         }
     }
 }
