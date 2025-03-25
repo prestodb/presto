@@ -20,6 +20,7 @@
 
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/memory/HashStringAllocator.h"
+#include "velox/common/testutil/OptionalEmpty.h"
 #include "velox/type/tests/utils/CustomTypesForTesting.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
@@ -324,7 +325,9 @@ TEST_F(ContainerRowSerdeTest, nested) {
   testRoundTrip(data);
 
   auto nestedArray = makeNullableNestedArrayVector<std::string>(
-      {{{{{"1", "2"}}, {{"3", "4"}}}}, {{}}, {{std::nullopt, {}}}});
+      {{{{{"1", "2"}}, {{"3", "4"}}}},
+       common::testutil::optionalEmpty,
+       {{std::nullopt, {}}}});
 
   testRoundTrip(nestedArray);
 

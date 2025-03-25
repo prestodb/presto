@@ -16,6 +16,7 @@
 
 #include <optional>
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/testutil/OptionalEmpty.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/vector/tests/TestingDictionaryArrayElementsFunction.h"
@@ -65,7 +66,7 @@ class ArrayIntersectTest : public FunctionBaseTest {
         {{3, 8, std::nullopt}},
         std::nullopt,
         {{1, 1, -2, -2, -2, 4, 8}},
-        {{}},
+        common::testutil::optionalEmpty,
     });
     auto array2 = makeNullableArrayVector<T>({
         {1, -2, 4},
@@ -78,10 +79,10 @@ class ArrayIntersectTest : public FunctionBaseTest {
     auto expected = makeNullableArrayVector<T>({
         {{1, -2, 4}},
         {{1, -2}},
-        {{}},
+        common::testutil::optionalEmpty,
         std::nullopt,
         {{1, -2, 4}},
-        {{}},
+        common::testutil::optionalEmpty,
     });
     testExpr(expected, "array_intersect(C0, C1)", {array1, array2});
     testExpr(expected, "array_intersect(C1, C0)", {array1, array2});
@@ -96,12 +97,12 @@ class ArrayIntersectTest : public FunctionBaseTest {
         {{1, std::nullopt}},
     });
     expected = makeNullableArrayVector<T>({
-        {{}},
+        common::testutil::optionalEmpty,
         {{2, -2}},
         {std::vector<std::optional<T>>{std::nullopt}},
         std::nullopt,
         {{1, 8}},
-        {{}},
+        common::testutil::optionalEmpty,
     });
     testExpr(expected, "array_intersect(C0, C1)", {array1, array2});
   }
@@ -201,7 +202,7 @@ class ArrayIntersectTest : public FunctionBaseTest {
     outerArrayType row1{{a1}, {a2}};
     outerArrayType row2{{b1}, {b2}};
     outerArrayType row3{{c1}, {c2}};
-    outerArrayType row4{{a1}, {{}}};
+    outerArrayType row4{{a1}, common::testutil::optionalEmpty};
     auto arrayVector =
         makeNullableNestedArrayVector<T>({{row1}, {row2}, {row3}, {row4}});
     auto expected = makeNullableArrayVector<T>(
@@ -292,7 +293,7 @@ TEST_F(ArrayIntersectTest, boolNestedArrays) {
   outerArrayType row1{{a1}, {a2}};
   outerArrayType row2{{b1}, {b2}, {b3}};
   outerArrayType row3{{c1}, {c2}};
-  outerArrayType row4{{a1}, {{}}};
+  outerArrayType row4{{a1}, common::testutil::optionalEmpty};
   auto arrayVector =
       makeNullableNestedArrayVector<bool>({{row1}, {row2}, {row3}, {row4}});
   auto expected = makeNullableArrayVector<bool>(
@@ -344,7 +345,7 @@ TEST_F(ArrayIntersectTest, strNestedArrays) {
   outerArrayType row1{{a1}, {a2}};
   outerArrayType row2{{b1}, {b2}, {b3}};
   outerArrayType row3{{c1}, {c2}};
-  outerArrayType row4{{a1}, {{}}};
+  outerArrayType row4{{a1}, common::testutil::optionalEmpty};
   auto arrayVector = makeNullableNestedArrayVector<std::string>(
       {{row1}, {row2}, {row3}, {row4}});
   auto expected = makeNullableArrayVector<std::string>(
@@ -416,7 +417,7 @@ TEST_F(ArrayIntersectTest, longStrNestedArrays) {
   outerArrayType row1{{a1}, {a2}};
   outerArrayType row2{{b1}, {b2}, {b3}};
   outerArrayType row3{{c1}, {c2}};
-  outerArrayType row4{{a1}, {{}}};
+  outerArrayType row4{{a1}, common::testutil::optionalEmpty};
   auto arrayVector = makeNullableNestedArrayVector<std::string>(
       {{row1}, {row2}, {row3}, {row4}});
   auto expected = makeNullableArrayVector<std::string>(

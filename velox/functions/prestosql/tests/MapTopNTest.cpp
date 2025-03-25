@@ -72,14 +72,20 @@ TEST_F(MapTopNTest, nestedNullFailure) {
       /*offsets=*/{0},
       /*keyVector=*/makeFlatVector<int32_t>({1, 2, 3}),
       /*valueVector=*/
-      makeNullableArrayVector<int32_t>({{std::nullopt}, {2}, {5}}));
+      makeNullableArrayVector<int32_t>(
+          std::vector<std::vector<std::optional<int32_t>>>{
+              {std::nullopt}, {2}, {5}}));
 
   // Nested nulls present inhibit the orderbility of values. Expect an error.
   VELOX_ASSERT_THROW(
-      evaluate("map_top_n(c0, 1)", makeRowVector({data})), // n < map size
+      evaluate(
+          "map_top_n(c0, 1)",
+          makeRowVector(std::vector<VectorPtr>{data})), // n < map size
       "Ordering nulls is not supported");
   VELOX_ASSERT_THROW(
-      evaluate("map_top_n(c0, 10)", makeRowVector({data})), // n > map size
+      evaluate(
+          "map_top_n(c0, 10)",
+          makeRowVector(std::vector<VectorPtr>{data})), // n > map size
       "Ordering nulls is not supported");
 }
 

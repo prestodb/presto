@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/testutil/OptionalEmpty.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/functions/lib/aggregates/tests/utils/AggregationTestBase.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
@@ -255,7 +256,7 @@ TEST_F(MapUnionTest, nulls) {
       makeNullableMapVector<int64_t, int64_t>({
           {{{1, 10}, {2, 20}, {3, 33}, {4, 44}, {5, 55}}},
           std::nullopt,
-          {{}},
+          common::testutil::optionalEmpty,
       }),
   });
 

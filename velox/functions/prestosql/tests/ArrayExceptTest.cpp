@@ -183,7 +183,8 @@ TEST_F(ArrayExceptTest, boolArrays) {
        {true, false, true}});
 
   auto expected = makeNullableArrayVector<bool>(
-      {{false}, {}, {}, {}, {false}, {true}, {}, {}});
+      std::vector<std::vector<std::optional<bool>>>{
+          {false}, {}, {}, {}, {false}, {true}, {}, {}});
 
   testExpr(expected, "array_except(C0, C1)", {array1, array2});
 

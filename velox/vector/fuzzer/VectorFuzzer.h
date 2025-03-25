@@ -145,13 +145,24 @@ class VectorFuzzer {
     fuzzer::DataSpec dataSpec{false, false};
   };
 
+  // Suppress spurious warnings in GCC 12.4 and later
+#if defined(__GNUC__) && \
+    ((__GNUC__ > 12) || (__GNUC__ == 12 && __GNUC_MINOR__ >= 4))
+  VELOX_SUPPRESS_STRINGOP_OVERFLOW_WARNING
+#endif
   VectorFuzzer(
       const VectorFuzzer::Options& options,
       memory::MemoryPool* pool,
       size_t seed = 123456)
-      : opts_(options), pool_(pool), rng_(seed) {}
+      : opts_(options),
+        pool_(pool),
+        rng_(seed){}
+#if defined(__GNUC__) && \
+    ((__GNUC__ > 12) || (__GNUC__ == 12 && __GNUC_MINOR__ >= 4))
+        VELOX_UNSUPPRESS_STRINGOP_OVERFLOW_WARNING
+#endif
 
-  void setOptions(const VectorFuzzer::Options& options) {
+        void setOptions(const VectorFuzzer::Options& options) {
     opts_ = options;
   }
 

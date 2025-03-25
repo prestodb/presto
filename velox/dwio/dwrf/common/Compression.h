@@ -38,7 +38,7 @@ inline CompressionOptions getDwrfOrcCompressionOptions(
     uint32_t compressionThreshold,
     int32_t zlibCompressionLevel,
     int32_t zstdCompressionLevel) {
-  CompressionOptions options;
+  CompressionOptions options{};
   options.compressionThreshold = compressionThreshold;
 
   if (kind == velox::common::CompressionKind_ZLIB ||
@@ -87,7 +87,7 @@ inline std::unique_ptr<dwio::common::BufferedOutputStream> createCompressor(
 
 inline CompressionOptions getDwrfOrcDecompressionOptions(
     common::CompressionKind kind) {
-  CompressionOptions options;
+  CompressionOptions options{};
   if (kind == common::CompressionKind_ZLIB ||
       kind == common::CompressionKind_GZIP) {
     options.format.zlib.windowBits = Compressor::DWRF_ORC_ZLIB_WINDOW_BITS;

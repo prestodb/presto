@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <memory>
 
+#include "velox/common/testutil/OptionalEmpty.h"
 #include "velox/expression/VectorWriters.h"
 #include "velox/functions/Udf.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
@@ -538,7 +539,7 @@ TEST_F(ArrayWriterTest, copyFromNestedArray) {
   vectorWriter.finish();
 
   using array_type = std::optional<std::vector<std::optional<int64_t>>>;
-  array_type array1 = {{}};
+  array_type array1 = common::testutil::optionalEmpty;
   array_type array2 = {{1, 2, 3, 4}};
   array_type array3 = {{1}};
 

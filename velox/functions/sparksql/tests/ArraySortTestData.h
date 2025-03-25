@@ -19,6 +19,7 @@
 #include <optional>
 #include <vector>
 
+#include "velox/common/testutil/OptionalEmpty.h"
 #include "velox/type/Variant.h"
 
 namespace facebook::velox::functions::sparksql {
@@ -239,7 +240,7 @@ arrayInput() {
   using A = std::vector<std::optional<int32_t>>;
   return std::vector<std::optional<std::vector<std::optional<A>>>>{
       // Empty.
-      {{}},
+      common::testutil::optionalEmpty,
       // All nulls.
       {{std::nullopt, std::nullopt}},
       // Same prefix.
@@ -256,7 +257,7 @@ inline std::vector<std::optional<
 arrayAscNullSmallest() {
   using A = std::vector<std::optional<int32_t>>;
   return std::vector<std::optional<std::vector<std::optional<A>>>>{
-      {{}},
+      common::testutil::optionalEmpty,
       {{std::nullopt, std::nullopt}},
       {{A({1, 3}), A({1, 3, 5}), A({2, 1})}},
       {{std::nullopt, A({1, 3}), A({2, 1})}},
@@ -269,7 +270,7 @@ inline std::vector<std::optional<
 arrayAscNullLargest() {
   using A = std::vector<std::optional<int32_t>>;
   return std::vector<std::optional<std::vector<std::optional<A>>>>{
-      {{}},
+      common::testutil::optionalEmpty,
       {{std::nullopt, std::nullopt}},
       {{A({1, 3}), A({1, 3, 5}), A({2, 1})}},
       {{A({1, 3}), A({2, 1}), std::nullopt}},

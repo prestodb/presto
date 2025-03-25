@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/testutil/OptionalEmpty.h"
 #include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
@@ -70,7 +71,7 @@ TEST_P(UnnestTest, arrayWithOrdinality) {
       {{{1, 2, std::nullopt, 4}},
        std::nullopt,
        {{5, 6}},
-       {{}},
+       common::testutil::optionalEmpty,
        {{{{std::nullopt}}}},
        {{7, 8, 9}}});
   auto vector = makeRowVector(

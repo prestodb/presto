@@ -16,6 +16,7 @@
 
 #include "folly/Unicode.h"
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/testutil/OptionalEmpty.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/functions/prestosql/types/JsonType.h"
 
@@ -1133,7 +1134,7 @@ TEST_F(JsonFunctionsTest, jsonStringToArrayCast) {
   auto expected = makeNullableArrayVector<StringView>(
       {{{"red"_sv, "blue"_sv}},
        {{std::nullopt, std::nullopt, "purple"_sv}},
-       {{}},
+       common::testutil::optionalEmpty,
        std::nullopt});
 
   checkInternalFn(

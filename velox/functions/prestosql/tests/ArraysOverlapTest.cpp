@@ -261,7 +261,9 @@ TEST_F(ArraysOverlapTest, complexTypeRow) {
       {{{1, "red"}}, {{2, "blue"}}, {{3, "green"}}},
       {{{1, "red"}}, {{2, "blue"}}, std::nullopt},
       {{{1, "red"}}, std::nullopt, std::nullopt},
-      {{{1, "red"}}, {{}}, {{}}}};
+      {{{1, "red"}},
+       std::tuple<int, std::string>{},
+       std::tuple<int, std::string>{}}};
   std::vector<ArrayOfRow> rightData = {
       {{{2, "blue"}}, {{1, "red"}}},
       {{{1, "green"}}},

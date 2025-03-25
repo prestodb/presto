@@ -19,6 +19,7 @@
 #include "velox/common/base/CompareFlags.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/testutil/OptionalEmpty.h"
 #include "velox/expression/VectorReaders.h"
 #include "velox/functions/Udf.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
@@ -38,7 +39,7 @@ class GenericViewTest : public functions::test::FunctionBaseTest {
       std::vector<std::optional<std::vector<std::optional<int64_t>>>>;
 
   array_data_t arrayData1 = {
-      {{}},
+      common::testutil::optionalEmpty,
       {{{{std::nullopt}}}},
       {{std::nullopt, 1}},
       {{std::nullopt, std::nullopt, std::nullopt}},
@@ -56,7 +57,7 @@ class GenericViewTest : public functions::test::FunctionBaseTest {
   };
 
   array_data_t arrayData2 = {
-      {{}},
+      common::testutil::optionalEmpty,
       {{{{std::nullopt}}}},
       {{std::nullopt, 1}},
       {{std::nullopt, std::nullopt, std::nullopt}},

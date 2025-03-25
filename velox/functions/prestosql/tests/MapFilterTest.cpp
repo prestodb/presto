@@ -15,6 +15,7 @@
  */
 
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/testutil/OptionalEmpty.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 
@@ -266,7 +267,10 @@ TEST_F(MapFilterTest, try) {
 
   auto result = evaluate("try(map_filter(c0, (k, v) -> (v / k > 0)))", data);
   auto expected = makeNullableMapVector<int64_t, int64_t>(
-      {{{{1, 2}, {2, 3}}}, std::nullopt, {{{7, 8}}}, {{}}});
+      {{{{1, 2}, {2, 3}}},
+       std::nullopt,
+       {{{7, 8}}},
+       common::testutil::optionalEmpty});
   assertEqualVectors(expected, result);
 }
 

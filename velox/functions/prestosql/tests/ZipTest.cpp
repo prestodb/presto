@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/testutil/OptionalEmpty.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 
 using namespace facebook::velox;
@@ -91,7 +92,7 @@ TEST_F(ZipTest, combineInt) {
 TEST_F(ZipTest, nullEmptyArray) {
   auto firstVector = makeNullableArrayVector<int32_t>({
       {{1, 1, 1, 1}},
-      {{}},
+      common::testutil::optionalEmpty,
       std::nullopt,
   });
 

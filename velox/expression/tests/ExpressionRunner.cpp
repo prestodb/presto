@@ -227,13 +227,13 @@ void ExpressionRunner::run(
     std::vector<std::string> inputSelectivityPaths =
         split(inputSelectivityVectorPaths);
     for (int i = 0; i < inputPathsList.size(); i++) {
-      auto inputVector =
-          std::dynamic_pointer_cast<RowVector>(restoreVectorFromFile(
-              inputPathsList[i].c_str(), deserializerPool.get()));
+      auto vector = restoreVectorFromFile(
+          inputPathsList[i].c_str(), deserializerPool.get());
+      auto inputVector = std::dynamic_pointer_cast<RowVector>(vector);
       VELOX_CHECK_NOT_NULL(
           inputVector,
           "Input vector is not a RowVector: {}",
-          inputVector->toString());
+          vector->toString());
       VELOX_CHECK_GT(inputVector->size(), 0, "Input vector must not be empty.");
       if (inputSelectivityPaths.size() > i) {
         inputTestCases.push_back(

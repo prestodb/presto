@@ -15,6 +15,7 @@
  */
 #include <optional>
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/testutil/OptionalEmpty.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 
 using namespace facebook::velox::test;
@@ -48,8 +49,8 @@ TEST_F(ArrayNGramsTest, integers) {
   testNgram<int64_t>({1, 2, 3, 4}, 5, {{{1, 2, 3, 4}}});
   testNgram<int64_t>(
       {1, 2, 3, 4}, std::numeric_limits<int32_t>::max(), {{{1, 2, 3, 4}}});
-  testNgram<int64_t>({}, 1, {{{}}});
-  testNgram<int64_t>({}, 10, {{{}}});
+  testNgram<int64_t>({}, 1, {common::testutil::optionalEmpty});
+  testNgram<int64_t>({}, 10, {common::testutil::optionalEmpty});
 }
 
 TEST_F(ArrayNGramsTest, invalidN) {

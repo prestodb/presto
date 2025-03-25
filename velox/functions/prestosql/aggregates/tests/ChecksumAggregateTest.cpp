@@ -15,6 +15,7 @@
  */
 #include <boost/algorithm/string/join.hpp>
 #include "velox/common/encode/Base64.h"
+#include "velox/common/testutil/OptionalEmpty.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/functions/lib/aggregates/tests/utils/AggregationTestBase.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
@@ -281,8 +282,8 @@ TEST_F(ChecksumAggregateTest, arrays) {
   arrayVector = makeNullableArrayVector<int64_t>({{{1, 2}}, std::nullopt});
   assertChecksum(arrayVector, "Nlzernkj88A=");
 
-  arrayVector =
-      makeNullableArrayVector<int64_t>({{{1, 2}}, std::nullopt, {{}}});
+  arrayVector = makeNullableArrayVector<int64_t>(
+      {{{1, 2}}, std::nullopt, common::testutil::optionalEmpty});
   assertChecksum(arrayVector, "Nlzernkj88A=");
 
   // Array of arrays.

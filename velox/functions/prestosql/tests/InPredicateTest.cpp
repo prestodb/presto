@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/testutil/OptionalEmpty.h"
 #include "velox/functions/lib/DateTimeFormatter.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
@@ -296,7 +297,7 @@ class InPredicateTest : public FunctionBaseTest {
     testInWithConstList({kNaN, kSNaN}, {kNaN, 1}, {true, true});
     testInWithConstList({kNaN, kSNaN}, {1, 2}, {false, false});
     // Need to specifically test in-list with a single element as it previously
-    // had a seperate codepath.
+    // had a separate codepath.
     testInWithConstList({kNaN, kSNaN}, {kNaN}, {true, true});
     testInWithConstList({kNaN, kSNaN}, {1}, {false, false});
 
@@ -953,7 +954,7 @@ TEST_F(InPredicateTest, arrays) {
   auto data = makeRowVector({
       makeNullableArrayVector<int32_t>({
           {{1, 2, 3}},
-          {{}},
+          common::testutil::optionalEmpty,
           {{1, 3}},
           std::nullopt,
           {{2, 4, 5, 6}},

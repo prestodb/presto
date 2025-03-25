@@ -91,7 +91,7 @@ TpchDataSource::TpchDataSource(
         handle,
         "ColumnHandle must be an instance of TpchColumnHandle "
         "for '{}' on table '{}'",
-        handle->name(),
+        it->second->name(),
         toTableName(tpchTable_));
 
     auto idx = tpchTableSchema->getChildIdxIfExists(handle->name());

@@ -517,7 +517,7 @@ class PageReader {
 
 FOLLY_ALWAYS_INLINE dwio::common::compression::CompressionOptions
 getParquetDecompressionOptions(common::CompressionKind kind) {
-  dwio::common::compression::CompressionOptions options;
+  dwio::common::compression::CompressionOptions options{};
 
   if (kind == common::CompressionKind_ZLIB ||
       kind == common::CompressionKind_GZIP) {

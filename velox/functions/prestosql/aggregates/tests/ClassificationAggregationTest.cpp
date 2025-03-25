@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/testutil/OptionalEmpty.h"
 #include "velox/functions/lib/aggregates/tests/utils/AggregationTestBase.h"
 
 using namespace facebook::velox::functions::aggregate::test;
@@ -117,7 +118,8 @@ TEST_F(ClassificationAggregationTest, basic) {
   });
 
   expected = makeRowVector({makeNullableArrayVector<double>(
-      std::vector<std::optional<std::vector<std::optional<double>>>>{{{}}})});
+      std::vector<std::optional<std::vector<std::optional<double>>>>{
+          common::testutil::optionalEmpty})});
   runTest("classification_fall_out(5, c0, c1)", input, expected);
   runTest("classification_precision(5, c0, c1)", input, expected);
   runTest("classification_recall(5, c0, c1)", input, expected);
