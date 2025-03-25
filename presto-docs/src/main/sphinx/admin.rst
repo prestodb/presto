@@ -19,3 +19,4 @@ Administration
     admin/dist-sort
     admin/spark
     admin/verifier
+    admin/grafana-cloud
