@@ -3771,7 +3771,7 @@ public abstract class AbstractTestHiveClient
         String secondPartitionName = "ds=2016-01-02";
 
         ExtendedHiveMetastore metastoreClient = getMetastoreClient();
-        assertThat(metastoreClient.getPartitionStatistics(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName(), ImmutableSet.of(firstPartitionName, secondPartitionName)))
+        assertThat(metastoreClient.getPartitionStatistics(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName(), ImmutableSet.of(new PartitionNameWithVersion(firstPartitionName, Optional.empty()), new PartitionNameWithVersion(secondPartitionName, Optional.empty()))))
                 .isEqualTo(ImmutableMap.of(firstPartitionName, initialStatistics, secondPartitionName, initialStatistics));
 
         AtomicReference<PartitionStatistics> expectedStatisticsPartition1 = new AtomicReference<>(initialStatistics);
@@ -3788,13 +3788,13 @@ public abstract class AbstractTestHiveClient
                 assertThat(actualStatistics).isEqualTo(expectedStatisticsPartition2.get());
                 return statisticsPartition2;
             });
-            assertThat(metastoreClient.getPartitionStatistics(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName(), ImmutableSet.of(firstPartitionName, secondPartitionName)))
+            assertThat(metastoreClient.getPartitionStatistics(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName(), ImmutableSet.of(new PartitionNameWithVersion(firstPartitionName, Optional.empty()), new PartitionNameWithVersion(secondPartitionName, Optional.empty()))))
                     .isEqualTo(ImmutableMap.of(firstPartitionName, statisticsPartition1, secondPartitionName, statisticsPartition2));
             expectedStatisticsPartition1.set(statisticsPartition1);
             expectedStatisticsPartition2.set(statisticsPartition2);
         }
 
-        assertThat(metastoreClient.getPartitionStatistics(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName(), ImmutableSet.of(firstPartitionName, secondPartitionName)))
+        assertThat(metastoreClient.getPartitionStatistics(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName(), ImmutableSet.of(new PartitionNameWithVersion(firstPartitionName, Optional.empty()), new PartitionNameWithVersion(secondPartitionName, Optional.empty()))))
                 .isEqualTo(ImmutableMap.of(firstPartitionName, expectedStatisticsPartition1.get(), secondPartitionName, expectedStatisticsPartition2.get()));
         metastoreClient.updatePartitionStatistics(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName(), firstPartitionName, currentStatistics -> {
             assertThat(currentStatistics).isEqualTo(expectedStatisticsPartition1.get());
@@ -3804,7 +3804,7 @@ public abstract class AbstractTestHiveClient
             assertThat(currentStatistics).isEqualTo(expectedStatisticsPartition2.get());
             return initialStatistics;
         });
-        assertThat(metastoreClient.getPartitionStatistics(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName(), ImmutableSet.of(firstPartitionName, secondPartitionName)))
+        assertThat(metastoreClient.getPartitionStatistics(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName(), ImmutableSet.of(new PartitionNameWithVersion(firstPartitionName, Optional.empty()), new PartitionNameWithVersion(secondPartitionName, Optional.empty()))))
                 .isEqualTo(ImmutableMap.of(firstPartitionName, initialStatistics, secondPartitionName, initialStatistics));
     }
 
@@ -3853,7 +3853,7 @@ public abstract class AbstractTestHiveClient
             assertEquals(
                     metastoreClient.getPartition(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName(), partitionValues).get().getStorage().getStorageFormat(),
                     fromHiveStorageFormat(ORC));
-            assertThat(metastoreClient.getPartitionStatistics(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName(), ImmutableSet.of(partitionName)))
+            assertThat(metastoreClient.getPartitionStatistics(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName(), ImmutableSet.of(new PartitionNameWithVersion(partitionName, Optional.empty()))))
                     .isEqualTo(ImmutableMap.of(partitionName, statsForAllColumns1));
 
             sleep(delayBetweenAlters.toMillis());
@@ -3868,7 +3868,7 @@ public abstract class AbstractTestHiveClient
             assertEquals(
                     metastoreClient.getPartition(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName(), partitionValues).get().getStorage().getStorageFormat(),
                     fromHiveStorageFormat(DWRF));
-            assertThat(metastoreClient.getPartitionStatistics(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName(), ImmutableSet.of(partitionName)))
+            assertThat(metastoreClient.getPartitionStatistics(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName(), ImmutableSet.of(new PartitionNameWithVersion(partitionName, Optional.empty()))))
                     .isEqualTo(ImmutableMap.of(partitionName, statsForAllColumns2));
 
             sleep(delayBetweenAlters.toMillis());
@@ -3880,7 +3880,7 @@ public abstract class AbstractTestHiveClient
                             .setLocation(partitionTargetPath(tableName, partitionName)))
                     .build();
             metastoreClient.alterPartition(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName(), new PartitionWithStatistics(modifiedPartition, partitionName, statsForSubsetOfColumns));
-            assertThat(metastoreClient.getPartitionStatistics(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName(), ImmutableSet.of(partitionName)))
+            assertThat(metastoreClient.getPartitionStatistics(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName(), ImmutableSet.of(new PartitionNameWithVersion(partitionName, Optional.empty()))))
                     .isEqualTo(ImmutableMap.of(partitionName, statsForSubsetOfColumns));
 
             sleep(delayBetweenAlters.toMillis());
@@ -3892,7 +3892,7 @@ public abstract class AbstractTestHiveClient
                             .setLocation(partitionTargetPath(tableName, partitionName)))
                     .build();
             metastoreClient.alterPartition(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName(), new PartitionWithStatistics(modifiedPartition, partitionName, emptyStatistics));
-            assertThat(metastoreClient.getPartitionStatistics(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName(), ImmutableSet.of(partitionName)))
+            assertThat(metastoreClient.getPartitionStatistics(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName(), ImmutableSet.of(new PartitionNameWithVersion(partitionName, Optional.empty()))))
                     .isEqualTo(ImmutableMap.of(partitionName, emptyStatistics));
         }
         finally {
