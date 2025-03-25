@@ -75,6 +75,7 @@ import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode.PassThroughColumn;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode.PassThroughSpecification;
+import com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
@@ -561,6 +562,49 @@ public class UnaliasSymbolReferences
                 public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
                 {
                     return tableFunctionNode.assignStatsEquivalentPlanNode(statsEquivalentPlanNode);
+                }
+            };
+        }
+
+        @Override
+        public PlanNode visitTableFunctionProcessor(TableFunctionProcessorNode node, RewriteContext<UnaliasContext> context)
+        {
+            PlanNode rewrittenSource = node.getSource().accept(this, context);
+            Map<VariableReferenceExpression, VariableReferenceExpression> mappings =
+                    Optional.ofNullable(context.get())
+                            .map(c -> new HashMap<>(c.getCorrelationMapping()))
+                            .orElseGet(HashMap::new);
+
+            SymbolMapper mapper = new SymbolMapper(mappings, warningCollector);
+
+            TableFunctionProcessorNode rewrittenTableFunctionProcessor = mapper.map(node, rewrittenSource);
+
+            return new UnaliasContext.PlanAndMappings(
+                    rewrittenTableFunctionProcessor,
+                    mappings)
+            {
+                @Override
+                public List<PlanNode> getSources()
+                {
+                    return rewrittenTableFunctionProcessor.getSources();
+                }
+
+                @Override
+                public List<VariableReferenceExpression> getOutputVariables()
+                {
+                    return rewrittenTableFunctionProcessor.getOutputVariables();
+                }
+
+                @Override
+                public PlanNode replaceChildren(List<PlanNode> newChildren)
+                {
+                    return rewrittenTableFunctionProcessor.replaceChildren(newChildren);
+                }
+
+                @Override
+                public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
+                {
+                    return rewrittenTableFunctionProcessor.assignStatsEquivalentPlanNode(statsEquivalentPlanNode);
                 }
             };
         }

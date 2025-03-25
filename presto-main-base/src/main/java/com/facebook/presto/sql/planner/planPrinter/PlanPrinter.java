@@ -100,6 +100,7 @@ import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode.TableArgumentProperties;
+import com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
@@ -113,6 +114,7 @@ import com.google.common.base.CaseFormat;
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
@@ -1425,6 +1427,25 @@ public class PlanPrinter
             }
 
             return format("%s => TableArgument{%s}", argumentName, properties);
+        }
+
+        @Override
+        public Void visitTableFunctionProcessor(TableFunctionProcessorNode node, Context context)
+        {
+            ImmutableMap.Builder<String, String> descriptor = ImmutableMap.builder();
+
+            descriptor.put("name", node.getName());
+
+            descriptor.put("properOutputs", format("[%s]", Joiner.on(", ").join(node.getProperOutputs())));
+
+            node.getSpecification().ifPresent(specification -> {
+                descriptor.put("partitionBy", format("[%s]", Joiner.on(", ").join(specification.getPartitionBy())));
+                specification.getOrderingScheme().ifPresent(orderingScheme -> descriptor.put("orderBy: ", formatOrderingScheme(orderingScheme)));
+            });
+
+            addNode(node, "TableFunctionProcessor", descriptor.buildOrThrow().toString(), context.getTag());
+
+            return processChildren(node, new Context());
         }
 
         private String formatOrderingScheme(OrderingScheme orderingScheme)

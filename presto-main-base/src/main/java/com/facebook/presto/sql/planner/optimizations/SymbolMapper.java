@@ -38,6 +38,8 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
+import com.facebook.presto.sql.planner.plan.TableFunctionNode;
+import com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
@@ -63,6 +65,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toMap;
 
 public class SymbolMapper
 {
@@ -327,6 +330,38 @@ public class SymbolMapper
                 map(node.getFragmentVariable()),
                 map(node.getTableCommitContextVariable()),
                 node.getStatisticsAggregation().map(this::map));
+    }
+
+    public TableFunctionProcessorNode map(TableFunctionProcessorNode node, PlanNode source)
+    {
+        List<TableFunctionNode.PassThroughSpecification> newPassThroughSpecifications = node.getPassThroughSpecifications().stream()
+                .map(specification -> new TableFunctionNode.PassThroughSpecification(
+                        specification.isDeclaredAsPassThrough(),
+                        specification.getColumns().stream()
+                                .map(column -> new TableFunctionNode.PassThroughColumn(
+                                        map(column.getOutputVariables()),
+                                        column.isPartitioningColumn()))
+                                .collect(toImmutableList())))
+                .collect(toImmutableList());
+
+        List<List<VariableReferenceExpression>> newRequiredVariables = node.getRequiredVariables().stream()
+                .map(this::map)
+                .collect(toImmutableList());
+
+        Optional<Map<VariableReferenceExpression, VariableReferenceExpression>> newMarkerVariables = node.getMarkerVariables()
+                .map(mapping -> mapping.entrySet().stream()
+                        .collect(toMap(entry -> map(entry.getKey()), entry -> map(entry.getValue()))));
+
+        return new TableFunctionProcessorNode(
+                node.getId(),
+                node.getName(),
+                map(node.getProperOutputs()),
+                source,
+                newPassThroughSpecifications,
+                newRequiredVariables,
+                newMarkerVariables,
+                node.getSpecification().map(this::mapAndDistinct), // TODO handle pre-partitioned, pre-sorted properly when we add them
+                node.getHandle());
     }
 
     private PartitioningScheme canonicalize(PartitioningScheme scheme, PlanNode source)
