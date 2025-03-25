@@ -29,11 +29,11 @@ RUN mkdir build && \
     rm -rf build && dnf remove -y conda && dnf clean all
 
 # put CUDA binaries on the PATH
-ENV PATH /usr/local/cuda/bin:${PATH}
+ENV PATH=/usr/local/cuda/bin:${PATH}
 
 # configuration for nvidia-container-toolkit
-ENV NVIDIA_VISIBLE_DEVICES all
-ENV NVIDIA_DRIVER_CAPABILITIES compute,utility
+ENV NVIDIA_VISIBLE_DEVICES=all
+ENV NVIDIA_DRIVER_CAPABILITIES="compute,utility"
 
 # install miniforge
 RUN curl -L -o /tmp/miniforge.sh https://github.com/conda-forge/miniforge/releases/download/23.11.0-0/Mambaforge-23.11.0-0-Linux-x86_64.sh && \
