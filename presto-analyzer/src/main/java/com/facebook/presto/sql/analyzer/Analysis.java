@@ -1377,6 +1377,7 @@ public class Analysis
     public static class TableFunctionInvocationAnalysis
     {
         private final ConnectorId connectorId;
+        private final String schemaName;
         private final String functionName;
         private final Map<String, Argument> arguments;
         private final List<TableArgumentAnalysis> tableArgumentAnalyses;
@@ -1388,6 +1389,7 @@ public class Analysis
 
         public TableFunctionInvocationAnalysis(
                 ConnectorId connectorId,
+                String schemaName,
                 String functionName,
                 Map<String, Argument> arguments,
                 List<TableArgumentAnalysis> tableArgumentAnalyses,
@@ -1398,6 +1400,7 @@ public class Analysis
                 ConnectorTransactionHandle transactionHandle)
         {
             this.connectorId = requireNonNull(connectorId, "connectorId is null");
+            this.schemaName = requireNonNull(schemaName, "schemaName is null");
             this.functionName = requireNonNull(functionName, "functionName is null");
             this.arguments = ImmutableMap.copyOf(arguments);
             this.connectorTableFunctionHandle = requireNonNull(connectorTableFunctionHandle, "connectorTableFunctionHandle is null");
@@ -1412,6 +1415,11 @@ public class Analysis
         public ConnectorId getConnectorId()
         {
             return connectorId;
+        }
+
+        public String getSchemaName()
+        {
+            return schemaName;
         }
 
         public String getFunctionName()

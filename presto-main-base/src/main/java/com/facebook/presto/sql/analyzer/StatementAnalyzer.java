@@ -1431,6 +1431,7 @@ class StatementAnalyzer
             analysis.setTableFunctionAnalysis(node, new TableFunctionInvocationAnalysis(
                     connectorId,
                     function.getName(),
+                    function.getSchema(),
                     argumentsAnalysis.getPassedArguments(),
                     orderedTableArguments.build(),
                     functionAnalysis.getRequiredColumns(),

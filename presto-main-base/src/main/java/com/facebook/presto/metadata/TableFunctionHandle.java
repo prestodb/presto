@@ -15,6 +15,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.function.SchemaFunctionName;
 import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -24,16 +25,19 @@ import static java.util.Objects.requireNonNull;
 public class TableFunctionHandle
 {
     private final ConnectorId connectorId;
+    private final SchemaFunctionName schemaFunctionName;
     private final ConnectorTableFunctionHandle functionHandle;
     private final ConnectorTransactionHandle transactionHandle;
 
     @JsonCreator
     public TableFunctionHandle(
             @JsonProperty("connectorId") ConnectorId connectorId,
+            @JsonProperty("schemaFunctionName") SchemaFunctionName schemaFunctionName,
             @JsonProperty("functionHandle") ConnectorTableFunctionHandle functionHandle,
             @JsonProperty("transactionHandle") ConnectorTransactionHandle transactionHandle)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.schemaFunctionName = requireNonNull(schemaFunctionName, "schemaFunctionName is null");
         this.functionHandle = requireNonNull(functionHandle, "functionHandle is null");
         this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
     }
@@ -42,6 +46,12 @@ public class TableFunctionHandle
     public ConnectorId getConnectorId()
     {
         return connectorId;
+    }
+
+    @JsonProperty
+    public SchemaFunctionName getSchemaFunctionName()
+    {
+        return schemaFunctionName;
     }
 
     @JsonProperty
