@@ -22,7 +22,6 @@ class StringDecoder {
  public:
   StringDecoder(const char* start, const char* end, int fixedLength = -1)
       : bufferStart_(start),
-        bufferEnd_(end),
         lastSafeWord_(end - simd::kPadding),
         fixedLength_(fixedLength) {}
 
@@ -103,7 +102,6 @@ class StringDecoder {
   }
 
   const char* bufferStart_;
-  const char* bufferEnd_;
   const char* const lastSafeWord_;
   const int fixedLength_;
 };
