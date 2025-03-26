@@ -1439,11 +1439,33 @@ public class PlanPrinter
             descriptor.put("properOutputs", format("[%s]", Joiner.on(", ").join(node.getProperOutputs())));
 
             node.getSpecification().ifPresent(specification -> {
-                descriptor.put("partitionBy", format("[%s]", Joiner.on(", ").join(specification.getPartitionBy())));
-                specification.getOrderingScheme().ifPresent(orderingScheme -> descriptor.put("orderBy: ", formatOrderingScheme(orderingScheme)));
+                if (!specification.getPartitionBy().isEmpty()) {
+                    List<VariableReferenceExpression> prePartitioned = specification.getPartitionBy().stream()
+                            .filter(node.getPrePartitioned()::contains)
+                            .collect(toImmutableList());
+
+                    List<VariableReferenceExpression> notPrePartitioned = specification.getPartitionBy().stream()
+                            .filter(column -> !node.getPrePartitioned().contains(column))
+                            .collect(toImmutableList());
+
+                    StringBuilder builder = new StringBuilder();
+                    if (!prePartitioned.isEmpty()) {
+                        builder.append(prePartitioned.stream()
+                                        .map(VariableReferenceExpression::toString)
+                                .collect(joining(", ", "<", ">")));
+                        if (!notPrePartitioned.isEmpty()) {
+                            builder.append(", ");
+                        }
+                    }
+                    if (!notPrePartitioned.isEmpty()) {
+                        builder.append(Joiner.on(", ").join(notPrePartitioned));
+                    }
+                    descriptor.put("partitionBy", format("[%s]", builder));
+                }
+                specification.getOrderingScheme().ifPresent(orderingScheme -> descriptor.put("orderBy", formatOrderingScheme(orderingScheme, node.getPreSorted())));
             });
 
-            addNode(node, "TableFunctionProcessor", descriptor.buildOrThrow().toString(), context.getTag());
+            addNode(node, "TableFunctionProcessor", context.getTag());
 
             return processChildren(node, new Context());
         }

@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.metadata.TableFunctionHandle;
 import com.facebook.presto.spi.plan.DataOrganizationSpecification;
+import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -23,12 +24,15 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
+import static com.facebook.presto.spi.function.table.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
@@ -57,8 +61,10 @@ public class TableFunctionProcessorNode
     // the mapping is only present if there are two or more sources.
     private final Optional<Map<VariableReferenceExpression, VariableReferenceExpression>> markerVariables;
 
-    // partitioning and ordering combined from sources
-    private final Optional<DataOrganizationSpecification> specification; // TODO add pre-partitioned, pre-sorted
+    private final Optional<DataOrganizationSpecification> specification;
+    private final Set<VariableReferenceExpression> prePartitioned;
+    private final int preSorted;
+    private final Optional<VariableReferenceExpression> hashSymbol;
 
     private final TableFunctionHandle handle;
 
@@ -72,6 +78,9 @@ public class TableFunctionProcessorNode
             @JsonProperty("requiredVariables") List<List<VariableReferenceExpression>> requiredVariables,
             @JsonProperty("markerVariables") Optional<Map<VariableReferenceExpression, VariableReferenceExpression>> markerVariables,
             @JsonProperty("specification") Optional<DataOrganizationSpecification> specification,
+            @JsonProperty("prePartitioned") Set<VariableReferenceExpression> prePartitioned,
+            @JsonProperty("preSorted") int preSorted,
+            @JsonProperty("hashSymbol") Optional<VariableReferenceExpression> hashSymbol,
             @JsonProperty("handle") TableFunctionHandle handle)
     {
         super(Optional.empty(), id, Optional.empty());
@@ -84,6 +93,22 @@ public class TableFunctionProcessorNode
                 .collect(toImmutableList());
         this.markerVariables = markerVariables.map(ImmutableMap::copyOf);
         this.specification = requireNonNull(specification, "specification is null");
+        this.prePartitioned = ImmutableSet.copyOf(prePartitioned);
+        Set<VariableReferenceExpression> partitionBy = specification
+                .map(DataOrganizationSpecification::getPartitionBy)
+                .map(ImmutableSet::copyOf)
+                .orElse(ImmutableSet.of());
+        checkArgument(partitionBy.containsAll(prePartitioned), "all pre-partitioned symbols must be contained in the partitioning list");
+        this.preSorted = preSorted;
+        checkArgument(
+                specification
+                        .flatMap(DataOrganizationSpecification::getOrderingScheme)
+                        .map(OrderingScheme::getOrderBy)
+                        .map(List::size)
+                        .orElse(0) >= preSorted,
+                "the number of pre-sorted symbols cannot be greater than the number of all ordering symbols");
+        checkArgument(preSorted == 0 || partitionBy.equals(prePartitioned), "to specify pre-sorted symbols, it is required that all partitioning symbols are pre-partitioned");
+        this.hashSymbol = requireNonNull(hashSymbol, "hashSymbol is null");
         this.handle = requireNonNull(handle, "handle is null");
     }
 
@@ -130,6 +155,24 @@ public class TableFunctionProcessorNode
     }
 
     @JsonProperty
+    public Set<VariableReferenceExpression> getPrePartitioned()
+    {
+        return prePartitioned;
+    }
+
+    @JsonProperty
+    public int getPreSorted()
+    {
+        return preSorted;
+    }
+
+    @JsonProperty
+    public Optional<VariableReferenceExpression> getHashSymbol()
+    {
+        return hashSymbol;
+    }
+
+    @JsonProperty
     public TableFunctionHandle getHandle()
     {
         return handle;
@@ -167,7 +210,7 @@ public class TableFunctionProcessorNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newSources)
     {
-        return new TableFunctionProcessorNode(getId(), name, properOutputs, getOnlyElement(newSources), passThroughSpecifications, requiredVariables, markerVariables, specification, handle);
+        return new TableFunctionProcessorNode(getId(), name, properOutputs, getOnlyElement(newSources), passThroughSpecifications, requiredVariables, markerVariables, specification, prePartitioned, preSorted, hashSymbol, handle);
     }
 
     @Override
