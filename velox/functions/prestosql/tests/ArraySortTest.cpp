@@ -873,6 +873,35 @@ TEST_F(ArraySortTest, floatingPointExtremes) {
   testFloatingPoint<double>();
 }
 
+TEST_F(ArraySortTest, constant_desc_boolean) {
+  auto data = makeRowVector({makeNullableArrayVector<bool>({
+      {false, true, std::nullopt, false, true, false, false},
+      {true, false, true, false, false, std::nullopt},
+      {false, std::nullopt, false, false, true, true, true, std::nullopt},
+      {false, std::nullopt, false, false, true, true, false, std::nullopt},
+      {true, std::nullopt},
+      {false, std::nullopt},
+      {true, std::nullopt, true},
+      {std::nullopt, false, false},
+      {std::nullopt, std::nullopt},
+  })});
+
+  auto expected = makeRowVector({makeNullableArrayVector<bool>({
+      {true, true, false, false, false, false, std::nullopt},
+      {true, true, false, false, false, std::nullopt},
+      {true, true, true, false, false, false, std::nullopt, std::nullopt},
+      {true, true, false, false, false, false, std::nullopt, std::nullopt},
+      {true, std::nullopt},
+      {false, std::nullopt},
+      {true, true, std::nullopt},
+      {false, false, std::nullopt},
+      {std::nullopt, std::nullopt},
+  })});
+
+  auto result = evaluate("array_sort_desc(c0)", data);
+  assertEqualVectors(expected, makeRowVector({result}));
+}
+
 VELOX_INSTANTIATE_TEST_SUITE_P(
     ArraySortTest,
     ArraySortTest,

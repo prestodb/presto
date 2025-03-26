@@ -171,7 +171,7 @@ void applyScalarType(
         bits::fillBits(rawBits, endZeroRow, endRow, true);
       } else {
         bits::fillBits(rawBits, startRow, startRow + numOneBits, true);
-        bits::fillBits(rawBits, endZeroRow, endRow, false);
+        bits::fillBits(rawBits, startRow + numOneBits, endRow, false);
       }
     } else if constexpr (kind == TypeKind::REAL || kind == TypeKind::DOUBLE) {
       T* resultRawValues = flatResults->mutableRawValues();
