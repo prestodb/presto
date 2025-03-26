@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.connector.system.jdbc;
 
+import com.facebook.presto.FullConnectorSession;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.metadata.Metadata;
@@ -30,7 +31,6 @@ import javax.inject.Inject;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
-import static com.facebook.presto.connector.system.SystemConnectorSessionUtil.toSession;
 import static com.facebook.presto.connector.system.jdbc.FilterUtil.filter;
 import static com.facebook.presto.metadata.MetadataListing.listCatalogs;
 import static com.facebook.presto.metadata.MetadataListing.listSchemas;
@@ -66,7 +66,7 @@ public class SchemaJdbcTable
     @Override
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession connectorSession, TupleDomain<Integer> constraint)
     {
-        Session session = toSession(transactionHandle, connectorSession);
+        Session session = ((FullConnectorSession) connectorSession).getSession();
         Optional<String> catalogFilter = FilterUtil.stringFilter(constraint, 1);
 
         Builder table = InMemoryRecordSet.builder(METADATA);
