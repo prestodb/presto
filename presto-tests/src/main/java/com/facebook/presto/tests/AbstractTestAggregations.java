@@ -18,6 +18,8 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.DataProvider;
+import org.testng.annotations.Optional;
+import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -650,18 +652,23 @@ public abstract class AbstractTestAggregations
         assertQuery("SELECT NULLIF(1, orderkey), count(*) FROM orders GROUP BY orderkey");
     }
 
+    @Parameters("storageFormat")
     @Test
-    public void testGroupByExtract()
+    public void testGroupByExtract(@Optional("PARQUET") String storageFormat)
     {
+        // DWRF does not support date type.
+        String format = (System.getProperty("storageFormat") == null) ? storageFormat : System.getProperty("storageFormat");
+        String orderdate = format.equals("DWRF") ? "cast(orderdate as DATE)" : "orderdate";
+
         // whole expression in group by
-        assertQuery("SELECT EXTRACT(YEAR FROM orderdate), count(*) FROM orders GROUP BY EXTRACT(YEAR FROM orderdate)");
+        assertQuery(format("SELECT EXTRACT(YEAR FROM %s), count(*) FROM orders GROUP BY EXTRACT(YEAR FROM %s)", orderdate, orderdate));
 
         assertQuery(
-                "SELECT EXTRACT(YEAR FROM orderdate), count(*) FROM orders GROUP BY 1",
-                "SELECT EXTRACT(YEAR FROM orderdate), count(*) FROM orders GROUP BY EXTRACT(YEAR FROM orderdate)");
+                format("SELECT EXTRACT(YEAR FROM %s), count(*) FROM orders GROUP BY 1", orderdate),
+                format("SELECT EXTRACT(YEAR FROM %s), count(*) FROM orders GROUP BY EXTRACT(YEAR FROM %s)", orderdate, orderdate));
 
         // argument in group by
-        assertQuery("SELECT EXTRACT(YEAR FROM orderdate), count(*) FROM orders GROUP BY orderdate");
+        assertQuery(format("SELECT EXTRACT(YEAR FROM %s), count(*) FROM orders GROUP BY orderdate", orderdate));
     }
 
     @Test
@@ -1120,20 +1127,33 @@ public abstract class AbstractTestAggregations
                         "SELECT NULL, NULL, SUM(CAST(quantity AS BIGINT)) FROM lineitem");
     }
 
+    @Parameters("storageFormat")
     @Test
-    public void testGroupingSetMixedExpressionAndColumn()
+    public void testGroupingSetMixedExpressionAndColumn(@Optional("PARQUET") String storageFormat)
     {
-        assertQuery("SELECT suppkey, month(shipdate), SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY month(shipdate), ROLLUP(suppkey)",
-                "SELECT suppkey, month(shipdate), SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY month(shipdate), suppkey UNION ALL " +
-                        "SELECT NULL, month(shipdate), SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY month(shipdate)");
+        // DWRF does not support date type.
+        String format = (System.getProperty("storageFormat") == null) ? storageFormat : System.getProperty("storageFormat");
+        String shipdate = format.equals("DWRF") ? "cast(shipdate as DATE)" : "shipdate";
+
+        assertQuery(format("SELECT suppkey, month(%s), SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY month(%s), ROLLUP(suppkey)",
+                        shipdate, shipdate),
+                format("SELECT suppkey, month(%s), SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY month(%s), suppkey UNION ALL " +
+                                "SELECT NULL, month(%s), SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY month(%s)",
+                        shipdate, shipdate, shipdate, shipdate));
     }
 
+    @Parameters("storageFormat")
     @Test
-    public void testGroupingSetMixedExpressionAndOrdinal()
+    public void testGroupingSetMixedExpressionAndOrdinal(@Optional("PARQUET") String storageFormat)
     {
-        assertQuery("SELECT suppkey, month(shipdate), SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY 2, ROLLUP(suppkey)",
-                "SELECT suppkey, month(shipdate), SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY month(shipdate), suppkey UNION ALL " +
-                        "SELECT NULL, month(shipdate), SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY month(shipdate)");
+        // DWRF does not support date type.
+        String format = (System.getProperty("storageFormat") == null) ? storageFormat : System.getProperty("storageFormat");
+        String shipdate = format.equals("DWRF") ? "cast(shipdate as DATE)" : "shipdate";
+
+        assertQuery(format("SELECT suppkey, month(%s), SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY 2, ROLLUP(suppkey)", shipdate),
+                format("SELECT suppkey, month(%s), SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY month(%s), suppkey UNION ALL " +
+                                "SELECT NULL, month(%s), SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY month(%s)",
+                        shipdate, shipdate, shipdate, shipdate));
     }
 
     @Test
