@@ -7,6 +7,7 @@
       },
       "docString": "presto.default.set_agg",
       "functionKind": "AGGREGATE",
+      "longVariableConstraints":[],
       "outputType": "array(t)",
       "paramTypes": [
         "t"

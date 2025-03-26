@@ -17,7 +17,8 @@
         "aggregateMetadata": {
           "intermediateType": "ROW(BIGINT, INT)",
           "isOrderSensitive": false
-        }
+        },
+        "longVariableConstraints": []
       },
       {
         "docString":"a test aggregate function for double input/output",
@@ -35,7 +36,8 @@
         "aggregateMetadata": {
           "intermediateType": "ROW(DOUBLE, INT)",
           "isOrderSensitive": false
-        }
+        },
+        "longVariableConstraints": []
       }
     ]
   }

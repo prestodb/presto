@@ -227,6 +227,7 @@ public class NativeFunctionNamespaceManager
                 qualifiedFunctionName,
                 parameterBuilder.build(),
                 typeVariableConstraintsList,
+                jsonBasedUdfFunctionMetaData.getLongVariableConstraints(),
                 outputType,
                 jsonBasedUdfFunctionMetaData.getDocString(),
                 jsonBasedUdfFunctionMetaData.getRoutineCharacteristics(),

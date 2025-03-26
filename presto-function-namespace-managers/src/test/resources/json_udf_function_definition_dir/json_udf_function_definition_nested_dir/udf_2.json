@@ -14,7 +14,8 @@
           "language": "CPP",
           "determinism": "DETERMINISTIC",
           "nullCallClause": "CALLED_ON_NULL_INPUT"
-        }
+        },
+        "longVariableConstraints": []
       },
       {
         "docString": "DUPLICATE IN FILES - transforms inputs into the output \"",
@@ -30,7 +31,8 @@
           "language": "CPP",
           "determinism": "DETERMINISTIC",
           "nullCallClause": "CALLED_ON_NULL_INPUT"
-        }
+        },
+        "longVariableConstraints": []
       }
     ],
     "scalar_function_3": [
@@ -46,7 +48,8 @@
           "language": "CPP",
           "determinism": "DETERMINISTIC",
           "nullCallClause": "CALLED_ON_NULL_INPUT"
-        }
+        },
+        "longVariableConstraints": []
       },
       {
         "docString": "transforms double input to output",
@@ -60,7 +63,8 @@
           "language": "CPP",
           "determinism": "DETERMINISTIC",
           "nullCallClause": "CALLED_ON_NULL_INPUT"
-        }
+        },
+        "longVariableConstraints": []
       }
     ]
   }

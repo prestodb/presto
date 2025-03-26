@@ -139,6 +139,7 @@ public class RestBasedFunctionNamespaceManager
                 qualifiedFunctionName,
                 parameterBuilder.build(),
                 emptyList(),
+                emptyList(),
                 jsonBasedUdfFunctionMetaData.getOutputType(),
                 jsonBasedUdfFunctionMetaData.getDocString(),
                 jsonBasedUdfFunctionMetaData.getRoutineCharacteristics(),

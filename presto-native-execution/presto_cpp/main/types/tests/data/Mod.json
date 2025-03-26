@@ -1,0 +1,118 @@
+{
+    "mod": [
+      {
+        "docString": "presto.default.mod",
+        "functionKind": "SCALAR",
+        "longVariableConstraints":[],
+        "outputType": "integer",
+        "paramTypes": ["integer", "integer"],
+        "routineCharacteristics": {
+          "determinism": "DETERMINISTIC",
+          "language": "CPP",
+          "nullCallClause": "RETURNS_NULL_ON_NULL_INPUT"
+        },
+        "schema": "default",
+        "typeVariableConstraints":[],
+        "variableArity":false
+      },
+      {
+        "docString": "presto.default.mod",
+        "functionKind": "SCALAR",
+        "longVariableConstraints":[],
+        "outputType": "smallint",
+        "paramTypes": ["smallint", "smallint"],
+        "routineCharacteristics": {
+          "determinism": "DETERMINISTIC",
+          "language": "CPP",
+          "nullCallClause": "RETURNS_NULL_ON_NULL_INPUT"
+        },
+        "schema": "default",
+        "typeVariableConstraints":[],
+        "variableArity":false
+      },
+      {
+        "docString": "presto.default.mod",
+        "functionKind": "SCALAR",
+        "longVariableConstraints":[],
+        "outputType": "bigint",
+        "paramTypes": ["bigint", "bigint"],
+        "routineCharacteristics": {
+          "determinism": "DETERMINISTIC",
+          "language": "CPP",
+          "nullCallClause": "RETURNS_NULL_ON_NULL_INPUT"
+        },
+        "schema": "default",
+        "typeVariableConstraints":[],
+        "variableArity":false
+      },
+      {
+        "docString": "presto.default.mod",
+        "functionKind": "SCALAR",
+        "longVariableConstraints":[],
+        "outputType": "tinyint",
+        "paramTypes": ["tinyint", "tinyint"],
+        "routineCharacteristics": {
+          "determinism": "DETERMINISTIC",
+          "language": "CPP",
+          "nullCallClause": "RETURNS_NULL_ON_NULL_INPUT"
+        },
+        "schema": "default",
+        "typeVariableConstraints":[],
+        "variableArity":false
+      },
+      {
+        "docString": "presto.default.mod",
+        "functionKind": "SCALAR",
+        "longVariableConstraints":[],
+        "outputType": "double",
+        "paramTypes": ["double", "double"],
+        "routineCharacteristics": {
+          "determinism": "DETERMINISTIC",
+          "language": "CPP",
+          "nullCallClause": "RETURNS_NULL_ON_NULL_INPUT"
+        },
+        "schema": "default",
+        "typeVariableConstraints":[],
+        "variableArity":false
+      },
+      {
+        "docString": "presto.default.mod",
+        "functionKind": "SCALAR",
+        "longVariableConstraints":[],
+        "outputType": "real",
+        "paramTypes": ["real", "real"],
+        "routineCharacteristics": {
+          "determinism": "DETERMINISTIC",
+          "language": "CPP",
+          "nullCallClause": "RETURNS_NULL_ON_NULL_INPUT"
+        },
+        "schema": "default",
+        "typeVariableConstraints":[],
+        "variableArity":false
+      },
+      {
+        "docString": "presto.default.mod",
+        "functionKind": "SCALAR",
+        "longVariableConstraints":[
+            {
+                "expression":"max(i5, i6)",
+                "name":"i7"
+            },
+            {
+                "expression":"min(i2 - i6, i1 - i5) + max(i5, i6)",
+                "name":"i3"
+            }
+        ],
+        "outputType":"decimal(i3,i7)",
+        "paramTypes":["decimal(i1,i5)","decimal(i2,i6)"],
+        "routineCharacteristics": {
+          "determinism": "DETERMINISTIC",
+          "language": "CPP",
+          "nullCallClause": "RETURNS_NULL_ON_NULL_INPUT"
+        },
+        "schema": "default",
+        "typeVariableConstraints":[],
+        "variableArity":false
+      }
+    ]
+}
