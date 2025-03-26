@@ -17,6 +17,10 @@
 
 namespace facebook::velox::tpch::dbgen {
 
+// Clients must call this function before calling any of the data generation
+// functions below.
+void init_build_buffers PROTO(());
+
 /*
  * typedefs
  */

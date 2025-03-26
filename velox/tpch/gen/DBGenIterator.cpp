@@ -39,6 +39,9 @@ class DBGenBackend {
     load_dists(
         300 * 1024 * 1024,
         &dbgenCtx); // 300 MB buffer size for text generation.
+
+    // Initialize global dbgen buffers required to generate data.
+    init_build_buffers();
   }
   ~DBGenBackend() {
     cleanup_dists();

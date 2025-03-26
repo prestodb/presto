@@ -94,17 +94,33 @@ static void gen_phone(DSS_HUGE ind, char* target, seed_t* seed) {
   return;
 }
 
+static char** asc_date = NULL;
+
+static char orderSzFormat[100];
+static char custSzFormat[100];
+static char partSzFormat[100];
+static char partSzBrandFormat[100];
+static char suppSzFormat[100];
+
+// Initializes a series of buffers and structures required to generate data.
+// Clients must ensure this function is called before any of the functions
+// below.
+void init_build_buffers() {
+  char** mk_ascdate PROTO((void));
+  asc_date = mk_ascdate();
+
+  sprintf(orderSzFormat, O_CLRK_FMT, 9, &HUGE_FORMAT[1]);
+  sprintf(custSzFormat, C_NAME_FMT, 9, &HUGE_FORMAT[1]);
+  sprintf(partSzFormat, P_MFG_FMT, 1, &HUGE_FORMAT[1]);
+  sprintf(partSzBrandFormat, P_BRND_FMT, 2, &HUGE_FORMAT[1]);
+  sprintf(suppSzFormat, S_NAME_FMT, 9, &HUGE_FORMAT[1]);
+}
+
 long mk_cust(DSS_HUGE n_cust, customer_t* c, DBGenContext* ctx) {
   DSS_HUGE i;
-  static int bInit = 0;
-  static char szFormat[100];
 
-  if (!bInit) {
-    sprintf(szFormat, C_NAME_FMT, 9, &HUGE_FORMAT[1]);
-    bInit = 1;
-  }
   c->custkey = n_cust;
-  sprintf(c->name, szFormat, C_NAME_TAG, n_cust);
+  sprintf(c->name, custSzFormat, C_NAME_TAG, n_cust);
   V_STR(C_ADDR_LEN, &ctx->Seed[C_ADDR_SD], c->address);
   c->alen = static_cast<int>(strlen(c->address));
   RANDOM(i, 0, (nations.count - 1), &ctx->Seed[C_NTRG_SD]);
@@ -145,19 +161,9 @@ long mk_order(DSS_HUGE index, order_t* o, DBGenContext* ctx, long upd_num) {
   DSS_HUGE c_date;
   DSS_HUGE clk_num;
   DSS_HUGE supp_num;
-  static char** asc_date = NULL;
   char tmp_str[2];
-  char** mk_ascdate PROTO((void));
   int delta = 1;
-  static int bInit = 0;
-  static char szFormat[100];
 
-  if (!bInit) {
-    sprintf(szFormat, O_CLRK_FMT, 9, &HUGE_FORMAT[1]);
-    bInit = 1;
-  }
-  if (asc_date == NULL)
-    asc_date = mk_ascdate();
   mk_sparse(
       index, &o->okey, (upd_num == 0) ? 0 : 1 + upd_num / (10000 / UPD_PCT));
   if (ctx->scale_factor >= 30000)
@@ -179,7 +185,7 @@ long mk_order(DSS_HUGE index, order_t* o, DBGenContext* ctx, long upd_num) {
       1,
       MAX((ctx->scale_factor * O_CLRK_SCL), O_CLRK_SCL),
       &ctx->Seed[O_CLRK_SD]);
-  sprintf(o->clerk, szFormat, O_CLRK_TAG, clk_num);
+  sprintf(o->clerk, orderSzFormat, O_CLRK_TAG, clk_num);
   TEXT(O_CMNT_LEN, &ctx->Seed[O_CMNT_SD], o->comment);
   o->clen = static_cast<int>(strlen(o->comment));
 #ifdef DEBUG
@@ -255,22 +261,14 @@ long mk_part(DSS_HUGE index, part_t* p, DBGenContext* ctx) {
   DSS_HUGE temp;
   long snum;
   DSS_HUGE brnd;
-  static int bInit = 0;
-  static char szFormat[100];
-  static char szBrandFormat[100];
 
-  if (!bInit) {
-    sprintf(szFormat, P_MFG_FMT, 1, &HUGE_FORMAT[1]);
-    sprintf(szBrandFormat, P_BRND_FMT, 2, &HUGE_FORMAT[1]);
-    bInit = 1;
-  }
   p->partkey = index;
   agg_str(
       &colors, static_cast<long>(P_NAME_SCL), &ctx->Seed[P_NAME_SD], p->name);
   RANDOM(temp, P_MFG_MIN, P_MFG_MAX, &ctx->Seed[P_MFG_SD]);
-  sprintf(p->mfgr, szFormat, P_MFG_TAG, temp);
+  sprintf(p->mfgr, partSzFormat, P_MFG_TAG, temp);
   RANDOM(brnd, P_BRND_MIN, P_BRND_MAX, &ctx->Seed[P_BRND_SD]);
-  sprintf(p->brand, szBrandFormat, P_BRND_TAG, (temp * 10 + brnd));
+  sprintf(p->brand, partSzBrandFormat, P_BRND_TAG, (temp * 10 + brnd));
   p->tlen = pick_str(&p_types_set, &ctx->Seed[P_TYPE_SD], p->type);
   p->tlen = static_cast<int>(strlen(p_types_set.list[p->tlen].text));
   RANDOM(p->size, P_SIZE_MIN, P_SIZE_MAX, &ctx->Seed[P_SIZE_SD]);
@@ -292,15 +290,9 @@ long mk_part(DSS_HUGE index, part_t* p, DBGenContext* ctx) {
 
 long mk_supp(DSS_HUGE index, supplier_t* s, DBGenContext* ctx) {
   DSS_HUGE i, bad_press, noise, offset, type;
-  static int bInit = 0;
-  static char szFormat[100];
 
-  if (!bInit) {
-    sprintf(szFormat, S_NAME_FMT, 9, &HUGE_FORMAT[1]);
-    bInit = 1;
-  }
   s->suppkey = index;
-  sprintf(s->name, szFormat, S_NAME_TAG, index);
+  sprintf(s->name, suppSzFormat, S_NAME_TAG, index);
   V_STR(S_ADDR_LEN, &ctx->Seed[S_ADDR_SD], s->address);
   s->alen = static_cast<int>(strlen(s->address));
   RANDOM(i, 0, nations.count - 1, &ctx->Seed[S_NTRG_SD]);
