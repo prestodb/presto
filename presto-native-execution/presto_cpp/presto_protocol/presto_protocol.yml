@@ -313,7 +313,6 @@ JavaClasses:
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/StatisticAggregations.java
   - presto-main/src/main/java/com/facebook/presto/cost/PartialAggregationStatsEstimate.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/ProjectNode.java
-  - presto-matching/src/test/java/com/facebook/presto/matching/example/rel/ProjectNode.java
   - presto-common/src/main/java/com/facebook/presto/common/predicate/Range.java
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/RemoteSourceNode.java
   - presto-spi/src/main/java/com/facebook/presto/spi/session/ResourceEstimates.java
