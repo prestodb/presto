@@ -69,7 +69,7 @@ vector_size_t valueCount(
     vector_size_t size,
     Scratch& scratch,
     raw_vector<uint64_t>* copy = nullptr) {
-  if (source->readByte() == 0) {
+  if (source->readByte() == 0 || size == 0) {
     return size;
   }
   ScratchPtr<uint64_t, 16> nullsHolder(scratch);
