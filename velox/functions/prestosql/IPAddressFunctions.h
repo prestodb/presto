@@ -411,6 +411,76 @@ struct IPPrefixCollapseFunction {
   }
 };
 
+template <typename T>
+struct IPPrefixSubnetsFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Array<IPPrefix>>& result,
+      const arg_type<IPPrefix>& prefix,
+      const arg_type<int64_t>& newPrefixLength) {
+    const bool inputIsIpV4 = isIPv4(*prefix.template at<0>());
+
+    if (newPrefixLength < 0 || (inputIsIpV4 && newPrefixLength > 32) ||
+        (!inputIsIpV4 && newPrefixLength > 128)) {
+      VELOX_USER_FAIL(fmt::format(
+          "Invalid prefix length for IPv{}: {}",
+          inputIsIpV4 ? 4 : 6,
+          newPrefixLength));
+    }
+
+    int8_t inputPrefixLength = *prefix.template at<1>();
+    // An IP prefix is a 'network', or group of contiguous IP addresses. The
+    // common format for describing IP prefixes is
+    // uses 2 parts separated by a '/': (1) the IP address part and the (2)
+    // prefix length part (also called subnet size or CIDR). For example,
+    // in 9.255.255.0/24, 9.255.255.0 is the IP address part and 24 is the
+    // prefix length. The prefix length describes how many IP addresses the
+    // prefix contains in terms of the leading number of bits required. A higher
+    // number of bits means smaller number of IP addresses. Subnets inherently
+    // mean smaller groups of IP addresses. We can only disaggregate a prefix if
+    // the prefix length is the same length or longer (more-specific) than the
+    // length of the input prefix. E.g., if the input prefix is 9.255.255.0/24,
+    // the prefix length can be /24, /25, /26, etc... but not 23 or larger value
+    // than 24.
+
+    // If inputPrefixLength > newPrefixLength, there are no new prefixes and we
+    // will return an empty array.
+    uint128_t newPrefixCount = inputPrefixLength <= newPrefixLength
+        ? 1 << (newPrefixLength - inputPrefixLength)
+        : 0;
+    if (newPrefixCount == 0) {
+      return;
+    }
+
+    if (newPrefixCount == 1) {
+      writeResults(result, *prefix.template at<0>(), *prefix.template at<1>());
+      return;
+    }
+
+    const int64_t ipVersionMaxBits =
+        inputIsIpV4 ? ipaddress::kIPV4Bits : ipaddress::kIPV6Bits;
+    const uint128_t newPrefixIpCount = static_cast<uint128_t>(1)
+        << (ipVersionMaxBits - newPrefixLength);
+
+    int128_t currentIpAddress = *prefix.template at<0>();
+
+    for (uint128_t i = 0; i < newPrefixCount; i++) {
+      writeResults(result, currentIpAddress, newPrefixLength);
+      currentIpAddress += newPrefixIpCount;
+    }
+    return;
+  }
+
+ private:
+  FOLLY_ALWAYS_INLINE static void writeResults(
+      exec::ArrayWriter<IPPrefix>& result,
+      int128_t ipaddress,
+      int8_t prefixLength) {
+    result.add_item() = std::make_tuple(ipaddress, prefixLength);
+  }
+};
+
 void registerIPAddressFunctions(const std::string& prefix) {
   registerIPAddressType();
   registerIPPrefixType();
@@ -430,6 +500,8 @@ void registerIPAddressFunctions(const std::string& prefix) {
       {prefix + "is_subnet_of"});
   registerFunction<IPPrefixCollapseFunction, Array<IPPrefix>, Array<IPPrefix>>(
       {prefix + "ip_prefix_collapse"});
+  registerFunction<IPPrefixSubnetsFunction, Array<IPPrefix>, IPPrefix, int64_t>(
+      {prefix + "ip_prefix_subnets"});
 }
 
 } // namespace facebook::velox::functions

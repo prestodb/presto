@@ -549,4 +549,81 @@ TEST_F(IPAddressFunctionsTest, IPPrefixCollapseTest) {
   }
 }
 
+TEST_F(IPAddressFunctionsTest, IPPrefixSubnetsTest) {
+  auto ipprefix = [](const std::string& ipprefixString) {
+    auto tryIpPrefix = ipaddress::tryParseIpPrefixString(ipprefixString);
+    return variant::row(
+        {tryIpPrefix.value().first, tryIpPrefix.value().second});
+  };
+
+  // Basic test
+  {
+    auto ret = evaluate(
+        "ip_prefix_subnets(c0, 25)",
+        makeRowVector(
+            {makeConstantRow(IPPREFIX(), ipprefix("192.168.1.0/24"), 1)}));
+    auto expected = makeArrayOfRowVector(
+        IPPREFIX(),
+        {{ipprefix("192.168.1.0/25"), ipprefix("192.168.1.128/25")}});
+    ::facebook::velox::test::assertEqualVectors(expected, ret);
+
+    ret = evaluate(
+        "ip_prefix_subnets(c0, 26)",
+        makeRowVector(
+            {makeConstantRow(IPPREFIX(), ipprefix("192.168.0.0/24"), 1)}));
+    expected = makeArrayOfRowVector(
+        IPPREFIX(),
+        {{ipprefix("192.168.0.0/26"),
+          ipprefix("192.168.0.64/26"),
+          ipprefix("192.168.0.128/26"),
+          ipprefix("192.168.0.192/26")}});
+    ::facebook::velox::test::assertEqualVectors(expected, ret);
+
+    ret = evaluate(
+        "ip_prefix_subnets(c0, 37)",
+        makeRowVector(
+            {makeConstantRow(IPPREFIX(), ipprefix("2A03:2880:C000::/34"), 1)}));
+    expected = makeArrayOfRowVector(
+        IPPREFIX(),
+        {{ipprefix("2a03:2880:c000::/37"),
+          ipprefix("2a03:2880:c800::/37"),
+          ipprefix("2a03:2880:d000::/37"),
+          ipprefix("2a03:2880:d800::/37"),
+          ipprefix("2a03:2880:e000::/37"),
+          ipprefix("2a03:2880:e800::/37"),
+          ipprefix("2a03:2880:f000::/37"),
+          ipprefix("2a03:2880:f800::/37")}});
+    ::facebook::velox::test::assertEqualVectors(expected, ret);
+  }
+
+  // Test returning self
+  {
+    auto ret = evaluate(
+        "ip_prefix_subnets(c0, 24)",
+        makeRowVector(
+            {makeConstantRow(IPPREFIX(), ipprefix("192.168.1.0/24"), 1)}));
+    auto expected =
+        makeArrayOfRowVector(IPPREFIX(), {{ipprefix("192.168.1.0/24")}});
+    ::facebook::velox::test::assertEqualVectors(expected, ret);
+
+    ret = evaluate(
+        "ip_prefix_subnets(c0, 38)",
+        makeRowVector(
+            {makeConstantRow(IPPREFIX(), ipprefix("2804:431:b000::/38"), 1)}));
+    expected =
+        makeArrayOfRowVector(IPPREFIX(), {{ipprefix("2804:431:b000::/38")}});
+    ::facebook::velox::test::assertEqualVectors(expected, ret);
+  }
+
+  // Test invalid prefix lengths
+  {
+    VELOX_ASSERT_THROW(
+        evaluate(
+            "ip_prefix_subnets(c0, -1)",
+            makeRowVector(
+                {makeConstantRow(IPPREFIX(), ipprefix("192.168.0.0/24"), 1)})),
+        "Invalid prefix length for IPv4: -1");
+  }
+}
+
 } // namespace facebook::velox::functions::prestosql
