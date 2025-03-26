@@ -24,7 +24,7 @@
 
 #include "breeze/platforms/platform.h"
 
-#ifdef __EXCEPTIONS
+#if !defined(__CUDACC_RTC__) && defined(__EXCEPTIONS)
 #include <exception>
 #include <string>
 #endif
@@ -119,6 +119,8 @@ struct Msb {
   enum { VALUE = sizeof(T) * /*CHAR_BIT=*/8 - 1 };
 };
 
+#ifndef __CUDACC_RTC__
+
 template <typename T>
 T NextPowerOfTwo(T value);
 
@@ -127,6 +129,8 @@ template <>
 inline int NextPowerOfTwo(int value) {
   return value == 1 ? 1 : 1 << (32 - __builtin_clz(value - 1));
 }
+
+#endif
 
 template <typename T, typename U>
 struct IsSame {
@@ -156,7 +160,7 @@ struct RemoveConstT<const T> {
 template <typename T>
 using RemoveConst = typename RemoveConstT<T>::Type;
 
-#ifdef __EXCEPTIONS
+#if !defined(__CUDACC_RTC__) && defined(__EXCEPTIONS)
 
 // custom exception used for device allocation failures
 class BadDeviceAlloc : public std::exception {
@@ -172,7 +176,7 @@ class BadDeviceAlloc : public std::exception {
   std::string message_;
 };
 
-#endif  // __EXCEPTIONS
+#endif  // !__CUDACC_RTC__ && __EXCEPTIONS
 
 enum AddressSpace {
   THREAD,

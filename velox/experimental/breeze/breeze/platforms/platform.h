@@ -24,7 +24,7 @@
 
 // some platforms require a system header to be included
 #if defined(PLATFORM_CUDA)
-#include <cuda.h>
+#include <cuda_runtime_api.h>
 #elif defined(PLATFORM_HIP)
 #include <hip/hip_runtime.h>
 #elif defined(PLATFORM_METAL)
