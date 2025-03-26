@@ -3960,7 +3960,7 @@ TEST_F(VectorTest, arrayCopyTargetNullOffsets) {
   auto offsetsRef = target->asUnchecked<ArrayVector>()->offsets();
   ASSERT_TRUE(offsetsRef);
   BaseVector::prepareForReuse(target, target->size());
-  ASSERT_FALSE(target->asUnchecked<ArrayVector>()->offsets());
+  ASSERT_TRUE(target->asUnchecked<ArrayVector>()->offsets());
   auto source = makeArrayVector<int64_t>(
       11, [](auto) { return 1; }, [](auto i, auto) { return i; });
   target->copy(source.get(), 0, 0, source->size());
@@ -4065,6 +4065,17 @@ TEST_F(VectorTest, hasOverlappingRanges) {
   test(3, {false, false, false}, {2, 1, 0}, {1, 2, 1}, true);
   test(2, {false, false}, {0, 1}, {3, 1}, true);
   test(2, {false, false}, {1, 0}, {1, 3}, true);
+}
+
+TEST_F(VectorTest, estimateFlatSize) {
+  auto arrayVector = makeArrayVector<int64_t>(
+      10, [](auto) { return 1; }, [](auto i, auto) { return i; });
+  auto originalSize = arrayVector->estimateFlatSize();
+  arrayVector->prepareForReuse();
+  auto flatSize = arrayVector->estimateFlatSize();
+  EXPECT_NE(originalSize, flatSize);
+  // Test that the second call to prepareForReuse will not cause crash
+  arrayVector->prepareForReuse();
 }
 
 } // namespace

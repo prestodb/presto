@@ -1198,13 +1198,13 @@ void ArrayVector::prepareForReuse() {
   BaseVector::prepareForReuse();
 
   if (!offsets_->isMutable()) {
-    offsets_ = nullptr;
+    offsets_ = allocateOffsets(BaseVector::length_, pool_);
   } else {
     zeroOutBuffer(offsets_);
   }
 
   if (!sizes_->isMutable()) {
-    sizes_ = nullptr;
+    sizes_ = allocateSizes(BaseVector::length_, pool_);
   } else {
     zeroOutBuffer(sizes_);
   }
@@ -1497,13 +1497,13 @@ void MapVector::prepareForReuse() {
   BaseVector::prepareForReuse();
 
   if (!offsets_->isMutable()) {
-    offsets_ = nullptr;
+    offsets_ = allocateOffsets(BaseVector::length_, pool_);
   } else {
     zeroOutBuffer(offsets_);
   }
 
   if (!sizes_->isMutable()) {
-    sizes_ = nullptr;
+    sizes_ = allocateSizes(BaseVector::length_, pool_);
   } else {
     zeroOutBuffer(sizes_);
   }

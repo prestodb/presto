@@ -681,9 +681,10 @@ class MapVector : public ArrayVectorBase {
   bool isWritable() const override;
 
   /// Calls BaseVector::prepareForReuse() to check and reset nulls buffer if
-  /// needed, checks and resets offsets and sizes buffers, zeros out offsets and
-  /// sizes if reusable, calls BaseVector::prepareForReuse(keys|values, 0) for
-  /// the keys and values vectors.
+  /// needed. Checks and re-allocate offsets and sizes buffers to have
+  /// BaseVector::length_, or zeros out offsets and sizes if reusable, calls
+  /// BaseVector::prepareForReuse(keys|values, 0) for the keys and values
+  /// vectors.
   void prepareForReuse() override;
 
   bool mayHaveNullsRecursive() const override {
