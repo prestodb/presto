@@ -18,6 +18,7 @@ import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestWindowQueries;
 import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
 public class TestWindowQueries
@@ -25,20 +26,26 @@ public class TestWindowQueries
 {
     private static final String frameTypeDiffersError = ".*Window frame of type RANGE does not match types of the ORDER BY and frame column.*";
 
-    private String storageFormat = "PARQUET";
-
+    @Parameters("storageFormat")
     @Override
     protected QueryRunner createQueryRunner() throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(ImmutableMap.of(), storageFormat);
+        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(ImmutableMap.of(), System.getProperty("storageFormat"));
     }
 
+    @Parameters("storageFormat")
     @Override
     protected void createTables()
     {
         try {
-            QueryRunner javaQueryRunner = PrestoNativeQueryRunnerUtils.createJavaQueryRunner("PARQUET");
-            NativeQueryRunnerUtils.createAllTables(javaQueryRunner, false);
+            String storageFormat = System.getProperty("storageFormat");
+            QueryRunner javaQueryRunner = PrestoNativeQueryRunnerUtils.createJavaQueryRunner(storageFormat);
+            if (storageFormat.equals("DWRF")) {
+                NativeQueryRunnerUtils.createAllTables(javaQueryRunner, true);
+            }
+            else {
+                NativeQueryRunnerUtils.createAllTables(javaQueryRunner, false);
+            }
             javaQueryRunner.close();
         }
         catch (Exception e) {

@@ -8,13 +8,16 @@ The following command can be used to run all tests in this module:
 ```
 mvn test 
     -pl 'presto-native-tests' 
+    -DstorageFormat="PARQUET"
     -Dtest="com.facebook.presto.nativetests.Test*" 
     -Duser.timezone=America/Bahia_Banderas 
     -DPRESTO_SERVER=${PRESTO_HOME}/presto-native-execution/cmake-build-debug/presto_cpp/main/presto_server 
     -DWORKER_COUNT=${WORKER_COUNT} -T1C
 ```
-Please update JVM argument `PRESTO_SERVER` to point to the Presto C++ worker
-binary `presto_server`. 
+Update the following JVM arguments:
+1. `PRESTO_SERVER`: Points to the Presto C++ worker binary, `presto_server`. 
+2. `storageFormat`: File format of TPC-H tables used in tests, `DWRF` and 
+`PARQUET` formats are supported. 
 
 ## Adding new tests
 

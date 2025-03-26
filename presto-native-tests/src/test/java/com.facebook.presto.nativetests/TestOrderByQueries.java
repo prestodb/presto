@@ -18,25 +18,32 @@ import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestOrderByQueries;
 import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
 public class TestOrderByQueries
         extends AbstractTestOrderByQueries
 {
-    private static final String storageFormat = "PARQUET";
-
+    @Parameters("storageFormat")
     @Override
     protected QueryRunner createQueryRunner() throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(ImmutableMap.of(), storageFormat);
+        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(ImmutableMap.of(), System.getProperty("storageFormat"));
     }
 
+    @Parameters("storageFormat")
     @Override
     protected void createTables()
     {
         try {
+            String storageFormat = System.getProperty("storageFormat");
             QueryRunner javaQueryRunner = PrestoNativeQueryRunnerUtils.createJavaQueryRunner(storageFormat);
-            NativeQueryRunnerUtils.createAllTables(javaQueryRunner, false);
+            if (storageFormat.equals("DWRF")) {
+                NativeQueryRunnerUtils.createAllTables(javaQueryRunner, true);
+            }
+            else {
+                NativeQueryRunnerUtils.createAllTables(javaQueryRunner, false);
+            }
             javaQueryRunner.close();
         }
         catch (Exception e) {
