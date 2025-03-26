@@ -83,4 +83,12 @@ public class TestIcebergDistributedNessie
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageMatching("Cannot expire snapshots: GC is disabled .*");
     }
+
+    @Test
+    public void testUnknownConnectorNotThrown()
+    {
+        // Checks an Unknown connector exception is not thrown when trying to explore through JDBC an Iceberg catalog of type Nessie
+        assertQuerySucceeds("select * from system.jdbc.schemas where TABLE_CATALOG = 'iceberg'");
+        assertQuerySucceeds("select * from system.jdbc.tables where TABLE_CAT = 'iceberg' and TABLE_SCHEM = 'tpch'");
+    }
 }
