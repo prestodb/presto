@@ -30,7 +30,8 @@ public class TestWindowQueries
     @Override
     protected QueryRunner createQueryRunner() throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(ImmutableMap.of(), System.getProperty("storageFormat"));
+        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(System.getProperty("storageFormat"),
+                ImmutableMap.of(), ImmutableMap.of());
     }
 
     @Parameters("storageFormat")

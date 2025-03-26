@@ -130,7 +130,7 @@ public class PrestoNativeQueryRunnerUtils
         defaultQueryRunner.close();
 
         return createNativeQueryRunner(dataDirectory.get().toString(), prestoServerPath.get(), workerCount, cacheMaxSize, true, Optional.empty(),
-                storageFormat, addStorageFormatToPath, false, isCoordinatorSidecarEnabled, false, enableRuntimeMetricsCollection, enableSsdCache, Collections.emptyMap());
+                storageFormat, addStorageFormatToPath, false, isCoordinatorSidecarEnabled, false, enableRuntimeMetricsCollection, enableSsdCache, Collections.emptyMap(), Collections.emptyMap());
     }
 
     public static QueryRunner createJavaQueryRunner()
@@ -338,7 +338,8 @@ public class PrestoNativeQueryRunnerUtils
             boolean singleNodeExecutionEnabled,
             boolean enableRuntimeMetricsCollection,
             boolean enableSsdCache,
-            Map<String, String> extraProperties)
+            Map<String, String> extraProperties,
+            Map<String, String> extraCoordinatorProperties)
             throws Exception
     {
         // The property "hive.allow-drop-table" needs to be set to true because security is always "legacy" in NativeQueryRunner.
@@ -364,7 +365,7 @@ public class PrestoNativeQueryRunnerUtils
                         .putAll(isCoordinatorSidecarEnabled ? getNativeSidecarProperties() : ImmutableMap.of())
                         .putAll(extraProperties)
                         .build(),
-                coordinatorProperties.build(),
+                coordinatorProperties.putAll(extraCoordinatorProperties).build(),
                 "legacy",
                 hiveProperties,
                 workerCount,
@@ -424,7 +425,9 @@ public class PrestoNativeQueryRunnerUtils
         return createNativeQueryRunner(false, DEFAULT_STORAGE_FORMAT, Optional.ofNullable(remoteFunctionServerUds), false, false, false, false, false);
     }
 
-    public static QueryRunner createNativeQueryRunner(Map<String, String> extraProperties, String storageFormat)
+    public static QueryRunner createNativeQueryRunner(String storageFormat,
+                                                      Map<String, String> extraProperties,
+                                                      Map<String, String> extraCoordinatorProperties)
             throws Exception
     {
         int cacheMaxSize = 0;
@@ -443,7 +446,8 @@ public class PrestoNativeQueryRunnerUtils
                 false,
                 false,
                 false,
-                extraProperties);
+                extraProperties,
+                extraCoordinatorProperties);
     }
 
     public static QueryRunner createNativeQueryRunner(boolean useThrift)
@@ -491,6 +495,7 @@ public class PrestoNativeQueryRunnerUtils
                 singleNodeExecutionEnabled,
                 enableRuntimeMetricsCollection,
                 enableSSDCache,
+                Collections.emptyMap(),
                 Collections.emptyMap());
     }
 

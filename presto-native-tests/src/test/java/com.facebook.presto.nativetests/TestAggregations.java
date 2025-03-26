@@ -13,41 +13,17 @@
  */
 package com.facebook.presto.nativetests;
 
-import com.facebook.presto.nativeworker.NativeQueryRunnerUtils;
 import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.testing.QueryRunner;
-import com.facebook.presto.tests.AbstractTestRepartitionQueries;
 import com.google.common.collect.ImmutableMap;
-import org.testng.annotations.Parameters;
 
-public class TestRepartitionQueries
-        extends AbstractTestRepartitionQueries
+public class TestAggregations
+        extends AbstractTestAggregationsNative
 {
-    @Parameters("storageFormat")
     @Override
     protected QueryRunner createQueryRunner() throws Exception
     {
         return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(System.getProperty("storageFormat"),
                 ImmutableMap.of(), ImmutableMap.of());
-    }
-
-    @Parameters("storageFormat")
-    @Override
-    protected void createTables()
-    {
-        try {
-            String storageFormat = System.getProperty("storageFormat");
-            QueryRunner javaQueryRunner = PrestoNativeQueryRunnerUtils.createJavaQueryRunner(storageFormat);
-            if (storageFormat.equals("DWRF")) {
-                NativeQueryRunnerUtils.createAllTables(javaQueryRunner, true);
-            }
-            else {
-                NativeQueryRunnerUtils.createAllTables(javaQueryRunner, false);
-            }
-            javaQueryRunner.close();
-        }
-        catch (Exception e) {
-            throw new RuntimeException(e);
-        }
     }
 }

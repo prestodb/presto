@@ -27,10 +27,10 @@ public class TestRepartitionQueriesWithSmallPages
     @Override
     protected QueryRunner createQueryRunner() throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(
+        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(System.getProperty("storageFormat"),
                 // Use small SerializedPages to force flushing
                 ImmutableMap.of("driver.max-page-partitioning-buffer-size", "200B"),
-                System.getProperty("storageFormat"));
+                ImmutableMap.of());
     }
 
     @Parameters("storageFormat")
