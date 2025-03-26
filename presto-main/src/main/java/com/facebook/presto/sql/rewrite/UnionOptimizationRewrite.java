@@ -20,31 +20,23 @@ import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.Statement;
-import com.google.common.collect.ImmutableList;
+import com.facebook.presto.sql.tree.Union;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static java.util.Objects.requireNonNull;
+import static com.facebook.presto.SystemSessionProperties.isOptimizeUnionToUnionAll;
 
-public final class StatementRewrite
+public class UnionOptimizationRewrite
+        implements StatementRewrite.Rewrite
 {
-    private static final List<Rewrite> REWRITES = ImmutableList.of(
-            new DescribeInputRewrite(),
-            new DescribeOutputRewrite(),
-            new ShowQueriesRewrite(),
-            new ShowStatsRewrite(),
-            new ExplainRewrite(),
-            new MaterializedViewOptimizationRewrite(),
-            new UnionOptimizationRewrite());
-
-    private StatementRewrite() {}
-
-    public static Statement rewrite(
+    @Override
+    public Statement rewrite(
             Session session,
             Metadata metadata,
             SqlParser parser,
@@ -55,23 +47,26 @@ public final class StatementRewrite
             AccessControl accessControl,
             WarningCollector warningCollector)
     {
-        for (Rewrite rewrite : REWRITES) {
-            node = requireNonNull(rewrite.rewrite(session, metadata, parser, queryExplainer, node, parameters, parameterLookup, accessControl, warningCollector), "Statement rewrite returned null");
+        if (isOptimizeUnionToUnionAll(session)) {
+            return (Statement) new UnionRewriter()
+                    .process(node, null);
         }
+
         return node;
     }
 
-    interface Rewrite
+    private static final class UnionRewriter
+            extends DefaultASTRewriter<Void>
     {
-        Statement rewrite(
-                Session session,
-                Metadata metadata,
-                SqlParser parser,
-                Optional<QueryExplainer> queryExplainer,
-                Statement node,
-                List<Expression> parameters,
-                Map<NodeRef<Parameter>, Expression> parameterLookup,
-                AccessControl accessControl,
-                WarningCollector warningCollector);
+        @Override
+        protected Node visitUnion(Union node, Void context)
+        {
+            // Skip rewrite for union and union distinct cases
+            if (node.isDistinct().orElse(false)) {
+                return node;
+            }
+
+            return new Union(node.getRelations(), Optional.of(false));
+        }
     }
 }
