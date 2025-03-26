@@ -13,12 +13,15 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.facebook.presto.transaction.TransactionInfo;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -30,10 +33,12 @@ import org.testng.annotations.Test;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.airlift.testing.Assertions.assertLessThanOrEqual;
 import static com.facebook.presto.execution.QueryState.FINISHED;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
@@ -42,6 +47,7 @@ import static org.testng.Assert.fail;
 @Test(singleThreaded = true)
 public class TestBrutalShutdown
 {
+    private static final Logger LOG = Logger.get(TestBrutalShutdown.class);
     private static final long SHUTDOWN_TIMEOUT_MILLIS = 600_000;
     private static final Session TINY_SESSION = testSessionBuilder()
             .setCatalog("tpch")
@@ -79,6 +85,13 @@ public class TestBrutalShutdown
                 if (info.getState() == FINISHED) {
                     totalSuccessfulQueries++;
                 }
+            }
+            if (totalQueries != totalSuccessfulQueries) {
+                LOG.error(Joiner.on("\n").join(queryInfos.stream()
+                        .filter(queryInfo -> queryInfo.getState() != FINISHED)
+                        .map(queryInfo -> format("query %s should have been successful but is in state: %s. Error: %s, retriable: %s",
+                                queryInfo.getQueryId(), queryInfo.getState(), queryInfo.getErrorCode(), Optional.ofNullable(queryInfo.getErrorCode()).map(ErrorCode::isRetriable).orElse(null)))
+                        .iterator()));
             }
             assertEquals(totalSuccessfulQueries, totalQueries);
         }
