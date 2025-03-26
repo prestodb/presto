@@ -285,19 +285,23 @@ uint64_t ArbitrationParticipant::reclaim(
   ArbitrationTimedLock l(reclaimMutex_, maxWaitTimeNs);
   TestValue::adjust(
       "facebook::velox::memory::ArbitrationParticipant::reclaim", this);
-  uint64_t reclaimedBytes{0};
+  uint64_t reclaimedCapacity{0};
   try {
     ++numReclaims_;
     VELOX_MEM_LOG(INFO) << "Reclaiming from memory pool " << pool_->name()
                         << " with target " << succinctBytes(targetBytes);
-    pool_->reclaim(targetBytes, maxWaitTimeNs / 1'000'000, stats);
-    reclaimedBytes = shrink(/*reclaimAll=*/false);
+    auto reclaimedBytes =
+        pool_->reclaim(targetBytes, maxWaitTimeNs / 1'000'000, stats);
+    reclaimedCapacity = shrink(/*reclaimAll=*/false);
+    VELOX_MEM_LOG(INFO) << "Reclaimed from memory pool " << pool_->name()
+                        << " reserved memory " << succinctBytes(reclaimedBytes)
+                        << ", capacity " << succinctBytes(reclaimedCapacity);
   } catch (const std::exception& e) {
     VELOX_MEM_LOG(ERROR) << "Failed to reclaim from memory pool "
                          << pool_->name() << ", aborting it: " << e.what();
-    reclaimedBytes = abortLocked(std::current_exception());
+    reclaimedCapacity = abortLocked(std::current_exception());
   }
-  return reclaimedBytes;
+  return reclaimedCapacity;
 }
 
 bool ArbitrationParticipant::grow(
