@@ -62,6 +62,8 @@ public interface StandardFunctionResolution
 
     boolean isCountFunction(FunctionHandle functionHandle);
 
+    boolean isCountIfFunction(FunctionHandle functionHandle);
+
     FunctionHandle countFunction();
 
     FunctionHandle countFunction(Type valueType);
