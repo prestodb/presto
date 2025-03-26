@@ -150,11 +150,10 @@ Map Functions
 
     Returns all the values in the map ``x``.
 
-.. function:: map_top_n_values(x(K,V), n) -> array(K)
+.. function:: map_top_n_values(x(K,V), n) -> array(V)
 
-    Returns top n values in the map ``x``.
-    ``n`` must be a positive integer
-    For bottom ``n`` values, use the function with lambda operator to perform custom sorting.::
+    Returns top ``n`` values in the map ``x`` by sorting its values in descending order.
+    ``n`` must be a non-negative integer. ::
 
         SELECT map_top_n_values(map(ARRAY['a', 'b', 'c'], ARRAY[1, 2, 3]), 2) --- [3, 2]
 
