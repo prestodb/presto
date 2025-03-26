@@ -35,7 +35,7 @@ on:
         default: true
         required: false
       dependency_image:
-        description: 'Dependency image(e.g., prestodb/presto-native-dependency:0.290-20241014120930-e1fc090)'
+        description: 'Dependency image(e.g., prestodb/presto-native-dependency:latest)'
         required: false
         default: ''
       publish_docs:
