@@ -28,12 +28,5 @@ public class TestOptimizeMixedDistinctAggregations
                 .build();
     }
 
-    @Override
-    public void testCountDistinct()
-    {
-        assertQuery("SELECT COUNT(DISTINCT custkey + 1) FROM orders", "SELECT COUNT(*) FROM (SELECT DISTINCT custkey + 1 FROM orders) t");
-        assertQuery("SELECT COUNT(DISTINCT linenumber), COUNT(*) from lineitem where linenumber < 0");
-    }
-
     // TODO add dedicated test cases and remove `extends AbstractTestAggregation`
 }
