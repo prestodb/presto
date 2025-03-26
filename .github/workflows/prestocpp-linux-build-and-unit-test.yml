@@ -168,6 +168,10 @@ jobs:
   prestocpp-linux-presto-native-tests:
     needs: prestocpp-linux-build-for-test
     runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        storage-format: [ "PARQUET", "DWRF" ]
     container:
       image: prestodb/presto-native-dependency:0.292-20250204112033-cf8ba84
     env:
@@ -230,6 +234,7 @@ jobs:
           mvn test \
             ${MAVEN_TEST} \
             -pl 'presto-native-tests' \
+            -DstorageFormat=${{ matrix.storage-format }} \
             -Dtest="${TESTCLASSES}" \
             -DPRESTO_SERVER=${PRESTO_SERVER_PATH} \
             -DDATA_DIR=${RUNNER_TEMP} \
