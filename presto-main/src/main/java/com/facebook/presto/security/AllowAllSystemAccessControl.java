@@ -231,4 +231,11 @@ public class AllowAllSystemAccessControl
     public void checkCanAddConstraint(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
     {
     }
+
+    @Override
+    public boolean isSkipPermissionsCheckEnabled()
+    {
+        // Need to override
+        return false;
+    }
 }
