@@ -219,6 +219,21 @@ ColumnChunkMetaDataPtr::getColumnStatistics(
       thriftColumnChunkPtr(ptr_)->meta_data.statistics, *type, numRows);
 };
 
+std::string ColumnChunkMetaDataPtr::getColumnMetadataStatsMinValue() {
+  VELOX_CHECK(hasStatistics());
+  return thriftColumnChunkPtr(ptr_)->meta_data.statistics.min_value;
+}
+
+std::string ColumnChunkMetaDataPtr::getColumnMetadataStatsMaxValue() {
+  VELOX_CHECK(hasStatistics());
+  return thriftColumnChunkPtr(ptr_)->meta_data.statistics.max_value;
+}
+
+int64_t ColumnChunkMetaDataPtr::getColumnMetadataStatsNullCount() {
+  VELOX_CHECK(hasStatistics());
+  return thriftColumnChunkPtr(ptr_)->meta_data.statistics.null_count;
+}
+
 int64_t ColumnChunkMetaDataPtr::dataPageOffset() const {
   return thriftColumnChunkPtr(ptr_)->meta_data.data_page_offset;
 }

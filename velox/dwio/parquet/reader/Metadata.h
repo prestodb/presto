@@ -42,6 +42,15 @@ class ColumnChunkMetaDataPtr {
       const TypePtr type,
       int64_t numRows);
 
+  /// Return the Column Metadata Statistics Min Value
+  std::string getColumnMetadataStatsMinValue();
+
+  /// Return the Column Metadata Statistics Max Value
+  std::string getColumnMetadataStatsMaxValue();
+
+  /// Return the Column Metadata Statistics Null Count
+  int64_t getColumnMetadataStatsNullCount();
+
   /// Number of values.
   int64_t numValues() const;
 
