@@ -530,9 +530,13 @@ size_t unescapeSizeForJsonCast(const char* input, size_t length) {
             start += 6;
             continue;
           } else {
-            unsigned char buf[4];
-            auto increment = utf8proc_encode_char(codePoint, buf);
-            outSize += increment;
+            if (!isSpecialCode(codePoint)) {
+              unsigned char buf[4];
+              auto increment = utf8proc_encode_char(codePoint, buf);
+              outSize += increment;
+            } else {
+              outSize += 6;
+            }
           }
           start += 6;
           continue;
@@ -608,9 +612,21 @@ void unescapeForJsonCast(const char* input, size_t length, char* output) {
             start += 6;
             continue;
           } else {
-            auto increment = utf8proc_encode_char(
-                codePoint, reinterpret_cast<unsigned char*>(pos));
-            pos += increment;
+            if (!isSpecialCode(codePoint)) {
+              auto increment = utf8proc_encode_char(
+                  codePoint, reinterpret_cast<unsigned char*>(pos));
+              pos += increment;
+            } else {
+              *pos++ = '\\';
+              *pos++ = 'u';
+              start += 2;
+              // java upper cases the code points
+              for (auto k = 0; k < 4; k++) {
+                *pos++ = std::toupper(start[k]);
+              }
+              start += 4;
+              continue;
+            }
           }
           start += 6;
           continue;

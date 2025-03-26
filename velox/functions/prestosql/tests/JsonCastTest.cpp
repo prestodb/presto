@@ -1631,3 +1631,31 @@ TEST_F(JsonCastTest, castFromJsonWithEscaping) {
     }
   }
 }
+
+TEST_F(JsonCastTest, castFromJsonWithEscapingForSpecialUniocodeCharacters) {
+  auto testCast = [&](const std::string& json,
+                      const std::string& expectedJson) {
+    auto data = makeRowVector({makeFlatVector<std::string>({json})});
+    auto result = evaluate("cast(json_parse(c0) as json[])", data);
+    ASSERT_TRUE(!result->isNullAt(0));
+
+    auto castRow = evaluate(
+        "cast(row_constructor(c0[1]) as struct(x varchar))",
+        makeRowVector({result}));
+    ASSERT_TRUE(!castRow->isNullAt(0));
+
+    auto expected =
+        makeRowVector({"x"}, {makeFlatVector<std::string>({expectedJson})});
+    test::assertEqualVectors(expected, castRow);
+  };
+
+  testCast(
+      R"(["walk-in bar and \u0003spacious "])",
+      "walk-in bar and \u0003spacious ");
+
+  testCast(R"(["\u0010"])", "\u0010");
+  testCast(R"(["\u001a"])", "\u001A");
+  testCast(R"(["\u0020"])", "\u0020");
+  testCast(R"(["\u007F"])", "\u007F");
+  testCast(R"(["\u008A"])", "\u008A");
+}
