@@ -235,6 +235,12 @@ public class PrestoNativeQueryRunnerUtils
             return this;
         }
 
+        public HiveQueryRunnerBuilder setExtraCoordinatorProperties(Map<String, String> extraCoordinatorProperties)
+        {
+            this.extraCoordinatorProperties.putAll(extraCoordinatorProperties);
+            return this;
+        }
+
         public HiveQueryRunnerBuilder setHiveProperties(Map<String, String> hiveProperties)
         {
             this.hiveProperties.putAll(hiveProperties);
