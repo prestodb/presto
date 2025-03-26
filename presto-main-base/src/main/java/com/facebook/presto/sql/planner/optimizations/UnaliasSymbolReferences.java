@@ -85,6 +85,7 @@ import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
@@ -569,7 +570,58 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitTableFunctionProcessor(TableFunctionProcessorNode node, RewriteContext<UnaliasContext> context)
         {
-            PlanNode rewrittenSource = node.getSource().accept(this, context);
+            if (!node.getSource().isPresent()) {
+                Map<VariableReferenceExpression, VariableReferenceExpression> mappings =
+                        Optional.ofNullable(context.get())
+                                .map(c -> new HashMap<>(c.getCorrelationMapping()))
+                                .orElseGet(HashMap::new);
+                SymbolMapper mapper = new SymbolMapper(mappings, warningCollector);
+
+                TableFunctionProcessorNode rewrittenTableFunctionProcessor = new TableFunctionProcessorNode(
+                        node.getId(),
+                        node.getName(),
+                        mapper.map(node.getProperOutputs()),
+                        Optional.empty(),
+                        ImmutableList.of(),
+                        ImmutableList.of(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableSet.of(),
+                        0,
+                        node.getHashSymbol().map(mapper::map),
+                        node.getHandle());
+
+                return new UnaliasContext.PlanAndMappings(
+                        rewrittenTableFunctionProcessor,
+                        mappings)
+                {
+                    @Override
+                    public List<PlanNode> getSources()
+                    {
+                        return rewrittenTableFunctionProcessor.getSources();
+                    }
+
+                    @Override
+                    public List<VariableReferenceExpression> getOutputVariables()
+                    {
+                        return rewrittenTableFunctionProcessor.getOutputVariables();
+                    }
+
+                    @Override
+                    public PlanNode replaceChildren(List<PlanNode> newChildren)
+                    {
+                        return rewrittenTableFunctionProcessor.replaceChildren(newChildren);
+                    }
+
+                    @Override
+                    public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
+                    {
+                        return rewrittenTableFunctionProcessor.assignStatsEquivalentPlanNode(statsEquivalentPlanNode);
+                    }
+                };
+            }
+
+            PlanNode rewrittenSource = node.getSource().get().accept(this, context);
             Map<VariableReferenceExpression, VariableReferenceExpression> mappings =
                     Optional.ofNullable(context.get())
                             .map(c -> new HashMap<>(c.getCorrelationMapping()))

@@ -358,7 +358,7 @@ public class SymbolMapper
                 node.getId(),
                 node.getName(),
                 map(node.getProperOutputs()),
-                source,
+                Optional.of(source),
                 newPassThroughSpecifications,
                 newRequiredVariables,
                 newMarkerVariables,

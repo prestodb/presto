@@ -180,7 +180,11 @@ public final class ValidateDependenciesChecker
         @Override
         public Void visitTableFunctionProcessor(TableFunctionProcessorNode node, Set<VariableReferenceExpression> boundVariables)
         {
-            PlanNode source = node.getSource();
+            if (!node.getSource().isPresent()) {
+                return null;
+            }
+
+            PlanNode source = node.getSource().get();
             source.accept(this, boundVariables);
 
             Set<VariableReferenceExpression> inputs = createInputs(source, boundVariables);
