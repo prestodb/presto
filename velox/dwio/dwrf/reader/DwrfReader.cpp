@@ -660,6 +660,7 @@ void DwrfRowReader::loadCurrentStripe() {
   const auto loadUnitIdx = currentStripe_ - firstStripe_;
   currentUnit_ = castDwrfUnit(&unitLoader_->getLoadedUnit(loadUnitIdx));
   rowsInCurrentStripe_ = currentUnit_->getNumRows();
+  ++processedStrides_;
 }
 
 size_t DwrfRowReader::estimatedReaderMemory() const {

@@ -542,11 +542,17 @@ struct RuntimeStatistics {
   // Number of splits skipped based on statistics.
   int64_t skippedSplits{0};
 
+  // Number of splits processed based on statistics.
+  int64_t processedSplits{0};
+
   // Total bytes in splits skipped based on statistics.
   int64_t skippedSplitBytes{0};
 
   // Number of strides (row groups) skipped based on statistics.
   int64_t skippedStrides{0};
+
+  // Number of strides (row groups) processed based on statistics.
+  int64_t processedStrides{0};
 
   int64_t footerBufferOverread{0};
 
@@ -559,6 +565,9 @@ struct RuntimeStatistics {
     if (skippedSplits > 0) {
       result.emplace("skippedSplits", RuntimeCounter(skippedSplits));
     }
+    if (processedSplits > 0) {
+      result.emplace("processedSplits", RuntimeCounter(processedSplits));
+    }
     if (skippedSplitBytes > 0) {
       result.emplace(
           "skippedSplitBytes",
@@ -566,6 +575,9 @@ struct RuntimeStatistics {
     }
     if (skippedStrides > 0) {
       result.emplace("skippedStrides", RuntimeCounter(skippedStrides));
+    }
+    if (processedStrides > 0) {
+      result.emplace("processedStrides", RuntimeCounter(processedStrides));
     }
     if (footerBufferOverread > 0) {
       result.emplace(

@@ -205,6 +205,8 @@ TEST_F(PrintPlanWithStatsTest, innerJoinWithTableScan) {
        {"          prefetchBytes       [ ]* sum: .+, count: 1, min: .+, max: .+"},
        {"          preloadedSplits[ ]+sum: .+, count: .+, min: .+, max: .+",
         true},
+       {"          processedSplits[ ]+sum: 20, count: 1, min: 20, max: 20, avg: 20"},
+       {"          processedStrides[ ]+sum: 20, count: 1, min: 20, max: 20, avg: 20"},
        {"          ramReadBytes        [ ]* sum: .+, count: 1, min: .+, max: .+"},
        {"          readyPreloadedSplits[ ]+sum: .+, count: .+, min: .+, max: .+",
         true},
@@ -295,6 +297,8 @@ TEST_F(PrintPlanWithStatsTest, partialAggregateWithTableScan) {
          {"        overreadBytes[ ]* sum: 0B, count: 1, min: 0B, max: 0B, avg: 0B"},
 
          {"        prefetchBytes    [ ]* sum: .+, count: 1, min: .+, max: .+"},
+         {"        processedSplits  [ ]* sum: 1, count: 1, min: 1, max: 1, avg: 1"},
+         {"        processedStrides [ ]* sum: 1, count: 1, min: 1, max: 1, avg: 1"},
          {"        preloadedSplits[ ]+sum: .+, count: .+, min: .+, max: .+",
           true},
          {"        ramReadBytes     [ ]* sum: .+, count: 1, min: .+, max: .+"},
@@ -365,6 +369,8 @@ TEST_F(PrintPlanWithStatsTest, tableWriterWithTableScan) {
        {"        overreadBytes[ ]* sum: 0B, count: 1, min: 0B, max: 0B, avg: 0B"},
 
        {"        prefetchBytes    [ ]* sum: .+, count: 1, min: .+, max: .+"},
+       {"        processedSplits  [ ]* sum: 1, count: 1, min: 1, max: 1, avg: 1"},
+       {"        processedStrides [ ]* sum: 1, count: 1, min: 1, max: 1, avg: 1"},
        {"        preloadedSplits[ ]+sum: .+, count: .+, min: .+, max: .+",
         true},
        {"        ramReadBytes     [ ]* sum: .+, count: 1, min: .+, max: .+"},
