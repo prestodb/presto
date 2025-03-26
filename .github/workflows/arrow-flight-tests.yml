@@ -19,12 +19,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        java: [ 8, 17.0.13 ]
         modules:
           - ":presto-base-arrow-flight"  # Only run tests for the `presto-base-arrow-flight` module
 
     timeout-minutes: 80
     concurrency:
-      group: ${{ github.workflow }}-test-${{ matrix.modules }}-${{ github.event.pull_request.number }}
+      group: ${{ github.workflow }}-test-${{ matrix.modules }}-${{ github.event.pull_request.number }}-${{ matrix.java }}
       cancel-in-progress: true
 
     steps:
@@ -37,7 +38,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: 8
+          java-version: ${{ matrix.java }}
           cache: 'maven'
       - name: Download nodejs to maven cache
         run: .github/bin/download_nodejs
