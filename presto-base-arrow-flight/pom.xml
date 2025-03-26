@@ -14,6 +14,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <air.test.jvm.additional-arguments>-Xss10M</air.test.jvm.additional-arguments>
     </properties>
 
     <dependencies>
@@ -216,13 +217,6 @@
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <configuration>
-                    <argLine>-Xss10M</argLine>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-enforcer-plugin</artifactId>
             </plugin>
             <plugin>
@@ -262,6 +256,7 @@
             </activation>
             <properties>
                 <air.test.jvm.additional-arguments>
+                    -Xss10M
                     --add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED
                 </air.test.jvm.additional-arguments>
             </properties>
