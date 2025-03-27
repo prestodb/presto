@@ -14,7 +14,8 @@
           "language": "CPP",
           "determinism": "DETERMINISTIC",
           "nullCallClause": "CALLED_ON_NULL_INPUT"
-        }
+        },
+        "longVariableConstraints": []
       },
       {
         "docString": "combines two float arrays into one",
@@ -29,7 +30,8 @@
           "language": "CPP",
           "determinism": "DETERMINISTIC",
           "nullCallClause": "CALLED_ON_NULL_INPUT"
-        }
+        },
+        "longVariableConstraints": []
       },
       {
         "docString": "combines two double arrays into one",
@@ -44,7 +46,8 @@
           "language": "CPP",
           "determinism": "DETERMINISTIC",
           "nullCallClause": "CALLED_ON_NULL_INPUT"
-        }
+        },
+        "longVariableConstraints": []
       }
     ],
     "array_function_2": [
@@ -61,7 +64,8 @@
           "language": "CPP",
           "determinism": "DETERMINISTIC",
           "nullCallClause": "CALLED_ON_NULL_INPUT"
-        }
+        },
+        "longVariableConstraints": []
       },
       {
         "docString": "transforms inputs into the output",
@@ -77,7 +81,8 @@
           "language": "CPP",
           "determinism": "DETERMINISTIC",
           "nullCallClause": "CALLED_ON_NULL_INPUT"
-        }
+        },
+        "longVariableConstraints": []
       }
     ],
     "square": [
@@ -93,7 +98,8 @@
           "language": "CPP",
           "determinism": "DETERMINISTIC",
           "nullCallClause": "CALLED_ON_NULL_INPUT"
-        }
+        },
+        "longVariableConstraints": []
       },
       {
         "docString": "square a double",
@@ -107,7 +113,8 @@
           "language": "CPP",
           "determinism": "DETERMINISTIC",
           "nullCallClause": "CALLED_ON_NULL_INPUT"
-        }
+        },
+        "longVariableConstraints": []
       }
     ],
     "avg": [
@@ -127,7 +134,8 @@
         "aggregateMetadata": {
           "intermediateType": "ROW(bigint, int)",
           "isOrderSensitive": false
-        }
+        },
+        "longVariableConstraints": []
       },
       {
         "docString": "Returns mean of doubles",
@@ -145,7 +153,8 @@
         "aggregateMetadata": {
           "intermediateType": "ROW(double, int)",
           "isOrderSensitive": false
-        }
+        },
+        "longVariableConstraints": []
       }
     ]
   }

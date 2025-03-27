@@ -134,6 +134,25 @@ const std::vector<protocol::TypeVariableConstraint> getTypeVariableConstraints(
   return typeVariableConstraints;
 }
 
+const std::vector<protocol::LongVariableConstraint> getLongVariableConstraints(
+    const FunctionSignature& functionSignature) {
+  std::vector<protocol::LongVariableConstraint> longVariableConstraints;
+  const auto functionVariables = functionSignature.variables();
+  for (const auto& [name, signature] : functionVariables) {
+    if (signature.isIntegerParameter()) {
+      protocol::LongVariableConstraint longVariableConstraint;
+      longVariableConstraint.name =
+          boost::algorithm::to_lower_copy(signature.name());
+      longVariableConstraint.expression =
+          boost::algorithm::to_lower_copy(signature.constraint());
+      if (!longVariableConstraint.expression.empty()) {
+        longVariableConstraints.emplace_back(longVariableConstraint);
+      }
+    }
+  }
+  return longVariableConstraints;
+}
+
 std::optional<protocol::JsonBasedUdfFunctionMetadata> buildFunctionMetadata(
     const std::string& name,
     const std::string& schema,
@@ -165,6 +184,7 @@ std::optional<protocol::JsonBasedUdfFunctionMetadata> buildFunctionMetadata(
   metadata.typeVariableConstraints =
       std::make_shared<std::vector<protocol::TypeVariableConstraint>>(
           getTypeVariableConstraints(signature));
+  metadata.longVariableConstraints = getLongVariableConstraints(signature);
 
   if (aggregateSignature) {
     metadata.aggregateMetadata =
