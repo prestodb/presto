@@ -10,6 +10,7 @@
 
     <artifactId>presto-router</artifactId>
     <description>Presto Router</description>
+    <name>presto-router</name>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
@@ -105,6 +106,12 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.google.errorprone</groupId>
+                    <artifactId>error_prone_annotations</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -162,16 +169,20 @@
             <artifactId>jmxutils</artifactId>
         </dependency>
 
-        <!-- test dependencies-->
-        <dependency>
-            <groupId>org.testng</groupId>
-            <artifactId>testng</artifactId>
-            <scope>test</scope>
-        </dependency>
-
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main</artifactId>
+        </dependency>
+        <!-- test dependencies-->
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-main</artifactId>
+            <scope>test</scope>
+            <type>test-jar</type>
+        </dependency>
+        <dependency>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -193,4 +204,12 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.gaul</groupId>
+                <artifactId>modernizer-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
 </project>
