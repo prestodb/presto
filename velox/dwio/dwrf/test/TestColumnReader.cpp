@@ -859,26 +859,29 @@ TEST_P(TestColumnReader, testIntegerRLEv2) {
   // set format
   streams_.setFormat(DwrfFormat::kOrc);
   // set getEncoding
-  proto::ColumnEncoding directEncoding;
-  proto::ColumnEncoding directv2Encoding;
-  directEncoding.set_kind(proto::ColumnEncoding_Kind_DIRECT);
-  directv2Encoding.set_kind(proto::ColumnEncoding_Kind_DIRECT_V2);
-  EXPECT_CALL(streams_, getEncodingProxy(0))
+  proto::orc::ColumnEncoding directEncoding;
+  proto::orc::ColumnEncoding directv2Encoding;
+  directEncoding.set_kind(proto::orc::ColumnEncoding_Kind_DIRECT);
+  directv2Encoding.set_kind(proto::orc::ColumnEncoding_Kind_DIRECT_V2);
+  EXPECT_CALL(streams_, getEncodingOrcProxy(0))
       .WillRepeatedly(Return(&directEncoding)); // row type use direct only
-  EXPECT_CALL(streams_, getEncodingProxy(1))
+  EXPECT_CALL(streams_, getEncodingOrcProxy(1))
       .WillRepeatedly(Return(&directv2Encoding)); // col_0 use RLEv2
-  EXPECT_CALL(streams_, getEncodingProxy(2))
+  EXPECT_CALL(streams_, getEncodingOrcProxy(2))
       .WillRepeatedly(Return(&directEncoding)); // col_1 use RLEv1
-  EXPECT_CALL(streams_, getEncodingProxy(3))
+  EXPECT_CALL(streams_, getEncodingOrcProxy(3))
       .WillRepeatedly(Return(&directv2Encoding)); // col_2 use RLEv2
 
   // set getStream
-  EXPECT_CALL(streams_, getStreamProxy(_, proto::Stream_Kind_PRESENT, false))
+  EXPECT_CALL(
+      streams_, getStreamOrcProxy(_, proto::orc::Stream_Kind_PRESENT, false))
       .WillRepeatedly(Return(nullptr));
-  EXPECT_CALL(streams_, getStreamProxy(_, proto::Stream_Kind_ROW_INDEX, false))
+  EXPECT_CALL(
+      streams_, getStreamOrcProxy(_, proto::orc::Stream_Kind_ROW_INDEX, false))
       .WillRepeatedly(Return(nullptr));
   // col_0's DATA stream
-  EXPECT_CALL(streams_, getStreamProxy(1, proto::Stream_Kind_DATA, true))
+  EXPECT_CALL(
+      streams_, getStreamOrcProxy(1, proto::orc::Stream_Kind_DATA, true))
       .WillRepeatedly(Return(
           new SeekableArrayInputStream(buffer0, VELOX_ARRAY_SIZE(buffer0))));
   // col_1's DATA stream
@@ -889,13 +892,15 @@ TEST_P(TestColumnReader, testIntegerRLEv2) {
     v.push_back(i);
   }
   auto count = writeVsLongs(data.data() + 1, v);
-  EXPECT_CALL(streams_, getStreamProxy(2, proto::Stream_Kind_DATA, true))
+  EXPECT_CALL(
+      streams_, getStreamOrcProxy(2, proto::orc::Stream_Kind_DATA, true))
       .WillRepeatedly(
           Invoke([&](auto /* unused */, auto /* unused */, auto /* unused */) {
             return new SeekableArrayInputStream(data.data(), count + 1);
           }));
   // col_2's DATA stream
-  EXPECT_CALL(streams_, getStreamProxy(3, proto::Stream_Kind_DATA, true))
+  EXPECT_CALL(
+      streams_, getStreamOrcProxy(3, proto::orc::Stream_Kind_DATA, true))
       .WillRepeatedly(Return(
           new SeekableArrayInputStream(buffer2, VELOX_ARRAY_SIZE(buffer2))));
 

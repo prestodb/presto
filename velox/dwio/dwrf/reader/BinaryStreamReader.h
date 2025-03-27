@@ -38,7 +38,11 @@ class BinaryStripeStreams {
       const EncodingKey ek,
       std::string_view label) const {
     return ProtoUtils::readProto<proto::RowIndex>(stripeStreams_.getStream(
-        ek.forKind(proto::Stream_Kind_ROW_INDEX), label, false));
+        stripeStreams_.format() == DwrfFormat::kDwrf
+            ? ek.forKind(proto::Stream_Kind_ROW_INDEX)
+            : ek.forKind(proto::orc::Stream_Kind_ROW_INDEX),
+        label,
+        false));
   }
 
   std::unique_ptr<dwio::common::SeekableInputStream> getStream(

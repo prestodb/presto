@@ -31,8 +31,12 @@ SelectiveTimestampColumnReader::SelectiveTimestampColumnReader(
           params.stripeStreams().rowReaderOptions().timestampPrecision()) {
   EncodingKey encodingKey{fileType_->id(), params.flatMapContext().sequence};
   auto& stripe = params.stripeStreams();
-  version_ = convertRleVersion(stripe.getEncoding(encodingKey).kind());
-  auto data = encodingKey.forKind(proto::Stream_Kind_DATA);
+  version_ = convertRleVersion(stripe, encodingKey);
+  auto data = StripeStreamsUtil::getStreamForKind(
+      stripe,
+      encodingKey,
+      proto::Stream_Kind_DATA,
+      proto::orc::Stream_Kind_DATA);
   bool vints = stripe.getUseVInts(data);
   seconds_ = createRleDecoder</*isSigned=*/true>(
       stripe.getStream(data, params.streamLabels().label(), true),
@@ -40,7 +44,11 @@ SelectiveTimestampColumnReader::SelectiveTimestampColumnReader(
       *memoryPool_,
       vints,
       LONG_BYTE_SIZE);
-  auto nanoData = encodingKey.forKind(proto::Stream_Kind_NANO_DATA);
+  auto nanoData = StripeStreamsUtil::getStreamForKind(
+      stripe,
+      encodingKey,
+      proto::Stream_Kind_NANO_DATA,
+      proto::orc::Stream_Kind_SECONDARY);
   bool nanoVInts = stripe.getUseVInts(nanoData);
   nano_ = createRleDecoder</*isSigned=*/false>(
       stripe.getStream(nanoData, params.streamLabels().label(), true),

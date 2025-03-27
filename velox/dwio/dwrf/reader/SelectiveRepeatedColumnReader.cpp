@@ -25,9 +25,12 @@ std::unique_ptr<dwio::common::IntDecoder</*isSigned*/ false>> makeLengthDecoder(
     memory::MemoryPool& pool) {
   EncodingKey encodingKey{fileType.id(), params.flatMapContext().sequence};
   auto& stripe = params.stripeStreams();
-  const auto rleVersion =
-      convertRleVersion(stripe.getEncoding(encodingKey).kind());
-  const auto lenId = encodingKey.forKind(proto::Stream_Kind_LENGTH);
+  const auto rleVersion = convertRleVersion(stripe, encodingKey);
+  const auto lenId = StripeStreamsUtil::getStreamForKind(
+      stripe,
+      encodingKey,
+      proto::Stream_Kind_LENGTH,
+      proto::orc::Stream_Kind_LENGTH);
   const bool lenVints = stripe.getUseVInts(lenId);
   return createRleDecoder</*isSigned=*/false>(
       stripe.getStream(lenId, params.streamLabels().label(), true),

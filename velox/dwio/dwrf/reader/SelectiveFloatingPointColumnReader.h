@@ -72,8 +72,13 @@ SelectiveFloatingPointColumnReader<TFile, TRequested>::
           params,
           scanSpec),
       decoder_(params.stripeStreams().getStream(
-          EncodingKey{this->fileType_->id(), params.flatMapContext().sequence}
-              .forKind(proto::Stream_Kind_DATA),
+          StripeStreamsUtil::getStreamForKind(
+              params.stripeStreams(),
+              EncodingKey{
+                  this->fileType_->id(),
+                  params.flatMapContext().sequence},
+              proto::Stream_Kind_DATA,
+              proto::orc::Stream_Kind_DATA),
           params.streamLabels().label(),
           true)) {}
 

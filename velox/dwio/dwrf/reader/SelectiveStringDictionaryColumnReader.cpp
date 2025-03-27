@@ -32,11 +32,16 @@ SelectiveStringDictionaryColumnReader::SelectiveStringDictionaryColumnReader(
       statistics_(params.runtimeStatistics()) {
   auto& stripe = params.stripeStreams();
   EncodingKey encodingKey{fileType_->id(), params.flatMapContext().sequence};
-  version_ = convertRleVersion(stripe.getEncoding(encodingKey).kind());
-  scanState_.dictionary.numValues =
-      stripe.getEncoding(encodingKey).dictionarysize();
+  version_ = convertRleVersion(stripe, encodingKey);
+  scanState_.dictionary.numValues = stripe.format() == DwrfFormat::kDwrf
+      ? stripe.getEncoding(encodingKey).dictionarysize()
+      : stripe.getEncodingOrc(encodingKey).dictionarysize();
 
-  const auto dataId = encodingKey.forKind(proto::Stream_Kind_DATA);
+  const auto dataId = StripeStreamsUtil::getStreamForKind(
+      stripe,
+      encodingKey,
+      proto::Stream_Kind_DATA,
+      proto::orc::Stream_Kind_DATA);
   bool dictVInts = stripe.getUseVInts(dataId);
   dictIndex_ = createRleDecoder</*isSigned*/ false>(
       stripe.getStream(dataId, params.streamLabels().label(), true),
@@ -45,7 +50,11 @@ SelectiveStringDictionaryColumnReader::SelectiveStringDictionaryColumnReader(
       dictVInts,
       dwio::common::INT_BYTE_SIZE);
 
-  const auto lenId = encodingKey.forKind(proto::Stream_Kind_LENGTH);
+  const auto lenId = StripeStreamsUtil::getStreamForKind(
+      stripe,
+      encodingKey,
+      proto::Stream_Kind_LENGTH,
+      proto::orc::Stream_Kind_LENGTH);
   bool lenVInts = stripe.getUseVInts(lenId);
   lengthDecoder_ = createRleDecoder</*isSigned*/ false>(
       stripe.getStream(lenId, params.streamLabels().label(), false),
@@ -55,7 +64,11 @@ SelectiveStringDictionaryColumnReader::SelectiveStringDictionaryColumnReader(
       dwio::common::INT_BYTE_SIZE);
 
   blobStream_ = stripe.getStream(
-      encodingKey.forKind(proto::Stream_Kind_DICTIONARY_DATA),
+      StripeStreamsUtil::getStreamForKind(
+          stripe,
+          encodingKey,
+          proto::Stream_Kind_DICTIONARY_DATA,
+          proto::orc::Stream_Kind_DICTIONARY_DATA),
       params.streamLabels().label(),
       false);
 
@@ -65,6 +78,8 @@ SelectiveStringDictionaryColumnReader::SelectiveStringDictionaryColumnReader(
       params.streamLabels().label(),
       false);
   if (inDictStream) {
+    VELOX_CHECK_EQ(stripe.format(), DwrfFormat::kDwrf);
+
     inDictionaryReader_ =
         createBooleanRleDecoder(std::move(inDictStream), encodingKey);
 

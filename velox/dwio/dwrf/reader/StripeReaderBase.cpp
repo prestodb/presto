@@ -77,30 +77,54 @@ std::unique_ptr<const StripeMetadata> StripeReaderBase::fetchStripe(
   const auto streamDebugInfo = fmt::format("Stripe {} Footer ", index);
 
   auto arena = std::make_shared<google::protobuf::Arena>();
-  auto* rawFooter =
-      google::protobuf::Arena::CreateMessage<proto::StripeFooter>(arena.get());
-  ProtoUtils::readProtoInto(
-      reader_->createDecompressedStream(
-          std::move(footerStream), streamDebugInfo),
-      rawFooter);
-  std::shared_ptr<proto::StripeFooter> stripeFooter(
-      rawFooter, [arena = std::move(arena)](auto*) { arena->Reset(); });
 
   auto decryptionHandler = std::make_unique<encryption::DecryptionHandler>(
       reader_->decryptionHandler());
 
-  // refresh stripe encryption key if necessary
-  loadEncryptionKeys(index, *stripeFooter, stripe, *decryptionHandler);
-  return stripeInput == nullptr ? std::make_unique<const StripeMetadata>(
-                                      &reader_->bufferedInput(),
-                                      std::move(stripeFooter),
-                                      std::move(decryptionHandler),
-                                      std::move(stripe))
-                                : std::make_unique<const StripeMetadata>(
-                                      std::move(stripeInput),
-                                      std::move(stripeFooter),
-                                      std::move(decryptionHandler),
-                                      std::move(stripe));
+  auto createStripeMetadata = [&](auto&& stripeFooter) {
+    return stripeInput == nullptr ? std::make_unique<const StripeMetadata>(
+                                        &reader_->bufferedInput(),
+                                        std::move(stripeFooter),
+                                        std::move(decryptionHandler),
+                                        stripe)
+                                  : std::make_unique<const StripeMetadata>(
+                                        std::move(stripeInput),
+                                        std::move(stripeFooter),
+                                        std::move(decryptionHandler),
+                                        stripe);
+  };
+
+  if (fileFooter.format() == DwrfFormat::kDwrf) {
+    auto* rawFooter =
+        google::protobuf::Arena::CreateMessage<proto::StripeFooter>(
+            arena.get());
+    ProtoUtils::readProtoInto(
+        reader_->createDecompressedStream(
+            std::move(footerStream), streamDebugInfo),
+        rawFooter);
+    std::shared_ptr<proto::StripeFooter> stripeFooter(
+        rawFooter, [arena = std::move(arena)](auto*) { arena->Reset(); });
+
+    // refresh stripe encryption key if necessary
+    loadEncryptionKeys(index, *stripeFooter, stripe, *decryptionHandler);
+
+    return createStripeMetadata(std::move(stripeFooter));
+  } else {
+    auto* rawFooter =
+        google::protobuf::Arena::CreateMessage<proto::orc::StripeFooter>(
+            arena.get());
+    ProtoUtils::readProtoInto(
+        reader_->createDecompressedStream(
+            std::move(footerStream), streamDebugInfo),
+        rawFooter);
+    std::shared_ptr<proto::orc::StripeFooter> stripeFooter(
+        rawFooter, [arena = std::move(arena)](auto*) { arena->Reset(); });
+
+    // ORC is not expected to have encrypted columns
+    VELOX_CHECK_EQ(decryptionHandler->isEncrypted(), false);
+
+    return createStripeMetadata(std::move(stripeFooter));
+  }
 }
 
 void StripeReaderBase::loadEncryptionKeys(

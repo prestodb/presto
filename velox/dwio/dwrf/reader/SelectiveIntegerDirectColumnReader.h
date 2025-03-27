@@ -40,19 +40,23 @@ class SelectiveIntegerDirectColumnReader
             std::move(fileType)) {
     const EncodingKey encodingKey{
         fileType_->id(), params.flatMapContext().sequence};
-    const auto si = encodingKey.forKind(proto::Stream_Kind_DATA);
     const auto& stripe = params.stripeStreams();
+    const auto si = StripeStreamsUtil::getStreamForKind(
+        stripe,
+        encodingKey,
+        proto::Stream_Kind_DATA,
+        proto::orc::Stream_Kind_DATA);
     const bool dataVInts = stripe.getUseVInts(si);
 
     format_ = stripe.format();
-    version_ = convertRleVersion(stripe.getEncoding(encodingKey).kind());
+    version_ = convertRleVersion(stripe, encodingKey);
+
     if (format_ == velox::dwrf::DwrfFormat::kDwrf) {
       intDecoder_ = createDirectDecoder</*isSigned=*/true>(
           stripe.getStream(si, params.streamLabels().label(), true),
           dataVInts,
           numBytes);
     } else if (format_ == velox::dwrf::DwrfFormat::kOrc) {
-      version_ = convertRleVersion(stripe.getEncoding(encodingKey).kind());
       intDecoder_ = createRleDecoder</*isSigned*/ true>(
           stripe.getStream(si, params.streamLabels().label(), true),
           version_,

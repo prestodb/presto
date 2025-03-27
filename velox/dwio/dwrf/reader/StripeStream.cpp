@@ -110,9 +110,16 @@ StripeStreamsBase::getIntDictionaryInitializerForNode(
     uint64_t dictionaryWidth) {
   // Create local copy for manipulation
   EncodingKey dictEncodingKey{encodingKey};
-  auto dictDataSi = dictEncodingKey.forKind(proto::Stream_Kind_DICTIONARY_DATA);
+  auto dictDataSi = StripeStreamsUtil::getStreamForKind(
+      *this,
+      dictEncodingKey,
+      proto::Stream_Kind_DICTIONARY_DATA,
+      proto::orc::Stream_Kind_DICTIONARY_DATA);
+
   auto dictDataStream = getStream(dictDataSi, streamLabels.label(), false);
-  const auto dictionarySize = getEncoding(dictEncodingKey).dictionarysize();
+  const auto dictionarySize = format() == DwrfFormat::kDwrf
+      ? getEncoding(dictEncodingKey).dictionarysize()
+      : getEncodingOrc(dictEncodingKey).dictionarysize();
   // Try fetching shared dictionary streams instead.
   if (!dictDataStream) {
     // Get the label of the top level column, since this dictionary is shared by
@@ -124,7 +131,11 @@ StripeStreamsBase::getIntDictionaryInitializerForNode(
       label = label.substr(0, label.find('/', 1));
     }
     dictEncodingKey = EncodingKey(encodingKey.node(), 0);
-    dictDataSi = dictEncodingKey.forKind(proto::Stream_Kind_DICTIONARY_DATA);
+    dictDataSi = StripeStreamsUtil::getStreamForKind(
+        *this,
+        dictEncodingKey,
+        proto::Stream_Kind_DICTIONARY_DATA,
+        proto::orc::Stream_Kind_DICTIONARY_DATA);
     dictDataStream = getStream(dictDataSi, label, false);
   }
 
@@ -185,8 +196,6 @@ void StripeStreamsImpl::loadStreams() {
 
     offset += stream.length();
   };
-
-  // TODO(kevinstichter) Remove once orc is enabled for our footer wrapper
 
   uint64_t streamOffset{0};
   for (int i = 0; i < stripeFooter.streamsSize(); i++) {

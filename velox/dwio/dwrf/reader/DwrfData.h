@@ -178,4 +178,29 @@ inline RleVersion convertRleVersion(proto::ColumnEncoding_Kind kind) {
   }
 }
 
+inline RleVersion convertRleVersion(proto::orc::ColumnEncoding_Kind kind) {
+  switch (kind) {
+    case proto::orc::ColumnEncoding_Kind_DIRECT:
+    case proto::orc::ColumnEncoding_Kind_DICTIONARY:
+      return RleVersion_1;
+    case proto::orc::ColumnEncoding_Kind_DIRECT_V2:
+    case proto::orc::ColumnEncoding_Kind_DICTIONARY_V2:
+      return RleVersion_2;
+    default:
+      VELOX_FAIL(
+          "Unknown encoding in convertRleVersion: {}",
+          static_cast<int64_t>(kind));
+  }
+}
+
+inline RleVersion convertRleVersion(
+    const StripeStreams& stripe,
+    const EncodingKey& encodingKey) {
+  if (stripe.format() == DwrfFormat::kDwrf) {
+    return convertRleVersion(stripe.getEncoding(encodingKey).kind());
+  } else {
+    return convertRleVersion(stripe.getEncodingOrc(encodingKey).kind());
+  }
+}
+
 } // namespace facebook::velox::dwrf

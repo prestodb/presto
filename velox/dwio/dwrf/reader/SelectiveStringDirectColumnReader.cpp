@@ -29,9 +29,12 @@ SelectiveStringDirectColumnReader::SelectiveStringDirectColumnReader(
     : SelectiveColumnReader(fileType->type(), fileType, params, scanSpec) {
   EncodingKey encodingKey{fileType->id(), params.flatMapContext().sequence};
   auto& stripe = params.stripeStreams();
-  RleVersion rleVersion =
-      convertRleVersion(stripe.getEncoding(encodingKey).kind());
-  auto lenId = encodingKey.forKind(proto::Stream_Kind_LENGTH);
+  RleVersion rleVersion = convertRleVersion(stripe, encodingKey);
+  auto lenId = StripeStreamsUtil::getStreamForKind(
+      stripe,
+      encodingKey,
+      proto::Stream_Kind_LENGTH,
+      proto::orc::Stream_Kind_LENGTH);
   bool lenVInts = stripe.getUseVInts(lenId);
   lengthDecoder_ = createRleDecoder</*isSigned*/ false>(
       stripe.getStream(lenId, params.streamLabels().label(), true),
@@ -40,7 +43,11 @@ SelectiveStringDirectColumnReader::SelectiveStringDirectColumnReader(
       lenVInts,
       dwio::common::INT_BYTE_SIZE);
   blobStream_ = stripe.getStream(
-      encodingKey.forKind(proto::Stream_Kind_DATA),
+      StripeStreamsUtil::getStreamForKind(
+          stripe,
+          encodingKey,
+          proto::Stream_Kind_DATA,
+          proto::orc::Stream_Kind_DATA),
       params.streamLabels().label(),
       true);
 }

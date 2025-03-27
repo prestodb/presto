@@ -26,5 +26,19 @@ target_link_libraries(
   GTest::gtest_main
   GTest::gmock)
 
+add_executable(velox_dwio_orc_reader_filter_test ReaderFilterTest.cpp)
+add_test(
+  NAME velox_dwio_orc_reader_filter_test
+  COMMAND velox_dwio_orc_reader_filter_test
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+target_link_libraries(
+  velox_dwio_orc_reader_filter_test
+  velox_dwrf_test_utils
+  velox_dwio_common_test_utils
+  GTest::gtest
+  GTest::gtest_main
+  GTest::gmock)
+
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/examples
      DESTINATION ${CMAKE_CURRENT_BINARY_DIR})

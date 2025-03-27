@@ -37,11 +37,27 @@ SelectiveStructColumnReader::SelectiveStructColumnReader(
           isRoot) {
   EncodingKey encodingKey{fileType_->id(), params.flatMapContext().sequence};
   auto& stripe = params.stripeStreams();
-  const auto encodingKind =
-      static_cast<int64_t>(stripe.getEncoding(encodingKey).kind());
-  VELOX_CHECK(
-      encodingKind == proto::ColumnEncoding_Kind_DIRECT,
-      "Unknown encoding for StructColumnReader");
+
+  // A reader tree may be constructed while the ScanSpec is being used
+  // for another read. This happens when the next stripe is being
+  // prepared while the previous one is reading.
+  if (stripe.format() == DwrfFormat::kDwrf) {
+    auto encoding =
+        static_cast<int64_t>(stripe.getEncoding(encodingKey).kind());
+
+    DWIO_ENSURE_EQ(
+        encoding,
+        proto::ColumnEncoding_Kind_DIRECT,
+        "Unknown encoding for StructColumnReader");
+  } else {
+    auto encoding =
+        static_cast<int64_t>(stripe.getEncodingOrc(encodingKey).kind());
+
+    DWIO_ENSURE_EQ(
+        encoding,
+        proto::orc::ColumnEncoding_Kind_DIRECT,
+        "Unknown encoding for StructColumnReader");
+  }
 
   // A reader tree may be constructed while the ScanSpec is being used
   // for another read. This happens when the next stripe is being

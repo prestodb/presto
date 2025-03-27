@@ -35,6 +35,8 @@ SelectiveIntegerDictionaryColumnReader::SelectiveIntegerDictionaryColumnReader(
   const EncodingKey encodingKey{
       fileType_->id(), params.flatMapContext().sequence};
   auto& stripe = params.stripeStreams();
+  VELOX_CHECK_EQ(stripe.format(), DwrfFormat::kDwrf);
+
   const auto encoding = stripe.getEncoding(encodingKey);
   scanState_.dictionary.numValues = encoding.dictionarysize();
   rleVersion_ = convertRleVersion(encoding.kind());

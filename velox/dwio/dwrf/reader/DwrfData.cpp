@@ -32,7 +32,11 @@ DwrfData::DwrfData(
       rowsPerRowGroup_{stripe.rowsPerRowGroup()} {
   EncodingKey encodingKey{fileType_->id(), flatMapContext_.sequence};
   std::unique_ptr<dwio::common::SeekableInputStream> stream = stripe.getStream(
-      encodingKey.forKind(proto::Stream_Kind_PRESENT),
+      StripeStreamsUtil::getStreamForKind(
+          stripe,
+          encodingKey,
+          proto::Stream_Kind_PRESENT,
+          proto::orc::Stream_Kind_PRESENT),
       streamLabels.label(),
       false);
   if (stream) {
@@ -44,7 +48,11 @@ DwrfData::DwrfData(
   // reader tree. This is not known at construct time because the first filter
   // can come from a hash join or other run time push-down.
   indexStream_ = stripe.getStream(
-      encodingKey.forKind(proto::Stream_Kind_ROW_INDEX),
+      StripeStreamsUtil::getStreamForKind(
+          stripe,
+          encodingKey,
+          proto::Stream_Kind_ROW_INDEX,
+          proto::orc::Stream_Kind_ROW_INDEX),
       streamLabels.label(),
       false);
 }

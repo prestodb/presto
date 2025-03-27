@@ -87,6 +87,29 @@ inline RleVersion convertRleVersion(proto::ColumnEncoding_Kind kind) {
   }
 }
 
+inline RleVersion convertRleVersion(proto::orc::ColumnEncoding_Kind kind) {
+  switch (kind) {
+    case proto::orc::ColumnEncoding_Kind_DIRECT:
+    case proto::orc::ColumnEncoding_Kind_DICTIONARY:
+      return RleVersion_1;
+    case proto::orc::ColumnEncoding_Kind_DIRECT_V2:
+    case proto::orc::ColumnEncoding_Kind_DICTIONARY_V2:
+      return RleVersion_2;
+    default:
+      DWIO_RAISE("Unknown encoding in convertRleVersion");
+  }
+}
+
+inline RleVersion convertRleVersion(
+    const StripeStreams& stripe,
+    const EncodingKey& encodingKey) {
+  if (stripe.format() == DwrfFormat::kDwrf) {
+    return convertRleVersion(stripe.getEncoding(encodingKey).kind());
+  } else {
+    return convertRleVersion(stripe.getEncodingOrc(encodingKey).kind());
+  }
+}
+
 template <typename T>
 FlatVector<T>* resetIfWrongFlatVectorType(VectorPtr& result) {
   return detail::resetIfWrongVectorType<FlatVector<T>>(result);
@@ -143,7 +166,11 @@ ColumnReader::ColumnReader(
       flatMapContext_(std::move(flatMapContext)) {
   EncodingKey encodingKey{fileType_->id(), flatMapContext_.sequence};
   std::unique_ptr<dwio::common::SeekableInputStream> stream = stripe.getStream(
-      encodingKey.forKind(proto::Stream_Kind_PRESENT),
+      StripeStreamsUtil::getStreamForKind(
+          stripe,
+          encodingKey,
+          proto::Stream_Kind_PRESENT,
+          proto::orc::Stream_Kind_PRESENT),
       streamLabels.label(),
       false);
   if (stream) {
@@ -220,7 +247,11 @@ class ByteRleColumnReader : public ColumnReader {
     EncodingKey encodingKey{fileType_->id(), flatMapContext_.sequence};
     rle = creator(
         stripe.getStream(
-            encodingKey.forKind(proto::Stream_Kind_DATA),
+            StripeStreamsUtil::getStreamForKind(
+                stripe,
+                encodingKey,
+                proto::Stream_Kind_DATA,
+                proto::orc::Stream_Kind_DATA),
             streamLabels.label(),
             true),
         encodingKey);
@@ -400,17 +431,26 @@ DecimalColumnReader<DataT>::DecimalColumnReader(
   } else {
     scale_ = requestedType_->asLongDecimal().scale();
   }
-  auto data = encodingKey.forKind(proto::Stream_Kind_DATA);
+  auto data = StripeStreamsUtil::getStreamForKind(
+      stripe,
+      encodingKey,
+      proto::Stream_Kind_DATA,
+      proto::orc::Stream_Kind_DATA);
+
   valueDecoder_ = std::make_unique<dwio::common::DirectDecoder<true>>(
       stripe.getStream(data, streamLabels.label(), true),
       stripe.getUseVInts(data),
       sizeof(DataT));
 
   // [NOTICE] DWRF's NANO_DATA has the same enum value as ORC's SECONDARY
-  auto secondary = encodingKey.forKind(proto::Stream_Kind_NANO_DATA);
+  auto secondary = StripeStreamsUtil::getStreamForKind(
+      stripe,
+      encodingKey,
+      proto::Stream_Kind_NANO_DATA,
+      proto::orc::Stream_Kind_SECONDARY);
   scaleDecoder_ = createRleDecoder</*isSigned*/ true>(
       stripe.getStream(secondary, streamLabels.label(), true),
-      convertRleVersion(stripe.getEncoding(encodingKey).kind()),
+      convertRleVersion(stripe, encodingKey),
       memoryPool_,
       stripe.getUseVInts(secondary),
       dwio::common::LONG_BYTE_SIZE);
@@ -507,7 +547,11 @@ IntegerDirectColumnReader<ReqT>::IntegerDirectColumnReader(
           std::move(flatMapContext)),
       requestedType_{std::move(requestedType)} {
   EncodingKey encodingKey{fileType_->id(), flatMapContext_.sequence};
-  auto data = encodingKey.forKind(proto::Stream_Kind_DATA);
+  auto data = StripeStreamsUtil::getStreamForKind(
+      stripe,
+      encodingKey,
+      proto::Stream_Kind_DATA,
+      proto::orc::Stream_Kind_DATA);
   bool dataVInts = stripe.getUseVInts(data);
   if (stripe.format() == DwrfFormat::kDwrf) {
     ints = createDirectDecoder</*isSigned*/ true>(
@@ -515,7 +559,7 @@ IntegerDirectColumnReader<ReqT>::IntegerDirectColumnReader(
         dataVInts,
         numBytes);
   } else {
-    auto encoding = stripe.getEncoding(encodingKey);
+    const auto& encoding = stripe.getEncodingOrc(encodingKey);
     RleVersion vers = convertRleVersion(encoding.kind());
     ints = createRleDecoder</*isSigned*/ true>(
         stripe.getStream(data, streamLabels.label(), true),
@@ -650,6 +694,8 @@ IntegerDictionaryColumnReader<ReqT>::IntegerDictionaryColumnReader(
           streamLabels,
           std::move(flatMapContext)),
       requestedType_{std::move(requestedType)} {
+  // Not supported for ORC
+  VELOX_CHECK_EQ(stripe.format(), DwrfFormat::kDwrf);
   EncodingKey encodingKey{fileType_->id(), flatMapContext_.sequence};
   auto encoding = stripe.getEncoding(encodingKey);
   dictionarySize = encoding.dictionarysize();
@@ -780,8 +826,12 @@ TimestampColumnReader::TimestampColumnReader(
           streamLabels,
           std::move(flatMapContext)) {
   EncodingKey encodingKey{fileType_->id(), flatMapContext_.sequence};
-  RleVersion vers = convertRleVersion(stripe.getEncoding(encodingKey).kind());
-  auto data = encodingKey.forKind(proto::Stream_Kind_DATA);
+  RleVersion vers = convertRleVersion(stripe, encodingKey);
+  auto data = StripeStreamsUtil::getStreamForKind(
+      stripe,
+      encodingKey,
+      proto::Stream_Kind_DATA,
+      proto::orc::Stream_Kind_DATA);
   bool vints = stripe.getUseVInts(data);
   seconds = createRleDecoder</*isSigned*/ true>(
       stripe.getStream(data, streamLabels.label(), true),
@@ -789,7 +839,12 @@ TimestampColumnReader::TimestampColumnReader(
       memoryPool_,
       vints,
       dwio::common::LONG_BYTE_SIZE);
-  auto nanoData = encodingKey.forKind(proto::Stream_Kind_NANO_DATA);
+  auto nanoData = StripeStreamsUtil::getStreamForKind(
+      stripe,
+      encodingKey,
+      proto::Stream_Kind_NANO_DATA,
+      proto::orc::Stream_Kind_SECONDARY);
+
   bool nanoVInts = stripe.getUseVInts(nanoData);
   nano = createRleDecoder</*isSigned*/ false>(
       stripe.getStream(nanoData, streamLabels.label(), true),
@@ -929,8 +984,11 @@ FloatingPointColumnReader<DataT, ReqT>::FloatingPointColumnReader(
           std::move(flatMapContext)),
       requestedType_{std::move(requestedType)},
       inputStream(stripe.getStream(
-          EncodingKey{fileType_->id(), flatMapContext_.sequence}.forKind(
-              proto::Stream_Kind_DATA),
+          StripeStreamsUtil::getStreamForKind(
+              stripe,
+              EncodingKey{fileType_->id(), flatMapContext_.sequence},
+              proto::Stream_Kind_DATA,
+              proto::orc::Stream_Kind_DATA),
           streamLabels.label(),
           true)),
       bufferPointer(nullptr),
@@ -1035,11 +1093,12 @@ struct MakeRleDecoderParams {
   MemoryPool& memoryPool;
 };
 
+template <class TStreamKind>
 std::unique_ptr<dwio::common::IntDecoder<false>> makeRleDecoder(
     MakeRleDecoderParams& params,
     std::string_view streamLabel,
     bool throwIfNotFound,
-    const proto::Stream_Kind& streamKind) {
+    const TStreamKind& streamKind) {
   const auto dataId = params.encodingKey.forKind(streamKind);
   bool useVInts = params.stripe.getUseVInts(dataId);
   return createRleDecoder<false>(
@@ -1140,11 +1199,18 @@ StringDictionaryColumnReader::StringDictionaryColumnReader(
           stripe,
           streamLabels,
           std::move(flatMapContext)),
-      dictionaryCount_(stripe.getEncoding(encodingKey).dictionarysize()),
+      dictionaryCount_(
+          stripe.format() == DwrfFormat::kDwrf
+              ? stripe.getEncoding(encodingKey).dictionarysize()
+              : stripe.getEncodingOrc(encodingKey).dictionarysize()),
       lastStrideIndex_(-1),
       provider_(stripe.getStrideIndexProvider()),
       blobStream_(stripe.getStream(
-          encodingKey.forKind(proto::Stream_Kind_DICTIONARY_DATA),
+          StripeStreamsUtil::getStreamForKind(
+              stripe,
+              encodingKey,
+              proto::Stream_Kind_DICTIONARY_DATA,
+              proto::orc::Stream_Kind_DICTIONARY_DATA),
           streamLabels.label(),
           false)),
       returnFlatVector_(stripe.rowReaderOptions().returnFlatVector()) {
@@ -1153,40 +1219,51 @@ StringDictionaryColumnReader::StringDictionaryColumnReader(
       .stripe = stripe,
       .rleVersion = rleVersion,
       .memoryPool = memoryPool_};
-  dictIndex_ = makeRleDecoder(
-      params, streamLabels.label(), true, proto::Stream_Kind_DATA);
+  dictIndex_ = stripe.format() == DwrfFormat::kDwrf
+      ? makeRleDecoder(
+            params, streamLabels.label(), true, proto::Stream_Kind_DATA)
+      : makeRleDecoder(
+            params, streamLabels.label(), true, proto::orc::Stream_Kind_DATA);
 
-  lengthDecoder_ = makeRleDecoder(
-      params, streamLabels.label(), false, proto::Stream_Kind_LENGTH);
+  lengthDecoder_ = stripe.format() == DwrfFormat::kDwrf
+      ? makeRleDecoder(
+            params, streamLabels.label(), false, proto::Stream_Kind_LENGTH)
+      : makeRleDecoder(
+            params,
+            streamLabels.label(),
+            false,
+            proto::orc::Stream_Kind_LENGTH);
 
   // handle in dictionary stream
-  std::unique_ptr<dwio::common::SeekableInputStream> inDictStream =
-      stripe.getStream(
-          encodingKey.forKind(proto::Stream_Kind_IN_DICTIONARY),
+  if (stripe.format() == DwrfFormat::kDwrf) {
+    std::unique_ptr<dwio::common::SeekableInputStream> inDictStream =
+        stripe.getStream(
+            encodingKey.forKind(proto::Stream_Kind_IN_DICTIONARY),
+            streamLabels.label(),
+            false);
+    if (inDictStream) {
+      inDictionaryReader_ =
+          createBooleanRleDecoder(std::move(inDictStream), encodingKey);
+
+      // stride dictionary only exists if in dictionary exists
+      strideDictStream_ = stripe.getStream(
+          encodingKey.forKind(proto::Stream_Kind_STRIDE_DICTIONARY),
           streamLabels.label(),
-          false);
-  if (inDictStream) {
-    inDictionaryReader_ =
-        createBooleanRleDecoder(std::move(inDictStream), encodingKey);
+          true);
+      DWIO_ENSURE_NOT_NULL(strideDictStream_, "Stride dictionary is missing");
 
-    // stride dictionary only exists if in dictionary exists
-    strideDictStream_ = stripe.getStream(
-        encodingKey.forKind(proto::Stream_Kind_STRIDE_DICTIONARY),
-        streamLabels.label(),
-        true);
-    DWIO_ENSURE_NOT_NULL(strideDictStream_, "Stride dictionary is missing");
+      indexStream_ = stripe.getStream(
+          encodingKey.forKind(proto::Stream_Kind_ROW_INDEX),
+          streamLabels.label(),
+          true);
+      DWIO_ENSURE_NOT_NULL(indexStream_, "String index is missing");
 
-    indexStream_ = stripe.getStream(
-        encodingKey.forKind(proto::Stream_Kind_ROW_INDEX),
-        streamLabels.label(),
-        true);
-    DWIO_ENSURE_NOT_NULL(indexStream_, "String index is missing");
-
-    strideDictLengthDecoder_ = makeRleDecoder(
-        params,
-        streamLabels.label(),
-        true,
-        proto::Stream_Kind_STRIDE_DICTIONARY_LENGTH);
+      strideDictLengthDecoder_ = makeRleDecoder(
+          params,
+          streamLabels.label(),
+          true,
+          proto::Stream_Kind_STRIDE_DICTIONARY_LENGTH);
+    }
   }
 }
 
@@ -1630,9 +1707,12 @@ StringDirectColumnReader::StringDirectColumnReader(
           streamLabels,
           std::move(flatMapContext)) {
   EncodingKey encodingKey{fileType_->id(), flatMapContext_.sequence};
-  RleVersion rleVersion =
-      convertRleVersion(stripe.getEncoding(encodingKey).kind());
-  auto lenId = encodingKey.forKind(proto::Stream_Kind_LENGTH);
+  RleVersion rleVersion = convertRleVersion(stripe, encodingKey);
+  auto lenId = StripeStreamsUtil::getStreamForKind(
+      stripe,
+      encodingKey,
+      proto::Stream_Kind_LENGTH,
+      proto::orc::Stream_Kind_LENGTH);
   bool lenVInts = stripe.getUseVInts(lenId);
   length = createRleDecoder</*isSigned*/ false>(
       stripe.getStream(lenId, streamLabels.label(), true),
@@ -1641,7 +1721,13 @@ StringDirectColumnReader::StringDirectColumnReader(
       lenVInts,
       dwio::common::INT_BYTE_SIZE);
   blobStream = stripe.getStream(
-      encodingKey.forKind(proto::Stream_Kind_DATA), streamLabels.label(), true);
+      StripeStreamsUtil::getStreamForKind(
+          stripe,
+          encodingKey,
+          proto::Stream_Kind_DATA,
+          proto::orc::Stream_Kind_DATA),
+      streamLabels.label(),
+      true);
 }
 
 uint64_t StringDirectColumnReader::skip(uint64_t numValues) {
@@ -1801,11 +1887,24 @@ StructColumnReader::StructColumnReader(
       fileType->id(),
       "fileType and fileType id mismatch in StructColumnReader#init");
   EncodingKey encodingKey{fileType_->id(), flatMapContext_.sequence};
-  auto encoding = static_cast<int64_t>(stripe.getEncoding(encodingKey).kind());
-  DWIO_ENSURE_EQ(
-      encoding,
-      proto::ColumnEncoding_Kind_DIRECT,
-      "Unknown encoding for StructColumnReader");
+
+  if (stripe.format() == DwrfFormat::kDwrf) {
+    auto encoding =
+        static_cast<int64_t>(stripe.getEncoding(encodingKey).kind());
+
+    DWIO_ENSURE_EQ(
+        encoding,
+        proto::ColumnEncoding_Kind_DIRECT,
+        "Unknown encoding for StructColumnReader");
+  } else {
+    auto encoding =
+        static_cast<int64_t>(stripe.getEncodingOrc(encodingKey).kind());
+
+    DWIO_ENSURE_EQ(
+        encoding,
+        proto::orc::ColumnEncoding_Kind_DIRECT,
+        "Unknown encoding for StructColumnReader");
+  }
 
   // Can parallelize if top level and doesn't have any flatmap children
   bool canParallelize = fileType->parent() == nullptr; // isTopLevel ?
@@ -1961,9 +2060,13 @@ ListColumnReader::ListColumnReader(
   DWIO_ENSURE_EQ(fileType_->id(), fileType->id(), "working on the same node");
   EncodingKey encodingKey{fileType_->id(), flatMapContext_.sequence};
   // count the number of selected sub-columns
-  RleVersion vers = convertRleVersion(stripe.getEncoding(encodingKey).kind());
+  RleVersion vers = convertRleVersion(stripe, encodingKey);
 
-  auto lenId = encodingKey.forKind(proto::Stream_Kind_LENGTH);
+  auto lenId = StripeStreamsUtil::getStreamForKind(
+      stripe,
+      encodingKey,
+      proto::Stream_Kind_LENGTH,
+      proto::orc::Stream_Kind_LENGTH);
   bool vints = stripe.getUseVInts(lenId);
   length = createRleDecoder</*isSigned*/ false>(
       stripe.getStream(lenId, streamLabels.label(), true),
@@ -2134,9 +2237,13 @@ MapColumnReader::MapColumnReader(
   DWIO_ENSURE_EQ(fileType_->id(), fileType->id(), "working on the same node");
   EncodingKey encodingKey{fileType_->id(), flatMapContext_.sequence};
   // Determine if the key and/or value columns are selected
-  RleVersion vers = convertRleVersion(stripe.getEncoding(encodingKey).kind());
+  RleVersion vers = convertRleVersion(stripe, encodingKey);
 
-  auto lenId = encodingKey.forKind(proto::Stream_Kind_LENGTH);
+  auto lenId = StripeStreamsUtil::getStreamForKind(
+      stripe,
+      encodingKey,
+      proto::Stream_Kind_LENGTH,
+      proto::orc::Stream_Kind_LENGTH);
   bool vints = stripe.getUseVInts(lenId);
   length = createRleDecoder</*isSigned*/ false>(
       stripe.getStream(lenId, streamLabels.label(), true),
@@ -2408,28 +2515,24 @@ std::unique_ptr<ColumnReader> buildIntegerReader(
     StripeStreams& stripe,
     const StreamLabels& streamLabels) {
   EncodingKey ek{fileType->id(), flatMapContext.sequence};
-  switch (static_cast<int64_t>(stripe.getEncoding(ek).kind())) {
-    case proto::ColumnEncoding_Kind_DICTIONARY:
-    case proto::ColumnEncoding_Kind_DICTIONARY_V2:
-      return buildTypedIntegerColumnReader<IntegerDictionaryColumnReader>(
-          requestedType,
-          fileType,
-          std::move(flatMapContext),
-          stripe,
-          streamLabels,
-          numBytes);
-    case proto::ColumnEncoding_Kind_DIRECT:
-    case proto::ColumnEncoding_Kind_DIRECT_V2:
-      return buildTypedIntegerColumnReader<IntegerDirectColumnReader>(
-          requestedType,
-          fileType,
-          std::move(flatMapContext),
-          stripe,
-          streamLabels,
-          numBytes);
-    default:
-      DWIO_RAISE("buildReader unhandled string encoding");
+  if (StripeStreamsUtil::isColumnEncodingKindDictionary(stripe, ek)) {
+    return buildTypedIntegerColumnReader<IntegerDictionaryColumnReader>(
+        requestedType,
+        fileType,
+        std::move(flatMapContext),
+        stripe,
+        streamLabels,
+        numBytes);
+  } else if (StripeStreamsUtil::isColumnEncodingKindDirect(stripe, ek)) {
+    return buildTypedIntegerColumnReader<IntegerDirectColumnReader>(
+        requestedType,
+        fileType,
+        std::move(flatMapContext),
+        stripe,
+        streamLabels,
+        numBytes);
   }
+  DWIO_RAISE("buildReader unhandled string encoding");
 }
 
 std::unique_ptr<ColumnReader> ColumnReader::build(
@@ -2480,27 +2583,21 @@ std::unique_ptr<ColumnReader> ColumnReader::build(
           streamLabels);
     case TypeKind::VARBINARY:
     case TypeKind::VARCHAR:
-      switch (static_cast<int64_t>(stripe.getEncoding(ek).kind())) {
-        case proto::ColumnEncoding_Kind_DICTIONARY:
-        case proto::ColumnEncoding_Kind_DICTIONARY_V2: {
-          const EncodingKey encodingKey(
-              fileType->id(), flatMapContext.sequence);
-          RleVersion rleVersion =
-              convertRleVersion(stripe.getEncoding(encodingKey).kind());
-          return std::make_unique<StringDictionaryColumnReader>(
-              fileType,
-              stripe,
-              streamLabels,
-              encodingKey,
-              rleVersion,
-              std::move(flatMapContext));
-        }
-        case proto::ColumnEncoding_Kind_DIRECT:
-        case proto::ColumnEncoding_Kind_DIRECT_V2:
-          return std::make_unique<StringDirectColumnReader>(
-              fileType, stripe, streamLabels, std::move(flatMapContext));
-        default:
-          DWIO_RAISE("buildReader unhandled string encoding");
+      if (StripeStreamsUtil::isColumnEncodingKindDictionary(stripe, ek)) {
+        const EncodingKey encodingKey(fileType->id(), flatMapContext.sequence);
+        RleVersion rleVersion = convertRleVersion(stripe, encodingKey);
+        return std::make_unique<StringDictionaryColumnReader>(
+            fileType,
+            stripe,
+            streamLabels,
+            encodingKey,
+            rleVersion,
+            std::move(flatMapContext));
+      } else if (StripeStreamsUtil::isColumnEncodingKindDirect(stripe, ek)) {
+        return std::make_unique<StringDirectColumnReader>(
+            fileType, stripe, streamLabels, std::move(flatMapContext));
+      } else {
+        DWIO_RAISE("buildReader unhandled string encoding");
       }
     case TypeKind::BOOLEAN:
       return buildByteRleColumnReader<bool>(
@@ -2527,8 +2624,9 @@ std::unique_ptr<ColumnReader> ColumnReader::build(
           decodingParallelismFactor,
           factory);
     case TypeKind::MAP:
-      if (stripe.getEncoding(ek).kind() ==
-          proto::ColumnEncoding_Kind_MAP_FLAT) {
+      if (stripe.format() == DwrfFormat::kDwrf &&
+          stripe.getEncoding(ek).kind() ==
+              proto::ColumnEncoding_Kind_MAP_FLAT) {
         return FlatMapColumnReaderFactory::create(
             requestedType,
             fileType,
