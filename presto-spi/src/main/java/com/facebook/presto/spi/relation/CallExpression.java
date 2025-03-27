@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.spi.relation;
 
+import com.facebook.presto.common.experimental.FunctionHandleAdapter;
+import com.facebook.presto.common.experimental.RowExpressionAdapter;
+import com.facebook.presto.common.experimental.TypeAdapter;
+import com.facebook.presto.common.experimental.auto_gen.ThriftCallExpression;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.function.FunctionHandle;
@@ -47,10 +51,19 @@ public final class CallExpression
             List<RowExpression> arguments)
     {
         this(arguments.stream()
-                .filter(x -> x.getSourceLocation().isPresent())
-                .map(x -> x.getSourceLocation())
-                .findFirst().orElse(Optional.empty()),
+                        .filter(x -> x.getSourceLocation().isPresent())
+                        .map(x -> x.getSourceLocation())
+                        .findFirst().orElse(Optional.empty()),
                 displayName, functionHandle, returnType, arguments);
+    }
+
+    public CallExpression(ThriftCallExpression thriftCallExpression)
+    {
+        this(thriftCallExpression.getSourceLocation().map(SourceLocation::new),
+                thriftCallExpression.getDisplayName(),
+                (FunctionHandle) FunctionHandleAdapter.fromThrift(thriftCallExpression.getFunctionHandle()),
+                (Type) TypeAdapter.fromThrift(thriftCallExpression.getReturnType()),
+                thriftCallExpression.getArguments().stream().map(thriftExpression -> (RowExpression) RowExpressionAdapter.fromThrift(thriftExpression)).collect(Collectors.toList()));
     }
 
     @JsonCreator

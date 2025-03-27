@@ -16,8 +16,11 @@ package com.facebook.presto.common.type;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
+import com.facebook.presto.common.experimental.auto_gen.ThriftRowFieldName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+
+import javax.validation.constraints.NotNull;
 
 import java.util.Objects;
 
@@ -28,6 +31,17 @@ public class RowFieldName
 {
     private final String name;
     private final boolean delimited;
+
+    public RowFieldName(@NotNull ThriftRowFieldName thriftRowFieldName)
+    {
+        this.name = thriftRowFieldName.getName();
+        this.delimited = thriftRowFieldName.isDelimited();
+    }
+
+    public ThriftRowFieldName toThrift()
+    {
+        return new ThriftRowFieldName(name, delimited);
+    }
 
     @ThriftConstructor
     @JsonCreator

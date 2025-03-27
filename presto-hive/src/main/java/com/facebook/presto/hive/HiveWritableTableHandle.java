@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.experimental.auto_gen.ThriftHiveWritableTableHandle;
 import com.facebook.presto.hive.metastore.HivePageSinkMetadata;
 import com.facebook.presto.hive.metastore.SortingColumn;
 import com.facebook.presto.spi.PrestoException;
@@ -23,7 +24,9 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
+import static com.facebook.presto.hive.metastore.HivePageSinkMetadata.createHivePageSinkMetadata;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static java.util.Objects.requireNonNull;
 
@@ -41,6 +44,30 @@ public class HiveWritableTableHandle
     private final HiveStorageFormat actualStorageFormat;
     private final HiveCompressionCodec compressionCodec;
     private final Optional<EncryptionInformation> encryptionInformation;
+
+    public HiveWritableTableHandle(ThriftHiveWritableTableHandle thriftHandle)
+    {
+        this(
+                thriftHandle.getSchemaName(),
+                thriftHandle.getTableName(),
+                thriftHandle.getInputColumns().stream().map(HiveColumnHandle::new).collect(Collectors.toList()),
+                createHivePageSinkMetadata(thriftHandle.getPageSinkMetadata()),
+                new LocationHandle(thriftHandle.getLocationHandle()),
+                thriftHandle.getBucketProperty().map(HiveBucketProperty::new),
+                thriftHandle.getPreferredOrderingColumns().stream().map(SortingColumn::new).collect(Collectors.toList()),
+                HiveStorageFormat.valueOf(thriftHandle.getTableStorageFormat().name()),
+                HiveStorageFormat.valueOf(thriftHandle.getPartitionStorageFormat().name()),
+                HiveStorageFormat.valueOf(thriftHandle.getActualStorageFormat().name()),
+                HiveCompressionCodec.valueOf(thriftHandle.getCompressionCodec().name()),
+                thriftHandle.getEncryptionInformation().map(EncryptionInformation::new));
+    }
+
+    public ThriftHiveWritableTableHandle toThrift()
+    {
+        return new ThriftHiveWritableTableHandle(
+                
+        );
+    }
 
     public HiveWritableTableHandle(
             String schemaName,

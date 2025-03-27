@@ -13,12 +13,15 @@
  */
 package com.facebook.presto.common.predicate;
 
+import com.facebook.presto.common.experimental.auto_gen.ThriftDomain;
+import com.facebook.presto.common.experimental.auto_gen.ThriftTupleDomain;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -61,6 +64,50 @@ public final class TupleDomain<T>
      * we remove any Domain.all() values from the map.
      */
     private final Optional<Map<T, Domain>> domains;
+
+    public <S extends com.facebook.presto.common.experimental.ThriftSerializer<T>> ThriftTupleDomain toThrift(S serializer)
+    {
+        if (domains.isPresent() && getKeyClass().isPresent()) {
+            ThriftTupleDomain thriftTupleDomain = new ThriftTupleDomain();
+
+            Map<ByteBuffer, ThriftDomain> thriftDomains = new HashMap<>();
+            for (Entry<T, Domain> entry : domains.get().entrySet()) {
+                T key = entry.getKey();
+                Domain domain = entry.getValue();
+                thriftDomains.put(ByteBuffer.wrap(serializer.serialize(key)), domain.toThrift());
+            }
+            thriftTupleDomain.setKeyClassName(getKeyClass().get());
+            thriftTupleDomain.setDomains(thriftDomains);
+
+            return thriftTupleDomain;
+        }
+        return null;
+    }
+
+    public static <T, S extends com.facebook.presto.common.experimental.ThriftSerializer<T>> TupleDomain<T> fromThrift(ThriftTupleDomain thriftTupleDomain, S serializer)
+    {
+        if (thriftTupleDomain == null || !thriftTupleDomain.getDomains().isPresent()) {
+            return none();
+        }
+        Map<T, Domain> domains = new HashMap<>();
+        for (Map.Entry<ByteBuffer, ThriftDomain> entry : thriftTupleDomain.getDomains().get().entrySet()) {
+            T key = serializer.deserialize(entry.getKey().array());
+            domains.put(key, new Domain(entry.getValue()));
+        }
+        return withColumnDomains(domains);
+    }
+
+    private Optional<String> getKeyClass()
+    {
+        if (domains != null && domains.isPresent() && !domains.get().isEmpty()) {
+            T firstKey = domains.get().keySet().iterator().next();
+            if (firstKey == null) {
+                return Optional.empty();
+            }
+            return Optional.of(firstKey.getClass().getName());
+        }
+        return Optional.empty();
+    }
 
     private TupleDomain(Optional<Map<T, Domain>> domains)
     {
@@ -474,11 +521,7 @@ public final class TupleDomain<T>
                 Domain domain = entry.getValue();
 
                 ValueSet values = domain.getValues();
-                ValueSet compactValueSet = values.getValuesProcessor().<Optional<ValueSet>>transform(
-                        ranges -> ranges.getRangeCount() > threshold ? Optional.of(ValueSet.ofRanges(ranges.getSpan())) : Optional.empty(),
-                        discreteValues -> discreteValues.getValues().size() > threshold ? Optional.of(ValueSet.all(values.getType())) : Optional.empty(),
-                        allOrNone -> Optional.empty())
-                        .orElse(values);
+                ValueSet compactValueSet = values.getValuesProcessor().<Optional<ValueSet>>transform(ranges -> ranges.getRangeCount() > threshold ? Optional.of(ValueSet.ofRanges(ranges.getSpan())) : Optional.empty(), discreteValues -> discreteValues.getValues().size() > threshold ? Optional.of(ValueSet.all(values.getType())) : Optional.empty(), allOrNone -> Optional.empty()).orElse(values);
                 compactedDomains.put(hiveColumnHandle, Domain.create(compactValueSet, domain.isNullAllowed()));
             }
         });
@@ -497,7 +540,9 @@ public final class TupleDomain<T>
         return toMap(
                 keyMapper,
                 valueMapper,
-                (u, v) -> { throw new IllegalStateException(String.format("Duplicate key %s", u)); },
+                (u, v) -> {
+                    throw new IllegalStateException(String.format("Duplicate key %s", u));
+                },
                 LinkedHashMap::new);
     }
 
@@ -526,6 +571,34 @@ public final class TupleDomain<T>
         public Domain getDomain()
         {
             return domain;
+        }
+    }
+
+    private interface ThriftSerializer<T>
+    {
+        byte[] serialize(T obj);
+
+        T deserialize(byte[] bytes);
+
+        String getTypeName();
+    }
+
+    public class TypeRegistry
+    {
+        private final Map<Class<?>, ThriftSerializer<?>> serializers = new HashMap<>();
+
+        public <T> void register(Class<T> type, ThriftSerializer<T> serializer)
+        {
+            serializers.put(type, serializer);
+        }
+
+        public <T> ThriftSerializer<T> getSerializer(Class<T> clazz)
+        {
+            ThriftSerializer<T> serializer = (ThriftSerializer<T>) serializers.get(clazz);
+            if (serializer == null) {
+                throw new IllegalArgumentException("No serializer registered for type " + clazz);
+            }
+            return serializer;
         }
     }
 }

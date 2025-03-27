@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.presto.common.experimental.auto_gen.ThriftHivePageSinkMetadata;
+import com.facebook.presto.common.experimental.auto_gen.ThriftOptionalPartition;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -30,6 +32,26 @@ public class HivePageSinkMetadata
     private final SchemaTableName schemaTableName;
     private final Optional<Table> table;
     private final Map<List<String>, Optional<Partition>> modifiedPartitions;
+
+    public static HivePageSinkMetadata createHivePageSinkMetadata(ThriftHivePageSinkMetadata thriftMetadata)
+    {
+        Map<List<String>, Optional<Partition>> modifiedPartitions =
+                thriftMetadata.getModifiedPartitions().entrySet().stream().collect(Collectors.toMap(
+                        entry -> entry.getKey().getKey(),
+                        entry -> fromThriftValue(entry.getValue())));
+
+        return new HivePageSinkMetadata(
+                new SchemaTableName(thriftMetadata.getSchemaTableName()),
+                thriftMetadata.getTable().map(Table::new), modifiedPartitions);
+    }
+
+    private static Optional<Partition> fromThriftValue(ThriftOptionalPartition partition)
+    {
+        if (!partition.isIsPresent()) {
+            return Optional.empty();
+        }
+        return Optional.of(new Partition(partition.getPartition()));
+    }
 
     public HivePageSinkMetadata(
             SchemaTableName schemaTableName,

@@ -13,9 +13,17 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.experimental.ThriftSerializable;
+import com.facebook.presto.common.experimental.ThriftSerializationRegistry;
+import com.facebook.presto.common.experimental.auto_gen.ThriftConnectorTransactionHandle;
+import com.facebook.presto.common.experimental.auto_gen.ThriftHiveTransactionHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.apache.thrift.TDeserializer;
+import org.apache.thrift.TException;
+import org.apache.thrift.TSerializer;
+import org.apache.thrift.protocol.TBinaryProtocol;
 
 import java.util.Objects;
 import java.util.UUID;
@@ -23,9 +31,19 @@ import java.util.UUID;
 import static java.util.Objects.requireNonNull;
 
 public class HiveTransactionHandle
-        implements ConnectorTransactionHandle
+        implements ConnectorTransactionHandle, ThriftSerializable
 {
+    static {
+        ThriftSerializationRegistry.registerSerializer(HiveTransactionHandle.class, HiveTransactionHandle::serialize);
+        ThriftSerializationRegistry.registerDeserializer("HIVE_TRANSACTION_HANDLE", HiveTransactionHandle::deserialize);
+    }
+
     private final UUID uuid;
+
+    public HiveTransactionHandle(ThriftHiveTransactionHandle thriftHandle)
+    {
+        this(new UUID(thriftHandle.getTaskInstanceIdLeastSignificantBits(), thriftHandle.getTaskInstanceIdMostSignificantBits()));
+    }
 
     public HiveTransactionHandle()
     {
@@ -67,5 +85,59 @@ public class HiveTransactionHandle
     public String toString()
     {
         return uuid.toString();
+    }
+
+    @Override
+    public ThriftConnectorTransactionHandle toThriftInterface()
+    {
+        try {
+            TSerializer serializer = new TSerializer(new TBinaryProtocol.Factory());
+            ThriftConnectorTransactionHandle thriftHandle = new ThriftConnectorTransactionHandle();
+            thriftHandle.setType(getImplementationType());
+            thriftHandle.setSerializedConnectorTransactionHandle(serializer.serialize(toThrift()));
+            return thriftHandle;
+        }
+        catch (TException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public ThriftHiveTransactionHandle toThrift()
+    {
+        return new ThriftHiveTransactionHandle(uuid.getLeastSignificantBits(), uuid.getMostSignificantBits());
+    }
+
+    @Override
+    public String getImplementationType()
+    {
+        return "HIVE_TRANSACTION_HANDLE";
+    }
+
+    @Override
+    public byte[] serialize()
+    {
+        try {
+            ThriftHiveTransactionHandle thriftHandle = new ThriftHiveTransactionHandle(uuid.getLeastSignificantBits(), uuid.getMostSignificantBits());
+
+            TSerializer serializer = new TSerializer(new TBinaryProtocol.Factory());
+            return serializer.serialize(thriftHandle);
+        }
+        catch (TException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static HiveTransactionHandle deserialize(byte[] bytes)
+    {
+        try {
+            ThriftHiveTransactionHandle thriftHandle = new ThriftHiveTransactionHandle();
+            TDeserializer deserializer = new TDeserializer(new TBinaryProtocol.Factory());
+            deserializer.deserialize(thriftHandle, bytes);
+            return new HiveTransactionHandle(thriftHandle);
+        }
+        catch (TException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

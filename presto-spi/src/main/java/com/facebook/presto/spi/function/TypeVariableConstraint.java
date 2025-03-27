@@ -16,6 +16,7 @@ package com.facebook.presto.spi.function;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
+import com.facebook.presto.common.experimental.auto_gen.ThriftTypeVariableConstraint;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeUtils;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -35,6 +36,26 @@ public class TypeVariableConstraint
     private final boolean orderableRequired;
     private final String variadicBound;
     private final boolean nonDecimalNumericRequired;
+
+    public TypeVariableConstraint(ThriftTypeVariableConstraint thriftConstraint)
+    {
+        this(
+                thriftConstraint.getName(),
+                thriftConstraint.isComparableRequired(),
+                thriftConstraint.isOrderableRequired(),
+                thriftConstraint.getVariadicBound(),
+                thriftConstraint.isNonDecimalNumericRequired());
+    }
+
+    public ThriftTypeVariableConstraint toThrift()
+    {
+        return new ThriftTypeVariableConstraint(
+                this.name,
+                this.comparableRequired,
+                this.orderableRequired,
+                this.variadicBound,
+                this.nonDecimalNumericRequired);
+    }
 
     @ThriftConstructor
     @JsonCreator

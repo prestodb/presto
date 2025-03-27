@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.experimental.auto_gen.ThriftHiveColumnHandle;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.ColumnHandle;
@@ -25,6 +26,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.AGGREGATED;
@@ -80,6 +82,19 @@ public class HiveColumnHandle
     private final TypeSignature typeName;
     private final int hiveColumnIndex;
     private final Optional<Aggregation> partialAggregation;
+
+    public HiveColumnHandle(ThriftHiveColumnHandle thriftHandle)
+    {
+        this(
+                thriftHandle.getBaseHandle().getName(),
+                new HiveType(thriftHandle.getHiveType()),
+                new TypeSignature(thriftHandle.getTypeName()),
+                thriftHandle.getHiveColumnIndex(),
+                ColumnType.valueOf(thriftHandle.getBaseHandle().getColumnType().name()),
+                thriftHandle.getBaseHandle().getComment(),
+                thriftHandle.getBaseHandle().getRequiredSubfields().stream().map(Subfield::createSubfield).collect(Collectors.toList()),
+                thriftHandle.getPartialAggregation().map(Aggregation::new));
+    }
 
     @JsonCreator
     public HiveColumnHandle(

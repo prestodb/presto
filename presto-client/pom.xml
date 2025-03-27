@@ -17,12 +17,27 @@
 
     <dependencies>
         <dependency>
+            <groupId>javax.validation</groupId>
+            <artifactId>validation-api</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-spi</artifactId>
         </dependency>
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-common</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.facebook.drift</groupId>
+                    <artifactId>drift-codec</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.facebook.drift</groupId>
+                    <artifactId>drift-protocol</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>

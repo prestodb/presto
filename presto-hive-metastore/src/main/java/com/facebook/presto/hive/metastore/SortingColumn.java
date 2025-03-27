@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.metastore;
 
 import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.common.experimental.auto_gen.ThriftSortingColumn;
 import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -71,6 +72,11 @@ public class SortingColumn
 
     private final String columnName;
     private final Order order;
+
+    public SortingColumn(ThriftSortingColumn thriftSortingColumn)
+    {
+        this(thriftSortingColumn.getColumnName(), Order.valueOf(thriftSortingColumn.getOrder().name()));
+    }
 
     @JsonCreator
     public SortingColumn(

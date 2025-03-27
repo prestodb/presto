@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.function;
 
+import com.facebook.presto.common.experimental.auto_gen.ThriftFunctionVersion;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -24,6 +25,18 @@ public class FunctionVersion
 {
     private static final FunctionVersion NOT_VERSIONED = new FunctionVersion(Optional.empty());
     private final Optional<String> version;
+
+    public FunctionVersion(ThriftFunctionVersion thriftVersion)
+    {
+        this(thriftVersion.getVersion());
+    }
+
+    public ThriftFunctionVersion toThrift()
+    {
+        ThriftFunctionVersion thriftVersion = new ThriftFunctionVersion();
+        version.ifPresent(thriftVersion::setVersion);
+        return thriftVersion;
+    }
 
     public static FunctionVersion notVersioned()
     {

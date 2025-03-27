@@ -15,6 +15,10 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.experimental.ExecutionWriterTargetAdapter;
+import com.facebook.presto.common.experimental.auto_gen.ThriftDeleteScanInfo;
+import com.facebook.presto.common.experimental.auto_gen.ThriftExecutionWriterTarget;
+import com.facebook.presto.common.experimental.auto_gen.ThriftTableWriteInfo;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.metadata.AnalyzeTableHandle;
 import com.facebook.presto.metadata.Metadata;
@@ -56,6 +60,27 @@ public class TableWriteInfo
     private final Optional<ExecutionWriterTarget> writerTarget;
     private final Optional<AnalyzeTableHandle> analyzeTableHandle;
     private final Optional<DeleteScanInfo> deleteScanInfo;
+
+    public TableWriteInfo(ThriftTableWriteInfo thriftTableWriteInfo)
+    {
+        this(
+                thriftTableWriteInfo.getWriterTarget().map(target -> (ExecutionWriterTarget) ExecutionWriterTargetAdapter.fromThrift(target)),
+                thriftTableWriteInfo.getAnalyzeTableHandle().map(AnalyzeTableHandle::new),
+                thriftTableWriteInfo.getDeleteScanInfo().map(DeleteScanInfo::new));
+    }
+
+    public ThriftTableWriteInfo toThrift()
+    {
+        ThriftTableWriteInfo thriftTableWriteInfo = new ThriftTableWriteInfo();
+        writerTarget.map(target -> (ThriftExecutionWriterTarget) target.toThriftInterface()).ifPresent(thriftTableWriteInfo::setWriterTarget);
+        analyzeTableHandle.map(AnalyzeTableHandle::toThrift).ifPresent(thriftTableWriteInfo::setAnalyzeTableHandle);
+        deleteScanInfo.map(DeleteScanInfo::toThrift).ifPresent(thriftTableWriteInfo::setDeleteScanInfo);
+
+        if (!thriftTableWriteInfo.getWriterTarget().isPresent()) {
+            System.out.println("thriftize thriftize writer target not present, original class name: " + writerTarget.get().getClass().getName());
+        }
+        return thriftTableWriteInfo;
+    }
 
     @JsonCreator
     public TableWriteInfo(
@@ -249,6 +274,19 @@ public class TableWriteInfo
     {
         private final PlanNodeId id;
         private final TableHandle tableHandle;
+
+        public DeleteScanInfo(ThriftDeleteScanInfo thriftDeleteScanInfo)
+        {
+            this(new PlanNodeId(thriftDeleteScanInfo.getId()),
+                    new TableHandle(thriftDeleteScanInfo.getTableHandle()));
+        }
+
+        public ThriftDeleteScanInfo toThrift()
+        {
+            return new ThriftDeleteScanInfo(
+                    id.getId(),
+                    tableHandle.toThriftInterface());
+        }
 
         @JsonCreator
         public DeleteScanInfo(@JsonProperty("id") PlanNodeId id, @JsonProperty("tableHandle") TableHandle tableHandle)

@@ -16,11 +16,15 @@ package com.facebook.presto.common;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
+import com.facebook.presto.common.experimental.auto_gen.ThriftErrorCode;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import javax.validation.constraints.NotNull;
+
 import java.util.Objects;
 
+import static com.facebook.presto.common.ErrorType.createErrorType;
 import static java.util.Objects.requireNonNull;
 
 @ThriftStruct
@@ -30,6 +34,16 @@ public final class ErrorCode
     private final String name;
     private final ErrorType type;
     private final boolean retriable;
+
+    public ErrorCode(@NotNull ThriftErrorCode thriftErrorCode)
+    {
+        this(thriftErrorCode.getCode(), thriftErrorCode.getName(), createErrorType(thriftErrorCode.getType()), thriftErrorCode.isRetriable());
+    }
+
+    public ThriftErrorCode toThrift()
+    {
+        return new ThriftErrorCode(this.code, this.name, this.type.toThrift(), this.retriable);
+    }
 
     @JsonCreator
     @ThriftConstructor

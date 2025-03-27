@@ -17,7 +17,10 @@ import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftUnion;
 import com.facebook.drift.annotations.ThriftUnionId;
+import com.facebook.presto.common.experimental.auto_gen.ThriftTypeSignatureParameterUnion;
 import com.facebook.presto.common.type.VarcharEnumType.VarcharEnumMap;
+
+import javax.validation.constraints.NotNull;
 
 import java.util.Objects;
 
@@ -42,6 +45,66 @@ public class TypeSignatureParameterUnion
     private VarcharEnumMap varcharEnumMap;
     private DistinctTypeInfo distinctTypeInfo;
     private final short id;
+
+    public static TypeSignatureParameterUnion createTypeSignatureParameterUnion(@NotNull ThriftTypeSignatureParameterUnion thriftUnion)
+    {
+        if (thriftUnion.getTypeSignature() != null) {
+            return new TypeSignatureParameterUnion(new TypeSignature(thriftUnion.getTypeSignature()));
+        }
+        else if (thriftUnion.isSetLongLiteral()) {
+            return new TypeSignatureParameterUnion(thriftUnion.getLongLiteral());
+        }
+        else if (thriftUnion.getNamedTypeSignature() != null) {
+            return new TypeSignatureParameterUnion(new NamedTypeSignature(thriftUnion.getNamedTypeSignature()));
+        }
+        else if (thriftUnion.getVariable() != null) {
+            return new TypeSignatureParameterUnion(thriftUnion.getVariable());
+        }
+        else if (thriftUnion.getLongEnumMap() != null) {
+            return new TypeSignatureParameterUnion(new LongEnumMap(thriftUnion.getLongEnumMap()));
+        }
+        else if (thriftUnion.getVarcharEnumMap() != null) {
+            return new TypeSignatureParameterUnion(new VarcharEnumMap(thriftUnion.getVarcharEnumMap()));
+        }
+        else if (thriftUnion.getDistinctTypeInfo() != null) {
+            return new TypeSignatureParameterUnion(new DistinctTypeInfo(thriftUnion.getDistinctTypeInfo()));
+        }
+        else {
+            throw new RuntimeException("Unsupported type.");
+        }
+    }
+
+    public ThriftTypeSignatureParameterUnion toThrift()
+    {
+        ThriftTypeSignatureParameterUnion thriftTypeSignatureParameterUnion = new ThriftTypeSignatureParameterUnion();
+
+        if (this.typeSignature != null) {
+            thriftTypeSignatureParameterUnion.setTypeSignature(this.typeSignature.toThrift());
+        }
+        else if (this.longLiteral != null) {
+            thriftTypeSignatureParameterUnion.setLongLiteral(this.longLiteral);
+        }
+        else if (this.namedTypeSignature != null) {
+            thriftTypeSignatureParameterUnion.setNamedTypeSignature(this.namedTypeSignature.toThrift());
+        }
+        else if (this.variable != null) {
+            thriftTypeSignatureParameterUnion.setVariable(this.variable);
+        }
+        else if (this.longEnumMap != null) {
+            thriftTypeSignatureParameterUnion.setLongEnumMap(this.longEnumMap.toThrift());
+        }
+        else if (this.varcharEnumMap != null) {
+            thriftTypeSignatureParameterUnion.setVarcharEnumMap(this.varcharEnumMap.toThrift());
+        }
+        else if (this.distinctTypeInfo != null) {
+            thriftTypeSignatureParameterUnion.setDistinctTypeInfo(this.distinctTypeInfo.toThrift());
+        }
+        else {
+            throw new RuntimeException("Unsupported type.");
+        }
+
+        return thriftTypeSignatureParameterUnion;
+    }
 
     @ThriftConstructor
     public TypeSignatureParameterUnion(TypeSignature typeSignature)
@@ -68,6 +131,7 @@ public class TypeSignatureParameterUnion
     {
         return namedTypeSignature;
     }
+
     @ThriftConstructor
     public TypeSignatureParameterUnion(Long longLiteral)
     {

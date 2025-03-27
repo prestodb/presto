@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.experimental.TypeInfoAdapter;
+import com.facebook.presto.common.experimental.auto_gen.ThriftHiveType;
 import com.facebook.presto.common.type.NamedTypeSignature;
 import com.facebook.presto.common.type.RowFieldName;
 import com.facebook.presto.common.type.StandardTypes;
@@ -134,6 +136,11 @@ public final class HiveType
 
     private final HiveTypeName hiveTypeName;
     private final TypeInfo typeInfo;
+
+    public HiveType(ThriftHiveType thriftHiveType)
+    {
+        this((TypeInfo) TypeInfoAdapter.fromThrift(thriftHiveType.getTypeInfo()));
+    }
 
     private HiveType(TypeInfo typeInfo)
     {

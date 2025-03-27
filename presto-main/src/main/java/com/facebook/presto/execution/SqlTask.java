@@ -452,6 +452,9 @@ public class SqlTask
                 if (taskExecution == null) {
                     checkState(fragment.isPresent(), "fragment must be present");
                     checkState(tableWriteInfo.isPresent(), "tableWriteInfo must be present");
+                    if (!tableWriteInfo.get().getWriterTarget().isPresent()) {
+                        System.out.println("=====> writer target is not present");
+                    }
                     taskExecution = sqlTaskExecutionFactory.create(
                             session,
                             queryContext,

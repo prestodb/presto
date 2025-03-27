@@ -15,6 +15,7 @@ package com.facebook.presto.common.type;
 
 import com.facebook.drift.annotations.ThriftEnum;
 import com.facebook.drift.annotations.ThriftEnumValue;
+import com.facebook.presto.common.experimental.auto_gen.ThriftParameterKind;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
@@ -73,6 +74,16 @@ public enum ParameterKind
     {
         this.oldName = oldName;
         this.value = value;
+    }
+
+    public static ParameterKind createParameterKind(ThriftParameterKind thriftParameterKind)
+    {
+        return ParameterKind.valueOf(thriftParameterKind.name());
+    }
+
+    public ThriftParameterKind toThrift()
+    {
+        return ThriftParameterKind.valueOf(this.name());
     }
 
     @JsonValue

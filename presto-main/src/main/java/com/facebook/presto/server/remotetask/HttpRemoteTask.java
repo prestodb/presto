@@ -29,6 +29,10 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.DecayCounter;
 import com.facebook.drift.transport.netty.codec.Protocol;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.experimental.ExperimentalThriftResponseHandler;
+import com.facebook.presto.common.experimental.auto_gen.ThriftTaskInfo;
+import com.facebook.presto.common.experimental.auto_gen.ThriftTaskState;
+import com.facebook.presto.common.experimental.auto_gen.ThriftTaskUpdateRequest;
 import com.facebook.presto.connector.ConnectorTypeSerdeManager;
 import com.facebook.presto.execution.FutureStateChange;
 import com.facebook.presto.execution.Lifespan;
@@ -77,6 +81,10 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.sun.management.ThreadMXBean;
 import io.airlift.units.Duration;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
+import org.apache.thrift.TException;
+import org.apache.thrift.TSerializer;
+import org.apache.thrift.protocol.TBinaryProtocol;
+import org.apache.thrift.transport.TTransportException;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -110,10 +118,13 @@ import static com.facebook.airlift.http.client.Request.Builder.prepareDelete;
 import static com.facebook.airlift.http.client.Request.Builder.preparePost;
 import static com.facebook.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static com.facebook.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
+import static com.facebook.drift.transport.netty.codec.Protocol.BINARY;
 import static com.facebook.presto.SystemSessionProperties.getMaxUnacknowledgedSplitsPerTask;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_EXPERIMENTAL;
 import static com.facebook.presto.execution.TaskInfo.createInitialTask;
 import static com.facebook.presto.execution.TaskState.ABORTED;
 import static com.facebook.presto.execution.TaskState.FAILED;
+import static com.facebook.presto.execution.TaskStatus.createTaskStatus;
 import static com.facebook.presto.execution.TaskStatus.failWith;
 import static com.facebook.presto.server.RequestErrorTracker.isExpectedError;
 import static com.facebook.presto.server.RequestErrorTracker.taskRequestErrorTracker;
@@ -124,6 +135,7 @@ import static com.facebook.presto.server.smile.FullSmileResponseHandler.createFu
 import static com.facebook.presto.server.thrift.ThriftCodecWrapper.unwrapThriftCodec;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TASK_UPDATE_SIZE_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -166,6 +178,7 @@ public final class HttpRemoteTask
     private final RemoteTaskStats stats;
     private final TaskInfoFetcher taskInfoFetcher;
     private final ContinuousTaskStatusFetcher taskStatusFetcher;
+    private final ContinuousThriftTaskStatusFetcher thriftTaskStatusFetcher;
 
     @GuardedBy("this")
     private final LongArrayList taskUpdateTimeline = new LongArrayList();
@@ -220,6 +233,7 @@ public final class HttpRemoteTask
 
     private final boolean binaryTransportEnabled;
     private final boolean thriftTransportEnabled;
+    private final boolean experimentalThriftEnabled;
     private final boolean taskInfoThriftTransportEnabled;
     private final Protocol thriftProtocol;
     private final ConnectorTypeSerdeManager connectorTypeSerdeManager;
@@ -261,6 +275,7 @@ public final class HttpRemoteTask
             RemoteTaskStats stats,
             boolean binaryTransportEnabled,
             boolean thriftTransportEnabled,
+            boolean experimentalThriftEnabled,
             boolean taskInfoThriftTransportEnabled,
             Protocol thriftProtocol,
             TableWriteInfo tableWriteInfo,
@@ -321,6 +336,7 @@ public final class HttpRemoteTask
             this.stats = stats;
             this.binaryTransportEnabled = binaryTransportEnabled;
             this.thriftTransportEnabled = thriftTransportEnabled;
+            this.experimentalThriftEnabled = experimentalThriftEnabled;
             this.taskInfoThriftTransportEnabled = taskInfoThriftTransportEnabled;
             this.thriftProtocol = thriftProtocol;
             this.connectorTypeSerdeManager = connectorTypeSerdeManager;
@@ -361,20 +377,41 @@ public final class HttpRemoteTask
 
             TaskInfo initialTask = createInitialTask(taskId, location, bufferStates, new TaskStats(currentTimeMillis(), 0), nodeId);
 
-            this.taskStatusFetcher = new ContinuousTaskStatusFetcher(
-                    this::failTask,
-                    taskId,
-                    initialTask.getTaskStatus(),
-                    taskStatusRefreshMaxWait,
-                    taskStatusCodec,
-                    executor,
-                    httpClient,
-                    maxErrorDuration,
-                    errorScheduledExecutor,
-                    stats,
-                    binaryTransportEnabled,
-                    thriftTransportEnabled,
-                    thriftProtocol);
+            if (experimentalThriftEnabled) {
+                this.thriftTaskStatusFetcher = new ContinuousThriftTaskStatusFetcher(this::failTask,
+                        taskId,
+                        initialTask.getTaskStatus().toThrift(),
+                        taskStatusRefreshMaxWait,
+                        taskStatusCodec,
+                        executor,
+                        httpClient,
+                        maxErrorDuration,
+                        errorScheduledExecutor,
+                        stats,
+                        binaryTransportEnabled,
+                        thriftTransportEnabled,
+                        thriftProtocol,
+                        experimentalThriftEnabled);
+
+                this.taskStatusFetcher = null;
+            }
+            else {
+                thriftTaskStatusFetcher = null;
+                this.taskStatusFetcher = new ContinuousTaskStatusFetcher(
+                        this::failTask,
+                        taskId,
+                        initialTask.getTaskStatus(),
+                        taskStatusRefreshMaxWait,
+                        taskStatusCodec,
+                        executor,
+                        httpClient,
+                        maxErrorDuration,
+                        errorScheduledExecutor,
+                        stats,
+                        binaryTransportEnabled,
+                        thriftTransportEnabled,
+                        thriftProtocol);
+            }
 
             this.taskInfoFetcher = new TaskInfoFetcher(
                     this::failTask,
@@ -399,16 +436,30 @@ public final class HttpRemoteTask
                     connectorTypeSerdeManager,
                     thriftProtocol);
 
-            taskStatusFetcher.addStateChangeListener(newStatus -> {
-                TaskState state = newStatus.getState();
-                if (state.isDone()) {
-                    cleanUpTask();
-                }
-                else {
-                    updateTaskStats();
-                    updateSplitQueueSpace();
-                }
-            });
+            if (experimentalThriftEnabled) {
+                thriftTaskStatusFetcher.addStateChangeListener(newStatus -> {
+                    ThriftTaskState state = newStatus.getState();
+                    if (TaskState.isDone(state)) {
+                        cleanUpTask();
+                    }
+                    else {
+                        updateTaskStats();
+                        updateSplitQueueSpace();
+                    }
+                });
+            }
+            else {
+                taskStatusFetcher.addStateChangeListener(newStatus -> {
+                    TaskState state = newStatus.getState();
+                    if (state.isDone()) {
+                        cleanUpTask();
+                    }
+                    else {
+                        updateTaskStats();
+                        updateSplitQueueSpace();
+                    }
+                });
+            }
 
             updateTaskStats();
             updateSplitQueueSpace();
@@ -441,6 +492,9 @@ public final class HttpRemoteTask
     @Override
     public TaskStatus getTaskStatus()
     {
+        if (experimentalThriftEnabled) {
+            return createTaskStatus(thriftTaskStatusFetcher.getTaskStatus());
+        }
         return taskStatusFetcher.getTaskStatus();
     }
 
@@ -458,7 +512,12 @@ public final class HttpRemoteTask
             started.set(true);
             scheduleUpdate();
 
-            taskStatusFetcher.start();
+            if (experimentalThriftEnabled) {
+                thriftTaskStatusFetcher.start();
+            }
+            else {
+                taskStatusFetcher.start();
+            }
             taskInfoFetcher.start();
         }
     }
@@ -677,7 +736,14 @@ public final class HttpRemoteTask
     public void addStateChangeListener(StateChangeListener<TaskStatus> stateChangeListener)
     {
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
-            taskStatusFetcher.addStateChangeListener(stateChangeListener);
+            if (experimentalThriftEnabled) {
+                thriftTaskStatusFetcher.addStateChangeListener(thrifTaskStatus -> {
+                    stateChangeListener.stateChanged(createTaskStatus(thrifTaskStatus));
+                });
+            }
+            else {
+                taskStatusFetcher.addStateChangeListener(stateChangeListener);
+            }
         }
     }
 
@@ -779,7 +845,12 @@ public final class HttpRemoteTask
 
     private void updateTaskInfo(TaskInfo taskInfo, boolean isTaskInfoThriftTransportEnabled)
     {
-        taskStatusFetcher.updateTaskStatus(taskInfo.getTaskStatus());
+        if (experimentalThriftEnabled) {
+            thriftTaskStatusFetcher.updateTaskStatus(taskInfo.getTaskStatus().toThrift());
+        }
+        else {
+            taskStatusFetcher.updateTaskStatus(taskInfo.getTaskStatus());
+        }
         if (isTaskInfoThriftTransportEnabled) {
             taskInfo = convertFromThriftTaskInfo(taskInfo, connectorTypeSerdeManager, handleResolver);
         }
@@ -871,6 +942,7 @@ public final class HttpRemoteTask
             schedulerStatsTracker.recordTaskPlanSerializedCpuTime(THREAD_MX_BEAN.getCurrentThreadCpuTime() - start);
         }
         Optional<TableWriteInfo> writeInfo = sendPlan.get() ? Optional.of(tableWriteInfo) : Optional.empty();
+
         TaskUpdateRequest updateRequest = new TaskUpdateRequest(
                 session.toSessionRepresentation(),
                 session.getIdentity().getExtraCredentials(),
@@ -878,36 +950,75 @@ public final class HttpRemoteTask
                 sources,
                 outputBuffers.get(),
                 writeInfo);
+
+        if (!writeInfo.isPresent()) {
+            System.out.println("=====> original writeInfo not present");
+        }
+        else if (!writeInfo.get().getWriterTarget().isPresent()) {
+            System.out.println("=====> original writeInfo.get().getWriterTarget() not present");
+        }
+
         long serializeStartCpuTimeNanos = THREAD_MX_BEAN.getCurrentThreadCpuTime();
-        byte[] taskUpdateRequestJson = taskUpdateRequestCodec.toBytes(updateRequest);
+        byte[] taskUpdateRequestBinary;
+        if (experimentalThriftEnabled) {
+            try {
+                System.out.println("Send out thrift-based task update request");
+                TSerializer serializer = new TSerializer(new TBinaryProtocol.Factory());
+                ThriftTaskUpdateRequest thriftTaskUpdateRequest = updateRequest.toThrift();
+                taskUpdateRequestBinary = serializer.serialize(thriftTaskUpdateRequest);
+            }
+            catch (TTransportException e) {
+                throw new PrestoException(NOT_SUPPORTED, "Can not initiate serializer", e);
+            }
+            catch (TException e) {
+                throw new PrestoException(NOT_SUPPORTED, "Can not serialize data", e);
+            }
+        }
+        else {
+            taskUpdateRequestBinary = taskUpdateRequestCodec.toBytes(updateRequest);
+        }
         schedulerStatsTracker.recordTaskUpdateSerializedCpuTime(THREAD_MX_BEAN.getCurrentThreadCpuTime() - serializeStartCpuTimeNanos);
 
-        if (taskUpdateRequestJson.length > maxTaskUpdateSizeInBytes) {
-            failTask(new PrestoException(EXCEEDED_TASK_UPDATE_SIZE_LIMIT, getExceededTaskUpdateSizeMessage(taskUpdateRequestJson)));
+        if (taskUpdateRequestBinary.length > maxTaskUpdateSizeInBytes) {
+            failTask(new PrestoException(EXCEEDED_TASK_UPDATE_SIZE_LIMIT, getExceededTaskUpdateSizeMessage(taskUpdateRequestBinary)));
         }
 
         if (taskUpdateSizeTrackingEnabled) {
-            taskUpdateRequestSize.add(taskUpdateRequestJson.length);
+            taskUpdateRequestSize.add(taskUpdateRequestBinary.length);
 
             if (fragment.isPresent()) {
-                stats.updateWithPlanSize(taskUpdateRequestJson.length);
+                stats.updateWithPlanSize(taskUpdateRequestBinary.length);
             }
             else {
                 if (ThreadLocalRandom.current().nextDouble() < UPDATE_WITHOUT_PLAN_STATS_SAMPLE_RATE) {
                     // This is to keep track of the task update size even when the plan fragment is NOT present
-                    stats.updateWithoutPlanSize(taskUpdateRequestJson.length);
+                    stats.updateWithoutPlanSize(taskUpdateRequestBinary.length);
                 }
             }
         }
 
         HttpUriBuilder uriBuilder = getHttpUriBuilder(taskStatus);
-        Request request = setContentTypeHeaders(binaryTransportEnabled, preparePost())
-                .setUri(uriBuilder.build())
-                .setBodyGenerator(createStaticBodyGenerator(taskUpdateRequestJson))
-                .build();
+        Request request;
+
+        if (experimentalThriftEnabled) {
+            request = ThriftRequestUtils.prepareThriftPost(BINARY)
+                    .setUri(uriBuilder.build())
+                    .setHeader(PRESTO_EXPERIMENTAL, String.valueOf(experimentalThriftEnabled))
+                    .setBodyGenerator(createStaticBodyGenerator(taskUpdateRequestBinary))
+                    .build();
+        }
+        else {
+            request = setContentTypeHeaders(binaryTransportEnabled, preparePost())
+                    .setUri(uriBuilder.build())
+                    .setBodyGenerator(createStaticBodyGenerator(taskUpdateRequestBinary))
+                    .build();
+        }
 
         ResponseHandler responseHandler;
-        if (binaryTransportEnabled) {
+        if (experimentalThriftEnabled) {
+            responseHandler = new ExperimentalThriftResponseHandler(ThriftTaskInfo.class);
+        }
+        else if (binaryTransportEnabled) {
             responseHandler = createFullSmileResponseHandler((SmileCodec<TaskInfo>) taskInfoCodec);
         }
         else {
@@ -916,8 +1027,6 @@ public final class HttpRemoteTask
 
         updateErrorTracker.startRequest();
 
-        ListenableFuture<BaseResponse<TaskInfo>> future = httpClient.executeAsync(request, responseHandler);
-        currentRequest = future;
         currentRequestStartNanos = System.nanoTime();
         if (!taskUpdateTimeline.isEmpty()) {
             currentRequestLastTaskUpdate = taskUpdateTimeline.getLong(taskUpdateTimeline.size() - 1);
@@ -927,10 +1036,36 @@ public final class HttpRemoteTask
         // and does so without grabbing the instance lock.
         needsUpdate.set(false);
 
-        Futures.addCallback(
-                future,
-                new SimpleHttpResponseHandler<>(new UpdateResponseHandler(sources), request.getUri(), stats.getHttpResponseStats(), REMOTE_TASK_ERROR),
-                executor);
+        if (experimentalThriftEnabled) {
+            ListenableFuture<BaseResponse<ThriftTaskInfo>> future = httpClient.executeAsync(request, responseHandler);
+            currentRequest = future;
+            FutureCallback callback = new FutureCallback<ThriftTaskInfo>()
+            {
+                @Override
+                public void onSuccess(ThriftTaskInfo result)
+                {
+                    log.info("success on receiving ThriftTaskInfo");
+                }
+
+                @Override
+                public void onFailure(Throwable t)
+                {
+                    log.error("failure on receiving ThriftTaskInfo");
+                }
+            };
+            Futures.addCallback(
+                    future,
+                    callback,
+                    executor);
+        }
+        else {
+            ListenableFuture<BaseResponse<TaskInfo>> future = httpClient.executeAsync(request, responseHandler);
+            currentRequest = future;
+            Futures.addCallback(
+                    future,
+                    new SimpleHttpResponseHandler<>(new UpdateResponseHandler(sources), request.getUri(), stats.getHttpResponseStats(), REMOTE_TASK_ERROR),
+                    executor);
+        }
     }
 
     private String getExceededTaskUpdateSizeMessage(byte[] taskUpdateRequestJson)
@@ -1001,14 +1136,19 @@ public final class HttpRemoteTask
             currentRequestStartNanos = 0;
         }
 
-        taskStatusFetcher.stop();
+        if (experimentalThriftEnabled) {
+            thriftTaskStatusFetcher.stop();
+        }
+        else {
+            taskStatusFetcher.stop();
+        }
 
         // The remote task is likely to get a delete from the PageBufferClient first.
         // We send an additional delete anyway to get the final TaskInfo
         HttpUriBuilder uriBuilder = getHttpUriBuilder(getTaskStatus());
         Request.Builder requestBuilder = setContentTypeHeaders(binaryTransportEnabled, prepareDelete());
         if (taskInfoThriftTransportEnabled) {
-            requestBuilder = ThriftRequestUtils.prepareThriftDelete(Protocol.BINARY);
+            requestBuilder = ThriftRequestUtils.prepareThriftDelete(BINARY);
         }
         Request request = requestBuilder
                 .setUri(uriBuilder.build())
@@ -1032,7 +1172,12 @@ public final class HttpRemoteTask
         checkState(status.getState().isDone(), "cannot abort task with an incomplete status");
 
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
-            taskStatusFetcher.updateTaskStatus(status);
+            if (experimentalThriftEnabled) {
+                thriftTaskStatusFetcher.updateTaskStatus(status.toThrift());
+            }
+            else {
+                taskStatusFetcher.updateTaskStatus(status);
+            }
 
             // send abort to task
             HttpUriBuilder uriBuilder = getHttpUriBuilder(getTaskStatus());

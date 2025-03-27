@@ -14,6 +14,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.SessionRepresentation;
+import com.facebook.presto.common.experimental.auto_gen.ThriftTaskUpdateRequest;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
@@ -25,7 +26,9 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
+import static com.facebook.presto.SessionRepresentation.createSessionRepresentation;
 import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_ABSENT;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -39,6 +42,42 @@ public class TaskUpdateRequest
     private final List<TaskSource> sources;
     private final OutputBuffers outputIds;
     private final Optional<TableWriteInfo> tableWriteInfo;
+
+    public TaskUpdateRequest(ThriftTaskUpdateRequest thriftRequest)
+    {
+        this(createSessionRepresentation(thriftRequest.getSession()),
+                thriftRequest.getExtraCredentials(),
+                Optional.ofNullable(thriftRequest.getFragment()),
+                thriftRequest.getSources().stream().map(TaskSource::new).collect(Collectors.toList()),
+                new OutputBuffers(thriftRequest.getOutputIds()),
+                thriftRequest.getTableWriteInfo().map(TableWriteInfo::new));
+    }
+
+    public ThriftTaskUpdateRequest toThrift()
+    {
+        if (!tableWriteInfo.isPresent()) {
+            System.out.println("=====> original tableWriteInfo not present");
+        }
+        else if (!tableWriteInfo.get().getWriterTarget().isPresent()) {
+            System.out.println("=====> original getWriterTarget() not present");
+        }
+        ThriftTaskUpdateRequest thriftTaskUpdateRequest = new ThriftTaskUpdateRequest(
+                session.toThrift(),
+                extraCredentials,
+                sources.stream().map(TaskSource::toThrift).collect(Collectors.toList()),
+                outputIds.toThrift());
+        tableWriteInfo.map(TableWriteInfo::toThrift).ifPresent(thriftTaskUpdateRequest::setTableWriteInfo);
+        fragment.ifPresent(thriftTaskUpdateRequest::setFragment);
+
+        if (!thriftTaskUpdateRequest.getTableWriteInfo().isPresent()) {
+            System.out.println("=====> thriftize tableWriteInfo not present");
+        }
+        else if (!thriftTaskUpdateRequest.getTableWriteInfo().get().getWriterTarget().isPresent()) {
+            System.out.println("=====> thriftize getWriterTarget() not present");
+        }
+
+        return thriftTaskUpdateRequest;
+    }
 
     @JsonCreator
     public TaskUpdateRequest(
