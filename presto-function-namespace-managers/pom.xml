@@ -187,12 +187,6 @@
             <groupId>com.facebook.presto</groupId>
             <artifactId>testing-mysql-server-8</artifactId>
             <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>mysql</groupId>
-                    <artifactId>mysql-connector-java</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>

@@ -2003,6 +2003,12 @@
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>testing-mysql-server-8</artifactId>
                 <version>${dep.testing-mysql-server-5.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>mysql</groupId>
+                        <artifactId>mysql-connector-java</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
