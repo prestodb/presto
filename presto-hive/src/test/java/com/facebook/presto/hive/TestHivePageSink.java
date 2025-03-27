@@ -73,7 +73,7 @@ import static com.facebook.presto.hive.CacheQuotaRequirement.NO_CACHE_REQUIREMEN
 import static com.facebook.presto.hive.HiveCompressionCodec.NONE;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveQueryRunner.METASTORE_CONTEXT;
-import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_MANAGER;
+import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_RESOLVER;
 import static com.facebook.presto.hive.HiveTestUtils.PAGE_SORTER;
 import static com.facebook.presto.hive.HiveTestUtils.ROW_EXPRESSION_SERVICE;
 import static com.facebook.presto.hive.HiveTestUtils.createTestHdfsEnvironment;
@@ -162,7 +162,7 @@ public class TestHivePageSink
         List<Type> columnTypes = columns.stream()
                 .map(LineItemColumn::getType)
                 .map(TestHivePageSink::getHiveType)
-                .map(hiveType -> hiveType.getType(FUNCTION_AND_TYPE_MANAGER))
+                .map(hiveType -> hiveType.getType(FUNCTION_AND_TYPE_RESOLVER))
                 .collect(toList());
 
         PageBuilder pageBuilder = new PageBuilder(columnTypes);
@@ -304,7 +304,7 @@ public class TestHivePageSink
                 getDefaultHiveBatchPageSourceFactories(config, metastoreClientConfig),
                 getDefaultHiveSelectivePageSourceFactories(config, metastoreClientConfig),
                 getDefaultHiveAggregatedPageSourceFactories(config, metastoreClientConfig),
-                FUNCTION_AND_TYPE_MANAGER,
+                FUNCTION_AND_TYPE_RESOLVER,
                 ROW_EXPRESSION_SERVICE);
         return provider.createPageSource(transaction, getSession(config, new HiveCommonClientConfig()), split, tableHandle.getLayout().get(), ImmutableList.copyOf(getColumnHandles()), NON_CACHEABLE, new RuntimeStats());
     }
@@ -335,7 +335,7 @@ public class TestHivePageSink
                 PAGE_SORTER,
                 metastore,
                 new GroupByHashPageIndexerFactory(new JoinCompiler(MetadataManager.createTestMetadataManager())),
-                FUNCTION_AND_TYPE_MANAGER,
+                FUNCTION_AND_TYPE_RESOLVER,
                 config,
                 metastoreClientConfig,
                 sortingFileWriterConfig,

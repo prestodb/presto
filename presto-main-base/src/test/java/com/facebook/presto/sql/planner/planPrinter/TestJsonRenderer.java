@@ -67,7 +67,7 @@ public class TestJsonRenderer
 
     static {
         JsonObjectMapperProvider provider = new JsonObjectMapperProvider();
-        provider.setKeyDeserializers(ImmutableMap.of(VariableReferenceExpression.class, new Serialization.VariableReferenceExpressionDeserializer(FUNCTION_AND_TYPE_MANAGER)));
+        provider.setKeyDeserializers(ImmutableMap.of(VariableReferenceExpression.class, new Serialization.VariableReferenceExpressionDeserializer(FUNCTION_AND_TYPE_MANAGER.getFunctionAndTypeResolver())));
         JsonCodecFactory codecFactory = new JsonCodecFactory(provider, true);
         PLAN_CODEC = codecFactory.jsonCodec(JsonRenderer.JsonRenderedNode.class);
     }

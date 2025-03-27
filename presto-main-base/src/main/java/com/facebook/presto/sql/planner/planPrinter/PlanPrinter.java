@@ -179,7 +179,7 @@ public class PlanPrinter
         this.logicalRowExpressions = new LogicalRowExpressions(
                 new RowExpressionDeterminismEvaluator(functionAndTypeManager),
                 new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver()),
-                functionAndTypeManager);
+                functionAndTypeManager.getFunctionAndTypeResolver());
 
         Optional<Duration> totalCpuTime = stats.map(s -> new Duration(s.values().stream()
                 .mapToLong(planNode -> planNode.getPlanNodeCpuTime().toMillis())

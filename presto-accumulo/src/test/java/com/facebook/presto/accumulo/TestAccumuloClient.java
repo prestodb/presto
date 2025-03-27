@@ -48,7 +48,7 @@ public class TestAccumuloClient
 
         Connector connector = AccumuloQueryRunner.getAccumuloConnector();
         config.setZooKeepers(connector.getInstance().getZooKeepers());
-        zooKeeperMetadataManager = new ZooKeeperMetadataManager(config, createTestFunctionAndTypeManager());
+        zooKeeperMetadataManager = new ZooKeeperMetadataManager(config, createTestFunctionAndTypeManager().getFunctionAndTypeResolver());
         client = new AccumuloClient(connector, config, zooKeeperMetadataManager, new AccumuloTableManager(connector), new IndexLookup(connector, new ColumnCardinalityCache(connector, config)));
     }
 

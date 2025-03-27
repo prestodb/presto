@@ -128,7 +128,7 @@ public class TestStatisticsWriterNode
             binder.install(new JsonModule());
             binder.install(new HandleJsonModule());
             binder.bind(SqlParser.class).toInstance(sqlParser);
-            binder.bind(TypeManager.class).toInstance(functionAndTypeManager);
+            binder.bind(TypeManager.class).toInstance(functionAndTypeManager.getFunctionAndTypeResolver());
             newSetBinder(binder, Type.class);
             jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
             jsonCodecBinder(binder).bindJsonCodec(StatisticsWriterNode.class);

@@ -75,7 +75,7 @@ public class TestNestedFieldConverter
     public void testToPrestoNestedField(int id, String name)
     {
         // Create a test TypeManager
-        TypeManager typeManager = createTestFunctionAndTypeManager();
+        TypeManager typeManager = createTestFunctionAndTypeManager().getFunctionAndTypeResolver();
 
         // Create a mock NestedField
         Types.NestedField nestedField = nestedField(id, name);
@@ -95,7 +95,7 @@ public class TestNestedFieldConverter
     public void testToIcebergNestedField(int id, String name)
     {
         // Create a test TypeManager
-        TypeManager typeManager = createTestFunctionAndTypeManager();
+        TypeManager typeManager = createTestFunctionAndTypeManager().getFunctionAndTypeResolver();
 
         // Create a mock Presto Nested Field
         PrestoIcebergNestedField prestoNestedField = prestoIcebergNestedField(id, name, typeManager);
@@ -117,7 +117,7 @@ public class TestNestedFieldConverter
     public void testFailOnAnonymousRowType()
     {
         // Create a test TypeManager
-        TypeManager typeManager = createTestFunctionAndTypeManager();
+        TypeManager typeManager = createTestFunctionAndTypeManager().getFunctionAndTypeResolver();
 
         // Create a mock Presto Nested Field
         PrestoIcebergNestedField prestoNestedField = prestoIcebergNestedField(1, "anonymous_row", typeManager);

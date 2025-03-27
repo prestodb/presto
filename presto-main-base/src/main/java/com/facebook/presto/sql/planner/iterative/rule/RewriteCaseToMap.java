@@ -92,7 +92,7 @@ public class RewriteCaseToMap
             this.logicalRowExpressions = new LogicalRowExpressions(
                     new RowExpressionDeterminismEvaluator(functionAndTypeManager),
                     functionResolution,
-                    functionAndTypeManager);
+                    functionAndTypeManager.getFunctionAndTypeResolver());
         }
 
         private boolean addKeyValue(RowExpression key, Set<RowExpression> keySet, List<RowExpression> keys, RowExpression value, List<RowExpression> values)

@@ -379,7 +379,7 @@ public class ConnectorManager
         ConnectorContext context = new ConnectorContextInstance(
                 new ConnectorAwareNodeManager(nodeManager, nodeInfo.getEnvironment(), connectorId),
                 typeManager,
-                metadataManager.getFunctionAndTypeManager(),
+                metadataManager.getFunctionAndTypeManager().getFunctionAndTypeResolver(),
                 new FunctionResolution(metadataManager.getFunctionAndTypeManager().getFunctionAndTypeResolver()),
                 pageSorter,
                 pageIndexerFactory,

@@ -125,7 +125,7 @@ public final class TypeUtils
             case StandardTypes.TINYINT:
                 return true;
             case StandardTypes.DECIMAL:
-                DecimalType decimalType = (DecimalType) resolveType(typeName, functionAndTypeManager);
+                DecimalType decimalType = (DecimalType) resolveType(typeName, functionAndTypeManager.getFunctionAndTypeResolver());
                 return decimalType.getScale() == 0;
             default:
                 return false;
@@ -135,7 +135,7 @@ public final class TypeUtils
     public static List<Type> resolveTypes(List<TypeSignature> typeNames, FunctionAndTypeManager functionAndTypeManager)
     {
         return typeNames.stream()
-                .map((TypeSignature type) -> resolveType(type, functionAndTypeManager))
+                .map((TypeSignature type) -> resolveType(type, functionAndTypeManager.getFunctionAndTypeResolver()))
                 .collect(toImmutableList());
     }
 

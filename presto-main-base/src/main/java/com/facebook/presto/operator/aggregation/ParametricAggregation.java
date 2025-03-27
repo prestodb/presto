@@ -158,7 +158,7 @@ public class ParametricAggregation
         }
         else {
             for (AggregationImplementation candidate : implementations.getGenericImplementations()) {
-                if (candidate.areTypesAssignable(boundSignature, variables, functionAndTypeManager)) {
+                if (candidate.areTypesAssignable(boundSignature, variables, functionAndTypeManager.getFunctionAndTypeResolver())) {
                     if (foundImplementation.isPresent()) {
                         throw new PrestoException(AMBIGUOUS_FUNCTION_CALL, format("Ambiguous function call (%s) for %s", variables, getSignature()));
                     }

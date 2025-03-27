@@ -46,7 +46,7 @@ public final class RowExpressionFormatter
 
     public RowExpressionFormatter(FunctionAndTypeManager functionAndTypeManager)
     {
-        this.functionMetadataManager = requireNonNull(functionAndTypeManager, "function manager is null");
+        this.functionMetadataManager = requireNonNull(functionAndTypeManager, "function manager is null").getFunctionAndTypeResolver();
         this.standardFunctionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
     }
 

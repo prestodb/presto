@@ -47,7 +47,7 @@ public class JsonRenderer
     {
         JsonObjectMapperProvider provider = new JsonObjectMapperProvider();
         provider.setJsonSerializers(ImmutableMap.of(VariableReferenceExpression.class, new Serialization.VariableReferenceExpressionSerializer()));
-        provider.setKeyDeserializers(ImmutableMap.of(VariableReferenceExpression.class, new Serialization.VariableReferenceExpressionDeserializer(functionAndTypeManager)));
+        provider.setKeyDeserializers(ImmutableMap.of(VariableReferenceExpression.class, new Serialization.VariableReferenceExpressionDeserializer(functionAndTypeManager.getFunctionAndTypeResolver())));
 
         JsonCodecFactory codecFactory = new JsonCodecFactory(provider, true);
         this.codec = codecFactory.jsonCodec(JsonRenderedNode.class);

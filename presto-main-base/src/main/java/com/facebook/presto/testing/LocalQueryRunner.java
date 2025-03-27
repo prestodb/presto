@@ -505,7 +505,7 @@ public class LocalQueryRunner
                 new HandleResolver(),
                 nodeManager,
                 nodeInfo,
-                metadata.getFunctionAndTypeManager(),
+                metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(),
                 pageSorter,
                 pageIndexerFactory,
                 transactionManager,
@@ -524,7 +524,7 @@ public class LocalQueryRunner
                 new TablePropertiesSystemTable(transactionManager, metadata),
                 new ColumnPropertiesSystemTable(transactionManager, metadata),
                 new AnalyzePropertiesSystemTable(transactionManager, metadata),
-                new TransactionsSystemTable(metadata.getFunctionAndTypeManager(), transactionManager)),
+                new TransactionsSystemTable(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(), transactionManager)),
                 ImmutableSet.of());
 
         BuiltInQueryAnalyzer queryAnalyzer = new BuiltInQueryAnalyzer(metadata, sqlParser, accessControl, Optional.empty(), metadataExtractorExecutor);

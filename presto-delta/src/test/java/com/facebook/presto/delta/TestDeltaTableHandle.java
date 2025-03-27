@@ -94,7 +94,7 @@ public class TestDeltaTableHandle
             binder.install(new HandleJsonModule());
             configBinder(binder).bindConfig(FeaturesConfig.class);
             FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
-            binder.bind(TypeManager.class).toInstance(functionAndTypeManager);
+            binder.bind(TypeManager.class).toInstance(functionAndTypeManager.getFunctionAndTypeResolver());
             jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
             newSetBinder(binder, Type.class);
 

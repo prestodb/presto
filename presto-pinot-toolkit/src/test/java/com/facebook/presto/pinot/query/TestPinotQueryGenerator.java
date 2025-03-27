@@ -93,7 +93,7 @@ public class TestPinotQueryGenerator
             SessionHolder sessionHolder,
             Map<String, String> outputVariables)
     {
-        PinotQueryGenerator.PinotQueryGeneratorResult pinotQueryGeneratorResult = new PinotQueryGenerator(givenPinotConfig, functionAndTypeManager, functionAndTypeManager, standardFunctionResolution).generate(planNode, sessionHolder.getConnectorSession()).get();
+        PinotQueryGenerator.PinotQueryGeneratorResult pinotQueryGeneratorResult = new PinotQueryGenerator(givenPinotConfig, functionAndTypeResolver, functionAndTypeResolver, standardFunctionResolution).generate(planNode, sessionHolder.getConnectorSession()).get();
         String pinotQuery = pinotQueryGeneratorResult.getGeneratedPinotQuery().getQuery();
         Set<String> expectedPinotQuerySet = new HashSet<>();
         for (String expectedPinotQuery : expectedPinotQueries) {
@@ -280,17 +280,17 @@ public class TestPinotQueryGenerator
         PlanNode justScan = buildPlan(planBuilder -> tableScan(planBuilder, pinotTable, regionId, secondsSinceEpoch, city, fare));
         PlanNode approxPlanNode = buildPlan(planBuilder -> planBuilder.aggregation(aggBuilder -> aggBuilder.source(justScan).singleGroupingSet(variable("city")).addAggregation(planBuilder.variable("agg"), getRowExpression("approx_distinct(fare, 0)", defaultSessionHolder))));
         Optional<PinotQueryGenerator.PinotQueryGeneratorResult> generatedQuery =
-                new PinotQueryGenerator(pinotConfig, functionAndTypeManager, functionAndTypeManager, standardFunctionResolution)
+                new PinotQueryGenerator(pinotConfig, functionAndTypeResolver, functionAndTypeResolver, standardFunctionResolution)
                         .generate(approxPlanNode, defaultSessionHolder.getConnectorSession());
         assertFalse(generatedQuery.isPresent());
         approxPlanNode = buildPlan(planBuilder -> planBuilder.aggregation(aggBuilder -> aggBuilder.source(justScan).singleGroupingSet(variable("city")).addAggregation(planBuilder.variable("agg"), getRowExpression("approx_distinct(fare, 0.004)", defaultSessionHolder))));
         generatedQuery =
-                new PinotQueryGenerator(pinotConfig, functionAndTypeManager, functionAndTypeManager, standardFunctionResolution)
+                new PinotQueryGenerator(pinotConfig, functionAndTypeResolver, functionAndTypeResolver, standardFunctionResolution)
                         .generate(approxPlanNode, defaultSessionHolder.getConnectorSession());
         assertFalse(generatedQuery.isPresent());
         approxPlanNode = buildPlan(planBuilder -> planBuilder.aggregation(aggBuilder -> aggBuilder.source(justScan).singleGroupingSet(variable("city")).addAggregation(planBuilder.variable("agg"), getRowExpression("approx_distinct(fare, 1)", defaultSessionHolder))));
         generatedQuery =
-                new PinotQueryGenerator(pinotConfig, functionAndTypeManager, functionAndTypeManager, standardFunctionResolution)
+                new PinotQueryGenerator(pinotConfig, functionAndTypeResolver, functionAndTypeResolver, standardFunctionResolution)
                         .generate(approxPlanNode, defaultSessionHolder.getConnectorSession());
         assertFalse(generatedQuery.isPresent());
     }
@@ -641,7 +641,7 @@ public class TestPinotQueryGenerator
                 new OrderingScheme(ImmutableList.of(new Ordering(variable("sum_fare"), SortOrder.ASC_NULLS_FIRST))),
                 TopNNode.Step.SINGLE);
         Optional<PinotQueryGenerator.PinotQueryGeneratorResult> generatedQuery =
-                new PinotQueryGenerator(pinotConfig, functionAndTypeManager, functionAndTypeManager, standardFunctionResolution)
+                new PinotQueryGenerator(pinotConfig, functionAndTypeResolver, functionAndTypeResolver, standardFunctionResolution)
                     .generate(topN, defaultSessionHolder.getConnectorSession());
         assertTrue(generatedQuery.isPresent());
         SessionHolder sessionHolder = new SessionHolder(pinotConfig);

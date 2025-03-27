@@ -104,7 +104,7 @@ public class ExpressionOptimizerManager
 
         ExpressionOptimizer optimizer = expressionOptimizerFactories.get(factoryName).createOptimizer(
                 properties,
-                new ExpressionOptimizerContext(nodeManager, functionAndTypeManager, functionResolution));
+                new ExpressionOptimizerContext(nodeManager, functionAndTypeManager.getFunctionAndTypeResolver(), functionResolution));
         expressionOptimizers.put(name, optimizer);
     }
 

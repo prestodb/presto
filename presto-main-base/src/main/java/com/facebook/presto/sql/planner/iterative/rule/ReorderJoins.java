@@ -220,7 +220,7 @@ public class ReorderJoins
 
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.allFilterInference = createEqualityInference(metadata, filter);
-            this.logicalRowExpressions = new LogicalRowExpressions(determinismEvaluator, functionResolution, metadata.getFunctionAndTypeManager());
+            this.logicalRowExpressions = new LogicalRowExpressions(determinismEvaluator, functionResolution, metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver());
             this.functionResolution = functionResolution;
         }
 

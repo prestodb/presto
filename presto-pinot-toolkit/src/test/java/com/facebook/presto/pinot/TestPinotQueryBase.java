@@ -43,6 +43,7 @@ import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.ExpressionUtils;
+import com.facebook.presto.sql.analyzer.FunctionAndTypeResolver;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.TypeProvider;
@@ -86,7 +87,8 @@ import static java.util.stream.Collectors.toMap;
 public class TestPinotQueryBase
 {
     protected static final FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
-    protected static final StandardFunctionResolution standardFunctionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
+    protected static final FunctionAndTypeResolver functionAndTypeResolver = functionAndTypeManager.getFunctionAndTypeResolver();
+    protected static final StandardFunctionResolution standardFunctionResolution = new FunctionResolution(functionAndTypeResolver);
 
     protected static ConnectorId pinotConnectorId = new ConnectorId("id");
     protected static PinotTableHandle realtimeOnlyTable = new PinotTableHandle(pinotConnectorId.getCatalogName(), "schema", "realtimeOnly");

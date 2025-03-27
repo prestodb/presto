@@ -69,8 +69,8 @@ public class TestPinotPlanOptimizer
 {
     private final LogicalRowExpressions logicalRowExpressions = new LogicalRowExpressions(
             new RowExpressionDeterminismEvaluator(functionAndTypeManager),
-            new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver()),
-            functionAndTypeManager);
+            new FunctionResolution(functionAndTypeResolver),
+            functionAndTypeResolver);
     protected final PinotTableHandle pinotTable = TestPinotSplitManager.hybridTable;
     protected final SessionHolder defaultSessionHolder = getDefaultSessionHolder();
 
@@ -300,8 +300,8 @@ public class TestPinotPlanOptimizer
 
     protected PlanNode getOptimizedPlan(PinotConfig pinotConfig, PlanBuilder planBuilder, PlanNode originalPlan)
     {
-        PinotQueryGenerator pinotQueryGenerator = new PinotQueryGenerator(pinotConfig, functionAndTypeManager, functionAndTypeManager, standardFunctionResolution);
-        PinotPlanOptimizer optimizer = new PinotPlanOptimizer(pinotQueryGenerator, functionAndTypeManager, functionAndTypeManager, logicalRowExpressions, standardFunctionResolution);
+        PinotQueryGenerator pinotQueryGenerator = new PinotQueryGenerator(pinotConfig, functionAndTypeResolver, functionAndTypeResolver, standardFunctionResolution);
+        PinotPlanOptimizer optimizer = new PinotPlanOptimizer(pinotQueryGenerator, functionAndTypeResolver, functionAndTypeResolver, logicalRowExpressions, standardFunctionResolution);
         return optimizer.optimize(originalPlan, new SessionHolder(pinotConfig).getConnectorSession(), new VariableAllocator(), planBuilder.getIdAllocator());
     }
 

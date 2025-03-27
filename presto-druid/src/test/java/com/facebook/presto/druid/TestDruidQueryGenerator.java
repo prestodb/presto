@@ -39,7 +39,7 @@ public class TestDruidQueryGenerator
             Map<String, String> outputVariables)
     {
         PlanNode planNode = planBuilderConsumer.apply(createPlanBuilder(sessionHolder));
-        DruidQueryGenerator.DruidQueryGeneratorResult druidQueryGeneratorResult = new DruidQueryGenerator(functionAndTypeManager, functionAndTypeManager, standardFunctionResolution).generate(planNode, sessionHolder.getConnectorSession()).get();
+        DruidQueryGenerator.DruidQueryGeneratorResult druidQueryGeneratorResult = new DruidQueryGenerator(functionAndTypeResolver, functionAndTypeResolver, standardFunctionResolution).generate(planNode, sessionHolder.getConnectorSession()).get();
         if (expectedDQL.contains("__expressions__")) {
             String expressions = planNode.getOutputVariables().stream().map(v -> outputVariables.get(v.getName())).filter(v -> v != null).collect(Collectors.joining(", "));
             expectedDQL = expectedDQL.replace("__expressions__", expressions);
@@ -86,15 +86,15 @@ public class TestDruidQueryGenerator
     {
         testDQL(
                 planBuilder -> limit(
-                                    planBuilder,
-                                    30L,
-                                    project(
-                                            planBuilder,
-                                            filter(
-                                                    planBuilder,
-                                                    tableScan(planBuilder, druidTable, regionId, city, fare, secondsSinceEpoch),
-                                                    getRowExpression("secondssinceepoch > 20", defaultSessionHolder)),
-                                            ImmutableList.of("city", "secondssinceepoch"))),
+                        planBuilder,
+                        30L,
+                        project(
+                                planBuilder,
+                                filter(
+                                        planBuilder,
+                                        tableScan(planBuilder, druidTable, regionId, city, fare, secondsSinceEpoch),
+                                        getRowExpression("secondssinceepoch > 20", defaultSessionHolder)),
+                                ImmutableList.of("city", "secondssinceepoch"))),
                 "SELECT \"city\", \"secondsSinceEpoch\" FROM \"realtimeOnly\" WHERE (\"secondsSinceEpoch\" > 20) LIMIT 30");
     }
 

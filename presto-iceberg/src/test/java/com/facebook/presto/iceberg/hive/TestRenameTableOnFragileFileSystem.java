@@ -64,6 +64,7 @@ import com.facebook.presto.spi.relation.PredicateCompiler;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.sql.InMemoryExpressionOptimizerProvider;
+import com.facebook.presto.sql.analyzer.FunctionAndTypeResolver;
 import com.facebook.presto.sql.gen.RowExpressionPredicateCompiler;
 import com.facebook.presto.sql.planner.planPrinter.RowExpressionFormatter;
 import com.facebook.presto.sql.relational.FunctionResolution;
@@ -111,7 +112,8 @@ public class TestRenameTableOnFragileFileSystem
 {
     private static final MetadataManager METADATA = MetadataManager.createTestMetadataManager();
     private static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = METADATA.getFunctionAndTypeManager();
-    private static final StandardFunctionResolution FUNCTION_RESOLUTION = new FunctionResolution(METADATA.getFunctionAndTypeManager().getFunctionAndTypeResolver());
+    private static final FunctionAndTypeResolver FUNCTION_AND_TYPE_RESOLVER = FUNCTION_AND_TYPE_MANAGER.getFunctionAndTypeResolver();
+    private static final StandardFunctionResolution FUNCTION_RESOLUTION = new FunctionResolution(FUNCTION_AND_TYPE_RESOLVER);
 
     private static final RowExpressionService ROW_EXPRESSION_SERVICE = new RowExpressionService()
     {
@@ -407,7 +409,7 @@ public class TestRenameTableOnFragileFileSystem
         IcebergHiveMetadataFactory icebergHiveMetadataFactory = new IcebergHiveMetadataFactory(
                 metastore,
                 hdfsEnvironment,
-                FUNCTION_AND_TYPE_MANAGER,
+                FUNCTION_AND_TYPE_RESOLVER,
                 FUNCTION_RESOLUTION,
                 ROW_EXPRESSION_SERVICE,
                 jsonCodec(CommitTaskData.class),

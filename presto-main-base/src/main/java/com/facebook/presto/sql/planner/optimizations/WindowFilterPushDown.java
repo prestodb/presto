@@ -72,7 +72,7 @@ public class WindowFilterPushDown
         this.logicalRowExpressions = new LogicalRowExpressions(
                 new RowExpressionDeterminismEvaluator(metadata.getFunctionAndTypeManager()),
                 new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver()),
-                metadata.getFunctionAndTypeManager());
+                metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver());
     }
 
     @Override

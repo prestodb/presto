@@ -43,7 +43,7 @@ public class TestRowParametricType
                 TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName("col1", false)), new TypeSignature(BIGINT))),
                 TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName("col2", true)), new TypeSignature(DOUBLE))));
         List<TypeParameter> parameters = typeSignature.getParameters().stream()
-                .map(parameter -> TypeParameter.of(parameter, functionAndTypeManager))
+                .map(parameter -> TypeParameter.of(parameter, functionAndTypeManager.getFunctionAndTypeResolver()))
                 .collect(Collectors.toList());
         Type rowType = RowParametricType.ROW.createType(parameters);
 

@@ -73,7 +73,7 @@ public class ExplainVerification
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         JsonObjectMapperProvider provider = new JsonObjectMapperProvider();
         provider.setJsonSerializers(ImmutableMap.of(VariableReferenceExpression.class, new Serialization.VariableReferenceExpressionSerializer()));
-        provider.setKeyDeserializers(ImmutableMap.of(VariableReferenceExpression.class, new Serialization.VariableReferenceExpressionDeserializer(FUNCTION_AND_TYPE_MANAGER)));
+        provider.setKeyDeserializers(ImmutableMap.of(VariableReferenceExpression.class, new Serialization.VariableReferenceExpressionDeserializer(FUNCTION_AND_TYPE_MANAGER.getFunctionAndTypeResolver())));
         JsonCodecFactory codecFactory = new JsonCodecFactory(provider, true);
         planCodec = codecFactory.jsonCodec(JsonRenderedNode.class);
     }

@@ -14,11 +14,11 @@
 package com.facebook.presto.verifier.rewrite;
 
 import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.sql.ExpressionFormatter;
+import com.facebook.presto.sql.analyzer.FunctionAndTypeResolver;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.ArrayConstructor;
@@ -66,12 +66,12 @@ public class FunctionCallRewriter
     private static final String OMIT_IDENTIFIER = "_";
 
     private final Multimap<String, FunctionCallSubstitute> functionCallSubstituteMap;
-    private final FunctionAndTypeManager functionAndTypeManager;
+    private final FunctionAndTypeResolver functionAndTypeResolver;
 
-    private FunctionCallRewriter(Multimap<String, FunctionCallSubstitute> functionCallSubstituteMap, FunctionAndTypeManager functionAndTypeManager)
+    private FunctionCallRewriter(Multimap<String, FunctionCallSubstitute> functionCallSubstituteMap, FunctionAndTypeResolver functionAndTypeResolver)
     {
         this.functionCallSubstituteMap = requireNonNull(functionCallSubstituteMap, "functionCallSubstituteMap is null.");
-        this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
+        this.functionAndTypeResolver = requireNonNull(functionAndTypeResolver, "functionAndTypeResolver is null");
     }
 
     public static Optional<FunctionCallRewriter> getInstance(Multimap<String, FunctionCallSubstitute> functionCallSubstitutes, TypeManager typeManager)
@@ -79,8 +79,8 @@ public class FunctionCallRewriter
         if (functionCallSubstitutes.isEmpty()) {
             return Optional.empty();
         }
-        checkState(typeManager instanceof FunctionAndTypeManager, "FunctionAndTypeManager is required for FunctionCallRewriter.");
-        return Optional.of(new FunctionCallRewriter(functionCallSubstitutes, (FunctionAndTypeManager) typeManager));
+        checkState(typeManager instanceof FunctionAndTypeResolver, "FunctionAndTypeResolver is required for FunctionCallRewriter.");
+        return Optional.of(new FunctionCallRewriter(functionCallSubstitutes, (FunctionAndTypeResolver) typeManager));
     }
 
     public static Multimap<String, FunctionCallSubstitute> validateAndConstructFunctionCallSubstituteMap(String functionCallSubstitutes)
@@ -117,7 +117,7 @@ public class FunctionCallRewriter
     {
         RewriterContext context = new RewriterContext();
 
-        Statement rewrittenRoot = (Statement) new Rewriter(functionCallSubstituteMap, functionAndTypeManager).process(root, context);
+        Statement rewrittenRoot = (Statement) new Rewriter(functionCallSubstituteMap, functionAndTypeResolver).process(root, context);
         String functionCallSubstitutes = context.rewrittenFunctionCalls.stream().map(functionCallSubstitute -> {
             String formattedOriginal = ExpressionFormatter.formatExpression(functionCallSubstitute.originalExpression, Optional.empty());
             String formattedSubstitute = ExpressionFormatter.formatExpression(functionCallSubstitute.substituteExpression, Optional.empty());
@@ -186,10 +186,10 @@ public class FunctionCallRewriter
         private final Multimap<String, FunctionCallSubstitute> functionCallSubstituteMap;
         private final SubstituteIdentifierResolver substituteIdentifierResolver;
 
-        public Rewriter(Multimap<String, FunctionCallSubstitute> functionCallSubstituteMap, FunctionAndTypeManager functionAndTypeManager)
+        public Rewriter(Multimap<String, FunctionCallSubstitute> functionCallSubstituteMap, FunctionAndTypeResolver functionAndTypeResolver)
         {
             this.functionCallSubstituteMap = requireNonNull(functionCallSubstituteMap, "functionCallSubstituteMap is null.");
-            this.substituteIdentifierResolver = new SubstituteIdentifierResolver(functionAndTypeManager);
+            this.substituteIdentifierResolver = new SubstituteIdentifierResolver(functionAndTypeResolver);
         }
 
         @Override
@@ -357,11 +357,11 @@ public class FunctionCallRewriter
 
     private static class SubstituteIdentifierResolver
     {
-        private final FunctionAndTypeManager functionAndTypeManager;
+        private final FunctionAndTypeResolver functionAndTypeResolver;
 
-        public SubstituteIdentifierResolver(FunctionAndTypeManager functionAndTypeManager)
+        public SubstituteIdentifierResolver(FunctionAndTypeResolver functionAndTypeResolver)
         {
-            this.functionAndTypeManager = functionAndTypeManager;
+            this.functionAndTypeResolver = functionAndTypeResolver;
         }
 
         public Expression resolve(Expression substitutePattern, Map<Identifier, Expression> identifierToArgumentMap, FunctionCall originalInstance)
@@ -430,7 +430,7 @@ public class FunctionCallRewriter
 
         private boolean isAggregateOrWindowFunction(FunctionCall functionCall)
         {
-            Collection<SqlFunction> allFunctions = functionAndTypeManager.listBuiltInFunctions();
+            Collection<SqlFunction> allFunctions = functionAndTypeResolver.listBuiltInFunctions();
             for (SqlFunction function : allFunctions) {
                 Signature signature = function.getSignature();
                 if (signature.getNameSuffix().equals(functionCall.getName().getSuffix())) {

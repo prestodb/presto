@@ -79,7 +79,7 @@ public class ArrayToArrayCast
 
         FunctionHandle functionHandle = functionAndTypeManager.lookupCast(CastType.CAST, fromType, toType);
         JavaScalarFunctionImplementation function = functionAndTypeManager.getJavaScalarFunctionImplementation(functionHandle);
-        Class<?> castOperatorClass = generateArrayCast(functionAndTypeManager, functionAndTypeManager.getFunctionMetadata(functionHandle), function);
+        Class<?> castOperatorClass = generateArrayCast(functionAndTypeManager.getFunctionAndTypeResolver(), functionAndTypeManager.getFunctionMetadata(functionHandle), function);
         MethodHandle methodHandle = methodHandle(castOperatorClass, "castArray", SqlFunctionProperties.class, Block.class);
         return new BuiltInScalarFunctionImplementation(
                 false,
