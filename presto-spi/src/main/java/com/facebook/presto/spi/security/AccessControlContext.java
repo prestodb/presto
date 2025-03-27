@@ -13,13 +13,12 @@
  */
 package com.facebook.presto.spi.security;
 
+import com.facebook.presto.common.AccessControlResults;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.WarningCollector;
 
-import java.util.Collections;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -37,7 +36,7 @@ public class AccessControlContext
     private final Optional<QueryType> queryType;
     private final Optional<String> catalog;
     private final Optional<String> schema;
-    private final Map<String, String> accessControlResultsHash;
+    private final AccessControlResults accessControLResults;
 
     public AccessControlContext(
             QueryId queryId,
@@ -49,7 +48,7 @@ public class AccessControlContext
             Optional<QueryType> queryType,
             Optional<String> catalog,
             Optional<String> schema,
-            Map<String, String> accessControlResultsHash)
+            AccessControlResults accessControlResults)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
@@ -60,7 +59,7 @@ public class AccessControlContext
         this.queryType = requireNonNull(queryType, "queryType is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
-        this.accessControlResultsHash = accessControlResultsHash;
+        this.accessControLResults = requireNonNull(accessControlResults, "accessControlResults is null");
     }
 
     public QueryId getQueryId()
@@ -133,13 +132,8 @@ public class AccessControlContext
                 Objects.equals(this.schema, other.schema);
     }
 
-    public Map<String, String> getAccessControlResultsHash()
+    public AccessControlResults getAccessControlResults()
     {
-        return Collections.unmodifiableMap(accessControlResultsHash);
-    }
-
-    public void logToAccessControlResultsHash(String message, String value)
-    {
-        accessControlResultsHash.put(message, value);
+        return accessControLResults;
     }
 }

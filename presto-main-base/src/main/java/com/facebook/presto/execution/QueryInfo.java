@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.SessionRepresentation;
+import com.facebook.presto.common.AccessControlResults;
 import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.common.ErrorType;
 import com.facebook.presto.common.resourceGroups.QueryType;
@@ -104,7 +105,7 @@ public class QueryInfo
     private final List<CanonicalPlanWithInfo> planCanonicalInfo;
     private Map<PlanNodeId, PlanNode> planIdNodeMap;
     private final Optional<PrestoSparkExecutionContext> prestoSparkExecutionContext;
-    private Map<String, String> accessControlResultsHash;
+    private AccessControlResults accessControlResults;
 
     @JsonCreator
     public QueryInfo(
@@ -151,7 +152,7 @@ public class QueryInfo
             List<CanonicalPlanWithInfo> planCanonicalInfo,
             Map<PlanNodeId, PlanNode> planIdNodeMap,
             @JsonProperty("prestoSparkExecutionContext") Optional<PrestoSparkExecutionContext> prestoSparkExecutionContext,
-            @JsonProperty("accessControlResultsHash") Map<String, String> accessControlResultsHash)
+            @JsonProperty("accessControlResults") AccessControlResults accessControlResults)
     {
         requireNonNull(queryId, "queryId is null");
         requireNonNull(session, "session is null");
@@ -186,7 +187,7 @@ public class QueryInfo
         requireNonNull(aggregateFunctions, "aggregateFunctions is null");
         requireNonNull(windowFunctions, "windowFunctions is null");
         requireNonNull(prestoSparkExecutionContext, "prestoSparkExecutionContext is null");
-        requireNonNull(accessControlResultsHash, "accessControlResultsHash is null");
+        requireNonNull(accessControlResults, "accessControlResults is null");
 
         this.queryId = queryId;
         this.session = session;
@@ -236,7 +237,7 @@ public class QueryInfo
         this.planCanonicalInfo = planCanonicalInfo == null ? ImmutableList.of() : planCanonicalInfo;
         this.planIdNodeMap = planIdNodeMap == null ? ImmutableMap.of() : ImmutableMap.copyOf(planIdNodeMap);
         this.prestoSparkExecutionContext = prestoSparkExecutionContext;
-        this.accessControlResultsHash = accessControlResultsHash;
+        this.accessControlResults = accessControlResults;
     }
 
     @JsonProperty
@@ -502,7 +503,7 @@ public class QueryInfo
     }
 
     @JsonProperty
-    public Map<String, String> getAccessControlResultsHash() { return accessControlResultsHash; }
+    public AccessControlResults getAccessControlResults() { return accessControlResults; }
 
     // Don't serialize this field because it can be big
     public List<CanonicalPlanWithInfo> getPlanCanonicalInfo()

@@ -15,6 +15,7 @@ package com.facebook.presto.server;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session.ResourceEstimateBuilder;
+import com.facebook.presto.common.AccessControlResults;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.metadata.SessionPropertyManager;
@@ -126,7 +127,7 @@ public final class HttpRequestSessionContext
     private final Optional<SessionPropertyManager> sessionPropertyManager;
     private final Optional<Tracer> tracer;
     private final RuntimeStats runtimeStats = new RuntimeStats();
-    private final Map<String, String> accessControlResultsHash = new HashMap<>();
+    private final AccessControlResults accessControlResults = new AccessControlResults();
 
     public HttpRequestSessionContext(HttpServletRequest servletRequest, SqlParserOptions sqlParserOptions)
     {
@@ -536,9 +537,9 @@ public final class HttpRequestSessionContext
     }
 
     @Override
-    public Map<String, String> getAccessControlResultsHash()
+    public AccessControlResults getAccessControlResults()
     {
-        return accessControlResultsHash;
+        return accessControlResults;
     }
 
     /**

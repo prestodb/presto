@@ -13,6 +13,7 @@
  */
 package com.facebook.presto;
 
+import com.facebook.presto.common.AccessControlResults;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.resourceGroups.QueryType;
@@ -136,7 +137,7 @@ public final class Session
             WarningCollector warningCollector,
             RuntimeStats runtimeStats,
             Optional<QueryType> queryType,
-            Map<String,String> accessControlResultsHash)
+            AccessControlResults accessControlResults)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
@@ -178,7 +179,7 @@ public final class Session
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
         this.queryType = requireNonNull(queryType, "queryType is null");
-        this.context = new AccessControlContext(queryId, clientInfo, clientTags, source, warningCollector, runtimeStats, queryType, catalog, schema, accessControlResultsHash);
+        this.context = new AccessControlContext(queryId, clientInfo, clientTags, source, warningCollector, runtimeStats, queryType, catalog, schema, accessControlResults);
     }
 
     public QueryId getQueryId()
@@ -324,11 +325,6 @@ public final class Session
         return runtimeStats;
     }
 
-    public Map<String,String> getAccessControlResultsHash()
-    {
-        return context.getAccessControlResultsHash();
-    }
-
     public Optional<Tracer> getTracer()
     {
         return tracer;
@@ -465,7 +461,7 @@ public final class Session
                 warningCollector,
                 runtimeStats,
                 queryType,
-                context.getAccessControlResultsHash()
+                context.getAccessControlResults()
                 );
     }
 
@@ -597,7 +593,7 @@ public final class Session
         private Optional<QueryType> queryType = Optional.empty();
         private WarningCollector warningCollector = WarningCollector.NOOP;
         private RuntimeStats runtimeStats = new RuntimeStats();
-        private Map<String, String> accessControlResultsHash = new HashMap<>();
+        private AccessControlResults accessControlResults = new AccessControlResults();
 
         private SessionBuilder(SessionPropertyManager sessionPropertyManager)
         {
@@ -788,9 +784,9 @@ public final class Session
             return this;
         }
 
-        public SessionBuilder setAccessControlResultsHash(Map<String,String> accessControlResultsHash)
+        public SessionBuilder setAccessControlResults(AccessControlResults accessControlResults)
         {
-            this.accessControlResultsHash = accessControlResultsHash;
+            this.accessControlResults = accessControlResults;
             return this;
         }
 
@@ -880,7 +876,7 @@ public final class Session
                     warningCollector,
                     runtimeStats,
                     queryType,
-                    accessControlResultsHash);
+                    accessControlResults);
         }
 
         public void applyDefaultProperties(SystemSessionPropertyConfiguration systemPropertyConfiguration, Map<String, Map<String, String>> catalogPropertyDefaults)

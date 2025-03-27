@@ -3097,7 +3097,7 @@ public abstract class AbstractTestQueries
                 getSession().getWarningCollector(),
                 getSession().getRuntimeStats(),
                 getSession().getQueryType(),
-                getSession().getAccessControlResultsHash());
+                getSession().getAccessControlContext().getAccessControlResults());
         MaterializedResult result = computeActual(session, "SHOW SESSION");
 
         ImmutableMap<String, MaterializedRow> properties = Maps.uniqueIndex(result.getMaterializedRows(), input -> {

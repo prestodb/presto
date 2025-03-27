@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.security;
 
+import com.facebook.airlift.http.server.BasicPrincipal;
+import com.facebook.presto.common.AccessControlResults;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.RuntimeStats;
@@ -82,7 +84,7 @@ public class TestAccessControlManager
         AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager());
         accessControlManager.checkCanSetUser(
                 new Identity(USER_NAME, Optional.of(PRINCIPAL)),
-                new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Collections.emptySet(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats(), Optional.empty(), Optional.empty(), Optional.empty(), new HashMap<>()),
+                new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Collections.emptySet(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats(), Optional.empty(), Optional.empty(), Optional.empty(), new AccessControlResults()),
                 Optional.empty(),
                 "foo");
     }
@@ -94,7 +96,7 @@ public class TestAccessControlManager
         accessControlManager.setSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
         accessControlManager.checkCanSetUser(
                 new Identity(USER_NAME, Optional.of(PRINCIPAL)),
-                new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Collections.emptySet(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats(), Optional.empty(), Optional.empty(), Optional.empty(), new HashMap<>()),
+                new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Collections.emptySet(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats(), Optional.empty(), Optional.empty(), Optional.empty(), new AccessControlResults()),
                 Optional.empty(),
                 USER_NAME);
     }
@@ -106,7 +108,7 @@ public class TestAccessControlManager
         QualifiedObjectName tableName = new QualifiedObjectName("catalog", "schema", "table");
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControlManager accessControlManager = new AccessControlManager(transactionManager);
-        AccessControlContext context = new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Collections.emptySet(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats(), Optional.empty(), Optional.empty(), Optional.empty(), new HashMap<>());
+        AccessControlContext context = new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Collections.emptySet(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats(), Optional.empty(), Optional.empty(), Optional.empty(), new AccessControlResults());
 
         accessControlManager.setSystemAccessControl(ReadOnlySystemAccessControl.NAME, ImmutableMap.of());
         accessControlManager.checkCanSetUser(identity, context, Optional.of(PRINCIPAL), USER_NAME);
@@ -149,7 +151,7 @@ public class TestAccessControlManager
 
         accessControlManager.checkCanSetUser(
                 new Identity(USER_NAME, Optional.of(PRINCIPAL)),
-                new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Collections.emptySet(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats(), Optional.empty(), Optional.empty(), Optional.empty(), new HashMap<>()),
+                new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Collections.emptySet(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats(), Optional.empty(), Optional.empty(), Optional.empty(), new AccessControlResults()),
                 Optional.of(PRINCIPAL),
                 USER_NAME);
         assertEquals(accessControlFactory.getCheckedUserName(), USER_NAME);
@@ -160,7 +162,7 @@ public class TestAccessControlManager
     public void testCheckQueryIntegrity()
     {
         AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager());
-        AccessControlContext context = new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Collections.emptySet(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats(), Optional.empty(), Optional.empty(), Optional.empty(), new HashMap<>());
+        AccessControlContext context = new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Collections.emptySet(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats(), Optional.empty(), Optional.empty(), Optional.empty(), new AccessControlResults());
 
         TestSystemAccessControlFactory accessControlFactory = new TestSystemAccessControlFactory("test");
         accessControlManager.addSystemAccessControlFactory(accessControlFactory);
@@ -210,7 +212,7 @@ public class TestAccessControlManager
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
                     accessControlManager.checkCanSelectFromColumns(transactionId, new Identity(USER_NAME, Optional.of(PRINCIPAL)),
-                            new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Collections.emptySet(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats(), Optional.empty(), Optional.empty(), Optional.empty(), new HashMap<>()),
+                            new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Collections.emptySet(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats(), Optional.empty(), Optional.empty(), Optional.empty(), new AccessControlResults()),
                             new QualifiedObjectName("catalog", "schema", "table"), ImmutableSet.of(new Subfield("column")));
                 });
     }
@@ -232,7 +234,7 @@ public class TestAccessControlManager
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
                     accessControlManager.checkCanSelectFromColumns(transactionId, new Identity(USER_NAME, Optional.of(PRINCIPAL)),
-                            new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Collections.emptySet(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats(), Optional.empty(), Optional.empty(), Optional.empty(), new HashMap<>()),
+                            new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Collections.emptySet(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats(), Optional.empty(), Optional.empty(), Optional.empty(), new AccessControlResults()),
                             new QualifiedObjectName("catalog", "schema", "table"), ImmutableSet.of(new Subfield("column")));
                 });
     }
@@ -254,7 +256,7 @@ public class TestAccessControlManager
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
                     accessControlManager.checkCanSelectFromColumns(transactionId, new Identity(USER_NAME, Optional.of(PRINCIPAL)),
-                            new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Collections.emptySet(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats(), Optional.empty(), Optional.empty(), Optional.empty(), new HashMap<>()),
+                            new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Collections.emptySet(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats(), Optional.empty(), Optional.empty(), Optional.empty(), new AccessControlResults()),
                             new QualifiedObjectName("secured_catalog", "schema", "table"), ImmutableSet.of(new Subfield("column")));
                 });
     }

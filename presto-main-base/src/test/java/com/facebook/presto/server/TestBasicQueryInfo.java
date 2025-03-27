@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.common.AccessControlResults;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.cost.StatsAndCosts;
@@ -28,6 +29,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.checkerframework.checker.units.qual.A;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
@@ -153,7 +155,7 @@ public class TestBasicQueryInfo
                         ImmutableList.of(),
                         ImmutableMap.of(),
                         Optional.empty(),
-                        ImmutableMap.of()));
+                        new AccessControlResults()));
 
         assertEquals(basicInfo.getQueryId().getId(), "0");
         assertEquals(basicInfo.getState(), RUNNING);

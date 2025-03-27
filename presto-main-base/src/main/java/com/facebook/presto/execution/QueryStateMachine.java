@@ -505,7 +505,7 @@ public class QueryStateMachine
                 Optional.ofNullable(planCanonicalInfo.get()).orElseGet(ImmutableList::of),
                 Optional.ofNullable(planIdNodeMap.get()).orElseGet(ImmutableMap::of),
                 Optional.empty(),
-                session.getAccessControlResultsHash());
+                session.getAccessControlContext().getAccessControlResults());
     }
 
     private QueryStats getQueryStats(Optional<StageInfo> rootStage, List<StageInfo> allStages)
@@ -1145,7 +1145,7 @@ public class QueryStateMachine
                 ImmutableList.of(),
                 ImmutableMap.of(),
                 queryInfo.getPrestoSparkExecutionContext(),
-                queryInfo.getAccessControlResultsHash());
+                queryInfo.getAccessControlResults());
     }
 
     private static Set<Input> pruneInputHistograms(Set<Input> inputs)
@@ -1264,7 +1264,7 @@ public class QueryStateMachine
                 ImmutableList.of(),
                 ImmutableMap.of(),
                 queryInfo.getPrestoSparkExecutionContext(),
-                queryInfo.getAccessControlResultsHash());
+                queryInfo.getAccessControlResults());
     }
 
     private static StageExecutionInfo pruneStageExecutionInfo(StageExecutionInfo info)

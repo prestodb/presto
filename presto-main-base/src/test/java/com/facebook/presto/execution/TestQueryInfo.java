@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonModule;
+import com.facebook.presto.common.AccessControlResults;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.common.transaction.TransactionId;
@@ -205,6 +206,6 @@ public class TestQueryInfo
                         new PlanNodeCanonicalInfo("a", ImmutableList.of()))),
                 ImmutableMap.of(),
                 Optional.of(PrestoSparkExecutionContext.create(1024, 300, true, false)),
-                ImmutableMap.of());
+                new AccessControlResults());
     }
 }

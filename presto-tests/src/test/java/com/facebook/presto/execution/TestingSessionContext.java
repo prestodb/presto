@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.AccessControlResults;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.server.SessionContext;
@@ -167,8 +168,8 @@ public class TestingSessionContext
     }
 
     @Override
-    public Map<String,String> getAccessControlResultsHash()
+    public AccessControlResults getAccessControlResults()
     {
-        return session.getAccessControlResultsHash();
+        return session.getAccessControlContext().getAccessControlResults();
     }
 }

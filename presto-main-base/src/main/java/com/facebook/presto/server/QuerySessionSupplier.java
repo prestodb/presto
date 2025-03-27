@@ -100,7 +100,7 @@ public class QuerySessionSupplier
                 .setResourceEstimates(context.getResourceEstimates())
                 .setTracer(context.getTracer())
                 .setRuntimeStats(context.getRuntimeStats())
-                .setAccessControlResultsHash(context.getAccessControlResultsHash());
+                .setAccessControlResults(context.getAccessControlResults());
 
         if (forcedSessionTimeZone.isPresent()) {
             sessionBuilder.setTimeZoneKey(forcedSessionTimeZone.get());

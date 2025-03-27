@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.common.AccessControlResults;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.QueryInfo;
@@ -308,6 +309,6 @@ public class TestQueryStateInfo
                 ImmutableList.of(),
                 ImmutableMap.of(),
                 Optional.empty(),
-                ImmutableMap.of());
+                new AccessControlResults());
     }
 }

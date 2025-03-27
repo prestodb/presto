@@ -14,6 +14,7 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.AccessControlResults;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.dispatcher.DispatchManager;
@@ -515,6 +516,6 @@ public class TestQueryManager
                 ImmutableList.of(),
                 ImmutableMap.of(),
                 Optional.empty(),
-                ImmutableMap.of());
+                new AccessControlResults());
     }
 }

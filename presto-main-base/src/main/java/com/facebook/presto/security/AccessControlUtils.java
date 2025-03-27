@@ -50,7 +50,7 @@ public class AccessControlUtils
                             Optional.empty(),
                             Optional.ofNullable(sessionContext.getCatalog()),
                             Optional.ofNullable(sessionContext.getSchema()),
-                            sessionContext.getAccessControlResultsHash()),
+                            sessionContext.getAccessControlResults()),
                     identity.getPrincipal(),
                     identity.getUser());
         }
@@ -79,7 +79,7 @@ public class AccessControlUtils
                             Optional.empty(),
                             Optional.ofNullable(sessionContext.getCatalog()),
                             Optional.ofNullable(sessionContext.getSchema()),
-                            sessionContext.getAccessControlResultsHash()),
+                            sessionContext.getAccessControlResults()),
                     identity.getUser(),
                     sessionContext.getCertificates());
             return Optional.of(authorizedIdentity);

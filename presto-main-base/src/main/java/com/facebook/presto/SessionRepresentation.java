@@ -16,6 +16,7 @@ package com.facebook.presto;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
+import com.facebook.presto.common.AccessControlResults;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.common.type.TimeZoneKey;
@@ -341,6 +342,6 @@ public final class SessionRepresentation
                 WarningCollector.NOOP,
                 new RuntimeStats(),
                 Optional.empty(),
-                new HashMap<>());
+                new AccessControlResults());
     }
 }
