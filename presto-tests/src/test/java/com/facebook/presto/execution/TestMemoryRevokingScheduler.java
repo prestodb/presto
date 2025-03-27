@@ -56,6 +56,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -344,12 +345,20 @@ public class TestMemoryRevokingScheduler
         try {
             scheduler.start();
 
+            // Waiting for all existing tasks in scheduler's memoryRevocationExecutor to complete
             scheduler.awaitAsynchronousCallbacksRun();
             assertMemoryRevokingNotRequested();
 
+            CompletableFuture<Void> future = new CompletableFuture<>();
+            // Submit a task that will only be completed after the following two memory reserving actions have occurred.
+            // It can make sure that no asynchronous memory revoking task occurs between the two memory reserving actions,
+            // since `memoryRevocationExecutor` of the scheduler where all these tasks run is a single threaded pool
+            scheduler.submitAsynchronousCallable(() -> future.get());
             operatorContext1.localRevocableMemoryContext().setBytes(11);
             operatorContext2.localRevocableMemoryContext().setBytes(12);
+            future.complete(null);
 
+            // Waiting for all existing tasks in scheduler's memoryRevocationExecutor to complete
             scheduler.awaitAsynchronousCallbacksRun();
             assertMemoryRevokingRequestedFor(operatorContext1, operatorContext2);
             assertEquals(TestOperatorContext.firstOperator, "operator2"); // operator2 should revoke first since it (and it's encompassing task) has allocated more bytes
