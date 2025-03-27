@@ -1034,6 +1034,18 @@ TEST_F(JsonCastTest, toDouble) {
       DOUBLE(),
       {"NaN"_sv},
       "The JSON document has an improper structure");
+
+  testThrow<JsonNativeType>(
+      JSON(),
+      REAL(),
+      {"\"nan\""_sv},
+      "The JSON element does not have the requested type");
+
+  testThrow<JsonNativeType>(
+      JSON(),
+      DOUBLE(),
+      {"\"nan\""_sv},
+      "The JSON element does not have the requested type");
 }
 
 TEST_F(JsonCastTest, toBoolean) {

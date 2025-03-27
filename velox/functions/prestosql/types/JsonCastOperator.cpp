@@ -593,6 +593,16 @@ simdjson::simdjson_result<T> fromString(const std::string_view& s) {
   if (result.hasError()) {
     return simdjson::INCORRECT_TYPE;
   }
+
+  if constexpr (std::is_floating_point_v<T>) {
+    // Only "NaN" is allowed to be converted to NaN.  "nan" is not allowed.
+    if (FOLLY_UNLIKELY(std::isnan(*result))) {
+      if (s != "NaN" && s != "-NaN") {
+        return simdjson::INCORRECT_TYPE;
+      }
+    }
+  }
+
   return std::move(*result);
 }
 
