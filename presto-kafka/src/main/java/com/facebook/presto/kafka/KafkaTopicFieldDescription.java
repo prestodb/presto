@@ -116,7 +116,12 @@ public final class KafkaTopicFieldDescription
 
     ColumnMetadata getColumnMetadata()
     {
-        return new ColumnMetadata(getName(), getType(), getComment(), isHidden());
+        return ColumnMetadata.builder()
+                .setName(getName())
+                .setType(getType())
+                .setComment(getComment())
+                .setHidden(isHidden())
+                .build();
     }
 
     @Override

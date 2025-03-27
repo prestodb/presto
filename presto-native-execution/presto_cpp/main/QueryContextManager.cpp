@@ -45,7 +45,15 @@ void updateFromSystemConfigs(
           {core::QueryConfig::kQueryMaxMemoryPerNode,
            std::string(SystemConfig::kQueryMaxMemoryPerNode)},
           {core::QueryConfig::kSpillFileCreateConfig,
-           std::string(SystemConfig::kSpillerFileCreateConfig)}};
+           std::string(SystemConfig::kSpillerFileCreateConfig)},
+          {core::QueryConfig::kSpillEnabled,
+          std::string(SystemConfig::kSpillEnabled)},
+          {core::QueryConfig::kJoinSpillEnabled,
+          std::string(SystemConfig::kJoinSpillEnabled)},
+          {core::QueryConfig::kOrderBySpillEnabled,
+          std::string(SystemConfig::kOrderBySpillEnabled)},
+          {core::QueryConfig::kAggregationSpillEnabled,
+          std::string(SystemConfig::kAggregationSpillEnabled)}};
 
   for (const auto& configNameEntry : sessionSystemConfigMapping) {
     const auto& sessionName = configNameEntry.first;

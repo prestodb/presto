@@ -2418,6 +2418,10 @@ void to_json(json& j, const std::shared_ptr<ExecutionWriterTarget>& p) {
     j = *std::static_pointer_cast<DeleteHandle>(p);
     return;
   }
+  if (type == "RefreshMaterializedViewHandle") {
+    j = *std::static_pointer_cast<RefreshMaterializedViewHandle>(p);
+    return;
+  }
 
   throw TypeError(type + " no abstract type ExecutionWriterTarget ");
 }
@@ -2446,6 +2450,13 @@ void from_json(const json& j, std::shared_ptr<ExecutionWriterTarget>& p) {
   }
   if (type == "DeleteHandle") {
     std::shared_ptr<DeleteHandle> k = std::make_shared<DeleteHandle>();
+    j.get_to(*k);
+    p = std::static_pointer_cast<ExecutionWriterTarget>(k);
+    return;
+  }
+  if (type == "RefreshMaterializedViewHandle") {
+    std::shared_ptr<RefreshMaterializedViewHandle> k =
+        std::make_shared<RefreshMaterializedViewHandle>();
     j.get_to(*k);
     p = std::static_pointer_cast<ExecutionWriterTarget>(k);
     return;
@@ -3251,6 +3262,91 @@ void from_json(const json& j, CreateHandle& p) {
       "schemaTableName");
 }
 } // namespace facebook::presto::protocol
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+namespace facebook::presto::protocol {
+void to_json(json& j, const std::shared_ptr<ConnectorDeleteTableHandle>& p) {
+  if (p == nullptr) {
+    return;
+  }
+  String type = p->_type;
+  getConnectorProtocol(type).to_json(j, p);
+}
+
+void from_json(const json& j, std::shared_ptr<ConnectorDeleteTableHandle>& p) {
+  String type;
+  try {
+    type = p->getSubclassKey(j);
+  } catch (json::parse_error& e) {
+    throw ParseError(
+        std::string(e.what()) +
+        " ConnectorDeleteTableHandle  ConnectorDeleteTableHandle");
+  }
+  getConnectorProtocol(type).from_json(j, p);
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+
+void to_json(json& j, const DeleteTableHandle& p) {
+  j = json::object();
+  to_json_key(
+      j,
+      "connectorId",
+      p.connectorId,
+      "DeleteTableHandle",
+      "ConnectorId",
+      "connectorId");
+  to_json_key(
+      j,
+      "transactionHandle",
+      p.transactionHandle,
+      "DeleteTableHandle",
+      "ConnectorTransactionHandle",
+      "transactionHandle");
+  to_json_key(
+      j,
+      "connectorHandle",
+      p.connectorHandle,
+      "DeleteTableHandle",
+      "ConnectorDeleteTableHandle",
+      "connectorHandle");
+}
+
+void from_json(const json& j, DeleteTableHandle& p) {
+  from_json_key(
+      j,
+      "connectorId",
+      p.connectorId,
+      "DeleteTableHandle",
+      "ConnectorId",
+      "connectorId");
+  from_json_key(
+      j,
+      "transactionHandle",
+      p.transactionHandle,
+      "DeleteTableHandle",
+      "ConnectorTransactionHandle",
+      "transactionHandle");
+  from_json_key(
+      j,
+      "connectorHandle",
+      p.connectorHandle,
+      "DeleteTableHandle",
+      "ConnectorDeleteTableHandle",
+      "connectorHandle");
+}
+} // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 DeleteHandle::DeleteHandle() noexcept {
   _type = "DeleteHandle";
@@ -3259,7 +3355,8 @@ DeleteHandle::DeleteHandle() noexcept {
 void to_json(json& j, const DeleteHandle& p) {
   j = json::object();
   j["@type"] = "DeleteHandle";
-  to_json_key(j, "handle", p.handle, "DeleteHandle", "TableHandle", "handle");
+  to_json_key(
+      j, "handle", p.handle, "DeleteHandle", "DeleteTableHandle", "handle");
   to_json_key(
       j,
       "schemaTableName",
@@ -3271,7 +3368,8 @@ void to_json(json& j, const DeleteHandle& p) {
 
 void from_json(const json& j, DeleteHandle& p) {
   p._type = j["@type"];
-  from_json_key(j, "handle", p.handle, "DeleteHandle", "TableHandle", "handle");
+  from_json_key(
+      j, "handle", p.handle, "DeleteHandle", "DeleteTableHandle", "handle");
   from_json_key(
       j,
       "schemaTableName",
@@ -4251,10 +4349,26 @@ void to_json(json& j, const DriverStats& p) {
   j = json::object();
   to_json_key(j, "lifespan", p.lifespan, "DriverStats", "Lifespan", "lifespan");
   to_json_key(
-      j, "createTimeInMillis", p.createTimeInMillis, "DriverStats", "int64_t", "createTimeInMillis");
+      j,
+      "createTimeInMillis",
+      p.createTimeInMillis,
+      "DriverStats",
+      "int64_t",
+      "createTimeInMillis");
   to_json_key(
-      j, "startTimeInMillis", p.startTimeInMillis, "DriverStats", "int64_t", "startTimeInMillis");
-  to_json_key(j, "endTimeInMillis", p.endTimeInMillis, "DriverStats", "int64_t", "endTimeInMillis");
+      j,
+      "startTimeInMillis",
+      p.startTimeInMillis,
+      "DriverStats",
+      "int64_t",
+      "startTimeInMillis");
+  to_json_key(
+      j,
+      "endTimeInMillis",
+      p.endTimeInMillis,
+      "DriverStats",
+      "int64_t",
+      "endTimeInMillis");
   to_json_key(
       j, "queuedTime", p.queuedTime, "DriverStats", "Duration", "queuedTime");
   to_json_key(
@@ -4391,10 +4505,26 @@ void from_json(const json& j, DriverStats& p) {
   from_json_key(
       j, "lifespan", p.lifespan, "DriverStats", "Lifespan", "lifespan");
   from_json_key(
-      j, "createTimeInMillis", p.createTimeInMillis, "DriverStats", "int64_t", "createTimeInMillis");
+      j,
+      "createTimeInMillis",
+      p.createTimeInMillis,
+      "DriverStats",
+      "int64_t",
+      "createTimeInMillis");
   from_json_key(
-      j, "startTimeInMillis", p.startTimeInMillis, "DriverStats", "int64_t", "startTimeInMillis");
-  from_json_key(j, "endTimeInMillis", p.endTimeInMillis, "DriverStats", "int64_t", "endTimeInMillis");
+      j,
+      "startTimeInMillis",
+      p.startTimeInMillis,
+      "DriverStats",
+      "int64_t",
+      "startTimeInMillis");
+  from_json_key(
+      j,
+      "endTimeInMillis",
+      p.endTimeInMillis,
+      "DriverStats",
+      "int64_t",
+      "endTimeInMillis");
   from_json_key(
       j, "queuedTime", p.queuedTime, "DriverStats", "Duration", "queuedTime");
   from_json_key(
@@ -8331,9 +8461,13 @@ void from_json(const json& j, Range& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+RefreshMaterializedViewHandle::RefreshMaterializedViewHandle() noexcept {
+  _type = "RefreshMaterializedViewHandle";
+}
 
 void to_json(json& j, const RefreshMaterializedViewHandle& p) {
   j = json::object();
+  j["@type"] = "RefreshMaterializedViewHandle";
   to_json_key(
       j,
       "handle",
@@ -8351,6 +8485,7 @@ void to_json(json& j, const RefreshMaterializedViewHandle& p) {
 }
 
 void from_json(const json& j, RefreshMaterializedViewHandle& p) {
+  p._type = j["@type"];
   from_json_key(
       j,
       "handle",
@@ -9927,7 +10062,12 @@ namespace facebook::presto::protocol {
 void to_json(json& j, const TaskStats& p) {
   j = json::object();
   to_json_key(
-      j, "createTimeInMillis", p.createTimeInMillis, "TaskStats", "int64_t", "createTimeInMillis");
+      j,
+      "createTimeInMillis",
+      p.createTimeInMillis,
+      "TaskStats",
+      "int64_t",
+      "createTimeInMillis");
   to_json_key(
       j,
       "firstStartTimeInMillis",
@@ -9943,8 +10083,19 @@ void to_json(json& j, const TaskStats& p) {
       "int64_t",
       "lastStartTimeInMillis");
   to_json_key(
-      j, "lastEndTimeInMillis", p.lastEndTimeInMillis, "TaskStats", "int64_t", "lastEndTimeInMillis");
-  to_json_key(j, "endTimeInMillis", p.endTimeInMillis, "TaskStats", "int64_t", "endTimeInMillis");
+      j,
+      "lastEndTimeInMillis",
+      p.lastEndTimeInMillis,
+      "TaskStats",
+      "int64_t",
+      "lastEndTimeInMillis");
+  to_json_key(
+      j,
+      "endTimeInMillis",
+      p.endTimeInMillis,
+      "TaskStats",
+      "int64_t",
+      "endTimeInMillis");
   to_json_key(
       j,
       "elapsedTimeInNanos",
@@ -10181,7 +10332,12 @@ void to_json(json& j, const TaskStats& p) {
 
 void from_json(const json& j, TaskStats& p) {
   from_json_key(
-      j, "createTimeInMillis", p.createTimeInMillis, "TaskStats", "int64_t", "createTimeInMillis");
+      j,
+      "createTimeInMillis",
+      p.createTimeInMillis,
+      "TaskStats",
+      "int64_t",
+      "createTimeInMillis");
   from_json_key(
       j,
       "firstStartTimeInMillis",
@@ -10197,8 +10353,19 @@ void from_json(const json& j, TaskStats& p) {
       "int64_t",
       "lastStartTimeInMillis");
   from_json_key(
-      j, "lastEndTimeInMillis", p.lastEndTimeInMillis, "TaskStats", "int64_t", "lastEndTimeInMillis");
-  from_json_key(j, "endTimeInMillis", p.endTimeInMillis, "TaskStats", "int64_t", "endTimeInMillis");
+      j,
+      "lastEndTimeInMillis",
+      p.lastEndTimeInMillis,
+      "TaskStats",
+      "int64_t",
+      "lastEndTimeInMillis");
+  from_json_key(
+      j,
+      "endTimeInMillis",
+      p.endTimeInMillis,
+      "TaskStats",
+      "int64_t",
+      "endTimeInMillis");
   from_json_key(
       j,
       "elapsedTimeInNanos",

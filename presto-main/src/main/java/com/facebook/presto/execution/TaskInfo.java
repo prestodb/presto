@@ -35,7 +35,6 @@ import java.util.Set;
 import static com.facebook.presto.execution.TaskStatus.initialTaskStatus;
 import static com.facebook.presto.execution.buffer.BufferState.OPEN;
 import static com.facebook.presto.metadata.MetadataUpdates.DEFAULT_METADATA_UPDATES;
-import static com.facebook.presto.util.DateTimeUtils.toTimeStampInMillis;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.System.currentTimeMillis;
@@ -56,15 +55,18 @@ public class TaskInfo
     private final MetadataUpdates metadataUpdates;
     private final String nodeId;
 
-    public TaskInfo(TaskId taskId,
-            TaskStatus taskStatus,
-            long lastHeartbeatInMillis,
-            OutputBufferInfo outputBuffers,
-            Set<PlanNodeId> noMoreSplits,
-            TaskStats stats,
-            boolean needsPlan,
-            MetadataUpdates metadataUpdates,
-            String nodeId)
+    @JsonCreator
+    @ThriftConstructor
+    public TaskInfo(
+            @JsonProperty("taskId") TaskId taskId,
+            @JsonProperty("taskStatus") TaskStatus taskStatus,
+            @JsonProperty("lastHeartbeatInMillis") long lastHeartbeatInMillis,
+            @JsonProperty("outputBuffers") OutputBufferInfo outputBuffers,
+            @JsonProperty("noMoreSplits") Set<PlanNodeId> noMoreSplits,
+            @JsonProperty("stats") TaskStats stats,
+            @JsonProperty("needsPlan") boolean needsPlan,
+            @JsonProperty("metadataUpdates") MetadataUpdates metadataUpdates,
+            @JsonProperty("nodeId") String nodeId)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.taskStatus = requireNonNull(taskStatus, "taskStatus is null");
@@ -77,30 +79,6 @@ public class TaskInfo
         this.needsPlan = needsPlan;
         this.metadataUpdates = metadataUpdates;
         this.nodeId = requireNonNull(nodeId, "nodeId is null");
-    }
-
-    @JsonCreator
-    @ThriftConstructor
-    public TaskInfo(
-            @JsonProperty("taskId") TaskId taskId,
-            @JsonProperty("taskStatus") TaskStatus taskStatus,
-            @JsonProperty("lastHeartbeat") DateTime lastHeartbeat,
-            @JsonProperty("outputBuffers") OutputBufferInfo outputBuffers,
-            @JsonProperty("noMoreSplits") Set<PlanNodeId> noMoreSplits,
-            @JsonProperty("stats") TaskStats stats,
-            @JsonProperty("needsPlan") boolean needsPlan,
-            @JsonProperty("metadataUpdates") MetadataUpdates metadataUpdates,
-            @JsonProperty("nodeId") String nodeId)
-    {
-        this(taskId,
-                taskStatus,
-                toTimeStampInMillis(lastHeartbeat),
-                outputBuffers,
-                noMoreSplits,
-                stats,
-                needsPlan,
-                metadataUpdates,
-                nodeId);
     }
 
     @JsonProperty
@@ -117,13 +95,13 @@ public class TaskInfo
         return taskStatus;
     }
 
-    @JsonProperty
-    @ThriftField(3)
     public DateTime getLastHeartbeat()
     {
         return new DateTime(lastHeartbeatInMillis);
     }
 
+    @JsonProperty
+    @ThriftField(3)
     public long getLastHeartbeatInMillis()
     {
         return lastHeartbeatInMillis;

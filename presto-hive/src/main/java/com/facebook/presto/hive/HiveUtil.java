@@ -1207,14 +1207,15 @@ public final class HiveUtil
     public static List<ColumnMetadata> translateHiveUnsupportedTypesForTemporaryTable(List<ColumnMetadata> columns, TypeManager typeManager)
     {
         return columns.stream()
-                .map(column -> new ColumnMetadata(
-                        column.getName(),
-                        translateHiveUnsupportedTypeForTemporaryTable(column.getType(), typeManager),
-                        column.isNullable(),
-                        column.getComment(),
-                        column.getExtraInfo(),
-                        column.isHidden(),
-                        column.getProperties()))
+                .map(column -> ColumnMetadata.builder()
+                        .setName(column.getName())
+                        .setType(translateHiveUnsupportedTypeForTemporaryTable(column.getType(), typeManager))
+                        .setNullable(column.isNullable())
+                        .setComment(column.getComment().orElse(null))
+                        .setExtraInfo(column.getExtraInfo().orElse(null))
+                        .setHidden(column.isHidden())
+                        .setProperties(column.getProperties())
+                        .build())
                 .collect(toImmutableList());
     }
 

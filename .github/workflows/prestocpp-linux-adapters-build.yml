@@ -15,7 +15,7 @@ jobs:
   prestocpp-linux-adapters-build:
     runs-on: ubuntu-22.04
     container:
-      image: prestodb/presto-native-dependency:0.290-20241014120930-e1fc090
+      image: prestodb/presto-native-dependency:0.292-20250204112033-cf8ba84
     env:
       CCACHE_DIR: "${{ github.workspace }}/ccache"
     steps:

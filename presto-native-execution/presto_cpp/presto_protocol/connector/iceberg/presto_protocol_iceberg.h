@@ -173,6 +173,14 @@ struct PrestoIcebergPartitionSpec {
 void to_json(json& j, const PrestoIcebergPartitionSpec& p);
 void from_json(const json& j, PrestoIcebergPartitionSpec& p);
 } // namespace facebook::presto::protocol::iceberg
+namespace facebook::presto::protocol::iceberg {
+struct SortField {
+  int sourceColumnId = {};
+  SortOrder sortOrder = {};
+};
+void to_json(json& j, const SortField& p);
+void from_json(const json& j, SortField& p);
+} // namespace facebook::presto::protocol::iceberg
 /*
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -201,6 +209,7 @@ struct IcebergInsertTableHandle : public ConnectorInsertTableHandle {
   FileFormat fileFormat = {};
   hive::HiveCompressionCodec compressionCodec = {};
   Map<String, String> storageProperties = {};
+  List<SortField> sortOrder = {};
 
   IcebergInsertTableHandle() noexcept;
 };
@@ -235,6 +244,7 @@ struct IcebergOutputTableHandle : public ConnectorOutputTableHandle {
   FileFormat fileFormat = {};
   hive::HiveCompressionCodec compressionCodec = {};
   Map<String, String> storageProperties = {};
+  List<SortField> sortOrder = {};
 
   IcebergOutputTableHandle() noexcept;
 };
@@ -273,6 +283,7 @@ struct IcebergSplit : public ConnectorSplit {
   List<DeleteFile> deletes = {};
   std::shared_ptr<ChangelogSplitInfo> changelogSplitInfo = {};
   int64_t dataSequenceNumber = {};
+  int64_t affinitySchedulingSectionSize = {};
 
   IcebergSplit() noexcept;
 };
@@ -289,6 +300,8 @@ struct IcebergTableHandle : public ConnectorTableHandle {
   std::shared_ptr<String> tableSchemaJson = {};
   std::shared_ptr<List<Integer>> partitionFieldIds = {};
   std::shared_ptr<List<Integer>> equalityFieldIds = {};
+  List<SortField> sortOrder = {};
+  List<IcebergColumnHandle> updatedColumns = {};
 
   IcebergTableHandle() noexcept;
 };
