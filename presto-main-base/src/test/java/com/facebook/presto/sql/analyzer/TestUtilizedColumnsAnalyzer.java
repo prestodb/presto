@@ -282,6 +282,27 @@ public class TestUtilizedColumnsAnalyzer
     }
 
     @Test
+    public void testUnnestMap()
+    {
+        assertUtilizedTableColumns("SELECT t.x, t.y FROM (select * from t1) as cte1 CROSS JOIN UNNEST (MAP(array_agg(cte1.a), array_agg(cte1.a))) AS t(x, y)",
+                ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t1"), ImmutableSet.of("a")));
+
+        // Fall back to checking all columns does not happen
+        assertUtilizedTableColumns("SELECT cte1.a, t.y FROM (select * from t1) as cte1 CROSS JOIN UNNEST (MAP(array_agg(cte1.c), array_agg(cte1.c))) AS t(x, y)",
+                ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t1"), ImmutableSet.of("a", "c")));
+
+        // The map was constructed from t1.c and t1.d, so in the outer scope, if one of the key or value fields get used, both count as being utilized
+        assertUtilizedTableColumns("SELECT t.c3, cte1.x FROM t1 CROSS JOIN UNNEST (array_agg(t1.b),MAP(array_agg(t1.c), array_agg(t1.d))) AS t(c1 , c2, c3) inner join (select * from t13) as cte1 on cte1.x = t1.d",
+                ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t1"), ImmutableSet.of("c", "d"),
+                        QualifiedObjectName.valueOf("tpch.s1.t13"), ImmutableSet.of("x")));
+//
+//        // Tricky case: t.c3 is utilized. It has field index of 2, but it should correspond to the expression index 1 (array_agg(t1.c))
+        assertUtilizedTableColumns("SELECT t.c3, cte1.x FROM t1 CROSS JOIN UNNEST (MAP(array_agg(t1.b), array_agg(t1.b)), array_agg(t1.c), array_agg(t1.d)) AS t(c1 , c2, c3, c4) inner join (select * from t13) as cte1 on cte1.x = t1.d",
+                ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t1"), ImmutableSet.of("c", "d"),
+                        QualifiedObjectName.valueOf("tpch.s1.t13"), ImmutableSet.of("x")));
+    }
+
+    @Test
     public void testValues()
     {
         assertUtilizedTableColumns("SELECT * FROM (VALUES 1, 2, 3)", ImmutableMap.of());

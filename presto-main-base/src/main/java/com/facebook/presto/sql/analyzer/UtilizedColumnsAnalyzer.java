@@ -15,6 +15,7 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.AccessControlInfo;
@@ -57,6 +58,7 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -339,9 +341,20 @@ public class UtilizedColumnsAnalyzer
         protected Void visitUnnest(Unnest unnest, Context context)
         {
             handleRelation(unnest, context);
-            // Prune fields that are not referenced in any outer scope
-            for (FieldId fieldId : context.getFieldIdsToExploreInRelation(unnest)) {
-                process(unnest.getExpressions().get(fieldId.getFieldIndex()), context);
+
+            List<Expression> unnestExpressions = unnest.getExpressions();
+            List<Expression> expandedExpressions = new ArrayList<>();
+            for (Expression expression : unnestExpressions) {
+                if (analysis.getType(expression) instanceof MapType) {
+                    // Map produces two output columns, so input expression gets added twice
+                    // in order for key and value columns to map back to the correct input expression
+                    expandedExpressions.add(expression);
+                }
+                expandedExpressions.add(expression);
+            }
+
+            for (FieldId field : context.getFieldIdsToExploreInRelation(unnest)) {
+                process(expandedExpressions.get(field.getFieldIndex()), context);
             }
 
             return null;
