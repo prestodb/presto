@@ -232,6 +232,7 @@ std::shared_ptr<const core::ConstantExpr> tryParseInterval(
   }
 
   int64_t multiplier;
+
   if (functionName == "to_days") {
     multiplier = 24 * 60 * 60 * 1'000;
   } else if (functionName == "to_hours") {
@@ -242,10 +243,22 @@ std::shared_ptr<const core::ConstantExpr> tryParseInterval(
     multiplier = 1'000;
   } else if (functionName == "to_milliseconds") {
     multiplier = 1;
-  } else {
-    return nullptr;
   }
-
+  // The other two options are years and months. They are expressed in terms of
+  // number of months, and return a different type (INTERVAL_YEAR_MONTH).
+  else {
+    if (functionName == "to_years") {
+      multiplier = 12;
+    } else if (functionName == "to_months") {
+      multiplier = 1;
+    } else {
+      return nullptr;
+    }
+    return std::make_shared<core::ConstantExpr>(
+        INTERVAL_YEAR_MONTH(),
+        variant((int32_t)(value.value() * multiplier)),
+        alias);
+  }
   return std::make_shared<core::ConstantExpr>(
       INTERVAL_DAY_TIME(), variant(value.value() * multiplier), alias);
 }

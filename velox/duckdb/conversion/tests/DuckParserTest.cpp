@@ -314,6 +314,29 @@ TEST(DuckParserTest, interval) {
       "0 00:00:00.011 AS x", parseInterval("INTERVAL 11 MILLISECONDS AS x"));
 }
 
+TEST(DuckParserTest, intervalYearMonth) {
+  auto parseYearMonthInterval = [](const std::string& sql) {
+    auto expr =
+        std::dynamic_pointer_cast<const core::ConstantExpr>(parseExpr(sql));
+    VELOX_CHECK_NOT_NULL(expr);
+
+    auto value =
+        INTERVAL_YEAR_MONTH()->valueToString(expr->value().value<int32_t>());
+    if (expr->alias()) {
+      return fmt::format("{} AS {}", value, expr->alias().value());
+    }
+    return value;
+  };
+
+  EXPECT_EQ("1-0", parseYearMonthInterval("INTERVAL 1 YEAR"));
+  EXPECT_EQ("14-0", parseYearMonthInterval("INTERVAL 14 YEAR"));
+
+  EXPECT_EQ("0-3", parseYearMonthInterval("INTERVAL 3 MONTHS"));
+  EXPECT_EQ("1-1", parseYearMonthInterval("INTERVAL 13 MONTHS"));
+  EXPECT_EQ(
+      "83-3 AS xyz", parseYearMonthInterval("INTERVAL 999 MONTHS as xyz"));
+}
+
 TEST(DuckParserTest, cast) {
   EXPECT_EQ(
       "cast(\"1\", BIGINT)", parseExpr("cast('1' as bigint)")->toString());
