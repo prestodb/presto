@@ -190,6 +190,12 @@ enum DataArrangement {
   WARP_STRIPED,
 };
 
+enum MemoryOrder {
+  RELAXED,
+  ACQUIRE,
+  RELEASE,
+};
+
 class NullType {};
 
 class EmptySlice {
