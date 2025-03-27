@@ -3981,12 +3981,6 @@ make_time(const std::chrono::duration<Rep, Period>& d)
     return hh_mm_ss<std::chrono::duration<Rep, Period>>(d);
 }
 
-#if defined(__cpp_lib_format)
-
-// already have operator<<
-
-#else
-
 template <class CharT, class Traits, class Duration>
 inline
 typename std::enable_if
@@ -4014,10 +4008,8 @@ inline
 std::basic_ostream<CharT, Traits>&
 operator<<(std::basic_ostream<CharT, Traits>& os, const local_time<Duration>& ut)
 {
-    return (os << sys_time<Duration>{ut.time_since_epoch()});
+    return ::facebook::velox::date::operator<<(os, sys_time<Duration>{ut.time_since_epoch()});
 }
-
-#endif
 
 namespace detail
 {

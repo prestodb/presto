@@ -57,8 +57,9 @@ class nonexistent_local_time : public std::runtime_error {
        << ' ' << __info.first.abbrev << " and\n"
        << date::local_seconds{__info.second.begin.time_since_epoch()} +
             __info.second.offset
-       << ' ' << __info.second.abbrev << " which are both equivalent to\n"
-       << __info.first.end << " UTC";
+       << ' ' << __info.second.abbrev << " which are both equivalent to\n";
+    
+    ::facebook::velox::date::operator<<(os, __info.first.end) << " UTC";
     return os.str();
   }
 };
@@ -97,6 +98,7 @@ class ambiguous_local_time : public std::runtime_error {
       const date::local_time<_Duration>& __time,
       const local_info& __info) {
     std::ostringstream os;
+    using ::facebook::velox::date::operator<<;
     os << __time << " is ambiguous.  It could be\n"
        << __time << ' ' << __info.first.abbrev
        << " == " << __time - __info.first.offset << " UTC or\n"
