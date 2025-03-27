@@ -197,5 +197,52 @@ TEST_F(JsonSignatureParserTest, multiple) {
   EXPECT_EQ(signature1->argumentTypes()[1].baseName(), "varchar");
 }
 
+TEST_F(JsonSignatureParserTest, dynamic) {
+  auto input = R"(
+  {
+    "dynamicLibrariesUdfMap": {
+      "subdir_name": {
+      "mock1": [
+        {
+          "entrypoint": "registry123",
+          "fileName" : "test123",
+          "outputType": "varchar",
+          "paramTypes": [
+            "varchar"
+          ]
+        }
+      ],
+      "mock2": [
+        {
+          "fileName" : "test123",
+          "outputType": "boolean",
+          "paramTypes": []
+        }
+      ]
+    }
+    }
+  })";
+
+  JsonSignatureParser parser(input, JsonSignatureScope::DynamiclibrariesUdf);
+  EXPECT_EQ(2, parser.size());
+
+  auto it = parser.begin();
+  EXPECT_EQ(it->first, "mock1");
+  EXPECT_EQ(it->second.size(), 1);
+
+  const auto& signature0 = it->second[0].signature;
+  EXPECT_EQ(signature0->returnType().baseName(), "varchar");
+  const auto entrypoint = it->second[0].entrypoint;
+  EXPECT_EQ(entrypoint, "registry123");
+  EXPECT_EQ(signature0->argumentTypes().size(), 1);
+  EXPECT_EQ(signature0->argumentTypes()[0].baseName(), "varchar");
+  it = std::next(it, 1);
+  EXPECT_EQ(it->first, "mock2");
+  EXPECT_EQ(it->second.size(), 1);
+
+  const auto& signature1 = it->second[0].signature;
+  EXPECT_EQ(signature1->returnType().baseName(), "boolean");
+  EXPECT_EQ(signature1->argumentTypes().size(), 0);
+}
 } // namespace
 } // namespace facebook::presto::test

@@ -26,6 +26,8 @@
 #include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/common/Counters.h"
 #include "presto_cpp/main/common/Utils.h"
+#include "presto_cpp/main/dynamic_registry/DynamicFunctionConfigRegisterer.h"
+#include "presto_cpp/main/dynamic_registry/DynamicSignalHandler.h"
 #include "presto_cpp/main/http/HttpConstants.h"
 #include "presto_cpp/main/http/filters/AccessLogFilter.h"
 #include "presto_cpp/main/http/filters/HttpEndpointLatencyFilter.h"
@@ -44,6 +46,7 @@
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/caching/CacheTTLController.h"
 #include "velox/common/caching/SsdCache.h"
+#include "velox/common/dynamic_registry/DynamicLibraryLoader.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/memory/MmapAllocator.h"
 #include "velox/common/memory/SharedArbitrator.h"
@@ -397,6 +400,7 @@ void PrestoServer::run() {
   registerRemoteFunctions();
   registerVectorSerdes();
   registerPrestoPlanNodeSerDe();
+  registerDynamicFunctions();
 
   const auto numExchangeHttpClientIoThreads = std::max<size_t>(
       systemConfig->exchangeHttpClientNumIoThreadsHwMultiplier() *
@@ -1613,6 +1617,42 @@ protocol::NodeStatus PrestoServer::fetchNodeStatus() {
       nonHeapUsed};
 
   return nodeStatus;
+}
+
+void PrestoServer::registerDynamicFunctions() {
+  auto systemConfig = SystemConfig::instance();
+  if (!systemConfig->pluginDir().empty()) {
+    const fs::path path(systemConfig->pluginDir());
+    PRESTO_STARTUP_LOG(INFO) << "Dynamic library loading path: " << path;
+    std::error_code ec;
+    if (fs::is_directory(path, ec)) {
+      const fs::path configPath(systemConfig->dynamicLibraryValidatorConfig());
+      if (!fs::exists(configPath, ec)) {
+        LOG(ERROR)
+            << "Config file not found in path: " << configPath
+            << ". Dynamic libraries will not be loaded on this worker run.";
+        return;
+      } else {
+        DynamicLibraryValidator dVal(configPath, systemConfig->pluginDir());
+        auto filenameAndEntrypointMap = dVal.getEntrypointMap();
+        auto registeredFnSignaturesBefore = velox::getFunctionSignatures();
+        for (const auto& entryPointItr : filenameAndEntrypointMap) {
+          auto absoluteFilePath = entryPointItr.first;
+          auto entrypoint = entryPointItr.second;
+          // Only load dynamic library for signatures provided by the entrypoint
+          // in a particular config file
+          velox::loadDynamicLibrary(absoluteFilePath, entrypoint.c_str());
+        }
+        auto missedConfigRegisterations =
+            dVal.compareConfigWithRegisteredFunctionSignatures(
+                registeredFnSignaturesBefore);
+        if (missedConfigRegisterations > 0) {
+          LOG(ERROR) << "Config file has " << missedConfigRegisterations
+                     << " extra signatures that were not registered";
+        }
+      }
+    }
+  }
 }
 
 } // namespace facebook::presto

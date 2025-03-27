@@ -14,6 +14,7 @@ add_subdirectory(types)
 add_subdirectory(http)
 add_subdirectory(common)
 add_subdirectory(thrift)
+add_subdirectory(dynamic_registry)
 
 add_library(
   presto_server_lib
@@ -46,10 +47,13 @@ target_link_libraries(
   $<TARGET_OBJECTS:presto_types>
   $<TARGET_OBJECTS:presto_protocol>
   presto_common
+  presto_dynamic_config_reg_lib
+  presto_dynamic_sig_lib
   presto_exception
   presto_function_metadata
   presto_http
   presto_operators
+  presto_signature_parser
   presto_velox_conversion
   velox_abfs
   velox_aggregates
@@ -62,9 +66,11 @@ target_link_libraries(
   velox_dwio_orc_reader
   velox_dwio_parquet_reader
   velox_dwio_parquet_writer
+  velox_dynamic_library_loader
   velox_encode
   velox_exec
   velox_file
+  velox_function_registry
   velox_functions_lib
   velox_functions_prestosql
   velox_gcs
@@ -100,6 +106,15 @@ set_property(TARGET presto_server_lib PROPERTY JOB_POOL_LINK
 
 add_executable(presto_server PrestoMain.cpp)
 
+# The below additional flags are necessary for resolving dependencies for
+# loading dynamic libraries.
+if(APPLE)
+  target_link_options(presto_server BEFORE PUBLIC
+                      "-Wl,-undefined,dynamic_lookup")
+else()
+  target_link_options(presto_server BEFORE PUBLIC "-Wl,-export-dynamic")
+endif()
+
 # Moving velox_hive_connector and velox_tpch_connector to presto_server_lib
 # results in multiple link errors similar to the one below only on GCC.
 # "undefined reference to `vtable for velox::connector::tpch::TpchTableHandle`"
@@ -113,12 +128,16 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang"
   target_link_libraries(presto_server atomic)
 endif()
 
-if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
-  add_library(presto_server_remote_function JsonSignatureParser.cpp
-                                            RemoteFunctionRegisterer.cpp)
+add_library(presto_signature_parser JsonSignatureParser.cpp)
 
-  target_link_libraries(presto_server_remote_function velox_expression
-                        velox_functions_remote ${FOLLY_WITH_DEPENDENCIES})
+target_link_libraries(presto_signature_parser velox_expression)
+
+if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
+  add_library(presto_server_remote_function RemoteFunctionRegisterer.cpp)
+
+  target_link_libraries(
+    presto_server_remote_function velox_expression velox_functions_remote
+    ${FOLLY_WITH_DEPENDENCIES} presto_signature_parser)
   target_link_libraries(presto_server_lib presto_server_remote_function)
 endif()
 
