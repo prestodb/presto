@@ -258,17 +258,26 @@ class DecimalUtil {
     // LONG_DOUBLE_MAX.
     long double scaledValue = std::round(
         (long double)value * DecimalUtil::kPowersOfTen[fractionDigits]);
-    if (scale > fractionDigits) {
-      scaledValue *= DecimalUtil::kPowersOfTen[scale - fractionDigits];
-    } else {
-      scaledValue /= DecimalUtil::kPowersOfTen[fractionDigits - scale];
-    }
-
-    const auto result = folly::tryTo<TOutput>(std::round(scaledValue));
+    const auto result = folly::tryTo<TOutput>(scaledValue);
     if (result.hasError()) {
       return Status::UserError("Result overflows.");
     }
-    const TOutput rescaledValue = result.value();
+    TOutput rescaledValue = result.value();
+    if (scale > fractionDigits) {
+      bool isOverflow = __builtin_mul_overflow(
+          rescaledValue,
+          DecimalUtil::kPowersOfTen[scale - fractionDigits],
+          &rescaledValue);
+      if (isOverflow) {
+        return Status::UserError("Result overflows.");
+      }
+    } else {
+      const auto scalingFactor =
+          DecimalUtil::kPowersOfTen[fractionDigits - scale];
+      divideWithRoundUp<TOutput, TOutput, int128_t>(
+          rescaledValue, rescaledValue, scalingFactor, false, 0, 0);
+    }
+
     if (!valueInPrecisionRange<TOutput>(rescaledValue, precision)) {
       return Status::UserError(
           "Result cannot fit in the given precision {}.", precision);

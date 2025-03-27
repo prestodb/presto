@@ -397,12 +397,21 @@ TEST(DecimalTest, rescaleDouble) {
       10.03, DECIMAL(38, 18), HugeInt::parse("1003" + zeros(16)));
   assertRescaleDouble(0.034567890, DECIMAL(38, 18), 34'567'890'000'000'000);
   assertRescaleDouble(
+      0.03456789, DECIMAL(38, 33), HugeInt::parse("3456789" + zeros(25)));
+  assertRescaleDouble(
       0.999999999999999, DECIMAL(38, 18), 999'999'999'999'999'000);
   assertRescaleDouble(
       0.123456789123123, DECIMAL(38, 18), 123'456'789'123'123'000);
   assertRescaleDouble(21.54551, DECIMAL(12, 3), 21546);
 
   assertRescaleDouble(std::numeric_limits<double>::min(), DECIMAL(38, 2), 0);
+
+  assertRescaleDouble(0.9999999999999999, DECIMAL(17, 2), 100);
+
+  assertRescaleDouble(-0.9999999999999999, DECIMAL(17, 2), -100);
+
+  assertRescaleDouble(
+      kMaxDoubleBelowInt64Max, DECIMAL(19, 0), 9'223'372'036'854'774'784);
 
   // Test for overflows.
   std::vector<double> invalidInputs = {
