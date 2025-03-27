@@ -152,6 +152,14 @@ void makeBitpackDict(
       memory, dictBytes + bitBytes + scatterBytes + resultBytes + statusBytes);
 }
 
+struct SelectiveOptions {
+  // Whether to run on non-contiguous rows.
+  float everyNth{1};
+
+  // Filter selectivity. 1 means all selected, 3 means 1/3 selected.
+  float selectivity{1};
+};
+
 class GpuDecoderTest : public ::testing::Test {
  protected:
   void SetUp() override {
@@ -238,14 +246,6 @@ class GpuDecoderTest : public ::testing::Test {
       ASSERT_EQ(source[i], result[scatter ? scatter[i] : i]);
     }
   }
-
-  struct SelectiveOptions {
-    // Whether to run on non-contiguous rows.
-    float everyNth{1};
-
-    // Filter selectivity. 1 means all selected, 3 means 1/3 selected.
-    float selectivity{1};
-  };
 
   template <typename T>
   void makeFilter(
