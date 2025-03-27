@@ -298,6 +298,9 @@ TEST(DuckParserTest, interval) {
     return value;
   };
 
+  EXPECT_EQ("1 00:00:00.000", parseInterval("INTERVAL 1 DAYS"));
+  EXPECT_EQ("1000 00:00:00.000", parseInterval("INTERVAL 1000 DAYS"));
+
   EXPECT_EQ("0 05:00:00.000", parseInterval("INTERVAL 5 HOURS"));
   EXPECT_EQ("0 00:36:00.000", parseInterval("INTERVAL 36 MINUTES"));
   EXPECT_EQ("0 00:00:07.000", parseInterval("INTERVAL 7 SECONDS"));
