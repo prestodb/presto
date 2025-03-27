@@ -788,6 +788,12 @@ public final class Session
             return this;
         }
 
+        public SessionBuilder setAccessControlResultsHash(Map<String,String> accessControlResultsHash)
+        {
+            this.accessControlResultsHash = accessControlResultsHash;
+            return this;
+        }
+
         public SessionBuilder setQueryType(Optional<QueryType> queryType)
         {
             this.queryType = requireNonNull(queryType, "queryType is null");
