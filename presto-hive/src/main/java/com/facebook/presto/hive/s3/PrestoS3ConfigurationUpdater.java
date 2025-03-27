@@ -52,6 +52,7 @@ public class PrestoS3ConfigurationUpdater
     private final String userAgentPrefix;
     private final PrestoS3AclType aclType;
     private boolean skipGlacierObjects;
+    private final boolean webIdentityEnabled;
 
     @Inject
     public PrestoS3ConfigurationUpdater(HiveS3Config config)
@@ -84,6 +85,7 @@ public class PrestoS3ConfigurationUpdater
         this.userAgentPrefix = config.getS3UserAgentPrefix();
         this.aclType = config.getS3AclType();
         this.skipGlacierObjects = config.isSkipGlacierObjects();
+        this.webIdentityEnabled = config.isS3WebIdentityEnabled();
     }
 
     @Override
@@ -124,6 +126,7 @@ public class PrestoS3ConfigurationUpdater
         if (sseKmsKeyId != null) {
             config.set(S3_SSE_KMS_KEY_ID, sseKmsKeyId);
         }
+        config.setBoolean(S3_WEB_IDENTITY_ENABLED, webIdentityEnabled);
         config.setInt(S3_MAX_CLIENT_RETRIES, maxClientRetries);
         config.setInt(S3_MAX_ERROR_RETRIES, maxErrorRetries);
         config.set(S3_MAX_BACKOFF_TIME, maxBackoffTime.toString());
