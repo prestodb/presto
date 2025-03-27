@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.metastore.thrift;
 
+import com.facebook.presto.hive.HiveCommonClientConfig;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.authentication.NoHiveMetastoreAuthentication;
 import com.google.common.net.HostAndPort;
@@ -28,18 +29,20 @@ public class TestingHiveCluster
 {
     private final MetastoreClientConfig metastoreClientConfig;
     private final HostAndPort address;
+    private final HiveCommonClientConfig hiveCommonClientConfig;
 
-    public TestingHiveCluster(MetastoreClientConfig metastoreClientConfig, String host, int port)
+    public TestingHiveCluster(MetastoreClientConfig metastoreClientConfig, String host, int port, HiveCommonClientConfig hiveCommonClientConfig)
     {
         this.metastoreClientConfig = requireNonNull(metastoreClientConfig, "metastore config is null");
         this.address = HostAndPort.fromParts(requireNonNull(host, "host is null"), port);
+        this.hiveCommonClientConfig = hiveCommonClientConfig;
     }
 
     @Override
     public HiveMetastoreClient createMetastoreClient(Optional<String> token)
             throws TException
     {
-        return new HiveMetastoreClientFactory(metastoreClientConfig, new NoHiveMetastoreAuthentication()).create(address, token);
+        return new HiveMetastoreClientFactory(metastoreClientConfig, new NoHiveMetastoreAuthentication(), hiveCommonClientConfig).create(address, token);
     }
 
     @Override

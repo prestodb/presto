@@ -65,6 +65,6 @@ public class TestIcebergSmokeHive
                 new IcebergHiveTableOperationsConfig(),
                 new ManifestFileCache(CacheBuilder.newBuilder().build(), false, 0, 1024),
                 session,
-                SchemaTableName.valueOf(schema + "." + tableName), null);
+                SchemaTableName.valueOf(schema + "." + tableName));
     }
 }

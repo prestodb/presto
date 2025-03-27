@@ -81,7 +81,6 @@ public class InMemoryCachingHiveMetastore
 {
     private final ExtendedHiveMetastore delegate;
     private final LoadingCache<KeyAndContext<String>, Optional<Database>> databaseCache;
-    private final LoadingCache<KeyAndContext<String>, List<String>> catalogDatabaseNames;
     private final LoadingCache<KeyAndContext<String>, List<String>> databaseNamesCache;
     private final LoadingCache<KeyAndContext<HiveTableHandle>, Optional<Table>> tableCache;
     private final LoadingCache<KeyAndContext<String>, Optional<List<String>>> tableNamesCache;
@@ -217,10 +216,6 @@ public class InMemoryCachingHiveMetastore
             default:
                 throw new IllegalArgumentException("Unknown metastore-cache-scope: " + metastoreCacheScope);
         }
-
-        catalogDatabaseNames = newCacheBuilder(cacheExpiresAfterWriteMillis, cacheRefreshMills, cacheMaxSize)
-                .build(asyncReloading(CacheLoader.from(this::loadDatabases), executor));
-
         databaseNamesCache = newCacheBuilder(cacheExpiresAfterWriteMillis, cacheRefreshMills, cacheMaxSize)
                 .build(asyncReloading(CacheLoader.from(this::loadAllDatabases), executor));
 
@@ -310,7 +305,6 @@ public class InMemoryCachingHiveMetastore
     @Override
     public void invalidateAll()
     {
-        catalogDatabaseNames.invalidateAll();
         databaseNamesCache.invalidateAll();
         tableNamesCache.invalidateAll();
         viewNamesCache.invalidateAll();
@@ -358,17 +352,6 @@ public class InMemoryCachingHiveMetastore
     private Optional<Database> loadDatabase(KeyAndContext<String> databaseName)
     {
         return delegate.getDatabase(databaseName.getContext(), databaseName.getKey());
-    }
-
-    @Override
-    public List<String> getDatabases(MetastoreContext metastoreContext, String pattern)
-    {
-        return get(catalogDatabaseNames, getCachingKey(metastoreContext, "*"));
-    }
-
-    private List<String> loadDatabases(KeyAndContext<String> pattern)
-    {
-        return delegate.getDatabases(pattern.getContext(), pattern.getKey());
     }
 
     @Override
@@ -827,13 +810,6 @@ public class InMemoryCachingHiveMetastore
                 databaseCache,
                 newMetastoreContext,
                 databaseKey -> databaseKey.getKey().equals(databaseName));
-
-        // Invalidate Database Names Cache
-        invalidateCacheForKey(
-                catalogDatabaseNames,
-                newMetastoreContext,
-                databaseKey -> databaseKey.getKey().equals(databaseName));
-
         // Invalidate Database Names Cache
         invalidateCacheForKey(databaseNamesCache, newMetastoreContext, databaseNamesKey -> true);
 

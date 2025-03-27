@@ -16,7 +16,6 @@ package com.facebook.presto.iceberg;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.HdfsEnvironment;
-import com.facebook.presto.hive.HiveCommonClientConfig;
 import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.iceberg.statistics.StatisticsFileCache;
@@ -42,7 +41,6 @@ public class IcebergHiveMetadataFactory
     final FilterStatsCalculatorService filterStatsCalculatorService;
     final IcebergHiveTableOperationsConfig operationsConfig;
     final StatisticsFileCache statisticsFileCache;
-    final String catalogName;
     final ManifestFileCache manifestFileCache;
     final IcebergTableProperties tableProperties;
 
@@ -58,7 +56,6 @@ public class IcebergHiveMetadataFactory
             FilterStatsCalculatorService filterStatsCalculatorService,
             IcebergHiveTableOperationsConfig operationsConfig,
             StatisticsFileCache statisticsFileCache,
-            HiveCommonClientConfig commonConfig,
             ManifestFileCache manifestFileCache,
             IcebergTableProperties tableProperties)
     {
@@ -72,8 +69,6 @@ public class IcebergHiveMetadataFactory
         this.filterStatsCalculatorService = requireNonNull(filterStatsCalculatorService, "filterStatsCalculatorService is null");
         this.operationsConfig = requireNonNull(operationsConfig, "operationsConfig is null");
         this.statisticsFileCache = requireNonNull(statisticsFileCache, "statisticsFileCache is null");
-        requireNonNull(commonConfig, "config is null");
-        this.catalogName = commonConfig.getCatalogName();
         this.manifestFileCache = requireNonNull(manifestFileCache, "manifestFileCache is null");
         this.tableProperties = requireNonNull(tableProperties, "icebergTableProperties is null");
     }
@@ -91,7 +86,6 @@ public class IcebergHiveMetadataFactory
                 filterStatsCalculatorService,
                 operationsConfig,
                 statisticsFileCache,
-                catalogName,
                 manifestFileCache,
                 tableProperties);
     }

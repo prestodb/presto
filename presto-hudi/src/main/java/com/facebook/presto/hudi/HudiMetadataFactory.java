@@ -16,7 +16,6 @@ package com.facebook.presto.hudi;
 
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.HdfsEnvironment;
-import com.facebook.presto.hive.HiveCommonClientConfig;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore;
@@ -34,14 +33,13 @@ public class HudiMetadataFactory
     private final long perTransactionCacheMaximumSize;
     private final boolean metastoreImpersonationEnabled;
     private final int metastorePartitionCacheMaxColumnCount;
-    private final String catalogName;
 
     @Inject
     public HudiMetadataFactory(
             ExtendedHiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
-            MetastoreClientConfig metastoreClientConfig, HiveCommonClientConfig commonConfig)
+            MetastoreClientConfig metastoreClientConfig)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -49,7 +47,6 @@ public class HudiMetadataFactory
         this.perTransactionCacheMaximumSize = metastoreClientConfig.getPerTransactionMetastoreCacheMaximumSize();
         this.metastoreImpersonationEnabled = metastoreClientConfig.isMetastoreImpersonationEnabled();
         this.metastorePartitionCacheMaxColumnCount = metastoreClientConfig.getPartitionCacheColumnCountLimit();
-        this.catalogName = commonConfig.getCatalogName();
     }
 
     public ConnectorMetadata create()
@@ -57,7 +54,6 @@ public class HudiMetadataFactory
         return new HudiMetadata(
                 InMemoryCachingHiveMetastore.memoizeMetastore(metastore, metastoreImpersonationEnabled, perTransactionCacheMaximumSize, metastorePartitionCacheMaxColumnCount),
                 hdfsEnvironment,
-                typeManager,
-                catalogName);
+                typeManager);
     }
 }

@@ -34,11 +34,6 @@ import java.util.function.Function;
 
 public interface ExtendedHiveMetastore
 {
-    default List<String> getDatabases(MetastoreContext metastoreContext, String pattern)
-    {
-        return ImmutableList.of();
-    }
-
     Optional<Database> getDatabase(MetastoreContext metastoreContext, String databaseName);
 
     List<String> getAllDatabases(MetastoreContext metastoreContext);

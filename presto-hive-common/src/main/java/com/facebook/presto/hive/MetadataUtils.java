@@ -53,6 +53,7 @@ public final class MetadataUtils
 {
     private static final CharSequence CATALOG_DB_SEPARATOR = "#";
     private static final Object CATALOG_DB_THRIFT_NAME_MARKER = "@";
+    private static final String DB_EMPTY_MARKER = "!";
     private static final String DEFAULT_DATABASE = "default";
     private MetadataUtils() {}
 
@@ -169,14 +170,18 @@ public final class MetadataUtils
      */
     public static String constructSchemaName(Optional<String> catalogName, @Nullable String schemaName)
     {
-        if (catalogName.isPresent() && schemaName != null && !schemaName.equals(DEFAULT_DATABASE) && !schemaName.contains(CATALOG_DB_SEPARATOR)) {
-            return String.format(
-                    "%s%s%s%s",
-                    CATALOG_DB_THRIFT_NAME_MARKER,
-                    catalogName.get(),
-                    CATALOG_DB_SEPARATOR,
-                    schemaName);
+        if (!catalogName.isPresent() || DEFAULT_DATABASE.equals(schemaName) ||
+                (schemaName != null && schemaName.contains(CATALOG_DB_SEPARATOR))) {
+            return schemaName;
         }
-        return schemaName;
+
+        StringBuilder catalogDatabaseName = new StringBuilder()
+                .append(CATALOG_DB_THRIFT_NAME_MARKER)
+                .append(catalogName.get()) // Safe since we checked isPresent()
+                .append(CATALOG_DB_SEPARATOR);
+
+        catalogDatabaseName.append(schemaName == null ? "" : schemaName.isEmpty() ? DB_EMPTY_MARKER : schemaName);
+
+        return catalogDatabaseName.toString();
     }
 }

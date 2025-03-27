@@ -71,7 +71,6 @@ public class TestRemoveOrphanFilesProcedureHive
                 getHdfsEnvironment(),
                 hdfsContext,
                 new IcebergHiveTableOperationsConfig(),
-                null,
                 new ManifestFileCache(CacheBuilder.newBuilder().build(), false, 0, 1024),
                 "tpch",
                 tableName,
@@ -97,7 +96,7 @@ public class TestRemoveOrphanFilesProcedureHive
                 new IcebergHiveTableOperationsConfig(),
                 new ManifestFileCache(CacheBuilder.newBuilder().build(), false, 0, 1024),
                 getQueryRunner().getDefaultSession().toConnectorSession(connectorId),
-                SchemaTableName.valueOf("tpch." + tableName), null);
+                SchemaTableName.valueOf("tpch." + tableName));
     }
 
     @Override
