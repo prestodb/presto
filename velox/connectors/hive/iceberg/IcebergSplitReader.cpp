@@ -51,8 +51,7 @@ IcebergSplitReader::IcebergSplitReader(
           scanSpec),
       baseReadOffset_(0),
       splitOffset_(0),
-      deleteBitmap_(nullptr),
-      deleteBitmapBitOffset_(0) {}
+      deleteBitmap_(nullptr) {}
 
 void IcebergSplitReader::prepareSplit(
     std::shared_ptr<common::MetadataFilter> metadataFilter,
@@ -105,39 +104,25 @@ uint64_t IcebergSplitReader::next(uint64_t size, VectorPtr& output) {
   mutation.randomSkip = baseReaderOpts_.randomSkip().get();
   mutation.deletedRows = nullptr;
 
-  if (deleteBitmap_ && deleteBitmapBitOffset_ > 0) {
-    // There are unconsumed bits from last batch
-    if (deleteBitmapBitOffset_ < deleteBitmap_->size() * 8) {
-      bits::copyBits(
-          deleteBitmap_->as<uint64_t>(),
-          deleteBitmapBitOffset_,
-          deleteBitmap_->asMutable<uint64_t>(),
-          0,
-          deleteBitmap_->size() * 8 - deleteBitmapBitOffset_);
+  if (deleteBitmap_) {
+    std::memset(
+        (void*)(deleteBitmap_->asMutable<int8_t>()), 0L, deleteBitmap_->size());
+  }
 
-      uint64_t newBitMapSizeInBytes =
-          deleteBitmap_->size() - deleteBitmapBitOffset_ / 8;
-      if (deleteBitmapBitOffset_ % 8 != 0) {
-        newBitMapSizeInBytes--;
-      }
-      deleteBitmap_->setSize(newBitMapSizeInBytes);
-    } else {
-      // All bits were consumed, reset to 0 for all bits
-      std::memset(
-          (void*)(deleteBitmap_->asMutable<int8_t>()),
-          0L,
-          deleteBitmap_->size());
-    }
+  const auto actualSize = baseRowReader_->nextReadSize(size);
+
+  if (actualSize == dwio::common::RowReader::kAtEnd) {
+    return 0;
   }
 
   if (!positionalDeleteFileReaders_.empty()) {
-    auto numBytes = bits::nbytes(size);
+    auto numBytes = bits::nbytes(actualSize);
     dwio::common::ensureCapacity<int8_t>(
-        deleteBitmap_, numBytes, connectorQueryCtx_->memoryPool(), true, true);
+        deleteBitmap_, numBytes, connectorQueryCtx_->memoryPool(), false, true);
 
     for (auto iter = positionalDeleteFileReaders_.begin();
          iter != positionalDeleteFileReaders_.end();) {
-      (*iter)->readDeletePositions(baseReadOffset_, size, deleteBitmap_);
+      (*iter)->readDeletePositions(baseReadOffset_, actualSize, deleteBitmap_);
 
       if ((*iter)->noMoreData()) {
         iter = positionalDeleteFileReaders_.erase(iter);
@@ -151,9 +136,8 @@ uint64_t IcebergSplitReader::next(uint64_t size, VectorPtr& output) {
       ? deleteBitmap_->as<uint64_t>()
       : nullptr;
 
-  auto rowsScanned = baseRowReader_->next(size, output, &mutation);
+  auto rowsScanned = baseRowReader_->next(actualSize, output, &mutation);
   baseReadOffset_ += rowsScanned;
-  deleteBitmapBitOffset_ = rowsScanned;
 
   return rowsScanned;
 }
