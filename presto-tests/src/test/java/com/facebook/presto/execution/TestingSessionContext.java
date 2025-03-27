@@ -165,4 +165,10 @@ public class TestingSessionContext
     {
         return session.getRuntimeStats();
     }
+
+    @Override
+    public Map<String,String> getAccessControlResultsHash()
+    {
+        return session.getAccessControlResultsHash();
+    }
 }

@@ -34,6 +34,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -339,6 +340,7 @@ public final class SessionRepresentation
                 // we use NOOP to create a session from the representation as worker does not require warning collectors
                 WarningCollector.NOOP,
                 new RuntimeStats(),
-                Optional.empty());
+                Optional.empty(),
+                new HashMap<>());
     }
 }

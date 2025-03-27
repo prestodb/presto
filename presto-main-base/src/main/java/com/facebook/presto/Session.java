@@ -135,7 +135,8 @@ public final class Session
             Optional<Tracer> tracer,
             WarningCollector warningCollector,
             RuntimeStats runtimeStats,
-            Optional<QueryType> queryType)
+            Optional<QueryType> queryType,
+            Map<String,String> accessControlResultsHash)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
@@ -177,7 +178,7 @@ public final class Session
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
         this.queryType = requireNonNull(queryType, "queryType is null");
-        this.context = new AccessControlContext(queryId, clientInfo, clientTags, source, warningCollector, runtimeStats, queryType, catalog, schema);
+        this.context = new AccessControlContext(queryId, clientInfo, clientTags, source, warningCollector, runtimeStats, queryType, catalog, schema, accessControlResultsHash);
     }
 
     public QueryId getQueryId()
@@ -323,6 +324,11 @@ public final class Session
         return runtimeStats;
     }
 
+    public Map<String,String> getAccessControlResultsHash()
+    {
+        return context.getAccessControlResultsHash();
+    }
+
     public Optional<Tracer> getTracer()
     {
         return tracer;
@@ -458,7 +464,9 @@ public final class Session
                 tracer,
                 warningCollector,
                 runtimeStats,
-                queryType);
+                queryType,
+                context.getAccessControlResultsHash()
+                );
     }
 
     public ConnectorSession toConnectorSession()
@@ -589,6 +597,7 @@ public final class Session
         private Optional<QueryType> queryType = Optional.empty();
         private WarningCollector warningCollector = WarningCollector.NOOP;
         private RuntimeStats runtimeStats = new RuntimeStats();
+        private Map<String, String> accessControlResultsHash = new HashMap<>();
 
         private SessionBuilder(SessionPropertyManager sessionPropertyManager)
         {
@@ -864,7 +873,8 @@ public final class Session
                     tracer,
                     warningCollector,
                     runtimeStats,
-                    queryType);
+                    queryType,
+                    accessControlResultsHash);
         }
 
         public void applyDefaultProperties(SystemSessionPropertyConfiguration systemPropertyConfiguration, Map<String, Map<String, String>> catalogPropertyDefaults)

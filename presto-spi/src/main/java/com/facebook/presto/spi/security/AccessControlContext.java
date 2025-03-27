@@ -18,6 +18,8 @@ import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.WarningCollector;
 
+import java.util.Collections;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -35,6 +37,7 @@ public class AccessControlContext
     private final Optional<QueryType> queryType;
     private final Optional<String> catalog;
     private final Optional<String> schema;
+    private final Map<String, String> accessControlResultsHash;
 
     public AccessControlContext(
             QueryId queryId,
@@ -45,7 +48,8 @@ public class AccessControlContext
             RuntimeStats runtimeStats,
             Optional<QueryType> queryType,
             Optional<String> catalog,
-            Optional<String> schema)
+            Optional<String> schema,
+            Map<String, String> accessControlResultsHash)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
@@ -56,6 +60,7 @@ public class AccessControlContext
         this.queryType = requireNonNull(queryType, "queryType is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
+        this.accessControlResultsHash = accessControlResultsHash;
     }
 
     public QueryId getQueryId()
@@ -126,5 +131,15 @@ public class AccessControlContext
                 Objects.equals(this.queryType, other.queryType) &&
                 Objects.equals(this.catalog, other.catalog) &&
                 Objects.equals(this.schema, other.schema);
+    }
+
+    public Map<String, String> getAccessControlResultsHash()
+    {
+        return Collections.unmodifiableMap(accessControlResultsHash);
+    }
+
+    public void logToAccessControlResultsHash(String message, String value)
+    {
+        accessControlResultsHash.put(message, value);
     }
 }

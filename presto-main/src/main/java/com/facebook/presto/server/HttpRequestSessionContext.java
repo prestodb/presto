@@ -126,6 +126,7 @@ public final class HttpRequestSessionContext
     private final Optional<SessionPropertyManager> sessionPropertyManager;
     private final Optional<Tracer> tracer;
     private final RuntimeStats runtimeStats = new RuntimeStats();
+    private final Map<String, String> accessControlResultsHash = new HashMap<>();
 
     public HttpRequestSessionContext(HttpServletRequest servletRequest, SqlParserOptions sqlParserOptions)
     {
@@ -532,6 +533,12 @@ public final class HttpRequestSessionContext
     public RuntimeStats getRuntimeStats()
     {
         return runtimeStats;
+    }
+
+    @Override
+    public Map<String, String> getAccessControlResultsHash()
+    {
+        return accessControlResultsHash;
     }
 
     /**

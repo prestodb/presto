@@ -49,7 +49,8 @@ public class AccessControlUtils
                             sessionContext.getRuntimeStats(),
                             Optional.empty(),
                             Optional.ofNullable(sessionContext.getCatalog()),
-                            Optional.ofNullable(sessionContext.getSchema())),
+                            Optional.ofNullable(sessionContext.getSchema()),
+                            sessionContext.getAccessControlResultsHash()),
                     identity.getPrincipal(),
                     identity.getUser());
         }
@@ -77,7 +78,8 @@ public class AccessControlUtils
                             sessionContext.getRuntimeStats(),
                             Optional.empty(),
                             Optional.ofNullable(sessionContext.getCatalog()),
-                            Optional.ofNullable(sessionContext.getSchema())),
+                            Optional.ofNullable(sessionContext.getSchema()),
+                            sessionContext.getAccessControlResultsHash()),
                     identity.getUser(),
                     sessionContext.getCertificates());
             return Optional.of(authorizedIdentity);

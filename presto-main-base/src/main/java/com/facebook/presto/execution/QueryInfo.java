@@ -104,6 +104,7 @@ public class QueryInfo
     private final List<CanonicalPlanWithInfo> planCanonicalInfo;
     private Map<PlanNodeId, PlanNode> planIdNodeMap;
     private final Optional<PrestoSparkExecutionContext> prestoSparkExecutionContext;
+    private Map<String, String> accessControlResultsHash;
 
     @JsonCreator
     public QueryInfo(
@@ -149,7 +150,8 @@ public class QueryInfo
             @JsonProperty("windowFunctions") Set<String> windowFunctions,
             List<CanonicalPlanWithInfo> planCanonicalInfo,
             Map<PlanNodeId, PlanNode> planIdNodeMap,
-            @JsonProperty("prestoSparkExecutionContext") Optional<PrestoSparkExecutionContext> prestoSparkExecutionContext)
+            @JsonProperty("prestoSparkExecutionContext") Optional<PrestoSparkExecutionContext> prestoSparkExecutionContext,
+            @JsonProperty("accessControlResultsHash") Map<String, String> accessControlResultsHash)
     {
         requireNonNull(queryId, "queryId is null");
         requireNonNull(session, "session is null");
@@ -184,6 +186,7 @@ public class QueryInfo
         requireNonNull(aggregateFunctions, "aggregateFunctions is null");
         requireNonNull(windowFunctions, "windowFunctions is null");
         requireNonNull(prestoSparkExecutionContext, "prestoSparkExecutionContext is null");
+        requireNonNull(accessControlResultsHash, "accessControlResultsHash is null");
 
         this.queryId = queryId;
         this.session = session;
@@ -233,6 +236,7 @@ public class QueryInfo
         this.planCanonicalInfo = planCanonicalInfo == null ? ImmutableList.of() : planCanonicalInfo;
         this.planIdNodeMap = planIdNodeMap == null ? ImmutableMap.of() : ImmutableMap.copyOf(planIdNodeMap);
         this.prestoSparkExecutionContext = prestoSparkExecutionContext;
+        this.accessControlResultsHash = accessControlResultsHash;
     }
 
     @JsonProperty
@@ -496,6 +500,9 @@ public class QueryInfo
     {
         return prestoSparkExecutionContext;
     }
+
+    @JsonProperty
+    public Map<String, String> getAccessControlResultsHash() { return accessControlResultsHash; }
 
     // Don't serialize this field because it can be big
     public List<CanonicalPlanWithInfo> getPlanCanonicalInfo()

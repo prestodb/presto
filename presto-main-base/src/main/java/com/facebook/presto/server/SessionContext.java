@@ -89,4 +89,6 @@ public interface SessionContext
     Map<SqlFunctionId, SqlInvokedFunction> getSessionFunctions();
 
     RuntimeStats getRuntimeStats();
+
+    Map<String, String> getAccessControlResultsHash();
 }
