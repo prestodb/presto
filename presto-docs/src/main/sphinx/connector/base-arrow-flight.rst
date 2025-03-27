@@ -93,3 +93,8 @@ Flight Connector Limitations
 * The Flight connector can query against only those datasources which are supported by the Flight server.
 
 * The Flight server must be running for the Flight connector to work.
+
+Presto C++ Support
+------------------
+
+Presto C++ must be built to enable Arrow Flight connector support. See `Arrow Flight Connector <https://github.com/prestodb/presto/blob/master/presto-native-execution/README.md#arrow-flight-connector>`_.
