@@ -624,6 +624,11 @@ void registerHistogramAggregate(
           case TypeKind::ROW:
             return std::make_unique<HistogramAggregate<ComplexType>>(
                 resultType);
+          case TypeKind::HUGEINT:
+            if (inputType->isLongDecimal()) {
+              return std::make_unique<HistogramAggregate<int128_t>>(resultType);
+            }
+            [[fallthrough]];
           case TypeKind::UNKNOWN:
             return std::make_unique<HistogramAggregate<int8_t>>(resultType);
           default:
