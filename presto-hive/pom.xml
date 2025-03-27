@@ -14,6 +14,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <air.test.jvmsize>5g</air.test.jvmsize>
     </properties>
 
     <dependencies>
@@ -636,9 +637,6 @@
         </profile>
         <profile>
             <id>test-hive-pushdown-filter-queries-basic</id>
-            <properties>
-                <air.test.jvmsize>5g</air.test.jvmsize>
-            </properties>
             <build>
                 <plugins>
                     <plugin>
