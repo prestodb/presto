@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spiller;
 
+import com.facebook.presto.CompressionCodec;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.BlockEncodingManager;
@@ -28,6 +29,7 @@ import com.google.common.io.Files;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.slice.InputStreamSliceInput;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -65,36 +67,35 @@ public class TestFileSingleStreamSpiller
         deleteRecursively(tempDirectory.toPath(), ALLOW_INSECURE);
     }
 
-    @Test
-    public void testSpill()
-            throws Exception
+    @DataProvider(name = "testCompressionCodec")
+    public Object[][] createTestCompressionCodec()
     {
-        assertSpill(false, false);
+        return new Object[][] {
+                {CompressionCodec.GZIP},
+                {CompressionCodec.LZ4},
+                {CompressionCodec.LZO},
+                {CompressionCodec.SNAPPY},
+                {CompressionCodec.ZLIB},
+                {CompressionCodec.ZSTD},
+                {CompressionCodec.NONE}
+        };
     }
 
-    @Test
-    public void testSpillCompression()
+    @Test(dataProvider = "testCompressionCodec")
+    public void testSpillCompression(CompressionCodec codec)
             throws Exception
     {
-        assertSpill(true, false);
+        assertSpill(codec, false);
     }
 
-    @Test
-    public void testSpillEncryption()
+    @Test(dataProvider = "testCompressionCodec")
+    public void testSpillEncryptionWithCompression(CompressionCodec codec)
             throws Exception
     {
-        // Both with compression enabled and disabled
-        assertSpill(false, true);
+        assertSpill(codec, true);
     }
 
-    @Test
-    public void testSpillEncryptionWithCompression()
-            throws Exception
-    {
-        assertSpill(true, true);
-    }
-
-    private void assertSpill(boolean compression, boolean encryption)
+    private void assertSpill(CompressionCodec compressionCodec, boolean encryption)
             throws Exception
     {
         File spillPath = new File(tempDirectory, UUID.randomUUID().toString());
@@ -104,7 +105,7 @@ public class TestFileSingleStreamSpiller
                 new SpillerStats(),
                 ImmutableList.of(spillPath.toPath()),
                 1.0,
-                compression,
+                compressionCodec,
                 encryption);
         LocalMemoryContext memoryContext = newSimpleAggregatedMemoryContext().newLocalMemoryContext("test");
         SingleStreamSpiller singleStreamSpiller = spillerFactory.create(TYPES, new TestingSpillContext(), memoryContext);
@@ -124,7 +125,7 @@ public class TestFileSingleStreamSpiller
             Iterator<SerializedPage> serializedPages = PagesSerdeUtil.readSerializedPages(new InputStreamSliceInput(is));
             assertTrue(serializedPages.hasNext(), "at least one page should be successfully read back");
             byte markers = serializedPages.next().getPageCodecMarkers();
-            assertEquals(PageCodecMarker.COMPRESSED.isSet(markers), compression);
+            assertEquals(PageCodecMarker.COMPRESSED.isSet(markers), compressionCodec != CompressionCodec.NONE);
             assertEquals(PageCodecMarker.ENCRYPTED.isSet(markers), encryption);
         }
 

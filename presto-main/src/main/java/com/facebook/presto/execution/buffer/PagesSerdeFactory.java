@@ -13,36 +13,41 @@
  */
 package com.facebook.presto.execution.buffer;
 
+import com.facebook.presto.CompressionCodec;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.spi.page.PageCompressor;
 import com.facebook.presto.spi.page.PageDecompressor;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.spiller.SpillCipher;
-import io.airlift.compress.Compressor;
-import io.airlift.compress.Decompressor;
 import io.airlift.compress.lz4.Lz4Compressor;
 import io.airlift.compress.lz4.Lz4Decompressor;
+import io.airlift.compress.lzo.LzoCompressor;
+import io.airlift.compress.lzo.LzoDecompressor;
+import io.airlift.compress.snappy.SnappyCompressor;
+import io.airlift.compress.snappy.SnappyDecompressor;
+import io.airlift.compress.zstd.ZstdCompressor;
+import io.airlift.compress.zstd.ZstdDecompressor;
 
-import java.nio.ByteBuffer;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static java.util.Objects.requireNonNull;
 
 public class PagesSerdeFactory
 {
     private final BlockEncodingSerde blockEncodingSerde;
-    private final boolean compressionEnabled;
+    private final CompressionCodec compressionCodec;
     private final boolean checksumEnabled;
 
-    public PagesSerdeFactory(BlockEncodingSerde blockEncodingSerde, boolean compressionEnabled)
+    public PagesSerdeFactory(BlockEncodingSerde blockEncodingSerde, CompressionCodec compressionCodec)
     {
-        this(blockEncodingSerde, compressionEnabled, false);
+        this(blockEncodingSerde, compressionCodec, false);
     }
 
-    public PagesSerdeFactory(BlockEncodingSerde blockEncodingSerde, boolean compressionEnabled, boolean checksumEnabled)
+    public PagesSerdeFactory(BlockEncodingSerde blockEncodingSerde, CompressionCodec compressionCodec, boolean checksumEnabled)
     {
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
-        this.compressionEnabled = compressionEnabled;
+        this.compressionCodec = requireNonNull(compressionCodec, "compressionCodec is null");
         this.checksumEnabled = checksumEnabled;
     }
 
@@ -58,60 +63,48 @@ public class PagesSerdeFactory
 
     private PagesSerde createPagesSerdeInternal(Optional<SpillCipher> spillCipher)
     {
-        if (compressionEnabled) {
-            return new PagesSerde(
-                    blockEncodingSerde,
-                    Optional.of(new PageCompressor()
-                    {
-                        Compressor compressor = new Lz4Compressor();
-                        @Override
-                        public int maxCompressedLength(int uncompressedSize)
-                        {
-                            return compressor.maxCompressedLength(uncompressedSize);
-                        }
+        return new PagesSerde(blockEncodingSerde, getPageCompressor(), getPageDecompressor(), spillCipher, checksumEnabled);
+    }
 
-                        @Override
-                        public int compress(
-                                byte[] input,
-                                int inputOffset,
-                                int inputLength,
-                                byte[] output,
-                                int outputOffset,
-                                int maxOutputLength)
-                        {
-                            return compressor.compress(input, inputOffset, inputLength, output, outputOffset, maxOutputLength);
-                        }
-
-                        @Override
-                        public void compress(ByteBuffer input, ByteBuffer output)
-                        {
-                            compressor.compress(input, output);
-                        }
-                    }),
-                    Optional.of(new PageDecompressor()
-                    {
-                        Decompressor decompressor = new Lz4Decompressor();
-                        @Override
-                        public int decompress(
-                                byte[] input,
-                                int inputOffset,
-                                int inputLength,
-                                byte[] output,
-                                int outputOffset,
-                                int maxOutputLength)
-                        {
-                            return decompressor.decompress(input, inputOffset, inputLength, output, outputOffset, maxOutputLength);
-                        }
-
-                        @Override
-                        public void decompress(ByteBuffer input, ByteBuffer output)
-                        {
-                            decompressor.decompress(input, output);
-                        }
-                    }),
-                    spillCipher, checksumEnabled);
+    private Optional<PageCompressor> getPageCompressor()
+    {
+        switch (compressionCodec) {
+            case GZIP:
+                return Optional.of(new AirliftCompressorAdapter(new GzipCompressor()));
+            case LZ4:
+                return Optional.of(new AirliftCompressorAdapter(new Lz4Compressor()));
+            case LZO:
+                return Optional.of(new AirliftCompressorAdapter(new LzoCompressor()));
+            case SNAPPY:
+                return Optional.of(new AirliftCompressorAdapter(new SnappyCompressor()));
+            case ZLIB:
+                return Optional.of(new AirliftCompressorAdapter(new ZlibCompressor(OptionalInt.empty())));
+            case ZSTD:
+                return Optional.of(new AirliftCompressorAdapter(new ZstdCompressor()));
+            case NONE:
+            default:
+                return Optional.empty();
         }
+    }
 
-        return new PagesSerde(blockEncodingSerde, Optional.empty(), Optional.empty(), spillCipher, checksumEnabled);
+    private Optional<PageDecompressor> getPageDecompressor()
+    {
+        switch (compressionCodec) {
+            case GZIP:
+                return Optional.of(new AirliftDecompressorAdapter(new GzipDecompressor()));
+            case LZ4:
+                return Optional.of(new AirliftDecompressorAdapter(new Lz4Decompressor()));
+            case LZO:
+                return Optional.of(new AirliftDecompressorAdapter(new LzoDecompressor()));
+            case SNAPPY:
+                return Optional.of(new AirliftDecompressorAdapter(new SnappyDecompressor()));
+            case ZLIB:
+                return Optional.of(new AirliftDecompressorAdapter(new ZlibDecompressor()));
+            case ZSTD:
+                return Optional.of(new AirliftDecompressorAdapter(new ZstdDecompressor()));
+            case NONE:
+            default:
+                return Optional.empty();
+        }
     }
 }

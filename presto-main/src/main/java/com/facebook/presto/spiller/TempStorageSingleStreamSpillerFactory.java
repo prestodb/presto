@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spiller;
 
+import com.facebook.presto.CompressionCodec;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
@@ -61,7 +62,7 @@ public class TempStorageSingleStreamSpillerFactory
                         daemonThreadsNamed("binary-spiller-%s"))),
                 blockEncodingSerde,
                 spillerStats,
-                requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").isSpillCompressionEnabled(),
+                requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").getSpillCompressionCodec(),
                 requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").isSpillEncryptionEnabled(),
                 requireNonNull(featuresConfig, "featuresConfig is null").getSpillerTempStorage());
     }
@@ -72,7 +73,7 @@ public class TempStorageSingleStreamSpillerFactory
             ListeningExecutorService executor,
             BlockEncodingSerde blockEncodingSerde,
             SpillerStats spillerStats,
-            boolean spillCompressionEnabled,
+            CompressionCodec spillCompressionEnabled,
             boolean spillEncryptionEnabled,
             String tempStorageName)
     {

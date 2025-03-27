@@ -14,6 +14,7 @@
 package com.facebook.presto.spiller;
 
 import com.facebook.airlift.configuration.testing.ConfigAssertions;
+import com.facebook.presto.CompressionCodec;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
@@ -35,7 +36,7 @@ public class TestNodeSpillConfig
                 .setMaxSpillPerNode(new DataSize(100, GIGABYTE))
                 .setMaxRevocableMemoryPerNode(new DataSize(16, GIGABYTE))
                 .setQueryMaxSpillPerNode(new DataSize(100, GIGABYTE))
-                .setSpillCompressionEnabled(false)
+                .setSpillCompressionCodec(CompressionCodec.NONE)
                 .setSpillEncryptionEnabled(false)
                 .setTempStorageBufferSize(new DataSize(4, KILOBYTE)));
     }
@@ -47,7 +48,7 @@ public class TestNodeSpillConfig
                 .put("experimental.max-spill-per-node", "10MB")
                 .put("experimental.max-revocable-memory-per-node", "24MB")
                 .put("experimental.query-max-spill-per-node", "15 MB")
-                .put("experimental.spill-compression-enabled", "true")
+                .put("experimental.spill-compression-codec", "LZ4")
                 .put("experimental.spill-encryption-enabled", "true")
                 .put("experimental.temp-storage-buffer-size", "24MB")
                 .build();
@@ -56,7 +57,7 @@ public class TestNodeSpillConfig
                 .setMaxSpillPerNode(new DataSize(10, MEGABYTE))
                 .setMaxRevocableMemoryPerNode(new DataSize(24, MEGABYTE))
                 .setQueryMaxSpillPerNode(new DataSize(15, MEGABYTE))
-                .setSpillCompressionEnabled(true)
+                .setSpillCompressionCodec(CompressionCodec.LZ4)
                 .setSpillEncryptionEnabled(true)
                 .setTempStorageBufferSize(new DataSize(24, MEGABYTE));
 

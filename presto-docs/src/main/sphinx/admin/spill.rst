@@ -93,10 +93,10 @@ there is no need to use RAID for spill.
 Spill Compression
 -----------------
 
-When spill compression is enabled (``spill-compression-enabled`` property in
-:ref:`tuning-spilling`), spilled pages will be compressed using the same
-implementation as exchange compression when they are sufficiently compressible.
-Enabling this feature can reduce the amount of disk IO at the cost
+When :ref:`admin/properties:\`\`experimental.spill-compression-codec\`\`` is 
+configured, spilled pages are compressed using 
+the configured codec implementation when they are sufficiently compressible.
+This feature can reduce the amount of disk IO at the cost
 of extra CPU load to compress and decompress spilled pages.
 
 Spill Encryption
