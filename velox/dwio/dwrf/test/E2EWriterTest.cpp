@@ -113,8 +113,8 @@ class E2EWriterTest : public testing::Test {
     for (int32_t i = 0; i < reader->getNumberOfStripes(); ++i) {
       auto stripeMetadata = dwrfRowReader->fetchStripe(i, preload);
       auto& footer = *stripeMetadata->footer;
-      for (int32_t j = 0; j < footer.encoding_size(); ++j) {
-        auto encoding = footer.encoding(j);
+      for (int32_t j = 0; j < footer.columnEncodingSize(); ++j) {
+        auto encoding = footer.columnEncodingDwrf(j);
         if (encoding.kind() ==
             dwrf::proto::ColumnEncoding_Kind::ColumnEncoding_Kind_MAP_FLAT) {
           actualNodeIds.insert(encoding.node());
@@ -575,8 +575,8 @@ TEST_F(E2EWriterTest, PresentStreamIsSuppressedOnFlatMap) {
   for (int i = 0; i < reader->getNumberOfStripes(); ++i) {
     auto stripeMetadata = dwrfRowReader->fetchStripe(i, preload);
     auto& footer = *stripeMetadata->footer;
-    for (int j = 0; j < footer.streams_size(); ++j) {
-      auto stream = footer.streams(j);
+    for (int j = 0; j < footer.streamsSize(); ++j) {
+      auto stream = footer.streamDwrf(j);
       ASSERT_NE(stream.kind(), dwrf::proto::Stream_Kind::Stream_Kind_PRESENT);
     }
   }
@@ -1227,9 +1227,9 @@ TEST_F(E2EEncryptionTest, EncryptRoot) {
   for (int32_t i = 0; i < reader->getNumberOfStripes(); ++i) {
     auto stripeMetadata = dwrfRowReader->fetchStripe(i, preload);
     auto& sf = *stripeMetadata->footer;
-    ASSERT_EQ(sf.encoding_size(), 0);
-    ASSERT_EQ(sf.streams_size(), 0);
-    ASSERT_EQ(sf.encryptiongroups_size(), 1);
+    ASSERT_EQ(sf.columnEncodingSize(), 0);
+    ASSERT_EQ(sf.streamsSize(), 0);
+    ASSERT_EQ(sf.encryptiongroupsSize(), 1);
   }
 
   validateFileContent(*reader);
@@ -1308,10 +1308,10 @@ TEST_F(E2EEncryptionTest, EncryptSelectedFields) {
   for (int32_t i = 0; i < reader->getNumberOfStripes(); ++i) {
     auto stripeMetadata = dwrfRowReader->fetchStripe(i, preload);
     auto& sf = *stripeMetadata->footer;
-    for (auto& enc : sf.encoding()) {
+    for (const auto& enc : sf.columnEncodingsDwrf()) {
       ASSERT_TRUE(encryptedNodes.find(enc.node()) == encryptedNodes.end());
     }
-    for (auto& stream : sf.streams()) {
+    for (const auto& stream : sf.streamsDwrf()) {
       ASSERT_TRUE(encryptedNodes.find(stream.node()) == encryptedNodes.end());
     }
   }

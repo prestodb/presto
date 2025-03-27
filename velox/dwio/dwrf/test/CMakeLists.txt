@@ -257,6 +257,12 @@ target_link_libraries(
   velox_dwio_dwrf_encryption_test velox_link_libs Folly::folly
   ${TEST_LINK_LIBS})
 
+add_executable(velox_filemetadata_test FileMetadataTest.cpp)
+add_test(velox_filemetadata_test velox_filemetadata_test)
+
+target_link_libraries(
+  velox_filemetadata_test velox_link_libs ${TEST_LINK_LIBS})
+
 add_executable(velox_dwio_dwrf_stripe_reader_base_test
                StripeReaderBaseTests.cpp)
 add_test(velox_dwio_dwrf_stripe_reader_base_test

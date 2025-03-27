@@ -67,14 +67,14 @@ namespace {
 void enqueueReads(
     BufferedInput& input,
     facebook::velox::dwrf::ReaderBase& readerBase,
-    const proto::StripeFooter& footer,
+    const StripeFooterWrapper& footer,
     const ColumnSelector& selector,
     uint64_t stripeStart,
     uint32_t stripeIndex) {
   auto& metadataCache = readerBase.metadataCache();
   uint64_t offset = stripeStart;
   uint64_t length = 0;
-  for (const auto& stream : footer.streams()) {
+  for (const auto& stream : footer.streamsDwrf()) {
     length = stream.length();
     // If index cache is available, there is no need to read it
     auto inMetaCache = metadataCache &&

@@ -257,7 +257,8 @@ class StripeStreamsImpl : public StripeStreamsBase {
       const EncodingKey& encodingKey) const override {
     auto index = encodings_.find(encodingKey);
     if (index != encodings_.end()) {
-      return readState_->stripeMetadata->footer->encoding(index->second);
+      return readState_->stripeMetadata->footer->columnEncodingDwrf(
+          index->second);
     }
     auto encodingKeyIt = decryptedEncodings_.find(encodingKey);
     VELOX_CHECK(

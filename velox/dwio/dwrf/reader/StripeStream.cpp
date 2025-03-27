@@ -176,14 +176,17 @@ void StripeStreamsImpl::loadStreams() {
     offset += stream.length();
   };
 
+  // TODO(kevinstichter) Remove once orc is enabled for our footer wrapper
+  VELOX_CHECK_EQ(stripeFooter.format(), DwrfFormat::kDwrf);
+
   uint64_t streamOffset{0};
-  for (auto& stream : stripeFooter.streams()) {
-    addStream(stream, streamOffset);
+  for (int i = 0; i < stripeFooter.streamsSize(); i++) {
+    addStream(stripeFooter.streamDwrf(i), streamOffset);
   }
 
   // update column encoding for each stream
-  for (uint32_t i = 0; i < stripeFooter.encoding_size(); ++i) {
-    const auto& e = stripeFooter.encoding(i);
+  for (uint32_t i = 0; i < stripeFooter.columnEncodingSize(); ++i) {
+    const auto& e = stripeFooter.columnEncodingDwrf(i);
     const auto node = e.has_node() ? e.node() : i;
     if (projectedNodes_->contains(node)) {
       encodings_[{node, e.has_sequence() ? e.sequence() : 0}] = i;
@@ -196,7 +199,7 @@ void StripeStreamsImpl::loadStreams() {
   if (decryptionHandler.isEncrypted()) {
     VELOX_CHECK_EQ(
         decryptionHandler.getEncryptionGroupCount(),
-        stripeFooter.encryptiongroups_size());
+        stripeFooter.encryptiongroupsSize());
     folly::F14FastSet<uint32_t> groupIndices;
     bits::forEachSetBit(
         projectedNodes_->bits(),
@@ -211,7 +214,7 @@ void StripeStreamsImpl::loadStreams() {
 
     // decrypt encryption groups
     for (auto index : groupIndices) {
-      const auto& group = stripeFooter.encryptiongroups(index);
+      const auto& group = stripeFooter.encryptiongroupsDwrf(index);
       const auto groupProto =
           readState_->readerBase
               ->readProtoFromString<proto::StripeEncryptionGroup>(

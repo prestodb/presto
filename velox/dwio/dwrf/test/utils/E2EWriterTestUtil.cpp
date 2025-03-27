@@ -129,8 +129,8 @@ namespace facebook::velox::dwrf {
     bool preload{false};
     auto stripeMetadata = dwrfRowReader->fetchStripe(i, preload);
     const auto& stripeFooter = *stripeMetadata->footer;
-    totalEncodingCount += stripeFooter.encoding_size();
-    for (const auto& encoding : stripeFooter.encoding()) {
+    totalEncodingCount += stripeFooter.columnEncodingSize();
+    for (const auto& encoding : stripeFooter.columnEncodingsDwrf()) {
       if (encoding.kind() == proto::ColumnEncoding_Kind_DICTIONARY) {
         ++dictEncodingCount;
       }

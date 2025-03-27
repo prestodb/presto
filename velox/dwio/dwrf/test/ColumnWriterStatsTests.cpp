@@ -84,7 +84,7 @@ void verifyStats(
   // Compute Node Size and verify the File Footer Node Size matches.
   auto& stripeFooter = *stripeMetadata->footer;
   std::unordered_map<uint32_t, uint64_t> nodeSizes;
-  for (auto&& ss : stripeFooter.streams()) {
+  for (auto&& ss : stripeFooter.streamsDwrf()) {
     nodeSizes[ss.node()] += ss.length();
   }
 

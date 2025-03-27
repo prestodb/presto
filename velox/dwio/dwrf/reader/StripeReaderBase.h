@@ -25,13 +25,36 @@ namespace facebook::velox::dwrf {
 
 struct StripeMetadata {
   dwio::common::BufferedInput* stripeInput;
-  std::shared_ptr<const proto::StripeFooter> footer;
+  std::shared_ptr<const StripeFooterWrapper> footer;
   std::unique_ptr<encryption::DecryptionHandler> decryptionHandler;
   StripeInformationWrapper stripeInfo;
 
   StripeMetadata(
       std::shared_ptr<dwio::common::BufferedInput> _stripeInput,
       std::shared_ptr<const proto::StripeFooter> _footer,
+      std::unique_ptr<encryption::DecryptionHandler> _decryptionHandler,
+      StripeInformationWrapper _stripeInfo)
+      : StripeMetadata(
+            std::move(_stripeInput),
+            std::make_shared<StripeFooterWrapper>(_footer),
+            std::move(_decryptionHandler),
+            _stripeInfo) {}
+
+  StripeMetadata(
+      dwio::common::BufferedInput* _stripeInput,
+      std::shared_ptr<const proto::StripeFooter> _footer,
+      std::unique_ptr<encryption::DecryptionHandler> _decryptionHandler,
+      StripeInformationWrapper _stripeInfo)
+      : StripeMetadata(
+            _stripeInput,
+            std::make_shared<StripeFooterWrapper>(_footer),
+            std::move(_decryptionHandler),
+            _stripeInfo) {}
+
+ private:
+  StripeMetadata(
+      std::shared_ptr<dwio::common::BufferedInput> _stripeInput,
+      std::shared_ptr<const StripeFooterWrapper> _footer,
       std::unique_ptr<encryption::DecryptionHandler> _decryptionHandler,
       StripeInformationWrapper _stripeInfo)
       : stripeInput{_stripeInput.get()},
@@ -42,15 +65,13 @@ struct StripeMetadata {
 
   StripeMetadata(
       dwio::common::BufferedInput* _stripeInput,
-      std::shared_ptr<const proto::StripeFooter> _footer,
+      std::shared_ptr<const StripeFooterWrapper> _footer,
       std::unique_ptr<encryption::DecryptionHandler> _decryptionHandler,
       StripeInformationWrapper _stripeInfo)
       : stripeInput{_stripeInput},
         footer{std::move(_footer)},
         decryptionHandler{std::move(_decryptionHandler)},
         stripeInfo{std::move(_stripeInfo)} {}
-
- private:
   const std::shared_ptr<dwio::common::BufferedInput> stripeInputOwned_;
 };
 

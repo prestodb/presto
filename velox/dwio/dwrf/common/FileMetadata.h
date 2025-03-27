@@ -828,6 +828,123 @@ class FooterWrapper : public ProtoWrapperBase {
   }
 };
 
+class StripeFooterWrapper : public ProtoWrapperBase {
+  // Supporting the two following proto definitions:
+  //  kOrc
+  //  message StripeFooter {
+  //    repeated Stream streams = 1;
+  //    repeated ColumnEncoding columns = 2;
+  //    optional string writerTimezone = 3;
+  //    repeated StripeEncryptionVariant encryption = 4;
+  //  }
+  //
+  //  kDwrf
+  //  message StripeFooter {
+  //    repeated Stream streams = 1;
+  //    repeated ColumnEncoding encoding = 2;
+  //    repeated bytes encryptionGroups = 3;
+  //  }
+
+ public:
+  explicit StripeFooterWrapper(
+      std::shared_ptr<const proto::StripeFooter> stripeFooter)
+      : ProtoWrapperBase(DwrfFormat::kDwrf, stripeFooter.get()),
+        dwrfStripeFooter_(std::move(stripeFooter)) {}
+
+  explicit StripeFooterWrapper(
+      std::shared_ptr<const proto::orc::StripeFooter> stripeFooter)
+      : ProtoWrapperBase(DwrfFormat::kOrc, stripeFooter.get()),
+        orcStripeFooter_(std::move(stripeFooter)) {}
+
+  const proto::StripeFooter& getStripeFooterDwrf() const {
+    VELOX_CHECK_EQ(format_, DwrfFormat::kDwrf);
+    VELOX_CHECK_NOT_NULL(rawProtoPtr());
+    return *reinterpret_cast<const proto::StripeFooter*>(rawProtoPtr());
+  }
+
+  const proto::orc::StripeFooter& getStripeFooterOrc() const {
+    VELOX_CHECK_EQ(format_, DwrfFormat::kOrc);
+    VELOX_CHECK_NOT_NULL(rawProtoPtr());
+    return *reinterpret_cast<const proto::orc::StripeFooter*>(rawProtoPtr());
+  }
+
+  int streamsSize() const {
+    return format_ == DwrfFormat::kDwrf ? dwrfPtr()->streams_size()
+                                        : orcPtr()->streams_size();
+  }
+
+  const proto::Stream& streamDwrf(int index) const {
+    VELOX_CHECK_EQ(format_, DwrfFormat::kDwrf);
+    return dwrfPtr()->streams(index);
+  }
+
+  const proto::orc::Stream& streamOrc(int index) const {
+    VELOX_CHECK_EQ(format_, DwrfFormat::kOrc);
+    return orcPtr()->streams(index);
+  }
+
+  const ::google::protobuf::RepeatedPtrField<proto::Stream>& streamsDwrf()
+      const {
+    VELOX_CHECK_EQ(format_, DwrfFormat::kDwrf);
+    return dwrfPtr()->streams();
+  }
+
+  const ::google::protobuf::RepeatedPtrField<proto::orc::Stream>& streamsOrc()
+      const {
+    VELOX_CHECK_EQ(format_, DwrfFormat::kOrc);
+    return orcPtr()->streams();
+  }
+
+  int columnEncodingSize() const {
+    return format_ == DwrfFormat::kDwrf ? dwrfPtr()->encoding_size()
+                                        : orcPtr()->columns_size();
+  }
+
+  const ::google::protobuf::RepeatedPtrField<proto::ColumnEncoding>&
+  columnEncodingsDwrf() const {
+    VELOX_CHECK_EQ(format_, DwrfFormat::kDwrf);
+    return dwrfPtr()->encoding();
+  }
+
+  const ::google::protobuf::RepeatedPtrField<proto::orc::ColumnEncoding>&
+  columnEncodingsOrc() const {
+    VELOX_CHECK_EQ(format_, DwrfFormat::kOrc);
+    return orcPtr()->columns();
+  }
+
+  const proto::ColumnEncoding& columnEncodingDwrf(int index) const {
+    VELOX_CHECK_EQ(format_, DwrfFormat::kDwrf);
+    return dwrfPtr()->encoding(index);
+  }
+
+  const proto::orc::ColumnEncoding& columnEncodingOrc(int index) const {
+    VELOX_CHECK_EQ(format_, DwrfFormat::kOrc);
+    return orcPtr()->columns(index);
+  }
+
+  int encryptiongroupsSize() const {
+    return format_ == DwrfFormat::kDwrf ? dwrfPtr()->encryptiongroups_size()
+                                        : 0;
+  }
+
+  const std::string& encryptiongroupsDwrf(int index) const {
+    VELOX_CHECK_EQ(format_, DwrfFormat::kDwrf);
+    return dwrfPtr()->encryptiongroups(index);
+  }
+
+ private:
+  // private helper with no format checking
+  inline const proto::StripeFooter* dwrfPtr() const {
+    return reinterpret_cast<const proto::StripeFooter*>(rawProtoPtr());
+  }
+  inline const proto::orc::StripeFooter* orcPtr() const {
+    return reinterpret_cast<const proto::orc::StripeFooter*>(rawProtoPtr());
+  }
+
+  std::shared_ptr<const proto::StripeFooter> dwrfStripeFooter_ = nullptr;
+  std::shared_ptr<const proto::orc::StripeFooter> orcStripeFooter_ = nullptr;
+};
+
 } // namespace facebook::velox::dwrf
 
 template <>
