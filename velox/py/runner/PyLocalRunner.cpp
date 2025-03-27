@@ -62,42 +62,47 @@ PyLocalRunner::PyLocalRunner(
       outputPool_(memory::memoryManager()->addLeafPool()),
       executor_(executor),
       planNode_(pyPlanNode.planNode()),
-      scanFiles_(pyPlanNode.scanFiles()) {
-  // TODO: Make these configurable.
-  std::unordered_map<std::string, std::string> configs = {
-      {"selective_nimble_reader_enabled", "true"}};
-
-  auto queryCtx = core::QueryCtx::create(
-      executor_.get(),
-      core::QueryConfig(configs),
-      {},
-      cache::AsyncDataCache::getInstance(),
-      rootPool_);
-
-  cursor_ = exec::TaskCursor::create({
-      .planNode = planNode_,
-      .queryCtx = queryCtx,
-      .outputPool = outputPool_,
-  });
-}
+      scanFiles_(pyPlanNode.scanFiles()),
+      queryConfigs_(pyPlanNode.queryConfigs()) {}
 
 void PyLocalRunner::addFileSplit(
     const PyFile& pyFile,
     const std::string& planId,
     const std::string& connectorId) {
-  auto split =
-      velox::exec::Split(std::make_shared<connector::hive::HiveConnectorSplit>(
+  scanFiles_[planId].emplace_back(
+      std::make_shared<connector::hive::HiveConnectorSplit>(
           connectorId, pyFile.filePath(), pyFile.fileFormat()));
-  cursor_->task()->addSplit(planId, std::move(split));
 }
 
-py::iterator PyLocalRunner::execute() {
+void PyLocalRunner::addQueryConfig(
+    const std::string& configName,
+    const std::string& configValue) {
+  queryConfigs_[configName] = configValue;
+}
+
+py::iterator PyLocalRunner::execute(int32_t maxDrivers) {
   if (pyIterator_) {
     throw std::runtime_error("PyLocalRunner can only be executed once.");
   }
 
+  // Create query context.
+  auto queryCtx = core::QueryCtx::create(
+      executor_.get(),
+      core::QueryConfig(queryConfigs_),
+      {},
+      cache::AsyncDataCache::getInstance(),
+      rootPool_);
+
+  // Intialize task cursor and task.
+  cursor_ = exec::TaskCursor::create({
+      .planNode = planNode_,
+      .maxDrivers = maxDrivers,
+      .queryCtx = queryCtx,
+      .outputPool = outputPool_,
+  });
+
   // Add any files passed by the client during plan building.
-  for (auto& [scanId, splits] : *scanFiles_) {
+  for (auto& [scanId, splits] : scanFiles_) {
     for (auto& split : splits) {
       cursor_->task()->addSplit(scanId, exec::Split(std::move(split)));
     }

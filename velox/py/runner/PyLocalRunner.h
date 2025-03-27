@@ -51,8 +51,20 @@ class PyLocalRunner {
       const std::string& planId,
       const std::string& connectorId);
 
+  /// Add a query configuration parameter. These values are passed to the Velox
+  /// Task through a query context object.
+  ///
+  /// @param configName The name (key) of the configuration parameter.
+  /// @param configValue The configuration value.
+  void addQueryConfig(
+      const std::string& configName,
+      const std::string& configValue);
+
   /// Execute the task and returns an iterable to the output vectors.
-  pybind11::iterator execute();
+  ///
+  /// @param maxDrivers Maximum number of drivers to use when executing the
+  /// plan.
+  pybind11::iterator execute(int32_t maxDrivers = 1);
 
   /// Prints a descriptive debug message containing plan and execution stats.
   /// If the task hasn't finished, will print the plan with the current stats.
@@ -75,7 +87,11 @@ class PyLocalRunner {
   // The Python iterator that exposes output vectors.
   std::shared_ptr<PyTaskIterator> pyIterator_;
 
-  const TScanFilesPtr scanFiles_;
+  // Pointer to the list of splits to be added to the task.
+  TScanFiles scanFiles_;
+
+  // Query configs to be passed to the task.
+  TQueryConfigs queryConfigs_;
 };
 
 // Iterator class that wraps around a PyLocalRunner and provides an iterable API

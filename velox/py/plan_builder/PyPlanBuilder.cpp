@@ -73,34 +73,32 @@ void registerAllResources() {
 
 PyPlanNode::PyPlanNode(
     core::PlanNodePtr planNode,
-    const TScanFilesPtr& scanFiles)
-    : planNode_(std::move(planNode)), scanFiles_(scanFiles) {
+    const std::shared_ptr<PyPlanContext>& planContext)
+    : planNode_(std::move(planNode)), planContext_(planContext) {
   if (planNode_ == nullptr) {
     throw std::runtime_error("Velox plan node cannot be nullptr.");
   }
 }
 
-PyPlanBuilder::PyPlanBuilder(
-    const std::shared_ptr<core::PlanNodeIdGenerator>& generator,
-    const TScanFilesPtr& scanFiles)
-    : planNodeIdGenerator_(
-          generator ? generator
-                    : std::make_shared<core::PlanNodeIdGenerator>()),
-      scanFiles_(scanFiles ? scanFiles : std::make_shared<TScanFiles>()) {
+PyPlanBuilder::PyPlanBuilder(const std::shared_ptr<PyPlanContext>& planContext)
+    : planContext_(
+          planContext ? planContext : std::make_shared<PyPlanContext>()) {
   auto rootPool = memory::memoryManager()->addRootPool();
   auto leafPool = rootPool->addLeafChild("py_plan_builder_pool");
-  planBuilder_ = exec::test::PlanBuilder(planNodeIdGenerator_, leafPool.get());
+  planBuilder_ = exec::test::PlanBuilder(
+      planContext_->planNodeIdGenerator, leafPool.get());
 }
 
 std::optional<PyPlanNode> PyPlanBuilder::planNode() const {
   if (planBuilder_.planNode() != nullptr) {
-    return PyPlanNode(planBuilder_.planNode(), scanFiles_);
+    return PyPlanNode(planBuilder_.planNode(), planContext_);
   }
   return std::nullopt;
 }
 
 PyPlanBuilder& PyPlanBuilder::tableWrite(
-    const PyFile& outputFile,
+    const std::optional<PyFile>& outputFile,
+    const std::optional<PyFile>& outputPath,
     const std::string& connectorId,
     const std::optional<PyType>& outputSchema) {
   exec::test::PlanBuilder::TableWriterBuilder builder(planBuilder_);
@@ -117,10 +115,24 @@ PyPlanBuilder& PyPlanBuilder::tableWrite(
     builder.outputType(outputRowSchema);
   }
 
-  builder.outputFileName(outputFile.filePath())
-      .fileFormat(outputFile.fileFormat())
-      .connectorId(connectorId)
-      .endTableWriter();
+  if (!outputFile && !outputPath) {
+    throw std::runtime_error(
+        "Either outputFile or outputPath need to be specified.");
+  }
+
+  if (outputFile) {
+    builder.outputFileName(outputFile->filePath())
+        .fileFormat(outputFile->fileFormat());
+  }
+
+  // outputPath takes precedence and overwrites outputFile if both are
+  // specified.
+  if (outputPath) {
+    builder.outputDirectoryPath(outputPath->filePath())
+        .fileFormat(outputPath->fileFormat());
+  }
+
+  builder.connectorId(connectorId).endTableWriter();
   return *this;
 }
 
@@ -213,7 +225,7 @@ PyPlanBuilder& PyPlanBuilder::tableScan(
     }
   }
 
-  (*scanFiles_)[planBuilder_.planNode()->id()] = std::move(splits);
+  planContext_->scanFiles[planBuilder_.planNode()->id()] = std::move(splits);
   return *this;
 }
 
@@ -319,7 +331,12 @@ PyPlanBuilder& PyPlanBuilder::tpchGen(
         connectorId, numParts, i));
   }
 
-  (*scanFiles_)[planBuilder_.planNode()->id()] = std::move(splits);
+  planContext_->scanFiles[planBuilder_.planNode()->id()] = std::move(splits);
+
+  // If the user is specifying multiple parts, it's likely because they want to
+  // write this exact number of files. Saving this as a config.
+  planContext_->queryConfigs[core::QueryConfig::kTaskWriterCount] =
+      std::to_string(numParts);
   return *this;
 }
 

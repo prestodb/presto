@@ -42,14 +42,25 @@ PYBIND11_MODULE(runner, m) {
       .def(py::init([](const velox::py::PyPlanNode& planNode) {
         return velox::py::PyLocalRunner{planNode, rootPool, executor};
       }))
-      .def("execute", &velox::py::PyLocalRunner::execute)
+      .def(
+          "execute",
+          &velox::py::PyLocalRunner::execute,
+          py::arg("max_drivers") = 1,
+          py::doc(R"(
+        Executes a given plan returning an iterator to the output produced
+        by the root plan node.
+
+        Args:
+          max_drivers: Maximum number of drivers (threads) to use when
+          executing the plan.
+          )"))
       .def(
           "print_plan_with_stats",
           &velox::py::PyLocalRunner::printPlanWithStats,
           py::doc(R"(
-         Prints a descriptive debug message containing plan and execution
-         stats. If the task hasn't finished, will print the plan with the
-         current stats.
+        Prints a descriptive debug message containing plan and execution
+        stats. If the task hasn't finished, will print the plan with the
+        current stats.
           )"))
       .def(
           "add_file_split",
@@ -66,6 +77,19 @@ PYBIND11_MODULE(runner, m) {
           plan_id: The plan node id of the scan to associate this
                    file/split with.
           connector_id: The id of the connector used by the scan.
+          )"))
+      .def(
+          "add_query_config",
+          &velox::py::PyLocalRunner::addQueryConfig,
+          py::arg("config_name"),
+          py::arg("config_value"),
+          py::doc(R"(
+        Add a query configuration parameter. These values are passed to the
+        Velox Task through a query context object.
+
+        Args:
+          configName: The name (key) of the configuration parameter.
+          configValue: The configuration value.
           )"));
 
   m.def(

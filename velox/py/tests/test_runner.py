@@ -197,35 +197,35 @@ class TestPyVeloxRunner(unittest.TestCase):
         register_tpch("tpch")
         register_hive("hive")
 
+        num_output_files = 16
+
         # Generate lineitem, write to an output file, then read it back.
         with tempfile.TemporaryDirectory() as temp_dir:
-            output_file = f"{temp_dir}/output_file"
-
             plan_builder = PlanBuilder()
             plan_builder.tpch_gen(
                 table_name="lineitem",
                 connector_id="tpch",
                 scale_factor=0.001,
+                num_parts=num_output_files,
             ).table_write(
-                output_file=DWRF(output_file),
+                output_path=DWRF(temp_dir),
                 connector_id="hive",
             )
 
             # Execute and write to output file.
             runner = LocalRunner(plan_builder.get_plan_node())
-            iterator = runner.execute()
-            output = next(iterator)
-            self.assertRaises(StopIteration, next, iterator)
+            output_files = []
 
-            output_file_from_table_writer = self.extract_file(output)
-            self.assertEqual(output_file, output_file_from_table_writer)
+            for vector in runner.execute(max_drivers=num_output_files):
+                output_files.append(temp_dir + "/" + self.extract_file(vector))
+            self.assertEqual(num_output_files, len(output_files))
 
             # Now scan it back.
             scan_plan_builder = PlanBuilder()
             scan_plan_builder.table_scan(
                 output_schema=ROW(["l_orderkey", "l_partkey"], [BIGINT()] * 2),
                 connector_id="hive",
-                input_files=[DWRF(output_file)],
+                input_files=[DWRF(f) for f in output_files],
             )
 
             runner = LocalRunner(scan_plan_builder.get_plan_node())

@@ -108,7 +108,8 @@ PYBIND11_MODULE(plan_builder, m) {
       .def(
           "table_write",
           &velox::py::PyPlanBuilder::tableWrite,
-          py::arg("output_file"),
+          py::arg("output_file") = std::nullopt,
+          py::arg("output_path") = std::nullopt,
           py::arg("connector_id") = "hive",
           py::arg("output_schema") = std::nullopt,
           py::doc(R"(
@@ -116,6 +117,12 @@ PYBIND11_MODULE(plan_builder, m) {
 
         Args:
           output_file: Name of the file to be written.
+          output_path: The output path where output files will be written.
+                       Specify this parameter instead of `outputFile` if the
+                       task is supposed to write files in parallel using
+                       multiple drivers. The actual file names in this path
+                       will be automatically generated and returned as the
+                       TableWriter output. Takes precedence over output_file.
           connector_id: ID of the connector to use for this scan.
           output_schema: An optional RowType containing the schema to be
                          written to the file. By default write the schema
