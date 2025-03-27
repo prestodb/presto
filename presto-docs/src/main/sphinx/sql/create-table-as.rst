@@ -9,7 +9,7 @@ Synopsis
 
     CREATE TABLE [ IF NOT EXISTS ] table_name [ ( column_alias, ... ) ]
     [ COMMENT table_comment ]
-    [ WITH ( property_name = expression [, ...] ) ]
+    [ WITH ( property_name = expression [, ...] [,] ) ]
     AS query
     [ WITH [ NO ] DATA ]
 
