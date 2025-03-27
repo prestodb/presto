@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.BooleanType;
@@ -73,6 +74,7 @@ import static com.facebook.presto.common.type.Decimals.decodeUnscaledValue;
 import static com.facebook.presto.common.type.JsonType.JSON;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LITERAL;
@@ -252,7 +254,7 @@ public final class LiteralInterpreter
             }
 
             if (JSON.equals(type)) {
-                FunctionHandle functionHandle = metadata.getFunctionAndTypeManager().lookupFunction("json_parse", fromTypes(VARCHAR));
+                FunctionHandle functionHandle = metadata.getFunctionAndTypeManager().lookupFunction(QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "json_parse"), fromTypes(VARCHAR));
                 return functionInvoker.invoke(functionHandle, session.getSqlFunctionProperties(), ImmutableList.of(utf8Slice(node.getValue())));
             }
 
