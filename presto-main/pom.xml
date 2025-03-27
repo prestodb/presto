@@ -436,7 +436,6 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-thrift-api</artifactId>
-            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -520,6 +519,11 @@
             <groupId>io.netty</groupId>
             <artifactId>netty-common</artifactId>
         </dependency>
+
+        <dependency>
+            <groupId>org.apache.thrift</groupId>
+            <artifactId>libthrift</artifactId>
+        </dependency>
         
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
@@ -543,6 +547,13 @@
             </plugins>
         </pluginManagement>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-checkstyle-plugin</artifactId>
+                <configuration>
+                    <excludes>**/com/facebook/presto/experimental/auto_gen/**/*.java</excludes>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.basepom.maven</groupId>
                 <artifactId>duplicate-finder-maven-plugin</artifactId>
@@ -595,6 +606,17 @@
                     <ignoredDependencies>
                         <ignoredDependency>com.facebook.presto:presto-ui:jar</ignoredDependency>
                     </ignoredDependencies>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.thrift</groupId>
+                <artifactId>thrift-maven-plugin</artifactId>
+                <version>0.10.0</version>
+                <configuration>
+                    <thriftSourceRoot>src/main/java/com/facebook/presto/experimental/thrift</thriftSourceRoot>
+                    <thriftExecutable>/opt/homebrew/bin/thrift</thriftExecutable>
+                    <generator>java</generator>
+                    <outputDirectory>src/main/java/com/facebook/presto/experimental/thrift</outputDirectory>
                 </configuration>
             </plugin>
         </plugins>

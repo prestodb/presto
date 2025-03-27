@@ -16,7 +16,9 @@ package com.facebook.presto.server;
 import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.json.Codec;
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.experimental.auto_gen.ThriftTaskStatus;
 import com.facebook.presto.connector.ConnectorTypeSerdeManager;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
@@ -28,11 +30,16 @@ import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
+import org.apache.thrift.TException;
+import org.apache.thrift.TSerializer;
+import org.apache.thrift.protocol.TBinaryProtocol;
+import org.apache.thrift.transport.TTransportException;
 
 import javax.annotation.security.RolesAllowed;
 import javax.inject.Inject;
@@ -67,12 +74,16 @@ import static com.facebook.presto.PrestoMediaTypes.APPLICATION_JACKSON_SMILE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_REMAINING_BYTES;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CURRENT_STATE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_EXPERIMENTAL;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
 import static com.facebook.presto.server.TaskResourceUtils.convertToThriftTaskInfo;
 import static com.facebook.presto.server.TaskResourceUtils.isThriftRequest;
 import static com.facebook.presto.server.security.RoleType.INTERNAL;
+import static com.facebook.presto.spi.StandardErrorCode.NATIVE_EXECUTION_TASK_ERROR;
 import static com.facebook.presto.util.TaskUtils.randomizeWaitTime;
 import static com.google.common.collect.Iterables.transform;
+import static com.google.common.net.HttpHeaders.CONTENT_LENGTH;
+import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -87,6 +98,7 @@ import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 public class TaskResource
 {
     private static final Duration ADDITIONAL_WAIT_TIME = new Duration(5, SECONDS);
+    private static final Logger log = Logger.get(TaskResource.class);
 
     private final TaskManager taskManager;
     private final SessionPropertyManager sessionPropertyManager;
@@ -211,13 +223,33 @@ public class TaskResource
             @PathParam("taskId") TaskId taskId,
             @HeaderParam(PRESTO_CURRENT_STATE) TaskState currentState,
             @HeaderParam(PRESTO_MAX_WAIT) Duration maxWait,
+            @HeaderParam(PRESTO_EXPERIMENTAL) boolean isExperimental,
             @Context UriInfo uriInfo,
+            @Context HttpHeaders httpHeaders,
             @Suspended AsyncResponse asyncResponse)
     {
         requireNonNull(taskId, "taskId is null");
 
         if (currentState == null || maxWait == null) {
             TaskStatus taskStatus = taskManager.getTaskStatus(taskId);
+            if (isExperimental) {
+                ThriftTaskStatus thriftTaskStatus = taskStatus.toThrift();
+                try {
+                    TSerializer serializer = new TSerializer(new TBinaryProtocol.Factory());
+                    byte[] responseBody = serializer.serialize(thriftTaskStatus);
+                    Response.ResponseBuilder responseBuilder = Response.ok(responseBody)
+                            .header(CONTENT_TYPE, APPLICATION_THRIFT_BINARY)
+                            .header(CONTENT_LENGTH, responseBody.length);
+                    asyncResponse.resume(responseBuilder.build());
+                }
+                catch (TTransportException e) {
+                    throw new PrestoException(NATIVE_EXECUTION_TASK_ERROR, "Can not initiate serializer", e);
+                }
+                catch (TException e) {
+                    throw new PrestoException(NATIVE_EXECUTION_TASK_ERROR, "Can not serialize data", e);
+                }
+                return;
+            }
             asyncResponse.resume(taskStatus);
             return;
         }
@@ -234,8 +266,15 @@ public class TaskResource
 
         // For hard timeout, add an additional time to max wait for thread scheduling contention and GC
         Duration timeout = new Duration(waitTime.toMillis() + ADDITIONAL_WAIT_TIME.toMillis(), MILLISECONDS);
-        bindAsyncResponse(asyncResponse, futureTaskStatus, responseExecutor)
-                .withTimeout(timeout);
+        if (isExperimental) {
+            ListenableFuture<ThriftTaskStatus> futureThriftTaskStatus = Futures.transform(futureTaskStatus, taskStatus -> taskStatus.toThrift(), directExecutor());
+            bindAsyncResponse(asyncResponse, futureThriftTaskStatus, responseExecutor)
+                    .withTimeout(timeout);
+        }
+        else {
+            bindAsyncResponse(asyncResponse, futureTaskStatus, responseExecutor)
+                    .withTimeout(timeout);
+        }
     }
 
     @POST

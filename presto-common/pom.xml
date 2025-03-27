@@ -42,6 +42,51 @@
             <artifactId>jol-core</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>http-client</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.thrift</groupId>
+            <artifactId>libthrift</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>javax.validation</groupId>
+            <artifactId>validation-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>json</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>log</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.drift</groupId>
+            <artifactId>drift-codec</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.drift</groupId>
+            <artifactId>drift-protocol</artifactId>
+        </dependency>
+
         <!-- for testing -->
         <dependency>
             <groupId>com.facebook.presto</groupId>
@@ -58,7 +103,6 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -80,39 +124,34 @@
         </dependency>
 
         <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
             <groupId>it.unimi.dsi</groupId>
             <artifactId>fastutil</artifactId>
             <scope>test</scope>
         </dependency>
-
-        <dependency>
-            <groupId>com.facebook.airlift</groupId>
-            <artifactId>json</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-core</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.drift</groupId>
-            <artifactId>drift-codec</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.drift</groupId>
-            <artifactId>drift-protocol</artifactId>
-            <scope>test</scope>
-        </dependency>
     </dependencies>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>com.mycila</groupId>
+                    <artifactId>license-maven-plugin</artifactId>
+                    <configuration>
+                        <excludes combine.children="append">
+                            <exclude>**/*.graffle</exclude>
+                        </excludes>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-checkstyle-plugin</artifactId>
+                <configuration>
+                    <excludes>**/com/facebook/presto/common/experimental/auto_gen/*.java</excludes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>

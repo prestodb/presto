@@ -101,6 +101,7 @@ public class HttpRemoteTaskFactory
     private final RemoteTaskStats stats;
     private final boolean binaryTransportEnabled;
     private final boolean thriftTransportEnabled;
+    private final boolean experimentalThriftEnabled;
     private final boolean taskInfoThriftTransportEnabled;
     private final Protocol thriftProtocol;
     private final int maxTaskUpdateSizeInBytes;
@@ -151,6 +152,7 @@ public class HttpRemoteTaskFactory
         requireNonNull(communicationConfig, "communicationConfig is null");
         binaryTransportEnabled = communicationConfig.isBinaryTransportEnabled();
         thriftTransportEnabled = communicationConfig.isThriftTransportEnabled();
+        experimentalThriftEnabled = communicationConfig.isExperimentalThriftEnabled();
         taskInfoThriftTransportEnabled = communicationConfig.isTaskInfoThriftTransportEnabled();
         thriftProtocol = communicationConfig.getThriftProtocol();
         this.maxTaskUpdateSizeInBytes = toIntExact(requireNonNull(communicationConfig, "communicationConfig is null").getMaxTaskUpdateSize().toBytes());
@@ -310,6 +312,7 @@ public class HttpRemoteTaskFactory
                 stats,
                 binaryTransportEnabled,
                 thriftTransportEnabled,
+                experimentalThriftEnabled,
                 taskInfoThriftTransportEnabled,
                 thriftProtocol,
                 tableWriteInfo,
