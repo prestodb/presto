@@ -44,6 +44,21 @@ VELOX_GEN_BINARY_EXPR_UUID(GteFunction, (uint128_t)lhs >= (uint128_t)rhs);
 #undef VELOX_GEN_BINARY_EXPR_UUID
 
 template <typename T>
+struct BetweenFunctionUuid {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      bool& result,
+      const arg_type<Uuid>& value,
+      const arg_type<Uuid>& low,
+      const arg_type<Uuid>& high) {
+    auto castValue = static_cast<uint128_t>(value);
+    result = castValue >= static_cast<uint128_t>(low) &&
+        castValue <= static_cast<uint128_t>(high);
+  }
+};
+
+template <typename T>
 struct UuidFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
@@ -65,6 +80,8 @@ inline void registerUuidFunctions(const std::string& prefix) {
   registerFunction<GtFunctionUuid, bool, Uuid, Uuid>({prefix + "gt"});
   registerFunction<LteFunctionUuid, bool, Uuid, Uuid>({prefix + "lte"});
   registerFunction<GteFunctionUuid, bool, Uuid, Uuid>({prefix + "gte"});
+  registerFunction<BetweenFunctionUuid, bool, Uuid, Uuid, Uuid>(
+      {prefix + "between"});
 }
 
 } // namespace facebook::velox::functions

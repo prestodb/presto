@@ -275,5 +275,60 @@ TEST_F(UuidFunctionsTest, comparisons) {
   }
 }
 
+TEST_F(UuidFunctionsTest, between) {
+  const auto uuidEval = [&](const std::optional<std::string>& value,
+                            const std::optional<std::string>& low,
+                            const std::optional<std::string>& high) {
+    return evaluateOnce<bool>(
+        "cast(c0 as uuid) between cast(c1 as uuid) and cast(c2 as uuid)",
+        value,
+        low,
+        high);
+  };
+
+  ASSERT_EQ(
+      true,
+      uuidEval(
+          "33355449-2c7d-43d7-967a-f53cd23215ad",
+          "00000000-0000-0000-0000-000000000000",
+          "ffffffff-ffff-ffff-ffff-ffffffffffff"));
+  ASSERT_EQ(
+      false,
+      uuidEval(
+          "33355449-2c7d-43d7-967a-f53cd23215ad",
+          "ffffffff-ffff-ffff-ffff-ffffffffffff",
+          "00000000-0000-0000-0000-000000000000"));
+  ASSERT_EQ(
+      true,
+      uuidEval(
+          "00000000-0000-0000-2200-000000000011",
+          "00000000-0000-0000-0000-000000000022",
+          "11000000-0000-0000-0000-000000000000"));
+  ASSERT_EQ(
+      false,
+      uuidEval(
+          "00000000-0000-0000-0000-000000000022",
+          "00000000-0000-0000-2200-000000000011",
+          "11000000-0000-0000-0000-000000000000"));
+  ASSERT_EQ(
+      false,
+      uuidEval(
+          "11000000-0000-0000-0000-000000000000",
+          "00000000-0000-0000-2200-000000000011",
+          "00000000-0000-0000-0000-000000000022"));
+  ASSERT_EQ(
+      true,
+      uuidEval(
+          "00000000-0000-0000-2200-000000000011",
+          "00000000-0000-0000-2200-000000000011",
+          "11000000-0000-0000-0000-000000000000"));
+  ASSERT_EQ(
+      true,
+      uuidEval(
+          "11000000-0000-0000-0000-000000000000",
+          "00000000-0000-0000-2200-000000000011",
+          "11000000-0000-0000-0000-000000000000"));
+}
+
 } // namespace
 } // namespace facebook::velox::functions::prestosql
