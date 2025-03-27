@@ -132,6 +132,14 @@ Map Functions
         SELECT map_top_n_keys(map(ARRAY['a', 'b', 'c'], ARRAY[1, 2, 3]), 2) --- ['c', 'b']
         SELECT map_top_n_keys(map(ARRAY['a', 'b', 'c'], ARRAY[1, 2, 3]), 0) --- []
 
+.. function:: map_top_n_values(map(K,V), n) -> array(V)
+
+    Returns top N values from a map, by sorting its values in descending order. Both keys and values should be orderable.
+
+    ``n`` must be a non-negative BIGINT value.::
+
+        SELECT map_top_n_values(map(ARRAY['a', 'b', 'c'], ARRAY[1, 2, 3]), 2) --- [3, 2]
+
 .. function:: map_keys(x(K,V)) -> array(K)
 
     Returns all the keys in the map ``x``.

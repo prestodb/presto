@@ -24,6 +24,7 @@
 #include "velox/functions/prestosql/MapSubset.h"
 #include "velox/functions/prestosql/MapTopN.h"
 #include "velox/functions/prestosql/MapTopNKeys.h"
+#include "velox/functions/prestosql/MapTopNValues.h"
 #include "velox/functions/prestosql/MultimapFromEntries.h"
 
 namespace facebook::velox::functions {
@@ -126,6 +127,12 @@ void registerMapFunctions(const std::string& prefix) {
       Array<Orderable<T1>>,
       Map<Orderable<T1>, Orderable<T2>>,
       int64_t>({prefix + "map_keys_by_top_n_values"});
+
+  registerFunction<
+      MapTopNValuesFunction,
+      Array<Orderable<T2>>,
+      Map<Orderable<T1>, Orderable<T2>>,
+      int64_t>({prefix + "map_top_n_values"});
 
   registerMapSubset(prefix);
 
