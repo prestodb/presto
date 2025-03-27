@@ -136,6 +136,11 @@ class TestStripeStreams : public StripeStreamsBase {
     DWIO_RAISE("encoding not found");
   }
 
+  const proto::orc::ColumnEncoding& getEncodingOrc(
+      const EncodingKey& ek) const override {
+    DWIO_RAISE("encoding not found");
+  }
+
   uint32_t visitStreamsOfNode(
       uint32_t node,
       std::function<void(const StreamInformation&)> visitor) const override {

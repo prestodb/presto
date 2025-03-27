@@ -53,10 +53,17 @@ class MockStripeStreams : public StripeStreams {
       const DwrfStreamIdentifier& si,
       std::string_view /* unused */,
       bool throwIfNotFound) const override {
-    return std::unique_ptr<dwio::common::SeekableInputStream>(getStreamProxy(
-        si.encodingKey().node(),
-        static_cast<proto::Stream_Kind>(si.kind()),
-        throwIfNotFound));
+    return std::unique_ptr<dwio::common::SeekableInputStream>(
+        si.format() == DwrfFormat::kDwrf
+            ? getStreamProxy(
+                  si.encodingKey().node(),
+                  static_cast<proto::Stream_Kind>(si.kind()),
+                  throwIfNotFound)
+            : getStreamOrcProxy(
+                  si.encodingKey().node(),
+                  static_cast<proto::orc::Stream_Kind>(
+                      si.kind() - kStreamKindOrcOffset),
+                  throwIfNotFound));
   }
 
   std::function<BufferPtr()> getIntDictionaryInitializerForNode(
@@ -77,6 +84,11 @@ class MockStripeStreams : public StripeStreams {
     return *getEncodingProxy(ek.node());
   }
 
+  const proto::orc::ColumnEncoding& getEncodingOrc(
+      const EncodingKey& ek) const override {
+    return *getEncodingOrcProxy(ek.node());
+  }
+
   DwrfFormat format() const override {
     return this->format_;
   }
@@ -92,12 +104,21 @@ class MockStripeStreams : public StripeStreams {
       getStripeDictionaryCache,
       std::shared_ptr<StripeDictionaryCache>());
   MOCK_CONST_METHOD1(getEncodingProxy, proto::ColumnEncoding*(uint64_t));
+  MOCK_CONST_METHOD1(
+      getEncodingOrcProxy,
+      proto::orc::ColumnEncoding*(uint64_t));
   MOCK_CONST_METHOD2(
       visitStreamsOfNode,
       uint32_t(uint32_t, std::function<void(const StreamInformation&)>));
   MOCK_CONST_METHOD3(
       getStreamProxy,
       dwio::common::SeekableInputStream*(uint32_t, proto::Stream_Kind, bool));
+  MOCK_CONST_METHOD3(
+      getStreamOrcProxy,
+      dwio::common::SeekableInputStream*(
+          uint32_t,
+          proto::orc::Stream_Kind,
+          bool));
   MOCK_CONST_METHOD0(getStrideIndexProviderProxy, StrideIndexProvider*());
   MOCK_CONST_METHOD0(getColumnSelectorProxy, dwio::common::ColumnSelector*());
   MOCK_CONST_METHOD0(

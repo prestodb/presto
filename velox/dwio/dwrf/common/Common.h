@@ -35,6 +35,11 @@ constexpr folly::StringPiece WRITER_HOSTNAME_KEY{"orc.writer.host"};
 constexpr folly::StringPiece kDwioWriter{"dwio"};
 constexpr folly::StringPiece kPrestoWriter{"presto"};
 
+enum class DwrfFormat : uint8_t {
+  kDwrf = 0,
+  kOrc = 1,
+};
+
 enum StripeCacheMode { NA = 0, INDEX = 1, FOOTER = 2, BOTH = 3 };
 
 enum WriterVersion {
@@ -48,12 +53,17 @@ enum WriterVersion {
 
 constexpr WriterVersion WriterVersion_CURRENT = WriterVersion::DWRF_7_0;
 
+constexpr auto kStreamKindOrcOffset = 1000;
+constexpr auto DefineStreamKindOrc(int value) {
+  return value + kStreamKindOrcOffset;
+}
 /**
  * Get the name of the WriterVersion.
  */
 std::string writerVersionToString(WriterVersion kind);
 
 enum StreamKind {
+  // DWRF
   StreamKind_PRESENT = 0,
   StreamKind_DATA = 1,
   StreamKind_LENGTH = 2,
@@ -65,12 +75,123 @@ enum StreamKind {
   StreamKind_STRIDE_DICTIONARY = 8,
   StreamKind_STRIDE_DICTIONARY_LENGTH = 9,
   StreamKind_BLOOM_FILTER_UTF8 = 10,
-  StreamKind_IN_MAP = 11
+  StreamKind_IN_MAP = 11,
+
+  // Offset for ORC streams `value + 1000`
+  StreamKindOrc_PRESENT = DefineStreamKindOrc(0),
+  StreamKindOrc_DATA = DefineStreamKindOrc(1),
+  StreamKindOrc_LENGTH = DefineStreamKindOrc(2),
+  StreamKindOrc_DICTIONARY_DATA = DefineStreamKindOrc(3),
+  StreamKindOrc_DICTIONARY_COUNT = DefineStreamKindOrc(4),
+  StreamKindOrc_SECONDARY = DefineStreamKindOrc(5),
+  StreamKindOrc_ROW_INDEX = DefineStreamKindOrc(6),
+  StreamKindOrc_BLOOM_FILTER = DefineStreamKindOrc(7),
+  StreamKindOrc_BLOOM_FILTER_UTF8 = DefineStreamKindOrc(8),
+  StreamKindOrc_ENCRYPTED_INDEX = DefineStreamKindOrc(9),
+  StreamKindOrc_ENCRYPTED_DATA = DefineStreamKindOrc(10),
+  StreamKindOrc_STRIPE_STATISTICS = DefineStreamKindOrc(100),
+  StreamKindOrc_FILE_STATISTICS = DefineStreamKindOrc(101),
 };
+
+inline DwrfFormat toDwrfFormat(StreamKind kind) {
+  return kind < kStreamKindOrcOffset ? DwrfFormat::kDwrf : DwrfFormat::kOrc;
+}
+
+inline StreamKind toStreamKind(proto::Stream_Kind kind) {
+  switch (kind) {
+    case proto::Stream_Kind_PRESENT: // 0
+      return StreamKind::StreamKind_PRESENT;
+
+    case proto::Stream_Kind_DATA: // 1
+      return StreamKind::StreamKind_DATA;
+
+    case proto::Stream_Kind_LENGTH: // 2
+      return StreamKind::StreamKind_LENGTH;
+
+    case proto::Stream_Kind_DICTIONARY_DATA: // 3
+      return StreamKind::StreamKind_DICTIONARY_DATA;
+
+    case proto::Stream_Kind_DICTIONARY_COUNT: // 4
+      return StreamKind::StreamKind_DICTIONARY_COUNT;
+
+    case proto::Stream_Kind_NANO_DATA: // 5
+      return StreamKind::StreamKind_NANO_DATA;
+
+    case proto::Stream_Kind_ROW_INDEX: // 6
+      return StreamKind::StreamKind_ROW_INDEX;
+
+    case proto::Stream_Kind_IN_DICTIONARY: // 7
+      return StreamKind::StreamKind_IN_DICTIONARY;
+
+    case proto::Stream_Kind_STRIDE_DICTIONARY: // 8
+      return StreamKind::StreamKind_STRIDE_DICTIONARY;
+
+    case proto::Stream_Kind_STRIDE_DICTIONARY_LENGTH: // 9
+      return StreamKind::StreamKind_STRIDE_DICTIONARY_LENGTH;
+
+    case proto::Stream_Kind_BLOOM_FILTER_UTF8: // 10
+      return StreamKind::StreamKind_BLOOM_FILTER_UTF8;
+
+    case proto::Stream_Kind_IN_MAP: // 11
+      return StreamKind::StreamKind_IN_MAP;
+
+    default:
+      DWIO_RAISE("Unknown stream dwrf kind: ", kind);
+  }
+}
+
+inline StreamKind toStreamKind(proto::orc::Stream_Kind kind) {
+  switch (kind) {
+    case proto::orc::Stream_Kind_PRESENT: // 0,
+      return StreamKind::StreamKindOrc_PRESENT;
+
+    case proto::orc::Stream_Kind_DATA: // 1,
+      return StreamKind::StreamKindOrc_DATA;
+
+    case proto::orc::Stream_Kind_LENGTH: // 2,
+      return StreamKind::StreamKindOrc_LENGTH;
+
+    case proto::orc::Stream_Kind_DICTIONARY_DATA: // 3,
+      return StreamKind::StreamKindOrc_DICTIONARY_DATA;
+
+    case proto::orc::Stream_Kind_DICTIONARY_COUNT: // 4,
+      return StreamKind::StreamKindOrc_DICTIONARY_COUNT;
+
+    case proto::orc::Stream_Kind_SECONDARY: // 5,
+      return StreamKind::StreamKindOrc_SECONDARY;
+
+    case proto::orc::Stream_Kind_ROW_INDEX: // 6,
+      return StreamKind::StreamKindOrc_ROW_INDEX;
+
+    case proto::orc::Stream_Kind_BLOOM_FILTER: // 7,
+      return StreamKind::StreamKindOrc_BLOOM_FILTER;
+
+    case proto::orc::Stream_Kind_BLOOM_FILTER_UTF8: // 8,
+      return StreamKind::StreamKindOrc_BLOOM_FILTER_UTF8;
+
+    case proto::orc::Stream_Kind_ENCRYPTED_INDEX: // 9,
+      return StreamKind::StreamKindOrc_ENCRYPTED_INDEX;
+
+    case proto::orc::Stream_Kind_ENCRYPTED_DATA: // 10,
+      return StreamKind::StreamKindOrc_ENCRYPTED_DATA;
+
+    case proto::orc::Stream_Kind_STRIPE_STATISTICS: // 100,
+      return StreamKind::StreamKindOrc_STRIPE_STATISTICS;
+
+    case proto::orc::Stream_Kind_FILE_STATISTICS: // 101
+      return StreamKind::StreamKindOrc_FILE_STATISTICS;
+
+    default:
+      DWIO_RAISE("Unknown stream orc kind: ", kind);
+  }
+}
 
 inline bool isIndexStream(StreamKind kind) {
   return kind == StreamKind::StreamKind_ROW_INDEX ||
-      kind == StreamKind::StreamKind_BLOOM_FILTER_UTF8;
+      kind == StreamKind::StreamKind_BLOOM_FILTER_UTF8 ||
+      kind == StreamKind::StreamKindOrc_ROW_INDEX ||
+      kind == StreamKind::StreamKindOrc_BLOOM_FILTER ||
+      kind == StreamKind::StreamKindOrc_BLOOM_FILTER_UTF8;
 }
 
 /**
@@ -145,6 +266,8 @@ class EncodingKey {
 
   DwrfStreamIdentifier forKind(const proto::Stream_Kind kind) const;
 
+  DwrfStreamIdentifier forKind(const proto::orc::Stream_Kind kind) const;
+
  private:
   uint32_t node_;
   uint32_t sequence_;
@@ -164,7 +287,16 @@ class DwrfStreamIdentifier : public dwio::common::StreamIdentifier {
   }
 
   DwrfStreamIdentifier()
-      : column_(dwio::common::MAX_UINT32), kind_(StreamKind_DATA) {}
+      : column_(dwio::common::MAX_UINT32),
+        kind_(StreamKind_DATA),
+        format_(DwrfFormat::kDwrf) {}
+
+  /* implicit */ DwrfStreamIdentifier(const proto::orc::Stream& stream)
+      : DwrfStreamIdentifier(
+            stream.has_column() ? stream.column() : 0,
+            0,
+            dwio::common::MAX_UINT32,
+            stream.kind()) {}
 
   /* implicit */ DwrfStreamIdentifier(const proto::Stream& stream)
       : DwrfStreamIdentifier(
@@ -174,18 +306,20 @@ class DwrfStreamIdentifier : public dwio::common::StreamIdentifier {
             stream.kind()) {}
 
   /// Pruned flat map keys are not enqueued thus all flatmap values on same
-  /// column should have similar read percentage, so it is ok for them to share
-  /// the same TrackingData.
+  /// column should have similar read percentage, so it is ok for them to
+  /// share the same TrackingData.
   DwrfStreamIdentifier(
       uint32_t node,
       uint32_t sequence,
       uint32_t column,
-      StreamKind kind)
+      StreamKind kind,
+      DwrfFormat format)
       : StreamIdentifier(
             velox::cache::TrackingId((node << kNodeShift) | kind).id()),
         column_{column},
         kind_(kind),
-        encodingKey_{node, sequence} {}
+        encodingKey_{node, sequence},
+        format_(format) {}
 
   DwrfStreamIdentifier(
       uint32_t node,
@@ -196,7 +330,28 @@ class DwrfStreamIdentifier : public dwio::common::StreamIdentifier {
             node,
             sequence,
             column,
-            static_cast<StreamKind>(pkind)) {}
+            toStreamKind(pkind),
+            DwrfFormat::kDwrf) {}
+
+  DwrfStreamIdentifier(
+      uint32_t node,
+      uint32_t sequence,
+      uint32_t column,
+      proto::orc::Stream_Kind pkind)
+      : DwrfStreamIdentifier(
+            node,
+            sequence,
+            column,
+            toStreamKind(pkind),
+            DwrfFormat::kOrc) {}
+
+  DwrfStreamIdentifier(
+      uint32_t node,
+      uint32_t sequence,
+      uint32_t column,
+      StreamKind kind)
+      : DwrfStreamIdentifier(node, sequence, column, kind, toDwrfFormat(kind)) {
+  }
 
   ~DwrfStreamIdentifier() = default;
 
@@ -227,6 +382,10 @@ class DwrfStreamIdentifier : public dwio::common::StreamIdentifier {
     return encodingKey_;
   }
 
+  DwrfFormat format() const {
+    return format_;
+  }
+
   std::string toString() const override {
     return fmt::format(
         "[id={}, node={}, sequence={}, column={}, kind={}]",
@@ -243,6 +402,7 @@ class DwrfStreamIdentifier : public dwio::common::StreamIdentifier {
   uint32_t column_;
   StreamKind kind_;
   EncodingKey encodingKey_;
+  DwrfFormat format_;
 };
 
 std::string columnEncodingKindToString(ColumnEncodingKind kind);

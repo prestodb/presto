@@ -51,6 +51,28 @@ struct StripeMetadata {
             std::move(_decryptionHandler),
             _stripeInfo) {}
 
+  StripeMetadata(
+      std::shared_ptr<dwio::common::BufferedInput> _stripeInput,
+      std::shared_ptr<const proto::orc::StripeFooter> _footer,
+      std::unique_ptr<encryption::DecryptionHandler> _decryptionHandler,
+      StripeInformationWrapper _stripeInfo)
+      : StripeMetadata(
+            std::move(_stripeInput),
+            std::make_shared<StripeFooterWrapper>(_footer),
+            std::move(_decryptionHandler),
+            _stripeInfo) {}
+
+  StripeMetadata(
+      dwio::common::BufferedInput* _stripeInput,
+      std::shared_ptr<const proto::orc::StripeFooter> _footer,
+      std::unique_ptr<encryption::DecryptionHandler> _decryptionHandler,
+      StripeInformationWrapper _stripeInfo)
+      : StripeMetadata(
+            _stripeInput,
+            std::make_shared<StripeFooterWrapper>(_footer),
+            std::move(_decryptionHandler),
+            _stripeInfo) {}
+
  private:
   StripeMetadata(
       std::shared_ptr<dwio::common::BufferedInput> _stripeInput,

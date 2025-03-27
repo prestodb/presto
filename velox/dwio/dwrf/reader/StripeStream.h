@@ -42,6 +42,13 @@ class StreamInformationImpl : public StreamInformation {
   }
 
   StreamInformationImpl() : streamId_{DwrfStreamIdentifier::getInvalid()} {}
+
+  StreamInformationImpl(uint64_t offset, const proto::orc::Stream& stream)
+      : streamId_(stream),
+        offset_(offset),
+        length_(stream.length()),
+        useVInts_(true) {}
+
   StreamInformationImpl(uint64_t offset, const proto::Stream& stream)
       : streamId_(stream),
         offset_(offset),
@@ -110,8 +117,12 @@ class StripeStreams {
   /// Get row reader options
   virtual const dwio::common::RowReaderOptions& rowReaderOptions() const = 0;
 
-  /// Get the encoding for the given column for this stripe.
+  /// Get the encoding for the given column for this dwrf stripe.
   virtual const proto::ColumnEncoding& getEncoding(
+      const EncodingKey&) const = 0;
+
+  /// Get the encoding for the given column for this orc stripe.
+  virtual const proto::orc::ColumnEncoding& getEncodingOrc(
       const EncodingKey&) const = 0;
 
   /// Get the stream for the given column/kind in this stripe.
@@ -268,6 +279,21 @@ class StripeStreamsImpl : public StripeStreamsBase {
     return encodingKeyIt->second;
   }
 
+  const proto::orc::ColumnEncoding& getEncodingOrc(
+      const EncodingKey& encodingKey) const override {
+    VELOX_CHECK_EQ(format(), DwrfFormat::kOrc);
+
+    auto index = encodings_.find(encodingKey);
+    if (index != encodings_.end()) {
+      return readState_->stripeMetadata->footer->columnEncodingOrc(
+          index->second);
+    }
+
+    // Do not support decryptedEncodings for ORC format.
+    static proto::orc::ColumnEncoding columnEncoding;
+    return columnEncoding;
+  }
+
   /// load data into buffer according to read plan
   void loadReadPlan();
 
@@ -404,6 +430,69 @@ class StripeInformationImpl : public StripeInformation {
 
   uint64_t getNumberOfRows() const override {
     return numRows;
+  }
+};
+
+class StripeStreamsUtil {
+ public:
+  StripeStreamsUtil() = delete;
+  ~StripeStreamsUtil() = delete;
+
+  static bool isColumnEncodingKindDirect(
+      const StripeStreams& stripe,
+      const EncodingKey& ek) {
+    if (stripe.format() == DwrfFormat::kDwrf) {
+      switch (stripe.getEncoding(ek).kind()) {
+        case proto::ColumnEncoding_Kind_DIRECT:
+          return true;
+        case proto::ColumnEncoding_Kind_DIRECT_V2:
+          return true;
+        default:
+          return false;
+      }
+    } else {
+      switch (stripe.getEncodingOrc(ek).kind()) {
+        case proto::orc::ColumnEncoding_Kind_DIRECT:
+          return true;
+        case proto::orc::ColumnEncoding_Kind_DIRECT_V2:
+          return true;
+        default:
+          return false;
+      }
+    }
+  }
+
+  static bool isColumnEncodingKindDictionary(
+      const StripeStreams& stripe,
+      const EncodingKey& ek) {
+    if (stripe.format() == DwrfFormat::kDwrf) {
+      switch (stripe.getEncoding(ek).kind()) {
+        case proto::ColumnEncoding_Kind_DICTIONARY:
+          return true;
+        case proto::ColumnEncoding_Kind_DICTIONARY_V2:
+          return true;
+        default:
+          return false;
+      }
+    } else {
+      switch (stripe.getEncodingOrc(ek).kind()) {
+        case proto::orc::ColumnEncoding_Kind_DICTIONARY:
+          return true;
+        case proto::orc::ColumnEncoding_Kind_DICTIONARY_V2:
+          return true;
+        default:
+          return false;
+      }
+    }
+  }
+
+  static DwrfStreamIdentifier getStreamForKind(
+      const StripeStreams& stripe,
+      const EncodingKey& encodingKey,
+      proto::Stream_Kind kind,
+      proto::orc::Stream_Kind orcKind) {
+    return stripe.format() == DwrfFormat::kDwrf ? encodingKey.forKind(kind)
+                                                : encodingKey.forKind(orcKind);
   }
 };
 

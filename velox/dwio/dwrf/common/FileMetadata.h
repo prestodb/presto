@@ -25,11 +25,6 @@
 
 namespace facebook::velox::dwrf {
 
-enum class DwrfFormat : uint8_t {
-  kDwrf = 0,
-  kOrc = 1,
-};
-
 class ProtoWrapperBase {
  public:
   DwrfFormat format() const {

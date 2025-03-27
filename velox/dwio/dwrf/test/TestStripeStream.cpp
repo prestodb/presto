@@ -74,19 +74,37 @@ void enqueueReads(
   auto& metadataCache = readerBase.metadataCache();
   uint64_t offset = stripeStart;
   uint64_t length = 0;
-  for (const auto& stream : footer.streamsDwrf()) {
-    length = stream.length();
-    // If index cache is available, there is no need to read it
-    auto inMetaCache = metadataCache &&
-        metadataCache->has(StripeCacheMode::INDEX, stripeIndex) &&
-        static_cast<StreamKind>(stream.kind()) ==
-            StreamKind::StreamKind_ROW_INDEX;
-    if (length > 0 &&
-        selector.shouldReadStream(stream.node(), stream.sequence()) &&
-        !inMetaCache) {
-      input.enqueue({offset, length});
+  if (footer.format() == DwrfFormat::kDwrf) {
+    for (const auto& stream : footer.streamsDwrf()) {
+      length = stream.length();
+      // If index cache is available, there is no need to read it
+      auto inMetaCache = metadataCache &&
+          metadataCache->has(StripeCacheMode::INDEX, stripeIndex) &&
+          static_cast<StreamKind>(stream.kind()) ==
+              StreamKind::StreamKind_ROW_INDEX;
+      if (length > 0 &&
+          selector.shouldReadStream(stream.node(), stream.sequence()) &&
+          !inMetaCache) {
+        input.enqueue({offset, length});
+      }
+      offset += length;
     }
-    offset += length;
+  } else {
+    for (const auto& stream : footer.streamsOrc()) {
+      EncodingKey ek{0, 0};
+
+      length = stream.length();
+      // If index cache is available, there is no need to read it
+      auto inMetaCache = metadataCache &&
+          metadataCache->has(StripeCacheMode::INDEX, stripeIndex) &&
+          ek.forKind(stream.kind()).kind() ==
+              StreamKind::StreamKindOrc_ROW_INDEX;
+      if (length > 0 && selector.shouldReadStream(stream.column(), 0) &&
+          !inMetaCache) {
+        input.enqueue({offset, length});
+      }
+      offset += length;
+    }
   }
 }
 
@@ -114,17 +132,31 @@ StripeStreamsImpl createAndLoadStripeStreams(
   return streams;
 }
 
-class StripeStreamTest : public testing::Test {
+class StripeStreamTest : public testing::TestWithParam<DwrfFormat> {
  protected:
   static void SetUpTestCase() {
     MemoryManager::testingSetInstance({});
   }
-
   std::shared_ptr<MemoryPool> pool_{memoryManager()->addLeafPool()};
 };
+
+class StripeStreamFormatTypeTest : public testing::TestWithParam<DwrfFormat> {
+ protected:
+  static void SetUpTestCase() {
+    MemoryManager::testingSetInstance({});
+  }
+  std::shared_ptr<MemoryPool> pool_{memoryManager()->addLeafPool()};
+  DwrfFormat testParamDwrfFormat_ = GetParam();
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    StripeStreamFormatTypeTests,
+    StripeStreamFormatTypeTest,
+    ::testing::Values(DwrfFormat::kDwrf, DwrfFormat::kOrc));
+
 } // namespace
 
-TEST_F(StripeStreamTest, planReads) {
+TEST_P(StripeStreamFormatTypeTest, planReads) {
   google::protobuf::Arena arena;
   auto footer = google::protobuf::Arena::CreateMessage<proto::Footer>(&arena);
   footer->set_rowindexstride(100);
@@ -146,28 +178,57 @@ TEST_F(StripeStreamTest, planReads) {
       footer,
       nullptr);
   ColumnSelector cs{readerBase->schema(), std::vector<uint64_t>{2}, true};
-  auto stripeFooter = std::make_unique<proto::StripeFooter>();
-  std::vector<std::tuple<uint64_t, StreamKind, uint64_t>> ss{
-      std::make_tuple(1, StreamKind::StreamKind_ROW_INDEX, 100),
-      std::make_tuple(2, StreamKind::StreamKind_ROW_INDEX, 100),
-      std::make_tuple(1, StreamKind::StreamKind_PRESENT, 200),
-      std::make_tuple(2, StreamKind::StreamKind_PRESENT, 200),
-      std::make_tuple(1, StreamKind::StreamKind_DATA, 5000000),
-      std::make_tuple(2, StreamKind::StreamKind_DATA, 1000000)};
-  for (const auto& s : ss) {
-    auto&& stream = stripeFooter->add_streams();
-    stream->set_node(std::get<0>(s));
-    stream->set_kind(static_cast<proto::Stream_Kind>(std::get<1>(s)));
-    stream->set_length(std::get<2>(s));
-  }
+
   TestDecrypterFactory factory;
   auto handler = DecryptionHandler::create(FooterWrapper(footer), &factory);
-  auto stripeMetadata = std::make_unique<const StripeMetadata>(
-      readerBase->bufferedInput().clone(),
-      std::move(stripeFooter),
-      std::move(handler),
-      StripeInformationWrapper(
-          static_cast<const proto::StripeInformation*>(nullptr)));
+  std::unique_ptr<const StripeMetadata> stripeMetadata;
+
+  if (testParamDwrfFormat_ == DwrfFormat::kDwrf) {
+    auto stripeFooter = std::make_unique<proto::StripeFooter>();
+    std::vector<std::tuple<uint64_t, StreamKind, uint64_t>> ss{
+        std::make_tuple(1, StreamKind::StreamKind_ROW_INDEX, 100),
+        std::make_tuple(2, StreamKind::StreamKind_ROW_INDEX, 100),
+        std::make_tuple(1, StreamKind::StreamKind_PRESENT, 200),
+        std::make_tuple(2, StreamKind::StreamKind_PRESENT, 200),
+        std::make_tuple(1, StreamKind::StreamKind_DATA, 5000000),
+        std::make_tuple(2, StreamKind::StreamKind_DATA, 1000000)};
+    for (const auto& s : ss) {
+      auto&& stream = stripeFooter->add_streams();
+      stream->set_node(std::get<0>(s));
+      stream->set_kind(static_cast<proto::Stream_Kind>(std::get<1>(s)));
+      stream->set_length(std::get<2>(s));
+    }
+
+    stripeMetadata = std::make_unique<const StripeMetadata>(
+        readerBase->bufferedInput().clone(),
+        std::move(stripeFooter),
+        std::move(handler),
+        StripeInformationWrapper(
+            static_cast<const proto::StripeInformation*>(nullptr)));
+  } else {
+    auto stripeFooterOrc = std::make_unique<proto::orc::StripeFooter>();
+    std::vector<std::tuple<uint64_t, proto::orc::Stream_Kind, uint64_t>> ss{
+        std::make_tuple(1, proto::orc::Stream_Kind_ROW_INDEX, 100),
+        std::make_tuple(2, proto::orc::Stream_Kind_ROW_INDEX, 100),
+        std::make_tuple(1, proto::orc::Stream_Kind_PRESENT, 200),
+        std::make_tuple(2, proto::orc::Stream_Kind_PRESENT, 200),
+        std::make_tuple(1, proto::orc::Stream_Kind_DATA, 5000000),
+        std::make_tuple(2, proto::orc::Stream_Kind_DATA, 1000000)};
+    for (const auto& s : ss) {
+      auto&& stream = stripeFooterOrc->add_streams();
+      stream->set_column(std::get<0>(s));
+      stream->set_kind(std::get<1>(s));
+      stream->set_length(std::get<2>(s));
+    }
+
+    stripeMetadata = std::make_unique<const StripeMetadata>(
+        readerBase->bufferedInput().clone(),
+        std::move(stripeFooterOrc),
+        std::move(handler),
+        StripeInformationWrapper(
+            static_cast<const proto::StripeInformation*>(nullptr)));
+  }
+
   auto stripeReadState =
       std::make_shared<StripeReadState>(readerBase, std::move(stripeMetadata));
   StripeReaderBase stripeReader{readerBase};
@@ -248,7 +309,7 @@ TEST_F(StripeStreamTest, filterSequences) {
   }
 }
 
-TEST_F(StripeStreamTest, zeroLength) {
+TEST_P(StripeStreamFormatTypeTest, zeroLength) {
   google::protobuf::Arena arena;
   auto footer = google::protobuf::Arena::CreateMessage<proto::Footer>(&arena);
   footer->set_rowindexstride(100);
@@ -266,26 +327,55 @@ TEST_F(StripeStreamTest, zeroLength) {
       footer,
       nullptr);
 
-  auto stripeFooter = std::make_unique<proto::StripeFooter>();
-  std::vector<std::tuple<uint64_t, StreamKind, uint64_t>> ss{
-      std::make_tuple(0, StreamKind::StreamKind_ROW_INDEX, 0),
-      std::make_tuple(1, StreamKind::StreamKind_ROW_INDEX, 0),
-      std::make_tuple(1, StreamKind::StreamKind_DATA, 0)};
-  for (const auto& s : ss) {
-    auto&& stream = stripeFooter->add_streams();
-    stream->set_node(std::get<0>(s));
-    stream->set_kind(static_cast<proto::Stream_Kind>(std::get<1>(s)));
-    stream->set_length(std::get<2>(s));
-  }
-
   TestDecrypterFactory factory;
   auto handler = DecryptionHandler::create(FooterWrapper(footer), &factory);
-  auto stripeMetadata = std::make_unique<const StripeMetadata>(
-      readerBase->bufferedInput().clone(),
-      std::move(stripeFooter),
-      std::move(handler),
-      StripeInformationWrapper(
-          static_cast<const proto::StripeInformation*>(nullptr)));
+  std::unique_ptr<const StripeMetadata> stripeMetadata;
+
+  std::vector<std::tuple<uint64_t, proto::Stream_Kind, uint64_t>>
+      dwrfTestStreams = {
+          std::make_tuple(0, proto::Stream_Kind_ROW_INDEX, 0),
+          std::make_tuple(1, proto::Stream_Kind_ROW_INDEX, 0),
+          std::make_tuple(1, proto::Stream_Kind_DATA, 0)};
+
+  std::vector<std::tuple<uint64_t, proto::orc::Stream_Kind, uint64_t>>
+      orcTestStreams{
+          std::make_tuple(0, proto::orc::Stream_Kind_ROW_INDEX, 0),
+          std::make_tuple(1, proto::orc::Stream_Kind_ROW_INDEX, 0),
+          std::make_tuple(1, proto::orc::Stream_Kind_DATA, 0)};
+
+  if (testParamDwrfFormat_ == DwrfFormat::kDwrf) {
+    auto stripeFooter = std::make_unique<proto::StripeFooter>();
+
+    for (const auto& s : dwrfTestStreams) {
+      auto&& stream = stripeFooter->add_streams();
+      stream->set_node(std::get<0>(s));
+      stream->set_kind(std::get<1>(s));
+      stream->set_length(std::get<2>(s));
+    }
+
+    stripeMetadata = std::make_unique<const StripeMetadata>(
+        readerBase->bufferedInput().clone(),
+        std::move(stripeFooter),
+        std::move(handler),
+        StripeInformationWrapper(
+            static_cast<const proto::StripeInformation*>(nullptr)));
+  } else {
+    auto stripeFooterOrc = std::make_unique<proto::orc::StripeFooter>();
+    for (const auto& s : orcTestStreams) {
+      auto&& stream = stripeFooterOrc->add_streams();
+      stream->set_column(std::get<0>(s));
+      stream->set_kind(std::get<1>(s));
+      stream->set_length(std::get<2>(s));
+    }
+
+    stripeMetadata = std::make_unique<const StripeMetadata>(
+        readerBase->bufferedInput().clone(),
+        std::move(stripeFooterOrc),
+        std::move(handler),
+        StripeInformationWrapper(
+            static_cast<const proto::StripeInformation*>(nullptr)));
+  }
+
   auto stripeReadState =
       std::make_shared<StripeReadState>(readerBase, std::move(stripeMetadata));
   StripeReaderBase stripeReader{readerBase};
@@ -305,20 +395,32 @@ TEST_F(StripeStreamTest, zeroLength) {
   auto const& actual = isPtr->getReads();
   EXPECT_EQ(actual.size(), 0);
 
-  for (const auto& s : ss) {
-    auto id = EncodingKey(std::get<0>(s))
-                  .forKind(static_cast<proto::Stream_Kind>(std::get<1>(s)));
-    auto stream = streams.getStream(id, {}, true);
-    EXPECT_NE(stream, nullptr);
-    const void* buf = nullptr;
-    int32_t size = 1;
-    EXPECT_FALSE(stream->Next(&buf, &size));
-    proto::RowIndex rowIndex;
-    EXPECT_EQ(stream->positionSize(), 2);
+  if (testParamDwrfFormat_ == DwrfFormat::kDwrf) {
+    for (const auto& s : dwrfTestStreams) {
+      auto id = EncodingKey(std::get<0>(s)).forKind(std::get<1>(s));
+      auto stream = streams.getStream(id, {}, true);
+      EXPECT_NE(stream, nullptr);
+      const void* buf = nullptr;
+      int32_t size = 1;
+      EXPECT_FALSE(stream->Next(&buf, &size));
+      proto::RowIndex rowIndex;
+      EXPECT_EQ(stream->positionSize(), 2);
+    }
+  } else {
+    for (const auto& s : orcTestStreams) {
+      auto id = EncodingKey(std::get<0>(s)).forKind(std::get<1>(s));
+      auto stream = streams.getStream(id, {}, true);
+      EXPECT_NE(stream, nullptr);
+      const void* buf = nullptr;
+      int32_t size = 1;
+      EXPECT_FALSE(stream->Next(&buf, &size));
+      proto::RowIndex rowIndex;
+      EXPECT_EQ(stream->positionSize(), 2);
+    }
   }
 }
 
-TEST_F(StripeStreamTest, planReadsIndex) {
+TEST_P(StripeStreamFormatTypeTest, planReadsIndex) {
   google::protobuf::Arena arena;
 
   // build ps
@@ -358,27 +460,57 @@ TEST_F(StripeStreamTest, planReadsIndex) {
       footer,
       std::move(cache));
 
-  auto stripeFooter = std::make_unique<proto::StripeFooter>();
-  std::vector<std::tuple<uint64_t, StreamKind, uint64_t>> ss{
-      std::make_tuple(0, StreamKind::StreamKind_ROW_INDEX, length),
-      std::make_tuple(1, StreamKind::StreamKind_ROW_INDEX, length),
-      std::make_tuple(1, StreamKind::StreamKind_PRESENT, 200),
-      std::make_tuple(1, StreamKind::StreamKind_DATA, 1000000)};
-  for (const auto& s : ss) {
-    auto&& stream = stripeFooter->add_streams();
-    stream->set_node(std::get<0>(s));
-    stream->set_kind(static_cast<proto::Stream_Kind>(std::get<1>(s)));
-    stream->set_length(std::get<2>(s));
-  }
-
   TestDecrypterFactory factory;
   auto handler = DecryptionHandler::create(FooterWrapper(footer), &factory);
-  auto stripeMetadata = std::make_unique<const StripeMetadata>(
-      readerBase->bufferedInput().clone(),
-      std::move(stripeFooter),
-      std::move(handler),
-      StripeInformationWrapper(
-          static_cast<const proto::StripeInformation*>(nullptr)));
+  std::unique_ptr<const StripeMetadata> stripeMetadata;
+
+  std::vector<std::tuple<uint64_t, proto::Stream_Kind, uint64_t>>
+      dwrfTestStreams = {
+          std::make_tuple(0, proto::Stream_Kind_ROW_INDEX, length),
+          std::make_tuple(1, proto::Stream_Kind_ROW_INDEX, length),
+          std::make_tuple(1, proto::Stream_Kind_PRESENT, 200),
+          std::make_tuple(1, proto::Stream_Kind_DATA, 1000000)};
+
+  std::vector<std::tuple<uint64_t, proto::orc::Stream_Kind, uint64_t>>
+      orcTestStreams{
+          std::make_tuple(0, proto::orc::Stream_Kind_ROW_INDEX, length),
+          std::make_tuple(1, proto::orc::Stream_Kind_ROW_INDEX, length),
+          std::make_tuple(1, proto::orc::Stream_Kind_PRESENT, 200),
+          std::make_tuple(1, proto::orc::Stream_Kind_DATA, 1000000)};
+
+  if (testParamDwrfFormat_ == DwrfFormat::kDwrf) {
+    auto stripeFooter = std::make_unique<proto::StripeFooter>();
+
+    for (const auto& s : dwrfTestStreams) {
+      auto&& stream = stripeFooter->add_streams();
+      stream->set_node(std::get<0>(s));
+      stream->set_kind(std::get<1>(s));
+      stream->set_length(std::get<2>(s));
+    }
+
+    stripeMetadata = std::make_unique<const StripeMetadata>(
+        readerBase->bufferedInput().clone(),
+        std::move(stripeFooter),
+        std::move(handler),
+        StripeInformationWrapper(
+            static_cast<const proto::StripeInformation*>(nullptr)));
+  } else {
+    auto stripeFooterOrc = std::make_unique<proto::orc::StripeFooter>();
+    for (const auto& s : orcTestStreams) {
+      auto&& stream = stripeFooterOrc->add_streams();
+      stream->set_column(std::get<0>(s));
+      stream->set_kind(std::get<1>(s));
+      stream->set_length(std::get<2>(s));
+    }
+
+    stripeMetadata = std::make_unique<const StripeMetadata>(
+        readerBase->bufferedInput().clone(),
+        std::move(stripeFooterOrc),
+        std::move(handler),
+        StripeInformationWrapper(
+            static_cast<const proto::StripeInformation*>(nullptr)));
+  }
+
   auto stripeReadState =
       std::make_shared<StripeReadState>(readerBase, std::move(stripeMetadata));
   StripeReaderBase stripeReader{readerBase};
@@ -395,20 +527,41 @@ TEST_F(StripeStreamTest, planReadsIndex) {
           [](uint64_t ac, const Region& r) { return ac + r.length; }),
       1000200);
 
-  EXPECT_EQ(
-      ProtoUtils::readProto<proto::RowIndex>(
-          streams.getStream(
-              EncodingKey(0).forKind(proto::Stream_Kind_ROW_INDEX), {}, true))
-          ->entry(0)
-          .positions(0),
-      123);
-  EXPECT_EQ(
-      ProtoUtils::readProto<proto::RowIndex>(
-          streams.getStream(
-              EncodingKey(1).forKind(proto::Stream_Kind_ROW_INDEX), {}, true))
-          ->entry(0)
-          .positions(0),
-      123);
+  if (testParamDwrfFormat_ == DwrfFormat::kDwrf) {
+    EXPECT_EQ(
+        ProtoUtils::readProto<proto::RowIndex>(
+            streams.getStream(
+                EncodingKey(0).forKind(proto::Stream_Kind_ROW_INDEX), {}, true))
+            ->entry(0)
+            .positions(0),
+        123);
+    EXPECT_EQ(
+        ProtoUtils::readProto<proto::RowIndex>(
+            streams.getStream(
+                EncodingKey(1).forKind(proto::Stream_Kind_ROW_INDEX), {}, true))
+            ->entry(0)
+            .positions(0),
+        123);
+  } else {
+    EXPECT_EQ(
+        ProtoUtils::readProto<proto::orc::RowIndex>(
+            streams.getStream(
+                EncodingKey(0).forKind(proto::orc::Stream_Kind_ROW_INDEX),
+                {},
+                true))
+            ->entry(0)
+            .positions(0),
+        123);
+    EXPECT_EQ(
+        ProtoUtils::readProto<proto::orc::RowIndex>(
+            streams.getStream(
+                EncodingKey(1).forKind(proto::orc::Stream_Kind_ROW_INDEX),
+                {},
+                true))
+            ->entry(0)
+            .positions(0),
+        123);
+  }
 }
 
 void addEncryptionGroup(
@@ -624,6 +777,11 @@ class TestStripeStreams : public StripeStreamsBase {
     return *getEncodingProxy(ek.node(), ek.sequence());
   }
 
+  const proto::orc::ColumnEncoding& getEncodingOrc(
+      const EncodingKey& ek) const override {
+    return *getEncodingOrcProxy(ek.node(), ek.sequence());
+  }
+
   std::unique_ptr<SeekableInputStream> getStream(
       const DwrfStreamIdentifier& si,
       std::string_view /* label */,
@@ -672,6 +830,9 @@ class TestStripeStreams : public StripeStreamsBase {
   MOCK_CONST_METHOD2(
       getEncodingProxy,
       proto::ColumnEncoding*(uint32_t, uint32_t));
+  MOCK_CONST_METHOD2(
+      getEncodingOrcProxy,
+      proto::orc::ColumnEncoding*(uint32_t, uint32_t));
   MOCK_CONST_METHOD2(
       visitStreamsOfNode,
       uint32_t(uint32_t, std::function<void(const StreamInformation&)>));

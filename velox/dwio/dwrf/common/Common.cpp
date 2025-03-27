@@ -61,6 +61,32 @@ std::string streamKindToString(StreamKind kind) {
       return "stride dictionary length";
     case StreamKind_BLOOM_FILTER_UTF8:
       return "bloom";
+    case StreamKindOrc_PRESENT:
+      return "orc present";
+    case StreamKindOrc_DATA:
+      return "orc data";
+    case StreamKindOrc_LENGTH:
+      return "orc length";
+    case StreamKindOrc_DICTIONARY_DATA:
+      return "orc dictionary";
+    case StreamKindOrc_DICTIONARY_COUNT:
+      return "orc dictionary count";
+    case StreamKindOrc_SECONDARY:
+      return "orc secondary";
+    case StreamKindOrc_ROW_INDEX:
+      return "orc index";
+    case StreamKindOrc_BLOOM_FILTER:
+      return "orc bloom";
+    case StreamKindOrc_BLOOM_FILTER_UTF8:
+      return "orc bloom utf8";
+    case StreamKindOrc_ENCRYPTED_INDEX:
+      return "orc encrypted index";
+    case StreamKindOrc_ENCRYPTED_DATA:
+      return "orc encrypted data";
+    case StreamKindOrc_STRIPE_STATISTICS:
+      return "orc stripe statistics";
+    case StreamKindOrc_FILE_STATISTICS:
+      return "orc file statistics";
   }
   return folly::to<std::string>("unknown - ", kind);
 }
@@ -80,6 +106,11 @@ std::string columnEncodingKindToString(ColumnEncodingKind kind) {
 }
 
 DwrfStreamIdentifier EncodingKey::forKind(const proto::Stream_Kind kind) const {
+  return DwrfStreamIdentifier(node_, sequence_, 0, kind);
+}
+
+DwrfStreamIdentifier EncodingKey::forKind(
+    const proto::orc::Stream_Kind kind) const {
   return DwrfStreamIdentifier(node_, sequence_, 0, kind);
 }
 
