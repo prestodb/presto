@@ -17,30 +17,31 @@
 // Adapted from Apache Arrow.
 
 #include <gmock/gmock.h>
-#include <gtest/gtest.h>
 
-#include <cstdint>
-#include <cstring>
-#include <memory>
-#include <optional>
-
-#include "velox/dwio/parquet/writer/arrow/ColumnPage.h"
+#include "velox/common/base/tests/GTestUtils.h"
+#include "velox/dwio/parquet/reader/ParquetReader.h"
 #include "velox/dwio/parquet/writer/arrow/Exception.h"
 #include "velox/dwio/parquet/writer/arrow/FileWriter.h"
-#include "velox/dwio/parquet/writer/arrow/Metadata.h"
-#include "velox/dwio/parquet/writer/arrow/Platform.h"
 #include "velox/dwio/parquet/writer/arrow/ThriftInternal.h"
-#include "velox/dwio/parquet/writer/arrow/Types.h"
-#include "velox/dwio/parquet/writer/arrow/tests/ColumnReader.h"
-#include "velox/dwio/parquet/writer/arrow/tests/FileReader.h"
 #include "velox/dwio/parquet/writer/arrow/tests/TestUtil.h"
+#include "velox/exec/tests/utils/TempFilePath.h"
 
-#include "arrow/io/memory.h"
 #include "arrow/testing/gtest_util.h"
-#include "arrow/util/compression.h"
 #include "arrow/util/crc32.h"
 
 namespace facebook::velox::parquet::arrow {
+namespace {
+void writeToFile(
+    std::shared_ptr<exec::test::TempFilePath> filePath,
+    std::shared_ptr<arrow::Buffer> buffer) {
+  auto localWriteFile =
+      std::make_unique<LocalWriteFile>(filePath->getPath(), false, false);
+  auto bufferReader = std::make_shared<::arrow::io::BufferReader>(buffer);
+  auto bufferToString = bufferReader->buffer()->ToString();
+  localWriteFile->append(bufferToString);
+  localWriteFile->close();
+}
+} // namespace
 
 using ::arrow::io::BufferReader;
 
@@ -992,17 +993,24 @@ TEST_F(TestPageSerde, DataPageV2CrcCheckNonExistent) {
 class TestParquetFileReader : public ::testing::Test {
  public:
   void AssertInvalidFileThrows(const std::shared_ptr<Buffer>& buffer) {
-    reader_.reset(new ParquetFileReader());
-
     auto reader = std::make_shared<BufferReader>(buffer);
-
-    ASSERT_THROW(
-        reader_->Open(ParquetFileReader::Contents::Open(reader)),
-        ParquetException);
+    // Write the buffer to a temp file path
+    auto filePath = exec::test::TempFilePath::create();
+    writeToFile(filePath, buffer);
+    memory::MemoryManager::testingSetInstance({});
+    std::shared_ptr<facebook::velox::memory::MemoryPool> rootPool =
+        memory::memoryManager()->addRootPool("MetadataTest");
+    std::shared_ptr<facebook::velox::memory::MemoryPool> leafPool =
+        rootPool->addLeafChild("MetadataTest");
+    dwio::common::ReaderOptions readerOptions{leafPool.get()};
+    auto input = std::make_unique<dwio::common::BufferedInput>(
+        std::make_shared<LocalReadFile>(filePath->getPath()),
+        readerOptions.memoryPool());
+    uint64_t fileSize = std::move(input)->getReadFile()->size();
+    VELOX_ASSERT_THROW(
+        std::make_unique<ParquetReader>(std::move(input), readerOptions),
+        fmt::format("({} vs. 12) Parquet file is too small", fileSize));
   }
-
- protected:
-  std::unique_ptr<ParquetFileReader> reader_;
 };
 
 TEST_F(TestParquetFileReader, InvalidHeader) {
@@ -1040,7 +1048,37 @@ TEST_F(TestParquetFileReader, IncompleteMetadata) {
       stream->Write(reinterpret_cast<const uint8_t*>(magic), strlen(magic)));
 
   ASSERT_OK_AND_ASSIGN(auto buffer, stream->Finish());
-  ASSERT_NO_FATAL_FAILURE(AssertInvalidFileThrows(buffer));
+
+  auto reader = std::make_shared<BufferReader>(buffer);
+  // Write the buffer to a temp file path
+  auto filePath = exec::test::TempFilePath::create();
+  writeToFile(filePath, buffer);
+  memory::MemoryManager::testingSetInstance({});
+  std::shared_ptr<facebook::velox::memory::MemoryPool> rootPool =
+      memory::memoryManager()->addRootPool("MetadataTest");
+  std::shared_ptr<facebook::velox::memory::MemoryPool> leafPool =
+      rootPool->addLeafChild("MetadataTest");
+  dwio::common::ReaderOptions readerOptions{leafPool.get()};
+  auto input = std::make_unique<dwio::common::BufferedInput>(
+      std::make_shared<LocalReadFile>(filePath->getPath()),
+      readerOptions.memoryPool());
+
+  uint64_t fileSize = std::move(input)->getReadFile()->size();
+  std::unique_ptr<dwio::common::SeekableInputStream> inputStream;
+  inputStream = std::move(input)->loadCompleteFile();
+  std::vector<char> copy(fileSize);
+  const char* bufferStart = nullptr;
+  const char* bufferEnd = nullptr;
+  dwio::common::readBytes(
+      fileSize, inputStream.get(), copy.data(), bufferStart, bufferEnd);
+  ASSERT_EQ(0, strncmp(copy.data() + fileSize - 4, "PAR1", 4));
+
+  uint32_t footerLength;
+  std::memcpy(&footerLength, copy.data() + fileSize - 8, sizeof(uint32_t));
+
+  VELOX_ASSERT_THROW(
+      std::make_unique<ParquetReader>(std::move(input), readerOptions),
+      fmt::format("({} vs. {})", footerLength + 12, fileSize));
 }
 
 } // namespace facebook::velox::parquet::arrow
