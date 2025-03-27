@@ -1,0 +1,895 @@
+[
+  {
+    "@type": "special",
+    "arguments": [
+      {
+        "@type": "constant",
+        "type": "integer",
+        "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAwAAAA=="
+      },
+      {
+        "@type": "constant",
+        "type": "integer",
+        "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAgAAAA=="
+      },
+      {
+        "@type": "call",
+        "arguments": [
+          {
+            "@type": "constant",
+            "sourceLocation": {
+              "column": 10,
+              "line": 1
+            },
+            "type": "unknown",
+            "valueBlock": "AwAAAFJMRQEAAAAKAAAAQllURV9BUlJBWQEAAAABgA=="
+          }
+        ],
+        "displayName": "CAST",
+        "functionHandle": {
+          "@type": "$static",
+          "signature": {
+            "argumentTypes": [
+              "unknown"
+            ],
+            "kind": "SCALAR",
+            "longVariableConstraints": [],
+            "name": "presto.default.$operator$cast",
+            "returnType": "integer",
+            "typeVariableConstraints": [],
+            "variableArity": false
+          }
+        },
+        "returnType": "integer",
+        "sourceLocation": {
+          "column": 10,
+          "line": 1
+        }
+      },
+      {
+        "@type": "constant",
+        "type": "integer",
+        "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAwAAAA=="
+      },
+      {
+        "@type": "constant",
+        "type": "integer",
+        "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAABQAAAA=="
+      }
+    ],
+    "form": "IN",
+    "returnType": "boolean",
+    "sourceLocation": {
+      "column": 10,
+      "line": 1
+    }
+  },
+  {
+    "@type": "special",
+    "arguments": [
+      {
+        "@type": "call",
+        "arguments": [
+          {
+            "@type": "constant",
+            "type": "varchar(3)",
+            "valueBlock": "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAMAAAAAAwAAAGZvbw=="
+          }
+        ],
+        "displayName": "CAST",
+        "functionHandle": {
+          "@type": "$static",
+          "signature": {
+            "argumentTypes": [
+              "varchar(3)"
+            ],
+            "kind": "SCALAR",
+            "longVariableConstraints": [],
+            "name": "presto.default.$operator$cast",
+            "returnType": "varchar(4)",
+            "typeVariableConstraints": [],
+            "variableArity": false
+          }
+        },
+        "returnType": "varchar(4)"
+      },
+      {
+        "@type": "call",
+        "arguments": [
+          {
+            "@type": "constant",
+            "type": "varchar(3)",
+            "valueBlock": "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAMAAAAAAwAAAGJhcg=="
+          }
+        ],
+        "displayName": "CAST",
+        "functionHandle": {
+          "@type": "$static",
+          "signature": {
+            "argumentTypes": [
+              "varchar(3)"
+            ],
+            "kind": "SCALAR",
+            "longVariableConstraints": [],
+            "name": "presto.default.$operator$cast",
+            "returnType": "varchar(4)",
+            "typeVariableConstraints": [],
+            "variableArity": false
+          }
+        },
+        "returnType": "varchar(4)"
+      },
+      {
+        "@type": "call",
+        "arguments": [
+          {
+            "@type": "constant",
+            "type": "varchar(3)",
+            "valueBlock": "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAMAAAAAAwAAAGJheg=="
+          }
+        ],
+        "displayName": "CAST",
+        "functionHandle": {
+          "@type": "$static",
+          "signature": {
+            "argumentTypes": [
+              "varchar(3)"
+            ],
+            "kind": "SCALAR",
+            "longVariableConstraints": [],
+            "name": "presto.default.$operator$cast",
+            "returnType": "varchar(4)",
+            "typeVariableConstraints": [],
+            "variableArity": false
+          }
+        },
+        "returnType": "varchar(4)"
+      },
+      {
+        "@type": "call",
+        "arguments": [
+          {
+            "@type": "constant",
+            "type": "varchar(3)",
+            "valueBlock": "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAMAAAAAAwAAAGJ1eg=="
+          }
+        ],
+        "displayName": "CAST",
+        "functionHandle": {
+          "@type": "$static",
+          "signature": {
+            "argumentTypes": [
+              "varchar(3)"
+            ],
+            "kind": "SCALAR",
+            "longVariableConstraints": [],
+            "name": "presto.default.$operator$cast",
+            "returnType": "varchar(4)",
+            "typeVariableConstraints": [],
+            "variableArity": false
+          }
+        },
+        "returnType": "varchar(4)"
+      },
+      {
+        "@type": "constant",
+        "type": "varchar(4)",
+        "valueBlock": "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAQAAAAABAAAAGJsYWg="
+      }
+    ],
+    "form": "IN",
+    "returnType": "boolean"
+  },
+  {
+    "@type": "special",
+    "arguments": [
+      {
+        "@type": "call",
+        "arguments": [
+          {
+            "@type": "constant",
+            "sourceLocation": {
+              "column": 1,
+              "line": 1
+            },
+            "type": "unknown",
+            "valueBlock": "AwAAAFJMRQEAAAAKAAAAQllURV9BUlJBWQEAAAABgA=="
+          }
+        ],
+        "displayName": "CAST",
+        "functionHandle": {
+          "@type": "$static",
+          "signature": {
+            "argumentTypes": [
+              "unknown"
+            ],
+            "kind": "SCALAR",
+            "longVariableConstraints": [],
+            "name": "presto.default.$operator$cast",
+            "returnType": "integer",
+            "typeVariableConstraints": [],
+            "variableArity": false
+          }
+        },
+        "returnType": "integer",
+        "sourceLocation": {
+          "column": 1,
+          "line": 1
+        }
+      },
+      {
+        "@type": "constant",
+        "type": "integer",
+        "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAgAAAA=="
+      },
+      {
+        "@type": "call",
+        "arguments": [
+          {
+            "@type": "constant",
+            "sourceLocation": {
+              "column": 13,
+              "line": 1
+            },
+            "type": "unknown",
+            "valueBlock": "AwAAAFJMRQEAAAAKAAAAQllURV9BUlJBWQEAAAABgA=="
+          }
+        ],
+        "displayName": "CAST",
+        "functionHandle": {
+          "@type": "$static",
+          "signature": {
+            "argumentTypes": [
+              "unknown"
+            ],
+            "kind": "SCALAR",
+            "longVariableConstraints": [],
+            "name": "presto.default.$operator$cast",
+            "returnType": "integer",
+            "typeVariableConstraints": [],
+            "variableArity": false
+          }
+        },
+        "returnType": "integer",
+        "sourceLocation": {
+          "column": 13,
+          "line": 1
+        }
+      },
+      {
+        "@type": "constant",
+        "type": "integer",
+        "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAwAAAA=="
+      },
+      {
+        "@type": "constant",
+        "type": "integer",
+        "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAABQAAAA=="
+      }
+    ],
+    "form": "IN",
+    "returnType": "boolean",
+    "sourceLocation": {
+      "column": 1,
+      "line": 1
+    }
+  },
+  {
+    "@type": "special",
+    "arguments": [
+      {
+        "@type": "special",
+        "arguments": [
+          {
+            "@type": "constant",
+            "type": "integer",
+            "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAQAAAA=="
+          }
+        ],
+        "form": "ROW_CONSTRUCTOR",
+        "returnType": "row(integer)"
+      },
+      {
+        "@type": "special",
+        "arguments": [
+          {
+            "@type": "constant",
+            "type": "integer",
+            "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAgAAAA=="
+          }
+        ],
+        "form": "ROW_CONSTRUCTOR",
+        "returnType": "row(integer)"
+      },
+      {
+        "@type": "special",
+        "arguments": [
+          {
+            "@type": "constant",
+            "type": "integer",
+            "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAQAAAA=="
+          }
+        ],
+        "form": "ROW_CONSTRUCTOR",
+        "returnType": "row(integer)"
+      },
+      {
+        "@type": "special",
+        "arguments": [
+          {
+            "@type": "constant",
+            "type": "integer",
+            "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAgAAAA=="
+          }
+        ],
+        "form": "ROW_CONSTRUCTOR",
+        "returnType": "row(integer)"
+      }
+    ],
+    "form": "IN",
+    "returnType": "boolean"
+  },
+  {
+    "@type": "special",
+    "arguments": [
+      {
+        "@type": "call",
+        "arguments": [
+          {
+            "@type": "call",
+            "arguments": [
+              {
+                "@type": "constant",
+                "type": "integer",
+                "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAQAAAA=="
+              },
+              {
+                "@type": "constant",
+                "type": "integer",
+                "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAgAAAA=="
+              }
+            ],
+            "displayName": "ARRAY",
+            "functionHandle": {
+              "@type": "$static",
+              "signature": {
+                "argumentTypes": [
+                  "integer",
+                  "integer"
+                ],
+                "kind": "SCALAR",
+                "longVariableConstraints": [],
+                "name": "presto.default.array_constructor",
+                "returnType": "array(integer)",
+                "typeVariableConstraints": [],
+                "variableArity": false
+              }
+            },
+            "returnType": "array(integer)"
+          },
+          {
+            "@type": "call",
+            "arguments": [
+              {
+                "@type": "constant",
+                "type": "integer",
+                "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAQAAAA=="
+              },
+              {
+                "@type": "call",
+                "arguments": [
+                  {
+                    "@type": "constant",
+                    "sourceLocation": {
+                      "column": 27,
+                      "line": 1
+                    },
+                    "type": "unknown",
+                    "valueBlock": "AwAAAFJMRQEAAAAKAAAAQllURV9BUlJBWQEAAAABgA=="
+                  }
+                ],
+                "displayName": "CAST",
+                "functionHandle": {
+                  "@type": "$static",
+                  "signature": {
+                    "argumentTypes": [
+                      "unknown"
+                    ],
+                    "kind": "SCALAR",
+                    "longVariableConstraints": [],
+                    "name": "presto.default.$operator$cast",
+                    "returnType": "integer",
+                    "typeVariableConstraints": [],
+                    "variableArity": false
+                  }
+                },
+                "returnType": "integer",
+                "sourceLocation": {
+                  "column": 27,
+                  "line": 1
+                }
+              }
+            ],
+            "displayName": "ARRAY",
+            "functionHandle": {
+              "@type": "$static",
+              "signature": {
+                "argumentTypes": [
+                  "integer",
+                  "integer"
+                ],
+                "kind": "SCALAR",
+                "longVariableConstraints": [],
+                "name": "presto.default.array_constructor",
+                "returnType": "array(integer)",
+                "typeVariableConstraints": [],
+                "variableArity": false
+              }
+            },
+            "returnType": "array(integer)",
+            "sourceLocation": {
+              "column": 27,
+              "line": 1
+            }
+          }
+        ],
+        "displayName": "map",
+        "functionHandle": {
+          "@type": "$static",
+          "signature": {
+            "argumentTypes": [
+              "array(integer)",
+              "array(integer)"
+            ],
+            "kind": "SCALAR",
+            "longVariableConstraints": [],
+            "name": "presto.default.map",
+            "returnType": "map(integer,integer)",
+            "typeVariableConstraints": [],
+            "variableArity": false
+          }
+        },
+        "returnType": "map(integer,integer)",
+        "sourceLocation": {
+          "column": 27,
+          "line": 1
+        }
+      },
+      {
+        "@type": "call",
+        "arguments": [
+          {
+            "@type": "call",
+            "arguments": [
+              {
+                "@type": "constant",
+                "type": "integer",
+                "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAQAAAA=="
+              },
+              {
+                "@type": "constant",
+                "type": "integer",
+                "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAgAAAA=="
+              }
+            ],
+            "displayName": "ARRAY",
+            "functionHandle": {
+              "@type": "$static",
+              "signature": {
+                "argumentTypes": [
+                  "integer",
+                  "integer"
+                ],
+                "kind": "SCALAR",
+                "longVariableConstraints": [],
+                "name": "presto.default.array_constructor",
+                "returnType": "array(integer)",
+                "typeVariableConstraints": [],
+                "variableArity": false
+              }
+            },
+            "returnType": "array(integer)"
+          },
+          {
+            "@type": "call",
+            "arguments": [
+              {
+                "@type": "constant",
+                "type": "integer",
+                "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAgAAAA=="
+              },
+              {
+                "@type": "call",
+                "arguments": [
+                  {
+                    "@type": "constant",
+                    "sourceLocation": {
+                      "column": 64,
+                      "line": 1
+                    },
+                    "type": "unknown",
+                    "valueBlock": "AwAAAFJMRQEAAAAKAAAAQllURV9BUlJBWQEAAAABgA=="
+                  }
+                ],
+                "displayName": "CAST",
+                "functionHandle": {
+                  "@type": "$static",
+                  "signature": {
+                    "argumentTypes": [
+                      "unknown"
+                    ],
+                    "kind": "SCALAR",
+                    "longVariableConstraints": [],
+                    "name": "presto.default.$operator$cast",
+                    "returnType": "integer",
+                    "typeVariableConstraints": [],
+                    "variableArity": false
+                  }
+                },
+                "returnType": "integer",
+                "sourceLocation": {
+                  "column": 64,
+                  "line": 1
+                }
+              }
+            ],
+            "displayName": "ARRAY",
+            "functionHandle": {
+              "@type": "$static",
+              "signature": {
+                "argumentTypes": [
+                  "integer",
+                  "integer"
+                ],
+                "kind": "SCALAR",
+                "longVariableConstraints": [],
+                "name": "presto.default.array_constructor",
+                "returnType": "array(integer)",
+                "typeVariableConstraints": [],
+                "variableArity": false
+              }
+            },
+            "returnType": "array(integer)",
+            "sourceLocation": {
+              "column": 64,
+              "line": 1
+            }
+          }
+        ],
+        "displayName": "map",
+        "functionHandle": {
+          "@type": "$static",
+          "signature": {
+            "argumentTypes": [
+              "array(integer)",
+              "array(integer)"
+            ],
+            "kind": "SCALAR",
+            "longVariableConstraints": [],
+            "name": "presto.default.map",
+            "returnType": "map(integer,integer)",
+            "typeVariableConstraints": [],
+            "variableArity": false
+          }
+        },
+        "returnType": "map(integer,integer)",
+        "sourceLocation": {
+          "column": 64,
+          "line": 1
+        }
+      },
+      {
+        "@type": "call",
+        "arguments": [
+          {
+            "@type": "constant",
+            "sourceLocation": {
+              "column": 72,
+              "line": 1
+            },
+            "type": "unknown",
+            "valueBlock": "AwAAAFJMRQEAAAAKAAAAQllURV9BUlJBWQEAAAABgA=="
+          }
+        ],
+        "displayName": "CAST",
+        "functionHandle": {
+          "@type": "$static",
+          "signature": {
+            "argumentTypes": [
+              "unknown"
+            ],
+            "kind": "SCALAR",
+            "longVariableConstraints": [],
+            "name": "presto.default.$operator$cast",
+            "returnType": "map(integer,integer)",
+            "typeVariableConstraints": [],
+            "variableArity": false
+          }
+        },
+        "returnType": "map(integer,integer)",
+        "sourceLocation": {
+          "column": 72,
+          "line": 1
+        }
+      }
+    ],
+    "form": "IN",
+    "returnType": "boolean",
+    "sourceLocation": {
+      "column": 27,
+      "line": 1
+    }
+  },
+  {
+    "@type": "call",
+    "arguments": [
+      {
+        "@type": "call",
+        "arguments": [
+          {
+            "@type": "call",
+            "arguments": [
+              {
+                "@type": "constant",
+                "type": "integer",
+                "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAQAAAA=="
+              },
+              {
+                "@type": "constant",
+                "type": "integer",
+                "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAgAAAA=="
+              }
+            ],
+            "displayName": "ARRAY",
+            "functionHandle": {
+              "@type": "$static",
+              "signature": {
+                "argumentTypes": [
+                  "integer",
+                  "integer"
+                ],
+                "kind": "SCALAR",
+                "longVariableConstraints": [],
+                "name": "presto.default.array_constructor",
+                "returnType": "array(integer)",
+                "typeVariableConstraints": [],
+                "variableArity": false
+              }
+            },
+            "returnType": "array(integer)"
+          },
+          {
+            "@type": "call",
+            "arguments": [
+              {
+                "@type": "constant",
+                "type": "integer",
+                "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAQAAAA=="
+              },
+              {
+                "@type": "call",
+                "arguments": [
+                  {
+                    "@type": "constant",
+                    "sourceLocation": {
+                      "column": 27,
+                      "line": 1
+                    },
+                    "type": "unknown",
+                    "valueBlock": "AwAAAFJMRQEAAAAKAAAAQllURV9BUlJBWQEAAAABgA=="
+                  }
+                ],
+                "displayName": "CAST",
+                "functionHandle": {
+                  "@type": "$static",
+                  "signature": {
+                    "argumentTypes": [
+                      "unknown"
+                    ],
+                    "kind": "SCALAR",
+                    "longVariableConstraints": [],
+                    "name": "presto.default.$operator$cast",
+                    "returnType": "integer",
+                    "typeVariableConstraints": [],
+                    "variableArity": false
+                  }
+                },
+                "returnType": "integer",
+                "sourceLocation": {
+                  "column": 27,
+                  "line": 1
+                }
+              }
+            ],
+            "displayName": "ARRAY",
+            "functionHandle": {
+              "@type": "$static",
+              "signature": {
+                "argumentTypes": [
+                  "integer",
+                  "integer"
+                ],
+                "kind": "SCALAR",
+                "longVariableConstraints": [],
+                "name": "presto.default.array_constructor",
+                "returnType": "array(integer)",
+                "typeVariableConstraints": [],
+                "variableArity": false
+              }
+            },
+            "returnType": "array(integer)",
+            "sourceLocation": {
+              "column": 27,
+              "line": 1
+            }
+          }
+        ],
+        "displayName": "map",
+        "functionHandle": {
+          "@type": "$static",
+          "signature": {
+            "argumentTypes": [
+              "array(integer)",
+              "array(integer)"
+            ],
+            "kind": "SCALAR",
+            "longVariableConstraints": [],
+            "name": "presto.default.map",
+            "returnType": "map(integer,integer)",
+            "typeVariableConstraints": [],
+            "variableArity": false
+          }
+        },
+        "returnType": "map(integer,integer)",
+        "sourceLocation": {
+          "column": 27,
+          "line": 1
+        }
+      },
+      {
+        "@type": "call",
+        "arguments": [
+          {
+            "@type": "call",
+            "arguments": [
+              {
+                "@type": "constant",
+                "type": "integer",
+                "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAQAAAA=="
+              },
+              {
+                "@type": "constant",
+                "type": "integer",
+                "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAwAAAA=="
+              }
+            ],
+            "displayName": "ARRAY",
+            "functionHandle": {
+              "@type": "$static",
+              "signature": {
+                "argumentTypes": [
+                  "integer",
+                  "integer"
+                ],
+                "kind": "SCALAR",
+                "longVariableConstraints": [],
+                "name": "presto.default.array_constructor",
+                "returnType": "array(integer)",
+                "typeVariableConstraints": [],
+                "variableArity": false
+              }
+            },
+            "returnType": "array(integer)"
+          },
+          {
+            "@type": "call",
+            "arguments": [
+              {
+                "@type": "constant",
+                "type": "integer",
+                "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAQAAAA=="
+              },
+              {
+                "@type": "call",
+                "arguments": [
+                  {
+                    "@type": "constant",
+                    "sourceLocation": {
+                      "column": 64,
+                      "line": 1
+                    },
+                    "type": "unknown",
+                    "valueBlock": "AwAAAFJMRQEAAAAKAAAAQllURV9BUlJBWQEAAAABgA=="
+                  }
+                ],
+                "displayName": "CAST",
+                "functionHandle": {
+                  "@type": "$static",
+                  "signature": {
+                    "argumentTypes": [
+                      "unknown"
+                    ],
+                    "kind": "SCALAR",
+                    "longVariableConstraints": [],
+                    "name": "presto.default.$operator$cast",
+                    "returnType": "integer",
+                    "typeVariableConstraints": [],
+                    "variableArity": false
+                  }
+                },
+                "returnType": "integer",
+                "sourceLocation": {
+                  "column": 64,
+                  "line": 1
+                }
+              }
+            ],
+            "displayName": "ARRAY",
+            "functionHandle": {
+              "@type": "$static",
+              "signature": {
+                "argumentTypes": [
+                  "integer",
+                  "integer"
+                ],
+                "kind": "SCALAR",
+                "longVariableConstraints": [],
+                "name": "presto.default.array_constructor",
+                "returnType": "array(integer)",
+                "typeVariableConstraints": [],
+                "variableArity": false
+              }
+            },
+            "returnType": "array(integer)",
+            "sourceLocation": {
+              "column": 64,
+              "line": 1
+            }
+          }
+        ],
+        "displayName": "map",
+        "functionHandle": {
+          "@type": "$static",
+          "signature": {
+            "argumentTypes": [
+              "array(integer)",
+              "array(integer)"
+            ],
+            "kind": "SCALAR",
+            "longVariableConstraints": [],
+            "name": "presto.default.map",
+            "returnType": "map(integer,integer)",
+            "typeVariableConstraints": [],
+            "variableArity": false
+          }
+        },
+        "returnType": "map(integer,integer)",
+        "sourceLocation": {
+          "column": 64,
+          "line": 1
+        }
+      }
+    ],
+    "displayName": "=",
+    "functionHandle": {
+      "@type": "$static",
+      "signature": {
+        "argumentTypes": [
+          "map(integer,integer)",
+          "map(integer,integer)"
+        ],
+        "kind": "SCALAR",
+        "longVariableConstraints": [],
+        "name": "presto.default.$operator$equal",
+        "returnType": "boolean",
+        "typeVariableConstraints": [],
+        "variableArity": false
+      }
+    },
+    "returnType": "boolean",
+    "sourceLocation": {
+      "column": 27,
+      "line": 1
+    }
+  }
+]

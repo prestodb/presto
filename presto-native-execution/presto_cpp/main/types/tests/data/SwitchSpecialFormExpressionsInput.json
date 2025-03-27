@@ -1,0 +1,596 @@
+[
+  {
+    "@type": "special",
+    "arguments": [
+      {
+        "@type": "constant",
+        "type": "integer",
+        "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAQAAAA=="
+      },
+      {
+        "@type": "special",
+        "arguments": [
+          {
+            "@type": "constant",
+            "type": "integer",
+            "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAQAAAA=="
+          },
+          {
+            "@type": "call",
+            "arguments": [
+              {
+                "@type": "constant",
+                "type": "integer",
+                "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAIAAAAA=="
+              },
+              {
+                "@type": "constant",
+                "type": "integer",
+                "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAQAAAA=="
+              }
+            ],
+            "displayName": "ADD",
+            "functionHandle": {
+              "@type": "$static",
+              "signature": {
+                "argumentTypes": [
+                  "integer",
+                  "integer"
+                ],
+                "kind": "SCALAR",
+                "longVariableConstraints": [],
+                "name": "presto.default.$operator$add",
+                "returnType": "integer",
+                "typeVariableConstraints": [],
+                "variableArity": false
+              }
+            },
+            "returnType": "integer"
+          }
+        ],
+        "form": "WHEN",
+        "returnType": "integer",
+        "sourceLocation": {
+          "column": 8,
+          "line": 1
+        }
+      },
+      {
+        "@type": "special",
+        "arguments": [
+          {
+            "@type": "constant",
+            "type": "integer",
+            "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAQAAAA=="
+          },
+          {
+            "@type": "constant",
+            "type": "integer",
+            "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAIgAAAA=="
+          }
+        ],
+        "form": "WHEN",
+        "returnType": "integer",
+        "sourceLocation": {
+          "column": 27,
+          "line": 1
+        }
+      },
+      {
+        "@type": "constant",
+        "type": "integer",
+        "valueBlock": "AwAAAFJMRQEAAAAJAAAASU5UX0FSUkFZAQAAAAGA"
+      }
+    ],
+    "form": "SWITCH",
+    "returnType": "integer",
+    "sourceLocation": {
+      "column": 8,
+      "line": 1
+    }
+  },
+  {
+    "@type": "special",
+    "arguments": [
+      {
+        "@type": "call",
+        "arguments": [
+          {
+            "@type": "constant",
+            "sourceLocation": {
+              "column": 6,
+              "line": 1
+            },
+            "type": "unknown",
+            "valueBlock": "AwAAAFJMRQEAAAAKAAAAQllURV9BUlJBWQEAAAABgA=="
+          }
+        ],
+        "displayName": "CAST",
+        "functionHandle": {
+          "@type": "$static",
+          "signature": {
+            "argumentTypes": [
+              "unknown"
+            ],
+            "kind": "SCALAR",
+            "longVariableConstraints": [],
+            "name": "presto.default.$operator$cast",
+            "returnType": "boolean",
+            "typeVariableConstraints": [],
+            "variableArity": false
+          }
+        },
+        "returnType": "boolean",
+        "sourceLocation": {
+          "column": 6,
+          "line": 1
+        }
+      },
+      {
+        "@type": "special",
+        "arguments": [
+          {
+            "@type": "constant",
+            "type": "boolean",
+            "valueBlock": "CgAAAEJZVEVfQVJSQVkBAAAAAAE="
+          },
+          {
+            "@type": "constant",
+            "type": "integer",
+            "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAIAAAAA=="
+          }
+        ],
+        "form": "WHEN",
+        "returnType": "integer",
+        "sourceLocation": {
+          "column": 11,
+          "line": 1
+        }
+      },
+      {
+        "@type": "constant",
+        "type": "integer",
+        "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAIQAAAA=="
+      }
+    ],
+    "form": "SWITCH",
+    "returnType": "integer",
+    "sourceLocation": {
+      "column": 6,
+      "line": 1
+    }
+  },
+  {
+    "@type": "special",
+    "arguments": [
+      {
+        "@type": "call",
+        "arguments": [
+          {
+            "@type": "constant",
+            "type": "integer",
+            "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAIQAAAA=="
+          }
+        ],
+        "displayName": "CAST",
+        "functionHandle": {
+          "@type": "$static",
+          "signature": {
+            "argumentTypes": [
+              "integer"
+            ],
+            "kind": "SCALAR",
+            "longVariableConstraints": [],
+            "name": "presto.default.$operator$cast",
+            "returnType": "bigint",
+            "typeVariableConstraints": [],
+            "variableArity": false
+          }
+        },
+        "returnType": "bigint"
+      },
+      {
+        "@type": "special",
+        "arguments": [
+          {
+            "@type": "constant",
+            "type": "integer",
+            "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAAAAAA=="
+          },
+          {
+            "@type": "constant",
+            "type": "integer",
+            "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAAAAAA=="
+          }
+        ],
+        "form": "WHEN",
+        "returnType": "integer",
+        "sourceLocation": {
+          "column": 9,
+          "line": 1
+        }
+      },
+      {
+        "@type": "special",
+        "arguments": [
+          {
+            "@type": "constant",
+            "type": "integer",
+            "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAIQAAAA=="
+          },
+          {
+            "@type": "constant",
+            "type": "integer",
+            "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAQAAAA=="
+          }
+        ],
+        "form": "WHEN",
+        "returnType": "integer",
+        "sourceLocation": {
+          "column": 23,
+          "line": 1
+        }
+      },
+      {
+        "@type": "special",
+        "arguments": [
+          {
+            "@type": "variable",
+            "name": "unbound_long",
+            "type": "bigint"
+          },
+          {
+            "@type": "constant",
+            "type": "integer",
+            "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAgAAAA=="
+          }
+        ],
+        "form": "WHEN",
+        "returnType": "integer",
+        "sourceLocation": {
+          "column": 43,
+          "line": 1
+        }
+      },
+      {
+        "@type": "constant",
+        "type": "integer",
+        "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAQAAAA=="
+      }
+    ],
+    "form": "SWITCH",
+    "returnType": "integer",
+    "sourceLocation": {
+      "column": 9,
+      "line": 1
+    }
+  },
+  {
+    "@type": "special",
+    "arguments": [
+      {
+        "@type": "constant",
+        "sourceLocation": {
+          "column": 1,
+          "line": 1
+        },
+        "type": "boolean",
+        "valueBlock": "CgAAAEJZVEVfQVJSQVkBAAAAAAE="
+      },
+      {
+        "@type": "special",
+        "arguments": [
+          {
+            "@type": "constant",
+            "type": "boolean",
+            "valueBlock": "CgAAAEJZVEVfQVJSQVkBAAAAAAE="
+          },
+          {
+            "@type": "call",
+            "arguments": [
+              {
+                "@type": "constant",
+                "type": "integer",
+                "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAIAAAAA=="
+              },
+              {
+                "@type": "constant",
+                "type": "integer",
+                "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAQAAAA=="
+              }
+            ],
+            "displayName": "ADD",
+            "functionHandle": {
+              "@type": "$static",
+              "signature": {
+                "argumentTypes": [
+                  "integer",
+                  "integer"
+                ],
+                "kind": "SCALAR",
+                "longVariableConstraints": [],
+                "name": "presto.default.$operator$add",
+                "returnType": "integer",
+                "typeVariableConstraints": [],
+                "variableArity": false
+              }
+            },
+            "returnType": "integer"
+          }
+        ],
+        "form": "WHEN",
+        "returnType": "integer",
+        "sourceLocation": {
+          "column": 6,
+          "line": 1
+        }
+      },
+      {
+        "@type": "constant",
+        "sourceLocation": {
+          "column": 1,
+          "line": 1
+        },
+        "type": "integer",
+        "valueBlock": "AwAAAFJMRQEAAAAJAAAASU5UX0FSUkFZAQAAAAGA"
+      }
+    ],
+    "form": "SWITCH",
+    "returnType": "integer",
+    "sourceLocation": {
+      "column": 1,
+      "line": 1
+    }
+  },
+  {
+    "@type": "special",
+    "arguments": [
+      {
+        "@type": "constant",
+        "sourceLocation": {
+          "column": 1,
+          "line": 1
+        },
+        "type": "boolean",
+        "valueBlock": "CgAAAEJZVEVfQVJSQVkBAAAAAAE="
+      },
+      {
+        "@type": "special",
+        "arguments": [
+          {
+            "@type": "constant",
+            "type": "boolean",
+            "valueBlock": "CgAAAEJZVEVfQVJSQVkBAAAAAAA="
+          },
+          {
+            "@type": "constant",
+            "type": "integer",
+            "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAQAAAA=="
+          }
+        ],
+        "form": "WHEN",
+        "returnType": "integer",
+        "sourceLocation": {
+          "column": 6,
+          "line": 1
+        }
+      },
+      {
+        "@type": "call",
+        "arguments": [
+          {
+            "@type": "constant",
+            "type": "integer",
+            "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAIgAAAA=="
+          },
+          {
+            "@type": "constant",
+            "type": "integer",
+            "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAQAAAA=="
+          }
+        ],
+        "displayName": "SUBTRACT",
+        "functionHandle": {
+          "@type": "$static",
+          "signature": {
+            "argumentTypes": [
+              "integer",
+              "integer"
+            ],
+            "kind": "SCALAR",
+            "longVariableConstraints": [],
+            "name": "presto.default.$operator$subtract",
+            "returnType": "integer",
+            "typeVariableConstraints": [],
+            "variableArity": false
+          }
+        },
+        "returnType": "integer"
+      }
+    ],
+    "form": "SWITCH",
+    "returnType": "integer",
+    "sourceLocation": {
+      "column": 1,
+      "line": 1
+    }
+  },
+  {
+    "@type": "special",
+    "arguments": [
+      {
+        "@type": "constant",
+        "sourceLocation": {
+          "column": 83,
+          "line": 1
+        },
+        "type": "boolean",
+        "valueBlock": "CgAAAEJZVEVfQVJSQVkBAAAAAAE="
+      },
+      {
+        "@type": "special",
+        "arguments": [
+          {
+            "@type": "call",
+            "arguments": [
+              {
+                "@type": "call",
+                "arguments": [
+                  {
+                    "@type": "call",
+                    "arguments": [
+                      {
+                        "@type": "constant",
+                        "type": "integer",
+                        "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAQAAAA=="
+                      }
+                    ],
+                    "displayName": "CAST",
+                    "functionHandle": {
+                      "@type": "$static",
+                      "signature": {
+                        "argumentTypes": [
+                          "integer"
+                        ],
+                        "kind": "SCALAR",
+                        "longVariableConstraints": [],
+                        "name": "presto.default.$operator$cast",
+                        "returnType": "bigint",
+                        "typeVariableConstraints": [],
+                        "variableArity": false
+                      }
+                    },
+                    "returnType": "bigint"
+                  }
+                ],
+                "displayName": "ARRAY",
+                "functionHandle": {
+                  "@type": "$static",
+                  "signature": {
+                    "argumentTypes": [
+                      "bigint"
+                    ],
+                    "kind": "SCALAR",
+                    "longVariableConstraints": [],
+                    "name": "presto.default.array_constructor",
+                    "returnType": "array(bigint)",
+                    "typeVariableConstraints": [],
+                    "variableArity": false
+                  }
+                },
+                "returnType": "array(bigint)"
+              },
+              {
+                "@type": "call",
+                "arguments": [
+                  {
+                    "@type": "call",
+                    "arguments": [
+                      {
+                        "@type": "constant",
+                        "type": "integer",
+                        "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAQAAAA=="
+                      }
+                    ],
+                    "displayName": "CAST",
+                    "functionHandle": {
+                      "@type": "$static",
+                      "signature": {
+                        "argumentTypes": [
+                          "integer"
+                        ],
+                        "kind": "SCALAR",
+                        "longVariableConstraints": [],
+                        "name": "presto.default.$operator$cast",
+                        "returnType": "bigint",
+                        "typeVariableConstraints": [],
+                        "variableArity": false
+                      }
+                    },
+                    "returnType": "bigint"
+                  }
+                ],
+                "displayName": "ARRAY",
+                "functionHandle": {
+                  "@type": "$static",
+                  "signature": {
+                    "argumentTypes": [
+                      "bigint"
+                    ],
+                    "kind": "SCALAR",
+                    "longVariableConstraints": [],
+                    "name": "presto.default.array_constructor",
+                    "returnType": "array(bigint)",
+                    "typeVariableConstraints": [],
+                    "variableArity": false
+                  }
+                },
+                "returnType": "array(bigint)"
+              }
+            ],
+            "displayName": "EQUAL",
+            "functionHandle": {
+              "@type": "$static",
+              "signature": {
+                "argumentTypes": [
+                  "array(bigint)",
+                  "array(bigint)"
+                ],
+                "kind": "SCALAR",
+                "longVariableConstraints": [],
+                "name": "presto.default.$operator$equal",
+                "returnType": "boolean",
+                "typeVariableConstraints": [],
+                "variableArity": false
+              }
+            },
+            "returnType": "boolean"
+          },
+          {
+            "@type": "call",
+            "arguments": [
+              {
+                "@type": "constant",
+                "type": "varchar(7)",
+                "valueBlock": "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAcAAAAABwAAAG1hdGNoZWQ="
+              }
+            ],
+            "displayName": "CAST",
+            "functionHandle": {
+              "@type": "$static",
+              "signature": {
+                "argumentTypes": [
+                  "varchar(7)"
+                ],
+                "kind": "SCALAR",
+                "longVariableConstraints": [],
+                "name": "presto.default.$operator$cast",
+                "returnType": "varchar(11)",
+                "typeVariableConstraints": [],
+                "variableArity": false
+              }
+            },
+            "returnType": "varchar(11)"
+          }
+        ],
+        "form": "WHEN",
+        "returnType": "varchar(11)",
+        "sourceLocation": {
+          "column": 36,
+          "line": 1
+        }
+      },
+      {
+        "@type": "constant",
+        "type": "varchar(11)",
+        "valueBlock": "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAsAAAAACwAAAG5vdF9tYXRjaGVk"
+      }
+    ],
+    "form": "SWITCH",
+    "returnType": "varchar(11)",
+    "sourceLocation": {
+      "column": 83,
+      "line": 1
+    }
+  }
+]
