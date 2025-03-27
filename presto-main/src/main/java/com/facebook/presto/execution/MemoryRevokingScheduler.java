@@ -151,6 +151,12 @@ public class MemoryRevokingScheduler
         memoryRevocationExecutor.invokeAll(singletonList((Callable<?>) () -> null));
     }
 
+    @VisibleForTesting
+    void submitAsynchronousCallable(Callable<?> callable)
+    {
+        memoryRevocationExecutor.submit(callable);
+    }
+
     private void onMemoryReserved(MemoryPool memoryPool, QueryId queryId, long queryMemoryReservation)
     {
         try {
