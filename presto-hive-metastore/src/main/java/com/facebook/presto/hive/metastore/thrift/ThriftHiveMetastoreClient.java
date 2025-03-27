@@ -520,7 +520,7 @@ public class ThriftHiveMetastoreClient
     public Optional<UniqueConstraintsResponse> getUniqueConstraints(String catName, String dbName, String tableName)
             throws TException
     {
-        if (catName == null && catalogName.isPresent()) {
+        if (catalogName.isPresent()) {
             catName = catalogName.get();
         }
         UniqueConstraintsRequest uniqueConstraintsRequest = new UniqueConstraintsRequest(catName, dbName, tableName);
@@ -540,7 +540,7 @@ public class ThriftHiveMetastoreClient
     public Optional<NotNullConstraintsResponse> getNotNullConstraints(String catName, String dbName, String tableName)
             throws TException
     {
-        if (catName == null && catalogName.isPresent()) {
+        if (catalogName.isPresent()) {
             catName = catalogName.get();
         }
         NotNullConstraintsRequest notNullConstraintsRequest = new NotNullConstraintsRequest(catName, dbName, tableName);

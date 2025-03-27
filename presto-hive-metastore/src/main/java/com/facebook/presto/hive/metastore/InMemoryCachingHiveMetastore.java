@@ -216,6 +216,7 @@ public class InMemoryCachingHiveMetastore
             default:
                 throw new IllegalArgumentException("Unknown metastore-cache-scope: " + metastoreCacheScope);
         }
+
         databaseNamesCache = newCacheBuilder(cacheExpiresAfterWriteMillis, cacheRefreshMills, cacheMaxSize)
                 .build(asyncReloading(CacheLoader.from(this::loadAllDatabases), executor));
 
@@ -810,6 +811,7 @@ public class InMemoryCachingHiveMetastore
                 databaseCache,
                 newMetastoreContext,
                 databaseKey -> databaseKey.getKey().equals(databaseName));
+
         // Invalidate Database Names Cache
         invalidateCacheForKey(databaseNamesCache, newMetastoreContext, databaseNamesKey -> true);
 

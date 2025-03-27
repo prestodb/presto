@@ -237,6 +237,7 @@ public class HiveTableOperations
     public void commit(@Nullable TableMetadata base, TableMetadata metadata)
     {
         requireNonNull(metadata, "metadata is null");
+
         // if the metadata is already out of date, reject it
         if (!Objects.equals(base, current())) {
             throw new CommitFailedException("Cannot commit: stale table metadata for %s", getSchemaTableName());

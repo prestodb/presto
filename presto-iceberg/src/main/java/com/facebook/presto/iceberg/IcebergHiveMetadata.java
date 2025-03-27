@@ -304,8 +304,6 @@ public class IcebergHiveMetadata
             throw new PrestoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + schemaName);
         }
         MetastoreContext metastoreContext = getMetastoreContext(session);
-
-        //TODO: throw error in case of exception
         metastore.dropDatabase(metastoreContext, schemaName);
     }
 
@@ -416,11 +414,13 @@ public class IcebergHiveMetadata
                 metastoreContext,
                 encodeViewData(viewData));
         PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(session.getUser());
+
         Optional<Table> existing = getHiveTable(session, viewName);
         if (existing.isPresent()) {
             if (!replace || !isPrestoView(existing.get())) {
                 throw new ViewAlreadyExistsException(viewName);
             }
+
             metastore.replaceTable(metastoreContext, viewName.getSchemaName(), viewName.getTableName(), table, principalPrivileges);
             return;
         }
@@ -479,6 +479,7 @@ public class IcebergHiveMetadata
     {
         ConnectorViewDefinition view = getViews(session, viewName.toSchemaTablePrefix()).get(viewName);
         checkIfNullView(view, viewName);
+
         try {
             metastore.dropTable(
                     getMetastoreContext(session),
