@@ -144,6 +144,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -863,7 +864,7 @@ public class HiveMetadata
             Map<String, ColumnHandle> columns = columnHandles.stream()
                     .map(HiveColumnHandle.class::cast)
                     .filter(not(HiveColumnHandle::isHidden))
-                    .collect(toImmutableMap(HiveColumnHandle::getName, identity()));
+                    .collect(toImmutableMap(HiveColumnHandle::getName, Function.identity()));
 
             Map<String, Type> columnTypes = columns.entrySet().stream()
                     .collect(toImmutableMap(Map.Entry::getKey, entry -> getColumnMetadata(session, tableHandle, entry.getValue()).getType()));
@@ -988,7 +989,7 @@ public class HiveMetadata
         List<TableConstraint<String>> constraints = tableMetadata.getColumns().stream()
                 .filter(columnMetadata -> !columnMetadata.isNullable())
                 .map(columnMetadata -> new NotNullConstraint<>(columnMetadata.getName()))
-                .collect(toList());
+                .collect(Collectors.toList());
         constraints.addAll(tableMetadata.getTableConstraintsHolder().getTableConstraints());
 
         metastore.createTable(
@@ -1077,6 +1078,7 @@ public class HiveMetadata
     @Override
     public ConnectorTableHandle createTemporaryTable(ConnectorSession session, List<ColumnMetadata> columns, Optional<ConnectorPartitioningMetadata> partitioningMetadata)
     {
+        String schemaName = getTemporaryTableSchema(session);
         HiveStorageFormat storageFormat = getTemporaryTableStorageFormat(session);
 
         Optional<HiveBucketProperty> bucketProperty = partitioningMetadata.map(partitioning -> {
@@ -1143,7 +1145,7 @@ public class HiveMetadata
         String tableName = PRESTO_TEMPORARY_TABLE_NAME_PREFIX + finalStorageFormat.name() +
                 "_" + session.getQueryId().replaceAll("-", "_") + "_" + randomUUID().toString().replaceAll("-", "_");
         Table table = Table.builder()
-                .setDatabaseName(getTemporaryTableSchema(session))
+                .setDatabaseName(schemaName)
                 .setTableName(tableName)
                 .setOwner(session.getUser())
                 .setTableType(TEMPORARY_TABLE)
@@ -1178,7 +1180,7 @@ public class HiveMetadata
                 createEmptyPartitionStatistics(columnTypes, columnStatisticTypes),
                 emptyList());
 
-        return new HiveTableHandle(getTemporaryTableSchema(session), tableName);
+        return new HiveTableHandle(schemaName, tableName);
     }
 
     private Set<ColumnStatisticType> getSupportedColumnStatisticsForTemporaryTable(Type type)
@@ -1429,7 +1431,7 @@ public class HiveMetadata
         }
 
         MetastoreContext metastoreContext = getMetastoreContext(session);
-        metastore.addColumn(metastoreContext, handle.getSchemaName(), handle.getTableName(), column.getName(), toHiveType(typeTranslator, column.getType()), column.getComment().get());
+        metastore.addColumn(metastoreContext, handle.getSchemaName(), handle.getTableName(), column.getName(), toHiveType(typeTranslator, column.getType()), column.getComment().orElse(null));
     }
 
     @Override
@@ -1477,8 +1479,7 @@ public class HiveMetadata
     @Override
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
-        HiveTableHandle handle = new HiveTableHandle(hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName());
+        HiveTableHandle handle = (HiveTableHandle) tableHandle;
         MetastoreContext metastoreContext = getMetastoreContext(session);
 
         Optional<Table> target = metastore.getTable(metastoreContext, handle);
@@ -1537,7 +1538,7 @@ public class HiveMetadata
                 partitionValuesList = metastore.getPartitionNames(metastoreContext, handle.getSchemaName(), handle.getTableName())
                         .orElseThrow(() -> new TableNotFoundException(((HiveTableHandle) tableHandle).getSchemaTableName()))
                         .stream()
-                        .map(partitionNameWithVersion -> toPartitionValues(partitionNameWithVersion.getPartitionName()))
+                        .map(partitionNameWithVersion -> MetastoreUtil.toPartitionValues(partitionNameWithVersion.getPartitionName()))
                         .collect(toImmutableList());
             }
 
@@ -1584,6 +1585,7 @@ public class HiveMetadata
 
         // get the root directory for the database
         SchemaTableName schemaTableName = tableMetadata.getTable();
+        String schemaName = schemaTableName.getSchemaName();
         String tableName = schemaTableName.getTableName();
 
         Optional<TableEncryptionProperties> tableEncryptionProperties = getTableEncryptionPropertiesFromTableProperties(tableMetadata, tableStorageFormat, partitionedBy);
@@ -1613,16 +1615,16 @@ public class HiveMetadata
                 .collect(toList());
         checkPartitionTypesSupported(partitionColumns);
 
-        LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaTableName.getSchemaName(), tableName, isTempPathRequired(session, bucketProperty, preferredOrderingColumns));
+        LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName, isTempPathRequired(session, bucketProperty, preferredOrderingColumns));
 
-        HdfsContext context = new HdfsContext(session, schemaTableName.getSchemaName(), tableName, locationHandle.getTargetPath().toString(), true);
+        HdfsContext context = new HdfsContext(session, schemaName, tableName, locationHandle.getTargetPath().toString(), true);
         Map<String, String> tableProperties = getEmptyTableProperties(
                 tableMetadata,
                 context,
                 tableStorageFormat,
                 tableEncryptionProperties);
         HiveOutputTableHandle result = new HiveOutputTableHandle(
-                schemaTableName.getSchemaName(),
+                schemaName,
                 tableName,
                 columnHandles,
                 metastore.generatePageSinkMetadata(metastoreContext, schemaTableName),
@@ -1636,7 +1638,7 @@ public class HiveMetadata
                 preferredOrderingColumns,
                 session.getUser(),
                 tableProperties,
-                encryptionInformationProvider.getWriteEncryptionInformation(session, tableEncryptionProperties, schemaTableName.getSchemaName(), tableName));
+                encryptionInformationProvider.getWriteEncryptionInformation(session, tableEncryptionProperties, schemaName, tableName));
 
         WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
         metastore.declareIntentionToWrite(
@@ -2272,7 +2274,7 @@ public class HiveMetadata
 
         Optional<Table> existing = metastore.getTable(metastoreContext, viewName.getSchemaName(), viewName.getTableName());
         if (existing.isPresent()) {
-            if (!replace || !isPrestoView(existing.get())) {
+            if (!replace || !MetastoreUtil.isPrestoView(existing.get())) {
                 throw new ViewAlreadyExistsException(viewName);
             }
 
@@ -2364,7 +2366,6 @@ public class HiveMetadata
     public MaterializedViewStatus getMaterializedViewStatus(ConnectorSession session, SchemaTableName materializedViewName, TupleDomain<String> baseQueryDomain)
     {
         MetastoreContext metastoreContext = getMetastoreContext(session);
-
         MaterializedViewDefinition viewDefinition = getMaterializedView(session, materializedViewName)
                 .orElseThrow(() -> new MaterializedViewNotFoundException(materializedViewName));
 
@@ -2541,6 +2542,7 @@ public class HiveMetadata
     {
         HiveTableHandle handle = (HiveTableHandle) tableHandle;
         HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) tableLayoutHandle;
+
         MetastoreContext metastoreContext = getMetastoreContext(session);
         Optional<Table> table = metastore.getTable(metastoreContext, handle);
         if (!table.isPresent()) {
@@ -2792,7 +2794,7 @@ public class HiveMetadata
         RowExpression subfieldPredicate;
         if (hiveLayoutHandle.isPushdownFilterEnabled()) {
             Map<String, ColumnHandle> predicateColumns = hiveLayoutHandle.getPredicateColumns().entrySet()
-                    .stream().collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
+                    .stream().collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
             predicate = getPredicate(hiveLayoutHandle, partitionColumns, partitions, predicateColumns);
 
             // capture subfields from domainPredicate to add to remainingPredicate
@@ -3091,7 +3093,7 @@ public class HiveMetadata
                     partitionedBy,
                     isShufflePartitionedColumnsForTableWriteEnabled(session) ? SINGLE_WRITER_PER_PARTITION_REQUIRED : MULTIPLE_WRITERS_PER_PARTITION_ALLOWED));
         }
-        checkArgument(bucketProperty.get().getBucketFunctionType().equals(HIVE_COMPATIBLE),
+        checkArgument(bucketProperty.get().getBucketFunctionType().equals(BucketFunctionType.HIVE_COMPATIBLE),
                 "bucketFunctionType is expected to be HIVE_COMPATIBLE, got: %s",
                 bucketProperty.get().getBucketFunctionType());
         if (!bucketProperty.get().getSortedBy().isEmpty() && !isSortedWritingEnabled(session)) {
@@ -3224,6 +3226,7 @@ public class HiveMetadata
     @Override
     public void grantTablePrivileges(ConnectorSession session, SchemaTableName schemaTableName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
     {
+        String schemaName = schemaTableName.getSchemaName();
         String tableName = schemaTableName.getTableName();
 
         Set<HivePrivilegeInfo> hivePrivilegeInfos = privileges.stream()
@@ -3231,12 +3234,13 @@ public class HiveMetadata
                 .collect(toSet());
 
         MetastoreContext metastoreContext = getMetastoreContext(session);
-        metastore.grantTablePrivileges(metastoreContext, schemaTableName.getSchemaName(), tableName, grantee, hivePrivilegeInfos);
+        metastore.grantTablePrivileges(metastoreContext, schemaName, tableName, grantee, hivePrivilegeInfos);
     }
 
     @Override
     public void revokeTablePrivileges(ConnectorSession session, SchemaTableName schemaTableName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
     {
+        String schemaName = schemaTableName.getSchemaName();
         String tableName = schemaTableName.getTableName();
 
         Set<HivePrivilegeInfo> hivePrivilegeInfos = privileges.stream()
@@ -3244,7 +3248,7 @@ public class HiveMetadata
                 .collect(toSet());
 
         MetastoreContext metastoreContext = getMetastoreContext(session);
-        metastore.revokeTablePrivileges(metastoreContext, schemaTableName.getSchemaName(), tableName, grantee, hivePrivilegeInfos);
+        metastore.revokeTablePrivileges(metastoreContext, schemaName, tableName, grantee, hivePrivilegeInfos);
     }
 
     @Override
