@@ -32,8 +32,8 @@ public class TestArrowFlightIntegrationSmokeTest
 {
     private static final Logger logger = Logger.get(TestArrowFlightIntegrationSmokeTest.class);
     private RootAllocator allocator;
+    private int serverPort;
     private FlightServer server;
-    private Location serverLocation;
     private DistributedQueryRunner arrowFlightQueryRunner;
 
     @BeforeClass
@@ -45,8 +45,8 @@ public class TestArrowFlightIntegrationSmokeTest
         File privateKeyFile = new File("src/test/resources/server.key");
 
         allocator = new RootAllocator(Long.MAX_VALUE);
-        serverLocation = Location.forGrpcTls("127.0.0.1", 9442);
-        server = FlightServer.builder(allocator, serverLocation, new TestingArrowProducer(allocator))
+        Location location = Location.forGrpcTls("127.0.0.1", serverPort);
+        server = FlightServer.builder(allocator, location, new TestingArrowProducer(allocator))
                 .useTls(certChainFile, privateKeyFile)
                 .build();
 
@@ -58,15 +58,16 @@ public class TestArrowFlightIntegrationSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return ArrowFlightQueryRunner.createQueryRunner(9442);
+        serverPort = ArrowFlightQueryRunner.findUnusedPort();
+        return ArrowFlightQueryRunner.createQueryRunner(serverPort);
     }
 
     @AfterClass(alwaysRun = true)
     public void close()
             throws InterruptedException
     {
+        arrowFlightQueryRunner.close();
         server.close();
         allocator.close();
-        arrowFlightQueryRunner.close();
     }
 }
