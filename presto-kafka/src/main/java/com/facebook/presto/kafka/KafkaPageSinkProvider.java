@@ -42,11 +42,11 @@ public class KafkaPageSinkProvider
         implements ConnectorPageSinkProvider
 {
     private final DispatchingRowEncoderFactory encoderFactory;
-    private final PlainTextKafkaProducerFactory producerFactory;
+    private final KafkaProducerFactory producerFactory;
     private final KafkaClusterMetadataSupplier kafkaClusterMetadataSupplier;
 
     @Inject
-    public KafkaPageSinkProvider(DispatchingRowEncoderFactory encoderFactory, PlainTextKafkaProducerFactory producerFactory, KafkaClusterMetadataSupplier kafkaClusterMetadataSupplier)
+    public KafkaPageSinkProvider(DispatchingRowEncoderFactory encoderFactory, KafkaProducerFactory producerFactory, KafkaClusterMetadataSupplier kafkaClusterMetadataSupplier)
     {
         this.encoderFactory = requireNonNull(encoderFactory, "encoderFactory is null");
         this.producerFactory = requireNonNull(producerFactory, "producerFactory is null");

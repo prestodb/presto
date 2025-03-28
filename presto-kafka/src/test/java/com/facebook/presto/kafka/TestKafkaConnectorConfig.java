@@ -18,6 +18,10 @@ import com.facebook.presto.kafka.schema.file.FileTableDescriptionSupplier;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.io.FileWriter;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
 public class TestKafkaConnectorConfig
@@ -32,12 +36,20 @@ public class TestKafkaConnectorConfig
                 .setTableDescriptionSupplier(FileTableDescriptionSupplier.NAME)
                 .setHideInternalColumns(true)
                 .setMaxPartitionFetchBytes(1048576)
-                .setMaxPollRecords(500));
+                .setMaxPollRecords(500)
+                .setResourceConfigFiles(""));
     }
 
     @Test
-    public void testExplicitPropertyMappings()
+    public void testExplicitPropertyMappings() throws IOException
     {
+        String secret = "confluent";
+        Path tempFile1Path = Files.createTempFile("tempFile1", ".txt");
+        Path tempFile2Path = Files.createTempFile("tempFile2", ".txt");
+
+        writeToFile(tempFile1Path, secret);
+        writeToFile(tempFile2Path, secret);
+
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("kafka.table-description-supplier", "test")
                 .put("kafka.cluster-metadata-supplier", "test")
@@ -46,6 +58,7 @@ public class TestKafkaConnectorConfig
                 .put("kafka.hide-internal-columns", "false")
                 .put("kafka.max-partition-fetch-bytes", "1024")
                 .put("kafka.max-poll-records", "1000")
+                .put("kafka.config.resources", tempFile1Path + "," + tempFile2Path)
                 .build();
 
         KafkaConnectorConfig expected = new KafkaConnectorConfig()
@@ -55,8 +68,17 @@ public class TestKafkaConnectorConfig
                 .setKafkaConnectTimeout("1h")
                 .setHideInternalColumns(false)
                 .setMaxPartitionFetchBytes(1024)
-                .setMaxPollRecords(1000);
+                .setMaxPollRecords(1000)
+                .setResourceConfigFiles(tempFile1Path + "," + tempFile2Path);
 
         ConfigAssertions.assertFullMapping(properties, expected);
+    }
+
+    private void writeToFile(Path filepath, String content)
+            throws IOException
+    {
+        try (FileWriter writer = new FileWriter(filepath.toFile())) {
+            writer.write(content);
+        }
     }
 }
