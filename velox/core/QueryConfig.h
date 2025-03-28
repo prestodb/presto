@@ -333,6 +333,12 @@ class QueryConfig {
   static constexpr const char* kSparkLegacyDateFormatter =
       "spark.legacy_date_formatter";
 
+  /// If true, Spark statistical aggregation functions including skewness,
+  /// kurtosis, will return NaN instead of NULL when dividing by zero during
+  /// expression evaluation.
+  static constexpr const char* kSparkLegacyStatisticalAggregate =
+      "spark.legacy_statistical_aggregate";
+
   /// The number of local parallel table writer operators per task.
   static constexpr const char* kTaskWriterCount = "task_writer_count";
 
@@ -853,6 +859,10 @@ class QueryConfig {
 
   bool sparkLegacyDateFormatter() const {
     return get<bool>(kSparkLegacyDateFormatter, false);
+  }
+
+  bool sparkLegacyStatisticalAggregate() const {
+    return get<bool>(kSparkLegacyStatisticalAggregate, false);
   }
 
   bool exprTrackCpuUsage() const {
