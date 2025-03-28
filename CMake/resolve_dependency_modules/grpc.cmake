@@ -34,6 +34,9 @@ FetchContent_Declare(
   URL_HASH ${VELOX_GRPC_BUILD_SHA256_CHECKSUM}
   OVERRIDE_FIND_PACKAGE EXCLUDE_FROM_ALL)
 
+# We need to specify CACHE explicitly even when we have
+# set(CMAKE_POLICY_DEFAULT_CMP0077 NEW). Because gRPC doesn't use option(). gRPC
+# uses set(... CACHE). So CMP0077 isn't affected.
 set(gRPC_ABSL_PROVIDER
     "package"
     CACHE STRING "Provider of absl library")

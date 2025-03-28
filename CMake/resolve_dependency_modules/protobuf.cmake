@@ -43,8 +43,6 @@ FetchContent_Declare(
   OVERRIDE_FIND_PACKAGE EXCLUDE_FROM_ALL SYSTEM)
 
 set(protobuf_BUILD_TESTS OFF)
-set(protobuf_ABSL_PROVIDER
-    "package"
-    CACHE STRING "Provider of absl library")
+set(protobuf_ABSL_PROVIDER "package")
 FetchContent_MakeAvailable(protobuf)
 set(Protobuf_INCLUDE_DIRS ${protobuf_SOURCE_DIR}/src)
