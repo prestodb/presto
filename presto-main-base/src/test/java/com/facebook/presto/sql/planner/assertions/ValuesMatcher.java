@@ -93,9 +93,6 @@ public class ValuesMatcher
                             if (expression.getType().getJavaType() == double.class) {
                                 return new DoubleLiteral(String.valueOf(expression.getValue()));
                             }
-                            if (expression.getType().getJavaType() == double.class) {
-                                return new DoubleLiteral(String.valueOf(expression.getValue()));
-                            }
                             if (expression.getType().getJavaType() == Slice.class) {
                                 return new StringLiteral(((Slice) expression.getValue()).toStringUtf8());
                             }
