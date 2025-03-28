@@ -641,7 +641,7 @@ folly::dynamic RowType::serialize() const {
 }
 
 size_t Type::hashKind() const {
-  size_t hash = (int32_t)kind();
+  size_t hash = (int32_t)kind() + 1;
   for (auto& child : *this) {
     hash = hash * 31 + child->hashKind();
   }
