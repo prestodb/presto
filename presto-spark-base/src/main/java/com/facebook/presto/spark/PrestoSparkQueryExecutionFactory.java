@@ -21,6 +21,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.StatementStats;
+import com.facebook.presto.common.AccessControlResults;
 import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.block.BlockEncodingManager;
@@ -391,7 +392,8 @@ public class PrestoSparkQueryExecutionFactory
                 planAndMore.map(PlanAndMore::getInvokedWindowFunctions).orElseGet(ImmutableSet::of),
                 planAndMore.map(PlanAndMore::getPlanCanonicalInfo).orElseGet(ImmutableList::of),
                 planAndMore.map(PlanAndMore::getPlan).map(Plan::getPlanIdNodeMap).orElseGet(ImmutableMap::of),
-                prestoSparkExecutionContext);
+                prestoSparkExecutionContext,
+                new AccessControlResults());
     }
 
     public static StageInfo createStageInfo(QueryId queryId, SubPlan plan, List<TaskInfo> taskInfos)
