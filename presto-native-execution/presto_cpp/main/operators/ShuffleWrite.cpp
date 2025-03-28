@@ -62,26 +62,28 @@ class ShuffleWriteOperator : public Operator {
   void addInput(RowVectorPtr input) override {
     checkCreateShuffleWriter();
     auto partitions = input->childAt(0)->as<SimpleVector<int32_t>>();
-    auto serializedRows = input->childAt(1)->as<SimpleVector<StringView>>();
+    auto serializedKeys = input->childAt(1)->as<SimpleVector<StringView>>();
+    auto serializedRows = input->childAt(2)->as<SimpleVector<StringView>>();
     SimpleVector<bool>* replicate = nullptr;
-    if (input->type()->size() == 3) {
-      replicate = input->childAt(2)->as<SimpleVector<bool>>();
+    if (input->type()->size() == 4) {
+      replicate = input->childAt(3)->as<SimpleVector<bool>>();
     }
 
     for (auto i = 0; i < input->size(); ++i) {
       auto data = serializedRows->valueAt(i);
+      auto key = serializedKeys->valueAt(i);
       if (replicate && replicate->valueAt(i)) {
         for (auto partition = 0; partition < numPartitions_; ++partition) {
           CALL_SHUFFLE(
               shuffle_->collect(
-                  partition, std::string_view(data.data(), data.size())),
+                  partition, std::string_view(key.data(), key.size()), std::string_view(data.data(), data.size())),
               "collect");
         }
       } else {
         auto partition = partitions->valueAt(i);
         CALL_SHUFFLE(
             shuffle_->collect(
-                partition, std::string_view(data.data(), data.size())),
+                partition, std::string_view(key.data(), key.size()), std::string_view(data.data(), data.size())),
             "collect");
       }
     }
