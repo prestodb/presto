@@ -15,6 +15,7 @@
 package com.facebook.presto.eventlistener;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.AccessControlResults;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.common.resourceGroups.QueryType;
@@ -184,6 +185,7 @@ public class TestEventListenerManager
         Optional<PrestoSparkExecutionContext> prestoSparkExecutionContext = Optional.empty();
         Map<PlanCanonicalizationStrategy, String> hboPlanHash = new HashMap<>();
         Optional<Map<PlanNodeId, PlanNode>> planIdNodeMap = Optional.ofNullable(new HashMap<>());
+        AccessControlResults accessControlResults = new AccessControlResults();
 
         return new QueryCompletedEvent(
                 metadata,
@@ -212,7 +214,8 @@ public class TestEventListenerManager
                 windowFunctions,
                 prestoSparkExecutionContext,
                 hboPlanHash,
-                planIdNodeMap);
+                planIdNodeMap,
+                accessControlResults);
     }
 
     public static QueryStatistics createDummyQueryStatistics()
