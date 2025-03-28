@@ -104,9 +104,20 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   };
   static std::string kindString(Kind kind);
 
+  /// 'DebugOptions' is used to configure the per memory pool wise debug options
+  /// for memory pool when adding root memory pools.
+  struct DebugOptions {
+    /// Regex for filtering on memory pool name when 'debugEnabled' is true.
+    /// This allows us to only track the callsites of memory allocations for
+    /// memory pools whose name matches the specified regular expression. Empty
+    /// string means no match for all.
+    std::string debugPoolNameRegex;
+  };
+
   struct Options {
     /// Specifies the memory allocation alignment through this memory pool.
     uint16_t alignment{MemoryAllocator::kMaxAlignment};
+
     /// Specifies the max memory capacity of this memory pool.
     int64_t maxCapacity{kMaxMemory};
 
@@ -131,10 +142,6 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
     /// memory pools from the same root memory pool independently.
     bool threadSafe{true};
 
-    /// If true, tracks the allocation and free call stacks to detect the source
-    /// of memory leak for testing purpose.
-    bool debugEnabled{FLAGS_velox_memory_pool_debug_enabled};
-
     /// Terminates the process and generates a core file on an allocation
     /// failure
     bool coreOnAllocationFailureEnabled{false};
@@ -142,6 +149,9 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
     /// Provides the customized get preferred size function. If not set, uses
     /// the memory pool's default function.
     std::function<size_t(size_t)> getPreferredSize{nullptr};
+
+    /// If non-empty, enables debug mode for the created memory pool.
+    std::optional<DebugOptions> debugOptions{std::nullopt};
   };
 
   /// Constructs a named memory pool with specified 'name', 'parent' and 'kind'.
@@ -524,6 +534,10 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   /// child memory pool tracking.
   virtual void dropChild(const MemoryPool* child);
 
+  virtual inline bool debugEnabled() const {
+    return debugOptions_.has_value();
+  }
+
   const std::string name_;
   const Kind kind_;
   const uint16_t alignment_;
@@ -531,7 +545,7 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   const int64_t maxCapacity_;
   const bool trackUsage_;
   const bool threadSafe_;
-  const bool debugEnabled_;
+  const std::optional<DebugOptions> debugOptions_;
   const bool coreOnAllocationFailureEnabled_;
   std::function<size_t(size_t)> getPreferredSize_;
 
@@ -722,10 +736,6 @@ class MemoryPoolImpl : public MemoryPool {
     return debugAllocRecords_;
   }
 
-  static void setDebugPoolNameRegex(const std::string& regex) {
-    debugPoolNameRegex() = regex;
-  }
-
  private:
   void enterArbitration() override;
 
@@ -742,11 +752,6 @@ class MemoryPoolImpl : public MemoryPool {
   FOLLY_ALWAYS_INLINE static MemoryPoolImpl* toImpl(
       const std::shared_ptr<MemoryPool>& pool) {
     return static_cast<MemoryPoolImpl*>(pool.get());
-  }
-
-  static folly::Synchronized<std::string>& debugPoolNameRegex() {
-    static folly::Synchronized<std::string> debugPoolNameRegex_;
-    return debugPoolNameRegex_;
   }
 
   std::shared_ptr<MemoryPool> genChild(
@@ -955,7 +960,6 @@ class MemoryPoolImpl : public MemoryPool {
   // of times that the allocations are recorded. 'isAlloc' will be true at
   // allocation sites, false at free sites. A good example of this filter would
   // be based on the 'name_' of the MemoryPool.
-  //  TODO(jtan6): Add support for dynamic condition change.
   bool needRecordDbg(bool isAlloc);
 
   // Invoked to record the call stack of a buffer allocation if debug mode of
@@ -998,11 +1002,6 @@ class MemoryPoolImpl : public MemoryPool {
   MemoryManager* const manager_;
   MemoryAllocator* const allocator_;
   MemoryArbitrator* const arbitrator_;
-
-  // Regex for filtering on 'name_' when debug mode is enabled. This allows us
-  // to only track the callsites of memory allocations for memory pools whose
-  // name matches the specified regular expression 'debugPoolNameRegex_'.
-  const std::string debugPoolNameRegex_;
 
   // Serializes updates on 'reservationBytes_', 'usedReservationBytes_'
   // and 'minReservationBytes_' to make reservation decision on a consistent

@@ -451,6 +451,11 @@ class QueryConfig {
       kDebugAggregationApproxPercentileFixedRandomSeed =
           "debug_aggregation_approx_percentile_fixed_random_seed";
 
+  /// When debug is enabled for memory manager, this is used to match the memory
+  /// pools that need allocation callsites tracking. Default to track nothing.
+  static constexpr const char* kDebugMemoryPoolNameRegex =
+      "debug_memory_pool_name_regex";
+
   /// Temporary flag to control whether selective Nimble reader should be used
   /// in this query or not.  Will be removed after the selective Nimble reader
   /// is fully rolled out.
@@ -538,6 +543,10 @@ class QueryConfig {
 
   bool debugDisableExpressionsWithLazyInputs() const {
     return get<bool>(kDebugDisableExpressionWithLazyInputs, false);
+  }
+
+  std::string debugMemoryPoolNameRegex() const {
+    return get<std::string>(kDebugMemoryPoolNameRegex, "");
   }
 
   std::optional<uint32_t> debugAggregationApproxPercentileFixedRandomSeed()

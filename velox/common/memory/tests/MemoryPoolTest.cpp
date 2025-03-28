@@ -98,7 +98,6 @@ class MemoryPoolTest : public testing::TestWithParam<TestParam> {
 
   void setupMemory(
       MemoryManagerOptions options = {
-          .debugEnabled = true,
           .allocatorCapacity = kDefaultCapacity,
           .arbitratorCapacity = kDefaultCapacity,
           .extraArbitratorConfigs = {
@@ -2692,9 +2691,9 @@ TEST(MemoryPoolTest, debugMode) {
 
   MemoryManagerOptions options;
   options.allocatorCapacity = kMaxMemory;
-  options.debugEnabled = true;
   MemoryManager manager{options};
-  auto pool = manager.addRootPool("root")->addLeafChild("child");
+  auto pool = manager.addRootPool("root", kMaxMemory, nullptr, {{".*"}})
+                  ->addLeafChild("child");
   const auto& allocRecords = std::dynamic_pointer_cast<MemoryPoolImpl>(pool)
                                  ->testingDebugAllocRecords();
   std::vector<void*> smallAllocs;
@@ -2741,111 +2740,117 @@ TEST(MemoryPoolTest, debugModeWithFilter) {
   const std::vector<int64_t> kAllocSizes = {128, 8 * KB, 2 * MB};
   const std::vector<bool> debugEnabledSet{true, false};
   for (const auto& debugEnabled : debugEnabledSet) {
-    MemoryManager manager{
-        {.debugEnabled = debugEnabled, .allocatorCapacity = kMaxMemory}};
+    MemoryManager manager{{.allocatorCapacity = kMaxMemory}};
 
     // leaf child created from MemoryPool, not match filter
-    MemoryPoolImpl::setDebugPoolNameRegex("NO-MATCH");
-    auto root0 = manager.addRootPool("root0");
-    auto pool0 = root0->addLeafChild("PartialAggregation.0.0");
-    auto* buffer0 = pool0->allocate(1 * KB);
-    EXPECT_TRUE(std::dynamic_pointer_cast<MemoryPoolImpl>(pool0)
+    auto root0 = manager.addRootPool(
+        "root0",
+        kMaxMemory,
+        nullptr,
+        debugEnabled ? std::optional(MemoryPool::DebugOptions{
+                           .debugPoolNameRegex = "NO-MATCH"})
+                     : std::nullopt);
+    auto pool0_0 = root0->addLeafChild("PartialAggregation.0.0");
+    auto* buffer0 = pool0_0->allocate(1 * KB);
+    EXPECT_TRUE(std::dynamic_pointer_cast<MemoryPoolImpl>(pool0_0)
                     ->testingDebugAllocRecords()
                     .empty());
-    pool0->free(buffer0, 1 * KB);
+    pool0_0->free(buffer0, 1 * KB);
 
     // leaf child created from MemoryPool, match filter
-    MemoryPoolImpl::setDebugPoolNameRegex(".*PartialAggregation.*");
-    auto root1 = manager.addRootPool("root1");
-    auto pool1 = root1->addLeafChild("PartialAggregation.0.1");
-    auto* buffer1 = pool1->allocate(1 * KB);
+    auto root1 = manager.addRootPool(
+        "root1",
+        kMaxMemory,
+        nullptr,
+        debugEnabled ? std::optional(MemoryPool::DebugOptions{
+                           .debugPoolNameRegex = ".*PartialAggregation.*"})
+                     : std::nullopt);
+    auto pool1_0 = root1->addLeafChild("PartialAggregation.0.1");
+    auto* buffer1 = pool1_0->allocate(1 * KB);
     if (!debugEnabled) {
       EXPECT_EQ(
-          std::dynamic_pointer_cast<MemoryPoolImpl>(pool1)
+          std::dynamic_pointer_cast<MemoryPoolImpl>(pool1_0)
               ->testingDebugAllocRecords()
               .size(),
           0);
     } else {
       EXPECT_EQ(
-          std::dynamic_pointer_cast<MemoryPoolImpl>(pool1)
+          std::dynamic_pointer_cast<MemoryPoolImpl>(pool1_0)
               ->testingDebugAllocRecords()
               .size(),
           1);
     }
-    pool1->free(buffer1, 1 * KB);
+    pool1_0->free(buffer1, 1 * KB);
 
-    // old pool should not be affected by updated filter
-    buffer0 = pool0->allocate(1 * KB);
-    EXPECT_TRUE(std::dynamic_pointer_cast<MemoryPoolImpl>(pool0)
+    // old pool from root0 should not be affected by root1
+    buffer0 = pool0_0->allocate(1 * KB);
+    EXPECT_TRUE(std::dynamic_pointer_cast<MemoryPoolImpl>(pool0_0)
                     ->testingDebugAllocRecords()
                     .empty());
-    pool0->free(buffer0, 1 * KB);
+    pool0_0->free(buffer0, 1 * KB);
 
     // leaf child created from MemoryPool, match filter
-    MemoryPoolImpl::setDebugPoolNameRegex(".*OrderBy.*");
-    auto root2 = manager.addRootPool("root2");
-    auto pool2 = root2->addLeafChild("OrderBy.0.0");
-    auto* buffer2 = pool2->allocate(1 * KB);
+    auto root2 = manager.addRootPool(
+        "root2",
+        kMaxMemory,
+        nullptr,
+        debugEnabled ? std::optional(MemoryPool::DebugOptions{
+                           .debugPoolNameRegex = ".*OrderBy.*"})
+                     : std::nullopt);
+    auto pool2_0 = root2->addLeafChild("OrderBy.0.0");
+    auto* buffer2 = pool2_0->allocate(1 * KB);
     if (!debugEnabled) {
       EXPECT_EQ(
-          std::dynamic_pointer_cast<MemoryPoolImpl>(pool2)
+          std::dynamic_pointer_cast<MemoryPoolImpl>(pool2_0)
               ->testingDebugAllocRecords()
               .size(),
           0);
     } else {
       EXPECT_EQ(
-          std::dynamic_pointer_cast<MemoryPoolImpl>(pool2)
+          std::dynamic_pointer_cast<MemoryPoolImpl>(pool2_0)
               ->testingDebugAllocRecords()
               .size(),
           1);
     }
-    pool2->free(buffer2, 1 * KB);
+    pool2_0->free(buffer2, 1 * KB);
 
     // leaf child created from aggr MemoryPool, match filter
     auto intPool = root2->addAggregateChild("AGG-Pool");
-    auto pool3 = intPool->addLeafChild("OrderBy.0.1");
-    auto* buffer3 = pool3->allocate(1 * KB);
+    auto pool2_1 = intPool->addLeafChild("OrderBy.0.1");
+    auto* buffer3 = pool2_1->allocate(1 * KB);
     if (!debugEnabled) {
       EXPECT_EQ(
-          std::dynamic_pointer_cast<MemoryPoolImpl>(pool3)
+          std::dynamic_pointer_cast<MemoryPoolImpl>(pool2_1)
               ->testingDebugAllocRecords()
               .size(),
           0);
     } else {
       EXPECT_EQ(
-          std::dynamic_pointer_cast<MemoryPoolImpl>(pool3)
+          std::dynamic_pointer_cast<MemoryPoolImpl>(pool2_1)
               ->testingDebugAllocRecords()
               .size(),
           1);
     }
-    pool3->free(buffer3, 1 * KB);
+    pool2_1->free(buffer3, 1 * KB);
+
+    // leaf child with default regex filter should not record.
+    auto root3 = manager.addRootPool("root3");
+    auto pool3_0 = root3->addLeafChild("OrderBy.0.0");
+    auto* buffer4 = pool3_0->allocate(1 * KB);
+    EXPECT_EQ(
+        std::dynamic_pointer_cast<MemoryPoolImpl>(pool3_0)
+            ->testingDebugAllocRecords()
+            .size(),
+        0);
+    pool3_0->free(buffer4, 1 * KB);
 
     // leaf child created from MemoryManager, not match filter
-    auto pool4 = manager.addLeafPool("Arbitrator.0.0");
-    auto* buffer4 = pool4->allocate(1 * KB);
-    EXPECT_TRUE(std::dynamic_pointer_cast<MemoryPoolImpl>(pool4)
+    auto sysLeaf = manager.addLeafPool("Arbitrator.0.0");
+    auto* buffer5 = sysLeaf->allocate(1 * KB);
+    EXPECT_TRUE(std::dynamic_pointer_cast<MemoryPoolImpl>(sysLeaf)
                     ->testingDebugAllocRecords()
                     .empty());
-    pool4->free(buffer4, 1 * KB);
-
-    // leaf child created from MemoryManager, match filter
-    MemoryPoolImpl::setDebugPoolNameRegex(".*Arbitrator.*");
-    auto pool5 = manager.addLeafPool("Arbitrator.0.1");
-    auto* buffer5 = pool5->allocate(1 * KB);
-    if (!debugEnabled) {
-      EXPECT_EQ(
-          std::dynamic_pointer_cast<MemoryPoolImpl>(pool5)
-              ->testingDebugAllocRecords()
-              .size(),
-          0);
-    } else {
-      EXPECT_EQ(
-          std::dynamic_pointer_cast<MemoryPoolImpl>(pool5)
-              ->testingDebugAllocRecords()
-              .size(),
-          1);
-    }
-    pool5->free(buffer5, 1 * KB);
+    sysLeaf->free(buffer5, 1 * KB);
   }
 }
 

@@ -73,11 +73,6 @@ struct MemoryManagerOptions {
   /// have been fixed.
   bool checkUsageLeak{FLAGS_velox_memory_leak_check_enabled};
 
-  /// If true, the memory pool will be running in debug mode to track the
-  /// allocation and free call stacks to detect the source of memory leak for
-  /// testing purpose.
-  bool debugEnabled{FLAGS_velox_memory_pool_debug_enabled};
-
   /// Terminates the process and generates a core file on an allocation failure
   bool coreOnAllocationFailureEnabled{false};
 
@@ -217,7 +212,9 @@ class MemoryManager {
   std::shared_ptr<MemoryPool> addRootPool(
       const std::string& name = "",
       int64_t maxCapacity = kMaxMemory,
-      std::unique_ptr<MemoryReclaimer> reclaimer = nullptr);
+      std::unique_ptr<MemoryReclaimer> reclaimer = nullptr,
+      const std::optional<MemoryPool::DebugOptions>& poolDebugOpts =
+          std::nullopt);
 
   /// Creates a leaf memory pool for direct memory allocation use with specified
   /// 'name'. If 'name' is missing, the memory manager generates a default name
@@ -310,7 +307,6 @@ class MemoryManager {
   const std::unique_ptr<MemoryArbitrator> arbitrator_;
   const uint16_t alignment_;
   const bool checkUsageLeak_;
-  const bool debugEnabled_;
   const bool coreOnAllocationFailureEnabled_;
   const bool disableMemoryPoolTracking_;
   const std::function<size_t(size_t)> getPreferredSize_;
