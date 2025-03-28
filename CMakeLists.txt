@@ -373,8 +373,6 @@ if(ENABLE_ALL_WARNINGS)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra ${KNOWN_WARNINGS}")
 endif()
 
-message("FINAL CMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}")
-
 if(${VELOX_ENABLE_GPU})
   enable_language(CUDA)
   # Determine CUDA_ARCHITECTURES automatically.
@@ -624,6 +622,8 @@ install(FILES velox/type/Type.h DESTINATION "include/velox")
 if("${TREAT_WARNINGS_AS_ERRORS}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
 endif()
+
+message("FINAL CMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}")
 
 if(VELOX_ENABLE_ARROW)
   velox_set_source(Arrow)
