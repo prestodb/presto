@@ -79,6 +79,14 @@ class PrestoToVeloxConnector {
     return {};
   }
 
+  [[nodiscard]] virtual std::unique_ptr<
+      velox::connector::ConnectorInsertTableHandle>
+  toVeloxInsertTableHandle(
+      const protocol::DeleteHandle* deleteHandle,
+      const TypeParser& typeParser) const {
+    return {};
+  }
+
   [[nodiscard]] std::unique_ptr<velox::core::PartitionFunctionSpec>
   createVeloxPartitionFunctionSpec(
       const protocol::ConnectorPartitioningHandle* partitioningHandle,
