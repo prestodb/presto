@@ -19,25 +19,30 @@ on:
         type: boolean
         default: true
         required: false
-      publish_docker:
-        description: 'Publish docker images'
+      publish_image:
+        description: 'Publish presto docker image'
         type: boolean
         default: true
         required: false
-      publish_native_docker:
-        description: 'Publish native docker images'
-        type: boolean
-        default: true
-        required: false
-      tag_image_as_latest:
-        description: 'Tag the image as latest'
+      publish_native_image:
+        description: 'Publish prestissimo docker image'
         type: boolean
         default: true
         required: false
       dependency_image:
-        description: 'Dependency image(e.g., prestodb/presto-native-dependency:latest)'
+        description: 'prestissimo dependency image(e.g., prestodb/presto-native-dependency:latest)'
         required: false
         default: ''
+      publish_native_dep_image:
+        description: 'Publish prestissimo dependency docker image'
+        type: boolean
+        default: true
+        required: false
+      tag_image_as_latest:
+        description: 'Tag the published images as latest'
+        type: boolean
+        default: true
+        required: false
       publish_docs:
         description: 'Publish docs'
         type: boolean
@@ -96,7 +101,7 @@ jobs:
   publish-maven-artifacts:
     needs: publish-release-tag
     if: |
-      (github.event.inputs.publish_maven == 'true' || github.event.inputs.publish_docker == 'true' || github.event.inputs.publish_docs == 'true') &&
+      (github.event.inputs.publish_maven == 'true' || github.event.inputs.publish_image == 'true' || github.event.inputs.publish_docs == 'true') &&
       (success() || (github.event.inputs.publish_release_tag != 'true' && !failure() && !cancelled()))
     runs-on: ubuntu-latest
     environment: release
@@ -210,9 +215,9 @@ jobs:
             -Pdeploy-to-ossrh \
             -pl '!presto-test-coverage'
 
-  publish-docker-images:
+  publish-docker-image:
     needs: publish-maven-artifacts
-    if: github.event.inputs.publish_docker == 'true' && !failure() && !cancelled()
+    if: github.event.inputs.publish_image == 'true' && !failure() && !cancelled()
     runs-on: ubuntu-latest
     environment: release
     timeout-minutes: 150
@@ -267,10 +272,10 @@ jobs:
             ${{ env.DOCKER_REPO }}:${{ env.RELEASE_TAG }}
             ${{ github.event.inputs.tag_image_as_latest == 'true' && format('{0}:latest', env.DOCKER_REPO) || '' }}
 
-  publish-native-images:
+  publish-native-image:
     needs: publish-release-tag
     if: |
-      github.event.inputs.publish_native_docker == 'true' &&
+      github.event.inputs.publish_native_image == 'true' &&
       (success() || (github.event.inputs.publish_release_tag != 'true' && !failure() && !cancelled()))
     runs-on: ubuntu-latest
     permissions:
@@ -315,8 +320,15 @@ jobs:
           else
             echo "Building new depedency image"
             docker compose build centos-native-dependency
-            docker tag presto/prestissimo-dependency:centos9 ${{ github.repository_owner }}/presto-native-dependency:${{ env.RELEASE_TAG }}-${{ env.COMMIT_SHA }}
-            docker push ${{ github.repository_owner }}/presto-native-dependency:${{ env.RELEASE_TAG }}-${{ env.COMMIT_SHA }}
+            if [[ "${{ github.event.inputs.publish_native_dep_image }}" == "true" ]]; then
+              docker tag presto/prestissimo-dependency:centos9 ${{ github.repository_owner }}/presto-native-dependency:${{ env.RELEASE_TAG }}-${{ env.COMMIT_SHA }}
+              docker push ${{ github.repository_owner }}/presto-native-dependency:${{ env.RELEASE_TAG }}-${{ env.COMMIT_SHA }}
+              
+              if [[ "${{ github.event.inputs.tag_image_as_latest }}" == "true" ]]; then
+                docker tag presto/prestissimo-dependency:centos9 ${{ github.repository_owner }}/presto-native-dependency:latest
+                docker push ${{ github.repository_owner }}/presto-native-dependency:latest
+              fi
+            fi
           fi
           docker images
 
@@ -442,4 +454,3 @@ jobs:
         run: |
           cd ${{ github.workspace }}/prestodb.github.io
           gh pr create --title "Add ${RELEASE_TAG} docs" --body "Add ${RELEASE_TAG} docs" --base source --head "${RELEASE_TAG}-docs"
-
