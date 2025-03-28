@@ -28,11 +28,18 @@ To configure the Kafka connector, create a catalog properties file
 ``etc/catalog/kafka.properties`` with the following contents,
 replacing the properties as appropriate:
 
+In some cases, such as when using specialized authentication methods, it is necessary to specify
+additional Kafka client properties to access your Kafka cluster. To do so,
+add the ``kafka.config.resources`` property to reference your Kafka configuration files.
+Configuration settings in the files in ``kafka.config.resources`` can be overridden if
+specified explicitly in ``kafka.properties`` (for example, ``security.protocol=SSL``):
+
 .. code-block:: none
 
     connector.name=kafka
     kafka.table-names=table1,table2
     kafka.nodes=host1:port,host2:port
+    kafka.config.resources=/etc/kafka-configuration.properties
 
 Multiple Kafka Clusters
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -59,6 +66,13 @@ Property Name                       Description
 ``kafka.max-partition-fetch-bytes`` Maximum number of bytes from one partition per poll
 ``kafka.table-description-dir``     Directory containing topic description files
 ``kafka.hide-internal-columns``     Controls whether internal columns are part of the table schema or not
+``kafka.security-protocol``         Security protocol for connection to Kafka cluster, defaults to ``SASL_PLAINTEXT``
+``kafka.sasl.mechanism``            Authentication mechanism of the SASL
+``kafka.sasl.jaas.config``          JAAS config of the SASL authentication
+``kafka.truststore.path``           Path of the truststore file
+``kafka.truststore.password``       Password for the truststore file
+``kafka.truststore.type``           File format of the truststore file, defaults to ``JKS``
+``kafka.config.resources``          A comma-separated list of Kafka client configuration files. If a specialized authentication method is required, it can be specified in these additional Kafka client properties files. Example: `/etc/kafka-configuration.properties`
 =================================== ==============================================================
 
 ``kafka.table-names``
@@ -136,6 +150,50 @@ these columns are hidden, they can still be used in queries but do not
 show up in ``DESCRIBE <table-name>`` or ``SELECT *``.
 
 This property is optional; the default is ``true``.
+
+``kafka.security-protocol``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Protocol used to communicate with brokers.
+Valid values are: ``SASL_PLAINTEXT``, ``SASL_SSL``.
+
+This property is optional; default is ``SASL_PLAINTEXT``.
+
+``kafka.sasl.mechanism``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The authentication mechanism used by SASL.
+Valid values are: ``PLAIN``, ``SCRAM-SHA-256``, ``SCRAM-SHA-512``.
+
+This property is optional.
+
+``kafka.sasl.jaas.config``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The configuration used for SASL authentication, which is a method for securing communication with brokers.
+
+This property is optional, but is required when ``kafka.sasl.mechanism`` is given.
+
+``kafka.truststore.path``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Path of the truststore file used for connecting to the Kafka cluster.
+
+This property is optional.
+
+``kafka.truststore.password``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Password for the truststore file used for connecting to the Kafka cluster.
+
+This property is optional, but is required when ``kafka.truststore.path`` is given.
+
+``kafka.truststore.type``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+File format of the truststore file.
+Valid values are: ``JKS``, ``PKCS12``.
+
+This property is optional; default is ``JKS``.
 
 Internal Columns
 ----------------
