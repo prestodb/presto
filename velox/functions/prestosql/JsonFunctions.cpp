@@ -136,10 +136,10 @@ class JsonFormatFunction : public exec::VectorFunction {
   }
 };
 
-// A performant json parsing implementation. This is also leveraged by json
-// functions other than json_parse that need to parse a varchar input. If
-// `nullOnError` is true, the result will have null values for invalid jsons
-// otherwise it will set exceptions for those rows in 'context'.
+// A performant json parsing implementation. Does not handle null rows. This is
+// also leveraged by json functions other than json_parse that need to parse a
+// varchar input. If `nullOnError` is true, the result will have null values for
+// invalid jsons otherwise it will set exceptions for those rows in 'context'.
 class JsonParseImpl {
  public:
   void apply(
@@ -548,16 +548,39 @@ class JsonExtractFunction : public exec::VectorFunction {
       exec::EvalCtx& context,
       VectorPtr& result) const override {
     VELOX_CHECK_EQ(args.size(), 2);
-    VectorPtr jsonInput = args[0];
-    if (jsonInput->type() != JSON()) {
-      VELOX_CHECK_EQ(args[0]->type(), VARCHAR());
-      VectorPtr parsedJson;
-      parser_.apply(
-          rows, jsonInput, JSON(), context, parsedJson, true /* nullOnError */);
-      jsonInput = parsedJson;
-    }
     VectorPtr localResult;
-    applyImpl(rows, jsonInput, args[1], outputType, context, localResult);
+    applyImpl(rows, args[0], args[1], outputType, context, localResult);
+
+    if (args[0]->type() != JSON()) {
+      VELOX_CHECK_EQ(args[0]->type(), VARCHAR());
+      // Remove null and error rows as the parser does not expect nulls.
+      exec::MutableRemainingRows remainingRows(rows, context);
+      if (localResult->rawNulls()) {
+        VELOX_CHECK_LE(rows.end(), localResult->size());
+        remainingRows.deselectNulls(localResult->rawNulls());
+      }
+      remainingRows.deselectErrors();
+      VectorPtr parsedResult;
+      parser_.apply(
+          remainingRows.rows(),
+          localResult,
+          JSON(),
+          context,
+          parsedResult,
+          true /* nullOnError */);
+      if (remainingRows.hasChanged()) {
+        // Ensure previously removed nulls and errors are set to null and map to
+        // a valid row respectively.
+        exec::EvalCtx::addNulls(
+            rows,
+            localResult->rawNulls(),
+            context,
+            localResult->type(),
+            parsedResult);
+      }
+      localResult = std::move(parsedResult);
+    }
+
     context.moveOrCopyResult(localResult, rows, result);
   }
 
@@ -583,8 +606,6 @@ class JsonExtractFunction : public exec::VectorFunction {
       const TypePtr& outputType,
       exec::EvalCtx& context,
       VectorPtr& localResult) const {
-    VELOX_CHECK_EQ(json->type(), JSON());
-
     if (json->isConstantEncoding() && path->isConstantEncoding()) {
       bool nullResult = false;
       std::string output;
@@ -683,6 +704,16 @@ class JsonExtractFunction : public exec::VectorFunction {
     auto& extractor = SIMDJsonExtractor::getInstance(jsonPath);
     bool isDefinitePath = true;
     simdjson::padded_string paddedJson(json.data(), json.size());
+
+    // Check for valid json
+    {
+      SIMDJSON_ASSIGN_OR_RAISE(auto jsonDoc, simdjsonParse(paddedJson));
+      simdjson::ondemand::document parsedDoc;
+      if (simdjsonParse(paddedJson).get(parsedDoc) != simdjson::SUCCESS) {
+        return simdjson::TAPE_ERROR;
+      }
+    }
+
     SIMDJSON_TRY(extractor.extract(paddedJson, consumer, isDefinitePath));
 
     if (results.size() == 0) {
