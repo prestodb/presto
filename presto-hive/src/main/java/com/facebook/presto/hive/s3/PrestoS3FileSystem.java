@@ -40,8 +40,8 @@ import com.amazonaws.services.s3.model.CannedAccessControlList;
 import com.amazonaws.services.s3.model.EncryptionMaterialsProvider;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.KMSEncryptionMaterialsProvider;
-import com.amazonaws.services.s3.model.ListObjectsRequest;
-import com.amazonaws.services.s3.model.ObjectListing;
+import com.amazonaws.services.s3.model.ListObjectsV2Request;
+import com.amazonaws.services.s3.model.ListObjectsV2Result;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
@@ -305,22 +305,22 @@ public class PrestoS3FileSystem
     public RemoteIterator<LocatedFileStatus> listFiles(Path path, boolean recursive)
     {
         // Either a single level or full listing, depending on the recursive flag, no "directories" are included
-        return new S3ObjectsRemoteIterator(listPrefix(path, OptionalInt.empty(), recursive ? ListingMode.RECURSIVE_FILES_ONLY : ListingMode.SHALLOW_FILES_ONLY));
+        return new S3ObjectsV2RemoteIterator(listPrefix(path, OptionalInt.empty(), recursive ? ListingMode.RECURSIVE_FILES_ONLY : ListingMode.SHALLOW_FILES_ONLY));
     }
 
     @Override
     public RemoteIterator<LocatedFileStatus> listLocatedStatus(Path path)
     {
         STATS.newListLocatedStatusCall();
-        return new S3ObjectsRemoteIterator(listPrefix(path, OptionalInt.empty(), ListingMode.SHALLOW_ALL));
+        return new S3ObjectsV2RemoteIterator(listPrefix(path, OptionalInt.empty(), ListingMode.SHALLOW_ALL));
     }
 
-    private static final class S3ObjectsRemoteIterator
+    private static final class S3ObjectsV2RemoteIterator
             implements RemoteIterator<LocatedFileStatus>
     {
         private final Iterator<LocatedFileStatus> iterator;
 
-        public S3ObjectsRemoteIterator(Iterator<LocatedFileStatus> iterator)
+        public S3ObjectsV2RemoteIterator(Iterator<LocatedFileStatus> iterator)
         {
             this.iterator = requireNonNull(iterator, "iterator is null");
         }
@@ -568,25 +568,26 @@ public class PrestoS3FileSystem
             key += PATH_SEPARATOR;
         }
 
-        ListObjectsRequest request = new ListObjectsRequest()
+        ListObjectsV2Request request = new ListObjectsV2Request()
                 .withBucketName(getBucketName(uri))
                 .withPrefix(key)
                 .withDelimiter(mode == ListingMode.RECURSIVE_FILES_ONLY ? null : PATH_SEPARATOR)
                 .withMaxKeys(initialMaxKeys.isPresent() ? initialMaxKeys.getAsInt() : null);
 
         STATS.newListObjectsCall();
-        Iterator<ObjectListing> listings = new AbstractSequentialIterator<ObjectListing>(s3.listObjects(request))
+        Iterator<ListObjectsV2Result> listings = new
+                AbstractSequentialIterator<ListObjectsV2Result>(s3.listObjectsV2(request))
         {
             @Override
-            protected ObjectListing computeNext(ObjectListing previous)
+            protected ListObjectsV2Result computeNext(ListObjectsV2Result previous)
             {
                 if (!previous.isTruncated()) {
                     return null;
                 }
                 // Clear any max keys set for the initial request before submitting subsequent requests. Values < 0
                 // are not sent in the request and the default limit is used
-                previous.setMaxKeys(-1);
-                return s3.listNextBatchOfObjects(previous);
+                request.withMaxKeys(null).setContinuationToken(previous.getNextContinuationToken());
+                return s3.listObjectsV2(request);
             }
         };
 
@@ -598,7 +599,7 @@ public class PrestoS3FileSystem
         return result;
     }
 
-    private Iterator<LocatedFileStatus> statusFromListing(ObjectListing listing)
+    private Iterator<LocatedFileStatus> statusFromListing(ListObjectsV2Result listing)
     {
         List<String> prefixes = listing.getCommonPrefixes();
         List<S3ObjectSummary> objects = listing.getObjectSummaries();
