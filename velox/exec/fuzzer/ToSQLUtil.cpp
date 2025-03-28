@@ -239,7 +239,7 @@ std::string toCastSql(const core::CastTypedExprPtr& cast) {
 
 std::string toConcatSql(const core::ConcatTypedExprPtr& concat) {
   std::stringstream sql;
-  sql << "concat(";
+  sql << "row(";
   toCallInputsSql(concat->inputs(), sql);
   sql << ")";
   return sql.str();
