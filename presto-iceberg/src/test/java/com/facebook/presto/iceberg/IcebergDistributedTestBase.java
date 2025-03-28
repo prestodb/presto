@@ -2744,6 +2744,42 @@ public abstract class IcebergDistributedTestBase
         assertQueryFails(query, Pattern.quote(format("Unable to parse sort field: [%s]", sortField)));
     }
 
+    public void testStatisticsFileCacheInvalidationProcedure()
+    {
+        assertQuerySucceeds("CREATE TABLE test_statistics_file_cache_procedure(i int)");
+        assertUpdate("INSERT INTO test_statistics_file_cache_procedure VALUES 1, 2, 3, 4, 5", 5);
+        assertQuerySucceeds("ANALYZE test_statistics_file_cache_procedure");
+        for (int i = 0; i < 3; i++) {
+            assertQuerySucceeds("SHOW STATS FOR test_statistics_file_cache_procedure");
+        }
+
+        String jmxMetricsQuery = format("SELECT sum(\"cachestats.hitcount\"), sum(\"cachestats.size\"), sum(\"cachestats.misscount\") " +
+                "from jmx.current.\"com.facebook.presto.iceberg.statistics:name=%s,type=statisticsfilecache\"", getSession().getCatalog().get());
+
+        MaterializedResult result = computeActual(jmxMetricsQuery);
+        long afterHitCount = (long) result.getMaterializedRows().get(0).getField(0);
+        long afterCacheSize = (long) result.getMaterializedRows().get(0).getField(1);
+        long afterMissCount = (long) result.getMaterializedRows().get(0).getField(2);
+        assertTrue(afterHitCount > 0);
+        assertTrue(afterCacheSize > 0);
+
+        //test invalidate_statistics_file_cache procedure
+        assertQuerySucceeds(format("CALL %s.system.invalidate_statistics_file_cache()", getSession().getCatalog().get()));
+        MaterializedResult resultAfterProcedure = computeActual(jmxMetricsQuery);
+        long afterProcedureCacheSize = (long) resultAfterProcedure.getMaterializedRows().get(0).getField(1);
+        assertTrue(afterProcedureCacheSize == 0);
+
+        assertQuerySucceeds("SHOW STATS FOR test_statistics_file_cache_procedure");
+
+        MaterializedResult resultAfter = computeActual(jmxMetricsQuery);
+        long newCacheSize = (long) resultAfter.getMaterializedRows().get(0).getField(1);
+        long newMissCount = (long) resultAfter.getMaterializedRows().get(0).getField(2);
+        assertTrue(newCacheSize > 0);
+        assertTrue(afterMissCount < newMissCount);
+
+        getQueryRunner().execute("DROP TABLE test_statistics_file_cache_procedure");
+    }
+
     @DataProvider(name = "sortedTableWithSortTransform")
     public static Object[][] sortedTableWithSortTransform()
     {
