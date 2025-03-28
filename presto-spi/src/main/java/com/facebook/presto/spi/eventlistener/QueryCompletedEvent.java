@@ -257,5 +257,8 @@ public class QueryCompletedEvent
         return planIdNodeMap;
     }
 
-    public AccessControlResults getAccessControlResults() { return  accessControlResults; }
+    public AccessControlResults getAccessControlResults()
+    {
+        return accessControlResults;
+    }
 }

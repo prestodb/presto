@@ -29,7 +29,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import org.checkerframework.checker.units.qual.A;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 

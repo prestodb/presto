@@ -38,7 +38,6 @@ import org.testng.Assert.ThrowingRunnable;
 import org.testng.annotations.Test;
 
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Optional;
 
 import static com.facebook.presto.hive.security.ranger.RangerBasedAccessControlConfig.RANGER_REST_POLICY_MGR_DOWNLOAD_URL;

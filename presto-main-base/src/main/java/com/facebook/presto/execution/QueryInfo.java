@@ -503,7 +503,10 @@ public class QueryInfo
     }
 
     @JsonProperty
-    public AccessControlResults getAccessControlResults() { return accessControlResults; }
+    public AccessControlResults getAccessControlResults()
+    {
+        return accessControlResults;
+    }
 
     // Don't serialize this field because it can be big
     public List<CanonicalPlanWithInfo> getPlanCanonicalInfo()

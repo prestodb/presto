@@ -461,8 +461,7 @@ public final class Session
                 warningCollector,
                 runtimeStats,
                 queryType,
-                context.getAccessControlResults()
-                );
+                context.getAccessControlResults());
     }
 
     public ConnectorSession toConnectorSession()
