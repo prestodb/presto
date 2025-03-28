@@ -76,9 +76,10 @@ class BingTileFunctionsTest : public functions::test::FunctionBaseTest {
 
 TEST_F(BingTileFunctionsTest, toBingTileSignatures) {
   auto signatures = getSignatureStrings("bing_tile");
-  ASSERT_EQ(1, signatures.size());
+  ASSERT_EQ(2, signatures.size());
 
   ASSERT_EQ(1, signatures.count("(integer,integer,tinyint) -> bingtile"));
+  ASSERT_EQ(1, signatures.count("(varchar) -> bingtile"));
 }
 
 TEST_F(BingTileFunctionsTest, toBingTileCoordinates) {
@@ -120,6 +121,40 @@ TEST_F(BingTileFunctionsTest, toBingTileCoordinates) {
       testToBingTile(1, -1, 2), "Bing tile Y coordinate -1 cannot be negative");
   VELOX_ASSERT_USER_THROW(
       testToBingTile(1, 1, -1), "Bing tile zoom -1 cannot be negative");
+}
+
+TEST_F(BingTileFunctionsTest, quadKeyToBingTile) {
+  const auto testToBingTile = [&](std::optional<std::string_view> quadKey) {
+    std::optional<int64_t> tile =
+        evaluateOnce<int64_t>("CAST(bing_tile(c0) AS BIGINT)", quadKey);
+    if (quadKey.has_value()) {
+      ASSERT_TRUE(tile.has_value());
+      ASSERT_EQ(
+          static_cast<int64_t>(
+              BingTileType::bingTileFromQuadKey(quadKey.value()).value()),
+          tile.value());
+    } else {
+      ASSERT_FALSE(tile.has_value());
+    }
+  };
+
+  testToBingTile("000");
+  testToBingTile("001");
+  testToBingTile("123123123123123123123"); // 21 digits, valid quadKey
+  testToBingTile(std::nullopt);
+  testToBingTile("");
+
+  VELOX_ASSERT_USER_THROW(
+      testToBingTile("fourty-two"),
+      "Invalid QuadKey digit sequence: fourty-two");
+  VELOX_ASSERT_USER_THROW(
+      testToBingTile("-1"), "Invalid QuadKey digit sequence: -1");
+  VELOX_ASSERT_USER_THROW(
+      testToBingTile("125"), "Invalid QuadKey digit sequence: 125");
+  VELOX_ASSERT_USER_THROW(
+      testToBingTile("123123123123123123123123"),
+      "Zoom level 24 is greater than max zoom 23"); // 24 digits, invalid
+                                                    // quadkey
 }
 
 TEST_F(BingTileFunctionsTest, bingTileZoomLevelSignatures) {

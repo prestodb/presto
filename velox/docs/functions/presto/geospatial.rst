@@ -30,6 +30,10 @@ for more details.
     Zoom levels from 0 to 23 are supported, with valid `x` and `y` coordinates
     described above.  Invalid parameters will return a User Error.
 
+.. function:: bing_tile(quadKey: varchar) -> tile: BingTile
+
+    Creates a Bing tile object from a quadkey. An invalid quadkey will return a User Error.
+
 .. function:: bing_tile_coordinates(tile: BingTile) -> coords: row(integer,integer)
 
     Returns the `x`, `y` coordinates of a given Bing tile as `row(x, y)`.

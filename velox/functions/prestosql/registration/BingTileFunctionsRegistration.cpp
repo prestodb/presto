@@ -30,6 +30,7 @@ void registerSimpleBingTileFunctions(const std::string& prefix) {
   // BingTile constructors
   registerFunction<BingTileFunction, BingTile, int32_t, int32_t, int8_t>(
       {prefix + "bing_tile"});
+  registerFunction<BingTileFunction, BingTile, Varchar>({prefix + "bing_tile"});
 
   // BingTile accessors
   registerFunction<BingTileZoomLevelFunction, int8_t, BingTile>(

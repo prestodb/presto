@@ -63,6 +63,17 @@ struct BingTileFunction {
     result = tile;
     return Status::OK();
   }
+
+  FOLLY_ALWAYS_INLINE Status
+  call(out_type<BingTile>& result, const arg_type<Varchar>& quadKey) {
+    folly::Expected<uint64_t, std::string> tile =
+        BingTileType::bingTileFromQuadKey(std::string_view(quadKey));
+    if (tile.hasError()) {
+      return Status::UserError(tile.error());
+    }
+    result = tile.value();
+    return Status::OK();
+  }
 };
 
 template <typename T>

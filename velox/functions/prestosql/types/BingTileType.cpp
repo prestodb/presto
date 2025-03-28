@@ -111,4 +111,39 @@ BingTileType::bingTileChildren(uint64_t tile, uint8_t childZoom) {
   return children;
 }
 
+folly::Expected<uint64_t, std::string> BingTileType::bingTileFromQuadKey(
+    const std::string_view& quadKey) {
+  size_t zoomLevelInt32 = quadKey.size();
+  if (FOLLY_UNLIKELY(zoomLevelInt32 > kBingTileMaxZoomLevel)) {
+    return folly::makeUnexpected(fmt::format(
+        "Zoom level {} is greater than max zoom {}",
+        zoomLevelInt32,
+        kBingTileMaxZoomLevel));
+  }
+  uint8_t zoomLevel = static_cast<uint8_t>(zoomLevelInt32);
+  uint32_t tileX = 0;
+  uint32_t tileY = 0;
+  for (uint8_t i = zoomLevel; i > 0; i--) {
+    int mask = 1 << (i - 1);
+    switch (quadKey.at(zoomLevel - i)) {
+      case '0':
+        break;
+      case '1':
+        tileX |= mask;
+        break;
+      case '2':
+        tileY |= mask;
+        break;
+      case '3':
+        tileX |= mask;
+        tileY |= mask;
+        break;
+      default:
+        return folly::makeUnexpected(
+            fmt::format("Invalid QuadKey digit sequence: {}", quadKey));
+    }
+  }
+  return BingTileType::bingTileCoordsToInt(tileX, tileY, zoomLevel);
+}
+
 } // namespace facebook::velox
