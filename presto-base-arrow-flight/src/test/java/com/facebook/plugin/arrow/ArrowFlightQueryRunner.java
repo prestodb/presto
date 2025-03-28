@@ -26,6 +26,8 @@ import org.apache.arrow.flight.Location;
 import org.apache.arrow.memory.RootAllocator;
 
 import java.io.File;
+import java.io.IOException;
+import java.net.ServerSocket;
 import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
@@ -40,6 +42,14 @@ public class ArrowFlightQueryRunner
     private ArrowFlightQueryRunner()
     {
         throw new UnsupportedOperationException("This is a utility class and cannot be instantiated");
+    }
+
+    public static int findUnusedPort()
+            throws IOException
+    {
+        try (ServerSocket socket = new ServerSocket(0)) {
+            return socket.getLocalPort();
+        }
     }
 
     public static DistributedQueryRunner createQueryRunner(int flightServerPort) throws Exception
