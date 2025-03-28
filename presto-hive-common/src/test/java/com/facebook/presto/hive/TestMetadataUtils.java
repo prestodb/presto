@@ -54,7 +54,7 @@ public class TestMetadataUtils
     @Test
     void testWithNullSchema()
     {
-        String result = constructSchemaName(Optional.of("testCatalog"), null);
+        String result = constructSchemaName(Optional.empty(), null);
         assertNull(result);
     }
 
