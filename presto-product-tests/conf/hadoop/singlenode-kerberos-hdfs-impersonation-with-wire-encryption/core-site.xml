@@ -72,7 +72,7 @@
     </property>
 
     <property>
-        <name>dfs.encrypt.data.transfer</name>
+        <name>dfs.client.use.legacy.blockreader</name>
         <value>true</value>
     </property>
 </configuration>
