@@ -539,7 +539,8 @@ class JsonParseFunction : public exec::VectorFunction {
   JsonParseImpl parser;
 };
 
-class JsonExtractFunction : public exec::VectorFunction {
+template <typename JsonFunction, typename SelectorType>
+class JsonFunctionTemplate : public exec::VectorFunction {
  public:
   void apply(
       const SelectivityVector& rows,
@@ -584,39 +585,26 @@ class JsonExtractFunction : public exec::VectorFunction {
     context.moveOrCopyResult(localResult, rows, result);
   }
 
-  static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
-    return {
-        exec::FunctionSignatureBuilder()
-            .returnType("json")
-            .argumentType("json")
-            .argumentType("varchar")
-            .build(),
-        exec::FunctionSignatureBuilder()
-            .returnType("json")
-            .argumentType("varchar")
-            .argumentType("varchar")
-            .build()};
-  }
-
  private:
   void applyImpl(
       const SelectivityVector& rows,
       const VectorPtr& json,
-      const VectorPtr& path,
+      const VectorPtr& selector,
       const TypePtr& outputType,
       exec::EvalCtx& context,
       VectorPtr& localResult) const {
-    if (json->isConstantEncoding() && path->isConstantEncoding()) {
+    if (json->isConstantEncoding() && selector->isConstantEncoding()) {
       bool nullResult = false;
       std::string output;
       if (json->as<ConstantVector<StringView>>()->isNullAt(0) ||
-          path->as<ConstantVector<StringView>>()->isNullAt(0)) {
+          selector->as<ConstantVector<SelectorType>>()->isNullAt(0)) {
         nullResult = true;
       } else {
         auto jsonValue = json->as<ConstantVector<StringView>>()->valueAt(0);
-        auto pathValue = path->as<ConstantVector<StringView>>()->valueAt(0);
+        auto pathValue =
+            selector->as<ConstantVector<SelectorType>>()->valueAt(0);
         try {
-          nullResult = processJsonExtract(jsonValue, pathValue, output) !=
+          nullResult = JsonFunction::process(jsonValue, pathValue, output) !=
               simdjson::SUCCESS;
         } catch (const VeloxException& e) {
           if (!e.isUserError()) {
@@ -640,7 +628,7 @@ class JsonExtractFunction : public exec::VectorFunction {
     auto flatResult = localResult->asFlatVector<StringView>();
     VELOX_CHECK_NOT_NULL(flatResult);
     exec::LocalDecodedVector decodedJson(context, *json, rows);
-    exec::LocalDecodedVector decodedPath(context, *path, rows);
+    exec::LocalDecodedVector decodedPath(context, *selector, rows);
     exec::VectorWriter<Json> resultWriter;
     resultWriter.init(*flatResult);
 
@@ -649,9 +637,9 @@ class JsonExtractFunction : public exec::VectorFunction {
       resultWriter.setOffset(row);
       std::string output;
       if (!decodedJson->isNullAt(row) &&
-          processJsonExtract(
+          JsonFunction::process(
               decodedJson->valueAt<StringView>(row),
-              decodedPath->valueAt<StringView>(row),
+              decodedPath->valueAt<SelectorType>(row),
               output) == simdjson::SUCCESS) {
         resultWriter.current() = output;
         resultWriter.commit(true);
@@ -662,10 +650,60 @@ class JsonExtractFunction : public exec::VectorFunction {
     resultWriter.finish();
   }
 
-  FOLLY_ALWAYS_INLINE simdjson::error_code processJsonExtract(
+  JsonParseImpl parser_;
+};
+
+struct JsonArrayGetImpl {
+  static simdjson::error_code
+  process(const StringView& jsonArray, int64_t index, std::string& output) {
+    simdjson::ondemand::document jsonDoc;
+
+    simdjson::padded_string paddedJson(jsonArray.data(), jsonArray.size());
+    if (auto errorCode = simdjsonParse(paddedJson).get(jsonDoc);
+        errorCode != simdjson::SUCCESS) {
+      return errorCode;
+    }
+    if (jsonDoc.type().error()) {
+      return simdjson::TAPE_ERROR;
+    }
+
+    if (jsonDoc.type() != simdjson::ondemand::json_type::array) {
+      return simdjson::TAPE_ERROR;
+    }
+
+    size_t numElements;
+    if (auto errorCode = jsonDoc.count_elements().get(numElements);
+        errorCode != simdjson::SUCCESS) {
+      return errorCode;
+    }
+
+    if (index >= 0) {
+      if (index >= numElements) {
+        return simdjson::INDEX_OUT_OF_BOUNDS;
+      }
+    } else if ((int64_t)numElements + index < 0) {
+      return simdjson::INDEX_OUT_OF_BOUNDS;
+    } else {
+      index += numElements;
+    }
+
+    std::string_view resultStr;
+    if (auto errorCode =
+            simdjson::to_json_string(jsonDoc.at(index)).get(resultStr);
+        errorCode != simdjson::SUCCESS) {
+      return errorCode;
+    }
+
+    output = resultStr;
+    return simdjson::SUCCESS;
+  }
+};
+
+struct JsonExtractImpl {
+  static simdjson::error_code process(
       const StringView& json,
       const StringView& jsonPath,
-      std::string& output) const {
+      std::string& output) {
     static constexpr std::string_view kNullString{"null"};
     static constexpr std::string_view emptyArrayString{"[]"};
     std::vector<std::string_view> results;
@@ -709,8 +747,9 @@ class JsonExtractFunction : public exec::VectorFunction {
     {
       SIMDJSON_ASSIGN_OR_RAISE(auto jsonDoc, simdjsonParse(paddedJson));
       simdjson::ondemand::document parsedDoc;
-      if (simdjsonParse(paddedJson).get(parsedDoc) != simdjson::SUCCESS) {
-        return simdjson::TAPE_ERROR;
+      if (auto errorCode = simdjsonParse(paddedJson).get(parsedDoc);
+          errorCode != simdjson::SUCCESS) {
+        return errorCode;
       }
     }
 
@@ -740,8 +779,41 @@ class JsonExtractFunction : public exec::VectorFunction {
     output = ss.str();
     return simdjson::SUCCESS;
   }
+};
 
-  JsonParseImpl parser_;
+class JsonArrayGetFunction
+    : public JsonFunctionTemplate<JsonArrayGetImpl, int64_t> {
+ public:
+  static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
+    return {
+        exec::FunctionSignatureBuilder()
+            .returnType("json")
+            .argumentType("json")
+            .argumentType("bigint")
+            .build(),
+        exec::FunctionSignatureBuilder()
+            .returnType("json")
+            .argumentType("varchar")
+            .argumentType("bigint")
+            .build()};
+  }
+};
+class JsonExtractFunction
+    : public JsonFunctionTemplate<JsonExtractImpl, StringView> {
+ public:
+  static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
+    return {
+        exec::FunctionSignatureBuilder()
+            .returnType("json")
+            .argumentType("json")
+            .argumentType("varchar")
+            .build(),
+        exec::FunctionSignatureBuilder()
+            .returnType("json")
+            .argumentType("varchar")
+            .argumentType("varchar")
+            .build()};
+  }
 };
 
 // This function is called when $internal$json_string_to_array/map/row
@@ -801,6 +873,15 @@ VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION(
        const std::vector<exec::VectorFunctionArg>&,
        const velox::core::QueryConfig&) {
       return std::make_shared<JsonExtractFunction>();
+    });
+
+VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION(
+    udf_json_array_get,
+    JsonArrayGetFunction::signatures(),
+    [](const std::string& /*name*/,
+       const std::vector<exec::VectorFunctionArg>&,
+       const velox::core::QueryConfig&) {
+      return std::make_shared<JsonArrayGetFunction>();
     });
 
 VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION(
