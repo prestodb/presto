@@ -29,6 +29,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -52,10 +53,16 @@ public class TestArrowFlightQueries
         extends AbstractTestQueries
 {
     private static final Logger logger = Logger.get(TestArrowFlightQueries.class);
+    private final int serverPort;
     private RootAllocator allocator;
     private FlightServer server;
-    private Location serverLocation;
     private DistributedQueryRunner arrowFlightQueryRunner;
+
+    public TestArrowFlightQueries()
+            throws IOException
+    {
+        this.serverPort = ArrowFlightQueryRunner.findUnusedPort();
+    }
 
     @BeforeClass
     public void setup()
@@ -66,8 +73,8 @@ public class TestArrowFlightQueries
         File privateKeyFile = new File("src/test/resources/server.key");
 
         allocator = new RootAllocator(Long.MAX_VALUE);
-        serverLocation = Location.forGrpcTls("localhost", 9443);
-        server = FlightServer.builder(allocator, serverLocation, new TestingArrowProducer(allocator))
+        Location location = Location.forGrpcTls("localhost", serverPort);
+        server = FlightServer.builder(allocator, location, new TestingArrowProducer(allocator))
                 .useTls(certChainFile, privateKeyFile)
                 .build();
 
@@ -88,7 +95,7 @@ public class TestArrowFlightQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return ArrowFlightQueryRunner.createQueryRunner(9443);
+        return ArrowFlightQueryRunner.createQueryRunner(serverPort);
     }
 
     @Test
