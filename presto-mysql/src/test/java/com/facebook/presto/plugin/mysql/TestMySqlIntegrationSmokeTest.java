@@ -79,6 +79,16 @@ public class TestMySqlIntegrationSmokeTest
     @Override
     public void testDescribeTable()
     {
+        // CI tests run on Linux, where MySQL is case-sensitive by default (lower_case_table_names=0),
+        // treating "orders" and "ORDERS" as different tables.
+        // Since the test runs with mixed-case-support=true, ensure "ORDERS" exists if not already present.
+        try {
+            execute("CREATE TABLE IF NOT EXISTS tpch.ORDERS AS SELECT * FROM tpch.orders");
+        }
+        catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+
         // we need specific implementation of this tests due to specific Presto<->Mysql varchar length mapping.
         MaterializedResult actualColumns = computeActual("DESC ORDERS").toTestTypes();
 
@@ -305,5 +315,19 @@ public class TestMySqlIntegrationSmokeTest
     {
         assertUpdate("CREATE TABLE test_column (name VARCHAR NOT NULL, email VARCHAR)");
         assertQuery("SELECT is_nullable FROM information_schema.columns WHERE table_name = 'test_column'", "VALUES 'NO','YES'");
+    }
+
+    @Test
+    public void testDuplicatedRowCreateTable()
+    {
+        assertQueryFails("CREATE TABLE test (a integer, a integer)",
+                "line 1:31: Column name 'a' specified more than once");
+        assertQueryFails("CREATE TABLE test (a integer, orderkey integer, LIKE orders INCLUDING PROPERTIES)",
+                "line 1:49: Column name 'orderkey' specified more than once");
+
+        assertQueryFails("CREATE TABLE test (a integer, A integer)",
+                "Duplicate column name 'a'");
+        assertQueryFails("CREATE TABLE test (a integer, OrderKey integer, LIKE orders INCLUDING PROPERTIES)",
+                "Duplicate column name 'orderkey'");
     }
 }

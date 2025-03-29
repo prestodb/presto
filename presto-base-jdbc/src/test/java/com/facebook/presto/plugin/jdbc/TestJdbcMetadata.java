@@ -43,6 +43,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
+import static java.util.Collections.emptyMap;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.data.MapEntry.entry;
@@ -124,17 +125,17 @@ public class TestJdbcMetadata
         ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(SESSION, tableHandle);
         assertEquals(tableMetadata.getTable(), new SchemaTableName("example", "numbers"));
         assertEquals(tableMetadata.getColumns(), ImmutableList.of(
-                ColumnMetadata.builder().setName("text").setType(VARCHAR).setNullable(false).build(),
-                ColumnMetadata.builder().setName("text_short").setType(createVarcharType(32)).build(),
-                ColumnMetadata.builder().setName("value").setType(BIGINT).build()));
+                new JdbcColumnMetadata("text", VARCHAR, false, null, null, false, emptyMap()), // primary key is not null in H2
+                new JdbcColumnMetadata("text_short", createVarcharType(32)),
+                new JdbcColumnMetadata("value", BIGINT)));
 
         // escaping name patterns
         JdbcTableHandle specialTableHandle = metadata.getTableHandle(SESSION, new SchemaTableName("exa_ple", "num_ers"));
         ConnectorTableMetadata specialTableMetadata = metadata.getTableMetadata(SESSION, specialTableHandle);
         assertEquals(specialTableMetadata.getTable(), new SchemaTableName("exa_ple", "num_ers"));
         assertEquals(specialTableMetadata.getColumns(), ImmutableList.of(
-                ColumnMetadata.builder().setName("te_t").setType(VARCHAR).setNullable(false).build(),
-                ColumnMetadata.builder().setName("va%ue").setType(BIGINT).build()));
+                new JdbcColumnMetadata("te_t", VARCHAR, false, null, null, false, emptyMap()), // primary key is not null in H2
+                new JdbcColumnMetadata("va%ue", BIGINT)));
 
         // unknown tables should produce null
         unknownTableMetadata(new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName("u", "numbers"), null, "unknown", "unknown"));
@@ -147,13 +148,13 @@ public class TestJdbcMetadata
     {
         SchemaTableName tpchOrders = new SchemaTableName("tpch", "orders");
         ImmutableList<ColumnMetadata> tpchOrdersColumnMetadata = ImmutableList.of(
-                ColumnMetadata.builder().setName("orderkey").setType(BIGINT).setNullable(false).build(),
-                ColumnMetadata.builder().setName("custkey").setType(BIGINT).setNullable(true).build());
+                JdbcColumnMetadata.jdbcBuilder().setName("orderkey").setType(BIGINT).setNullable(false).build(),
+                JdbcColumnMetadata.jdbcBuilder().setName("custkey").setType(BIGINT).setNullable(true).build());
 
         SchemaTableName tpchLineItem = new SchemaTableName("tpch", "lineitem");
         ImmutableList<ColumnMetadata> tpchLineItemColumnMetadata = ImmutableList.of(
-                ColumnMetadata.builder().setName("orderkey").setType(BIGINT).setNullable(false).build(),
-                ColumnMetadata.builder().setName("partkey").setType(BIGINT).setNullable(true).build());
+                JdbcColumnMetadata.jdbcBuilder().setName("orderkey").setType(BIGINT).setNullable(false).build(),
+                JdbcColumnMetadata.jdbcBuilder().setName("partkey").setType(BIGINT).setNullable(true).build());
 
         //List columns for a given schema and table
         Map<SchemaTableName, List<ColumnMetadata>> tpchOrdersColumns = metadata.listTableColumns(SESSION, new SchemaTablePrefix("tpch", "orders"));
@@ -213,33 +214,33 @@ public class TestJdbcMetadata
     {
         assertEquals(
                 metadata.getColumnMetadata(SESSION, tableHandle, new JdbcColumnHandle(CONNECTOR_ID, "text", JDBC_VARCHAR, VARCHAR, true, Optional.empty())),
-                ColumnMetadata.builder().setName("text").setType(VARCHAR).build());
+                new JdbcColumnMetadata("text", VARCHAR));
     }
 
     @Test
     public void testCreateAndAlterTable()
     {
         SchemaTableName table = new SchemaTableName("example", "foo");
-        metadata.createTable(SESSION, new ConnectorTableMetadata(table, ImmutableList.of(ColumnMetadata.builder().setName("text").setType(VARCHAR).build())), false);
+        metadata.createTable(SESSION, new ConnectorTableMetadata(table, ImmutableList.of(new JdbcColumnMetadata("text", VARCHAR))), false);
 
         JdbcTableHandle handle = metadata.getTableHandle(SESSION, table);
 
         ConnectorTableMetadata layout = metadata.getTableMetadata(SESSION, handle);
         assertEquals(layout.getTable(), table);
         assertEquals(layout.getColumns().size(), 1);
-        assertEquals(layout.getColumns().get(0), ColumnMetadata.builder().setName("text").setType(VARCHAR).build());
+        assertEquals(layout.getColumns().get(0), new JdbcColumnMetadata("text", VARCHAR));
 
-        metadata.addColumn(SESSION, handle, ColumnMetadata.builder().setName("x").setType(VARCHAR).build());
+        metadata.addColumn(SESSION, handle, new JdbcColumnMetadata("x", VARCHAR));
         layout = metadata.getTableMetadata(SESSION, handle);
         assertEquals(layout.getColumns().size(), 2);
-        assertEquals(layout.getColumns().get(0), ColumnMetadata.builder().setName("text").setType(VARCHAR).build());
-        assertEquals(layout.getColumns().get(1), ColumnMetadata.builder().setName("x").setType(VARCHAR).build());
+        assertEquals(layout.getColumns().get(0), new JdbcColumnMetadata("text", VARCHAR));
+        assertEquals(layout.getColumns().get(1), new JdbcColumnMetadata("x", VARCHAR));
 
         JdbcColumnHandle columnHandle = new JdbcColumnHandle(CONNECTOR_ID, "x", JDBC_VARCHAR, VARCHAR, true, Optional.empty());
         metadata.dropColumn(SESSION, handle, columnHandle);
         layout = metadata.getTableMetadata(SESSION, handle);
         assertEquals(layout.getColumns().size(), 1);
-        assertEquals(layout.getColumns().get(0), ColumnMetadata.builder().setName("text").setType(VARCHAR).build());
+        assertEquals(layout.getColumns().get(0), new JdbcColumnMetadata("text", VARCHAR));
 
         SchemaTableName newTableName = new SchemaTableName("example", "bar");
         metadata.renameTable(SESSION, handle, newTableName);
@@ -247,7 +248,7 @@ public class TestJdbcMetadata
         layout = metadata.getTableMetadata(SESSION, handle);
         assertEquals(layout.getTable(), newTableName);
         assertEquals(layout.getColumns().size(), 1);
-        assertEquals(layout.getColumns().get(0), ColumnMetadata.builder().setName("text").setType(VARCHAR).build());
+        assertEquals(layout.getColumns().get(0), new JdbcColumnMetadata("text", VARCHAR));
     }
 
     @Test

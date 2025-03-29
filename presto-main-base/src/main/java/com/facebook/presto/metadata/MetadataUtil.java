@@ -41,6 +41,7 @@ import com.google.common.collect.Lists;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
 import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
 import static com.facebook.presto.spi.security.PrincipalType.ROLE;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
@@ -90,6 +91,21 @@ public final class MetadataUtil
         return new SchemaTableName(qualifiedObjectName.getSchemaName(), qualifiedObjectName.getObjectName());
     }
 
+    public static SchemaTableName toSchemaTableName(String schemaName, String tableName)
+    {
+        if (schemaName.equalsIgnoreCase(INFORMATION_SCHEMA)) {
+            return new SchemaTableName(schemaName.toLowerCase(ENGLISH), tableName.toLowerCase(ENGLISH));
+        }
+        return new SchemaTableName(schemaName, tableName);
+    }
+
+    public static SchemaTableName toSchemaTableName(QualifiedObjectName qualifiedObjectName, Metadata metadata, Session session)
+    {
+        String schemaName = metadata.normalizeIdentifier(session, qualifiedObjectName.getLegacyCatalogName(), qualifiedObjectName.getSchemaName());
+        String tableName = metadata.normalizeIdentifier(session, qualifiedObjectName.getLegacyCatalogName(), qualifiedObjectName.getObjectName());
+        return toSchemaTableName(schemaName, tableName);
+    }
+
     public static ConnectorId getConnectorIdOrThrow(Session session, Metadata metadata, String catalogName)
     {
         return metadata.getCatalogHandle(session, catalogName)
@@ -132,20 +148,23 @@ public final class MetadataUtil
         return sessionCatalog.get();
     }
 
-    public static CatalogSchemaName createCatalogSchemaName(Session session, Node node, Optional<QualifiedName> schema)
+    public static CatalogSchemaName createCatalogSchemaName(Session session, Node node, Optional<QualifiedName> schema, Metadata metadata)
     {
         String catalogName = session.getCatalog().orElse(null);
         String schemaName = session.getSchema().orElse(null);
 
         if (schema.isPresent()) {
-            List<String> parts = schema.get().getParts();
+            List<String> parts = schema.get().getOriginalParts();
             if (parts.size() > 2) {
                 throw new SemanticException(INVALID_SCHEMA_NAME, node, "Too many parts in schema name: %s", schema.get());
             }
             if (parts.size() == 2) {
-                catalogName = parts.get(0);
+                catalogName = parts.get(0).toLowerCase(ENGLISH);
             }
-            schemaName = schema.get().getSuffix();
+            if (catalogName == null) {
+                throw new SemanticException(CATALOG_NOT_SPECIFIED, node, "Catalog must be specified when session catalog is not set");
+            }
+            schemaName = metadata.normalizeIdentifier(session, catalogName, schema.get().getOriginalSuffix());
         }
 
         if (catalogName == null) {
@@ -158,20 +177,23 @@ public final class MetadataUtil
         return new CatalogSchemaName(catalogName, schemaName);
     }
 
-    public static QualifiedObjectName createQualifiedObjectName(Session session, Node node, QualifiedName name)
+    public static QualifiedObjectName createQualifiedObjectName(Session session, Node node, QualifiedName name, Metadata metadata)
     {
         requireNonNull(session, "session is null");
         requireNonNull(name, "name is null");
-        if (name.getParts().size() > 3) {
+        if (name.getOriginalParts().size() > 3) {
             throw new PrestoException(SYNTAX_ERROR, format("Too many dots in table name: %s", name));
         }
 
-        List<String> parts = Lists.reverse(name.getParts());
+        List<String> parts = Lists.reverse(name.getOriginalParts());
         String objectName = parts.get(0);
         String schemaName = (parts.size() > 1) ? parts.get(1) : session.getSchema().orElseThrow(() ->
                 new SemanticException(SCHEMA_NOT_SPECIFIED, node, "Schema must be specified when session schema is not set"));
         String catalogName = (parts.size() > 2) ? parts.get(2) : session.getCatalog().orElseThrow(() ->
                 new SemanticException(CATALOG_NOT_SPECIFIED, node, "Catalog must be specified when session catalog is not set"));
+
+        schemaName = metadata.normalizeIdentifier(session, catalogName, schemaName);
+        objectName = metadata.normalizeIdentifier(session, catalogName, objectName);
 
         return new QualifiedObjectName(catalogName, schemaName, objectName);
     }
@@ -190,16 +212,19 @@ public final class MetadataUtil
     {
         requireNonNull(table, "table is null");
 
-        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, transactionManager, table.getCatalogName());
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, transactionManager, table.getLegacyCatalogName());
         if (catalog.isPresent()) {
             CatalogMetadata catalogMetadata = catalog.get();
             ConnectorId connectorId = catalogMetadata.getConnectorId(session, table);
             ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
 
             ConnectorTableHandle tableHandle;
+            String schemaName = metadata.normalizeIdentifier(session.toConnectorSession(connectorId), table.getSchemaName());
+            String tableName = metadata.normalizeIdentifier(session.toConnectorSession(connectorId), table.getObjectName());
+
             tableHandle = tableVersion
-                    .map(expression -> metadata.getTableHandle(session.toConnectorSession(connectorId), toSchemaTableName(table), Optional.of(expression)))
-                    .orElseGet(() -> metadata.getTableHandle(session.toConnectorSession(connectorId), toSchemaTableName(table)));
+                    .map(expression -> metadata.getTableHandle(session.toConnectorSession(connectorId), toSchemaTableName(schemaName, tableName), Optional.of(expression)))
+                    .orElseGet(() -> metadata.getTableHandle(session.toConnectorSession(connectorId), toSchemaTableName(schemaName, tableName)));
             if (tableHandle != null) {
                 return Optional.of(new TableHandle(
                         connectorId,
