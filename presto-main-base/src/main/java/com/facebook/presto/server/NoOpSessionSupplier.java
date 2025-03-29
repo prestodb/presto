@@ -26,7 +26,7 @@ public class NoOpSessionSupplier
         implements SessionSupplier
 {
     @Override
-    public Session createSession(QueryId queryId, SessionContext context, WarningCollectorFactory warningCollectorFactory)
+    public Session createSession(QueryId queryId, boolean ignoreTransactionState, SessionContext context, WarningCollectorFactory warningCollectorFactory)
     {
         throw new UnsupportedOperationException();
     }
