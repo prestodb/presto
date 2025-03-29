@@ -151,4 +151,12 @@ void registerS3Metrics() {
 #endif
 }
 
+void registerAWSCredentialsProvider(
+    const std::string& providerName,
+    const AWSCredentialsProviderFactory& provider) {
+#ifdef VELOX_ENABLE_S3
+  registerCredentialsProvider(providerName, provider);
+#endif
+}
+
 } // namespace facebook::velox::filesystems
