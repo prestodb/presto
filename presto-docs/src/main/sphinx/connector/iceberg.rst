@@ -514,6 +514,15 @@ Property Name                                         Description
 Caching Support
 ---------------
 
+Statistics File Caching
+^^^^^^^^^^^^^^^^^^^^^^^
+
+Support for Puffin-based statistics caching. It is enabled by default.
+
+JMX query to get the metrics and verify the cache usage::
+
+    SELECT * FROM jmx.current."com.facebook.presto.iceberg.statistics:name=iceberg,type=statisticsfilecache";
+
 Manifest File Caching
 ^^^^^^^^^^^^^^^^^^^^^
 
@@ -541,6 +550,14 @@ Property Name                                          Description              
                                                        caching in bytes. Manifest files with a length exceeding
                                                        this size will not be cached.
 ====================================================   =============================================================   ============
+
+JMX query to get the metrics and verify the cache usage::
+
+    SELECT * FROM jmx.current."com.facebook.presto.iceberg:name=iceberg,type=manifestfilecache";
+
+.. note::
+
+    Manifest file cache statistics are only available through the JMX connector when the Iceberg connector is configured with a HIVE catalog type.
 
 Alluxio Data Cache
 ^^^^^^^^^^^^^^^^^^
