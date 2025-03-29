@@ -261,12 +261,14 @@ public class TestHiveCommitHandleOutput
                 HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER,
                 new QuickStatsProvider(metastore, HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()),
                 new HiveTableWritabilityChecker(false));
+
         return hiveMetadataFactory.get();
     }
 
     private Partition createPartition(String partitionName, String partitionLocation)
     {
         Partition.Builder partitionBuilder = Partition.builder()
+                .setCatalogName(Optional.of("hive"))
                 .setDatabaseName(TEST_SCHEMA)
                 .setTableName(TEST_TABLE)
                 .setColumns(ImmutableList.of())

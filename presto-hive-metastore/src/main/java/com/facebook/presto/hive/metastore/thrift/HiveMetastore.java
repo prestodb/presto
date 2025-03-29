@@ -62,6 +62,11 @@ public interface HiveMetastore
 
     MetastoreOperationResult alterTable(MetastoreContext metastoreContext, String databaseName, String tableName, Table table);
 
+    default List<String> getDatabases(MetastoreContext metastoreContext, String pattern)
+    {
+        return getAllDatabases(metastoreContext);
+    }
+
     List<String> getAllDatabases(MetastoreContext metastoreContext);
 
     Optional<List<String>> getAllTables(MetastoreContext metastoreContext, String databaseName);
