@@ -38,6 +38,7 @@ DECLARE_uint64(query_memory_capacity_mb);
 DECLARE_double(driver_cpu_executor_hw_multiplier);
 DECLARE_string(memory_arbitrator_type);
 DECLARE_bool(copy_results);
+DECLARE_string(function_prefix);
 
 namespace facebook::velox::tool::trace {
 

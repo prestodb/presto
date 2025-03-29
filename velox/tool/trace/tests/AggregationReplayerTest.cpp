@@ -26,7 +26,6 @@
 #include "velox/common/hyperloglog/SparseHll.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
-#include "velox/exec/OperatorTraceReader.h"
 #include "velox/exec/PartitionFunction.h"
 #include "velox/exec/TableWriter.h"
 #include "velox/exec/TraceUtil.h"
@@ -35,9 +34,12 @@
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
+#include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
+#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/tool/trace/AggregationReplayer.h"
 #include "velox/tool/trace/TableWriterReplayer.h"
+#include "velox/tool/trace/TraceReplayRunner.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
@@ -120,9 +122,13 @@ class AggregationReplayerTest : public HiveConnectorTestBase {
     return names;
   }
 
-  std::vector<PlanWithName> aggregatePlans(const RowTypePtr& rowType) {
+  std::vector<PlanWithName> aggregatePlans(
+      const RowTypePtr& rowType,
+      const std::string& prefix = "") {
     const std::vector<std::string> aggregates{
-        "count(1)", "min(c2)", "count(c2),"};
+        fmt::format("{}count(1)", prefix),
+        fmt::format("{}min(c1)", prefix),
+        fmt::format("{}count(c2),", prefix)};
     std::vector<PlanWithName> plans;
     // Single aggregation plan.
     plans.emplace_back(
@@ -176,39 +182,68 @@ class AggregationReplayerTest : public HiveConnectorTestBase {
 };
 
 TEST_F(AggregationReplayerTest, test) {
-  const auto data = generateInput(groupingKeys_, keyTypes_);
-  const auto planWithNames = aggregatePlans(asRowType(data[0]->type()));
-  const auto sourceFilePath = TempFilePath::create();
-  writeToFile(sourceFilePath->getPath(), data);
+  for (const auto& prefix : std::vector<std::string>{"", "test."}) {
+    const auto data = generateInput(groupingKeys_, keyTypes_);
+    const auto planWithNames =
+        aggregatePlans(asRowType(data[0]->type()), prefix);
+    const auto sourceFilePath = TempFilePath::create();
+    writeToFile(sourceFilePath->getPath(), data);
 
-  for (const auto& planWithName : planWithNames) {
-    SCOPED_TRACE(planWithName.name);
-    const auto& plan = planWithName.plan;
-    const auto testDir = TempDirectoryPath::create();
-    const auto traceRoot =
-        fmt::format("{}/{}", testDir->getPath(), "traceRoot");
-    std::shared_ptr<Task> task;
-    auto results =
-        AssertQueryBuilder(plan)
-            .config(core::QueryConfig::kQueryTraceEnabled, true)
-            .config(core::QueryConfig::kQueryTraceDir, traceRoot)
-            .config(core::QueryConfig::kQueryTraceMaxBytes, 100UL << 30)
-            .config(core::QueryConfig::kQueryTraceTaskRegExp, ".*")
-            .config(core::QueryConfig::kQueryTraceNodeIds, traceNodeId_)
-            .split(makeHiveConnectorSplit(sourceFilePath->getPath()))
-            .copyResults(pool(), task);
+    if (!prefix.empty()) {
+      functions::prestosql::registerAllScalarFunctions(prefix);
+      aggregate::prestosql::registerAllAggregateFunctions(prefix);
+      FLAGS_function_prefix = prefix;
+    }
 
-    const auto replayingResult = AggregationReplayer(
-                                     traceRoot,
-                                     task->queryCtx()->queryId(),
-                                     task->taskId(),
-                                     traceNodeId_,
-                                     "Aggregation",
-                                     "",
-                                     0,
-                                     executor_.get())
-                                     .run();
-    assertEqualResults({results}, {replayingResult});
+    for (const auto& planWithName : planWithNames) {
+      SCOPED_TRACE(planWithName.name);
+      const auto& plan = planWithName.plan;
+      const auto testDir = TempDirectoryPath::create();
+      const auto traceRoot =
+          fmt::format("{}/{}", testDir->getPath(), "traceRoot");
+      std::shared_ptr<Task> task;
+      auto results =
+          AssertQueryBuilder(plan)
+              .config(core::QueryConfig::kQueryTraceEnabled, true)
+              .config(core::QueryConfig::kQueryTraceDir, traceRoot)
+              .config(core::QueryConfig::kQueryTraceMaxBytes, 100UL << 30)
+              .config(core::QueryConfig::kQueryTraceTaskRegExp, ".*")
+              .config(core::QueryConfig::kQueryTraceNodeIds, traceNodeId_)
+              .split(makeHiveConnectorSplit(sourceFilePath->getPath()))
+              .copyResults(pool(), task);
+
+      const auto replayingResult = AggregationReplayer(
+                                       traceRoot,
+                                       task->queryCtx()->queryId(),
+                                       task->taskId(),
+                                       traceNodeId_,
+                                       "Aggregation",
+                                       "",
+                                       0,
+                                       executor_.get())
+                                       .run();
+      assertEqualResults({results}, {replayingResult});
+
+      FLAGS_root_dir = traceRoot;
+      FLAGS_query_id = task->queryCtx()->queryId();
+      FLAGS_task_id = task->taskId();
+      FLAGS_node_id = traceNodeId_;
+      FLAGS_summary = true;
+      {
+        TraceReplayRunner runner;
+        runner.init();
+        runner.run();
+      }
+
+      FLAGS_task_id = task->taskId();
+      FLAGS_driver_ids = "";
+      FLAGS_summary = false;
+      {
+        TraceReplayRunner runner;
+        runner.init();
+        runner.run();
+      }
+    }
   }
 }
 } // namespace facebook::velox::tool::trace::test

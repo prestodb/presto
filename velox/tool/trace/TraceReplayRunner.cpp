@@ -99,6 +99,10 @@ DEFINE_uint64(
     0,
     "Specify the query memory capacity limit in GB. If it is zero, then there is no limit.");
 DEFINE_bool(copy_results, false, "Copy the replaying results.");
+DEFINE_string(
+    function_prefix,
+    "",
+    "Prefix for the scalar and aggregate functions.");
 
 namespace facebook::velox::tool::trace {
 namespace {
@@ -287,8 +291,8 @@ void TraceReplayRunner::init() {
   connector::hive::registerHivePartitionFunctionSerDe();
   connector::hive::HiveBucketProperty::registerSerDe();
 
-  functions::prestosql::registerAllScalarFunctions();
-  aggregate::prestosql::registerAllAggregateFunctions();
+  functions::prestosql::registerAllScalarFunctions(FLAGS_function_prefix);
+  aggregate::prestosql::registerAllAggregateFunctions(FLAGS_function_prefix);
   parse::registerTypeResolver();
 
   if (!facebook::velox::connector::hasConnectorFactory("hive")) {

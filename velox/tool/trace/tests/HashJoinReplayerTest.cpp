@@ -328,13 +328,6 @@ TEST_F(HashJoinReplayerTest, partialDriverIds) {
 }
 
 TEST_F(HashJoinReplayerTest, runner) {
-  const auto planWithSplits = createPlan(
-      tableDir_,
-      core::JoinType::kInner,
-      probeKeys_,
-      buildKeys_,
-      probeInput_,
-      buildInput_);
   const auto testDir = TempDirectoryPath::create();
   const auto traceRoot = fmt::format("{}/{}", testDir->getPath(), "traceRoot");
   std::shared_ptr<Task> task;
