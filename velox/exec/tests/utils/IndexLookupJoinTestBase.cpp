@@ -50,8 +50,9 @@ IndexLookupJoinTestBase::generateProbeInput(
     std::optional<int> equalMatchPct,
     std::optional<int> inMatchPct,
     std::optional<int> betweenMatchPct) {
-  VELOX_CHECK_EQ(
-      probeJoinKeys.size() + betweenColumns.size() + inColumns.size(), 3);
+  VELOX_CHECK_LE(
+      probeJoinKeys.size() + betweenColumns.size() + inColumns.size(),
+      keyType_->size());
   std::vector<facebook::velox::RowVectorPtr> probeInputs;
   probeInputs.reserve(numBatches);
   facebook::velox::VectorFuzzer::Options opts;
@@ -214,7 +215,8 @@ facebook::velox::core::PlanNodePtr IndexLookupJoinTestBase::makeLookupPlan(
     facebook::velox::core::PlanNodeId& joinNodeId) {
   VELOX_CHECK_EQ(leftKeys.size(), rightKeys.size());
   VELOX_CHECK_LE(leftKeys.size(), keyType_->size());
-  return facebook::velox::exec::test::PlanBuilder(planNodeIdGenerator)
+  return facebook::velox::exec::test::PlanBuilder(
+             planNodeIdGenerator, pool_.get())
       .values(probeVectors)
       .indexLookupJoin(
           leftKeys,
@@ -258,8 +260,8 @@ IndexLookupJoinTestBase::makeIndexScanNode(
         std::string,
         std::shared_ptr<facebook::velox::connector::ColumnHandle>>&
         assignments) {
-  auto planBuilder =
-      facebook::velox::exec::test::PlanBuilder(planNodeIdGenerator);
+  auto planBuilder = facebook::velox::exec::test::PlanBuilder(
+      planNodeIdGenerator, pool_.get());
   auto indexTableScan =
       std::dynamic_pointer_cast<const facebook::velox::core::TableScanNode>(
           facebook::velox::exec::test::PlanBuilder::TableScanBuilder(
@@ -333,5 +335,12 @@ facebook::velox::RowTypePtr IndexLookupJoinTestBase::makeScanOutputType(
     types.push_back(keyType_->findChild(outputNames[i]));
   }
   return facebook::velox::ROW(std::move(outputNames), std::move(types));
+}
+
+bool IndexLookupJoinTestBase::isFilter(const std::string& conditionSql) const {
+  const auto inputType = concat(keyType_, probeType_);
+  return facebook::velox::exec::test::PlanBuilder::parseIndexJoinCondition(
+             conditionSql, inputType, pool_.get())
+      ->isFilter();
 }
 } // namespace fecebook::velox::exec::test

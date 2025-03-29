@@ -2906,6 +2906,10 @@ folly::dynamic IndexLookupCondition::serialize() const {
   return obj;
 }
 
+bool InIndexLookupCondition::isFilter() const {
+  return std::dynamic_pointer_cast<const ConstantTypedExpr>(list) != nullptr;
+}
+
 folly::dynamic InIndexLookupCondition::serialize() const {
   folly::dynamic obj = IndexLookupCondition::serialize();
   obj["type"] = "in";
@@ -2917,12 +2921,40 @@ std::string InIndexLookupCondition::toString() const {
   return fmt::format("{} IN {}", key->toString(), list->toString());
 }
 
+void InIndexLookupCondition::validate() const {
+  VELOX_CHECK_NOT_NULL(key);
+  VELOX_CHECK_NOT_NULL(list);
+  VELOX_CHECK(
+      std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(list) ||
+          std::dynamic_pointer_cast<const core::ConstantTypedExpr>(list),
+      "Invalid condition list {}",
+      list->toString());
+  const auto listType =
+      std::dynamic_pointer_cast<const ArrayType>(list->type());
+  VELOX_CHECK_NOT_NULL(listType);
+  VELOX_CHECK_EQ(
+      key->type()->kind(),
+      listType->elementType()->kind(),
+      "In condition key and list condition element must have the same type");
+}
+
 IndexLookupConditionPtr InIndexLookupCondition::create(
     const folly::dynamic& obj,
     void* context) {
+  TypedExprPtr list =
+      ISerializable::deserialize<FieldAccessTypedExpr>(obj["in"], context);
+  if (list == nullptr) {
+    list = ISerializable::deserialize<ConstantTypedExpr>(obj["in"], context);
+  }
   return std::make_shared<InIndexLookupCondition>(
       ISerializable::deserialize<FieldAccessTypedExpr>(obj["key"], context),
-      ISerializable::deserialize<FieldAccessTypedExpr>(obj["in"], context));
+      std::move(list));
+}
+
+bool BetweenIndexLookupCondition::isFilter() const {
+  return (std::dynamic_pointer_cast<const ConstantTypedExpr>(lower) !=
+          nullptr) &&
+      (std::dynamic_pointer_cast<const ConstantTypedExpr>(upper) != nullptr);
 }
 
 folly::dynamic BetweenIndexLookupCondition::serialize() const {
@@ -2944,9 +2976,38 @@ std::string BetweenIndexLookupCondition::toString() const {
 IndexLookupConditionPtr BetweenIndexLookupCondition::create(
     const folly::dynamic& obj,
     void* context) {
+  auto key =
+      ISerializable::deserialize<FieldAccessTypedExpr>(obj["key"], context);
   return std::make_shared<BetweenIndexLookupCondition>(
-      ISerializable::deserialize<FieldAccessTypedExpr>(obj["key"], context),
+      key,
       ISerializable::deserialize<ITypedExpr>(obj["lower"], context),
       ISerializable::deserialize<ITypedExpr>(obj["upper"], context));
+}
+
+void BetweenIndexLookupCondition::validate() const {
+  VELOX_CHECK_NOT_NULL(key);
+  VELOX_CHECK_NOT_NULL(lower);
+  VELOX_CHECK_NOT_NULL(upper);
+  VELOX_CHECK(
+      std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(lower) ||
+          std::dynamic_pointer_cast<const core::ConstantTypedExpr>(lower),
+      "Invalid lower between condition {}",
+      lower->toString());
+
+  VELOX_CHECK(
+      std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(upper) ||
+          std::dynamic_pointer_cast<const core::ConstantTypedExpr>(upper),
+      "Invalid upper between condition {}",
+      upper->toString());
+
+  VELOX_CHECK_EQ(
+      key->type()->kind(),
+      lower->type()->kind(),
+      "Index key and lower condition must have the same type");
+
+  VELOX_CHECK_EQ(
+      key->type()->kind(),
+      upper->type()->kind(),
+      "Index key and upper condition must have the same type");
 }
 } // namespace facebook::velox::core

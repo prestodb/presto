@@ -33,9 +33,11 @@ class IndexLookupJoinTestBase
     std::vector<int64_t> maxKeys;
   };
 
-  facebook::velox::RowTypePtr concat(
+  static facebook::velox::RowTypePtr concat(
       const facebook::velox::RowTypePtr& a,
       const facebook::velox::RowTypePtr& b);
+
+  bool isFilter(const std::string& conditionSql) const;
 
   int getNumRows(const std::vector<int>& cardinalities);
 

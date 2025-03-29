@@ -1794,7 +1794,15 @@ struct IndexLookupCondition : public ISerializable {
   FieldAccessTypedExprPtr key;
 
   explicit IndexLookupCondition(FieldAccessTypedExprPtr _key)
-      : key(std::move(_key)) {}
+      : key(std::move(_key)) {
+    VELOX_CHECK_NOT_NULL(key);
+  }
+
+  /// Indicates if this object represents a filter condition or not. A filter
+  /// condition only involves one table index column plus constant values. A
+  /// join condition involves one table index column plus at least one probe
+  /// input column.
+  virtual bool isFilter() const = 0;
 
   folly::dynamic serialize() const override;
 
@@ -1810,7 +1818,11 @@ struct InIndexLookupCondition : public IndexLookupCondition {
   TypedExprPtr list;
 
   InIndexLookupCondition(FieldAccessTypedExprPtr _key, TypedExprPtr _list)
-      : IndexLookupCondition(std::move(_key)), list(std::move(_list)) {}
+      : IndexLookupCondition(std::move(_key)), list(std::move(_list)) {
+    validate();
+  }
+
+  bool isFilter() const override;
 
   folly::dynamic serialize() const override;
 
@@ -1819,6 +1831,9 @@ struct InIndexLookupCondition : public IndexLookupCondition {
   static IndexLookupConditionPtr create(
       const folly::dynamic& obj,
       void* context);
+
+ private:
+  void validate() const;
 };
 using InIndexLookupConditionPtr = std::shared_ptr<InIndexLookupCondition>;
 
@@ -1838,7 +1853,11 @@ struct BetweenIndexLookupCondition : public IndexLookupCondition {
       TypedExprPtr _upper)
       : IndexLookupCondition(std::move(_key)),
         lower(std::move(_lower)),
-        upper(std::move(_upper)) {}
+        upper(std::move(_upper)) {
+    validate();
+  }
+
+  bool isFilter() const override;
 
   folly::dynamic serialize() const override;
 
@@ -1847,6 +1866,9 @@ struct BetweenIndexLookupCondition : public IndexLookupCondition {
   static IndexLookupConditionPtr create(
       const folly::dynamic& obj,
       void* context);
+
+ private:
+  void validate() const;
 };
 using BetweenIndexLookupConditionPtr =
     std::shared_ptr<BetweenIndexLookupCondition>;

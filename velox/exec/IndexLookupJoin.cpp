@@ -34,7 +34,8 @@ void duplicateJoinKeyCheck(
 
 std::string getColumnName(const core::TypedExprPtr& typeExpr) {
   const auto field = core::TypedExprs::asFieldAccess(typeExpr);
-  VELOX_USER_CHECK(field->isInputColumn());
+  VELOX_CHECK_NOT_NULL(field);
+  VELOX_CHECK(field->isInputColumn());
   return field->name();
 }
 

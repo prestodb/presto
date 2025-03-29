@@ -1124,13 +1124,18 @@ class PlanBuilder {
       const std::vector<std::string>& outputLayout,
       core::JoinType joinType = core::JoinType::kInner);
 
+  static core::IndexLookupConditionPtr parseIndexJoinCondition(
+      const std::string& joinCondition,
+      const RowTypePtr& rowType,
+      memory::MemoryPool* pool);
+
   /// Add an IndexLoopJoinNode to join two inputs using one or more join keys
   /// plus optional join conditions. First input comes from the preceding plan
   /// node. Second input is specified in 'right' parameter and must be a
   /// table source with the connector table handle with index lookup support.
   ///
   /// @param right The right input source with index lookup support.
-  /// @param joinCondition SQL expressions as the join conditions. Each join
+  /// @param joinConditions SQL expressions as the join conditions. Each join
   /// condition must use columns from both sides. For the right side, it can
   /// only use one index column. Currently we support "in" and "between" join
   /// conditions:
@@ -1148,7 +1153,7 @@ class PlanBuilder {
       const std::vector<std::string>& leftKeys,
       const std::vector<std::string>& rightKeys,
       const core::TableScanNodePtr& right,
-      const std::vector<std::string>& joinCondition,
+      const std::vector<std::string>& joinConditions,
       const std::vector<std::string>& outputLayout,
       core::JoinType joinType = core::JoinType::kInner);
 

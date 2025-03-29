@@ -184,6 +184,50 @@ class IndexLookupJoinTest : public IndexLookupJoinTestBase,
       std::make_unique<folly::CPUThreadPoolExecutor>(128)};
 };
 
+TEST_P(IndexLookupJoinTest, joinCondition) {
+  const auto rowType =
+      ROW({"c0", "c1", "c2", "c3", "c4"},
+          {BIGINT(), BIGINT(), BIGINT(), ARRAY(BIGINT()), BIGINT()});
+
+  auto inJoinCondition = PlanBuilder::parseIndexJoinCondition(
+      "contains(c3, c2)", rowType, pool_.get());
+  ASSERT_FALSE(inJoinCondition->isFilter());
+  ASSERT_EQ(inJoinCondition->toString(), "ROW[\"c2\"] IN ROW[\"c3\"]");
+
+  auto inFilterCondition = PlanBuilder::parseIndexJoinCondition(
+      "contains(ARRAY[1,2], c2)", rowType, pool_.get());
+  ASSERT_TRUE(inFilterCondition->isFilter());
+  ASSERT_EQ(
+      inFilterCondition->toString(),
+      "ROW[\"c2\"] IN 2 elements starting at 0 {1, 2}");
+
+  auto betweenFilterCondition = PlanBuilder::parseIndexJoinCondition(
+      "c0 between 0 AND 1", rowType, pool_.get());
+  ASSERT_TRUE(betweenFilterCondition->isFilter());
+  ASSERT_EQ(betweenFilterCondition->toString(), "ROW[\"c0\"] BETWEEN 0 AND 1");
+
+  auto betweenJoinCondition1 = PlanBuilder::parseIndexJoinCondition(
+      "c0 between c1 AND c4", rowType, pool_.get());
+  ASSERT_FALSE(betweenJoinCondition1->isFilter());
+  ASSERT_EQ(
+      betweenJoinCondition1->toString(),
+      "ROW[\"c0\"] BETWEEN ROW[\"c1\"] AND ROW[\"c4\"]");
+
+  auto betweenJoinCondition2 = PlanBuilder::parseIndexJoinCondition(
+      "c0 between 0 AND c1", rowType, pool_.get());
+  ASSERT_FALSE(betweenJoinCondition2->isFilter());
+  ASSERT_EQ(
+      betweenJoinCondition2->toString(),
+      "ROW[\"c0\"] BETWEEN 0 AND ROW[\"c1\"]");
+
+  auto betweenJoinCondition3 = PlanBuilder::parseIndexJoinCondition(
+      "c0 between c1 AND 0", rowType, pool_.get());
+  ASSERT_FALSE(betweenJoinCondition3->isFilter());
+  ASSERT_EQ(
+      betweenJoinCondition3->toString(),
+      "ROW[\"c0\"] BETWEEN ROW[\"c1\"] AND 0");
+}
+
 TEST_P(IndexLookupJoinTest, planNodeAndSerde) {
   TestIndexTableHandle::registerSerDe();
 
