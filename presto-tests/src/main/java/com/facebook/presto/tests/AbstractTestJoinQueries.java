@@ -94,7 +94,7 @@ public abstract class AbstractTestJoinQueries
         assertTrue((broadcastJoinQueryInfo.getQueryStats().getShuffledPositions() - expectedOutputRows) >= lineitemRows);
         // Both partitioned join and broadcast join should have the same raw input data set.
         assertEquals(partitionJoinQueryInfo.getQueryStats().getRawInputPositions(), broadcastJoinQueryInfo.getQueryStats().getRawInputPositions());
-        assertNotEquals(partitionJoinQueryInfo.getQueryStats().getShuffledDataSize().toBytes(), broadcastJoinQueryInfo.getQueryStats().getShuffledDataSize().toBytes());
+        assertNotEquals(partitionJoinQueryInfo.getQueryStats().getShuffledDataSize(), broadcastJoinQueryInfo.getQueryStats().getShuffledDataSize());
     }
 
     @Test

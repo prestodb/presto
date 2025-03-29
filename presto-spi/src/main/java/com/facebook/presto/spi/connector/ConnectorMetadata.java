@@ -17,6 +17,7 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorDeleteTableHandle;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
@@ -528,7 +529,7 @@ public interface ConnectorMetadata
     /**
      * Begin delete query
      */
-    default ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle)
+    default ConnectorDeleteTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support deletes");
     }
@@ -538,7 +539,7 @@ public interface ConnectorMetadata
      *
      * @param fragments all fragments returned by {@link com.facebook.presto.spi.UpdatablePageSource#finish()}
      */
-    default void finishDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
+    default void finishDelete(ConnectorSession session, ConnectorDeleteTableHandle tableHandle, Collection<Slice> fragments)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support deletes");
     }
@@ -559,6 +560,14 @@ public interface ConnectorMetadata
     default void createView(ConnectorSession session, ConnectorTableMetadata viewMetadata, String viewData, boolean replace)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating views");
+    }
+
+    /**
+     * Rename the specified view
+     */
+    default void renameView(ConnectorSession session, SchemaTableName viewName, SchemaTableName newViewName)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support renaming views");
     }
 
     /**
@@ -794,6 +803,17 @@ public interface ConnectorMetadata
      */
     @Experimental
     default CompletableFuture<Void> commitPageSinkAsync(ConnectorSession session, ConnectorInsertTableHandle tableHandle, Collection<Slice> fragments)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support page sink commit");
+    }
+
+    /**
+     * Commits page sink for table insertion.
+     * To enable recoverable grouped execution, it is required that output connector supports page sink commit.
+     * This method is unstable and subject to change in the future.
+     */
+    @Experimental
+    default CompletableFuture<Void> commitPageSinkAsync(ConnectorSession session, ConnectorDeleteTableHandle tableHandle, Collection<Slice> fragments)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support page sink commit");
     }

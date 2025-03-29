@@ -24,6 +24,10 @@
 
 namespace facebook::presto {
 
+namespace test {
+class PrestoExchangeSourceTestHelper;
+};
+
 class PrestoExchangeSource : public velox::exec::ExchangeSource {
  public:
   class RetryState {
@@ -52,6 +56,10 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
       return velox::getCurrentTimeMs() - startMs_;
     }
 
+    size_t numTries() const {
+      return numTries_;
+    }
+
     // Returns whether we have exhausted all retries. We only retry if we spent
     // less than maxWaitMs_ time after we first started.
     bool isExhausted() const {
@@ -59,13 +67,13 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
     }
 
    private:
-    int64_t maxWaitMs_;
-    int64_t startMs_;
-    size_t numTries_{0};
-
     static constexpr int64_t kMinBackoffMs = 100;
     static constexpr int64_t kMaxBackoffMs = 10000;
     static constexpr double kJitterParam = 0.1;
+
+    int64_t maxWaitMs_;
+    int64_t startMs_;
+    size_t numTries_{0};
   };
 
   PrestoExchangeSource(
@@ -153,10 +161,6 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
     return obj;
   }
 
-  int testingFailedAttempts() const {
-    return failedAttempts_;
-  }
-
   /// Invoked to track the node-wise memory usage queued in
   /// PrestoExchangeSource. If 'updateBytes' > 0, then increment the usage,
   /// otherwise decrement the usage.
@@ -171,9 +175,6 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   /// this can be useful when tracking the peak within some fixed time
   /// intervals.
   static void resetPeakMemoryUsage();
-
-  /// Used by test to clear the node-wise memory usage tracking.
-  static void testingClearMemoryUsage();
 
  private:
   void doRequest(
@@ -285,5 +286,7 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   std::atomic_bool abortResultsIssued_{false};
   velox::VeloxPromise<Response> promise_{
       velox::VeloxPromise<Response>::makeEmpty()};
+
+  friend class test::PrestoExchangeSourceTestHelper;
 };
 } // namespace facebook::presto

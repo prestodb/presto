@@ -12,7 +12,9 @@
         "language": "CPP",
         "nullCallClause": "CALLED_ON_NULL_INPUT"
       },
-      "schema": "default"
+      "schema": "default",
+      "typeVariableConstraints":[],
+      "variableArity":false
     }
   ]
 }

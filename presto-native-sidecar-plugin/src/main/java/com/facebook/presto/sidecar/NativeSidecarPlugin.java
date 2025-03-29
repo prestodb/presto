@@ -13,9 +13,15 @@
  */
 package com.facebook.presto.sidecar;
 
+import com.facebook.presto.sidecar.functionNamespace.NativeFunctionNamespaceManagerFactory;
+import com.facebook.presto.sidecar.nativechecker.NativePlanCheckerProviderFactory;
 import com.facebook.presto.sidecar.sessionpropertyproviders.NativeSystemSessionPropertyProviderFactory;
+import com.facebook.presto.sidecar.typemanager.NativeTypeManagerFactory;
 import com.facebook.presto.spi.CoordinatorPlugin;
+import com.facebook.presto.spi.function.FunctionNamespaceManagerFactory;
+import com.facebook.presto.spi.plan.PlanCheckerProviderFactory;
 import com.facebook.presto.spi.session.WorkerSessionPropertyProviderFactory;
+import com.facebook.presto.spi.type.TypeManagerFactory;
 import com.google.common.collect.ImmutableList;
 
 public class NativeSidecarPlugin
@@ -25,5 +31,32 @@ public class NativeSidecarPlugin
     public Iterable<WorkerSessionPropertyProviderFactory> getWorkerSessionPropertyProviderFactories()
     {
         return ImmutableList.of(new NativeSystemSessionPropertyProviderFactory());
+    }
+
+    @Override
+    public Iterable<TypeManagerFactory> getTypeManagerFactories()
+    {
+        return ImmutableList.of(new NativeTypeManagerFactory());
+    }
+
+    @Override
+    public Iterable<PlanCheckerProviderFactory> getPlanCheckerProviderFactories()
+    {
+        return ImmutableList.of(new NativePlanCheckerProviderFactory(getClassLoader()));
+    }
+
+    @Override
+    public Iterable<FunctionNamespaceManagerFactory> getFunctionNamespaceManagerFactories()
+    {
+        return ImmutableList.of(new NativeFunctionNamespaceManagerFactory());
+    }
+
+    private static ClassLoader getClassLoader()
+    {
+        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+        if (classLoader == null) {
+            classLoader = NativeSidecarPlugin.class.getClassLoader();
+        }
+        return classLoader;
     }
 }

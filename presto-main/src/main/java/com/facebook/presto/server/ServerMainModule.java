@@ -114,12 +114,16 @@ import com.facebook.presto.operator.FileFragmentResultCacheManager;
 import com.facebook.presto.operator.ForExchange;
 import com.facebook.presto.operator.FragmentCacheStats;
 import com.facebook.presto.operator.FragmentResultCacheManager;
+import com.facebook.presto.operator.HttpAndThriftRpcShuffleClientProvider;
+import com.facebook.presto.operator.HttpShuffleClientProvider;
 import com.facebook.presto.operator.LookupJoinOperators;
 import com.facebook.presto.operator.NoOpFragmentResultCacheManager;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PagesIndex;
+import com.facebook.presto.operator.RpcShuffleClientProvider;
 import com.facebook.presto.operator.TableCommitContext;
 import com.facebook.presto.operator.TaskMemoryReservationSummary;
+import com.facebook.presto.operator.ThriftShuffleClientProvider;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.resourcemanager.ClusterMemoryManagerService;
 import com.facebook.presto.resourcemanager.ClusterQueryTrackerService;
@@ -194,6 +198,7 @@ import com.facebook.presto.sql.analyzer.MetadataExtractor;
 import com.facebook.presto.sql.analyzer.MetadataExtractorMBean;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.analyzer.QueryPreparerProviderManager;
+import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
@@ -358,6 +363,9 @@ public class ServerMainModule
         binder.bind(SessionPropertyManager.class).in(Scopes.SINGLETON);
         binder.bind(SystemSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(SessionPropertyDefaults.class).in(Scopes.SINGLETON);
+
+        // expression manager
+        binder.bind(ExpressionOptimizerManager.class).in(Scopes.SINGLETON);
 
         // schema properties
         binder.bind(SchemaPropertyManager.class).in(Scopes.SINGLETON);
@@ -557,7 +565,17 @@ public class ServerMainModule
         thriftCodecBinder(binder).bindThriftCodec(TaskInfo.class);
 
         // exchange client
+        binder.bind(RpcShuffleClientProvider.class)
+                .annotatedWith(ForExchange.class)
+                .to(HttpAndThriftRpcShuffleClientProvider.class);
+        binder.bind(HttpShuffleClientProvider.class)
+                .annotatedWith(ForExchange.class)
+                .to(HttpShuffleClientProvider.class);
+        binder.bind(ThriftShuffleClientProvider.class)
+                .annotatedWith(ForExchange.class)
+                .to(ThriftShuffleClientProvider.class);
         binder.bind(ExchangeClientSupplier.class).to(ExchangeClientFactory.class).in(Scopes.SINGLETON);
+
         httpClientBinder(binder).bindHttpClient("exchange", ForExchange.class)
                 .withTracing()
                 .withFilter(GenerateTraceTokenRequestFilter.class)
@@ -566,6 +584,7 @@ public class ServerMainModule
                     config.setMaxConnectionsPerServer(250);
                     config.setMaxContentLength(new DataSize(32, MEGABYTE));
                 });
+
         binder.install(new DriftNettyClientModule());
         driftClientBinder(binder).bindDriftClient(ThriftTaskClient.class, ForExchange.class)
                 .withAddressSelector(((addressSelectorBinder, annotation, prefix) ->
@@ -807,9 +826,19 @@ public class ServerMainModule
         // Worker session property providers
         MapBinder<String, WorkerSessionPropertyProvider> mapBinder =
                 newMapBinder(binder, String.class, WorkerSessionPropertyProvider.class);
-        mapBinder.addBinding("java-worker").to(JavaWorkerSessionPropertyProvider.class).in(Scopes.SINGLETON);
-        if (!serverConfig.isCoordinatorSidecarEnabled()) {
-            mapBinder.addBinding("native-worker").to(NativeWorkerSessionPropertyProvider.class).in(Scopes.SINGLETON);
+        if (featuresConfig.isNativeExecutionEnabled()) {
+            if (!serverConfig.isCoordinatorSidecarEnabled()) {
+                mapBinder.addBinding("native-worker").to(NativeWorkerSessionPropertyProvider.class).in(Scopes.SINGLETON);
+            }
+            if (!featuresConfig.isExcludeInvalidWorkerSessionProperties()) {
+                mapBinder.addBinding("java-worker").to(JavaWorkerSessionPropertyProvider.class).in(Scopes.SINGLETON);
+            }
+        }
+        else {
+            mapBinder.addBinding("java-worker").to(JavaWorkerSessionPropertyProvider.class).in(Scopes.SINGLETON);
+            if (!featuresConfig.isExcludeInvalidWorkerSessionProperties()) {
+                mapBinder.addBinding("native-worker").to(NativeWorkerSessionPropertyProvider.class).in(Scopes.SINGLETON);
+            }
         }
 
         // Node manager binding

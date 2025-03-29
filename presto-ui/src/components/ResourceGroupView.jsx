@@ -13,6 +13,7 @@
  */
 
 import React from 'react';
+import { clsx } from 'clsx';
 import { addToHistory, formatDataSizeBytes, parseDataSize, truncateString } from "../utils";
 import { QueryListItem } from "./QueryList";
 
@@ -65,24 +66,22 @@ function TimelineItem({name, chartId, value}) {
 
 // Display the root group list if no group is specified or general information if any error.
 function NoGroupIdWidget({groupId, error, groups}) {
-    let docView = (<h3 className="text-center">{ groupId ? 'Retrieving resource group information...' : 'Detecting Resource Groups settings...'}</h3>);
+    let docView = (<h3 className="text-center resource-group-font">{ groupId ? 'Retrieving resource group information...' : 'Detecting Resource Groups settings...'}</h3>);
 
     if (groups.length > 0) {
         docView = (
-            <>
-            <div className="col-xs-4 col-xs-offset-4">
-                <h4 className="text-center">Available resource groups:</h4>
+            <div className="col-4">
+                <h4 className="text-center res-heading">Available resource groups:</h4>
                 <div className="list-group">
-                    {groups.map(grp => (
-                    <a className="list-group-item text-center" href={'./res_groups.html?group=' + encodeURIComponent(grp.id[0])}>{truncateString(grp.id[0], 35)}</a>
+                    {groups.map((grp, idx) => (
+                    <a key={idx} className="list-group-item text-center" href={'./res_groups.html?group=' + encodeURIComponent(grp.id[0])}>{truncateString(grp.id[0], 35)}</a>
                     ))}
                 </div>
             </div>
-            </>
         );
     } else if (error) {
         docView = (
-            <div className="col-xs-12">
+            <div className="col-12">
                 <h3 className="text-center">For details information about Resource Groups, please check document <a href="https://prestodb.io/docs/current/admin/resource-groups.html">here</a></h3>
                 <h4 className="text-center">{error.message}</h4>
             </div>
@@ -90,7 +89,7 @@ function NoGroupIdWidget({groupId, error, groups}) {
     }
 
     return (
-        <div className="col-xs-12">{docView}</div>
+        <div className="row justify-content-md-center">{docView}</div>
     );
 }
 
@@ -234,7 +233,7 @@ export default function ResourceGroupView() {
         $('#agg-running-queries-sparkline').sparkline(dataSet.current.numAggregatedRunningQueries, $.extend({}, SPARKLINE_PROPERTIES, {chartRangeMin: 0}));
         $('#agg-queued-queries-sparkline').sparkline(dataSet.current.numAggregatedQueuedQueries, $.extend({}, SPARKLINE_PROPERTIES, {chartRangeMin: 0}));
         $('#memory-usage-sparkline').sparkline(dataSet.current.memoryUsage, $.extend({}, SPARKLINE_PROPERTIES, {numberFormatter: formatDataSizeBytes}));
-        $('[data-toggle="tooltip"]').tooltip();
+        $('[data-bs-toggle="tooltip"]')?.tooltip();
         timerid.current = setTimeout(fetchData, 1000);
     }
 
@@ -253,28 +252,26 @@ export default function ResourceGroupView() {
 
     return (
         <>
-            <div className={values.showDoc ? 'container' : 'hide container'}>
-                <div className="row">
-                    <NoGroupIdWidget groupId={group} error={values.error} groups={values.rootGroups} />
-                </div>
+            <div className={clsx('container', !values.showDoc && 'visually-hidden')}>
+                <NoGroupIdWidget groupId={group} error={values.error} groups={values.rootGroups} />
             </div>
-            <div className={values.showResource ? 'container' : 'hide container'}>
+            <div className={clsx('container', !values.showResource && 'visually-hidden')}>
                 <div className="row">
                     {values.id.length > 0 && (
-                        <div className="col-xs-12">
-                                <div className="col-xs-2 breadcrumb breadcrumb-title">
+                        <div className="row">
+                                <div className="col-2 breadcrumb breadcrumb-title res-heading">
                                     Resource Group:
                                 </div>
-                                <div className="col-xs-10">
+                                <div className="col-10">
                                 <GroupBreadcrumb groupId={values.id} />
                             </div>
                         </div>
                     )}
-                    <div className="col-xs-6">
+                    <div className="col-6">
                         <h3>Information</h3>
                         <hr className="h3-hr"/>
                         <table className="table">
-                            <tbody>
+                            <tbody className="res-group-side-headings">
                             <InfoItem name="State" value={values.state} />
                             <InfoItem name="Schedule Policy" value={values.schedulingPolicy} />
                             <InfoItem name="Schedule Weight" value={values.schedulingWeight} />
@@ -289,19 +286,19 @@ export default function ResourceGroupView() {
                                     Sub-Groups
                                 </td>
                                 <td className="info-text">
-                                    <ul>{values.subGroups.map(grp => (
-                                        <li><a href={'./res_groups.html?group=' + encodeURIComponent(grp)}>{truncateString(grp, 35)}</a></li>
+                                    <ul>{values.subGroups.map((grp, idx) => (
+                                        <li key={idx}><a href={'./res_groups.html?group=' + encodeURIComponent(grp)}>{truncateString(grp, 35)}</a></li>
                                     ))}</ul>
                                 </td>
                             </tr>
                             </tbody>
                         </table>
                     </div>
-                    <div className="col-xs-6">
+                    <div className="col-6">
                         <h3>Timeline</h3>
                         <hr className="h3-hr"/>
                         <table className="table">
-                            <tbody>
+                            <tbody className="res-group-side-headings">
                                 <TimelineItem name="Queued Queries" chartId="queued-queries-sparkline" value={values.numQueuedQueries} />
                                 <TimelineItem name="Running Queries" chartId="running-queries-sparkline" value={values.numRunningQueries} />
                                 <TimelineItem name="Aggregated Queued Queries" chartId="agg-queued-queries-sparkline" value={values.numAggregatedQueuedQueries} />
@@ -310,7 +307,7 @@ export default function ResourceGroupView() {
                             </tbody>
                         </table>
                     </div>
-                    <div className={ values.runningQueries.length ? "col-xs-12" : "hide col-xs-12"}>
+                    <div className={clsx('col-12', !values.runningQueries.length && 'visually-hidden')}>
                         <h3>Running Queries</h3>
                         <hr className="h3-hr"/>
                         { values.runningQueries.map( query => (

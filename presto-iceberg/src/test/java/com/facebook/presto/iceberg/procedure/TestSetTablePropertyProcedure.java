@@ -14,6 +14,7 @@
 package com.facebook.presto.iceberg.procedure;
 
 import com.facebook.presto.iceberg.IcebergConfig;
+import com.facebook.presto.iceberg.IcebergQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableMap;
@@ -30,22 +31,22 @@ import java.nio.file.Path;
 import java.util.Map;
 
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
-import static com.facebook.presto.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
+import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
 import static java.lang.String.format;
+import static org.apache.iceberg.TableProperties.SPLIT_SIZE_DEFAULT;
 import static org.testng.Assert.assertEquals;
 
 public class TestSetTablePropertyProcedure
         extends AbstractTestQueryFramework
 {
-    public static final String ICEBERG_CATALOG = "test_hadoop";
     public static final String TEST_SCHEMA = "tpch";
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createIcebergQueryRunner(ImmutableMap.of(), HADOOP, ImmutableMap.of());
+        return IcebergQueryRunner.builder().setCatalogType(HADOOP).build().getQueryRunner();
     }
 
     public void createTable(String tableName)
@@ -71,14 +72,14 @@ public class TestSetTablePropertyProcedure
             Table table = loadTable(tableName);
             table.refresh();
 
-            assertEquals(table.properties().size(), 7);
-            assertEquals(table.properties().get(propertyKey), null);
+            assertEquals(table.properties().size(), 9);
+            assertEquals(Long.parseLong(table.properties().get(propertyKey)), SPLIT_SIZE_DEFAULT);
 
             assertUpdate(format("CALL system.set_table_property('%s', '%s', '%s', '%s')", TEST_SCHEMA, tableName, propertyKey, propertyValue));
             table.refresh();
 
             // now the table property read.split.target-size should have new value
-            assertEquals(table.properties().size(), 8);
+            assertEquals(table.properties().size(), 9);
             assertEquals(table.properties().get(propertyKey), propertyValue);
         }
         finally {
@@ -99,15 +100,15 @@ public class TestSetTablePropertyProcedure
             Table table = loadTable(tableName);
             table.refresh();
 
-            assertEquals(table.properties().size(), 7);
-            assertEquals(table.properties().get(propertyKey), null);
+            assertEquals(table.properties().size(), 9);
+            assertEquals(Long.parseLong(table.properties().get(propertyKey)), SPLIT_SIZE_DEFAULT);
 
             assertUpdate(format("CALL system.set_table_property(schema => '%s', key => '%s', value => '%s', table_name => '%s')",
                     TEST_SCHEMA, propertyKey, propertyValue, tableName));
             table.refresh();
 
             // now the table property read.split.target-size should have new value
-            assertEquals(table.properties().size(), 8);
+            assertEquals(table.properties().size(), 9);
             assertEquals(table.properties().get(propertyKey), propertyValue);
         }
         finally {
@@ -129,14 +130,14 @@ public class TestSetTablePropertyProcedure
             Table table = loadTable(tableName);
             table.refresh();
 
-            assertEquals(table.properties().size(), 7);
+            assertEquals(table.properties().size(), 9);
             assertEquals(table.properties().get(propertyKey), "4");
 
             assertUpdate(format("CALL system.set_table_property('%s', '%s', '%s', '%s')", TEST_SCHEMA, tableName, propertyKey, propertyValue));
             table.refresh();
 
             // now the table property commit.retry.num-retries should have new value
-            assertEquals(table.properties().size(), 7);
+            assertEquals(table.properties().size(), 9);
             assertEquals(table.properties().get(propertyKey), propertyValue);
         }
         finally {

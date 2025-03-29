@@ -15,7 +15,7 @@ See [PrestoDB: Mission and Architecture](ARCHITECTURE.md).
 
 * Mac OS X or Linux
 * Java 8 Update 151 or higher (8u151+), 64-bit. Both Oracle JDK and OpenJDK are supported.
-* Maven 3.6.1+ (for building)
+* Maven 3.6.3+ (for building)
 * Python 2.4+ (for running with the launcher script)
 
 <details> <!-- from: https://github.com/prestodb/presto/blob/master/README.md -->
@@ -103,10 +103,6 @@ executables to the `PATH` environment variable.
 To update Presto Console after making changes, run:
 
     yarn --cwd presto-ui/src install
-
-If no JavaScript dependencies have changed (i.e., no changes to `package.json`), it is faster to run:
-
-    yarn --cwd presto-ui/src run package
 
 To simplify iteration, you can also run in `watch` mode, which automatically re-compiles when
 changes to source files are detected:

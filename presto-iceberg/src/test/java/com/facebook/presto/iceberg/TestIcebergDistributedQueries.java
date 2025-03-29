@@ -54,9 +54,13 @@ public abstract class TestIcebergDistributedQueries
     }
 
     @Override
-    protected QueryRunner createQueryRunner() throws Exception
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        return IcebergQueryRunner.createIcebergQueryRunner(ImmutableMap.of(), catalogType, extraConnectorProperties);
+        return IcebergQueryRunner.builder()
+                .setCatalogType(catalogType)
+                .setExtraConnectorProperties(extraConnectorProperties)
+                .build().getQueryRunner();
     }
 
     @Override

@@ -23,6 +23,7 @@ import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.DataSize;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -81,7 +82,7 @@ public class TestIcebergSystemTables
         assertUpdate("INSERT INTO test_schema.test_table VALUES (3, CAST('2019-09-09' AS DATE)), (4, CAST('2019-09-10' AS DATE)), (5, CAST('2019-09-10' AS DATE))", 3);
         assertQuery("SELECT count(*) FROM test_schema.test_table", "VALUES 6");
 
-        assertUpdate("CREATE TABLE test_schema.test_table_v1 (_bigint BIGINT, _date DATE) WITH (format_version = '1', partitioning = ARRAY['_date'])");
+        assertUpdate("CREATE TABLE test_schema.test_table_v1 (_bigint BIGINT, _date DATE) WITH (\"format-version\" = '1', partitioning = ARRAY['_date'])");
         assertUpdate("INSERT INTO test_schema.test_table_v1 VALUES (0, CAST('2019-09-08' AS DATE)), (1, CAST('2019-09-09' AS DATE)), (2, CAST('2019-09-09' AS DATE))", 3);
         assertUpdate("INSERT INTO test_schema.test_table_v1 VALUES (3, CAST('2019-09-09' AS DATE)), (4, CAST('2019-09-10' AS DATE)), (5, CAST('2019-09-10' AS DATE))", 3);
         assertQuery("SELECT count(*) FROM test_schema.test_table_v1", "VALUES 6");
@@ -96,14 +97,14 @@ public class TestIcebergSystemTables
         assertQuery("SELECT count(*) FROM test_schema.test_table_drop_column", "VALUES 6");
         assertUpdate("ALTER TABLE test_schema.test_table_drop_column DROP COLUMN _varchar");
 
-        assertUpdate("CREATE TABLE test_schema.test_table_orc (_bigint BIGINT) WITH (format_version = '1', format = 'ORC')");
+        assertUpdate("CREATE TABLE test_schema.test_table_orc (_bigint BIGINT) WITH (\"format-version\" = '1', \"write.format.default\" = 'ORC')");
         assertUpdate("INSERT INTO test_schema.test_table_orc VALUES (0), (1), (2)", 3);
 
         assertUpdate("CREATE TABLE test_schema.test_metadata_versions_maintain (_bigint BIGINT)" +
-                " WITH (metadata_previous_versions_max = 1, metadata_delete_after_commit = true)");
+                " WITH (\"write.metadata.previous-versions-max\" = 1, \"write.metadata.delete-after-commit.enabled\" = true)");
 
         assertUpdate("CREATE TABLE test_schema.test_metrics_max_inferred_column (_bigint BIGINT)" +
-                " WITH (metrics_max_inferred_column = 16)");
+                " WITH (\"write.metadata.metrics.max-inferred-column-defaults\" = 16)");
     }
 
     @Test
@@ -164,7 +165,7 @@ public class TestIcebergSystemTables
                         "('manifest_list', 'varchar', '', '')," +
                         "('summary', 'map(varchar, varchar)', '', '')");
 
-        assertQuery("SELECT operation FROM test_schema.\"test_table$snapshots\"", "VALUES 'append', 'append'");
+        assertQuery("SELECT operation FROM test_schema.\"test_table$snapshots\"", "VALUES 'overwrite', 'overwrite'");
         assertQuery("SELECT summary['total-records'] FROM test_schema.\"test_table$snapshots\"", "VALUES '3', '6'");
     }
 
@@ -254,18 +255,30 @@ public class TestIcebergSystemTables
         }
     }
 
+    protected void checkTableProperties(String schemaName, String tableName, String deleteMode, String dataWriteLocation)
+    {
+        checkTableProperties(schemaName, tableName, deleteMode, 10, ImmutableMap.of("write.data.path", dataWriteLocation));
+    }
+
     protected void checkTableProperties(String tableName, String deleteMode)
     {
-        assertQuery(String.format("SHOW COLUMNS FROM test_schema.\"%s$properties\"", tableName),
-                "VALUES ('key', 'varchar', '', '')," + "('value', 'varchar', '', '')");
-        assertQuery(String.format("SELECT COUNT(*) FROM test_schema.\"%s$properties\"", tableName), "VALUES 7");
-        List<MaterializedRow> materializedRows = computeActual(getSession(),
-                String.format("SELECT * FROM test_schema.\"%s$properties\"", tableName)).getMaterializedRows();
+        checkTableProperties("test_schema", tableName, deleteMode, 9, ImmutableMap.of());
+    }
 
-        assertThat(materializedRows).hasSize(7);
+    protected void checkTableProperties(String schemaName, String tableName, String deleteMode, int propertiesCount, Map<String, String> additionalValidateProperties)
+    {
+        assertQuery(String.format("SHOW COLUMNS FROM %s.\"%s$properties\"", schemaName, tableName),
+                "VALUES ('key', 'varchar', '', '')," + "('value', 'varchar', '', '')");
+        assertQuery(String.format("SELECT COUNT(*) FROM %s.\"%s$properties\"", schemaName, tableName), "VALUES " + propertiesCount);
+        List<MaterializedRow> materializedRows = computeActual(getSession(),
+                String.format("SELECT * FROM %s.\"%s$properties\"", schemaName, tableName)).getMaterializedRows();
+
+        assertThat(materializedRows).hasSize(propertiesCount);
         assertThat(materializedRows)
                 .anySatisfy(row -> assertThat(row)
                         .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "write.delete.mode", deleteMode)))
+                .anySatisfy(row -> assertThat(row)
+                        .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "write.update.mode", deleteMode)))
                 .anySatisfy(row -> assertThat(row)
                         .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "write.format.default", "PARQUET")))
                 .anySatisfy(row -> assertThat(row)
@@ -277,21 +290,30 @@ public class TestIcebergSystemTables
                 .anySatisfy(row -> assertThat(row)
                         .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "write.metadata.delete-after-commit.enabled", "false")))
                 .anySatisfy(row -> assertThat(row)
-                        .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "write.metadata.metrics.max-inferred-column-defaults", "100")));
+                        .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "write.metadata.metrics.max-inferred-column-defaults", "100")))
+                .anySatisfy(row -> assertThat(row)
+                        .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, IcebergTableProperties.TARGET_SPLIT_SIZE, Long.toString(DataSize.valueOf("128MB").toBytes()))));
+
+        additionalValidateProperties.entrySet().stream()
+                .forEach(entry -> assertThat(materializedRows)
+                        .anySatisfy(row -> assertThat(row)
+                                .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, entry.getKey(), entry.getValue()))));
     }
 
     protected void checkORCFormatTableProperties(String tableName, String deleteMode)
     {
         assertQuery(String.format("SHOW COLUMNS FROM test_schema.\"%s$properties\"", tableName),
                 "VALUES ('key', 'varchar', '', '')," + "('value', 'varchar', '', '')");
-        assertQuery(String.format("SELECT COUNT(*) FROM test_schema.\"%s$properties\"", tableName), "VALUES 8");
+        assertQuery(String.format("SELECT COUNT(*) FROM test_schema.\"%s$properties\"", tableName), "VALUES 10");
         List<MaterializedRow> materializedRows = computeActual(getSession(),
                 String.format("SELECT * FROM test_schema.\"%s$properties\"", tableName)).getMaterializedRows();
 
-        assertThat(materializedRows).hasSize(8);
+        assertThat(materializedRows).hasSize(10);
         assertThat(materializedRows)
                 .anySatisfy(row -> assertThat(row)
                         .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "write.delete.mode", deleteMode)))
+                .anySatisfy(row -> assertThat(row)
+                        .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "write.update.mode", deleteMode)))
                 .anySatisfy(row -> assertThat(row)
                         .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "write.format.default", "ORC")))
                 .anySatisfy(row -> assertThat(row)
@@ -305,7 +327,9 @@ public class TestIcebergSystemTables
                 .anySatisfy(row -> assertThat(row)
                         .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "write.metadata.delete-after-commit.enabled", "false")))
                 .anySatisfy(row -> assertThat(row)
-                        .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "write.metadata.metrics.max-inferred-column-defaults", "100")));
+                        .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "write.metadata.metrics.max-inferred-column-defaults", "100")))
+                .anySatisfy(row -> assertThat(row)
+                        .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, IcebergTableProperties.TARGET_SPLIT_SIZE, Long.toString(DataSize.valueOf("128MB").toBytes()))));
     }
 
     @Test

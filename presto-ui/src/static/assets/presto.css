@@ -15,9 +15,25 @@
 /** Element preset overrides **/
 /** ======================== **/
 
+#query-list > div > div > div > div > div > div > div > a{
+    text-decoration: none;
+}
+#query-list > div > div > div > div > div > div > div > a:hover{
+    text-decoration: underline;
+}
+#query-list > div > div > div > div > div > div > div > span > span > a{
+    text-decoration: none;
+}
+#query-list > div > div > div > div > div > div > div > span > span > a:hover{
+    text-decoration: underline;
+}
+
 body {
     padding-top: 20px;
     padding-bottom: 20px;
+    background-color: #252830;
+    font-family: Roboto , "Helvetica Neue", Helvetica, Arial, sans-serif;
+
 }
 
 h2 {
@@ -42,6 +58,22 @@ pre {
 
 /** Bootstrap overrides **/
 /** =================== **/
+
+#legend > div{
+    width: 200px;
+    margin-left: 60px;
+    font-size: 14px;
+    color:#999999;
+}
+
+.search-bar{
+    width: 25vw;
+}
+
+.search-bar::placeholder{
+    color: black;
+    opacity: 0.4;
+}
 
 .container {
     min-width: 960px;
@@ -75,8 +107,13 @@ pre {
 }
 
 .navbar-btn {
+    padding: 6px 12px !important;
     border-bottom: none;
     margin: 0;
+    color: #ffffff !important;
+    background-color: #5bc0de;
+    border-color: #46b8da;
+    font-size: 14px;
 }
 
 /* To make the table striping less stark */
@@ -90,6 +127,7 @@ pre {
 
 .table > tbody > tr > td {
     border: none;
+    background-color: inherit;
 }
 
 .table > tbody > tr:first-child {
@@ -117,6 +155,25 @@ pre {
 .dropdown-menu > li > .selected:hover {
     color: #fff;
     background-color: #7b7b7b;
+}
+
+.dropdown-menu > li > a:hover {
+    color: #fff; 
+    background-color: #d7d4d4;
+}
+
+.res-heading {
+    font-size: 18px;
+    color: rgb(153, 153, 153);
+}
+
+.resource-group-font {
+    font-size: 24px;
+}
+
+.res-group-side-headings {
+    font-size: 14px;
+    color: rgb(153, 153, 153);
 }
 
 /** Convenience classes */
@@ -167,18 +224,21 @@ pre {
 .navbar {
     padding: 0 5px 0 5px;
     border-bottom: 1px solid #1EDCFF;
+    background: #252830 !important;
+    margin-bottom: 10px;
 }
 
 .navbar-brand {
     color: #ffffff;
     text-transform: uppercase;
     font-size: 24px;
-    padding-left: 30px;
+    padding-left: 15px;
     padding-top: 25px;
 }
 
 .navbar-brand a {
     color: #ffffffa5;
+    text-decoration: none;
 }
 
 .navbar-brand a:hover {
@@ -194,7 +254,7 @@ pre {
 .navbar img {
     width: 40px;
     height: auto;
-    padding-top: 17px;
+    
 }
 
 .navbar-cluster-info {
@@ -294,8 +354,8 @@ pre {
 .hud-container {
     background-size: 5px 5px;
     background-image: linear-gradient(to right, #2d2d2d 1px, transparent 1px), linear-gradient(to bottom, #2d2d2d 1px, transparent 1px);
-    margin: -15px 0 0 0;
-    padding: 15px 0 0 0;
+
+    padding: 15px 0 0 0 !important;
     height: 375px;
 }
 
@@ -376,6 +436,7 @@ pre {
     border-bottom: 1px #424242 solid;
     border-left: 1px #424242 solid;
     border-right: 1px #424242 solid;
+    padding-left: 12px;
 }
 
 .error-message {
@@ -391,8 +452,9 @@ pre {
 }
 
 .query-snippet {
-    height: 138px;
+    height: 162px;
     overflow: hidden;
+    font-size: 13px;
 }
 
 .query-snippet code {
@@ -430,7 +492,7 @@ pre {
 }
 
 .query-header-queryid {
-    margin-left: -15px;
+    margin-left: -12px;
     margin-right: -35px;
     padding: 8px 0 8px 0;
 }
@@ -438,17 +500,24 @@ pre {
 .query-header-timestamp {
     text-align: right;
     color: #b1b1b1;
+    margin-left: -12px;
+    margin-right: -35px;
 }
 
 .query-progress-container {
-    padding: 0;
+    padding: 2px 0px 2px 0px;
 }
-
+.text-btn-default{
+    color: rgb(51,51,51);
+}
+.text-btn-default:hover{
+    color: rgb(51,51,51);
+}
 /** Query List Toolbar **/
 /** ================== **/
 
 .toolbar-row {
-    padding-right: 15px;
+    padding-right: 12px;
 }
 
 .toolbar-col {
@@ -463,18 +532,18 @@ pre {
 
 .toolbar-row .input-group-btn .btn:focus {
     outline: none;
-    background-color: #5bc0de;
+    background-color: #5bc0de !important;
     border: 1px #529eb5 solid;
 }
 
 .toolbar-row .input-group-btn .active:focus {
     outline: none;
-    background-color: #277F98;
+    background-color: #277F98 !important;
     border: 1px #529eb5 solid;
 }
 
 .toolbar-row .input-group-btn .active {
-    background-color: #277F98;
+    background-color: #277F98 !important;
     border: 1px #529eb5 solid;
 }
 
@@ -494,7 +563,7 @@ pre {
 }
 
 .toolbar-row .input-group .form-control {
-    margin-top: 2px;
+    margin-top: 0px;
     margin-bottom: -2px;
     width: 98%;
 }
@@ -839,6 +908,9 @@ g .operator-stats:hover {
     margin-top: 20px;
     text-align: right;
 }
+.header-data{
+    pointer-events: none;
+}
 
 /** ============== **/
 /**   Worker Page  **/
@@ -868,6 +940,27 @@ g .operator-stats:hover {
     background-color: #4d4d4d;
 }
 
+.general-revered-title{
+    color:rgb(153, 153, 153);
+    font-size:18px;
+    font-weight:500
+}
+
+.section-table{
+    background-color: rgb(37, 40, 48);
+}
+
 .stack-traces {
     font-size: 11px;
+}
+.therad-snapshot-text{
+    font-weight: 500;
+    color: rgb(153, 153, 153);
+}
+.text-queries-pool{
+    color:rgb(92, 184, 92);
+    font-size:14px
+}
+.dropdown-text {
+    font-size: 14px;
 }

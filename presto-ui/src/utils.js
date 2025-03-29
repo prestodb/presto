@@ -13,9 +13,6 @@
  */
 //@flow
 
-import * as dagreD3 from "dagre-d3";
-import * as d3 from "d3";
-
 // Query display
 // =============
 
@@ -194,24 +191,6 @@ export function addExponentiallyWeightedToHistory (value: number, valuesArray: n
     }
 
     return valuesArray.concat([movingAverage]).slice(Math.max(valuesArray.length - MAX_HISTORY, 0));
-}
-
-// DagreD3 Graph-related functions
-// ===============================
-
-export function initializeGraph(): any
-{
-    return new dagreD3.graphlib.Graph({compound: true})
-        .setGraph({rankdir: 'BT'})
-        .setDefaultEdgeLabel(function () { return {}; });
-}
-
-export function initializeSvg(selector: any): any
-{
-    const svg = d3.select(selector);
-    svg.append("g");
-
-    return svg;
 }
 
 export function getChildren(nodeInfo: any): any[]

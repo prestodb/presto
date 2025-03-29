@@ -30,6 +30,7 @@ struct IcebergSplit : public ConnectorSplit {
   List<DeleteFile> deletes = {};
   std::shared_ptr<ChangelogSplitInfo> changelogSplitInfo = {};
   int64_t dataSequenceNumber = {};
+  int64_t affinitySchedulingSectionSize = {};
 
   IcebergSplit() noexcept;
 };

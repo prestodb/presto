@@ -17,15 +17,17 @@ import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HiveColumnConverterProvider;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
-import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
 import com.facebook.presto.iceberg.HiveTableOperations;
 import com.facebook.presto.iceberg.IcebergHiveTableOperationsConfig;
 import com.facebook.presto.iceberg.IcebergUtil;
+import com.facebook.presto.iceberg.ManifestFileCache;
+import com.facebook.presto.iceberg.hive.IcebergFileHiveMetastore;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.PartitionSpec;
@@ -69,12 +71,14 @@ public class TestRemoveOrphanFilesProcedureHive
                 getHdfsEnvironment(),
                 hdfsContext,
                 new IcebergHiveTableOperationsConfig(),
+                new ManifestFileCache(CacheBuilder.newBuilder().build(), false, 0, 1024),
                 "tpch",
                 tableName,
                 session.getUser(),
                 targetPath);
         TableMetadata metadata = newTableMetadata(
-                toIcebergSchema(ImmutableList.of(new ColumnMetadata("a", INTEGER), new ColumnMetadata("b", VARCHAR))),
+                toIcebergSchema(ImmutableList.of(ColumnMetadata.builder().setName("a").setType(INTEGER).build(),
+                        ColumnMetadata.builder().setName("b").setType(VARCHAR).build())),
                 PartitionSpec.unpartitioned(), targetPath,
                 tableProperties);
         Transaction transaction = createTableTransaction(tableName, operations, metadata);
@@ -91,6 +95,7 @@ public class TestRemoveOrphanFilesProcedureHive
         return IcebergUtil.getHiveIcebergTable(getFileHiveMetastore(),
                 getHdfsEnvironment(),
                 new IcebergHiveTableOperationsConfig(),
+                new ManifestFileCache(CacheBuilder.newBuilder().build(), false, 0, 1024),
                 getQueryRunner().getDefaultSession().toConnectorSession(connectorId),
                 SchemaTableName.valueOf("tpch." + tableName));
     }
@@ -108,7 +113,7 @@ public class TestRemoveOrphanFilesProcedureHive
 
     private ExtendedHiveMetastore getFileHiveMetastore()
     {
-        FileHiveMetastore fileHiveMetastore = new FileHiveMetastore(getHdfsEnvironment(),
+        IcebergFileHiveMetastore fileHiveMetastore = new IcebergFileHiveMetastore(getHdfsEnvironment(),
                 getCatalogDirectory(HIVE).getPath(),
                 "test");
         return memoizeMetastore(fileHiveMetastore, false, 1000, 0);

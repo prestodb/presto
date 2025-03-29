@@ -207,6 +207,12 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanRenameView(Identity identity, AccessControlContext context, CatalogSchemaTableName view, CatalogSchemaTableName newView)
+    {
+        delegate().checkCanRenameView(identity, context, view, newView);
+    }
+
+    @Override
     public void checkCanDropView(Identity identity, AccessControlContext context, CatalogSchemaTableName view)
     {
         delegate().checkCanDropView(identity, context, view);

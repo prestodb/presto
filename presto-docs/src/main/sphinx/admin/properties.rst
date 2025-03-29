@@ -70,6 +70,29 @@ When enabled, the logical plan will begin to be built and validated before
 queueing and allocation of cluster resources so that any errors or
 incompatibilities in the query plan will fail quickly and inform the user.
 
+``single-node-execution-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+This property ensures that queries scheduled in this cluster use only a single
+node for execution, which may improve performance for small queries which can
+be executed within a single node.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`single_node_execution_enabled\`\``.
+
+``exclude-invalid-worker-session-properties``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When ``exclude-invalid-worker-session-properties`` is ``true``, worker session properties that are
+incompatible with the cluster type are excluded. For example, when ``native-execution-enabled``
+is ``true``, java-worker only session properties are excluded and the native-worker only
+session properties are included.
+
 .. _tuning-memory:
 
 Memory Management Properties
@@ -889,6 +912,18 @@ The corresponding session property is :ref:`admin/properties-session:\`\`treat-l
 Enable retry for failed queries who can potentially be helped by HBO. 
 
 The corresponding session property is :ref:`admin/properties-session:\`\`retry-query-with-history-based-optimization\`\``. 
+
+``optimizer.use-histograms``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default Value:** ``false``
+
+Enables the optimizer to use histograms when available to perform cost estimate calculations
+during query optimization. When set to ``false``, this parameter does not prevent histograms
+from being collected by ``ANALYZE``, but prevents them from being used during query
+optimization. This behavior can be controlled on a per-query basis using the
+``optimizer_use_histograms`` session property.
 
 Planner Properties
 ------------------

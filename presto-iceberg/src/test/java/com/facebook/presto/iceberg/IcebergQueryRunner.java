@@ -28,7 +28,7 @@ import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
-import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
+import com.facebook.presto.iceberg.hive.IcebergFileHiveMetastore;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.tests.DistributedQueryRunner;
@@ -38,25 +38,33 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.tpch.TpchTable;
 
+import javax.management.MBeanServer;
+import javax.management.MBeanServerFactory;
+
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
 
 import static com.facebook.airlift.log.Level.ERROR;
 import static com.facebook.airlift.log.Level.WARN;
 import static com.facebook.presto.hive.HiveTestUtils.getDataDirectoryPath;
 import static com.facebook.presto.iceberg.CatalogType.HIVE;
+import static com.facebook.presto.iceberg.FileFormat.PARQUET;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNull;
 
 public final class IcebergQueryRunner
 {
@@ -66,158 +74,197 @@ public final class IcebergQueryRunner
     public static final String TEST_DATA_DIRECTORY = "iceberg_data";
     public static final MetastoreContext METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Collections.emptySet(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, WarningCollector.NOOP, new RuntimeStats());
 
-    private IcebergQueryRunner() {}
+    private DistributedQueryRunner queryRunner;
+    private Map<String, Map<String, String>> icebergCatalogs;
 
-    public static DistributedQueryRunner createIcebergQueryRunner(Map<String, String> extraProperties, Optional<Path> dataDirectory)
-            throws Exception
+    private IcebergQueryRunner(DistributedQueryRunner queryRunner, Map<String, Map<String, String>> icebergCatalogs)
     {
-        return createIcebergQueryRunner(extraProperties, ImmutableMap.of(), dataDirectory);
+        this.queryRunner = requireNonNull(queryRunner, "queryRunner is null");
+        this.icebergCatalogs = new ConcurrentHashMap<>(requireNonNull(icebergCatalogs, "icebergCatalogs is null"));
     }
 
-    public static DistributedQueryRunner createIcebergQueryRunner(Map<String, String> extraProperties, CatalogType catalogType)
-            throws Exception
+    public DistributedQueryRunner getQueryRunner()
     {
-        return createIcebergQueryRunner(extraProperties, ImmutableMap.of("iceberg.catalog.type", catalogType.name()), Optional.empty());
+        return queryRunner;
     }
 
-    public static DistributedQueryRunner createIcebergQueryRunner(Map<String, String> extraProperties, CatalogType catalogType, Map<String, String> extraConnectorProperties)
-            throws Exception
+    public Map<String, Map<String, String>> getIcebergCatalogs()
     {
-        return createIcebergQueryRunner(
-                extraProperties,
-                ImmutableMap.<String, String>builder()
-                        .putAll(extraConnectorProperties)
-                        .put("iceberg.catalog.type", catalogType.name())
-                        .build(),
-                Optional.empty());
+        return icebergCatalogs;
     }
 
-    public static DistributedQueryRunner createIcebergQueryRunner(Map<String, String> extraProperties, Map<String, String> extraConnectorProperties)
-            throws Exception
+    public void addCatalog(String name, Map<String, String> properties)
     {
-        return createIcebergQueryRunner(extraProperties, extraConnectorProperties, Optional.empty());
+        queryRunner.createCatalog(name, "iceberg", properties);
+        icebergCatalogs.put(name, properties);
     }
 
-    public static DistributedQueryRunner createIcebergQueryRunner(Map<String, String> extraProperties, Map<String, String> extraConnectorProperties, Optional<Path> dataDirectory)
-            throws Exception
+    public static Builder builder()
     {
-        FileFormat defaultFormat = new IcebergConfig().getFileFormat();
-        return createIcebergQueryRunner(extraProperties, extraConnectorProperties, defaultFormat, true, dataDirectory);
+        return new Builder();
     }
 
-    public static DistributedQueryRunner createIcebergQueryRunner(Map<String, String> extraProperties, Map<String, String> extraConnectorProperties, FileFormat format)
-            throws Exception
+    public static class Builder
     {
-        return createIcebergQueryRunner(extraProperties, extraConnectorProperties, format, true, Optional.empty());
-    }
+        private Builder() {}
 
-    public static DistributedQueryRunner createIcebergQueryRunner(
-            Map<String, String> extraProperties,
-            Map<String, String> extraConnectorProperties,
-            FileFormat format,
-            boolean createTpchTables,
-            Optional<Path> dataDirectory)
-            throws Exception
-    {
-        return createIcebergQueryRunner(extraProperties, extraConnectorProperties, format, createTpchTables, false, OptionalInt.empty(), dataDirectory);
-    }
+        private CatalogType catalogType = HIVE;
+        private Map<String, Map<String, String>> icebergCatalogs = new HashMap<>();
+        private Map<String, String> extraProperties = new HashMap<>();
+        private Map<String, String> extraConnectorProperties = new HashMap<>();
+        private Map<String, String> tpcdsProperties = new HashMap<>();
+        private FileFormat format = PARQUET;
+        private boolean createTpchTables = true;
+        private boolean addJmxPlugin = true;
+        private OptionalInt nodeCount = OptionalInt.of(4);
+        private Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher = Optional.empty();
+        private Optional<Path> dataDirectory = Optional.empty();
+        private boolean addStorageFormatToPath;
+        private Optional<String> schemaName = Optional.empty();
 
-    public static DistributedQueryRunner createIcebergQueryRunner(
-            Map<String, String> extraProperties,
-            Map<String, String> extraConnectorProperties,
-            FileFormat format,
-            boolean createTpchTables,
-            boolean addJmxPlugin,
-            OptionalInt nodeCount,
-            Optional<Path> dataDirectory)
-            throws Exception
-    {
-        return createIcebergQueryRunner(extraProperties, extraConnectorProperties, format, createTpchTables, addJmxPlugin, nodeCount, Optional.empty(), dataDirectory);
-    }
-
-    public static DistributedQueryRunner createIcebergQueryRunner(
-            Map<String, String> extraProperties,
-            Map<String, String> extraConnectorProperties,
-            FileFormat format,
-            boolean createTpchTables,
-            boolean addJmxPlugin,
-            OptionalInt nodeCount,
-            Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher,
-            Optional<Path> dataDirectory)
-            throws Exception
-    {
-        return createIcebergQueryRunner(extraProperties, extraConnectorProperties, format, createTpchTables, addJmxPlugin, nodeCount, externalWorkerLauncher, dataDirectory, false);
-    }
-
-    public static DistributedQueryRunner createIcebergQueryRunner(
-            Map<String, String> extraProperties,
-            Map<String, String> extraConnectorProperties,
-            FileFormat format,
-            boolean createTpchTables,
-            boolean addJmxPlugin,
-            OptionalInt nodeCount,
-            Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher,
-            Optional<Path> dataDirectory,
-            boolean addStorageFormatToPath)
-            throws Exception
-    {
-        setupLogging();
-
-        Session session = testSessionBuilder()
-                .setCatalog(ICEBERG_CATALOG)
-                .setSchema("tpch")
-                .build();
-
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
-                .setExtraProperties(extraProperties)
-                .setDataDirectory(dataDirectory)
-                .setNodeCount(nodeCount.orElse(4))
-                .setExternalWorkerLauncher(externalWorkerLauncher)
-                .build();
-
-        queryRunner.installPlugin(new TpchPlugin());
-        queryRunner.createCatalog("tpch", "tpch");
-
-        queryRunner.installPlugin(new TpcdsPlugin());
-        queryRunner.createCatalog("tpcds", "tpcds");
-
-        queryRunner.installPlugin(new IcebergPlugin());
-
-        String catalogType = extraConnectorProperties.getOrDefault("iceberg.catalog.type", HIVE.name());
-        Path icebergDataDirectory = getIcebergDataDirectoryPath(queryRunner.getCoordinator().getDataDirectory(), catalogType, format, addStorageFormatToPath);
-
-        Map<String, String> icebergProperties = ImmutableMap.<String, String>builder()
-                .put("iceberg.file-format", format.name())
-                .putAll(getConnectorProperties(CatalogType.valueOf(catalogType), icebergDataDirectory))
-                .putAll(extraConnectorProperties)
-                .build();
-
-        queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", icebergProperties);
-
-        if (addJmxPlugin) {
-            queryRunner.installPlugin(new JmxPlugin());
-            queryRunner.createCatalog("jmx", "jmx");
+        public Builder setFormat(FileFormat format)
+        {
+            this.format = format;
+            return this;
         }
 
-        if (catalogType == HIVE.name()) {
-            ExtendedHiveMetastore metastore = getFileHiveMetastore(icebergDataDirectory);
-            if (!metastore.getDatabase(METASTORE_CONTEXT, "tpch").isPresent()) {
-                queryRunner.execute("CREATE SCHEMA tpch");
+        public Builder setExternalWorkerLauncher(Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher)
+        {
+            this.externalWorkerLauncher = externalWorkerLauncher;
+            return this;
+        }
+
+        public Builder setSchemaName(String schemaName)
+        {
+            this.schemaName = Optional.of(schemaName);
+            return this;
+        }
+
+        public Builder setCreateTpchTables(boolean createTpchTables)
+        {
+            this.createTpchTables = createTpchTables;
+            return this;
+        }
+
+        public Builder setAddJmxPlugin(boolean addJmxPlugin)
+        {
+            this.addJmxPlugin = addJmxPlugin;
+            return this;
+        }
+
+        public Builder setNodeCount(OptionalInt nodeCount)
+        {
+            this.nodeCount = nodeCount;
+            return this;
+        }
+
+        public Builder setExtraProperties(Map<String, String> extraProperties)
+        {
+            this.extraProperties = extraProperties;
+            return this;
+        }
+
+        public Builder setCatalogType(CatalogType catalogType)
+        {
+            this.catalogType = catalogType;
+            return this;
+        }
+
+        public Builder setDataDirectory(Optional<Path> dataDirectory)
+        {
+            this.dataDirectory = dataDirectory;
+            return this;
+        }
+
+        public Builder setExtraConnectorProperties(Map<String, String> extraConnectorProperties)
+        {
+            this.extraConnectorProperties = extraConnectorProperties;
+            return this;
+        }
+
+        public Builder setAddStorageFormatToPath(boolean addStorageFormatToPath)
+        {
+            this.addStorageFormatToPath = addStorageFormatToPath;
+            return this;
+        }
+
+        public Builder setTpcdsProperties(Map<String, String> tpcdsProperties)
+        {
+            this.tpcdsProperties = tpcdsProperties;
+            return this;
+        }
+
+        public IcebergQueryRunner build()
+                throws Exception
+        {
+            setupLogging();
+
+            checkArgument(!extraConnectorProperties.containsKey("iceberg.catalog.type"), "extraConnectorProperties cannot contain iceberg.catalog.type");
+            checkArgument(!extraConnectorProperties.containsKey("iceberg.file-format"), "extraConnectorProperties cannot contain iceberg.file-format");
+
+            ImmutableMap.Builder<String, Map<String, String>> icebergCatalogs = ImmutableMap.builder();
+
+            Session session = testSessionBuilder()
+                    .setCatalog(ICEBERG_CATALOG)
+                    .setSchema(schemaName.orElse("tpch"))
+                    .build();
+
+            DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
+                    .setExtraProperties(extraProperties)
+                    .setDataDirectory(dataDirectory)
+                    .setNodeCount(nodeCount.orElse(4))
+                    .setExternalWorkerLauncher(externalWorkerLauncher)
+                    .build();
+
+            queryRunner.installPlugin(new TpchPlugin());
+            queryRunner.createCatalog("tpch", "tpch");
+
+            queryRunner.installPlugin(new TpcdsPlugin());
+            queryRunner.createCatalog("tpcds", "tpcds", tpcdsProperties);
+
+            queryRunner.getServers().forEach(server -> {
+                MBeanServer mBeanServer = MBeanServerFactory.newMBeanServer();
+                server.installPlugin(new IcebergPlugin(mBeanServer));
+                if (addJmxPlugin) {
+                    server.installPlugin(new JmxPlugin(mBeanServer));
+                }
+            });
+
+            Path icebergDataDirectory = getIcebergDataDirectoryPath(queryRunner.getCoordinator().getDataDirectory(), catalogType.name(), format, addStorageFormatToPath);
+
+            Map<String, String> icebergProperties = new HashMap<>();
+            icebergProperties.put("iceberg.file-format", format.name());
+            icebergProperties.put("iceberg.catalog.type", catalogType.name());
+            icebergProperties.putAll(getConnectorProperties(catalogType, icebergDataDirectory));
+            icebergProperties.putAll(extraConnectorProperties);
+
+            queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", ImmutableMap.copyOf(icebergProperties));
+            icebergCatalogs.put(ICEBERG_CATALOG, ImmutableMap.copyOf(icebergProperties));
+
+            if (addJmxPlugin) {
+                queryRunner.createCatalog("jmx", "jmx");
             }
-            if (!metastore.getDatabase(METASTORE_CONTEXT, "tpcds").isPresent()) {
+
+            if (catalogType == HIVE) {
+                ExtendedHiveMetastore metastore = getFileHiveMetastore(icebergDataDirectory);
+                if (!metastore.getDatabase(METASTORE_CONTEXT, "tpch").isPresent()) {
+                    queryRunner.execute("CREATE SCHEMA tpch");
+                }
+                if (!metastore.getDatabase(METASTORE_CONTEXT, "tpcds").isPresent()) {
+                    queryRunner.execute("CREATE SCHEMA tpcds");
+                }
+            }
+            else {
+                queryRunner.execute("CREATE SCHEMA tpch");
                 queryRunner.execute("CREATE SCHEMA tpcds");
             }
-        }
-        else {
-            queryRunner.execute("CREATE SCHEMA tpch");
-            queryRunner.execute("CREATE SCHEMA tpcds");
-        }
 
-        if (createTpchTables) {
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, session, TpchTable.getTables(), true);
-        }
+            if (createTpchTables) {
+                copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, session, TpchTable.getTables(), true);
+            }
 
-        return queryRunner;
+            return new IcebergQueryRunner(queryRunner, icebergCatalogs.build());
+        }
     }
 
     private static ExtendedHiveMetastore getFileHiveMetastore(Path dataDirectory)
@@ -226,7 +273,7 @@ public final class IcebergQueryRunner
         MetastoreClientConfig metastoreClientConfig = new MetastoreClientConfig();
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveClientConfig, metastoreClientConfig), ImmutableSet.of(), hiveClientConfig);
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
-        return new FileHiveMetastore(hdfsEnvironment, dataDirectory.toFile().toURI().toString(), "test");
+        return new IcebergFileHiveMetastore(hdfsEnvironment, dataDirectory.toFile().toURI().toString(), "test");
     }
 
     public static Path getIcebergDataDirectoryPath(Path dataDirectory, String catalogType, FileFormat format, boolean addStorageFormatToPath)
@@ -237,7 +284,7 @@ public final class IcebergQueryRunner
         return icebergCatalogDirectory;
     }
 
-    private static Map<String, String> getConnectorProperties(CatalogType icebergCatalogType, Path icebergDataDirectory)
+    public static Map<String, String> getConnectorProperties(CatalogType icebergCatalogType, Path icebergDataDirectory)
     {
         switch (icebergCatalogType) {
             case HADOOP:
@@ -274,6 +321,7 @@ public final class IcebergQueryRunner
         logging.setLevel("parquet.hadoop", WARN);
         logging.setLevel("org.apache.iceberg", WARN);
         logging.setLevel("com.facebook.airlift.bootstrap", WARN);
+        logging.setLevel("Bootstrap", WARN);
         logging.setLevel("org.apache.hadoop.io.compress", WARN);
     }
 
@@ -297,7 +345,11 @@ public final class IcebergQueryRunner
         Map<String, String> properties = ImmutableMap.of("http-server.http.port", "8080");
         DistributedQueryRunner queryRunner = null;
         try {
-            queryRunner = createIcebergQueryRunner(properties, dataDirectory);
+            queryRunner = builder()
+                    .setExtraProperties(properties)
+                    .setDataDirectory(dataDirectory)
+                    .build()
+                    .getQueryRunner();
         }
         catch (Throwable t) {
             log.error(t);

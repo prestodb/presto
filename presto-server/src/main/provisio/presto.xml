@@ -22,6 +22,9 @@
 
     <!-- Server -->
     <artifactSet to="lib">
+        <artifact id="${project.groupId}:presto-main-base:${project.version}" />
+    </artifactSet>
+    <artifactSet to="lib">
         <artifact id="${project.groupId}:presto-main:${project.version}" />
     </artifactSet>
 

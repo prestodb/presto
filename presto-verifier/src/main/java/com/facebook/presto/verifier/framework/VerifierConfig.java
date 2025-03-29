@@ -61,6 +61,7 @@ public class VerifierConfig
     private boolean teardownOnMainClusters = true;
     private boolean skipControl;
     private boolean skipChecksum;
+    private boolean runDeterminismAnalysisOnTest;
     private boolean concurrentControlAndTest;
 
     private boolean explain;
@@ -359,6 +360,19 @@ public class VerifierConfig
     public boolean isSkipChecksum()
     {
         return skipChecksum;
+    }
+
+    @ConfigDescription("Run Determinism Analysis on test rather than control. If the Determinism Analysis returns 'non-deterministic', we then re-run it in control")
+    @Config("run-determinism-analysis-on-test")
+    public VerifierConfig setRunDeterminismAnalysisOnTest(boolean runDeterminismAnalysisOnTest)
+    {
+        this.runDeterminismAnalysisOnTest = runDeterminismAnalysisOnTest;
+        return this;
+    }
+
+    public boolean isRunDeterminismAnalysisOnTest()
+    {
+        return runDeterminismAnalysisOnTest;
     }
 
     public boolean isExplain()

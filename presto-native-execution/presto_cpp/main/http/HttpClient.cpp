@@ -20,7 +20,10 @@
 #include <folly/synchronization/Latch.h>
 #include <velox/common/base/Exceptions.h>
 #include "presto_cpp/main/common/Configs.h"
+#include "presto_cpp/main/common/Counters.h"
+#include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/http/HttpClient.h"
+#include "velox/common/base/StatsReporter.h"
 
 namespace facebook::presto::http {
 
@@ -167,15 +170,8 @@ HttpResponse::nextAllocationSize(uint64_t dataLength) const {
 }
 
 std::string HttpResponse::dumpBodyChain() const {
-  std::string responseBody;
-  if (!bodyChain_.empty()) {
-    std::ostringstream oss;
-    for (const auto& buf : bodyChain_) {
-      oss << std::string((const char*)buf->data(), buf->length());
-    }
-    responseBody = oss.str();
-  }
-  return responseBody;
+  return bodyChain_.empty() ? "Empty response"
+                            : util::extractMessageBody(bodyChain_);
 }
 
 class ResponseHandler : public proxygen::HTTPTransactionHandler {
@@ -455,7 +451,10 @@ folly::SemiFuture<proxygen::HTTPTransaction*> HttpClient::createTransaction(
   }
   auto idleSessionFuture = idleSessions_->getIdleSession();
   auto getFromIdleSession =
-      [self = shared_from_this(), this, handler](
+      [self = shared_from_this(),
+       this,
+       handler,
+       startTimeMs = velox::getCurrentTimeMs()](
           proxygen::HTTPSessionBase* session) -> proxygen::HTTPTransaction* {
     if (!session) {
       return nullptr;
@@ -479,6 +478,9 @@ folly::SemiFuture<proxygen::HTTPTransaction*> HttpClient::createTransaction(
         nullptr,
         nullptr);
     sessionPool_->putSession(session);
+    RECORD_HISTOGRAM_METRIC_VALUE(
+        kCounterHTTPClientTransactionCreateDelay,
+        velox::getCurrentTimeMs() - startTimeMs);
     return sessionPool_->getTransaction(handler);
   };
   if (idleSessionFuture.isReady()) {

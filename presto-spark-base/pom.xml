@@ -3,7 +3,7 @@
     <parent>
         <artifactId>presto-root</artifactId>
         <groupId>com.facebook.presto</groupId>
-        <version>0.291-SNAPSHOT</version>
+        <version>0.293-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
@@ -66,7 +66,7 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-main</artifactId>
+            <artifactId>presto-main-base</artifactId>
         </dependency>
 
         <dependency>
@@ -102,11 +102,6 @@
         <dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>json</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.airlift</groupId>
-            <artifactId>http-client</artifactId>
         </dependency>
 
         <dependency>
@@ -185,11 +180,6 @@
         </dependency>
 
         <dependency>
-            <groupId>joda-time</groupId>
-            <artifactId>joda-time</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>javax.validation</groupId>
             <artifactId>validation-api</artifactId>
         </dependency>
@@ -252,6 +242,11 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-function-namespace-managers-common</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
             <artifactId>presto-hive-metastore</artifactId>
             <scope>test</scope>
         </dependency>
@@ -285,14 +280,8 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
-            <artifactId>jaxrs-testing</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-main</artifactId>
+            <artifactId>presto-main-base</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>

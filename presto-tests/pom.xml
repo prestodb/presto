@@ -5,7 +5,7 @@
     <parent>
         <artifactId>presto-root</artifactId>
         <groupId>com.facebook.presto</groupId>
-        <version>0.291-SNAPSHOT</version>
+        <version>0.293-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-tests</artifactId>
@@ -13,6 +13,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <air.test.jvmsize>5g</air.test.jvmsize>
     </properties>
 
     <dependencies>
@@ -28,12 +29,17 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-main</artifactId>
+            <artifactId>presto-main-base</artifactId>
         </dependency>
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-main-base</artifactId>
             <type>test-jar</type>
         </dependency>
 
@@ -50,6 +56,11 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-common</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-memory-context</artifactId>
         </dependency>
 
         <dependency>
@@ -75,6 +86,12 @@
                     <artifactId>grpc-netty-shaded</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-function-namespace-managers-common</artifactId>
+            <version>${project.version}</version>
         </dependency>
 
         <dependency>
@@ -244,6 +261,16 @@
             <artifactId>javax.servlet-api</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>jaxrs</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jdk8</artifactId>
+        </dependency>
+
         <!-- used by tests but also needed transitively -->
         <dependency>
             <groupId>com.facebook.airlift</groupId>
@@ -274,6 +301,12 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-thrift-testing-udf-server</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>jaxrs-testing</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -322,7 +355,12 @@
             <scope>runtime</scope>
             <optional>true</optional>
         </dependency>
-        
+
+        <dependency>
+            <groupId>org.apache.ratis</groupId>
+            <artifactId>ratis-metrics-default</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -360,6 +398,10 @@
                             <groupId>org.apache.ratis</groupId>
                             <artifactId>ratis-server-api</artifactId>
                         </dependency>
+                        <dependency>
+                            <groupId>org.apache.ratis</groupId>
+                            <artifactId>ratis-metrics-default</artifactId>
+                        </dependency>
                     </ignoredDependencies>
                 </configuration>
             </plugin>
@@ -367,7 +409,6 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
-                    <argLine>-Xms4g -Xmx4g</argLine>
                     <!-- these tests take a very long time so only run them in the CI server -->
                     <excludes>
                         <exclude>**/TestDistributedQueriesNoHashGeneration.java</exclude>

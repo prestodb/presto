@@ -26,6 +26,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import org.testng.annotations.Test;
 
+import java.util.Arrays;
+import java.util.stream.Collectors;
+
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
@@ -498,6 +501,65 @@ public class TestSortedRangeSet
                         Range.greaterThanOrEqual(BIGINT, 11L)),
                 true);
         assertDifferentSet(SortedRangeSet.all(BIGINT), SortedRangeSet.all(BOOLEAN), true);
+    }
+
+    @Test
+    public void testSubRangeSet()
+    {
+        // test subrange no overlap below and above
+        assertEquals(SortedRangeSet.of(Range.lessThan(BIGINT, 10L))
+                        .subRangeSet(Range.greaterThan(BIGINT, 10L))
+                        .getOrderedRanges()
+                        .size(),
+                0);
+        assertEquals(SortedRangeSet.of(Range.greaterThan(BIGINT, 10L))
+                        .subRangeSet(Range.lessThan(BIGINT, 10L))
+                        .getOrderedRanges()
+                        .size(),
+                0);
+        assertEquals(SortedRangeSet.of(Range.greaterThanOrEqual(BIGINT, 10L))
+                        .subRangeSet(Range.lessThan(BIGINT, 10L))
+                        .getOrderedRanges()
+                        .size(),
+                0);
+        assertEquals(SortedRangeSet.of(Range.lessThanOrEqual(BIGINT, 10L))
+                        .subRangeSet(Range.greaterThan(BIGINT, 10L))
+                        .getOrderedRanges()
+                        .size(),
+                0);
+
+        // test with equal bounds
+        assertEquals(SortedRangeSet.of(Range.lessThanOrEqual(BIGINT, 10L))
+                        .subRangeSet(Range.greaterThanOrEqual(BIGINT, 10L))
+                        .getOrderedRanges()
+                        .size(),
+                1);
+        assertEquals(SortedRangeSet.of(Range.greaterThanOrEqual(BIGINT, 10L))
+                        .subRangeSet(Range.lessThanOrEqual(BIGINT, 10L))
+                        .getOrderedRanges()
+                        .size(),
+                1);
+        assertEquals(SortedRangeSet.of(Range.lessThanOrEqual(BIGINT, 10L))
+                .subRangeSet(Range.greaterThanOrEqual(BIGINT, 10L))
+                .getOrderedRanges().get(0), Range.range(BIGINT, 10L, true, 10L, true));
+        // two ranges
+        assertEquals(SortedRangeSet.of(Range.lessThan(BIGINT, -10L), Range.greaterThan(BIGINT, 10L))
+                        .subRangeSet(Range.range(BIGINT, -20L, true, 20L, true)).getOrderedRanges(),
+                Arrays.stream(new Range[] {
+                                Range.range(BIGINT, -20L, true, -10L, false),
+                                Range.range(BIGINT, 10L, false, 20L, true)})
+                        .collect(Collectors.toList()));
+        // range entirely contained
+        assertEquals(SortedRangeSet.of(
+                                Range.lessThan(BIGINT, -10L),
+                                Range.greaterThan(BIGINT, 10L),
+                                Range.range(BIGINT, -5L, true, 5L, true))
+                        .subRangeSet(Range.range(BIGINT, -20L, true, 20L, true)).getOrderedRanges(),
+                Arrays.stream(new Range[] {
+                                Range.range(BIGINT, -20L, true, -10L, false),
+                                Range.range(BIGINT, -5L, true, 5L, true),
+                                Range.range(BIGINT, 10L, false, 20L, true)})
+                        .collect(Collectors.toList()));
     }
 
     private void assertSameSet(SortedRangeSet set1, SortedRangeSet set2, boolean removeSafeConstants)

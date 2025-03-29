@@ -114,17 +114,17 @@ public class LocalFileTables
     {
         private static final List<ColumnMetadata> COLUMNS = ImmutableList.of(
                 SERVER_ADDRESS_COLUMN,
-                new ColumnMetadata("timestamp", TIMESTAMP),
-                new ColumnMetadata("client_address", createUnboundedVarcharType()),
-                new ColumnMetadata("method", createUnboundedVarcharType()),
-                new ColumnMetadata("request_uri", createUnboundedVarcharType()),
-                new ColumnMetadata("user", createUnboundedVarcharType()),
-                new ColumnMetadata("agent", createUnboundedVarcharType()),
-                new ColumnMetadata("response_code", BIGINT),
-                new ColumnMetadata("request_size", BIGINT),
-                new ColumnMetadata("response_size", BIGINT),
-                new ColumnMetadata("time_to_last_byte", BIGINT),
-                new ColumnMetadata("trace_token", createUnboundedVarcharType()));
+                ColumnMetadata.builder().setName("timestamp").setType(TIMESTAMP).build(),
+                ColumnMetadata.builder().setName("client_address").setType(createUnboundedVarcharType()).build(),
+                ColumnMetadata.builder().setName("method").setType(createUnboundedVarcharType()).build(),
+                ColumnMetadata.builder().setName("request_uri").setType(createUnboundedVarcharType()).build(),
+                ColumnMetadata.builder().setName("user").setType(createUnboundedVarcharType()).build(),
+                ColumnMetadata.builder().setName("agent").setType(createUnboundedVarcharType()).build(),
+                ColumnMetadata.builder().setName("response_code").setType(BIGINT).build(),
+                ColumnMetadata.builder().setName("request_size").setType(BIGINT).build(),
+                ColumnMetadata.builder().setName("response_size").setType(BIGINT).build(),
+                ColumnMetadata.builder().setName("time_to_last_byte").setType(BIGINT).build(),
+                ColumnMetadata.builder().setName("trace_token").setType(createUnboundedVarcharType()).build());
 
         private static final String TABLE_NAME = "http_request_log";
 

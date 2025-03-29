@@ -4,7 +4,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.291-SNAPSHOT</version>
+        <version>0.293-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-pinot</artifactId>
@@ -14,7 +14,6 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <grpc.version>1.68.0</grpc.version>
     </properties>
 
     <dependencies>
@@ -107,13 +106,14 @@
 
         <dependency>
             <groupId>${project.groupId}</groupId>
-            <artifactId>presto-main</artifactId>
+            <artifactId>presto-main-base</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
+
         <dependency>
             <groupId>${project.groupId}</groupId>
-            <artifactId>presto-main</artifactId>
+            <artifactId>presto-main-base</artifactId>
             <version>${project.version}</version>
             <type>test-jar</type>
             <scope>test</scope>

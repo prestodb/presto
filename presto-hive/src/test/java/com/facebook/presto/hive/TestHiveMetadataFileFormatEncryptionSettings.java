@@ -174,16 +174,16 @@ public class TestHiveMetadataFileFormatEncryptionSettings
         return new ConnectorTableMetadata(
                 new SchemaTableName(TEST_DB_NAME, tableName),
                 ImmutableList.of(
-                        new ColumnMetadata("t_varchar", VARCHAR),
-                        new ColumnMetadata("t_bigint", BIGINT),
-                        new ColumnMetadata("t_struct", RowType.from(
+                        ColumnMetadata.builder().setName("t_varchar").setType(VARCHAR).build(),
+                        ColumnMetadata.builder().setName("t_bigint").setType(BIGINT).build(),
+                        ColumnMetadata.builder().setName("t_struct").setType(RowType.from(
                                 ImmutableList.of(
                                         new RowType.Field(Optional.of("char"), VARCHAR),
                                         new RowType.Field(Optional.of("str"), RowType.from(
                                                 ImmutableList.of(
                                                         new RowType.Field(Optional.of("a"), VARCHAR),
-                                                        new RowType.Field(Optional.of("b"), BIGINT))))))),
-                        new ColumnMetadata("ds", VARCHAR)),
+                                                        new RowType.Field(Optional.of("b"), BIGINT))))))).build(),
+                        ColumnMetadata.builder().setName("ds").setType(VARCHAR).build()),
                 properties.build());
     }
 

@@ -24,9 +24,9 @@ import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
-import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
 import com.facebook.presto.iceberg.IcebergConfig;
 import com.facebook.presto.iceberg.IcebergPlugin;
+import com.facebook.presto.iceberg.hive.IcebergFileHiveMetastore;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.testing.QueryRunner;
@@ -74,9 +74,9 @@ public class TestIcebergRegisterAndUnregisterProcedure
             throws Exception
     {
         session = testSessionBuilder()
-            .setCatalog(ICEBERG_CATALOG)
-            .setSchema(TEST_SCHEMA)
-            .build();
+                .setCatalog(ICEBERG_CATALOG)
+                .setSchema(TEST_SCHEMA)
+                .build();
 
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
 
@@ -537,9 +537,10 @@ public class TestIcebergRegisterAndUnregisterProcedure
                 hiveClientConfig);
         return new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
     }
+
     protected ExtendedHiveMetastore getFileHiveMetastore()
     {
-        FileHiveMetastore fileHiveMetastore = new FileHiveMetastore(getHdfsEnvironment(),
+        IcebergFileHiveMetastore fileHiveMetastore = new IcebergFileHiveMetastore(getHdfsEnvironment(),
                 getCatalogDirectory().toFile().getPath(),
                 "test");
         return memoizeMetastore(fileHiveMetastore, false, 1000, 0);

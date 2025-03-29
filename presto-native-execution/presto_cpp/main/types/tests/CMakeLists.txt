@@ -20,8 +20,11 @@ target_link_libraries(
   presto_velox_split_test
   GTest::gtest
   GTest::gtest_main
+  presto_connectors
   presto_operators
   presto_protocol
+  velox_dwio_common
+  velox_dwio_orc_reader
   velox_hive_connector
   velox_tpch_connector
   velox_exec
@@ -46,6 +49,7 @@ target_link_libraries(
   presto_expressions_test
   GTest::gtest
   GTest::gtest_main
+  presto_connectors
   $<TARGET_OBJECTS:presto_protocol>
   $<TARGET_OBJECTS:presto_type_converter>
   $<TARGET_OBJECTS:presto_types>
@@ -84,10 +88,12 @@ add_test(
 
 target_link_libraries(
   presto_to_velox_connector_test
+  presto_connectors
   presto_protocol
   presto_operators
   presto_type_converter
   presto_types
+  velox_dwio_common
   velox_hive_connector
   velox_tpch_connector
   GTest::gtest
@@ -108,5 +114,24 @@ target_link_libraries(
   velox_aggregates
   velox_functions_prestosql
   velox_window
+  GTest::gtest
+  GTest::gtest_main)
+
+add_executable(presto_to_velox_query_plan_test PrestoToVeloxQueryPlanTest.cpp)
+
+add_test(
+  NAME presto_to_velox_query_plan_test
+  COMMAND presto_to_velox_query_plan_test
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+target_link_libraries(
+  presto_to_velox_query_plan_test
+  presto_connectors
+  presto_operators
+  presto_protocol
+  presto_type_converter
+  presto_types
+  velox_dwio_common
+  velox_exec_test_lib
   GTest::gtest
   GTest::gtest_main)

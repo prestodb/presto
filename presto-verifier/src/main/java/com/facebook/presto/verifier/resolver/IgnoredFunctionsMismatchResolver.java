@@ -29,7 +29,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.verifier.framework.DataMatchResult.MatchType.COLUMN_MISMATCH;
 import static com.facebook.presto.verifier.framework.DataMatchResult.MatchType.ROW_COUNT_MISMATCH;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -93,7 +93,7 @@ public class IgnoredFunctionsMismatchResolver
     private static String normalizeFunctionName(QualifiedName name)
     {
         if (name.getParts().size() == 3 &&
-                new CatalogSchemaName(name.getParts().get(0), name.getParts().get(1)).equals(DEFAULT_NAMESPACE)) {
+                new CatalogSchemaName(name.getParts().get(0), name.getParts().get(1)).equals(JAVA_BUILTIN_NAMESPACE)) {
             return name.getSuffix();
         }
         return name.toString();

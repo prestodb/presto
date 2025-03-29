@@ -227,6 +227,9 @@ public final class HiveType
     public static HiveType valueOf(String hiveTypeName)
     {
         requireNonNull(hiveTypeName, "hiveTypeName is null");
+        if (hiveTypeName.equals(HIVE_UUID.getTypeInfo().getTypeName())) {
+            return HIVE_UUID;
+        }
         return toHiveType(getTypeInfoFromTypeString(hiveTypeName));
     }
 

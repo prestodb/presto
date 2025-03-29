@@ -103,6 +103,7 @@ public final class StatisticsUtil
                     .setRange(icebergColumnStats.getRange())
                     .setNullsFraction(icebergColumnStats.getNullsFraction())
                     .setDistinctValuesCount(icebergColumnStats.getDistinctValuesCount())
+                    .setHistogram(icebergColumnStats.getHistogram())
                     .setRange(icebergColumnStats.getRange());
             if (hiveColumnStats != null) {
                 // NDVs
@@ -132,7 +133,7 @@ public final class StatisticsUtil
                         .collect(Collectors.toSet()))
                 .filter(set -> !set.isEmpty())
                 .map(EnumSet::copyOf)
-                .orElse(EnumSet.noneOf(ColumnStatisticType.class));
+                .orElseGet(() -> EnumSet.noneOf(ColumnStatisticType.class));
     }
 
     public static String encodeMergeFlags(EnumSet<ColumnStatisticType> flags)

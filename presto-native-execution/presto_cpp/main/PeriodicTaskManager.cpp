@@ -32,10 +32,12 @@
 #include <sys/resource.h>
 
 namespace {
-#define REPORT_IF_NOT_ZERO(name, counter)   \
-  if ((counter) != 0) {                     \
-    RECORD_METRIC_VALUE((name), (counter)); \
-  }
+#define REPORT_IF_NOT_ZERO(name, counter)     \
+  do {                                        \
+    if ((counter) != 0) {                     \
+      RECORD_METRIC_VALUE((name), (counter)); \
+    }                                         \
+  } while (0)
 } // namespace
 
 namespace facebook::presto {
@@ -60,8 +62,6 @@ folly::StringPiece getCounterForBlockingReason(
       return kCounterNumBlockedWaitForMemoryDrivers;
     case velox::exec::BlockingReason::kWaitForConnector:
       return kCounterNumBlockedWaitForConnectorDrivers;
-    case velox::exec::BlockingReason::kWaitForSpill:
-      return kCounterNumBlockedWaitForSpillDrivers;
     case velox::exec::BlockingReason::kYield:
       return kCounterNumBlockedYieldDrivers;
     case velox::exec::BlockingReason::kNotBlocked:
@@ -333,16 +333,20 @@ void PeriodicTaskManager::updateTaskStats() {
   RECORD_METRIC_VALUE(
       kCounterNumTasksBytesProcessed, taskManager_->getBytesProcessed());
   RECORD_METRIC_VALUE(
-      kCounterNumTasksRunning, taskNumbers[velox::exec::TaskState::kRunning]);
+      kCounterNumTasksRunning,
+      taskNumbers[static_cast<int>(velox::exec::TaskState::kRunning)]);
   RECORD_METRIC_VALUE(
-      kCounterNumTasksFinished, taskNumbers[velox::exec::TaskState::kFinished]);
+      kCounterNumTasksFinished,
+      taskNumbers[static_cast<int>(velox::exec::TaskState::kFinished)]);
   RECORD_METRIC_VALUE(
       kCounterNumTasksCancelled,
-      taskNumbers[velox::exec::TaskState::kCanceled]);
+      taskNumbers[static_cast<int>(velox::exec::TaskState::kCanceled)]);
   RECORD_METRIC_VALUE(
-      kCounterNumTasksAborted, taskNumbers[velox::exec::TaskState::kAborted]);
+      kCounterNumTasksAborted,
+      taskNumbers[static_cast<int>(velox::exec::TaskState::kAborted)]);
   RECORD_METRIC_VALUE(
-      kCounterNumTasksFailed, taskNumbers[velox::exec::TaskState::kFailed]);
+      kCounterNumTasksFailed,
+      taskNumbers[static_cast<int>(velox::exec::TaskState::kFailed)]);
 
   const auto driverCounts = taskManager_->getDriverCounts();
   RECORD_METRIC_VALUE(kCounterNumQueuedDrivers, driverCounts.numQueuedDrivers);
@@ -358,7 +362,7 @@ void PeriodicTaskManager::updateTaskStats() {
   }
   RECORD_METRIC_VALUE(
       kCounterTotalPartitionedOutputBuffer,
-      velox::exec::OutputBufferManager::getInstance().lock()->numBuffers());
+      velox::exec::OutputBufferManager::getInstanceRef()->numBuffers());
 }
 
 void PeriodicTaskManager::addTaskStatsTask() {
@@ -424,15 +428,15 @@ void PeriodicTaskManager::updateOperatingSystemStats() {
   getrusage(RUSAGE_SELF, &usage);
 
   const int64_t userCpuTimeUs{
-      (int64_t)usage.ru_utime.tv_sec * 1'000'000 +
-      (int64_t)usage.ru_utime.tv_usec};
+      static_cast<int64_t>(usage.ru_utime.tv_sec) * 1'000'000 +
+      static_cast<int64_t>(usage.ru_utime.tv_usec)};
   RECORD_METRIC_VALUE(
       kCounterOsUserCpuTimeMicros, userCpuTimeUs - lastUserCpuTimeUs_);
   lastUserCpuTimeUs_ = userCpuTimeUs;
 
   const int64_t systemCpuTimeUs{
-      (int64_t)usage.ru_stime.tv_sec * 1'000'000 +
-      (int64_t)usage.ru_stime.tv_usec};
+      static_cast<int64_t>(usage.ru_stime.tv_sec) * 1'000'000 +
+      static_cast<int64_t>(usage.ru_stime.tv_usec)};
   RECORD_METRIC_VALUE(
       kCounterOsSystemCpuTimeMicros, systemCpuTimeUs - lastSystemCpuTimeUs_);
   lastSystemCpuTimeUs_ = systemCpuTimeUs;

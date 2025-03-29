@@ -14,6 +14,7 @@
 
 import React from "react";
 
+import { clsx } from 'clsx';
 import {getFirstParameter} from "../utils";
 
 const ALL_THREADS = "All Threads";
@@ -40,17 +41,22 @@ export class WorkerThreadList extends React.Component {
             selectedThreadState: ALL_THREAD_STATE,
         };
     }
-
+    static getRequestQuery(id){
+            // Node ID does not have a common pattern
+        if (id.length === 0) {
+            return "/v1/worker/undefined/thread";
+        }
+        return `/v1/worker/${encodeURIComponent(id)}/thread`;
+        }
     captureSnapshot() {
-        const nodeId = getFirstParameter(window.location.search);
-        $.get('/v1/worker/' + nodeId + '/thread', function (threads) {
+        $.get(WorkerThreadList.getRequestQuery(getFirstParameter(window.location.search)), function (threads) {
             this.setState({
                 threads: WorkerThreadList.processThreads(threads),
                 snapshotTime: new Date(),
                 initialized: true,
             });
         }.bind(this))
-        .error(function () {
+        .fail(function () {
             this.setState({
                 initialized: true,
             });
@@ -113,7 +119,9 @@ export class WorkerThreadList extends React.Component {
     renderGroupListItem(group) {
         return (
             <li key={group}>
-                <a href="#" className={this.state.selectedGroup === group ? "selected" : ""} onClick={this.handleGroupClick.bind(this, group)}>
+                <a href="#"
+                        className={clsx('dropdown-item text-dark', this.state.selectedGroup === group ? "selected" : "")}
+                        onClick={this.handleGroupClick.bind(this, group)}>
                     {group} ({this.filterThreads(group, this.state.selectedThreadState).length})
                 </a>
             </li>
@@ -123,7 +131,9 @@ export class WorkerThreadList extends React.Component {
     renderThreadStateListItem(threadState) {
         return (
             <li key={threadState}>
-                <a href="#" className={this.state.selectedThreadState === threadState ? "selected" : ""} onClick={this.handleThreadStateClick.bind(this, threadState)}>
+                <a href="#"
+                        className={clsx('dropdown-item text-dark', this.state.selectedThreadState === threadState ? "selected" : "")}
+                        onClick={this.handleThreadStateClick.bind(this, threadState)}>
                     {threadState} ({this.filterThreads(this.state.selectedGroup, threadState).length})
                 </a>
             </li>
@@ -144,9 +154,9 @@ export class WorkerThreadList extends React.Component {
         return (
             <div key={threadInfo.id}>
                 <span className="font-white">{threadInfo.name} {threadInfo.state} #{threadInfo.id} {threadInfo.lockOwnerId}</span>
-                <a className="copy-button" data-clipboard-target={"#stack-trace-" + threadInfo.id} data-toggle="tooltip" data-placement="right"
+                <a className="copy-button" data-clipboard-target={"#stack-trace-" + threadInfo.id} data-bs-toggle="tooltip" data-placement="right"
                    title="Copy to clipboard">
-                    <span className="glyphicon glyphicon-copy" alt="Copy to clipboard"/>
+                    <span className="bi bi-copy" alt="Copy to clipboard"/>
                 </a>
                 <br/>
                 <span className="stack-traces" id={"stack-trace-" + threadInfo.id}>
@@ -168,21 +178,26 @@ export class WorkerThreadList extends React.Component {
             if (this.state.initialized === false) {
                 display = (
                     <div className="row error-message">
-                        <div className="col-xs-12"><button className="btn btn-info live-button" onClick={this.handleNewSnapshotClick.bind(this)}>Capture Snapshot</button></div>
+                        <div className="col-12">
+                            <button className="btn btn-info rounded-0 text-white dropdown-text"
+                                    onClick={this.handleNewSnapshotClick.bind(this)}>
+                                Capture Snapshot
+                            </button>
+                        </div>
                     </div>
                 );
             }
             else {
                 display = (
                     <div className="row error-message">
-                        <div className="col-xs-12"><h4>Thread snapshot could not be loaded</h4></div>
+                        <div className="col-12"><h4 className="therad-snapshot-text">Thread snapshot could not be loaded</h4></div>
                     </div>
                 );
             }
         }
         else {
             toolbar = (
-                <div className="col-xs-9">
+                <div className="col-9">
                     <table className="header-inline-links">
                         <tbody>
                         <tr>
@@ -191,28 +206,32 @@ export class WorkerThreadList extends React.Component {
                                 &nbsp;&nbsp;
                             </td>
                             <td>
-                                <button className="btn btn-info live-button" onClick={this.handleNewSnapshotClick.bind(this)}>New Snapshot</button>
+                                <button
+                                        className="btn btn-info rounded-0 text-white dropdown-text"
+                                        onClick={this.handleNewSnapshotClick.bind(this)}>
+                                    New Snapshot
+                                </button>
                                 &nbsp;&nbsp;
                                 &nbsp;&nbsp;
                             </td>
                             <td>
                                 <div className="input-group-btn text-right">
-                                    <button type="button" className="btn btn-default dropdown-toggle pull-right text-right" data-toggle="dropdown" aria-haspopup="true"
+                                    <button type="button" className="btn btn-default dropdown-toggle bg-white text-dark rounded-0 dropdown-text" data-bs-toggle="dropdown" aria-haspopup="true"
                                             aria-expanded="false">
                                         <strong>Group:</strong> {this.state.selectedGroup} <span className="caret"/>
                                     </button>
-                                    <ul className="dropdown-menu">
+                                    <ul className="dropdown-menu bg-white rounded-0 dropdown-text">
                                         {Object.keys(threads).map(group => this.renderGroupListItem(group))}
                                     </ul>
                                 </div>
                             </td>
                             <td>
                                 <div className="input-group-btn text-right">
-                                    <button type="button" className="btn btn-default dropdown-toggle pull-right text-right" data-toggle="dropdown" aria-haspopup="true"
+                                    <button type="button" className="btn btn-default dropdown-toggle bg-white text-dark rounded-0 dropdown-text" data-bs-toggle="dropdown" aria-haspopup="true"
                                             aria-expanded="false">
                                         <strong>State:</strong> {this.state.selectedThreadState} <span className="caret"/>
                                     </button>
-                                    <ul className="dropdown-menu">
+                                    <ul className="dropdown-menu bg-white rounded-0 dropdown-text">
                                         {THREAD_STATES.map(state => this.renderThreadStateListItem(state))}
                                     </ul>
                                 </div>
@@ -228,19 +247,19 @@ export class WorkerThreadList extends React.Component {
             if (filteredThreads.length === 0 && this.state.selectedThreadState === ALL_THREAD_STATE) {
                 displayedThreads = (
                     <div className="row error-message">
-                        <div className="col-xs-12"><h4>No threads in group '{this.state.selectedGroup}'</h4></div>
+                        <div className="col-12"><h4>No threads in group '{this.state.selectedGroup}'</h4></div>
                     </div>);
             }
             else if (filteredThreads.length === 0 && this.state.selectedGroup === ALL_THREADS) {
                 displayedThreads = (
                     <div className="row error-message">
-                        <div className="col-xs-12"><h4>No threads with state {this.state.selectedThreadState}</h4></div>
+                        <div className="col-12"><h4>No threads with state {this.state.selectedThreadState}</h4></div>
                     </div>);
             }
             else if (filteredThreads.length === 0) {
                 displayedThreads = (
                     <div className="row error-message">
-                        <div className="col-xs-12"><h4>No threads in group '{this.state.selectedGroup}' with state {this.state.selectedThreadState}</h4></div>
+                        <div className="col-12"><h4>No threads in group '{this.state.selectedGroup}' with state {this.state.selectedThreadState}</h4></div>
                     </div>);
             }
             else {
@@ -260,11 +279,11 @@ export class WorkerThreadList extends React.Component {
         return (
             <div>
                 <div className="row">
-                    <div className="col-xs-3">
-                        <h3>
+                    <div className="col-3">
+                        <h3 style={{fontSize: '24px'}}>
                             Thread Snapshot
-                            <a className="btn copy-button" data-clipboard-target="#stack-traces" data-toggle="tooltip" data-placement="right" title="Copy to clipboard">
-                                <span className="glyphicon glyphicon-copy" alt="Copy to clipboard"/>
+                            <a className="btn copy-button" data-clipboard-target="#stack-traces" data-bs-toggle="tooltip" data-placement="right" title="Copy to clipboard">
+                            <span className="bi bi-copy" alt="Copy to clipboard" style={{color:"#98E8FF", fontSize:"14px"}}/>
                             </a>
                             &nbsp;
                         </h3>
@@ -272,7 +291,7 @@ export class WorkerThreadList extends React.Component {
                     {toolbar}
                 </div>
                 <div className="row">
-                    <div className="col-xs-12">
+                    <div className="col-12">
                         <hr className="h3-hr"/>
                         {display}
                     </div>
@@ -281,3 +300,5 @@ export class WorkerThreadList extends React.Component {
         );
     }
 }
+
+export default WorkerThreadList;

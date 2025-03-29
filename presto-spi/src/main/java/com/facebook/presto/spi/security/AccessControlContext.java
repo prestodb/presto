@@ -18,6 +18,7 @@ import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.WarningCollector;
 
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -32,8 +33,19 @@ public class AccessControlContext
     private final WarningCollector warningCollector;
     private final RuntimeStats runtimeStats;
     private final Optional<QueryType> queryType;
+    private final Optional<String> catalog;
+    private final Optional<String> schema;
 
-    public AccessControlContext(QueryId queryId, Optional<String> clientInfo, Set<String> clientTags, Optional<String> source, WarningCollector warningCollector, RuntimeStats runtimeStats, Optional<QueryType> queryType)
+    public AccessControlContext(
+            QueryId queryId,
+            Optional<String> clientInfo,
+            Set<String> clientTags,
+            Optional<String> source,
+            WarningCollector warningCollector,
+            RuntimeStats runtimeStats,
+            Optional<QueryType> queryType,
+            Optional<String> catalog,
+            Optional<String> schema)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
@@ -42,6 +54,8 @@ public class AccessControlContext
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
         this.queryType = requireNonNull(queryType, "queryType is null");
+        this.catalog = requireNonNull(catalog, "catalog is null");
+        this.schema = requireNonNull(schema, "schema is null");
     }
 
     public QueryId getQueryId()
@@ -77,5 +91,40 @@ public class AccessControlContext
     public Optional<QueryType> getQueryType()
     {
         return queryType;
+    }
+
+    public Optional<String> getCatalog()
+    {
+        return catalog;
+    }
+
+    public Optional<String> getSchema()
+    {
+        return schema;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(queryId, clientInfo, clientTags, source, queryType, catalog, schema);
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        AccessControlContext other = (AccessControlContext) obj;
+        return Objects.equals(this.queryId, other.queryId) &&
+                Objects.equals(this.clientInfo, other.clientInfo) &&
+                Objects.equals(this.clientTags, other.clientTags) &&
+                Objects.equals(this.source, other.source) &&
+                Objects.equals(this.queryType, other.queryType) &&
+                Objects.equals(this.catalog, other.catalog) &&
+                Objects.equals(this.schema, other.schema);
     }
 }

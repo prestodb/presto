@@ -105,7 +105,7 @@ public class HiveTableOperations
     private final String tableName;
     private final Optional<String> owner;
     private final Optional<String> location;
-    private final FileIO fileIO;
+    private final HdfsFileIO fileIO;
     private final IcebergHiveTableOperationsConfig config;
 
     private TableMetadata currentMetadata;
@@ -121,10 +121,11 @@ public class HiveTableOperations
             HdfsEnvironment hdfsEnvironment,
             HdfsContext hdfsContext,
             IcebergHiveTableOperationsConfig config,
+            ManifestFileCache manifestFileCache,
             String database,
             String table)
     {
-        this(new HdfsFileIO(hdfsEnvironment, hdfsContext),
+        this(new HdfsFileIO(manifestFileCache, hdfsEnvironment, hdfsContext),
                 metastore,
                 metastoreContext,
                 config,
@@ -140,12 +141,13 @@ public class HiveTableOperations
             HdfsEnvironment hdfsEnvironment,
             HdfsContext hdfsContext,
             IcebergHiveTableOperationsConfig config,
+            ManifestFileCache manifestFileCache,
             String database,
             String table,
             String owner,
             String location)
     {
-        this(new HdfsFileIO(hdfsEnvironment, hdfsContext),
+        this(new HdfsFileIO(manifestFileCache, hdfsEnvironment, hdfsContext),
                 metastore,
                 metastoreContext,
                 config,
@@ -156,7 +158,7 @@ public class HiveTableOperations
     }
 
     private HiveTableOperations(
-            FileIO fileIO,
+            HdfsFileIO fileIO,
             ExtendedHiveMetastore metastore,
             MetastoreContext metastoreContext,
             IcebergHiveTableOperationsConfig config,
@@ -181,15 +183,16 @@ public class HiveTableOperations
     {
         if (commitLockCache == null) {
             commitLockCache = CacheBuilder.newBuilder()
-                .expireAfterAccess(evictionTimeout, TimeUnit.MILLISECONDS)
-                .build(
-                    new CacheLoader<String, ReentrantLock>() {
-                        @Override
-                        public ReentrantLock load(String fullName)
-                        {
-                            return new ReentrantLock();
-                        }
-                    });
+                    .expireAfterAccess(evictionTimeout, TimeUnit.MILLISECONDS)
+                    .build(
+                            new CacheLoader<String, ReentrantLock>()
+                            {
+                                @Override
+                                public ReentrantLock load(String fullName)
+                                {
+                                    return new ReentrantLock();
+                                }
+                            });
         }
     }
 
@@ -304,11 +307,11 @@ public class HiveTableOperations
             PrestoPrincipal owner = new PrestoPrincipal(USER, table.getOwner());
             PrincipalPrivileges privileges = new PrincipalPrivileges(
                     ImmutableMultimap.<String, HivePrivilegeInfo>builder()
-                        .put(table.getOwner(), new HivePrivilegeInfo(SELECT, true, owner, owner))
-                        .put(table.getOwner(), new HivePrivilegeInfo(INSERT, true, owner, owner))
-                        .put(table.getOwner(), new HivePrivilegeInfo(UPDATE, true, owner, owner))
-                        .put(table.getOwner(), new HivePrivilegeInfo(DELETE, true, owner, owner))
-                        .build(),
+                            .put(table.getOwner(), new HivePrivilegeInfo(SELECT, true, owner, owner))
+                            .put(table.getOwner(), new HivePrivilegeInfo(INSERT, true, owner, owner))
+                            .put(table.getOwner(), new HivePrivilegeInfo(UPDATE, true, owner, owner))
+                            .put(table.getOwner(), new HivePrivilegeInfo(DELETE, true, owner, owner))
+                            .build(),
                     ImmutableMultimap.of());
             if (base == null) {
                 metastore.createTable(metastoreContext, table, privileges, emptyList());
@@ -408,7 +411,7 @@ public class HiveTableOperations
                             config.getTableRefreshMaxRetryTime().toMillis(),
                             config.getTableRefreshBackoffScaleFactor())
                     .run(metadataLocation -> newMetadata.set(
-                            TableMetadataParser.read(fileIO, io().newInputFile(metadataLocation))));
+                            TableMetadataParser.read(fileIO, fileIO.newCachedInputFile(metadataLocation))));
         }
         catch (RuntimeException e) {
             throw new TableNotFoundException(getSchemaTableName(), "Table metadata is missing", e);

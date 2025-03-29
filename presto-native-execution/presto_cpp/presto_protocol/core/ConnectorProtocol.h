@@ -89,6 +89,13 @@ class ConnectorProtocol {
   virtual void from_json(
       const json& j,
       std::shared_ptr<ConnectorMetadataUpdateHandle>& p) const = 0;
+
+  virtual void to_json(
+      json& j,
+      const std::shared_ptr<ConnectorDeleteTableHandle>& p) const = 0;
+  virtual void from_json(
+      const json& j,
+      std::shared_ptr<ConnectorDeleteTableHandle>& p) const = 0;
 };
 
 namespace {
@@ -104,7 +111,8 @@ template <
     typename ConnectorSplitType = NotImplemented,
     typename ConnectorPartitioningHandleType = NotImplemented,
     typename ConnectorTransactionHandleType = NotImplemented,
-    typename ConnectorMetadataUpdateHandleType = NotImplemented>
+    typename ConnectorMetadataUpdateHandleType = NotImplemented,
+    typename ConnectorDeleteTableHandleType = NotImplemented>
 class ConnectorProtocolTemplate final : public ConnectorProtocol {
  public:
   void to_json(json& j, const std::shared_ptr<ConnectorTableHandle>& p)
@@ -184,6 +192,16 @@ class ConnectorProtocolTemplate final : public ConnectorProtocol {
       const json& j,
       std::shared_ptr<ConnectorMetadataUpdateHandle>& p) const final {
     from_json_template<ConnectorMetadataUpdateHandleType>(j, p);
+  }
+
+  void to_json(json& j, const std::shared_ptr<ConnectorDeleteTableHandle>& p)
+      const final {
+    to_json_template<ConnectorDeleteTableHandleType>(j, p);
+  }
+  void from_json(
+      const json& j,
+      std::shared_ptr<ConnectorDeleteTableHandle>& p) const final {
+    from_json_template<ConnectorDeleteTableHandleType>(j, p);
   }
 
  private:

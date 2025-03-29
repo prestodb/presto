@@ -7,6 +7,8 @@ Deploying Presto
     :backlinks: none
     :depth: 1
 
+.. _Installing Presto:
+
 Installing Presto
 -----------------
 
@@ -206,7 +208,7 @@ These properties require some explanation:
 
 * ``http-server.http.port``:
   Specifies the port for the HTTP server. Presto uses HTTP for all
-  communication, internal and external.
+  communication, internal and external. If the value is set to 0 an ephemeral port is used.
 
 * ``query.max-memory``:
   The maximum amount of distributed memory that a query may use.
@@ -414,6 +416,71 @@ Run the Presto server:
 .. code-block:: bash
 
     ./bin/launcher start
+
+
+File-Based Metastore
+--------------------
+
+For testing or development purposes, Presto can be configured to use a HDFS, S3, or local
+filesystem directory as a Hive Metastore. 
+
+The file-based metastore works only with the following connectors: 
+
+* :doc:`/connector/deltalake`
+* :doc:`/connector/hive`
+* :doc:`/connector/hudi`
+* :doc:`/connector/iceberg`
+
+Configuring a File-Based Metastore
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+1. In ``etc/catalog/``, find the catalog properties file for the supported 
+   connector. 
+
+2. In the catalog properties file, set the following properties:
+
+.. code-block:: none
+
+    hive.metastore=file
+    hive.metastore.catalog.dir=file:///<catalog-dir>
+
+Replace ``file:///<catalog-dir>`` in the example with the path to a directory on an
+accessible filesystem. For example, use ``hdfs://<host:port>/<catalog-dir>`` on HDFS
+or ``s3://<bucket>/<catalog-dir>`` on an Object Storage System.
+
+Using a File-Based Warehouse
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For this example, assume the Hive connector is being used, and the properties 
+in the Hive connector catalog file are set to the following:
+
+.. code-block:: none
+
+    connector.name=hive
+    hive.metastore=file
+    hive.metastore.catalog.dir=file:///data/hive_data/
+
+Create a schema
+
+.. code-block:: none
+
+    CREATE SCHEMA hive.warehouse;
+
+This query creates a directory ``warehouse`` in the directory set for 
+``hive.metastore.catalog.dir``, so the path for the ``warehouse`` schema would be 
+``/data/hive_data/warehouse``.
+
+Create a table with any connector-supported file formats. For example, if the 
+Hive connector is being configured: 
+
+.. code-block:: none
+
+    CREATE TABLE hive.warehouse.orders_csv("order_name" varchar, "quantity" varchar) WITH (format = 'CSV');
+    CREATE TABLE hive.warehouse.orders_parquet("order_name" varchar, "quantity" int) WITH (format = 'PARQUET');
+
+These queries create folders as ``/data/hive_data/warehouse/orders_csv`` and 
+``/data/hive_data/warehouse/orders_parquet``. Users can insert and query 
+from these tables.
 
 
 An Example Deployment with Docker

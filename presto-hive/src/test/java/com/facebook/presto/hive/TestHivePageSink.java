@@ -114,6 +114,7 @@ public class TestHivePageSink
             throws Exception
     {
         HiveClientConfig config = new HiveClientConfig();
+        SortingFileWriterConfig sortingFileWriterConfig = new SortingFileWriterConfig();
         MetastoreClientConfig metastoreClientConfig = new MetastoreClientConfig();
         File tempDir = Files.createTempDir();
         try {
@@ -121,7 +122,7 @@ public class TestHivePageSink
             for (HiveStorageFormat format : getSupportedHiveStorageFormats()) {
                 config.setHiveStorageFormat(format);
                 config.setCompressionCodec(NONE);
-                long uncompressedLength = writeTestFile(config, metastoreClientConfig, metastore, makeFileName(tempDir, config));
+                long uncompressedLength = writeTestFile(config, metastoreClientConfig, metastore, makeFileName(tempDir, config), sortingFileWriterConfig);
                 assertGreaterThan(uncompressedLength, 0L);
 
                 for (HiveCompressionCodec codec : HiveCompressionCodec.values()) {
@@ -129,7 +130,7 @@ public class TestHivePageSink
                         continue;
                     }
                     config.setCompressionCodec(codec);
-                    long length = writeTestFile(config, metastoreClientConfig, metastore, makeFileName(tempDir, config));
+                    long length = writeTestFile(config, metastoreClientConfig, metastore, makeFileName(tempDir, config), sortingFileWriterConfig);
                     assertTrue(uncompressedLength > length, format("%s with %s compressed to %s which is not less than %s", format, codec, length, uncompressedLength));
                 }
             }
@@ -152,11 +153,11 @@ public class TestHivePageSink
         return tempDir.getAbsolutePath() + "/" + config.getHiveStorageFormat().name() + "." + config.getCompressionCodec().name();
     }
 
-    private static long writeTestFile(HiveClientConfig config, MetastoreClientConfig metastoreClientConfig, ExtendedHiveMetastore metastore, String outputPath)
+    private static long writeTestFile(HiveClientConfig config, MetastoreClientConfig metastoreClientConfig, ExtendedHiveMetastore metastore, String outputPath, SortingFileWriterConfig sortingFileWriterConfig)
     {
         HiveTransactionHandle transaction = new HiveTransactionHandle();
         HiveWriterStats stats = new HiveWriterStats();
-        ConnectorPageSink pageSink = createPageSink(transaction, config, metastoreClientConfig, metastore, new Path("file:///" + outputPath), stats);
+        ConnectorPageSink pageSink = createPageSink(transaction, config, metastoreClientConfig, metastore, new Path("file:///" + outputPath), stats, sortingFileWriterConfig);
         List<LineItemColumn> columns = getTestColumns();
         List<Type> columnTypes = columns.stream()
                 .map(LineItemColumn::getType)
@@ -308,7 +309,7 @@ public class TestHivePageSink
         return provider.createPageSource(transaction, getSession(config, new HiveCommonClientConfig()), split, tableHandle.getLayout().get(), ImmutableList.copyOf(getColumnHandles()), NON_CACHEABLE, new RuntimeStats());
     }
 
-    private static ConnectorPageSink createPageSink(HiveTransactionHandle transaction, HiveClientConfig config, MetastoreClientConfig metastoreClientConfig, ExtendedHiveMetastore metastore, Path outputPath, HiveWriterStats stats)
+    private static ConnectorPageSink createPageSink(HiveTransactionHandle transaction, HiveClientConfig config, MetastoreClientConfig metastoreClientConfig, ExtendedHiveMetastore metastore, Path outputPath, HiveWriterStats stats, SortingFileWriterConfig sortingFileWriterConfig)
     {
         LocationHandle locationHandle = new LocationHandle(outputPath, outputPath, Optional.empty(), NEW, DIRECT_TO_TARGET_NEW_DIRECTORY);
         HiveOutputTableHandle handle = new HiveOutputTableHandle(
@@ -337,6 +338,7 @@ public class TestHivePageSink
                 FUNCTION_AND_TYPE_MANAGER,
                 config,
                 metastoreClientConfig,
+                sortingFileWriterConfig,
                 new HiveLocationService(hdfsEnvironment),
                 HiveTestUtils.PARTITION_UPDATE_CODEC,
                 HiveTestUtils.PARTITION_UPDATE_SMILE_CODEC,

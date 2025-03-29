@@ -41,6 +41,14 @@ void PeriodicServiceInventoryManager::start() {
 
 void PeriodicServiceInventoryManager::stop() {
   stopped_ = true;
+  // Simply cancel libevent timeout callback before calling reset on the client
+  // first. This is to ensure that the client is not destroyed while there is a
+  // pending request.
+  eventBaseThread_.getEventBase()->runInEventBaseThreadAndWait([this]() {
+    LOG(INFO) << fmt::format(
+        "Cancelled :{} async events in PeriodicServiceInventoryManager",
+        eventBaseThread_.getEventBase()->timer().cancelAll());
+  });
   client_.reset();
   eventBaseThread_.stop();
 }

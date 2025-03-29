@@ -1,0 +1,136 @@
+name: Presto Stable Release - Prepare
+
+on:
+  workflow_dispatch:
+    inputs:
+      prepare_release:
+        description: 'Prepare release branch and tag'
+        type: boolean
+        default: true
+        required: false
+      prepare_release_notes:
+        description: 'Prepare release notes pull request'
+        type: boolean
+        default: true
+        required: false
+
+env:
+  JAVA_VERSION: '11'
+  JAVA_DISTRIBUTION: 'temurin'
+
+jobs:
+  prepare-release-branch:
+    if: ${{ inputs.prepare_release }}
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check for master branch
+        if: ${{ github.ref != 'refs/heads/master' }}
+        run: echo "Invalid branch. This action can only be run on the master branch." && exit 1
+
+      - name: Checkout presto source
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PRESTODB_CI_TOKEN }}
+          ref: master
+          show-progress: false
+          fetch-depth: 5
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+
+      - name: Configure git
+        run: |
+          git config --global --add safe.directory ${{github.workspace}}
+          git config --global user.email "ci@lists.prestodb.io"
+          git config --global user.name "prestodb-ci"
+          git config --global alias.ls 'log --pretty=format:"%cd %h %ce: %s" --date=short --no-merges'
+          git config pull.rebase false
+
+      - name: Set presto release version
+        run: |
+          unset MAVEN_CONFIG && ./mvnw versions:set -DremoveSnapshot -ntp
+
+      - name: Get presto release version
+        id: get-version
+        run: |
+          PRESTO_RELEASE_VERSION=$(mvn org.apache.maven.plugins:maven-help-plugin:3.2.0:evaluate \
+            -Dexpression=project.version -q -ntp -DforceStdout | tail -n 1)
+          echo "PRESTO_RELEASE_VERSION=$PRESTO_RELEASE_VERSION" >> $GITHUB_ENV
+          echo "PRESTO_RELEASE_VERSION=$PRESTO_RELEASE_VERSION"
+
+      - name: Prepare release tag and commits
+        run: |
+          git reset --hard
+          unset MAVEN_CONFIG && ./mvnw release:prepare --batch-mode \
+            -DskipTests \
+            -DautoVersionSubmodules \
+            -DdevelopmentVersion=${{ env.PRESTO_RELEASE_VERSION }} \
+            -DreleaseVersion=${{ env.PRESTO_RELEASE_VERSION }}
+          grep -m 2 "<version>" pom.xml
+          echo "commits on master branch"
+          git ls -5
+
+      - name: Push release tag, branch and commits
+        run: |
+          echo "In case this job failed, please delete the tag ${{ env.PRESTO_RELEASE_VERSION }} and the branch release-${{ env.PRESTO_RELEASE_VERSION }}, and re-run the job"
+          git checkout ${{ env.PRESTO_RELEASE_VERSION }}
+          git switch -c release-${{ env.PRESTO_RELEASE_VERSION }}
+          echo "Pushing release branch release-${{ env.PRESTO_RELEASE_VERSION }} and tag ${{ env.PRESTO_RELEASE_VERSION }}"
+
+          echo "commits on release-${{ env.PRESTO_RELEASE_VERSION }} branch"
+          git ls -4
+          git push origin release-${{ env.PRESTO_RELEASE_VERSION }} --tags
+          echo -e "\nPushed release tag to: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ env.PRESTO_RELEASE_VERSION }}"
+          echo "Pushed release branch to: ${{ github.server_url }}/${{ github.repository }}/tree/release-${{ env.PRESTO_RELEASE_VERSION }}"
+
+          echo "Pushing master branch"
+          git checkout master
+          echo "commits on master branch"
+          git ls -5
+          git push origin master
+
+  prepare-release-notes:
+    needs: prepare-release-branch
+    if: ${{ inputs.prepare_release_notes && always() && (needs.prepare-release-branch.result == 'success' || !inputs.prepare_release) }}
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout presto source
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          show-progress: false
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+
+      - name: Configure git
+        run: |
+          git config --global --add safe.directory ${{github.workspace}}
+          git config --global user.email "ci@lists.prestodb.io"
+          git config --global user.name "prestodb-ci"
+          git config pull.rebase false
+
+      - name: Add git upstream
+        run: |
+          git remote add upstream ${{ github.server_url }}/${{ github.repository }}.git
+          git fetch upstream --tags
+          git remote -v
+
+      - name: Create release notes pull request
+        run: |
+          echo "In case this job failed, please delete the release notes branch(e.g. release-notes-0.292) in repository ${{ github.repository }}, and re-run the job"
+          ./src/release/release-notes.sh ${{ github.repository_owner }} ${{ secrets.PRESTODB_CI_TOKEN }}

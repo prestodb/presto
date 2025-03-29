@@ -29,7 +29,7 @@ import static com.facebook.presto.common.Utils.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public class TableFinishNode
+public final class TableFinishNode
         extends PlanNode
 {
     private final PlanNode source;
@@ -37,6 +37,8 @@ public class TableFinishNode
     private final VariableReferenceExpression rowCountVariable;
     private final Optional<StatisticAggregations> statisticsAggregation;
     private final Optional<StatisticAggregationsDescriptor<VariableReferenceExpression>> statisticsAggregationDescriptor;
+
+    private final Optional<CteMaterializationInfo> temporaryTableInfo;
 
     @JsonCreator
     public TableFinishNode(
@@ -46,9 +48,10 @@ public class TableFinishNode
             @JsonProperty("target") Optional<TableWriterNode.WriterTarget> target,
             @JsonProperty("rowCountVariable") VariableReferenceExpression rowCountVariable,
             @JsonProperty("statisticsAggregation") Optional<StatisticAggregations> statisticsAggregation,
-            @JsonProperty("statisticsAggregationDescriptor") Optional<StatisticAggregationsDescriptor<VariableReferenceExpression>> statisticsAggregationDescriptor)
+            @JsonProperty("statisticsAggregationDescriptor") Optional<StatisticAggregationsDescriptor<VariableReferenceExpression>> statisticsAggregationDescriptor,
+            @JsonProperty("cteMaterializationInfo") Optional<CteMaterializationInfo> temporaryTableInfo)
     {
-        this(sourceLocation, id, Optional.empty(), source, target, rowCountVariable, statisticsAggregation, statisticsAggregationDescriptor);
+        this(sourceLocation, id, Optional.empty(), source, target, rowCountVariable, statisticsAggregation, statisticsAggregationDescriptor, temporaryTableInfo);
     }
 
     public TableFinishNode(
@@ -59,11 +62,13 @@ public class TableFinishNode
             Optional<TableWriterNode.WriterTarget> target,
             VariableReferenceExpression rowCountVariable,
             Optional<StatisticAggregations> statisticsAggregation,
-            Optional<StatisticAggregationsDescriptor<VariableReferenceExpression>> statisticsAggregationDescriptor)
+            Optional<StatisticAggregationsDescriptor<VariableReferenceExpression>> statisticsAggregationDescriptor,
+            Optional<CteMaterializationInfo> temporaryTableInfo)
     {
         super(sourceLocation, id, statsEquivalentPlanNode);
 
         checkArgument(target != null || source instanceof TableWriterNode);
+        this.temporaryTableInfo = temporaryTableInfo;
         this.source = requireNonNull(source, "source is null");
         this.target = requireNonNull(target, "target is null");
         this.rowCountVariable = requireNonNull(rowCountVariable, "rowCountVariable is null");
@@ -120,6 +125,11 @@ public class TableFinishNode
         return visitor.visitTableFinish(this, context);
     }
 
+    public Optional<CteMaterializationInfo> getCteMaterializationInfo()
+    {
+        return temporaryTableInfo;
+    }
+
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
@@ -132,7 +142,8 @@ public class TableFinishNode
                 target,
                 rowCountVariable,
                 statisticsAggregation,
-                statisticsAggregationDescriptor);
+                statisticsAggregationDescriptor,
+                temporaryTableInfo);
     }
 
     @Override
@@ -146,6 +157,7 @@ public class TableFinishNode
                 target,
                 rowCountVariable,
                 statisticsAggregation,
-                statisticsAggregationDescriptor);
+                statisticsAggregationDescriptor,
+                temporaryTableInfo);
     }
 }

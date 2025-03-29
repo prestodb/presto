@@ -476,7 +476,7 @@ public class TestHiveIntegrationSmokeTest
         assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), partitionedBy);
         for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
             boolean partitionKey = partitionedBy.contains(columnMetadata.getName());
-            assertEquals(columnMetadata.getExtraInfo(), columnExtraInfo(partitionKey));
+            assertEquals(columnMetadata.getExtraInfo().orElse(null), columnExtraInfo(partitionKey));
         }
 
         assertColumnType(tableMetadata, "_string", createUnboundedVarcharType());
@@ -2296,6 +2296,7 @@ public class TestHiveIntegrationSmokeTest
     {
         Session session = getSession();
         QueryRunner queryRunner = getQueryRunner();
+
         queryRunner.execute("CREATE TABLE orders_bucketed WITH (bucket_count = 11, bucketed_by = ARRAY['orderkey']) AS " +
                 "SELECT * FROM orders");
 
@@ -2381,23 +2382,23 @@ public class TestHiveIntegrationSmokeTest
                     session,
                     "CREATE TABLE create_partitioned_sorted_table (orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus)\n" +
                             "WITH (partitioned_by = ARRAY['orderstatus'], bucketed_by = ARRAY['custkey'], bucket_count = 11, sorted_by = ARRAY['orderkey']) AS\n" +
-                            "SELECT orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus FROM tpch.sf1.orders",
-                    (long) computeActual("SELECT count(*) FROM tpch.sf1.orders").getOnlyValue());
+                            "SELECT orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus FROM tpch.tiny.orders",
+                    (long) computeActual("SELECT count(*) FROM tpch.tiny.orders").getOnlyValue());
             assertQuery(
                     session,
                     "SELECT count(*) FROM create_partitioned_sorted_table",
-                    "SELECT count(*) * 100 FROM orders");
+                    "SELECT count(*) FROM orders");
 
             assertUpdate(
                     session,
                     "CREATE TABLE create_unpartitioned_sorted_table (orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus)\n" +
                             "WITH (bucketed_by = ARRAY['custkey'], bucket_count = 11, sorted_by = ARRAY['orderkey']) AS\n" +
-                            "SELECT orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus FROM tpch.sf1.orders",
-                    (long) computeActual("SELECT count(*) FROM tpch.sf1.orders").getOnlyValue());
+                            "SELECT orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus FROM tpch.tiny.orders",
+                    (long) computeActual("SELECT count(*) FROM tpch.tiny.orders").getOnlyValue());
             assertQuery(
                     session,
                     "SELECT count(*) FROM create_unpartitioned_sorted_table",
-                    "SELECT count(*) * 100 FROM orders");
+                    "SELECT count(*) FROM orders");
 
             // insert
             assertUpdate(
@@ -2408,12 +2409,12 @@ public class TestHiveIntegrationSmokeTest
             assertUpdate(
                     session,
                     "INSERT INTO insert_partitioned_sorted_table\n" +
-                            "SELECT orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus FROM tpch.sf1.orders",
-                    (long) computeActual("SELECT count(*) FROM tpch.sf1.orders").getOnlyValue());
+                            "SELECT orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus FROM tpch.tiny.orders",
+                    (long) computeActual("SELECT count(*) FROM tpch.tiny.orders").getOnlyValue());
             assertQuery(
                     session,
                     "SELECT count(*) FROM insert_partitioned_sorted_table",
-                    "SELECT count(*) * 100 FROM orders");
+                    "SELECT count(*) FROM orders");
         }
         finally {
             assertUpdate(session, "DROP TABLE IF EXISTS create_partitioned_sorted_table");
@@ -2440,23 +2441,23 @@ public class TestHiveIntegrationSmokeTest
                     session,
                     "CREATE TABLE create_partitioned_ordering_table (orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus)\n" +
                             "WITH (partitioned_by = ARRAY['orderstatus'], preferred_ordering_columns = ARRAY['orderkey']) AS\n" +
-                            "SELECT orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus FROM tpch.sf1.orders",
-                    (long) computeActual("SELECT count(*) FROM tpch.sf1.orders").getOnlyValue());
+                            "SELECT orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus FROM tpch.tiny.orders",
+                    (long) computeActual("SELECT count(*) FROM tpch.tiny.orders").getOnlyValue());
             assertQuery(
                     session,
                     "SELECT count(*) FROM create_partitioned_ordering_table",
-                    "SELECT count(*) * 100 FROM orders");
+                    "SELECT count(*) FROM orders");
 
             assertUpdate(
                     session,
                     "CREATE TABLE create_unpartitioned_ordering_table (orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus)\n" +
                             "WITH (preferred_ordering_columns = ARRAY['orderkey']) AS\n" +
-                            "SELECT orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus FROM tpch.sf1.orders",
-                    (long) computeActual("SELECT count(*) FROM tpch.sf1.orders").getOnlyValue());
+                            "SELECT orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus FROM tpch.tiny.orders",
+                    (long) computeActual("SELECT count(*) FROM tpch.tiny.orders").getOnlyValue());
             assertQuery(
                     session,
                     "SELECT count(*) FROM create_unpartitioned_ordering_table",
-                    "SELECT count(*) * 100 FROM orders");
+                    "SELECT count(*) FROM orders");
 
             // insert
             assertUpdate(
@@ -2467,12 +2468,12 @@ public class TestHiveIntegrationSmokeTest
             assertUpdate(
                     session,
                     "INSERT INTO insert_partitioned_ordering_table\n" +
-                            "SELECT orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus FROM tpch.sf1.orders",
-                    (long) computeActual("SELECT count(*) FROM tpch.sf1.orders").getOnlyValue());
+                            "SELECT orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus FROM tpch.tiny.orders",
+                    (long) computeActual("SELECT count(*) FROM tpch.tiny.orders").getOnlyValue());
             assertQuery(
                     session,
                     "SELECT count(*) FROM insert_partitioned_ordering_table",
-                    "SELECT count(*) * 100 FROM orders");
+                    "SELECT count(*) FROM orders");
 
             // invalid
             assertQueryFails(
@@ -2643,8 +2644,8 @@ public class TestHiveIntegrationSmokeTest
                             .build(),
                     "CREATE TABLE partitioned_ordering_table (orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus)\n" +
                             "WITH (partitioned_by = ARRAY['orderstatus'], preferred_ordering_columns = ARRAY['orderkey']) AS\n" +
-                            "SELECT orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus FROM tpch.sf1.orders",
-                    (long) computeActual("SELECT count(*) FROM tpch.sf1.orders").getOnlyValue());
+                            "SELECT orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus FROM tpch.tiny.orders",
+                    (long) computeActual("SELECT count(*) FROM tpch.tiny.orders").getOnlyValue());
 
             // Collect all file names
             Map<String, List<Integer>> partitionFileNamesMap = new HashMap<>();
@@ -2682,8 +2683,8 @@ public class TestHiveIntegrationSmokeTest
                             .setSystemProperty("writer_min_size", "1MB")
                             .setSystemProperty("task_writer_count", "1")
                             .build(),
-                    "CREATE TABLE unpartitioned_ordering_table AS SELECT * FROM tpch.sf1.orders",
-                    (long) computeActual("SELECT count(*) FROM tpch.sf1.orders").getOnlyValue());
+                    "CREATE TABLE unpartitioned_ordering_table AS SELECT * FROM tpch.tiny.orders",
+                    (long) computeActual("SELECT count(*) FROM tpch.tiny.orders").getOnlyValue());
 
             // Collect file names of the table
             List<Integer> fileNames = new ArrayList<>();
@@ -6911,7 +6912,7 @@ public class TestHiveIntegrationSmokeTest
             assertEquals(partitionByProperty, partitionKeys);
             for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
                 boolean partitionKey = partitionKeys.contains(columnMetadata.getName());
-                assertEquals(columnMetadata.getExtraInfo(), columnExtraInfo(partitionKey));
+                assertEquals(columnMetadata.getExtraInfo().orElse(null), columnExtraInfo(partitionKey));
             }
         }
         else {

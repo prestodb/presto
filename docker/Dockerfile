@@ -33,6 +33,7 @@ RUN dnf install -y java-11-openjdk less procps python3 \
 COPY etc/config.properties.example $PRESTO_HOME/etc/config.properties
 COPY etc/jvm.config.example $PRESTO_HOME/etc/jvm.config
 COPY etc/node.properties $PRESTO_HOME/etc/node.properties
+COPY etc/catalog $PRESTO_HOME/etc/catalog
 COPY entrypoint.sh /opt
 
 EXPOSE 8080

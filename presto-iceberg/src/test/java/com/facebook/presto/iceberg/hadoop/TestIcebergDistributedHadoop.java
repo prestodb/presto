@@ -16,7 +16,12 @@ package com.facebook.presto.iceberg.hadoop;
 import com.facebook.presto.iceberg.IcebergDistributedTestBase;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
+import java.net.URI;
+
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
+import static java.lang.String.format;
+import static java.nio.file.Files.createTempDirectory;
 
 @Test
 public class TestIcebergDistributedHadoop
@@ -25,5 +30,15 @@ public class TestIcebergDistributedHadoop
     public TestIcebergDistributedHadoop()
     {
         super(HADOOP);
+    }
+
+    @Override
+    public void testCreateTableWithCustomLocation()
+            throws IOException
+    {
+        String tableName = "test_hadoop_table_with_custom_location";
+        URI tableTargetURI = createTempDirectory(tableName).toUri();
+        assertQueryFails(format("create table %s (a int, b varchar)" + " with (location = '%s')", tableName, tableTargetURI.toString()),
+                "Cannot set a custom location for a path-based table.*");
     }
 }

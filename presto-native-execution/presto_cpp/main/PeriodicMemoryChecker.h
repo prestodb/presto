@@ -71,7 +71,7 @@ class PeriodicMemoryChecker {
 
   /// Starts the 'PeriodicMemoryChecker'. A background scheduler will be
   /// launched to perform the checks. This should only be called once.
-  void start();
+  virtual void start();
 
   /// Stops the 'PeriodicMemoryChecker'.
   void stop();

@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.291-SNAPSHOT</version>
+        <version>0.293-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-native-execution</artifactId>
@@ -34,11 +34,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.google.inject</groupId>
-            <artifactId>guice</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>
         </dependency>
@@ -50,12 +45,17 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-main</artifactId>
+            <artifactId>presto-main-base</artifactId>
         </dependency>
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-main-base</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>
@@ -111,6 +111,10 @@
                 <exclusion>
                     <groupId>org.apache.parquet</groupId>
                     <artifactId>parquet-format-structures</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.commons</groupId>
+                    <artifactId>commons-lang3</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -244,6 +248,11 @@
             <artifactId>presto-jdbc</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -275,7 +284,6 @@
                         <ignoredClassPattern>module-info</ignoredClassPattern>
                         <ignoredClassPattern>META-INF.versions.9.module-info</ignoredClassPattern>
                         <ignoredClassPattern>org.apache.avro.*</ignoredClassPattern>
-                        <ignoredClassPattern>com.github.benmanes.caffeine.*</ignoredClassPattern>
                         <ignoredClassPattern>org.roaringbitmap.*</ignoredClassPattern>
                     </ignoredClassPatterns>
                 </configuration>

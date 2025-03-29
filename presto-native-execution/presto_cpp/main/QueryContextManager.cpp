@@ -45,7 +45,15 @@ void updateFromSystemConfigs(
           {core::QueryConfig::kQueryMaxMemoryPerNode,
            std::string(SystemConfig::kQueryMaxMemoryPerNode)},
           {core::QueryConfig::kSpillFileCreateConfig,
-           std::string(SystemConfig::kSpillerFileCreateConfig)}};
+           std::string(SystemConfig::kSpillerFileCreateConfig)},
+          {core::QueryConfig::kSpillEnabled,
+          std::string(SystemConfig::kSpillEnabled)},
+          {core::QueryConfig::kJoinSpillEnabled,
+          std::string(SystemConfig::kJoinSpillEnabled)},
+          {core::QueryConfig::kOrderBySpillEnabled,
+          std::string(SystemConfig::kOrderBySpillEnabled)},
+          {core::QueryConfig::kAggregationSpillEnabled,
+          std::string(SystemConfig::kAggregationSpillEnabled)}};
 
   for (const auto& configNameEntry : sessionSystemConfigMapping) {
     const auto& sessionName = configNameEntry.first;
@@ -60,14 +68,24 @@ void updateFromSystemConfigs(
 }
 
 std::unordered_map<std::string, std::unordered_map<std::string, std::string>>
-toConnectorConfigs(const protocol::SessionRepresentation& session) {
+toConnectorConfigs(const protocol::TaskUpdateRequest& taskUpdateRequest) {
   std::unordered_map<std::string, std::unordered_map<std::string, std::string>>
       connectorConfigs;
-  for (const auto& entry : session.catalogProperties) {
+  for (const auto& entry : taskUpdateRequest.session.catalogProperties) {
+    std::unordered_map<std::string, std::string> connectorConfig;
+    // remove native prefix from native connector session property names
+    for (const auto& sessionProperty : entry.second) {
+      auto veloxConfig = (sessionProperty.first.rfind("native_", 0) == 0)
+          ? sessionProperty.first.substr(7)
+          : sessionProperty.first;
+      connectorConfig.emplace(veloxConfig, sessionProperty.second);
+    }
+    connectorConfig.insert(
+        taskUpdateRequest.extraCredentials.begin(),
+        taskUpdateRequest.extraCredentials.end());
+    connectorConfig.insert({"user", taskUpdateRequest.session.user});
     connectorConfigs.insert(
-        {entry.first,
-         std::unordered_map<std::string, std::string>(
-             entry.second.begin(), entry.second.end())});
+        {entry.first, connectorConfig});
   }
 
   return connectorConfigs;
@@ -94,33 +112,6 @@ void updateVeloxConfigs(
   }
 }
 
-void updateVeloxConnectorConfigs(
-    std::unordered_map<
-        std::string,
-        std::unordered_map<std::string, std::string>>& connectorConfigStrings) {
-  const auto& systemConfig = SystemConfig::instance();
-  for (auto& entry : connectorConfigStrings) {
-    auto& connectorConfig = entry.second;
-    // If queryDataCacheEnabledDefault is true, when `node_selection_strategy`
-    // is
-    //       not set                             retain cache
-    //       SOFT_AFFINITY                       retain cache
-    //       NO_PREFERENCE                       do not retain cache
-    // If queryDataCacheEnabledDefault is false, when `node_selection_strategy`
-    // is
-    //       not set                             do not retain cache
-    //       SOFT_AFFINITY                       retain cache
-    //       NO_PREFERENCE                       do not retain cache
-    connectorConfig.emplace(
-        connector::hive::HiveConfig::kCacheNoRetentionSession,
-        systemConfig->queryDataCacheEnabledDefault() ? "false" : "true");
-    auto it = connectorConfig.find("node_selection_strategy");
-    if (it != connectorConfig.end()) {
-      connectorConfig[connector::hive::HiveConfig::kCacheNoRetentionSession] =
-          it->second == "SOFT_AFFINITY" ? "false" : "true";
-    }
-  }
-}
 } // namespace
 
 QueryContextManager::QueryContextManager(
@@ -133,9 +124,11 @@ QueryContextManager::QueryContextManager(
 std::shared_ptr<velox::core::QueryCtx>
 QueryContextManager::findOrCreateQueryCtx(
     const protocol::TaskId& taskId,
-    const protocol::SessionRepresentation& session) {
+    const protocol::TaskUpdateRequest& taskUpdateRequest) {
   return findOrCreateQueryCtx(
-      taskId, toVeloxConfigs(session), toConnectorConfigs(session));
+      taskId,
+      toVeloxConfigs(taskUpdateRequest.session),
+      toConnectorConfigs(taskUpdateRequest));
 }
 
 std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
@@ -153,7 +146,6 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
   }
 
   updateVeloxConfigs(configStrings);
-  updateVeloxConnectorConfigs(connectorConfigStrings);
 
   std::unordered_map<std::string, std::shared_ptr<config::ConfigBase>>
       connectorConfigs;
@@ -213,9 +205,30 @@ QueryContextManager::toVeloxConfigs(
   // Use base velox query config as the starting point and add Presto session
   // properties on top of it.
   auto configs = BaseVeloxQueryConfig::instance()->values();
+  std::optional<std::string> traceFragmentId;
+  std::optional<std::string> traceShardId;
   for (const auto& it : session.systemProperties) {
-    configs[sessionProperties_.toVeloxConfig(it.first)] = it.second;
-    sessionProperties_.updateVeloxConfig(it.first, it.second);
+    if (it.first == SessionProperties::kQueryTraceFragmentId) {
+      traceFragmentId = it.second;
+    } else if (it.first == SessionProperties::kQueryTraceShardId) {
+      traceShardId = it.second;
+    } else if (it.first == SessionProperties::kShuffleCompressionEnabled) {
+      if (it.second == "true") {
+        // NOTE: Presto java only support lz4 compression so configure the same
+        // compression kind on velox.
+        configs[core::QueryConfig::kShuffleCompressionKind] =
+            velox::common::compressionKindToString(
+                velox::common::CompressionKind_LZ4);
+      } else {
+        VELOX_USER_CHECK_EQ(it.second, "false");
+        configs[core::QueryConfig::kShuffleCompressionKind] =
+            velox::common::compressionKindToString(
+                velox::common::CompressionKind_NONE);
+      }
+    } else {
+      configs[sessionProperties_.toVeloxConfig(it.first)] = it.second;
+      sessionProperties_.updateVeloxConfig(it.first, it.second);
+    }
   }
 
   // If there's a timeZoneKey, convert to timezone name and add to the
@@ -225,6 +238,16 @@ QueryContextManager::toVeloxConfigs(
         velox::core::QueryConfig::kSessionTimezone,
         velox::tz::getTimeZoneName(session.timeZoneKey));
   }
+
+  // Construct query tracing regex and pass to Velox config.
+  // It replaces the given native_query_trace_task_reg_exp if also set.
+  if (traceFragmentId.has_value() || traceShardId.has_value()) {
+    configs.emplace(
+        velox::core::QueryConfig::kQueryTraceTaskRegExp,
+        ".*\\." + traceFragmentId.value_or(".*") + "\\..*\\." +
+            traceShardId.value_or(".*") + "\\..*");
+  }
+
   updateFromSystemConfigs(configs);
   return configs;
 }

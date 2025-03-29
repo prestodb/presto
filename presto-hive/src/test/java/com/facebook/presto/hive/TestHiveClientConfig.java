@@ -60,7 +60,6 @@ public class TestHiveClientConfig
                 .setMaxInitialSplitSize(new DataSize(32, Unit.MEGABYTE))
                 .setSplitLoaderConcurrency(4)
                 .setDomainCompactionThreshold(100)
-                .setWriterSortBufferSize(new DataSize(64, Unit.MEGABYTE))
                 .setMaxConcurrentFileRenames(20)
                 .setMaxConcurrentZeroRowFileCreations(20)
                 .setRecursiveDirWalkerEnabled(false)
@@ -82,7 +81,6 @@ public class TestHiveClientConfig
                 .setFailFastOnInsertIntoImmutablePartitionsEnabled(true)
                 .setSortedWritingEnabled(true)
                 .setMaxPartitionsPerWriter(100)
-                .setMaxOpenSortFiles(50)
                 .setWriteValidationThreads(16)
                 .setTextMaxLineLength(new DataSize(100, Unit.MEGABYTE))
                 .setUseOrcColumnNames(false)
@@ -151,6 +149,7 @@ public class TestHiveClientConfig
                 .setUseRecordPageSourceForCustomSplit(true)
                 .setFileSplittable(true)
                 .setHudiMetadataEnabled(false)
+                .setHudiTablesUseMergedView(null)
                 .setThriftProtocol(Protocol.BINARY)
                 .setThriftBufferSize(new DataSize(128, BYTE))
                 .setCopyOnFirstWriteConfigurationEnabled(true)
@@ -167,7 +166,6 @@ public class TestHiveClientConfig
                 .setMaxConcurrentParquetQuickStatsCalls(500)
                 .setCteVirtualBucketCount(128)
                 .setSkipEmptyFilesEnabled(false)
-                .setAffinitySchedulingFileSectionSize(new DataSize(256, MEGABYTE))
                 .setLegacyTimestampBucketing(false));
     }
 
@@ -195,7 +193,6 @@ public class TestHiveClientConfig
                 .put("hive.max-initial-split-size", "16MB")
                 .put("hive.split-loader-concurrency", "1")
                 .put("hive.domain-compaction-threshold", "42")
-                .put("hive.writer-sort-buffer-size", "13MB")
                 .put("hive.recursive-directories", "true")
                 .put("hive.storage-format", "SEQUENCEFILE")
                 .put("hive.compression-codec", "NONE")
@@ -207,7 +204,6 @@ public class TestHiveClientConfig
                 .put("hive.insert-overwrite-immutable-partitions-enabled", "true")
                 .put("hive.fail-fast-on-insert-into-immutable-partitions-enabled", "false")
                 .put("hive.max-partitions-per-writers", "222")
-                .put("hive.max-open-sort-files", "333")
                 .put("hive.write-validation-threads", "11")
                 .put("hive.max-concurrent-file-renames", "100")
                 .put("hive.max-concurrent-zero-row-file-creations", "100")
@@ -279,6 +275,7 @@ public class TestHiveClientConfig
                 .put("hive.use-record-page-source-for-custom-split", "false")
                 .put("hive.file-splittable", "false")
                 .put("hive.hudi-metadata-enabled", "true")
+                .put("hive.hudi-tables-use-merged-view", "default.user")
                 .put("hive.internal-communication.thrift-transport-protocol", "COMPACT")
                 .put("hive.internal-communication.thrift-transport-buffer-size", "256B")
                 .put("hive.copy-on-first-write-configuration-enabled", "false")
@@ -294,7 +291,6 @@ public class TestHiveClientConfig
                 .put("hive.quick-stats.parquet.max-concurrent-calls", "399")
                 .put("hive.quick-stats.max-concurrent-calls", "101")
                 .put("hive.cte-virtual-bucket-count", "256")
-                .put("hive.affinity-scheduling-file-section-size", "512MB")
                 .put("hive.skip-empty-files", "true")
                 .put("hive.legacy-timestamp-bucketing", "true")
                 .build();
@@ -313,7 +309,6 @@ public class TestHiveClientConfig
                 .setMaxInitialSplitSize(new DataSize(16, Unit.MEGABYTE))
                 .setSplitLoaderConcurrency(1)
                 .setDomainCompactionThreshold(42)
-                .setWriterSortBufferSize(new DataSize(13, Unit.MEGABYTE))
                 .setMaxConcurrentFileRenames(100)
                 .setMaxConcurrentZeroRowFileCreations(100)
                 .setRecursiveDirWalkerEnabled(true)
@@ -331,7 +326,6 @@ public class TestHiveClientConfig
                 .setInsertOverwriteImmutablePartitionEnabled(true)
                 .setFailFastOnInsertIntoImmutablePartitionsEnabled(false)
                 .setMaxPartitionsPerWriter(222)
-                .setMaxOpenSortFiles(333)
                 .setWriteValidationThreads(11)
                 .setDomainSocketPath("/foo")
                 .setS3FileSystemType(S3FileSystemType.EMRFS)
@@ -403,6 +397,7 @@ public class TestHiveClientConfig
                 .setUseRecordPageSourceForCustomSplit(false)
                 .setFileSplittable(false)
                 .setHudiMetadataEnabled(true)
+                .setHudiTablesUseMergedView("default.user")
                 .setThriftProtocol(Protocol.COMPACT)
                 .setThriftBufferSize(new DataSize(256, BYTE))
                 .setCopyOnFirstWriteConfigurationEnabled(false)
@@ -417,10 +412,8 @@ public class TestHiveClientConfig
                 .setParquetQuickStatsFileMetadataFetchTimeout(new Duration(30, TimeUnit.SECONDS))
                 .setMaxConcurrentParquetQuickStatsCalls(399)
                 .setMaxConcurrentQuickStatsCalls(101)
-                .setAffinitySchedulingFileSectionSize(new DataSize(512, MEGABYTE))
                 .setSkipEmptyFilesEnabled(true)
                 .setCteVirtualBucketCount(256)
-                .setAffinitySchedulingFileSectionSize(new DataSize(512, MEGABYTE))
                 .setLegacyTimestampBucketing(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);

@@ -28,6 +28,8 @@ import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.UnknownType;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
@@ -204,10 +206,6 @@ public class ContainerQueryRunnerUtils
             parentDir.mkdirs();
         }
 
-        if (file.exists()) {
-            throw new IOException("File exists: " + filePath);
-        }
-
         try (OutputStreamWriter writer = new OutputStreamWriter(new FileOutputStream(file), StandardCharsets.UTF_8)) {
             for (String key : properties.stringPropertyNames()) {
                 writer.write(key + "=" + properties.getProperty(key) + "\n");
@@ -222,10 +220,6 @@ public class ContainerQueryRunnerUtils
         File parentDir = file.getParentFile();
         if (!parentDir.exists()) {
             parentDir.mkdirs();
-        }
-
-        if (file.exists()) {
-            throw new IOException("File exists: " + filePath);
         }
 
         try (OutputStream output = new FileOutputStream(file);
@@ -251,10 +245,17 @@ public class ContainerQueryRunnerUtils
             String typeName = metaData.getColumnTypeName(i);
 
             if (sqlType == java.sql.Types.ARRAY) {
-                // Get the base type of the array elements
-                String arrayElementTypeName = metaData.getColumnTypeName(i);
-                Type elementType = mapSqlTypeNameToType(arrayElementTypeName);
-                types.add(new ArrayType(elementType));
+                TypeSignature typeSignature = TypeSignature.parseTypeSignature(typeName);
+                List<TypeSignatureParameter> parameters = typeSignature.getParameters();
+
+                if (parameters.size() == 1) {
+                    TypeSignature baseTypeSignature = parameters.get(0).getTypeSignature();
+                    Type elementType = mapSqlTypeNameToType(baseTypeSignature.toString());
+                    types.add(new ArrayType(elementType));
+                }
+                else {
+                    throw new UnsupportedOperationException("Unsupported ARRAY type with multiple parameters: " + typeName);
+                }
             }
             else if (sqlType == java.sql.Types.STRUCT) {
                 // Handle STRUCT types if necessary

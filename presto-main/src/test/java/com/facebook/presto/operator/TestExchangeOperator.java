@@ -93,8 +93,7 @@ public class TestExchangeOperator
                 new Duration(1, TimeUnit.MINUTES),
                 true,
                 0.2,
-                httpClient,
-                new TestingDriftClient<>(),
+                new HttpShuffleClientProvider(httpClient),
                 scheduler,
                 systemMemoryUsageListener,
                 pageBufferClientCallbackExecutor);
@@ -263,7 +262,7 @@ public class TestExchangeOperator
                 .addDriverContext();
 
         SourceOperator operator = operatorFactory.createOperator(driverContext);
-        assertEquals(operator.getOperatorContext().getOperatorStats().getSystemMemoryReservation().toBytes(), 0);
+        assertEquals(operator.getOperatorContext().getOperatorStats().getSystemMemoryReservationInBytes(), 0);
         return operator;
     }
 
@@ -318,7 +317,7 @@ public class TestExchangeOperator
             assertPageEquals(TYPES, page, PAGE);
         }
 
-        assertEquals(operator.getOperatorContext().getOperatorStats().getSystemMemoryReservation().toBytes(), 0);
+        assertEquals(operator.getOperatorContext().getOperatorStats().getSystemMemoryReservationInBytes(), 0);
 
         return outputPages;
     }
@@ -341,6 +340,6 @@ public class TestExchangeOperator
         assertEquals(operator.isFinished(), true);
         assertEquals(operator.needsInput(), false);
         assertNull(operator.getOutput());
-        assertEquals(operator.getOperatorContext().getOperatorStats().getSystemMemoryReservation().toBytes(), 0);
+        assertEquals(operator.getOperatorContext().getOperatorStats().getSystemMemoryReservationInBytes(), 0);
     }
 }

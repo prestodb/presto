@@ -43,6 +43,7 @@ import com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil;
 import com.facebook.presto.hive.statistics.HiveStatisticsProvider;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorDeleteTableHandle;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
@@ -333,6 +334,8 @@ import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewSta
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.NOT_MATERIALIZED;
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.PARTIALLY_MATERIALIZED;
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.TOO_MANY_PARTITIONS_MISSING;
+import static com.facebook.presto.spi.PartitionedTableWritePolicy.MULTIPLE_WRITERS_PER_PARTITION_ALLOWED;
+import static com.facebook.presto.spi.PartitionedTableWritePolicy.SINGLE_WRITER_PER_PARTITION_REQUIRED;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_ANALYZE_PROPERTY;
@@ -562,7 +565,7 @@ public class HiveMetadata
         }
         Map<String, String> sortedTableParameters = ImmutableSortedMap.copyOf(table.get().getParameters());
         List<ColumnMetadata> columns = sortedTableParameters.keySet().stream()
-                .map(key -> new ColumnMetadata(key, VARCHAR))
+                .map(key -> ColumnMetadata.builder().setName(key).setType(VARCHAR).build())
                 .collect(toImmutableList());
         List<Type> types = columns.stream()
                 .map(ColumnMetadata::getType)
@@ -594,11 +597,12 @@ public class HiveMetadata
                 .collect(toImmutableList());
 
         List<ColumnMetadata> partitionSystemTableColumns = partitionColumns.stream()
-                .map(column -> new ColumnMetadata(
-                        column.getName(),
-                        typeManager.getType(column.getTypeSignature()),
-                        column.getComment().orElse(null),
-                        column.isHidden()))
+                .map(column -> ColumnMetadata.builder()
+                        .setName(column.getName())
+                        .setType(typeManager.getType(column.getTypeSignature()))
+                        .setComment(column.getComment().orElse(null))
+                        .setHidden(column.isHidden())
+                        .build())
                 .collect(toImmutableList());
 
         Map<Integer, HiveColumnHandle> fieldIdToColumnHandle =
@@ -886,7 +890,7 @@ public class HiveMetadata
                 .transform(subfield -> isEntireColumn(subfield) ? subfield.getRootName() : null)
                 .transform(allColumns::get)));
 
-        SubfieldExtractor subfieldExtractor = new SubfieldExtractor(functionResolution, rowExpressionService.getExpressionOptimizer(), session);
+        SubfieldExtractor subfieldExtractor = new SubfieldExtractor(functionResolution, rowExpressionService.getExpressionOptimizer(session), session);
 
         RowExpression domainPredicate = rowExpressionService.getDomainTranslator().toPredicate(
                 hiveLayoutHandle.getDomainPredicate()
@@ -930,7 +934,7 @@ public class HiveMetadata
     @Override
     public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
     {
-        Optional<String> location = HiveSchemaProperties.getLocation(properties).map(locationUri -> {
+        Optional<String> location = SchemaProperties.getLocation(properties).map(locationUri -> {
             try {
                 hdfsEnvironment.getFileSystem(new HdfsContext(session, schemaName), new Path(locationUri));
             }
@@ -1420,7 +1424,7 @@ public class HiveMetadata
         }
 
         MetastoreContext metastoreContext = getMetastoreContext(session);
-        metastore.addColumn(metastoreContext, handle.getSchemaName(), handle.getTableName(), column.getName(), toHiveType(typeTranslator, column.getType()), column.getComment());
+        metastore.addColumn(metastoreContext, handle.getSchemaName(), handle.getTableName(), column.getName(), toHiveType(typeTranslator, column.getType()), column.getComment().orElse(null));
     }
 
     @Override
@@ -1720,7 +1724,7 @@ public class HiveMetadata
             HiveBasicStatistics basicStatistics = partitionUpdates.stream()
                     .map(PartitionUpdate::getStatistics)
                     .reduce((first, second) -> reduce(first, second, ADD))
-                    .orElse(createZeroStatistics());
+                    .orElseGet(() -> createZeroStatistics());
             tableStatistics = createPartitionStatistics(session, basicStatistics, columnTypes, getColumnStatistics(partitionComputedStatistics, ImmutableList.of()), timeZone);
         }
         else {
@@ -2515,7 +2519,7 @@ public class HiveMetadata
     }
 
     @Override
-    public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public ConnectorDeleteTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector only supports delete where one or more partitions are deleted entirely");
     }
@@ -2995,7 +2999,7 @@ public class HiveMetadata
 
         Optional<HiveBucketHandle> hiveBucketHandle = getHiveBucketHandle(session, table);
         if (!hiveBucketHandle.isPresent()) {
-            if (!isShufflePartitionedColumnsForTableWriteEnabled(session) || table.getPartitionColumns().isEmpty()) {
+            if (table.getPartitionColumns().isEmpty()) {
                 return Optional.empty();
             }
 
@@ -3010,7 +3014,10 @@ public class HiveMetadata
                     .map(Column::getName)
                     .collect(toList());
 
-            return Optional.of(new ConnectorNewTableLayout(partitioningHandle, partitionedBy));
+            return Optional.of(new ConnectorNewTableLayout(
+                    partitioningHandle,
+                    partitionedBy,
+                    isShufflePartitionedColumnsForTableWriteEnabled(session) ? SINGLE_WRITER_PER_PARTITION_REQUIRED : MULTIPLE_WRITERS_PER_PARTITION_ALLOWED));
         }
         HiveBucketProperty bucketProperty = table.getStorage().getBucketProperty()
                 .orElseThrow(() -> new NoSuchElementException("Bucket property should be set"));
@@ -3055,7 +3062,7 @@ public class HiveMetadata
         Optional<HiveBucketProperty> bucketProperty = getBucketProperty(tableMetadata.getProperties());
         if (!bucketProperty.isPresent()) {
             List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
-            if (!isShufflePartitionedColumnsForTableWriteEnabled(session) || partitionedBy.isEmpty()) {
+            if (partitionedBy.isEmpty()) {
                 return Optional.empty();
             }
 
@@ -3074,7 +3081,10 @@ public class HiveMetadata
                             .collect(toList()),
                     OptionalInt.empty());
 
-            return Optional.of(new ConnectorNewTableLayout(partitioningHandle, partitionedBy));
+            return Optional.of(new ConnectorNewTableLayout(
+                    partitioningHandle,
+                    partitionedBy,
+                    isShufflePartitionedColumnsForTableWriteEnabled(session) ? SINGLE_WRITER_PER_PARTITION_REQUIRED : MULTIPLE_WRITERS_PER_PARTITION_ALLOWED));
         }
         checkArgument(bucketProperty.get().getBucketFunctionType().equals(BucketFunctionType.HIVE_COMPATIBLE),
                 "bucketFunctionType is expected to be HIVE_COMPATIBLE, got: %s",
@@ -3180,14 +3190,14 @@ public class HiveMetadata
     public void grantRoles(ConnectorSession session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor)
     {
         MetastoreContext metastoreContext = getMetastoreContext(session);
-        metastore.grantRoles(metastoreContext, roles, grantees, withAdminOption, grantor.orElse(new PrestoPrincipal(USER, session.getUser())));
+        metastore.grantRoles(metastoreContext, roles, grantees, withAdminOption, grantor.orElseGet(() -> new PrestoPrincipal(USER, session.getUser())));
     }
 
     @Override
     public void revokeRoles(ConnectorSession session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor)
     {
         MetastoreContext metastoreContext = getMetastoreContext(session);
-        metastore.revokeRoles(metastoreContext, roles, grantees, adminOptionFor, grantor.orElse(new PrestoPrincipal(USER, session.getUser())));
+        metastore.revokeRoles(metastoreContext, roles, grantees, adminOptionFor, grantor.orElseGet(() -> new PrestoPrincipal(USER, session.getUser())));
     }
 
     @Override
@@ -3580,7 +3590,7 @@ public class HiveMetadata
                     column.getType().getTypeSignature(),
                     ordinal,
                     columnType,
-                    Optional.ofNullable(column.getComment()),
+                    column.getComment(),
                     Optional.empty()));
             ordinal++;
         }
@@ -3647,14 +3657,15 @@ public class HiveMetadata
 
         Map<String, Optional<String>> typeMetadata = typeMetadataBuilder.build();
 
-        return handle -> new ColumnMetadata(
-                handle.getName(),
-                typeManager.getType(columnConverter.getTypeSignature(handle.getHiveType(), typeMetadata.getOrDefault(handle.getName(), Optional.empty()))),
-                !notNullColumns.contains(handle.getName()),
-                columnComment.get(handle.getName()).orElse(null),
-                columnExtraInfo(handle.isPartitionKey()),
-                handle.isHidden(),
-                ImmutableMap.of());
+        return handle -> ColumnMetadata.builder()
+                .setName(handle.getName())
+                .setType(typeManager.getType(columnConverter.getTypeSignature(handle.getHiveType(), typeMetadata.getOrDefault(handle.getName(), Optional.empty()))))
+                .setNullable(!notNullColumns.contains(handle.getName()))
+                .setComment(columnComment.get(handle.getName()).orElse(null))
+                .setExtraInfo(columnExtraInfo(handle.isPartitionKey()))
+                .setHidden(handle.isHidden())
+                .setProperties(ImmutableMap.of())
+                .build();
     }
 
     @Override

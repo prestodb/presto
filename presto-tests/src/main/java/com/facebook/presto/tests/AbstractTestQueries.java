@@ -2789,6 +2789,28 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testUse()
+    {
+        Session sessionWithDefaultCatalogAndSchema = getSession();
+        String catalog = sessionWithDefaultCatalogAndSchema.getCatalog().get();
+        String schema = sessionWithDefaultCatalogAndSchema.getSchema().get();
+
+        assertQueryFails(sessionWithDefaultCatalogAndSchema, "USE non_exist_schema", format("Schema does not exist: %s.non_exist_schema", catalog));
+        assertQueryFails(sessionWithDefaultCatalogAndSchema, "USE non_exist_catalog.any_schema", "Catalog does not exist: non_exist_catalog");
+        assertQueryFails(sessionWithDefaultCatalogAndSchema, format("USE %s.non_exist_schema", catalog), format("Schema does not exist: %s.non_exist_schema", catalog));
+        assertUpdate(sessionWithDefaultCatalogAndSchema, format("USE %s.%s", catalog, schema));
+
+        Session sessionWithoutDefaultCatalogAndSchema = Session.builder(getSession())
+                .setCatalog(null)
+                .setSchema(null)
+                .build();
+        assertQueryFails(sessionWithoutDefaultCatalogAndSchema, "USE any_schema", ".* Catalog must be specified when session catalog is not set");
+        assertQueryFails(sessionWithoutDefaultCatalogAndSchema, "USE non_exist_catalog.any_schema", "Catalog does not exist: non_exist_catalog");
+        assertQueryFails(sessionWithoutDefaultCatalogAndSchema, format("USE %s.non_exist_schema", catalog), format("Schema does not exist: %s.non_exist_schema", catalog));
+        assertUpdate(sessionWithoutDefaultCatalogAndSchema, format("USE %s.%s", catalog, schema));
+    }
+
+    @Test
     public void testShowSchemasLike()
     {
         MaterializedResult result = computeActual(format("SHOW SCHEMAS LIKE '%s'", getSession().getSchema().get()));
@@ -3212,6 +3234,36 @@ public abstract class AbstractTestQueries
 
         // test try with null
         assertQuery("SELECT TRY(1 / x) FROM (SELECT NULL as x)", "SELECT NULL");
+
+        // Test try with map method and value parameter is optional and argument is an array with null,
+        // the error should be suppressed and just return null.
+        assertQuery("SELECT\n" +
+                "    TRY(map_keys_by_top_n_values(c0, BIGINT '6455219767830808341'))\n" +
+                "FROM (\n" +
+                "    VALUES\n" +
+                "        MAP(\n" +
+                "            ARRAY[1, 2], ARRAY[\n" +
+                "                ARRAY[1, null],\n" +
+                "                ARRAY[1, null]\n" +
+                "            ]\n" +
+                "        )\n" +
+                ") t(c0)", "SELECT NULL");
+
+        assertQuery("SELECT\n" +
+                "    TRY(map_keys_by_top_n_values(c0, BIGINT '6455219767830808341'))\n" +
+                "FROM (\n" +
+                "    VALUES\n" +
+                "        MAP(\n" +
+                "            ARRAY[1, 2], ARRAY[\n" +
+                "                ARRAY[null, null],\n" +
+                "                ARRAY[1, 2]\n" +
+                "            ]\n" +
+                "        )\n" +
+                ") t(c0)", "SELECT NULL");
+
+        // Test try with array method with an input array containing null values.
+        // the error should be suppressed and just return null.
+        assertQuery("SELECT TRY(ARRAY_MAX(ARRAY [ARRAY[1, NULL], ARRAY[1, 2]]))", "SELECT NULL");
     }
 
     @Test

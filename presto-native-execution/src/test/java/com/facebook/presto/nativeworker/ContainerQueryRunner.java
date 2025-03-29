@@ -23,6 +23,7 @@ import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
+import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
 import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManager;
@@ -30,26 +31,26 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestingAccessControlManager;
 import com.facebook.presto.transaction.TransactionManager;
-import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.wait.strategy.Wait;
+import org.testcontainers.utility.MountableFile;
 
 import java.io.IOException;
 import java.sql.Connection;
-import java.sql.DriverManager;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.logging.Logger;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static java.sql.DriverManager.getConnection;
 
 public class ContainerQueryRunner
         implements QueryRunner
@@ -72,7 +73,6 @@ public class ContainerQueryRunner
     private final String schema;
     private final int numberOfWorkers;
     private Connection connection;
-    private Statement statement;
 
     public ContainerQueryRunner()
             throws InterruptedException, IOException
@@ -97,19 +97,20 @@ public class ContainerQueryRunner
         coordinator.start();
         workers.forEach(GenericContainer::start);
 
-        logger.info("Presto UI is accessible at http://localhost:" + coordinator.getMappedPort(coordinatorPort));
-
         TimeUnit.SECONDS.sleep(5);
 
-        String url = String.format("jdbc:presto://localhost:%s/%s/%s?%s",
+        String dockerHostIp = coordinator.getHost();
+        logger.info("Presto UI is accessible at http://" + dockerHostIp + ":" + coordinator.getMappedPort(coordinatorPort));
+
+        String url = String.format("jdbc:presto://%s:%s/%s/%s?%s",
+                dockerHostIp,
                 coordinator.getMappedPort(coordinatorPort),
                 catalog,
                 schema,
                 "timeZoneId=UTC");
 
         try {
-            Connection connection = DriverManager.getConnection(url, "test", null);
-            statement = connection.createStatement();
+            connection = getConnection(url, "test", null);
         }
         catch (SQLException e) {
             throw new RuntimeException(e);
@@ -134,9 +135,10 @@ public class ContainerQueryRunner
 
         return new GenericContainer<>(PRESTO_COORDINATOR_IMAGE)
                 .withExposedPorts(coordinatorPort)
-                .withNetwork(network).withNetworkAliases("presto-coordinator")
-                .withFileSystemBind(BASE_DIR + "/testcontainers/coordinator/etc", "/opt/presto-server/etc", BindMode.READ_WRITE)
-                .withFileSystemBind(BASE_DIR + "/testcontainers/coordinator/entrypoint.sh", "/opt/entrypoint.sh", BindMode.READ_ONLY)
+                .withNetwork(network)
+                .withNetworkAliases("presto-coordinator")
+                .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/coordinator/etc"), "/opt/presto-server/etc")
+                .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/coordinator/entrypoint.sh"), "/opt/entrypoint.sh")
                 .waitingFor(Wait.forLogMessage(".*======== SERVER STARTED ========.*", 1))
                 .withStartupTimeout(Duration.ofSeconds(Long.parseLong(CONTAINER_TIMEOUT)));
     }
@@ -151,9 +153,10 @@ public class ContainerQueryRunner
         ContainerQueryRunnerUtils.createNativeWorkerVeloxProperties(nodeId);
         return new GenericContainer<>(PRESTO_WORKER_IMAGE)
                 .withExposedPorts(port)
-                .withNetwork(network).withNetworkAliases(nodeId)
-                .withFileSystemBind(BASE_DIR + "/testcontainers/" + nodeId + "/etc", "/opt/presto-server/etc", BindMode.READ_ONLY)
-                .withFileSystemBind(BASE_DIR + "/testcontainers/" + nodeId + "/entrypoint.sh", "/opt/entrypoint.sh", BindMode.READ_ONLY)
+                .withNetwork(network)
+                .withNetworkAliases(nodeId)
+                .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/" + nodeId + "/etc"), "/opt/presto-server/etc")
+                .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/" + nodeId + "/entrypoint.sh"), "/opt/entrypoint.sh")
                 .waitingFor(Wait.forLogMessage(".*Announcement succeeded: HTTP 202.*", 1));
     }
 
@@ -219,13 +222,19 @@ public class ContainerQueryRunner
     }
 
     @Override
-    public Optional<EventListener> getEventListener()
+    public List<EventListener> getEventListeners()
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
     public TestingAccessControlManager getAccessControl()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ExpressionOptimizerManager getExpressionManager()
     {
         throw new UnsupportedOperationException();
     }
@@ -297,12 +306,12 @@ public class ContainerQueryRunner
     public MaterializedResult execute(Session session, String sql)
     {
         try {
-            return ContainerQueryRunnerUtils
-                    .toMaterializedResult(
-                            statement.executeQuery(sql));
+            Statement statement = connection.createStatement();
+            ResultSet resultSet = statement.executeQuery(sql);
+            return ContainerQueryRunnerUtils.toMaterializedResult(resultSet);
         }
         catch (SQLException e) {
-            throw new RuntimeException(e);
+            throw new RuntimeException("Error executing query: " + sql, e);
         }
     }
 }

@@ -310,14 +310,6 @@ public class PrestoSparkRunner
             return prestoSparkService.getTaskExecutorFactory();
         }
 
-        @Override
-        public IPrestoSparkTaskExecutorFactory getNative()
-        {
-            checkState(TaskContext.get() != null, "this method is expected to be called only from the main task thread on the spark executor");
-            IPrestoSparkService prestoSparkService = getOrCreatePrestoSparkService();
-            return prestoSparkService.getNativeTaskExecutorFactory();
-        }
-
         private static IPrestoSparkService service;
         private static String currentPackagePath;
         private static Map<String, String> currentConfigProperties;

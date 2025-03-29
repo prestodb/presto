@@ -20,6 +20,8 @@ import com.google.inject.Inject;
 
 import javax.annotation.security.PermitAll;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
@@ -27,6 +29,7 @@ import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
 
+import java.io.IOException;
 import java.net.URI;
 
 import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
@@ -59,6 +62,15 @@ public class RouterResource
         URI statementUri = uriBuilderFrom(coordinatorUri).replacePath("/v1/statement").build();
         log.info("route query to %s", statementUri);
         return Response.temporaryRedirect(statementUri).build();
+    }
+
+    @GET
+    @Path("/")
+    public void rootRedirect(@Context HttpServletRequest servletRequest, @Context HttpServletResponse servletResponse)
+            throws IOException
+    {
+        log.info("redirecting to UI");
+        servletResponse.sendRedirect("ui");
     }
 
     private static WebApplicationException badRequest(Response.Status status, String message)

@@ -23,7 +23,7 @@ HTTP endpoints related to tasks are registered to Proxygen in
 Other HTTP endpoints include:
 
 * POST: v1/memory: Reports memory, but no assignments are adjusted unlike in Java workers
-* GET: v1/info/metrics: Returns worker level metrics in Prometheus Data format. Refer section `Worker Metrics Collection <#worker-metrics-collection>`_ for more info. Here is a sample Metrics data returned by this API.
+* GET: v1/info/metrics: Returns worker level metrics in Prometheus Data format. See `Worker Metrics Collection`_ for more information. Here is a sample Metrics data returned by this API.
 
    .. code-block:: text
 
@@ -52,6 +52,30 @@ Other HTTP endpoints include:
 * GET: v1/status: Returns memory pool information.
 
 The request/response flow of Presto C++ is identical to Java workers. The tasks or new splits are registered via `TaskUpdateRequest`. Resource utilization and query progress are sent to the coordinator via task endpoints.
+
+* GET: /v1/operation/server/clearCache?type=memory: It clears the memory cache on worker node. Here is an example:
+
+  .. sourcecode:: http
+
+   curl -X GET "http://localhost:7777/v1/operation/server/clearCache?type=memory"
+
+   Cleared memory cache
+
+* GET: /v1/operation/server/clearCache?type=ssd: It clears the ssd cache on worker node. Here is an example:
+
+  .. sourcecode:: http
+
+   curl -X GET "http://localhost:7777/v1/operation/server/clearCache?type=ssd"
+
+   Cleared ssd cache
+
+* GET: /v1/operation/server/writeSsd: It writes data from memory cache to the ssd cache on worker node. Here is an example:
+
+  .. sourcecode:: http
+
+   curl -X GET "http://localhost:7777/v1/operation/server/writeSsd"
+
+   Succeeded write ssd cache
 
 Remote Function Execution
 -------------------------
@@ -183,17 +207,6 @@ disabled if ``connector.num-io-threads-hw-multiplier`` is set to zero.
 * **Presto on Spark default value:** ``false``
 
 Whether async data cache is enabled.
-
-``query-data-cache-enabled-default``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-* **Type** ``bool``
-* **Default value:** ``true``
-
-If ``true``, SSD cache is enabled by default and is disabled only if
-``node_selection_strategy`` is present and set to ``NO_PREFERENCE``.
-Otherwise, SSD cache is disabled by default and is enabled if
-``node_selection_strategy`` is present and set to ``SOFT_AFFINITY``.
 
 ``async-cache-ssd-gb``
 ^^^^^^^^^^^^^^^^^^^^^^

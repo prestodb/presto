@@ -60,3 +60,6 @@ The following table lists the returned columns and what statistics they represen
     - The highest value found in this column
     - ``NULL`` in the table summary row. Available for columns of DATE, integer, floating-point, and fixed-precision
       data types.
+  * - ``histogram``
+    - The histogram for this column
+    - A summary of the underlying histogram is displayed in a human-readable format. ``NULL`` in the table summary row.

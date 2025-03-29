@@ -25,7 +25,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
-import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
 import java.time.Instant;
@@ -43,7 +42,7 @@ import static com.facebook.airlift.testing.Assertions.assertContains;
 import static com.facebook.presto.hive.CacheQuotaScope.GLOBAL;
 import static com.facebook.presto.hive.CacheQuotaScope.PARTITION;
 import static com.facebook.presto.hive.CacheQuotaScope.TABLE;
-import static com.facebook.presto.hive.HiveSessionProperties.getAffinitySchedulingFileSectionSize;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.getAffinitySchedulingFileSectionSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
@@ -150,7 +149,7 @@ public class TestHiveSplitSource
 
         // larger than the section size
         DataSize fileSize = new DataSize(sectionSize.toBytes() * 3, BYTE);
-        hiveSplitSource.addToQueue(new TestSplit("test-relative-path", 1, OptionalInt.empty(), fileSize, SOFT_AFFINITY));
+        hiveSplitSource.addToQueue(new TestSplit("/test-relative-path", 1, OptionalInt.empty(), fileSize, SOFT_AFFINITY));
         hiveSplitSource.noMoreSplits();
 
         List<HiveSplit> splits = new ArrayList<>();
@@ -584,13 +583,14 @@ public class TestHiveSplitSource
 
         private TestSplit(int id, OptionalInt bucketNumber, DataSize fileSize)
         {
-            this("path", id, bucketNumber, fileSize, NO_PREFERENCE);
+            this("/test-relative-path", id, bucketNumber, fileSize, NO_PREFERENCE);
         }
 
         private TestSplit(String path, int id, OptionalInt bucketNumber, DataSize fileSize, NodeSelectionStrategy nodeSelectionStrategy)
         {
             super(
                     path,
+                    true,
                     0,
                     fileSize.toBytes(),
                     fileSize.toBytes(),
@@ -609,7 +609,7 @@ public class TestHiveSplitSource
                                     false,
                                     ImmutableMap.of(),
                                     ImmutableMap.of()),
-                            new Path("path").toUri(),
+                            "path",
                             ImmutableList.of(),
                             "partition-name",
                             id,

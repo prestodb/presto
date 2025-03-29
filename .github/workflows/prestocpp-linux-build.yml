@@ -1,0 +1,88 @@
+name: prestocpp-linux-build
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'presto-native-execution/**'
+      - '.github/workflows/prestocpp-linux-build.yml'
+
+jobs:
+  prestocpp-linux-build-engine:
+    runs-on: ubuntu-22.04
+    container:
+      image: prestodb/presto-native-dependency:0.292-20250204112033-cf8ba84
+    env:
+      CCACHE_DIR: "${{ github.workspace }}/ccache"
+      CC: /usr/bin/clang-15
+      CXX: /usr/bin/clang++-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fix git permissions
+        # Usually actions/checkout does this but as we run in a container
+        # it doesn't work
+        run: git config --global --add safe.directory ${GITHUB_WORKSPACE}
+
+      - name: Update velox
+        run: |
+          cd presto-native-execution
+          make velox-submodule
+
+      - name: Install Github CLI for using apache/infrastructure-actions/stash
+        run: |
+          curl -L https://github.com/cli/cli/releases/download/v2.63.2/gh_2.63.2_linux_amd64.rpm > gh_2.63.2_linux_amd64.rpm
+          rpm -iv gh_2.63.2_linux_amd64.rpm
+
+      - uses: apache/infrastructure-actions/stash/restore@4ab8682fbd4623d2b4fc1c98db38aba5091924c3
+        with:
+          path: '${{ env.CCACHE_DIR }}'
+          key: ccache-prestocpp-linux-build-engine
+
+      - name: Zero ccache statistics
+        run: ccache -sz
+
+      - name: Remove files not needed for the build
+        run: |
+          find . -name data | xargs rm -r
+          find . -name tests | xargs rm -r
+          find . -name test | xargs rm -rf
+
+      - name: Disk space consumption before build
+        run: df
+
+      - name: Build engine
+        run: |
+          cd presto-native-execution
+          cmake \
+            -B _build/debug \
+            -GNinja \
+            -DTREAT_WARNINGS_AS_ERRORS=1 \
+            -DENABLE_ALL_WARNINGS=1 \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DPRESTO_ENABLE_PARQUET=ON \
+            -DPRESTO_ENABLE_S3=ON \
+            -DPRESTO_ENABLE_GCS=ON \
+            -DPRESTO_ENABLE_ABFS=OFF \
+            -DPRESTO_ENABLE_HDFS=ON \
+            -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON \
+            -DPRESTO_ENABLE_JWT=ON \
+            -DPRESTO_STATS_REPORTER_TYPE=PROMETHEUS \
+            -DPRESTO_MEMORY_CHECKER_TYPE=LINUX_MEMORY_CHECKER \
+            -DPRESTO_ENABLE_TESTING=OFF \
+            -DCMAKE_PREFIX_PATH=/usr/local \
+            -DThrift_ROOT=/usr/local \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DMAX_LINK_JOBS=4
+          ninja -C _build/debug -j 4
+
+      - name: Disk space consumption after build
+        run: df
+
+      - name: Ccache after
+        run: ccache -s
+
+      - uses: apache/infrastructure-actions/stash/save@4ab8682fbd4623d2b4fc1c98db38aba5091924c3
+        with:
+          path: '${{ env.CCACHE_DIR }}'
+          key: ccache-prestocpp-linux-build-engine

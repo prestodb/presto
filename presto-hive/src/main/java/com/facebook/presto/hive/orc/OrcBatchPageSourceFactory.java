@@ -241,7 +241,7 @@ public class OrcBatchPageSourceFactory
                     systemMemoryUsage,
                     INITIAL_BATCH_SIZE);
 
-            byte[] partitionID = rowIDPartitionComponent.orElse(new byte[0]);
+            byte[] partitionID = rowIDPartitionComponent.orElseGet(() -> new byte[0]);
             String rowGroupID = path.getName();
 
             // none of the columns are row numbers

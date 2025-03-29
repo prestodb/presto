@@ -1,5 +1,5 @@
 import { createRoot } from 'react-dom/client';
-import { QueryViewer } from "./components/QueryViewer";
+import QueryViewer from "./components/QueryViewer";
 import { PageTitle } from "./components/PageTitle";
 
 const title = createRoot(document.getElementById('title'));

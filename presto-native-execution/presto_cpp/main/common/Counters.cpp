@@ -32,6 +32,17 @@ void registerPrestoMetrics() {
   DEFINE_METRIC(kCounterHTTPRequestLatencyMs, facebook::velox::StatType::AVG);
   DEFINE_METRIC(
       kCounterHttpClientNumConnectionsCreated, facebook::velox::StatType::SUM);
+  // Tracks http client transaction create delay in range of [0, 30s] with
+  // 30 buckets and reports P50, P90, P99, and P100.
+  DEFINE_HISTOGRAM_METRIC(
+      kCounterHTTPClientTransactionCreateDelay,
+      1'000,
+      0,
+      30'000,
+      50,
+      90,
+      99,
+      100);
   DEFINE_METRIC(kCounterNumQueryContexts, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterNumTasks, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterNumTasksBytesProcessed, facebook::velox::StatType::AVG);
@@ -72,8 +83,6 @@ void registerPrestoMetrics() {
   DEFINE_METRIC(
       kCounterNumBlockedWaitForConnectorDrivers,
       facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
-      kCounterNumBlockedWaitForSpillDrivers, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterNumBlockedYieldDrivers, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterNumStuckDrivers, facebook::velox::StatType::AVG);
   DEFINE_METRIC(
@@ -97,6 +106,29 @@ void registerPrestoMetrics() {
       50,
       90,
       95,
+      99,
+      100);
+
+  // Tracks exchange request duration in range of [0, 300s] with
+  // 300 buckets and reports P50, P90, P99, and P100.
+  DEFINE_HISTOGRAM_METRIC(
+      kCounterExchangeRequestDuration,
+      1'000,
+      0,
+      300'000,
+      50,
+      90,
+      99,
+      100);
+  // Tracks exchange request num of retris in range of [0, 20] with
+  // 20 buckets and reports P50, P90, P99, and P100.
+  DEFINE_HISTOGRAM_METRIC(
+      kCounterExchangeRequestNumTries,
+      1,
+      0,
+      20,
+      50,
+      90,
       99,
       100);
   DEFINE_METRIC(kCounterMemoryPushbackCount, facebook::velox::StatType::COUNT);

@@ -18,9 +18,9 @@
 #include "folly/experimental/EventCount.h"
 #include "presto_cpp/main/PrestoExchangeSource.h"
 #include "presto_cpp/main/TaskResource.h"
+#include "presto_cpp/main/connectors/PrestoToVeloxConnector.h"
 #include "presto_cpp/main/tests/HttpServerWrapper.h"
 #include "presto_cpp/main/tests/MultableConfigs.h"
-#include "presto_cpp/main/types/PrestoToVeloxConnector.h"
 #include "velox/common/base/Fs.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/file/FileSystems.h"
@@ -101,7 +101,7 @@ int64_t sumOpSpillBytes(
       if (opStats.operatorType != opType) {
         continue;
       }
-      sum += opStats.spilledDataSize.getValue(protocol::DataUnit::BYTE);
+      sum += opStats.spilledDataSizeInBytes;
     }
   }
   return sum;
@@ -156,7 +156,9 @@ class Cursor {
     std::vector<ByteRange> byteRanges;
     for (auto& range : *buffer) {
       byteRanges.emplace_back(ByteRange{
-          const_cast<uint8_t*>(range.data()), (int32_t)range.size(), 0});
+          const_cast<uint8_t*>(range.data()),
+          static_cast<int32_t>(range.size()),
+          0});
     }
 
     const auto input =
@@ -165,7 +167,8 @@ class Cursor {
     std::vector<RowVectorPtr> vectors;
     while (!input->atEnd()) {
       RowVectorPtr vector;
-      VectorStreamGroup::read(input.get(), pool_, rowType_, serde, &vector);
+      VectorStreamGroup::read(
+          input.get(), pool_, rowType_, serde, &vector, nullptr);
       vectors.emplace_back(vector);
     }
     return vectors;
@@ -585,7 +588,7 @@ class TaskManagerTest : public exec::test::OperatorTestBase,
       EXPECT_TRUE(resultsOrFailures.status != nullptr);
       EXPECT_EQ(resultsOrFailures.status->state, protocol::TaskState::FAILED);
       for (const auto& taskId : allTaskIds) {
-        taskManager_->deleteTask(taskId, true);
+        taskManager_->deleteTask(taskId, true, true);
       }
     }
 
@@ -665,12 +668,13 @@ class TaskManagerTest : public exec::test::OperatorTestBase,
   std::unique_ptr<protocol::TaskInfo> createOrUpdateTask(
       const protocol::TaskId& taskId,
       const protocol::TaskUpdateRequest& updateRequest,
-      const core::PlanFragment& planFragment) {
+      const core::PlanFragment& planFragment,
+      bool summarize = true) {
     auto queryCtx =
         taskManager_->getQueryContextManager()->findOrCreateQueryCtx(
-            taskId, updateRequest.session);
+            taskId, updateRequest);
     return taskManager_->createOrUpdateTask(
-        taskId, updateRequest, planFragment, std::move(queryCtx), 0);
+        taskId, updateRequest, planFragment, summarize, std::move(queryCtx), 0);
   }
 
   RowTypePtr rowType_;
@@ -726,6 +730,7 @@ TEST_P(TaskManagerTest, tableScanAllSplitsAtOnce) {
       makeSource("0", filePaths, true, splitSequenceId));
   auto taskInfo = createOrUpdateTask(taskId, updateRequest, planFragment);
 
+  ASSERT_GT(taskInfo->stats.queuedTimeInNanos, 0);
   assertResults(taskId, rowType_, "SELECT * FROM tmp WHERE c0 % 5 = 0");
 }
 
@@ -877,8 +882,9 @@ TEST_P(TaskManagerTest, taskCleanupWithPendingResultData) {
           .getVia(folly::EventBaseManager::get()->getEventBase());
 
   std::exception e;
-  taskManager_->createOrUpdateErrorTask(taskId, std::make_exception_ptr(e), 0);
-  taskManager_->deleteTask(taskId, true);
+  taskManager_->createOrUpdateErrorTask(
+      taskId, std::make_exception_ptr(e), true, 0);
+  taskManager_->deleteTask(taskId, true, true);
   for (int i = 0; i < 10; ++i) {
     // 'results' holds a reference on the presto task which prevents the old
     // task cleanup.
@@ -926,12 +932,13 @@ TEST_P(TaskManagerTest, tableScanOneSplitAtATime) {
 
     protocol::TaskUpdateRequest updateRequest;
     updateRequest.sources.push_back(source);
-    taskManager_->createOrUpdateTask(taskId, updateRequest, {}, nullptr, 0);
+    taskManager_->createOrUpdateTask(
+        taskId, updateRequest, {}, true, nullptr, 0);
   }
 
   protocol::TaskUpdateRequest updateRequest;
   updateRequest.sources.push_back(makeSource("0", {}, true, splitSequenceId));
-  taskManager_->createOrUpdateTask(taskId, updateRequest, {}, nullptr, 0);
+  taskManager_->createOrUpdateTask(taskId, updateRequest, {}, true, nullptr, 0);
 
   assertResults(taskId, rowType_, "SELECT * FROM tmp WHERE c0 % 5 = 1");
 }
@@ -1215,6 +1222,11 @@ TEST_P(TaskManagerTest, timeoutOutOfOrderRequests) {
           .getVia(eventBase));
 }
 
+TEST_P(TaskManagerTest, getBaseSpillDirectory) {
+  taskManager_->setBaseSpillDirectory("dummy");
+  EXPECT_EQ("dummy", taskManager_->getBaseSpillDirectory());
+}
+
 TEST_P(TaskManagerTest, aggregationSpill) {
   // NOTE: we need to write more than one batches to each file (source split) to
   // trigger spill.
@@ -1262,11 +1274,15 @@ TEST_P(TaskManagerTest, aggregationSpill) {
 
 TEST_P(TaskManagerTest, buildTaskSpillDirectoryPath) {
   EXPECT_EQ(
-      "fs::/base/presto_native/192.168.10.2_19/2022-12-20/20221220-Q/Task1/",
+      std::make_tuple(
+          "fs::/base/presto_native/192.168.10.2_19/2022-12-20/20221220-Q/Task1/",
+          "fs::/base/presto_native/192.168.10.2_19/2022-12-20/"),
       TaskManager::buildTaskSpillDirectoryPath(
           "fs::/base", "192.168.10.2", "19", "20221220-Q", "Task1", true));
   EXPECT_EQ(
-      "fsx::/root/presto_native/192.16.10.2_sample_node_id/1970-01-01/Q100/Task22/",
+      std::make_tuple(
+          "fsx::/root/presto_native/192.16.10.2_sample_node_id/1970-01-01/Q100/Task22/",
+          "fsx::/root/presto_native/192.16.10.2_sample_node_id/1970-01-01/"),
       TaskManager::buildTaskSpillDirectoryPath(
           "fsx::/root",
           "192.16.10.2",
@@ -1274,12 +1290,17 @@ TEST_P(TaskManagerTest, buildTaskSpillDirectoryPath) {
           "Q100",
           "Task22",
           true));
+
   EXPECT_EQ(
-      "fs::/base/presto_native/2022-12-20/20221220-Q/Task1/",
+      std::make_tuple(
+          "fs::/base/presto_native/2022-12-20/20221220-Q/Task1/",
+          "fs::/base/presto_native/2022-12-20/"),
       TaskManager::buildTaskSpillDirectoryPath(
           "fs::/base", "192.168.10.2", "19", "20221220-Q", "Task1", false));
   EXPECT_EQ(
-      "fsx::/root/presto_native/1970-01-01/Q100/Task22/",
+      std::make_tuple(
+          "fsx::/root/presto_native/1970-01-01/Q100/Task22/",
+          "fsx::/root/presto_native/1970-01-01/"),
       TaskManager::buildTaskSpillDirectoryPath(
           "fsx::/root",
           "192.16.10.2",
@@ -1340,7 +1361,8 @@ TEST_P(TaskManagerTest, getDataOnAbortedTask) {
 TEST_P(TaskManagerTest, getResultsFromFailedTask) {
   const protocol::TaskId taskId = "error-task.0.0.0.0";
   std::exception e;
-  taskManager_->createOrUpdateErrorTask(taskId, std::make_exception_ptr(e), 0);
+  taskManager_->createOrUpdateErrorTask(
+      taskId, std::make_exception_ptr(e), true, 0);
 
   // We expect to get empty results, rather than an exception.
   const uint64_t startTimeUs = velox::getCurrentTimeMicro();
@@ -1370,7 +1392,7 @@ TEST_P(TaskManagerTest, getResultsFromFailedTask) {
 TEST_P(TaskManagerTest, getResultsFromAbortedTask) {
   const protocol::TaskId taskId = "aborted-task.0.0.0.0";
   // deleting a non existing task creates an aborted task
-  taskManager_->deleteTask(taskId, true);
+  taskManager_->deleteTask(taskId, true, true);
 
   // We expect to get empty results, rather than an exception.
   const uint64_t startTimeUs = velox::getCurrentTimeMicro();
@@ -1419,7 +1441,7 @@ TEST_P(TaskManagerTest, testCumulativeMemory) {
   veloxTask->start(1);
   prestoTask->taskStarted = true;
 
-  auto outputBufferManager = OutputBufferManager::getInstance().lock();
+  auto outputBufferManager = OutputBufferManager::getInstanceRef();
   ASSERT_TRUE(outputBufferManager != nullptr);
   // Wait until the task has produced all the output buffers so its memory usage
   // stay constant to ease test.
@@ -1434,7 +1456,7 @@ TEST_P(TaskManagerTest, testCumulativeMemory) {
   ASSERT_GT(memoryUsage, 0);
 
   const uint64_t lastTimeMs = velox::getCurrentTimeMs();
-  protocol::TaskInfo prestoTaskInfo = prestoTask->updateInfo();
+  protocol::TaskInfo prestoTaskInfo = prestoTask->updateInfo(true);
   ASSERT_EQ(prestoTaskInfo.stats.userMemoryReservationInBytes, memoryUsage);
   ASSERT_EQ(prestoTaskInfo.stats.systemMemoryReservationInBytes, 0);
   const auto lastCumulativeTotalMemory =
@@ -1453,7 +1475,7 @@ TEST_P(TaskManagerTest, testCumulativeMemory) {
   // bound.
   std::this_thread::sleep_for(std::chrono::milliseconds(1'000));
 
-  prestoTaskInfo = prestoTask->updateInfo();
+  prestoTaskInfo = prestoTask->updateInfo(true);
   // Wait a bit to avoid the timing related flakiness in test check below.
   std::this_thread::sleep_for(std::chrono::milliseconds(1));
   const uint64_t currentTimeMs = velox::getCurrentTimeMs();
@@ -1472,7 +1494,7 @@ TEST_P(TaskManagerTest, testCumulativeMemory) {
 
   veloxTask->requestAbort();
   const auto taskStatus = prestoTask->updateStatus();
-  const auto taskStats = prestoTask->updateInfo().stats;
+  const auto taskStats = prestoTask->updateInfo(true).stats;
   ASSERT_EQ(
       taskStatus.peakNodeTotalMemoryReservationInBytes,
       taskStats.peakNodeTotalMemoryInBytes);
@@ -1515,7 +1537,7 @@ TEST_P(TaskManagerTest, checkBatchSplits) {
       taskManager_->getQueryContextManager()->findOrCreateQueryCtx(taskId, {});
   VELOX_ASSERT_THROW(
       taskManager_->createOrUpdateBatchTask(
-          taskId, {}, planFragment, queryCtx, 0),
+          taskId, {}, planFragment, true, queryCtx, 0),
       "Expected all splits and no-more-splits message for all plan nodes");
 
   // Splits for scan node on the probe side.
@@ -1524,7 +1546,7 @@ TEST_P(TaskManagerTest, checkBatchSplits) {
       makeSource(probeId, {}, true));
   VELOX_ASSERT_THROW(
       taskManager_->createOrUpdateBatchTask(
-          taskId, batchRequest, planFragment, queryCtx, 0),
+          taskId, batchRequest, planFragment, true, queryCtx, 0),
       "Expected all splits and no-more-splits message for all plan nodes: " +
           buildId);
 
@@ -1534,13 +1556,13 @@ TEST_P(TaskManagerTest, checkBatchSplits) {
       makeSource(buildId, {}, false));
   VELOX_ASSERT_THROW(
       taskManager_->createOrUpdateBatchTask(
-          taskId, batchRequest, planFragment, queryCtx, 0),
+          taskId, batchRequest, planFragment, true, queryCtx, 0),
       "Expected no-more-splits message for plan node " + buildId);
 
   // All splits.
   batchRequest.taskUpdateRequest.sources.back().noMoreSplits = true;
   ASSERT_NO_THROW(taskManager_->createOrUpdateBatchTask(
-      taskId, batchRequest, planFragment, queryCtx, 0));
+      taskId, batchRequest, planFragment, true, queryCtx, 0));
   auto resultOrFailure = fetchAllResults(taskId, ROW({BIGINT()}), {});
   ASSERT_EQ(resultOrFailure.status, nullptr);
 }
@@ -1586,7 +1608,7 @@ TEST_P(TaskManagerTest, buildSpillDirectoryFailure) {
       ASSERT_FALSE(veloxTask->spillDirectory().empty());
     }
 
-    taskManager_->deleteTask(taskId, true);
+    taskManager_->deleteTask(taskId, true, true);
     if (!buildSpillDirectoryFailure) {
       auto taskMap = taskManager_->tasks();
       ASSERT_EQ(taskMap.size(), 1);
@@ -1600,6 +1622,80 @@ TEST_P(TaskManagerTest, buildSpillDirectoryFailure) {
     velox::exec::test::waitForAllTasksToBeDeleted(3'000'000);
     ASSERT_TRUE(taskManager_->tasks().empty());
   }
+}
+
+TEST_P(TaskManagerTest, summarize) {
+  const auto tableDir = exec::test::TempDirectoryPath::create();
+  auto filePaths = makeFilePaths(tableDir, 5);
+  auto vectors = makeVectors(filePaths.size(), 1'000);
+  for (int i = 0; i < filePaths.size(); i++) {
+    writeToFile(filePaths[i], vectors[i]);
+  }
+  duckDbQueryRunner_.createTable("tmp", vectors);
+
+  auto planFragment = exec::test::PlanBuilder()
+                          .tableScan(rowType_)
+                          .filter("c0 % 5 = 1")
+                          .partitionedOutput({}, 1, {"c0", "c1"}, GetParam())
+                          .planFragment();
+
+  protocol::TaskId taskId = "scan.0.0.1.0";
+  auto taskInfo = createOrUpdateTask(taskId, {}, planFragment, false);
+  // pipeline stats available when summarize set to false
+  ASSERT_GT(taskInfo->stats.pipelines.size(), 0);
+
+  long splitSequenceId{0};
+  bool summarize = false;
+  for (auto& filePath : filePaths) {
+    auto source = makeSource("0", {filePath}, false, splitSequenceId);
+    summarize = !summarize;
+    protocol::TaskUpdateRequest updateRequest;
+    updateRequest.sources.push_back(source);
+    taskInfo = taskManager_->createOrUpdateTask(
+        taskId, updateRequest, {}, summarize, nullptr, 0);
+    if (summarize) {
+      // no pipeline stats when summarize set to true
+      ASSERT_EQ(taskInfo->stats.pipelines.size(), 0);
+    } else {
+      // pipeline stats available when summarize set to false
+      ASSERT_GT(taskInfo->stats.pipelines.size(), 0);
+    }
+  }
+
+  auto callback = std::make_shared<http::CallbackRequestHandlerState>();
+  taskInfo =
+      taskManager_
+          ->getTaskInfo(taskId, false, std::nullopt, std::nullopt, callback)
+          .get();
+  // pipeline stats available when summarize set to false
+  ASSERT_GT(taskInfo->stats.pipelines.size(), 0);
+
+  taskInfo =
+      taskManager_
+          ->getTaskInfo(taskId, true, std::nullopt, std::nullopt, callback)
+          .get();
+  // no pipeline stats when summarize set to true
+  ASSERT_EQ(taskInfo->stats.pipelines.size(), 0);
+
+  protocol::TaskUpdateRequest updateRequest;
+  updateRequest.sources.push_back(makeSource("0", {}, true, splitSequenceId));
+  taskInfo = taskManager_->createOrUpdateTask(
+      taskId, updateRequest, {}, true, nullptr, 0);
+  // no pipeline stats when summarize set to true
+  ASSERT_EQ(taskInfo->stats.pipelines.size(), 0);
+
+  assertResults(taskId, rowType_, "SELECT * FROM tmp WHERE c0 % 5 = 1");
+
+  taskInfo =
+      taskManager_
+          ->getTaskInfo(taskId, true, std::nullopt, std::nullopt, callback)
+          .get();
+  // pipeline stats available when summarize set to false and task is finished
+  ASSERT_GT(taskInfo->stats.pipelines.size(), 0);
+
+  taskInfo = taskManager_->deleteTask(taskId, true, true);
+  // pipeline stats available when summarize set to false and task is finished
+  ASSERT_GT(taskInfo->stats.pipelines.size(), 0);
 }
 
 VELOX_INSTANTIATE_TEST_SUITE_P(

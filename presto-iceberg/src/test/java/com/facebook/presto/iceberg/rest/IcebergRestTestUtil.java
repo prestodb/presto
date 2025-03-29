@@ -20,6 +20,9 @@ import com.facebook.airlift.http.server.testing.TestingHttpServerModule;
 import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
+import com.facebook.presto.hive.HiveClientConfig;
+import com.facebook.presto.hive.MetastoreClientConfig;
+import com.facebook.presto.hive.s3.HiveS3Config;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;
@@ -40,7 +43,6 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.facebook.presto.iceberg.CatalogType.REST;
 import static com.facebook.presto.iceberg.IcebergDistributedTestBase.getHdfsEnvironment;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.CatalogProperties.URI;
@@ -56,13 +58,13 @@ public class IcebergRestTestUtil
 
     public static Map<String, String> restConnectorProperties(String serverUri)
     {
-        return ImmutableMap.of("iceberg.catalog.type", REST.name(), "iceberg.rest.uri", serverUri);
+        return ImmutableMap.of("iceberg.rest.uri", serverUri);
     }
 
     public static TestingHttpServer getRestServer(String location)
     {
         JdbcCatalog backingCatalog = new JdbcCatalog();
-        HdfsEnvironment hdfsEnvironment = getHdfsEnvironment();
+        HdfsEnvironment hdfsEnvironment = getHdfsEnvironment(new HiveClientConfig(), new MetastoreClientConfig(), new HiveS3Config());
         backingCatalog.setConf(hdfsEnvironment.getConfiguration(new HdfsContext(SESSION), new Path(location)));
 
         Map<String, String> properties = ImmutableMap.<String, String>builder()

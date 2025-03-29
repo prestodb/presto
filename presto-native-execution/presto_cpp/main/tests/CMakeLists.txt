@@ -53,6 +53,12 @@ target_link_libraries(
   GTest::gtest
   GTest::gtest_main)
 
+# Clang requires explicit linking with libatomic.
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang"
+   AND "${CMAKE_CXX_COMPILER_VERSION}" VERSION_GREATER_EQUAL 15)
+  target_link_libraries(presto_server_test atomic)
+endif()
+
 set_property(TARGET presto_server_test PROPERTY JOB_POOL_LINK
                                                 presto_link_job_pool)
 

@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.291-SNAPSHOT</version>
+        <version>0.293-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-jdbc</artifactId>
@@ -35,6 +35,13 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-function-namespace-managers</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-function-namespace-managers-common</artifactId>
+            <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
 
@@ -113,6 +120,18 @@
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-testng-services</artifactId>
             <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-main-base</artifactId>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.facebook.presto</groupId>
+                    <artifactId>presto-ui</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -249,6 +268,34 @@
                             <dependencyReducedPomLocation>${project.build.directory}/pom.xml</dependencyReducedPomLocation>
                             <relocations>
                                 <relocation>
+                                    <pattern>org.intellij</pattern>
+                                    <shadedPattern>${shadeBase}.org.intellij</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>jvmMain.okio</pattern>
+                                    <shadedPattern>${shadeBase}.jvmMain.okio</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>commonMain.okio</pattern>
+                                    <shadedPattern>${shadeBase}.commonMain.okio</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>okhttp.internal.tls</pattern>
+                                    <shadedPattern>${shadeBase}.okhttp.internal.tls</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>kotlin</pattern>
+                                    <shadedPattern>${shadeBase}.kotlin</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.jetbrains.kotlin</pattern>
+                                    <shadedPattern>${shadeBase}.org.jetbrains.kotlin</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.jetbrains.annotations</pattern>
+                                    <shadedPattern>${shadeBase}.org.jetbrains.annotations</shadedPattern>
+                                </relocation>
+                                <relocation>
                                     <pattern>com.facebook.presto.client</pattern>
                                     <shadedPattern>${shadeBase}.client</shadedPattern>
                                 </relocation>
@@ -267,6 +314,18 @@
                                 <relocation>
                                     <pattern>com.fasterxml.jackson</pattern>
                                     <shadedPattern>${shadeBase}.jackson</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>META-INF/versions/11/com.fasterxml.jackson</pattern>
+                                    <shadedPattern>META-INF/versions/11/${shadeBase}.jackson</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>META-INF/versions/17/com.fasterxml.jackson</pattern>
+                                    <shadedPattern>META-INF/versions/17/${shadeBase}.jackson</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>META-INF/versions/21/com.fasterxml.jackson</pattern>
+                                    <shadedPattern>META-INF/versions/21/${shadeBase}.jackson</shadedPattern>
                                 </relocation>
                                 <relocation>
                                     <pattern>com.google.common</pattern>

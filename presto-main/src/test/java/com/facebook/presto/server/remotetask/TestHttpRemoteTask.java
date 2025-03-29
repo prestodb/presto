@@ -27,6 +27,7 @@ import com.facebook.drift.codec.guice.ThriftCodecModule;
 import com.facebook.drift.codec.utils.DataSizeToBytesThriftCodec;
 import com.facebook.drift.codec.utils.DurationToMillisThriftCodec;
 import com.facebook.drift.codec.utils.JodaDateTimeToEpochMillisThriftCodec;
+import com.facebook.presto.SessionTestUtils;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.common.type.Type;
@@ -43,6 +44,7 @@ import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStatus;
+import com.facebook.presto.execution.TaskTestUtils;
 import com.facebook.presto.execution.TestQueryManager;
 import com.facebook.presto.execution.TestSqlTaskManager;
 import com.facebook.presto.execution.buffer.OutputBuffers;
@@ -110,11 +112,8 @@ import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static com.facebook.airlift.json.smile.SmileCodecBinder.smileCodecBinder;
 import static com.facebook.drift.codec.guice.ThriftCodecBinder.thriftCodecBinder;
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CURRENT_STATE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
-import static com.facebook.presto.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
-import static com.facebook.presto.execution.TaskTestUtils.createPlanFragment;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
@@ -188,15 +187,15 @@ public class TestHttpRemoteTask
         remoteTask.start();
 
         Lifespan lifespan = Lifespan.driverGroup(3);
-        remoteTask.addSplits(ImmutableMultimap.of(TABLE_SCAN_NODE_ID, new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit(), lifespan, NON_CACHEABLE)));
-        poll(() -> testingTaskResource.getTaskSource(TABLE_SCAN_NODE_ID) != null);
-        poll(() -> testingTaskResource.getTaskSource(TABLE_SCAN_NODE_ID).getSplits().size() == 1);
+        remoteTask.addSplits(ImmutableMultimap.of(TaskTestUtils.TABLE_SCAN_NODE_ID, new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit(), lifespan, NON_CACHEABLE)));
+        poll(() -> testingTaskResource.getTaskSource(TaskTestUtils.TABLE_SCAN_NODE_ID) != null);
+        poll(() -> testingTaskResource.getTaskSource(TaskTestUtils.TABLE_SCAN_NODE_ID).getSplits().size() == 1);
 
-        remoteTask.noMoreSplits(TABLE_SCAN_NODE_ID, lifespan);
-        poll(() -> testingTaskResource.getTaskSource(TABLE_SCAN_NODE_ID).getNoMoreSplitsForLifespan().size() == 1);
+        remoteTask.noMoreSplits(TaskTestUtils.TABLE_SCAN_NODE_ID, lifespan);
+        poll(() -> testingTaskResource.getTaskSource(TaskTestUtils.TABLE_SCAN_NODE_ID).getNoMoreSplitsForLifespan().size() == 1);
 
-        remoteTask.noMoreSplits(TABLE_SCAN_NODE_ID);
-        poll(() -> testingTaskResource.getTaskSource(TABLE_SCAN_NODE_ID).isNoMoreSplits());
+        remoteTask.noMoreSplits(TaskTestUtils.TABLE_SCAN_NODE_ID);
+        poll(() -> testingTaskResource.getTaskSource(TaskTestUtils.TABLE_SCAN_NODE_ID).isNoMoreSplits());
 
         remoteTask.cancel();
         poll(() -> remoteTask.getTaskStatus().getState().isDone());
@@ -247,7 +246,7 @@ public class TestHttpRemoteTask
 
         assertTrue(remoteTask.getTaskStatus().getState().isDone(), format("TaskStatus is not in a done state: %s", remoteTask.getTaskStatus()));
         assertThat(getOnlyElement(remoteTask.getTaskStatus().getFailures()).getMessage())
-                .matches("TaskUpdate size of .+? has exceeded the limit of 1kB");
+                .matches("TaskUpdate size of .+? has exceeded the limit of 1024 bytes");
     }
 
     @Test(dataProvider = "getUpdateSize")
@@ -276,15 +275,15 @@ public class TestHttpRemoteTask
     protected Object[][] getUpdateSize()
     {
         return new Object[][] {
-                {2000, 1000, "TaskUpdate size of 1.95kB has exceeded the limit of 1000B"},
-                {2000, 1024, "TaskUpdate size of 1.95kB has exceeded the limit of 1kB"},
-                {5000, 4 * 1024, "TaskUpdate size of 4.88kB has exceeded the limit of 4kB"},
-                {2 * 1024, 1024, "TaskUpdate size of 2kB has exceeded the limit of 1kB"},
-                {1024 * 1024, 512 * 1024, "TaskUpdate size of 1MB has exceeded the limit of 512kB"},
-                {16 * 1024 * 1024, 8 * 1024 * 1024, "TaskUpdate size of 16MB has exceeded the limit of 8MB"},
-                {485 * 1000 * 1000, 1024 * 1024 * 512, "TaskUpdate size of 462.53MB has exceeded the limit of 512MB"},
-                {1024 * 1024 * 1024, 1024 * 1024 * 512, "TaskUpdate size of 1GB has exceeded the limit of 512MB"},
-                {860492511, 524288000, "TaskUpdate size of 820.63MB has exceeded the limit of 500MB"}};
+                {2000, 1000, "TaskUpdate size of 2000 bytes has exceeded the limit of 1000 bytes"},
+                {2000, 1024, "TaskUpdate size of 2000 bytes has exceeded the limit of 1024 bytes"},
+                {5000, 4 * 1024, "TaskUpdate size of 5000 bytes has exceeded the limit of 4096 bytes"},
+                {2 * 1024, 1024, "TaskUpdate size of 2048 bytes has exceeded the limit of 1024 bytes"},
+                {1024 * 1024, 512 * 1024, "TaskUpdate size of 1048576 bytes has exceeded the limit of 524288 bytes"},
+                {16 * 1024 * 1024, 8 * 1024 * 1024, "TaskUpdate size of 16777216 bytes has exceeded the limit of 8388608 bytes"},
+                {485 * 1000 * 1000, 1024 * 1024 * 512, "TaskUpdate size of 485000000 bytes has exceeded the limit of 536870912 bytes"},
+                {1024 * 1024 * 1024, 1024 * 1024 * 512, "TaskUpdate size of 1073741824 bytes has exceeded the limit of 536870912 bytes"},
+                {860492511, 524288000, "TaskUpdate size of 860492511 bytes has exceeded the limit of 524288000 bytes"}};
     }
 
     private void runTest(FailureScenario failureScenario, boolean useThriftEncoding)
@@ -323,10 +322,10 @@ public class TestHttpRemoteTask
     private RemoteTask createRemoteTask(HttpRemoteTaskFactory httpRemoteTaskFactory)
     {
         return httpRemoteTaskFactory.createRemoteTask(
-                TEST_SESSION,
+                SessionTestUtils.TEST_SESSION,
                 new TaskId("test", 1, 0, 2, 0),
                 new InternalNode("node-id", URI.create("http://fake.invalid/"), new NodeVersion("version"), false),
-                createPlanFragment(),
+                TaskTestUtils.createPlanFragment(),
                 ImmutableMultimap.of(),
                 createInitialEmptyOutputBuffers(OutputBuffers.BufferType.BROADCAST),
                 new NodeTaskMap.NodeStatsTracker(i -> {}, i -> {}, (age, i) -> {}),
@@ -604,7 +603,7 @@ public class TestHttpRemoteTask
             return new TaskInfo(
                     initialTaskInfo.getTaskId(),
                     buildTaskStatus(),
-                    initialTaskInfo.getLastHeartbeat(),
+                    initialTaskInfo.getLastHeartbeatInMillis(),
                     initialTaskInfo.getOutputBuffers(),
                     initialTaskInfo.getNoMoreSplits(),
                     initialTaskInfo.getStats(),

@@ -13,23 +13,16 @@
  */
 package com.facebook.presto.iceberg.hive;
 
-import com.facebook.presto.hive.HdfsConfiguration;
-import com.facebook.presto.hive.HdfsConfigurationInitializer;
-import com.facebook.presto.hive.HdfsEnvironment;
-import com.facebook.presto.hive.HiveClientConfig;
-import com.facebook.presto.hive.HiveHdfsConfiguration;
-import com.facebook.presto.hive.MetastoreClientConfig;
-import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
-import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
 import com.facebook.presto.iceberg.IcebergConfig;
 import com.facebook.presto.iceberg.IcebergDistributedSmokeTestBase;
 import com.facebook.presto.iceberg.IcebergHiveTableOperationsConfig;
 import com.facebook.presto.iceberg.IcebergUtil;
+import com.facebook.presto.iceberg.ManifestFileCache;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.tests.DistributedQueryRunner;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.cache.CacheBuilder;
 import org.apache.iceberg.Table;
 
 import java.io.File;
@@ -56,20 +49,10 @@ public class TestIcebergSmokeHive
         return format("%s%s/%s", tempLocation.toURI(), schema, table);
     }
 
-    protected static HdfsEnvironment getHdfsEnvironment()
-    {
-        HiveClientConfig hiveClientConfig = new HiveClientConfig();
-        MetastoreClientConfig metastoreClientConfig = new MetastoreClientConfig();
-        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveClientConfig, metastoreClientConfig),
-                ImmutableSet.of(),
-                hiveClientConfig);
-        return new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
-    }
-
     protected ExtendedHiveMetastore getFileHiveMetastore()
     {
-        FileHiveMetastore fileHiveMetastore = new FileHiveMetastore(getHdfsEnvironment(),
-                getCatalogDirectory().toFile().getPath(),
+        IcebergFileHiveMetastore fileHiveMetastore = new IcebergFileHiveMetastore(getHdfsEnvironment(),
+                getCatalogDirectory().toString(),
                 "test");
         return memoizeMetastore(fileHiveMetastore, false, 1000, 0);
     }
@@ -80,6 +63,7 @@ public class TestIcebergSmokeHive
         return IcebergUtil.getHiveIcebergTable(getFileHiveMetastore(),
                 getHdfsEnvironment(),
                 new IcebergHiveTableOperationsConfig(),
+                new ManifestFileCache(CacheBuilder.newBuilder().build(), false, 0, 1024),
                 session,
                 SchemaTableName.valueOf(schema + "." + tableName));
     }

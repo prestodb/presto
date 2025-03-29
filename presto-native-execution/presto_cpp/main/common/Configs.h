@@ -42,12 +42,13 @@ class ConfigBase {
     config_ = std::move(config);
   }
 
-  /// Registers an extra property in the config.
+  /// DO NOT DELETE THIS METHOD!
+  /// The method is used to register new properties after the config class is created.
   /// Returns true if succeeded, false if failed (due to the property already
   /// registered).
   bool registerProperty(
-      const std::string& propertyName,
-      const folly::Optional<std::string>& defaultValue = {});
+    const std::string& propertyName,
+    const folly::Optional<std::string>& defaultValue = {});
 
   /// Adds or replaces value at the given key. Can be used by debugging or
   /// testing code.
@@ -214,6 +215,14 @@ class SystemConfig : public ConfigBase {
       "https-client-cert-key-path"};
 
   /// Floating point number used in calculating how many threads we would use
+  /// for CPU executor for connectors mainly for async operators:
+  /// hw_concurrency x multiplier.
+  /// If 0.0 then connector CPU executor would not be created.
+  /// 0.0 is default.
+  static constexpr std::string_view kConnectorNumCpuThreadsHwMultiplier{
+      "connector.num-cpu-threads-hw-multiplier"};
+
+  /// Floating point number used in calculating how many threads we would use
   /// for IO executor for connectors mainly to do preload/prefetch:
   /// hw_concurrency x multiplier.
   /// If 0.0 then connector preload/prefetch is disabled.
@@ -262,6 +271,12 @@ class SystemConfig : public ConfigBase {
   /// underlying file system.
   static constexpr std::string_view kSpillerFileCreateConfig{
       "spiller.file-create-config"};
+
+  /// Config used to create spill directories. This config is provided to
+  /// underlying file system and the config is free form. The form should be
+  /// defined by the underlying file system.
+  static constexpr std::string_view kSpillerDirectoryCreateConfig{
+      "spiller.directory-create-config"};
 
   static constexpr std::string_view kSpillerSpillPath{
       "experimental.spiller-spill-path"};
@@ -313,12 +328,6 @@ class SystemConfig : public ConfigBase {
 
   static constexpr std::string_view kAsyncDataCacheEnabled{
       "async-data-cache-enabled"};
-  /// If true, SSD cache is enabled by default and is disabled only if
-  /// `node_selection_strategy` is present and set to `NO_PREFERENCE`.
-  /// Otherwise, SSD cache is disabled by default and is enabled if
-  /// `node_selection_strategy` is present and set to `SOFT_AFFINITY`.
-  static constexpr std::string_view kQueryDataCacheEnabledDefault{
-      "query-data-cache-enabled-default"};
   static constexpr std::string_view kAsyncCacheSsdGb{"async-cache-ssd-gb"};
   static constexpr std::string_view kAsyncCacheSsdCheckpointGb{
       "async-cache-ssd-checkpoint-gb"};
@@ -481,6 +490,56 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view
       kSharedArbitratorMemoryPoolMinFreeCapacityPct{
           "shared-arbitrator.memory-pool-min-free-capacity-pct"};
+
+  /// Specifies the starting memory capacity limit for global arbitration to
+  /// search for victim participant to reclaim used memory by abort. For
+  /// participants with capacity larger than the limit, the global arbitration
+  /// choose to abort the youngest participant which has the largest
+  /// participant id. This helps to let the old queries to run to completion.
+  /// The abort capacity limit is reduced by half if could not find a victim
+  /// participant until this reaches to zero.
+  ///
+  /// NOTE: the limit must be zero or a power of 2.
+  static constexpr std::string_view
+      kSharedArbitratorMemoryPoolAbortCapacityLimit{
+          "shared-arbitrator.memory-pool-abort-capacity-limit"};
+
+  /// Specifies the minimum bytes to reclaim from a participant at a time. The
+  /// global arbitration also avoids to reclaim from a participant if its
+  /// reclaimable used capacity is less than this threshold. This is to
+  /// prevent inefficient memory reclaim operations on a participant with
+  /// small reclaimable used capacity which could causes a large number of
+  /// small spilled file on disk.
+  static constexpr std::string_view kSharedArbitratorMemoryPoolMinReclaimBytes{
+      "shared-arbitrator.memory-pool-min-reclaim-bytes"};
+
+  /// Floating point number used in calculating how many threads we would use
+  /// for memory reclaim execution: hw_concurrency x multiplier. 0.5 is
+  /// default.
+  static constexpr std::string_view
+      kSharedArbitratorMemoryReclaimThreadsHwMultiplier{
+          "shared-arbitrator.memory-reclaim-threads-hw-multiplier"};
+
+  /// If not zero, specifies the minimum amount of memory to reclaim by global
+  /// memory arbitration as percentage of total arbitrator memory capacity.
+  static constexpr std::string_view
+      kSharedArbitratorGlobalArbitrationMemoryReclaimPct{
+          "shared-arbitrator.global-arbitration-memory-reclaim-pct"};
+
+  /// The ratio used with 'shared-arbitrator.memory-reclaim-max-wait-time',
+  /// beyond which, global arbitration will no longer reclaim memory by
+  /// spilling, but instead directly abort. It is only in effect when
+  /// 'global-arbitration-enabled' is true
+  static constexpr std::string_view
+      kSharedArbitratorGlobalArbitrationAbortTimeRatio{
+          "shared-arbitrator.global-arbitration-abort-time-ratio"};
+
+  /// If true, global arbitration will not reclaim memory by spilling, but
+  /// only by aborting. This flag is only effective if
+  /// 'shared-arbitrator.global-arbitration-enabled' is true
+  static constexpr std::string_view
+      kSharedArbitratorGlobalArbitrationWithoutSpill{
+          "shared-arbitrator.global-arbitration-without-spill"};
 
   /// Enables the memory usage tracking for the system memory pool used for
   /// cases such as disk spilling.
@@ -647,6 +706,25 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kPlanValidatorFailOnNestedLoopJoin{
       "velox-plan-validator-fail-on-nested-loop-join"};
 
+  // Specifies the default Presto namespace prefix.
+  static constexpr std::string_view kPrestoDefaultNamespacePrefix{
+      "presto.default-namespace"};
+
+  // Specifies the type of worker pool
+  static constexpr std::string_view kPoolType{"pool-type"};
+  
+  // Spill related configs
+  static constexpr std::string_view kSpillEnabled{"spill-enabled"};
+  static constexpr std::string_view kJoinSpillEnabled{"join-spill-enabled"};
+  static constexpr std::string_view kAggregationSpillEnabled{
+      "aggregation-spill-enabled"};
+  static constexpr std::string_view kOrderBySpillEnabled{
+      "order-by-spill-enabled"};
+
+  // Max wait time for exchange request in seconds.
+  static constexpr std::string_view kRequestDataSizesMaxWaitSec{
+    "exchange.http-client.request-data-sizes-max-wait-sec"};
+
   SystemConfig();
 
   virtual ~SystemConfig() = default;
@@ -718,6 +796,8 @@ class SystemConfig : public ConfigBase {
 
   double exchangeHttpClientNumCpuThreadsHwMultiplier() const;
 
+  double connectorNumCpuThreadsHwMultiplier() const;
+
   double connectorNumIoThreadsHwMultiplier() const;
 
   double driverNumCpuThreadsHwMultiplier() const;
@@ -733,6 +813,8 @@ class SystemConfig : public ConfigBase {
   double spillerNumCpuThreadsHwMultiplier() const;
 
   std::string spillerFileCreateConfig() const;
+
+  std::string spillerDirectoryCreateConfig() const;
 
   folly::Optional<std::string> spillerSpillPath() const;
 
@@ -812,6 +894,18 @@ class SystemConfig : public ConfigBase {
 
   std::string sharedArbitratorMemoryPoolMinFreeCapacityPct() const;
 
+  std::string sharedArbitratorMemoryPoolAbortCapacityLimit() const;
+
+  std::string sharedArbitratorMemoryPoolMinReclaimBytes() const;
+
+  std::string sharedArbitratorMemoryReclaimThreadsHwMultiplier() const;
+
+  std::string sharedArbitratorGlobalArbitrationMemoryReclaimPct() const;
+
+  std::string sharedArbitratorGlobalArbitrationAbortTimeRatio() const;
+
+  std::string sharedArbitratorGlobalArbitrationWithoutSpill() const;
+
   int32_t queryMemoryGb() const;
 
   bool enableSystemMemoryPoolUsageTracking() const;
@@ -881,6 +975,20 @@ class SystemConfig : public ConfigBase {
   bool enableRuntimeMetricsCollection() const;
 
   bool prestoNativeSidecar() const;
+  
+  std::string prestoDefaultNamespacePrefix() const;
+
+  std::string poolType() const;
+
+  bool spillEnabled() const; 
+
+  bool joinSpillEnabled() const;
+
+  bool aggregationSpillEnabled() const;
+
+  bool orderBySpillEnabled() const;
+
+  int requestDataSizesMaxWaitSec() const;
 };
 
 /// Provides access to node properties defined in node.properties file.

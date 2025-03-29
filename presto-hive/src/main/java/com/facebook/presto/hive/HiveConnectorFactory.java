@@ -175,7 +175,7 @@ public class HiveConnectorFactory
                     ImmutableSet.of(),
                     procedures,
                     allSessionProperties,
-                    HiveSchemaProperties.SCHEMA_PROPERTIES,
+                    SchemaProperties.SCHEMA_PROPERTIES,
                     hiveTableProperties.getTableProperties(),
                     hiveAnalyzeProperties.getAnalyzeProperties(),
                     accessControl,

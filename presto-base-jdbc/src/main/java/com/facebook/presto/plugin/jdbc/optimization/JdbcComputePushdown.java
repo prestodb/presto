@@ -29,7 +29,7 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
-import com.facebook.presto.spi.relation.ExpressionOptimizer;
+import com.facebook.presto.spi.relation.ExpressionOptimizerProvider;
 import com.facebook.presto.spi.relation.RowExpression;
 
 import java.util.Optional;
@@ -44,7 +44,7 @@ import static java.util.Objects.requireNonNull;
 public class JdbcComputePushdown
         implements ConnectorPlanOptimizer
 {
-    private final ExpressionOptimizer expressionOptimizer;
+    private final ExpressionOptimizerProvider expressionOptimizerProvider;
     private final JdbcFilterToSqlTranslator jdbcFilterToSqlTranslator;
     private final LogicalRowExpressions logicalRowExpressions;
 
@@ -52,7 +52,7 @@ public class JdbcComputePushdown
             FunctionMetadataManager functionMetadataManager,
             StandardFunctionResolution functionResolution,
             DeterminismEvaluator determinismEvaluator,
-            ExpressionOptimizer expressionOptimizer,
+            ExpressionOptimizerProvider expressionOptimizerProvider,
             String identifierQuote,
             Set<Class<?>> functionTranslators)
     {
@@ -62,7 +62,7 @@ public class JdbcComputePushdown
         requireNonNull(determinismEvaluator, "determinismEvaluator is null");
         requireNonNull(functionResolution, "functionResolution is null");
 
-        this.expressionOptimizer = requireNonNull(expressionOptimizer, "expressionOptimizer is null");
+        this.expressionOptimizerProvider = requireNonNull(expressionOptimizerProvider, "expressionOptimizerProvider is null");
         this.jdbcFilterToSqlTranslator = new JdbcFilterToSqlTranslator(
                 functionMetadataManager,
                 buildFunctionTranslator(functionTranslators),
@@ -106,7 +106,7 @@ public class JdbcComputePushdown
             TableHandle oldTableHandle = oldTableScanNode.getTable();
             JdbcTableHandle oldConnectorTable = (JdbcTableHandle) oldTableHandle.getConnectorHandle();
 
-            RowExpression predicate = expressionOptimizer.optimize(node.getPredicate(), OPTIMIZED, session);
+            RowExpression predicate = expressionOptimizerProvider.getExpressionOptimizer(session).optimize(node.getPredicate(), OPTIMIZED, session);
             predicate = logicalRowExpressions.convertToConjunctiveNormalForm(predicate);
             TranslatedExpression<JdbcExpression> jdbcExpression = translateWith(
                     predicate,
@@ -139,7 +139,8 @@ public class JdbcComputePushdown
                     oldTableScanNode.getAssignments(),
                     oldTableScanNode.getTableConstraints(),
                     oldTableScanNode.getCurrentConstraint(),
-                    oldTableScanNode.getEnforcedConstraint());
+                    oldTableScanNode.getEnforcedConstraint(),
+                    oldTableScanNode.getCteMaterializationInfo());
 
             return new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), newTableScanNode, node.getPredicate());
         }

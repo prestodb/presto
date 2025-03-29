@@ -35,8 +35,8 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.PlanVisitor;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
-import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.collect.ImmutableList;
 
@@ -57,7 +57,7 @@ import static java.util.Objects.requireNonNull;
 public class ClickHouseComputePushdown
         implements ConnectorPlanOptimizer
 {
-    private final ExpressionOptimizer expressionOptimizer;
+    private final RowExpressionService rowExpressionService;
     private final ClickHouseFilterToSqlTranslator clickHouseFilterToSqlTranslator;
     private final LogicalRowExpressions logicalRowExpressions;
     private final ClickHouseQueryGenerator clickhouseQueryGenerator;
@@ -67,7 +67,7 @@ public class ClickHouseComputePushdown
             FunctionMetadataManager functionMetadataManager,
             StandardFunctionResolution functionResolution,
             DeterminismEvaluator determinismEvaluator,
-            ExpressionOptimizer expressionOptimizer,
+            RowExpressionService rowExpressionService,
             String identifierQuote,
             Set<Class<?>> functionTranslators,
             ClickHouseQueryGenerator clickhouseQueryGenerator)
@@ -78,7 +78,7 @@ public class ClickHouseComputePushdown
         requireNonNull(determinismEvaluator, "determinismEvaluator is null");
         requireNonNull(functionResolution, "functionResolution is null");
 
-        this.expressionOptimizer = requireNonNull(expressionOptimizer, "expressionOptimizer is null");
+        this.rowExpressionService = requireNonNull(rowExpressionService, "rowExpressionService is null");
         this.clickHouseFilterToSqlTranslator = new ClickHouseFilterToSqlTranslator(
                 functionMetadataManager,
                 buildFunctionTranslator(functionTranslators),
@@ -200,7 +200,8 @@ public class ClickHouseComputePushdown
                             ImmutableList.copyOf(assignments.keySet()),
                             assignments.entrySet().stream().collect(toImmutableMap(Map.Entry::getKey, (e) -> (ColumnHandle) (e.getValue()))),
                             tableScanNode.getCurrentConstraint(),
-                            tableScanNode.getEnforcedConstraint()));
+                            tableScanNode.getEnforcedConstraint(),
+                            tableScanNode.getCteMaterializationInfo()));
         }
 
         @Override
@@ -256,7 +257,7 @@ public class ClickHouseComputePushdown
             TableHandle oldTableHandle = oldTableScanNode.getTable();
             ClickHouseTableHandle oldConnectorTable = (ClickHouseTableHandle) oldTableHandle.getConnectorHandle();
 
-            RowExpression predicate = expressionOptimizer.optimize(node.getPredicate(), OPTIMIZED, session);
+            RowExpression predicate = rowExpressionService.getExpressionOptimizer(session).optimize(node.getPredicate(), OPTIMIZED, session);
             predicate = logicalRowExpressions.convertToConjunctiveNormalForm(predicate);
             TranslatedExpression<ClickHouseExpression> clickHouseExpression = translateWith(
                     predicate,
@@ -288,7 +289,8 @@ public class ClickHouseComputePushdown
                     oldTableScanNode.getOutputVariables(),
                     oldTableScanNode.getAssignments(),
                     oldTableScanNode.getCurrentConstraint(),
-                    oldTableScanNode.getEnforcedConstraint());
+                    oldTableScanNode.getEnforcedConstraint(),
+                    oldTableScanNode.getCteMaterializationInfo());
 
             return new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), newTableScanNode, node.getPredicate());
         }

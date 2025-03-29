@@ -107,7 +107,7 @@ class QueryContextManager {
 
   std::shared_ptr<velox::core::QueryCtx> findOrCreateQueryCtx(
       const protocol::TaskId& taskId,
-      const protocol::SessionRepresentation& session);
+      const protocol::TaskUpdateRequest& taskUpdateRequest);
 
   /// Calls the given functor for every present query context.
   void visitAllContexts(std::function<void(

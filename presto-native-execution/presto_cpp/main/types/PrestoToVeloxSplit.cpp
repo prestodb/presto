@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/types/PrestoToVeloxSplit.h"
-#include "presto_cpp/main/types/PrestoToVeloxConnector.h"
+#include "presto_cpp/main/connectors/PrestoToVeloxConnector.h"
 #include "velox/exec/Exchange.h"
 
 using namespace facebook::velox;
@@ -40,7 +40,9 @@ velox::exec::Split toVeloxSplit(
 
   auto& connector = getPrestoToVeloxConnector(connectorSplit->_type);
   auto veloxSplit = connector.toVeloxSplit(
-      scheduledSplit.split.connectorId, connectorSplit.get());
+      scheduledSplit.split.connectorId,
+      connectorSplit.get(),
+      &scheduledSplit.split.splitContext);
   return velox::exec::Split(std::move(veloxSplit), splitGroupId);
 }
 

@@ -1,0 +1,334 @@
+openapi: 3.0.0
+info:
+  title: Presto Remote Function Rest APIs
+  description: These APIs shall be implemented by REST server for retrieval and execution of remote functions.
+  version: "1"
+servers:
+  - url: http://localhost:8080
+    description: Presto endpoint when running locally
+paths:
+  /v1/functions:
+    head:
+      summary: Retrieve the headers of the GET which list of functions supported by REST server.
+      description: |
+        This is useful for checking the version of the API, which will be returned as a header.
+        The `HEAD` request retrieves the headers that would be returned by the `GET` request.
+      responses:
+        '200':
+          description: Successfully retrieved headers. The body is empty.
+          headers:
+            Last-Modified:
+              description: The date and time when the resource was last modified.
+              schema:
+                type: string
+                format: date-time
+            ETag:
+              description: An identifier for a specific version of the resource.
+              schema:
+                type: string
+        '404':
+          description: The function list could not be found.
+    get:
+      summary: Retrieve list of all functions supported by REST server.
+      description: |
+        This endpoint retrieves all the function signatures that are available on the REST server. 
+        The response includes details about each function, such as its kind, input and output types, 
+        schema, and characteristics like determinism and null handling.
+      responses:
+        '200':
+          description: A map of function names to lists of function metadata.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UdfSignatureMap'
+  /v1/functions/{schema}:
+    parameters:
+      - name: schema
+        in: path
+        required: true
+        schema:
+          type: string
+        description: The schema in which the function is defined.
+    get:
+      summary: Retrieve list of functions in the specified schema.
+      description: |
+        This endpoint returns the complete listing of all functions in the specified schema.
+        The response includes details about each function, such as its kind, input and output types, 
+        schema, and characteristics like determinism and null handling.
+      responses:
+        '200':
+          description: A map of function names to lists of function metadata.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UdfSignatureMap'
+  /v1/functions/{schema}/{functionName}:
+    parameters:
+      - name: schema
+        in: path
+        required: true
+        schema:
+          type: string
+        description: The schema in which the function is defined.
+      - name: functionName
+        in: path
+        required: true
+        schema:
+          type: string
+        description: The name of the function.
+    get:
+      summary: Retrieve list of functions with at schema with name.
+      description: |
+        This endpoint returns the complete listing of functions in the specified schema with the specified function name.
+        The response includes details about each function, such as its kind, input and output types, 
+        schema, and characteristics like determinism and null handling.
+      responses:
+        '200':
+          description: A map of function names to lists of function metadata.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UdfSignatureMap'
+    post:
+      summary: Add a new function in the specified schema with the specified name.
+      description: |
+        This endpoint creates a new function in the specified schema. The function object will contain the metadata of the function, 
+        including its arguments, return type, and other metadata.
+      requestBody:
+        description: JSON object representing the function to be added.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JsonBasedUdfFunctionMetadata'
+      responses:
+        '201':
+          description: The function was successfully created, and the function ID is returned.
+          content:
+            application/json:
+              schema:
+                type: string
+                description: The function ID of the newly created function.
+        '400':
+          description: Invalid request due to malformed input.
+        '409':
+          description: A function with the same name and signature already exists.
+  /v1/functions/{schema}/{functionName}/{functionId}:
+    parameters:
+      - name: schema
+        in: path
+        required: true
+        schema:
+          type: string
+        description: The schema in which the function is defined.
+      - name: functionName
+        in: path
+        required: true
+        schema:
+          type: string
+        description: The name of the function.
+      - name: functionId
+        in: path
+        required: true
+        schema:
+          type: string
+        description: The ID of the function.
+    put:
+      summary: Update the function in the specified schema with the specified name and function ID.
+      description: |
+        This endpoint updates the function in the specified schema. The function object will contain the updated metadata of the function.
+      requestBody:
+        description: JSON object representing the function to be updated.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JsonBasedUdfFunctionMetadata'
+      responses:
+        '200':
+          description: The function was successfully updated, and the function ID is returned.
+          content:
+            application/json:
+              schema:
+                type: string
+                description: The function ID of the updated function.
+        '400':
+          description: Invalid request due to malformed input.
+        '404':
+          description: The function was not found.
+        '409':
+          description: Error occurred while updating the function.
+    delete:
+      summary: Delete the function in the specified schema with the specified name and function ID.
+      description: |
+        This endpoint deletes the function in the specified schema. The function is identified by its name and ID..
+      responses:
+        '204':
+          description: The function was successfully deleted. The response body is empty.
+        '404':
+          description: The function was not found.
+  /v1/functions/{schema}/{functionName}/{functionId}/{version}:
+    post:
+      summary: Retrieve value from function
+      parameters:
+        - name: schema
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The schema in which the function is defined.
+        - name: functionName
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The name of the function.
+        - name: functionId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the function.
+        - name: version
+          in: path
+          schema:
+            type: string
+          required: true
+          description: The version of the function to execute
+      requestBody:
+        required: true
+        content:
+          text/plain; charset=utf-8:
+            schema:
+              $ref: '#/components/schemas/SerializedPageBinary'
+      responses:
+        '200':
+          description: function value output
+          content:
+            text/plain; charset=utf-8:
+              schema:
+                $ref: '#/components/schemas/SerializedPageBinary'
+components:
+  schemas:
+    UdfSignatureMap:
+      type: object
+      description: A map of function names to lists of function metadata.
+      additionalProperties:
+        type: array
+        items:
+          $ref: '#/components/schemas/JsonBasedUdfFunctionMetadata'
+    JsonBasedUdfFunctionMetadata:
+      type: object
+      properties:
+        docString:
+          type: string
+          description: A description of what the function does.
+          example: "Returns the square of a number."
+        functionKind:
+          $ref: '#/components/schemas/FunctionKind'
+        outputType:
+          type: string
+          description: The output type of the function.
+          example: "integer"
+        paramTypes:
+          type: array
+          items:
+            type: string
+          description: The input parameter types of the function.
+          example: ["integer"]
+        schema:
+          type: string
+          description: The schema to which the function belongs.
+          example: "test_schema"
+        routineCharacteristics:
+          $ref: '#/components/schemas/RoutineCharacteristics'
+        aggregateMetadata:
+          $ref: '#/components/schemas/AggregateMetadata'
+        functionId:
+          $ref: '#/components/schemas/SqlFunctionId'
+        version:
+          type: string
+          description: The version of the function. This version shall be maintained by REST server for any change in the function.
+          example: "1"
+    FunctionKind:
+      type: string
+      description: The kind of function.
+      enum:
+        - SCALAR
+        - AGGREGATE
+        - WINDOW
+      example: "SCALAR"
+    RoutineCharacteristics:
+      type: object
+      properties:
+        language:
+          $ref: '#/components/schemas/Language'
+        determinism:
+          $ref: '#/components/schemas/Determinism'
+        nullCallClause:
+          $ref: '#/components/schemas/NullCallClause'
+    Language:
+      type: string
+      description: The implementation language of the function.
+      enum:
+        - SQL
+        - CPP
+        - REST
+      example: "REST"
+    Determinism:
+      type: string
+      description: Whether the function is deterministic.
+      enum:
+        - DETERMINISTIC
+        - NOT_DETERMINISTIC
+      example: "DETERMINISTIC"
+    NullCallClause:
+      type: string
+      description: How the function handles null inputs.
+      enum:
+        - RETURNS_NULL_ON_NULL_INPUT
+        - CALLED_ON_NULL_INPUT
+      example: "CALLED_ON_NULL_INPUT"
+    AggregateMetadata:
+      type: object
+      nullable: true
+      properties:
+        intermediateType:
+          type: string
+          description: The intermediate type used in aggregation.
+          example: "ROW(bigint, int)"
+        isOrderSensitive:
+          type: boolean
+          description: Whether the aggregation is sensitive to the order of inputs.
+          example: false
+    QualifiedObjectName:
+      type: object
+      properties:
+        catalogName:
+          type: string
+          description: The name of the catalog.
+        schemaName:
+          type: string
+          description: The name of the schema.
+        objectName:
+          type: string
+          description: The name of the function.
+    TypeSignature:
+      type: string
+      description: Serialized signature of the type.
+    SqlFunctionId:
+      type: object
+      properties:
+        functionName:
+          $ref: '#/components/schemas/QualifiedObjectName'
+        argumentTypes:
+          type: array
+          items:
+            $ref: '#/components/schemas/TypeSignature'
+    SerializedPageBinary:
+      type: string
+      format: binary
+      description: Match this format https://prestodb.io/docs/current/develop/serialized-page.html
+    Page:
+      type: string
+      format: binary

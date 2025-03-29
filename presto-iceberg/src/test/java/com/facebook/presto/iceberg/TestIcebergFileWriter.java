@@ -25,10 +25,13 @@ import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
+import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveCompressionCodec;
 import com.facebook.presto.hive.HiveDwrfEncryptionProvider;
+import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.hive.OrcFileWriterConfig;
+import com.facebook.presto.hive.s3.HiveS3Config;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.parquet.FileParquetDataSource;
 import com.facebook.presto.parquet.cache.MetadataReader;
@@ -61,6 +64,7 @@ import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.iceberg.IcebergAbstractMetadata.toIcebergSchema;
+import static com.facebook.presto.iceberg.IcebergDistributedTestBase.getHdfsEnvironment;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.dataSizeSessionProperty;
 import static com.facebook.presto.metadata.SessionPropertyManager.createTestingSessionPropertyManager;
@@ -76,7 +80,8 @@ public class TestIcebergFileWriter
     private ConnectorSession connectorSession;
 
     @BeforeClass
-    public void setup() throws Exception
+    public void setup()
+            throws Exception
     {
         ConnectorId connectorId = new ConnectorId("iceberg");
         SessionPropertyManager sessionPropertyManager = createTestingSessionPropertyManager();
@@ -113,20 +118,21 @@ public class TestIcebergFileWriter
         this.connectorSession = session.toConnectorSession(connectorId);
         TypeManager typeManager = new TestingTypeManager();
         this.hdfsContext = new HdfsContext(connectorSession);
-        HdfsEnvironment hdfsEnvironment = IcebergDistributedTestBase.getHdfsEnvironment();
+        HdfsEnvironment hdfsEnvironment = getHdfsEnvironment(new HiveClientConfig(), new MetastoreClientConfig(), new HiveS3Config());
         this.icebergFileWriterFactory = new IcebergFileWriterFactory(hdfsEnvironment, typeManager,
                 new FileFormatDataSourceStats(), new NodeVersion("test"), new OrcFileWriterConfig(), HiveDwrfEncryptionProvider.NO_ENCRYPTION);
     }
 
     @Test
-    public void testWriteParquetFileWithLogicalTypes() throws Exception
+    public void testWriteParquetFileWithLogicalTypes()
+            throws Exception
     {
         Path path = new Path(createTempDir().getAbsolutePath() + "/test.parquet");
         Schema icebergSchema = toIcebergSchema(ImmutableList.of(
-                new ColumnMetadata("a", VARCHAR),
-                new ColumnMetadata("b", INTEGER),
-                new ColumnMetadata("c", TIMESTAMP),
-                new ColumnMetadata("d", DATE)));
+                ColumnMetadata.builder().setName("a").setType(VARCHAR).build(),
+                ColumnMetadata.builder().setName("b").setType(INTEGER).build(),
+                ColumnMetadata.builder().setName("c").setType(TIMESTAMP).build(),
+                ColumnMetadata.builder().setName("d").setType(DATE).build()));
         IcebergFileWriter icebergFileWriter = this.icebergFileWriterFactory.createFileWriter(path, icebergSchema, new JobConf(), connectorSession,
                 hdfsContext, FileFormat.PARQUET, MetricsConfig.getDefault());
 
@@ -178,7 +184,8 @@ public class TestIcebergFileWriter
             throw new UnsupportedOperationException();
         }
 
-        private List<Type> getTypes()
+        @Override
+        public List<Type> getTypes()
         {
             return ImmutableList.of(BooleanType.BOOLEAN, INTEGER, BIGINT, DoubleType.DOUBLE, VARCHAR, VARBINARY, TIMESTAMP, DATE, HYPER_LOG_LOG);
         }

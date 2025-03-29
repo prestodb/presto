@@ -1172,6 +1172,15 @@ public class TestCteExecution
     }
 
     @Test
+    public void testCTEMaterializationWithEnhancedScheduling()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        String sql = "WITH  temp as (SELECT orderkey FROM ORDERS) " +
+                "SELECT * FROM temp t1 JOIN (SELECT custkey FROM customer) c ON t1.orderkey=c.custkey";
+        verifyResults(queryRunner, sql, ImmutableList.of(generateMaterializedCTEInformation("temp", 1, false, true)));
+    }
+
+    @Test
     public void testWrittenIntemediateByteLimit()
             throws Exception
     {

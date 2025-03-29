@@ -71,11 +71,13 @@ public class PickJoinSides
                     // changing the distribution type too
                     && !(joinNode.getCriteria().isEmpty() && (joinNode.getType() == LEFT || joinNode.getType() == RIGHT)));
 
-    private Metadata metadata;
+    private final Metadata metadata;
+    private final boolean nativeExecution;
 
-    public PickJoinSides(Metadata metadata)
+    public PickJoinSides(Metadata metadata, boolean nativeExecution)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.nativeExecution = nativeExecution;
     }
 
     @Override
@@ -101,7 +103,7 @@ public class PickJoinSides
         // if we don't have exact costs for the join, but based on source tables we think the left side
         // is very small or much smaller than the right, then flip the join.
         if (rightSize > leftSize || (isSizeBasedJoinDistributionTypeEnabled(context.getSession()) && (Double.isNaN(leftSize) || Double.isNaN(rightSize)) && isLeftSideSmall(joinNode, context))) {
-            rewrittenNode = createRuntimeSwappedJoinNode(joinNode, metadata, context.getLookup(), context.getSession(), context.getIdAllocator());
+            rewrittenNode = createRuntimeSwappedJoinNode(joinNode, metadata, context.getLookup(), context.getSession(), context.getIdAllocator(), nativeExecution);
         }
 
         return rewrittenNode.map(Result::ofPlanNode).orElseGet(Result::empty);

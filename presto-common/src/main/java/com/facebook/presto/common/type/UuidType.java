@@ -31,6 +31,27 @@ import static io.airlift.slice.Slices.wrappedLongArray;
 import static java.lang.Long.reverseBytes;
 import static java.lang.String.format;
 
+/**
+ * The value of a UUID is stored as two longs in little-endian
+ * format in the order of [MSB, LSB] when executing within Presto:
+ * <br>
+ *
+ *  0 1 2 3 4 5 6 7 8 0 1 2 3 4 5 6 7 8
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |     MSB (LE)    |     LSB (LE)    |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ * <br>
+ * The MSB and LSB are stored in little-endian format because the {@code slice}
+ * library assumes that longs used in byte-wise comparisons are stored in
+ * little-endian format. This requires us to store the bytes in little-endian
+ * too.
+ * <br>
+ * On-disk storage specifications such as Parquet or ORC may require different
+ * endianness or ordering of the MSB and LSB. Such conversions should be done in
+ * the code responsible for reading and writing the UUID.
+ *
+ */
 public class UuidType
         extends AbstractPrimitiveType
         implements FixedWidthType

@@ -72,6 +72,9 @@ public class PrestoSparkConfig
     private String nativeExecutionBroadcastBasePath;
     private boolean nativeTerminateWithCoreWhenUnresponsiveEnabled;
     private Duration nativeTerminateWithCoreTimeout = new Duration(5, MINUTES);
+    private boolean isDynamicPrestoMemoryPoolTuningEnabled;
+    private double dynamicPrestoMemoryPoolTuningFraction = 0.7;
+    private int attemptNumberToApplyDynamicMemoryPoolTuning = 1;
 
     public boolean isSparkPartitionCountAutoTuneEnabled()
     {
@@ -522,6 +525,45 @@ public class PrestoSparkConfig
     public PrestoSparkConfig setNativeTerminateWithCoreTimeout(Duration nativeTerminateWithCoreTimeout)
     {
         this.nativeTerminateWithCoreTimeout = nativeTerminateWithCoreTimeout;
+        return this;
+    }
+
+    public boolean isDynamicPrestoMemoryPoolTuningEnabled()
+    {
+        return isDynamicPrestoMemoryPoolTuningEnabled;
+    }
+
+    @Config("spark.dynamic-presto-memory-pool-tuning-enabled")
+    @ConfigDescription("Dynamic tuning for Presto memory pool enabled")
+    public PrestoSparkConfig setDynamicPrestoMemoryPoolTuningEnabled(boolean isDynamicPrestoMemoryPoolTuningEnabled)
+    {
+        this.isDynamicPrestoMemoryPoolTuningEnabled = isDynamicPrestoMemoryPoolTuningEnabled;
+        return this;
+    }
+
+    public double getDynamicPrestoMemoryPoolTuningFraction()
+    {
+        return dynamicPrestoMemoryPoolTuningFraction;
+    }
+
+    @Config("spark.dynamic-presto-memory-pool-tuning-fraction")
+    @ConfigDescription("Percentage of JVM memory available to Presto")
+    public PrestoSparkConfig setDynamicPrestoMemoryPoolTuningFraction(double dynamicPrestoMemoryPoolTuningFraction)
+    {
+        this.dynamicPrestoMemoryPoolTuningFraction = dynamicPrestoMemoryPoolTuningFraction;
+        return this;
+    }
+
+    public int getAttemptNumberToApplyDynamicMemoryPoolTuning()
+    {
+        return attemptNumberToApplyDynamicMemoryPoolTuning;
+    }
+
+    @Config("spark.attempt-number-to-apply-dynamic-memory-pool-tuning")
+    @ConfigDescription("Attempt number after which dynamic memory pool tuning will be enabled")
+    public PrestoSparkConfig setAttemptNumberToApplyDynamicMemoryPoolTuning(int attemptNumberToApplyDynamicMemoryPoolTuning)
+    {
+        this.attemptNumberToApplyDynamicMemoryPoolTuning = attemptNumberToApplyDynamicMemoryPoolTuning;
         return this;
     }
 }

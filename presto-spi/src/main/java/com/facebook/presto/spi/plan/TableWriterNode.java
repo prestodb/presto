@@ -39,7 +39,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public class TableWriterNode
+public final class TableWriterNode
         extends PlanNode
 {
     private final PlanNode source;
@@ -267,6 +267,11 @@ public class TableWriterNode
                 tablePartitioningScheme,
                 statisticsAggregation,
                 taskCountIfScaledWriter, isTemporaryTableWriter);
+    }
+
+    public boolean isSingleWriterPerPartitionRequired()
+    {
+        return tablePartitioningScheme.isPresent() && !tablePartitioningScheme.get().isScaleWriters();
     }
 
     // only used during planning -- will not be serialized

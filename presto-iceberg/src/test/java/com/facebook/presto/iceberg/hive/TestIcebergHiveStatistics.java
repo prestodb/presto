@@ -15,16 +15,35 @@ package com.facebook.presto.iceberg.hive;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.RuntimeMetric;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.ValueSet;
 import com.facebook.presto.common.transaction.TransactionId;
+import com.facebook.presto.hive.HdfsConfiguration;
+import com.facebook.presto.hive.HdfsConfigurationInitializer;
+import com.facebook.presto.hive.HdfsEnvironment;
+import com.facebook.presto.hive.HiveClientConfig;
+import com.facebook.presto.hive.HiveHdfsConfiguration;
+import com.facebook.presto.hive.MetastoreClientConfig;
+import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
+import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.iceberg.CatalogType;
 import com.facebook.presto.iceberg.IcebergColumnHandle;
+import com.facebook.presto.iceberg.IcebergHiveTableOperationsConfig;
 import com.facebook.presto.iceberg.IcebergMetadataColumn;
+import com.facebook.presto.iceberg.IcebergQueryRunner;
+import com.facebook.presto.iceberg.IcebergUtil;
+import com.facebook.presto.iceberg.ManifestFileCache;
+import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.plan.TableScanNode;
@@ -36,29 +55,43 @@ import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import org.apache.iceberg.StatisticsFile;
+import org.apache.iceberg.Table;
+import org.apache.iceberg.UpdateStatistics;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.io.File;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.OPTIMIZER_USE_HISTOGRAMS;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
-import static com.facebook.presto.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
+import static com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore.memoizeMetastore;
+import static com.facebook.presto.iceberg.CatalogType.HIVE;
+import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
+import static com.facebook.presto.iceberg.IcebergQueryRunner.TEST_DATA_DIRECTORY;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.HIVE_METASTORE_STATISTICS_MERGE_STRATEGY;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.PUSHDOWN_FILTER_ENABLED;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.STATISTICS_KLL_SKETCH_K_PARAMETER;
+import static com.facebook.presto.iceberg.statistics.KllHistogram.isKllHistogramSupportedType;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.TOTAL_SIZE_IN_BYTES;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
@@ -76,11 +109,16 @@ import static org.testng.Assert.assertTrue;
 public class TestIcebergHiveStatistics
         extends AbstractTestQueryFramework
 {
+    private IcebergQueryRunner icebergQueryRunner;
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createIcebergQueryRunner(ImmutableMap.of(), ImmutableMap.of("iceberg.hive-statistics-merge-strategy", NUMBER_OF_DISTINCT_VALUES.name()));
+        icebergQueryRunner = IcebergQueryRunner.builder()
+                .setExtraConnectorProperties(ImmutableMap.of("iceberg.hive-statistics-merge-strategy", NUMBER_OF_DISTINCT_VALUES.name()))
+                .build();
+        return icebergQueryRunner.getQueryRunner();
     }
 
     private static final Set<String> NUMERIC_ORDERS_COLUMNS = ImmutableSet.<String>builder()
@@ -159,6 +197,7 @@ public class TestIcebergHiveStatistics
         assertQuerySucceeds("CREATE TABLE statsWithPartitionAnalyze WITH (partitioning = ARRAY['orderdate']) as SELECT * FROM statsNoPartitionAnalyze");
         assertQuerySucceeds("ANALYZE statsNoPartitionAnalyze");
         assertQuerySucceeds("ANALYZE statsWithPartitionAnalyze");
+        deleteTableStatistics("statsWithPartitionAnalyze");
         Metadata meta = getQueryRunner().getMetadata();
         TransactionId txid = getQueryRunner().getTransactionManager().beginTransaction(false);
         Session session = getSession().beginTransactionId(txid, getQueryRunner().getTransactionManager(), new AllowAllAccessControl());
@@ -295,12 +334,17 @@ public class TestIcebergHiveStatistics
     {
         assertQuerySucceeds("CREATE TABLE mergeFlagsStats (i int, v varchar)");
         assertQuerySucceeds("INSERT INTO mergeFlagsStats VALUES (0, '1'), (1, '22'), (2, '333'), (NULL, 'aaaaa'), (4, NULL)");
-        assertQuerySucceeds("ANALYZE mergeFlagsStats"); // stats stored in
+        assertQuerySucceeds("ANALYZE mergeFlagsStats");
+
+        // invalidate puffin files so only hive stats can be returned
+        deleteTableStatistics("mergeFlagsStats");
+
         // Test stats without merging doesn't return NDVs or data size
         Session session = Session.builder(getSession())
                 .setCatalogSessionProperty("iceberg", HIVE_METASTORE_STATISTICS_MERGE_STRATEGY, "")
                 .build();
         TableStatistics stats = getTableStatistics(session, "mergeFlagsStats");
+
         Map<String, ColumnStatistics> columnStatistics = getColumnNameMap(stats);
         assertEquals(columnStatistics.get("i").getDistinctValuesCount(), Estimate.unknown());
         assertEquals(columnStatistics.get("i").getDataSize(), Estimate.unknown());
@@ -369,6 +413,55 @@ public class TestIcebergHiveStatistics
         }
     }
 
+    @Test
+    public void testStatisticsCachePartialEviction()
+    {
+        String catalogName = "ice_stat_file_cache";
+        String tableName = "lineitem_statisticsFileCache";
+        try {
+            Map<String, String> catalogProperties = ImmutableMap.<String, String>builder().putAll(icebergQueryRunner.getIcebergCatalogs().get("iceberg"))
+                    .put("iceberg.max-statistics-file-cache-size", "1024B")
+                    .build();
+            getQueryRunner().createCatalog(catalogName, "iceberg", catalogProperties);
+            Session session = Session.builder(getSession())
+                    // runtime stats must be reset manually when using the builder
+                    .setRuntimeStats(new RuntimeStats())
+                    .setCatalog(catalogName)
+                    // set histograms enabled to increase statistics cache size
+                    .setSystemProperty(OPTIMIZER_USE_HISTOGRAMS, "true")
+                    .setCatalogSessionProperty(catalogName, STATISTICS_KLL_SKETCH_K_PARAMETER, "32768")
+                    .build();
+
+            assertQuerySucceeds(format("CREATE TABLE %s as SELECT * FROM lineitem", tableName));
+
+            assertQuerySucceeds(session, "ANALYZE " + tableName);
+            // get table statistics, to populate some of the cache
+            TableStatistics statistics = getTableStatistics(getQueryRunner(), session, tableName);
+            assertTrue(statistics.getColumnStatistics().values().stream().map(ColumnStatistics::getHistogram).anyMatch(Optional::isPresent));
+            RuntimeStats runtimeStats = session.getRuntimeStats();
+            runtimeStats.getMetrics().keySet().stream().filter(name -> name.contains("ColumnCount")).findFirst()
+                    .ifPresent(stat -> assertEquals(runtimeStats.getMetric(stat).getSum(), 32, "column count must be 32 on metric: " + stat));
+            runtimeStats.getMetrics().keySet().stream().filter(name -> name.contains("PuffinFileSize")).findFirst()
+                    .ifPresent(stat -> assertTrue(runtimeStats.getMetric(stat).getSum() > 1024));
+            // get them again to trigger retrieval of _some_ cached statistics
+            statistics = getTableStatistics(getQueryRunner(), session, tableName);
+            RuntimeMetric partialMiss = runtimeStats.getMetrics().keySet().stream().filter(name -> name.contains("PartialMiss")).findFirst()
+                    .map(runtimeStats::getMetric)
+                    .orElseThrow(() -> new RuntimeException("partial miss on statistics cache should have occurred"));
+            assertTrue(partialMiss.getCount() > 0);
+
+            statistics.getColumnStatistics().forEach((handle, stats) -> {
+                assertFalse(stats.getDistinctValuesCount().isUnknown());
+                if (isKllHistogramSupportedType(((IcebergColumnHandle) handle).getType())) {
+                    assertTrue(stats.getHistogram().isPresent());
+                }
+            });
+        }
+        finally {
+            assertQuerySucceeds("DROP TABLE " + tableName);
+        }
+    }
+
     private TableStatistics getScanStatsEstimate(Session session, @Language("SQL") String sql)
     {
         Plan plan = plan(sql, session);
@@ -385,14 +478,19 @@ public class TestIcebergHiveStatistics
                                 new Constraint<>(node.getCurrentConstraint())));
     }
 
+    private static TableStatistics getTableStatistics(QueryRunner queryRunner, Session session, String table)
+    {
+        Metadata meta = queryRunner.getMetadata();
+        TransactionId txid = queryRunner.getTransactionManager().beginTransaction(false);
+        Session txnSession = session.beginTransactionId(txid, queryRunner.getTransactionManager(), new AllowAllAccessControl());
+        Map<String, ColumnHandle> columnHandles = getColumnHandles(queryRunner, table, txnSession);
+        List<ColumnHandle> columnHandleList = new ArrayList<>(columnHandles.values());
+        return meta.getTableStatistics(txnSession, getAnalyzeTableHandle(queryRunner, table, txnSession), columnHandleList, Constraint.alwaysTrue());
+    }
+
     private TableStatistics getTableStatistics(Session session, String table)
     {
-        Metadata meta = getQueryRunner().getMetadata();
-        TransactionId txid = getQueryRunner().getTransactionManager().beginTransaction(false);
-        Session txnSession = session.beginTransactionId(txid, getQueryRunner().getTransactionManager(), new AllowAllAccessControl());
-        Map<String, ColumnHandle> columnHandles = getColumnHandles(table, txnSession);
-        List<ColumnHandle> columnHandleList = new ArrayList<>(columnHandles.values());
-        return meta.getTableStatistics(txnSession, getAnalyzeTableHandle(table, txnSession), columnHandleList, Constraint.alwaysTrue());
+        return getTableStatistics(getQueryRunner(), session, table);
     }
 
     private void columnStatsEqual(Map<ColumnHandle, ColumnStatistics> actualStats, Map<ColumnHandle, ColumnStatistics> expectedStats)
@@ -421,26 +519,36 @@ public class TestIcebergHiveStatistics
                         ImmutableMap.of(col, Domain.create(ValueSet.ofRanges(Range.greaterThan(DOUBLE, min)), true))));
     }
 
-    private TableHandle getAnalyzeTableHandle(String tableName, Session session)
+    private static TableHandle getAnalyzeTableHandle(QueryRunner queryRunner, String tableName, Session session)
     {
-        Metadata meta = getQueryRunner().getMetadata();
+        Metadata meta = queryRunner.getMetadata();
         return meta.getTableHandleForStatisticsCollection(
                 session,
-                new QualifiedObjectName("iceberg", "tpch", tableName.toLowerCase(Locale.US)),
+                new QualifiedObjectName(session.getCatalog().get(), session.getSchema().get(), tableName.toLowerCase(Locale.US)),
                 Collections.emptyMap()).get();
     }
 
-    private TableHandle getTableHandle(String tableName, Session session)
+    private TableHandle getAnalyzeTableHandle(String tableName, Session session)
     {
-        MetadataResolver resolver = getQueryRunner().getMetadata().getMetadataResolver(session);
-        return resolver.getTableHandle(new QualifiedObjectName("iceberg", "tpch", tableName.toLowerCase(Locale.US))).get();
+        return getAnalyzeTableHandle(getQueryRunner(), tableName, session);
+    }
+
+    private static TableHandle getTableHandle(QueryRunner queryRunner, String tableName, Session session)
+    {
+        MetadataResolver resolver = queryRunner.getMetadata().getMetadataResolver(session);
+        return resolver.getTableHandle(new QualifiedObjectName(session.getCatalog().get(), session.getSchema().get(), tableName.toLowerCase(Locale.US))).get();
+    }
+
+    private static Map<String, ColumnHandle> getColumnHandles(QueryRunner queryRunner, String tableName, Session session)
+    {
+        return queryRunner.getMetadata().getColumnHandles(session, getTableHandle(queryRunner, tableName, session)).entrySet().stream()
+                .filter(entry -> !IcebergMetadataColumn.isMetadataColumnId(((IcebergColumnHandle) (entry.getValue())).getId()))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
     private Map<String, ColumnHandle> getColumnHandles(String tableName, Session session)
     {
-        return getQueryRunner().getMetadata().getColumnHandles(session, getTableHandle(tableName, session)).entrySet().stream()
-                .filter(entry -> !IcebergMetadataColumn.isMetadataColumnId(((IcebergColumnHandle) (entry.getValue())).getId()))
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        return getColumnHandles(getQueryRunner(), tableName, session);
     }
 
     static void assertStatValuePresent(StatsSchema column, MaterializedResult result, Set<String> columnNames)
@@ -466,6 +574,65 @@ public class TestIcebergHiveStatistics
                 }
             }
         });
+    }
+
+    private void deleteTableStatistics(String tableName)
+    {
+        Table icebergTable = loadTable(tableName);
+        UpdateStatistics statsUpdate = icebergTable.updateStatistics();
+        icebergTable.statisticsFiles().stream().map(StatisticsFile::snapshotId).forEach(statsUpdate::removeStatistics);
+        statsUpdate.commit();
+    }
+
+    private Table loadTable(String tableName)
+    {
+        CatalogManager catalogManager = getDistributedQueryRunner().getCoordinator().getCatalogManager();
+        ConnectorId connectorId = catalogManager.getCatalog(ICEBERG_CATALOG).get().getConnectorId();
+
+        return IcebergUtil.getHiveIcebergTable(getFileHiveMetastore(),
+                getHdfsEnvironment(),
+                new IcebergHiveTableOperationsConfig(),
+                new ManifestFileCache(CacheBuilder.newBuilder().build(), false, 0, 1024),
+                getQueryRunner().getDefaultSession().toConnectorSession(connectorId),
+                SchemaTableName.valueOf("tpch." + tableName));
+    }
+
+    protected ExtendedHiveMetastore getFileHiveMetastore()
+    {
+        IcebergFileHiveMetastore fileHiveMetastore = new IcebergFileHiveMetastore(getHdfsEnvironment(),
+                Optional.of(getCatalogDirectory(HIVE))
+                        .filter(File::exists)
+                        .map(File::getPath)
+                        .orElseThrow(() -> new RuntimeException("Catalog directory does not exist: " + getCatalogDirectory(HIVE))),
+                "test");
+        return memoizeMetastore(fileHiveMetastore, false, 1000, 0);
+    }
+
+    protected static HdfsEnvironment getHdfsEnvironment()
+    {
+        HiveClientConfig hiveClientConfig = new HiveClientConfig();
+        MetastoreClientConfig metastoreClientConfig = new MetastoreClientConfig();
+        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveClientConfig, metastoreClientConfig),
+                ImmutableSet.of(),
+                hiveClientConfig);
+        return new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
+    }
+
+    protected File getCatalogDirectory(CatalogType catalogType)
+    {
+        Path dataDirectory = getDistributedQueryRunner().getCoordinator().getDataDirectory();
+        switch (catalogType) {
+            case HIVE:
+                return dataDirectory
+                        .resolve(TEST_DATA_DIRECTORY)
+                        .resolve(HIVE.name())
+                        .toFile();
+            case HADOOP:
+            case NESSIE:
+                return dataDirectory.toFile();
+        }
+
+        throw new PrestoException(NOT_SUPPORTED, "Unsupported Presto Iceberg catalog type " + catalogType);
     }
 
     private static Map<String, ColumnStatistics> getColumnNameMap(TableStatistics statistics)

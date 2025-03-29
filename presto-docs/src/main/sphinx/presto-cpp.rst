@@ -54,4 +54,6 @@ Only specific connectors are supported in the Presto C++ evaluation engine.
 
 * Iceberg connector supports both V1 and V2 tables, including tables with delete files.
 
+* Supports reading and writing of DWRF and PARQUET file formats, supports reading ORC file format.
+
 * TPCH connector, with ``tpch.naming=standard`` catalog property.

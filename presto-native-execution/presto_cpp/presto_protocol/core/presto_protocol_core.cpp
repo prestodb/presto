@@ -108,6 +108,10 @@ void to_json(json& j, const std::shared_ptr<FunctionHandle>& p) {
     j = *std::static_pointer_cast<BuiltInFunctionHandle>(p);
     return;
   }
+  if (type == "native") {
+    j = *std::static_pointer_cast<SqlFunctionHandle>(p);
+    return;
+  }
   if (type == "json_file") {
     j = *std::static_pointer_cast<SqlFunctionHandle>(p);
     return;
@@ -127,6 +131,13 @@ void from_json(const json& j, std::shared_ptr<FunctionHandle>& p) {
   if (type == "$static") {
     std::shared_ptr<BuiltInFunctionHandle> k =
         std::make_shared<BuiltInFunctionHandle>();
+    j.get_to(*k);
+    p = std::static_pointer_cast<FunctionHandle>(k);
+    return;
+  }
+  if (type == "native") {
+    std::shared_ptr<SqlFunctionHandle> k =
+        std::make_shared<SqlFunctionHandle>();
     j.get_to(*k);
     p = std::static_pointer_cast<FunctionHandle>(k);
     return;
@@ -625,6 +636,10 @@ void to_json(json& j, const std::shared_ptr<PlanNode>& p) {
     j = *std::static_pointer_cast<GroupIdNode>(p);
     return;
   }
+  if (type == ".DeleteNode") {
+    j = *std::static_pointer_cast<DeleteNode>(p);
+    return;
+  }
   if (type == ".DistinctLimitNode") {
     j = *std::static_pointer_cast<DistinctLimitNode>(p);
     return;
@@ -741,6 +756,12 @@ void from_json(const json& j, std::shared_ptr<PlanNode>& p) {
   }
   if (type == "com.facebook.presto.sql.planner.plan.GroupIdNode") {
     std::shared_ptr<GroupIdNode> k = std::make_shared<GroupIdNode>();
+    j.get_to(*k);
+    p = std::static_pointer_cast<PlanNode>(k);
+    return;
+  }
+  if (type == ".DeleteNode") {
+    std::shared_ptr<DeleteNode> k = std::make_shared<DeleteNode>();
     j.get_to(*k);
     p = std::static_pointer_cast<PlanNode>(k);
     return;
@@ -1069,6 +1090,7 @@ void from_json(const json& j, std::shared_ptr<ConnectorTableHandle>& p) {
  */
 
 // dependency TpchTransactionHandle
+// dependency ArrowTransactionHandle
 
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ConnectorTransactionHandle>& p) {
@@ -1207,6 +1229,62 @@ void from_json(const json& j, Assignments& p) {
       "Assignments",
       "Map<VariableReferenceExpression, std::shared_ptr<RowExpression>>",
       "assignments");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+BaseInputDistribution::BaseInputDistribution() noexcept {
+  _type = ".BaseInputDistribution";
+}
+
+void to_json(json& j, const BaseInputDistribution& p) {
+  j = json::object();
+  j["@type"] = ".BaseInputDistribution";
+  to_json_key(
+      j,
+      "partitionBy",
+      p.partitionBy,
+      "BaseInputDistribution",
+      "List<VariableReferenceExpression>",
+      "partitionBy");
+  to_json_key(
+      j,
+      "orderingScheme",
+      p.orderingScheme,
+      "BaseInputDistribution",
+      "OrderingScheme",
+      "orderingScheme");
+  to_json_key(
+      j,
+      "inputVariables",
+      p.inputVariables,
+      "BaseInputDistribution",
+      "List<VariableReferenceExpression>",
+      "inputVariables");
+}
+
+void from_json(const json& j, BaseInputDistribution& p) {
+  p._type = j["@type"];
+  from_json_key(
+      j,
+      "partitionBy",
+      p.partitionBy,
+      "BaseInputDistribution",
+      "List<VariableReferenceExpression>",
+      "partitionBy");
+  from_json_key(
+      j,
+      "orderingScheme",
+      p.orderingScheme,
+      "BaseInputDistribution",
+      "OrderingScheme",
+      "orderingScheme");
+  from_json_key(
+      j,
+      "inputVariables",
+      p.inputVariables,
+      "BaseInputDistribution",
+      "List<VariableReferenceExpression>",
+      "inputVariables");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
@@ -1862,6 +1940,13 @@ void to_json(json& j, const SqlInvokedFunction& p) {
   to_json_key(j, "body", p.body, "SqlInvokedFunction", "String", "body");
   to_json_key(
       j,
+      "variableArity",
+      p.variableArity,
+      "SqlInvokedFunction",
+      "bool",
+      "variableArity");
+  to_json_key(
+      j,
       "signature",
       p.signature,
       "SqlInvokedFunction",
@@ -1899,6 +1984,13 @@ void from_json(const json& j, SqlInvokedFunction& p) {
       "RoutineCharacteristics",
       "routineCharacteristics");
   from_json_key(j, "body", p.body, "SqlInvokedFunction", "String", "body");
+  from_json_key(
+      j,
+      "variableArity",
+      p.variableArity,
+      "SqlInvokedFunction",
+      "bool",
+      "variableArity");
   from_json_key(
       j,
       "signature",
@@ -2319,6 +2411,10 @@ void to_json(json& j, const std::shared_ptr<ExecutionWriterTarget>& p) {
     j = *std::static_pointer_cast<CreateHandle>(p);
     return;
   }
+  if (type == "RefreshMaterializedViewHandle") {
+    j = *std::static_pointer_cast<InsertHandle>(p);
+    return;
+  }
   if (type == "InsertHandle") {
     j = *std::static_pointer_cast<InsertHandle>(p);
     return;
@@ -2343,6 +2439,12 @@ void from_json(const json& j, std::shared_ptr<ExecutionWriterTarget>& p) {
 
   if (type == "CreateHandle") {
     std::shared_ptr<CreateHandle> k = std::make_shared<CreateHandle>();
+    j.get_to(*k);
+    p = std::static_pointer_cast<ExecutionWriterTarget>(k);
+    return;
+  }
+  if (type == "RefreshMaterializedViewHandle") {
+    std::shared_ptr<InsertHandle> k = std::make_shared<InsertHandle>();
     j.get_to(*k);
     p = std::static_pointer_cast<ExecutionWriterTarget>(k);
     return;
@@ -3160,6 +3262,91 @@ void from_json(const json& j, CreateHandle& p) {
       "schemaTableName");
 }
 } // namespace facebook::presto::protocol
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+namespace facebook::presto::protocol {
+void to_json(json& j, const std::shared_ptr<ConnectorDeleteTableHandle>& p) {
+  if (p == nullptr) {
+    return;
+  }
+  String type = p->_type;
+  getConnectorProtocol(type).to_json(j, p);
+}
+
+void from_json(const json& j, std::shared_ptr<ConnectorDeleteTableHandle>& p) {
+  String type;
+  try {
+    type = p->getSubclassKey(j);
+  } catch (json::parse_error& e) {
+    throw ParseError(
+        std::string(e.what()) +
+        " ConnectorDeleteTableHandle  ConnectorDeleteTableHandle");
+  }
+  getConnectorProtocol(type).from_json(j, p);
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+
+void to_json(json& j, const DeleteTableHandle& p) {
+  j = json::object();
+  to_json_key(
+      j,
+      "connectorId",
+      p.connectorId,
+      "DeleteTableHandle",
+      "ConnectorId",
+      "connectorId");
+  to_json_key(
+      j,
+      "transactionHandle",
+      p.transactionHandle,
+      "DeleteTableHandle",
+      "ConnectorTransactionHandle",
+      "transactionHandle");
+  to_json_key(
+      j,
+      "connectorHandle",
+      p.connectorHandle,
+      "DeleteTableHandle",
+      "ConnectorDeleteTableHandle",
+      "connectorHandle");
+}
+
+void from_json(const json& j, DeleteTableHandle& p) {
+  from_json_key(
+      j,
+      "connectorId",
+      p.connectorId,
+      "DeleteTableHandle",
+      "ConnectorId",
+      "connectorId");
+  from_json_key(
+      j,
+      "transactionHandle",
+      p.transactionHandle,
+      "DeleteTableHandle",
+      "ConnectorTransactionHandle",
+      "transactionHandle");
+  from_json_key(
+      j,
+      "connectorHandle",
+      p.connectorHandle,
+      "DeleteTableHandle",
+      "ConnectorDeleteTableHandle",
+      "connectorHandle");
+}
+} // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 DeleteHandle::DeleteHandle() noexcept {
   _type = "DeleteHandle";
@@ -3168,7 +3355,8 @@ DeleteHandle::DeleteHandle() noexcept {
 void to_json(json& j, const DeleteHandle& p) {
   j = json::object();
   j["@type"] = "DeleteHandle";
-  to_json_key(j, "handle", p.handle, "DeleteHandle", "TableHandle", "handle");
+  to_json_key(
+      j, "handle", p.handle, "DeleteHandle", "DeleteTableHandle", "handle");
   to_json_key(
       j,
       "schemaTableName",
@@ -3180,7 +3368,8 @@ void to_json(json& j, const DeleteHandle& p) {
 
 void from_json(const json& j, DeleteHandle& p) {
   p._type = j["@type"];
-  from_json_key(j, "handle", p.handle, "DeleteHandle", "TableHandle", "handle");
+  from_json_key(
+      j, "handle", p.handle, "DeleteHandle", "DeleteTableHandle", "handle");
   from_json_key(
       j,
       "schemaTableName",
@@ -3188,6 +3377,101 @@ void from_json(const json& j, DeleteHandle& p) {
       "DeleteHandle",
       "SchemaTableName",
       "schemaTableName");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+void to_json(json& j, const std::shared_ptr<InputDistribution>& p) {
+  if (p == nullptr) {
+    return;
+  }
+  String type = p->_type;
+
+  if (type == ".BaseInputDistribution") {
+    j = *std::static_pointer_cast<BaseInputDistribution>(p);
+    return;
+  }
+
+  throw TypeError(type + " no abstract type InputDistribution ");
+}
+
+void from_json(const json& j, std::shared_ptr<InputDistribution>& p) {
+  String type;
+  try {
+    type = p->getSubclassKey(j);
+  } catch (json::parse_error& e) {
+    throw ParseError(
+        std::string(e.what()) + " InputDistribution  InputDistribution");
+  }
+
+  if (type == ".BaseInputDistribution") {
+    std::shared_ptr<BaseInputDistribution> k =
+        std::make_shared<BaseInputDistribution>();
+    j.get_to(*k);
+    p = std::static_pointer_cast<InputDistribution>(k);
+    return;
+  }
+
+  throw TypeError(type + " no abstract type InputDistribution ");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+DeleteNode::DeleteNode() noexcept {
+  _type = ".DeleteNode";
+}
+
+void to_json(json& j, const DeleteNode& p) {
+  j = json::object();
+  j["@type"] = ".DeleteNode";
+  to_json_key(j, "id", p.id, "DeleteNode", "PlanNodeId", "id");
+  to_json_key(j, "source", p.source, "DeleteNode", "PlanNode", "source");
+  to_json_key(
+      j,
+      "rowId",
+      p.rowId,
+      "DeleteNode",
+      "VariableReferenceExpression",
+      "rowId");
+  to_json_key(
+      j,
+      "outputVariables",
+      p.outputVariables,
+      "DeleteNode",
+      "List<VariableReferenceExpression>",
+      "outputVariables");
+  to_json_key(
+      j,
+      "inputDistribution",
+      p.inputDistribution,
+      "DeleteNode",
+      "InputDistribution",
+      "inputDistribution");
+}
+
+void from_json(const json& j, DeleteNode& p) {
+  p._type = j["@type"];
+  from_json_key(j, "id", p.id, "DeleteNode", "PlanNodeId", "id");
+  from_json_key(j, "source", p.source, "DeleteNode", "PlanNode", "source");
+  from_json_key(
+      j,
+      "rowId",
+      p.rowId,
+      "DeleteNode",
+      "VariableReferenceExpression",
+      "rowId");
+  from_json_key(
+      j,
+      "outputVariables",
+      p.outputVariables,
+      "DeleteNode",
+      "List<VariableReferenceExpression>",
+      "outputVariables");
+  from_json_key(
+      j,
+      "inputDistribution",
+      p.inputDistribution,
+      "DeleteNode",
+      "InputDistribution",
+      "inputDistribution");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
@@ -3502,11 +3786,11 @@ void to_json(json& j, const OperatorStats& p) {
       "isBlockedCpu");
   to_json_key(
       j,
-      "isBlockedAllocation",
-      p.isBlockedAllocation,
+      "isBlockedAllocationInBytes",
+      p.isBlockedAllocationInBytes,
       "OperatorStats",
-      "DataSize",
-      "isBlockedAllocation");
+      "int64_t",
+      "isBlockedAllocationInBytes");
   to_json_key(
       j,
       "addInputCalls",
@@ -3530,18 +3814,18 @@ void to_json(json& j, const OperatorStats& p) {
       "addInputCpu");
   to_json_key(
       j,
-      "addInputAllocation",
-      p.addInputAllocation,
+      "addInputAllocationInBytes",
+      p.addInputAllocationInBytes,
       "OperatorStats",
-      "DataSize",
-      "addInputAllocation");
+      "int64_t",
+      "addInputAllocationInBytes");
   to_json_key(
       j,
-      "rawInputDataSize",
-      p.rawInputDataSize,
+      "rawInputDataSizeInBytes",
+      p.rawInputDataSizeInBytes,
       "OperatorStats",
-      "DataSize",
-      "rawInputDataSize");
+      "int64_t",
+      "rawInputDataSizeInBytes");
   to_json_key(
       j,
       "rawInputPositions",
@@ -3551,11 +3835,11 @@ void to_json(json& j, const OperatorStats& p) {
       "rawInputPositions");
   to_json_key(
       j,
-      "inputDataSize",
-      p.inputDataSize,
+      "inputDataSizeInBytes",
+      p.inputDataSizeInBytes,
       "OperatorStats",
-      "DataSize",
-      "inputDataSize");
+      "int64_t",
+      "inputDataSizeInBytes");
   to_json_key(
       j,
       "inputPositions",
@@ -3593,18 +3877,18 @@ void to_json(json& j, const OperatorStats& p) {
       "getOutputCpu");
   to_json_key(
       j,
-      "getOutputAllocation",
-      p.getOutputAllocation,
+      "getOutputAllocationInBytes",
+      p.getOutputAllocationInBytes,
       "OperatorStats",
-      "DataSize",
-      "getOutputAllocation");
+      "int64_t",
+      "getOutputAllocationInBytes");
   to_json_key(
       j,
-      "outputDataSize",
-      p.outputDataSize,
+      "outputDataSizeInBytes",
+      p.outputDataSizeInBytes,
       "OperatorStats",
-      "DataSize",
-      "outputDataSize");
+      "int64_t",
+      "outputDataSizeInBytes");
   to_json_key(
       j,
       "outputPositions",
@@ -3614,11 +3898,11 @@ void to_json(json& j, const OperatorStats& p) {
       "outputPositions");
   to_json_key(
       j,
-      "physicalWrittenDataSize",
-      p.physicalWrittenDataSize,
+      "physicalWrittenDataSizeInBytes",
+      p.physicalWrittenDataSizeInBytes,
       "OperatorStats",
-      "DataSize",
-      "physicalWrittenDataSize");
+      "int64_t",
+      "physicalWrittenDataSizeInBytes");
   to_json_key(
       j,
       "additionalCpu",
@@ -3646,60 +3930,60 @@ void to_json(json& j, const OperatorStats& p) {
       j, "finishCpu", p.finishCpu, "OperatorStats", "Duration", "finishCpu");
   to_json_key(
       j,
-      "finishAllocation",
-      p.finishAllocation,
+      "finishAllocationInBytes",
+      p.finishAllocationInBytes,
       "OperatorStats",
-      "DataSize",
-      "finishAllocation");
+      "int64_t",
+      "finishAllocationInBytes");
   to_json_key(
       j,
-      "userMemoryReservation",
-      p.userMemoryReservation,
+      "userMemoryReservationInBytes",
+      p.userMemoryReservationInBytes,
       "OperatorStats",
-      "DataSize",
-      "userMemoryReservation");
+      "int64_t",
+      "userMemoryReservationInBytes");
   to_json_key(
       j,
-      "revocableMemoryReservation",
-      p.revocableMemoryReservation,
+      "revocableMemoryReservationInBytes",
+      p.revocableMemoryReservationInBytes,
       "OperatorStats",
-      "DataSize",
-      "revocableMemoryReservation");
+      "int64_t",
+      "revocableMemoryReservationInBytes");
   to_json_key(
       j,
-      "systemMemoryReservation",
-      p.systemMemoryReservation,
+      "systemMemoryReservationInBytes",
+      p.systemMemoryReservationInBytes,
       "OperatorStats",
-      "DataSize",
-      "systemMemoryReservation");
+      "int64_t",
+      "systemMemoryReservationInBytes");
   to_json_key(
       j,
-      "peakUserMemoryReservation",
-      p.peakUserMemoryReservation,
+      "peakUserMemoryReservationInBytes",
+      p.peakUserMemoryReservationInBytes,
       "OperatorStats",
-      "DataSize",
-      "peakUserMemoryReservation");
+      "int64_t",
+      "peakUserMemoryReservationInBytes");
   to_json_key(
       j,
-      "peakSystemMemoryReservation",
-      p.peakSystemMemoryReservation,
+      "peakSystemMemoryReservationInBytes",
+      p.peakSystemMemoryReservationInBytes,
       "OperatorStats",
-      "DataSize",
-      "peakSystemMemoryReservation");
+      "int64_t",
+      "peakSystemMemoryReservationInBytes");
   to_json_key(
       j,
-      "peakTotalMemoryReservation",
-      p.peakTotalMemoryReservation,
+      "peakTotalMemoryReservationInBytes",
+      p.peakTotalMemoryReservationInBytes,
       "OperatorStats",
-      "DataSize",
-      "peakTotalMemoryReservation");
+      "int64_t",
+      "peakTotalMemoryReservationInBytes");
   to_json_key(
       j,
-      "spilledDataSize",
-      p.spilledDataSize,
+      "spilledDataSizeInBytes",
+      p.spilledDataSizeInBytes,
       "OperatorStats",
-      "DataSize",
-      "spilledDataSize");
+      "int64_t",
+      "spilledDataSizeInBytes");
   to_json_key(
       j,
       "blockedReason",
@@ -3809,11 +4093,11 @@ void from_json(const json& j, OperatorStats& p) {
       "isBlockedCpu");
   from_json_key(
       j,
-      "isBlockedAllocation",
-      p.isBlockedAllocation,
+      "isBlockedAllocationInBytes",
+      p.isBlockedAllocationInBytes,
       "OperatorStats",
-      "DataSize",
-      "isBlockedAllocation");
+      "int64_t",
+      "isBlockedAllocationInBytes");
   from_json_key(
       j,
       "addInputCalls",
@@ -3837,18 +4121,18 @@ void from_json(const json& j, OperatorStats& p) {
       "addInputCpu");
   from_json_key(
       j,
-      "addInputAllocation",
-      p.addInputAllocation,
+      "addInputAllocationInBytes",
+      p.addInputAllocationInBytes,
       "OperatorStats",
-      "DataSize",
-      "addInputAllocation");
+      "int64_t",
+      "addInputAllocationInBytes");
   from_json_key(
       j,
-      "rawInputDataSize",
-      p.rawInputDataSize,
+      "rawInputDataSizeInBytes",
+      p.rawInputDataSizeInBytes,
       "OperatorStats",
-      "DataSize",
-      "rawInputDataSize");
+      "int64_t",
+      "rawInputDataSizeInBytes");
   from_json_key(
       j,
       "rawInputPositions",
@@ -3858,11 +4142,11 @@ void from_json(const json& j, OperatorStats& p) {
       "rawInputPositions");
   from_json_key(
       j,
-      "inputDataSize",
-      p.inputDataSize,
+      "inputDataSizeInBytes",
+      p.inputDataSizeInBytes,
       "OperatorStats",
-      "DataSize",
-      "inputDataSize");
+      "int64_t",
+      "inputDataSizeInBytes");
   from_json_key(
       j,
       "inputPositions",
@@ -3900,18 +4184,18 @@ void from_json(const json& j, OperatorStats& p) {
       "getOutputCpu");
   from_json_key(
       j,
-      "getOutputAllocation",
-      p.getOutputAllocation,
+      "getOutputAllocationInBytes",
+      p.getOutputAllocationInBytes,
       "OperatorStats",
-      "DataSize",
-      "getOutputAllocation");
+      "int64_t",
+      "getOutputAllocationInBytes");
   from_json_key(
       j,
-      "outputDataSize",
-      p.outputDataSize,
+      "outputDataSizeInBytes",
+      p.outputDataSizeInBytes,
       "OperatorStats",
-      "DataSize",
-      "outputDataSize");
+      "int64_t",
+      "outputDataSizeInBytes");
   from_json_key(
       j,
       "outputPositions",
@@ -3921,11 +4205,11 @@ void from_json(const json& j, OperatorStats& p) {
       "outputPositions");
   from_json_key(
       j,
-      "physicalWrittenDataSize",
-      p.physicalWrittenDataSize,
+      "physicalWrittenDataSizeInBytes",
+      p.physicalWrittenDataSizeInBytes,
       "OperatorStats",
-      "DataSize",
-      "physicalWrittenDataSize");
+      "int64_t",
+      "physicalWrittenDataSizeInBytes");
   from_json_key(
       j,
       "additionalCpu",
@@ -3953,60 +4237,60 @@ void from_json(const json& j, OperatorStats& p) {
       j, "finishCpu", p.finishCpu, "OperatorStats", "Duration", "finishCpu");
   from_json_key(
       j,
-      "finishAllocation",
-      p.finishAllocation,
+      "finishAllocationInBytes",
+      p.finishAllocationInBytes,
       "OperatorStats",
-      "DataSize",
-      "finishAllocation");
+      "int64_t",
+      "finishAllocationInBytes");
   from_json_key(
       j,
-      "userMemoryReservation",
-      p.userMemoryReservation,
+      "userMemoryReservationInBytes",
+      p.userMemoryReservationInBytes,
       "OperatorStats",
-      "DataSize",
-      "userMemoryReservation");
+      "int64_t",
+      "userMemoryReservationInBytes");
   from_json_key(
       j,
-      "revocableMemoryReservation",
-      p.revocableMemoryReservation,
+      "revocableMemoryReservationInBytes",
+      p.revocableMemoryReservationInBytes,
       "OperatorStats",
-      "DataSize",
-      "revocableMemoryReservation");
+      "int64_t",
+      "revocableMemoryReservationInBytes");
   from_json_key(
       j,
-      "systemMemoryReservation",
-      p.systemMemoryReservation,
+      "systemMemoryReservationInBytes",
+      p.systemMemoryReservationInBytes,
       "OperatorStats",
-      "DataSize",
-      "systemMemoryReservation");
+      "int64_t",
+      "systemMemoryReservationInBytes");
   from_json_key(
       j,
-      "peakUserMemoryReservation",
-      p.peakUserMemoryReservation,
+      "peakUserMemoryReservationInBytes",
+      p.peakUserMemoryReservationInBytes,
       "OperatorStats",
-      "DataSize",
-      "peakUserMemoryReservation");
+      "int64_t",
+      "peakUserMemoryReservationInBytes");
   from_json_key(
       j,
-      "peakSystemMemoryReservation",
-      p.peakSystemMemoryReservation,
+      "peakSystemMemoryReservationInBytes",
+      p.peakSystemMemoryReservationInBytes,
       "OperatorStats",
-      "DataSize",
-      "peakSystemMemoryReservation");
+      "int64_t",
+      "peakSystemMemoryReservationInBytes");
   from_json_key(
       j,
-      "peakTotalMemoryReservation",
-      p.peakTotalMemoryReservation,
+      "peakTotalMemoryReservationInBytes",
+      p.peakTotalMemoryReservationInBytes,
       "OperatorStats",
-      "DataSize",
-      "peakTotalMemoryReservation");
+      "int64_t",
+      "peakTotalMemoryReservationInBytes");
   from_json_key(
       j,
-      "spilledDataSize",
-      p.spilledDataSize,
+      "spilledDataSizeInBytes",
+      p.spilledDataSizeInBytes,
       "OperatorStats",
-      "DataSize",
-      "spilledDataSize");
+      "int64_t",
+      "spilledDataSizeInBytes");
   from_json_key(
       j,
       "blockedReason",
@@ -4065,10 +4349,26 @@ void to_json(json& j, const DriverStats& p) {
   j = json::object();
   to_json_key(j, "lifespan", p.lifespan, "DriverStats", "Lifespan", "lifespan");
   to_json_key(
-      j, "createTime", p.createTime, "DriverStats", "DateTime", "createTime");
+      j,
+      "createTimeInMillis",
+      p.createTimeInMillis,
+      "DriverStats",
+      "int64_t",
+      "createTimeInMillis");
   to_json_key(
-      j, "startTime", p.startTime, "DriverStats", "DateTime", "startTime");
-  to_json_key(j, "endTime", p.endTime, "DriverStats", "DateTime", "endTime");
+      j,
+      "startTimeInMillis",
+      p.startTimeInMillis,
+      "DriverStats",
+      "int64_t",
+      "startTimeInMillis");
+  to_json_key(
+      j,
+      "endTimeInMillis",
+      p.endTimeInMillis,
+      "DriverStats",
+      "int64_t",
+      "endTimeInMillis");
   to_json_key(
       j, "queuedTime", p.queuedTime, "DriverStats", "Duration", "queuedTime");
   to_json_key(
@@ -4080,25 +4380,25 @@ void to_json(json& j, const DriverStats& p) {
       "elapsedTime");
   to_json_key(
       j,
-      "userMemoryReservation",
-      p.userMemoryReservation,
+      "userMemoryReservationInBytes",
+      p.userMemoryReservationInBytes,
       "DriverStats",
-      "DataSize",
-      "userMemoryReservation");
+      "int64_t",
+      "userMemoryReservationInBytes");
   to_json_key(
       j,
-      "revocableMemoryReservation",
-      p.revocableMemoryReservation,
+      "revocableMemoryReservationInBytes",
+      p.revocableMemoryReservationInBytes,
       "DriverStats",
-      "DataSize",
-      "revocableMemoryReservation");
+      "int64_t",
+      "revocableMemoryReservationInBytes");
   to_json_key(
       j,
-      "systemMemoryReservation",
-      p.systemMemoryReservation,
+      "systemMemoryReservationInBytes",
+      p.systemMemoryReservationInBytes,
       "DriverStats",
-      "DataSize",
-      "systemMemoryReservation");
+      "int64_t",
+      "systemMemoryReservationInBytes");
   to_json_key(
       j,
       "totalScheduledTime",
@@ -4131,18 +4431,18 @@ void to_json(json& j, const DriverStats& p) {
       "blockedReasons");
   to_json_key(
       j,
-      "totalAllocation",
-      p.totalAllocation,
+      "totalAllocationInBytes",
+      p.totalAllocationInBytes,
       "DriverStats",
-      "DataSize",
-      "totalAllocation");
+      "int64_t",
+      "totalAllocationInBytes");
   to_json_key(
       j,
-      "rawInputDataSize",
-      p.rawInputDataSize,
+      "rawInputDataSizeInBytes",
+      p.rawInputDataSizeInBytes,
       "DriverStats",
-      "DataSize",
-      "rawInputDataSize");
+      "int64_t",
+      "rawInputDataSizeInBytes");
   to_json_key(
       j,
       "rawInputPositions",
@@ -4159,11 +4459,11 @@ void to_json(json& j, const DriverStats& p) {
       "rawInputReadTime");
   to_json_key(
       j,
-      "processedInputDataSize",
-      p.processedInputDataSize,
+      "processedInputDataSizeInBytes",
+      p.processedInputDataSizeInBytes,
       "DriverStats",
-      "DataSize",
-      "processedInputDataSize");
+      "int64_t",
+      "processedInputDataSizeInBytes");
   to_json_key(
       j,
       "processedInputPositions",
@@ -4173,11 +4473,11 @@ void to_json(json& j, const DriverStats& p) {
       "processedInputPositions");
   to_json_key(
       j,
-      "outputDataSize",
-      p.outputDataSize,
+      "outputDataSizeInBytes",
+      p.outputDataSizeInBytes,
       "DriverStats",
-      "DataSize",
-      "outputDataSize");
+      "int64_t",
+      "outputDataSizeInBytes");
   to_json_key(
       j,
       "outputPositions",
@@ -4187,11 +4487,11 @@ void to_json(json& j, const DriverStats& p) {
       "outputPositions");
   to_json_key(
       j,
-      "physicalWrittenDataSize",
-      p.physicalWrittenDataSize,
+      "physicalWrittenDataSizeInBytes",
+      p.physicalWrittenDataSizeInBytes,
       "DriverStats",
-      "DataSize",
-      "physicalWrittenDataSize");
+      "int64_t",
+      "physicalWrittenDataSizeInBytes");
   to_json_key(
       j,
       "operatorStats",
@@ -4205,10 +4505,26 @@ void from_json(const json& j, DriverStats& p) {
   from_json_key(
       j, "lifespan", p.lifespan, "DriverStats", "Lifespan", "lifespan");
   from_json_key(
-      j, "createTime", p.createTime, "DriverStats", "DateTime", "createTime");
+      j,
+      "createTimeInMillis",
+      p.createTimeInMillis,
+      "DriverStats",
+      "int64_t",
+      "createTimeInMillis");
   from_json_key(
-      j, "startTime", p.startTime, "DriverStats", "DateTime", "startTime");
-  from_json_key(j, "endTime", p.endTime, "DriverStats", "DateTime", "endTime");
+      j,
+      "startTimeInMillis",
+      p.startTimeInMillis,
+      "DriverStats",
+      "int64_t",
+      "startTimeInMillis");
+  from_json_key(
+      j,
+      "endTimeInMillis",
+      p.endTimeInMillis,
+      "DriverStats",
+      "int64_t",
+      "endTimeInMillis");
   from_json_key(
       j, "queuedTime", p.queuedTime, "DriverStats", "Duration", "queuedTime");
   from_json_key(
@@ -4220,25 +4536,25 @@ void from_json(const json& j, DriverStats& p) {
       "elapsedTime");
   from_json_key(
       j,
-      "userMemoryReservation",
-      p.userMemoryReservation,
+      "userMemoryReservationInBytes",
+      p.userMemoryReservationInBytes,
       "DriverStats",
-      "DataSize",
-      "userMemoryReservation");
+      "int64_t",
+      "userMemoryReservationInBytes");
   from_json_key(
       j,
-      "revocableMemoryReservation",
-      p.revocableMemoryReservation,
+      "revocableMemoryReservationInBytes",
+      p.revocableMemoryReservationInBytes,
       "DriverStats",
-      "DataSize",
-      "revocableMemoryReservation");
+      "int64_t",
+      "revocableMemoryReservationInBytes");
   from_json_key(
       j,
-      "systemMemoryReservation",
-      p.systemMemoryReservation,
+      "systemMemoryReservationInBytes",
+      p.systemMemoryReservationInBytes,
       "DriverStats",
-      "DataSize",
-      "systemMemoryReservation");
+      "int64_t",
+      "systemMemoryReservationInBytes");
   from_json_key(
       j,
       "totalScheduledTime",
@@ -4271,18 +4587,18 @@ void from_json(const json& j, DriverStats& p) {
       "blockedReasons");
   from_json_key(
       j,
-      "totalAllocation",
-      p.totalAllocation,
+      "totalAllocationInBytes",
+      p.totalAllocationInBytes,
       "DriverStats",
-      "DataSize",
-      "totalAllocation");
+      "int64_t",
+      "totalAllocationInBytes");
   from_json_key(
       j,
-      "rawInputDataSize",
-      p.rawInputDataSize,
+      "rawInputDataSizeInBytes",
+      p.rawInputDataSizeInBytes,
       "DriverStats",
-      "DataSize",
-      "rawInputDataSize");
+      "int64_t",
+      "rawInputDataSizeInBytes");
   from_json_key(
       j,
       "rawInputPositions",
@@ -4299,11 +4615,11 @@ void from_json(const json& j, DriverStats& p) {
       "rawInputReadTime");
   from_json_key(
       j,
-      "processedInputDataSize",
-      p.processedInputDataSize,
+      "processedInputDataSizeInBytes",
+      p.processedInputDataSizeInBytes,
       "DriverStats",
-      "DataSize",
-      "processedInputDataSize");
+      "int64_t",
+      "processedInputDataSizeInBytes");
   from_json_key(
       j,
       "processedInputPositions",
@@ -4313,11 +4629,11 @@ void from_json(const json& j, DriverStats& p) {
       "processedInputPositions");
   from_json_key(
       j,
-      "outputDataSize",
-      p.outputDataSize,
+      "outputDataSizeInBytes",
+      p.outputDataSizeInBytes,
       "DriverStats",
-      "DataSize",
-      "outputDataSize");
+      "int64_t",
+      "outputDataSizeInBytes");
   from_json_key(
       j,
       "outputPositions",
@@ -4327,11 +4643,11 @@ void from_json(const json& j, DriverStats& p) {
       "outputPositions");
   from_json_key(
       j,
-      "physicalWrittenDataSize",
-      p.physicalWrittenDataSize,
+      "physicalWrittenDataSizeInBytes",
+      p.physicalWrittenDataSizeInBytes,
       "DriverStats",
-      "DataSize",
-      "physicalWrittenDataSize");
+      "int64_t",
+      "physicalWrittenDataSizeInBytes");
   from_json_key(
       j,
       "operatorStats",
@@ -4830,6 +5146,13 @@ void to_json(json& j, const PartitioningScheme& p) {
       "replicateNullsAndAny");
   to_json_key(
       j,
+      "scaleWriters",
+      p.scaleWriters,
+      "PartitioningScheme",
+      "bool",
+      "scaleWriters");
+  to_json_key(
+      j,
       "encoding",
       p.encoding,
       "PartitioningScheme",
@@ -4873,6 +5196,13 @@ void from_json(const json& j, PartitioningScheme& p) {
       "PartitioningScheme",
       "bool",
       "replicateNullsAndAny");
+  from_json_key(
+      j,
+      "scaleWriters",
+      p.scaleWriters,
+      "PartitioningScheme",
+      "bool",
+      "scaleWriters");
   from_json_key(
       j,
       "encoding",
@@ -5837,6 +6167,13 @@ void to_json(json& j, const JsonBasedUdfFunctionMetadata& p) {
       "schema");
   to_json_key(
       j,
+      "variableArity",
+      p.variableArity,
+      "JsonBasedUdfFunctionMetadata",
+      "bool",
+      "variableArity");
+  to_json_key(
+      j,
       "routineCharacteristics",
       p.routineCharacteristics,
       "JsonBasedUdfFunctionMetadata",
@@ -5849,6 +6186,27 @@ void to_json(json& j, const JsonBasedUdfFunctionMetadata& p) {
       "JsonBasedUdfFunctionMetadata",
       "AggregationFunctionMetadata",
       "aggregateMetadata");
+  to_json_key(
+      j,
+      "functionId",
+      p.functionId,
+      "JsonBasedUdfFunctionMetadata",
+      "SqlFunctionId",
+      "functionId");
+  to_json_key(
+      j,
+      "version",
+      p.version,
+      "JsonBasedUdfFunctionMetadata",
+      "String",
+      "version");
+  to_json_key(
+      j,
+      "typeVariableConstraints",
+      p.typeVariableConstraints,
+      "JsonBasedUdfFunctionMetadata",
+      "List<TypeVariableConstraint>",
+      "typeVariableConstraints");
 }
 
 void from_json(const json& j, JsonBasedUdfFunctionMetadata& p) {
@@ -5889,6 +6247,13 @@ void from_json(const json& j, JsonBasedUdfFunctionMetadata& p) {
       "schema");
   from_json_key(
       j,
+      "variableArity",
+      p.variableArity,
+      "JsonBasedUdfFunctionMetadata",
+      "bool",
+      "variableArity");
+  from_json_key(
+      j,
       "routineCharacteristics",
       p.routineCharacteristics,
       "JsonBasedUdfFunctionMetadata",
@@ -5901,6 +6266,27 @@ void from_json(const json& j, JsonBasedUdfFunctionMetadata& p) {
       "JsonBasedUdfFunctionMetadata",
       "AggregationFunctionMetadata",
       "aggregateMetadata");
+  from_json_key(
+      j,
+      "functionId",
+      p.functionId,
+      "JsonBasedUdfFunctionMetadata",
+      "SqlFunctionId",
+      "functionId");
+  from_json_key(
+      j,
+      "version",
+      p.version,
+      "JsonBasedUdfFunctionMetadata",
+      "String",
+      "version");
+  from_json_key(
+      j,
+      "typeVariableConstraints",
+      p.typeVariableConstraints,
+      "JsonBasedUdfFunctionMetadata",
+      "List<TypeVariableConstraint>",
+      "typeVariableConstraints");
 }
 } // namespace facebook::presto::protocol
 /*
@@ -6878,25 +7264,25 @@ void to_json(json& j, const PipelineStats& p) {
       j, "pipelineId", p.pipelineId, "PipelineStats", "int", "pipelineId");
   to_json_key(
       j,
-      "firstStartTime",
-      p.firstStartTime,
+      "firstStartTimeInMillis",
+      p.firstStartTimeInMillis,
       "PipelineStats",
-      "DateTime",
-      "firstStartTime");
+      "int64_t",
+      "firstStartTimeInMillis");
   to_json_key(
       j,
-      "lastStartTime",
-      p.lastStartTime,
+      "lastStartTimeInMillis",
+      p.lastStartTimeInMillis,
       "PipelineStats",
-      "DateTime",
-      "lastStartTime");
+      "int64_t",
+      "lastStartTimeInMillis");
   to_json_key(
       j,
-      "lastEndTime",
-      p.lastEndTime,
+      "lastEndTimeInMillis",
+      p.lastEndTimeInMillis,
       "PipelineStats",
-      "DateTime",
-      "lastEndTime");
+      "int64_t",
+      "lastEndTimeInMillis");
   to_json_key(
       j,
       "inputPipeline",
@@ -7116,25 +7502,25 @@ void from_json(const json& j, PipelineStats& p) {
       j, "pipelineId", p.pipelineId, "PipelineStats", "int", "pipelineId");
   from_json_key(
       j,
-      "firstStartTime",
-      p.firstStartTime,
+      "firstStartTimeInMillis",
+      p.firstStartTimeInMillis,
       "PipelineStats",
-      "DateTime",
-      "firstStartTime");
+      "int64_t",
+      "firstStartTimeInMillis");
   from_json_key(
       j,
-      "lastStartTime",
-      p.lastStartTime,
+      "lastStartTimeInMillis",
+      p.lastStartTimeInMillis,
       "PipelineStats",
-      "DateTime",
-      "lastStartTime");
+      "int64_t",
+      "lastStartTimeInMillis");
   from_json_key(
       j,
-      "lastEndTime",
-      p.lastEndTime,
+      "lastEndTimeInMillis",
+      p.lastEndTimeInMillis,
       "PipelineStats",
-      "DateTime",
-      "lastEndTime");
+      "int64_t",
+      "lastEndTimeInMillis");
   from_json_key(
       j,
       "inputPipeline",
@@ -7347,6 +7733,111 @@ void from_json(const json& j, PipelineStats& p) {
       "operatorSummaries");
   from_json_key(
       j, "drivers", p.drivers, "PipelineStats", "List<DriverStats>", "drivers");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+
+void to_json(json& j, const PlanConversionFailureInfo& p) {
+  j = json::object();
+  to_json_key(j, "type", p.type, "PlanConversionFailureInfo", "String", "type");
+  to_json_key(
+      j,
+      "message",
+      p.message,
+      "PlanConversionFailureInfo",
+      "String",
+      "message");
+  to_json_key(
+      j,
+      "cause",
+      p.cause,
+      "PlanConversionFailureInfo",
+      "PlanConversionFailureInfo",
+      "cause");
+  to_json_key(
+      j,
+      "suppressed",
+      p.suppressed,
+      "PlanConversionFailureInfo",
+      "List<PlanConversionFailureInfo>",
+      "suppressed");
+  to_json_key(
+      j,
+      "stack",
+      p.stack,
+      "PlanConversionFailureInfo",
+      "List<String>",
+      "stack");
+  to_json_key(
+      j,
+      "errorCode",
+      p.errorCode,
+      "PlanConversionFailureInfo",
+      "ErrorCode",
+      "errorCode");
+}
+
+void from_json(const json& j, PlanConversionFailureInfo& p) {
+  from_json_key(
+      j, "type", p.type, "PlanConversionFailureInfo", "String", "type");
+  from_json_key(
+      j,
+      "message",
+      p.message,
+      "PlanConversionFailureInfo",
+      "String",
+      "message");
+  from_json_key(
+      j,
+      "cause",
+      p.cause,
+      "PlanConversionFailureInfo",
+      "PlanConversionFailureInfo",
+      "cause");
+  from_json_key(
+      j,
+      "suppressed",
+      p.suppressed,
+      "PlanConversionFailureInfo",
+      "List<PlanConversionFailureInfo>",
+      "suppressed");
+  from_json_key(
+      j,
+      "stack",
+      p.stack,
+      "PlanConversionFailureInfo",
+      "List<String>",
+      "stack");
+  from_json_key(
+      j,
+      "errorCode",
+      p.errorCode,
+      "PlanConversionFailureInfo",
+      "ErrorCode",
+      "errorCode");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+
+void to_json(json& j, const PlanConversionResponse& p) {
+  j = json::object();
+  to_json_key(
+      j,
+      "failures",
+      p.failures,
+      "PlanConversionResponse",
+      "List<PlanConversionFailureInfo>",
+      "failures");
+}
+
+void from_json(const json& j, PlanConversionResponse& p) {
+  from_json_key(
+      j,
+      "failures",
+      p.failures,
+      "PlanConversionResponse",
+      "List<PlanConversionFailureInfo>",
+      "failures");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
@@ -8585,6 +9076,13 @@ void to_json(json& j, const SortNode& p) {
       "OrderingScheme",
       "orderingScheme");
   to_json_key(j, "isPartial", p.isPartial, "SortNode", "bool", "isPartial");
+  to_json_key(
+      j,
+      "partitionBy",
+      p.partitionBy,
+      "SortNode",
+      "List<VariableReferenceExpression>",
+      "partitionBy");
 }
 
 void from_json(const json& j, SortNode& p) {
@@ -8599,6 +9097,13 @@ void from_json(const json& j, SortNode& p) {
       "OrderingScheme",
       "orderingScheme");
   from_json_key(j, "isPartial", p.isPartial, "SortNode", "bool", "isPartial");
+  from_json_key(
+      j,
+      "partitionBy",
+      p.partitionBy,
+      "SortNode",
+      "List<VariableReferenceExpression>",
+      "partitionBy");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
@@ -9552,24 +10057,40 @@ namespace facebook::presto::protocol {
 void to_json(json& j, const TaskStats& p) {
   j = json::object();
   to_json_key(
-      j, "createTime", p.createTime, "TaskStats", "DateTime", "createTime");
+      j,
+      "createTimeInMillis",
+      p.createTimeInMillis,
+      "TaskStats",
+      "int64_t",
+      "createTimeInMillis");
   to_json_key(
       j,
-      "firstStartTime",
-      p.firstStartTime,
+      "firstStartTimeInMillis",
+      p.firstStartTimeInMillis,
       "TaskStats",
-      "DateTime",
-      "firstStartTime");
+      "int64_t",
+      "firstStartTimeInMillis");
   to_json_key(
       j,
-      "lastStartTime",
-      p.lastStartTime,
+      "lastStartTimeInMillis",
+      p.lastStartTimeInMillis,
       "TaskStats",
-      "DateTime",
-      "lastStartTime");
+      "int64_t",
+      "lastStartTimeInMillis");
   to_json_key(
-      j, "lastEndTime", p.lastEndTime, "TaskStats", "DateTime", "lastEndTime");
-  to_json_key(j, "endTime", p.endTime, "TaskStats", "DateTime", "endTime");
+      j,
+      "lastEndTimeInMillis",
+      p.lastEndTimeInMillis,
+      "TaskStats",
+      "int64_t",
+      "lastEndTimeInMillis");
+  to_json_key(
+      j,
+      "endTimeInMillis",
+      p.endTimeInMillis,
+      "TaskStats",
+      "int64_t",
+      "endTimeInMillis");
   to_json_key(
       j,
       "elapsedTimeInNanos",
@@ -9806,24 +10327,40 @@ void to_json(json& j, const TaskStats& p) {
 
 void from_json(const json& j, TaskStats& p) {
   from_json_key(
-      j, "createTime", p.createTime, "TaskStats", "DateTime", "createTime");
+      j,
+      "createTimeInMillis",
+      p.createTimeInMillis,
+      "TaskStats",
+      "int64_t",
+      "createTimeInMillis");
   from_json_key(
       j,
-      "firstStartTime",
-      p.firstStartTime,
+      "firstStartTimeInMillis",
+      p.firstStartTimeInMillis,
       "TaskStats",
-      "DateTime",
-      "firstStartTime");
+      "int64_t",
+      "firstStartTimeInMillis");
   from_json_key(
       j,
-      "lastStartTime",
-      p.lastStartTime,
+      "lastStartTimeInMillis",
+      p.lastStartTimeInMillis,
       "TaskStats",
-      "DateTime",
-      "lastStartTime");
+      "int64_t",
+      "lastStartTimeInMillis");
   from_json_key(
-      j, "lastEndTime", p.lastEndTime, "TaskStats", "DateTime", "lastEndTime");
-  from_json_key(j, "endTime", p.endTime, "TaskStats", "DateTime", "endTime");
+      j,
+      "lastEndTimeInMillis",
+      p.lastEndTimeInMillis,
+      "TaskStats",
+      "int64_t",
+      "lastEndTimeInMillis");
+  from_json_key(
+      j,
+      "endTimeInMillis",
+      p.endTimeInMillis,
+      "TaskStats",
+      "int64_t",
+      "endTimeInMillis");
   from_json_key(
       j,
       "elapsedTimeInNanos",
@@ -10363,11 +10900,11 @@ void to_json(json& j, const TaskInfo& p) {
       j, "taskStatus", p.taskStatus, "TaskInfo", "TaskStatus", "taskStatus");
   to_json_key(
       j,
-      "lastHeartbeat",
-      p.lastHeartbeat,
+      "lastHeartbeatInMillis",
+      p.lastHeartbeatInMillis,
       "TaskInfo",
-      "DateTime",
-      "lastHeartbeat");
+      "int64_t",
+      "lastHeartbeatInMillis");
   to_json_key(
       j,
       "outputBuffers",
@@ -10400,11 +10937,11 @@ void from_json(const json& j, TaskInfo& p) {
       j, "taskStatus", p.taskStatus, "TaskInfo", "TaskStatus", "taskStatus");
   from_json_key(
       j,
-      "lastHeartbeat",
-      p.lastHeartbeat,
+      "lastHeartbeatInMillis",
+      p.lastHeartbeatInMillis,
       "TaskInfo",
-      "DateTime",
-      "lastHeartbeat");
+      "int64_t",
+      "lastHeartbeatInMillis");
   from_json_key(
       j,
       "outputBuffers",

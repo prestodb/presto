@@ -254,6 +254,7 @@ public abstract class AbstractTestHiveFileSystem
                 FUNCTION_AND_TYPE_MANAGER,
                 config,
                 metastoreClientConfig,
+                new SortingFileWriterConfig(),
                 locationService,
                 HiveTestUtils.PARTITION_UPDATE_CODEC,
                 HiveTestUtils.PARTITION_UPDATE_SMILE_CODEC,
@@ -415,7 +416,7 @@ public abstract class AbstractTestHiveFileSystem
             throws Exception
     {
         List<ColumnMetadata> columns = ImmutableList.<ColumnMetadata>builder()
-                .add(new ColumnMetadata("id", BIGINT))
+                .add(ColumnMetadata.builder().setName("id").setType(BIGINT).build())
                 .build();
 
         MaterializedResult data = MaterializedResult.resultBuilder(newSession(), BIGINT)

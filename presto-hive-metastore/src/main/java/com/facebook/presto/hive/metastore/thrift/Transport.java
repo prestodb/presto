@@ -15,6 +15,7 @@ package com.facebook.presto.hive.metastore.thrift;
 
 import com.facebook.presto.hive.authentication.HiveMetastoreAuthentication;
 import com.google.common.net.HostAndPort;
+import org.apache.thrift.TConfiguration;
 import org.apache.thrift.transport.TSocket;
 import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;
@@ -216,6 +217,27 @@ public final class Transport
             catch (TTransportException e) {
                 throw rewriteException(e, address);
             }
+        }
+
+        // Methods added in libthrift 0.14.0 and not present in Hive Metastore <= 3.1.2
+        @Override
+        public TConfiguration getConfiguration()
+        {
+            return TConfiguration.DEFAULT;
+        }
+
+        @Override
+        public void updateKnownMessageSize(long size)
+                throws TTransportException
+        {
+            // noop: method added in libthrift 0.14.0 and not present in Hive Metastore <= 3.1.2
+        }
+
+        @Override
+        public void checkReadBytesAvailable(long numBytes)
+                throws TTransportException
+        {
+            // noop: method added in libthrift 0.14.0 and not present in Hive Metastore <= 3.1.2
         }
     }
 }

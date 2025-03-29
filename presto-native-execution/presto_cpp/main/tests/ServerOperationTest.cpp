@@ -175,8 +175,9 @@ TEST_F(ServerOperationTest, taskEndpoint) {
             taskId,
             {},
             planFragment,
+            true,
             taskManager->getQueryContextManager()->findOrCreateQueryCtx(
-                taskId, updateRequest.session),
+                taskId, updateRequest),
             0);
       };
   std::vector<std::string> taskIds = {"task_0.0.0.0.0", "task_1.0.0.0.0"};
@@ -215,7 +216,7 @@ TEST_F(ServerOperationTest, taskEndpoint) {
 
   // Cleanup and shutdown
   for (const auto& taskId : taskIds) {
-    taskManager->deleteTask(taskId, true);
+    taskManager->deleteTask(taskId, true, true);
   }
   taskManager->shutdown();
   connector::unregisterConnector("test-hive");
@@ -239,7 +240,8 @@ TEST_F(ServerOperationTest, systemConfigEndpoint) {
       {.target = ServerOperation::Target::kSystemConfig,
        .action = ServerOperation::Action::kGetProperty},
       &httpMessage);
-  EXPECT_EQ(getPropertyResponse, "16\n");
+  EXPECT_EQ(
+      std::stoi(getPropertyResponse), std::thread::hardware_concurrency());
 }
 
 } // namespace facebook::presto

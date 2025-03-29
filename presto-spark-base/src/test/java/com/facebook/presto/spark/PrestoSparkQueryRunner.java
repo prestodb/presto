@@ -44,6 +44,7 @@ import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.nodeManager.PluginNodeManager;
 import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.spark.accesscontrol.PrestoSparkAccessControlCheckerExecution;
 import com.facebook.presto.spark.classloader_interface.ExecutionStrategy;
@@ -56,7 +57,7 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkFailure;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
 import com.facebook.presto.spark.execution.AbstractPrestoSparkQueryExecution;
-import com.facebook.presto.spark.execution.nativeprocess.NativeExecutionModule;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.eventlistener.EventListener;
@@ -64,6 +65,7 @@ import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
+import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
@@ -174,6 +176,8 @@ public class PrestoSparkQueryRunner
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
+    private final NodeManager nodeManager;
+
     protected static final MetastoreContext METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Collections.emptySet(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, WarningCollector.NOOP, new RuntimeStats());
 
     public static PrestoSparkQueryRunner createHivePrestoSparkQueryRunner()
@@ -239,7 +243,7 @@ public class PrestoSparkQueryRunner
                         .build(),
                 ImmutableMap.of(),
                 dataDirectory,
-                ImmutableList.of(new NativeExecutionModule()),
+                ImmutableList.of(),
                 DEFAULT_AVAILABLE_CPU_COUNT);
         ExtendedHiveMetastore metastore = queryRunner.getMetastore();
         if (!metastore.getDatabase(METASTORE_CONTEXT, "tpch").isPresent()) {
@@ -345,6 +349,7 @@ public class PrestoSparkQueryRunner
         sparkContext = sparkContextHolder.get(additionalSparkProperties, availableCpuCount);
         prestoSparkService = injector.getInstance(PrestoSparkService.class);
         testingAccessControlManager = injector.getInstance(TestingAccessControlManager.class);
+        nodeManager = injector.getInstance(PluginNodeManager.class);
 
         // Install tpch Plugin
         pluginManager.installPlugin(new TpchPlugin());
@@ -493,15 +498,21 @@ public class PrestoSparkQueryRunner
     }
 
     @Override
-    public Optional<EventListener> getEventListener()
+    public List<EventListener> getEventListeners()
     {
-        return Optional.empty();
+        return ImmutableList.of();
     }
 
     @Override
     public TestingAccessControlManager getAccessControl()
     {
         return testingAccessControlManager;
+    }
+
+    @Override
+    public ExpressionOptimizerManager getExpressionManager()
+    {
+        throw new UnsupportedOperationException();
     }
 
     public HistoryBasedPlanStatisticsManager getHistoryBasedPlanStatisticsManager()
@@ -671,7 +682,7 @@ public class PrestoSparkQueryRunner
     @Override
     public void loadFunctionNamespaceManager(String functionNamespaceManagerName, String catalogName, Map<String, String> properties)
     {
-        metadata.getFunctionAndTypeManager().loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties);
+        metadata.getFunctionAndTypeManager().loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties, nodeManager);
     }
 
     @Override
@@ -732,9 +743,6 @@ public class PrestoSparkQueryRunner
                 if (prestoSparkService.getTaskExecutorFactory() != null) {
                     prestoSparkService.getTaskExecutorFactory().close();
                 }
-                if (prestoSparkService.getNativeTaskExecutorFactory() != null) {
-                    prestoSparkService.getNativeTaskExecutorFactory().close();
-                }
             }
             instances.remove(instanceId);
         }
@@ -754,12 +762,6 @@ public class PrestoSparkQueryRunner
         public IPrestoSparkTaskExecutorFactory get()
         {
             return instances.get(instanceId).getPrestoSparkService().getTaskExecutorFactory();
-        }
-
-        @Override
-        public IPrestoSparkTaskExecutorFactory getNative()
-        {
-            return instances.get(instanceId).getPrestoSparkService().getNativeTaskExecutorFactory();
         }
     }
 

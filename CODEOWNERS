@@ -112,6 +112,7 @@ CODEOWNERS @prestodb/team-tsc
 #####################################################################
 # Prestissimo module
 /presto-native-execution @prestodb/team-velox
+/.github/workflows/prestocpp-* @prestodb/team-velox @prestodb/committers
 
 #####################################################################
 # Presto on Spark module
@@ -154,4 +155,9 @@ CODEOWNERS @prestodb/team-tsc
 /presto-docs @steveburnett @elharo @prestodb/committers
 /**/*.md @steveburnett @prestodb/committers
 /presto-docs/src/**/connector/iceberg.rst @steveburnett @elharo @hantangwangd @ZacBlanco @prestodb/committers
+
+#####################################################################
+# Presto CI and builds
+/.github @czentgr @prestodb/committers
+/docker @czentgr @prestodb/committers
 

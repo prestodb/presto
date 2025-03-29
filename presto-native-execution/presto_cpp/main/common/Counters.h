@@ -41,9 +41,16 @@ constexpr folly::StringPiece kCounterHTTPRequestLatencyMs{
 
 constexpr folly::StringPiece kCounterHttpClientNumConnectionsCreated{
     "presto_cpp.http.client.num_connections_created"};
+constexpr folly::StringPiece kCounterHTTPClientTransactionCreateDelay{
+    "presto_cpp.http.client.transaction_create_delay_ms"};
 /// Peak number of bytes queued in PrestoExchangeSource waiting for consume.
 constexpr folly::StringPiece kCounterExchangeSourcePeakQueuedBytes{
     "presto_cpp.exchange_source_peak_queued_bytes"};
+
+constexpr folly::StringPiece kCounterExchangeRequestDuration{
+    "presto_cpp.exchange.request.duration"};
+constexpr folly::StringPiece kCounterExchangeRequestNumTries{
+    "presto_cpp.exchange.request.num_tries"};
 
 constexpr folly::StringPiece kCounterNumQueryContexts{
     "presto_cpp.num_query_contexts"};
@@ -96,8 +103,6 @@ constexpr folly::StringPiece kCounterNumBlockedWaitForMemoryDrivers{
     "presto_cpp.num_blocked_wait_for_memory_drivers"};
 constexpr folly::StringPiece kCounterNumBlockedWaitForConnectorDrivers{
     "presto_cpp.num_blocked_wait_for_connector_drivers"};
-constexpr folly::StringPiece kCounterNumBlockedWaitForSpillDrivers{
-    "presto_cpp.num_blocked_wait_for_spill_drivers"};
 constexpr folly::StringPiece kCounterNumBlockedYieldDrivers{
     "presto_cpp.num_blocked_yield_drivers"};
 constexpr folly::StringPiece kCounterNumStuckDrivers{

@@ -67,21 +67,21 @@ extern const char* const PRESTO_ABORT_TASK_URL_PARAM;
 class Exception : public std::runtime_error {
  public:
   explicit Exception(const std::string& message)
-      : std::runtime_error(message){};
+      : std::runtime_error(message) {};
 };
 
 class TypeError : public Exception {
  public:
-  explicit TypeError(const std::string& message) : Exception(message){};
+  explicit TypeError(const std::string& message) : Exception(message) {};
 };
 
 class OutOfRange : public Exception {
  public:
-  explicit OutOfRange(const std::string& message) : Exception(message){};
+  explicit OutOfRange(const std::string& message) : Exception(message) {};
 };
 class ParseError : public Exception {
  public:
-  explicit ParseError(const std::string& message) : Exception(message){};
+  explicit ParseError(const std::string& message) : Exception(message) {};
 };
 
 using String = std::string;
@@ -313,6 +313,16 @@ void to_json(json& j, const std::shared_ptr<ConnectorOutputTableHandle>& p);
 void from_json(const json& j, std::shared_ptr<ConnectorOutputTableHandle>& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+struct ConnectorDeleteTableHandle : public JsonEncodedSubclass {};
+void to_json(json& j, const std::shared_ptr<ConnectorDeleteTableHandle>& p);
+void from_json(const json& j, std::shared_ptr<ConnectorDeleteTableHandle>& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct InputDistribution : public JsonEncodedSubclass {};
+void to_json(json& j, const std::shared_ptr<InputDistribution>& p);
+void from_json(const json& j, std::shared_ptr<InputDistribution>& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 struct ValueSet : public JsonEncodedSubclass {};
 void to_json(json& j, const std::shared_ptr<ValueSet>& p);
 void from_json(const json& j, std::shared_ptr<ValueSet>& p);
@@ -524,6 +534,17 @@ void to_json(json& j, const Assignments& p);
 void from_json(const json& j, Assignments& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+struct BaseInputDistribution : public InputDistribution {
+  List<VariableReferenceExpression> partitionBy = {};
+  std::shared_ptr<OrderingScheme> orderingScheme = {};
+  List<VariableReferenceExpression> inputVariables = {};
+
+  BaseInputDistribution() noexcept;
+};
+void to_json(json& j, const BaseInputDistribution& p);
+void from_json(const json& j, BaseInputDistribution& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 enum class BufferType {
   PARTITIONED,
   BROADCAST,
@@ -706,6 +727,7 @@ struct SqlInvokedFunction {
   String description = {};
   RoutineCharacteristics routineCharacteristics = {};
   String body = {};
+  bool variableArity = {};
   Signature signature = {};
   SqlFunctionId functionId = {};
 };
@@ -1010,14 +1032,35 @@ void to_json(json& j, const CreateHandle& p);
 void from_json(const json& j, CreateHandle& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+struct DeleteTableHandle {
+  ConnectorId connectorId = {};
+  std::shared_ptr<ConnectorTransactionHandle> transactionHandle = {};
+  std::shared_ptr<ConnectorDeleteTableHandle> connectorHandle = {};
+};
+void to_json(json& j, const DeleteTableHandle& p);
+void from_json(const json& j, DeleteTableHandle& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 struct DeleteHandle : public ExecutionWriterTarget {
-  TableHandle handle = {};
+  DeleteTableHandle handle = {};
   SchemaTableName schemaTableName = {};
 
   DeleteHandle() noexcept;
 };
 void to_json(json& j, const DeleteHandle& p);
 void from_json(const json& j, DeleteHandle& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct DeleteNode : public PlanNode {
+  std::shared_ptr<PlanNode> source = {};
+  VariableReferenceExpression rowId = {};
+  List<VariableReferenceExpression> outputVariables = {};
+  std::shared_ptr<InputDistribution> inputDistribution = {};
+
+  DeleteNode() noexcept;
+};
+void to_json(json& j, const DeleteNode& p);
+void from_json(const json& j, DeleteNode& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 struct DistinctLimitNode : public PlanNode {
@@ -1104,36 +1147,36 @@ struct OperatorStats {
   int64_t isBlockedCalls = {};
   Duration isBlockedWall = {};
   Duration isBlockedCpu = {};
-  DataSize isBlockedAllocation = {};
+  int64_t isBlockedAllocationInBytes = {};
   int64_t addInputCalls = {};
   Duration addInputWall = {};
   Duration addInputCpu = {};
-  DataSize addInputAllocation = {};
-  DataSize rawInputDataSize = {};
+  int64_t addInputAllocationInBytes = {};
+  int64_t rawInputDataSizeInBytes = {};
   int64_t rawInputPositions = {};
-  DataSize inputDataSize = {};
+  int64_t inputDataSizeInBytes = {};
   int64_t inputPositions = {};
   double sumSquaredInputPositions = {};
   int64_t getOutputCalls = {};
   Duration getOutputWall = {};
   Duration getOutputCpu = {};
-  DataSize getOutputAllocation = {};
-  DataSize outputDataSize = {};
+  int64_t getOutputAllocationInBytes = {};
+  int64_t outputDataSizeInBytes = {};
   int64_t outputPositions = {};
-  DataSize physicalWrittenDataSize = {};
+  int64_t physicalWrittenDataSizeInBytes = {};
   Duration additionalCpu = {};
   Duration blockedWall = {};
   int64_t finishCalls = {};
   Duration finishWall = {};
   Duration finishCpu = {};
-  DataSize finishAllocation = {};
-  DataSize userMemoryReservation = {};
-  DataSize revocableMemoryReservation = {};
-  DataSize systemMemoryReservation = {};
-  DataSize peakUserMemoryReservation = {};
-  DataSize peakSystemMemoryReservation = {};
-  DataSize peakTotalMemoryReservation = {};
-  DataSize spilledDataSize = {};
+  int64_t finishAllocationInBytes = {};
+  int64_t userMemoryReservationInBytes = {};
+  int64_t revocableMemoryReservationInBytes = {};
+  int64_t systemMemoryReservationInBytes = {};
+  int64_t peakUserMemoryReservationInBytes = {};
+  int64_t peakSystemMemoryReservationInBytes = {};
+  int64_t peakTotalMemoryReservationInBytes = {};
+  int64_t spilledDataSizeInBytes = {};
   std::shared_ptr<BlockedReason> blockedReason = {};
   OperatorInfo info = {};
   RuntimeStats runtimeStats = {};
@@ -1149,28 +1192,28 @@ void from_json(const json& j, OperatorStats& p);
 namespace facebook::presto::protocol {
 struct DriverStats {
   Lifespan lifespan = {};
-  DateTime createTime = {};
-  DateTime startTime = {};
-  DateTime endTime = {};
+  int64_t createTimeInMillis = {};
+  int64_t startTimeInMillis = {};
+  int64_t endTimeInMillis = {};
   Duration queuedTime = {};
   Duration elapsedTime = {};
-  DataSize userMemoryReservation = {};
-  DataSize revocableMemoryReservation = {};
-  DataSize systemMemoryReservation = {};
+  int64_t userMemoryReservationInBytes = {};
+  int64_t revocableMemoryReservationInBytes = {};
+  int64_t systemMemoryReservationInBytes = {};
   Duration totalScheduledTime = {};
   Duration totalCpuTime = {};
   Duration totalBlockedTime = {};
   bool fullyBlocked = {};
   List<BlockedReason> blockedReasons = {};
-  DataSize totalAllocation = {};
-  DataSize rawInputDataSize = {};
+  int64_t totalAllocationInBytes = {};
+  int64_t rawInputDataSizeInBytes = {};
   int64_t rawInputPositions = {};
   Duration rawInputReadTime = {};
-  DataSize processedInputDataSize = {};
+  int64_t processedInputDataSizeInBytes = {};
   int64_t processedInputPositions = {};
-  DataSize outputDataSize = {};
+  int64_t outputDataSizeInBytes = {};
   int64_t outputPositions = {};
-  DataSize physicalWrittenDataSize = {};
+  int64_t physicalWrittenDataSizeInBytes = {};
   List<OperatorStats> operatorStats = {};
 };
 void to_json(json& j, const DriverStats& p);
@@ -1308,6 +1351,7 @@ struct PartitioningScheme {
   List<VariableReferenceExpression> outputLayout = {};
   std::shared_ptr<VariableReferenceExpression> hashColumn = {};
   bool replicateNullsAndAny = {};
+  bool scaleWriters = {};
   ExchangeEncoding encoding = {};
   std::shared_ptr<List<int>> bucketToPartition = {};
 };
@@ -1506,8 +1550,12 @@ struct JsonBasedUdfFunctionMetadata {
   TypeSignature outputType = {};
   List<TypeSignature> paramTypes = {};
   String schema = {};
+  bool variableArity = {};
   RoutineCharacteristics routineCharacteristics = {};
   std::shared_ptr<AggregationFunctionMetadata> aggregateMetadata = {};
+  std::shared_ptr<SqlFunctionId> functionId = {};
+  std::shared_ptr<String> version = {};
+  std::shared_ptr<List<TypeVariableConstraint>> typeVariableConstraints = {};
 };
 void to_json(json& j, const JsonBasedUdfFunctionMetadata& p);
 void from_json(const json& j, JsonBasedUdfFunctionMetadata& p);
@@ -1715,9 +1763,9 @@ void from_json(const json& j, PartialAggregationStatsEstimate& p);
 namespace facebook::presto::protocol {
 struct PipelineStats {
   int pipelineId = {};
-  DateTime firstStartTime = {};
-  DateTime lastStartTime = {};
-  DateTime lastEndTime = {};
+  int64_t firstStartTimeInMillis = {};
+  int64_t lastStartTimeInMillis = {};
+  int64_t lastEndTimeInMillis = {};
   bool inputPipeline = {};
   bool outputPipeline = {};
   int totalDrivers = {};
@@ -1752,6 +1800,25 @@ struct PipelineStats {
 };
 void to_json(json& j, const PipelineStats& p);
 void from_json(const json& j, PipelineStats& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct PlanConversionFailureInfo {
+  String type = {};
+  String message = {};
+  std::shared_ptr<PlanConversionFailureInfo> cause = {};
+  List<PlanConversionFailureInfo> suppressed = {};
+  List<String> stack = {};
+  ErrorCode errorCode = {};
+};
+void to_json(json& j, const PlanConversionFailureInfo& p);
+void from_json(const json& j, PlanConversionFailureInfo& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct PlanConversionResponse {
+  List<PlanConversionFailureInfo> failures = {};
+};
+void to_json(json& j, const PlanConversionResponse& p);
+void from_json(const json& j, PlanConversionResponse& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 struct PlanCostEstimate {
@@ -2006,6 +2073,7 @@ struct SortNode : public PlanNode {
   std::shared_ptr<PlanNode> source = {};
   OrderingScheme orderingScheme = {};
   bool isPartial = {};
+  List<VariableReferenceExpression> partitionBy = {};
 
   SortNode() noexcept;
 };
@@ -2375,11 +2443,11 @@ void from_json(const json& j, TableWriterNode& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 struct TaskStats {
-  DateTime createTime = {};
-  DateTime firstStartTime = {};
-  DateTime lastStartTime = {};
-  DateTime lastEndTime = {};
-  DateTime endTime = {};
+  int64_t createTimeInMillis = {};
+  int64_t firstStartTimeInMillis = {};
+  int64_t lastStartTimeInMillis = {};
+  int64_t lastEndTimeInMillis = {};
+  int64_t endTimeInMillis = {};
   int64_t elapsedTimeInNanos = {};
   int64_t queuedTimeInNanos = {};
   int totalDrivers = {};
@@ -2456,7 +2524,7 @@ namespace facebook::presto::protocol {
 struct TaskInfo {
   TaskId taskId = {};
   TaskStatus taskStatus = {};
-  DateTime lastHeartbeat = {};
+  int64_t lastHeartbeatInMillis = {};
   OutputBufferInfo outputBuffers = {};
   List<PlanNodeId> noMoreSplits = {};
   TaskStats stats = {};

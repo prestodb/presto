@@ -23,6 +23,7 @@ import com.facebook.presto.hive.HiveCommonModule;
 import com.facebook.presto.hive.HiveCommonSessionProperties;
 import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.hive.RebindSafeMBeanServer;
+import com.facebook.presto.hive.SchemaProperties;
 import com.facebook.presto.hive.authentication.HiveAuthenticationModule;
 import com.facebook.presto.hive.gcs.HiveGcsModule;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
@@ -30,6 +31,7 @@ import com.facebook.presto.hive.s3.HiveS3Module;
 import com.facebook.presto.plugin.base.security.AllowAllAccessControl;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
+import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
@@ -56,7 +58,6 @@ import org.weakref.jmx.guice.MBeanModule;
 
 import javax.management.MBeanServer;
 
-import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -71,7 +72,8 @@ public final class InternalIcebergConnectorFactory
             String catalogName,
             Map<String, String> config,
             ConnectorContext context,
-            Optional<ExtendedHiveMetastore> metastore)
+            Optional<ExtendedHiveMetastore> metastore,
+            MBeanServer mBeanServer)
     {
         ClassLoader classLoader = InternalIcebergConnectorFactory.class.getClassLoader();
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
@@ -87,12 +89,12 @@ public final class InternalIcebergConnectorFactory
                     new CachingModule(),
                     new HiveCommonModule(),
                     binder -> {
-                        MBeanServer platformMBeanServer = ManagementFactory.getPlatformMBeanServer();
-                        binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(platformMBeanServer));
+                        binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(mBeanServer));
                         binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getNodeManager().getCurrentNode().getVersion()));
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                         binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
+                        binder.bind(PageSorter.class).toInstance(context.getPageSorter());
                         binder.bind(StandardFunctionResolution.class).toInstance(context.getStandardFunctionResolution());
                         binder.bind(FunctionMetadataManager.class).toInstance(context.getFunctionMetadataManager());
                         binder.bind(RowExpressionService.class).toInstance(context.getRowExpressionService());
@@ -130,7 +132,7 @@ public final class InternalIcebergConnectorFactory
                     new ClassLoaderSafeNodePartitioningProvider(connectorDistributionProvider, classLoader),
                     ImmutableSet.of(),
                     allSessionProperties,
-                    IcebergSchemaProperties.SCHEMA_PROPERTIES,
+                    SchemaProperties.SCHEMA_PROPERTIES,
                     icebergTableProperties.getTableProperties(),
                     icebergTableProperties.getColumnProperties(),
                     new AllowAllAccessControl(),

@@ -32,9 +32,16 @@ public class TestEncryptionUtil
     }
 
     @Test
-    public void testHashingAlgorithmPBKDF2()
+    public void testHashingAlgorithmPBKDF2SHA1()
     {
         String password = "1000:5b4240333032306164:f38d165fce8ce42f59d366139ef5d9e1ca1247f0e06e503ee1a611dd9ec40876bb5edb8409f5abe5504aab6628e70cfb3d3a18e99d70357d295002c3d0a308a0";
+        assertEquals(getHashingAlgorithm(password), PBKDF2);
+    }
+
+    @Test
+    public void testHashingAlgorithmPBKDF2SHA256()
+    {
+        String password = "1000:5b4240333032306164:acac1637d8219b50218fa2e1b82156dd73701f5fa6144a9178327226a1b3448bd1fc8e56c4a8a0ac582a4b02c5368a36663a03476e2e9be7c44680920c661c0f";
         assertEquals(getHashingAlgorithm(password), PBKDF2);
     }
 

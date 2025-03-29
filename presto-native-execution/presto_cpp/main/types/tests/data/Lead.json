@@ -3,23 +3,33 @@
     {
       "docString": "presto.default.lead",
       "functionKind": "WINDOW",
-      "outputType": "T",
+      "outputType": "t",
       "paramTypes": [
-        "T"
+        "t"
       ],
       "routineCharacteristics": {
         "determinism": "DETERMINISTIC",
         "language": "CPP",
         "nullCallClause": "CALLED_ON_NULL_INPUT"
       },
-      "schema": "default"
+      "schema": "default",
+      "typeVariableConstraints": [
+        {
+          "comparableRequired":false,
+          "name":"t",
+          "nonDecimalNumericRequired":false,
+          "orderableRequired":false,
+          "variadicBound":""
+        }
+      ],
+      "variableArity":false
     },
     {
       "docString": "presto.default.lead",
       "functionKind": "WINDOW",
-      "outputType": "T",
+      "outputType": "t",
       "paramTypes": [
-        "T",
+        "t",
         "bigint"
       ],
       "routineCharacteristics": {
@@ -27,23 +37,43 @@
         "language": "CPP",
         "nullCallClause": "CALLED_ON_NULL_INPUT"
       },
-      "schema": "default"
+      "schema": "default",
+      "typeVariableConstraints": [
+        {
+          "comparableRequired":false,
+          "name":"t",
+          "nonDecimalNumericRequired":false,
+          "orderableRequired":false,
+          "variadicBound":""
+        }
+      ],
+      "variableArity":false
     },
     {
       "docString": "presto.default.lead",
       "functionKind": "WINDOW",
-      "outputType": "T",
+      "outputType": "t",
       "paramTypes": [
-        "T",
+        "t",
         "bigint",
-        "T"
+        "t"
       ],
       "routineCharacteristics": {
         "determinism": "DETERMINISTIC",
         "language": "CPP",
         "nullCallClause": "CALLED_ON_NULL_INPUT"
       },
-      "schema": "default"
+      "schema": "default",
+      "typeVariableConstraints": [
+        {
+          "comparableRequired":false,
+          "name":"t",
+          "nonDecimalNumericRequired":false,
+          "orderableRequired":false,
+          "variadicBound":""
+        }
+      ],
+      "variableArity":false
     }
   ]
 }

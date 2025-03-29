@@ -49,6 +49,7 @@ public class TestIcebergConfig
                 .setCompressionCodec(GZIP)
                 .setCatalogType(HIVE)
                 .setCatalogWarehouse(null)
+                .setCatalogWarehouseDataDir(null)
                 .setCatalogCacheSize(10)
                 .setHadoopConfigResources(null)
                 .setHiveStatisticsMergeFlags("")
@@ -60,7 +61,7 @@ public class TestIcebergConfig
                 .setPushdownFilterEnabled(false)
                 .setDeleteAsJoinRewriteEnabled(true)
                 .setRowsForMetadataOptimizationThreshold(1000)
-                .setManifestCachingEnabled(false)
+                .setManifestCachingEnabled(true)
                 .setFileIOImpl(HadoopFileIO.class.getName())
                 .setMaxManifestCacheSize(IO_MANIFEST_CACHE_MAX_TOTAL_BYTES_DEFAULT)
                 .setManifestCacheExpireDuration(IO_MANIFEST_CACHE_EXPIRATION_INTERVAL_MS_DEFAULT)
@@ -69,7 +70,9 @@ public class TestIcebergConfig
                 .setMetadataPreviousVersionsMax(METADATA_PREVIOUS_VERSIONS_MAX_DEFAULT)
                 .setMetadataDeleteAfterCommit(METADATA_DELETE_AFTER_COMMIT_ENABLED_DEFAULT)
                 .setMetricsMaxInferredColumn(METRICS_MAX_INFERRED_COLUMN_DEFAULTS_DEFAULT)
-                .setMaxStatisticsFileCacheSize(succinctDataSize(256, MEGABYTE)));
+                .setManifestCacheMaxChunkSize(succinctDataSize(2, MEGABYTE))
+                .setMaxStatisticsFileCacheSize(succinctDataSize(256, MEGABYTE))
+                .setStatisticsKllSketchKParameter(1024));
     }
 
     @Test
@@ -80,6 +83,7 @@ public class TestIcebergConfig
                 .put("iceberg.compression-codec", "NONE")
                 .put("iceberg.catalog.type", "HADOOP")
                 .put("iceberg.catalog.warehouse", "path")
+                .put("iceberg.catalog.hadoop.warehouse.datadir", "path_data_dir")
                 .put("iceberg.catalog.cached-catalog-num", "6")
                 .put("iceberg.hadoop.config.resources", "/etc/hadoop/conf/core-site.xml")
                 .put("iceberg.max-partitions-per-writer", "222")
@@ -91,16 +95,18 @@ public class TestIcebergConfig
                 .put("iceberg.pushdown-filter-enabled", "true")
                 .put("iceberg.delete-as-join-rewrite-enabled", "false")
                 .put("iceberg.rows-for-metadata-optimization-threshold", "500")
-                .put("iceberg.io.manifest.cache-enabled", "true")
+                .put("iceberg.io.manifest.cache-enabled", "false")
                 .put("iceberg.io-impl", "com.facebook.presto.iceberg.HdfsFileIO")
                 .put("iceberg.io.manifest.cache.max-total-bytes", "1048576000")
                 .put("iceberg.io.manifest.cache.expiration-interval-ms", "600000")
                 .put("iceberg.io.manifest.cache.max-content-length", "10485760")
+                .put("iceberg.io.manifest.cache.max-chunk-size", "1MB")
                 .put("iceberg.split-manager-threads", "42")
                 .put("iceberg.metadata-previous-versions-max", "1")
                 .put("iceberg.metadata-delete-after-commit", "true")
                 .put("iceberg.metrics-max-inferred-column", "16")
                 .put("iceberg.max-statistics-file-cache-size", "512MB")
+                .put("iceberg.statistics-kll-sketch-k-parameter", "4096")
                 .build();
 
         IcebergConfig expected = new IcebergConfig()
@@ -108,6 +114,7 @@ public class TestIcebergConfig
                 .setCompressionCodec(NONE)
                 .setCatalogType(HADOOP)
                 .setCatalogWarehouse("path")
+                .setCatalogWarehouseDataDir("path_data_dir")
                 .setCatalogCacheSize(6)
                 .setHadoopConfigResources("/etc/hadoop/conf/core-site.xml")
                 .setMaxPartitionsPerWriter(222)
@@ -119,16 +126,18 @@ public class TestIcebergConfig
                 .setPushdownFilterEnabled(true)
                 .setDeleteAsJoinRewriteEnabled(false)
                 .setRowsForMetadataOptimizationThreshold(500)
-                .setManifestCachingEnabled(true)
+                .setManifestCachingEnabled(false)
                 .setFileIOImpl("com.facebook.presto.iceberg.HdfsFileIO")
                 .setMaxManifestCacheSize(1048576000)
                 .setManifestCacheExpireDuration(600000)
                 .setManifestCacheMaxContentLength(10485760)
+                .setManifestCacheMaxChunkSize(succinctDataSize(1, MEGABYTE))
                 .setSplitManagerThreads(42)
                 .setMetadataPreviousVersionsMax(1)
                 .setMetadataDeleteAfterCommit(true)
                 .setMetricsMaxInferredColumn(16)
-                .setMaxStatisticsFileCacheSize(succinctDataSize(512, MEGABYTE));
+                .setMaxStatisticsFileCacheSize(succinctDataSize(512, MEGABYTE))
+                .setStatisticsKllSketchKParameter(4096);
 
         assertFullMapping(properties, expected);
     }

@@ -135,7 +135,7 @@ class PrestoServer {
   virtual std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>>
   getAdditionalHttpServerFilters();
 
-  virtual std::vector<std::string> registerConnectors(
+  virtual std::vector<std::string> registerVeloxConnectors(
       const fs::path& configDirectoryPath);
 
   /// Invoked to register the required dwio data sinks which are used by
@@ -145,8 +145,6 @@ class PrestoServer {
   virtual void registerFileReadersAndWriters();
 
   virtual void unregisterFileReadersAndWriters();
-
-  virtual void registerConnectorFactories();
 
   /// Invoked by presto shutdown procedure to unregister connectors.
   virtual void unregisterConnectors();
@@ -233,7 +231,10 @@ class PrestoServer {
   std::shared_ptr<CoordinatorDiscoverer> coordinatorDiscoverer_;
 
   // Executor for background writing into SSD cache.
-  std::unique_ptr<folly::IOThreadPoolExecutor> cacheExecutor_;
+  std::unique_ptr<folly::CPUThreadPoolExecutor> cacheExecutor_;
+
+  // Executor for async execution for connectors.
+  std::unique_ptr<folly::CPUThreadPoolExecutor> connectorCpuExecutor_;
 
   // Executor for async IO for connectors.
   std::unique_ptr<folly::IOThreadPoolExecutor> connectorIoExecutor_;
@@ -268,6 +269,7 @@ class PrestoServer {
   std::unique_ptr<Announcer> announcer_;
   std::unique_ptr<PeriodicHeartbeatManager> heartbeatManager_;
   std::shared_ptr<velox::memory::MemoryPool> pool_;
+  std::shared_ptr<velox::memory::MemoryPool> nativeWorkerPool_;
   std::unique_ptr<TaskManager> taskManager_;
   std::unique_ptr<TaskResource> taskResource_;
   std::atomic<NodeState> nodeState_{NodeState::kActive};
@@ -286,7 +288,9 @@ class PrestoServer {
   std::string nodeId_;
   std::string address_;
   std::string nodeLocation_;
+  std::string nodePoolType_;
   folly::SSLContextPtr sslContext_;
+  std::string prestoBuiltinFunctionPrefix_;
 };
 
 } // namespace facebook::presto

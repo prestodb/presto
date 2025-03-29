@@ -2,39 +2,31 @@
   "set_agg": [
     {
       "aggregateMetadata": {
-        "intermediateType": "array(T)",
+        "intermediateType": "array(t)",
         "isOrderSensitive": true
       },
       "docString": "presto.default.set_agg",
       "functionKind": "AGGREGATE",
-      "outputType": "array(T)",
+      "outputType": "array(t)",
       "paramTypes": [
-        "T"
+        "t"
       ],
       "routineCharacteristics": {
         "determinism": "DETERMINISTIC",
         "language": "CPP",
         "nullCallClause": "CALLED_ON_NULL_INPUT"
       },
-      "schema": "default"
-    },
-    {
-      "aggregateMetadata": {
-        "intermediateType": "array(T)",
-        "isOrderSensitive": true
-      },
-      "docString": "presto.default.set_agg",
-      "functionKind": "WINDOW",
-      "outputType": "array(T)",
-      "paramTypes": [
-        "T"
+      "schema": "default",
+      "typeVariableConstraints": [
+        {
+          "comparableRequired":false,
+          "name":"t",
+          "nonDecimalNumericRequired":false,
+          "orderableRequired":false,
+          "variadicBound":""
+        }
       ],
-      "routineCharacteristics": {
-        "determinism": "DETERMINISTIC",
-        "language": "CPP",
-        "nullCallClause": "CALLED_ON_NULL_INPUT"
-      },
-      "schema": "default"
+      "variableArity":false
     }
   ]
 }

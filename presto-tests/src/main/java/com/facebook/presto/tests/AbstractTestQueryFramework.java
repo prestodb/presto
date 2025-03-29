@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.cost.CostCalculator;
@@ -21,11 +22,15 @@ import com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges;
 import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.TaskCountEstimator;
 import com.facebook.presto.execution.QueryManagerConfig;
+import com.facebook.presto.execution.TaskManagerConfig;
+import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.nodeManager.PluginNodeManager;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
+import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.Plan;
@@ -74,6 +79,7 @@ import static org.testng.Assert.fail;
 
 public abstract class AbstractTestQueryFramework
 {
+    private static final NodeInfo NODE_INFO = new NodeInfo("test");
     private QueryRunner queryRunner;
     private ExpectedQueryRunner expectedQueryRunner;
     private SqlParser sqlParser;
@@ -310,6 +316,11 @@ public abstract class AbstractTestQueryFramework
         QueryAssertions.assertQueryFails(queryRunner, getSession(), sql, expectedMessageRegExp);
     }
 
+    protected void assertQueryFails(@Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp, boolean usePatternMatcher)
+    {
+        QueryAssertions.assertQueryFails(queryRunner, getSession(), sql, expectedMessageRegExp, usePatternMatcher);
+    }
+
     protected void assertQueryFails(Session session, @Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
     {
         QueryAssertions.assertQueryFails(queryRunner, session, sql, expectedMessageRegExp);
@@ -328,6 +339,11 @@ public abstract class AbstractTestQueryFramework
     protected void assertQueryError(@Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
     {
         assertQueryError(queryRunner, getSession(), sql, expectedMessageRegExp);
+    }
+
+    protected void assertQueryFails(Session session, @Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp, boolean usePatternMatcher)
+    {
+        QueryAssertions.assertQueryFails(queryRunner, session, sql, expectedMessageRegExp, usePatternMatcher);
     }
 
     protected void assertQueryReturnsEmptyResult(@Language("SQL") String sql)
@@ -551,13 +567,13 @@ public abstract class AbstractTestQueryFramework
     {
         Metadata metadata = queryRunner.getMetadata();
         FeaturesConfig featuresConfig = createFeaturesConfig();
-        boolean forceSingleNode = queryRunner.getNodeCount() == 1;
+        boolean noExchange = queryRunner.getNodeCount() == 1;
         TaskCountEstimator taskCountEstimator = new TaskCountEstimator(queryRunner::getNodeCount);
         CostCalculator costCalculator = new CostCalculatorUsingExchanges(taskCountEstimator);
         List<PlanOptimizer> optimizers = new PlanOptimizers(
                 metadata,
                 sqlParser,
-                forceSingleNode,
+                noExchange,
                 new MBeanExporter(new TestingMBeanServer()),
                 queryRunner.getSplitManager(),
                 queryRunner.getPlanOptimizerManager(),
@@ -568,7 +584,11 @@ public abstract class AbstractTestQueryFramework
                 new CostComparator(featuresConfig),
                 taskCountEstimator,
                 new PartitioningProviderManager(),
-                featuresConfig)
+                featuresConfig,
+                new ExpressionOptimizerManager(
+                        new PluginNodeManager(new InMemoryNodeManager()),
+                        queryRunner.getMetadata().getFunctionAndTypeManager()),
+                new TaskManagerConfig())
                 .getPlanningTimeOptimizers();
         return new QueryExplainer(
                 optimizers,

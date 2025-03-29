@@ -17,18 +17,16 @@ import com.facebook.presto.common.block.Block;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.schema.PrimitiveType;
 
+import java.util.function.Supplier;
+
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
-import static java.util.Objects.requireNonNull;
 
 public class DoubleValueWriter
         extends PrimitiveValueWriter
 {
-    private final ValuesWriter valuesWriter;
-
-    public DoubleValueWriter(ValuesWriter valuesWriter, PrimitiveType parquetType)
+    public DoubleValueWriter(Supplier<ValuesWriter> valuesWriterSupplier, PrimitiveType parquetType)
     {
-        super(parquetType, valuesWriter);
-        this.valuesWriter = requireNonNull(valuesWriter, "valuesWriter is null");
+        super(parquetType, valuesWriterSupplier);
     }
 
     @Override
@@ -37,7 +35,7 @@ public class DoubleValueWriter
         for (int i = 0; i < block.getPositionCount(); ++i) {
             if (!block.isNull(i)) {
                 double value = DOUBLE.getDouble(block, i);
-                valuesWriter.writeDouble(value);
+                getValueWriter().writeDouble(value);
                 getStatistics().updateStats(value);
             }
         }

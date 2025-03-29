@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.connector;
 
+import com.facebook.presto.spi.ConnectorDeleteTableHandle;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
@@ -24,4 +25,9 @@ public interface ConnectorPageSinkProvider
     ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, PageSinkContext pageSinkContext);
 
     ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, PageSinkContext pageSinkContext);
+
+    default ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorDeleteTableHandle deleteTableHandle, PageSinkContext pageSinkContext)
+    {
+        throw new UnsupportedOperationException("ConnectorPageSinkProvider does not support connectorDeleteTableHandle");
+    }
 }

@@ -127,7 +127,7 @@ public class PrestoSparkQueryPlanner
                 variableAllocator,
                 sqlParser);
 
-        PlanNode planNode = session.getRuntimeStats().profileNanos(
+        PlanNode planNode = session.getRuntimeStats().recordWallAndCpuTime(
                 LOGICAL_PLANNER_TIME_NANOS,
                 () -> logicalPlanner.plan(analysis));
 
@@ -143,7 +143,7 @@ public class PrestoSparkQueryPlanner
                 costCalculator,
                 false);
 
-        Plan plan = session.getRuntimeStats().profileNanos(
+        Plan plan = session.getRuntimeStats().recordWallAndCpuTime(
                 OPTIMIZER_TIME_NANOS,
                 () -> optimizer.validateAndOptimizePlan(planNode, OPTIMIZED_AND_VALIDATED));
 

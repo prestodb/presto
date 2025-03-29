@@ -30,7 +30,6 @@ import org.joda.time.DateTimeZone;
 
 import javax.validation.constraints.DecimalMax;
 import javax.validation.constraints.DecimalMin;
-import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
@@ -190,6 +189,7 @@ public class HiveClientConfig
     private boolean verboseRuntimeStatsEnabled;
     private boolean useRecordPageSourceForCustomSplit = true;
     private boolean hudiMetadataEnabled;
+    private String hudiTablesUseMergedView;
 
     private boolean sizeBasedSplitWeightsEnabled = true;
     private double minimumAssignedSplitWeight = 0.05;
@@ -221,7 +221,6 @@ public class HiveClientConfig
     private Duration parquetQuickStatsFileMetadataFetchTimeout = new Duration(60, TimeUnit.SECONDS);
     private int parquetQuickStatsMaxConcurrentCalls = 500;
     private int quickStatsMaxConcurrentCalls = 100;
-    private DataSize affinitySchedulingFileSectionSize = new DataSize(256, MEGABYTE);
     private boolean legacyTimestampBucketing;
 
     @Min(0)
@@ -276,20 +275,6 @@ public class HiveClientConfig
     public HiveClientConfig setDomainCompactionThreshold(int domainCompactionThreshold)
     {
         this.domainCompactionThreshold = domainCompactionThreshold;
-        return this;
-    }
-
-    @MinDataSize("1MB")
-    @MaxDataSize("1GB")
-    public DataSize getWriterSortBufferSize()
-    {
-        return writerSortBufferSize;
-    }
-
-    @Config("hive.writer-sort-buffer-size")
-    public HiveClientConfig setWriterSortBufferSize(DataSize writerSortBufferSize)
-    {
-        this.writerSortBufferSize = writerSortBufferSize;
         return this;
     }
 
@@ -695,22 +680,6 @@ public class HiveClientConfig
         this.maxPartitionsPerWriter = maxPartitionsPerWriter;
         return this;
     }
-
-    @Min(2)
-    @Max(1000)
-    public int getMaxOpenSortFiles()
-    {
-        return maxOpenSortFiles;
-    }
-
-    @Config("hive.max-open-sort-files")
-    @ConfigDescription("Maximum number of writer temporary files to read in one pass")
-    public HiveClientConfig setMaxOpenSortFiles(int maxOpenSortFiles)
-    {
-        this.maxOpenSortFiles = maxOpenSortFiles;
-        return this;
-    }
-
     public int getWriteValidationThreads()
     {
         return writeValidationThreads;
@@ -1647,6 +1616,19 @@ public class HiveClientConfig
         return this.hudiMetadataEnabled;
     }
 
+    @Config("hive.hudi-tables-use-merged-view")
+    @ConfigDescription("For Hudi tables, a comma-separated list in the form of <schema>.<table> which should prefer to fetch the list of files from the merged file system view")
+    public HiveClientConfig setHudiTablesUseMergedView(String hudiTablesUseMergedView)
+    {
+        this.hudiTablesUseMergedView = hudiTablesUseMergedView;
+        return this;
+    }
+
+    public String getHudiTablesUseMergedView()
+    {
+        return this.hudiTablesUseMergedView;
+    }
+
     @Config("hive.quick-stats.enabled")
     @ConfigDescription("Use quick stats to resolve stats")
     public HiveClientConfig setQuickStatsEnabled(boolean quickStatsEnabled)
@@ -1822,19 +1804,6 @@ public class HiveClientConfig
     public int getMaxParallelParsingConcurrency()
     {
         return this.maxParallelParsingConcurrency;
-    }
-
-    @NotNull
-    public DataSize getAffinitySchedulingFileSectionSize()
-    {
-        return affinitySchedulingFileSectionSize;
-    }
-
-    @Config("hive.affinity-scheduling-file-section-size")
-    public HiveClientConfig setAffinitySchedulingFileSectionSize(DataSize affinitySchedulingFileSectionSize)
-    {
-        this.affinitySchedulingFileSectionSize = affinitySchedulingFileSectionSize;
-        return this;
     }
 
     @Config("hive.skip-empty-files")

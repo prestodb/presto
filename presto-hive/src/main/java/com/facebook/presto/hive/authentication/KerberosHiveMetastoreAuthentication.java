@@ -15,6 +15,7 @@ package com.facebook.presto.hive.authentication;
 
 import com.facebook.presto.hive.ForHiveMetastore;
 import com.facebook.presto.hive.HiveClientConfig;
+import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.hive.metastore.security.DelegationTokenIdentifier;
 import org.apache.hadoop.hive.thrift.client.TUGIAssumingTransport;
@@ -24,6 +25,7 @@ import org.apache.hadoop.security.token.Token;
 import org.apache.hadoop.security.token.TokenIdentifier;
 import org.apache.thrift.transport.TSaslClientTransport;
 import org.apache.thrift.transport.TTransport;
+import org.apache.thrift.transport.TTransportException;
 
 import javax.inject.Inject;
 import javax.security.auth.callback.Callback;
@@ -40,6 +42,7 @@ import java.util.Base64;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 import static javax.security.sasl.Sasl.QOP;
@@ -97,6 +100,9 @@ public class KerberosHiveMetastoreAuthentication
         }
         catch (IOException ex) {
             throw new UncheckedIOException(ex);
+        }
+        catch (TTransportException e) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
     }
 
@@ -174,6 +180,9 @@ public class KerberosHiveMetastoreAuthentication
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
+        }
+        catch (TTransportException e) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
     }
 }

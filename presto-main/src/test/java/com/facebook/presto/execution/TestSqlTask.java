@@ -71,8 +71,6 @@ import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -159,7 +157,7 @@ public class TestSqlTask
         taskInfo = sqlTask.getTaskInfo();
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
-        BufferResult results = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE)).get();
+        BufferResult results = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE).toBytes()).get();
         assertEquals(results.isBufferComplete(), false);
         assertEquals(results.getSerializedPages().size(), 1);
         assertEquals(results.getSerializedPages().get(0).getPositionCount(), 1);
@@ -172,7 +170,7 @@ public class TestSqlTask
         assertEquals(taskBufferInfo.get().getPageBufferInfo().getBufferedBytes(), pagesRetanedSizeInBytes);
 
         for (boolean moreResults = true; moreResults; moreResults = !results.isBufferComplete()) {
-            results = sqlTask.getTaskResults(OUT, results.getToken() + results.getSerializedPages().size(), new DataSize(1, MEGABYTE)).get();
+            results = sqlTask.getTaskResults(OUT, results.getToken() + results.getSerializedPages().size(), new DataSize(1, MEGABYTE).toBytes()).get();
             pagesRetanedSizeInBytes = results.getSerializedPages().stream().mapToLong(SerializedPage::getRetainedSizeInBytes).sum();
             assertEquals(results.getBufferedBytes(), pagesRetanedSizeInBytes);
             taskBufferInfo = sqlTask.getOutputBufferInfo().getBuffers().stream().filter(buffer -> buffer.getBufferId().equals(OUT)).findFirst();
@@ -205,19 +203,19 @@ public class TestSqlTask
                         .withNoMoreBufferIds(),
                 Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())));
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
-        assertNull(taskInfo.getStats().getEndTime());
+        assertEquals(taskInfo.getStats().getEndTimeInMillis(), 0);
 
         taskInfo = sqlTask.getTaskInfo();
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
-        assertNull(taskInfo.getStats().getEndTime());
+        assertEquals(taskInfo.getStats().getEndTimeInMillis(), 0);
 
         taskInfo = sqlTask.cancel();
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.CANCELED);
-        assertNotNull(taskInfo.getStats().getEndTime());
+        assertTrue(taskInfo.getStats().getEndTimeInMillis() > 0);
 
         taskInfo = sqlTask.getTaskInfo();
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.CANCELED);
-        assertNotNull(taskInfo.getStats().getEndTime());
+        assertTrue(taskInfo.getStats().getEndTimeInMillis() > 0);
     }
 
     @Test
@@ -254,7 +252,7 @@ public class TestSqlTask
         OutputBuffers outputBuffers = createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds();
         updateTask(sqlTask, EMPTY_SOURCES, outputBuffers);
 
-        ListenableFuture<BufferResult> bufferResult = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE));
+        ListenableFuture<BufferResult> bufferResult = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE).toBytes());
         assertFalse(bufferResult.isDone());
 
         // close the sources (no splits will ever be added)
@@ -267,7 +265,7 @@ public class TestSqlTask
         bufferResult.get(1, SECONDS);
 
         // verify the buffer is closed
-        bufferResult = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE));
+        bufferResult = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE).toBytes());
         assertTrue(bufferResult.isDone());
         assertTrue(bufferResult.get().isBufferComplete());
     }
@@ -280,7 +278,7 @@ public class TestSqlTask
 
         updateTask(sqlTask, EMPTY_SOURCES, createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
 
-        ListenableFuture<BufferResult> bufferResult = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE));
+        ListenableFuture<BufferResult> bufferResult = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE).toBytes());
         assertFalse(bufferResult.isDone());
 
         sqlTask.cancel();
@@ -289,7 +287,7 @@ public class TestSqlTask
         // buffer future will complete.. the event is async so wait a bit for event to propagate
         bufferResult.get(1, SECONDS);
 
-        bufferResult = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE));
+        bufferResult = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE).toBytes());
         assertTrue(bufferResult.isDone());
         assertTrue(bufferResult.get().isBufferComplete());
     }
@@ -302,7 +300,7 @@ public class TestSqlTask
 
         updateTask(sqlTask, EMPTY_SOURCES, createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
 
-        ListenableFuture<BufferResult> bufferResult = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE));
+        ListenableFuture<BufferResult> bufferResult = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE).toBytes());
         assertFalse(bufferResult.isDone());
 
         TaskState taskState = sqlTask.getTaskInfo().getTaskStatus().getState();
@@ -317,7 +315,7 @@ public class TestSqlTask
         catch (TimeoutException expected) {
             // expected
         }
-        assertFalse(sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE)).isDone());
+        assertFalse(sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE).toBytes()).isDone());
     }
 
     public SqlTask createInitialTask()
@@ -357,7 +355,7 @@ public class TestSqlTask
                 new MockExchangeClientSupplier(),
                 taskNotificationExecutor,
                 Functions.identity(),
-                new DataSize(32, MEGABYTE),
+                new DataSize(32, MEGABYTE).toBytes(),
                 new CounterStat(),
                 new SpoolingOutputBufferFactory(new FeaturesConfig()));
     }

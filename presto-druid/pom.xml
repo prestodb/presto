@@ -4,7 +4,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.291-SNAPSHOT</version>
+        <version>0.293-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-druid</artifactId>
@@ -13,7 +13,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.log4j.version>2.17.1</dep.log4j.version>
+        <dep.log4j.version>2.24.3</dep.log4j.version>
     </properties>
 
     <repositories>
@@ -130,6 +130,10 @@
                 <exclusion>
                     <groupId>it.unimi.dsi</groupId>
                     <artifactId>fastutil-core</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.google.inject.extensions</groupId>
+                    <artifactId>guice-multibindings</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -307,13 +311,19 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-main</artifactId>
+            <artifactId>presto-main-base</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-main-base</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>

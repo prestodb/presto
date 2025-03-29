@@ -66,4 +66,6 @@ Property Name                                      Description                  
 ================================================== ========================================================================== ==============================
 ``tpcds.splits-per-node``                          Number of data splits generated per Presto worker node when querying       Number of available processors
                                                    data from the TPCDS connector.
+
+``tpcds.use-varchar-type``                         Toggle all char columns to varchar in the TPC-DS connector.                false
 ================================================== ========================================================================== ==============================

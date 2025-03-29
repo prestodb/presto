@@ -11,19 +11,8 @@ module.exports = (env) => {
     const apiHost = env.apiHost || 'localhost';
     const apiPort = env.apiPort || '8080';
     const outputDir = 'target/webapp';
-    return {
+    const baseConfig = {
         entry: {
-            'index': path.join(__dirname, 'index.jsx'),
-            'query': path.join(__dirname, 'query.jsx'),
-            'plan': path.join(__dirname, 'plan.jsx'),
-            'query_viewer': {import: path.join(__dirname, 'query_viewer.jsx'), filename: path.join(outputDir, 'dev', '[name].js')},
-            'embedded_plan': path.join(__dirname, 'embedded_plan.jsx'),
-            'stage': path.join(__dirname, 'stage.jsx'),
-            'worker': path.join(__dirname, 'worker.jsx'),
-            'timeline': path.join(__dirname, 'timeline.jsx'),
-            'res_groups': path.join(__dirname, 'res_groups.jsx'),
-            'sql_client': path.join(__dirname, 'sql_client.jsx'),
-            'bootstrap_css': path.join(__dirname, 'static', 'vendor', 'bootstrap', 'css', 'bootstrap.min.external-fonts.css'),
             'css_loader': path.join(__dirname, 'static', 'vendor', 'css-loaders', 'loader.css'),
             'css_presto': path.join(__dirname, 'static', 'assets', 'presto.css'),
         },
@@ -31,30 +20,13 @@ module.exports = (env) => {
             // substitutes `require('vis-timeline/standalone')` to `global.vis`
             'vis-timeline/standalone': 'vis',
         },
-                plugins: [
-                    new CopyPlugin({
-                        patterns: [
-                            {from: "static", to: outputDir},
-                        ]
-                    }),
-                    new HtmlWebpackPlugin({
-                        inject: 'body',
-                        filename: path.join(__dirname, '..', outputDir, 'dev', 'query_viewer_spa.html'),
-                        template: 'templates/query_viewer.html',
-                        chunks: [
-                            'query_viewer',
-                            'bootstrap_css',
-                            'css_loader',
-                            'css_presto',
-                        ]
-                    }),
-                    new HtmlInlineScriptPlugin({
-                        htmlMatchPattern: [/query_viewer_spa.html$/],
-                        assetPreservePattern: [
-                            /.*.js$/,
-                        ]
-                    }),
-                ],
+        plugins: [
+            new CopyPlugin({
+                patterns: [
+                    {from: "static", to: path.join(__dirname, "..", outputDir)},
+                ]
+            }),
+        ],
         mode,
         module: {
             rules: [
@@ -82,8 +54,9 @@ module.exports = (env) => {
             extensions: ['.*', '.js', '.jsx']
         },
         output: {
-            path: path.join(__dirname, '..'),
-            filename: path.join(outputDir, '[name].js'),
+            path: path.join(__dirname, '..', outputDir),
+            filename: '[name].js',
+            chunkFilename: '[name].chunk.js',
         },
         optimization: {
             minimize: mode === 'production',
@@ -99,13 +72,102 @@ module.exports = (env) => {
                 }),
                 '...'],
         },
-        devServer: {
-            static: {
-                directory: path.join(__dirname, '..', outputDir),
+    };
+
+    const devServer = {
+        static: {
+            directory: path.join(__dirname, '..', outputDir),
+        },
+        proxy: [
+            {
+                context: ['/v1'],
+                target: `http://${apiHost}:${apiPort}`,
+                // secure: false, // when using http
+                // changeOrigin: true, // Modify the Origin header to match the target
             },
-            proxy: {
-                '/v1': `http://${apiHost}:${apiPort}`,
+        ],
+    }
+
+    const mainConfig = {
+        ...baseConfig,
+        entry: {
+            'index': './index.jsx',
+            'query': './query.jsx',
+            'plan': './plan.jsx',
+            'embedded_plan': './embedded_plan.jsx',
+            'stage': './stage.jsx',
+            'worker': './worker.jsx',
+            'timeline': './timeline.jsx',
+            'res_groups': './res_groups.jsx',
+            'sql_client': './sql_client.jsx',
+            'dev/query_viewer': './query_viewer.jsx',
+            ...baseConfig.entry,
+        },
+        optimization: {
+            ...baseConfig.optimization,
+            splitChunks: {
+                chunks: 'async',
+                maxSize: 244000,
+                minRemainingSize: 0,
+                minChunks: 1,
+                cacheGroups: {
+                    defaultVendors: {
+                        test: /[\\/]node_modules[\\/]/,
+                        priority: -10,
+                        reuseExistingChunk: true,
+                        filename: '[name].vendor.js',
+                    },
+                    default: {
+                        minChunks: 2,
+                        priority: -20,
+                        reuseExistingChunk: true,
+                    },
+                },
             },
         },
+        devServer,
     };
+
+    const spaConfig = {
+        ...baseConfig,
+        plugins: [
+            ...baseConfig.plugins,
+            new HtmlWebpackPlugin({
+                inject: 'body',
+                filename: path.join('dev', 'query_viewer_spa.html'),
+                template: 'templates/query_viewer.html',
+                chunks: [
+                    'query_viewer',
+                    'bootstrap_css',
+                    'css_loader',
+                    'css_presto',
+                ]
+            }),
+            new HtmlInlineScriptPlugin({
+                htmlMatchPattern: [/query_viewer_spa.html$/],
+                assetPreservePattern: [
+                    /.*.js$/,
+                ]
+            }),
+        ],
+        entry: {
+            'query_viewer': {import: './query_viewer.jsx', filename: path.join('dev', '[name].js')},
+            ...baseConfig.entry,
+        },
+        optimization: {
+            ...baseConfig.optimization,
+            splitChunks: false,
+        }
+    };
+
+    if (env.config === 'all') {
+        return [mainConfig, spaConfig];
+    }
+    if (env.config === 'spa') {
+        return {
+            ...spaConfig,
+            devServer,
+        }
+    }
+    return mainConfig;
 };

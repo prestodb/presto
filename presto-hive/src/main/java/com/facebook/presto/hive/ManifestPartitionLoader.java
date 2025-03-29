@@ -157,9 +157,10 @@ public class ManifestPartitionLoader
         String inputFormatName = storage.getStorageFormat().getInputFormat();
         int partitionDataColumnCount = partition.getPartition()
                 .map(p -> p.getColumns().size())
-                .orElse(table.getDataColumns().size());
+                .orElseGet(table.getDataColumns()::size);
         List<HivePartitionKey> partitionKeys = getPartitionKeys(table, partition.getPartition(), partitionName);
-        Path path = new Path(getPartitionLocation(table, partition.getPartition()));
+        String location = getPartitionLocation(table, partition.getPartition());
+        Path path = new Path(location);
         Configuration configuration = hdfsEnvironment.getConfiguration(hdfsContext, path);
         InputFormat<?, ?> inputFormat = getInputFormat(configuration, inputFormatName, false);
         ExtendedFileSystem fileSystem = hdfsEnvironment.getFileSystem(hdfsContext, path);
@@ -173,7 +174,7 @@ public class ManifestPartitionLoader
                 false,
                 new HiveSplitPartitionInfo(
                         storage,
-                        path.toUri(),
+                        location,
                         partitionKeys,
                         partitionName,
                         partitionDataColumnCount,
@@ -201,7 +202,7 @@ public class ManifestPartitionLoader
         int fileCount = 0;
         while (fileInfoIterator.hasNext()) {
             HiveFileInfo fileInfo = fileInfoIterator.next();
-            String fileName = fileInfo.getPath().getName();
+            String fileName = fileInfo.getFileName();
             if (!manifestFileNames.contains(fileName)) {
                 throw new PrestoException(
                         MALFORMED_HIVE_FILE_STATISTICS,

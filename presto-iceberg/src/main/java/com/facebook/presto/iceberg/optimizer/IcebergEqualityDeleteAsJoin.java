@@ -59,7 +59,6 @@ import org.apache.iceberg.DeleteFile;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
-import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.io.CloseableIterator;
 import org.apache.iceberg.types.Type;
@@ -182,7 +181,7 @@ public class IcebergEqualityDeleteAsJoin
             TupleDomain<IcebergColumnHandle> predicate = icebergTableLayoutHandle
                     .map(IcebergTableLayoutHandle::getValidPredicate)
                     .map(IcebergUtil::getNonMetadataColumnConstraints)
-                    .orElse(TupleDomain.all());
+                    .orElseGet(TupleDomain::all);
 
             // Collect info about each unique delete schema to join by
             ImmutableMap<Set<Integer>, DeleteSetInfo> deleteSchemas = collectDeleteInformation(icebergTable, predicate, tableName.getSnapshotId().get());
@@ -331,9 +330,11 @@ public class IcebergEqualityDeleteAsJoin
                     icebergTableHandle.isSnapshotSpecified(),
                     icebergTableHandle.getOutputPath(),
                     icebergTableHandle.getStorageProperties(),
-                    Optional.of(SchemaParser.toJson(new Schema(deleteFields))),
+                    icebergTableHandle.getTableSchemaJson(),
                     Optional.of(deleteInfo.partitionFields.keySet()),                // Enforce reading only delete files that match this schema
-                    Optional.ofNullable(deleteInfo.equalityFieldIds.isEmpty() ? null : deleteInfo.equalityFieldIds));
+                    Optional.ofNullable(deleteInfo.equalityFieldIds.isEmpty() ? null : deleteInfo.equalityFieldIds),
+                    icebergTableHandle.getSortOrder(),
+                    icebergTableHandle.getUpdatedColumns());
 
             return new TableScanNode(Optional.empty(),
                     idAllocator.getNextId(),
@@ -341,7 +342,8 @@ public class IcebergEqualityDeleteAsJoin
                     outputs,
                     deleteColumnAssignments,
                     TupleDomain.all(),
-                    TupleDomain.all());
+                    TupleDomain.all(),
+                    Optional.empty());
         }
 
         /**
@@ -360,7 +362,9 @@ public class IcebergEqualityDeleteAsJoin
                     icebergTableHandle.getStorageProperties(),
                     icebergTableHandle.getTableSchemaJson(),
                     icebergTableHandle.getPartitionSpecId(),
-                    icebergTableHandle.getEqualityFieldIds());
+                    icebergTableHandle.getEqualityFieldIds(),
+                    icebergTableHandle.getSortOrder(),
+                    icebergTableHandle.getUpdatedColumns());
 
             VariableReferenceExpression dataSequenceNumberVariableReference = toVariableReference(DATA_SEQUENCE_NUMBER_COLUMN_HANDLE);
             ImmutableMap.Builder<VariableReferenceExpression, ColumnHandle> assignmentsBuilder = ImmutableMap.<VariableReferenceExpression, ColumnHandle>builder()
@@ -382,7 +386,8 @@ public class IcebergEqualityDeleteAsJoin
                     assignmentsBuilder.build(),
                     node.getTableConstraints(),
                     node.getCurrentConstraint(),
-                    node.getEnforcedConstraint());
+                    node.getEnforcedConstraint(),
+                    node.getCteMaterializationInfo());
         }
 
         /**

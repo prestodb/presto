@@ -1,9 +1,50 @@
+AGENT_MAVEN = '''
+    apiVersion: v1
+    kind: Pod
+    spec:
+        containers:
+        - name: maven
+          image: maven:3.8.6-openjdk-8-slim
+          env:
+          - name: MAVEN_OPTS
+            value: "-Xmx8000m -Xms8000m"
+          resources:
+            requests:
+              memory: "16Gi"
+              cpu: "4000m"
+            limits:
+              memory: "16Gi"
+              cpu: "4000m"
+          tty: true
+          command:
+          - cat
+'''
+
+AGENT_DIND = '''
+    apiVersion: v1
+    kind: Pod
+    spec:
+        containers:
+        - name: dind
+          image: docker:20.10.16-dind-alpine3.15
+          securityContext:
+            privileged: true
+          tty: true
+          resources:
+            requests:
+              memory: "29Gi"
+              cpu: "7500m"
+            limits:
+              memory: "29Gi"
+              cpu: "7500m"
+'''
+
 pipeline {
 
     agent none
 
     environment {
-        AWS_CREDENTIAL_ID  = 'aws-jenkins'
+        AWS_CREDENTIAL_ID  = 'oss-presto-aws'
         AWS_DEFAULT_REGION = 'us-east-1'
         AWS_ECR            = 'public.ecr.aws/oss-presto'
         AWS_S3_PREFIX      = 's3://oss-prestodb/presto'
@@ -33,7 +74,7 @@ pipeline {
             agent {
                 kubernetes {
                     defaultContainer 'maven'
-                    yamlFile 'jenkins/agent-maven.yaml'
+                    yaml AGENT_MAVEN
                 }
             }
 
@@ -132,7 +173,7 @@ pipeline {
             agent {
                 kubernetes {
                     defaultContainer 'dind'
-                    yamlFile 'jenkins/agent-dind.yaml'
+                    yaml AGENT_DIND
                 }
             }
 

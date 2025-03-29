@@ -12,7 +12,9 @@
         "language": "CPP",
         "nullCallClause": "RETURNS_NULL_ON_NULL_INPUT"
       },
-      "schema": "default"
+      "schema": "default",
+      "typeVariableConstraints":[],
+      "variableArity":false
     },
     {
       "docString": "presto.default.array_frequency",
@@ -26,7 +28,9 @@
         "language": "CPP",
         "nullCallClause": "RETURNS_NULL_ON_NULL_INPUT"
       },
-      "schema": "default"
+      "schema": "default",
+      "typeVariableConstraints":[],
+      "variableArity":false
     },
     {
       "docString": "presto.default.array_frequency",
@@ -40,7 +44,9 @@
         "language": "CPP",
         "nullCallClause": "RETURNS_NULL_ON_NULL_INPUT"
       },
-      "schema": "default"
+      "schema": "default",
+      "typeVariableConstraints":[],
+      "variableArity":false
     },
     {
       "docString": "presto.default.array_frequency",
@@ -54,7 +60,9 @@
         "language": "CPP",
         "nullCallClause": "RETURNS_NULL_ON_NULL_INPUT"
       },
-      "schema": "default"
+      "schema": "default",
+      "typeVariableConstraints":[],
+      "variableArity":false
     },
     {
       "docString": "presto.default.array_frequency",
@@ -68,7 +76,9 @@
         "language": "CPP",
         "nullCallClause": "RETURNS_NULL_ON_NULL_INPUT"
       },
-      "schema": "default"
+      "schema": "default",
+      "typeVariableConstraints":[],
+      "variableArity":false
     },
     {
       "docString": "presto.default.array_frequency",
@@ -82,7 +92,9 @@
         "language": "CPP",
         "nullCallClause": "RETURNS_NULL_ON_NULL_INPUT"
       },
-      "schema": "default"
+      "schema": "default",
+      "typeVariableConstraints":[],
+      "variableArity":false
     },
     {
       "docString": "presto.default.array_frequency",
@@ -96,7 +108,9 @@
         "language": "CPP",
         "nullCallClause": "RETURNS_NULL_ON_NULL_INPUT"
       },
-      "schema": "default"
+      "schema": "default",
+      "typeVariableConstraints":[],
+      "variableArity":false
     },
     {
       "docString": "presto.default.array_frequency",
@@ -110,7 +124,9 @@
         "language": "CPP",
         "nullCallClause": "RETURNS_NULL_ON_NULL_INPUT"
       },
-      "schema": "default"
+      "schema": "default",
+      "typeVariableConstraints":[],
+      "variableArity":false
     },
     {
       "docString": "presto.default.array_frequency",
@@ -124,7 +140,9 @@
         "language": "CPP",
         "nullCallClause": "RETURNS_NULL_ON_NULL_INPUT"
       },
-      "schema": "default"
+      "schema": "default",
+      "typeVariableConstraints":[],
+      "variableArity":false
     },
     {
       "docString": "presto.default.array_frequency",
@@ -138,7 +156,9 @@
         "language": "CPP",
         "nullCallClause": "RETURNS_NULL_ON_NULL_INPUT"
       },
-      "schema": "default"
+      "schema": "default",
+      "typeVariableConstraints":[],
+      "variableArity":false
     }
   ]
 }

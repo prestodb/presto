@@ -4,7 +4,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.291-SNAPSHOT</version>
+        <version>0.293-SNAPSHOT</version>
     </parent>
     <artifactId>presto-iceberg</artifactId>
     <description>Presto - Iceberg Connector</description>
@@ -264,6 +264,16 @@
         </dependency>
 
         <dependency>
+          <groupId>com.amazonaws</groupId>
+          <artifactId>aws-java-sdk-core</artifactId>
+        </dependency>
+
+        <dependency>
+          <groupId>com.amazonaws</groupId>
+          <artifactId>aws-java-sdk-s3</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>org.apache.iceberg</groupId>
             <artifactId>iceberg-core</artifactId>
             <version>${dep.iceberg.version}</version>
@@ -459,7 +469,6 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
-            <version>2.10.2</version>
             <scope>provided</scope>
         </dependency>
 
@@ -511,19 +520,21 @@
             <artifactId>presto-cache</artifactId>
             <scope>compile</scope>
         </dependency>
-        
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-main-base</artifactId>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main</artifactId>
             <scope>test</scope>
         </dependency>
-
         <dependency>
-          <groupId>com.facebook.presto</groupId>
-          <artifactId>presto-parser</artifactId>
-          <scope>test</scope>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-parser</artifactId>
+            <scope>test</scope>
         </dependency>
-
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-analyzer</artifactId>
@@ -532,7 +543,7 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-main</artifactId>
+            <artifactId>presto-main-base</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>
@@ -603,9 +614,21 @@
         </dependency>
 
         <dependency>
+          <groupId>org.testcontainers</groupId>
+          <artifactId>testcontainers</artifactId>
+          <scope>test</scope>
+          <exclusions>
+            <exclusion>
+              <groupId>org.slf4j</groupId>
+              <artifactId>slf4j-api</artifactId>
+            </exclusion>
+          </exclusions>
+        </dependency>
+
+        <dependency>
             <groupId>org.apache.iceberg</groupId>
             <artifactId>iceberg-core</artifactId>
-            <version>1.5.0</version>
+            <version>${dep.iceberg.version}</version>
             <classifier>tests</classifier>
             <scope>test</scope>
             <exclusions>
@@ -634,6 +657,10 @@
                     <artifactId>RoaringBitmap</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-math3</artifactId>
         </dependency>
     </dependencies>
 
@@ -672,7 +699,6 @@
                             <ignoredClassPattern>module-info</ignoredClassPattern>
                             <ignoredClassPattern>org.apache.avro.*</ignoredClassPattern>
                             <ignoredClassPattern>org.apache.parquet.*</ignoredClassPattern>
-                            <ignoredClassPattern>com.github.benmanes.caffeine.*</ignoredClassPattern>
                             <ignoredClassPattern>META-INF.versions.9.module-info</ignoredClassPattern>
                         </ignoredClassPatterns>
                     </configuration>

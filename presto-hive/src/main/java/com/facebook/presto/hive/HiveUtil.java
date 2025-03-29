@@ -442,7 +442,7 @@ public final class HiveUtil
         return HIVE_TIMESTAMP_PARSER.withZone(timeZone).parseMillis(value);
     }
 
-    public static boolean isSplittable(InputFormat<?, ?> inputFormat, FileSystem fileSystem, Path path)
+    public static boolean isSplittable(InputFormat<?, ?> inputFormat, FileSystem fileSystem, String path)
     {
         if (inputFormat instanceof OrcInputFormat || inputFormat instanceof RCFileInputFormat) {
             return true;
@@ -464,14 +464,14 @@ public final class HiveUtil
         }
         try {
             method.setAccessible(true);
-            return (boolean) method.invoke(inputFormat, fileSystem, path);
+            return (boolean) method.invoke(inputFormat, fileSystem, new Path(path));
         }
         catch (InvocationTargetException | IllegalAccessException e) {
             throw new RuntimeException(e);
         }
     }
 
-    public static boolean isSelectSplittable(InputFormat<?, ?> inputFormat, Path path, boolean s3SelectPushdownEnabled)
+    public static boolean isSelectSplittable(InputFormat<?, ?> inputFormat, String path, boolean s3SelectPushdownEnabled)
     {
         // S3 Select supports splitting for uncompressed CSV & JSON files
         // Previous checks for supported input formats, SerDes, column types and S3 path
@@ -479,10 +479,10 @@ public final class HiveUtil
         return !s3SelectPushdownEnabled || isUncompressed(inputFormat, path);
     }
 
-    private static boolean isUncompressed(InputFormat<?, ?> inputFormat, Path path)
+    private static boolean isUncompressed(InputFormat<?, ?> inputFormat, String path)
     {
         if (inputFormat instanceof TextInputFormat) {
-            return !getCompressionCodec((TextInputFormat) inputFormat, path).isPresent();
+            return !getCompressionCodec((TextInputFormat) inputFormat, new Path(path)).isPresent();
         }
         return false;
     }
@@ -1207,14 +1207,15 @@ public final class HiveUtil
     public static List<ColumnMetadata> translateHiveUnsupportedTypesForTemporaryTable(List<ColumnMetadata> columns, TypeManager typeManager)
     {
         return columns.stream()
-                .map(column -> new ColumnMetadata(
-                        column.getName(),
-                        translateHiveUnsupportedTypeForTemporaryTable(column.getType(), typeManager),
-                        column.isNullable(),
-                        column.getComment(),
-                        column.getExtraInfo(),
-                        column.isHidden(),
-                        column.getProperties()))
+                .map(column -> ColumnMetadata.builder()
+                        .setName(column.getName())
+                        .setType(translateHiveUnsupportedTypeForTemporaryTable(column.getType(), typeManager))
+                        .setNullable(column.isNullable())
+                        .setComment(column.getComment().orElse(null))
+                        .setExtraInfo(column.getExtraInfo().orElse(null))
+                        .setHidden(column.isHidden())
+                        .setProperties(column.getProperties())
+                        .build())
                 .collect(toImmutableList());
     }
 
@@ -1237,8 +1238,9 @@ public final class HiveUtil
                 TypeSignatureParameter typeSignatureParameter = parameters.get(i);
                 checkArgument(typeSignatureParameter.isNamedTypeSignature(), "unexpected row type signature parameter: %s", typeSignatureParameter);
                 NamedTypeSignature namedTypeSignature = typeSignatureParameter.getNamedTypeSignature();
+                int parameterIdx = i;
                 updatedParameters.add(TypeSignatureParameter.of(new NamedTypeSignature(
-                        Optional.of(namedTypeSignature.getFieldName().orElse(new RowFieldName("_field_" + i, false))),
+                        Optional.of(namedTypeSignature.getFieldName().orElseGet(() -> new RowFieldName("_field_" + parameterIdx, false))),
                         translateHiveUnsupportedTypeSignatureForTemporaryTable(namedTypeSignature.getTypeSignature()))));
             }
             return new TypeSignature(StandardTypes.ROW, updatedParameters.build());

@@ -24,6 +24,7 @@ import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SplitWeight;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
+import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import org.apache.iceberg.AddedRowsScanTask;
@@ -46,11 +47,14 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
+import static com.facebook.presto.hive.HiveCommonSessionProperties.getAffinitySchedulingFileSectionSize;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getNodeSelectionStrategy;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.getMinimumAssignedSplitWeight;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getDataSequenceNumber;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitionKeys;
+import static com.facebook.presto.iceberg.IcebergUtil.getTargetSplitSize;
 import static com.facebook.presto.iceberg.IcebergUtil.partitionDataFromStructLike;
 import static com.facebook.presto.iceberg.changelog.ChangelogOperation.fromIcebergChangelogOperation;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -64,25 +68,27 @@ public class ChangelogSplitSource
     private final Closer closer = Closer.create();
     private CloseableIterable<ChangelogScanTask> fileScanTaskIterable;
     private CloseableIterator<ChangelogScanTask> fileScanTaskIterator;
-    private final IncrementalChangelogScan tableScan;
     private final double minimumAssignedSplitWeight;
-    private final ConnectorSession session;
+    private final long targetSplitSize;
     private final List<IcebergColumnHandle> columnHandles;
+    private final NodeSelectionStrategy nodeSelectionStrategy;
+    private final long affinitySchedulingSectionSize;
 
     public ChangelogSplitSource(
             ConnectorSession session,
             TypeManager typeManager,
             Table table,
-            IncrementalChangelogScan tableScan,
-            double minimumAssignedSplitWeight)
+            IncrementalChangelogScan tableScan)
     {
-        this.session = requireNonNull(session, "session is null");
+        requireNonNull(session, "session is null");
         requireNonNull(typeManager, "typeManager is null");
         this.columnHandles = getColumns(table.schema(), table.spec(), typeManager);
-        this.tableScan = requireNonNull(tableScan, "tableScan is null");
-        this.minimumAssignedSplitWeight = minimumAssignedSplitWeight;
+        this.minimumAssignedSplitWeight = getMinimumAssignedSplitWeight(session);
+        this.targetSplitSize = getTargetSplitSize(session, tableScan).toBytes();
+        this.nodeSelectionStrategy = getNodeSelectionStrategy(session);
         this.fileScanTaskIterable = closer.register(tableScan.planFiles());
         this.fileScanTaskIterator = closer.register(fileScanTaskIterable.iterator());
+        this.affinitySchedulingSectionSize = getAffinitySchedulingFileSectionSize(session).toBytes();
     }
 
     @Override
@@ -143,13 +149,14 @@ public class ChangelogSplitSource
                 getPartitionKeys(task),
                 PartitionSpecParser.toJson(spec),
                 partitionData.map(PartitionData::toJson),
-                getNodeSelectionStrategy(session),
-                SplitWeight.fromProportion(Math.min(Math.max((double) task.length() / tableScan.targetSplitSize(), minimumAssignedSplitWeight), 1.0)),
+                nodeSelectionStrategy,
+                SplitWeight.fromProportion(Math.min(Math.max((double) task.length() / targetSplitSize, minimumAssignedSplitWeight), 1.0)),
                 ImmutableList.of(),
                 Optional.of(new ChangelogSplitInfo(fromIcebergChangelogOperation(changeTask.operation()),
                         changeTask.changeOrdinal(),
                         changeTask.commitSnapshotId(),
                         columnHandles)),
-                getDataSequenceNumber(task.file()));
+                getDataSequenceNumber(task.file()),
+                affinitySchedulingSectionSize);
     }
 }

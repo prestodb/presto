@@ -32,11 +32,16 @@ import com.facebook.presto.hive.HiveHdfsConfiguration;
 import com.facebook.presto.hive.HiveNodePartitioningProvider;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.OrcFileWriterConfig;
+import com.facebook.presto.hive.OrcFileWriterFactory;
 import com.facebook.presto.hive.ParquetFileWriterConfig;
+import com.facebook.presto.hive.SortingFileWriterConfig;
 import com.facebook.presto.hive.cache.HiveCachingHdfsConfiguration;
+import com.facebook.presto.hive.datasink.DataSinkFactory;
+import com.facebook.presto.hive.datasink.OutputStreamDataSinkFactory;
 import com.facebook.presto.hive.gcs.GcsConfigurationInitializer;
 import com.facebook.presto.hive.gcs.HiveGcsConfig;
 import com.facebook.presto.hive.gcs.HiveGcsConfigurationInitializer;
+import com.facebook.presto.hive.metastore.InvalidateMetastoreCacheProcedure;
 import com.facebook.presto.iceberg.nessie.IcebergNessieConfig;
 import com.facebook.presto.iceberg.optimizer.IcebergPlanOptimizerProvider;
 import com.facebook.presto.iceberg.procedure.ExpireSnapshotsProcedure;
@@ -84,18 +89,22 @@ import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
-import io.airlift.slice.Slice;
 import org.weakref.jmx.MBeanExporter;
 
 import javax.inject.Singleton;
 
-import java.util.List;
+import java.nio.ByteBuffer;
+import java.time.Duration;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static com.facebook.presto.common.Utils.checkArgument;
+import static com.facebook.presto.iceberg.CatalogType.HADOOP;
+import static com.facebook.presto.orc.StripeMetadataSource.CacheableRowGroupIndices;
+import static com.facebook.presto.orc.StripeMetadataSource.CacheableSlice;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
@@ -116,7 +125,7 @@ public class IcebergCommonModule
     }
 
     @Override
-    public void setup(Binder binder)
+    protected void setup(Binder binder)
     {
         binder.bind(HdfsEnvironment.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(CacheConfig.class);
@@ -127,6 +136,7 @@ public class IcebergCommonModule
         binder.bind(HdfsConfiguration.class).annotatedWith(ForMetastoreHdfsEnvironment.class).to(HiveCachingHdfsConfiguration.class).in(Scopes.SINGLETON);
         binder.bind(HdfsConfiguration.class).annotatedWith(ForCachingFileSystem.class).to(HiveHdfsConfiguration.class).in(Scopes.SINGLETON);
 
+        configBinder(binder).bindConfig(SortingFileWriterConfig.class);
         binder.bind(HdfsConfigurationInitializer.class).in(Scopes.SINGLETON);
         newSetBinder(binder, DynamicConfigurationProvider.class);
 
@@ -136,6 +146,9 @@ public class IcebergCommonModule
 
         configBinder(binder).bindConfig(IcebergConfig.class);
 
+        IcebergConfig icebergConfig = buildConfigObject(IcebergConfig.class);
+        checkArgument(icebergConfig.getCatalogType().equals(HADOOP) || icebergConfig.getCatalogWarehouseDataDir() == null, "'iceberg.catalog.hadoop.warehouse.datadir' can only be specified in Hadoop catalog");
+
         binder.bind(IcebergSessionProperties.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, IcebergNessieConfig.class);  // bind optional Nessie config to IcebergSessionProperties
 
@@ -144,6 +157,9 @@ public class IcebergCommonModule
         binder.bind(ConnectorSplitManager.class).to(IcebergSplitManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ConnectorSplitManager.class).as(generatedNameOf(IcebergSplitManager.class, connectorId));
         binder.bind(ConnectorPageSourceProvider.class).to(IcebergPageSourceProvider.class).in(Scopes.SINGLETON);
+        binder.bind(DataSinkFactory.class).to(OutputStreamDataSinkFactory.class).in(Scopes.SINGLETON);
+        binder.bind(OrcFileWriterFactory.class).in(Scopes.SINGLETON);
+        binder.bind(SortParameters.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSinkProvider.class).to(IcebergPageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorNodePartitioningProvider.class).to(HiveNodePartitioningProvider.class).in(Scopes.SINGLETON);
 
@@ -168,6 +184,10 @@ public class IcebergCommonModule
         procedures.addBinding().toProvider(SetCurrentSnapshotProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(SetTablePropertyProcedure.class).in(Scopes.SINGLETON);
 
+        if (buildConfigObject(MetastoreClientConfig.class).isInvalidateMetastoreCacheProcedureEnabled()) {
+            procedures.addBinding().toProvider(InvalidateMetastoreCacheProcedure.class).in(Scopes.SINGLETON);
+        }
+
         // for orc
         binder.bind(EncryptionLibrary.class).annotatedWith(HiveDwrfEncryptionProvider.ForCryptoService.class).to(UnsupportedEncryptionLibrary.class).in(Scopes.SINGLETON);
         binder.bind(EncryptionLibrary.class).annotatedWith(HiveDwrfEncryptionProvider.ForUnknown.class).to(UnsupportedEncryptionLibrary.class).in(Scopes.SINGLETON);
@@ -190,9 +210,29 @@ public class IcebergCommonModule
                 .<StatisticsFileCacheKey, ColumnStatistics>weigher((key, entry) -> (int) entry.getEstimatedSize())
                 .recordStats()
                 .build();
-        CacheStatsMBean bean = new CacheStatsMBean(delegate);
-        exporter.export(generatedNameOf(StatisticsFileCache.class, connectorId), bean);
-        return new StatisticsFileCache(delegate);
+        StatisticsFileCache statisticsFileCache = new StatisticsFileCache(delegate);
+        exporter.export(generatedNameOf(StatisticsFileCache.class, connectorId), statisticsFileCache);
+        return statisticsFileCache;
+    }
+
+    @Singleton
+    @Provides
+    public ManifestFileCache createManifestFileCache(IcebergConfig config, MBeanExporter exporter)
+    {
+        CacheBuilder<ManifestFileCacheKey, ManifestFileCachedContent> delegate = CacheBuilder.newBuilder()
+                .maximumWeight(config.getMaxManifestCacheSize())
+                .<ManifestFileCacheKey, ManifestFileCachedContent>weigher((key, entry) -> (int) entry.getData().stream().mapToLong(ByteBuffer::capacity).sum())
+                .recordStats();
+        if (config.getManifestCacheExpireDuration() > 0) {
+            delegate.expireAfterWrite(Duration.ofMillis(config.getManifestCacheExpireDuration()));
+        }
+        ManifestFileCache manifestFileCache = new ManifestFileCache(
+                delegate.build(),
+                config.getManifestCachingEnabled(),
+                config.getManifestCacheMaxContentLength(),
+                config.getManifestCacheMaxChunkSize().toBytes());
+        exporter.export(generatedNameOf(ManifestFileCache.class, connectorId), manifestFileCache);
+        return manifestFileCache;
     }
 
     @ForCachingHiveMetastore
@@ -245,15 +285,15 @@ public class IcebergCommonModule
     {
         StripeMetadataSource stripeMetadataSource = new StorageStripeMetadataSource();
         if (orcCacheConfig.isStripeMetadataCacheEnabled()) {
-            Cache<StripeReader.StripeId, Slice> footerCache = CacheBuilder.newBuilder()
+            Cache<StripeReader.StripeId, CacheableSlice> footerCache = CacheBuilder.newBuilder()
                     .maximumWeight(orcCacheConfig.getStripeFooterCacheSize().toBytes())
-                    .weigher((id, footer) -> toIntExact(((Slice) footer).getRetainedSize()))
+                    .weigher((id, footer) -> toIntExact(((CacheableSlice) footer).getSlice().getRetainedSize()))
                     .expireAfterAccess(orcCacheConfig.getStripeFooterCacheTtlSinceLastAccess().toMillis(), MILLISECONDS)
                     .recordStats()
                     .build();
-            Cache<StripeReader.StripeStreamId, Slice> streamCache = CacheBuilder.newBuilder()
+            Cache<StripeReader.StripeStreamId, CacheableSlice> streamCache = CacheBuilder.newBuilder()
                     .maximumWeight(orcCacheConfig.getStripeStreamCacheSize().toBytes())
-                    .weigher((id, stream) -> toIntExact(((Slice) stream).getRetainedSize()))
+                    .weigher((id, stream) -> toIntExact(((CacheableSlice) stream).getSlice().getRetainedSize()))
                     .expireAfterAccess(orcCacheConfig.getStripeStreamCacheTtlSinceLastAccess().toMillis(), MILLISECONDS)
                     .recordStats()
                     .build();
@@ -262,11 +302,11 @@ public class IcebergCommonModule
             exporter.export(generatedNameOf(CacheStatsMBean.class, connectorId + "_StripeFooter"), footerCacheStatsMBean);
             exporter.export(generatedNameOf(CacheStatsMBean.class, connectorId + "_StripeStream"), streamCacheStatsMBean);
 
-            Optional<Cache<StripeReader.StripeStreamId, List<RowGroupIndex>>> rowGroupIndexCache = Optional.empty();
+            Optional<Cache<StripeReader.StripeStreamId, CacheableRowGroupIndices>> rowGroupIndexCache = Optional.empty();
             if (orcCacheConfig.isRowGroupIndexCacheEnabled()) {
                 rowGroupIndexCache = Optional.of(CacheBuilder.newBuilder()
                         .maximumWeight(orcCacheConfig.getRowGroupIndexCacheSize().toBytes())
-                        .weigher((id, rowGroupIndices) -> toIntExact(((List<RowGroupIndex>) rowGroupIndices).stream().mapToLong(RowGroupIndex::getRetainedSizeInBytes).sum()))
+                        .weigher((id, rowGroupIndices) -> toIntExact(((CacheableRowGroupIndices) rowGroupIndices).getRowGroupIndices().stream().mapToLong(RowGroupIndex::getRetainedSizeInBytes).sum()))
                         .expireAfterAccess(orcCacheConfig.getStripeStreamCacheTtlSinceLastAccess().toMillis(), MILLISECONDS)
                         .recordStats()
                         .build());

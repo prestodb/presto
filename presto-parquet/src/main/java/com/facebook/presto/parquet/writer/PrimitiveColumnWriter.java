@@ -200,10 +200,10 @@ public abstract class PrimitiveColumnWriter
     }
 
     @Override
-    public void reset()
+    public void resetChunk()
     {
         pageBuffer.clear();
-        primitiveValueWriter.reset();
+        primitiveValueWriter.resetChunk();
         closed = false;
 
         totalCompressedSize = 0;

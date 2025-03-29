@@ -35,7 +35,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.ReplaceSortOrder;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.Namespace;
@@ -54,10 +56,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.stream.Stream;
 
+import static com.facebook.presto.iceberg.CatalogType.HADOOP;
+import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
-import static com.facebook.presto.iceberg.IcebergTableProperties.getFileFormat;
-import static com.facebook.presto.iceberg.IcebergTableProperties.getPartitioning;
 import static com.facebook.presto.iceberg.IcebergTableType.DATA;
 import static com.facebook.presto.iceberg.IcebergUtil.VIEW_OWNER;
 import static com.facebook.presto.iceberg.IcebergUtil.createIcebergViewProperties;
@@ -65,26 +68,32 @@ import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getNativeIcebergTable;
 import static com.facebook.presto.iceberg.IcebergUtil.getNativeIcebergView;
 import static com.facebook.presto.iceberg.IcebergUtil.populateTableProperties;
-import static com.facebook.presto.iceberg.IcebergUtil.verifyTypeSupported;
 import static com.facebook.presto.iceberg.PartitionFields.parsePartitionFields;
 import static com.facebook.presto.iceberg.PartitionSpecConverter.toPrestoPartitionSpec;
 import static com.facebook.presto.iceberg.SchemaConverter.toPrestoSchema;
+import static com.facebook.presto.iceberg.SortFieldUtils.parseSortFields;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergNamespace;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
+import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toPrestoSchemaName;
+import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toPrestoSchemaTableName;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
+import static org.apache.iceberg.NullOrder.NULLS_FIRST;
+import static org.apache.iceberg.NullOrder.NULLS_LAST;
 
 public class IcebergNativeMetadata
         extends IcebergAbstractMetadata
 {
-    private static final String INFORMATION_SCHEMA = "information_schema";
     private static final String VIEW_DIALECT = "presto";
 
+    private final Optional<String> warehouseDataDir;
     private final IcebergNativeCatalogFactory catalogFactory;
     private final CatalogType catalogType;
     private final ConcurrentMap<SchemaTableName, View> icebergViews = new ConcurrentHashMap<>();
@@ -98,11 +107,13 @@ public class IcebergNativeMetadata
             CatalogType catalogType,
             NodeVersion nodeVersion,
             FilterStatsCalculatorService filterStatsCalculatorService,
-            StatisticsFileCache statisticsFileCache)
+            StatisticsFileCache statisticsFileCache,
+            IcebergTableProperties tableProperties)
     {
-        super(typeManager, functionResolution, rowExpressionService, commitTaskCodec, nodeVersion, filterStatsCalculatorService, statisticsFileCache);
+        super(typeManager, functionResolution, rowExpressionService, commitTaskCodec, nodeVersion, filterStatsCalculatorService, statisticsFileCache, tableProperties);
         this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
         this.catalogType = requireNonNull(catalogType, "catalogType is null");
+        this.warehouseDataDir = Optional.ofNullable(catalogFactory.getCatalogWarehouseDataDir());
     }
 
     @Override
@@ -137,9 +148,23 @@ public class IcebergNativeMetadata
     public List<String> listSchemaNames(ConnectorSession session)
     {
         SupportsNamespaces supportsNamespaces = catalogFactory.getNamespaces(session);
+        if (catalogFactory.isNestedNamespaceEnabled()) {
+            return listNestedNamespaces(supportsNamespaces, Namespace.empty());
+        }
+
         return supportsNamespaces.listNamespaces()
                 .stream()
                 .map(IcebergPrestoModelConverters::toPrestoSchemaName)
+                .collect(toList());
+    }
+
+    private List<String> listNestedNamespaces(SupportsNamespaces supportsNamespaces, Namespace parentNamespace)
+    {
+        return supportsNamespaces.listNamespaces(parentNamespace)
+                .stream()
+                .flatMap(childNamespace -> Stream.concat(
+                        Stream.of(toPrestoSchemaName(childNamespace)),
+                        listNestedNamespaces(supportsNamespaces, childNamespace).stream()))
                 .collect(toList());
     }
 
@@ -152,16 +177,21 @@ public class IcebergNativeMetadata
                     .collect(toList());
         }
 
-        return catalogFactory.getCatalog(session).listTables(toIcebergNamespace(schemaName))
-                .stream()
-                .map(IcebergPrestoModelConverters::toPrestoSchemaTableName)
-                .collect(toList());
+        try {
+            return catalogFactory.getCatalog(session).listTables(toIcebergNamespace(schemaName, catalogFactory.isNestedNamespaceEnabled()))
+                    .stream()
+                    .map(tableIdentifier -> toPrestoSchemaTableName(tableIdentifier, catalogFactory.isNestedNamespaceEnabled()))
+                    .collect(toImmutableList());
+        }
+        catch (NoSuchNamespaceException e) {
+            return ImmutableList.of();
+        }
     }
 
     @Override
     public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
     {
-        catalogFactory.getNamespaces(session).createNamespace(toIcebergNamespace(Optional.of(schemaName)),
+        catalogFactory.getNamespaces(session).createNamespace(toIcebergNamespace(Optional.of(schemaName), catalogFactory.isNestedNamespaceEnabled()),
                 properties.entrySet().stream()
                         .collect(toMap(Map.Entry::getKey, e -> e.getValue().toString())));
     }
@@ -170,7 +200,7 @@ public class IcebergNativeMetadata
     public void dropSchema(ConnectorSession session, String schemaName)
     {
         try {
-            catalogFactory.getNamespaces(session).dropNamespace(toIcebergNamespace(Optional.of(schemaName)));
+            catalogFactory.getNamespaces(session).dropNamespace(toIcebergNamespace(Optional.of(schemaName), catalogFactory.isNestedNamespaceEnabled()));
         }
         catch (NamespaceNotEmptyException e) {
             throw new PrestoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + schemaName);
@@ -191,9 +221,9 @@ public class IcebergNativeMetadata
             throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating views");
         }
         Schema schema = toIcebergSchema(viewMetadata.getColumns());
-        ViewBuilder viewBuilder = ((ViewCatalog) catalog).buildView(TableIdentifier.of(viewMetadata.getTable().getSchemaName(), viewMetadata.getTable().getTableName()))
+        ViewBuilder viewBuilder = ((ViewCatalog) catalog).buildView(toIcebergTableIdentifier(viewMetadata.getTable(), catalogFactory.isNestedNamespaceEnabled()))
                 .withSchema(schema)
-                .withDefaultNamespace(Namespace.of(viewMetadata.getTable().getSchemaName()))
+                .withDefaultNamespace(toIcebergNamespace(Optional.ofNullable(viewMetadata.getTable().getSchemaName()), catalogFactory.isNestedNamespaceEnabled()))
                 .withQuery(VIEW_DIALECT, viewData)
                 .withProperties(createIcebergViewProperties(session, nodeVersion.toString()));
         if (replace) {
@@ -212,7 +242,8 @@ public class IcebergNativeMetadata
         if (catalog instanceof ViewCatalog) {
             for (String schema : listSchemas(session, schemaName.orElse(null))) {
                 try {
-                    for (TableIdentifier tableIdentifier : ((ViewCatalog) catalog).listViews(Namespace.of(schema))) {
+                    for (TableIdentifier tableIdentifier : ((ViewCatalog) catalog).listViews(
+                            toIcebergNamespace(Optional.ofNullable(schema), catalogFactory.isNestedNamespaceEnabled()))) {
                         tableNames.add(new SchemaTableName(schema, tableIdentifier.name()));
                     }
                 }
@@ -248,8 +279,9 @@ public class IcebergNativeMetadata
 
             for (SchemaTableName schemaTableName : tableNames) {
                 try {
-                    if (((ViewCatalog) catalog).viewExists(TableIdentifier.of(schemaTableName.getSchemaName(), schemaTableName.getTableName()))) {
-                        View view = ((ViewCatalog) catalog).loadView(TableIdentifier.of(schemaTableName.getSchemaName(), schemaTableName.getTableName()));
+                    TableIdentifier viewIdentifier = toIcebergTableIdentifier(schemaTableName, catalogFactory.isNestedNamespaceEnabled());
+                    if (((ViewCatalog) catalog).viewExists(viewIdentifier)) {
+                        View view = ((ViewCatalog) catalog).loadView(viewIdentifier);
                         verifyAndPopulateViews(view, schemaTableName, view.sqlFor(VIEW_DIALECT).sql(), views);
                     }
                 }
@@ -268,7 +300,7 @@ public class IcebergNativeMetadata
         if (!(catalog instanceof ViewCatalog)) {
             throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping views");
         }
-        ((ViewCatalog) catalog).dropView(TableIdentifier.of(viewName.getSchemaName(), viewName.getTableName()));
+        ((ViewCatalog) catalog).dropView(toIcebergTableIdentifier(viewName, catalogFactory.isNestedNamespaceEnabled()));
     }
 
     private void verifyAndPopulateViews(View view, SchemaTableName schemaTableName, String viewData, ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> views)
@@ -288,20 +320,52 @@ public class IcebergNativeMetadata
 
         Schema schema = toIcebergSchema(tableMetadata.getColumns());
 
-        verifyTypeSupported(schema);
-
-        PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()));
-        FileFormat fileFormat = getFileFormat(tableMetadata.getProperties());
+        PartitionSpec partitionSpec = parsePartitionFields(schema, tableProperties.getPartitioning(tableMetadata.getProperties()));
+        FileFormat fileFormat = tableProperties.getFileFormat(session, tableMetadata.getProperties());
 
         try {
-            transaction = catalogFactory.getCatalog(session).newCreateTableTransaction(
-                    toIcebergTableIdentifier(schemaTableName), schema, partitionSpec, populateTableProperties(tableMetadata, fileFormat, session));
+            TableIdentifier tableIdentifier = toIcebergTableIdentifier(schemaTableName, catalogFactory.isNestedNamespaceEnabled());
+            String targetPath = tableProperties.getTableLocation(tableMetadata.getProperties());
+            if (!isNullOrEmpty(targetPath)) {
+                transaction = catalogFactory.getCatalog(session).newCreateTableTransaction(
+                        tableIdentifier,
+                        schema,
+                        partitionSpec,
+                        targetPath,
+                        populateTableProperties(this, tableMetadata, tableProperties, fileFormat, session));
+            }
+            else {
+                transaction = catalogFactory.getCatalog(session).newCreateTableTransaction(
+                        tableIdentifier,
+                        schema,
+                        partitionSpec,
+                        populateTableProperties(this, tableMetadata, tableProperties, fileFormat, session));
+            }
         }
         catch (AlreadyExistsException e) {
             throw new TableAlreadyExistsException(schemaTableName);
         }
 
         Table icebergTable = transaction.table();
+        ReplaceSortOrder replaceSortOrder = transaction.replaceSortOrder();
+        SortOrder sortOrder = parseSortFields(schema, tableProperties.getSortOrder(tableMetadata.getProperties()));
+        List<SortField> sortFields = getSupportedSortFields(icebergTable.schema(), sortOrder);
+        for (SortField sortField : sortFields) {
+            if (sortField.getSortOrder().isAscending()) {
+                replaceSortOrder.asc(schema.findColumnName(sortField.getSourceColumnId()), sortField.getSortOrder().isNullsFirst() ? NULLS_FIRST : NULLS_LAST);
+            }
+            else {
+                replaceSortOrder.desc(schema.findColumnName(sortField.getSourceColumnId()), sortField.getSortOrder().isNullsFirst() ? NULLS_FIRST : NULLS_LAST);
+            }
+        }
+
+        try {
+            replaceSortOrder.commit();
+        }
+        catch (RuntimeException e) {
+            throw new PrestoException(ICEBERG_COMMIT_ERROR, "Failed to set the sorted_by property", e);
+        }
+
         return new IcebergOutputTableHandle(
                 schemaName,
                 new IcebergTableName(tableName, DATA, Optional.empty(), Optional.empty()),
@@ -311,7 +375,8 @@ public class IcebergNativeMetadata
                 icebergTable.location(),
                 fileFormat,
                 getCompressionCodec(session),
-                icebergTable.properties());
+                icebergTable.properties(),
+                sortFields);
     }
 
     @Override
@@ -319,7 +384,7 @@ public class IcebergNativeMetadata
     {
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
         verify(icebergTableHandle.getIcebergTableName().getTableType() == DATA, "only the data table can be dropped");
-        TableIdentifier tableIdentifier = toIcebergTableIdentifier(icebergTableHandle.getSchemaTableName());
+        TableIdentifier tableIdentifier = toIcebergTableIdentifier(icebergTableHandle.getSchemaTableName(), catalogFactory.isNestedNamespaceEnabled());
         catalogFactory.getCatalog(session).dropTable(tableIdentifier);
     }
 
@@ -328,20 +393,28 @@ public class IcebergNativeMetadata
     {
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
         verify(icebergTableHandle.getIcebergTableName().getTableType() == DATA, "only the data table can be renamed");
-        TableIdentifier from = toIcebergTableIdentifier(icebergTableHandle.getSchemaTableName());
-        TableIdentifier to = toIcebergTableIdentifier(newTable);
+        TableIdentifier from = toIcebergTableIdentifier(icebergTableHandle.getSchemaTableName(), catalogFactory.isNestedNamespaceEnabled());
+        TableIdentifier to = toIcebergTableIdentifier(newTable, catalogFactory.isNestedNamespaceEnabled());
         catalogFactory.getCatalog(session).renameTable(from, to);
     }
 
     @Override
     public void registerTable(ConnectorSession clientSession, SchemaTableName schemaTableName, Path metadataLocation)
     {
-        catalogFactory.getCatalog(clientSession).registerTable(toIcebergTableIdentifier(schemaTableName), metadataLocation.toString());
+        catalogFactory.getCatalog(clientSession).registerTable(toIcebergTableIdentifier(schemaTableName, catalogFactory.isNestedNamespaceEnabled()), metadataLocation.toString());
     }
 
     @Override
     public void unregisterTable(ConnectorSession clientSession, SchemaTableName schemaTableName)
     {
-        catalogFactory.getCatalog(clientSession).dropTable(toIcebergTableIdentifier(schemaTableName), false);
+        catalogFactory.getCatalog(clientSession).dropTable(toIcebergTableIdentifier(schemaTableName, catalogFactory.isNestedNamespaceEnabled()), false);
+    }
+
+    protected Optional<String> getDataLocationBasedOnWarehouseDataDir(SchemaTableName schemaTableName)
+    {
+        if (!catalogType.equals(HADOOP)) {
+            return Optional.empty();
+        }
+        return warehouseDataDir.map(base -> base + schemaTableName.getSchemaName() + "/" + schemaTableName.getTableName());
     }
 }

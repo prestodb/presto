@@ -63,8 +63,8 @@ public class ColumnReaderFactory
 
     public static ColumnReader createReader(RichColumnDescriptor descriptor, boolean batchReadEnabled)
     {
-        if (batchReadEnabled) {
-            final boolean isNested = descriptor.getPath().length > 1;
+        final boolean isNested = descriptor.getPath().length > 1;
+        if (batchReadEnabled && (!(isNested && isDecimalType(descriptor)))) {
             switch (descriptor.getPrimitiveType().getPrimitiveTypeName()) {
                 case BOOLEAN:
                     return isNested ? new BooleanNestedBatchReader(descriptor) : new BooleanFlatBatchReader(descriptor);
@@ -115,7 +115,7 @@ public class ColumnReaderFactory
             case BOOLEAN:
                 return new BooleanColumnReader(descriptor);
             case INT32:
-                return createDecimalColumnReader(descriptor).orElse(new IntColumnReader(descriptor));
+                return createDecimalColumnReader(descriptor).orElseGet(() -> new IntColumnReader(descriptor));
             case INT64:
                 if (isTimeStampMicrosType(descriptor)) {
                     return new LongTimestampMicrosColumnReader(descriptor);
@@ -123,7 +123,7 @@ public class ColumnReaderFactory
                 if (isTimeMicrosType(descriptor)) {
                     return new LongTimeMicrosColumnReader(descriptor);
                 }
-                return createDecimalColumnReader(descriptor).orElse(new LongColumnReader(descriptor));
+                return createDecimalColumnReader(descriptor).orElseGet(() -> new LongColumnReader(descriptor));
             case INT96:
                 return new TimestampColumnReader(descriptor);
             case FLOAT:
@@ -131,7 +131,7 @@ public class ColumnReaderFactory
             case DOUBLE:
                 return new DoubleColumnReader(descriptor);
             case BINARY:
-                return createDecimalColumnReader(descriptor).orElse(new BinaryColumnReader(descriptor));
+                return createDecimalColumnReader(descriptor).orElseGet(() -> new BinaryColumnReader(descriptor));
             case FIXED_LEN_BYTE_ARRAY:
                 if (isUuidType(descriptor)) {
                     return new BinaryColumnReader(descriptor);

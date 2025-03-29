@@ -131,7 +131,11 @@ public class CassandraColumnHandle
 
     public ColumnMetadata getColumnMetadata()
     {
-        return new ColumnMetadata(CassandraCqlUtils.cqlNameToSqlName(name), cassandraType.getNativeType(), null, hidden);
+        return ColumnMetadata.builder()
+                .setName(CassandraCqlUtils.cqlNameToSqlName(name))
+                .setType(cassandraType.getNativeType())
+                .setHidden(hidden)
+                .build();
     }
 
     public Type getType()

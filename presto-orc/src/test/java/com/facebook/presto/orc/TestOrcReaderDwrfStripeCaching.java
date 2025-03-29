@@ -254,7 +254,8 @@ public class TestOrcReaderDwrfStripeCaching
                 false,
                 NO_ENCRYPTION,
                 DwrfKeyProvider.EMPTY,
-                new RuntimeStats());
+                new RuntimeStats(),
+                orcFile.lastModified());
         return stripeMetadataSourceFactory.getDwrfStripeCache();
     }
 
