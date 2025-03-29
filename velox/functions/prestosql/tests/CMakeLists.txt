@@ -36,6 +36,7 @@ add_executable(
   ArrayJoinTest.cpp
   ArrayMaxTest.cpp
   ArrayMinTest.cpp
+  ArrayMinMaxByTest.cpp
   ArrayNGramsTest.cpp
   ArrayNoneMatchTest.cpp
   ArrayNormalizeTest.cpp

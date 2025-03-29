@@ -23,6 +23,7 @@ velox_add_library(
   ArrayDuplicates.cpp
   ArrayIntersectExcept.cpp
   ArrayAndMapMatch.cpp
+  ArrayMinMaxBy.cpp
   ArrayPosition.cpp
   ArraySort.cpp
   ArraySum.cpp
