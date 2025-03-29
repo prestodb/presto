@@ -137,7 +137,9 @@ Property Name                                      Description                  
 
 ``hive.storage-format``                            The default file format used when creating new tables.       ``ORC``
 
-``hive.compression-codec``                         The compression codec to use when writing files.             ``GZIP``
+``hive.compression-codec``                         The compression codec to use when writing files. Possible    ``GZIP``
+                                                   values are ``NONE``, ``SNAPPY``, ``LZ4``, ``ZSTD``, or
+                                                   ``GZIP``.
 
 ``hive.force-local-scheduling``                    Force splits to be scheduled on the same node as the Hadoop  ``false``
                                                    DataNode process serving the split data.  This is useful for
