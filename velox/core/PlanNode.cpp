@@ -751,7 +751,7 @@ PlanNodePtr ValuesNode::create(const folly::dynamic& obj, void* context) {
       obj["repeatTimes"].asInt());
 }
 
-void ProjectNode::addDetails(std::stringstream& stream) const {
+void AbstractProjectNode::addDetails(std::stringstream& stream) const {
   stream << "expressions: ";
   for (auto i = 0; i < projections_.size(); i++) {
     auto& projection = projections_[i];
@@ -879,7 +879,7 @@ std::string truncate(const std::string& str, size_t maxLen = 50) {
 
 void appendProjections(
     const std::string& indentation,
-    const ProjectNode& op,
+    const AbstractProjectNode& op,
     const std::vector<size_t>& projections,
     size_t cnt,
     std::stringstream& stream) {
@@ -929,7 +929,7 @@ void appendExprSummary(
 
 } // namespace
 
-void ProjectNode::addSummaryDetails(
+void AbstractProjectNode::addSummaryDetails(
     const std::string& indentation,
     const PlanSummaryOptions& options,
     std::stringstream& stream) const {
