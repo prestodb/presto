@@ -29,8 +29,8 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableSet;
+import com.mysql.cj.jdbc.JdbcStatement;
 import com.mysql.jdbc.Driver;
-import com.mysql.jdbc.Statement;
 
 import javax.inject.Inject;
 
@@ -53,14 +53,15 @@ import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static com.mysql.jdbc.SQLError.SQL_STATE_ER_TABLE_EXISTS_ERROR;
-import static com.mysql.jdbc.SQLError.SQL_STATE_SYNTAX_ERROR;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
 public class MySqlClient
         extends BaseJdbcClient
 {
+    private static final String SQL_STATE_SYNTAX_ERROR = "42000";
+    private static final String SQL_STATE_ER_TABLE_EXISTS_ERROR = "42S01";
+
     @Inject
     public MySqlClient(JdbcConnectorId connectorId, BaseJdbcConfig config, MySqlConfig mySqlConfig)
             throws SQLException
@@ -127,8 +128,8 @@ public class MySqlClient
             throws SQLException
     {
         PreparedStatement statement = connection.prepareStatement(sql);
-        if (statement.isWrapperFor(Statement.class)) {
-            statement.unwrap(Statement.class).enableStreamingResults();
+        if (statement.isWrapperFor(JdbcStatement.class)) {
+            statement.unwrap(JdbcStatement.class).enableStreamingResults();
         }
         return statement;
     }

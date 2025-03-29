@@ -82,7 +82,7 @@
         <dep.j2objc.version>3.0.0</dep.j2objc.version>
         <dep.avro.version>1.11.4</dep.avro.version>
         <dep.commons.compress.version>1.26.2</dep.commons.compress.version>
-        <dep.protobuf-java.version>3.25.5</dep.protobuf-java.version>
+        <dep.protobuf-java.version>4.29.0</dep.protobuf-java.version>
         <dep.netty.version>4.1.118.Final</dep.netty.version>
         <dep.snakeyaml.version>2.0</dep.snakeyaml.version>
         <dep.jetty.version>9.4.56.v20240826</dep.jetty.version>
@@ -1406,9 +1406,9 @@
             </dependency>
 
             <dependency>
-                <groupId>mysql</groupId>
-                <artifactId>mysql-connector-java</artifactId>
-                <version>5.1.48</version>
+                <groupId>com.mysql</groupId>
+                <artifactId>mysql-connector-j</artifactId>
+                <version>9.2.0</version>
             </dependency>
 
             <dependency>
@@ -2001,8 +2001,14 @@
 
             <dependency>
                 <groupId>com.facebook.presto</groupId>
-                <artifactId>testing-mysql-server-5</artifactId>
+                <artifactId>testing-mysql-server-8</artifactId>
                 <version>${dep.testing-mysql-server-5.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>mysql</groupId>
+                        <artifactId>mysql-connector-java</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
