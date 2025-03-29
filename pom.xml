@@ -10,7 +10,7 @@
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.292-SNAPSHOT</version>
+    <version>0.293-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -147,6 +147,7 @@
         <module>presto-bytecode</module>
         <module>presto-client</module>
         <module>presto-parser</module>
+        <module>presto-main-base</module>
         <module>presto-main</module>
         <module>presto-ml</module>
         <module>presto-geospatial-toolkit</module>
@@ -203,6 +204,7 @@
         <module>presto-test-coverage</module>
         <module>presto-hudi</module>
         <module>presto-native-execution</module>
+        <module>presto-native-tests</module>
         <module>presto-router</module>
         <module>presto-open-telemetry</module>
         <module>redis-hbo-provider</module>
@@ -775,6 +777,19 @@
 
             <dependency>
                 <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-main-base</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-main-base</artifactId>
+                <version>${project.version}</version>
+                <type>test-jar</type>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-hive-metastore</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -1039,6 +1054,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-function-namespace-managers</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-function-namespace-managers-common</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

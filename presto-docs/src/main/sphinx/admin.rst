@@ -17,4 +17,6 @@ Administration
     admin/session-property-managers
     admin/function-namespace-managers
     admin/dist-sort
+    admin/spark
     admin/verifier
+    admin/grafana-cloud

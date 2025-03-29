@@ -188,7 +188,7 @@ public class ParquetWriter
         if (bufferedBytes >= writerOption.getMaxRowGroupSize()) {
             columnWriters.forEach(ColumnWriter::close);
             flush();
-            columnWriters.forEach(ColumnWriter::reset);
+            columnWriters.forEach(ColumnWriter::resetChunk);
             rows = 0;
         }
     }

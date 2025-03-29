@@ -15,9 +15,9 @@ package com.facebook.presto.server;
 
 import com.facebook.airlift.http.client.HttpRequestFilter;
 import com.facebook.airlift.http.client.Request;
-import com.facebook.airlift.http.server.BasicPrincipal;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.node.NodeInfo;
+import com.facebook.presto.security.BasicPrincipal;
 import com.google.common.hash.Hashing;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;

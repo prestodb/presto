@@ -628,10 +628,10 @@ public class TestingPrestoServer
         return statsCalculator;
     }
 
-    public Optional<EventListener> getEventListener()
+    public List<EventListener> getEventListeners()
     {
         checkState(coordinator, "not a coordinator");
-        return eventListenerManager.getEventListener();
+        return eventListenerManager.getEventListeners();
     }
 
     public TestingAccessControlManager getAccessControl()

@@ -415,6 +415,7 @@ public final class HttpRemoteTask
         }
     }
 
+    @Override
     public PlanFragment getPlanFragment()
     {
         return planFragment;

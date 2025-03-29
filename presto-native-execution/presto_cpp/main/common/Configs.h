@@ -721,6 +721,10 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kOrderBySpillEnabled{
       "order-by-spill-enabled"};
 
+  // Max wait time for exchange request in seconds.
+  static constexpr std::string_view kRequestDataSizesMaxWaitSec{
+    "exchange.http-client.request-data-sizes-max-wait-sec"};
+
   SystemConfig();
 
   virtual ~SystemConfig() = default;
@@ -983,6 +987,8 @@ class SystemConfig : public ConfigBase {
   bool aggregationSpillEnabled() const;
 
   bool orderBySpillEnabled() const;
+
+  int requestDataSizesMaxWaitSec() const;
 };
 
 /// Provides access to node properties defined in node.properties file.

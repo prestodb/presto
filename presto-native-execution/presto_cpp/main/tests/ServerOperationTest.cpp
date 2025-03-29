@@ -177,7 +177,7 @@ TEST_F(ServerOperationTest, taskEndpoint) {
             planFragment,
             true,
             taskManager->getQueryContextManager()->findOrCreateQueryCtx(
-                taskId, updateRequest.session),
+                taskId, updateRequest),
             0);
       };
   std::vector<std::string> taskIds = {"task_0.0.0.0.0", "task_1.0.0.0.0"};

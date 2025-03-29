@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.292-SNAPSHOT</version>
+        <version>0.293-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-native-sidecar-plugin</artifactId>
@@ -158,7 +158,7 @@
             <artifactId>presto-tests</artifactId>
             <scope>test</scope>
             <type>test-jar</type>
-            <version>0.292-SNAPSHOT</version>
+            <version>0.293-SNAPSHOT</version>
         </dependency>
 
         <dependency>
@@ -172,14 +172,20 @@
             <artifactId>presto-native-execution</artifactId>
             <scope>test</scope>
             <type>test-jar</type>
-            <version>0.292-SNAPSHOT</version>
+            <version>0.293-SNAPSHOT</version>
         </dependency>
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-main</artifactId>
+            <artifactId>presto-main-base</artifactId>
             <scope>test</scope>
             <type>test-jar</type>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-main-base</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>

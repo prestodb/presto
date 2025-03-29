@@ -26,13 +26,22 @@ import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
 public class TestingArrowModule
         implements Module
 {
+    private final boolean nativeExecution;
+
+    public TestingArrowModule(boolean nativeExecution)
+    {
+        this.nativeExecution = nativeExecution;
+    }
+
     @Override
     public void configure(Binder binder)
     {
         // Concrete implementation of the BaseFlightClientHandler
         binder.bind(BaseArrowFlightClientHandler.class).to(TestingArrowFlightClientHandler.class).in(Scopes.SINGLETON);
-        // Override the ArrowBlockBuilder with an implementation that handles h2 types
-        binder.bind(ArrowBlockBuilder.class).to(TestingArrowBlockBuilder.class).in(Scopes.SINGLETON);
+        // Override the ArrowBlockBuilder with an implementation that handles h2 types, skip for native
+        if (!nativeExecution) {
+            binder.bind(ArrowBlockBuilder.class).to(TestingArrowBlockBuilder.class).in(Scopes.SINGLETON);
+        }
         // Request/response objects
         jsonCodecBinder(binder).bindJsonCodec(TestingArrowFlightRequest.class);
         jsonCodecBinder(binder).bindJsonCodec(TestingArrowFlightResponse.class);

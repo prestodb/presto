@@ -746,6 +746,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public CompletableFuture<Void> commitPageSinkAsync(ConnectorSession session, ConnectorDeleteTableHandle tableHandle, Collection<Slice> fragments)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.commitPageSinkAsync(session, tableHandle, fragments);
+        }
+    }
+
+    @Override
     public List<ConnectorMetadataUpdateHandle> getMetadataUpdateResults(List<ConnectorMetadataUpdateHandle> metadataUpdateRequests, QueryId queryId)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

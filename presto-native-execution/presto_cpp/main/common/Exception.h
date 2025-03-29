@@ -50,46 +50,57 @@ class VeloxToPrestoExceptionTranslator {
                {0x00020007,
                 "EXCEEDED_LOCAL_MEMORY_LIMIT",
                 protocol::ErrorType::INSUFFICIENT_RESOURCES}},
+
               {velox::error_code::kMemAborted,
                {0x00020000,
                 "GENERIC_INSUFFICIENT_RESOURCES",
                 protocol::ErrorType::INSUFFICIENT_RESOURCES}},
+
               {velox::error_code::kSpillLimitExceeded,
                {0x00020006,
                 "EXCEEDED_SPILL_LIMIT",
                 protocol::ErrorType::INSUFFICIENT_RESOURCES}},
+
               {velox::error_code::kMemArbitrationFailure,
                {0x00020000,
-                "GENERIC_INSUFFICIENT_RESOURCES",
+                "MEMORY_ARBITRATION_FAILURE",
                 protocol::ErrorType::INSUFFICIENT_RESOURCES}},
+
               {velox::error_code::kMemArbitrationTimeout,
                {0x00020000,
                 "GENERIC_INSUFFICIENT_RESOURCES",
                 protocol::ErrorType::INSUFFICIENT_RESOURCES}},
+
               {velox::error_code::kMemAllocError,
                {0x00020000,
                 "GENERIC_INSUFFICIENT_RESOURCES",
                 protocol::ErrorType::INSUFFICIENT_RESOURCES}},
+
               {velox::error_code::kInvalidState,
                {0x00010000,
                 "GENERIC_INTERNAL_ERROR",
                 protocol::ErrorType::INTERNAL_ERROR}},
+
               {velox::error_code::kGenericSpillFailure,
                {0x00010023,
                 "GENERIC_SPILL_FAILURE",
                 protocol::ErrorType::INTERNAL_ERROR}},
+
               {velox::error_code::kUnreachableCode,
                {0x00010000,
                 "GENERIC_INTERNAL_ERROR",
                 protocol::ErrorType::INTERNAL_ERROR}},
+
               {velox::error_code::kNotImplemented,
                {0x00010000,
                 "GENERIC_INTERNAL_ERROR",
                 protocol::ErrorType::INTERNAL_ERROR}},
+
               {velox::error_code::kUnknown,
                {0x00010000,
                 "GENERIC_INTERNAL_ERROR",
                 protocol::ErrorType::INTERNAL_ERROR}}}},
+
             {velox::error_source::kErrorSourceUser,
              {{velox::error_code::kInvalidArgument,
                {0x00000000,
@@ -97,10 +108,13 @@ class VeloxToPrestoExceptionTranslator {
                 protocol::ErrorType::USER_ERROR}},
               {velox::error_code::kUnsupported,
                {0x0000000D, "NOT_SUPPORTED", protocol::ErrorType::USER_ERROR}},
+              {velox::error_code::kUnsupportedInputUncatchable,
+               {0x0000000D, "NOT_SUPPORTED", protocol::ErrorType::USER_ERROR}},
               {velox::error_code::kArithmeticError,
                {0x00000000,
                 "GENERIC_USER_ERROR",
                 protocol::ErrorType::USER_ERROR}}}},
+
             {velox::error_source::kErrorSourceSystem, {}}};
     return kTranslateMap;
   }

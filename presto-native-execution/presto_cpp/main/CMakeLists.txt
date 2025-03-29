@@ -14,6 +14,7 @@ add_subdirectory(types)
 add_subdirectory(http)
 add_subdirectory(common)
 add_subdirectory(thrift)
+add_subdirectory(connectors)
 
 add_library(
   presto_server_lib
@@ -29,7 +30,6 @@ add_library(
   QueryContextManager.cpp
   ServerOperation.cpp
   SignalHandler.cpp
-  SystemConnector.cpp
   SessionProperties.cpp
   TaskManager.cpp
   TaskResource.cpp
@@ -48,6 +48,7 @@ target_link_libraries(
   presto_common
   presto_exception
   presto_function_metadata
+  presto_connectors
   presto_http
   presto_operators
   presto_velox_conversion

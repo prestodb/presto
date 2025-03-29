@@ -14,7 +14,7 @@
 
 // clang-format off
 #include "presto_cpp/main/common/Configs.h"
-#include "presto_cpp/main/types/PrestoToVeloxConnector.h"
+#include "presto_cpp/main/connectors/PrestoToVeloxConnector.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include <velox/type/Filter.h>
 #include "velox/core/QueryCtx.h"

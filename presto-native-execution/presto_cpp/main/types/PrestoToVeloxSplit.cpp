@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/types/PrestoToVeloxSplit.h"
-#include "presto_cpp/main/types/PrestoToVeloxConnector.h"
+#include "presto_cpp/main/connectors/PrestoToVeloxConnector.h"
 #include "velox/exec/Exchange.h"
 
 using namespace facebook::velox;

@@ -1090,6 +1090,7 @@ void from_json(const json& j, std::shared_ptr<ConnectorTableHandle>& p) {
  */
 
 // dependency TpchTransactionHandle
+// dependency ArrowTransactionHandle
 
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ConnectorTransactionHandle>& p) {
@@ -2410,6 +2411,10 @@ void to_json(json& j, const std::shared_ptr<ExecutionWriterTarget>& p) {
     j = *std::static_pointer_cast<CreateHandle>(p);
     return;
   }
+  if (type == "RefreshMaterializedViewHandle") {
+    j = *std::static_pointer_cast<InsertHandle>(p);
+    return;
+  }
   if (type == "InsertHandle") {
     j = *std::static_pointer_cast<InsertHandle>(p);
     return;
@@ -2434,6 +2439,12 @@ void from_json(const json& j, std::shared_ptr<ExecutionWriterTarget>& p) {
 
   if (type == "CreateHandle") {
     std::shared_ptr<CreateHandle> k = std::make_shared<CreateHandle>();
+    j.get_to(*k);
+    p = std::static_pointer_cast<ExecutionWriterTarget>(k);
+    return;
+  }
+  if (type == "RefreshMaterializedViewHandle") {
+    std::shared_ptr<InsertHandle> k = std::make_shared<InsertHandle>();
     j.get_to(*k);
     p = std::static_pointer_cast<ExecutionWriterTarget>(k);
     return;

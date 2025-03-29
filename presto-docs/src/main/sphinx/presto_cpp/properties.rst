@@ -2,7 +2,7 @@
 Presto C++ Configuration Properties
 ===================================
 
-This section describes Presto C++ configuration properties. 
+This section describes Presto C++ configuration properties.
 
 The following is not a complete list of all configuration properties,
 and does not include any connector-specific catalog configuration properties
@@ -429,7 +429,7 @@ The configuration properties of AsyncDataCache and SSD cache are described here.
 * **Type:** ``integer``
 * **Default value:** ``0``
 
-  The size of the SSD. Unit is in GiB (gibibytes). 
+  The size of the SSD. Unit is in GiB (gibibytes).
 
 ``async-cache-ssd-path``
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -528,6 +528,17 @@ The configuration properties of AsyncDataCache and SSD cache are described here.
 * **Default value:** ``1h``
 
   The periodic duration to apply cache TTL and evict AsyncDataCache and SSD cache entries.
+
+Exchange Properties
+-------------------
+
+``exchange.http-client.request-data-sizes-max-wait-sec``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``10``
+
+  Maximum wait time for exchange request in seconds.
 
 Memory Checker Properties
 -------------------------
