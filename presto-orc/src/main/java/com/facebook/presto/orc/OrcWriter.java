@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.io.DataOutput;
 import com.facebook.presto.common.io.DataSink;
@@ -106,6 +107,7 @@ import static java.util.stream.Collectors.toList;
 public class OrcWriter
         implements Closeable
 {
+    private static final Logger log = Logger.get(OrcWriter.class);
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcWriter.class).instanceSize();
 
     static final String PRESTO_ORC_WRITER_VERSION_METADATA_KEY = "presto.writer.version";
@@ -157,6 +159,10 @@ public class OrcWriter
     private List<ColumnStatistics> unencryptedStats;
     private final Map<Integer, Integer> nodeIdToColumn;
     private final StreamSizeHelper streamSizeHelper;
+    private final Map<String, String> statMap;
+
+    private long maxStripeSize = 0;
+    private long maxRetainSize = 0;
 
     public OrcWriter(
             DataSink dataSink,
@@ -354,6 +360,7 @@ public class OrcWriter
 
         this.previouslyRecordedSizeInBytes = getRetainedBytes();
         stats.updateSizeInBytes(previouslyRecordedSizeInBytes);
+        this.statMap = new HashMap();
     }
 
     @VisibleForTesting
@@ -392,6 +399,22 @@ public class OrcWriter
                 dataSink.getRetainedSizeInBytes() +
                 compressionBufferPool.getRetainedBytes() +
                 (validationBuilder == null ? 0 : validationBuilder.getRetainedSize());
+    }
+
+    public void printRetainedBytes()
+    {
+        log.info("buffered: %.2f MB, retained: %.2f MB,  row count: %d, num of column writers: %d",
+                bufferedBytes/1024.0/1024.0,
+                getRetainedBytes()/1024.0/1024.0,
+                rowGroupRowCount,
+                columnWriters.size());
+        log.info("column writers: %.2f MB, closed stripes: %.2f MB, data sink: %.2f MB, compression buffer: %.2f MB, validation builder: %.2f MB",
+                columnWritersRetainedBytes/1024.0/1024.0,
+                closedStripesRetainedBytes/1024.0/1024.0,
+                dataSink.getRetainedSizeInBytes()/1024.0/1024.0,
+                compressionBufferPool.getRetainedBytes()/1024.0/1024.0,
+                validationBuilder == null ? 0.0 : validationBuilder.getRetainedSize()/1024.0/1024.0);
+        columnWriters.forEach(ColumnWriter::printRetainedBytes);
     }
 
     public void write(Page page)
@@ -463,12 +486,17 @@ public class OrcWriter
 
         // flush stripe if necessary
         bufferedBytes = toIntExact(columnWriters.stream().mapToLong(ColumnWriter::getBufferedBytes).sum());
+        columnWritersRetainedBytes = columnWriters.stream().mapToLong(ColumnWriter::getRetainedBytes).sum();
         boolean dictionaryIsFull = dictionaryCompressionOptimizer.isFull(bufferedBytes);
-        Optional<FlushReason> flushReason = flushPolicy.shouldFlushStripe(stripeRowCount, bufferedBytes, dictionaryIsFull);
+        log.info("writeChunk buffered: %.2f MB, retained %.2f MB, row count: %d", bufferedBytes/1024.0/1024.0, getRetainedBytes()/1024.0/1024.0, stripeRowCount);
+        maxStripeSize = Math.max(maxStripeSize, bufferedBytes);
+        maxRetainSize = Math.max(maxRetainSize, getRetainedBytes());
+        Optional<FlushReason> flushReason = flushPolicy.shouldFlushStripe(stripeRowCount, bufferedBytes, toIntExact(getRetainedBytes()), dictionaryIsFull);
         if (flushReason.isPresent()) {
+            log.info("flushStripe %s", flushReason);
+            printRetainedBytes();
             flushStripe(flushReason.get());
         }
-        columnWritersRetainedBytes = columnWriters.stream().mapToLong(ColumnWriter::getRetainedBytes).sum();
     }
 
     private void finishRowGroup()
@@ -695,6 +723,11 @@ public class OrcWriter
         stats.updateSizeInBytes(-previouslyRecordedSizeInBytes);
         previouslyRecordedSizeInBytes = 0;
 
+        statMap.put("maxStripeSize", Long.toString(maxStripeSize));
+        statMap.put("maxRetainSize", Long.toString(maxRetainSize));
+        statMap.put("CHUNKED_SLICE_OUTPUT_RESET_BUFFER",
+                System.getProperty("CHUNKED_SLICE_OUTPUT_RESET_BUFFER"));
+
         flushStripe(CLOSED);
 
         dataSink.close();
@@ -887,6 +920,11 @@ public class OrcWriter
     {
         checkState(closed, "File statistics are not available until the writing has finished");
         return unencryptedStats;
+    }
+
+    public Map<String, String> getStatMap()
+    {
+        return statMap;
     }
 
     private static <T> List<T> toDenseList(Map<Integer, T> data, int expectedSize)
