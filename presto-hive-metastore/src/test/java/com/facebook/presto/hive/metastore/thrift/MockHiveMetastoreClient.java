@@ -53,6 +53,7 @@ import org.apache.hadoop.hive.metastore.api.UniqueConstraintsResponse;
 import org.apache.hadoop.hive.metastore.api.UnlockRequest;
 import org.apache.thrift.TException;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -68,10 +69,12 @@ public class MockHiveMetastoreClient
     public static final String TEST_DATABASE = "testdb";
     public static final String BAD_DATABASE = "baddb";
     public static final String TEST_TABLE = "testtbl";
+    public static final String NEW_TABLE = "newtable";
     public static final String TEST_TABLE_WITH_CONSTRAINTS = "testtbl_constraints";
     public static final Map<String, List<FieldSchema>> SCHEMA_MAP = ImmutableMap.of(
             TEST_DATABASE + TEST_TABLE, ImmutableList.of(new FieldSchema("key", "string", null)),
-            TEST_DATABASE + TEST_TABLE_WITH_CONSTRAINTS, ImmutableList.of(new FieldSchema("c1", "string", "Primary Key"), new FieldSchema("c2", "string", "Unique Key"), new FieldSchema("c3", "string", "Not Null")));
+            TEST_DATABASE + TEST_TABLE_WITH_CONSTRAINTS, ImmutableList.of(new FieldSchema("c1", "string", "Primary Key"), new FieldSchema("c2", "string", "Unique Key"), new FieldSchema("c3", "string", "Not Null")),
+            TEST_DATABASE + NEW_TABLE, ImmutableList.of(new FieldSchema("key", "string", null)));
     public static final List<SQLPrimaryKey> TEST_PRIMARY_KEY = ImmutableList.of(new SQLPrimaryKey(TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS, "c1", 0, "pk", true, false, true));
     public static final List<SQLUniqueConstraint> TEST_UNIQUE_CONSTRAINT = ImmutableList.of(new SQLUniqueConstraint("", TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS, "c2", 1, "uk", true, false, true));
     public static final List<SQLNotNullConstraint> TEST_NOT_NULL_CONSTRAINT = ImmutableList.of(new SQLNotNullConstraint("", TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS, "c3", "nn", true, true, true));
@@ -91,23 +94,16 @@ public class MockHiveMetastoreClient
             new RolePrincipalGrant("role1", "user", USER, false, 0, "grantor1", USER),
             new RolePrincipalGrant("role2", "role1", ROLE, true, 0, "grantor2", ROLE));
 
-    private static final StorageDescriptor DEFAULT_STORAGE_DESCRIPTOR =
-            new StorageDescriptor(
-                    ImmutableList.of(
-                            new FieldSchema("col_bigint", "bigint", "comment"),
-                            new FieldSchema("col_string", "string", "comment")),
-                    "",
-                    null,
-                    null,
-                    false,
-                    0,
-                    new SerDeInfo(TEST_TABLE, null, ImmutableMap.of()),
-                    null,
-                    null,
-                    ImmutableMap.of());
-
     private final AtomicInteger accessCount = new AtomicInteger();
     private boolean throwException;
+
+    private List<String> tableList = new ArrayList<>();
+
+    public MockHiveMetastoreClient()
+    {
+        tableList.add(TEST_TABLE);
+        tableList.add(TEST_TABLE_WITH_CONSTRAINTS);
+    }
 
     public void setThrowException(boolean throwException)
     {
@@ -145,7 +141,7 @@ public class MockHiveMetastoreClient
         if (!dbName.equals(TEST_DATABASE)) {
             return ImmutableList.of(); // As specified by Hive specification
         }
-        return ImmutableList.of(TEST_TABLE, TEST_TABLE_WITH_CONSTRAINTS);
+        return Collections.unmodifiableList(tableList);
     }
 
     @Override
@@ -162,6 +158,23 @@ public class MockHiveMetastoreClient
         return new Database(TEST_DATABASE, null, null, null);
     }
 
+    private StorageDescriptor createStorageDescriptor(String tableName)
+    {
+        return new StorageDescriptor(
+                ImmutableList.of(
+                        new FieldSchema("col_bigint", "bigint", "comment"),
+                        new FieldSchema("col_string", "string", "comment")),
+                "",
+                null,
+                null,
+                false,
+                0,
+                new SerDeInfo(tableName, null, ImmutableMap.of()),
+                null,
+                null,
+                ImmutableMap.of());
+    }
+
     @Override
     public Table getTable(String dbName, String tableName)
             throws TException
@@ -170,18 +183,18 @@ public class MockHiveMetastoreClient
         if (throwException) {
             throw new RuntimeException();
         }
-        if (!dbName.equals(TEST_DATABASE) || (!tableName.equals(TEST_TABLE) && !tableName.equals(TEST_TABLE_WITH_CONSTRAINTS))) {
+        if (!dbName.equals(TEST_DATABASE) || (!tableList.contains(tableName) && !tableName.equals(TEST_TABLE_WITH_CONSTRAINTS))) {
             throw new NoSuchObjectException();
         }
 
         return new Table(
-                TEST_TABLE,
+                tableName,
                 TEST_DATABASE,
                 "",
                 0,
                 0,
                 0,
-                DEFAULT_STORAGE_DESCRIPTOR,
+                createStorageDescriptor(tableName),
                 SCHEMA_MAP.get(dbName + tableName),
                 null,
                 "",
@@ -286,10 +299,10 @@ public class MockHiveMetastoreClient
         if (throwException) {
             throw new RuntimeException();
         }
-        if (!dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE) || !ImmutableSet.of(TEST_PARTITION_VALUES1, TEST_PARTITION_VALUES2).contains(partitionValues)) {
+        if (!dbName.equals(TEST_DATABASE) || !tableList.contains(tableName) || !ImmutableSet.of(TEST_PARTITION_VALUES1, TEST_PARTITION_VALUES2).contains(partitionValues)) {
             throw new NoSuchObjectException();
         }
-        return new Partition(partitionValues, TEST_DATABASE, TEST_TABLE, 0, 0, DEFAULT_STORAGE_DESCRIPTOR, ImmutableMap.of());
+        return new Partition(partitionValues, TEST_DATABASE, TEST_TABLE, 0, 0, createStorageDescriptor(tableName), ImmutableMap.of());
     }
 
     @Override
@@ -300,12 +313,12 @@ public class MockHiveMetastoreClient
         if (throwException) {
             throw new RuntimeException();
         }
-        if (!dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE) || !ImmutableSet.of(TEST_PARTITION1, TEST_PARTITION2).containsAll(names)) {
+        if (!dbName.equals(TEST_DATABASE) || !tableList.contains(tableName) || !ImmutableSet.of(TEST_PARTITION1, TEST_PARTITION2).containsAll(names)) {
             throw new NoSuchObjectException();
         }
         return Lists.transform(names, name -> {
             try {
-                return new Partition(ImmutableList.copyOf(Warehouse.getPartValuesFromPartName(name)), TEST_DATABASE, TEST_TABLE, 0, 0, DEFAULT_STORAGE_DESCRIPTOR, ImmutableMap.of());
+                return new Partition(ImmutableList.copyOf(Warehouse.getPartValuesFromPartName(name)), TEST_DATABASE, tableName, 0, 0, createStorageDescriptor(tableName), ImmutableMap.of());
             }
             catch (MetaException e) {
                 throw new RuntimeException(e);
@@ -334,7 +347,7 @@ public class MockHiveMetastoreClient
     @Override
     public void createTable(Table table)
     {
-        throw new UnsupportedOperationException();
+        tableList.add(table.getTableName());
     }
 
     @Override
@@ -393,6 +406,23 @@ public class MockHiveMetastoreClient
             throw new IllegalStateException();
         }
         return TEST_ROLES;
+    }
+
+    public Table getNewTable()
+    {
+        return new Table(
+                NEW_TABLE,
+                TEST_DATABASE,
+                "",
+                0,
+                0,
+                0,
+                createStorageDescriptor(NEW_TABLE),
+                SCHEMA_MAP.get(TEST_DATABASE + NEW_TABLE),
+                null,
+                "",
+                "",
+                TableType.MANAGED_TABLE.name());
     }
 
     @Override
