@@ -120,15 +120,23 @@ void PrestoIterativeVectorSerializer::flush(OutputStream* out) {
 std::unordered_map<std::string, RuntimeCounter>
 PrestoIterativeVectorSerializer::runtimeStats() {
   std::unordered_map<std::string, RuntimeCounter> map;
-  map.insert(
-      {{"compressedBytes",
-        RuntimeCounter(stats_.compressedBytes, RuntimeCounter::Unit::kBytes)},
-       {"compressionInputBytes",
+  if (stats_.compressionInputBytes != 0) {
+    map.emplace(
+        kCompressionInputBytes,
         RuntimeCounter(
-            stats_.compressionInputBytes, RuntimeCounter::Unit::kBytes)},
-       {"compressionSkippedBytes",
+            stats_.compressionInputBytes, RuntimeCounter::Unit::kBytes));
+  }
+  if (stats_.compressedBytes != 0) {
+    map.emplace(
+        kCompressedBytes,
+        RuntimeCounter(stats_.compressedBytes, RuntimeCounter::Unit::kBytes));
+  }
+  if (stats_.compressionSkippedBytes != 0) {
+    map.emplace(
+        kCompressionSkippedBytes,
         RuntimeCounter(
-            stats_.compressionSkippedBytes, RuntimeCounter::Unit::kBytes)}});
+            stats_.compressionSkippedBytes, RuntimeCounter::Unit::kBytes));
+  }
   return map;
 }
 

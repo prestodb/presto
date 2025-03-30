@@ -2716,19 +2716,36 @@ TEST_P(MultiFragmentTest, compression) {
         producerStats.customStats.at(Operator::kShuffleCompressionKind).max,
         static_cast<common::CompressionKind>(GetParam().compressionKind));
     if (GetParam().compressionKind == common::CompressionKind_NONE) {
-      ASSERT_EQ(producerStats.customStats.at("compressedBytes").sum, 0);
-      ASSERT_EQ(producerStats.customStats.at("compressionInputBytes").sum, 0);
-      ASSERT_EQ(producerStats.customStats.at("compressionSkippedBytes").sum, 0);
+      ASSERT_EQ(
+          producerStats.customStats.count(
+              IterativeVectorSerializer::kCompressedBytes),
+          0);
+      ASSERT_EQ(
+          producerStats.customStats.count(
+              IterativeVectorSerializer::kCompressionInputBytes),
+          0);
+      ASSERT_EQ(
+          producerStats.customStats.count(
+              IterativeVectorSerializer::kCompressionSkippedBytes),
+          0);
       return;
     }
     // The data is extremely compressible, 1, 2, 3 repeated 1000000 times.
     if (!expectSkipCompression) {
       ASSERT_LT(
-          producerStats.customStats.at("compressedBytes").sum,
-          producerStats.customStats.at("compressionInputBytes").sum);
-      ASSERT_EQ(0, producerStats.customStats.at("compressionSkippedBytes").sum);
+          producerStats.customStats
+              .at(IterativeVectorSerializer::kCompressedBytes)
+              .sum,
+          producerStats.customStats
+              .at(IterativeVectorSerializer::kCompressionInputBytes)
+              .sum);
+      ASSERT_EQ(producerStats.customStats.count("compressionSkippedBytes"), 0);
     } else {
-      ASSERT_LT(0, producerStats.customStats.at("compressionSkippedBytes").sum);
+      ASSERT_LT(
+          0,
+          producerStats.customStats
+              .at(IterativeVectorSerializer::kCompressionSkippedBytes)
+              .sum);
     }
   };
 
@@ -2873,7 +2890,12 @@ TEST_P(MultiFragmentTest, scaledTableScan) {
 VELOX_INSTANTIATE_TEST_SUITE_P(
     MultiFragmentTest,
     MultiFragmentTest,
-    testing::ValuesIn(MultiFragmentTest::getTestParams()));
-
+    testing::ValuesIn(MultiFragmentTest::getTestParams()),
+    [](const testing::TestParamInfo<TestParam>& info) {
+      return fmt::format(
+          "{}_{}",
+          VectorSerde::kindName(info.param.serdeKind),
+          compressionKindToString(info.param.compressionKind));
+    });
 } // namespace
 } // namespace facebook::velox::exec

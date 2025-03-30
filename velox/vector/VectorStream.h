@@ -126,6 +126,16 @@ class IterativeVectorSerializer {
     VELOX_UNSUPPORTED("{}", __FUNCTION__);
   }
 
+  /// Defines the exported runtime stats.
+  /// The number of bytes before compression.
+  static inline const std::string kCompressionInputBytes{
+      "compressionInputBytes"};
+  /// The number of bytes after compression.
+  static inline const std::string kCompressedBytes{"compressedBytes"};
+  /// The number of bytes that skip in-efficient compression.
+  static inline const std::string kCompressionSkippedBytes{
+      "compressionSkippedBytes"};
+
   /// Returns serializer-dependent counters, e.g. about compression, data
   /// distribution, encoding etc.
   virtual std::unordered_map<std::string, RuntimeCounter> runtimeStats() {

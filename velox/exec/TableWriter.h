@@ -140,6 +140,19 @@ class TableWriter : public Operator {
     return stats;
   }
 
+  /// The name of runtime stats specific to table writer.
+  /// The running wall time of a writer operator from creation to close.
+  static inline const std::string kRunningWallNanos{"runningWallNanos"};
+  /// The number of files written by this writer operator.
+  static inline const std::string kNumWrittenFiles{"numWrittenFiles"};
+  /// The file write IO walltime.
+  static inline const std::string kWriteIOTime{"writeIOWallNanos"};
+  /// The walltime spend on file write data recoding.
+  static inline const std::string kWriteRecodeTime{"writeRecodeWallNanos"};
+  /// The walltime spent on file write data compression.
+  static inline const std::string kWriteCompressionTime{
+      "writeCompressionWallNanos"};
+
  private:
   // The memory reclaimer customized for connector which interface with the
   // memory arbitrator to reclaim memory from the file writers created within
@@ -213,6 +226,10 @@ class TableWriter : public Operator {
   const std::shared_ptr<connector::ConnectorInsertTableHandle>
       insertTableHandle_;
   const connector::CommitStrategy commitStrategy_;
+  // Records the writer operator creation time in ns. This is used to record
+  // the running wall time of a writer operator. This can helps to detect the
+  // slow scaled writer scheduling in Prestissimo.
+  const uint64_t createTimeUs_{0};
 
   std::unique_ptr<Operator> aggregation_;
   std::shared_ptr<connector::Connector> connector_;

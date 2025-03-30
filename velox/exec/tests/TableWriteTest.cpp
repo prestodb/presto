@@ -2655,10 +2655,10 @@ TEST_P(UnpartitionedTableWriterTest, runtimeStatsCheck) {
     }
     ASSERT_EQ(
         stats[1].runtimeStats["stripeSize"].count, testData.expectedNumStripes);
-    ASSERT_EQ(stats[1].runtimeStats["numWrittenFiles"].sum, 1);
-    ASSERT_EQ(stats[1].runtimeStats["numWrittenFiles"].count, 1);
-    ASSERT_GE(stats[1].runtimeStats["writeIOTime"].sum, 0);
-    ASSERT_EQ(stats[1].runtimeStats["writeIOTime"].count, 1);
+    ASSERT_EQ(stats[1].runtimeStats[TableWriter::kNumWrittenFiles].sum, 1);
+    ASSERT_EQ(stats[1].runtimeStats[TableWriter::kNumWrittenFiles].count, 1);
+    ASSERT_GE(stats[1].runtimeStats[TableWriter::kWriteIOTime].sum, 0);
+    ASSERT_EQ(stats[1].runtimeStats[TableWriter::kWriteIOTime].count, 1);
   }
 }
 
@@ -3425,11 +3425,18 @@ TEST_P(AllTableWriterTest, tableWriterStats) {
       fixedWrittenBytes);
   ASSERT_EQ(
       stats.operatorStats.at("TableWrite")
-          ->customStats.at("numWrittenFiles")
+          ->customStats.at(TableWriter::kNumWrittenFiles)
           .sum,
       numWrittenFiles);
   ASSERT_GE(
-      stats.operatorStats.at("TableWrite")->customStats.at("writeIOTime").sum,
+      stats.operatorStats.at("TableWrite")
+          ->customStats.at(TableWriter::kWriteIOTime)
+          .sum,
+      0);
+  ASSERT_GE(
+      stats.operatorStats.at("TableWrite")
+          ->customStats.at(TableWriter::kRunningWallNanos)
+          .sum,
       0);
 }
 

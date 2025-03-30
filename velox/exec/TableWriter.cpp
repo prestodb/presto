@@ -43,7 +43,8 @@ TableWriter::TableWriter(
           tableWriteNode->insertTableHandle()->connectorId())),
       insertTableHandle_(
           tableWriteNode->insertTableHandle()->connectorInsertTableHandle()),
-      commitStrategy_(tableWriteNode->commitStrategy()) {
+      commitStrategy_(tableWriteNode->commitStrategy()),
+      createTimeUs_(getCurrentTimeNano()) {
   setConnectorMemoryReclaimer();
   if (tableWriteNode->outputType()->size() == 1) {
     VELOX_USER_CHECK_NULL(tableWriteNode->aggregationNode());
@@ -276,6 +277,8 @@ std::string TableWriter::createTableCommitContext(bool lastOutput) {
 }
 
 void TableWriter::updateStats(const connector::DataSink::Stats& stats) {
+  const auto currentTimeNs = getCurrentTimeNano();
+  VELOX_CHECK_GE(currentTimeNs, createTimeUs_);
   {
     auto lockedStats = stats_.wlock();
     lockedStats->physicalWrittenBytes = stats.numWrittenBytes;
@@ -287,23 +290,29 @@ void TableWriter::updateStats(const connector::DataSink::Stats& stats) {
     }
     if (stats.numWrittenFiles != 0) {
       lockedStats->addRuntimeStat(
-          "numWrittenFiles", RuntimeCounter(stats.numWrittenFiles));
+          kNumWrittenFiles, RuntimeCounter(stats.numWrittenFiles));
     }
-    lockedStats->addRuntimeStat(
-        "writeIOTime",
-        RuntimeCounter(
-            stats.writeIOTimeUs * 1000, RuntimeCounter::Unit::kNanos));
-    if (stats.wallRecodeTimeNs != 0) {
+    if (stats.writeIOTimeUs != 0) {
       lockedStats->addRuntimeStat(
-          "wallRecodeTime",
-          RuntimeCounter(stats.wallRecodeTimeNs, RuntimeCounter::Unit::kNanos));
+          kWriteIOTime,
+          RuntimeCounter(
+              stats.writeIOTimeUs * 1000, RuntimeCounter::Unit::kNanos));
+    }
+    if (stats.recodeTimeNs != 0) {
+      lockedStats->addRuntimeStat(
+          kWriteRecodeTime,
+          RuntimeCounter(stats.recodeTimeNs, RuntimeCounter::Unit::kNanos));
     }
     if (stats.compressionTimeNs != 0) {
       lockedStats->addRuntimeStat(
-          "compressionTime",
+          kWriteCompressionTime,
           RuntimeCounter(
               stats.compressionTimeNs, RuntimeCounter::Unit::kNanos));
     }
+    lockedStats->addRuntimeStat(
+        kRunningWallNanos,
+        RuntimeCounter(
+            currentTimeNs - createTimeUs_, RuntimeCounter::Unit::kNanos));
   }
   if (!stats.spillStats.empty()) {
     *spillStats_.wlock() += stats.spillStats;
@@ -311,7 +320,6 @@ void TableWriter::updateStats(const connector::DataSink::Stats& stats) {
 }
 
 void TableWriter::close() {
-  Operator::close();
   if (!closed_) {
     // Abort the data sink if the query has already failed and no need for
     // regular close.
@@ -320,6 +328,7 @@ void TableWriter::close() {
   if (aggregation_ != nullptr) {
     aggregation_->close();
   }
+  Operator::close();
 }
 
 void TableWriter::setConnectorMemoryReclaimer() {
