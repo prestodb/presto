@@ -101,8 +101,8 @@ jobs:
   publish-maven-artifacts:
     needs: publish-release-tag
     if: |
-      (github.event.inputs.publish_maven == 'true' || github.event.inputs.publish_image == 'true' || github.event.inputs.publish_docs == 'true') &&
-      (success() || (github.event.inputs.publish_release_tag != 'true' && !failure() && !cancelled()))
+      (!failure() &&!cancelled()) &&
+      (github.event.inputs.publish_maven == 'true' || github.event.inputs.publish_image == 'true' || github.event.inputs.publish_docs == 'true')
     runs-on: ubuntu-latest
     environment: release
     timeout-minutes: 60
@@ -217,7 +217,7 @@ jobs:
 
   publish-docker-image:
     needs: publish-maven-artifacts
-    if: github.event.inputs.publish_image == 'true' && !failure() && !cancelled()
+    if: (!failure() && !cancelled()) && github.event.inputs.publish_image == 'true'
     runs-on: ubuntu-latest
     environment: release
     timeout-minutes: 150
@@ -274,9 +274,7 @@ jobs:
 
   publish-native-image:
     needs: publish-release-tag
-    if: |
-      github.event.inputs.publish_native_image == 'true' &&
-      (success() || (github.event.inputs.publish_release_tag != 'true' && !failure() && !cancelled()))
+    if: (!failure() && !cancelled()) && github.event.inputs.publish_native_image == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -355,7 +353,7 @@ jobs:
 
   publish-docs:
     needs: publish-maven-artifacts
-    if: github.event.inputs.publish_docs == 'true' && !failure() && !cancelled()
+    if: (!failure() && !cancelled()) && github.event.inputs.publish_docs == 'true'
     runs-on: ubuntu-latest
     environment: release
 
