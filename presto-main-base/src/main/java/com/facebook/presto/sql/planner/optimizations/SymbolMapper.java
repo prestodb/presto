@@ -61,6 +61,7 @@ import static com.facebook.presto.spi.StandardWarningCode.MULTIPLE_ORDER_BY;
 import static com.facebook.presto.spi.plan.AggregationNode.groupingSets;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getNodeLocation;
 import static com.facebook.presto.sql.planner.optimizations.PartitioningUtils.translateVariable;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -348,9 +349,16 @@ public class SymbolMapper
                 .map(this::map)
                 .collect(toImmutableList());
 
+        // rewrite and deduplicate marker mapping
         Optional<Map<VariableReferenceExpression, VariableReferenceExpression>> newMarkerVariables = node.getMarkerVariables()
                 .map(mapping -> mapping.entrySet().stream()
-                        .collect(toMap(entry -> map(entry.getKey()), entry -> map(entry.getValue()))));
+                        .collect(toImmutableMap(
+                                Entry::getKey,
+                                Entry::getValue,
+                                (first, second) -> {
+                                    checkState(first.equals(second), "Ambiguous marker symbols: %s and %s", first, second);
+                                    return first;
+                                })));
 
         Optional<SpecificationWithPreSortedPrefix> newSpecification = node.getSpecification().map(specification -> mapAndDistinct(specification, node.getPreSorted()));
 
