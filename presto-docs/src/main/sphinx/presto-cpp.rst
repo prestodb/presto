@@ -8,6 +8,7 @@ Note: Presto C++ is in active development. See :doc:`Limitations </presto_cpp/li
     :maxdepth: 1
 
     presto_cpp/features
+    presto_cpp/sidecar
     presto_cpp/limitations
     presto_cpp/properties
     presto_cpp/properties-session
@@ -19,10 +20,18 @@ Presto C++, sometimes referred to by the development name Prestissimo, is a
 drop-in replacement for Presto workers written in C++ and based on the 
 `Velox <https://velox-lib.io/>`_ library. 
 It implements the same RESTful endpoints as Java workers using the Proxygen C++ 
-HTTP framework. 
+HTTP framework.
 Because communication with the Java coordinator and across workers is only 
 done using the REST endpoints, Presto C++ does not use JNI and does not 
 require a JVM on worker nodes.
+
+A Presto C++ worker can be configured as a sidecar to customize the Java
+coordinator's functionality for Presto C++ clusters. The Presto C++ sidecar
+implements additional REST endpoints to provide the coordinator more
+information about the Presto C++ worker, such as session properties and
+functions, via the ``NativeSidecarPlugin``. It is recommended to configure
+at least one worker in the Presto C++ cluster as a sidecar. See :doc:`presto_cpp/sidecar`
+and :ref:`native-sidecar-plugin` for more details.
 
 Presto C++'s codebase is located at `presto-native-execution
 <https://github.com/prestodb/presto/tree/master/presto-native-execution>`_.
