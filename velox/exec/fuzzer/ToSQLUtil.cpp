@@ -30,32 +30,29 @@ void appendComma(int32_t i, std::stringstream& sql) {
 std::string toTypeSql(const TypePtr& type) {
   switch (type->kind()) {
     case TypeKind::ARRAY:
-      return fmt::format("array({})", toTypeSql(type->childAt(0)));
+      return fmt::format("ARRAY({})", toTypeSql(type->childAt(0)));
     case TypeKind::MAP:
       return fmt::format(
-          "map({}, {})",
+          "MAP({}, {})",
           toTypeSql(type->childAt(0)),
           toTypeSql(type->childAt(1)));
     case TypeKind::ROW: {
       const auto& rowType = type->asRow();
       std::stringstream sql;
-      sql << "row(";
+      sql << "ROW(";
       for (auto i = 0; i < type->size(); ++i) {
         appendComma(i, sql);
+        // TODO Field names may need to be quoted.
         sql << rowType.nameOf(i) << " " << toTypeSql(type->childAt(i));
       }
       sql << ")";
       return sql.str();
     }
     case TypeKind::VARCHAR:
-      if (isJsonType(type)) {
-        return "json";
-      } else {
-        return "varchar";
-      }
+      return isJsonType(type) ? "JSON" : "VARCHAR";
     default:
       if (type->isPrimitiveType()) {
-        return type->toString();
+        return mapTypeKindToName(type->kind());
       }
       VELOX_UNSUPPORTED("Type is not supported: {}", type->toString());
   }
