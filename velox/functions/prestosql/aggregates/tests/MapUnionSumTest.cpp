@@ -552,4 +552,8 @@ TEST_F(MapUnionSumTest, complexType) {
       {data}, {"c1"}, {"map_union_sum(c0)"}, {"a0", "c1"}, {expectedResult});
 }
 
+TEST_F(MapUnionSumTest, unknownKey) {
+  auto data = makeRowVector({makeAllNullMapVector(3, UNKNOWN(), BIGINT())});
+  testAggregations({data}, {}, {"map_union_sum(c0)"}, {"VALUES (NULL)"});
+}
 } // namespace facebook::velox::aggregate::test
