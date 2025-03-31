@@ -259,7 +259,7 @@ std::string toConstantSql(const core::ConstantTypedExprPtr& constant) {
   const auto typeSql = toTypeSql(type);
 
   std::stringstream sql;
-  if (constant->toString() == "null") {
+  if (constant->isNull()) {
     // Syntax like BIGINT 'null' for typed null is not supported, so use cast
     // instead.
     sql << fmt::format("cast(null as {})", typeSql);

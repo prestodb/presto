@@ -102,6 +102,13 @@ class ConstantTypedExpr : public ITypedExpr {
     return valueVector_;
   }
 
+  bool isNull() const {
+    if (hasValueVector()) {
+      return valueVector_->isNullAt(0);
+    }
+    return value_.isNull();
+  }
+
   VectorPtr toConstantVector(memory::MemoryPool* pool) const {
     if (valueVector_) {
       return valueVector_;
