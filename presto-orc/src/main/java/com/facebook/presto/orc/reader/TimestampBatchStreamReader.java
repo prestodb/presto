@@ -32,6 +32,7 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.time.ZoneId;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
@@ -68,12 +69,13 @@ public class TimestampBatchStreamReader
     private LongInputStream nanosStream;
 
     private boolean rowGroupOpen;
-    private final DecodeTimestampOptions decodeTimestampOptions;
+    private final boolean enableTimestampMicroPrecision;
+    private DecodeTimestampOptions decodeTimestampOptions;
 
-    public TimestampBatchStreamReader(Type type, StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, boolean enableMicroPrecision)
+    public TimestampBatchStreamReader(Type type, StreamDescriptor streamDescriptor, boolean enableMicroPrecision)
             throws OrcCorruptionException
     {
-        this.decodeTimestampOptions = new DecodeTimestampOptions(hiveStorageTimeZone, enableMicroPrecision);
+        enableTimestampMicroPrecision = enableMicroPrecision;
         requireNonNull(type, "type is null");
         verifyStreamType(streamDescriptor, type, TimestampType.class::isInstance);
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
@@ -191,11 +193,13 @@ public class TimestampBatchStreamReader
     }
 
     @Override
-    public void startStripe(Stripe stripe)
+    public void startStripe(ZoneId zoneId, Stripe stripe)
     {
         presentStreamSource = getBooleanMissingStreamSource();
         secondsStreamSource = getLongMissingStreamSource();
         nanosStreamSource = getLongMissingStreamSource();
+        DateTimeZone timeZone = org.joda.time.DateTimeZone.forTimeZone(java.util.TimeZone.getTimeZone(zoneId));
+        decodeTimestampOptions = new DecodeTimestampOptions(timeZone, enableTimestampMicroPrecision);
 
         readOffset = 0;
         nextBatchSize = 0;

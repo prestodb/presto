@@ -30,6 +30,7 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.time.ZoneId;
 
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
@@ -139,7 +140,7 @@ public class DoubleBatchStreamReader
     }
 
     @Override
-    public void startStripe(Stripe stripe)
+    public void startStripe(ZoneId timeZone, Stripe stripe)
     {
         presentStreamSource = getBooleanMissingStreamSource();
         dataStreamSource = getDoubleMissingStreamSource();

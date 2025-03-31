@@ -109,7 +109,6 @@ public final class SelectiveStreamReaders
                 return new TimestampSelectiveStreamReader(
                         streamDescriptor,
                         getOptionalOnlyFilter(type, filters),
-                        hiveStorageTimeZone,
                         outputType.isPresent(),
                         systemMemoryContext.newOrcLocalMemoryContext(SelectiveStreamReaders.class.getSimpleName()),
                         enableMicroPrecision);

@@ -27,13 +27,13 @@ import com.facebook.presto.orc.stream.BooleanInputStream;
 import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.LongInputStream;
-import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.time.ZoneId;
 import java.util.Optional;
 
 import static com.facebook.presto.common.array.Arrays.ensureCapacity;
@@ -62,9 +62,9 @@ public class TimestampSelectiveStreamReader
     private final boolean nullsAllowed;
     private final boolean outputRequired;
     private final OrcLocalMemoryContext systemMemoryContext;
-    private final long baseTimestampInSeconds;
     private final boolean nonDeterministicFilter;
-    private final DecodeTimestampOptions decodeTimestampOptions;
+    private DecodeTimestampOptions decodeTimestampOptions;
+    private final boolean enableTimestampMicroPrecision;
 
     private InputStreamSource<BooleanInputStream> presentStreamSource = getBooleanMissingStreamSource();
     private InputStreamSource<LongInputStream> secondsStreamSource = getLongMissingStreamSource();
@@ -90,12 +90,11 @@ public class TimestampSelectiveStreamReader
     public TimestampSelectiveStreamReader(
             StreamDescriptor streamDescriptor,
             Optional<TupleDomainFilter> filter,
-            DateTimeZone hiveStorageTimeZone,
             boolean outputRequired,
             OrcLocalMemoryContext systemMemoryContext,
             boolean enableMicroPrecision)
     {
-        this.decodeTimestampOptions = new DecodeTimestampOptions(hiveStorageTimeZone, enableMicroPrecision);
+        enableTimestampMicroPrecision = enableMicroPrecision;
         requireNonNull(filter, "filter is null");
         checkArgument(filter.isPresent() || outputRequired, "filter must be present if outputRequired is false");
         this.streamDescriptor = requireNonNull(streamDescriptor, "streamDescriptor is null");
@@ -104,15 +103,16 @@ public class TimestampSelectiveStreamReader
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
         this.nonDeterministicFilter = this.filter != null && !this.filter.isDeterministic();
         this.nullsAllowed = this.filter == null || nonDeterministicFilter || this.filter.testNull();
-        this.baseTimestampInSeconds = new DateTime(2015, 1, 1, 0, 0, requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null")).getMillis() / 1000;
     }
 
     @Override
-    public void startStripe(Stripe stripe)
+    public void startStripe(ZoneId zoneId, Stripe stripe)
     {
         presentStreamSource = getBooleanMissingStreamSource();
         secondsStreamSource = getLongMissingStreamSource();
         nanosStreamSource = getLongMissingStreamSource();
+        DateTimeZone timeZone = org.joda.time.DateTimeZone.forTimeZone(java.util.TimeZone.getTimeZone(zoneId));
+        decodeTimestampOptions = new DecodeTimestampOptions(timeZone, enableTimestampMicroPrecision);
         readOffset = 0;
         presentStream = null;
         secondsStream = null;

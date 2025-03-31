@@ -29,6 +29,7 @@ import com.facebook.presto.orc.stream.InputStreamSources;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
+import java.time.ZoneId;
 import java.util.Optional;
 
 import static com.facebook.presto.common.array.Arrays.ensureCapacity;
@@ -89,7 +90,7 @@ public class FloatSelectiveStreamReader
     }
 
     @Override
-    public void startStripe(Stripe stripe)
+    public void startStripe(ZoneId timeZone, Stripe stripe)
     {
         presentStreamSource = getBooleanMissingStreamSource();
         dataStreamSource = getFloatMissingStreamSource();

@@ -53,6 +53,7 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -634,7 +635,7 @@ public class MapFlatSelectiveStreamReader
     }
 
     @Override
-    public void startStripe(Stripe stripe)
+    public void startStripe(ZoneId timeZone, Stripe stripe)
             throws IOException
     {
         presentStreamSource = getBooleanMissingStreamSource();
@@ -680,7 +681,7 @@ public class MapFlatSelectiveStreamReader
                     options,
                     systemMemoryContext.newOrcAggregatedMemoryContext(),
                     true);
-            valueStreamReader.startStripe(stripe);
+            valueStreamReader.startStripe(timeZone, stripe);
             valueStreamReaders.add(valueStreamReader);
         }
 

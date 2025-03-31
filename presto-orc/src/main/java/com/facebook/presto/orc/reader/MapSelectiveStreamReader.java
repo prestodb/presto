@@ -31,6 +31,7 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -77,7 +78,7 @@ public class MapSelectiveStreamReader
     }
 
     @Override
-    public void startStripe(Stripe stripe)
+    public void startStripe(ZoneId timeZone, Stripe stripe)
             throws IOException
     {
         ColumnEncodingKind kind = stripe.getColumnEncodings().get(streamDescriptor.getStreamId())
@@ -96,7 +97,7 @@ public class MapSelectiveStreamReader
             throw new IllegalArgumentException("Unsupported encoding " + kind);
         }
 
-        currentReader.startStripe(stripe);
+        currentReader.startStripe(timeZone, stripe);
     }
 
     @Override
