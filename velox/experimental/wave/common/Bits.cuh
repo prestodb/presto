@@ -241,7 +241,7 @@ __device__ void scatterBitsDevice(
   int32_t sourceBitBase = align * 8;
   for (auto targetIdx = 0; targetIdx * 64 < numTarget;
        targetIdx += blockDim.x * kWordsPerThread) {
-    int32_t firstTargetIdx = targetIdx + threadIdx.x * kWordsPerThread;
+    auto firstTargetIdx = targetIdx + threadIdx.x * kWordsPerThread;
     int32_t bitsForThread =
         min(kWordsPerThread * 64, numTarget - firstTargetIdx * 64);
     uint32_t count = 0;
@@ -333,7 +333,7 @@ inline __device__ int32_t nonNullIndex256(
     state->nonNullsBelowRow = bitOffset;
   }
   __syncthreads();
-  int32_t group = threadIdx.x / 32;
+  auto group = threadIdx.x / 32;
   uint32_t bits =
       threadIdx.x < numRows ? loadBits32(nulls, bitOffset + group * 32, 32) : 0;
   if (threadIdx.x == kWarpThreads * group) {
@@ -387,7 +387,7 @@ inline __device__ int32_t nonNullIndex256Sparse(
   if (threadIdx.x < numRows) {
     isNull = !isBitSet(nulls, rows[threadIdx.x]);
     nonNullsBelow = !isNull;
-    int32_t previousRow =
+    auto previousRow =
         threadIdx.x == 0 ? state->nonNullsBelowRow : rows[threadIdx.x - 1] + 1;
     nonNullsBelow += countBits(
         reinterpret_cast<uint64_t*>(nulls), previousRow, rows[threadIdx.x]);
