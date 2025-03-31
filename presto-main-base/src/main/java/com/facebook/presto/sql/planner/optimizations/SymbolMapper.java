@@ -335,15 +335,24 @@ public class SymbolMapper
 
     public TableFunctionProcessorNode map(TableFunctionProcessorNode node, PlanNode source)
     {
-        List<TableFunctionNode.PassThroughSpecification> newPassThroughSpecifications = node.getPassThroughSpecifications().stream()
-                .map(specification -> new TableFunctionNode.PassThroughSpecification(
-                        specification.isDeclaredAsPassThrough(),
-                        specification.getColumns().stream()
-                                .map(column -> new TableFunctionNode.PassThroughColumn(
-                                        map(column.getOutputVariables()),
-                                        column.isPartitioningColumn()))
-                                .collect(toImmutableList())))
-                .collect(toImmutableList());
+        // rewrite and deduplicate pass-through specifications
+        // note: Potentially, pass-through symbols from different sources might be recognized as semantically identical, and rewritten
+        // to the same symbol. Currently, we retrieve the first occurrence of a symbol, and skip all the following occurrences.
+        // For better performance, we could pick the occurrence with "isPartitioningColumn" property, since the pass-through mechanism
+        // is more efficient for partitioning columns which are guaranteed to be constant within partition.
+        // TODO choose a partitioning column to be retrieved while deduplicating
+        ImmutableList.Builder<TableFunctionNode.PassThroughSpecification> newPassThroughSpecifications = ImmutableList.builder();
+        Set<VariableReferenceExpression> newPassThroughVariables = new HashSet<>();
+        for (TableFunctionNode.PassThroughSpecification specification : node.getPassThroughSpecifications()) {
+            ImmutableList.Builder<TableFunctionNode.PassThroughColumn> newColumns = ImmutableList.builder();
+            for (TableFunctionNode.PassThroughColumn column : specification.getColumns()) {
+                VariableReferenceExpression newVariable = map(column.getOutputVariables());
+                if (newPassThroughVariables.add(newVariable)) {
+                    newColumns.add(new TableFunctionNode.PassThroughColumn(newVariable, column.isPartitioningColumn()));
+                }
+            }
+            newPassThroughSpecifications.add(new TableFunctionNode.PassThroughSpecification(specification.isDeclaredAsPassThrough(), newColumns.build()));
+        }
 
         List<List<VariableReferenceExpression>> newRequiredVariables = node.getRequiredVariables().stream()
                 .map(this::map)
@@ -368,7 +377,7 @@ public class SymbolMapper
                 map(node.getProperOutputs()),
                 Optional.of(source),
                 node.isPruneWhenEmpty(),
-                newPassThroughSpecifications,
+                newPassThroughSpecifications.build(),
                 newRequiredVariables,
                 newMarkerVariables,
                 newSpecification.map(SpecificationWithPreSortedPrefix::getSpecification),
