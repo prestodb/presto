@@ -20,6 +20,7 @@
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
 #include "velox/dwio/dwrf/test/OrcTest.h"
 #include "velox/type/fbhive/HiveTypeParser.h"
+#include "velox/vector/BaseVector.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
 using namespace facebook::velox::dwio::common;
@@ -88,6 +89,15 @@ TEST_F(OrcReaderTest, testOrcReaderComplexTypes) {
       createFileBufferedInput(icebergOrc, readerOpts.memoryPool()), readerOpts);
   auto rowType = reader->rowType();
   EXPECT_TRUE(rowType->equivalent(*expectedType));
+
+  RowReaderOptions rowReaderOptions;
+  auto rowReader = reader->createRowReader(rowReaderOptions);
+  VectorPtr batch;
+
+  while (rowReader->next(500, batch)) {
+    auto rowVector = batch->as<RowVector>();
+    std::cout << rowVector->toString() << std::endl;
+  }
 }
 
 TEST_F(OrcReaderTest, testOrcReaderVarchar) {
@@ -277,3 +287,191 @@ TEST_F(OrcReaderTest, testOrcRlev2) {
     EXPECT_EQ(nameCol->valueAt(0), "AAAA");
   }
 }
+class OrcFileDescription {
+ public:
+  std::string filename;
+  std::string json;
+  std::string typeString;
+  std::string formatVersion;
+  std::string softwareVersion;
+  uint64_t rowCount;
+  uint64_t contentLength;
+  uint64_t stripeCount;
+  common::CompressionKind compression;
+  size_t compressionSize;
+  uint64_t rowIndexStride;
+  std::map<std::string, std::string> userMeta;
+
+  OrcFileDescription(
+      const std::string& _filename,
+      const std::string& _json,
+      const std::string& _typeString,
+      const std::string& _version,
+      const std::string& _softwareVersion,
+      uint64_t _rowCount,
+      uint64_t _contentLength,
+      uint64_t _stripeCount,
+      common::CompressionKind _compression,
+      size_t _compressionSize,
+      uint64_t _rowIndexStride,
+      const std::map<std::string, std::string>& _meta)
+      : filename(_filename),
+        json(_json),
+        typeString(_typeString),
+        formatVersion(_version),
+        softwareVersion(_softwareVersion),
+        rowCount(_rowCount),
+        contentLength(_contentLength),
+        stripeCount(_stripeCount),
+        compression(_compression),
+        compressionSize(_compressionSize),
+        rowIndexStride(_rowIndexStride),
+        userMeta(_meta) {}
+
+  friend std::ostream& operator<<(
+      std::ostream& stream,
+      OrcFileDescription const& obj);
+};
+
+std::ostream& operator<<(std::ostream& stream, OrcFileDescription const& obj) {
+  stream << obj.filename;
+  return stream;
+}
+
+class OrcReaderTestP : public testing::TestWithParam<OrcFileDescription>,
+                       public VectorTestBase {
+ protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
+  inline std::string getExamplesFilePath(const std::string& fileName) {
+    return test::getDataFilePath("velox/dwio/orc/test", "examples/" + fileName);
+  }
+
+  inline std::string getExpectedFilePath(const std::string& fileName) {
+    return test::getDataFilePath(
+        "velox/dwio/orc/test", "examples/expected/" + fileName);
+  }
+
+  std::string getFilename() {
+    return test::getDataFilePath(
+        "velox/dwio/orc/test", "examples/" + GetParam().filename);
+  }
+
+  std::string getJsonFilename() {
+    return test::getDataFilePath(
+        "velox/dwio/orc/test", "examples/expected/" + GetParam().json);
+  }
+};
+
+TEST_P(
+    OrcReaderTestP,
+    DwrfReader_FetchesOrcMetadata_ExpectCorrectFooterAndMetadata) {
+  const std::string dateOrc(getFilename());
+  dwio::common::ReaderOptions readerOpts{pool()};
+  readerOpts.setFileFormat(dwio::common::FileFormat::ORC);
+  auto reader = DwrfReader::create(
+      createFileBufferedInput(dateOrc, readerOpts.memoryPool()), readerOpts);
+
+  const std::shared_ptr<const RowType> expectedType =
+      std::dynamic_pointer_cast<const RowType>(
+          HiveTypeParser().parse(GetParam().typeString));
+  auto rowType = reader->rowType();
+  EXPECT_TRUE(rowType->equivalent(*expectedType));
+
+  EXPECT_EQ(GetParam().compression, reader->getCompression());
+  EXPECT_EQ(GetParam().compressionSize, reader->getCompressionBlockSize());
+  EXPECT_EQ(GetParam().stripeCount, reader->getNumberOfStripes());
+  EXPECT_EQ(GetParam().rowCount, reader->getFooter().numberOfRows());
+  EXPECT_EQ(GetParam().rowIndexStride, reader->getFooter().rowIndexStride());
+  EXPECT_EQ(GetParam().contentLength, reader->getFooter().contentLength());
+  EXPECT_EQ(GetParam().userMeta.size(), reader->getMetadataKeys().size());
+
+  RowReaderOptions rowReaderOptions;
+  auto rowReader = reader->createRowReader(rowReaderOptions);
+
+  for (std::map<std::string, std::string>::const_iterator itr =
+           GetParam().userMeta.begin();
+       itr != GetParam().userMeta.end();
+       ++itr) {
+    ASSERT_EQ(true, reader->hasMetadataValue(itr->first));
+    std::string val = reader->getMetadataValue(itr->first);
+    EXPECT_EQ(itr->second, val);
+  }
+}
+
+TEST_P(OrcReaderTestP, DwrfRowReader_ReadAllColumnTypes_ExpectedRowDataRead) {
+  // Create schema and scan spec
+  std::string schemaString = GetParam().typeString;
+  auto type = HiveTypeParser().parse(schemaString);
+  auto schema = std::dynamic_pointer_cast<const RowType>(type);
+  auto scanSpec = std::make_shared<common::ScanSpec>("<root>");
+  scanSpec->addAllChildFields(*schema);
+
+  const std::string dateOrc(getFilename());
+  dwio::common::ReaderOptions readerOpts{pool()};
+  readerOpts.setFileFormat(dwio::common::FileFormat::ORC);
+  readerOpts.setScanSpec(scanSpec);
+
+  auto reader = DwrfReader::create(
+      createFileBufferedInput(dateOrc, readerOpts.memoryPool()), readerOpts);
+
+  RowReaderOptions rowReaderOptions;
+  rowReaderOptions.setScanSpec(scanSpec);
+  auto rowReader = reader->createRowReader(rowReaderOptions);
+
+  size_t rowCount = 0;
+  auto batch = BaseVector::create(schema, 0, &readerOpts.memoryPool());
+  while (rowReader->next(1024, batch)) {
+    auto rowVector = batch->as<RowVector>();
+    for (auto i = 0; i < rowVector->size(); ++i) {
+      // TODO: Validate against all JSON data.  Currently the
+      // vectorRow->toString(i) does not output the same stringified line format
+      // as ColumnPrinter used to create json files.
+      rowCount++;
+    }
+  }
+  EXPECT_EQ(GetParam().rowCount, rowCount);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    OrcReaderTestsP,
+    OrcReaderTestP,
+    testing::Values(
+        OrcFileDescription(
+            "TestOrcFile.columnProjection.orc",
+            "TestOrcFile.columnProjection.jsn.gz",
+            "struct<int1:int,string1:string>",
+            "0.12",
+            "ORC Java",
+            21000,
+            428406,
+            5,
+            common::CompressionKind::CompressionKind_NONE,
+            262144,
+            1000,
+            std::map<std::string, std::string>()),
+        OrcFileDescription(
+            "TestOrcFile.testWithoutIndex.orc",
+            "TestOrcFile.testWithoutIndex.jsn.gz",
+            "struct<int1:int,string1:string>",
+            "0.12",
+            "ORC Java",
+            50000,
+            214643,
+            10,
+            common::CompressionKind::CompressionKind_SNAPPY,
+            1000,
+            0,
+            std::map<std::string, std::string>())),
+    [](const testing::TestParamInfo<OrcReaderTestP::ParamType>& info) {
+      auto filename = info.param.filename;
+      filename.erase(
+          std::remove_if(
+              filename.begin(),
+              filename.end(),
+              [](unsigned char c) { return !std::isalnum(c); }),
+          filename.end());
+      return filename;
+    });
