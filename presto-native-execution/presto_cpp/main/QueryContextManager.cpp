@@ -163,9 +163,17 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
   // though the query ctx has been evicted out of the cache. The query ctx cache
   // is still indexed by the query id.
   static std::atomic_uint64_t poolId{0};
+  std::optional<memory::MemoryPool::DebugOptions> poolDbgOpts;
+  const auto debugMemoryPoolNameRegex = queryConfig.debugMemoryPoolNameRegex();
+  if (!debugMemoryPoolNameRegex.empty()) {
+    poolDbgOpts = memory::MemoryPool::DebugOptions{
+        .debugPoolNameRegex = debugMemoryPoolNameRegex};
+  }
   auto pool = memory::MemoryManager::getInstance()->addRootPool(
       fmt::format("{}_{}", queryId, poolId++),
-      queryConfig.queryMaxMemoryPerNode());
+      queryConfig.queryMaxMemoryPerNode(),
+      nullptr,
+      poolDbgOpts);
 
   auto queryCtx = core::QueryCtx::create(
       driverExecutor_,

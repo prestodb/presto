@@ -177,6 +177,13 @@ class SessionProperties {
   static constexpr const char* kDebugDisableExpressionWithLazyInputs =
       "native_debug_disable_expression_with_lazy_inputs";
 
+  /// Regex for filtering on memory pool name if not empty. This allows us to
+  /// only track the callsites of memory allocations for memory pools whose name
+  /// matches the specified regular expression. Empty string means no match for
+  /// all.
+  static constexpr const char* kDebugMemoryPoolNameRegex =
+      "native_debug_memory_pool_name_regex";
+
   /// Temporary flag to control whether selective Nimble reader should be used
   /// in this query or not.  Will be removed after the selective Nimble reader
   /// is fully rolled out.
