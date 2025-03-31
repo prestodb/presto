@@ -261,12 +261,34 @@ RowVectorPtr NestedLoopJoinProbe::generateOutput() {
   // Try to advance the probe cursor; call finish if no more probe input.
   if (advanceProbe()) {
     finishProbeInput();
+    if (numOutputRows_ == 0) {
+      // output_ can only be re-used across probe rows within the same input_.
+      // Here we have to abandon the emtpy output_ with memory allocated.
+      output_ = nullptr;
+    }
   }
 
-  if (output_ != nullptr && output_->size() == 0) {
-    output_ = nullptr;
+  if (!readyToProduceOutput()) {
+    return nullptr;
   }
+
+  output_->resize(numOutputRows_);
   return std::move(output_);
+}
+
+bool NestedLoopJoinProbe::readyToProduceOutput() {
+  if (!output_ || numOutputRows_ == 0) {
+    return false;
+  }
+
+  // For cross join, output is produced directly
+  if (isCrossJoin()) {
+    return true;
+  }
+
+  // if the input_ has no remaining rows or the output_ is fully filled,
+  // it's right time for output.
+  return !input_ || numOutputRows_ >= outputBatchSize_;
 }
 
 bool NestedLoopJoinProbe::advanceProbe() {
@@ -357,9 +379,6 @@ bool NestedLoopJoinProbe::addToOutput() {
   // Check if the current probed row needs to be added as a mismatch (for left
   // and full outer joins).
   checkProbeMismatchRow();
-  if (output_ != nullptr) {
-    output_->resize(numOutputRows_);
-  }
 
   // Signals that all input has been generated for the probeRow and build
   // vectors; safe to move to the next probe record.

@@ -113,12 +113,19 @@ class NestedLoopJoinProbe : public Operator {
   // smaller in some cases - outputs follow the probe side buffer boundaries.
   RowVectorPtr generateOutput();
 
+  // For non cross-join mode, the `output_` can be reused across multible probe
+  // rows. If the input_ has remaining rows and the output_ is not fully filled,
+  // it returns false here.
+  bool readyToProduceOutput();
+
   // Fill in joined output to `output_` by matching the current probeRow_ and
   // successive build vectors (using getNextCrossProductBatch()). Stops when
   // either all build vectors were matched for the current probeRow (returns
   // true), or if the output is full (returns false). If it returns false, a
   // valid vector with more than zero records will be available at `output_`; if
   // it returns true, either nullptr or zero records may be placed at `output_`.
+  // Also if it returns true, it's the caller's responsiblity to deicide when to
+  // set `output_` size.
   //
   // Also updates `buildMatched_` if the build records that received a match, so
   // that they can be used to implement right and full outer join semantic once
