@@ -13,12 +13,16 @@
  */
 package com.facebook.presto.spi.function.table;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
+import com.facebook.presto.spi.ConnectorSplit;
 
-/**
- * An area to store all information necessary to execute the table function, gathered at analysis time
- */
-@JsonInclude(JsonInclude.Include.ALWAYS)
-public interface ConnectorTableFunctionHandle
+public interface TableFunctionSplitProcessor
 {
+    /**
+     * This method processes a split. It is called multiple times until the whole output for the split is produced.
+     *
+     * @param split a {@link ConnectorSplit} representing a subtask.
+     * @return {@link TableFunctionProcessorState} including the processor's state and optionally a portion of result.
+     * After the returned state is {@code FINISHED}, the method will not be called again.
+     */
+    TableFunctionProcessorState process(ConnectorSplit split);
 }

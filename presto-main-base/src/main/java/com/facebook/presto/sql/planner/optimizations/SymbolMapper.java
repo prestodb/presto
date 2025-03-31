@@ -61,11 +61,11 @@ import static com.facebook.presto.spi.StandardWarningCode.MULTIPLE_ORDER_BY;
 import static com.facebook.presto.spi.plan.AggregationNode.groupingSets;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getNodeLocation;
 import static com.facebook.presto.sql.planner.optimizations.PartitioningUtils.translateVariable;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toMap;
 
 public class SymbolMapper
 {
@@ -334,24 +334,42 @@ public class SymbolMapper
 
     public TableFunctionProcessorNode map(TableFunctionProcessorNode node, PlanNode source)
     {
-        List<TableFunctionNode.PassThroughSpecification> newPassThroughSpecifications = node.getPassThroughSpecifications().stream()
-                .map(specification -> new TableFunctionNode.PassThroughSpecification(
-                        specification.isDeclaredAsPassThrough(),
-                        specification.getColumns().stream()
-                                .map(column -> new TableFunctionNode.PassThroughColumn(
-                                        map(column.getOutputVariables()),
-                                        column.isPartitioningColumn()))
-                                .collect(toImmutableList())))
-                .collect(toImmutableList());
+        // rewrite and deduplicate pass-through specifications
+        // note: Potentially, pass-through symbols from different sources might be recognized as semantically identical, and rewritten
+        // to the same symbol. Currently, we retrieve the first occurrence of a symbol, and skip all the following occurrences.
+        // For better performance, we could pick the occurrence with "isPartitioningColumn" property, since the pass-through mechanism
+        // is more efficient for partitioning columns which are guaranteed to be constant within partition.
+        // TODO choose a partitioning column to be retrieved while deduplicating
+        ImmutableList.Builder<TableFunctionNode.PassThroughSpecification> newPassThroughSpecifications = ImmutableList.builder();
+        Set<VariableReferenceExpression> newPassThroughVariables = new HashSet<>();
+        for (TableFunctionNode.PassThroughSpecification specification : node.getPassThroughSpecifications()) {
+            ImmutableList.Builder<TableFunctionNode.PassThroughColumn> newColumns = ImmutableList.builder();
+            for (TableFunctionNode.PassThroughColumn column : specification.getColumns()) {
+                VariableReferenceExpression newVariable = map(column.getOutputVariables());
+                if (newPassThroughVariables.add(newVariable)) {
+                    newColumns.add(new TableFunctionNode.PassThroughColumn(newVariable, column.isPartitioningColumn()));
+                }
+            }
+            newPassThroughSpecifications.add(new TableFunctionNode.PassThroughSpecification(specification.isDeclaredAsPassThrough(), newColumns.build()));
+        }
 
+        // rewrite required symbols without deduplication. the table function expects specific input layout
         List<List<VariableReferenceExpression>> newRequiredVariables = node.getRequiredVariables().stream()
                 .map(this::map)
                 .collect(toImmutableList());
 
+        // rewrite and deduplicate marker mapping
         Optional<Map<VariableReferenceExpression, VariableReferenceExpression>> newMarkerVariables = node.getMarkerVariables()
                 .map(mapping -> mapping.entrySet().stream()
-                        .collect(toMap(entry -> map(entry.getKey()), entry -> map(entry.getValue()))));
+                        .collect(toImmutableMap(
+                                Entry::getKey,
+                                Entry::getValue,
+                                (first, second) -> {
+                                    checkState(first.equals(second), "Ambiguous marker symbols: %s and %s", first, second);
+                                    return first;
+                                })));
 
+        // rewrite and deduplicate specification
         Optional<SpecificationWithPreSortedPrefix> newSpecification = node.getSpecification().map(specification -> mapAndDistinct(specification, node.getPreSorted()));
 
         return new TableFunctionProcessorNode(
@@ -360,7 +378,7 @@ public class SymbolMapper
                 map(node.getProperOutputs()),
                 Optional.of(source),
                 node.isPruneWhenEmpty(),
-                newPassThroughSpecifications,
+                newPassThroughSpecifications.build(),
                 newRequiredVariables,
                 newMarkerVariables,
                 newSpecification.map(SpecificationWithPreSortedPrefix::getSpecification),

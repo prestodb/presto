@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
 import com.facebook.presto.tpch.TpchPartitioningHandle;
 
 public class MockHandleResolver
@@ -59,5 +60,11 @@ public class MockHandleResolver
     public Class<? extends ConnectorPartitioningHandle> getPartitioningHandleClass()
     {
         return TpchPartitioningHandle.class;
+    }
+
+    @Override
+    public Class<? extends ConnectorTableFunctionHandle> getTableFunctionHandleClass()
+    {
+        return TestingTableFunctions.EmptyTableFunctionHandle.class;
     }
 }

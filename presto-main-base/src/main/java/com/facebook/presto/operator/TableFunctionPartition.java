@@ -11,14 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.function.table;
+package com.facebook.presto.operator;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
+import com.facebook.presto.common.Page;
 
-/**
- * An area to store all information necessary to execute the table function, gathered at analysis time
- */
-@JsonInclude(JsonInclude.Include.ALWAYS)
-public interface ConnectorTableFunctionHandle
+public interface TableFunctionPartition
 {
+    WorkProcessor<Page> toOutputPages();
 }

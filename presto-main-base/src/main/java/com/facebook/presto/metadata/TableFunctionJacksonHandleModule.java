@@ -11,14 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.function.table;
+package com.facebook.presto.metadata;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
+import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
 
-/**
- * An area to store all information necessary to execute the table function, gathered at analysis time
- */
-@JsonInclude(JsonInclude.Include.ALWAYS)
-public interface ConnectorTableFunctionHandle
+import javax.inject.Inject;
+
+public class TableFunctionJacksonHandleModule
+        extends AbstractTypedJacksonModule<ConnectorTableFunctionHandle>
 {
+    @Inject
+    public TableFunctionJacksonHandleModule(HandleResolver handleResolver)
+    {
+        super(ConnectorTableFunctionHandle.class,
+                handleResolver::getId,
+                handleResolver::getTableFunctionHandleClass);
+    }
 }

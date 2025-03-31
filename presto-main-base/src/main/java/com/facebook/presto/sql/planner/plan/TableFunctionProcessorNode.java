@@ -216,7 +216,20 @@ public class TableFunctionProcessorNode
     @Override
     public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
     {
-        return null;
+        /*return new TableFunctionProcessorNode(getId(),
+                name,
+                properOutputs,
+                statsEquivalentPlanNode,
+                pruneWhenEmpty,
+                passThroughSpecifications,
+                requiredVariables,
+                markerVariables,
+                specification,
+                prePartitioned,
+                preSorted,
+                hashSymbol,
+                handle);*/
+        return this;
     }
 
     @Override

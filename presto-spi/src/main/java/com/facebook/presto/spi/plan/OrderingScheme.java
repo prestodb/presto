@@ -14,6 +14,8 @@
 package com.facebook.presto.spi.plan;
 
 import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.spi.LocalProperty;
+import com.facebook.presto.spi.SortingProperty;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -103,6 +105,14 @@ public class OrderingScheme
         stringBuilder.append(", orderings='").append(orderings).append('\'');
         stringBuilder.append('}');
         return stringBuilder.toString();
+    }
+
+    public List<LocalProperty<VariableReferenceExpression>> toLocalProperties()
+    {
+        return unmodifiableList(
+                getOrderBy().stream()
+                        .map(variable -> new SortingProperty<>(variable.getVariable(), getOrdering(variable.getVariable())))
+                        .collect(toList()));
     }
 
     private static void checkArgument(boolean condition, String messageFormat, Object... args)

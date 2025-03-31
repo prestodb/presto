@@ -161,6 +161,11 @@ public class UnaliasSymbolReferences
             this.warningCollector = warningCollector;
         }
 
+        public Map<String, String> getMapping()
+        {
+            return mapping;
+        }
+
         @Override
         public PlanNode visitAggregation(AggregationNode node, RewriteContext<UnaliasContext> context)
         {
@@ -592,74 +597,14 @@ public class UnaliasSymbolReferences
                         node.getHashSymbol().map(mapper::map),
                         node.getHandle());
 
-                return new UnaliasContext.PlanAndMappings(
-                        rewrittenTableFunctionProcessor,
-                        mappings)
-                {
-                    @Override
-                    public List<PlanNode> getSources()
-                    {
-                        return rewrittenTableFunctionProcessor.getSources();
-                    }
-
-                    @Override
-                    public List<VariableReferenceExpression> getOutputVariables()
-                    {
-                        return rewrittenTableFunctionProcessor.getOutputVariables();
-                    }
-
-                    @Override
-                    public PlanNode replaceChildren(List<PlanNode> newChildren)
-                    {
-                        return rewrittenTableFunctionProcessor.replaceChildren(newChildren);
-                    }
-
-                    @Override
-                    public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
-                    {
-                        return rewrittenTableFunctionProcessor.assignStatsEquivalentPlanNode(statsEquivalentPlanNode);
-                    }
-                };
+                return rewrittenTableFunctionProcessor;
             }
 
             PlanNode rewrittenSource = node.getSource().get().accept(this, context);
-            Map<VariableReferenceExpression, VariableReferenceExpression> mappings =
-                    Optional.ofNullable(context.get())
-                            .map(c -> new HashMap<>(c.getCorrelationMapping()))
-                            .orElseGet(HashMap::new);
+            Map<String, String> mappings = ((Rewriter) context.getNodeRewriter()).getMapping();
+            SymbolMapper mapper = new SymbolMapper(mappings, types, warningCollector);
 
-            SymbolMapper mapper = new SymbolMapper(mappings, warningCollector);
-
-            TableFunctionProcessorNode rewrittenTableFunctionProcessor = mapper.map(node, rewrittenSource);
-
-            return new UnaliasContext.PlanAndMappings(
-                    rewrittenTableFunctionProcessor,
-                    mappings)
-            {
-                @Override
-                public List<PlanNode> getSources()
-                {
-                    return rewrittenTableFunctionProcessor.getSources();
-                }
-
-                @Override
-                public List<VariableReferenceExpression> getOutputVariables()
-                {
-                    return rewrittenTableFunctionProcessor.getOutputVariables();
-                }
-
-                @Override
-                public PlanNode replaceChildren(List<PlanNode> newChildren)
-                {
-                    return rewrittenTableFunctionProcessor.replaceChildren(newChildren);
-                }
-
-                @Override
-                public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
-                {
-                    return rewrittenTableFunctionProcessor.assignStatsEquivalentPlanNode(statsEquivalentPlanNode);
-                }
-            };
+            return mapper.map(node, rewrittenSource);
         }
 
         @Override
