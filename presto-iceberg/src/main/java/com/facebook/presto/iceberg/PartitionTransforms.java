@@ -42,6 +42,7 @@ import static com.facebook.presto.common.type.Decimals.isLongDecimal;
 import static com.facebook.presto.common.type.Decimals.isShortDecimal;
 import static com.facebook.presto.common.type.Decimals.readBigDecimal;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
@@ -51,6 +52,7 @@ import static java.lang.Integer.parseInt;
 import static java.lang.Math.floorDiv;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.joda.time.chrono.ISOChronology.getInstanceUTC;
 
 public final class PartitionTransforms
@@ -156,6 +158,11 @@ public final class PartitionTransforms
                 return new ColumnTransform(transform, INTEGER,
                         block -> bucketDate(block, count),
                         (block, position) -> bucketValueDate(block, position, count));
+            }
+            if (type.equals(TIME)) {
+                return new ColumnTransform(transform, INTEGER,
+                        block -> bucketTime(block, count),
+                        (block, position) -> bucketValueTime(block, position, count));
             }
             if (type instanceof VarcharType) {
                 return new ColumnTransform(transform, INTEGER,
@@ -307,6 +314,16 @@ public final class PartitionTransforms
     private static int bucketValueDate(Block block, int position, int count)
     {
         return bucketValue(block, position, count, pos -> bucketHash(DATE.getLong(block, pos)));
+    }
+
+    private static Block bucketTime(Block block, int count)
+    {
+        return bucketBlock(block, count, position -> bucketHash(MILLISECONDS.toMicros(TIME.getLong(block, position))));
+    }
+
+    private static int bucketValueTime(Block block, int position, int count)
+    {
+        return bucketValue(block, position, count, pos -> bucketHash(MILLISECONDS.toMicros(TIME.getLong(block, pos))));
     }
 
     private static Block bucketVarchar(Block block, int count)
