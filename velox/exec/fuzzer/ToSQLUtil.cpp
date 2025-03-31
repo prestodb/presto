@@ -254,39 +254,24 @@ std::string toDereferenceSql(const core::DereferenceTypedExprPtr& dereference) {
   return sql.str();
 }
 
-// Constant expressions of complex types, timestamp with timezone, interval, and
-// decimal types are not supported yet.
 std::string toConstantSql(const core::ConstantTypedExprPtr& constant) {
-  // Escape single quote in string literals used in SQL texts.
-  auto escape = [](const std::string& input) -> std::string {
-    std::string result;
-    result.reserve(input.size());
-    for (auto i = 0; i < input.size(); ++i) {
-      if (input[i] == '\'') {
-        result.push_back('\'');
-      }
-      result.push_back(input[i]);
-    }
-    return result;
-  };
+  const auto& type = constant->type();
+  const auto typeSql = toTypeSql(type);
 
   std::stringstream sql;
   if (constant->toString() == "null") {
     // Syntax like BIGINT 'null' for typed null is not supported, so use cast
     // instead.
-    sql << fmt::format("cast(null as {})", toTypeSql(constant->type()));
-  } else if (constant->type()->isVarchar() || constant->type()->isVarbinary()) {
-    sql << fmt::format(
-        "{} '{}'",
-        toTypeSql(constant->type()),
-        escape(constant->valueVector()->toString(0)));
-  } else if (constant->type()->isPrimitiveType()) {
-    sql << fmt::format(
-        "{} '{}'", toTypeSql(constant->type()), constant->toString());
+    sql << fmt::format("cast(null as {})", typeSql);
+  } else if (type->isVarchar() || type->isVarbinary()) {
+    // Escape single quote in string literals used in SQL texts.
+    sql << typeSql << " "
+        << std::quoted(constant->valueVector()->toString(0), '\'', '\'');
+  } else if (type->isPrimitiveType()) {
+    sql << fmt::format("{} '{}'", typeSql, constant->toString());
   } else {
     VELOX_NYI(
-        "Constant expressions of {} are not supported yet.",
-        constant->type()->toString());
+        "Constant expressions of {} are not supported yet.", type->toString());
   }
   return sql.str();
 }

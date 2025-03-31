@@ -45,6 +45,9 @@ std::string toConcatSql(const core::ConcatTypedExprPtr& concat);
 std::string toDereferenceSql(const core::DereferenceTypedExprPtr& dereference);
 
 /// Convert a constant expression into a SQL string.
+///
+/// Constant expressions of complex types, timestamp with timezone, interval,
+/// and decimal types are not supported yet.
 std::string toConstantSql(const core::ConstantTypedExprPtr& constant);
 
 // Converts aggregate call expression into a SQL string.
