@@ -354,6 +354,7 @@ public class SymbolMapper
             newPassThroughSpecifications.add(new TableFunctionNode.PassThroughSpecification(specification.isDeclaredAsPassThrough(), newColumns.build()));
         }
 
+        // rewrite required symbols without deduplication. the table function expects specific input layout
         List<List<VariableReferenceExpression>> newRequiredVariables = node.getRequiredVariables().stream()
                 .map(this::map)
                 .collect(toImmutableList());
@@ -369,6 +370,7 @@ public class SymbolMapper
                                     return first;
                                 })));
 
+        // rewrite and deduplicate specification
         Optional<SpecificationWithPreSortedPrefix> newSpecification = node.getSpecification().map(specification -> mapAndDistinct(specification, node.getPreSorted()));
 
         return new TableFunctionProcessorNode(
