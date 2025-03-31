@@ -94,3 +94,28 @@ configuration variable ``catalog.config-dir``. In order for Presto to pick up
 the new plugin, you must restart Presto.
 
 Plugins must be installed on all nodes in the Presto cluster (coordinator and workers).
+
+Coordinator Plugin
+------------------
+
+The ``CoordinatorPlugin`` interface allows plugins to provide additional
+functionality specifically for the Presto coordinator. ``CoordinatorPlugin``
+contains methods to retrieve different classes that allow customization of
+session properties, functions, expression optimizers, and plan checkers.
+
+Native Sidecar Plugin
+---------------------
+
+Presto ``NativeSidecarPlugin`` implements the ``CoordinatorPlugin`` interface
+to customize coordinator functionality in a Presto C++ cluster. The following
+classes are provided by ``NativeSidecarPlugin`` to implement the respective
+methods in ``CoordinatorPlugin`` via provider factories.
+
+.. code-block:: none
+
+           Customizes        |           CoordinatorPlugin Method           |      NativeSidecarPlugin Class
+    -------------------------+----------------------------------------------+--------------------------------------
+       Session properties    |   getWorkerSessionPropertyProviderFactories  | NativeSystemSessionPropertyProvider
+           Functions         |      getFunctionNamespaceManagerFactories    |    NativeFunctionNamespaceManager
+          Plan Checker       |         getPlanCheckerProviderFactories      |     NativePlanCheckerProvider
+      Expression Optimizer   |             Not Yet Implemented              |        Not Yet Implemented
