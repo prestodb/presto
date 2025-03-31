@@ -1224,7 +1224,8 @@ Transform Name        Source Types
 ``Identity``          ``boolean``, ``int``, ``bigint``, ``real``, ``double``, ``decimal``,
                       ``varchar``, ``varbinary``, ``date``, ``time``, ``timestamp``
 
-``Bucket``            ``int``, ``bigint``, ``decimal``, ``varchar``, ``varbinary``, ``date``
+``Bucket``            ``int``, ``bigint``, ``decimal``, ``varchar``, ``varbinary``, ``date``,
+                      ``time``
 
 ``Truncate``          ``int``, ``bigint``, ``decimal``, ``varchar``, ``varbinary``
 

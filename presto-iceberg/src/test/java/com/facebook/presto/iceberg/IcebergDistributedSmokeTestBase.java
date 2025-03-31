@@ -1537,12 +1537,39 @@ public abstract class IcebergDistributedSmokeTestBase
     @Test
     public void testBucketTransformOnTime()
     {
-        //TODO: Not yet support bucket transform for time, which was supported by Iceberg
-        assertUpdate("create table test_bucket_transform_time(col_time time)" +
-                "with (partitioning = ARRAY['bucket(col_time, 2)'])");
-        assertQueryFails("insert into test_bucket_transform_time values(time '01:02:03.123')",
-                "Unsupported type for 'bucket': 1000: col_time_bucket: bucket\\[2\\]\\(1\\)");
-        assertUpdate("drop table if exists test_bucket_transform_time");
+        testWithAllFileFormats(this::testBucketTransformsOnTimeForFormat);
+    }
+
+    private void testBucketTransformsOnTimeForFormat(Session session, FileFormat format)
+    {
+        String select = "SELECT a_bucket, row_count, a.min AS a_min, a.max AS a_max, b.min AS b_min, b.max AS b_max FROM \"test_bucket_transform_on_time$partitions\"";
+
+        assertUpdate(session, format("CREATE TABLE test_bucket_transform_on_time (a TIME, b BIGINT)" +
+                " WITH (\"write.format.default\" = '%s', partitioning = ARRAY['bucket(a, 4)'])", format.name()));
+        String insertSql = "INSERT INTO test_bucket_transform_on_time VALUES" +
+                "(time '01:02:03.123', 1)," +
+                "(time '21:22:50.002', 2)," +
+                "(time '12:13:14.345', 3)," +
+                "(time '00:00:01.001', 4)," +
+                "(time '23:23:59.999', 5)," +
+                "(time '00:00:00.000', 6)," +
+                "(time '07:31:55.425', 7)";
+        assertUpdate(session, insertSql, 7);
+
+        assertQuery(session, "SELECT COUNT(*) FROM \"test_bucket_transform_on_time$partitions\"", "SELECT 4");
+
+        assertQuery(session, select + " WHERE a_bucket = 0", "VALUES(0, 2, time '00:00:00.000', time '12:13:14.345', 3, 6)");
+        assertQuery(session, select + " WHERE a_bucket = 1", "VALUES(1, 1, time '23:23:59.999', time '23:23:59.999', 5, 5)");
+        assertQuery(session, select + " WHERE a_bucket = 2", "VALUES(2, 1, time '21:22:50.002', time '21:22:50.002', 2, 2)");
+        assertQuery(session, select + " WHERE a_bucket = 3", "VALUES(3, 3, time '00:00:01.001', time '07:31:55.425', 1, 7)");
+
+        assertQuery(session, "select * from test_bucket_transform_on_time where a = time '01:02:03.123'",
+                "VALUES(time '01:02:03.123', 1)");
+        assertQuery(session, "select * from test_bucket_transform_on_time where a > time '01:02:03.123' and a <= time '12:13:14.345'",
+                "VALUES(time '07:31:55.425', 7), (time '12:13:14.345', 3)");
+        assertQuery(session, "select * from test_bucket_transform_on_time where a in (time '00:00:01.001', time '21:22:50.002')",
+                "VALUES(time '00:00:01.001', 4), (time '21:22:50.002', 2)");
+        dropTable(session, "test_bucket_transform_on_time");
     }
 
     @Test
