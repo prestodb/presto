@@ -120,8 +120,6 @@ public class TestingAccessControlManager
     @Override
     public void checkCanSetUser(Identity identity, AccessControlContext context, Optional<Principal> principal, String userName)
     {
-        context.getAccessControlResults().logToAccessControlResultsHash("test", "test1");
-
         if (shouldDenyPrivilege(userName, userName, SET_USER)) {
             denySetUser(principal, userName);
         }
