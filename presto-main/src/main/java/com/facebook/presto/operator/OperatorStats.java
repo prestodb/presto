@@ -205,8 +205,10 @@ public class OperatorStats
         this.getOutputCpu = requireNonNull(getOutputCpu, "getOutputCpu is null");
         checkArgument(getOutputAllocationInBytes >= 0, "getOutputAllocationInBytes is negative");
         this.getOutputAllocationInBytes = getOutputAllocationInBytes;
-        checkArgument(outputDataSizeInBytes >= 0, "outputDataSizeInBytes is negative");
-        this.outputDataSizeInBytes = outputDataSizeInBytes;
+
+        // An overflow could have occurred on this stat - handle this gracefully.
+        this.outputDataSizeInBytes = (outputDataSizeInBytes >= 0) ? outputDataSizeInBytes : Long.MAX_VALUE;
+
         checkArgument(outputPositions >= 0, "outputPositions is negative");
         this.outputPositions = outputPositions;
 
