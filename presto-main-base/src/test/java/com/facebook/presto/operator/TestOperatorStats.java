@@ -85,7 +85,7 @@ public class TestOperatorStats
             new Duration(18, NANOSECONDS),
             345L,
 
-            1_000_000_000L,
+            Long.MAX_VALUE,
             20L,
             21L,
             22L,
@@ -213,7 +213,7 @@ public class TestOperatorStats
         assertEquals(actual.getFinishCpu(), new Duration(18, NANOSECONDS));
         assertEquals(actual.getFinishAllocationInBytes(), 345);
 
-        assertEquals(actual.getUserMemoryReservationInBytes(), 1_000_000_000L);
+        assertEquals(actual.getUserMemoryReservationInBytes(), Long.MAX_VALUE);
         assertEquals(actual.getRevocableMemoryReservationInBytes(), 20);
         assertEquals(actual.getSystemMemoryReservationInBytes(), 21);
         assertEquals(actual.getPeakUserMemoryReservationInBytes(), 22);
@@ -262,7 +262,7 @@ public class TestOperatorStats
         assertEquals(actual.getFinishCpu(), new Duration(3 * 18, NANOSECONDS));
         assertEquals(actual.getFinishAllocationInBytes(), 3 * 345);
 
-        assertEquals(actual.getUserMemoryReservationInBytes(), 3 * 1_000_000_000L);
+        assertEquals(actual.getUserMemoryReservationInBytes(), Long.MAX_VALUE);
         assertEquals(actual.getRevocableMemoryReservationInBytes(), 3 * 20);
         assertEquals(actual.getSystemMemoryReservationInBytes(), 3 * 21);
         assertEquals(actual.getPeakUserMemoryReservationInBytes(), 22);
