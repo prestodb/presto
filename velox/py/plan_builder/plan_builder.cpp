@@ -196,6 +196,27 @@ PYBIND11_MODULE(plan_builder, m) {
                       to the query output.
       )"))
       .def(
+          "hash_join",
+          &velox::py::PyPlanBuilder::hashJoin,
+          py::arg("left_keys"),
+          py::arg("right_keys"),
+          py::arg("build_plan_node"),
+          py::arg("output") = std::vector<std::string>{},
+          py::arg("filter") = "",
+          py::arg("join_type") = velox::core::JoinType::kInner,
+          py::doc(R"(
+        Adds a hash join node. Uses the build_plan_node subtree to build the
+        hash table, and the current subtree as the probe side.
+
+        Args:
+          left_keys: List of keys from the left table (probe).
+          right_keys: List of keys from the right table (build).
+          build_plan_node: The plan node defined the subplan to join with.
+          output: List of columns to be projected out of the join.
+          filter: Optional join filter expression.
+          join_type: Join type (inner, left, right, full, etc).
+      )"))
+      .def(
           "merge_join",
           &velox::py::PyPlanBuilder::mergeJoin,
           py::arg("left_keys"),
@@ -205,7 +226,8 @@ PYBIND11_MODULE(plan_builder, m) {
           py::arg("filter") = "",
           py::arg("join_type") = velox::core::JoinType::kInner,
           py::doc(R"(
-        Adds a merge join node.
+        Adds a merge join node. Merge join requires that left and right sides
+        and sorted based on the join keys.
 
         Args:
           left_keys: List of keys from the left table.
@@ -213,6 +235,7 @@ PYBIND11_MODULE(plan_builder, m) {
           right_plan_node: The plan node defined the subplan to join with.
           output: List of columns to be projected out of the join.
           filter: Optional join filter expression.
+          join_type: Join type (inner, left, right, full, etc).
       )"))
       .def(
           "sorted_merge",

@@ -220,6 +220,26 @@ class PyPlanBuilder {
   /// applied once per driver, or if it's applied to the query output.
   PyPlanBuilder& limit(int64_t count, int64_t offset, bool isPartial);
 
+  /// Adds a hash join node. Uses the build_plan_node subtree to build the
+  /// hash table, and the current subtree as the probe side.
+  ///
+  /// @param leftKeys Set of join keys from the left (current plan builder)
+  /// plan subtree.
+  /// @param leftKeys Set of join keys from the right plan subtree.
+  /// @param buildPlanSubtree Subtree to join to.
+  /// @param output List of column names to project in the output of the
+  /// join.
+  /// @param filter An optional filter specified as a SQL expression to be
+  /// applied during the join.
+  /// @param joinType The type of join (kInner, kLeft, kRight, or kFull)
+  PyPlanBuilder& hashJoin(
+      const std::vector<std::string>& leftKeys,
+      const std::vector<std::string>& rightKeys,
+      const PyPlanNode& buildPlanSubtree,
+      const std::vector<std::string>& output,
+      const std::string& filter,
+      core::JoinType joinType);
+
   /// Add a merge join node to the plan. Assumes that both left and right
   /// subtrees will produce input sorted in join key order.
   ///

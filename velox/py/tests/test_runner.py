@@ -15,6 +15,7 @@
 import json
 import unittest
 import pyarrow
+import random
 import tempfile
 
 from velox.py.arrow import to_velox
@@ -88,7 +89,42 @@ class TestPyVeloxRunner(unittest.TestCase):
         )
         self.assertEqual(output, expected_result)
 
-    def test_runner_with_join(self):
+    def test_runner_with_hash_join(self):
+        batch_size = 100
+        probe = list(range(batch_size))
+        build = [i for i in probe if i % 2 == 0]
+        random.shuffle(probe)
+        random.shuffle(build)
+
+        probe_vector = to_velox(
+            pyarrow.record_batch([pyarrow.array(probe)], names=["c0"])
+        )
+        build_vector = to_velox(
+            pyarrow.record_batch([pyarrow.array(build)], names=["c1"])
+        )
+
+        plan_builder = PlanBuilder()
+        plan_builder.values([probe_vector]).hash_join(
+            left_keys=["c0"],
+            right_keys=["c1"],
+            build_plan_node=(
+                plan_builder.new_builder().values([build_vector]).get_plan_node()
+            ),
+            output=["c0"],
+        )
+        plan_builder.aggregate(aggregations=["sum(c0)"])
+
+        runner = LocalRunner(plan_builder.get_plan_node())
+        iterator = runner.execute()
+        vector = next(iterator)
+
+        self.assertRaises(StopIteration, next, iterator)
+        self.assertEqual(vector.size(), 1)
+
+        result = int(vector.child_at(0)[0])
+        self.assertEqual(result, sum(build))
+
+    def test_runner_with_merge_join(self):
         batch_size = 10
         array = pyarrow.array([42] * batch_size)
         batch = to_velox(pyarrow.record_batch([array], names=["c0"]))

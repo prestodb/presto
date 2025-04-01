@@ -277,6 +277,23 @@ PyPlanBuilder::limit(int64_t count, int64_t offset, bool isPartial) {
   return *this;
 }
 
+PyPlanBuilder& PyPlanBuilder::hashJoin(
+    const std::vector<std::string>& leftKeys,
+    const std::vector<std::string>& rightKeys,
+    const PyPlanNode& buildPlanSubtree,
+    const std::vector<std::string>& output,
+    const std::string& filter,
+    core::JoinType joinType) {
+  planBuilder_.hashJoin(
+      leftKeys,
+      rightKeys,
+      buildPlanSubtree.planNode(),
+      filter,
+      output,
+      joinType);
+  return *this;
+}
+
 PyPlanBuilder& PyPlanBuilder::mergeJoin(
     const std::vector<std::string>& leftKeys,
     const std::vector<std::string>& rightKeys,
