@@ -22,6 +22,7 @@ jobs:
         java: [ 8, 17.0.13 ]
         modules:
           - ":presto-base-arrow-flight"  # Only run tests for the `presto-base-arrow-flight` module
+          - "!:presto-ui"
 
     timeout-minutes: 80
     concurrency:
