@@ -14,7 +14,6 @@
 set -e
 set -x
 
-export nproc=$(getconf _NPROCESSORS_ONLN)
 export CC=/opt/rh/gcc-toolset-12/root/bin/gcc
 export CXX=/opt/rh/gcc-toolset-12/root/bin/g++
 
@@ -29,6 +28,9 @@ else
   source "${SCRIPT_DIR}/../velox/scripts/setup-centos9.sh"
 fi
 
+# NPROC is normally sourced from the Velox setup scripts.
+export NPROC=${NPROC:-$(getconf _NPROCESSORS_ONLN)}
+
 function install_presto_deps_from_package_managers {
   dnf install -y maven java clang-tools-extra jq perl-XML-XPath
   # This python version is installed by the Velox setup scripts
@@ -40,7 +42,7 @@ function install_gperf {
   tar -xzf gperf-3.1.tar.gz &&
   cd gperf-3.1 &&
   ./configure --prefix=/usr/local/gperf/3_1 &&
-  make "-j$(nproc)" &&
+  make "-j${NPROC}" &&
   make install
   if [ -f /usr/local/bin/gperf ]; then
     echo "Did not create '/usr/local/bin/gperf' symlink as file already exists."
