@@ -3,4 +3,8 @@
         <name>fs.default.name</name>
         <value>hdfs://hadoop-master:9000</value>
     </property>
+    <property>
+        <name>dfs.client.use.legacy.blockreader</name>
+        <value>true</value>
+    </property>
 </configuration>
