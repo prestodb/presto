@@ -36,19 +36,16 @@ void toCallInputsSql(
 std::string toCallSql(const core::CallTypedExprPtr& call);
 
 /// Convert a cast expression into a SQL string.
-std::string toCastSql(const core::CastTypedExprPtr& cast);
+std::string toCastSql(const core::CastTypedExpr& cast);
 
 /// Convert a concat expression into a SQL string.
-std::string toConcatSql(const core::ConcatTypedExprPtr& concat);
-
-/// Convert a dereference expression into a SQL string.
-std::string toDereferenceSql(const core::DereferenceTypedExprPtr& dereference);
+std::string toConcatSql(const core::ConcatTypedExpr& concat);
 
 /// Convert a constant expression into a SQL string.
 ///
 /// Constant expressions of complex types, timestamp with timezone, interval,
 /// and decimal types are not supported yet.
-std::string toConstantSql(const core::ConstantTypedExprPtr& constant);
+std::string toConstantSql(const core::ConstantTypedExpr& constant);
 
 // Converts aggregate call expression into a SQL string.
 std::string toAggregateCallSql(

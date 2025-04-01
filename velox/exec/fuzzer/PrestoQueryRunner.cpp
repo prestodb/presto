@@ -348,16 +348,16 @@ std::optional<std::string> PrestoQueryRunner::toSql(
     } else if (
         auto cast =
             std::dynamic_pointer_cast<const core::CastTypedExpr>(projection)) {
-      sql << toCastSql(cast);
+      sql << toCastSql(*cast);
     } else if (
         auto concat = std::dynamic_pointer_cast<const core::ConcatTypedExpr>(
             projection)) {
-      sql << toConcatSql(concat);
+      sql << toConcatSql(*concat);
     } else if (
         auto constant =
             std::dynamic_pointer_cast<const core::ConstantTypedExpr>(
                 projection)) {
-      sql << toConstantSql(constant);
+      sql << toConstantSql(*constant);
     } else {
       VELOX_NYI();
     }

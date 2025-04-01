@@ -73,6 +73,15 @@ std::string toLambdaSql(const core::LambdaTypedExprPtr& lambda) {
   return sql.str();
 }
 
+namespace {
+std::string toDereferenceSql(const core::DereferenceTypedExpr& dereference) {
+  std::stringstream sql;
+  toCallInputsSql(dereference.inputs(), sql);
+  sql << "." << dereference.name();
+  return sql.str();
+}
+} // namespace
+
 void toCallInputsSql(
     const std::vector<core::TypedExprPtr>& inputs,
     std::stringstream& sql) {
@@ -95,20 +104,20 @@ void toCallInputsSql(
     } else if (
         auto constantArg =
             std::dynamic_pointer_cast<const core::ConstantTypedExpr>(input)) {
-      sql << toConstantSql(constantArg);
+      sql << toConstantSql(*constantArg);
     } else if (
         auto castArg =
             std::dynamic_pointer_cast<const core::CastTypedExpr>(input)) {
-      sql << toCastSql(castArg);
+      sql << toCastSql(*castArg);
     } else if (
         auto concatArg =
             std::dynamic_pointer_cast<const core::ConcatTypedExpr>(input)) {
-      sql << toConcatSql(concatArg);
+      sql << toConcatSql(*concatArg);
     } else if (
         auto dereferenceArg =
             std::dynamic_pointer_cast<const core::DereferenceTypedExpr>(
                 input)) {
-      sql << toDereferenceSql(dereferenceArg);
+      sql << toDereferenceSql(*dereferenceArg);
     } else {
       VELOX_NYI("Unsupported input expression: {}.", input->toString());
     }
@@ -223,58 +232,51 @@ std::string toCallSql(const core::CallTypedExprPtr& call) {
   return sql.str();
 }
 
-std::string toCastSql(const core::CastTypedExprPtr& cast) {
+std::string toCastSql(const core::CastTypedExpr& cast) {
   std::stringstream sql;
-  if (cast->nullOnFailure()) {
+  if (cast.nullOnFailure()) {
     sql << "try_cast(";
   } else {
     sql << "cast(";
   }
-  toCallInputsSql(cast->inputs(), sql);
-  sql << " as " << toTypeSql(cast->type());
+  toCallInputsSql(cast.inputs(), sql);
+  sql << " as " << toTypeSql(cast.type());
   sql << ")";
   return sql.str();
 }
 
-std::string toConcatSql(const core::ConcatTypedExprPtr& concat) {
+std::string toConcatSql(const core::ConcatTypedExpr& concat) {
   std::stringstream sql;
   sql << "row(";
-  toCallInputsSql(concat->inputs(), sql);
+  toCallInputsSql(concat.inputs(), sql);
   sql << ")";
   return sql.str();
 }
 
-std::string toDereferenceSql(const core::DereferenceTypedExprPtr& dereference) {
-  std::stringstream sql;
-  toCallInputsSql(dereference->inputs(), sql);
-  sql << "." << dereference->name();
-  return sql.str();
-}
-
-std::string toConstantSql(const core::ConstantTypedExprPtr& constant) {
-  const auto& type = constant->type();
+std::string toConstantSql(const core::ConstantTypedExpr& constant) {
+  const auto& type = constant.type();
   const auto typeSql = toTypeSql(type);
 
   std::stringstream sql;
-  if (constant->isNull()) {
+  if (constant.isNull()) {
     // Syntax like BIGINT 'null' for typed null is not supported, so use cast
     // instead.
     sql << fmt::format("cast(null as {})", typeSql);
   } else if (type->isVarchar() || type->isVarbinary()) {
     std::string value;
-    if (constant->hasValueVector()) {
-      value = constant->valueVector()
+    if (constant.hasValueVector()) {
+      value = constant.valueVector()
                   ->as<SimpleVector<StringView>>()
                   ->valueAt(0)
                   .getString();
     } else {
-      value = constant->value().value<std::string>();
+      value = constant.value().value<std::string>();
     }
 
     // Escape single quote in string literals used in SQL texts.
     sql << typeSql << " " << std::quoted(value, '\'', '\'');
   } else if (type->isPrimitiveType()) {
-    sql << fmt::format("{} '{}'", typeSql, constant->toString());
+    sql << fmt::format("{} '{}'", typeSql, constant.toString());
   } else {
     VELOX_NYI(
         "Constant expressions of {} are not supported yet.", type->toString());
