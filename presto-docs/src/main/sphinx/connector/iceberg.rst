@@ -1097,6 +1097,13 @@ Statistics file cache invalidation procedure
 
     CALL <catalog-name>.system.invalidate_statistics_file_cache();
 
+Manifest file cache invalidation procedure
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* Invalidate Manifest file cache ::
+
+    CALL <catalog-name>.system.invalidate_manifest_file_cache();
+
 Set Table Property
 ^^^^^^^^^^^^^^^^^^
 
