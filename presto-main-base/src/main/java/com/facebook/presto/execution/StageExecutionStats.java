@@ -203,8 +203,10 @@ public class StageExecutionStats
 
         checkArgument(bufferedDataSizeInBytes >= 0, "bufferedDataSizeInBytes is negative");
         this.bufferedDataSizeInBytes = bufferedDataSizeInBytes;
-        checkArgument(outputDataSizeInBytes >= 0, "outputDataSizeInBytes is negative");
-        this.outputDataSizeInBytes = outputDataSizeInBytes;
+
+        // An overflow could have occurred on this stat - handle this gracefully.
+        this.outputDataSizeInBytes = (outputDataSizeInBytes >= 0) ? outputDataSizeInBytes : Long.MAX_VALUE;
+
         checkArgument(outputPositions >= 0, "outputPositions is negative");
         this.outputPositions = outputPositions;
 
