@@ -85,6 +85,8 @@ class SelectiveRepeatedColumnReader : public SelectiveColumnReader {
     return i;
   }
 
+  void ensureAllLengthsBuffer(vector_size_t size);
+
   BufferPtr allLengthsHolder_;
   vector_size_t* allLengths_;
   RowSet nestedRows_;
