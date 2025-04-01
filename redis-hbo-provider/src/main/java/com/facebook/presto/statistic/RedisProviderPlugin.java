@@ -41,6 +41,11 @@ public class RedisProviderPlugin
         this(initializeConfigs(configPath));
     }
 
+    public RedisProviderPlugin()
+    {
+        this(RedisProviderConfig.REDIS_PROPERTIES_PATH);
+    }
+
     @VisibleForTesting
     public RedisProviderPlugin(Map<String, String> configs)
     {
