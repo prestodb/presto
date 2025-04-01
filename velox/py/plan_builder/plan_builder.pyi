@@ -17,7 +17,7 @@
 # pyre-unsafe
 
 from enum import Enum
-from typing import List, Dict, Type
+from typing import List, Dict, Type, Optional
 
 from velox.py.file import File
 from velox.py.type import Type
@@ -40,6 +40,21 @@ class PlanBuilder:
         row_index: str = "",
         connector_id: str = "prism",
         input_files: List[File] = [],
+    ) -> PlanBuilder: ...
+    def tpch_gen(
+        self,
+        table_name: str,
+        columns: list[str] = [],
+        scale_factor: int = 1,
+        num_parts: int = 1,
+        connector_id: str = "tpch"
+    ) -> PlanBuilder: ...
+    def table_write(
+        self,
+        output_file: Optional[File] = None,
+        output_path: Optional[File] = None,
+        connector_id: str = "hive",
+        output_schema: Optional[Type] = None,
     ) -> PlanBuilder: ...
     def get_plan_node(self) -> PlanBuilder: ...
     def new_builder(self) -> PlanBuilder: ...

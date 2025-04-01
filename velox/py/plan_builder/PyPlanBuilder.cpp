@@ -42,6 +42,7 @@ folly::once_flag registerOnceFlag;
 void registerAllResourcesOnce() {
   velox::filesystems::registerLocalFileSystem();
 
+  // Register file readers and writers.
   velox::dwrf::registerDwrfWriterFactory();
   velox::dwrf::registerDwrfReaderFactory();
 

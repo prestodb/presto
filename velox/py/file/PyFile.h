@@ -26,6 +26,8 @@ class PyFile {
   PyFile(const std::string& filePath, dwio::common::FileFormat fileFormat)
       : filePath_(filePath), fileFormat_(fileFormat) {}
 
+  PyFile(std::string filePath, std::string formatString);
+
   std::string toString() const;
 
   std::string filePath() const {
@@ -58,6 +60,10 @@ class PyFile {
 
   static PyFile createText(const std::string& filePath) {
     return PyFile(filePath, dwio::common::FileFormat::TEXT);
+  }
+
+  bool equals(const PyFile& other) const {
+    return filePath_ == other.filePath_ && fileFormat_ == other.fileFormat_;
   }
 
  private:

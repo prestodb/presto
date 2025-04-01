@@ -14,7 +14,7 @@
 
 import unittest
 
-from velox.py.file import PARQUET, DWRF, NIMBLE, ORC, JSON, TEXT
+from velox.py.file import PARQUET, DWRF, NIMBLE, ORC, JSON, TEXT, File
 
 
 class TestPyVeloxFile(unittest.TestCase):
@@ -32,3 +32,16 @@ class TestPyVeloxFile(unittest.TestCase):
         self.assertEqual(str(file_orc), "orc_file (orc)")
         self.assertEqual(str(file_json), "dir2/other_file.json (json)")
         self.assertEqual(str(file_text), "a/b/csome_file.txt (text)")
+
+    def test_input_file_string(self):
+        p = "/any/path"
+
+        self.assertEqual(File(p, "parquet"), PARQUET(p))
+        self.assertEqual(File(p, "nimble"), NIMBLE(p))
+        self.assertEqual(File(p, "dwrf"), DWRF(p))
+
+        self.assertEqual(File(p, "DWRF"), DWRF(p))
+        self.assertEqual(File(p, "dWrF"), DWRF(p))
+
+        self.assertRaises(RuntimeError, File, p, "bla")
+        self.assertRaises(RuntimeError, File, p, "unknown")

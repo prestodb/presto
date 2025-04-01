@@ -16,8 +16,27 @@
 
 #include "velox/py/file/PyFile.h"
 #include <fmt/format.h>
+#include <folly/String.h>
 
 namespace facebook::velox::py {
+namespace {
+
+dwio::common::FileFormat toFileFormat(std::string formatString) {
+  folly::toLowerAscii(formatString);
+  auto format = dwio::common::toFileFormat(formatString);
+
+  if (format == dwio::common::FileFormat::UNKNOWN) {
+    throw std::runtime_error(
+        fmt::format("Unknown file format: {}", formatString));
+  }
+  return format;
+}
+
+} // namespace
+
+PyFile::PyFile(std::string filePath, std::string formatString)
+    : filePath_(std::move(filePath)),
+      fileFormat_(toFileFormat(std::move(formatString))) {}
 
 std::string PyFile::toString() const {
   return fmt::format("{} ({})", filePath_, fileFormat_);
