@@ -196,22 +196,22 @@ public abstract class TestHiveQueriesWithCatalogName
     @Test
     public void testListSchemasAndListTablesAcrossCatalogs()
     {
-        String HIVE_TEST_SCHEMA_1 = "hive_test_schema_01";
-        String HIVE_TEST_SCHEMA_2 = "hive_test_schema_02";
+        String hiveTestSchema01 = "hive_test_schema_01";
+        String hiveTestSchema02 = "hive_test_schema_02";
         // Create two schemas in different locations
         computeActual(format(
                 "CREATE SCHEMA hive.%1$s WITH (location='s3a://%2$s/%1$s')",
-                HIVE_TEST_SCHEMA_1,
+                hiveTestSchema01,
                 bucketName));
 
         computeActual(format(
                 "CREATE SCHEMA hive.%1$s WITH (location='s3a://%2$s/%1$s')",
-                HIVE_TEST_SCHEMA_2,
+                hiveTestSchema02,
                 bucketName));
 
         // Create tables in both schemas
-        String testTableSchema1 = format("hive.%s.%s", HIVE_TEST_SCHEMA_1, "nation_" + randomTableSuffix());
-        String testTableSchema2 = format("hive.%s.%s", HIVE_TEST_SCHEMA_2, "region_" + randomTableSuffix());
+        String testTableSchema1 = format("hive.%s.%s", hiveTestSchema01, "nation_" + randomTableSuffix());
+        String testTableSchema2 = format("hive.%s.%s", hiveTestSchema02, "region_" + randomTableSuffix());
 
         computeActual(getCreateTableStatement(testTableSchema1));
         computeActual(getCreateTableStatement(testTableSchema2));
@@ -222,12 +222,12 @@ public abstract class TestHiveQueriesWithCatalogName
                 .map(row -> row.getField(0).toString())
                 .collect(Collectors.toList());
 
-        assertTrue(schemaNames.contains(HIVE_TEST_SCHEMA_1), "Schema 1 is missing");
-        assertTrue(schemaNames.contains(HIVE_TEST_SCHEMA_2), "Schema 2 is missing");
+        assertTrue(schemaNames.contains(hiveTestSchema01), "Schema 1 is missing");
+        assertTrue(schemaNames.contains(hiveTestSchema02), "Schema 2 is missing");
 
         // Verify that each table is listed under its own schema
-        MaterializedResult tablesSchema1 = computeActual(format("SHOW TABLES FROM hive.%s", HIVE_TEST_SCHEMA_1));
-        MaterializedResult tablesSchema2 = computeActual(format("SHOW TABLES FROM hive.%s", HIVE_TEST_SCHEMA_2));
+        MaterializedResult tablesSchema1 = computeActual(format("SHOW TABLES FROM hive.%s", hiveTestSchema01));
+        MaterializedResult tablesSchema2 = computeActual(format("SHOW TABLES FROM hive.%s", hiveTestSchema02));
 
         List<String> tableNamesSchema1 = tablesSchema1.getMaterializedRows().stream()
                 .map(row -> row.getField(0).toString())
