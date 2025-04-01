@@ -179,7 +179,6 @@ public class S3SelectTestHelper
                 columnConverterProvider,
                 new QuickStatsProvider(metastoreClient, hdfsEnvironment, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()),
                 new HiveTableWritabilityChecker(config));
-
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(
                 transactionManager,

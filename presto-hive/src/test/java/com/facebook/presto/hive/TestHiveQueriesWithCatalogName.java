@@ -25,6 +25,7 @@ import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static com.facebook.airlift.testing.Closeables.closeAllRuntimeException;
 import static com.facebook.presto.tests.sql.TestTable.randomTableSuffix;
@@ -39,8 +40,8 @@ public abstract class TestHiveQueriesWithCatalogName
 {
     private static final String HIVE_TEST_SCHEMA_1 = "hive_test_schema_1";
     private static final String HIVE_TEST_SCHEMA_2 = "hive_test_schema_2";
-    private static final String HIVE_TEST_CATALOG_1 = "hive_test_catalog_1";
-    private static final String HIVE_TEST_CATALOG_2 = "hive_test_catalog_2";
+    private static final String HIVE_CATALOG = "hive";
+    private static final String HIVE_BUCKETED_CATALOG = "hive_bucketed";
 
     private String bucketName;
     private HiveMinIODataLake dockerizedS3DataLake;
@@ -52,12 +53,11 @@ public abstract class TestHiveQueriesWithCatalogName
         this.hiveHadoopImage = requireNonNull(hiveHadoopImage, "hiveHadoopImage is null");
     }
 
-    //TODO: Write E2E test cases by passing the catalog name and then validate if metastore is able to deal with the catalog name
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.bucketName = "test-schema-with-catalog-name-" + randomTableSuffix();
+        this.bucketName = "test-schema-with-hive-catalog-name-" + randomTableSuffix();
         this.dockerizedS3DataLake = new HiveMinIODataLake(bucketName, ImmutableMap.of(), hiveHadoopImage);
         this.dockerizedS3DataLake.start();
         return S3HiveQueryRunner.create(
@@ -71,7 +71,7 @@ public abstract class TestHiveQueriesWithCatalogName
                         .put("hive.insert-existing-partitions-behavior", "OVERWRITE")
                         .put("hive.non-managed-table-writes-enabled", "true")
                         // This new conf is added to pass the catalog information to metastore
-                        .put("hive.metastore.catalog.name", HIVE_TEST_CATALOG_1)
+                        .put("hive.metastore.catalog.name", HIVE_CATALOG)
                         .build());
     }
 
@@ -195,5 +195,107 @@ public abstract class TestHiveQueriesWithCatalogName
     protected void copyTpchNationToTable(String testTable)
     {
         computeActual(format("INSERT INTO " + testTable + " SELECT name, comment, nationkey, regionkey FROM tpch.tiny.nation"));
+    }
+
+    @Test
+    public void testListSchemasAndListTablesAcrossCatalogs()
+    {
+        // Create two schemas in different locations
+        computeActual(format(
+                "CREATE SCHEMA hive.%1$s WITH (location='s3a://%2$s/%1$s')",
+                HIVE_TEST_SCHEMA_1,
+                bucketName));
+
+        computeActual(format(
+                "CREATE SCHEMA hive.%1$s WITH (location='s3a://%2$s/%1$s')",
+                HIVE_TEST_SCHEMA_2,
+                bucketName));
+
+        // Create tables in both schemas
+        String testTableSchema1 = format("hive.%s.%s", HIVE_TEST_SCHEMA_1, "nation_" + randomTableSuffix());
+        String testTableSchema2 = format("hive.%s.%s", HIVE_TEST_SCHEMA_2, "region_" + randomTableSuffix());
+
+        computeActual(getCreateTableStatement(testTableSchema1));
+        computeActual(getCreateTableStatement(testTableSchema2));
+
+        // Verify that listSchemas contains both schemas
+        MaterializedResult schemas = computeActual("SHOW SCHEMAS FROM hive");
+        List<String> schemaNames = schemas.getMaterializedRows().stream()
+                .map(row -> row.getField(0).toString())
+                .collect(Collectors.toList());
+
+        assertTrue(schemaNames.contains(HIVE_TEST_SCHEMA_1), "Schema 1 is missing");
+        assertTrue(schemaNames.contains(HIVE_TEST_SCHEMA_2), "Schema 2 is missing");
+
+        // Verify that each table is listed under its own schema
+        MaterializedResult tablesSchema1 = computeActual(format("SHOW TABLES FROM hive.%s", HIVE_TEST_SCHEMA_1));
+        MaterializedResult tablesSchema2 = computeActual(format("SHOW TABLES FROM hive.%s", HIVE_TEST_SCHEMA_2));
+
+        List<String> tableNamesSchema1 = tablesSchema1.getMaterializedRows().stream()
+                .map(row -> row.getField(0).toString())
+                .collect(Collectors.toList());
+
+        List<String> tableNamesSchema2 = tablesSchema2.getMaterializedRows().stream()
+                .map(row -> row.getField(0).toString())
+                .collect(Collectors.toList());
+
+        assertTrue(tableNamesSchema1.contains(testTableSchema1.substring(testTableSchema1.lastIndexOf('.') + 1)),
+                "Table in Schema 1 is missing");
+
+        assertTrue(tableNamesSchema2.contains(testTableSchema2.substring(testTableSchema2.lastIndexOf('.') + 1)),
+                "Table in Schema 2 is missing");
+
+        // Cleanup tables
+        computeActual(format("DROP TABLE %s", testTableSchema1));
+        computeActual(format("DROP TABLE %s", testTableSchema2));
+    }
+
+
+    @Test
+    public void testUniqueSchemaAndListTablesAcrossCatalogs()
+    {
+        computeActual(format(
+                "CREATE SCHEMA %1$s.%2$s WITH (location='s3a://%3$s/%2$s')",
+                HIVE_CATALOG,
+                HIVE_TEST_SCHEMA_1,
+                bucketName));
+
+        computeActual(format(
+                "CREATE SCHEMA %1$s.%2$s WITH (location='s3a://%3$s/%2$s')",
+                HIVE_BUCKETED_CATALOG,
+                HIVE_TEST_SCHEMA_1,
+                bucketName));
+
+        String testTableSchema1 = format("%s.%s.%s", HIVE_CATALOG, HIVE_TEST_SCHEMA_1, "nation_" + randomTableSuffix());
+        String testTableSchema2 = format("%s.%s.%s", HIVE_BUCKETED_CATALOG, HIVE_TEST_SCHEMA_1, "region_" + randomTableSuffix());
+
+        computeActual(getCreateTableStatement(testTableSchema1));
+        computeActual(getCreateTableStatement(testTableSchema2));
+
+        MaterializedResult schemas = computeActual("SHOW SCHEMAS FROM hive");
+        List<String> schemaNames = schemas.getMaterializedRows().stream()
+                .map(row -> row.getField(0).toString())
+                .collect(Collectors.toList());
+
+        assertTrue(schemaNames.contains(HIVE_TEST_SCHEMA_1), "Schema 1 is missing");
+
+        MaterializedResult tablesSchema1 = computeActual(format("SHOW TABLES FROM %s.%s", HIVE_CATALOG, HIVE_TEST_SCHEMA_1));
+        MaterializedResult tablesSchema2 = computeActual(format("SHOW TABLES FROM %s.%s", HIVE_BUCKETED_CATALOG, HIVE_TEST_SCHEMA_1));
+
+        List<String> tableNamesSchema1 = tablesSchema1.getMaterializedRows().stream()
+                .map(row -> row.getField(0).toString())
+                .collect(Collectors.toList());
+
+        List<String> tableNamesSchema2 = tablesSchema2.getMaterializedRows().stream()
+                .map(row -> row.getField(0).toString())
+                .collect(Collectors.toList());
+
+        assertTrue(tableNamesSchema1.contains(testTableSchema1.substring(testTableSchema1.lastIndexOf('.') + 1)),
+                "Table in Schema 1 is missing");
+
+        assertTrue(tableNamesSchema2.contains(testTableSchema2.substring(testTableSchema2.lastIndexOf('.') + 1)),
+                "Table in Schema 2 is missing");
+        computeActual(format("DROP TABLE %s", testTableSchema1));
+        computeActual(format("DROP TABLE %s", testTableSchema2));
     }
 }

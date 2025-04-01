@@ -57,10 +57,4 @@ public class TestMetadataUtils
         String result = constructSchemaName(Optional.empty(), null);
         assertNull(result);
     }
-
-    @Test
-    public void testConstructSchemaWithGivenCatalogName()
-    {
-        constructSchemaName(Optional.of("test_catalog"), "test_schema");
-    }
 }

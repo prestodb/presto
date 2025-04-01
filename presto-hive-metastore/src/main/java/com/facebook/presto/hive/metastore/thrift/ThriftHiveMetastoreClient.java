@@ -573,10 +573,10 @@ public class ThriftHiveMetastoreClient
     {
         List<SQLUniqueConstraint> updatedConstraints = constraint;
         if (catalogName.isPresent()) {
-            updatedConstraints = constraint.stream().map(c -> {
-                c = c.deepCopy();
-                c.setCatName(catalogName.get());
-                return c;
+            updatedConstraints = constraint.stream().map(uniqueConstraint -> {
+                        uniqueConstraint = uniqueConstraint.deepCopy();
+                        uniqueConstraint.setCatName(catalogName.get());
+                return uniqueConstraint;
             })
             .collect(toImmutableList());
         }
@@ -590,10 +590,10 @@ public class ThriftHiveMetastoreClient
     {
         List<SQLPrimaryKey> updatedConstraints = constraint;
         if (catalogName.isPresent()) {
-            updatedConstraints = constraint.stream().map(c -> {
-                c = c.deepCopy();
-                c.setCatName(catalogName.get());
-                return c;
+            updatedConstraints = constraint.stream().map(primaryKeyConstraint -> {
+                        primaryKeyConstraint = primaryKeyConstraint.deepCopy();
+                        primaryKeyConstraint.setCatName(catalogName.get());
+                return primaryKeyConstraint;
             })
             .collect(toImmutableList());
         }
@@ -607,10 +607,10 @@ public class ThriftHiveMetastoreClient
     {
         List<SQLNotNullConstraint> updatedConstraints = constraint;
         if (catalogName.isPresent()) {
-            updatedConstraints = constraint.stream().map(c -> {
-                c = c.deepCopy();
-                c.setCatName(catalogName.get());
-                return c;
+            updatedConstraints = constraint.stream().map(notNullConstraint -> {
+                        notNullConstraint = notNullConstraint.deepCopy();
+                        notNullConstraint.setCatName(catalogName.get());
+                return notNullConstraint;
             })
             .collect(toImmutableList());
         }
