@@ -759,21 +759,21 @@ public class OperatorStats
         long addInputCalls = this.addInputCalls;
         long addInputWall = this.addInputWall.roundTo(NANOSECONDS);
         long addInputCpu = this.addInputCpu.roundTo(NANOSECONDS);
-        long addInputAllocation = this.addInputAllocationInBytes;
-        long rawInputDataSize = this.rawInputDataSizeInBytes;
+        double addInputAllocation = this.addInputAllocationInBytes;
+        double rawInputDataSize = this.rawInputDataSizeInBytes;
         long rawInputPositions = this.rawInputPositions;
-        long inputDataSize = this.inputDataSizeInBytes;
+        double inputDataSize = this.inputDataSizeInBytes;
         long inputPositions = this.inputPositions;
         double sumSquaredInputPositions = this.sumSquaredInputPositions;
 
         long getOutputCalls = this.getOutputCalls;
         long getOutputWall = this.getOutputWall.roundTo(NANOSECONDS);
         long getOutputCpu = this.getOutputCpu.roundTo(NANOSECONDS);
-        long getOutputAllocation = this.getOutputAllocationInBytes;
-        long outputDataSize = this.outputDataSizeInBytes;
+        double getOutputAllocation = this.getOutputAllocationInBytes;
+        double outputDataSize = this.outputDataSizeInBytes;
         long outputPositions = this.outputPositions;
 
-        long physicalWrittenDataSize = this.physicalWrittenDataSizeInBytes;
+        double physicalWrittenDataSize = this.physicalWrittenDataSizeInBytes;
 
         long additionalCpu = this.additionalCpu.roundTo(NANOSECONDS);
         long blockedWall = this.blockedWall.roundTo(NANOSECONDS);
@@ -783,14 +783,14 @@ public class OperatorStats
         long finishCpu = this.finishCpu.roundTo(NANOSECONDS);
         long finishAllocation = this.finishAllocationInBytes;
 
-        long memoryReservation = this.userMemoryReservationInBytes;
-        long revocableMemoryReservation = this.revocableMemoryReservationInBytes;
-        long systemMemoryReservation = this.systemMemoryReservationInBytes;
-        long peakUserMemory = this.peakUserMemoryReservationInBytes;
-        long peakSystemMemory = this.peakSystemMemoryReservationInBytes;
-        long peakTotalMemory = this.peakTotalMemoryReservationInBytes;
+        double memoryReservation = this.userMemoryReservationInBytes;
+        double revocableMemoryReservation = this.revocableMemoryReservationInBytes;
+        double systemMemoryReservation = this.systemMemoryReservationInBytes;
+        double peakUserMemory = this.peakUserMemoryReservationInBytes;
+        double peakSystemMemory = this.peakSystemMemoryReservationInBytes;
+        double peakTotalMemory = this.peakTotalMemoryReservationInBytes;
 
-        long spilledDataSize = this.spilledDataSizeInBytes;
+        double spilledDataSize = this.spilledDataSizeInBytes;
 
         Optional<BlockedReason> blockedReason = this.blockedReason;
 
@@ -886,21 +886,21 @@ public class OperatorStats
                 addInputCalls,
                 succinctNanos(addInputWall),
                 succinctNanos(addInputCpu),
-                addInputAllocation,
-                rawInputDataSize,
+                (long) addInputAllocation,
+                (long) rawInputDataSize,
                 rawInputPositions,
-                inputDataSize,
+                (long) inputDataSize,
                 inputPositions,
                 sumSquaredInputPositions,
 
                 getOutputCalls,
                 succinctNanos(getOutputWall),
                 succinctNanos(getOutputCpu),
-                getOutputAllocation,
-                outputDataSize,
+                (long) getOutputAllocation,
+                (long) outputDataSize,
                 outputPositions,
 
-                physicalWrittenDataSize,
+                (long) physicalWrittenDataSize,
 
                 succinctNanos(additionalCpu),
                 succinctNanos(blockedWall),
@@ -910,14 +910,14 @@ public class OperatorStats
                 succinctNanos(finishCpu),
                 finishAllocation,
 
-                memoryReservation,
-                revocableMemoryReservation,
-                systemMemoryReservation,
-                peakUserMemory,
-                peakSystemMemory,
-                peakTotalMemory,
+                (long) memoryReservation,
+                (long) revocableMemoryReservation,
+                (long) systemMemoryReservation,
+                (long) peakUserMemory,
+                (long) peakSystemMemory,
+                (long) peakTotalMemory,
 
-                spilledDataSize,
+                (long) spilledDataSize,
 
                 blockedReason,
 
