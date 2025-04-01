@@ -18,7 +18,7 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.table.TableFunctionProcessor;
+import com.facebook.presto.spi.function.table.TableFunctionDataProcessor;
 import com.facebook.presto.spi.function.table.TableFunctionProcessorState;
 
 import java.util.List;
@@ -40,12 +40,12 @@ import static java.util.Objects.requireNonNull;
 public class EmptyTableFunctionPartition
         implements TableFunctionPartition
 {
-    private final TableFunctionProcessor tableFunction;
+    private final TableFunctionDataProcessor tableFunction;
     private final int properChannelsCount;
     private final int passThroughSourcesCount;
     private final Type[] passThroughTypes;
 
-    public EmptyTableFunctionPartition(TableFunctionProcessor tableFunction, int properChannelsCount, int passThroughSourcesCount, List<Type> passThroughTypes)
+    public EmptyTableFunctionPartition(TableFunctionDataProcessor tableFunction, int properChannelsCount, int passThroughSourcesCount, List<Type> passThroughTypes)
     {
         this.tableFunction = requireNonNull(tableFunction, "tableFunction is null");
         this.properChannelsCount = properChannelsCount;

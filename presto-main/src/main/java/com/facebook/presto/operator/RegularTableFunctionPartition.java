@@ -19,7 +19,7 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.table.TableFunctionProcessor;
+import com.facebook.presto.spi.function.table.TableFunctionDataProcessor;
 import com.facebook.presto.spi.function.table.TableFunctionProcessorState;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -56,7 +56,7 @@ public class RegularTableFunctionPartition
     private final int partitionEnd;
     private final Iterator<Page> sortedPages;
 
-    private final TableFunctionProcessor tableFunction;
+    private final TableFunctionDataProcessor tableFunction;
     private final int properChannelsCount;
     private final int passThroughSourcesCount;
 
@@ -76,7 +76,7 @@ public class RegularTableFunctionPartition
             PagesIndex pagesIndex,
             int partitionStart,
             int partitionEnd,
-            TableFunctionProcessor tableFunction,
+            TableFunctionDataProcessor tableFunction,
             int properChannelsCount,
             int passThroughSourcesCount,
             List<List<Integer>> requiredChannels,
@@ -152,11 +152,11 @@ public class RegularTableFunctionPartition
      * When all sources are fully consumed, this method returns null.
      * <p>
      * NOTE: There are two types of table function's source semantics: set and row. The two types of sources should be handled
-     * by the TableFunctionProcessor in different ways. For a source with set semantics, the whole partition can be used for computations,
+     * by the TableFunctionDataProcessor in different ways. For a source with set semantics, the whole partition can be used for computations,
      * while for a source with row semantics, each row should be processed independently from all other rows.
-     * To enforce that behavior, we could pass to the TableFunctionProcessor only one row from a table with row semantics.
-     * However, for performance reasons, we handle sources with row and set semantics in the same way: the TableFunctionProcessor
-     * gets a page of data from each source. The TableFunctionProcessor is responsible for using the provided data accordingly
+     * To enforce that behavior, we could pass to the TableFunctionDataProcessor only one row from a table with row semantics.
+     * However, for performance reasons, we handle sources with row and set semantics in the same way: the TableFunctionDataProcessor
+     * gets a page of data from each source. The TableFunctionDataProcessor is responsible for using the provided data accordingly
      * to the declared source semantics (set or rows).
      *
      * @return A List containing:
@@ -214,7 +214,7 @@ public class RegularTableFunctionPartition
      * <p>
      * For a source with row semantics, the table function result depends on the whole partition,
      * so it is not always possible to associate an output row with a specific input row.
-     * The TableFunctionProcessor can return null as the pass-through index to indicate that
+     * The TableFunctionDataProcessor can return null as the pass-through index to indicate that
      * the output row is not associated with any row from the given source.
      * <p>
      * For a source with row semantics, the output is determined on a row-by-row basis, so every
@@ -223,7 +223,7 @@ public class RegularTableFunctionPartition
      * <p>
      * In our implementation, we handle sources with row and set semantics in the same way.
      * For performance reasons, we do not validate the null pass-through indexes.
-     * The TableFunctionProcessor is responsible for using the pass-through capability
+     * The TableFunctionDataProcessor is responsible for using the pass-through capability
      * accordingly to the declared source semantics (set or rows).
      */
     private Page appendPassThroughColumns(Page page)

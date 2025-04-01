@@ -118,7 +118,7 @@ import static java.util.function.Function.identity;
  * </pre>
  * Is transformed into:
  * <pre>
- * - TableFunctionProcessor foo
+ * - TableFunctionDataProcessor foo
  *      PARTITION BY (a1, a2), ORDER BY combined_row_number
  *      - Project
  *          marker_1 <= IF(table1_row_number = combined_row_number, table1_row_number, CAST(null AS bigint))

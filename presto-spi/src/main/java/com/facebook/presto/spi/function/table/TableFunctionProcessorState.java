@@ -22,7 +22,7 @@ import java.util.concurrent.CompletableFuture;
 import static java.util.Objects.requireNonNull;
 
 /**
- * The result of processing input by {@link TableFunctionProcessor}.
+ * The result of processing input by {@link TableFunctionDataProcessor} or {@link TableFunctionSplitProcessor}.
  * It can optionally include a portion of output data in the form of {@link Page}
  * The returned {@link Page} should consist of:
  * - proper columns produced by the table function

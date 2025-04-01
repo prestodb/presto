@@ -1465,7 +1465,7 @@ public class PlanPrinter
                 specification.getOrderingScheme().ifPresent(orderingScheme -> descriptor.put("orderBy", formatOrderingScheme(orderingScheme, node.getPreSorted())));
             });
 
-            addNode(node, "TableFunctionProcessor" + descriptor.build(), context.getTag());
+            addNode(node, "TableFunctionDataProcessor" + descriptor.build(), context.getTag());
 
             return processChildren(node, new Context());
         }

@@ -22,9 +22,6 @@ import com.facebook.presto.connector.tvf.TestingTableFunctions.SimpleTableFuncti
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.connector.TableFunctionApplicationResult;
-import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
-import com.facebook.presto.spi.function.table.TableFunctionProcessor;
-import com.facebook.presto.spi.function.table.TableFunctionProcessorProvider;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableSet;

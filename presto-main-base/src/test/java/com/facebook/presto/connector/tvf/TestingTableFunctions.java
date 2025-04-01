@@ -31,7 +31,7 @@ import com.facebook.presto.spi.function.table.ScalarArgumentSpecification;
 import com.facebook.presto.spi.function.table.TableArgument;
 import com.facebook.presto.spi.function.table.TableArgumentSpecification;
 import com.facebook.presto.spi.function.table.TableFunctionAnalysis;
-import com.facebook.presto.spi.function.table.TableFunctionProcessor;
+import com.facebook.presto.spi.function.table.TableFunctionDataProcessor;
 import com.facebook.presto.spi.function.table.TableFunctionProcessorProvider;
 import com.facebook.presto.spi.function.table.TableFunctionProcessorState;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -502,7 +502,7 @@ public class TestingTableFunctions
                 implements TableFunctionProcessorProvider
         {
             @Override
-            public TableFunctionProcessor get(ConnectorTableFunctionHandle handle)
+            public TableFunctionDataProcessor getDataProcessor(ConnectorTableFunctionHandle handle)
             {
                 return input -> {
                     if (input == null) {
@@ -545,14 +545,14 @@ public class TestingTableFunctions
                 implements TableFunctionProcessorProvider
         {
             @Override
-            public TableFunctionProcessor get(ConnectorTableFunctionHandle handle)
+            public TableFunctionDataProcessor getDataProcessor(ConnectorTableFunctionHandle handle)
             {
-                return new IdentityPassThroughFunctionProcessor();
+                return new IdentityPassThroughFunctionDataProcessor();
             }
         }
 
-        public static class IdentityPassThroughFunctionProcessor
-                implements TableFunctionProcessor
+        public static class IdentityPassThroughFunctionDataProcessor
+                implements TableFunctionDataProcessor
         {
             private long processedPositions; // stateful
 
@@ -632,14 +632,14 @@ public class TestingTableFunctions
                 implements TableFunctionProcessorProvider
         {
             @Override
-            public TableFunctionProcessor get(ConnectorTableFunctionHandle handle)
+            public TableFunctionDataProcessor getDataProcessor(ConnectorTableFunctionHandle handle)
             {
-                return new RepeatFunctionProcessor(((RepeatFunctionHandle) handle).getCount());
+                return new RepeatFunctionDataProcessor(((RepeatFunctionHandle) handle).getCount());
             }
         }
 
-        public static class RepeatFunctionProcessor
-                implements TableFunctionProcessor
+        public static class RepeatFunctionDataProcessor
+                implements TableFunctionDataProcessor
         {
             private final long count;
 
@@ -649,7 +649,7 @@ public class TestingTableFunctions
             private Block indexes;
             boolean usedData;
 
-            public RepeatFunctionProcessor(long count)
+            public RepeatFunctionDataProcessor(long count)
             {
                 this.count = count;
             }
@@ -724,15 +724,15 @@ public class TestingTableFunctions
                 implements TableFunctionProcessorProvider
         {
             @Override
-            public TableFunctionProcessor get(ConnectorTableFunctionHandle handle)
+            public TableFunctionDataProcessor getDataProcessor(ConnectorTableFunctionHandle handle)
             {
-                return new EmptyOutputProcessor();
+                return new EmptyOutputDataProcessor();
             }
         }
 
         // returns an empty Page (one column, zero rows) for each Page of input
-        private static class EmptyOutputProcessor
-                implements TableFunctionProcessor
+        private static class EmptyOutputDataProcessor
+                implements TableFunctionDataProcessor
         {
             private static final Page EMPTY_PAGE = new Page(BOOLEAN.createBlockBuilder(null, 0).build());
 
@@ -776,15 +776,15 @@ public class TestingTableFunctions
                 implements TableFunctionProcessorProvider
         {
             @Override
-            public TableFunctionProcessor get(ConnectorTableFunctionHandle handle)
+            public TableFunctionDataProcessor getDataProcessor(ConnectorTableFunctionHandle handle)
             {
-                return new EmptyOutputWithPassThroughProcessor();
+                return new EmptyOutputWithPassThroughDataProcessor();
             }
         }
 
         // returns an empty Page (one proper column and pass-through, zero rows) for each Page of input
-        private static class EmptyOutputWithPassThroughProcessor
-                implements TableFunctionProcessor
+        private static class EmptyOutputWithPassThroughDataProcessor
+                implements TableFunctionDataProcessor
         {
             // one proper channel, and one pass-through index channel
             private static final Page EMPTY_PAGE = new Page(
@@ -846,7 +846,7 @@ public class TestingTableFunctions
                 implements TableFunctionProcessorProvider
         {
             @Override
-            public TableFunctionProcessor get(ConnectorTableFunctionHandle handle)
+            public TableFunctionDataProcessor getDataProcessor(ConnectorTableFunctionHandle handle)
             {
                 BlockBuilder resultBuilder = BOOLEAN.createBlockBuilder(null, 1);
                 BOOLEAN.writeBoolean(resultBuilder, true);
@@ -901,14 +901,14 @@ public class TestingTableFunctions
                 implements TableFunctionProcessorProvider
         {
             @Override
-            public TableFunctionProcessor get(ConnectorTableFunctionHandle handle)
+            public TableFunctionDataProcessor getDataProcessor(ConnectorTableFunctionHandle handle)
             {
-                return new PassThroughInputProcessor();
+                return new PassThroughInputDataProcessor();
             }
         }
 
-        private static class PassThroughInputProcessor
-                implements TableFunctionProcessor
+        private static class PassThroughInputDataProcessor
+                implements TableFunctionDataProcessor
         {
             private boolean input1Present;
             private boolean input2Present;
@@ -994,14 +994,14 @@ public class TestingTableFunctions
                 implements TableFunctionProcessorProvider
         {
             @Override
-            public TableFunctionProcessor get(ConnectorTableFunctionHandle handle)
+            public TableFunctionDataProcessor getDataProcessor(ConnectorTableFunctionHandle handle)
             {
-                return new TestInputProcessor();
+                return new TestInputDataProcessor();
             }
         }
 
-        private static class TestInputProcessor
-                implements TableFunctionProcessor
+        private static class TestInputDataProcessor
+                implements TableFunctionDataProcessor
         {
             private boolean processorGotInput;
             private boolean finished;
@@ -1052,7 +1052,7 @@ public class TestingTableFunctions
                 implements TableFunctionProcessorProvider
         {
             @Override
-            public TableFunctionProcessor get(ConnectorTableFunctionHandle handle)
+            public TableFunctionDataProcessor getDataProcessor(ConnectorTableFunctionHandle handle)
             {
                 BlockBuilder builder = BOOLEAN.createBlockBuilder(null, 1);
                 BOOLEAN.writeBoolean(builder, true);

@@ -16,8 +16,20 @@ package com.facebook.presto.spi.function.table;
 public interface TableFunctionProcessorProvider
 {
     /**
-     * This method returns a {@code TableFunctionProcessor}. All the necessary information collected during analysis is available
+     * This method returns a {@code TableFunctionDataProcessor}. All the necessary information collected during analysis is available
      * in the form of {@link ConnectorTableFunctionHandle}. It is called once per each partition processed by the table function.
      */
-    TableFunctionProcessor get(ConnectorTableFunctionHandle handle);
+    default TableFunctionDataProcessor getDataProcessor(ConnectorTableFunctionHandle handle)
+    {
+        throw new UnsupportedOperationException("this table function does not process input data");
+    }
+
+    /**
+     * This method returns a {@code TableFunctionSplitProcessor}. All the necessary information collected during analysis is available
+     * in the form of {@link ConnectorTableFunctionHandle}. It is called once per each split processed by the table function.
+     */
+    default TableFunctionSplitProcessor getSplitProcessor(ConnectorTableFunctionHandle handle)
+    {
+        throw new UnsupportedOperationException("this table function does not process splits");
+    }
 }
