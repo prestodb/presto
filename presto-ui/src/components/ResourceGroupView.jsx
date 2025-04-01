@@ -211,7 +211,7 @@ export default function ResourceGroupView() {
                 maxQueuedQueries: resources.maxQueuedQueries,
                 numEligibleSubGroups: resources.numEligibleSubGroups,
                 workersPerQueryLimit: resources.workersPerQueryLimit,
-                subGroups: resources.subGroups.map(subGroup => subGroup.id.join('.')),
+                subGroups: resources.subGroups.map(subGroup => ({id: subGroup.id.join('.'), numQueuedQueries: subGroup.numQueuedQueries, numRunningQueries: subGroup.numRunningQueries})),
                 runningQueries: resources.runningQueries,
                 numRunningQueries: dataSet.current.numRunningQueries[dataSet.current.numRunningQueries.length - 1],
                 numQueuedQueries: dataSet.current.numQueuedQueries[dataSet.current.numQueuedQueries.length - 1],
@@ -287,7 +287,7 @@ export default function ResourceGroupView() {
                                 </td>
                                 <td className="info-text">
                                     <ul>{values.subGroups.map((grp, idx) => (
-                                        <li key={idx}><a href={'./res_groups.html?group=' + encodeURIComponent(grp)}>{truncateString(grp, 35)}</a></li>
+                                        <li key={idx}><a href={'./res_groups.html?group=' + encodeURIComponent(grp.id)}>{truncateString(grp.id, 35)}</a>&nbsp;[Q:{grp.numQueuedQueries}, R:{grp.numRunningQueries}]</li>
                                     ))}</ul>
                                 </td>
                             </tr>
@@ -320,4 +320,3 @@ export default function ResourceGroupView() {
     );
 
 }
-
