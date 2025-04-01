@@ -68,6 +68,14 @@ std::string getConnectorCacheStats(proxygen::HTTPMessage* message) {
   VELOX_USER_FAIL("connector '{}' operation is not supported", name);
 }
 
+std::string prettyJson(folly::dynamic const& dyn) {
+  folly::json::serialization_opts opts;
+  opts.pretty_formatting = true;
+  opts.sort_keys = true;
+  opts.convert_int_keys = true;
+  return folly::json::serialize(dyn, opts);
+}
+
 } // namespace
 
 void PrestoServerOperations::runOperation(
@@ -205,7 +213,7 @@ std::string PrestoServerOperations::taskOperation(
       if (task == taskMap.end()) {
         return fmt::format("No task found with id {}", id);
       }
-      return folly::toPrettyJson(task->second->toJson());
+      return prettyJson(task->second->toJson());
     }
     case ServerOperation::Action::kListAll: {
       uint32_t limit;
@@ -233,7 +241,7 @@ std::string PrestoServerOperations::taskOperation(
           break;
         }
       }
-      oss << folly::toPrettyJson(arrayObj);
+      oss << prettyJson(arrayObj);
       return oss.str();
     }
     default:
