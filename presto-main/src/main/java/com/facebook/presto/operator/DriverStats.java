@@ -185,8 +185,8 @@ public class DriverStats
         checkArgument(processedInputPositions >= 0, "processedInputPositions is negative");
         this.processedInputPositions = processedInputPositions;
 
-        checkArgument(outputDataSizeInBytes >= 0, "outputDataSizeInBytes is negative");
-        this.outputDataSizeInBytes = outputDataSizeInBytes;
+        // An overflow could have occurred on this stat - handle this gracefully.
+        this.outputDataSizeInBytes = (outputDataSizeInBytes >= 0) ? outputDataSizeInBytes : Long.MAX_VALUE;
 
         checkArgument(outputPositions >= 0, "outputPositions is negative");
         this.outputPositions = outputPositions;
