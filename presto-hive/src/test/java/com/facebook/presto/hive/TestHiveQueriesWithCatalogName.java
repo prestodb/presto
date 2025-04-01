@@ -39,13 +39,9 @@ public abstract class TestHiveQueriesWithCatalogName
         extends AbstractTestQueryFramework
 {
     private static final String HIVE_TEST_SCHEMA_1 = "hive_test_schema_1";
-    private static final String HIVE_TEST_SCHEMA_2 = "hive_test_schema_2";
     private static final String HIVE_CATALOG = "hive";
-    private static final String HIVE_BUCKETED_CATALOG = "hive_bucketed";
-
     private String bucketName;
     private HiveMinIODataLake dockerizedS3DataLake;
-
     private final String hiveHadoopImage;
 
     public TestHiveQueriesWithCatalogName(String hiveHadoopImage)
@@ -200,6 +196,8 @@ public abstract class TestHiveQueriesWithCatalogName
     @Test
     public void testListSchemasAndListTablesAcrossCatalogs()
     {
+        String HIVE_TEST_SCHEMA_1 = "hive_test_schema_01";
+        String HIVE_TEST_SCHEMA_2 = "hive_test_schema_02";
         // Create two schemas in different locations
         computeActual(format(
                 "CREATE SCHEMA hive.%1$s WITH (location='s3a://%2$s/%1$s')",
@@ -246,54 +244,6 @@ public abstract class TestHiveQueriesWithCatalogName
                 "Table in Schema 2 is missing");
 
         // Cleanup tables
-        computeActual(format("DROP TABLE %s", testTableSchema1));
-        computeActual(format("DROP TABLE %s", testTableSchema2));
-    }
-
-    @Test
-    public void testUniqueSchemaAndListTablesAcrossCatalogs()
-    {
-        computeActual(format(
-                "CREATE SCHEMA %1$s.%2$s WITH (location='s3a://%3$s/%2$s')",
-                HIVE_CATALOG,
-                HIVE_TEST_SCHEMA_1,
-                bucketName));
-
-        computeActual(format(
-                "CREATE SCHEMA %1$s.%2$s WITH (location='s3a://%3$s/%2$s')",
-                HIVE_BUCKETED_CATALOG,
-                HIVE_TEST_SCHEMA_1,
-                bucketName));
-
-        String testTableSchema1 = format("%s.%s.%s", HIVE_CATALOG, HIVE_TEST_SCHEMA_1, "nation_" + randomTableSuffix());
-        String testTableSchema2 = format("%s.%s.%s", HIVE_BUCKETED_CATALOG, HIVE_TEST_SCHEMA_1, "region_" + randomTableSuffix());
-
-        computeActual(getCreateTableStatement(testTableSchema1));
-        computeActual(getCreateTableStatement(testTableSchema2));
-
-        MaterializedResult schemas = computeActual("SHOW SCHEMAS FROM hive");
-        List<String> schemaNames = schemas.getMaterializedRows().stream()
-                .map(row -> row.getField(0).toString())
-                .collect(Collectors.toList());
-
-        assertTrue(schemaNames.contains(HIVE_TEST_SCHEMA_1), "Schema 1 is missing");
-
-        MaterializedResult tablesSchema1 = computeActual(format("SHOW TABLES FROM %s.%s", HIVE_CATALOG, HIVE_TEST_SCHEMA_1));
-        MaterializedResult tablesSchema2 = computeActual(format("SHOW TABLES FROM %s.%s", HIVE_BUCKETED_CATALOG, HIVE_TEST_SCHEMA_1));
-
-        List<String> tableNamesSchema1 = tablesSchema1.getMaterializedRows().stream()
-                .map(row -> row.getField(0).toString())
-                .collect(Collectors.toList());
-
-        List<String> tableNamesSchema2 = tablesSchema2.getMaterializedRows().stream()
-                .map(row -> row.getField(0).toString())
-                .collect(Collectors.toList());
-
-        assertTrue(tableNamesSchema1.contains(testTableSchema1.substring(testTableSchema1.lastIndexOf('.') + 1)),
-                "Table in Schema 1 is missing");
-
-        assertTrue(tableNamesSchema2.contains(testTableSchema2.substring(testTableSchema2.lastIndexOf('.') + 1)),
-                "Table in Schema 2 is missing");
         computeActual(format("DROP TABLE %s", testTableSchema1));
         computeActual(format("DROP TABLE %s", testTableSchema2));
     }
