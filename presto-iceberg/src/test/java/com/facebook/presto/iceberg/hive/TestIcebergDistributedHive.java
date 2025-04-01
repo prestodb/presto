@@ -45,6 +45,7 @@ import static com.facebook.presto.iceberg.CatalogType.HIVE;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.TOTAL_SIZE_IN_BYTES;
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -124,6 +125,13 @@ public class TestIcebergDistributedHive
         assertEquals(secondQuery.minus(firstQuery).missCount(), 0);
         assertTrue(secondQuery.minus(firstQuery).hitCount() > 0);
         assertTrue(manifestFileCache.size() > 0);
+
+        //test invalidate_manifest_file_cache procedure
+        assertQuerySucceeds(session, format("CALL %s.system.invalidate_manifest_file_cache()", catalogName));
+        assertTrue(manifestFileCache.size() == 0);
+        assertQuerySucceeds(session, "SELECT count(*) from test_manifest_file_cache group by i");
+        CacheStats thirdQuery = manifestFileCache.stats();
+        assertTrue(secondQuery.missCount() < thirdQuery.missCount());
 
         assertQuerySucceeds(session, "DROP TABLE test_manifest_file_cache");
         assertQuerySucceeds(session, "DROP SCHEMA default");
