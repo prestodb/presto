@@ -47,7 +47,7 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl ${{ matrix.modules }}
+          ./mvnw install ${MAVEN_FAST_INSTALL} -e -am -pl ${{ matrix.modules }}
 
       # Run Maven tests for the target module, excluding native tests
       - name: Maven Tests
