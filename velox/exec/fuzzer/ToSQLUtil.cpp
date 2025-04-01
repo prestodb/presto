@@ -261,9 +261,18 @@ std::string toConstantSql(const core::ConstantTypedExprPtr& constant) {
     // instead.
     sql << fmt::format("cast(null as {})", typeSql);
   } else if (type->isVarchar() || type->isVarbinary()) {
+    std::string value;
+    if (constant->hasValueVector()) {
+      value = constant->valueVector()
+                  ->as<SimpleVector<StringView>>()
+                  ->valueAt(0)
+                  .getString();
+    } else {
+      value = constant->value().value<std::string>();
+    }
+
     // Escape single quote in string literals used in SQL texts.
-    sql << typeSql << " "
-        << std::quoted(constant->valueVector()->toString(0), '\'', '\'');
+    sql << typeSql << " " << std::quoted(value, '\'', '\'');
   } else if (type->isPrimitiveType()) {
     sql << fmt::format("{} '{}'", typeSql, constant->toString());
   } else {
