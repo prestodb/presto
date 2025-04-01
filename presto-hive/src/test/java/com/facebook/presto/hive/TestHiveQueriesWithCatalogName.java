@@ -250,7 +250,6 @@ public abstract class TestHiveQueriesWithCatalogName
         computeActual(format("DROP TABLE %s", testTableSchema2));
     }
 
-
     @Test
     public void testUniqueSchemaAndListTablesAcrossCatalogs()
     {
