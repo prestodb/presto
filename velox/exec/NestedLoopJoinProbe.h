@@ -236,7 +236,7 @@ class NestedLoopJoinProbe : public Operator {
     return (buildIndex_ >= buildVectors_.value().size());
   }
 
-  /// Cross joins are translated into NLJ's without a join conditition.
+  // Cross joins are translated into NLJ's without a join conditition.
   bool isCrossJoin() const {
     return joinCondition_ == nullptr;
   }
@@ -276,7 +276,8 @@ class NestedLoopJoinProbe : public Operator {
     state_ = state;
   }
 
- private:
+  const core::JoinType joinType_;
+
   // Output buffer members.
 
   // Maximum number of rows in the output batch.
@@ -314,7 +315,6 @@ class NestedLoopJoinProbe : public Operator {
 
   // Join metadata and state.
   std::shared_ptr<const core::NestedLoopJoinNode> joinNode_;
-  const core::JoinType joinType_;
 
   ProbeOperatorState state_{ProbeOperatorState::kWaitForBuild};
   ContinueFuture future_{ContinueFuture::makeEmpty()};
