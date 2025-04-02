@@ -56,6 +56,7 @@ import static com.facebook.presto.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_EXIS
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -281,7 +282,7 @@ public class AccumuloMetadata
         AccumuloTableHandle handle = (AccumuloTableHandle) table;
         checkArgument(handle.getConnectorId().equals(connectorId), "table is not for this connector");
         SchemaTableName tableName = new SchemaTableName(handle.getSchema(), handle.getTable());
-        ConnectorTableMetadata metadata = getTableMetadata(tableName);
+        ConnectorTableMetadata metadata = getTableMetadata(session, tableName);
         if (metadata == null) {
             throw new TableNotFoundException(tableName);
         }
@@ -352,7 +353,7 @@ public class AccumuloMetadata
         requireNonNull(prefix, "prefix is null");
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
         for (SchemaTableName tableName : listTables(session, prefix)) {
-            ConnectorTableMetadata tableMetadata = getTableMetadata(tableName);
+            ConnectorTableMetadata tableMetadata = getTableMetadata(session, tableName);
             // table can disappear during listing operation
             if (tableMetadata != null) {
                 columns.put(tableName, tableMetadata.getColumns());
@@ -384,7 +385,7 @@ public class AccumuloMetadata
         }
     }
 
-    private ConnectorTableMetadata getTableMetadata(SchemaTableName tableName)
+    private ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName tableName)
     {
         if (!client.getSchemaNames().contains(tableName.getSchemaName())) {
             return null;
@@ -397,7 +398,13 @@ public class AccumuloMetadata
                 return null;
             }
 
-            return new ConnectorTableMetadata(tableName, table.getColumnsMetadata());
+            List<ColumnMetadata> columns = table.getColumnsMetadata().stream()
+                    .map(column -> column.toBuilder()
+                            .setName(normalizeIdentifier(session, column.getName()))
+                            .build())
+                    .collect(toImmutableList());
+
+            return new ConnectorTableMetadata(tableName, columns);
         }
 
         return null;

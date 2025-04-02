@@ -94,7 +94,7 @@ public class CreateViewTask
 
         List<ColumnMetadata> columnMetadata = columns.stream()
                 .map(column -> ColumnMetadata.builder()
-                        .setName(column.getName())
+                        .setName(metadata.normalizeIdentifier(session, name.getCatalogName(), column.getName()))
                         .setType(column.getType())
                         .build())
                 .collect(toImmutableList());
