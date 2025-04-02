@@ -21,6 +21,7 @@ import static com.facebook.presto.tests.utils.QueryExecutors.onMySql;
 import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
 import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
 import static io.prestodb.tempto.query.QueryExecutor.query;
+
 public class TestMySQLMixedCaseSupportOn
         extends ProductTest
 {
@@ -140,7 +141,11 @@ public class TestMySQLMixedCaseSupportOn
     @Test(groups = {MYSQL_MIXED_CASE}, dependsOnMethods = "testInsertDataIntoExistingMixedCaseTables")
     public void testSelectDataWithMixedCaseNames()
     {
-        assertThat(query("SELECT * FROM " + CATALOG + ".\"" + SCHEMA_NAME + "\".\"" + TABLE_NAME + "\""))
+        assertThat(query("SELECT name, ID FROM " + CATALOG + ".\"" + SCHEMA_NAME + "\".\"" + TABLE_NAME + "\""))
+                .containsOnly(row("eva", 301), row("lisa", 302), row("ivan", 401), row("nora", 402), row("eva", 301), row("lisa", 302));
+
+        // Even if we define a column as ID, we can refer to it as id, ID, or anything else in any case — with or without backticks.
+        assertThat(query("SELECT name, id FROM " + CATALOG + "." + SCHEMA_NAME + "." + TABLE_NAME))
                 .containsOnly(row("eva", 301), row("lisa", 302), row("ivan", 401), row("nora", 402), row("eva", 301), row("lisa", 302));
 
         assertThat(query("SELECT name FROM " + CATALOG + ".\"" + SCHEMA_NAME + "\".\"" + TABLE_NAME_MIXED_1 + "\" WHERE id = 401"))
@@ -175,31 +180,67 @@ public class TestMySQLMixedCaseSupportOn
     @Test(groups = {MYSQL_MIXED_CASE}, dependsOnMethods = "testSelectDataWithMixedCaseNames")
     public void testTableAlterWithMixedCaseNames()
     {
+        // add column
         query("ALTER TABLE " + CATALOG + ".\"" + SCHEMA_NAME + "\".\"" + TABLE_NAME + "\" ADD COLUMN num REAL");
-        query("ALTER TABLE " + CATALOG + ".\"" + SCHEMA_NAME_UPPER + "\".\"" + TABLE_NAME_UPPER_SCHEMA_02 + "\" ADD COLUMN num1 REAL");
+        query("ALTER TABLE " + CATALOG + ".\"" + SCHEMA_NAME + "\".\"" + TABLE_NAME + "\" ADD COLUMN NuM2 REAL");
+
         query("ALTER TABLE " + CATALOG + ".\"" + SCHEMA_NAME + "\".\"" + TABLE_NAME_UPPER_2 + "\" ADD COLUMN num01 REAL");
-        query("ALTER TABLE " + CATALOG + ".\"" + SCHEMA_NAME_UPPER + "\".\"" + TABLE_NAME_UPPER_SCHEMA_02 + "\" ADD COLUMN num2 REAL");
+        query("ALTER TABLE " + CATALOG + ".\"" + SCHEMA_NAME + "\".\"" + TABLE_NAME_UPPER_2 + "\" ADD COLUMN NuM2 REAL");
 
-        assertThat(query("DESCRIBE " + CATALOG + ".\"" + SCHEMA_NAME + "\".\"" + TABLE_NAME + "\""))
-                .contains(row("num", "real", "", ""));
+        query("ALTER TABLE " + CATALOG + ".\"" + SCHEMA_NAME_UPPER + "\".\"" + TABLE_NAME_UPPER_SCHEMA_02 + "\" ADD COLUMN num1 REAL");
+        query("ALTER TABLE " + CATALOG + ".\"" + SCHEMA_NAME_UPPER + "\".\"" + TABLE_NAME_UPPER_SCHEMA_02 + "\" ADD COLUMN NuM2 REAL");
+        // Negative test: Creating a duplicate column with different case should fail in mysql
+        assertThat(() -> query("ALTER TABLE " + CATALOG + ".\"" + SCHEMA_NAME_UPPER + "\".\"" + TABLE_NAME_UPPER_SCHEMA_02 + "\" ADD COLUMN num2 REAL"))
+                .failsWithMessage("Duplicate column name 'num2'");
 
-        assertThat(query("DESCRIBE " + CATALOG + ".\"" + SCHEMA_NAME_UPPER + "\".\"" + TABLE_NAME_UPPER_SCHEMA_02 + "\""))
-                .contains(row("num1", "real", "", ""));
+        assertThat(query("DESCRIBE " + CATALOG + ".\"" + SCHEMA_NAME + "\".\"" + TABLE_NAME + "\"")).containsOnly(
+                row("name", "varchar(255)", "", ""),
+                row("ID", "integer", "", ""),
+                row("num", "real", "", ""),
+                row("NuM2", "real", "", ""));
+        assertThat(query("DESCRIBE " + CATALOG + ".\"" + SCHEMA_NAME + "\".\"" + TABLE_NAME_UPPER_2 + "\"")).containsOnly(
+                row("Name", "varchar(255)", "", ""),
+                row("ID", "integer", "", ""),
+                row("num01", "real", "", ""),
+                row("NuM2", "real", "", ""));
+        assertThat(query("DESCRIBE " + CATALOG + ".\"" + SCHEMA_NAME_UPPER + "\".\"" + TABLE_NAME_UPPER_SCHEMA_02 + "\"")).containsOnly(
+                row("name", "varchar(255)", "", ""),
+                row("id", "integer", "", ""),
+                row("num", "double", "", ""),
+                row("num1", "real", "", ""),
+                row("NuM2", "real", "", ""));
 
-        assertThat(query("DESCRIBE " + CATALOG + ".\"" + SCHEMA_NAME + "\".\"" + TABLE_NAME_UPPER_2 + "\""))
-                .contains(row("num01", "real", "", ""));
-
-        assertThat(query("DESCRIBE " + CATALOG + ".\"" + SCHEMA_NAME_UPPER + "\".\"" + TABLE_NAME_UPPER_SCHEMA_02 + "\""))
-                .contains(row("num2", "real", "", ""));
-
+        // rename column
         query("ALTER TABLE " + CATALOG + ".\"" + SCHEMA_NAME + "\".\"" + TABLE_NAME + "\" RENAME COLUMN num TO numb");
+        query("ALTER TABLE " + CATALOG + ".\"" + SCHEMA_NAME + "\".\"" + TABLE_NAME + "\" RENAME COLUMN NuM2 TO NuM02");
         query("ALTER TABLE " + CATALOG + ".\"" + SCHEMA_NAME_UPPER + "\".\"" + TABLE_NAME_UPPER_SCHEMA_02 + "\" RENAME COLUMN num1 TO numb01");
+        query("ALTER TABLE " + CATALOG + ".\"" + SCHEMA_NAME_UPPER + "\".\"" + TABLE_NAME_UPPER_SCHEMA_02 + "\" RENAME COLUMN NuM2 TO NuM02");
 
-        assertThat(query("DESCRIBE " + CATALOG + ".\"" + SCHEMA_NAME + "\".\"" + TABLE_NAME + "\""))
-                .contains(row("numb", "real", "", ""));
+        assertThat(query("DESCRIBE " + CATALOG + ".\"" + SCHEMA_NAME + "\".\"" + TABLE_NAME + "\"")).containsOnly(
+                row("name", "varchar(255)", "", ""),
+                row("ID", "integer", "", ""),
+                row("numb", "real", "", ""),
+                row("NuM02", "real", "", ""));
+        assertThat(query("DESCRIBE " + CATALOG + ".\"" + SCHEMA_NAME_UPPER + "\".\"" + TABLE_NAME_UPPER_SCHEMA_02 + "\"")).containsOnly(
+                row("name", "varchar(255)", "", ""),
+                row("id", "integer", "", ""),
+                row("num", "double", "", ""),
+                row("numb01", "real", "", ""),
+                row("NuM02", "real", "", ""));
 
-        assertThat(query("DESCRIBE " + CATALOG + ".\"" + SCHEMA_NAME_UPPER + "\".\"" + TABLE_NAME_UPPER_SCHEMA_02 + "\""))
-                .contains(row("numb01", "real", "", ""));
+        // drop column
+        query("ALTER TABLE " + CATALOG + ".\"" + SCHEMA_NAME + "\".\"" + TABLE_NAME + "\" DROP COLUMN NuM02");
+        query("ALTER TABLE " + CATALOG + ".\"" + SCHEMA_NAME_UPPER + "\".\"" + TABLE_NAME_UPPER_SCHEMA_02 + "\" DROP COLUMN numb01");
+
+        assertThat(query("DESCRIBE " + CATALOG + ".\"" + SCHEMA_NAME + "\".\"" + TABLE_NAME + "\"")).containsOnly(
+                row("name", "varchar(255)", "", ""),
+                row("ID", "integer", "", ""),
+                row("numb", "real", "", ""));
+        assertThat(query("DESCRIBE " + CATALOG + ".\"" + SCHEMA_NAME_UPPER + "\".\"" + TABLE_NAME_UPPER_SCHEMA_02 + "\"")).containsOnly(
+                row("name", "varchar(255)", "", ""),
+                row("id", "integer", "", ""),
+                row("num", "double", "", ""),
+                row("NuM02", "real", "", ""));
     }
 
     @Test(groups = {MYSQL_MIXED_CASE}, dependsOnMethods = "testTableAlterWithMixedCaseNames")

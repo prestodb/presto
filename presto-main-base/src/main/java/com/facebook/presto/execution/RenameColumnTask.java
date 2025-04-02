@@ -23,6 +23,7 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -69,8 +70,10 @@ public class RenameColumnTask
 
         TableHandle tableHandle = tableHandleOptional.get();
 
-        String source = statement.getSource().getValueLowerCase();
-        String target = statement.getTarget().getValueLowerCase();
+        Identifier sourceName = statement.getSource();
+        String source = metadata.normalizeIdentifier(session, tableName.getCatalogName(), sourceName.getValue());
+        Identifier targetName = statement.getTarget();
+        String target = metadata.normalizeIdentifier(session, tableName.getCatalogName(), targetName.getValue());
 
         accessControl.checkCanRenameColumn(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
 
