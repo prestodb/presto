@@ -217,7 +217,6 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kHttpEnableAccessLog, false),
           BOOL_PROP(kHttpEnableStatsFilter, false),
           BOOL_PROP(kHttpEnableEndpointLatencyFilter, false),
-          BOOL_PROP(kRegisterTestFunctions, false),
           NUM_PROP(kHttpMaxAllocateBytes, 65536),
           STR_PROP(kQueryMaxMemoryPerNode, "4GB"),
           BOOL_PROP(kEnableMemoryLeakCheck, true),
@@ -735,10 +734,6 @@ bool SystemConfig::enableHttpStatsFilter() const {
 
 bool SystemConfig::enableHttpEndpointLatencyFilter() const {
   return optionalProperty<bool>(kHttpEnableEndpointLatencyFilter).value();
-}
-
-bool SystemConfig::registerTestFunctions() const {
-  return optionalProperty<bool>(kRegisterTestFunctions).value();
 }
 
 uint64_t SystemConfig::httpMaxAllocateBytes() const {

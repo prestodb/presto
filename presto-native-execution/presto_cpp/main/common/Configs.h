@@ -558,8 +558,6 @@ class SystemConfig : public ConfigBase {
       "http-server.enable-stats-filter"};
   static constexpr std::string_view kHttpEnableEndpointLatencyFilter{
       "http-server.enable-endpoint-latency-filter"};
-  static constexpr std::string_view kRegisterTestFunctions{
-      "register-test-functions"};
 
   /// The options to configure the max quantized memory allocation size to store
   /// the received http response data.
