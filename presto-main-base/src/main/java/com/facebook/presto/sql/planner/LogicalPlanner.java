@@ -271,7 +271,7 @@ public class LogicalPlanner
 
         ConnectorTableMetadata tableMetadata = createTableMetadata(
                 destination,
-                getOutputTableColumns(plan, analysis.getColumnAliases()),
+                getOutputTableColumns(metadata, session, destination.getCatalogName(), plan, analysis.getColumnAliases()),
                 analysis.getCreateTableProperties(),
                 analysis.getParameters(),
                 analysis.getCreateTableComment());
@@ -589,14 +589,14 @@ public class LogicalPlanner
                 context.getTranslatorContext());
     }
 
-    private static List<ColumnMetadata> getOutputTableColumns(RelationPlan plan, Optional<List<Identifier>> columnAliases)
+    private static List<ColumnMetadata> getOutputTableColumns(Metadata metadata, Session session, String catalogName, RelationPlan plan, Optional<List<Identifier>> columnAliases)
     {
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
         int aliasPosition = 0;
         for (Field field : plan.getDescriptor().getVisibleFields()) {
             String columnName = columnAliases.isPresent() ? columnAliases.get().get(aliasPosition).getValue() : field.getName().get();
             columns.add(ColumnMetadata.builder()
-                    .setName(columnName)
+                    .setName(metadata.normalizeIdentifier(session, catalogName, columnName))
                     .setType(field.getType())
                     .build());
             aliasPosition++;

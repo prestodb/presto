@@ -282,15 +282,15 @@ public class TpchMetadata
         TpchTable<?> tpchTable = TpchTable.getTable(tpchTableHandle.getTableName());
         String schemaName = scaleFactorSchemaName(tpchTableHandle.getScaleFactor());
 
-        return getTableMetadata(schemaName, tpchTable, columnNaming);
+        return getTableMetadata(session, schemaName, tpchTable, columnNaming);
     }
 
-    private static ConnectorTableMetadata getTableMetadata(String schemaName, TpchTable<?> tpchTable, ColumnNaming columnNaming)
+    private ConnectorTableMetadata getTableMetadata(ConnectorSession session, String schemaName, TpchTable<?> tpchTable, ColumnNaming columnNaming)
     {
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
         for (TpchColumn<? extends TpchEntity> column : tpchTable.getColumns()) {
             columns.add(ColumnMetadata.builder()
-                    .setName(columnNaming.getName(column))
+                    .setName(normalizeIdentifier(session, columnNaming.getName(column)))
                     .setType(getPrestoType(column))
                     .setNullable(false)
                     .build());
@@ -322,7 +322,7 @@ public class TpchMetadata
         for (String schemaName : getSchemaNames(session, Optional.ofNullable(prefix.getSchemaName()))) {
             for (TpchTable<?> tpchTable : TpchTable.getTables()) {
                 if (prefix.getTableName() == null || tpchTable.getTableName().equals(prefix.getTableName())) {
-                    ConnectorTableMetadata tableMetadata = getTableMetadata(schemaName, tpchTable, columnNaming);
+                    ConnectorTableMetadata tableMetadata = getTableMetadata(session, schemaName, tpchTable, columnNaming);
                     tableColumns.put(new SchemaTableName(schemaName, tpchTable.getTableName()), tableMetadata.getColumns());
                 }
             }
