@@ -15,7 +15,6 @@ package com.facebook.presto.execution.executor;
 
 import com.facebook.airlift.concurrent.SetThreadName;
 import com.facebook.airlift.concurrent.ThreadPoolExecutorMBean;
-import com.facebook.airlift.concurrent.ThreadSafe;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.airlift.stats.TimeDistribution;
@@ -36,6 +35,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.units.Duration;
 import jakarta.annotation.PostConstruct;

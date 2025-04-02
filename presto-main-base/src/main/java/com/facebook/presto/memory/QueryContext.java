@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.memory;
 
-import com.facebook.airlift.concurrent.ThreadSafe;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.stats.GcMonitor;
 import com.facebook.presto.Session;
@@ -31,6 +30,7 @@ import com.facebook.presto.spiller.SpillSpaceTracker;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.units.DataSize;
 

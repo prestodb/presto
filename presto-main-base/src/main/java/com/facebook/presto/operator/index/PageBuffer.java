@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.operator.index;
 
-import com.facebook.airlift.concurrent.ThreadSafe;
 import com.facebook.presto.common.Page;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.errorprone.annotations.ThreadSafe;
 
 import java.util.ArrayDeque;
 import java.util.Queue;

@@ -14,7 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.airlift.concurrent.NotThreadSafe;
-import com.facebook.airlift.concurrent.ThreadSafe;
+import com.google.errorprone.annotations.ThreadSafe;
 import com.sun.management.ThreadMXBean;
 
 import java.lang.management.ManagementFactory;

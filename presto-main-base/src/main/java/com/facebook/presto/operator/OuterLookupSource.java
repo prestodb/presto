@@ -14,9 +14,9 @@
 package com.facebook.presto.operator;
 
 import com.facebook.airlift.concurrent.NotThreadSafe;
-import com.facebook.airlift.concurrent.ThreadSafe;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
+import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 
 import java.util.function.Supplier;

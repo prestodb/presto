@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.airlift.concurrent.ThreadSafe;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.util.FinalizerService;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.AtomicDouble;
+import com.google.errorprone.annotations.ThreadSafe;
 import jakarta.inject.Inject;
 
 import java.util.Set;

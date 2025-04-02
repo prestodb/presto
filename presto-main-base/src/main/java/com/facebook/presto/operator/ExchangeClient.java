@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.airlift.concurrent.ThreadSafe;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.PageBufferClient.ClientCallback;
@@ -23,6 +22,7 @@ import com.facebook.presto.spi.page.SerializedPage;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.execution.warnings;
 
-import com.facebook.airlift.concurrent.ThreadSafe;
 import com.facebook.presto.common.WarningHandlingLevel;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
@@ -22,6 +21,7 @@ import com.facebook.presto.spi.WarningCollector;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
+import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 
 import java.util.List;
