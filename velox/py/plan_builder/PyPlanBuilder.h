@@ -136,6 +136,13 @@ class PyPlanBuilder {
   /// of subitems to project from it. For now, a list of integers representing
   /// the subfields in a flatmap/struct.
   ///
+  /// @param filters A list of SQL filters to be applied to the data as it is
+  /// decoded/read.
+  ///
+  /// @param remainingFilter SQL expression for the additional conjunct. May
+  /// include multiple columns and SQL functions. The remainingFilter is
+  /// AND'ed with the other filters.
+  ///
   /// @param rowIndexColumnName If defined, create an output column with that
   /// name producing $row_ids. This name needs to be part of `output`.
   ///
@@ -164,6 +171,8 @@ class PyPlanBuilder {
       const PyType& outputSchema,
       const pybind11::dict& aliases,
       const pybind11::dict& subfields,
+      const std::vector<std::string>& filters,
+      const std::string& remainingFilter,
       const std::string& rowIndexColumnName,
       const std::string& connectorId,
       const std::optional<std::vector<PyFile>>& inputFiles);
@@ -293,6 +302,9 @@ class PyPlanBuilder {
   // TODO: Add other nodes.
 
  private:
+  std::shared_ptr<memory::MemoryPool> rootPool_;
+  std::shared_ptr<memory::MemoryPool> leafPool_;
+
   exec::test::PlanBuilder planBuilder_;
   std::shared_ptr<PyPlanContext> planContext_;
 };

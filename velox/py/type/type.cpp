@@ -42,6 +42,8 @@ PYBIND11_MODULE(type, m) {
   m.def("VARCHAR", &velox::py::PyType::createVarchar);
   m.def("VARBINARY", &velox::py::PyType::createVarbinary);
 
+  m.def("DATE", &velox::py::PyType::createDate);
+
   m.def("ARRAY", &velox::py::PyType::createArrayType, py::arg("elements_type"));
   m.def(
       "MAP",

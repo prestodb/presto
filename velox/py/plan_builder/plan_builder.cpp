@@ -82,6 +82,8 @@ PYBIND11_MODULE(plan_builder, m) {
           py::arg("output_schema") = velox::py::PyType{},
           py::arg("aliases") = py::dict{},
           py::arg("subfields") = py::dict{},
+          py::arg("filters") = std::vector<std::string>{},
+          py::arg("remaining_filter") = "",
           py::arg("row_index") = "",
           py::arg("connector_id") = "hive",
           py::arg("input_files") = std::nullopt,
@@ -98,6 +100,11 @@ PYBIND11_MODULE(plan_builder, m) {
           subfields: Used to project individual items from columns instead
                      of reading entire containers. It maps from the column
                      name to a list of items to be projected out.
+          filters: A list of SQL filters to be applied to the data as it is
+                   decoded/read.
+          remainingFilter: SQL expression for the additional conjunct. May
+                           include multiple columns and SQL functions. The
+                           remainingFilter is AND'ed with the other filters.
           row_index: If defined, creates an output column with this name
                      producing $row_ids. This name needs to be part of the
                      `output` as BIGINT.

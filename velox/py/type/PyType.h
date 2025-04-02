@@ -92,6 +92,10 @@ class PyType {
     return PyType{DOUBLE()};
   }
 
+  static PyType createDate() {
+    return PyType{DATE()};
+  }
+
   static PyType createVarchar() {
     return PyType{VARCHAR()};
   }

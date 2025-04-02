@@ -84,10 +84,10 @@ PyPlanNode::PyPlanNode(
 PyPlanBuilder::PyPlanBuilder(const std::shared_ptr<PyPlanContext>& planContext)
     : planContext_(
           planContext ? planContext : std::make_shared<PyPlanContext>()) {
-  auto rootPool = memory::memoryManager()->addRootPool();
-  auto leafPool = rootPool->addLeafChild("py_plan_builder_pool");
+  rootPool_ = memory::memoryManager()->addRootPool();
+  leafPool_ = rootPool_->addLeafChild("py_plan_builder_pool");
   planBuilder_ = exec::test::PlanBuilder(
-      planContext_->planNodeIdGenerator, leafPool.get());
+      planContext_->planNodeIdGenerator, leafPool_.get());
 }
 
 std::optional<PyPlanNode> PyPlanBuilder::planNode() const {
@@ -141,6 +141,8 @@ PyPlanBuilder& PyPlanBuilder::tableScan(
     const PyType& outputSchema,
     const py::dict& aliases,
     const py::dict& subfields,
+    const std::vector<std::string>& filters,
+    const std::string& remainingFilter,
     const std::string& rowIndexColumnName,
     const std::string& connectorId,
     const std::optional<std::vector<PyFile>>& inputFiles) {
@@ -210,6 +212,16 @@ PyPlanBuilder& PyPlanBuilder::tableScan(
       assignments.insert({name, columnHandle});
     }
     builder.assignments(std::move(assignments));
+  }
+
+  // If there are filters to push down.
+  if (!filters.empty()) {
+    builder.subfieldFilters(filters);
+  }
+
+  // If there are remaining filters to push down.
+  if (!remainingFilter.empty()) {
+    builder.remainingFilter(remainingFilter);
   }
 
   builder.outputType(outputRowSchema)
