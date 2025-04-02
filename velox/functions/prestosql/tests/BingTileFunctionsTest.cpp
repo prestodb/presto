@@ -157,6 +157,36 @@ TEST_F(BingTileFunctionsTest, quadKeyToBingTile) {
                                                     // quadkey
 }
 
+TEST_F(BingTileFunctionsTest, bingTileToQuadKey) {
+  const auto testQuadKeySymmetry = [&](std::optional<std::string> quadKey) {
+    std::optional<std::string> quadKeyRes =
+        evaluateOnce<std::string>("bing_tile_quadkey(bing_tile(c0))", quadKey);
+    if (quadKey.has_value()) {
+      ASSERT_TRUE(quadKeyRes.has_value());
+      ASSERT_EQ(quadKey.value(), quadKeyRes.value());
+    } else {
+      ASSERT_FALSE(quadKeyRes.has_value());
+    }
+  };
+
+  testQuadKeySymmetry("");
+  testQuadKeySymmetry("213");
+  testQuadKeySymmetry("123030123010121");
+
+  const auto getQuadKeyResultFromCoordinates = [&](std::optional<int32_t> x,
+                                                   std::optional<int32_t> y,
+                                                   std::optional<int8_t> zoom) {
+    std::optional<std::string> quadKey = evaluateOnce<std::string>(
+        "bing_tile_quadkey(bing_tile(c0, c1, c2))", x, y, zoom);
+    return quadKey;
+  };
+
+  ASSERT_EQ("", getQuadKeyResultFromCoordinates(0, 0, 0));
+  ASSERT_EQ("213", getQuadKeyResultFromCoordinates(3, 5, 3));
+  ASSERT_EQ(
+      "123030123010121", getQuadKeyResultFromCoordinates(21845, 13506, 15));
+}
+
 TEST_F(BingTileFunctionsTest, bingTileZoomLevelSignatures) {
   auto signatures = getSignatureStrings("bing_tile_zoom_level");
   ASSERT_EQ(1, signatures.size());

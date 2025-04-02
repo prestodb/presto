@@ -49,6 +49,8 @@ void registerSimpleBingTileFunctions(const std::string& prefix) {
       {prefix + "bing_tile_children"});
   registerFunction<BingTileChildrenFunction, Array<BingTile>, BingTile, int8_t>(
       {prefix + "bing_tile_children"});
+  registerFunction<BingTileToQuadKeyFunction, Varchar, BingTile>(
+      {prefix + "bing_tile_quadkey"});
 }
 
 } // namespace

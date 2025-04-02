@@ -64,3 +64,7 @@ for more details.
     Throws an exception if childZoom is greater than the max zoom level, or
     childZoom is less than the tile’s zoom.  The order is deterministic but not
     specified.
+
+.. function:: bing_tile_quadkey() -> quadKey: varchar
+
+    Returns the quadkey representing the provided bing tile.

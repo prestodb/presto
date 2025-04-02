@@ -180,4 +180,13 @@ TEST_F(BingTileTypeTest, bingTileChildren) {
   testBingTileChildren(0, 0, 23, 24, "Child zoom 24 must be <= max zoom 23");
 }
 
+TEST_F(BingTileTypeTest, bingTileToQuadKey) {
+  ASSERT_EQ(
+      "123123123123123123", BingTileType::bingTileToQuadKey(804212359411419));
+  ASSERT_EQ("000", BingTileType::bingTileToQuadKey(201326592));
+  ASSERT_EQ("0", BingTileType::bingTileToQuadKey(67108864));
+  ASSERT_EQ("123", BingTileType::bingTileToQuadKey(21676163075));
+  ASSERT_EQ("", BingTileType::bingTileToQuadKey(0));
+}
+
 } // namespace facebook::velox::test

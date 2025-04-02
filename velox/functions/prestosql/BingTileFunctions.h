@@ -182,4 +182,16 @@ struct BingTileChildrenFunction {
   }
 };
 
+template <typename T>
+struct BingTileToQuadKeyFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Varchar>& result,
+      const arg_type<BingTile>& tile) {
+    uint64_t tileInt = static_cast<uint64_t>(tile);
+    result = BingTileType::bingTileToQuadKey(tileInt);
+  }
+};
+
 } // namespace facebook::velox::functions

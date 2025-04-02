@@ -146,4 +146,26 @@ folly::Expected<uint64_t, std::string> BingTileType::bingTileFromQuadKey(
   return BingTileType::bingTileCoordsToInt(tileX, tileY, zoomLevel);
 }
 
+std::string BingTileType::bingTileToQuadKey(uint64_t tile) {
+  uint8_t zoomLevel = bingTileZoom(tile);
+  uint32_t tileX = bingTileX(tile);
+  uint32_t tileY = bingTileY(tile);
+
+  std::string quadKey;
+  quadKey.resize(zoomLevel);
+
+  for (uint8_t i = zoomLevel; i > 0; i--) {
+    char digit = '0';
+    int mask = 1 << (i - 1);
+    if ((tileX & mask) != 0) {
+      digit++;
+    }
+    if ((tileY & mask) != 0) {
+      digit += 2;
+    }
+    quadKey[zoomLevel - i] = digit;
+  }
+  return quadKey;
+}
+
 } // namespace facebook::velox
