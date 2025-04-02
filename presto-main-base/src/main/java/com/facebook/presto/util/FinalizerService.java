@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.util;
 
-import com.facebook.airlift.concurrent.ThreadSafe;
 import com.facebook.airlift.log.Logger;
 import com.google.common.collect.Sets;
+import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;

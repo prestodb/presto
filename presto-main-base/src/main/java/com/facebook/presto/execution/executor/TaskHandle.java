@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.execution.executor;
 
-import com.facebook.airlift.concurrent.ThreadSafe;
 import com.facebook.presto.execution.SplitConcurrencyController;
 import com.facebook.presto.execution.TaskId;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.units.Duration;
 
