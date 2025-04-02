@@ -187,11 +187,11 @@ public class TestMySqlIntegrationMixedCaseTest
                 "line 1:49: Column name 'orderkey' specified more than once");
 
         assertQueryFails("CREATE TABLE test (a integer, A integer)",
-                "line 1:31: Column name 'A' specified more than once");
+                "Duplicate column name 'A'");
         assertQueryFails("CREATE TABLE TEST (a integer, A integer)",
-                "line 1:31: Column name 'A' specified more than once");
+                "Duplicate column name 'A'");
         assertQueryFails("CREATE TABLE test (a integer, OrderKey integer, LIKE orders INCLUDING PROPERTIES)",
-                "line 1:49: Column name 'orderkey' specified more than once");
+                "Duplicate column name 'orderkey'");
     }
 
     private void execute(String sql)

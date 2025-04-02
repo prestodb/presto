@@ -438,7 +438,7 @@ class StatementAnalyzer
             if (insert.getColumns().isPresent()) {
                 insertColumns = insert.getColumns().get().stream()
                         .map(Identifier::getValue)
-                        .map(column -> column.toLowerCase(ENGLISH))
+                        .map(column -> metadata.normalizeIdentifier(session, targetTable.getCatalogName(), column))
                         .collect(toImmutableList());
 
                 Set<String> columnNames = new HashSet<>();

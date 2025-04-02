@@ -142,6 +142,17 @@ public final class ClickHouseColumnHandle
                 .build();
     }
 
+    public ColumnMetadata getColumnMetadata(String name)
+    {
+        return ColumnMetadata.builder()
+                .setName(name)
+                .setType(columnType)
+                .setNullable(nullable)
+                .setHidden(false)
+                .setProperties(emptyMap())
+                .build();
+    }
+
     @Override
     public boolean equals(Object obj)
     {

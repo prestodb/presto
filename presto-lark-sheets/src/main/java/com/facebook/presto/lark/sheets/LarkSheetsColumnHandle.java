@@ -61,6 +61,11 @@ public class LarkSheetsColumnHandle
         return ColumnMetadata.builder().setName(name).setType(type).build();
     }
 
+    public ColumnMetadata toColumnMetadata(String name)
+    {
+        return ColumnMetadata.builder().setName(name).setType(type).build();
+    }
+
     @Override
     public boolean equals(Object o)
     {
