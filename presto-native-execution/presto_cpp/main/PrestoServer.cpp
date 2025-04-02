@@ -1286,12 +1286,6 @@ void PrestoServer::registerFunctions() {
       prestoBuiltinFunctionPrefix_);
   velox::window::prestosql::registerAllWindowFunctions(
       prestoBuiltinFunctionPrefix_);
-  if (SystemConfig::instance()->registerTestFunctions()) {
-    velox::functions::prestosql::registerAllScalarFunctions(
-        "json.test_schema.");
-    velox::aggregate::prestosql::registerAllAggregateFunctions(
-        "json.test_schema.");
-  }
 }
 
 void PrestoServer::registerRemoteFunctions() {
