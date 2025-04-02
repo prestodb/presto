@@ -99,6 +99,9 @@ public class TestTableFunctionInvocation
                 .withTableFunctionSplitSource(
                         new SchemaFunctionName("system", "empty_source"),
                         handle -> new FixedSplitSource(ImmutableList.of(MOCK_CONNECTOR_SPLIT)))
+                .withTableFunctionSplitSource(
+                        new SchemaFunctionName("system", "identity_function"),
+                        handle -> new FixedSplitSource(ImmutableList.of(MOCK_CONNECTOR_SPLIT)))
                 .build()));
         queryRunner.createCatalog(TESTING_CATALOG, "mock");
 
