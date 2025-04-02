@@ -193,8 +193,8 @@
         </dependency>
 
         <dependency>
-            <groupId>mysql</groupId>
-            <artifactId>mysql-connector-java</artifactId>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
             <scope>runtime</scope>
         </dependency>
 
@@ -258,7 +258,7 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>testing-mysql-server-5</artifactId>
+            <artifactId>testing-mysql-server-8</artifactId>
             <scope>test</scope>
         </dependency>
 
