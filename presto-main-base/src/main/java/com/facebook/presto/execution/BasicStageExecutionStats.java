@@ -21,7 +21,6 @@ import java.util.HashSet;
 import java.util.OptionalDouble;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.Duration.succinctDuration;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
@@ -104,21 +103,17 @@ public class BasicStageExecutionStats
         this.queuedDrivers = queuedDrivers;
         this.runningDrivers = runningDrivers;
         this.completedDrivers = completedDrivers;
-        checkArgument(rawInputDataSizeInBytes >= 0, "rawInputDataSizeInBytes is negative");
-        this.rawInputDataSizeInBytes = rawInputDataSizeInBytes;
+        this.rawInputDataSizeInBytes = (rawInputDataSizeInBytes >= 0) ? rawInputDataSizeInBytes : Long.MAX_VALUE;
         this.rawInputPositions = rawInputPositions;
         this.cumulativeUserMemory = cumulativeUserMemory;
         this.cumulativeTotalMemory = cumulativeTotalMemory;
-        checkArgument(userMemoryReservationInBytes >= 0, "userMemoryReservationInBytes is negative");
-        this.userMemoryReservationInBytes = userMemoryReservationInBytes;
-        checkArgument(totalMemoryReservationInBytes >= 0, "totalMemoryReservationInBytes is negative");
-        this.totalMemoryReservationInBytes = totalMemoryReservationInBytes;
+        this.userMemoryReservationInBytes = (userMemoryReservationInBytes >= 0) ? userMemoryReservationInBytes : Long.MAX_VALUE;
+        this.totalMemoryReservationInBytes = (totalMemoryReservationInBytes >= 0) ? totalMemoryReservationInBytes : Long.MAX_VALUE;
         this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
         this.fullyBlocked = fullyBlocked;
         this.blockedReasons = ImmutableSet.copyOf(requireNonNull(blockedReasons, "blockedReasons is null"));
-        checkArgument(totalAllocationInBytes >= 0, "totalAllocationInBytes is negative");
-        this.totalAllocationInBytes = totalAllocationInBytes;
+        this.totalAllocationInBytes = (totalAllocationInBytes >= 0) ? totalAllocationInBytes : Long.MAX_VALUE;
         this.progressPercentage = requireNonNull(progressPercentage, "progressPercentage is null");
     }
 

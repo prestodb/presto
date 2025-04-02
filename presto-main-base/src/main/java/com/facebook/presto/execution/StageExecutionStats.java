@@ -173,14 +173,10 @@ public class StageExecutionStats
         this.cumulativeUserMemory = cumulativeUserMemory;
         checkArgument(cumulativeTotalMemory >= 0, "cumulativeTotalMemory is negative");
         this.cumulativeTotalMemory = cumulativeTotalMemory;
-        checkArgument(userMemoryReservationInBytes >= 0, "userMemoryReservationInBytes is negative");
-        this.userMemoryReservationInBytes = userMemoryReservationInBytes;
-        checkArgument(totalMemoryReservationInBytes >= 0, "totalMemoryReservationInBytes is negative");
-        this.totalMemoryReservationInBytes = totalMemoryReservationInBytes;
-        checkArgument(peakUserMemoryReservationInBytes >= 0, "peakUserMemoryReservationInBytes is negative");
-        this.peakUserMemoryReservationInBytes = peakUserMemoryReservationInBytes;
-        checkArgument(peakNodeTotalMemoryReservationInBytes >= 0, "peakNodeTotalMemoryReservationInBytes is negative");
-        this.peakNodeTotalMemoryReservationInBytes = peakNodeTotalMemoryReservationInBytes;
+        this.userMemoryReservationInBytes = (userMemoryReservationInBytes >= 0) ? userMemoryReservationInBytes : Long.MAX_VALUE;
+        this.totalMemoryReservationInBytes = (totalMemoryReservationInBytes >= 0) ? totalMemoryReservationInBytes : Long.MAX_VALUE;
+        this.peakUserMemoryReservationInBytes = (peakUserMemoryReservationInBytes >= 0) ? peakUserMemoryReservationInBytes : Long.MAX_VALUE;
+        this.peakNodeTotalMemoryReservationInBytes = (peakNodeTotalMemoryReservationInBytes >= 0) ? peakNodeTotalMemoryReservationInBytes : Long.MAX_VALUE;
 
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
         this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
@@ -189,20 +185,17 @@ public class StageExecutionStats
         this.fullyBlocked = fullyBlocked;
         this.blockedReasons = ImmutableSet.copyOf(requireNonNull(blockedReasons, "blockedReasons is null"));
 
-        checkArgument(totalAllocationInBytes >= 0, "totalAllocationInBytes is negative");
-        this.totalAllocationInBytes = totalAllocationInBytes;
-        checkArgument(rawInputDataSizeInBytes >= 0, "rawInputDataSizeInBytes is negative");
-        this.rawInputDataSizeInBytes = rawInputDataSizeInBytes;
+        this.totalAllocationInBytes = (totalAllocationInBytes >= 0) ? totalAllocationInBytes : Long.MAX_VALUE;
+        this.rawInputDataSizeInBytes = (rawInputDataSizeInBytes >= 0) ? rawInputDataSizeInBytes : Long.MAX_VALUE;
         checkArgument(rawInputPositions >= 0, "rawInputPositions is negative");
         this.rawInputPositions = rawInputPositions;
 
-        checkArgument(processedInputDataSizeInBytes >= 0, "processedInputDataSizeInBytes is negative");
-        this.processedInputDataSizeInBytes = processedInputDataSizeInBytes;
+        // An overflow could have occurred on this stat - handle this gracefully.
+        this.processedInputDataSizeInBytes = (processedInputDataSizeInBytes >= 0) ? processedInputDataSizeInBytes : Long.MAX_VALUE;
         checkArgument(processedInputPositions >= 0, "processedInputPositions is negative");
         this.processedInputPositions = processedInputPositions;
 
-        checkArgument(bufferedDataSizeInBytes >= 0, "bufferedDataSizeInBytes is negative");
-        this.bufferedDataSizeInBytes = bufferedDataSizeInBytes;
+        this.bufferedDataSizeInBytes = (bufferedDataSizeInBytes >= 0) ? bufferedDataSizeInBytes : Long.MAX_VALUE;
 
         // An overflow could have occurred on this stat - handle this gracefully.
         this.outputDataSizeInBytes = (outputDataSizeInBytes >= 0) ? outputDataSizeInBytes : Long.MAX_VALUE;
@@ -210,8 +203,7 @@ public class StageExecutionStats
         checkArgument(outputPositions >= 0, "outputPositions is negative");
         this.outputPositions = outputPositions;
 
-        checkArgument(physicalWrittenDataSizeInBytes >= 0, "writtenDataSizeInBytes is negative");
-        this.physicalWrittenDataSizeInBytes = physicalWrittenDataSizeInBytes;
+        this.physicalWrittenDataSizeInBytes = (physicalWrittenDataSizeInBytes >= 0) ? physicalWrittenDataSizeInBytes : Long.MAX_VALUE;
 
         this.gcInfo = requireNonNull(gcInfo, "gcInfo is null");
 

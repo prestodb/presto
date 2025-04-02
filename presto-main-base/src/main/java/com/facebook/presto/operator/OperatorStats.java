@@ -182,20 +182,16 @@ public class OperatorStats
         this.isBlockedCalls = isBlockedCalls;
         this.isBlockedWall = requireNonNull(isBlockedWall, "isBlockedWall is null");
         this.isBlockedCpu = requireNonNull(isBlockedCpu, "isBlockedCpu is null");
-        checkArgument(isBlockedAllocationInBytes >= 0, "isBlockedAllocationInBytes is negative");
-        this.isBlockedAllocationInBytes = isBlockedAllocationInBytes;
+        this.isBlockedAllocationInBytes = (isBlockedAllocationInBytes >= 0) ? isBlockedAllocationInBytes : Long.MAX_VALUE;
 
         this.addInputCalls = addInputCalls;
         this.addInputWall = requireNonNull(addInputWall, "addInputWall is null");
         this.addInputCpu = requireNonNull(addInputCpu, "addInputCpu is null");
-        checkArgument(addInputAllocationInBytes >= 0, "addInputAllocationInBytes is negative");
-        this.addInputAllocationInBytes = addInputAllocationInBytes;
-        checkArgument(rawInputDataSizeInBytes >= 0, "rawInputDataSizeInBytes is negative");
-        this.rawInputDataSizeInBytes = rawInputDataSizeInBytes;
+        this.addInputAllocationInBytes = (addInputAllocationInBytes >= 0) ? addInputAllocationInBytes : Long.MAX_VALUE;
+        this.rawInputDataSizeInBytes = (rawInputDataSizeInBytes >= 0) ? rawInputDataSizeInBytes : Long.MAX_VALUE;
         checkArgument(rawInputPositions >= 0, "rawInputPositions is negative");
         this.rawInputPositions = rawInputPositions;
-        checkArgument(inputDataSizeInBytes >= 0, "inputDataSizeInBytes is negative");
-        this.inputDataSizeInBytes = inputDataSizeInBytes;
+        this.inputDataSizeInBytes = (inputDataSizeInBytes >= 0) ? inputDataSizeInBytes : Long.MAX_VALUE;
         checkArgument(inputPositions >= 0, "inputPositions is negative");
         this.inputPositions = inputPositions;
         this.sumSquaredInputPositions = sumSquaredInputPositions;
@@ -203,39 +199,28 @@ public class OperatorStats
         this.getOutputCalls = getOutputCalls;
         this.getOutputWall = requireNonNull(getOutputWall, "getOutputWall is null");
         this.getOutputCpu = requireNonNull(getOutputCpu, "getOutputCpu is null");
-        checkArgument(getOutputAllocationInBytes >= 0, "getOutputAllocationInBytes is negative");
-        this.getOutputAllocationInBytes = getOutputAllocationInBytes;
+        this.getOutputAllocationInBytes = (getOutputAllocationInBytes >= 0) ? getOutputAllocationInBytes : Long.MAX_VALUE;
 
-        // An overflow could have occurred on this stat - handle this gracefully.
         this.outputDataSizeInBytes = (outputDataSizeInBytes >= 0) ? outputDataSizeInBytes : Long.MAX_VALUE;
 
         checkArgument(outputPositions >= 0, "outputPositions is negative");
         this.outputPositions = outputPositions;
 
-        checkArgument(physicalWrittenDataSizeInBytes >= 0, "writtenDataSizeInBytes is negative");
-        this.physicalWrittenDataSizeInBytes = physicalWrittenDataSizeInBytes;
+        this.physicalWrittenDataSizeInBytes = (physicalWrittenDataSizeInBytes >= 0) ? physicalWrittenDataSizeInBytes : Long.MAX_VALUE;
         this.additionalCpu = requireNonNull(additionalCpu, "additionalCpu is negative");
         this.blockedWall = requireNonNull(blockedWall, "blockedWall is null");
 
         this.finishCalls = finishCalls;
         this.finishWall = requireNonNull(finishWall, "finishWall is null");
         this.finishCpu = requireNonNull(finishCpu, "finishCpu is null");
-        checkArgument(finishAllocationInBytes >= 0, "finishAllocationInBytes is negative");
-        this.finishAllocationInBytes = finishAllocationInBytes;
-        checkArgument(userMemoryReservationInBytes >= 0, "userMemoryReservationInBytes is negative");
-        this.userMemoryReservationInBytes = userMemoryReservationInBytes;
-        checkArgument(revocableMemoryReservationInBytes >= 0, "revocableMemoryReservationInBytes is negative");
-        this.revocableMemoryReservationInBytes = revocableMemoryReservationInBytes;
-        checkArgument(systemMemoryReservationInBytes >= 0, "systemMemoryReservationInBytes is negative");
-        this.systemMemoryReservationInBytes = systemMemoryReservationInBytes;
-        checkArgument(peakUserMemoryReservationInBytes >= 0, "peakUserMemoryReservationInBytes is negative");
-        this.peakUserMemoryReservationInBytes = peakUserMemoryReservationInBytes;
-        checkArgument(peakSystemMemoryReservationInBytes >= 0, "peakSystemMemoryReservationInBytes is negative");
-        this.peakSystemMemoryReservationInBytes = peakSystemMemoryReservationInBytes;
-        checkArgument(peakTotalMemoryReservationInBytes >= 0, "peakTotalMemoryReservationInBytes is negative");
-        this.peakTotalMemoryReservationInBytes = peakTotalMemoryReservationInBytes;
-        checkArgument(spilledDataSizeInBytes >= 0, "spilledDataSizeInBytes is negative");
-        this.spilledDataSizeInBytes = spilledDataSizeInBytes;
+        this.finishAllocationInBytes = (finishAllocationInBytes >= 0) ? finishAllocationInBytes : Long.MAX_VALUE;
+        this.userMemoryReservationInBytes = (userMemoryReservationInBytes >= 0) ? userMemoryReservationInBytes : Long.MAX_VALUE;
+        this.revocableMemoryReservationInBytes = (revocableMemoryReservationInBytes >= 0) ? revocableMemoryReservationInBytes : Long.MAX_VALUE;
+        this.systemMemoryReservationInBytes = (systemMemoryReservationInBytes >= 0) ? systemMemoryReservationInBytes : Long.MAX_VALUE;
+        this.peakUserMemoryReservationInBytes = (peakUserMemoryReservationInBytes >= 0) ? peakUserMemoryReservationInBytes : Long.MAX_VALUE;
+        this.peakSystemMemoryReservationInBytes = (peakSystemMemoryReservationInBytes >= 0) ? peakSystemMemoryReservationInBytes : Long.MAX_VALUE;
+        this.peakTotalMemoryReservationInBytes = (peakTotalMemoryReservationInBytes >= 0) ? peakTotalMemoryReservationInBytes : Long.MAX_VALUE;
+        this.spilledDataSizeInBytes = (spilledDataSizeInBytes >= 0) ? spilledDataSizeInBytes : Long.MAX_VALUE;
         this.runtimeStats = runtimeStats;
 
         this.dynamicFilterStats = dynamicFilterStats;
