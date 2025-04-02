@@ -102,9 +102,4 @@
         <name>dfs.encrypt.data.transfer</name>
         <value>true</value>
     </property>
-
-    <property>
-        <name>dfs.client.use.legacy.blockreader</name>
-        <value>true</value>
-    </property>
 </configuration>
