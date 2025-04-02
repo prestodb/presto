@@ -69,6 +69,7 @@ import com.facebook.presto.operator.HashSemiJoinOperator.HashSemiJoinOperatorFac
 import com.facebook.presto.operator.JoinBridgeManager;
 import com.facebook.presto.operator.JoinOperatorFactory;
 import com.facebook.presto.operator.JoinOperatorFactory.OuterOperatorFactoryResult;
+import com.facebook.presto.operator.LeafTableFunctionOperator;
 import com.facebook.presto.operator.LimitOperator.LimitOperatorFactory;
 import com.facebook.presto.operator.LocalPlannerAware;
 import com.facebook.presto.operator.LookupJoinOperators;
@@ -1231,13 +1232,13 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitTableFunctionProcessor(TableFunctionProcessorNode node, LocalExecutionPlanContext context)
         {
-            if (!node.getSource().isPresent()) {
-                throw new UnsupportedOperationException("table function operator is not yet implemented for table functions without input tables"); // TODO
-            }
-
             PhysicalOperation source = node.getSource().orElseThrow(NoSuchElementException::new).accept(this, context);
-
             TableFunctionProcessorProvider processorProvider = metadata.getFunctionAndTypeManager().getTableFunctionProcessorProvider(node.getHandle());
+
+            if (!node.getSource().isPresent()) {
+                OperatorFactory operatorFactory = new LeafTableFunctionOperator.LeafTableFunctionOperatorFactory(context.getNextOperatorId(), node.getId(), processorProvider, node.getHandle().getFunctionHandle());
+                return new PhysicalOperation(operatorFactory, makeLayout(node), context, source);
+            }
 
             int properChannelsCount = node.getProperOutputs().size();
 
