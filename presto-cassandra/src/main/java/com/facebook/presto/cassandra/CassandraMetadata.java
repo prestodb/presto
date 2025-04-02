@@ -120,14 +120,17 @@ public class CassandraMetadata
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         requireNonNull(tableHandle, "tableHandle is null");
-        return getTableMetadata(getTableName(tableHandle));
+        return getTableMetadata(session, getTableName(tableHandle));
     }
 
-    private ConnectorTableMetadata getTableMetadata(SchemaTableName tableName)
+    private ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName tableName)
     {
         CassandraTable table = cassandraSession.getTable(tableName);
         List<ColumnMetadata> columns = table.getColumns().stream()
-                .map(CassandraColumnHandle::getColumnMetadata)
+                .map(column -> {
+                    String normalizedName = normalizeIdentifier(session, CassandraCqlUtils.cqlNameToSqlName(column.getName()));
+                    return column.getColumnMetadata(normalizedName);
+                })
                 .collect(toList());
         return new ConnectorTableMetadata(tableName, columns);
     }
@@ -177,7 +180,7 @@ public class CassandraMetadata
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
         for (SchemaTableName tableName : listTables(session, prefix)) {
             try {
-                columns.put(tableName, getTableMetadata(tableName).getColumns());
+                columns.put(tableName, getTableMetadata(session, tableName).getColumns());
             }
             catch (NotFoundException e) {
                 // table disappeared during listing operation

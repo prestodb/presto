@@ -168,7 +168,19 @@ public class MemoryMetadata
     {
         return tables.values().stream()
                 .filter(table -> prefix.matches(table.toSchemaTableName()))
-                .collect(toMap(MemoryTableHandle::toSchemaTableName, handle -> handle.toTableMetadata().getColumns()));
+                .collect(toMap(MemoryTableHandle::toSchemaTableName, handle -> toTableMetadata(handle, session).getColumns()));
+    }
+
+    public ConnectorTableMetadata toTableMetadata(MemoryTableHandle memoryTableHandle, ConnectorSession session)
+    {
+        List<ColumnMetadata> columns = memoryTableHandle.getColumnHandles().stream()
+                .map(column -> {
+                    String normalizedName = normalizeIdentifier(session, column.getName());
+                    return column.toColumnMetadata(normalizedName);
+                })
+                .collect(toList());
+
+        return new ConnectorTableMetadata(memoryTableHandle.toSchemaTableName(), columns);
     }
 
     @Override

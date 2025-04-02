@@ -592,7 +592,7 @@ public class HiveMetadata
         }
         Map<String, String> sortedTableParameters = ImmutableSortedMap.copyOf(table.get().getParameters());
         List<ColumnMetadata> columns = sortedTableParameters.keySet().stream()
-                .map(key -> ColumnMetadata.builder().setName(key).setType(VARCHAR).build())
+                .map(key -> ColumnMetadata.builder().setName(normalizeIdentifier(session, key)).setType(VARCHAR).build())
                 .collect(toImmutableList());
         List<Type> types = columns.stream()
                 .map(ColumnMetadata::getType)
@@ -625,7 +625,7 @@ public class HiveMetadata
 
         List<ColumnMetadata> partitionSystemTableColumns = partitionColumns.stream()
                 .map(column -> ColumnMetadata.builder()
-                        .setName(column.getName())
+                        .setName(normalizeIdentifier(session, column.getName()))
                         .setType(typeManager.getType(column.getTypeSignature()))
                         .setComment(column.getComment().orElse(null))
                         .setHidden(column.isHidden())
@@ -2874,7 +2874,8 @@ public class HiveMetadata
             // capture subfields from domainPredicate to add to remainingPredicate
             // so those filters don't get lost
             Map<String, Type> columnTypes = hiveColumnHandles(table).stream()
-                    .collect(toImmutableMap(HiveColumnHandle::getName, columnHandle -> columnHandle.getColumnMetadata(typeManager).getType()));
+                    .collect(toImmutableMap(HiveColumnHandle::getName, columnHandle -> columnHandle.getColumnMetadata(typeManager,
+                            normalizeIdentifier(session, columnHandle.getName())).getType()));
 
             subfieldPredicate = getSubfieldPredicate(session, hiveLayoutHandle, columnTypes, functionResolution, rowExpressionService);
         }

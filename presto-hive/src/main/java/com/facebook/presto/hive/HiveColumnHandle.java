@@ -145,6 +145,15 @@ public class HiveColumnHandle
                 .build();
     }
 
+    public ColumnMetadata getColumnMetadata(TypeManager typeManager, String name)
+    {
+        return ColumnMetadata.builder()
+                .setName(name)
+                .setType(typeManager.getType(typeName))
+                .setHidden(isHidden())
+                .build();
+    }
+
     @JsonProperty
     public Optional<Aggregation> getPartialAggregation()
     {

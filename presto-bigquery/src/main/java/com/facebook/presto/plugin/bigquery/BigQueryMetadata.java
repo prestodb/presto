@@ -178,7 +178,7 @@ public class BigQueryMetadata
         List<ColumnMetadata> columns = schema == null ?
                 ImmutableList.of() :
                 schema.getFields().stream()
-                        .map(Conversions::toColumnMetadata)
+                        .map(field -> Conversions.toColumnMetadata(field, normalizeIdentifier(session, field.getName())))
                         .collect(toImmutableList());
         return new ConnectorTableMetadata(schemaTableName, columns);
     }
