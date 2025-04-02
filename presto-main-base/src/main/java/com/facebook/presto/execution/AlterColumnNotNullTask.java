@@ -82,8 +82,7 @@ public class AlterColumnNotNullTask
         }
 
         TableHandle tableHandle = tableHandleOptional.get();
-
-        String column = statement.getColumn().getValueLowerCase();
+        String column = metadata.normalizeIdentifier(session, tableName.getCatalogName(), statement.getColumn().getValue());
 
         accessControl.checkCanAddConstraints(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
 
