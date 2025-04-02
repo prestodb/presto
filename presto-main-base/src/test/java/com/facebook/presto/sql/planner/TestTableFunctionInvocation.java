@@ -24,7 +24,6 @@ import com.facebook.presto.spi.connector.TableFunctionApplicationResult;
 import com.facebook.presto.spi.function.table.Descriptor;
 import com.facebook.presto.spi.function.table.Descriptor.Field;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
-import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -91,7 +90,8 @@ public class TestTableFunctionInvocation
                                         "INPUT_1",
                                         tableArgument(0)
                                                 .specification(specification(ImmutableList.of("c1"), ImmutableList.of("c1"), ImmutableMap.of("c1", ASC_NULLS_LAST)))
-                                                .passThroughVariables(ImmutableSet.of("c1")))
+                                                .passThroughVariables(ImmutableSet.of("c1"))
+                                                .passThroughColumns())
                                 .addTableArgument(
                                         "INPUT_3",
                                         tableArgument(2)
@@ -102,7 +102,8 @@ public class TestTableFunctionInvocation
                                         "INPUT_2",
                                         tableArgument(1)
                                                 .rowSemantics()
-                                                .passThroughVariables(ImmutableSet.of("c2")))
+                                                .passThroughVariables(ImmutableSet.of("c2"))
+                                                .passThroughColumns())
                                 .addScalarArgument("ID", 2001L)
                                 .addDescriptorArgument(
                                         "LAYOUT",
@@ -121,7 +122,7 @@ public class TestTableFunctionInvocation
     {
         assertPlan("SELECT * FROM TABLE(mock.system.two_table_arguments_function(" +
                            "INPUT1 => TABLE(VALUES SMALLINT '1') t1(c1) PARTITION BY c1," +
-                           "INPUT2 => TABLE(VALUES INTEGER '2') t2(c2) PARTITION BY c2" +
+                           "INPUT2 => TABLE(VALUES INTEGER '2') t2(c2) PARTITION BY c2 " +
                            "COPARTITION (t1, t2))) t",
                 CREATED,
                 anyTree(tableFunction(builder -> builder
@@ -139,8 +140,8 @@ public class TestTableFunctionInvocation
                                 .addCopartitioning(ImmutableList.of("INPUT1", "INPUT2"))
                                 .properOutputs(ImmutableList.of("COLUMN")),
                         project(ImmutableMap.of("c1_coerced", expression("CAST(c1 AS INTEGER)")),
-                                anyTree(values(ImmutableList.of("c1"), ImmutableList.of(ImmutableList.of(new GenericLiteral("SMALLINT", "1")))))),
-                        anyTree(values(ImmutableList.of("c2"), ImmutableList.of(ImmutableList.of(new GenericLiteral("INTEGER", "2"))))))));
+                                anyTree(values(ImmutableList.of("c1"), ImmutableList.of(ImmutableList.of(new LongLiteral("1")))))),
+                        anyTree(values(ImmutableList.of("c2"), ImmutableList.of(ImmutableList.of(new LongLiteral("2"))))))));
     }
 
     @Test

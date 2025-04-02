@@ -144,7 +144,7 @@ import static com.google.common.collect.Streams.stream;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-class QueryPlanner
+public class QueryPlanner
 {
     private final Analysis analysis;
     private final VariableAllocator variableAllocator;
@@ -1365,6 +1365,11 @@ class QueryPlanner
                         variable.getSourceLocation().map(location -> new NodeLocation(location.getLine(), location.getColumn())),
                         variable.getName()))
                 .collect(toImmutableList());
+    }
+
+    public static SymbolReference toSymbolReference(VariableReferenceExpression variable)
+    {
+        return new SymbolReference(variable.getSourceLocation().map(location -> new NodeLocation(location.getLine(), location.getColumn())), variable.getName());
     }
 
     public static class PlanAndMappings

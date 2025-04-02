@@ -680,6 +680,20 @@ public final class PlanMatchPattern
         return builder.build();
     }
 
+    public static PlanMatchPattern tableFunctionProcessor(Consumer<TableFunctionProcessorMatcher.Builder> handler, PlanMatchPattern source)
+    {
+        TableFunctionProcessorMatcher.Builder builder = new TableFunctionProcessorMatcher.Builder(source);
+        handler.accept(builder);
+        return builder.build();
+    }
+
+    public static PlanMatchPattern tableFunctionProcessor(Consumer<TableFunctionProcessorMatcher.Builder> handler)
+    {
+        TableFunctionProcessorMatcher.Builder builder = new TableFunctionProcessorMatcher.Builder();
+        handler.accept(builder);
+        return builder.build();
+    }
+
     public PlanMatchPattern(List<PlanMatchPattern> sourcePatterns)
     {
         requireNonNull(sourcePatterns, "sourcePatterns are null");

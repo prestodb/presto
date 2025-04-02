@@ -115,7 +115,7 @@ public class TableFunctionNode
         return variables.build();
     }
 
-    public List<VariableReferenceExpression> getProperOutput()
+    public List<VariableReferenceExpression> getProperOutputs()
     {
         return outputVariables;
     }

@@ -420,6 +420,9 @@ public final class SqlToRowExpressionTranslator
                 else if (BIGINT.equals(type)) {
                     return constant(Long.parseLong(node.getValue()), BIGINT);
                 }
+                else if (INTEGER.equals(type)) {
+                    return constant(Long.parseLong(node.getValue()), INTEGER);
+                }
             }
             catch (NumberFormatException e) {
                 throw new SemanticException(SemanticErrorCode.INVALID_LITERAL, node, format("Invalid formatted generic %s literal: %s", type, node));
