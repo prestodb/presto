@@ -38,6 +38,9 @@ class Murmur3Hash128 {
     return static_cast<int64_t>(mix64(h1) + mix64(h1 + h2));
   }
 
+  static void
+  hash(const void* key, const int32_t len, const uint32_t seed, void* out);
+
  private:
   static constexpr uint64_t C1 = 0x87c37b91114253d5L;
   static constexpr uint64_t C2 = 0x4cf5ad432745937fL;

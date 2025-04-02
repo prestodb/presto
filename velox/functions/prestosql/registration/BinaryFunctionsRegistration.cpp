@@ -25,6 +25,8 @@ void registerSimpleFunctions(const std::string& prefix) {
   registerFunction<XxHash64Function, Varbinary, Varbinary>(
       {prefix + "xxhash64"});
   registerFunction<Md5Function, Varbinary, Varbinary>({prefix + "md5"});
+  registerFunction<Murmur3X64_128Function, Varbinary, Varbinary>(
+      {prefix + "murmur3_x64_128"});
   registerFunction<Sha1Function, Varbinary, Varbinary>({prefix + "sha1"});
   registerFunction<Sha256Function, Varbinary, Varbinary>({prefix + "sha256"});
   registerFunction<Sha512Function, Varbinary, Varbinary>({prefix + "sha512"});
