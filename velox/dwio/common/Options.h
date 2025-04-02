@@ -382,6 +382,16 @@ class RowReaderOptions {
     formatSpecificOptions_ = std::move(options);
   }
 
+  const std::unordered_map<std::string, std::string>& storageParameters()
+      const {
+    return storageParameters_;
+  }
+
+  void setStorageParameters(
+      std::unordered_map<std::string, std::string> storageParameters) {
+    storageParameters_ = std::move(storageParameters);
+  }
+
  private:
   uint64_t dataStart_;
   uint64_t dataLength_;
@@ -402,6 +412,8 @@ class RowReaderOptions {
   std::shared_ptr<folly::Executor> decodingExecutor_;
   size_t decodingParallelismFactor_{0};
   std::optional<RowNumberColumnInfo> rowNumberColumnInfo_{std::nullopt};
+  // Parameters that are provided as the physical storage properties.
+  std::unordered_map<std::string, std::string> storageParameters_ = {};
 
   // Function to populate metrics related to feature projection stats
   // in Koski. This gets fired in FlatMapColumnReader.

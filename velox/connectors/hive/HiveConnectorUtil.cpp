@@ -627,6 +627,7 @@ void configureRowReaderOptions(
     rowReaderOptions.setTimestampPrecision(static_cast<TimestampPrecision>(
         hiveConfig->readTimestampUnit(sessionProperties)));
   }
+  rowReaderOptions.setStorageParameters(hiveSplit->storageParameters);
 }
 
 namespace {
