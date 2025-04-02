@@ -92,8 +92,6 @@ TEST_F(UuidFunctionsTest, castAsVarbinary) {
   auto result = evaluate<FlatVector<StringView>>(
       "cast(c0 as varbinary)", makeRowVector({uuids}));
 
-  // Verify that CAST results as the same as boost::lexical_cast. We do not use
-  // boost::lexical_cast to implement CAST because it is too slow.
   auto expected = makeFlatVector<std::string>(
       size,
       [&](auto row) {
@@ -102,20 +100,21 @@ TEST_F(UuidFunctionsTest, castAsVarbinary) {
         boost::uuids::uuid u;
         memcpy(&u, &uuid, 16);
 
-        return boost::lexical_cast<std::string>(u);
+        return std::string(u.begin(), u.end());
       },
       nullptr,
       VARBINARY());
 
   velox::test::assertEqualVectors(expected, result);
 
-  // Sanity check results. All strings are unique. Each string is 36 bytes
+  // Sanity check results. All binaries are unique. Each binary is 16 bytes
   // long.
   std::unordered_set<std::string> uniqueUuids;
   for (auto i = 0; i < size; ++i) {
-    const auto uuid = result->valueAt(i).str();
-    ASSERT_EQ(36, uuid.size());
-    ASSERT_TRUE(uniqueUuids.insert(uuid).second);
+    const auto uuid = result->valueAt(i);
+    ASSERT_EQ(16, uuid.size());
+    ASSERT_TRUE(
+        uniqueUuids.insert(std::string(uuid.data(), uuid.size())).second);
   }
   ASSERT_EQ(size, uniqueUuids.size());
 }
@@ -136,19 +135,19 @@ TEST_F(UuidFunctionsTest, varcharCastRoundTrip) {
 }
 
 TEST_F(UuidFunctionsTest, varbinaryCastRoundTrip) {
-  auto strings = makeFlatVector<std::string>(
+  auto binaries = makeFlatVector<std::string>(
       {
-          "33355449-2c7d-43d7-967a-f53cd23215ad",
-          "eed9f812-4b0c-472f-8a10-4ae7bff79a47",
-          "f768f36d-4f09-4da7-a298-3564d8f3c986",
+          folly::unhexlify("333554492c7d43d7967af53cd23215ad"),
+          folly::unhexlify("eed9f8124b0c472f8a104ae7bff79a47"),
+          folly::unhexlify("f768f36d4f094da7a2983564d8f3c986"),
       },
       VARBINARY());
 
-  auto uuids = evaluate("cast(c0 as uuid)", makeRowVector({strings}));
-  auto stringsCopy = evaluate("cast(c0 as varbinary)", makeRowVector({uuids}));
-  auto uuidsCopy = evaluate("cast(c0 as uuid)", makeRowVector({stringsCopy}));
+  auto uuids = evaluate("cast(c0 as uuid)", makeRowVector({binaries}));
+  auto binariesCopy = evaluate("cast(c0 as varbinary)", makeRowVector({uuids}));
+  auto uuidsCopy = evaluate("cast(c0 as uuid)", makeRowVector({binariesCopy}));
 
-  velox::test::assertEqualVectors(strings, stringsCopy);
+  velox::test::assertEqualVectors(binaries, binariesCopy);
   velox::test::assertEqualVectors(uuids, uuidsCopy);
 }
 
