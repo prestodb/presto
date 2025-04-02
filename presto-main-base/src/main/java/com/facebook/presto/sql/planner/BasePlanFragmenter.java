@@ -283,7 +283,7 @@ public abstract class BasePlanFragmenter
             case REMOTE_STREAMING:
                 return createRemoteStreamingExchange(exchange, context);
             case REMOTE_MATERIALIZED:
-                return createRemoteMaterializedExchange(exchange, context);
+                return createRemoteMaterializedExchange(metadata, session, exchange, context);
             default:
                 throw new IllegalArgumentException("Unexpected exchange scope: " + exchange.getScope());
         }
@@ -334,7 +334,7 @@ public abstract class BasePlanFragmenter
         }
     }
 
-    private PlanNode createRemoteMaterializedExchange(ExchangeNode exchange, RewriteContext<FragmentProperties> context)
+    private PlanNode createRemoteMaterializedExchange(Metadata metadata, Session session, ExchangeNode exchange, RewriteContext<FragmentProperties> context)
     {
         checkArgument(exchange.getType() == REPARTITION, "Unexpected exchange type: %s", exchange.getType());
         checkArgument(exchange.getScope() == REMOTE_MATERIALIZED, "Unexpected exchange scope: %s", exchange.getScope());
@@ -352,7 +352,8 @@ public abstract class BasePlanFragmenter
 
         Partitioning partitioning = partitioningScheme.getPartitioning();
         PartitioningVariableAssignments partitioningVariableAssignments = assignPartitioningVariables(variableAllocator, partitioning);
-        Map<VariableReferenceExpression, ColumnMetadata> variableToColumnMap = assignTemporaryTableColumnNames(exchange.getOutputVariables(), partitioningVariableAssignments.getConstants().keySet());
+        Map<VariableReferenceExpression, ColumnMetadata> variableToColumnMap = assignTemporaryTableColumnNames(metadata,
+                session, connectorId.getCatalogName(), exchange.getOutputVariables(), partitioningVariableAssignments.getConstants().keySet());
         List<VariableReferenceExpression> partitioningVariables = partitioningVariableAssignments.getVariables();
         List<String> partitionColumns = partitioningVariables.stream()
                 .map(variable -> variableToColumnMap.get(variable).getName())
