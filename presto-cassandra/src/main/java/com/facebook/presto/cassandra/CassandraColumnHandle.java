@@ -138,6 +138,15 @@ public class CassandraColumnHandle
                 .build();
     }
 
+    public ColumnMetadata getColumnMetadata(String name)
+    {
+        return ColumnMetadata.builder()
+                .setName(name)
+                .setType(cassandraType.getNativeType())
+                .setHidden(hidden)
+                .build();
+    }
+
     public Type getType()
     {
         return cassandraType.getNativeType();

@@ -59,6 +59,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 /**
  * Presto metadata provider for Accumulo.
@@ -282,7 +283,7 @@ public class AccumuloMetadata
         AccumuloTableHandle handle = (AccumuloTableHandle) table;
         checkArgument(handle.getConnectorId().equals(connectorId), "table is not for this connector");
         SchemaTableName tableName = new SchemaTableName(handle.getSchema(), handle.getTable());
-        ConnectorTableMetadata metadata = getTableMetadata(tableName);
+        ConnectorTableMetadata metadata = getTableMetadata(session, tableName);
         if (metadata == null) {
             throw new TableNotFoundException(tableName);
         }
@@ -353,7 +354,7 @@ public class AccumuloMetadata
         requireNonNull(prefix, "prefix is null");
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
         for (SchemaTableName tableName : listTables(session, prefix)) {
-            ConnectorTableMetadata tableMetadata = getTableMetadata(tableName);
+            ConnectorTableMetadata tableMetadata = getTableMetadata(session, tableName);
             // table can disappear during listing operation
             if (tableMetadata != null) {
                 columns.put(tableName, tableMetadata.getColumns());
@@ -385,7 +386,7 @@ public class AccumuloMetadata
         }
     }
 
-    private ConnectorTableMetadata getTableMetadata(SchemaTableName tableName)
+    private ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName tableName)
     {
         if (!client.getSchemaNames().contains(tableName.getSchemaName())) {
             return null;
@@ -398,10 +399,27 @@ public class AccumuloMetadata
                 return null;
             }
 
-            return new ConnectorTableMetadata(tableName, table.getColumnsMetadata());
+            List<ColumnMetadata> columns = table.getColumnsMetadata().stream()
+                    .map(column -> normalizedColumnMetadata(session, column))
+                    .collect(toList());
+
+            return new ConnectorTableMetadata(tableName, columns);
         }
 
         return null;
+    }
+
+    private ColumnMetadata normalizedColumnMetadata(ConnectorSession session, ColumnMetadata columnMetadata)
+    {
+        return ColumnMetadata.builder()
+                .setName(normalizeIdentifier(session, columnMetadata.getName()))
+                .setType(columnMetadata.getType())
+                .setHidden(columnMetadata.isHidden())
+                .setNullable(columnMetadata.isNullable())
+                .setComment(columnMetadata.getComment().orElse(null))
+                .setProperties(columnMetadata.getProperties())
+                .setExtraInfo(columnMetadata.getExtraInfo().orElse(null))
+                .build();
     }
 
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)

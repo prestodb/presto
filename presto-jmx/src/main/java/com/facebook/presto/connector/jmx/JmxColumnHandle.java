@@ -87,4 +87,12 @@ public class JmxColumnHandle
                 .setType(columnType)
                 .build();
     }
+
+    public ColumnMetadata getColumnMetadata(String name)
+    {
+        return ColumnMetadata.builder()
+                .setName(name)
+                .setType(columnType)
+                .build();
+    }
 }
