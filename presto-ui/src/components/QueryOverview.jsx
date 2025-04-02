@@ -290,12 +290,14 @@ function TaskList({ tasks }: { tasks: Task[] }) : React.Node {
             style: {
                 padding: '2px', // override the cell padding for head cells
                 fontSize: '15px',
+                overflowX: 'auto', // Enables horizontal scrolling
             },
         },
         cells: {
             style: {
                 padding: '2px', // override the cell padding for data cells
                 fontSize: '15px',
+                overflowX: 'auto', // Enables horizontal scrolling
             },
         },
     };
@@ -330,8 +332,8 @@ function TaskList({ tasks }: { tasks: Task[] }) : React.Node {
         {
             name: (<span className="bi bi-pause-circle-fill" style={GLYPHICON_HIGHLIGHT}
                 data-bs-toggle="tooltip" data-placement="top"
-                title="Pending splits" />),
-            selector: (row: Task) => row.stats.queuedSplits ?? row.stats.queuedDrivers,
+                title="Pending drivers" />),
+            selector: (row: Task) => row.stats.queuedDrivers,
             sortable: true,
             maxWidth: '50px',
             minWidth: '40px',
@@ -339,8 +341,8 @@ function TaskList({ tasks }: { tasks: Task[] }) : React.Node {
         {
             name: (<span className="bi bi-play-circle-fill" style={GLYPHICON_HIGHLIGHT}
                 data-bs-toggle="tooltip" data-placement="top"
-                title="Running splits" />),
-            selector: (row: Task) => row.stats.runningSplits ?? row.stats.runningDrivers,
+                title="Running drivers" />),
+            selector: (row: Task) => row.stats.runningDrivers,
             sortable: true,
             maxWidth: '50px',
             minWidth: '40px',
@@ -349,7 +351,7 @@ function TaskList({ tasks }: { tasks: Task[] }) : React.Node {
             name: (<span className="bi bi-bookmark-check-fill"
                 style={GLYPHICON_HIGHLIGHT} data-bs-toggle="tooltip"
                 data-placement="top"
-                title="Blocked splits" />),
+                title="Blocked drivers" />),
             selector: (row: Task) => row.stats.blockedDrivers,
             sortable: true,
             maxWidth: '50px',
@@ -358,7 +360,44 @@ function TaskList({ tasks }: { tasks: Task[] }) : React.Node {
         {
             name: (<span className="bi bi-check-lg" style={GLYPHICON_HIGHLIGHT}
                 data-bs-toggle="tooltip" data-placement="top"
-                title="Completed splits" />),
+                title="Completed drivers" />),
+            selector: (row: Task) => row.stats.completedDrivers,
+            sortable: true,
+            maxWidth: '50px',
+            minWidth: '40px',
+        },
+        {
+            name: (<span className="bi bi-pause-circle-fill" style={GLYPHICON_HIGHLIGHT}
+                         data-bs-toggle="tooltip" data-placement="top"
+                         title="Pending splits" />),
+            selector: (row: Task) => row.stats.queuedSplits ?? row.stats.queuedDrivers,
+            sortable: true,
+            maxWidth: '50px',
+            minWidth: '40px',
+        },
+        {
+            name: (<span className="bi bi-play-circle-fill" style={GLYPHICON_HIGHLIGHT}
+                         data-bs-toggle="tooltip" data-placement="top"
+                         title="Running splits" />),
+            selector: (row: Task) => row.stats.runningSplits ?? row.stats.runningDrivers,
+            sortable: true,
+            maxWidth: '50px',
+            minWidth: '40px',
+        },
+        {
+            name: (<span className="bi bi-bookmark-check-fill"
+                         style={GLYPHICON_HIGHLIGHT} data-bs-toggle="tooltip"
+                         data-placement="top"
+                         title="Blocked splits" />),
+            selector: (row: Task) => row.stats.blockedDrivers,
+            sortable: true,
+            maxWidth: '50px',
+            minWidth: '40px',
+        },
+        {
+            name: (<span className="bi bi-check-lg" style={GLYPHICON_HIGHLIGHT}
+                         data-bs-toggle="tooltip" data-placement="top"
+                         title="Completed splits" />),
             selector: (row: Task) => row.stats.completedSplits ?? row.stats.completedDrivers,
             sortable: true,
             maxWidth: '50px',
