@@ -245,6 +245,6 @@ public class MySqlClient
     @Override
     public String normalizeIdentifier(ConnectorSession session, String identifier)
     {
-        return identifier;
+        return caseSensitiveNameMatchingEnabled ? identifier : identifier.toLowerCase(ENGLISH);
     }
 }
