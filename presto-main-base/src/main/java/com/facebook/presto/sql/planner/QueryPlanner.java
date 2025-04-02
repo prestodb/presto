@@ -545,42 +545,6 @@ class QueryPlanner
         return new PlanAndMappings(subPlan, mappings.build());
     }
 
-    /**
-     * Creates a projection with any additional coercions by identity of the provided expressions.
-     *
-     * @return the new subplan and a mapping of each expression to the symbol representing the coercion or an existing symbol if a coercion wasn't needed
-     */
-    public static PlanAndMappings coerce(PlanBuilder subPlan, List<Expression> expressions, Analysis analysis, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, Metadata metadata, SqlPlannerContext sqlPlannerContextStatic, Session session, SqlParser sqlParserStatic)
-    {
-        Assignments.Builder assignments = Assignments.builder();
-        assignments.putAll(subPlan.getRoot().getOutputVariables().stream().collect(toImmutableMap(Function.identity(), Function.identity())));
-        ImmutableMap.Builder<NodeRef<Expression>, VariableReferenceExpression> mappings = ImmutableMap.builder();
-        for (Expression expression : expressions) {
-            Type coercion = analysis.getCoercion(expression);
-            if (coercion != null) {
-                Type type = analysis.getType(expression);
-                VariableReferenceExpression variable = newVariable(variableAllocator, expression, coercion);
-                assignments.put(variable, rowExpression(
-                        new Cast(
-                                subPlan.rewrite(expression),
-                                coercion.getTypeSignature().toString(),
-                                false,
-                                metadata.getFunctionAndTypeManager().isTypeOnlyCoercion(type, coercion)),
-                        sqlPlannerContextStatic, metadata, session, sqlParserStatic, variableAllocator, analysis));
-                mappings.put(NodeRef.of(expression), variable);
-            }
-            else {
-                mappings.put(NodeRef.of(expression), subPlan.translate(expression));
-            }
-        }
-        subPlan = subPlan.withNewRoot(
-                new ProjectNode(
-                        idAllocator.getNextId(),
-                        subPlan.getRoot(),
-                        assignments.build()));
-        return new PlanAndMappings(subPlan, mappings.build());
-    }
-
     public static OrderingScheme translateOrderingScheme(List<SortItem> items, Function<com.facebook.presto.sql.tree.Expression, VariableReferenceExpression> coercions)
     {
         List<VariableReferenceExpression> coerced = items.stream()
@@ -1383,18 +1347,6 @@ class QueryPlanner
     }
 
     private RowExpression rowExpression(Expression expression, SqlPlannerContext context)
-    {
-        return toRowExpression(
-                expression,
-                metadata,
-                session,
-                sqlParser,
-                variableAllocator,
-                analysis,
-                context.getTranslatorContext());
-    }
-
-    public static RowExpression rowExpression(Expression expression, SqlPlannerContext context, Metadata metadata, Session session, SqlParser sqlParser, VariableAllocator variableAllocator, Analysis analysis)
     {
         return toRowExpression(
                 expression,

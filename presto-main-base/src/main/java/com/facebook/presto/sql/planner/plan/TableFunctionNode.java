@@ -114,11 +114,16 @@ public class TableFunctionNode
             else {
                 sourceProperties.specification()
                         .map(DataOrganizationSpecification::getPartitionBy)
-                        .ifPresent(outputVariables::addAll);
+                        .ifPresent(variables::addAll);
             }
         }
 
         return variables.build();
+    }
+
+    public List<VariableReferenceExpression> getProperOutput()
+    {
+        return outputVariables;
     }
 
     @JsonProperty

@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.function.table.Argument;
@@ -22,7 +23,10 @@ import com.facebook.presto.spi.function.table.DescriptorArgument;
 import com.facebook.presto.spi.function.table.ScalarArgument;
 import com.facebook.presto.spi.function.table.TableArgument;
 import com.facebook.presto.spi.plan.DataOrganizationSpecification;
+import com.facebook.presto.spi.plan.Ordering;
+import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode.TableArgumentProperties;
 import com.facebook.presto.sql.tree.SymbolReference;
@@ -35,6 +39,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.BiPredicate;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
@@ -120,16 +126,17 @@ public class TableFunctionMatcher
                         expectedTableArgument.passThroughColumns() != argumentProperties.passThroughColumns()) {
                     return NO_MATCH;
                 }
-                boolean specificationMatches = expectedTableArgument.specification()
-                        .map(specification -> specification.getExpectedValue(symbolAliases))
-                        .equals(argumentProperties.specification());
+                boolean specificationMatches = customDataOrganizationSpecificationEquals(
+                        expectedTableArgument.specification().map(specification -> specification.getExpectedValue(symbolAliases)),
+                        argumentProperties.specification(),
+                        (v1, v2) -> v1.getName().equals(v2.getName()));
                 if (!specificationMatches) {
                     return NO_MATCH;
                 }
             }
         }
 
-        if (properOutputs.size() != tableFunctionNode.getOutputVariables().size()) {
+        if (properOutputs.size() != tableFunctionNode.getProperOutput().size()) {
             return NO_MATCH;
         }
 
@@ -357,5 +364,59 @@ public class TableFunctionMatcher
                 return new TableArgumentValue(sourceIndex, rowSemantics, pruneWhenEmpty, passThroughColumns, specification);
             }
         }
+    }
+
+    private static boolean customDataOrganizationSpecificationEquals(
+            Optional<DataOrganizationSpecification> left,
+            Optional<DataOrganizationSpecification> right,
+            BiPredicate<VariableReferenceExpression, VariableReferenceExpression> comparator)
+    {
+        if (!left.isPresent() && !right.isPresent()) {
+            return true;
+        }
+        if (!left.isPresent() || !right.isPresent()) {
+            return false;
+        }
+
+        DataOrganizationSpecification leftSpecification = left.get();
+        DataOrganizationSpecification rightSpecification = right.get();
+
+        List<VariableReferenceExpression> leftPartitionBy = leftSpecification.getPartitionBy();
+        List<VariableReferenceExpression> rightPartitionBy = rightSpecification.getPartitionBy();
+        if (leftPartitionBy.size() != rightPartitionBy.size()
+                || IntStream.range(0, leftPartitionBy.size())
+                    .anyMatch(i -> !comparator.test(leftPartitionBy.get(i), rightPartitionBy.get(i)))) {
+            return false;
+        }
+
+        Optional<OrderingScheme> leftOrderingScheme = leftSpecification.getOrderingScheme();
+        Optional<OrderingScheme> rightOrderingScheme = rightSpecification.getOrderingScheme();
+        if (!leftOrderingScheme.isPresent() && !rightOrderingScheme.isPresent()) {
+            return true;
+        }
+        if (!leftOrderingScheme.isPresent() || !rightOrderingScheme.isPresent()) {
+            return false;
+        }
+
+        List<Ordering> leftOrderBy = leftOrderingScheme.get().getOrderBy();
+        List<Ordering> rightOrderBy = rightOrderingScheme.get().getOrderBy();
+
+        if (leftOrderBy.size() != rightOrderBy.size()
+                || IntStream.range(0, leftOrderBy.size())
+                    .anyMatch(i -> !comparator.test(leftOrderBy.get(i).getVariable(), rightOrderBy.get(i).getVariable())
+                    || !leftOrderBy.get(i).getSortOrder().equals(rightOrderBy.get(i).getSortOrder()))) {
+            return false;
+        }
+
+        Map<VariableReferenceExpression, SortOrder> leftOrdering = leftOrderingScheme.get().getOrderingsMap();
+        Map<VariableReferenceExpression, SortOrder> rightOrdering = rightOrderingScheme.get().getOrderingsMap();
+        if (leftOrdering.size() != rightOrdering.size()) {
+            return false;
+        }
+
+        return leftOrdering.entrySet().stream()
+                .allMatch(entry ->
+                        rightOrdering.entrySet().stream()
+                                .anyMatch(e -> comparator.test(entry.getKey(), e.getKey()) && entry.getValue().equals(e.getValue())));
     }
 }

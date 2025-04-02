@@ -107,9 +107,9 @@ public class TestTableFunctionInvocation
                                                 new Field("Y", Optional.of(BIGINT))))))
                                 .addCopartitioning(ImmutableList.of("INPUT_1", "INPUT_3"))
                                 .properOutputs(ImmutableList.of("OUTPUT")),
-                        anyTree(project(ImmutableMap.of("c1", expression("'a'")), values("1"))),
+                        anyTree(project(ImmutableMap.of("c1", expression("'a'")), values(1))),
                         anyTree(values(ImmutableList.of("c2"), ImmutableList.of(ImmutableList.of(new LongLiteral("1"))))),
-                        anyTree(project(ImmutableMap.of("c3", expression("'b'")), values("1"))))));
+                        anyTree(project(ImmutableMap.of("c3", expression("'b'")), values(1))))));
     }
 
     @Test
