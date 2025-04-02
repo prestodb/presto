@@ -121,7 +121,7 @@ public class RedisMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return getTableMetadata(convertTableHandle(tableHandle).toSchemaTableName());
+        return getTableMetadata(session, convertTableHandle(tableHandle).toSchemaTableName());
     }
 
     @Override
@@ -221,7 +221,7 @@ public class RedisMetadata
         }
 
         for (SchemaTableName tableName : tableNames) {
-            ConnectorTableMetadata tableMetadata = getTableMetadata(tableName);
+            ConnectorTableMetadata tableMetadata = getTableMetadata(session, tableName);
             // table can disappear during listing operation
             if (tableMetadata != null) {
                 columns.put(tableName, tableMetadata.getColumns());
@@ -243,7 +243,7 @@ public class RedisMetadata
         return redisTableDescriptionSupplier.get();
     }
 
-    private ConnectorTableMetadata getTableMetadata(SchemaTableName schemaTableName)
+    private ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName schemaTableName)
     {
         RedisTableDescription table = getDefinedTables().get(schemaTableName);
         if (table == null) {
@@ -252,23 +252,23 @@ public class RedisMetadata
 
         ImmutableList.Builder<ColumnMetadata> builder = ImmutableList.builder();
 
-        appendFields(builder, table.getKey());
-        appendFields(builder, table.getValue());
+        appendFields(session, builder, table.getKey());
+        appendFields(session, builder, table.getValue());
 
         for (RedisInternalFieldDescription fieldDescription : RedisInternalFieldDescription.values()) {
-            builder.add(fieldDescription.getColumnMetadata(hideInternalColumns));
+            builder.add(fieldDescription.getColumnMetadata(hideInternalColumns, normalizeIdentifier(session, fieldDescription.getColumnName())));
         }
 
         return new ConnectorTableMetadata(schemaTableName, builder.build());
     }
 
-    private static void appendFields(ImmutableList.Builder<ColumnMetadata> builder, RedisTableFieldGroup group)
+    private void appendFields(ConnectorSession session, ImmutableList.Builder<ColumnMetadata> builder, RedisTableFieldGroup group)
     {
         if (group != null) {
             List<RedisTableFieldDescription> fields = group.getFields();
             if (fields != null) {
                 for (RedisTableFieldDescription fieldDescription : fields) {
-                    builder.add(fieldDescription.getColumnMetadata());
+                    builder.add(fieldDescription.getColumnMetadata(normalizeIdentifier(session, fieldDescription.getName())));
                 }
             }
         }

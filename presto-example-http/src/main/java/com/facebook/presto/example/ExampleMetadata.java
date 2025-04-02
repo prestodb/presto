@@ -38,6 +38,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class ExampleMetadata
@@ -101,7 +102,7 @@ public class ExampleMetadata
         checkArgument(exampleTableHandle.getConnectorId().equals(connectorId), "tableHandle is not for this connector");
         SchemaTableName tableName = new SchemaTableName(exampleTableHandle.getSchemaName(), exampleTableHandle.getTableName());
 
-        return getTableMetadata(tableName);
+        return getTableMetadata(session, tableName);
     }
 
     @Override
@@ -137,20 +138,25 @@ public class ExampleMetadata
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         int index = 0;
-        for (ColumnMetadata column : table.getColumnsMetadata()) {
+        List<ColumnMetadata> columns = table.getColumnsMetadata().stream()
+                .map(column -> column.toBuilder()
+                        .setName(normalizeIdentifier(session, column.getName()))
+                        .build())
+                .collect(toImmutableList());
+
+        for (ColumnMetadata column : columns) {
             columnHandles.put(column.getName(), new ExampleColumnHandle(connectorId, column.getName(), column.getType(), index));
             index++;
         }
         return columnHandles.build();
     }
-
     @Override
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         requireNonNull(prefix, "prefix is null");
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
         for (SchemaTableName tableName : listTables(session, prefix)) {
-            ConnectorTableMetadata tableMetadata = getTableMetadata(tableName);
+            ConnectorTableMetadata tableMetadata = getTableMetadata(session, tableName);
             // table can disappear during listing operation
             if (tableMetadata != null) {
                 columns.put(tableName, tableMetadata.getColumns());
@@ -159,7 +165,7 @@ public class ExampleMetadata
         return columns.build();
     }
 
-    private ConnectorTableMetadata getTableMetadata(SchemaTableName tableName)
+    private ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName tableName)
     {
         if (!listSchemaNames().contains(tableName.getSchemaName())) {
             return null;
@@ -169,8 +175,13 @@ public class ExampleMetadata
         if (table == null) {
             return null;
         }
+        List<ColumnMetadata> columns = table.getColumnsMetadata().stream()
+                .map(column -> column.toBuilder()
+                        .setName(normalizeIdentifier(session, column.getName()))
+                        .build())
+                .collect(toImmutableList());
 
-        return new ConnectorTableMetadata(tableName, table.getColumnsMetadata());
+        return new ConnectorTableMetadata(tableName, columns);
     }
 
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)

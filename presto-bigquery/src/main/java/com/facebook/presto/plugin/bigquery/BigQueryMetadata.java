@@ -48,6 +48,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.plugin.bigquery.BigQueryErrorCode.BIGQUERY_TABLE_DISAPPEAR_DURING_LIST;
+import static com.facebook.presto.plugin.bigquery.Conversions.toColumnMetadata;
 import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
 import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -179,7 +180,7 @@ public class BigQueryMetadata
         List<ColumnMetadata> columns = schema == null ?
                 ImmutableList.of() :
                 schema.getFields().stream()
-                        .map(Conversions::toColumnMetadata)
+                        .map(field -> toColumnMetadata(field, normalizeIdentifier(session, field.getName())))
                         .collect(toImmutableList());
         return new ConnectorTableMetadata(schemaTableName, columns);
     }

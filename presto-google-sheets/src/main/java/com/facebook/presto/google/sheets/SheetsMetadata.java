@@ -100,21 +100,27 @@ public class SheetsMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
-        Optional<ConnectorTableMetadata> connectorTableMetadata = getTableMetadata(((SheetsTableHandle) table).toSchemaTableName());
+        Optional<ConnectorTableMetadata> connectorTableMetadata = getTableMetadata(session, ((SheetsTableHandle) table).toSchemaTableName());
         if (!connectorTableMetadata.isPresent()) {
             throw new PrestoException(SHEETS_UNKNOWN_TABLE_ERROR, "Metadata not found for table " + ((SheetsTableHandle) table).getTableName());
         }
         return connectorTableMetadata.get();
     }
 
-    private Optional<ConnectorTableMetadata> getTableMetadata(SchemaTableName tableName)
+    private Optional<ConnectorTableMetadata> getTableMetadata(ConnectorSession session, SchemaTableName tableName)
     {
         if (!listSchemaNames().contains(tableName.getSchemaName())) {
             return Optional.empty();
         }
         Optional<SheetsTable> table = sheetsClient.getTable(tableName.getTableName());
         if (table.isPresent()) {
-            return Optional.of(new ConnectorTableMetadata(tableName, table.get().getColumnsMetadata()));
+            List<ColumnMetadata> columns = table.get().getColumnsMetadata().stream()
+                    .map(column -> column.toBuilder()
+                            .setName(normalizeIdentifier(session, column.getName()))
+                            .build())
+                    .collect(toImmutableList());
+
+            return Optional.of(new ConnectorTableMetadata(tableName, columns));
         }
         return Optional.empty();
     }
@@ -130,7 +136,13 @@ public class SheetsMetadata
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         int index = 0;
-        for (ColumnMetadata column : table.get().getColumnsMetadata()) {
+        List<ColumnMetadata> columns = table.get().getColumnsMetadata().stream()
+                .map(column -> column.toBuilder()
+                        .setName(normalizeIdentifier(session, column.getName()))
+                        .build())
+                .collect(toImmutableList());
+
+        for (ColumnMetadata column : columns) {
             columnHandles.put(column.getName(), new SheetsColumnHandle(column.getName(), column.getType(), index));
             index++;
         }
@@ -149,7 +161,7 @@ public class SheetsMetadata
         requireNonNull(prefix, "prefix is null");
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
         for (SchemaTableName tableName : listTables(session, Optional.of(prefix.getSchemaName()))) {
-            Optional<ConnectorTableMetadata> tableMetadata = getTableMetadata(tableName);
+            Optional<ConnectorTableMetadata> tableMetadata = getTableMetadata(session, tableName);
             // table can disappear during listing operation
             if (tableMetadata.isPresent()) {
                 columns.put(tableName, tableMetadata.get().getColumns());

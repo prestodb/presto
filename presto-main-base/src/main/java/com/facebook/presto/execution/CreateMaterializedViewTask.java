@@ -95,7 +95,7 @@ public class CreateMaterializedViewTask
         List<ColumnMetadata> columnMetadata = analysis.getOutputDescriptor(statement.getQuery())
                 .getVisibleFields().stream()
                 .map(field -> ColumnMetadata.builder()
-                        .setName(field.getName().get())
+                        .setName(metadata.normalizeIdentifier(session, viewName.getCatalogName(), field.getName().get()))
                         .setType(field.getType())
                         .build())
                 .collect(toImmutableList());

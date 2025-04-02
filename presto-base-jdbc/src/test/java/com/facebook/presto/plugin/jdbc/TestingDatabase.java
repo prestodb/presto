@@ -117,7 +117,7 @@ final class TestingDatabase
 
         ImmutableMap.Builder<String, JdbcColumnHandle> columnHandles = ImmutableMap.builder();
         for (JdbcColumnHandle column : columns) {
-            columnHandles.put(column.getColumnMetadata().getName(), column);
+            columnHandles.put(column.getColumnMetadata(session, jdbcClient).getName(), column);
         }
         return columnHandles.build();
     }
