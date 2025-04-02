@@ -810,12 +810,7 @@ TEST_P(IndexLookupJoinTest, equalJoin) {
         testData.joinType,
         testData.outputColumns,
         joinNodeId);
-    AssertQueryBuilder(duckDbQueryRunner_)
-        .plan(plan)
-        .config(
-            core::QueryConfig::kIndexLookupJoinMaxPrefetchBatches,
-            std::to_string(GetParam().numPrefetches))
-        .assertResults(testData.duckDbVerifySql);
+    runLookupQuery(plan, GetParam().numPrefetches, testData.duckDbVerifySql);
   }
 }
 
@@ -1266,12 +1261,7 @@ TEST_P(IndexLookupJoinTest, betweenJoinCondition) {
         testData.joinType,
         testData.outputColumns,
         joinNodeId);
-    AssertQueryBuilder(duckDbQueryRunner_)
-        .plan(plan)
-        .config(
-            core::QueryConfig::kIndexLookupJoinMaxPrefetchBatches,
-            std::to_string(GetParam().numPrefetches))
-        .assertResults(testData.duckDbVerifySql);
+    runLookupQuery(plan, GetParam().numPrefetches, testData.duckDbVerifySql);
   }
 }
 
@@ -1588,12 +1578,7 @@ TEST_P(IndexLookupJoinTest, inJoinCondition) {
         testData.joinType,
         testData.outputColumns,
         joinNodeId);
-    AssertQueryBuilder(duckDbQueryRunner_)
-        .plan(plan)
-        .config(
-            core::QueryConfig::kIndexLookupJoinMaxPrefetchBatches,
-            std::to_string(GetParam().numPrefetches))
-        .assertResults(testData.duckDbVerifySql);
+    runLookupQuery(plan, GetParam().numPrefetches, testData.duckDbVerifySql);
   }
 }
 
@@ -1706,13 +1691,10 @@ DEBUG_ONLY_TEST_P(IndexLookupJoinTest, prefetch) {
       {"u3", "t5"},
       joinNodeId);
   std::thread queryThread([&] {
-    AssertQueryBuilder(duckDbQueryRunner_)
-        .plan(plan)
-        .config(
-            core::QueryConfig::kIndexLookupJoinMaxPrefetchBatches,
-            std::to_string(GetParam().numPrefetches))
-        .assertResults(
-            "SELECT u.c3, t.c5 FROM t, u WHERE t.c0 = u.c0 AND t.c1 = u.c1 AND t.c2 = u.c2");
+    runLookupQuery(
+        plan,
+        GetParam().numPrefetches,
+        "SELECT u.c3, t.c5 FROM t, u WHERE t.c0 = u.c0 AND t.c1 = u.c1 AND t.c2 = u.c2");
   });
   while (lookupCount < 1 + GetParam().numPrefetches) {
     std::this_thread::sleep_for(std::chrono::milliseconds(100)); // NOLINT
@@ -1865,11 +1847,11 @@ DEBUG_ONLY_TEST_P(IndexLookupJoinTest, runtimeStats) {
       core::JoinType::kInner,
       {"u3", "t5"},
       joinNodeId);
-  auto task =
-      AssertQueryBuilder(duckDbQueryRunner_)
-          .plan(plan)
-          .assertResults(
-              "SELECT u.c3, t.c5 FROM t, u WHERE t.c0 = u.c0 AND t.c1 = u.c1 AND t.c2 = u.c2");
+  auto task = runLookupQuery(
+      plan,
+      0,
+      "SELECT u.c3, t.c5 FROM t, u WHERE t.c0 = u.c0 AND t.c1 = u.c1 AND t.c2 = u.c2");
+
   auto taskStats = toPlanStats(task->taskStats());
   auto& operatorStats = taskStats.at(joinNodeId);
   ASSERT_EQ(operatorStats.backgroundTiming.count, numProbeBatches);
@@ -1938,13 +1920,10 @@ TEST_P(IndexLookupJoinTest, joinFuzzer) {
       core::JoinType::kInner,
       {"u0", "u4", "t0", "t1", "t4"},
       joinNodeId);
-  AssertQueryBuilder(duckDbQueryRunner_)
-      .plan(plan)
-      .config(
-          core::QueryConfig::kIndexLookupJoinMaxPrefetchBatches,
-          std::to_string(GetParam().numPrefetches))
-      .assertResults(
-          "SELECT u.c0, u.c1, u.c2, u.c3, u.c4, u.c5, t.c0, t.c1, t.c2, t.c3, t.c4, t.c5 FROM t, u WHERE t.c0 = u.c0 AND array_contains(t.c4, u.c1) AND u.c2 BETWEEN t.c1 AND t.c2");
+  runLookupQuery(
+      plan,
+      GetParam().numPrefetches,
+      "SELECT u.c0, u.c1, u.c2, u.c3, u.c4, u.c5, t.c0, t.c1, t.c2, t.c3, t.c4, t.c5 FROM t, u WHERE t.c0 = u.c0 AND array_contains(t.c4, u.c1) AND u.c2 BETWEEN t.c1 AND t.c2");
 }
 } // namespace
 

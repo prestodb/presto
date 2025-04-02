@@ -16,6 +16,7 @@
 
 #include "velox/connectors/Connector.h"
 #include "velox/core/PlanNode.h"
+#include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/parse/PlanNodeIdGenerator.h"
 
@@ -129,6 +130,11 @@ class IndexLookupJoinTestBase
   // column names.
   facebook::velox::RowTypePtr makeScanOutputType(
       std::vector<std::string> outputNames);
+
+  std::shared_ptr<facebook::velox::exec::Task> runLookupQuery(
+      const facebook::velox::core::PlanNodePtr& plan,
+      int numPrefetchBatches,
+      const std::string& duckDbVefifySql);
 
   facebook::velox::RowTypePtr keyType_;
   facebook::velox::RowTypePtr valueType_;

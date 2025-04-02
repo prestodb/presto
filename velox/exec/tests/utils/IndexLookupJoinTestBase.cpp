@@ -343,4 +343,18 @@ bool IndexLookupJoinTestBase::isFilter(const std::string& conditionSql) const {
              conditionSql, inputType, pool_.get())
       ->isFilter();
 }
+
+std::shared_ptr<facebook::velox::exec::Task>
+IndexLookupJoinTestBase::runLookupQuery(
+    const facebook::velox::core::PlanNodePtr& plan,
+    int numPrefetchBatches,
+    const std::string& duckDbVefifySql) {
+  return facebook::velox::exec::test::AssertQueryBuilder(duckDbQueryRunner_)
+      .plan(plan)
+      .config(
+          facebook::velox::core::QueryConfig::
+              kIndexLookupJoinMaxPrefetchBatches,
+          std::to_string(numPrefetchBatches))
+      .assertResults(duckDbVefifySql);
+}
 } // namespace fecebook::velox::exec::test

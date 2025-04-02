@@ -59,6 +59,10 @@ class IndexLookupJoin : public Operator {
   /// from remote storage.
   static inline const std::string kClientLookupWaitWallTime{
       "clientlookupWaitWallNanos"};
+  /// The number of split requests sent to remote storage for a client lookup
+  /// request.
+  static inline const std::string kClientNumStorageRequests{
+      "clientNumStorageRequests"};
   /// The cpu time in nanoseconds that the storage client process response from
   /// remote storage lookup such as decoding the response data into velox
   /// vectors.

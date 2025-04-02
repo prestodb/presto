@@ -168,6 +168,12 @@ These stats are reported only by IndexLookupJoin operator
      - nanos
      - The cpu time in nanoseconds that the index connector process response from storages
        client for followup processing by index join operator.
+   * - clientlookupWaitWallNanos
+     - nanos
+     - The walltime in nanoseconds that the storage client wait for the lookup from remote storage.
+   * - clientNumStorageRequests
+     - nanos
+     - The number of split requests sent to remote storage for a client lookup request.
    * - clientRequestProcessCpuNanos
      - nanos
      - The cpu time in nanoseconds that the storage client process request for remote
