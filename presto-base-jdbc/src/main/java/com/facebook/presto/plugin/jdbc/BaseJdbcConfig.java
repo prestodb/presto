@@ -14,11 +14,16 @@
 package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.configuration.ConfigSecuritySensitive;
+import com.google.common.collect.ImmutableList;
+import com.google.inject.ConfigurationException;
+import com.google.inject.spi.Message;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
 import javax.annotation.Nullable;
+import javax.annotation.PostConstruct;
 import javax.validation.constraints.NotNull;
 
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -32,6 +37,7 @@ public class BaseJdbcConfig
     private String passwordCredentialName;
     private boolean caseInsensitiveNameMatching;
     private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
+    private boolean caseSensitiveNameMatchingEnabled;
 
     @NotNull
     public String getConnectionUrl()
@@ -123,5 +129,28 @@ public class BaseJdbcConfig
     {
         this.caseInsensitiveNameMatchingCacheTtl = caseInsensitiveNameMatchingCacheTtl;
         return this;
+    }
+
+    public boolean isCaseSensitiveNameMatching()
+    {
+        return caseSensitiveNameMatchingEnabled;
+    }
+
+    @Config("case-sensitive-name-matching")
+    @ConfigDescription("Enable case-sensitive matching of schema, table names across the connector. " +
+            "When disabled, names are matched case-insensitively using lowercase normalization.")
+    public BaseJdbcConfig setCaseSensitiveNameMatching(boolean caseSensitiveNameMatchingEnabled)
+    {
+        this.caseSensitiveNameMatchingEnabled = caseSensitiveNameMatchingEnabled;
+        return this;
+    }
+
+    @PostConstruct
+    public void validateConfig()
+    {
+        if (isCaseInsensitiveNameMatching() && isCaseSensitiveNameMatching()) {
+            throw new ConfigurationException(ImmutableList.of(new Message("Only one of 'case-insensitive-name-matching=true' or 'case-sensitive-name-matching=true' can be set. " +
+                    "These options are mutually exclusive.")));
+        }
     }
 }
