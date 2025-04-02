@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.airlift.concurrent.ThreadSafe;
 import com.facebook.presto.common.type.SqlTimestamp;
 import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
@@ -25,6 +24,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.google.common.collect.Maps;
 import com.google.common.primitives.Primitives;
+import com.google.errorprone.annotations.ThreadSafe;
 
 import java.util.Collection;
 import java.util.List;

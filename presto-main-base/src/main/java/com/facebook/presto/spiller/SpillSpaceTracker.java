@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.spiller;
 
-import com.facebook.airlift.concurrent.ThreadSafe;
 import com.facebook.presto.ExceededSpillLimitException;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.units.DataSize;
 import org.weakref.jmx.Managed;
