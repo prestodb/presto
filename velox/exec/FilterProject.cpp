@@ -38,6 +38,34 @@ bool checkAddIdentityProjection(
 
   return false;
 }
+
+// Split stats to attrbitute cardinality reduction to the Filter node.
+std::vector<OperatorStats> splitStats(
+    const OperatorStats& combinedStats,
+    const core::PlanNodeId& filterNodeId) {
+  OperatorStats projectStats = combinedStats;
+  OperatorStats filterStats;
+
+  filterStats.operatorId = projectStats.operatorId;
+  filterStats.pipelineId = projectStats.pipelineId;
+  filterStats.planNodeId = filterNodeId;
+  filterStats.operatorType = projectStats.operatorType;
+
+  filterStats.inputBytes = projectStats.inputBytes;
+  filterStats.inputPositions = projectStats.inputPositions;
+
+  // TODO Record filter output bytes.
+  filterStats.outputBytes = projectStats.outputBytes;
+  filterStats.outputPositions = projectStats.outputPositions;
+
+  filterStats.numDrivers = projectStats.numDrivers;
+
+  projectStats.inputBytes = filterStats.outputBytes;
+  projectStats.inputPositions = filterStats.outputPositions;
+
+  return {std::move(projectStats), std::move(filterStats)};
+}
+
 } // namespace
 
 FilterProject::FilterProject(
@@ -53,7 +81,16 @@ FilterProject::FilterProject(
           "FilterProject"),
       hasFilter_(filter != nullptr),
       project_(project),
-      filter_(filter) {}
+      filter_(filter) {
+  if (filter_ != nullptr && project_ != nullptr) {
+    stats().withWLock([&](auto& stats) {
+      stats.setStatSplitter(
+          [filterId = filter_->id()](const auto& combinedStats) {
+            return splitStats(combinedStats, filterId);
+          });
+    });
+  }
+}
 
 void FilterProject::initialize() {
   Operator::initialize();

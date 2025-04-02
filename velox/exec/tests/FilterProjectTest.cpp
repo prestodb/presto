@@ -363,3 +363,33 @@ TEST_F(FilterProjectTest, numSilentThrow) {
   auto planStats = toPlanStats(task->taskStats());
   ASSERT_EQ(100, planStats.at(filterId).customStats.at("numSilentThrow").sum);
 }
+
+TEST_F(FilterProjectTest, statsSplitter) {
+  auto data = makeRowVector({
+      makeFlatVector<int32_t>(100, folly::identity),
+  });
+
+  core::PlanNodeId filterId;
+  core::PlanNodeId projectId;
+  auto plan = PlanBuilder()
+                  .values({data})
+                  .filter("c0 % 3 = 0")
+                  .capturePlanNodeId(filterId)
+                  .project({"c0 + 1"})
+                  .capturePlanNodeId(projectId)
+                  .planNode();
+
+  std::shared_ptr<Task> task;
+  AssertQueryBuilder(plan).runWithoutResults(task);
+
+  auto planStats = toPlanStats(task->taskStats());
+
+  const auto& filterStats = planStats.at(filterId);
+  const auto& projectStats = planStats.at(projectId);
+
+  ASSERT_EQ(filterStats.inputRows, 100);
+  ASSERT_EQ(filterStats.outputRows, 34);
+
+  ASSERT_EQ(projectStats.inputRows, 34);
+  ASSERT_EQ(projectStats.outputRows, 34);
+}
