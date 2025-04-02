@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <cstdint>
+#include <stdint.h>
 #include "velox/experimental/wave/common/BitUtil.cuh"
 #include "velox/experimental/wave/common/Scan.cuh"
 
