@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.router.scheduler;
 
+import javax.annotation.concurrent.GuardedBy;
+
 import java.net.URI;
 import java.util.Collection;
 import java.util.HashMap;
@@ -37,7 +39,9 @@ public class WeightedRoundRobinScheduler
     private HashMap<URI, Integer> weights;
     private List<URI> serverList;
 
+    @GuardedBy("this")
     private final Map<String, Integer> candidateIndexByGroup = new HashMap<>();
+
     private String candidateGroupName;
 
     @Override

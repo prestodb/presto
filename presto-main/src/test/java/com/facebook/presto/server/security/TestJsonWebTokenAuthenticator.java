@@ -48,7 +48,6 @@ public class TestJsonWebTokenAuthenticator
 {
     private static final String KEY_ID_FOO = "foo";
     private static final String TEST_PRINCIPAL = "testPrincipal";
-    private static final AuthorizedIdentity AUTHORIZED_IDENTITY = new AuthorizedIdentity("user", "reasonForSelect", false);
 
     private Path temporaryDirectory;
     private Path keyFile;
@@ -76,16 +75,17 @@ public class TestJsonWebTokenAuthenticator
     public void testJsonWebTokenWithAuthorizedUserClaim()
             throws IOException, AuthenticationException
     {
-        String jsonWebToken = createJsonWebToken(keyFile, TEST_PRINCIPAL, AUTHORIZED_IDENTITY);
+        AuthorizedIdentity authorizedIdentity = new AuthorizedIdentity("user", "reasonForSelect", false);
+        String jsonWebToken = createJsonWebToken(keyFile, TEST_PRINCIPAL, authorizedIdentity);
         HttpServletRequest request = new MockHttpServletRequest(
                 ImmutableListMultimap.of(AUTHORIZATION, "Bearer " + jsonWebToken),
                 "remoteAddress",
-                ImmutableMap.of(AUTHORIZED_IDENTITY_ATTRIBUTE, AUTHORIZED_IDENTITY));
+                ImmutableMap.of());
 
         Principal principal = new JsonWebTokenAuthenticator(jsonWebTokenConfig).authenticate(request);
 
         assertEquals(principal.getName(), TEST_PRINCIPAL);
-        assertEquals(authorizedIdentity(request).get(), AUTHORIZED_IDENTITY);
+        assertEquals(authorizedIdentity(request).get(), authorizedIdentity);
     }
 
     private static String createJsonWebToken(Path keyFile, String principal, AuthorizedIdentity authorizedIdentity)

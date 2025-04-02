@@ -15,6 +15,8 @@ package com.facebook.presto.router.scheduler;
 
 import com.facebook.airlift.log.Logger;
 
+import javax.annotation.concurrent.GuardedBy;
+
 import java.net.URI;
 import java.util.HashMap;
 import java.util.List;
@@ -31,7 +33,10 @@ public class RoundRobinScheduler
     private List<URI> candidates;
 
     private static final Logger log = Logger.get(RoundRobinScheduler.class);
+
+    @GuardedBy("this")
     private final Map<String, Integer> candidateIndexByGroup = new HashMap<>();
+
     private String candidateGroupName;
 
     @Override
