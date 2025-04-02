@@ -328,5 +328,28 @@ struct InverseLaplaceCDFFunction {
   }
 };
 
+template <typename T>
+struct InverseGammaCDFFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void
+  call(double& result, double shape, double scale, double p) {
+    static constexpr double kInf = std::numeric_limits<double>::infinity();
+
+    VELOX_USER_CHECK(
+        (p >= 0) && (p <= 1) && (p != kInf),
+        "inverseGammaCdf Function: p must be in the interval [0, 1]");
+    VELOX_USER_CHECK(
+        (shape > 0) && (shape != kInf),
+        "inverseGammaCdf Function: shape must be greater than 0");
+    VELOX_USER_CHECK(
+        (scale > 0) && (scale != kInf),
+        "inverseGammaCdf Function: scale must be greater than 0");
+
+    boost::math::gamma_distribution<> dist(shape, scale);
+    result = boost::math::quantile(dist, p);
+  }
+};
+
 } // namespace
 } // namespace facebook::velox::functions

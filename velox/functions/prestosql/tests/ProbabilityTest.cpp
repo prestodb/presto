@@ -605,5 +605,73 @@ TEST_F(ProbabilityTest, inverseLaplaceCDF) {
   EXPECT_THAT(inverseLaplaceCDF(kDoubleMin, 1.0, 0.5), kDoubleMin);
 }
 
+TEST_F(ProbabilityTest, invGammaCDF) {
+  const auto invGammaCDF = [&](std::optional<double> shape,
+                               std::optional<double> scale,
+                               std::optional<double> p) {
+    return evaluateOnce<double>(
+        "inverse_gamma_cdf(c0, c1, c2)", shape, scale, p);
+  };
+
+  const auto roundToPrecision = [&](double num, int precision) {
+    double factor = pow(10.0, precision);
+    return round(num * factor) / factor;
+  };
+
+  EXPECT_EQ(0, invGammaCDF(3, 3.6, 0.0));
+  EXPECT_EQ(33.624, roundToPrecision(invGammaCDF(3, 4, 0.99).value(), 3));
+  EXPECT_EQ(10.696, roundToPrecision(invGammaCDF(3, 4, 0.50).value(), 3));
+  EXPECT_EQ(
+      9999.333,
+      roundToPrecision(invGammaCDF(10000.0 / 2, 2.0, 0.50).value(), 3));
+
+  // This is an example to illustrate the precision differences
+  // Java: exactly 0.0,
+  // C++: 5.0926835901984765e-184
+  EXPECT_EQ(
+      0.0,
+      roundToPrecision(
+          ((invGammaCDF(
+                0.005626026709040224, 0.6631619541440159, 0.09358172053411777))
+               .value()),
+          3));
+
+  EXPECT_EQ(std::nullopt, invGammaCDF(std::nullopt, 1, 1));
+  EXPECT_EQ(std::nullopt, invGammaCDF(1, std::nullopt, 1));
+  EXPECT_EQ(std::nullopt, invGammaCDF(1, 1, std::nullopt));
+
+  VELOX_ASSERT_THROW(
+      invGammaCDF(0, 3, 0.5),
+      "inverseGammaCdf Function: shape must be greater than 0");
+  VELOX_ASSERT_THROW(
+      invGammaCDF(3, 0, 0.5),
+      "inverseGammaCdf Function: scale must be greater than 0");
+  VELOX_ASSERT_THROW(
+      invGammaCDF(3, 5, -0.1),
+      "inverseGammaCdf Function: p must be in the interval [0, 1]");
+  VELOX_ASSERT_THROW(
+      invGammaCDF(3, 5, 1.1),
+      "inverseGammaCdf Function: p must be in the interval [0, 1]");
+
+  VELOX_ASSERT_THROW(
+      invGammaCDF(kInf, 1, 0.5),
+      "inverseGammaCdf Function: shape must be greater than 0");
+  VELOX_ASSERT_THROW(
+      invGammaCDF(kNan, 1, 0.5),
+      "inverseGammaCdf Function: shape must be greater than 0");
+  VELOX_ASSERT_THROW(
+      invGammaCDF(1, kInf, 0.5),
+      "inverseGammaCdf Function: scale must be greater than 0");
+  VELOX_ASSERT_THROW(
+      invGammaCDF(1, kNan, 0.5),
+      "inverseGammaCdf Function: scale must be greater than 0");
+  VELOX_ASSERT_THROW(
+      invGammaCDF(1, 0.5, kInf),
+      "inverseGammaCdf Function: p must be in the interval [0, 1]");
+  VELOX_ASSERT_THROW(
+      invGammaCDF(1, 0.5, kNan),
+      "inverseGammaCdf Function: p must be in the interval [0, 1]");
+}
+
 } // namespace
 } // namespace facebook::velox
