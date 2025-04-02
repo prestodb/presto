@@ -372,6 +372,12 @@ folly::dynamic AggregationNode::serialize() const {
   return obj;
 }
 
+void AggregationNode::accept(
+    const PlanNodeVisitor& visitor,
+    PlanNodeVisitorContext& context) const {
+  visitor.visit(*this, context);
+}
+
 namespace {
 std::vector<FieldAccessTypedExprPtr> deserializeFields(
     const folly::dynamic& array,
@@ -565,6 +571,12 @@ folly::dynamic ExpandNode::serialize() const {
   return obj;
 }
 
+void ExpandNode::accept(
+    const PlanNodeVisitor& visitor,
+    PlanNodeVisitorContext& context) const {
+  visitor.visit(*this, context);
+}
+
 // static
 PlanNodePtr ExpandNode::create(const folly::dynamic& obj, void* context) {
   auto source = deserializeSingleSource(obj, context);
@@ -668,6 +680,12 @@ folly::dynamic GroupIdNode::serialize() const {
   return obj;
 }
 
+void GroupIdNode::accept(
+    const PlanNodeVisitor& visitor,
+    PlanNodeVisitorContext& context) const {
+  visitor.visit(*this, context);
+}
+
 // static
 PlanNodePtr GroupIdNode::create(const folly::dynamic& obj, void* context) {
   auto source = deserializeSingleSource(obj, context);
@@ -692,6 +710,12 @@ PlanNodePtr GroupIdNode::create(const folly::dynamic& obj, void* context) {
 
 const std::vector<PlanNodePtr>& ValuesNode::sources() const {
   return kEmptySources;
+}
+
+void ValuesNode::accept(
+    const PlanNodeVisitor& visitor,
+    PlanNodeVisitorContext& context) const {
+  visitor.visit(*this, context);
 }
 
 void ValuesNode::addDetails(std::stringstream& stream) const {
@@ -990,6 +1014,12 @@ folly::dynamic ProjectNode::serialize() const {
   return obj;
 }
 
+void ProjectNode::accept(
+    const PlanNodeVisitor& visitor,
+    PlanNodeVisitorContext& context) const {
+  visitor.visit(*this, context);
+}
+
 // static
 PlanNodePtr ProjectNode::create(const folly::dynamic& obj, void* context) {
   auto source = deserializeSingleSource(obj, context);
@@ -1006,6 +1036,12 @@ PlanNodePtr ProjectNode::create(const folly::dynamic& obj, void* context) {
 
 const std::vector<PlanNodePtr>& TableScanNode::sources() const {
   return kEmptySources;
+}
+
+void TableScanNode::accept(
+    const PlanNodeVisitor& visitor,
+    PlanNodeVisitorContext& context) const {
+  visitor.visit(*this, context);
 }
 
 void TableScanNode::addDetails(std::stringstream& stream) const {
@@ -1053,6 +1089,12 @@ const std::vector<PlanNodePtr>& ArrowStreamNode::sources() const {
   return kEmptySources;
 }
 
+void ArrowStreamNode::accept(
+    const PlanNodeVisitor& visitor,
+    PlanNodeVisitorContext& context) const {
+  visitor.visit(*this, context);
+}
+
 void ArrowStreamNode::addDetails(std::stringstream& stream) const {
   // Nothing to add.
 }
@@ -1070,6 +1112,12 @@ folly::dynamic ExchangeNode::serialize() const {
   obj["outputType"] = ExchangeNode::outputType()->serialize();
   obj["serdeKind"] = VectorSerde::kindName(serdeKind_);
   return obj;
+}
+
+void ExchangeNode::accept(
+    const PlanNodeVisitor& visitor,
+    PlanNodeVisitorContext& context) const {
+  visitor.visit(*this, context);
 }
 
 // static
@@ -1153,6 +1201,12 @@ folly::dynamic UnnestNode::serialize() const {
     obj["ordinalityName"] = outputType()->names().back();
   }
   return obj;
+}
+
+void UnnestNode::accept(
+    const PlanNodeVisitor& visitor,
+    PlanNodeVisitorContext& context) const {
+  visitor.visit(*this, context);
 }
 
 // static
@@ -1336,6 +1390,12 @@ folly::dynamic HashJoinNode::serialize() const {
   return obj;
 }
 
+void HashJoinNode::accept(
+    const PlanNodeVisitor& visitor,
+    PlanNodeVisitorContext& context) const {
+  visitor.visit(*this, context);
+}
+
 // static
 PlanNodePtr HashJoinNode::create(const folly::dynamic& obj, void* context) {
   auto sources = deserializeSources(obj, context);
@@ -1407,6 +1467,12 @@ bool MergeJoinNode::isSupported(core::JoinType joinType) {
     default:
       return false;
   }
+}
+
+void MergeJoinNode::accept(
+    const PlanNodeVisitor& visitor,
+    PlanNodeVisitorContext& context) const {
+  visitor.visit(*this, context);
 }
 
 // static
@@ -1489,6 +1555,12 @@ void IndexLookupJoinNode::addDetails(std::stringstream& stream) const {
   }
   stream << ", joinConditions: [" << folly::join(", ", joinConditionStrs)
          << " ]";
+}
+
+void IndexLookupJoinNode::accept(
+    const PlanNodeVisitor& visitor,
+    PlanNodeVisitorContext& context) const {
+  visitor.visit(*this, context);
 }
 
 // static
@@ -1580,6 +1652,12 @@ folly::dynamic NestedLoopJoinNode::serialize() const {
   return obj;
 }
 
+void NestedLoopJoinNode::accept(
+    const PlanNodeVisitor& visitor,
+    PlanNodeVisitorContext& context) const {
+  visitor.visit(*this, context);
+}
+
 PlanNodePtr NestedLoopJoinNode::create(
     const folly::dynamic& obj,
     void* context) {
@@ -1627,6 +1705,12 @@ folly::dynamic AssignUniqueIdNode::serialize() const {
   obj["idName"] = outputType_->names().back();
   obj["taskUniqueId"] = taskUniqueId_;
   return obj;
+}
+
+void AssignUniqueIdNode::accept(
+    const PlanNodeVisitor& visitor,
+    PlanNodeVisitorContext& context) const {
+  visitor.visit(*this, context);
 }
 
 // static
@@ -1908,6 +1992,12 @@ folly::dynamic WindowNode::serialize() const {
   return obj;
 }
 
+void WindowNode::accept(
+    const PlanNodeVisitor& visitor,
+    PlanNodeVisitorContext& context) const {
+  visitor.visit(*this, context);
+}
+
 // static
 PlanNodePtr WindowNode::create(const folly::dynamic& obj, void* context) {
   auto source = deserializeSingleSource(obj, context);
@@ -1967,6 +2057,12 @@ folly::dynamic MarkDistinctNode::serialize() const {
   obj["distinctKeys"] = ISerializable::serialize(this->distinctKeys_);
   obj["markerName"] = this->markerName_;
   return obj;
+}
+
+void MarkDistinctNode::accept(
+    const PlanNodeVisitor& visitor,
+    PlanNodeVisitorContext& context) const {
+  visitor.visit(*this, context);
 }
 
 // static
@@ -2043,6 +2139,12 @@ folly::dynamic RowNumberNode::serialize() const {
   }
 
   return obj;
+}
+
+void RowNumberNode::accept(
+    const PlanNodeVisitor& visitor,
+    PlanNodeVisitorContext& context) const {
+  visitor.visit(*this, context);
 }
 
 // static
@@ -2139,6 +2241,12 @@ folly::dynamic TopNRowNumberNode::serialize() const {
   return obj;
 }
 
+void TopNRowNumberNode::accept(
+    const PlanNodeVisitor& visitor,
+    PlanNodeVisitorContext& context) const {
+  visitor.visit(*this, context);
+}
+
 // static
 PlanNodePtr TopNRowNumberNode::create(
     const folly::dynamic& obj,
@@ -2175,6 +2283,12 @@ folly::dynamic LocalMergeNode::serialize() const {
   return obj;
 }
 
+void LocalMergeNode::accept(
+    const PlanNodeVisitor& visitor,
+    PlanNodeVisitorContext& context) const {
+  visitor.visit(*this, context);
+}
+
 // static
 PlanNodePtr LocalMergeNode::create(const folly::dynamic& obj, void* context) {
   auto sources = deserializeSources(obj, context);
@@ -2206,6 +2320,12 @@ folly::dynamic TableWriteNode::serialize() const {
   obj["outputType"] = outputType_->serialize();
   obj["commitStrategy"] = connector::commitStrategyToString(commitStrategy_);
   return obj;
+}
+
+void TableWriteNode::accept(
+    const PlanNodeVisitor& visitor,
+    PlanNodeVisitorContext& context) const {
+  visitor.visit(*this, context);
 }
 
 // static
@@ -2255,6 +2375,12 @@ folly::dynamic TableWriteMergeNode::serialize() const {
   return obj;
 }
 
+void TableWriteMergeNode::accept(
+    const PlanNodeVisitor& visitor,
+    PlanNodeVisitorContext& context) const {
+  visitor.visit(*this, context);
+}
+
 // static
 PlanNodePtr TableWriteMergeNode::create(
     const folly::dynamic& obj,
@@ -2295,6 +2421,12 @@ folly::dynamic MergeExchangeNode::serialize() const {
   return obj;
 }
 
+void MergeExchangeNode::accept(
+    const PlanNodeVisitor& visitor,
+    PlanNodeVisitorContext& context) const {
+  visitor.visit(*this, context);
+}
+
 // static
 PlanNodePtr MergeExchangeNode::create(
     const folly::dynamic& obj,
@@ -2327,6 +2459,12 @@ folly::dynamic LocalPartitionNode::serialize() const {
   obj["scaleWriter"] = scaleWriter_;
   obj["partitionFunctionSpec"] = partitionFunctionSpec_->serialize();
   return obj;
+}
+
+void LocalPartitionNode::accept(
+    const PlanNodeVisitor& visitor,
+    PlanNodeVisitorContext& context) const {
+  visitor.visit(*this, context);
 }
 
 // static
@@ -2471,6 +2609,12 @@ folly::dynamic EnforceSingleRowNode::serialize() const {
   return PlanNode::serialize();
 }
 
+void EnforceSingleRowNode::accept(
+    const PlanNodeVisitor& visitor,
+    PlanNodeVisitorContext& context) const {
+  visitor.visit(*this, context);
+}
+
 // static
 PlanNodePtr EnforceSingleRowNode::create(
     const folly::dynamic& obj,
@@ -2547,6 +2691,12 @@ folly::dynamic PartitionedOutputNode::serialize() const {
   return obj;
 }
 
+void PartitionedOutputNode::accept(
+    const PlanNodeVisitor& visitor,
+    PlanNodeVisitorContext& context) const {
+  visitor.visit(*this, context);
+}
+
 // static
 PlanNodePtr PartitionedOutputNode::create(
     const folly::dynamic& obj,
@@ -2612,6 +2762,12 @@ folly::dynamic TopNNode::serialize() const {
   return obj;
 }
 
+void TopNNode::accept(
+    const PlanNodeVisitor& visitor,
+    PlanNodeVisitorContext& context) const {
+  visitor.visit(*this, context);
+}
+
 // static
 PlanNodePtr TopNNode::create(const folly::dynamic& obj, void* context) {
   auto source = deserializeSingleSource(obj, context);
@@ -2645,6 +2801,12 @@ folly::dynamic LimitNode::serialize() const {
   return obj;
 }
 
+void LimitNode::accept(
+    const PlanNodeVisitor& visitor,
+    PlanNodeVisitorContext& context) const {
+  visitor.visit(*this, context);
+}
+
 // static
 PlanNodePtr LimitNode::create(const folly::dynamic& obj, void* context) {
   auto source = deserializeSingleSource(obj, context);
@@ -2670,6 +2832,12 @@ folly::dynamic OrderByNode::serialize() const {
   obj["sortingOrders"] = serializeSortingOrders(sortingOrders_);
   obj["partial"] = isPartial_;
   return obj;
+}
+
+void OrderByNode::accept(
+    const PlanNodeVisitor& visitor,
+    PlanNodeVisitorContext& context) const {
+  visitor.visit(*this, context);
 }
 
 // static
@@ -2758,6 +2926,12 @@ std::string summarizeOutputType(
 }
 
 } // namespace
+
+void PlanNode::accept(
+    const PlanNodeVisitor& visitor,
+    PlanNodeVisitorContext& context) const {
+  visitor.visit(*this, context);
+}
 
 void PlanNode::toSummaryString(
     const PlanSummaryOptions& options,
@@ -2863,6 +3037,12 @@ const std::vector<PlanNodePtr>& TraceScanNode::sources() const {
   return kEmptySources;
 }
 
+void TraceScanNode::accept(
+    const PlanNodeVisitor& visitor,
+    PlanNodeVisitorContext& context) const {
+  visitor.visit(*this, context);
+}
+
 std::string TraceScanNode::traceDir() const {
   return traceDir_;
 }
@@ -2889,6 +3069,12 @@ folly::dynamic FilterNode::serialize() const {
   auto obj = PlanNode::serialize();
   obj["filter"] = filter_->serialize();
   return obj;
+}
+
+void FilterNode::accept(
+    const PlanNodeVisitor& visitor,
+    PlanNodeVisitorContext& context) const {
+  visitor.visit(*this, context);
 }
 
 // static

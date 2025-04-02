@@ -28,6 +28,9 @@ struct ArrowArrayStream;
 
 namespace facebook::velox::core {
 
+class PlanNodeVisitor;
+class PlanNodeVisitorContext;
+
 typedef std::string PlanNodeId;
 
 /// Generic representation of InsertTable
@@ -156,6 +159,19 @@ class PlanNode : public ISerializable {
 
   virtual const std::vector<std::shared_ptr<const PlanNode>>& sources()
       const = 0;
+
+  /// Accepts a visitor to visit this plan node.
+  /// Implementations of this class should implement it as
+  ///   visitor.visit(*this, context);
+  /// This has to be done in the descendant class in order to call the right
+  /// overload of visit.
+  /// We provide a default implementation in PlanNode so that custom extensions
+  /// can either choose to implement it themselves or fall into the general
+  /// bucket of PlanNodes which they will end up in anyway for PlanNodeVisitors
+  /// that do not explicitly implement support for that PlanNode extension.
+  virtual void accept(
+      const PlanNodeVisitor& visitor,
+      PlanNodeVisitorContext& context) const;
 
   /// Returns true if this is a leaf plan node and corresponding operator
   /// requires an ExchangeClient to retrieve data. For instance, TableScanNode
@@ -290,6 +306,9 @@ class ValuesNode : public PlanNode {
 
   const std::vector<PlanNodePtr>& sources() const override;
 
+  void accept(const PlanNodeVisitor& visitor, PlanNodeVisitorContext& context)
+      const override;
+
   const std::vector<RowVectorPtr>& values() const {
     return values_;
   }
@@ -344,6 +363,9 @@ class ArrowStreamNode : public PlanNode {
 
   const std::vector<PlanNodePtr>& sources() const override;
 
+  void accept(const PlanNodeVisitor& visitor, PlanNodeVisitorContext& context)
+      const override;
+
   const std::shared_ptr<ArrowArrayStream>& arrowStream() const {
     return arrowStream_;
   }
@@ -382,6 +404,9 @@ class TraceScanNode final : public PlanNode {
   }
 
   const std::vector<PlanNodePtr>& sources() const override;
+
+  void accept(const PlanNodeVisitor& visitor, PlanNodeVisitorContext& context)
+      const override;
 
   std::string_view name() const override {
     return "QueryReplayScan";
@@ -429,6 +454,9 @@ class FilterNode : public PlanNode {
   const std::vector<PlanNodePtr>& sources() const override {
     return sources_;
   }
+
+  void accept(const PlanNodeVisitor& visitor, PlanNodeVisitorContext& context)
+      const override;
 
   const TypedExprPtr& filter() const {
     return filter_;
@@ -555,6 +583,9 @@ class ProjectNode : public AbstractProjectNode {
 
   folly::dynamic serialize() const override;
 
+  void accept(const PlanNodeVisitor& visitor, PlanNodeVisitorContext& context)
+      const override;
+
   static PlanNodePtr create(const folly::dynamic& obj, void* context);
 };
 
@@ -573,6 +604,9 @@ class TableScanNode : public PlanNode {
         assignments_(assignments) {}
 
   const std::vector<PlanNodePtr>& sources() const override;
+
+  void accept(const PlanNodeVisitor& visitor, PlanNodeVisitorContext& context)
+      const override;
 
   const RowTypePtr& outputType() const override {
     return outputType_;
@@ -693,6 +727,9 @@ class AggregationNode : public PlanNode {
   const std::vector<PlanNodePtr>& sources() const override {
     return sources_;
   }
+
+  void accept(const PlanNodeVisitor& visitor, PlanNodeVisitorContext& context)
+      const override;
 
   const RowTypePtr& outputType() const override {
     return outputType_;
@@ -835,6 +872,9 @@ class TableWriteNode : public PlanNode {
     return sources_;
   }
 
+  void accept(const PlanNodeVisitor& visitor, PlanNodeVisitorContext& context)
+      const override;
+
   const RowTypePtr& outputType() const override {
     return outputType_;
   }
@@ -922,6 +962,9 @@ class TableWriteMergeNode : public PlanNode {
     return sources_;
   }
 
+  void accept(const PlanNodeVisitor& visitor, PlanNodeVisitorContext& context)
+      const override;
+
   const RowTypePtr& outputType() const override {
     return outputType_;
   }
@@ -967,6 +1010,9 @@ class ExpandNode : public PlanNode {
   const std::vector<PlanNodePtr>& sources() const override {
     return sources_;
   }
+
+  void accept(const PlanNodeVisitor& visitor, PlanNodeVisitorContext& context)
+      const override;
 
   const std::vector<std::vector<TypedExprPtr>>& projections() const {
     return projections_;
@@ -1036,6 +1082,9 @@ class GroupIdNode : public PlanNode {
     return sources_;
   }
 
+  void accept(const PlanNodeVisitor& visitor, PlanNodeVisitorContext& context)
+      const override;
+
   const std::vector<std::vector<std::string>>& groupingSets() const {
     return groupingSets_;
   }
@@ -1094,6 +1143,9 @@ class ExchangeNode : public PlanNode {
 
   const std::vector<PlanNodePtr>& sources() const override;
 
+  void accept(const PlanNodeVisitor& visitor, PlanNodeVisitorContext& context)
+      const override;
+
   bool requiresExchangeClient() const override {
     return true;
   }
@@ -1138,6 +1190,9 @@ class MergeExchangeNode : public ExchangeNode {
     return sortingOrders_;
   }
 
+  void accept(const PlanNodeVisitor& visitor, PlanNodeVisitorContext& context)
+      const override;
+
   std::string_view name() const override {
     return "MergeExchange";
   }
@@ -1172,6 +1227,9 @@ class LocalMergeNode : public PlanNode {
   const std::vector<PlanNodePtr>& sources() const override {
     return sources_;
   }
+
+  void accept(const PlanNodeVisitor& visitor, PlanNodeVisitorContext& context)
+      const override;
 
   const std::vector<FieldAccessTypedExprPtr>& sortingKeys() const {
     return sortingKeys_;
@@ -1327,6 +1385,9 @@ class LocalPartitionNode : public PlanNode {
     return sources_;
   }
 
+  void accept(const PlanNodeVisitor& visitor, PlanNodeVisitorContext& context)
+      const override;
+
   const PartitionFunctionSpec& partitionFunctionSpec() const {
     return *partitionFunctionSpec_;
   }
@@ -1395,6 +1456,9 @@ class PartitionedOutputNode : public PlanNode {
   const std::vector<PlanNodePtr>& sources() const override {
     return sources_;
   }
+
+  void accept(const PlanNodeVisitor& visitor, PlanNodeVisitorContext& context)
+      const override;
 
   const RowTypePtr& inputType() const {
     return sources_[0]->outputType();
@@ -1737,6 +1801,9 @@ class HashJoinNode : public AbstractJoinNode {
     return "HashJoin";
   }
 
+  void accept(const PlanNodeVisitor& visitor, PlanNodeVisitorContext& context)
+      const override;
+
   bool canSpill(const QueryConfig& queryConfig) const override {
     // NOTE: as for now, we don't allow spilling for null-aware anti-join with
     // filter set. It requires to cross join the null-key probe rows with all
@@ -1780,6 +1847,9 @@ class MergeJoinNode : public AbstractJoinNode {
   std::string_view name() const override {
     return "MergeJoin";
   }
+
+  void accept(const PlanNodeVisitor& visitor, PlanNodeVisitorContext& context)
+      const override;
 
   folly::dynamic serialize() const override;
 
@@ -1962,6 +2032,9 @@ class IndexLookupJoinNode : public AbstractJoinNode {
     return "IndexLookupJoin";
   }
 
+  void accept(const PlanNodeVisitor& visitor, PlanNodeVisitorContext& context)
+      const override;
+
   folly::dynamic serialize() const override;
 
   static PlanNodePtr create(const folly::dynamic& obj, void* context);
@@ -2008,6 +2081,9 @@ class NestedLoopJoinNode : public PlanNode {
   const std::vector<PlanNodePtr>& sources() const override {
     return sources_;
   }
+
+  void accept(const PlanNodeVisitor& visitor, PlanNodeVisitorContext& context)
+      const override;
 
   const RowTypePtr& outputType() const override {
     return outputType_;
@@ -2091,6 +2167,9 @@ class OrderByNode : public PlanNode {
     return sources_;
   }
 
+  void accept(const PlanNodeVisitor& visitor, PlanNodeVisitorContext& context)
+      const override;
+
   // True if this node only sorts a portion of the final result. If it is
   // true, a local merge or merge exchange is required to merge the sorted
   // runs.
@@ -2140,6 +2219,9 @@ class TopNNode : public PlanNode {
   const std::vector<PlanNodePtr>& sources() const override {
     return sources_;
   }
+
+  void accept(const PlanNodeVisitor& visitor, PlanNodeVisitorContext& context)
+      const override;
 
   int32_t count() const {
     return count_;
@@ -2196,6 +2278,9 @@ class LimitNode : public PlanNode {
   const std::vector<PlanNodePtr>& sources() const override {
     return sources_;
   }
+
+  void accept(const PlanNodeVisitor& visitor, PlanNodeVisitorContext& context)
+      const override;
 
   int64_t offset() const {
     return offset_;
@@ -2261,6 +2346,9 @@ class UnnestNode : public PlanNode {
     return sources_;
   }
 
+  void accept(const PlanNodeVisitor& visitor, PlanNodeVisitorContext& context)
+      const override;
+
   const std::vector<FieldAccessTypedExprPtr>& replicateVariables() const {
     return replicateVariables_;
   }
@@ -2309,6 +2397,9 @@ class EnforceSingleRowNode : public PlanNode {
     return sources_;
   }
 
+  void accept(const PlanNodeVisitor& visitor, PlanNodeVisitorContext& context)
+      const override;
+
   std::string_view name() const override {
     return "EnforceSingleRow";
   }
@@ -2348,6 +2439,9 @@ class AssignUniqueIdNode : public PlanNode {
   const std::vector<PlanNodePtr>& sources() const override {
     return sources_;
   }
+
+  void accept(const PlanNodeVisitor& visitor, PlanNodeVisitorContext& context)
+      const override;
 
   std::string_view name() const override {
     return "AssignUniqueId";
@@ -2453,6 +2547,9 @@ class WindowNode : public PlanNode {
     return sources_;
   }
 
+  void accept(const PlanNodeVisitor& visitor, PlanNodeVisitorContext& context)
+      const override;
+
   /// The outputType is the concatenation of the input columns
   /// with the output columns of each window function.
   const RowTypePtr& outputType() const override {
@@ -2540,6 +2637,9 @@ class RowNumberNode : public PlanNode {
     return sources_;
   }
 
+  void accept(const PlanNodeVisitor& visitor, PlanNodeVisitorContext& context)
+      const override;
+
   const RowTypePtr& outputType() const override {
     return outputType_;
   }
@@ -2596,6 +2696,9 @@ class MarkDistinctNode : public PlanNode {
   const std::vector<PlanNodePtr>& sources() const override {
     return sources_;
   }
+
+  void accept(const PlanNodeVisitor& visitor, PlanNodeVisitorContext& context)
+      const override;
 
   /// The outputType is the concatenation of the input columns and mask
   /// column.
@@ -2660,6 +2763,9 @@ class TopNRowNumberNode : public PlanNode {
     return sources_;
   }
 
+  void accept(const PlanNodeVisitor& visitor, PlanNodeVisitorContext& context)
+      const override;
+
   const RowTypePtr& outputType() const override {
     return outputType_;
   }
@@ -2713,6 +2819,124 @@ class TopNRowNumberNode : public PlanNode {
   const std::vector<PlanNodePtr> sources_;
 
   const RowTypePtr outputType_;
+};
+
+class PlanNodeVisitorContext {
+ public:
+  virtual ~PlanNodeVisitorContext() = default;
+};
+
+class PlanNodeVisitor {
+ public:
+  virtual ~PlanNodeVisitor() = default;
+
+  virtual void visit(const AggregationNode& node, PlanNodeVisitorContext& ctx)
+      const = 0;
+
+  virtual void visit(const ArrowStreamNode& node, PlanNodeVisitorContext& ctx)
+      const = 0;
+
+  virtual void visit(
+      const AssignUniqueIdNode& node,
+      PlanNodeVisitorContext& ctx) const = 0;
+
+  virtual void visit(
+      const EnforceSingleRowNode& node,
+      PlanNodeVisitorContext& ctx) const = 0;
+
+  virtual void visit(const ExchangeNode& node, PlanNodeVisitorContext& ctx)
+      const = 0;
+
+  virtual void visit(const ExpandNode& node, PlanNodeVisitorContext& ctx)
+      const = 0;
+
+  virtual void visit(const FilterNode& node, PlanNodeVisitorContext& ctx)
+      const = 0;
+
+  virtual void visit(const GroupIdNode& node, PlanNodeVisitorContext& ctx)
+      const = 0;
+
+  virtual void visit(const HashJoinNode& node, PlanNodeVisitorContext& ctx)
+      const = 0;
+
+  virtual void visit(
+      const IndexLookupJoinNode& node,
+      PlanNodeVisitorContext& ctx) const = 0;
+
+  virtual void visit(const LimitNode& node, PlanNodeVisitorContext& ctx)
+      const = 0;
+
+  virtual void visit(const LocalMergeNode& node, PlanNodeVisitorContext& ctx)
+      const = 0;
+
+  virtual void visit(
+      const LocalPartitionNode& node,
+      PlanNodeVisitorContext& ctx) const = 0;
+
+  virtual void visit(const MarkDistinctNode& node, PlanNodeVisitorContext& ctx)
+      const = 0;
+
+  virtual void visit(const MergeExchangeNode& node, PlanNodeVisitorContext& ctx)
+      const = 0;
+
+  virtual void visit(const MergeJoinNode& node, PlanNodeVisitorContext& ctx)
+      const = 0;
+
+  virtual void visit(
+      const NestedLoopJoinNode& node,
+      PlanNodeVisitorContext& ctx) const = 0;
+
+  virtual void visit(const OrderByNode& node, PlanNodeVisitorContext& ctx)
+      const = 0;
+
+  virtual void visit(
+      const PartitionedOutputNode& node,
+      PlanNodeVisitorContext& ctx) const = 0;
+
+  virtual void visit(const ProjectNode& node, PlanNodeVisitorContext& ctx)
+      const = 0;
+
+  virtual void visit(const RowNumberNode& node, PlanNodeVisitorContext& ctx)
+      const = 0;
+
+  virtual void visit(const TableScanNode& node, PlanNodeVisitorContext& ctx)
+      const = 0;
+
+  virtual void visit(const TableWriteNode& node, PlanNodeVisitorContext& ctx)
+      const = 0;
+
+  virtual void visit(
+      const TableWriteMergeNode& node,
+      PlanNodeVisitorContext& ctx) const = 0;
+
+  virtual void visit(const TopNNode& node, PlanNodeVisitorContext& ctx)
+      const = 0;
+
+  virtual void visit(const TopNRowNumberNode& node, PlanNodeVisitorContext& ctx)
+      const = 0;
+
+  virtual void visit(const TraceScanNode& node, PlanNodeVisitorContext& ctx)
+      const = 0;
+
+  virtual void visit(const UnnestNode& node, PlanNodeVisitorContext& ctx)
+      const = 0;
+
+  virtual void visit(const ValuesNode& node, PlanNodeVisitorContext& ctx)
+      const = 0;
+
+  virtual void visit(const WindowNode& node, PlanNodeVisitorContext& ctx)
+      const = 0;
+
+  /// Used to visit custom PlanNodes that extend the set provided by Velox.
+  virtual void visit(const PlanNode& node, PlanNodeVisitorContext& ctx)
+      const = 0;
+
+ protected:
+  void visitSources(const PlanNode& node, PlanNodeVisitorContext& ctx) const {
+    for (auto& source : node.sources()) {
+      source->accept(*this, ctx);
+    }
+  }
 };
 
 } // namespace facebook::velox::core
