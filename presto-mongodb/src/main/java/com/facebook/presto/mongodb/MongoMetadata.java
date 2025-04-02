@@ -281,7 +281,7 @@ public class MongoMetadata
         List<ColumnMetadata> columns = ImmutableList.copyOf(
                 getColumnHandles(session, tableHandle).values().stream()
                         .map(MongoColumnHandle.class::cast)
-                        .map(MongoColumnHandle::toColumnMetadata)
+                        .map(column -> column.toColumnMetadata(normalizeIdentifier(session, column.getName())))
                         .collect(toList()));
 
         return new ConnectorTableMetadata(tableName, columns);

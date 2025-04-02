@@ -104,7 +104,7 @@ public class ClickHouseMetadata
 
         ImmutableList.Builder<ColumnMetadata> columnMetadata = ImmutableList.builder();
         for (ClickHouseColumnHandle column : clickHouseClient.getColumns(session, handle)) {
-            columnMetadata.add(column.getColumnMetadata());
+            columnMetadata.add(column.getColumnMetadata(normalizeIdentifier(session, column.getColumnName())));
         }
         return new ConnectorTableMetadata(handle.getSchemaTableName(), columnMetadata.build());
     }
@@ -122,7 +122,7 @@ public class ClickHouseMetadata
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (ClickHouseColumnHandle column : clickHouseClient.getColumns(session, clickHouseTableHandle)) {
-            columnHandles.put(column.getColumnMetadata().getName(), column);
+            columnHandles.put(normalizeIdentifier(session, column.getColumnMetadata(column.getColumnName()).getName()), column);
         }
         return columnHandles.build();
     }

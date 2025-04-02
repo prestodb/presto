@@ -148,7 +148,7 @@ public class ArrowMetadata
         for (Field field : columnList) {
             String columnName = field.getName();
             Type fieldType = getPrestoTypeFromArrowField(field);
-            meta.add(ColumnMetadata.builder().setName(columnName).setType(fieldType).build());
+            meta.add(ColumnMetadata.builder().setName(normalizeIdentifier(session, columnName)).setType(fieldType).build());
         }
         return new ConnectorTableMetadata(new SchemaTableName(((ArrowTableHandle) table).getSchema(), ((ArrowTableHandle) table).getTable()), meta);
     }

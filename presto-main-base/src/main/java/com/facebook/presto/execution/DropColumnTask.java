@@ -24,6 +24,7 @@ import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.DropColumn;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -67,7 +68,8 @@ public class DropColumnTask
         }
 
         TableHandle tableHandle = tableHandleOptional.get();
-        String column = statement.getColumn().getValueLowerCase();
+        Identifier columnIdentifier = statement.getColumn();
+        String column = metadata.normalizeIdentifier(session, tableName.getCatalogName(), columnIdentifier.getValue());
 
         accessControl.checkCanDropColumn(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
 
