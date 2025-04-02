@@ -28,6 +28,12 @@ void appendComma(int32_t i, std::stringstream& sql) {
 
 // Returns the SQL string of the given type.
 std::string toTypeSql(const TypePtr& type) {
+  // Date needs special handling because it is not supported by TypeKind. We
+  // will need to explicitly specify or we are at risk of a date being casted to
+  // an integer and failing.
+  if (type->isDate()) {
+    return "DATE";
+  }
   switch (type->kind()) {
     case TypeKind::ARRAY:
       return fmt::format("ARRAY({})", toTypeSql(type->childAt(0)));
