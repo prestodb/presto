@@ -841,11 +841,15 @@ TEST_P(PrestoSerializerTest, basic) {
 }
 
 TEST_P(PrestoSerializerTest, basicLarge) {
-  const vector_size_t numRows = 200'000;
+#ifndef NDEBUG
+  constexpr vector_size_t kNumRows = 20'000;
+#else
+  constexpr vector_size_t kNumRows = 200'000;
+#endif
   auto rowVector = makeRowVector({
-      makeFlatVector<int64_t>(numRows, [](vector_size_t row) { return row; }),
+      makeFlatVector<int64_t>(kNumRows, [](vector_size_t row) { return row; }),
       makeFlatVector<std::string>(
-          numRows, [](vector_size_t) { return std::string(2048, 'x'); }),
+          kNumRows, [](vector_size_t) { return std::string(2048, 'x'); }),
   });
   testRoundTrip(std::move(rowVector));
 }
