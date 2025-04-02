@@ -16,23 +16,20 @@
 
 #pragma once
 
-#include "velox/vector/BaseVector.h"
+#include "velox/exec/fuzzer/PrestoQueryRunnerIntermediateTypeTransforms.h"
 
-namespace facebook::velox::fuzzer {
-
-class ConstrainedVectorGenerator {
+namespace facebook::velox::exec::test {
+class TimestampWithTimeZoneTransform : public IntermediateTypeTransform {
  public:
-  ConstrainedVectorGenerator() = delete;
+  TypePtr transformedType() const override {
+    return VARCHAR();
+  }
 
-  static VectorPtr generateConstant(
-      const AbstractInputGeneratorPtr& customGenerator,
-      vector_size_t size,
-      memory::MemoryPool* pool);
+  variant transform(const BaseVector* const vector, vector_size_t row)
+      const override;
 
-  static VectorPtr generateFlat(
-      const AbstractInputGeneratorPtr& customGenerator,
-      vector_size_t size,
-      memory::MemoryPool* pool);
+  core::ExprPtr projectionExpr(
+      const core::ExprPtr& inputExpr,
+      const std::string& columnAlias) const override;
 };
-
-} // namespace facebook::velox::fuzzer
+} // namespace facebook::velox::exec::test

@@ -70,6 +70,7 @@ add_executable(
   PlanNodeToStringTest.cpp
   PlanNodeToSummaryStringTest.cpp
   PrefixSortTest.cpp
+  PrestoQueryRunnerTimestampWithTimeZoneTransformTest.cpp
   PrintPlanWithStatsTest.cpp
   ProbeOperatorStateTest.cpp
   TraceUtilTest.cpp

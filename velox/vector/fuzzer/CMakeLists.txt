@@ -36,8 +36,11 @@ endif()
 add_library(velox_constrained_vector_generator ConstrainedVectorGenerator.cpp)
 
 target_link_libraries(
-  velox_constrained_vector_generator velox_vector velox_expression
-  velox_constrained_input_generators)
+  velox_constrained_vector_generator
+  velox_vector
+  velox_expression
+  velox_constrained_input_generators
+  velox_vector_fuzzer_util)
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)

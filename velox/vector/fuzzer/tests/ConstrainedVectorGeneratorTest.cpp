@@ -18,6 +18,7 @@
 
 #include <gtest/gtest.h>
 
+#include "velox/common/fuzzer/ConstrainedGenerators.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
 namespace facebook::velox::fuzzer::test {

@@ -17,6 +17,8 @@ add_library(
   ReferenceQueryRunner.cpp
   DuckQueryRunner.cpp
   PrestoQueryRunner.cpp
+  PrestoQueryRunnerIntermediateTypeTransforms.cpp
+  PrestoQueryRunnerTimestampWithTimeZoneTransform.cpp
   FuzzerUtil.cpp
   ToSQLUtil.cpp)
 
