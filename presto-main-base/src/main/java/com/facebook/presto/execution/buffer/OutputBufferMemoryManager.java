@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.execution.buffer;
 
-import com.facebook.airlift.concurrent.ThreadSafe;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import jakarta.annotation.Nullable;
 

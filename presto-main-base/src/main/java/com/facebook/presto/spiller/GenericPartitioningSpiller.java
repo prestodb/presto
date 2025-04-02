@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spiller;
 
-import com.facebook.airlift.concurrent.ThreadSafe;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.type.Type;
@@ -25,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.ThreadSafe;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 
 import java.io.IOException;

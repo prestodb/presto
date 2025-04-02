@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.airlift.concurrent.ThreadSafe;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 
 import java.util.concurrent.ScheduledExecutorService;

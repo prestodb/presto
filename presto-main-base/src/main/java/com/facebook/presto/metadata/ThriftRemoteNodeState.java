@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.airlift.concurrent.ThreadSafe;
 import com.facebook.drift.client.DriftClient;
 import com.facebook.presto.server.thrift.ThriftServerInfoClient;
 import com.facebook.presto.spi.NodeState;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.units.Duration;
 import jakarta.annotation.Nullable;
 

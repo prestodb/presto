@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.airlift.concurrent.ThreadSafe;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 
 @ThreadSafe

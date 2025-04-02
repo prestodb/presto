@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.execution.resourceGroups;
 
-import com.facebook.airlift.concurrent.ThreadSafe;
 import com.facebook.presto.execution.ManagedQueryExecution;
 import com.facebook.presto.server.ResourceGroupInfo;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
+import com.google.errorprone.annotations.ThreadSafe;
 
 import java.util.List;
 import java.util.concurrent.Executor;

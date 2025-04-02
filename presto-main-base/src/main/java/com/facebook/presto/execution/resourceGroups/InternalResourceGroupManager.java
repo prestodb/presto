@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.execution.resourceGroups;
 
-import com.facebook.airlift.concurrent.ThreadSafe;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.execution.ManagedQueryExecution;
@@ -36,6 +35,7 @@ import com.facebook.presto.util.PeriodicTaskExecutor;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.units.Duration;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
