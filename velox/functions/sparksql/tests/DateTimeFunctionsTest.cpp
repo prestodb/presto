@@ -1167,5 +1167,66 @@ TEST_F(DateTimeFunctionsTest, timestampToMillis) {
   EXPECT_EQ(timestampToMillis("-292275055-05-16 16:47:04.192"), kMinBigint);
 }
 
+TEST_F(DateTimeFunctionsTest, dateTrunc) {
+  const auto dateTrunc = [&](const std::string& format,
+                             std::optional<Timestamp> timestamp) {
+    return evaluateOnce<Timestamp>(
+        fmt::format("date_trunc('{}', c0)", format), timestamp);
+  };
+
+  EXPECT_EQ(std::nullopt, dateTrunc("second", std::nullopt));
+  EXPECT_EQ(std::nullopt, dateTrunc("", Timestamp(0, 0)));
+  EXPECT_EQ(std::nullopt, dateTrunc("y", Timestamp(0, 0)));
+  EXPECT_EQ(Timestamp(0, 0), dateTrunc("second", Timestamp(0, 0)));
+  EXPECT_EQ(Timestamp(0, 0), dateTrunc("second", Timestamp(0, 123)));
+  EXPECT_EQ(Timestamp(-1, 0), dateTrunc("second", Timestamp(-1, 0)));
+  EXPECT_EQ(Timestamp(-1, 0), dateTrunc("second", Timestamp(-1, 123)));
+  EXPECT_EQ(Timestamp(0, 0), dateTrunc("day", Timestamp(0, 123)));
+  EXPECT_EQ(
+      Timestamp(998474645, 321'001'000),
+      dateTrunc("microsecond", Timestamp(998'474'645, 321'001'234)));
+  EXPECT_EQ(
+      Timestamp(998474645, 321'000'000),
+      dateTrunc("millisecond", Timestamp(998'474'645, 321'001'234)));
+  EXPECT_EQ(
+      Timestamp(998474645, 0),
+      dateTrunc("second", Timestamp(998'474'645, 321'001'234)));
+  EXPECT_EQ(
+      Timestamp(998474640, 0),
+      dateTrunc("minute", Timestamp(998'474'645, 321'001'234)));
+  EXPECT_EQ(
+      Timestamp(998474400, 0),
+      dateTrunc("hour", Timestamp(998'474'645, 321'001'234)));
+  EXPECT_EQ(
+      Timestamp(998438400, 0),
+      dateTrunc("day", Timestamp(998'474'645, 321'001'234)));
+  EXPECT_EQ(
+      Timestamp(998438400, 0),
+      dateTrunc("dd", Timestamp(998'474'645, 321'001'234)));
+  EXPECT_EQ(
+      Timestamp(998265600, 0),
+      dateTrunc("week", Timestamp(998'474'645, 321'001'234)));
+  EXPECT_EQ(
+      Timestamp(996624000, 0),
+      dateTrunc("month", Timestamp(998'474'645, 321'001'234)));
+  EXPECT_EQ(
+      Timestamp(996624000, 0),
+      dateTrunc("mon", Timestamp(998'474'645, 321'001'234)));
+  EXPECT_EQ(
+      Timestamp(996624000, 0),
+      dateTrunc("mm", Timestamp(998'474'645, 321'001'234)));
+  EXPECT_EQ(
+      Timestamp(993945600, 0),
+      dateTrunc("quarter", Timestamp(998'474'645, 321'001'234)));
+  EXPECT_EQ(
+      Timestamp(978307200, 0),
+      dateTrunc("year", Timestamp(998'474'645, 321'001'234)));
+  EXPECT_EQ(
+      Timestamp(978307200, 0),
+      dateTrunc("yyyy", Timestamp(998'474'645, 321'001'234)));
+  EXPECT_EQ(
+      Timestamp(978307200, 0),
+      dateTrunc("yy", Timestamp(998'474'645, 321'001'234)));
+}
 } // namespace
 } // namespace facebook::velox::functions::sparksql::test

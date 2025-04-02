@@ -534,6 +534,40 @@ struct DateFromUnixDateFunction {
   }
 };
 
+/// Truncates a timestamp to a specified time unit. Return NULL if the format is
+/// invalid. Format as abbreviated unit string and "microseconds" are allowed.
+template <typename T>
+struct DateTruncFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void initialize(
+      const std::vector<TypePtr>& /*inputTypes*/,
+      const core::QueryConfig& config,
+      const arg_type<Timestamp>* /*timestamp*/) {
+    timeZone_ = getTimeZoneFromConfig(config);
+  }
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<Timestamp>& result,
+      const arg_type<Varchar>& format,
+      const arg_type<Timestamp>& timestamp) {
+    std::optional<DateTimeUnit> unitOption = fromDateTimeUnitString(
+        format,
+        /*throwIfInvalid=*/false,
+        /*allowMicro=*/true,
+        /*allowAbbreviated=*/true);
+    // Return null if unit is illegal.
+    if (!unitOption.has_value()) {
+      return false;
+    }
+    result = truncateTimestamp(timestamp, unitOption.value(), timeZone_);
+    return true;
+  }
+
+ private:
+  const tz::TimeZone* timeZone_ = nullptr;
+};
+
 template <typename T>
 struct DateAddFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);

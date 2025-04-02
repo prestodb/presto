@@ -15,11 +15,14 @@
  */
 #pragma once
 
+#include <boost/algorithm/string/case_conv.hpp>
 #include <velox/type/Timestamp.h>
 #include "velox/core/QueryConfig.h"
+#include "velox/expression/ComplexViewTypes.h"
 #include "velox/external/date/date.h"
 #include "velox/external/date/iso_week.h"
 #include "velox/functions/Macros.h"
+#include "velox/functions/lib/DateTimeFormatter.h"
 #include "velox/type/tz/TimeZoneMap.h"
 
 namespace facebook::velox::functions {
@@ -123,4 +126,40 @@ struct InitSessionTimezone {
     timeZone_ = getTimeZoneFromConfig(config);
   }
 };
+
+/// Converts string as date time unit. Throws for invalid input string.
+///
+/// @param unitString The input string to represent date time unit.
+/// @param throwIfInvalid Whether to throw an exception for invalid input
+/// string.
+/// @param allowMicro Whether to allow microsecond.
+/// @param allowAbbreviated Whether to allow abbreviated unit string.
+std::optional<DateTimeUnit> fromDateTimeUnitString(
+    StringView unitString,
+    bool throwIfInvalid,
+    bool allowMicro = false,
+    bool allowAbbreviated = false);
+
+/// Adjusts the given date time object to the start of the specified date time
+/// unit (e.g., year, quarter, month, week, day, hour, minute).
+void adjustDateTime(std::tm& dateTime, const DateTimeUnit& unit);
+
+/// Returns timestamp with seconds adjusted to the nearest lower multiple of the
+/// specified interval. If the given seconds is negative and not an exact
+/// multiple of the interval, it adjusts further down.
+FOLLY_ALWAYS_INLINE Timestamp
+adjustEpoch(int64_t seconds, int64_t intervalSeconds) {
+  int64_t s = seconds / intervalSeconds;
+  if (seconds < 0 && seconds % intervalSeconds) {
+    s = s - 1;
+  }
+  int64_t truncatedSeconds = s * intervalSeconds;
+  return Timestamp(truncatedSeconds, 0);
+}
+
+// Returns timestamp truncated to the specified unit.
+Timestamp truncateTimestamp(
+    Timestamp timestamp,
+    DateTimeUnit unit,
+    const tz::TimeZone* timeZone);
 } // namespace facebook::velox::functions

@@ -881,54 +881,6 @@ struct MillisecondFromIntervalFunction {
 };
 
 namespace {
-inline std::optional<DateTimeUnit> fromDateTimeUnitString(
-    const StringView& unitString,
-    bool throwIfInvalid) {
-  static const StringView kMillisecond("millisecond");
-  static const StringView kSecond("second");
-  static const StringView kMinute("minute");
-  static const StringView kHour("hour");
-  static const StringView kDay("day");
-  static const StringView kWeek("week");
-  static const StringView kMonth("month");
-  static const StringView kQuarter("quarter");
-  static const StringView kYear("year");
-
-  const auto unit = boost::algorithm::to_lower_copy(unitString.str());
-
-  if (unit == kMillisecond) {
-    return DateTimeUnit::kMillisecond;
-  }
-  if (unit == kSecond) {
-    return DateTimeUnit::kSecond;
-  }
-  if (unit == kMinute) {
-    return DateTimeUnit::kMinute;
-  }
-  if (unit == kHour) {
-    return DateTimeUnit::kHour;
-  }
-  if (unit == kDay) {
-    return DateTimeUnit::kDay;
-  }
-  if (unit == kWeek) {
-    return DateTimeUnit::kWeek;
-  }
-  if (unit == kMonth) {
-    return DateTimeUnit::kMonth;
-  }
-  if (unit == kQuarter) {
-    return DateTimeUnit::kQuarter;
-  }
-  if (unit == kYear) {
-    return DateTimeUnit::kYear;
-  }
-  if (throwIfInvalid) {
-    VELOX_UNSUPPORTED("Unsupported datetime unit: {}", unitString);
-  }
-  return std::nullopt;
-}
-
 inline bool isTimeUnit(const DateTimeUnit unit) {
   return unit == DateTimeUnit::kMillisecond || unit == DateTimeUnit::kSecond ||
       unit == DateTimeUnit::kMinute || unit == DateTimeUnit::kHour;
@@ -957,7 +909,7 @@ inline std::optional<DateTimeUnit> getDateUnit(
 inline std::optional<DateTimeUnit> getTimestampUnit(
     const StringView& unitString) {
   std::optional<DateTimeUnit> unit =
-      fromDateTimeUnitString(unitString, false /*throwIfInvalid*/);
+      fromDateTimeUnitString(unitString, /*throwIfInvalid=*/false);
   VELOX_USER_CHECK(
       !(unit.has_value() && unit.value() == DateTimeUnit::kMillisecond),
       "{} is not a valid TIMESTAMP field",
@@ -1007,74 +959,6 @@ struct DateTruncFunction : public TimestampWithTimezoneSupport<T> {
     }
   }
 
-  FOLLY_ALWAYS_INLINE void adjustDateTime(
-      std::tm& dateTime,
-      const DateTimeUnit& unit) {
-    switch (unit) {
-      case DateTimeUnit::kYear:
-        dateTime.tm_mon = 0;
-        dateTime.tm_yday = 0;
-        FMT_FALLTHROUGH;
-      case DateTimeUnit::kQuarter:
-        dateTime.tm_mon = dateTime.tm_mon / 3 * 3;
-        FMT_FALLTHROUGH;
-      case DateTimeUnit::kMonth:
-        dateTime.tm_mday = 1;
-        dateTime.tm_hour = 0;
-        dateTime.tm_min = 0;
-        dateTime.tm_sec = 0;
-        break;
-      case DateTimeUnit::kWeek:
-        // Subtract the truncation
-        dateTime.tm_mday -= dateTime.tm_wday == 0 ? 6 : dateTime.tm_wday - 1;
-        // Setting the day of the week to Monday
-        dateTime.tm_wday = 1;
-
-        // If the adjusted day of the month falls in the previous month
-        // Move to the previous month
-        if (dateTime.tm_mday < 1) {
-          dateTime.tm_mon -= 1;
-
-          // If the adjusted month falls in the previous year
-          // Set to December and Move to the previous year
-          if (dateTime.tm_mon < 0) {
-            dateTime.tm_mon = 11;
-            dateTime.tm_year -= 1;
-          }
-
-          // Calculate the correct day of the month based on the number of days
-          // in the adjusted month
-          static const int daysInMonth[] = {
-              31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-          int daysInPrevMonth = daysInMonth[dateTime.tm_mon];
-
-          // Adjust for leap year if February
-          if (dateTime.tm_mon == 1 && (dateTime.tm_year + 1900) % 4 == 0 &&
-              ((dateTime.tm_year + 1900) % 100 != 0 ||
-               (dateTime.tm_year + 1900) % 400 == 0)) {
-            daysInPrevMonth = 29;
-          }
-          // Set to the correct day in the previous month
-          dateTime.tm_mday += daysInPrevMonth;
-        }
-        dateTime.tm_hour = 0;
-        dateTime.tm_min = 0;
-        dateTime.tm_sec = 0;
-        break;
-      case DateTimeUnit::kDay:
-        dateTime.tm_hour = 0;
-        FMT_FALLTHROUGH;
-      case DateTimeUnit::kHour:
-        dateTime.tm_min = 0;
-        FMT_FALLTHROUGH;
-      case DateTimeUnit::kMinute:
-        dateTime.tm_sec = 0;
-        break;
-      default:
-        VELOX_UNREACHABLE();
-    }
-  }
-
   FOLLY_ALWAYS_INLINE void call(
       out_type<Timestamp>& result,
       const arg_type<Varchar>& unitString,
@@ -1085,49 +969,7 @@ struct DateTruncFunction : public TimestampWithTimezoneSupport<T> {
     } else {
       unit = getTimestampUnit(unitString).value();
     }
-
-    switch (unit) {
-      // For seconds, we just truncate the nanoseconds part of the timestamp; no
-      // timezone conversion required.
-      case DateTimeUnit::kSecond:
-        result = Timestamp(timestamp.getSeconds(), 0);
-        return;
-
-      // Same for minutes; timezones and daylight savings time are at least in
-      // the granularity of 30 mins, so we can just truncate the epoch directly.
-      case DateTimeUnit::kMinute:
-        result = adjustEpoch(timestamp.getSeconds(), 60);
-        return;
-
-      // Hour truncation has to handle the corner case of daylight savings time
-      // boundaries. Since conversions from local timezone to UTC may be
-      // ambiguous, we need to be carefull about the roundtrip of converting to
-      // local time and back. So what we do is to calculate the truncation delta
-      // in UTC, then applying it to the input timestamp.
-      case DateTimeUnit::kHour: {
-        auto epochToAdjust = getSeconds(timestamp, timeZone_);
-        auto secondsDelta =
-            epochToAdjust - adjustEpoch(epochToAdjust, 60 * 60).getSeconds();
-        result = Timestamp(timestamp.getSeconds() - secondsDelta, 0);
-        return;
-      }
-
-      // For the truncations below, we may first need to convert to the local
-      // timestamp, truncate, then convert back to GMT.
-      case DateTimeUnit::kDay:
-        result = adjustEpoch(getSeconds(timestamp, timeZone_), 24 * 60 * 60);
-        break;
-
-      default:
-        auto dateTime = getDateTime(timestamp, timeZone_);
-        adjustDateTime(dateTime, unit);
-        result = Timestamp(Timestamp::calendarUtcToEpoch(dateTime), 0);
-        break;
-    }
-
-    if (timeZone_ != nullptr) {
-      result.toGMT(*timeZone_);
-    }
+    result = truncateTimestamp(timestamp, unit, timeZone_);
   }
 
   FOLLY_ALWAYS_INLINE void call(
@@ -1198,20 +1040,6 @@ struct DateTruncFunction : public TimestampWithTimezoneSupport<T> {
 
     result = pack(resultMillis, unpackZoneKeyId(*timestampWithTimezone));
   }
-
- private:
-  /// For fixed interval like second, minute, hour, day and week
-  /// we can truncate date by a simple arithmetic expression:
-  /// floor(seconds / intervalSeconds) * intervalSeconds.
-  FOLLY_ALWAYS_INLINE Timestamp
-  adjustEpoch(int64_t seconds, int64_t intervalSeconds) {
-    int64_t s = seconds / intervalSeconds;
-    if (seconds < 0 && seconds % intervalSeconds) {
-      s = s - 1;
-    }
-    int64_t truncedSeconds = s * intervalSeconds;
-    return Timestamp(truncedSeconds, 0);
-  }
 };
 
 template <typename T>
@@ -1229,7 +1057,7 @@ struct DateAddFunction : public TimestampWithTimezoneSupport<T> {
       const arg_type<Timestamp>* /*timestamp*/) {
     sessionTimeZone_ = getTimeZoneFromConfig(config);
     if (unitString != nullptr) {
-      unit_ = fromDateTimeUnitString(*unitString, false /*throwIfInvalid*/);
+      unit_ = fromDateTimeUnitString(*unitString, /*throwIfInvalid=*/false);
     }
   }
 
@@ -1251,7 +1079,7 @@ struct DateAddFunction : public TimestampWithTimezoneSupport<T> {
       const arg_type<Timestamp>& timestamp) {
     const auto unit = unit_.has_value()
         ? unit_.value()
-        : fromDateTimeUnitString(unitString, true /*throwIfInvalid*/).value();
+        : fromDateTimeUnitString(unitString, /*throwIfInvalid=*/true).value();
 
     if (value != (int32_t)value) {
       VELOX_UNSUPPORTED("integer overflow");
@@ -1291,7 +1119,7 @@ struct DateAddFunction : public TimestampWithTimezoneSupport<T> {
       const int64_t value,
       const arg_type<TimestampWithTimezone>& timestampWithTimezone) {
     const auto unit = unit_.value_or(
-        fromDateTimeUnitString(unitString, true /*throwIfInvalid*/).value());
+        fromDateTimeUnitString(unitString, /*throwIfInvalid=*/true).value());
 
     if (value != (int32_t)value) {
       VELOX_UNSUPPORTED("integer overflow");
@@ -1332,7 +1160,7 @@ struct DateDiffFunction : public TimestampWithTimezoneSupport<T> {
       const arg_type<Timestamp>* /*timestamp1*/,
       const arg_type<Timestamp>* /*timestamp2*/) {
     if (unitString != nullptr) {
-      unit_ = fromDateTimeUnitString(*unitString, false /*throwIfInvalid*/);
+      unit_ = fromDateTimeUnitString(*unitString, /*throwIfInvalid=*/false);
     }
 
     sessionTimeZone_ = getTimeZoneFromConfig(config);
@@ -1356,7 +1184,7 @@ struct DateDiffFunction : public TimestampWithTimezoneSupport<T> {
       const arg_type<TimestampWithTimezone>* /*timestampWithTimezone1*/,
       const arg_type<TimestampWithTimezone>* /*timestampWithTimezone2*/) {
     if (unitString != nullptr) {
-      unit_ = fromDateTimeUnitString(*unitString, false /*throwIfInvalid*/);
+      unit_ = fromDateTimeUnitString(*unitString, /*throwIfInvalid=*/false);
     }
   }
 
@@ -1366,7 +1194,7 @@ struct DateDiffFunction : public TimestampWithTimezoneSupport<T> {
       const arg_type<Timestamp>& timestamp1,
       const arg_type<Timestamp>& timestamp2) {
     const auto unit = unit_.value_or(
-        fromDateTimeUnitString(unitString, true /*throwIfInvalid*/).value());
+        fromDateTimeUnitString(unitString, /*throwIfInvalid=*/true).value());
 
     if (LIKELY(sessionTimeZone_ != nullptr)) {
       // sessionTimeZone not null means that the config
@@ -1408,7 +1236,7 @@ struct DateDiffFunction : public TimestampWithTimezoneSupport<T> {
       const arg_type<TimestampWithTimezone>& timestampWithTz1,
       const arg_type<TimestampWithTimezone>& timestampWithTz2) {
     const auto unit = unit_.value_or(
-        fromDateTimeUnitString(unitString, true /*throwIfInvalid*/).value());
+        fromDateTimeUnitString(unitString, /*throwIfInvalid=*/true).value());
 
     // Presto's behavior is to use the time zone of the first parameter to
     // perform the calculation. Note that always normalizing to UTC is not
