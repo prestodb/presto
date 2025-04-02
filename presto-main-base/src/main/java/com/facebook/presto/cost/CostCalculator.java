@@ -14,9 +14,9 @@
 
 package com.facebook.presto.cost;
 
-import com.facebook.airlift.concurrent.ThreadSafe;
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.google.errorprone.annotations.ThreadSafe;
 import com.google.inject.BindingAnnotation;
 
 import java.lang.annotation.Retention;

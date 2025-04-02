@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.execution.scheduler;
 
-import com.facebook.airlift.concurrent.ThreadSafe;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.spi.plan.PartitioningHandle;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.ThreadSafe;
 
 import java.util.List;
 import java.util.Map;

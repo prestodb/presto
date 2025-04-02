@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.airlift.concurrent.ThreadSafe;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.WarningHandlingLevel;
@@ -30,6 +29,7 @@ import com.facebook.presto.spi.security.AuthorizedIdentity;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.sql.SqlEnvironmentConfig;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.errorprone.annotations.ThreadSafe;
 import jakarta.inject.Inject;
 
 import java.util.Locale;

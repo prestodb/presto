@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.airlift.concurrent.ThreadSafe;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.Distribution;
 import com.facebook.presto.common.RuntimeStats;
@@ -24,6 +23,7 @@ import com.facebook.presto.operator.BlockedReason;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.util.Failures;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.ThreadSafe;
 
 import java.util.HashSet;
 import java.util.List;

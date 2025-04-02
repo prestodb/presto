@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.execution.resourceGroups;
 
-import com.facebook.airlift.concurrent.ThreadSafe;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.execution.ManagedQueryExecution;
 import com.facebook.presto.execution.resourceGroups.WeightedFairQueue.Usage;
@@ -27,6 +26,7 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupState;
 import com.facebook.presto.spi.resourceGroups.SchedulingPolicy;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;

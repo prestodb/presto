@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.airlift.concurrent.ThreadSafe;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 
 import static com.google.common.base.Preconditions.checkArgument;

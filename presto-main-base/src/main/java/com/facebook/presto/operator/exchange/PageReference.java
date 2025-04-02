@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator.exchange;
 
-import com.facebook.airlift.concurrent.ThreadSafe;
 import com.facebook.presto.common.Page;
+import com.google.errorprone.annotations.ThreadSafe;
 
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 
