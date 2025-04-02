@@ -27,7 +27,7 @@ target_compile_definitions(presto_flight_connector
 
 target_link_libraries(
   presto_flight_connector velox_connector ArrowFlight::arrow_flight_shared
-  presto_flight_connector_utils presto_flight_connector_auth presto_types)
+  presto_flight_connector_utils presto_flight_connector_auth)
 
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)
