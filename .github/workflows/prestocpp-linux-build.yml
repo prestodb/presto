@@ -6,6 +6,27 @@ on:
     paths:
       - 'presto-native-execution/**'
       - '.github/workflows/prestocpp-linux-build.yml'
+      # Build also changes to files that can change the protocol and are referenced in the protocol yaml:
+      # protocol_core
+      - 'presto-spi/src/main/java/com/facebook/presto/spi/**'
+      - 'presto-common/src/main/java/com/facebook/presto/**'
+      - 'presto-main/src/main/java/com/facebook/presto/**'
+      - 'presto-client/src/main/java/com/facebook/presto/client/**'
+      - 'presto-spark-base/src/main/java/com/facebook/presto/spark/execution/**'
+      - 'presto-native-sidecar-plugin/src/main/java/com/facebook/presto/sidecar/nativechecker/**'
+      - 'presto-function-namespace-managers-common/src/main/java/com/facebook/presto/functionNamespace/**'
+      - 'presto-hdfs-core/src/main/java/com/facebook/presto/hive/**'
+      - 'presto-verifier/src/main/java/com/facebook/presto/verifier/framework/**'
+      # arrow-flight
+      - 'presto-base-arrow-flight/src/main/java/com/facebook/plugin/arrow/**'
+      # hive
+      - 'presto-hive-metastore/src/main/java/com/facebook/presto/hive/**'
+      - 'presto-hive-common/src/main/java/com/facebook/presto/hive/**'
+      - 'presto-hive/src/main/java/com/facebook/presto/hive/**'
+      # iceberg
+      - 'presto-iceberg/src/main/java/com/facebook/presto/iceberg/**'
+      # tpch
+      - 'presto-tpch/src/main/java/com/facebook/presto/tpch/**'
 
 jobs:
   prestocpp-linux-build-engine:
@@ -16,6 +37,30 @@ jobs:
       CCACHE_DIR: "${{ github.workspace }}/ccache"
       CC: /usr/bin/clang-15
       CXX: /usr/bin/clang++-15
+      BUILD_SCRIPT: |
+          cd presto-native-execution
+          cmake \
+            -B _build/debug \
+            -GNinja \
+            -DTREAT_WARNINGS_AS_ERRORS=1 \
+            -DENABLE_ALL_WARNINGS=1 \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DPRESTO_ENABLE_PARQUET=ON \
+            -DPRESTO_ENABLE_S3=ON \
+            -DPRESTO_ENABLE_GCS=ON \
+            -DPRESTO_ENABLE_ABFS=OFF \
+            -DPRESTO_ENABLE_HDFS=ON \
+            -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON \
+            -DPRESTO_ENABLE_JWT=ON \
+            -DPRESTO_STATS_REPORTER_TYPE=PROMETHEUS \
+            -DPRESTO_MEMORY_CHECKER_TYPE=LINUX_MEMORY_CHECKER \
+            -DPRESTO_ENABLE_TESTING=OFF \
+            -DCMAKE_PREFIX_PATH=/usr/local \
+            -DThrift_ROOT=/usr/local \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DMAX_LINK_JOBS=4
+          ninja -C _build/debug -j 4
+
     steps:
       - uses: actions/checkout@v4
 
@@ -51,30 +96,13 @@ jobs:
       - name: Disk space consumption before build
         run: df
 
+      - name: Generate build command script for reuse
+        run: |
+
+
       - name: Build engine
         run: |
-          cd presto-native-execution
-          cmake \
-            -B _build/debug \
-            -GNinja \
-            -DTREAT_WARNINGS_AS_ERRORS=1 \
-            -DENABLE_ALL_WARNINGS=1 \
-            -DCMAKE_BUILD_TYPE=Debug \
-            -DPRESTO_ENABLE_PARQUET=ON \
-            -DPRESTO_ENABLE_S3=ON \
-            -DPRESTO_ENABLE_GCS=ON \
-            -DPRESTO_ENABLE_ABFS=OFF \
-            -DPRESTO_ENABLE_HDFS=ON \
-            -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON \
-            -DPRESTO_ENABLE_JWT=ON \
-            -DPRESTO_STATS_REPORTER_TYPE=PROMETHEUS \
-            -DPRESTO_MEMORY_CHECKER_TYPE=LINUX_MEMORY_CHECKER \
-            -DPRESTO_ENABLE_TESTING=OFF \
-            -DCMAKE_PREFIX_PATH=/usr/local \
-            -DThrift_ROOT=/usr/local \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-            -DMAX_LINK_JOBS=4
-          ninja -C _build/debug -j 4
+          eval ${{ env.BUILD_SCRIPT }}
 
       - name: Disk space consumption after build
         run: df
@@ -86,3 +114,13 @@ jobs:
         with:
           path: '${{ env.CCACHE_DIR }}'
           key: ccache-prestocpp-linux-build-engine
+
+      - name: Regenerate the protocol files
+        run: |
+          export PRESTO_HOME=$(pwd)
+          cd presto-native-execution
+          make presto_protocol
+
+      - name: Incrementally rebuild presto_server with the new protocol
+        run: |
+          eval ${{ env.BUILD_SCRIPT }}
