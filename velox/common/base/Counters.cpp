@@ -616,6 +616,11 @@ void registerVeloxMetrics() {
   DEFINE_HISTOGRAM_METRIC(
       kMetricIndexLookupWaitTimeMs, 32, 0, 16L << 10, 50, 90, 99, 100);
 
+  // The time distribution of index lookup operator blocked wait time in range
+  // of [0, 16s] with 512 buckets and reports P50, P90, P99, and P100.
+  DEFINE_HISTOGRAM_METRIC(
+      kMetricIndexLookupBlockedWaitTimeMs, 32, 0, 16L << 10, 50, 90, 99, 100);
+
   /// ================== Table Scan Counters =================
   // The time distribution of table scan batch processing time in range of [0,
   // 16s] with 512 buckets and reports P50, P90, P99, and P100.

@@ -121,6 +121,9 @@ class IndexLookupJoin : public Operator {
   void prepareLookup(InputBatchState& batch);
   void startLookup(InputBatchState& batch);
 
+  void startLookupBlockWait();
+  void endLookupBlockWait();
+
   RowVectorPtr getOutputFromLookupResult(InputBatchState& batch);
   RowVectorPtr produceOutputForInnerJoin(const InputBatchState& batch);
   RowVectorPtr produceOutputForLeftJoin(const InputBatchState& batch);
@@ -250,5 +253,9 @@ class IndexLookupJoin : public Operator {
 
   // The reusable output vector for the join output.
   RowVectorPtr output_;
+
+  // The start time of the current lookup driver block wait, and reset after the
+  // driver wait completes.
+  std::optional<size_t> blockWaitStartNs_;
 };
 } // namespace facebook::velox::exec

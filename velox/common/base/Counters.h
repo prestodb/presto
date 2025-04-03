@@ -373,6 +373,9 @@ constexpr folly::StringPiece kMetricIndexLookupTimeMs{
 constexpr folly::StringPiece kMetricIndexLookupWaitTimeMs{
     "velox.index_lookup_wait_time_ms"};
 
+constexpr folly::StringPiece kMetricIndexLookupBlockedWaitTimeMs{
+    "velox.index_lookup_blocked_wait_time_ms"};
+
 constexpr folly::StringPiece kMetricTableScanBatchProcessTimeMs{
     "velox.table_scan_batch_process_time_ms"};
 } // namespace facebook::velox
