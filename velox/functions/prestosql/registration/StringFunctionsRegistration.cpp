@@ -150,6 +150,25 @@ void registerSplitToMap(const std::string& prefix) {
       Varchar,
       Varchar>({prefix + "split_to_map"});
 
+  registerFunction<
+      SplitToMapFunction,
+      Map<Varchar, Array<Varchar>>,
+      Varchar,
+      UnknownValue,
+      Varchar>({prefix + "split_to_map"});
+  registerFunction<
+      SplitToMapFunction,
+      Map<Varchar, Array<Varchar>>,
+      Varchar,
+      Varchar,
+      UnknownValue>({prefix + "split_to_map"});
+  registerFunction<
+      SplitToMapFunction,
+      Map<Varchar, Array<Varchar>>,
+      Varchar,
+      UnknownValue,
+      UnknownValue>({prefix + "split_to_map"});
+
   exec::registerVectorFunction(
       prefix + "split_to_map",
       {

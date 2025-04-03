@@ -41,6 +41,19 @@ struct SplitToMapFunction {
         OnDuplicateKey::kFail);
   }
 
+  // Overloaded call function to handle UnknownValue cases
+  template <typename TEntryDelimiter, typename TKeyValueDelimiter>
+  Status call(
+      out_type<Map<Varchar, Array<Varchar>>>& out,
+      const arg_type<Varchar>& input,
+      const TEntryDelimiter& entryDelimiter,
+      const TKeyValueDelimiter& keyValueDelimiter) {
+    static_assert(
+        std::is_same_v<TEntryDelimiter, arg_type<UnknownValue>> ||
+        std::is_same_v<TKeyValueDelimiter, arg_type<UnknownValue>>);
+    return Status::OK();
+  }
+
   Status call(
       out_type<Map<Varchar, Varchar>>& out,
       const arg_type<Varchar>& input,

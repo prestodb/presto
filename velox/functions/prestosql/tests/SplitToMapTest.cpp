@@ -268,5 +268,24 @@ TEST_F(SplitToMapTest, lambda) {
       "split_to_map with arbitrary lambda is not supported");
 }
 
+TEST_F(SplitToMapTest, testNullArg) {
+  const auto nullMapVector = makeMapVector(
+      {0}, makeFlatVector<std::string>({}), makeArrayVector<std::string>({}));
+  nullMapVector->setNull(0, true);
+
+  auto data = makeRowVector({
+      makeNullableFlatVector<std::string>({"1:10,2:20,4:30"}),
+  });
+
+  auto result =
+      evaluate(fmt::format("split_to_map(c0, '{}', null)", ':'), data);
+  velox::test::assertEqualVectors(nullMapVector, result);
+
+  result = evaluate(fmt::format("split_to_map(c0, null, '{}')", ','), data);
+  velox::test::assertEqualVectors(nullMapVector, result);
+
+  result = evaluate(fmt::format("split_to_map(c0, null, null)"), data);
+  velox::test::assertEqualVectors(nullMapVector, result);
+}
 } // namespace
 } // namespace facebook::velox::functions
