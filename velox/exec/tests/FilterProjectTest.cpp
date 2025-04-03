@@ -269,10 +269,10 @@ TEST_F(FilterProjectTest, allFailedOrPassed) {
   createDuckDbTable(vectors);
 
   // filter over flat vector
-  assertFilter(std::move(vectors), "c0 = 0");
+  assertFilter(vectors, "c0 = 0");
 
   // filter over constant vector
-  assertFilter(std::move(vectors), "c1 = 0");
+  assertFilter(vectors, "c1 = 0");
 }
 
 // Tests fusing of consecutive filters and projects.
@@ -375,7 +375,7 @@ TEST_F(FilterProjectTest, statsSplitter) {
                   .values({data})
                   .filter("c0 % 3 = 0")
                   .capturePlanNodeId(filterId)
-                  .project({"c0 + 1"})
+                  .project({"c0", "c0 + 1"})
                   .capturePlanNodeId(projectId)
                   .planNode();
 
@@ -390,6 +390,11 @@ TEST_F(FilterProjectTest, statsSplitter) {
   ASSERT_EQ(filterStats.inputRows, 100);
   ASSERT_EQ(filterStats.outputRows, 34);
 
+  ASSERT_LT(filterStats.outputBytes * 2, filterStats.inputBytes);
+
   ASSERT_EQ(projectStats.inputRows, 34);
   ASSERT_EQ(projectStats.outputRows, 34);
+
+  ASSERT_EQ(projectStats.inputBytes, filterStats.outputBytes);
+  ASSERT_LT(projectStats.inputBytes, projectStats.outputBytes);
 }

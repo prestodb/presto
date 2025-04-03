@@ -54,8 +54,12 @@ std::vector<OperatorStats> splitStats(
   filterStats.inputBytes = projectStats.inputBytes;
   filterStats.inputPositions = projectStats.inputPositions;
 
-  // TODO Record filter output bytes.
-  filterStats.outputBytes = projectStats.outputBytes;
+  // Estimate Filter's output bytes based on cardinality change.
+  const double filterRate = projectStats.inputPositions > 0
+      ? (projectStats.outputPositions * 1.0 / projectStats.inputPositions)
+      : 1.0;
+
+  filterStats.outputBytes = (uint64_t)(filterStats.inputBytes * filterRate);
   filterStats.outputPositions = projectStats.outputPositions;
 
   filterStats.numDrivers = projectStats.numDrivers;
