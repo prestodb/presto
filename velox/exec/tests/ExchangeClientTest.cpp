@@ -244,15 +244,11 @@ TEST_P(ExchangeClientTest, flowControl) {
 
   auto page = test::toSerializedPage(data, serdeKind_, bufferManager_, pool());
 
-  // Set limit at 3.5 pages.
+  // Set limit at 3.5 pages
+  // Set the minOutputBatchBytes to be 1024 since now the client
+  // will request if bytes in queue + pendingBytes < minOutputBatchBytes
   auto client = std::make_shared<ExchangeClient>(
-      "flow.control",
-      17,
-      page->size() * 3.5,
-      1,
-      kDefaultMinExchangeOutputBatchBytes,
-      pool(),
-      executor());
+      "flow.control", 17, page->size() * 3.5, 1, 1024, pool(), executor());
 
   // Make 10 tasks.
   std::vector<std::shared_ptr<Task>> tasks;
@@ -283,6 +279,51 @@ TEST_P(ExchangeClientTest, flowControl) {
     task->requestCancel();
     bufferManager_->removeTask(task->taskId());
   }
+
+  client->close();
+}
+
+// Test that small pages will block and we will keep
+// requesting from the queue if we do not have enough buffer
+// to fillout minOutputBatchBytes
+TEST_P(ExchangeClientTest, smallPage) {
+  const int64_t clientBufferSize = 1024;
+  const int64_t minOutputBatchBytes = clientBufferSize;
+  const int64_t maxOutputBatchBytes = clientBufferSize;
+  auto client = std::make_shared<ExchangeClient>(
+      "local://test-acknowledge-client-task",
+      maxOutputBatchBytes,
+      clientBufferSize,
+      1,
+      minOutputBatchBytes,
+      pool(),
+      executor());
+
+  const auto& queue = client->queue();
+  addSources(*queue, 1);
+
+  // Enqueue a tiny page
+  enqueue(*queue, makePage(100));
+
+  bool atEnd;
+  ContinueFuture future = ContinueFuture::makeEmpty();
+
+  // Should unblock because because first page
+  auto pages = client->next(1, 1, &atEnd, &future);
+  EXPECT_FALSE(pages.empty());
+
+  // Enqueue another tiny page, and still will not block
+  // because we have less than minOutputBatchBytes
+  enqueue(*queue, makePage(1));
+  pages = client->next(1, 1, &atEnd, &future);
+  ASSERT_FALSE(pages.empty());
+
+  // Signal no-more-data.
+  enqueue(*queue, nullptr);
+
+  // Drain the rest and close it
+  pages = client->next(1, minOutputBatchBytes, &atEnd, &future);
+  ASSERT_TRUE(atEnd);
 
   client->close();
 }
@@ -530,13 +571,14 @@ TEST_P(ExchangeClientTest, acknowledge) {
 
   bufferManager_->initializeTask(
       task, core::PartitionedOutputNode::Kind::kPartitioned, 2, 1);
-
+  // Set the minOutputBatchBytes to be 1024 since now the client
+  // will request if bytes in queue + pendingBytes < minOutputBatchBytes
   auto client = std::make_shared<ExchangeClient>(
       "local://test-acknowledge-client-task",
       1,
       clientBufferSize,
       1,
-      kDefaultMinExchangeOutputBatchBytes,
+      1024,
       pool(),
       executor());
   auto clientCloseGuard = folly::makeGuard([client]() { client->close(); });

@@ -45,7 +45,10 @@ class ExchangeClient : public std::enable_shared_from_this<ExchangeClient> {
         executor_(executor),
         queue_(std::make_shared<ExchangeQueue>(
             numberOfConsumers,
-            minOutputBatchBytes)) {
+            minOutputBatchBytes)),
+        // See comment in 'pickSourcesToRequestLocked' for why this is needed
+        minOutputBatchBytes_(
+            std::max(static_cast<uint64_t>(1), minOutputBatchBytes)) {
     VELOX_CHECK_NOT_NULL(pool_);
     VELOX_CHECK_NOT_NULL(executor_);
     // NOTE: the executor is used to run async response callback from the
@@ -137,6 +140,10 @@ class ExchangeClient : public std::enable_shared_from_this<ExchangeClient> {
   std::unordered_set<std::string> remoteTaskIds_;
   std::vector<std::shared_ptr<ExchangeSource>> sources_;
   bool closed_{false};
+
+  // The minimum byte size the consumer is expected to consume from
+  // the exchange queue.
+  const uint64_t minOutputBatchBytes_;
 
   // Total number of bytes in flight.
   int64_t totalPendingBytes_{0};

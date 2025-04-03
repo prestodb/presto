@@ -260,10 +260,17 @@ ExchangeClient::pickSourcesToRequestLocked() {
     producingSources_.pop();
     totalPendingBytes_ += requestBytes;
   }
-  if (queue_->totalBytes() == 0 && totalPendingBytes_ == 0 &&
+
+  if ((queue_->totalBytes() + totalPendingBytes_ < minOutputBatchBytes_) &&
       !producingSources_.empty()) {
-    // We have full capacity but still cannot initiate one single data
-    // transfer. Let the transfer happen in this case to avoid getting stuck.
+    // Two cases which we request an out-of-band data transfer:
+    // 1. We have full capacity but still cannot initiate one single data
+    //    transfer. Let the transfer happen in this case to avoid getting stuck.
+    //
+    // 2. We have some data in the queue that is not big enough for
+    //    consumers and it is big enough to not allow ExchangeClient to
+    //    initiate request for more data. Let transfer happen in this case
+    //    to avoid this deadlock situation.
     auto& source = producingSources_.front().source;
     auto requestBytes = producingSources_.front().remainingBytes.at(0);
     LOG(INFO) << "Requesting large single page " << requestBytes

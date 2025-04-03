@@ -49,8 +49,10 @@ class LocalExchangeSource : public exec::ExchangeSource {
 
     auto promise = VeloxPromise<Response>("LocalExchangeSource::request");
     auto future = promise.getSemiFuture();
-
-    promise_ = std::move(promise);
+    {
+      std::lock_guard<std::mutex> l(queue_->mutex());
+      promise_ = std::move(promise);
+    }
 
     auto buffers = OutputBufferManager::getInstanceRef();
     VELOX_CHECK_NOT_NULL(buffers, "invalid OutputBufferManager");
