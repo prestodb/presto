@@ -624,6 +624,7 @@ TEST_F(ProbabilityTest, invGammaCDF) {
   EXPECT_EQ(
       9999.333,
       roundToPrecision(invGammaCDF(10000.0 / 2, 2.0, 0.50).value(), 3));
+  EXPECT_EQ(std::numeric_limits<double>::infinity(), invGammaCDF(1, 1, 1));
 
   // This is an example to illustrate the precision differences
   // Java: exactly 0.0,

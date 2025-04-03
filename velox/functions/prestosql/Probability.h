@@ -346,8 +346,12 @@ struct InverseGammaCDFFunction {
         (scale > 0) && (scale != kInf),
         "inverseGammaCdf Function: scale must be greater than 0");
 
-    boost::math::gamma_distribution<> dist(shape, scale);
-    result = boost::math::quantile(dist, p);
+    if (p == 1) {
+      result = std::numeric_limits<double>::infinity();
+    } else {
+      boost::math::gamma_distribution<> dist(shape, scale);
+      result = boost::math::quantile(dist, p);
+    }
   }
 };
 
