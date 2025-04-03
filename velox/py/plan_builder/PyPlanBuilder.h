@@ -23,11 +23,6 @@
 
 namespace facebook::velox::py {
 
-/// Called when the Python module is loaded/initialized to register Velox
-/// resources like serde functions, type resolver, local filesystem and Presto
-/// functions (scalar and aggregate).
-void registerAllResources();
-
 class PyVector;
 
 // Stores the data associated with a table scan leaf operator. Map from the plan

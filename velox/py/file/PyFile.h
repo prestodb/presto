@@ -18,6 +18,7 @@
 
 #include <string>
 #include "velox/dwio/common/Options.h"
+#include "velox/py/type/PyType.h"
 
 namespace facebook::velox::py {
 
@@ -37,6 +38,10 @@ class PyFile {
   dwio::common::FileFormat fileFormat() const {
     return fileFormat_;
   }
+
+  /// Returns the schema (RowType) in the given file. This function will open
+  /// and read metadata from the file using the corresponding reader.
+  PyType getSchema();
 
   static PyFile createParquet(const std::string& filePath) {
     return PyFile(filePath, dwio::common::FileFormat::PARQUET);
@@ -69,6 +74,10 @@ class PyFile {
  private:
   const std::string filePath_;
   const dwio::common::FileFormat fileFormat_;
+
+  // Stores the file schema. Lazily instantiated by getSchema(), as it requires
+  // the file to be opened and read.
+  TypePtr fileSchema_;
 };
 
 } // namespace facebook::velox::py

@@ -22,4 +22,9 @@ namespace facebook::velox::py {
 // concurrently.
 void initializeVeloxMemory();
 
+/// Called when the Python module is loaded/initialized to register Velox
+/// resources like serde functions, type resolver, local filesystem and Presto
+/// functions (scalar and aggregate).
+void registerAllResources();
+
 } // namespace facebook::velox::py

@@ -17,6 +17,7 @@
 #include "velox/py/file/PyFile.h"
 #include <fmt/format.h>
 #include <folly/String.h>
+#include "velox/dwio/common/ReaderFactory.h"
 
 namespace facebook::velox::py {
 namespace {
@@ -40,6 +41,27 @@ PyFile::PyFile(std::string filePath, std::string formatString)
 
 std::string PyFile::toString() const {
   return fmt::format("{} ({})", filePath_, fileFormat_);
+}
+
+PyType PyFile::getSchema() {
+  // If the schema was read yet, we will need to open the file and read its
+  // metadata.
+  if (fileSchema_ == nullptr) {
+    // Create ephemeral memory pool to open and read metadata from the file.
+    auto rootPool = memory::memoryManager()->addRootPool();
+    auto leafPool = rootPool->addLeafChild("py_get_file_schema");
+
+    auto readFile = filesystems::getFileSystem(filePath_, nullptr)
+                        ->openFileForRead(filePath_);
+    auto input = std::make_unique<dwio::common::BufferedInput>(
+        std::shared_ptr<ReadFile>(std::move(readFile)), *leafPool);
+    auto reader =
+        dwio::common::getReaderFactory(fileFormat_)
+            ->createReader(
+                std::move(input), dwio::common::ReaderOptions{leafPool.get()});
+    fileSchema_ = reader->rowType();
+  }
+  return PyType{fileSchema_};
 }
 
 } // namespace facebook::velox::py

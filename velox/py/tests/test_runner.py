@@ -14,6 +14,7 @@
 
 import json
 import unittest
+import os
 import pyarrow
 import random
 import tempfile
@@ -21,7 +22,7 @@ import tempfile
 from velox.py.arrow import to_velox
 from velox.py.plan_builder import PlanBuilder
 from velox.py.file import DWRF
-from velox.py.type import BIGINT, ROW
+from velox.py.type import BIGINT, ROW, DOUBLE, VARCHAR
 from velox.py.runner import LocalRunner, register_hive, register_tpch, unregister
 
 
@@ -243,6 +244,7 @@ class TestPyVeloxRunner(unittest.TestCase):
                 connector_id="tpch",
                 scale_factor=0.001,
                 num_parts=num_output_files,
+                columns=["l_orderkey", "l_partkey", "l_quantity", "l_comment"],
             ).table_write(
                 output_path=DWRF(temp_dir),
                 connector_id="hive",
@@ -251,9 +253,19 @@ class TestPyVeloxRunner(unittest.TestCase):
             # Execute and write to output file.
             runner = LocalRunner(plan_builder.get_plan_node())
             output_files = []
+            expected_type = ROW(
+                ["l_orderkey", "l_partkey", "l_quantity", "l_comment"],
+                [BIGINT(), BIGINT(), DOUBLE(), VARCHAR()],
+            )
 
             for vector in runner.execute(max_drivers=num_output_files):
-                output_files.append(temp_dir + "/" + self.extract_file(vector))
+                output_file = os.path.join(temp_dir, self.extract_file(vector))
+                output_dwrf_file = DWRF(output_file)
+
+                # Assert files have the right schema.
+                self.assertEqual(output_dwrf_file.get_schema(), expected_type)
+                output_files.append(output_dwrf_file)
+
             self.assertEqual(num_output_files, len(output_files))
 
             # Now scan it back.
@@ -261,7 +273,7 @@ class TestPyVeloxRunner(unittest.TestCase):
             scan_plan_builder.table_scan(
                 output_schema=ROW(["l_orderkey", "l_partkey"], [BIGINT()] * 2),
                 connector_id="hive",
-                input_files=[DWRF(f) for f in output_files],
+                input_files=output_files,
             )
 
             runner = LocalRunner(scan_plan_builder.get_plan_node())
