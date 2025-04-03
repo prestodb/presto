@@ -105,7 +105,7 @@ class VariadicBenchmark : public functions::test::FunctionBenchmarkBase {
     folly::BenchmarkSuspender suspender;
     auto rowVector = makeData(numArgs);
 
-    std::string args = "";
+    std::string args;
     for (vector_size_t i = 0; i < numArgs; ++i) {
       if (i > 0) {
         args += ", ";
