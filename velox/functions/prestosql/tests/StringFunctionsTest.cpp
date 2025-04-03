@@ -1047,6 +1047,21 @@ TEST_F(StringFunctionsTest, endsWith) {
   ASSERT_FALSE(endsWith("", " "));
 }
 
+TEST_F(StringFunctionsTest, endsWithHasNull) {
+  auto data =
+      makeRowVector({makeNullableFlatVector<std::string>({std::nullopt})});
+  auto rest = evaluate(fmt::format("ends_with(c0, '{}')", ""), data);
+  ASSERT_TRUE(rest->isNullAt(0));
+
+  data = makeRowVector({makeNullableFlatVector<std::string>({std::nullopt})});
+  rest = evaluate(fmt::format("ends_with(c0, null)"), data);
+  ASSERT_TRUE(rest->isNullAt(0));
+
+  data = makeRowVector({makeNullableFlatVector<std::string>({"hello"})});
+  rest = evaluate(fmt::format("ends_with(c0, null)"), data);
+  ASSERT_TRUE(rest->isNullAt(0));
+}
+
 // Test strpos function
 template <typename TInstance>
 void StringFunctionsTest::testStringPositionAllFlatVector(

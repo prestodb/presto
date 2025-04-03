@@ -348,6 +348,13 @@ struct EndsWithFunction {
     result =
         (memcmp(x.data() + (x.size() - y.size()), y.data(), y.size()) == 0);
   }
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<bool>& result,
+      const arg_type<Varchar>& x,
+      const arg_type<UnknownValue>& y) {
+    return;
+  }
 };
 
 /// Pad functions
