@@ -482,38 +482,38 @@ public class TestJsonExtract
     private static String doExtractLegacy(JsonExtractor<Slice> jsonExtractor, String json)
             throws IOException
     {
-        Slice extract = jsonExtractor.extract(Slices.utf8Slice(json).getInput(), PROPERTIES_CANONICALIZED_EXTRACT_DISABLED);
+        Slice extract = jsonExtractor.extract(Slices.utf8Slice(json).getInput());
         return (extract == null) ? null : extract.toStringUtf8();
     }
 
     private static String doCanonicalizedExtract(JsonExtractor<Slice> jsonExtractor, String json)
             throws IOException
     {
-        Slice extract = jsonExtractor.extract(Slices.utf8Slice(json).getInput(), PROPERTIES_CANONICALIZED_EXTRACT_ENABLED);
+        Slice extract = jsonExtractor.extract(Slices.utf8Slice(json).getInput());
         return (extract == null) ? null : extract.toStringUtf8();
     }
 
     private static String doScalarExtractLegacy(String inputJson, String jsonPath)
     {
-        Slice value = JsonExtract.extract(Slices.utf8Slice(inputJson), generateExtractor(jsonPath, new ScalarValueJsonExtractor()), PROPERTIES_CANONICALIZED_EXTRACT_DISABLED);
+        Slice value = JsonExtract.extract(Slices.utf8Slice(inputJson), generateExtractor(jsonPath, new ScalarValueJsonExtractor()));
         return (value == null) ? null : value.toStringUtf8();
     }
 
     private static String doScalarCanonicalizedExtract(String inputJson, String jsonPath)
     {
-        Slice value = JsonExtract.extract(Slices.utf8Slice(inputJson), generateExtractor(jsonPath, new ScalarValueJsonExtractor()), PROPERTIES_CANONICALIZED_EXTRACT_ENABLED);
+        Slice value = JsonExtract.extract(Slices.utf8Slice(inputJson), generateExtractor(jsonPath, new ScalarValueJsonExtractor()));
         return (value == null) ? null : value.toStringUtf8();
     }
 
     private static String doJsonExtractLegacy(String inputJson, String jsonPath)
     {
-        Slice value = JsonExtract.extract(Slices.utf8Slice(inputJson), generateExtractor(jsonPath, new JsonValueJsonExtractor()), PROPERTIES_CANONICALIZED_EXTRACT_DISABLED);
+        Slice value = JsonExtract.extract(Slices.utf8Slice(inputJson), generateExtractor(jsonPath, new JsonValueJsonExtractor()));
         return (value == null) ? null : value.toStringUtf8();
     }
 
     private static String doJsonCanonicalizedExtract(String inputJson, String jsonPath)
     {
-        Slice value = JsonExtract.extract(Slices.utf8Slice(inputJson), generateExtractor(jsonPath, new JsonValueJsonExtractor()), PROPERTIES_CANONICALIZED_EXTRACT_ENABLED);
+        Slice value = JsonExtract.extract(Slices.utf8Slice(inputJson), generateExtractor(jsonPath, new JsonValueJsonExtractor()));
         return (value == null) ? null : value.toStringUtf8();
     }
 

@@ -14,7 +14,6 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.airlift.json.JsonObjectMapperProvider;
-import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
@@ -130,11 +129,11 @@ public final class JsonExtract
 
     private JsonExtract() {}
 
-    public static <T> T extract(Slice jsonInput, JsonExtractor<T> jsonExtractor, SqlFunctionProperties properties)
+    public static <T> T extract(Slice jsonInput, JsonExtractor<T> jsonExtractor)
     {
         requireNonNull(jsonInput, "jsonInput is null");
         try {
-            return jsonExtractor.extract(jsonInput.getInput(), properties);
+            return jsonExtractor.extract(jsonInput.getInput());
         }
         catch (JsonParseException e) {
             // Return null if we failed to parse something
@@ -163,7 +162,7 @@ public final class JsonExtract
 
     public interface JsonExtractor<T>
     {
-        T extract(InputStream inputStream, SqlFunctionProperties properties)
+        T extract(InputStream inputStream)
                 throws IOException;
     }
 
@@ -181,11 +180,11 @@ public final class JsonExtract
          *
          * @return the value, or null if not applicable
          */
-        abstract T extract(JsonParser jsonParser, SqlFunctionProperties properties)
+        abstract T extract(JsonParser jsonParser)
                 throws IOException;
 
         @Override
-        public T extract(InputStream inputStream, SqlFunctionProperties properties)
+        public T extract(InputStream inputStream)
                 throws IOException
         {
             try (JsonParser jsonParser = createJsonParser(JSON_FACTORY, inputStream)) {
@@ -194,7 +193,7 @@ public final class JsonExtract
                     return null;
                 }
 
-                return extract(jsonParser, properties);
+                return extract(jsonParser);
             }
         }
     }
@@ -221,21 +220,21 @@ public final class JsonExtract
         }
 
         @Override
-        public T extract(JsonParser jsonParser, SqlFunctionProperties properties)
+        public T extract(JsonParser jsonParser)
                 throws IOException
         {
             if (jsonParser.getCurrentToken() == START_OBJECT) {
-                return processJsonObject(jsonParser, properties);
+                return processJsonObject(jsonParser);
             }
 
             if (jsonParser.getCurrentToken() == START_ARRAY) {
-                return processJsonArray(jsonParser, properties);
+                return processJsonArray(jsonParser);
             }
 
             throw new JsonParseException(jsonParser, "Expected a JSON object or array");
         }
 
-        public T processJsonObject(JsonParser jsonParser, SqlFunctionProperties properties)
+        public T processJsonObject(JsonParser jsonParser)
                 throws IOException
         {
             while (!jsonParser.nextFieldName(fieldName)) {
@@ -251,10 +250,10 @@ public final class JsonExtract
 
             jsonParser.nextToken(); // Shift to first token of the value
 
-            return delegate.extract(jsonParser, properties);
+            return delegate.extract(jsonParser);
         }
 
-        public T processJsonArray(JsonParser jsonParser, SqlFunctionProperties properties)
+        public T processJsonArray(JsonParser jsonParser)
                 throws IOException
         {
             int currentIndex = 0;
@@ -277,7 +276,7 @@ public final class JsonExtract
                 jsonParser.skipChildren(); // Skip nested structure if currently at the start of one
             }
 
-            return delegate.extract(jsonParser, properties);
+            return delegate.extract(jsonParser);
         }
     }
 
@@ -285,7 +284,7 @@ public final class JsonExtract
             extends PrestoJsonExtractor<Slice>
     {
         @Override
-        public Slice extract(JsonParser jsonParser, SqlFunctionProperties properties)
+        public Slice extract(JsonParser jsonParser)
                 throws IOException
         {
             JsonToken token = jsonParser.getCurrentToken();
@@ -303,13 +302,14 @@ public final class JsonExtract
             extends PrestoJsonExtractor<Slice>
     {
         @Override
-        public Slice extract(JsonParser jsonParser, SqlFunctionProperties properties)
+        public Slice extract(JsonParser jsonParser)
                 throws IOException
         {
             if (!jsonParser.hasCurrentToken()) {
                 throw new JsonParseException(jsonParser, "Unexpected end of value");
             }
-            if (!properties.isCanonicalizedJsonExtract()) {
+            boolean canonicalizedExtract = false;
+            if (!canonicalizedExtract) {
                 return legacyExtract(jsonParser);
             }
             DynamicSliceOutput dynamicSliceOutput = new DynamicSliceOutput(ESTIMATED_JSON_OUTPUT_SIZE);
@@ -340,7 +340,7 @@ public final class JsonExtract
             extends PrestoJsonExtractor<Long>
     {
         @Override
-        public Long extract(JsonParser jsonParser, SqlFunctionProperties properties)
+        public Long extract(JsonParser jsonParser)
                 throws IOException
         {
             if (!jsonParser.hasCurrentToken()) {
