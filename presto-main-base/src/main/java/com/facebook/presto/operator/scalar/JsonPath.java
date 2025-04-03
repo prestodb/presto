@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -43,6 +42,7 @@ public class JsonPath
     {
         return new JsonExtract.JsonExtractor<Slice>()
         {
+            @Override
             public Slice extract(InputStream inputStream)
                     throws IOException
             {
@@ -52,13 +52,6 @@ public class JsonPath
                 }
                 return utf8Slice(node.asText());
             }
-
-            @Override
-            public Slice extract(InputStream inputStream, SqlFunctionProperties properties)
-                    throws IOException
-            {
-                return extract(inputStream);
-            }
         };
     }
 
@@ -66,6 +59,7 @@ public class JsonPath
     {
         return new JsonExtract.JsonExtractor<Slice>()
         {
+            @Override
             public Slice extract(InputStream inputStream)
                     throws IOException
             {
@@ -75,13 +69,6 @@ public class JsonPath
                 }
                 return utf8Slice(node.toString());
             }
-
-            @Override
-            public Slice extract(InputStream inputStream, SqlFunctionProperties properties)
-                    throws IOException
-            {
-                return extract(inputStream);
-            }
         };
     }
 
@@ -89,6 +76,7 @@ public class JsonPath
     {
         return new JsonExtract.JsonExtractor<Long>()
         {
+            @Override
             public Long extract(InputStream inputStream)
                     throws IOException
             {
@@ -97,13 +85,6 @@ public class JsonPath
                     return null;
                 }
                 return (long) node.size(); // Jackson correctly returns 0 for scalar nodes
-            }
-
-            @Override
-            public Long extract(InputStream inputStream, SqlFunctionProperties properties)
-                    throws IOException
-            {
-                return extract(inputStream);
             }
         };
     }
