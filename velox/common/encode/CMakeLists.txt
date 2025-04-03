@@ -17,4 +17,4 @@ if(${VELOX_BUILD_TESTING})
 endif()
 
 velox_add_library(velox_encode Base64.cpp)
-velox_link_libraries(velox_encode PUBLIC Folly::folly)
+velox_link_libraries(velox_encode PUBLIC velox_status Folly::folly)

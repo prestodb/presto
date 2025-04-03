@@ -23,6 +23,7 @@
 #include <string>
 
 #include "velox/common/base/GTestMacros.h"
+#include "velox/common/base/Status.h"
 
 namespace facebook::velox::encoding {
 
@@ -86,7 +87,7 @@ class Base64 {
 
   /// Decodes the specified number of characters from the 'input' and writes the
   /// result to the 'outputBuffer'.
-  static size_t decode(
+  static Status decode(
       const char* input,
       size_t inputSize,
       char* outputBuffer,
@@ -103,7 +104,7 @@ class Base64 {
 
   /// Decodes the specified number of characters from the 'input' using URL
   /// encoding and writes the result to the 'outputBuffer'
-  static void decodeUrl(
+  static Status decodeUrl(
       const char* input,
       size_t inputSize,
       char* outputBuffer,
@@ -112,9 +113,11 @@ class Base64 {
   /// Calculates the encoded size based on input 'inputSize'.
   static size_t calculateEncodedSize(size_t inputSize, bool withPadding = true);
 
-  /// Returns the actual size of the decoded data. Removes the padding
-  /// length from the input data 'inputSize'.
-  static size_t calculateDecodedSize(const char* input, size_t& inputSize);
+  /// Calculates the decoded size based on encoded input and adjusts the input
+  /// size for padding.
+  static Expected<size_t> calculateDecodedSize(
+      const char* input,
+      size_t& inputSize);
 
  private:
   // Padding character used in encoding.
@@ -137,7 +140,7 @@ class Base64 {
 
   // Reverse lookup helper function to get the original index of a Base64
   // character.
-  static uint8_t base64ReverseLookup(
+  static Expected<uint8_t> base64ReverseLookup(
       char encodedChar,
       const ReverseIndex& reverseIndex);
 
@@ -155,7 +158,7 @@ class Base64 {
       char* outputBuffer);
 
   // Decodes the specified data using the provided reverse lookup table.
-  static size_t decodeImpl(
+  static Expected<size_t> decodeImpl(
       const char* input,
       size_t inputSize,
       char* outputBuffer,

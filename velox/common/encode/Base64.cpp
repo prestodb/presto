@@ -18,7 +18,7 @@
 #include <folly/Portability.h>
 #include <folly/container/Foreach.h>
 #include <folly/io/Cursor.h>
-#include <stdint.h>
+#include <cstdint>
 
 #include "velox/common/base/Exceptions.h"
 
@@ -310,8 +310,7 @@ std::string Base64::encode(const folly::IOBuf* inputBuffer) {
 // static
 std::string Base64::decode(folly::StringPiece encodedText) {
   std::string decodedResult;
-  Base64::decode(
-      std::make_pair(encodedText.data(), encodedText.size()), decodedResult);
+  decode(std::make_pair(encodedText.data(), encodedText.size()), decodedResult);
   return decodedResult;
 }
 
@@ -320,39 +319,58 @@ void Base64::decode(
     const std::pair<const char*, int32_t>& payload,
     std::string& decodedOutput) {
   size_t inputSize = payload.second;
-  decodedOutput.resize(calculateDecodedSize(payload.first, inputSize));
-  decode(payload.first, inputSize, decodedOutput.data(), decodedOutput.size());
+  auto decodedSize = calculateDecodedSize(payload.first, inputSize);
+  if (decodedSize.hasError()) {
+    VELOX_USER_FAIL(decodedSize.error().message());
+  }
+  decodedOutput.resize(decodedSize.value());
+  auto status = decode(
+      payload.first, inputSize, decodedOutput.data(), decodedOutput.size());
+  if (!status.ok()) {
+    VELOX_USER_FAIL(status.message());
+  }
 }
 
 // static
-void Base64::decode(const char* input, size_t size, char* output) {
-  size_t expectedOutputSize = size / 4 * 3;
-  Base64::decode(input, size, output, expectedOutputSize);
+void Base64::decode(const char* input, size_t inputSize, char* outputBuffer) {
+  size_t outputSize = inputSize / 4 * 3;
+  auto status = decode(input, inputSize, outputBuffer, outputSize);
+  if (!status.ok()) {
+    VELOX_USER_FAIL(status.message());
+  }
 }
 
 // static
-uint8_t Base64::base64ReverseLookup(
+Expected<uint8_t> Base64::base64ReverseLookup(
     char encodedChar,
-    const Base64::ReverseIndex& reverseIndex) {
+    const ReverseIndex& reverseIndex) {
   auto reverseLookupValue = reverseIndex[static_cast<uint8_t>(encodedChar)];
   if (reverseLookupValue >= 0x40) {
-    VELOX_USER_FAIL("decode() - invalid input string: invalid characters");
+    return folly::makeUnexpected(Status::UserError(
+        "decode() - invalid input string: invalid character '{}'",
+        encodedChar));
   }
   return reverseLookupValue;
 }
 
 // static
-size_t Base64::decode(
+Status Base64::decode(
     const char* input,
     size_t inputSize,
     char* output,
     size_t outputSize) {
-  return decodeImpl(
+  auto decodedSize = decodeImpl(
       input, inputSize, output, outputSize, kBase64ReverseIndexTable);
+  if (decodedSize.hasError()) {
+    return decodedSize.error();
+  }
+  return Status::OK();
 }
 
 // static
-size_t Base64::calculateDecodedSize(const char* input, size_t& inputSize) {
+Expected<size_t> Base64::calculateDecodedSize(
+    const char* input,
+    size_t& inputSize) {
   if (inputSize == 0) {
     return 0;
   }
@@ -362,9 +380,9 @@ size_t Base64::calculateDecodedSize(const char* input, size_t& inputSize) {
     // If padded, ensure that the string length is a multiple of the encoded
     // block size
     if (inputSize % kEncodedBlockByteSize != 0) {
-      VELOX_USER_FAIL(
-          "Base64::decode() - invalid input string: "
-          "string length is not a multiple of 4.");
+      return folly::makeUnexpected(
+          Status::UserError("Base64::decode() - invalid input string: "
+                            "string length is not a multiple of 4."));
     }
 
     auto decodedSize =
@@ -385,9 +403,9 @@ size_t Base64::calculateDecodedSize(const char* input, size_t& inputSize) {
   // Adjust the needed size for extra bytes, if present
   if (extraBytes) {
     if (extraBytes == 1) {
-      VELOX_USER_FAIL(
+      return folly::makeUnexpected(Status::UserError(
           "Base64::decode() - invalid input string: "
-          "string length cannot be 1 more than a multiple of 4.");
+          "string length cannot be 1 more than a multiple of 4."));
     }
     decodedSize += (extraBytes * kBinaryBlockByteSize) / kEncodedBlockByteSize;
   }
@@ -396,54 +414,81 @@ size_t Base64::calculateDecodedSize(const char* input, size_t& inputSize) {
 }
 
 // static
-size_t Base64::decodeImpl(
+Expected<size_t> Base64::decodeImpl(
     const char* input,
     size_t inputSize,
     char* outputBuffer,
     size_t outputSize,
     const ReverseIndex& reverseIndex) {
-  if (!inputSize) {
+  if (inputSize == 0) {
     return 0;
   }
 
   auto decodedSize = calculateDecodedSize(input, inputSize);
-  if (outputSize < decodedSize) {
-    VELOX_USER_FAIL(
-        "Base64::decode() - invalid output string: "
-        "output string is too small.");
+  if (decodedSize.hasError()) {
+    return folly::makeUnexpected(decodedSize.error());
   }
+
+  if (outputSize < decodedSize.value()) {
+    return folly::makeUnexpected(
+        Status::UserError("Base64::decode() - invalid output string: "
+                          "output string is too small."));
+  }
+  outputSize = decodedSize.value();
 
   // Handle full groups of 4 characters
   for (; inputSize > 4; inputSize -= 4, input += 4, outputBuffer += 3) {
     // Each character of the 4 encodes 6 bits of the original, grab each with
     // the appropriate shifts to rebuild the original and then split that back
     // into the original 8-bit bytes.
-    uint32_t decodedBlock =
-        (base64ReverseLookup(input[0], reverseIndex) << 18) |
-        (base64ReverseLookup(input[1], reverseIndex) << 12) |
-        (base64ReverseLookup(input[2], reverseIndex) << 6) |
-        base64ReverseLookup(input[3], reverseIndex);
-    outputBuffer[0] = (decodedBlock >> 16) & 0xff;
-    outputBuffer[1] = (decodedBlock >> 8) & 0xff;
-    outputBuffer[2] = decodedBlock & 0xff;
+    uint32_t decodedBlock = 0;
+    for (int i = 0; i < 4; ++i) {
+      auto reverseLookupValue = base64ReverseLookup(input[i], reverseIndex);
+      if (reverseLookupValue.hasError()) {
+        return folly::makeUnexpected(reverseLookupValue.error());
+      }
+      decodedBlock |= reverseLookupValue.value() << (18 - 6 * i);
+    }
+    outputBuffer[0] = static_cast<char>((decodedBlock >> 16) & 0xff);
+    outputBuffer[1] = static_cast<char>((decodedBlock >> 8) & 0xff);
+    outputBuffer[2] = static_cast<char>(decodedBlock & 0xff);
   }
 
   // Handle the last 2-4 characters. This is similar to the above, but the
   // last 2 characters may or may not exist.
-  DCHECK(inputSize >= 2);
-  uint32_t decodedBlock = (base64ReverseLookup(input[0], reverseIndex) << 18) |
-      (base64ReverseLookup(input[1], reverseIndex) << 12);
-  outputBuffer[0] = (decodedBlock >> 16) & 0xff;
-  if (inputSize > 2) {
-    decodedBlock |= base64ReverseLookup(input[2], reverseIndex) << 6;
-    outputBuffer[1] = (decodedBlock >> 8) & 0xff;
-    if (inputSize > 3) {
-      decodedBlock |= base64ReverseLookup(input[3], reverseIndex);
-      outputBuffer[2] = decodedBlock & 0xff;
+  if (inputSize >= 2) {
+    uint32_t decodedBlock = 0;
+
+    // Process the first two characters
+    for (int i = 0; i < 2; ++i) {
+      auto reverseLookupValue = base64ReverseLookup(input[i], reverseIndex);
+      if (reverseLookupValue.hasError()) {
+        return folly::makeUnexpected(reverseLookupValue.error());
+      }
+      decodedBlock |= reverseLookupValue.value() << (18 - 6 * i);
+    }
+    outputBuffer[0] = static_cast<char>((decodedBlock >> 16) & 0xff);
+
+    if (inputSize > 2) {
+      auto reverseLookupValue = base64ReverseLookup(input[2], reverseIndex);
+      if (reverseLookupValue.hasError()) {
+        return folly::makeUnexpected(reverseLookupValue.error());
+      }
+      decodedBlock |= reverseLookupValue.value() << 6;
+      outputBuffer[1] = static_cast<char>((decodedBlock >> 8) & 0xff);
+
+      if (inputSize > 3) {
+        auto reverseLookupValue = base64ReverseLookup(input[3], reverseIndex);
+        if (reverseLookupValue.hasError()) {
+          return folly::makeUnexpected(reverseLookupValue.error());
+        }
+        decodedBlock |= reverseLookupValue.value();
+        outputBuffer[2] = static_cast<char>(decodedBlock & 0xff);
+      }
     }
   }
 
-  return decodedSize;
+  return decodedSize.value();
 }
 
 // static
@@ -462,19 +507,23 @@ std::string Base64::encodeUrl(const folly::IOBuf* inputBuffer) {
 }
 
 // static
-void Base64::decodeUrl(
+Status Base64::decodeUrl(
     const char* input,
     size_t inputSize,
     char* outputBuffer,
     size_t outputSize) {
-  decodeImpl(
+  auto decodedSize = decodeImpl(
       input, inputSize, outputBuffer, outputSize, kBase64UrlReverseIndexTable);
+  if (decodedSize.hasError()) {
+    return decodedSize.error();
+  }
+  return Status::OK();
 }
 
 // static
 std::string Base64::decodeUrl(folly::StringPiece encodedText) {
   std::string decodedOutput;
-  Base64::decodeUrl(
+  decodeUrl(
       std::make_pair(encodedText.data(), encodedText.size()), decodedOutput);
   return decodedOutput;
 }
@@ -483,15 +532,18 @@ std::string Base64::decodeUrl(folly::StringPiece encodedText) {
 void Base64::decodeUrl(
     const std::pair<const char*, int32_t>& payload,
     std::string& decodedOutput) {
-  size_t decodedSize = (payload.second + 3) / 4 * 3;
-  decodedOutput.resize(decodedSize, '\0');
-  decodedSize = Base64::decodeImpl(
+  size_t expectedDecodedSize = (payload.second + 3) / 4 * 3;
+  decodedOutput.resize(expectedDecodedSize, '\0');
+  auto decodedSize = decodeImpl(
       payload.first,
       payload.second,
-      &decodedOutput[0],
-      decodedSize,
+      decodedOutput.data(),
+      expectedDecodedSize,
       kBase64UrlReverseIndexTable);
-  decodedOutput.resize(decodedSize);
+  if (decodedSize.hasError()) {
+    VELOX_USER_FAIL(decodedSize.error().message());
+  }
+  decodedOutput.resize(decodedSize.value());
 }
 
 } // namespace facebook::velox::encoding
