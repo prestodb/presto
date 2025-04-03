@@ -34,7 +34,7 @@ struct ParseOptions {
   /// SQL functions could be registered with different prefixes by the user.
   /// This parameter is the registered prefix of presto or spark functions,
   /// which helps generate the correct Velox expression.
-  std::string functionPrefix = "";
+  std::string functionPrefix;
 };
 
 // Parses an input expression using DuckDB's internal postgresql-based parser,

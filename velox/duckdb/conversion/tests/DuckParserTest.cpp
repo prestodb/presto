@@ -557,7 +557,7 @@ const std::string boundTypeString(BoundType b) {
 const std::string parseWindow(const std::string& expr) {
   ParseOptions options;
   auto windowExpr = parseWindowExpr(expr, options);
-  std::string concatPartitions = "";
+  std::string concatPartitions;
   int i = 0;
   for (const auto& partition : windowExpr.partitionBy) {
     concatPartitions += partition->toString();
