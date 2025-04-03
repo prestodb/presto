@@ -373,7 +373,7 @@ function TaskList({ tasks }: { tasks: Task[] }) : React.Node {
                 name: (<span className="bi bi-pause-circle-fill" style={GLYPHICON_HIGHLIGHT}
                              data-bs-toggle="tooltip" data-bs-placement="top"
                              title="Pending splits"/>),
-                selector: row => row.stats.queuedSplits,
+                selector: (row: Task) => row.stats.queuedSplits,
                 sortable: true,
                 maxWidth: '50px',
                 minWidth: '40px',
@@ -382,7 +382,7 @@ function TaskList({ tasks }: { tasks: Task[] }) : React.Node {
                 name: (<span className="bi bi-play-circle-fill" style={GLYPHICON_HIGHLIGHT}
                              data-bs-toggle="tooltip" data-bs-placement="top"
                              title="Running splits"/>),
-                selector: row => row.stats.runningSplits,
+                selector: (row: Task) => row.stats.runningSplits,
                 sortable: true,
                 maxWidth: '50px',
                 minWidth: '40px',
@@ -391,7 +391,7 @@ function TaskList({ tasks }: { tasks: Task[] }) : React.Node {
                 name: (<span className="bi bi-check-lg" style={GLYPHICON_HIGHLIGHT}
                              data-bs-toggle="tooltip" data-bs-placement="top"
                              title="Completed splits"/>),
-                selector: row => row.stats.completedSplits,
+                selector: (row: Task) => row.stats.completedSplits,
                 sortable: true,
                 maxWidth: '50px',
                 minWidth: '40px',
