@@ -42,6 +42,7 @@ import com.facebook.presto.spi.function.table.TableFunctionProcessorState;
 import com.facebook.presto.spi.function.table.TableFunctionSplitProcessor;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -1330,6 +1331,7 @@ public class TestingTableFunctions
         }
     }
 
+    @JsonInclude(JsonInclude.Include.ALWAYS)
     public static class EmptyTableFunctionHandle
             implements ConnectorTableFunctionHandle
     {

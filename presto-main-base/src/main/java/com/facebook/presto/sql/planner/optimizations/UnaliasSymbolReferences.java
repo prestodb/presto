@@ -592,34 +592,7 @@ public class UnaliasSymbolReferences
                         node.getHashSymbol().map(mapper::map),
                         node.getHandle());
 
-                return new UnaliasContext.PlanAndMappings(
-                        rewrittenTableFunctionProcessor,
-                        mappings)
-                {
-                    @Override
-                    public List<PlanNode> getSources()
-                    {
-                        return rewrittenTableFunctionProcessor.getSources();
-                    }
-
-                    @Override
-                    public List<VariableReferenceExpression> getOutputVariables()
-                    {
-                        return rewrittenTableFunctionProcessor.getOutputVariables();
-                    }
-
-                    @Override
-                    public PlanNode replaceChildren(List<PlanNode> newChildren)
-                    {
-                        return rewrittenTableFunctionProcessor.replaceChildren(newChildren);
-                    }
-
-                    @Override
-                    public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
-                    {
-                        return rewrittenTableFunctionProcessor.assignStatsEquivalentPlanNode(statsEquivalentPlanNode);
-                    }
-                };
+                return rewrittenTableFunctionProcessor;
             }
 
             PlanNode rewrittenSource = node.getSource().get().accept(this, context);
@@ -632,34 +605,7 @@ public class UnaliasSymbolReferences
 
             TableFunctionProcessorNode rewrittenTableFunctionProcessor = mapper.map(node, rewrittenSource);
 
-            return new UnaliasContext.PlanAndMappings(
-                    rewrittenTableFunctionProcessor,
-                    mappings)
-            {
-                @Override
-                public List<PlanNode> getSources()
-                {
-                    return rewrittenTableFunctionProcessor.getSources();
-                }
-
-                @Override
-                public List<VariableReferenceExpression> getOutputVariables()
-                {
-                    return rewrittenTableFunctionProcessor.getOutputVariables();
-                }
-
-                @Override
-                public PlanNode replaceChildren(List<PlanNode> newChildren)
-                {
-                    return rewrittenTableFunctionProcessor.replaceChildren(newChildren);
-                }
-
-                @Override
-                public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
-                {
-                    return rewrittenTableFunctionProcessor.assignStatsEquivalentPlanNode(statsEquivalentPlanNode);
-                }
-            };
+            return rewrittenTableFunctionProcessor;
         }
 
         @Override

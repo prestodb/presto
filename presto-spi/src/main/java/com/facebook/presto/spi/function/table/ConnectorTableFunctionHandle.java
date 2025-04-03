@@ -13,9 +13,12 @@
  */
 package com.facebook.presto.spi.function.table;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+
 /**
  * An area to store all information necessary to execute the table function, gathered at analysis time
  */
+@JsonInclude(JsonInclude.Include.ALWAYS)
 public interface ConnectorTableFunctionHandle
 {
 }
