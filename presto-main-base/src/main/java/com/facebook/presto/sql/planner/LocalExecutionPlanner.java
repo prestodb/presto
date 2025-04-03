@@ -1232,13 +1232,14 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitTableFunctionProcessor(TableFunctionProcessorNode node, LocalExecutionPlanContext context)
         {
-            PhysicalOperation source = node.getSource().orElseThrow(NoSuchElementException::new).accept(this, context);
             TableFunctionProcessorProvider processorProvider = metadata.getFunctionAndTypeManager().getTableFunctionProcessorProvider(node.getHandle());
 
             if (!node.getSource().isPresent()) {
                 OperatorFactory operatorFactory = new LeafTableFunctionOperator.LeafTableFunctionOperatorFactory(context.getNextOperatorId(), node.getId(), processorProvider, node.getHandle().getFunctionHandle());
-                return new PhysicalOperation(operatorFactory, makeLayout(node), context, source);
+                return new PhysicalOperation(operatorFactory, makeLayout(node), context, Optional.empty(), UNGROUPED_EXECUTION);
             }
+
+            PhysicalOperation source = node.getSource().orElseThrow(NoSuchElementException::new).accept(this, context);
 
             int properChannelsCount = node.getProperOutputs().size();
 

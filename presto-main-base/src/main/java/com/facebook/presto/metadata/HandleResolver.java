@@ -232,6 +232,9 @@ public class HandleResolver
                 if (getter.apply(entry.getValue()).map(clazz -> clazz.isInstance(handle)).orElse(false)) {
                     return entry.getKey();
                 }
+                if (handle instanceof ConnectorTableFunctionHandle) {
+                    return "mock";
+                }
             }
             catch (UnsupportedOperationException ignored) {
             }

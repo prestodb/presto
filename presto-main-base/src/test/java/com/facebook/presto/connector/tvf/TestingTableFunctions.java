@@ -504,7 +504,7 @@ public class TestingTableFunctions
                     .map(field -> new Descriptor.Field(field.getName().orElse("anonymous_column"), Optional.of(field.getType())))
                     .collect(toImmutableList()));
             return TableFunctionAnalysis.builder()
-                    .handle(new EmptyTableFunctionHandle())
+                    .handle(new EmptyTableFunctionHandle(""))
                     .returnedType(returnedType)
                     .requiredColumns("INPUT", IntStream.range(0, inputColumns.size()).boxed().collect(toImmutableList()))
                     .build();
@@ -548,7 +548,7 @@ public class TestingTableFunctions
         public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
         {
             return TableFunctionAnalysis.builder()
-                    .handle(new EmptyTableFunctionHandle())
+                    .handle(new EmptyTableFunctionHandle(""))
                     .requiredColumns("INPUT", ImmutableList.of(0)) // per spec, function must require at least one column
                     .build();
         }
@@ -727,7 +727,7 @@ public class TestingTableFunctions
         public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
         {
             return TableFunctionAnalysis.builder()
-                    .handle(new EmptyTableFunctionHandle())
+                    .handle(new EmptyTableFunctionHandle(""))
                     .requiredColumns("INPUT", IntStream.range(0, ((TableArgument) arguments.get("INPUT")).getRowType().getFields().size()).boxed().collect(toImmutableList()))
                     .build();
         }
@@ -779,7 +779,7 @@ public class TestingTableFunctions
         public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
         {
             return TableFunctionAnalysis.builder()
-                    .handle(new EmptyTableFunctionHandle())
+                    .handle(new EmptyTableFunctionHandle(""))
                     .requiredColumns("INPUT", IntStream.range(0, ((TableArgument) arguments.get("INPUT")).getRowType().getFields().size()).boxed().collect(toImmutableList()))
                     .build();
         }
@@ -846,7 +846,7 @@ public class TestingTableFunctions
         public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
         {
             return TableFunctionAnalysis.builder()
-                    .handle(new EmptyTableFunctionHandle())
+                    .handle(new EmptyTableFunctionHandle(""))
                     .requiredColumns("INPUT_1", IntStream.range(0, ((TableArgument) arguments.get("INPUT_1")).getRowType().getFields().size()).boxed().collect(toImmutableList()))
                     .requiredColumns("INPUT_2", IntStream.range(0, ((TableArgument) arguments.get("INPUT_2")).getRowType().getFields().size()).boxed().collect(toImmutableList()))
                     .requiredColumns("INPUT_3", IntStream.range(0, ((TableArgument) arguments.get("INPUT_3")).getRowType().getFields().size()).boxed().collect(toImmutableList()))
@@ -903,7 +903,7 @@ public class TestingTableFunctions
         public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
         {
             return TableFunctionAnalysis.builder()
-                    .handle(new EmptyTableFunctionHandle())
+                    .handle(new EmptyTableFunctionHandle(""))
                     .requiredColumns("INPUT_1", ImmutableList.of(0))
                     .requiredColumns("INPUT_2", ImmutableList.of(0))
                     .build();
@@ -997,7 +997,7 @@ public class TestingTableFunctions
         public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
         {
             return TableFunctionAnalysis.builder()
-                    .handle(new EmptyTableFunctionHandle())
+                    .handle(new EmptyTableFunctionHandle(""))
                     .requiredColumns("INPUT", IntStream.range(0, ((TableArgument) arguments.get("INPUT")).getRowType().getFields().size()).boxed().collect(toImmutableList()))
                     .build();
         }
@@ -1055,7 +1055,7 @@ public class TestingTableFunctions
         public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
         {
             return TableFunctionAnalysis.builder()
-                    .handle(new EmptyTableFunctionHandle())
+                    .handle(new EmptyTableFunctionHandle(""))
                     .requiredColumns("INPUT", IntStream.range(0, ((TableArgument) arguments.get("INPUT")).getRowType().getFields().size()).boxed().collect(toImmutableList()))
                     .build();
         }
@@ -1300,7 +1300,7 @@ public class TestingTableFunctions
         public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
         {
             return TableFunctionAnalysis.builder()
-                    .handle(new EmptyTableFunctionHandle())
+                    .handle(new EmptyTableFunctionHandle(""))
                     .build();
         }
 
@@ -1335,5 +1335,18 @@ public class TestingTableFunctions
     public static class EmptyTableFunctionHandle
             implements ConnectorTableFunctionHandle
     {
+        public final String dummy;
+
+        @JsonCreator
+        public EmptyTableFunctionHandle(@JsonProperty("dummy") String dummy)
+        {
+            this.dummy = dummy;
+        }
+
+        @JsonProperty
+        public String getDummy()
+        {
+            return dummy;
+        }
     }
 }

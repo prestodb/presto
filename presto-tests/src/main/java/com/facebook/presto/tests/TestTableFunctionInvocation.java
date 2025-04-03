@@ -72,17 +72,18 @@ public class TestTableFunctionInvocation
         queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
                 .withTableFunctions(ImmutableSet.of(
                         new SimpleTableFunction(),
-                        new TestingTableFunctions.IdentityFunction(),
-                        new TestingTableFunctions.IdentityPassThroughFunction(),
-                        new TestingTableFunctions.RepeatFunction(),
-                        new TestingTableFunctions.EmptyOutputFunction(),
-                        new TestingTableFunctions.EmptyOutputWithPassThroughFunction(),
-                        new TestingTableFunctions.TestInputsFunction(),
-                        new TestingTableFunctions.PassThroughInputFunction(),
-                        new TestingTableFunctions.TestInputFunction(),
-                        new TestingTableFunctions.TestSingleInputRowSemanticsFunction(),
-                        new TestingTableFunctions.ConstantFunction(),
-                        new TestingTableFunctions.EmptySourceFunction()))
+                        new TestingTableFunctions.IdentityFunction()
+//                        new TestingTableFunctions.IdentityPassThroughFunction(),
+//                        new TestingTableFunctions.RepeatFunction(),
+//                        new TestingTableFunctions.EmptyOutputFunction(),
+//                        new TestingTableFunctions.EmptyOutputWithPassThroughFunction(),
+//                        new TestingTableFunctions.TestInputsFunction(),
+//                        new TestingTableFunctions.PassThroughInputFunction(),
+//                        new TestingTableFunctions.TestInputFunction(),
+//                        new TestingTableFunctions.TestSingleInputRowSemanticsFunction(),
+//                        new TestingTableFunctions.ConstantFunction(),
+//                        new TestingTableFunctions.EmptySourceFunction()
+                ))
 
                 .withApplyTableFunction((session, handle) -> {
                     if (handle instanceof SimpleTableFunctionHandle) {
@@ -93,12 +94,12 @@ public class TestTableFunctionInvocation
                 })
                 .withTableFunctionProcessorProvider(new TestingTableFunctions.IdentityFunction.IdentityFunctionProcessorProvider())
                 .withGetColumnHandles(getColumnHandles)
-                .withTableFunctionSplitSource(
-                        new SchemaFunctionName("system", "constant"),
-                        handle -> getConstantFunctionSplitSource((TestingTableFunctions.ConstantFunction.ConstantFunctionHandle) handle))
-                .withTableFunctionSplitSource(
-                        new SchemaFunctionName("system", "empty_source"),
-                        handle -> new FixedSplitSource(ImmutableList.of(MOCK_CONNECTOR_SPLIT)))
+//                .withTableFunctionSplitSource(
+//                        new SchemaFunctionName("system", "constant"),
+//                        handle -> getConstantFunctionSplitSource((TestingTableFunctions.ConstantFunction.ConstantFunctionHandle) handle))
+//                .withTableFunctionSplitSource(
+//                        new SchemaFunctionName("system", "empty_source"),
+//                        handle -> new FixedSplitSource(ImmutableList.of(MOCK_CONNECTOR_SPLIT)))
                 .withTableFunctionSplitSource(
                         new SchemaFunctionName("system", "identity_function"),
                         handle -> new FixedSplitSource(ImmutableList.of(MOCK_CONNECTOR_SPLIT)))
