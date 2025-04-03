@@ -2,9 +2,10 @@ name: release-notes
 
 on:
   pull_request:
+    types: [ opened, edited, reopened ]
 
 env:
-  RELEASE_TOOLS_VERSION: "0.8"
+  RELEASE_TOOLS_VERSION: "add-check-task-jitpack-450e990cb2-1"
 
 jobs:
   check_release_note:
@@ -20,14 +21,21 @@ jobs:
           java-version: 8
           cache: 'maven'
       - name: Get presto-release-tools
-        run: ./mvnw -DgroupId=com.facebook.presto -DartifactId=presto-release-tools -Dversion=${RELEASE_TOOLS_VERSION} -Dpackaging=jar -Dclassifier=executable dependency:get
+        run: |
+          ./mvnw \
+            -DgroupId=com.github.zacblanco.presto-release-tools \
+            -DartifactId=presto-release-tools -Dversion=${RELEASE_TOOLS_VERSION} \
+            -Dpackaging=jar \
+            -Dclassifier=executable \
+            -DremoteRepositories=https://jitpack.io/ \
+            dependency:get
       - name: check output
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: echo "${PR_BODY}"
       - name: Set presto-release-tools as executable
-        run: chmod +x ~/.m2/repository/com/facebook/presto/presto-release-tools/${RELEASE_TOOLS_VERSION}/presto-release-tools-${RELEASE_TOOLS_VERSION}-executable.jar
+        run: chmod +x ~/.m2/repository/com/github/zacblanco/presto-release-tools/presto-release-tools/${RELEASE_TOOLS_VERSION}/presto-release-tools-${RELEASE_TOOLS_VERSION}-executable.jar
       - name: Check release notes Release Note
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
-        run: echo "${PR_BODY}" | ~/.m2/repository/com/facebook/presto/presto-release-tools/${RELEASE_TOOLS_VERSION}/presto-release-tools-${RELEASE_TOOLS_VERSION}-executable.jar check-release-notes
+        run: echo "${PR_BODY}" | ~/.m2/repository/com/github/zacblanco/presto-release-tools/presto-release-tools/${RELEASE_TOOLS_VERSION}/presto-release-tools-${RELEASE_TOOLS_VERSION}-executable.jar check-release-notes
