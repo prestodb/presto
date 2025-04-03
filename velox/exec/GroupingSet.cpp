@@ -842,11 +842,16 @@ bool GroupingSet::isPartialFull(int64_t maxBytes) {
 }
 
 uint64_t GroupingSet::allocatedBytes() const {
-  if (table_) {
-    return table_->allocatedBytes();
+  uint64_t totalBytes{0};
+  if (sortedAggregations_ != nullptr) {
+    totalBytes += sortedAggregations_->inputRowBytes();
   }
-
-  return stringAllocator_.retainedSize() + rows_.allocatedBytes();
+  if (table_ != nullptr) {
+    totalBytes += table_->allocatedBytes();
+  } else {
+    totalBytes += (stringAllocator_.retainedSize() + rows_.allocatedBytes());
+  }
+  return totalBytes;
 }
 
 const HashLookup& GroupingSet::hashLookup() const {
@@ -1181,14 +1186,35 @@ bool GroupingSet::mergeNextWithAggregates(
     updateRow(*next.first, mergeState_);
     nextKeyIsEqual = next.second;
     next.first->pop();
+
     if (!nextKeyIsEqual &&
         ((mergeRows_->numRows() >= maxOutputRows) ||
-         (mergeRows_->allocatedBytes() >= maxOutputBytes))) {
+         (mergeRowBytes() >= maxOutputBytes))) {
       extractSpillResult(result);
       return true;
     }
   }
   VELOX_UNREACHABLE();
+}
+
+uint64_t GroupingSet::mergeRowBytes() const {
+  auto totalBytes = mergeRows_->allocatedBytes();
+  if (sortedAggregations_ != nullptr) {
+    totalBytes += sortedAggregations_->inputRowBytes();
+
+    // The memory below is used by 'sortedAggregations_' for allocating space to
+    // store the row pointers for later sorting usage. This by theory does not
+    // belong to the aggregation output as it will be dropped after sorting. But
+    // the memory usage of this part could be very high in conditions of large
+    // number of tiny groups due to 'RowPointers' headroom overhead. Hence we
+    // include it in the accounting to avoid memory overuse.
+    if (table_ != nullptr) {
+      totalBytes += table_->rows()->stringAllocator().currentBytes();
+    } else {
+      totalBytes += stringAllocator_.currentBytes();
+    }
+  }
+  return totalBytes;
 }
 
 void GroupingSet::prepareSpillResultWithoutAggregates(
@@ -1320,7 +1346,22 @@ void GroupingSet::extractSpillResult(const RowVectorPtr& result) {
   }
   extractGroups(
       mergeRows_.get(), folly::Range<char**>(rows.data(), rows.size()), result);
+  clearMergeRows();
+}
+
+void GroupingSet::clearMergeRows() {
   mergeRows_->clear();
+  if (sortedAggregations_ != nullptr) {
+    // Clear the memory used by sorted aggregations.
+    sortedAggregations_->clear();
+    if (table_ != nullptr) {
+      // If non-global aggregation, 'sortedAggregations_' uses hash table's hash
+      // string allocator.
+      table_->rows()->stringAllocator().clear();
+    } else {
+      stringAllocator_.clear();
+    }
+  }
 }
 
 void GroupingSet::updateRow(SpillMergeStream& input, char* row) {

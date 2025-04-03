@@ -1712,6 +1712,71 @@ TEST_F(AggregationTest, outputBatchSizeCheckWithSpill) {
   }
 }
 
+TEST_F(AggregationTest, outputBatchSizeCheckWithSpillForOrderedAggr) {
+  const int numVectors = 5;
+  const int vectorSize = 20;
+  const std::string strValue(1L << 20, 'a'); // 1MB
+
+  std::vector<RowVectorPtr> vectors;
+  for (int i = 0; i < numVectors; ++i) {
+    vectors.push_back(makeRowVector(
+        {makeFlatVector<int32_t>(vectorSize, [&](auto row) { return row % 5; }),
+         makeFlatVector<StringView>(vectorSize, [&](auto /*unused*/) {
+           return StringView(strValue);
+         })}));
+  }
+  auto rowType = asRowType(vectors.back()->type());
+
+  struct {
+    vector_size_t maxOutputRows;
+    uint32_t maxOutputBytes;
+    uint32_t expectedNumOutputVectors;
+
+    std::string debugString() const {
+      return fmt::format(
+          "maxOutputRows: {}, maxOutputBytes: {}, expectedNumOutputVectors: {}",
+          maxOutputRows,
+          succinctBytes(maxOutputBytes),
+          expectedNumOutputVectors);
+    }
+  } testSettings[] = {
+      {1, std::numeric_limits<uint32_t>::max(), 5},
+      {std::numeric_limits<vector_size_t>::max(), 15L << 20, 5},
+      {std::numeric_limits<vector_size_t>::max(), 35L << 20, 3}};
+
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+
+    createDuckDbTable(vectors);
+    auto tempDirectory = exec::test::TempDirectoryPath::create();
+    core::PlanNodeId aggrNodeId;
+    TestScopedSpillInjection scopedSpillInjection(100);
+    auto task =
+        AssertQueryBuilder(duckDbQueryRunner_)
+            .spillDirectory(tempDirectory->getPath())
+            .config(QueryConfig::kSpillEnabled, true)
+            .config(QueryConfig::kAggregationSpillEnabled, true)
+            .config(
+                QueryConfig::kPreferredOutputBatchBytes,
+                std::to_string(testData.maxOutputBytes))
+            .config(
+                QueryConfig::kMaxOutputBatchRows,
+                std::to_string(testData.maxOutputRows))
+            .plan(PlanBuilder()
+                      .values(vectors)
+                      .singleAggregation({"c0"}, {"array_agg(c1 order by c1)"})
+                      .capturePlanNodeId(aggrNodeId)
+                      .planNode())
+            .assertResults(
+                "SELECT c0, array_agg(c1 order by c1) FROM tmp GROUP BY 1");
+    ASSERT_GT(toPlanStats(task->taskStats()).at(aggrNodeId).spilledBytes, 0);
+    ASSERT_EQ(
+        toPlanStats(task->taskStats()).at(aggrNodeId).outputVectors,
+        testData.expectedNumOutputVectors);
+    OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);
+  }
+}
+
 TEST_F(AggregationTest, spillDuringOutputProcessing) {
   rowType_ = ROW(
       {"c0", "c1", "c2", "c3"}, {INTEGER(), INTEGER(), VARCHAR(), VARCHAR()});
