@@ -131,6 +131,8 @@ function TaskList({tasks}) {
         },
     };
 
+    const hasSplitStats = tasks.some(task => task.stats.completedSplits !== undefined);
+
     const columns = [
         {
             name: 'ID',
@@ -195,43 +197,35 @@ function TaskList({tasks}) {
             maxWidth: '50px',
             minWidth: '40px',
         },
-        {
-            name: (<span className="bi bi-pause-circle-fill" style={GLYPHICON_HIGHLIGHT}
-                         data-bs-toggle="tooltip" data-bs-placement="top"
-                         title="Pending splits"/>),
-            selector: row => row.stats.queuedSplits ?? row.stats.queuedDrivers,
-            sortable: true,
-            maxWidth: '50px',
-            minWidth: '40px',
-        },
-        {
-            name: (<span className="bi bi-play-circle-fill" style={GLYPHICON_HIGHLIGHT}
-                         data-bs-toggle="tooltip" data-bs-placement="top"
-                         title="Running splits"/>),
-            selector: row => row.stats.runningSplits ?? row.stats.runningDrivers,
-            sortable: true,
-            maxWidth: '50px',
-            minWidth: '40px',
-        },
-        {
-            name: (<span className="bi bi-bookmark-check-fill"
-                         style={GLYPHICON_HIGHLIGHT} data-bs-toggle="tooltip"
-                         data-bs-placement="top"
-                         title="Blocked splits"/>),
-            selector: row => row.stats.blockedDrivers,
-            sortable: true,
-            maxWidth: '50px',
-            minWidth: '40px',
-        },
-        {
-            name: (<span className="bi bi-check-lg" style={GLYPHICON_HIGHLIGHT}
-                         data-bs-toggle="tooltip" data-bs-placement="top"
-                         title="Completed splits"/>),
-            selector: row => row.stats.completedSplits ?? row.stats.completedDrivers,
-            sortable: true,
-            maxWidth: '50px',
-            minWidth: '40px',
-        },
+        ...(hasSplitStats ? [
+            {
+                name: (<span className="bi bi-pause-circle-fill" style={GLYPHICON_HIGHLIGHT}
+                             data-bs-toggle="tooltip" data-bs-placement="top"
+                             title="Pending splits"/>),
+                selector: row => row.stats.queuedSplits,
+                sortable: true,
+                maxWidth: '50px',
+                minWidth: '40px',
+            },
+            {
+                name: (<span className="bi bi-play-circle-fill" style={GLYPHICON_HIGHLIGHT}
+                             data-bs-toggle="tooltip" data-bs-placement="top"
+                             title="Running splits"/>),
+                selector: row => row.stats.runningSplits,
+                sortable: true,
+                maxWidth: '50px',
+                minWidth: '40px',
+            },
+            {
+                name: (<span className="bi bi-check-lg" style={GLYPHICON_HIGHLIGHT}
+                             data-bs-toggle="tooltip" data-bs-placement="top"
+                             title="Completed splits"/>),
+                selector: row => row.stats.completedSplits,
+                sortable: true,
+                maxWidth: '50px',
+                minWidth: '40px',
+            }
+        ] : []),
         {
             name: 'Rows',
             selector: row => row.stats.rawInputPositions,
