@@ -38,7 +38,6 @@ import java.util.stream.IntStream;
 
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.connector.tvf.MockConnectorFactory.MockConnector.MockConnectorSplit.MOCK_CONNECTOR_SPLIT;
-import static com.facebook.presto.connector.tvf.TestingTableFunctions.ConstantFunction.getConstantFunctionSplitSource;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
@@ -72,7 +71,7 @@ public class TestTableFunctionInvocation
         queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
                 .withTableFunctions(ImmutableSet.of(
                         new SimpleTableFunction(),
-                        new TestingTableFunctions.IdentityFunction()
+                        new TestingTableFunctions.IdentityFunction()))
 //                        new TestingTableFunctions.IdentityPassThroughFunction(),
 //                        new TestingTableFunctions.RepeatFunction(),
 //                        new TestingTableFunctions.EmptyOutputFunction(),
@@ -83,8 +82,6 @@ public class TestTableFunctionInvocation
 //                        new TestingTableFunctions.TestSingleInputRowSemanticsFunction(),
 //                        new TestingTableFunctions.ConstantFunction(),
 //                        new TestingTableFunctions.EmptySourceFunction()
-                ))
-
                 .withApplyTableFunction((session, handle) -> {
                     if (handle instanceof SimpleTableFunctionHandle) {
                         SimpleTableFunctionHandle functionHandle = (SimpleTableFunctionHandle) handle;
