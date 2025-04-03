@@ -25,6 +25,7 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.hive.HivePartition;
 import com.facebook.presto.hive.HiveWrittenPartitions;
+import com.facebook.presto.hive.LazyLoadedPartitions;
 import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.iceberg.changelog.ChangelogOperation;
 import com.facebook.presto.iceberg.changelog.ChangelogUtil;
@@ -275,10 +276,10 @@ public abstract class IcebergAbstractMetadata
         TupleDomain<ColumnHandle> partitionColumnPredicate = TupleDomain.withColumnDomains(Maps.filterKeys(constraint.getSummary().getDomains().get(), Predicates.in(partitionColumns)));
         Optional<Set<IcebergColumnHandle>> requestedColumns = desiredColumns.map(columns -> columns.stream().map(column -> (IcebergColumnHandle) column).collect(toImmutableSet()));
 
-        List<HivePartition> partitions;
+        LazyLoadedPartitions partitions;
         if (handle.getIcebergTableName().getTableType() == CHANGELOG ||
                 handle.getIcebergTableName().getTableType() == EQUALITY_DELETES) {
-            partitions = ImmutableList.of(new HivePartition(handle.getSchemaTableName()));
+            partitions = new LazyLoadedPartitions(ImmutableList.of(new HivePartition(handle.getSchemaTableName())));
         }
         else {
             partitions = getPartitions(
@@ -300,7 +301,7 @@ public abstract class IcebergAbstractMetadata
                         .setRequestedColumns(requestedColumns)
                         .setPushdownFilterEnabled(isPushdownFilterEnabled(session))
                         .setPartitionColumnPredicate(partitionColumnPredicate.simplify())
-                        .setPartitions(Optional.ofNullable(partitions.size() == 0 ? null : partitions))
+                        .setPartitions(Optional.ofNullable(partitions.isEmpty() ? null : partitions))
                         .setTable(handle)
                         .build());
         return new ConnectorTableLayoutResult(layout, constraint.getSummary());
@@ -329,7 +330,7 @@ public abstract class IcebergAbstractMetadata
         Table icebergTable = getIcebergTable(session, tableHandle.getSchemaTableName());
         validateTableMode(session, icebergTable);
         List<ColumnHandle> partitionColumns = ImmutableList.copyOf(icebergTableLayoutHandle.getPartitionColumns());
-        Optional<List<HivePartition>> partitions = icebergTableLayoutHandle.getPartitions();
+        Optional<LazyLoadedPartitions> partitions = icebergTableLayoutHandle.getPartitions();
         Optional<DiscretePredicates> discretePredicates = partitions.flatMap(parts -> getDiscretePredicates(partitionColumns, parts));
         if (!isPushdownFilterEnabled(session)) {
             return new ConnectorTableLayout(
@@ -345,7 +346,7 @@ public abstract class IcebergAbstractMetadata
 
         Map<String, ColumnHandle> predicateColumns = icebergTableLayoutHandle.getPredicateColumns().entrySet()
                 .stream().collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-        Optional<TupleDomain<ColumnHandle>> predicate = partitions.map(parts -> getPredicate(icebergTableLayoutHandle, partitionColumns, parts, predicateColumns));
+        Optional<TupleDomain<ColumnHandle>> predicate = partitions.map(parts -> getPredicate(icebergTableLayoutHandle, partitionColumns, parts.getFullyLoadedPartitions(), predicateColumns));
         // capture subfields from domainPredicate to add to remainingPredicate
         // so those filters don't get lost
         Map<String, com.facebook.presto.common.type.Type> columnTypes = getColumns(icebergTable.schema(), icebergTable.spec(), typeManager).stream()
