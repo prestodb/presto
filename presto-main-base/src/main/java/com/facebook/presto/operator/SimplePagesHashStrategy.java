@@ -151,6 +151,12 @@ public class SimplePagesHashStrategy
     }
 
     @Override
+    public boolean rowNotDistinctFromRow(int leftPosition, Page leftPage, int rightPosition, Page rightPage)
+    {
+        return false;
+    }
+
+    @Override
     public boolean positionEqualsRow(int leftBlockIndex, int leftPosition, int rightPosition, Page rightPage)
     {
         for (int i = 0; i < hashChannels.size(); i++) {
@@ -163,6 +169,12 @@ public class SimplePagesHashStrategy
             }
         }
         return true;
+    }
+
+    @Override
+    public boolean positionNotDistinctFromRow(int leftBlockIndex, int leftPosition, int rightPosition, Page rightPage)
+    {
+        return false;
     }
 
     @Override
@@ -233,6 +245,12 @@ public class SimplePagesHashStrategy
             }
         }
         return true;
+    }
+
+    @Override
+    public boolean positionNotDistinctFromPosition(int leftBlockIndex, int leftPosition, int rightBlockIndex, int rightPosition)
+    {
+        return false;
     }
 
     @Override

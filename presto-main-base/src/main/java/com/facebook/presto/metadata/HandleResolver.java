@@ -29,6 +29,7 @@ import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionHandleResolver;
+import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
 import com.facebook.presto.split.EmptySplitHandleResolver;
 
 import javax.inject.Inject;
@@ -140,6 +141,11 @@ public class HandleResolver
         return getId(metadataUpdateHandle, MaterializedHandleResolver::getMetadataUpdateHandleClass);
     }
 
+    public String getId(ConnectorTableFunctionHandle tableFunctionHandle)
+    {
+        return getId(tableFunctionHandle, MaterializedHandleResolver::getTableFunctionHandleClass);
+    }
+
     public Class<? extends ConnectorTableHandle> getTableHandleClass(String id)
     {
         return resolverFor(id).getTableHandleClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
@@ -200,6 +206,11 @@ public class HandleResolver
         return resolverFor(id).getMetadataUpdateHandleClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
     }
 
+    public Class<? extends ConnectorTableFunctionHandle> getTableFunctionHandleClass(String id)
+    {
+        return resolverFor(id).getTableFunctionHandleClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
+    }
+
     private MaterializedHandleResolver resolverFor(String id)
     {
         MaterializedHandleResolver resolver = handleResolvers.get(id);
@@ -255,6 +266,7 @@ public class HandleResolver
         private final Optional<Class<? extends ConnectorPartitioningHandle>> partitioningHandle;
         private final Optional<Class<? extends ConnectorTransactionHandle>> transactionHandle;
         private final Optional<Class<? extends ConnectorMetadataUpdateHandle>> metadataUpdateHandle;
+        private final Optional<Class<? extends ConnectorTableFunctionHandle>> tableFunctionHandle;
 
         public MaterializedHandleResolver(ConnectorHandleResolver resolver)
         {
@@ -269,6 +281,7 @@ public class HandleResolver
             partitioningHandle = getHandleClass(resolver::getPartitioningHandleClass);
             transactionHandle = getHandleClass(resolver::getTransactionHandleClass);
             metadataUpdateHandle = getHandleClass(resolver::getMetadataUpdateHandleClass);
+            this.tableFunctionHandle = getHandleClass(resolver::getTableFunctionHandleClass);
         }
 
         private static <T> Optional<Class<? extends T>> getHandleClass(Supplier<Class<? extends T>> callable)
@@ -336,6 +349,11 @@ public class HandleResolver
             return metadataUpdateHandle;
         }
 
+        public Optional<Class<? extends ConnectorTableFunctionHandle>> getTableFunctionHandleClass()
+        {
+            return tableFunctionHandle;
+        }
+
         @Override
         public boolean equals(Object o)
         {
@@ -356,13 +374,14 @@ public class HandleResolver
                     Objects.equals(deleteTableHandle, that.deleteTableHandle) &&
                     Objects.equals(partitioningHandle, that.partitioningHandle) &&
                     Objects.equals(transactionHandle, that.transactionHandle) &&
-                    Objects.equals(metadataUpdateHandle, that.metadataUpdateHandle);
+                    Objects.equals(metadataUpdateHandle, that.metadataUpdateHandle) &&
+                    Objects.equals(tableFunctionHandle, that.tableFunctionHandle);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(tableHandle, layoutHandle, columnHandle, split, indexHandle, outputTableHandle, insertTableHandle, deleteTableHandle, partitioningHandle, transactionHandle, metadataUpdateHandle);
+            return Objects.hash(tableHandle, layoutHandle, columnHandle, split, indexHandle, outputTableHandle, insertTableHandle, deleteTableHandle, partitioningHandle, transactionHandle, metadataUpdateHandle, tableFunctionHandle);
         }
     }
 
