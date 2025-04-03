@@ -19,7 +19,7 @@
 #include <unordered_map>
 
 #include "velox/exec/fuzzer/DuckQueryRunner.h"
-#include "velox/exec/fuzzer/ToSQLUtil.h"
+#include "velox/exec/fuzzer/PrestoSql.h"
 #include "velox/exec/tests/utils/QueryAssertions.h"
 
 namespace facebook::velox::exec::test {

@@ -18,8 +18,8 @@
 #include <unordered_map>
 
 #include "velox/core/PlanNode.h"
+#include "velox/exec/fuzzer/PrestoSql.h"
 #include "velox/exec/fuzzer/ReferenceQueryRunner.h"
-#include "velox/exec/fuzzer/ToSQLUtil.h"
 
 namespace facebook::velox::exec::test {
 

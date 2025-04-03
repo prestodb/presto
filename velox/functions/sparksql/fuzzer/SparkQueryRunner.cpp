@@ -31,7 +31,7 @@
 #include "velox/dwio/common/WriterFactory.h"
 #include "velox/dwio/parquet/writer/Writer.h"
 #include "velox/exec/fuzzer/FuzzerUtil.h"
-#include "velox/exec/fuzzer/ToSQLUtil.h"
+#include "velox/exec/fuzzer/PrestoSql.h"
 #include "velox/exec/tests/utils/QueryAssertions.h"
 #include "velox/exec/tests/utils/TempFilePath.h"
 #include "velox/vector/arrow/Bridge.h"

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "velox/exec/fuzzer/ToSQLUtil.h"
+#include "velox/exec/fuzzer/PrestoSql.h"
 
 #include "velox/functions/prestosql/types/JsonType.h"
 

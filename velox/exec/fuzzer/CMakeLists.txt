@@ -20,7 +20,7 @@ add_library(
   PrestoQueryRunnerIntermediateTypeTransforms.cpp
   PrestoQueryRunnerTimestampWithTimeZoneTransform.cpp
   FuzzerUtil.cpp
-  ToSQLUtil.cpp)
+  PrestoSql.cpp)
 
 target_link_libraries(
   velox_fuzzer_util
