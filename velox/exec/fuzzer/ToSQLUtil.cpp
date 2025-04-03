@@ -259,6 +259,27 @@ std::string toConcatSql(const core::ConcatTypedExpr& concat) {
   return sql.str();
 }
 
+template <typename T>
+T getConstantValue(const core::ConstantTypedExpr& expr) {
+  if (expr.hasValueVector()) {
+    return expr.valueVector()->as<SimpleVector<T>>()->valueAt(0);
+  } else {
+    return expr.value().value<T>();
+  }
+}
+
+template <>
+std::string getConstantValue(const core::ConstantTypedExpr& expr) {
+  if (expr.hasValueVector()) {
+    return expr.valueVector()
+        ->as<SimpleVector<StringView>>()
+        ->valueAt(0)
+        .getString();
+  } else {
+    return expr.value().value<std::string>();
+  }
+}
+
 std::string toConstantSql(const core::ConstantTypedExpr& constant) {
   const auto& type = constant.type();
   const auto typeSql = toTypeSql(type);
@@ -269,18 +290,13 @@ std::string toConstantSql(const core::ConstantTypedExpr& constant) {
     // instead.
     sql << fmt::format("cast(null as {})", typeSql);
   } else if (type->isVarchar() || type->isVarbinary()) {
-    std::string value;
-    if (constant.hasValueVector()) {
-      value = constant.valueVector()
-                  ->as<SimpleVector<StringView>>()
-                  ->valueAt(0)
-                  .getString();
-    } else {
-      value = constant.value().value<std::string>();
-    }
-
     // Escape single quote in string literals used in SQL texts.
-    sql << typeSql << " " << std::quoted(value, '\'', '\'');
+    if (type->isVarbinary()) {
+      sql << typeSql << " ";
+    }
+    sql << std::quoted(getConstantValue<std::string>(constant), '\'', '\'');
+  } else if (type->isBigint()) {
+    sql << getConstantValue<int64_t>(constant);
   } else if (type->isPrimitiveType()) {
     sql << fmt::format("{} '{}'", typeSql, constant.toString());
   } else {

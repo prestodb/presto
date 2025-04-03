@@ -335,7 +335,7 @@ TEST_F(PrestoQueryRunnerTest, toSqlJoins) {
         *queryRunner->toSql(plan),
         "SELECT t0, v1"
         " FROM (SELECT t0 FROM t_0 WHERE t0 IN (SELECT u0 FROM t_1))"
-        " INNER JOIN t_3 ON t0 = v0 AND (cast(v1 as BIGINT) > BIGINT '0')");
+        " INNER JOIN t_3 ON t0 = v0 AND (cast(v1 as BIGINT) > 0)");
   }
 
   // Three joins.
