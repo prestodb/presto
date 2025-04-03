@@ -369,11 +369,14 @@ TEST_F(FilterProjectTest, statsSplitter) {
       makeFlatVector<int32_t>(100, folly::identity),
   });
 
+  // Make 5 batches, 20 rows each: 0...19, 20...39, 40...59, 60...79, 80...99.
+  // Filter out firs 25 rows (1 full batch plus some more), then keep every 3rd
+  // row.
   core::PlanNodeId filterId;
   core::PlanNodeId projectId;
   auto plan = PlanBuilder()
-                  .values({data})
-                  .filter("c0 % 3 = 0")
+                  .values(split(data, 5))
+                  .filter("if (c0 < 25, false, c0 % 3 = 0)")
                   .capturePlanNodeId(filterId)
                   .project({"c0", "c0 + 1"})
                   .capturePlanNodeId(projectId)
@@ -387,14 +390,19 @@ TEST_F(FilterProjectTest, statsSplitter) {
   const auto& filterStats = planStats.at(filterId);
   const auto& projectStats = planStats.at(projectId);
 
-  ASSERT_EQ(filterStats.inputRows, 100);
-  ASSERT_EQ(filterStats.outputRows, 34);
+  EXPECT_EQ(filterStats.inputRows, 100);
+  EXPECT_EQ(filterStats.inputVectors, 5);
 
-  ASSERT_LT(filterStats.outputBytes * 2, filterStats.inputBytes);
+  EXPECT_EQ(filterStats.outputRows, 25);
+  EXPECT_EQ(filterStats.outputVectors, 4);
+  EXPECT_LT(filterStats.outputBytes * 2, filterStats.inputBytes);
 
-  ASSERT_EQ(projectStats.inputRows, 34);
-  ASSERT_EQ(projectStats.outputRows, 34);
+  EXPECT_EQ(projectStats.inputRows, 25);
+  EXPECT_EQ(projectStats.inputVectors, 4);
 
-  ASSERT_EQ(projectStats.inputBytes, filterStats.outputBytes);
-  ASSERT_LT(projectStats.inputBytes, projectStats.outputBytes);
+  EXPECT_EQ(projectStats.inputBytes, filterStats.outputBytes);
+  EXPECT_LT(projectStats.inputBytes, projectStats.outputBytes);
+
+  EXPECT_EQ(projectStats.outputRows, 25);
+  EXPECT_EQ(projectStats.outputVectors, 4);
 }

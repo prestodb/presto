@@ -43,29 +43,31 @@ bool checkAddIdentityProjection(
 std::vector<OperatorStats> splitStats(
     const OperatorStats& combinedStats,
     const core::PlanNodeId& filterNodeId) {
-  OperatorStats projectStats = combinedStats;
   OperatorStats filterStats;
 
-  filterStats.operatorId = projectStats.operatorId;
-  filterStats.pipelineId = projectStats.pipelineId;
+  filterStats.operatorId = combinedStats.operatorId;
+  filterStats.pipelineId = combinedStats.pipelineId;
   filterStats.planNodeId = filterNodeId;
-  filterStats.operatorType = projectStats.operatorType;
+  filterStats.operatorType = combinedStats.operatorType;
+  filterStats.numDrivers = combinedStats.numDrivers;
 
-  filterStats.inputBytes = projectStats.inputBytes;
-  filterStats.inputPositions = projectStats.inputPositions;
+  filterStats.inputBytes = combinedStats.inputBytes;
+  filterStats.inputPositions = combinedStats.inputPositions;
+  filterStats.inputVectors = combinedStats.inputVectors;
 
   // Estimate Filter's output bytes based on cardinality change.
-  const double filterRate = projectStats.inputPositions > 0
-      ? (projectStats.outputPositions * 1.0 / projectStats.inputPositions)
+  const double filterRate = combinedStats.inputPositions > 0
+      ? (combinedStats.outputPositions * 1.0 / combinedStats.inputPositions)
       : 1.0;
 
   filterStats.outputBytes = (uint64_t)(filterStats.inputBytes * filterRate);
-  filterStats.outputPositions = projectStats.outputPositions;
+  filterStats.outputPositions = combinedStats.outputPositions;
+  filterStats.outputVectors = combinedStats.outputVectors;
 
-  filterStats.numDrivers = projectStats.numDrivers;
-
+  auto projectStats = combinedStats;
   projectStats.inputBytes = filterStats.outputBytes;
   projectStats.inputPositions = filterStats.outputPositions;
+  projectStats.inputVectors = filterStats.outputVectors;
 
   return {std::move(projectStats), std::move(filterStats)};
 }
