@@ -164,7 +164,7 @@ function TaskList({tasks}) {
             name: (<span className="bi bi-pause-circle-fill" style={GLYPHICON_HIGHLIGHT}
                          data-bs-toggle="tooltip" data-placement="top"
                          title="Pending drivers" />),
-            selector: (row: Task) => row.stats.queuedDrivers,
+            selector: row => row.stats.queuedDrivers,
             sortable: true,
             maxWidth: '50px',
             minWidth: '40px',
@@ -173,7 +173,7 @@ function TaskList({tasks}) {
             name: (<span className="bi bi-play-circle-fill" style={GLYPHICON_HIGHLIGHT}
                          data-bs-toggle="tooltip" data-placement="top"
                          title="Running drivers" />),
-            selector: (row: Task) => row.stats.runningDrivers,
+            selector: row => row.stats.runningDrivers,
             sortable: true,
             maxWidth: '50px',
             minWidth: '40px',
@@ -183,7 +183,7 @@ function TaskList({tasks}) {
                          style={GLYPHICON_HIGHLIGHT} data-bs-toggle="tooltip"
                          data-placement="top"
                          title="Blocked drivers" />),
-            selector: (row: Task) => row.stats.blockedDrivers,
+            selector: row => row.stats.blockedDrivers,
             sortable: true,
             maxWidth: '50px',
             minWidth: '40px',
@@ -192,7 +192,7 @@ function TaskList({tasks}) {
             name: (<span className="bi bi-check-lg" style={GLYPHICON_HIGHLIGHT}
                          data-bs-toggle="tooltip" data-placement="top"
                          title="Completed drivers" />),
-            selector: (row: Task) => row.stats.completedDrivers,
+            selector: row => row.stats.completedDrivers,
             sortable: true,
             maxWidth: '50px',
             minWidth: '40px',
