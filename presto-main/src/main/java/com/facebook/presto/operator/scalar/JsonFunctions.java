@@ -435,51 +435,51 @@ public final class JsonFunctions
     @SqlNullable
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice varcharJsonExtractScalar(SqlFunctionProperties properties, @SqlType("varchar(x)") Slice json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
+    public static Slice varcharJsonExtractScalar(@SqlType("varchar(x)") Slice json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
     {
-        return JsonExtract.extract(json, jsonPath.getScalarExtractor(), properties);
+        return JsonExtract.extract(json, jsonPath.getScalarExtractor());
     }
 
     @ScalarFunction
     @SqlNullable
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice jsonExtractScalar(SqlFunctionProperties properties, @SqlType(StandardTypes.JSON) Slice json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
+    public static Slice jsonExtractScalar(@SqlType(StandardTypes.JSON) Slice json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
     {
-        return JsonExtract.extract(json, jsonPath.getScalarExtractor(), properties);
+        return JsonExtract.extract(json, jsonPath.getScalarExtractor());
     }
 
     @ScalarFunction("json_extract")
     @LiteralParameters("x")
     @SqlNullable
     @SqlType(StandardTypes.JSON)
-    public static Slice varcharJsonExtract(SqlFunctionProperties properties, @SqlType("varchar(x)") Slice json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
+    public static Slice varcharJsonExtract(@SqlType("varchar(x)") Slice json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
     {
-        return JsonExtract.extract(json, jsonPath.getObjectExtractor(), properties);
+        return JsonExtract.extract(json, jsonPath.getObjectExtractor());
     }
 
     @ScalarFunction
     @SqlNullable
     @SqlType(StandardTypes.JSON)
-    public static Slice jsonExtract(SqlFunctionProperties properties, @SqlType(StandardTypes.JSON) Slice json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
+    public static Slice jsonExtract(@SqlType(StandardTypes.JSON) Slice json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
     {
-        return JsonExtract.extract(json, jsonPath.getObjectExtractor(), properties);
+        return JsonExtract.extract(json, jsonPath.getObjectExtractor());
     }
 
     @ScalarFunction("json_size")
     @LiteralParameters("x")
     @SqlNullable
     @SqlType(StandardTypes.BIGINT)
-    public static Long varcharJsonSize(SqlFunctionProperties properties, @SqlType("varchar(x)") Slice json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
+    public static Long varcharJsonSize(@SqlType("varchar(x)") Slice json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
     {
-        return JsonExtract.extract(json, jsonPath.getSizeExtractor(), properties);
+        return JsonExtract.extract(json, jsonPath.getSizeExtractor());
     }
 
     @ScalarFunction
     @SqlNullable
     @SqlType(StandardTypes.BIGINT)
-    public static Long jsonSize(SqlFunctionProperties properties, @SqlType(StandardTypes.JSON) Slice json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
+    public static Long jsonSize(@SqlType(StandardTypes.JSON) Slice json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
     {
-        return JsonExtract.extract(json, jsonPath.getSizeExtractor(), properties);
+        return JsonExtract.extract(json, jsonPath.getSizeExtractor());
     }
 
     public static Object getJsonObjectValue(Type valueType, SqlFunctionProperties properties, Block block, int position)
