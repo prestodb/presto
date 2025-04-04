@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.UnknownTypeException;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.QualifiedObjectName;
