@@ -20,9 +20,8 @@ import com.facebook.presto.hive.PartitionNameWithVersion;
 import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
+import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.units.Duration;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.List;
 import java.util.Map;
