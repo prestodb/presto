@@ -39,6 +39,11 @@ struct JsonObjectKeysFunction {
       return false;
     }
 
+    // The result is NULL if the given string is not a valid JSON string.
+    if (isFatal(jsonDoc.type().error())) {
+      return false;
+    }
+
     // The result is NULL if the given string is not a JSON object string.
     if (jsonDoc.type() != simdjson::ondemand::json_type::object) {
       return false;

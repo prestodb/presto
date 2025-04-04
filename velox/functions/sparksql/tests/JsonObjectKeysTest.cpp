@@ -40,6 +40,7 @@ TEST_F(JsonObjectKeysTest, basic) {
   expected = makeNullableArrayVector<std::string>({std::nullopt});
   assertEqualVectors(jsonObjectKeys(R"(1)"), expected);
   assertEqualVectors(jsonObjectKeys(R"("hello")"), expected);
+  assertEqualVectors(jsonObjectKeys(R"(invalid json)"), expected);
   assertEqualVectors(jsonObjectKeys(R"("")"), expected);
   assertEqualVectors(
       jsonObjectKeys(R"({"key": 45, "random_string"})"), expected);

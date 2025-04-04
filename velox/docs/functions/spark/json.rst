@@ -84,3 +84,4 @@ JSON Functions
         SELECT json_object_keys(''); -- NULL
         SELECT json_object_keys(1); -- NULL
         SELECT json_object_keys('"hello"'); -- NULL
+        SELECT json_object_keys("invalid json"); -- NULL
