@@ -28,8 +28,7 @@ package com.facebook.presto.druid.zip;
 
 import com.facebook.presto.druid.DataInputSource;
 import com.facebook.presto.spi.PrestoException;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.io.IOException;
 import java.nio.charset.Charset;
