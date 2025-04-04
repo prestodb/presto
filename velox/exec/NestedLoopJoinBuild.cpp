@@ -79,7 +79,8 @@ std::vector<RowVectorPtr> NestedLoopJoinBuild::mergeDataVectors() const {
       operatorCtx_->task()->queryCtx()->queryConfig().maxOutputBatchRows();
   std::vector<RowVectorPtr> merged;
   for (int i = 0; i < dataVectors_.size();) {
-    auto batchSize = dataVectors_[i]->size();
+    // convert int32_t to int64_t to avoid sum overflow
+    int64_t batchSize = dataVectors_[i]->size();
     auto j = i + 1;
     while (j < dataVectors_.size() &&
            batchSize + dataVectors_[j]->size() <= maxBatchRows) {

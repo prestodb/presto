@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/core/PlanNode.h"
+#include "velox/exec/NestedLoopJoinBuild.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -620,6 +622,50 @@ TEST_F(NestedLoopJoinTest, mergeBuildVectors) {
   }
   ASSERT_FALSE(cursor->moveNext());
   ASSERT_TRUE(waitForTaskCompletion(cursor->task().get()));
+}
+
+TEST_F(NestedLoopJoinTest, mergeBuildVectorsOverflow) {
+  const std::vector<RowVectorPtr> buildVectors = {
+      makeRowVector({makeFlatVector<int64_t>({1, 2})})};
+  const std::vector<RowVectorPtr> probeVectors = {
+      makeRowVector({makeFlatVector<int64_t>({1, 2})}),
+  };
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  auto planNode = PlanBuilder(planNodeIdGenerator)
+                      .values(probeVectors)
+                      .nestedLoopJoin(
+                          PlanBuilder(planNodeIdGenerator)
+                              .values(buildVectors)
+                              .project({"c0 as r0"})
+                              .planNode(),
+                          {"c0", "r0"})
+                      .planNode();
+  auto joinNode =
+      std::dynamic_pointer_cast<const velox::core::NestedLoopJoinNode>(
+          planNode);
+  std::vector<RowVectorPtr> values = {};
+  core::PlanFragment fakePlanFragment;
+  const core::PlanNodeId id{"0"};
+  fakePlanFragment.planNode = std::make_shared<core::ValuesNode>(id, values);
+
+  auto fakeTask = Task::create(
+      "NestedLoopJoinTest",
+      std::move(fakePlanFragment),
+      0,
+      core::QueryCtx::create(executor_.get()),
+      Task::ExecutionMode::kParallel);
+  DriverCtx driverCtx(fakeTask, 0, 0, 0, 0);
+
+  // int32_t 1066768200 + 1108383700 > int32_t.MAX_VALUE
+  NestedLoopJoinBuild nestedLoopJoinBuild(1, &driverCtx, joinNode);
+  nestedLoopJoinBuild.addInput(makeRowVector({makeConstant(1, 1066768200)}));
+  nestedLoopJoinBuild.addInput(makeRowVector({makeConstant(1, 1108383700)}));
+
+  std::vector<RowVectorPtr> mergeResult =
+      nestedLoopJoinBuild.mergeDataVectors();
+  // Expect the 2 vectors are not merged together since they are
+  // over the limit.
+  ASSERT_EQ(mergeResult.size(), 2);
 }
 
 } // namespace
