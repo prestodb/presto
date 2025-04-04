@@ -556,11 +556,5 @@ public class MockRemoteTaskFactory
         {
             return unacknowledgedSplits;
         }
-
-        @Override
-        public PlanFragment getPlanFragment()
-        {
-            return fragment;
-        }
     }
 }

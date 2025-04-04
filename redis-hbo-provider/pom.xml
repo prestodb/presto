@@ -165,7 +165,7 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-main-base</artifactId>
+            <artifactId>presto-main</artifactId>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
@@ -240,7 +240,7 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-main-base</artifactId>
+            <artifactId>presto-main</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
             <type>test-jar</type>

@@ -331,7 +331,7 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-main-base</artifactId>
+            <artifactId>presto-main</artifactId>
             <scope>test</scope>
         </dependency>
 

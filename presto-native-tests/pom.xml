@@ -24,7 +24,8 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-main-base</artifactId>
+            <artifactId>presto-main</artifactId>
+            <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
 

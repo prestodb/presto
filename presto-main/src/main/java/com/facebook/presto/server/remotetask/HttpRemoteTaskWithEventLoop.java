@@ -491,7 +491,6 @@ public final class HttpRemoteTaskWithEventLoop
         safeExecuteOnEventLoop(this::updateSplitQueueSpace);
     }
 
-    @Override
     public PlanFragment getPlanFragment()
     {
         return planFragment;
