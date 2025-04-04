@@ -414,12 +414,6 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-tpch</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.presto</groupId>
             <artifactId>presto-parser</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
@@ -473,6 +467,12 @@
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-function-namespace-managers</artifactId>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.google.protobuf</groupId>
+                    <artifactId>protobuf-java</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
