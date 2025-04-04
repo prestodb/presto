@@ -145,7 +145,7 @@ export class QueryListItem extends React.Component {
         const driverDetails = (
             <div className="col-12 tinystat-row">
                 <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Completed drivers">
-                    <span className="bi bi-check-lg" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                    <span className="bi bi-check-circle-fill" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
                     {formatCount(query.progress.completedDrivers)}
                 </span>
                 <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Running drivers">
@@ -153,7 +153,7 @@ export class QueryListItem extends React.Component {
                     {(query.queryState === "FINISHED" || query.queryState === "FAILED") ? 0 : query.progress.runningDrivers}
                 </span>
                 <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Queued drivers">
-                    <span className="bi bi-pause-btn-fill" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                    <span className="bi bi-pause-circle-fill" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
                     {(query.queryState === "FINISHED" || query.queryState === "FAILED") ? 0 : query.progress.queuedDrivers}
                     </span>
             </div>);
@@ -161,15 +161,15 @@ export class QueryListItem extends React.Component {
         const splitDetails = (
             <div className="col-12 tinystat-row">
                 <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Completed splits">
-                    <span className="bi bi-check-lg" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                    <span className="bi bi-check-circle" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
                     {formatCount(query.progress.completedSplits)}
                 </span>
                 <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Running splits">
-                    <span className="bi bi-play-circle-fill" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                    <span className="bi bi-play-circle" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
                     {(query.queryState === "FINISHED" || query.queryState === "FAILED") ? 0 : query.progress.runningSplits}
                 </span>
                 <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Queued splits">
-                    <span className="bi bi-pause-btn-fill" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                    <span className="bi bi-pause-circle" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
                     {(query.queryState === "FINISHED" || query.queryState === "FAILED") ? 0 : query.progress.queuedSplits}
                     </span>
             </div>);

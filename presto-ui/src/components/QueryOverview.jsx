@@ -350,7 +350,7 @@ function TaskList({ tasks }: { tasks: Task[] }) : React.Node {
             minWidth: '40px',
         },
         {
-            name: (<span className="bi bi-bookmark-check-fill"
+            name: (<span className="bi bi-stop-circle-fill"
                 style={GLYPHICON_HIGHLIGHT} data-bs-toggle="tooltip"
                 data-placement="top"
                 title="Blocked drivers" />),
@@ -360,7 +360,7 @@ function TaskList({ tasks }: { tasks: Task[] }) : React.Node {
             minWidth: '40px',
         },
         {
-            name: (<span className="bi bi-check-lg" style={GLYPHICON_HIGHLIGHT}
+            name: (<span className="bi bi-check-circle-fill" style={GLYPHICON_HIGHLIGHT}
                 data-bs-toggle="tooltip" data-placement="top"
                 title="Completed drivers" />),
             selector: (row: Task) => row.stats.completedDrivers,
@@ -370,7 +370,7 @@ function TaskList({ tasks }: { tasks: Task[] }) : React.Node {
         },
         ...(hasSplitStats ? [
             {
-                name: (<span className="bi bi-pause-circle-fill" style={GLYPHICON_HIGHLIGHT}
+                name: (<span className="bi bi-pause-circle" style={GLYPHICON_HIGHLIGHT}
                              data-bs-toggle="tooltip" data-bs-placement="top"
                              title="Pending splits"/>),
                 selector: (row: Task) => row.stats.queuedSplits,
@@ -379,7 +379,7 @@ function TaskList({ tasks }: { tasks: Task[] }) : React.Node {
                 minWidth: '40px',
             },
             {
-                name: (<span className="bi bi-play-circle-fill" style={GLYPHICON_HIGHLIGHT}
+                name: (<span className="bi bi-play-circle" style={GLYPHICON_HIGHLIGHT}
                              data-bs-toggle="tooltip" data-bs-placement="top"
                              title="Running splits"/>),
                 selector: (row: Task) => row.stats.runningSplits,
@@ -388,7 +388,7 @@ function TaskList({ tasks }: { tasks: Task[] }) : React.Node {
                 minWidth: '40px',
             },
             {
-                name: (<span className="bi bi-check-lg" style={GLYPHICON_HIGHLIGHT}
+                name: (<span className="bi bi-check-circle" style={GLYPHICON_HIGHLIGHT}
                              data-bs-toggle="tooltip" data-bs-placement="top"
                              title="Completed splits"/>),
                 selector: (row: Task) => row.stats.completedSplits,
