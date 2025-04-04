@@ -15,8 +15,7 @@ package com.facebook.presto.spark.execution.property;
 
 import com.facebook.airlift.configuration.Config;
 import com.google.common.collect.ImmutableMap;
-
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 import java.util.Map;
 

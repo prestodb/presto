@@ -23,14 +23,13 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkMutableRow;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleStats;
 import com.facebook.presto.spark.execution.PrestoSparkPageInput;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SliceOutput;
 import org.apache.spark.util.CollectionAccumulator;
 import scala.Tuple2;
 import scala.collection.Iterator;
-
-import javax.annotation.concurrent.GuardedBy;
 
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
