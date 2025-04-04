@@ -26,12 +26,12 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift.drift</groupId>
+            <groupId>com.github.zacblanco.airlift.drift</groupId>
             <artifactId>drift-server</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift.drift</groupId>
+            <groupId>com.github.zacblanco.airlift.drift</groupId>
             <artifactId>drift-transport-netty</artifactId>
         </dependency>
 
@@ -51,12 +51,12 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>log</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>bootstrap</artifactId>
         </dependency>
 
@@ -71,7 +71,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>concurrent</artifactId>
         </dependency>
 
@@ -91,7 +91,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>json</artifactId>
         </dependency>
 
@@ -138,4 +138,12 @@
             </plugin>
         </plugins>
     </build>
+    <profiles>
+        <profile>
+            <id>build-airlift</id>
+            <activation>
+
+            </activation>
+        </profile>
+    </profiles>
 </project>

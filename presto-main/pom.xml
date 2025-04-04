@@ -24,7 +24,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>jmx-http</artifactId>
         </dependency>
 
@@ -34,7 +34,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>jmx</artifactId>
         </dependency>
 
@@ -44,7 +44,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>log-manager</artifactId>
         </dependency>
 
@@ -74,17 +74,17 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift.drift</groupId>
+            <groupId>com.github.zacblanco.airlift.drift</groupId>
             <artifactId>drift-codec-utils</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift.drift</groupId>
+            <groupId>com.github.zacblanco.airlift.drift</groupId>
             <artifactId>drift-server</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift.drift</groupId>
+            <groupId>com.github.zacblanco.airlift.drift</groupId>
             <artifactId>drift-transport-spi</artifactId>
         </dependency>
 
@@ -99,7 +99,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>log</artifactId>
         </dependency>
 
@@ -109,27 +109,27 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>discovery</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>json</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>configuration</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>jaxrs</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>node</artifactId>
         </dependency>
 
@@ -139,12 +139,12 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>discovery-server</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift.drift</groupId>
+            <groupId>com.github.zacblanco.airlift.drift</groupId>
             <artifactId>drift-codec</artifactId>
         </dependency>
         <dependency>
@@ -156,11 +156,11 @@
             <artifactId>error_prone_annotations</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.facebook.airlift.drift</groupId>
+            <groupId>com.github.zacblanco.airlift.drift</groupId>
             <artifactId>drift-client</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.facebook.airlift.drift</groupId>
+            <groupId>com.github.zacblanco.airlift.drift</groupId>
             <artifactId>drift-transport-netty</artifactId>
         </dependency>
         <dependency>
@@ -168,11 +168,11 @@
             <artifactId>netty-buffer</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.facebook.airlift.drift</groupId>
+            <groupId>com.github.zacblanco.airlift.drift</groupId>
             <artifactId>drift-api</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>http-client</artifactId>
         </dependency>
         <dependency>
@@ -180,7 +180,7 @@
             <artifactId>joda-time</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>concurrent</artifactId>
         </dependency>
         <dependency>
@@ -192,7 +192,7 @@
             <artifactId>presto-analyzer</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>units</artifactId>
         </dependency>
         <dependency>
@@ -200,11 +200,11 @@
             <artifactId>presto-client</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.facebook.airlift.drift</groupId>
+            <groupId>com.github.zacblanco.airlift.drift</groupId>
             <artifactId>drift-protocol</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>stats</artifactId>
         </dependency>
         <dependency>
@@ -224,19 +224,19 @@
             <artifactId>presto-spi</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>trace-token</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>http-server</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>event</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>bootstrap</artifactId>
         </dependency>
         <dependency>
@@ -245,7 +245,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>security</artifactId>
         </dependency>
 
@@ -285,13 +285,13 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>testing</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>jaxrs-testing</artifactId>
             <scope>test</scope>
         </dependency>
@@ -362,7 +362,7 @@
                 <configuration>
                     <ignoredNonTestScopedDependencies>
                         <!-- TTransportException needed from drift-protocol to compile -->
-                        <ignoredNonTestScopedDependency>com.facebook.airlift.drift:drift-protocol</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>com.github.zacblanco.airlift.drift:drift-protocol</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>io.netty:netty-buffer</ignoredNonTestScopedDependency>
                     </ignoredNonTestScopedDependencies>
                 </configuration>
