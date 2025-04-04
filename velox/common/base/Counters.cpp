@@ -35,6 +35,10 @@ void registerVeloxMetrics() {
   DEFINE_HISTOGRAM_METRIC(
       kMetricDriverExecTimeMs, 1'000, 0, 30'000, 50, 90, 99, 100);
 
+  // Tracks the averaged task batch processing time. This only applies for
+  // sequential task execution mode.
+  DEFINE_METRIC(kMetricTaskBatchProcessTimeMs, facebook::velox::StatType::AVG);
+
   /// ================== Cache Counters =================
 
   // Tracks hive handle generation latency in range of [0, 100s] and reports

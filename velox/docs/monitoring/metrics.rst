@@ -72,6 +72,10 @@ Task Execution
      - The distribution of driver execution time in range of [0, 30s] with
        30 buckets. It is configured to report the latency at P50, P90, P99,
        and P100 percentiles.
+   * - task_batch_process_time_ms
+     - Average
+     - Tracks the averaged task batch processing time. This only applies for
+       sequential task execution mode.
 
 Memory Management
 -----------------
