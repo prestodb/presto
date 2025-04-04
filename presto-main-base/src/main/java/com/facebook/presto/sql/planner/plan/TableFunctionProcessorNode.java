@@ -216,7 +216,7 @@ public class TableFunctionProcessorNode
     @Override
     public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
     {
-        return new TableFunctionProcessorNode(getId(),
+        /*return new TableFunctionProcessorNode(getId(),
                 name,
                 properOutputs,
                 statsEquivalentPlanNode,
@@ -228,7 +228,8 @@ public class TableFunctionProcessorNode
                 prePartitioned,
                 preSorted,
                 hashSymbol,
-                handle);
+                handle);*/
+        return this;
     }
 
     @Override
