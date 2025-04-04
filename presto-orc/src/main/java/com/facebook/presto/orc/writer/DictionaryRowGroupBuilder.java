@@ -14,9 +14,8 @@
 package com.facebook.presto.orc.writer;
 
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
+import jakarta.annotation.Nullable;
 import org.openjdk.jol.info.ClassLayout;
-
-import javax.annotation.Nullable;
 
 import java.util.Arrays;
 
