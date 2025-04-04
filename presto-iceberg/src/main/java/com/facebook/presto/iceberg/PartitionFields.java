@@ -13,12 +13,11 @@
  */
 package com.facebook.presto.iceberg;
 
+import jakarta.annotation.Nullable;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.expressions.Term;
-
-import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Optional;
