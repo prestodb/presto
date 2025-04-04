@@ -2172,6 +2172,12 @@
             </dependency>
 
             <dependency>
+                <groupId>org.apache.kafka</groupId>
+                <artifactId>kafka-metadata</artifactId>
+                <version>${dep.kafka.version}</version>
+            </dependency>
+
+            <dependency>
                 <groupId>org.apache.pinot</groupId>
                 <artifactId>presto-pinot-driver</artifactId>
                 <version>${dep.pinot.version}</version>
