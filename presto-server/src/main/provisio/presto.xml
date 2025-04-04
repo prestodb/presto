@@ -12,10 +12,10 @@
 
     <!-- Launcher -->
     <artifactSet to="bin">
-        <artifact id="com.facebook.airlift:launcher:tar.gz:bin:${dep.packaging.version}">
+        <artifact ref="com.github.zacblanco.airlift:launcher:tar.gz:bin:${dep.packaging.version}">
             <unpack />
         </artifact>
-        <artifact id="com.facebook.airlift:launcher:tar.gz:properties:${dep.packaging.version}">
+        <artifact ref="com.github.zacblanco.airlift:launcher:tar.gz:properties:${dep.packaging.version}">
             <unpack filter="true" />
         </artifact>
     </artifactSet>
