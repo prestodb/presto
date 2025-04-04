@@ -14,6 +14,7 @@
 package com.facebook.presto.lark.sheets.api;
 
 import com.facebook.presto.lark.sheets.LarkSheetsConfig;
+import com.google.errorprone.annotations.ThreadSafe;
 import com.larksuite.oapi.core.AppSettings;
 import com.larksuite.oapi.core.AppType;
 import com.larksuite.oapi.core.Config;
@@ -22,8 +23,6 @@ import com.larksuite.oapi.core.Domain;
 import com.larksuite.oapi.service.drive_permission.v2.DrivePermissionService;
 import com.larksuite.oapi.service.sheets.v2.SheetsService;
 import jakarta.inject.Inject;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.function.Supplier;
 
