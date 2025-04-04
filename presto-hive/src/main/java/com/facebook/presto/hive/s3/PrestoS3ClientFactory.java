@@ -27,10 +27,9 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Builder;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.facebook.presto.hive.HiveClientConfig;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.units.Duration;
 import org.apache.hadoop.conf.Configuration;
-
-import javax.annotation.concurrent.GuardedBy;
 
 import java.net.URI;
 import java.util.Optional;
