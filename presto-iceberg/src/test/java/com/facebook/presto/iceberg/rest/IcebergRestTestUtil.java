@@ -125,7 +125,7 @@ public class IcebergRestTestUtil
             public void configure(Binder binder)
             {
                 binder.bind(new TypeLiteral<Map<String, String>>() {}).annotatedWith(TheServlet.class).toInstance(ImmutableMap.of());
-                binder.bind(javax.servlet.Servlet.class).annotatedWith(TheServlet.class).toInstance(new IcebergRestCatalogServlet(adapter));
+                binder.bind(jakarta.servlet.Servlet.class).annotatedWith(TheServlet.class).toInstance(new IcebergRestCatalogServlet(adapter));
                 binder.bind(NodeInfo.class).toInstance(new NodeInfo("test"));
             }
         }
