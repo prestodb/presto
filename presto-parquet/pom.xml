@@ -28,12 +28,12 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>configuration</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>concurrent</artifactId>
         </dependency>
 
@@ -48,12 +48,12 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>units</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>log</artifactId>
         </dependency>
 
@@ -95,7 +95,7 @@
 
         <!-- used by tests but also needed transitively -->
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>log-manager</artifactId>
             <scope>runtime</scope>
         </dependency>
@@ -172,7 +172,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>testing</artifactId>
             <scope>test</scope>
         </dependency>

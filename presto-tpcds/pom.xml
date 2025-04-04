@@ -28,7 +28,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>json</artifactId>
         </dependency>
 
@@ -56,7 +56,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift.drift</groupId>
+            <groupId>com.github.zacblanco.airlift.drift</groupId>
             <artifactId>drift-api</artifactId>
             <scope>provided</scope>
         </dependency>
@@ -111,13 +111,13 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>log</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>log-manager</artifactId>
             <scope>test</scope>
         </dependency>
@@ -136,7 +136,7 @@
                 <artifactId>maven-dependency-plugin</artifactId>
                 <configuration>
                     <ignoredNonTestScopedDependencies>
-                        <ignoredNonTestScopedDependency>com.facebook.airlift:json</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>com.github.zacblanco.airlift:json</ignoredNonTestScopedDependency>
                     </ignoredNonTestScopedDependencies>
                 </configuration>
             </plugin>

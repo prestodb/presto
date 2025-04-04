@@ -142,7 +142,7 @@
             <artifactId>testng</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>testing</artifactId>
         </dependency>
         <dependency>
@@ -150,15 +150,15 @@
             <artifactId>jakarta.inject-api</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>log</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>units</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>json</artifactId>
         </dependency>
         <dependency>
@@ -170,7 +170,7 @@
             <artifactId>jackson-core</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>http-client</artifactId>
         </dependency>
         <dependency>

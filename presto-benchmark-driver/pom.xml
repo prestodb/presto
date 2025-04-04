@@ -30,27 +30,27 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>discovery</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>http-client</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>json</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>units</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>log-manager</artifactId>
         </dependency>
 
