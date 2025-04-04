@@ -17,9 +17,8 @@ import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
+import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
-
-import javax.annotation.PreDestroy;
 
 import java.util.List;
 import java.util.Map;
