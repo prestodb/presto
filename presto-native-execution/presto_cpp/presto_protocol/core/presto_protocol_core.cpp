@@ -36,10 +36,11 @@ namespace facebook::presto::protocol {
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<NodeSelectionStrategy, json>
-    NodeSelectionStrategy_enum_table[] = { // NOLINT: cert-err58-cpp
-        {NodeSelectionStrategy::HARD_AFFINITY, "HARD_AFFINITY"},
-        {NodeSelectionStrategy::SOFT_AFFINITY, "SOFT_AFFINITY"},
-        {NodeSelectionStrategy::NO_PREFERENCE, "NO_PREFERENCE"}};
+    NodeSelectionStrategy_enum_table[] =
+        { // NOLINT: cert-err58-cpp
+            {NodeSelectionStrategy::HARD_AFFINITY, "HARD_AFFINITY"},
+            {NodeSelectionStrategy::SOFT_AFFINITY, "SOFT_AFFINITY"},
+            {NodeSelectionStrategy::NO_PREFERENCE, "NO_PREFERENCE"}};
 void to_json(json& j, const NodeSelectionStrategy& e) {
   static_assert(
       std::is_enum<NodeSelectionStrategy>::value,
@@ -534,11 +535,12 @@ namespace facebook::presto::protocol {
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<AggregationNodeStep, json>
-    AggregationNodeStep_enum_table[] = { // NOLINT: cert-err58-cpp
-        {AggregationNodeStep::PARTIAL, "PARTIAL"},
-        {AggregationNodeStep::FINAL, "FINAL"},
-        {AggregationNodeStep::INTERMEDIATE, "INTERMEDIATE"},
-        {AggregationNodeStep::SINGLE, "SINGLE"}};
+    AggregationNodeStep_enum_table[] =
+        { // NOLINT: cert-err58-cpp
+            {AggregationNodeStep::PARTIAL, "PARTIAL"},
+            {AggregationNodeStep::FINAL, "FINAL"},
+            {AggregationNodeStep::INTERMEDIATE, "INTERMEDIATE"},
+            {AggregationNodeStep::SINGLE, "SINGLE"}};
 void to_json(json& j, const AggregationNodeStep& e) {
   static_assert(
       std::is_enum<AggregationNodeStep>::value,
@@ -2276,130 +2278,6 @@ void from_json(const json& j, SessionRepresentation& p) {
       "sessionFunctions");
 }
 } // namespace facebook::presto::protocol
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-namespace facebook::presto::protocol {
-void to_json(json& j, const std::shared_ptr<ConnectorTableLayoutHandle>& p) {
-  if (p == nullptr) {
-    return;
-  }
-  String type = p->_type;
-  getConnectorProtocol(type).to_json(j, p);
-}
-
-void from_json(const json& j, std::shared_ptr<ConnectorTableLayoutHandle>& p) {
-  String type;
-  try {
-    type = p->getSubclassKey(j);
-  } catch (json::parse_error& e) {
-    throw ParseError(
-        std::string(e.what()) +
-        " ConnectorTableLayoutHandle  ConnectorTableLayoutHandle");
-  }
-  getConnectorProtocol(type).from_json(j, p);
-}
-} // namespace facebook::presto::protocol
-namespace facebook::presto::protocol {
-
-void to_json(json& j, const TableHandle& p) {
-  j = json::object();
-  to_json_key(
-      j,
-      "connectorId",
-      p.connectorId,
-      "TableHandle",
-      "ConnectorId",
-      "connectorId");
-  to_json_key(
-      j,
-      "connectorHandle",
-      p.connectorHandle,
-      "TableHandle",
-      "ConnectorTableHandle",
-      "connectorHandle");
-  to_json_key(
-      j,
-      "transaction",
-      p.transaction,
-      "TableHandle",
-      "ConnectorTransactionHandle",
-      "transaction");
-  to_json_key(
-      j,
-      "connectorTableLayout",
-      p.connectorTableLayout,
-      "TableHandle",
-      "ConnectorTableLayoutHandle",
-      "connectorTableLayout");
-}
-
-void from_json(const json& j, TableHandle& p) {
-  from_json_key(
-      j,
-      "connectorId",
-      p.connectorId,
-      "TableHandle",
-      "ConnectorId",
-      "connectorId");
-  from_json_key(
-      j,
-      "connectorHandle",
-      p.connectorHandle,
-      "TableHandle",
-      "ConnectorTableHandle",
-      "connectorHandle");
-  from_json_key(
-      j,
-      "transaction",
-      p.transaction,
-      "TableHandle",
-      "ConnectorTransactionHandle",
-      "transaction");
-  from_json_key(
-      j,
-      "connectorTableLayout",
-      p.connectorTableLayout,
-      "TableHandle",
-      "ConnectorTableLayoutHandle",
-      "connectorTableLayout");
-}
-} // namespace facebook::presto::protocol
-namespace facebook::presto::protocol {
-
-void to_json(json& j, const DeleteScanInfo& p) {
-  j = json::object();
-  to_json_key(j, "id", p.id, "DeleteScanInfo", "PlanNodeId", "id");
-  to_json_key(
-      j,
-      "tableHandle",
-      p.tableHandle,
-      "DeleteScanInfo",
-      "TableHandle",
-      "tableHandle");
-}
-
-void from_json(const json& j, DeleteScanInfo& p) {
-  from_json_key(j, "id", p.id, "DeleteScanInfo", "PlanNodeId", "id");
-  from_json_key(
-      j,
-      "tableHandle",
-      p.tableHandle,
-      "DeleteScanInfo",
-      "TableHandle",
-      "tableHandle");
-}
-} // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ExecutionWriterTarget>& p) {
   if (p == nullptr) {
@@ -2483,13 +2361,6 @@ void to_json(json& j, const TableWriteInfo& p) {
       "TableWriteInfo",
       "AnalyzeTableHandle",
       "analyzeTableHandle");
-  to_json_key(
-      j,
-      "deleteScanInfo",
-      p.deleteScanInfo,
-      "TableWriteInfo",
-      "DeleteScanInfo",
-      "deleteScanInfo");
 }
 
 void from_json(const json& j, TableWriteInfo& p) {
@@ -2507,13 +2378,6 @@ void from_json(const json& j, TableWriteInfo& p) {
       "TableWriteInfo",
       "AnalyzeTableHandle",
       "analyzeTableHandle");
-  from_json_key(
-      j,
-      "deleteScanInfo",
-      p.deleteScanInfo,
-      "TableWriteInfo",
-      "DeleteScanInfo",
-      "deleteScanInfo");
 }
 } // namespace facebook::presto::protocol
 /*
@@ -5872,9 +5736,10 @@ namespace facebook::presto::protocol {
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<JoinDistributionType, json>
-    JoinDistributionType_enum_table[] = { // NOLINT: cert-err58-cpp
-        {JoinDistributionType::PARTITIONED, "PARTITIONED"},
-        {JoinDistributionType::REPLICATED, "REPLICATED"}};
+    JoinDistributionType_enum_table[] =
+        { // NOLINT: cert-err58-cpp
+            {JoinDistributionType::PARTITIONED, "PARTITIONED"},
+            {JoinDistributionType::REPLICATED, "REPLICATED"}};
 void to_json(json& j, const JoinDistributionType& e) {
   static_assert(
       std::is_enum<JoinDistributionType>::value,
@@ -7889,14 +7754,17 @@ namespace facebook::presto::protocol {
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<StageExecutionStrategy, json>
-    StageExecutionStrategy_enum_table[] = { // NOLINT: cert-err58-cpp
-        {StageExecutionStrategy::UNGROUPED_EXECUTION, "UNGROUPED_EXECUTION"},
-        {StageExecutionStrategy::FIXED_LIFESPAN_SCHEDULE_GROUPED_EXECUTION,
-         "FIXED_LIFESPAN_SCHEDULE_GROUPED_EXECUTION"},
-        {StageExecutionStrategy::DYNAMIC_LIFESPAN_SCHEDULE_GROUPED_EXECUTION,
-         "DYNAMIC_LIFESPAN_SCHEDULE_GROUPED_EXECUTION"},
-        {StageExecutionStrategy::RECOVERABLE_GROUPED_EXECUTION,
-         "RECOVERABLE_GROUPED_EXECUTION"}};
+    StageExecutionStrategy_enum_table[] =
+        { // NOLINT: cert-err58-cpp
+            {StageExecutionStrategy::UNGROUPED_EXECUTION,
+             "UNGROUPED_EXECUTION"},
+            {StageExecutionStrategy::FIXED_LIFESPAN_SCHEDULE_GROUPED_EXECUTION,
+             "FIXED_LIFESPAN_SCHEDULE_GROUPED_EXECUTION"},
+            {StageExecutionStrategy::
+                 DYNAMIC_LIFESPAN_SCHEDULE_GROUPED_EXECUTION,
+             "DYNAMIC_LIFESPAN_SCHEDULE_GROUPED_EXECUTION"},
+            {StageExecutionStrategy::RECOVERABLE_GROUPED_EXECUTION,
+             "RECOVERABLE_GROUPED_EXECUTION"}};
 void to_json(json& j, const StageExecutionStrategy& e) {
   static_assert(
       std::is_enum<StageExecutionStrategy>::value,
@@ -9391,12 +9259,13 @@ namespace facebook::presto::protocol {
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<SystemPartitionFunction, json>
-    SystemPartitionFunction_enum_table[] = { // NOLINT: cert-err58-cpp
-        {SystemPartitionFunction::SINGLE, "SINGLE"},
-        {SystemPartitionFunction::HASH, "HASH"},
-        {SystemPartitionFunction::ROUND_ROBIN, "ROUND_ROBIN"},
-        {SystemPartitionFunction::BROADCAST, "BROADCAST"},
-        {SystemPartitionFunction::UNKNOWN, "UNKNOWN"}};
+    SystemPartitionFunction_enum_table[] =
+        { // NOLINT: cert-err58-cpp
+            {SystemPartitionFunction::SINGLE, "SINGLE"},
+            {SystemPartitionFunction::HASH, "HASH"},
+            {SystemPartitionFunction::ROUND_ROBIN, "ROUND_ROBIN"},
+            {SystemPartitionFunction::BROADCAST, "BROADCAST"},
+            {SystemPartitionFunction::UNKNOWN, "UNKNOWN"}};
 void to_json(json& j, const SystemPartitionFunction& e) {
   static_assert(
       std::is_enum<SystemPartitionFunction>::value,
@@ -9433,13 +9302,14 @@ namespace facebook::presto::protocol {
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<SystemPartitioning, json>
-    SystemPartitioning_enum_table[] = { // NOLINT: cert-err58-cpp
-        {SystemPartitioning::SINGLE, "SINGLE"},
-        {SystemPartitioning::FIXED, "FIXED"},
-        {SystemPartitioning::SOURCE, "SOURCE"},
-        {SystemPartitioning::SCALED, "SCALED"},
-        {SystemPartitioning::COORDINATOR_ONLY, "COORDINATOR_ONLY"},
-        {SystemPartitioning::ARBITRARY, "ARBITRARY"}};
+    SystemPartitioning_enum_table[] =
+        { // NOLINT: cert-err58-cpp
+            {SystemPartitioning::SINGLE, "SINGLE"},
+            {SystemPartitioning::FIXED, "FIXED"},
+            {SystemPartitioning::SOURCE, "SOURCE"},
+            {SystemPartitioning::SCALED, "SCALED"},
+            {SystemPartitioning::COORDINATOR_ONLY, "COORDINATOR_ONLY"},
+            {SystemPartitioning::ARBITRARY, "ARBITRARY"}};
 void to_json(json& j, const SystemPartitioning& e) {
   static_assert(
       std::is_enum<SystemPartitioning>::value,
@@ -9771,6 +9641,105 @@ void from_json(const json& j, SystemTransactionHandle& p) {
       "SystemTransactionHandle",
       "ConnectorTransactionHandle",
       "connectorTransactionHandle");
+}
+} // namespace facebook::presto::protocol
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+namespace facebook::presto::protocol {
+void to_json(json& j, const std::shared_ptr<ConnectorTableLayoutHandle>& p) {
+  if (p == nullptr) {
+    return;
+  }
+  String type = p->_type;
+  getConnectorProtocol(type).to_json(j, p);
+}
+
+void from_json(const json& j, std::shared_ptr<ConnectorTableLayoutHandle>& p) {
+  String type;
+  try {
+    type = p->getSubclassKey(j);
+  } catch (json::parse_error& e) {
+    throw ParseError(
+        std::string(e.what()) +
+        " ConnectorTableLayoutHandle  ConnectorTableLayoutHandle");
+  }
+  getConnectorProtocol(type).from_json(j, p);
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+
+void to_json(json& j, const TableHandle& p) {
+  j = json::object();
+  to_json_key(
+      j,
+      "connectorId",
+      p.connectorId,
+      "TableHandle",
+      "ConnectorId",
+      "connectorId");
+  to_json_key(
+      j,
+      "connectorHandle",
+      p.connectorHandle,
+      "TableHandle",
+      "ConnectorTableHandle",
+      "connectorHandle");
+  to_json_key(
+      j,
+      "transaction",
+      p.transaction,
+      "TableHandle",
+      "ConnectorTransactionHandle",
+      "transaction");
+  to_json_key(
+      j,
+      "connectorTableLayout",
+      p.connectorTableLayout,
+      "TableHandle",
+      "ConnectorTableLayoutHandle",
+      "connectorTableLayout");
+}
+
+void from_json(const json& j, TableHandle& p) {
+  from_json_key(
+      j,
+      "connectorId",
+      p.connectorId,
+      "TableHandle",
+      "ConnectorId",
+      "connectorId");
+  from_json_key(
+      j,
+      "connectorHandle",
+      p.connectorHandle,
+      "TableHandle",
+      "ConnectorTableHandle",
+      "connectorHandle");
+  from_json_key(
+      j,
+      "transaction",
+      p.transaction,
+      "TableHandle",
+      "ConnectorTransactionHandle",
+      "transaction");
+  from_json_key(
+      j,
+      "connectorTableLayout",
+      p.connectorTableLayout,
+      "TableHandle",
+      "ConnectorTableLayoutHandle",
+      "connectorTableLayout");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {

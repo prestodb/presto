@@ -146,7 +146,7 @@ public class MockRemoteTaskFactory
                 createInitialEmptyOutputBuffers(BROADCAST),
                 nodeStatsTracker,
                 true,
-                new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()),
+                new TableWriteInfo(Optional.empty(), Optional.empty()),
                 SchedulerStatsTracker.NOOP);
     }
 

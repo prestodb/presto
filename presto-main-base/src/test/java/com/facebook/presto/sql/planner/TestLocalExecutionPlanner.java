@@ -199,7 +199,7 @@ public class TestLocalExecutionPlanner
                 testFragment,
                 new TestingOutputBuffer(),
                 new TestingRemoteSourceFactory(),
-                new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()),
+                new TableWriteInfo(Optional.empty(), Optional.empty()),
                 customPlanTranslators);
     }
 
@@ -218,7 +218,7 @@ public class TestLocalExecutionPlanner
                 leafFragment,
                 new TestingOutputBuffer(),
                 new TestingRemoteSourceFactory(),
-                new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()));
+                new TableWriteInfo(Optional.empty(), Optional.empty()));
     }
 
     private static class CustomNodeA
