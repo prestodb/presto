@@ -175,7 +175,9 @@ public class ArrowMetadata
         for (SchemaTableName tableName : tables) {
             try {
                 ConnectorTableHandle tableHandle = getTableHandle(session, tableName);
-                columns.put(tableName, getTableMetadata(session, tableHandle).getColumns());
+                if (tableHandle != null) {
+                    columns.put(tableName, getTableMetadata(session, tableHandle).getColumns());
+                }
             }
             catch (ClassCastException | NotFoundException e) {
                 throw new ArrowException(ARROW_FLIGHT_METADATA_ERROR, "Table columns could not be listed for table: " + tableName, e);
