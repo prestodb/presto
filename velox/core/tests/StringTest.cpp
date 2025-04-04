@@ -30,7 +30,7 @@ StringWriter createStringWriter(const std::string& str) {
 TEST(String, StringWriter) {
   // Default constructor & empty string copy.
   {
-    const std::string emptyString{""};
+    const std::string emptyString;
     StringWriter writer;
     UDFOutputString::assign(writer, emptyString);
     EXPECT_EQ(StringView(writer), StringView(emptyString));
