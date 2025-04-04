@@ -15,9 +15,8 @@ package com.facebook.presto.spark.execution;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.operator.UpdateMemory;
-
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.ThreadSafe;
+import com.google.errorprone.annotations.ThreadSafe;
+import jakarta.annotation.Nullable;
 
 /**
  * Implementation of this interface is expected to be thread safe
