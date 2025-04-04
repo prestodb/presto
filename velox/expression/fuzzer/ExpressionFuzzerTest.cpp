@@ -216,7 +216,7 @@ int main(int argc, char** argv) {
         "combine_hash_internal",
         "map_keys_by_top_n_values", // requires
                                     // https://github.com/prestodb/presto/pull/24570
-        "inverse_gamma_cdf", // known precision differences: D72091837
+        "inverse_gamma_cdf", // https://github.com/facebookincubator/velox/issues/12918
     });
 
     referenceQueryRunner = std::make_shared<PrestoQueryRunner>(
