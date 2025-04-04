@@ -15,13 +15,12 @@ package com.facebook.presto.hive.metastore.thrift;
 
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.airlift.stats.TimeStat;
+import com.google.errorprone.annotations.ThreadSafe;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.thrift.TBase;
 import org.apache.thrift.TException;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.concurrent.Callable;
 
