@@ -48,6 +48,11 @@
         </dependency>
 
         <dependency>
+            <groupId>javax.validation</groupId>
+            <artifactId>validation-api</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
         </dependency>
@@ -55,11 +60,6 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-core</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>javax.validation</groupId>
-            <artifactId>validation-api</artifactId>
         </dependency>
 
         <!-- Presto SPI -->
@@ -73,20 +73,6 @@
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-common</artifactId>
             <scope>provided</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>com.facebook.airlift</groupId>
-                    <artifactId>http-client</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.facebook.drift</groupId>
-                    <artifactId>drift-codec</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.facebook.drift</groupId>
-                    <artifactId>drift-protocol</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
