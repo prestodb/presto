@@ -29,7 +29,7 @@ import static org.testng.Assert.assertEquals;
 public class TestPrometheusTable
 {
     private static final Metadata METADATA = createTestMetadataManager();
-    public static final TypeManager TYPE_MANAGER = METADATA.getFunctionAndTypeManager();
+    public static final TypeManager TYPE_MANAGER = METADATA.getFunctionAndTypeManager().getFunctionAndTypeResolver();
     private final PrometheusTable prometheusTable = new PrometheusTable("tableName",
             ImmutableList.of(
                     new PrometheusColumn("labels", varcharMapType),

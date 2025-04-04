@@ -217,7 +217,7 @@ public class PredicatePushDown
             this.nativeExecution = nativeExecution;
             this.expressionEquivalence = new ExpressionEquivalence(metadata, sqlParser);
             this.determinismEvaluator = new RowExpressionDeterminismEvaluator(metadata);
-            this.logicalRowExpressions = new LogicalRowExpressions(determinismEvaluator, new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver()), metadata.getFunctionAndTypeManager());
+            this.logicalRowExpressions = new LogicalRowExpressions(determinismEvaluator, new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver()), metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver());
             this.functionAndTypeManager = metadata.getFunctionAndTypeManager();
             this.externalCallExpressionChecker = new ExternalCallExpressionChecker(functionAndTypeManager);
         }
