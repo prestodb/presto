@@ -60,8 +60,8 @@ public class TestJmxMetadata
 
         List<JmxColumnHandle> columns = handle.getColumnHandles();
         assertTrue(columns.contains(new JmxColumnHandle("node", createUnboundedVarcharType())));
-        assertTrue(columns.contains(new JmxColumnHandle("Name", createUnboundedVarcharType())));
-        assertTrue(columns.contains(new JmxColumnHandle("StartTime", BIGINT)));
+        assertTrue(columns.contains(new JmxColumnHandle("name", createUnboundedVarcharType())));
+        assertTrue(columns.contains(new JmxColumnHandle("starttime", BIGINT)));
     }
 
     @Test
@@ -73,8 +73,8 @@ public class TestJmxMetadata
         List<JmxColumnHandle> columns = handle.getColumnHandles();
         assertTrue(columns.contains(new JmxColumnHandle("timestamp", TIMESTAMP)));
         assertTrue(columns.contains(new JmxColumnHandle("node", createUnboundedVarcharType())));
-        assertTrue(columns.contains(new JmxColumnHandle("Name", createUnboundedVarcharType())));
-        assertTrue(columns.contains(new JmxColumnHandle("StartTime", BIGINT)));
+        assertTrue(columns.contains(new JmxColumnHandle("name", createUnboundedVarcharType())));
+        assertTrue(columns.contains(new JmxColumnHandle("starttime", BIGINT)));
     }
 
     @Test
@@ -87,8 +87,8 @@ public class TestJmxMetadata
         List<JmxColumnHandle> columns = handle.getColumnHandles();
         assertTrue(columns.contains(new JmxColumnHandle("node", createUnboundedVarcharType())));
         assertTrue(columns.contains(new JmxColumnHandle("object_name", createUnboundedVarcharType())));
-        assertTrue(columns.contains(new JmxColumnHandle("Name", createUnboundedVarcharType())));
-        assertTrue(columns.contains(new JmxColumnHandle("StartTime", BIGINT)));
+        assertTrue(columns.contains(new JmxColumnHandle("name", createUnboundedVarcharType())));
+        assertTrue(columns.contains(new JmxColumnHandle("starttime", BIGINT)));
 
         assertTrue(metadata.getTableHandle(SESSION, new SchemaTableName(JMX_SCHEMA_NAME, "*java.lang:type=Runtime*")).getObjectNames().contains(RUNTIME_OBJECT));
         assertTrue(metadata.getTableHandle(SESSION, new SchemaTableName(JMX_SCHEMA_NAME, "java.lang:*=Runtime")).getObjectNames().contains(RUNTIME_OBJECT));

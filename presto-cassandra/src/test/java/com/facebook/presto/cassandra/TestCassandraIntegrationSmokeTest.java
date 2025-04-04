@@ -304,7 +304,7 @@ public class TestCassandraIntegrationSmokeTest
                 .row("keyspace_2")
                 .build(), new Duration(1, MINUTES));
 
-        session.execute("CREATE TABLE \"KEYSPACE_2\".\"TABLE_2\" (\"COLUMN_2\" bigint PRIMARY KEY)");
+        session.execute("CREATE TABLE \"KEYSPACE_2\".\"TABLE_2\" (\"column_2\" bigint PRIMARY KEY)");
         assertContainsEventually(() -> execute("SHOW TABLES FROM cassandra.keyspace_2"), resultBuilder(getSession(), createUnboundedVarcharType())
                 .row("table_2")
                 .build(), new Duration(1, MINUTES));

@@ -355,9 +355,9 @@ public class TestLogicalPropertyPropagation
                 .matches(expectedLogicalProperties);
 
         //INVARIANT: define a table with keys (A) and (B,C) and apply predicate A=B and ensure that the filter key property only has key (A)
-        ColumnHandle colA = new TpchColumnHandle("A", BIGINT);
-        ColumnHandle colB = new TpchColumnHandle("B", BIGINT);
-        ColumnHandle colC = new TpchColumnHandle("C", BIGINT);
+        ColumnHandle colA = new TpchColumnHandle("a", BIGINT);
+        ColumnHandle colB = new TpchColumnHandle("b", BIGINT);
+        ColumnHandle colC = new TpchColumnHandle("c", BIGINT);
 
         PrimaryKeyConstraint<ColumnHandle> primaryKeyConstraint = new PrimaryKeyConstraint<>(Optional.of("primarykey"), new LinkedHashSet<>(ImmutableList.of(colA)), true, true, false);
         UniqueConstraint<ColumnHandle> uniqueConstraint = new UniqueConstraint<>(new LinkedHashSet<>(ImmutableList.of(colB, colC)), true, true, false);
@@ -494,8 +494,8 @@ public class TestLogicalPropertyPropagation
                 .matches(expectedLogicalProperties);
 
         //TableScan has key property (A,B). Project only has mapping A->A' and hence result key property should be empty.
-        ColumnHandle colA = new TpchColumnHandle("A", BIGINT);
-        ColumnHandle colB = new TpchColumnHandle("B", BIGINT);
+        ColumnHandle colA = new TpchColumnHandle("a", BIGINT);
+        ColumnHandle colB = new TpchColumnHandle("b", BIGINT);
         VariableReferenceExpression varA = new VariableReferenceExpression(Optional.empty(), "A", BIGINT);
         VariableReferenceExpression varB = new VariableReferenceExpression(Optional.empty(), "B", BIGINT);
         VariableReferenceExpression projectedVarA = new VariableReferenceExpression(Optional.empty(), "A1", BIGINT);
@@ -550,10 +550,10 @@ public class TestLogicalPropertyPropagation
         // INVARIANT Filter creates multiple equivalence classes e.g. (A, B, C) (D, E, F). Test various cases where
         // all or only some of these have mappings. These should include cases where the equivalence class heads are
         // projected out, members are projected out, and also cases where the entire equivalence class is projected out.
-        ColumnHandle colC = new TpchColumnHandle("C", BIGINT);
-        ColumnHandle colD = new TpchColumnHandle("D", BIGINT);
-        ColumnHandle colE = new TpchColumnHandle("E", BIGINT);
-        ColumnHandle colF = new TpchColumnHandle("F", BIGINT);
+        ColumnHandle colC = new TpchColumnHandle("c", BIGINT);
+        ColumnHandle colD = new TpchColumnHandle("d", BIGINT);
+        ColumnHandle colE = new TpchColumnHandle("e", BIGINT);
+        ColumnHandle colF = new TpchColumnHandle("f", BIGINT);
         VariableReferenceExpression varC = new VariableReferenceExpression(Optional.empty(), "C", BIGINT);
         VariableReferenceExpression varD = new VariableReferenceExpression(Optional.empty(), "D", BIGINT);
         VariableReferenceExpression varE = new VariableReferenceExpression(Optional.empty(), "E", BIGINT);

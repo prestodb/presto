@@ -26,7 +26,7 @@ public class TestJmxColumnHandle
     @Test
     public void testJsonRoundTrip()
     {
-        JmxColumnHandle handle = new JmxColumnHandle("columnName", createUnboundedVarcharType());
+        JmxColumnHandle handle = new JmxColumnHandle("columnname", createUnboundedVarcharType());
         String json = COLUMN_CODEC.toJson(handle);
         JmxColumnHandle copy = COLUMN_CODEC.fromJson(json);
         assertEquals(copy, handle);
@@ -37,14 +37,14 @@ public class TestJmxColumnHandle
     {
         EquivalenceTester.equivalenceTester()
                 .addEquivalentGroup(
-                        new JmxColumnHandle("columnName", createUnboundedVarcharType()),
-                        new JmxColumnHandle("columnName", createUnboundedVarcharType()))
+                        new JmxColumnHandle("columnname", createUnboundedVarcharType()),
+                        new JmxColumnHandle("columnname", createUnboundedVarcharType()))
                 .addEquivalentGroup(
-                        new JmxColumnHandle("columnNameX", createUnboundedVarcharType()),
-                        new JmxColumnHandle("columnNameX", createUnboundedVarcharType()))
+                        new JmxColumnHandle("columnnamex", createUnboundedVarcharType()),
+                        new JmxColumnHandle("columnnamex", createUnboundedVarcharType()))
                 .addEquivalentGroup(
-                        new JmxColumnHandle("columnName", BIGINT),
-                        new JmxColumnHandle("columnName", BIGINT))
+                        new JmxColumnHandle("columnname", BIGINT),
+                        new JmxColumnHandle("columnname", BIGINT))
                 .check();
     }
 }
