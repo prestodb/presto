@@ -18,8 +18,7 @@ import com.facebook.presto.kafka.schema.file.FileTableDescriptionSupplier;
 import com.facebook.presto.kafka.server.file.FileKafkaClusterMetadataSupplier;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
-
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 public class KafkaConnectorConfig
 {
