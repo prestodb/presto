@@ -1,8 +1,7 @@
-namespace java com.facebook.presto.common.experimental.auto_gen
+namespace java.swift com.facebook.presto.common.experimental.auto_gen
 namespace cpp protocol
 
 include "Common.thrift"
-include "Connector.thrift"
 
 struct ThriftTaskStatus {
     1: i64 taskInstanceIdLeastSignificantBits;

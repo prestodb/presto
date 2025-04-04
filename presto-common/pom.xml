@@ -114,5 +114,11 @@
             <artifactId>drift-protocol</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>com.facebook.swift</groupId>
+            <artifactId>swift-annotations</artifactId>
+            <version>0.26.1</version>
+            <scope>compile</scope>
+        </dependency>
     </dependencies>
 </project>

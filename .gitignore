@@ -1,3 +1,5 @@
+presto-common/src/main/java/com/facebook/presto/common/experimental/thrift/gen-java
+presto-common/src/main/java/com/facebook/presto/common/experimental/auto_gen
 *.iml
 *.ipr
 *.iws

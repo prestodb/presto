@@ -1,4 +1,4 @@
-namespace java com.facebook.presto.common.experimental.auto_gen
+namespace java.swift com.facebook.presto.common.experimental.auto_gen
 namespace cpp protocol
 
 struct ThriftOperatorInfo {
