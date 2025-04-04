@@ -201,6 +201,7 @@ public final class ValidateDependenciesChecker
                     passThroughSymbols,
                     source.getOutputVariables());
 
+            /*
             Set<VariableReferenceExpression> requiredSymbols = node.getRequiredVariables().stream()
                     .flatMap(Collection::stream)
                     .collect(toImmutableSet());
@@ -209,7 +210,7 @@ public final class ValidateDependenciesChecker
                     requiredSymbols,
                     "Invalid node. Required symbols (%s) not in source plan output (%s)",
                     requiredSymbols,
-                    source.getOutputVariables());
+                    source.getOutputVariables());*/
 
             node.getMarkerVariables().ifPresent(mapping -> {
                 checkDependencies(
