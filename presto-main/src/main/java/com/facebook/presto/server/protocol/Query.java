@@ -84,10 +84,10 @@ import static com.facebook.presto.SystemSessionProperties.trackHistoryBasedPlanS
 import static com.facebook.presto.SystemSessionProperties.useHistoryBasedPlanStatisticsEnabled;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.WAITING_FOR_PREREQUISITES;
-import static com.facebook.presto.server.protocol.QueryResourceUtil.toStatementStats;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.page.PagesSerdeUtil.writeSerializedPage;
 import static com.facebook.presto.util.Failures.toFailure;
+import static com.facebook.presto.util.QueryInfoUtils.toStatementStats;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
