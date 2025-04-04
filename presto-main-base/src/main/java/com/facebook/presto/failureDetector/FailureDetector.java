@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.failureDetector;
 
+import com.facebook.airlift.discovery.client.ServiceDescriptor;
 import com.facebook.presto.spi.HostAddress;
 
 import java.util.Set;
@@ -29,11 +30,5 @@ public interface FailureDetector
         ALIVE,
         GONE,
         UNRESPONSIVE,
-    }
-
-    enum ServiceState
-    {
-        STOPPED,
-        RUNNING
     }
 }

@@ -575,7 +575,7 @@ public class ServerMainModule
                 .annotatedWith(ForExchange.class)
                 .to(ThriftShuffleClientProvider.class);
         binder.bind(ExchangeClientSupplier.class).to(ExchangeClientFactory.class).in(Scopes.SINGLETON);
-
+        binder.bind(ExchangeClientSupplier.class).to(ExchangeClientFactory.class).in(Scopes.SINGLETON);
         httpClientBinder(binder).bindHttpClient("exchange", ForExchange.class)
                 .withTracing()
                 .withFilter(GenerateTraceTokenRequestFilter.class)
@@ -584,7 +584,6 @@ public class ServerMainModule
                     config.setMaxConnectionsPerServer(250);
                     config.setMaxContentLength(new DataSize(32, MEGABYTE));
                 });
-
         binder.install(new DriftNettyClientModule());
         driftClientBinder(binder).bindDriftClient(ThriftTaskClient.class, ForExchange.class)
                 .withAddressSelector(((addressSelectorBinder, annotation, prefix) ->

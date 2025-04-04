@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.airlift.http.client.HttpUriBuilder;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.server.remotetask.Backoff;
 import com.facebook.presto.spi.HostAddress;
@@ -25,7 +26,6 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import org.apache.http.client.utils.URIBuilder;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -33,7 +33,6 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.Closeable;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.List;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
@@ -264,16 +263,7 @@ public final class PageBufferClient
 
     private synchronized void sendGetResults(DataSize maxResponseSize)
     {
-        URIBuilder uriBuilder = new URIBuilder(location);
-        List<String> segments = uriBuilder.getPathSegments();
-        segments.add(String.valueOf(token));
-        URI uri;
-        try {
-            uri = uriBuilder.setPathSegments(segments).build();
-        }
-        catch (URISyntaxException e) {
-            throw new RuntimeException(e);
-        }
+        URI uri = HttpUriBuilder.uriBuilderFrom(location).appendPath(String.valueOf(token)).build();
 
         ListenableFuture<PagesResponse> resultFuture = resultClient.getResults(token, maxResponseSize);
 

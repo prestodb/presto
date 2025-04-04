@@ -16,6 +16,7 @@ package com.facebook.presto.server.thrift;
 import com.facebook.drift.annotations.ThriftMethod;
 import com.facebook.drift.annotations.ThriftService;
 import com.facebook.presto.server.GracefulShutdownHandler;
+import com.facebook.presto.server.ServerInfoResource;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 

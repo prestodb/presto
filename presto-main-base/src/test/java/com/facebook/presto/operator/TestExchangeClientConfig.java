@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.airlift.http.client.HttpClientConfig;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -25,8 +26,6 @@ import static com.facebook.airlift.configuration.testing.ConfigAssertions.assert
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.airlift.units.DataSize.succinctDataSize;
 
 public class TestExchangeClientConfig
 {
@@ -34,12 +33,12 @@ public class TestExchangeClientConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(ExchangeClientConfig.class)
-                .setMaxBufferSize(new DataSize(32, MEGABYTE))
+                .setMaxBufferSize(new DataSize(32, Unit.MEGABYTE))
                 .setConcurrentRequestMultiplier(3)
                 .setMinErrorDuration(new Duration(5, TimeUnit.MINUTES))
                 .setMaxErrorDuration(new Duration(5, TimeUnit.MINUTES))
                 .setAsyncPageTransportTimeout(new Duration(60, TimeUnit.SECONDS))
-                .setMaxResponseSize(succinctDataSize(16, MEGABYTE))
+                .setMaxResponseSize(new HttpClientConfig().getMaxContentLength())
                 .setPageBufferClientMaxCallbackThreads(25)
                 .setClientThreads(25)
                 .setAcknowledgePages(true)
@@ -68,7 +67,7 @@ public class TestExchangeClientConfig
                 .setMinErrorDuration(new Duration(33, TimeUnit.SECONDS))
                 .setMaxErrorDuration(new Duration(33, TimeUnit.SECONDS))
                 .setAsyncPageTransportTimeout(new Duration(30, TimeUnit.SECONDS))
-                .setMaxResponseSize(new DataSize(1, MEGABYTE))
+                .setMaxResponseSize(new DataSize(1, Unit.MEGABYTE))
                 .setClientThreads(2)
                 .setPageBufferClientMaxCallbackThreads(16)
                 .setAcknowledgePages(false)
