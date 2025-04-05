@@ -15,19 +15,47 @@
 #include <folly/lang/Bits.h>
 #include "velox/exec/OperatorUtils.h"
 #include "velox/row/CompactRow.h"
+#include "presto_cpp/main/operators/BinarySortableSerializer.h"
 
 using namespace facebook::velox::exec;
 using namespace facebook::velox;
 
 namespace facebook::presto::operators {
 namespace {
+folly::dynamic serializeSortingOrders(
+    const std::vector<velox::core::SortOrder>& sortingOrders) {
+  auto array = folly::dynamic::array();
+  for (const auto& order : sortingOrders) {
+    array.push_back(order.serialize());
+  }
+
+  return array;
+}
+
+std::vector<velox::core::SortOrder> deserializeSortingOrders(const folly::dynamic& array) {
+  std::vector<velox::core::SortOrder> sortingOrders;
+  sortingOrders.reserve(array.size());
+  for (const auto& order : array) {
+    sortingOrders.push_back(velox::core::SortOrder::deserialize(order));
+  }
+  return sortingOrders;
+}
+
+std::vector<velox::core::FieldAccessTypedExprPtr> deserializeFields(
+    const folly::dynamic& array,
+    void* context) {
+  return ISerializable::deserialize<std::vector<velox::core::FieldAccessTypedExpr>>(
+      array, context);
+}
+
 velox::core::PlanNodeId deserializePlanNodeId(const folly::dynamic& obj) {
   return obj["id"].asString();
 }
 
-// The output of this operator has 2 columns:
+// The output of this operator has 3 columns:
 // (1) partition number (INTEGER);
-// (2) serialized row (VARBINARY)
+// (2) serialized key (VARBINARY)
+// (3) serialized row (VARBINARY)
 //
 // When replicateNullsAndAny is true, there is an extra boolean column that
 // indicated whether a row should be replicated to all partitions.
@@ -52,7 +80,11 @@ class PartitionAndSerializeOperator : public Operator {
                                 : planNode->partitionFunctionFactory()->create(
                                       planNode->numPartitions())),
         replicateNullsAndAny_(
-            numPartitions_ > 1 ? planNode->isReplicateNullsAndAny() : false) {
+            numPartitions_ > 1 ? planNode->isReplicateNullsAndAny() : false),
+        sortedShuffle_(planNode->sortingOrders() && planNode->sortingKeys()),
+        sortingOrders_(planNode->sortingOrders()),
+        sortingKeys_(planNode->sortingKeys())
+         {
     const auto& inputType = planNode->sources()[0]->outputType()->asRow();
     const auto& serializedRowTypeNames = serializedRowType_->names();
     bool identityMapping = (serializedRowType_->size() == inputType.size());
@@ -110,10 +142,15 @@ class PartitionAndSerializeOperator : public Operator {
         VARBINARY(), batchSize, pool());
     serializeRows(*dataVector, outputBufferSize, nextOutputRow_, endOutputRow);
 
+    auto keyVector = BaseVector::create<FlatVector<StringView>>(
+        VARBINARY(), batchSize, pool());
+    serializeKeys(nextOutputRow_, endOutputRow, *keyVector);
+
     // Extract slice from output_ and construct the output vector.
     std::vector<VectorPtr> childrenVectors;
     childrenVectors.push_back(
         output_->childAt(0)->slice(nextOutputRow_, batchSize));
+    childrenVectors.push_back(keyVector);
     childrenVectors.push_back(dataVector);
     RowVectorPtr outputBatch;
     // Handle replicateVector based on 'replicateNullsAndAny_' as it
@@ -130,7 +167,7 @@ class PartitionAndSerializeOperator : public Operator {
     } else {
       outputBatch = std::make_shared<RowVector>(
           pool(),
-          ROW({INTEGER(), VARBINARY()}),
+          ROW({INTEGER(), VARBINARY(), VARBINARY()}),
           nullptr /*nulls*/,
           batchSize,
           std::move(childrenVectors));
@@ -173,10 +210,14 @@ class PartitionAndSerializeOperator : public Operator {
       vector_size_t& endOutputRow,
       uint32_t& outputBufferSize) {
     const auto& queryConfig = operatorCtx_->driverCtx()->queryConfig();
-    const auto preferredOutputBytes = queryConfig.preferredOutputBatchBytes();
+    auto preferredOutputBytes = queryConfig.preferredOutputBatchBytes();
     const auto preferredOutputRows = queryConfig.preferredOutputBatchRows();
     endOutputRow = nextOutputRow_;
 
+    if (sortedShuffle_) {
+      // substract key buffer size from preferredOutputBytes.
+      preferredOutputBytes -= kDefaultSortedShuffleKeyBufferSize;
+    }
     VELOX_DCHECK(!rowSizes_.empty(), "rowSizes_ can not be empty");
     do {
       outputBufferSize += rowSizes_[endOutputRow++];
@@ -310,17 +351,65 @@ class PartitionAndSerializeOperator : public Operator {
     }
   }
 
+  void maybeInitializeSortedShuffle() {
+    if (!sortedShuffle_ || binarySortableSerializer_) {
+      return;
+    }
+    VELOX_CHECK(sortingOrders_.has_value() && sortingKeys_.has_value());
+    binarySortableSerializer_ = std::make_unique<BinarySortableSerializer>(
+        input_,
+        sortingOrders_.value(),
+        sortingKeys_.value());
+  }
+
+  void serializeKeys(vector_size_t from, vector_size_t to, FlatVector<StringView>& keyVector) {
+    if (!sortedShuffle_) {
+      return;
+    }
+    maybeInitializeSortedShuffle();
+    const vector_size_t batchSize = to - from;
+    // Allocate memory.
+    auto buffer = keyVector.getBufferWithSpace(kDefaultSortedShuffleKeyBufferSize);
+    // getBufferWithSpace() may return a buffer that already has content, so we
+    // only use the space after that.
+    auto* rawBuffer = buffer->asMutable<char>() + buffer->size();
+    buffer->setSize(buffer->size() + kDefaultSortedShuffleKeyBufferSize);
+    memset(rawBuffer, 0, kDefaultSortedShuffleKeyBufferSize);
+
+    // Serialize keys.
+    size_t prevOffset = 0;
+    auto rawKeyBuffer = std::make_unique<RawBuffer>(
+        rawBuffer,
+        kDefaultSortedShuffleKeyBufferSize);
+    for (int32_t row = 0; row < batchSize; ++row) {
+      binarySortableSerializer_->serialize(from+row, rawKeyBuffer.get());
+      keyVector.setNoCopy(
+        row, StringView(
+          rawKeyBuffer->data() + prevOffset, rawKeyBuffer->position() - prevOffset));
+      prevOffset = rawKeyBuffer->position();
+    }
+  }
+
+  // TODO: Dynamically set the buffer size based on row type. 
+  // Similar to what's been done in CompactRow.cpp
+  static constexpr size_t kDefaultSortedShuffleKeyBufferSize = 1 << 20; // 1 MB;
+  
   const uint32_t numPartitions_;
   const RowTypePtr serializedRowType_;
   const std::vector<column_index_t> keyChannels_;
   const std::unique_ptr<core::PartitionFunction> partitionFunction_;
   const bool replicateNullsAndAny_;
+  const bool sortedShuffle_;
+  const std::optional<std::vector<velox::core::SortOrder>> sortingOrders_;
+  const std::optional<std::vector<velox::core::FieldAccessTypedExprPtr>>
+      sortingKeys_;
   bool replicatedAny_{false};
   std::vector<column_index_t> serializedColumnIndices_;
   // Holder for partitionVector and replicateVector.
   RowVectorPtr output_;
 
   std::unique_ptr<velox::row::CompactRow> compactRow_;
+  std::unique_ptr<BinarySortableSerializer> binarySortableSerializer_;
   // Decoded 'keyChannels_' columns.
   std::vector<velox::DecodedVector> decodedVectors_;
   // Reusable vector for storing partition id for each input row.
@@ -373,12 +462,26 @@ folly::dynamic PartitionAndSerializeNode::serialize() const {
   obj["sources"] = ISerializable::serialize(sources_);
   obj["replicateNullsAndAny"] = replicateNullsAndAny_;
   obj["partitionFunctionSpec"] = partitionFunctionSpec_->serialize();
+  if (sortingOrders_) {
+    obj["sortingOrders"] = serializeSortingOrders(sortingOrders_.value());
+  }
+  if (sortingKeys_) {
+    obj["sortingKeys"] = ISerializable::serialize(sortingKeys_.value());
+  }
   return obj;
 }
 
 velox::core::PlanNodePtr PartitionAndSerializeNode::create(
     const folly::dynamic& obj,
     void* context) {
+  std::optional<std::vector<velox::core::SortOrder>> sortingOrders = std::nullopt;
+  if (obj.count("sortingOrders")) {
+    sortingOrders = deserializeSortingOrders(obj["sortingOrders"]);
+  }
+  std::optional<std::vector<velox::core::FieldAccessTypedExprPtr>> sortingKeys = std::nullopt;
+  if (obj.count("sortingKeys")) {
+    sortingKeys = deserializeFields(obj["sortingKeys"], context);
+  }
   return std::make_shared<PartitionAndSerializeNode>(
       deserializePlanNodeId(obj),
       ISerializable::deserialize<std::vector<velox::core::ITypedExpr>>(
@@ -389,6 +492,8 @@ velox::core::PlanNodePtr PartitionAndSerializeNode::create(
           obj["sources"], context)[0],
       obj["replicateNullsAndAny"].asBool(),
       ISerializable::deserialize<velox::core::PartitionFunctionSpec>(
-          obj["partitionFunctionSpec"], context));
+          obj["partitionFunctionSpec"], context),
+      sortingOrders,
+      sortingKeys);
 }
 } // namespace facebook::presto::operators

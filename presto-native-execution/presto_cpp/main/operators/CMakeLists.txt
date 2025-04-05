@@ -20,7 +20,8 @@ add_library(
   LocalPersistentShuffle.cpp
   BroadcastWrite.cpp
   BroadcastFactory.cpp
-  BroadcastExchangeSource.cpp)
+  BroadcastExchangeSource.cpp
+  BinarySortableSerializer.cpp)
 
 target_link_libraries(
   presto_operators
