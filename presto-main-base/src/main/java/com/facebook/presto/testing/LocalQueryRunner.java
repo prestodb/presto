@@ -590,7 +590,8 @@ public class LocalQueryRunner
                 defaultSession.getTracer(),
                 defaultSession.getWarningCollector(),
                 defaultSession.getRuntimeStats(),
-                defaultSession.getQueryType());
+                defaultSession.getQueryType(),
+                defaultSession.getAccessControlContext().getAccessControlResults());
 
         dataDefinitionTask = ImmutableMap.<Class<? extends Statement>, DataDefinitionTask<?>>builder()
                 .put(CreateTable.class, new CreateTableTask())
