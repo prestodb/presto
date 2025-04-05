@@ -30,8 +30,8 @@ import com.amazonaws.services.s3.model.EncryptionMaterials;
 import com.amazonaws.services.s3.model.EncryptionMaterialsProvider;
 import com.amazonaws.services.s3.model.GetObjectMetadataRequest;
 import com.amazonaws.services.s3.model.GetObjectRequest;
-import com.amazonaws.services.s3.model.ListObjectsRequest;
-import com.amazonaws.services.s3.model.ObjectListing;
+import com.amazonaws.services.s3.model.ListObjectsV2Request;
+import com.amazonaws.services.s3.model.ListObjectsV2Result;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
@@ -548,7 +548,7 @@ public class TestPrestoS3FileSystem
             fs.initialize(new URI("s3n://test-bucket/"), config);
             fs.setS3Client(s3);
             FileStatus[] statuses = fs.listStatus(new Path("s3n://test-bucket/test"));
-            assertEquals(statuses.length, skipGlacierObjects ? 1 : 3);
+            assertEquals(statuses.length, skipGlacierObjects ? 2 : 3);
         }
     }
 
@@ -669,7 +669,7 @@ public class TestPrestoS3FileSystem
             fs.initialize(new URI("s3n://test-bucket/"), config);
             fs.setS3Client(s3);
             FileStatus[] statuses = fs.listStatus(new Path("s3n://test-bucket/test"));
-            assertEquals(statuses.length, 1);
+            assertEquals(statuses.length, 2);
         }
     }
 
@@ -755,11 +755,11 @@ public class TestPrestoS3FileSystem
             MockAmazonS3 s3 = new MockAmazonS3()
             {
                 @Override
-                public ObjectListing listObjects(ListObjectsRequest listObjectsRequest)
+                public ListObjectsV2Result listObjectsV2(ListObjectsV2Request listObjectsV2Request)
                 {
-                    ObjectListing listing = new ObjectListing();
+                    ListObjectsV2Result listing = new ListObjectsV2Result();
                     // Shallow listing
-                    if ("/".equals(listObjectsRequest.getDelimiter())) {
+                    if ("/".equals(listObjectsV2Request.getDelimiter())) {
                         listing.getCommonPrefixes().add("prefix");
                         listing.getObjectSummaries().add(rootObject);
                         return listing;
