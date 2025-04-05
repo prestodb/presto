@@ -94,24 +94,19 @@ public class JmxMetadata
     @Override
     public JmxTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
-        return getTableHandle(tableName);
-    }
-
-    public JmxTableHandle getTableHandle(SchemaTableName tableName)
-    {
         requireNonNull(tableName, "tableName is null");
         if (tableName.getSchemaName().equals(JMX_SCHEMA_NAME)) {
-            return getJmxTableHandle(tableName);
+            return getJmxTableHandle(session, tableName);
         }
         else if (tableName.getSchemaName().equals(HISTORY_SCHEMA_NAME)) {
-            return getJmxHistoryTableHandle(tableName);
+            return getJmxHistoryTableHandle(session, tableName);
         }
         return null;
     }
 
-    private JmxTableHandle getJmxHistoryTableHandle(SchemaTableName tableName)
+    private JmxTableHandle getJmxHistoryTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
-        JmxTableHandle handle = getJmxTableHandle(tableName);
+        JmxTableHandle handle = getJmxTableHandle(session, tableName);
         if (handle == null) {
             return null;
         }
@@ -121,7 +116,7 @@ public class JmxMetadata
         return new JmxTableHandle(handle.getTableName(), handle.getObjectNames(), builder.build(), false);
     }
 
-    private JmxTableHandle getJmxTableHandle(SchemaTableName tableName)
+    private JmxTableHandle getJmxTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
         try {
             String objectNamePattern = toPattern(tableName.getTableName().toLowerCase(ENGLISH));
@@ -137,7 +132,7 @@ public class JmxMetadata
             for (ObjectName objectName : objectNames) {
                 MBeanInfo mbeanInfo = mbeanServer.getMBeanInfo(objectName);
 
-                getColumnHandles(mbeanInfo).forEach(columns::add);
+                getColumnHandles(session, mbeanInfo).forEach(columns::add);
             }
 
             // Since this method is being called on all nodes in the cluster, we must ensure (by sorting)
@@ -165,11 +160,11 @@ public class JmxMetadata
                 .collect(Collectors.joining(".*"));
     }
 
-    private Stream<JmxColumnHandle> getColumnHandles(MBeanInfo mbeanInfo)
+    private Stream<JmxColumnHandle> getColumnHandles(ConnectorSession session, MBeanInfo mbeanInfo)
     {
         return Arrays.stream(mbeanInfo.getAttributes())
                 .filter(MBeanAttributeInfo::isReadable)
-                .map(attribute -> new JmxColumnHandle(attribute.getName(), getColumnType(attribute)));
+                .map(attribute -> new JmxColumnHandle(normalizeIdentifier(session, attribute.getName()), getColumnType(attribute)));
     }
 
     @Override

@@ -28,7 +28,7 @@ public class TestArrowColumnHandle
     public void testConstructorAndGetters()
     {
         // Given
-        String columnName = "testColumn";
+        String columnName = "testcolumn";
         // When
         ArrowColumnHandle columnHandle = new ArrowColumnHandle(columnName, IntegerType.INTEGER);
 
@@ -49,7 +49,7 @@ public class TestArrowColumnHandle
     public void testConstructorWithNullColumnType()
     {
         // Given
-        String columnName = "testColumn";
+        String columnName = "testcolumn";
 
         // When
         new ArrowColumnHandle(columnName, null); // Should throw NullPointerException
@@ -59,7 +59,7 @@ public class TestArrowColumnHandle
     public void testGetColumnMetadata()
     {
         // Given
-        String columnName = "testColumn";
+        String columnName = "testcolumn";
         ArrowColumnHandle columnHandle = new ArrowColumnHandle(columnName, IntegerType.INTEGER);
 
         // When
@@ -74,7 +74,7 @@ public class TestArrowColumnHandle
     @Test
     public void testToString()
     {
-        String columnName = "testColumn";
+        String columnName = "testcolumn";
         ArrowColumnHandle columnHandle = new ArrowColumnHandle(columnName, IntegerType.INTEGER);
         String result = columnHandle.toString();
         String expected = columnName + ":" + IntegerType.INTEGER;

@@ -59,7 +59,7 @@ public class JmxPeriodicSampler
 
         for (String tableName : jmxHistoricalData.getTables()) {
             tableHandleBuilder.add(requireNonNull(
-                    jmxMetadata.getTableHandle(new SchemaTableName(JmxMetadata.HISTORY_SCHEMA_NAME, tableName)),
+                    jmxMetadata.getTableHandle(null, new SchemaTableName(JmxMetadata.HISTORY_SCHEMA_NAME, tableName)),
                     format("tableHandle is null for table [%s]", tableName)));
         }
 

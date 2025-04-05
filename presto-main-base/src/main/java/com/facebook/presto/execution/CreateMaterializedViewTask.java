@@ -75,7 +75,7 @@ public class CreateMaterializedViewTask
     @Override
     public ListenableFuture<?> execute(CreateMaterializedView statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
     {
-        QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getName());
+        QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getName(), metadata);
 
         Optional<TableHandle> viewHandle = metadata.getMetadataResolver(session).getTableHandle(viewName);
         if (viewHandle.isPresent()) {
@@ -95,7 +95,7 @@ public class CreateMaterializedViewTask
         List<ColumnMetadata> columnMetadata = analysis.getOutputDescriptor(statement.getQuery())
                 .getVisibleFields().stream()
                 .map(field -> ColumnMetadata.builder()
-                        .setName(field.getName().get())
+                        .setName(metadata.normalizeIdentifier(session, viewName.getLegacyCatalogName(), field.getName().get()))
                         .setType(field.getType())
                         .build())
                 .collect(toImmutableList());
@@ -110,7 +110,7 @@ public class CreateMaterializedViewTask
                 parameterLookup);
 
         ConnectorTableMetadata viewMetadata = new ConnectorTableMetadata(
-                toSchemaTableName(viewName),
+                toSchemaTableName(viewName, metadata, session),
                 columnMetadata,
                 properties,
                 statement.getComment());
@@ -119,7 +119,7 @@ public class CreateMaterializedViewTask
 
         List<SchemaTableName> baseTables = analysis.getTableNodes().stream()
                 .map(table -> {
-                    QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName());
+                    QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName(), metadata);
                     if (!viewName.getCatalogName().equals(tableName.getCatalogName())) {
                         throw new SemanticException(
                                 NOT_SUPPORTED,
@@ -127,12 +127,12 @@ public class CreateMaterializedViewTask
                                 "Materialized view %s created from a base table in a different catalog %s is not supported.",
                                 viewName, tableName);
                     }
-                    return toSchemaTableName(tableName);
+                    return toSchemaTableName(tableName, metadata, session);
                 })
                 .distinct()
                 .collect(toImmutableList());
 
-        MaterializedViewColumnMappingExtractor extractor = new MaterializedViewColumnMappingExtractor(analysis, session);
+        MaterializedViewColumnMappingExtractor extractor = new MaterializedViewColumnMappingExtractor(analysis, session, metadata);
         MaterializedViewDefinition viewDefinition = new MaterializedViewDefinition(
                 sql,
                 viewName.getSchemaName(),
