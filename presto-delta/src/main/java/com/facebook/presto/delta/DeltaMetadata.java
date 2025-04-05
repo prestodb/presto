@@ -107,7 +107,9 @@ public class DeltaMetadata
     public List<String> listSchemaNames(ConnectorSession session)
     {
         ArrayList<String> schemas = new ArrayList<>();
-        schemas.addAll(metastore.getAllDatabases(metastoreContext(session)));
+        List<String> schemaNames;
+        schemaNames = metastore.getAllDatabases(metastoreContext(session));
+        schemas.addAll(schemaNames);
         schemas.add(PATH_SCHEMA.toLowerCase(US));
         return schemas;
     }

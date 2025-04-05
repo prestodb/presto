@@ -667,6 +667,7 @@ public class PrestoNativeQueryRunnerUtils
     private static Table createHiveSymlinkTable(String databaseName, String tableName, List<Column> columns, String location)
     {
         return new Table(
+                Optional.of("catalogName"),
                 databaseName,
                 tableName,
                 "hive",
