@@ -361,6 +361,13 @@ Property Name                                Description
 ``hive.s3.skip-glacier-objects``             Ignore Glacier objects rather than failing the query. This
                                              will skip data that may be expected to be part of the table
                                              or partition. Defaults to ``false``.
+
+``hive.s3.web.identity.auth.enabled``        Enables Web Identity authentication for S3 access. Requires
+                                             ``hive.s3.iam-role`` to be specified. Additionally, ensure that
+                                             the environment variables ``AWS_WEB_IDENTITY_TOKEN_FILE`` and
+                                             ``AWS_REGION`` are set for proper authentication. Since this
+                                             implementation uses AWS SDK 1.x, setting these environment
+                                             variables is necessary.
 ============================================ =================================================================
 
 S3 Credentials
