@@ -22,6 +22,7 @@ import com.facebook.presto.hive.metastore.HivePartitionMutator;
 import com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreCacheStats;
 import com.facebook.presto.hive.metastore.MetastoreConfig;
+import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastoreConfig;
 import com.facebook.presto.iceberg.hive.IcebergHiveMetastoreModule;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
@@ -53,6 +54,7 @@ public class IcebergHiveModule
         configBinder(binder).bindConfig(IcebergHiveTableOperationsConfig.class);
 
         configBinder(binder).bindConfig(MetastoreClientConfig.class);
+        configBinder(binder).bindConfig(ThriftHiveMetastoreConfig.class);
 
         long metastoreCacheTtl = buildConfigObject(MetastoreClientConfig.class).getMetastoreCacheTtl().toMillis();
         checkArgument(metastoreCacheTtl == 0, "In-memory hive metastore caching must not be enabled for Iceberg");

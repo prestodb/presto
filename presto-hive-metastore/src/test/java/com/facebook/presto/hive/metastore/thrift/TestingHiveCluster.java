@@ -27,11 +27,13 @@ public class TestingHiveCluster
         implements HiveCluster
 {
     private final MetastoreClientConfig metastoreClientConfig;
+    private final ThriftHiveMetastoreConfig thriftHiveMetastoreConfig;
     private final HostAndPort address;
 
-    public TestingHiveCluster(MetastoreClientConfig metastoreClientConfig, String host, int port)
+    public TestingHiveCluster(MetastoreClientConfig metastoreClientConfig, ThriftHiveMetastoreConfig thriftHiveMetastoreConfig, String host, int port)
     {
         this.metastoreClientConfig = requireNonNull(metastoreClientConfig, "metastore config is null");
+        this.thriftHiveMetastoreConfig = requireNonNull(thriftHiveMetastoreConfig, "thrift metastore config is null");
         this.address = HostAndPort.fromParts(requireNonNull(host, "host is null"), port);
     }
 
@@ -39,7 +41,7 @@ public class TestingHiveCluster
     public HiveMetastoreClient createMetastoreClient(Optional<String> token)
             throws TException
     {
-        return new HiveMetastoreClientFactory(metastoreClientConfig, new NoHiveMetastoreAuthentication()).create(address, token);
+        return new HiveMetastoreClientFactory(metastoreClientConfig, thriftHiveMetastoreConfig, new NoHiveMetastoreAuthentication()).create(address, token);
     }
 
     @Override

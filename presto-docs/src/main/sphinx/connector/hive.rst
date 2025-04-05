@@ -213,9 +213,9 @@ Metastore Configuration Properties
 
 The required Hive metastore can be configured with a number of properties.
 
-======================================================= ============================================================= ============
+======================================================== ============================================================= ============
 Property Name                                                         Description                                       Default
-======================================================= ============================================================= ============
+======================================================== ============================================================= ============
 ``hive.metastore-timeout``                               Timeout for Hive metastore requests.                           ``10s``
 
 ``hive.metastore-cache-ttl``                             Duration how long cached metastore data should be considered   ``0s``
@@ -232,7 +232,17 @@ Property Name                                                         Descriptio
 ``hive.invalidate-metastore-cache-procedure-enabled``    When enabled, users will be able to invalidate metastore        false
                                                          cache on demand.
 
-======================================================= ============================================================= ============
+``hive.metastore.thrift.client.tls.enabled``             Whether TLS security is enabled.                                false
+
+``hive.metastore.thrift.client.tls.keystore-path``       Path to the PEM or JKS key store.                               NONE
+
+``hive.metastore.thrift.client.tls.keystore-password``   Password for the key store.                                     NONE
+
+``hive.metastore.thrift.client.tls.truststore-path``     Path to the PEM or JKS trust store.                             NONE
+
+``hive.metastore.thrift.client.tls.truststore-password`` Password for the trust store.                                   NONE
+
+======================================================== ============================================================= ============
 
 AWS Glue Catalog Configuration Properties
 -----------------------------------------
