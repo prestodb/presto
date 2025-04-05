@@ -24,9 +24,8 @@ import io.prestodb.tempto.fulfillment.table.TableDefinition;
 import io.prestodb.tempto.fulfillment.table.hive.HiveDataSource;
 import io.prestodb.tempto.fulfillment.table.hive.HiveTableDefinition;
 import io.prestodb.tempto.query.QueryResult;
+import jakarta.inject.Inject;
 import org.testng.annotations.Test;
-
-import javax.inject.Inject;
 
 import java.math.RoundingMode;
 import java.util.Optional;

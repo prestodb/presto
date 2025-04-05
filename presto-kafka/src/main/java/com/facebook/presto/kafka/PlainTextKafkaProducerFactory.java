@@ -15,10 +15,9 @@ package com.facebook.presto.kafka;
 
 import com.facebook.presto.spi.HostAddress;
 import com.google.common.collect.ImmutableMap;
+import jakarta.inject.Inject;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;

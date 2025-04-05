@@ -17,9 +17,9 @@ import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.authentication.HiveMetastoreAuthentication;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
+import jakarta.inject.Inject;
 import org.apache.thrift.transport.TTransportException;
 
-import javax.inject.Inject;
 import javax.net.ssl.SSLContext;
 
 import java.util.Optional;

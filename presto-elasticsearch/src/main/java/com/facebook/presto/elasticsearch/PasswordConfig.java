@@ -15,8 +15,7 @@ package com.facebook.presto.elasticsearch;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigSecuritySensitive;
-
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 public class PasswordConfig
 {

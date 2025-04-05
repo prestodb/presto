@@ -19,8 +19,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.JoinProbe.JoinProbeFactory;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spiller.PartitioningSpillerFactory;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
