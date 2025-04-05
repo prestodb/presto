@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.ConnectorPlanRewriter.rewriteWith;
+import static java.util.Objects.requireNonNull;
 
 public class ClpPlanOptimizer
         implements ConnectorPlanOptimizer
@@ -44,8 +45,8 @@ public class ClpPlanOptimizer
     public ClpPlanOptimizer(FunctionMetadataManager functionManager,
                             StandardFunctionResolution functionResolution)
     {
-        this.functionManager = functionManager;
-        this.functionResolution = functionResolution;
+        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
     }
 
     @Override

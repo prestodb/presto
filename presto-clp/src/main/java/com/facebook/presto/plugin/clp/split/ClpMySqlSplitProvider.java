@@ -95,7 +95,7 @@ public class ClpMySqlSplitProvider
                 while (resultSet.next()) {
                     final String archiveId = resultSet.getString("archive_id");
                     final String archivePath = tablePath + "/" + archiveId;
-                    splits.add(new ClpSplit(tableSchemaName, archivePath, clpTableLayoutHandle.getQuery()));
+                    splits.add(new ClpSplit(tableSchemaName, archivePath, clpTableLayoutHandle.getKqlQuery()));
                 }
             }
         }
