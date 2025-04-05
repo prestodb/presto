@@ -46,6 +46,12 @@ public class WeightedRandomChoiceScheduler
                     .flatMap(Collection::stream)
                     .collect(toImmutableList());
 
+            //If server list is empty (servers got filtered out due to 0 weight)
+            //select the first candidate from candidate list
+            if (serverList.isEmpty() && !candidates.isEmpty()) {
+                return Optional.of(candidates.get(0));
+            }
+
             return Optional.of(serverList.get(RANDOM.nextInt(serverList.size())));
         }
         catch (IllegalArgumentException e) {

@@ -10,6 +10,7 @@
 
     <artifactId>presto-router</artifactId>
     <description>Presto Router</description>
+    <name>presto-router</name>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
@@ -162,6 +163,11 @@
             <artifactId>jmxutils</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-main-base</artifactId>
+        </dependency>
+
         <!-- test dependencies-->
         <dependency>
             <groupId>org.testng</groupId>
@@ -173,6 +179,7 @@
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main-base</artifactId>
             <scope>test</scope>
+            <type>test-jar</type>
         </dependency>
 
         <dependency>
