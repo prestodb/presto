@@ -417,19 +417,18 @@ ExpressionFuzzer::ExpressionFuzzer(
   sortSignatureTemplates(signatureTemplates_);
 
   for (const auto& it : signatureTemplates_) {
-    const auto returnType =
-        exec::sanitizeName(it.signature->returnType().baseName());
-    const auto* returnTypeKey = &returnType;
+    const auto returnType = it.signature->returnType().baseName();
+    std::string returnTypeKey = exec::sanitizeName(returnType);
 
     if (it.typeVariables.find(returnType) != it.typeVariables.end()) {
       // Return type is a template variable.
-      returnTypeKey = &kTypeParameterName;
+      returnTypeKey = kTypeParameterName;
     }
-    if (typeToExpressionList_[*returnTypeKey].empty() ||
-        typeToExpressionList_[*returnTypeKey].back() != it.name) {
-      addToTypeToExpressionListByTicketTimes(*returnTypeKey, it.name);
+    if (typeToExpressionList_[returnTypeKey].empty() ||
+        typeToExpressionList_[returnTypeKey].back() != it.name) {
+      addToTypeToExpressionListByTicketTimes(returnTypeKey, it.name);
     }
-    expressionToTemplatedSignature_[it.name][*returnTypeKey].push_back(&it);
+    expressionToTemplatedSignature_[it.name][returnTypeKey].push_back(&it);
   }
 
   if (options_.enableDereference) {
@@ -771,7 +770,9 @@ core::TypedExprPtr ExpressionFuzzer::generateExpression(
   }
   auto baseType = typeToBaseName(returnType);
   VELOX_CHECK_NE(
-      baseType, "T", "returnType should have all concrete types defined");
+      baseType,
+      kTypeParameterName,
+      "returnType should have all concrete types defined");
   // Randomly pick among all functions that support this return type. Also,
   // consider all functions that have return type "T" as they can
   // support any concrete return type.
