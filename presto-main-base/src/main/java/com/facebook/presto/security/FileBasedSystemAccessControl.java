@@ -450,6 +450,13 @@ public class FileBasedSystemAccessControl
         }
     }
 
+    @Override
+    public boolean isSkipPermissionsCheckEnabled()
+    {
+        // Need to override
+        return false;
+    }
+
     private boolean isSchemaOwner(Identity identity, CatalogSchemaName schema)
     {
         if (!canAccessCatalog(identity, schema.getCatalogName(), ALL)) {
