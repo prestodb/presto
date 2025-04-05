@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ 8.0.442, 17.0.13 ]
+        java: [ 17.0.13 ]
         modules:
           - ":presto-base-arrow-flight"  # Only run tests for the `presto-base-arrow-flight` module
 
@@ -183,7 +183,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: 8.0.442
+          java-version: 17.0.13
           cache: 'maven'
       - name: Download nodejs to maven cache
         run: .github/bin/download_nodejs

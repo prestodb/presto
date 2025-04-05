@@ -36,7 +36,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [8.0.442, 17.0.13]
+        java: [ 17.0.13 ]
         modules:
           - ":presto-tests -P presto-tests-execution-memory"
           - ":presto-tests -P presto-tests-general"
