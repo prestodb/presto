@@ -114,6 +114,9 @@ jobs:
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl :presto-hive
-      - name: Run Hive Dockerized Tests
+      - name: Run Hive Insert Overwrite Tests
         if: needs.changes.outputs.codechange == 'true'
         run: ./mvnw test ${MAVEN_TEST} -pl :presto-hive -P test-hive-insert-overwrite
+      - name: Run Hive SSL Enabled Tests
+        if: needs.changes.outputs.codechange == 'true'
+        run: ./mvnw test ${MAVEN_TEST} -pl :presto-hive -P test-ssl-enabled-hms

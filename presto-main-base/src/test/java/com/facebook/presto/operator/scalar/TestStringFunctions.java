@@ -32,6 +32,7 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.CharType.createCharType;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -162,6 +163,31 @@ public class TestStringFunctions
         assertFunction("LENGTH(CAST('hello na\u00EFve world' AS CHAR(20)))", BIGINT, 20L);
         assertFunction("LENGTH(CAST('\uD801\uDC2Dend' AS CHAR(20)))", BIGINT, 20L);
         assertFunction("LENGTH(CAST('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' AS CHAR(20)))", BIGINT, 20L);
+    }
+
+    @Test
+    public void testJaroWinklerSimilarity()
+    {
+        assertFunction("JAROWINKLER_SIMILARITY('', '')", DOUBLE, 1.0);
+        assertFunction("JAROWINKLER_SIMILARITY('TRACE', 'TRACE')", DOUBLE, 1.0);
+        assertFunction("JAROWINKLER_SIMILARITY('TRATE', 'TRACE')", DOUBLE, 0.91);
+        assertFunction("JAROWINKLER_SIMILARITY('TRACE', 'TRATE')", DOUBLE, 0.91);
+        assertFunction("JAROWINKLER_SIMILARITY('arnab', 'aranb')", DOUBLE, 0.95);
+        assertFunction("JAROWINKLER_SIMILARITY('DwAyNE', 'DuANE')", DOUBLE, 0.84);
+
+        // Test for non-ASCII
+        assertFunction("JAROWINKLER_SIMILARITY('TRA\u00EFE', 'TRACE')", DOUBLE, 0.91);
+        assertFunction("JAROWINKLER_SIMILARITY('\u4FE1\u5FF5\u7231\u00EF\u671B', '\u4FE1\u5FF5\u7231\u5E0C\u671B')", DOUBLE, 0.91);
+        assertFunction("JAROWINKLER_SIMILARITY('\u4FE1\u00EF\u7231y\u5E0C\u671B', '\u4FE1\u5FF5\u7231\u5E0C\u671B')", DOUBLE, 0.84);
+
+        // Test for invalid utf-8 characters
+        assertInvalidFunction("JAROWINKLER_SIMILARITY('hello world', utf8(from_hex('81')))", "Invalid UTF-8 encoding in characters: �");
+        assertInvalidFunction("JAROWINKLER_SIMILARITY('hello world', utf8(from_hex('3281')))", "Invalid UTF-8 encoding in characters: 2�");
+
+        // Test for maximum length
+        assertInvalidFunction(format("JAROWINKLER_SIMILARITY('%s', '%s')", repeat("x", 1001), repeat("x", 1001)), "The combined inputs for Jaro-Winkler similarity are too large");
+        assertInvalidFunction(format("JAROWINKLER_SIMILARITY('hello', '%s')", repeat("x", 500_000)), "The combined inputs for Jaro-Winkler similarity are too large");
+        assertInvalidFunction(format("JAROWINKLER_SIMILARITY('%s', 'hello')", repeat("x", 500_000)), "The combined inputs for Jaro-Winkler similarity are too large");
     }
 
     @Test

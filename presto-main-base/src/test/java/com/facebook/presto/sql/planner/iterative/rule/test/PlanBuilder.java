@@ -844,7 +844,7 @@ public class PlanBuilder
         return new JoinNode(Optional.empty(), idAllocator.getNextId(), type, left, right, criteria, outputVariables, filter, leftHashVariable, rightHashVariable, distributionType, dynamicFilters);
     }
 
-    public PlanNode indexJoin(IndexJoinNode.Type type, TableScanNode probe, TableScanNode index)
+    public PlanNode indexJoin(JoinType type, TableScanNode probe, TableScanNode index)
     {
         return new IndexJoinNode(
                 Optional.empty(),

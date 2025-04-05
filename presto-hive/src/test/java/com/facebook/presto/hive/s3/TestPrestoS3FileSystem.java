@@ -21,6 +21,7 @@ import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
+import com.amazonaws.auth.WebIdentityTokenCredentialsProvider;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.AmazonS3EncryptionClient;
 import com.amazonaws.services.s3.S3ClientOptions;
@@ -86,6 +87,7 @@ import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_STAGING_DIRE
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_USER_AGENT_PREFIX;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_USER_AGENT_SUFFIX;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_USE_INSTANCE_CREDENTIALS;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_WEB_IDENTITY_ENABLED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -98,6 +100,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 public class TestPrestoS3FileSystem
 {
@@ -145,6 +148,37 @@ public class TestPrestoS3FileSystem
         try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
             fs.initialize(new URI("s3a://test-bucket/"), config);
         }
+    }
+
+    @Test
+    public void testWebIdentityTokenCredentials()
+            throws Exception
+    {
+        Configuration config = new Configuration();
+        config.set(S3_IAM_ROLE, "role");
+        config.setBoolean(S3_WEB_IDENTITY_ENABLED, true);
+
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            fs.initialize(new URI("s3n://test-bucket/"), config);
+            assertInstanceOf(getAwsCredentialsProvider(fs), WebIdentityTokenCredentialsProvider.class);
+        }
+    }
+
+    @Test
+    public void testWebIdentityEnabledWithoutIamRole()
+    {
+        Configuration config = new Configuration();
+        config.setBoolean(S3_WEB_IDENTITY_ENABLED, true);
+        // S3_IAM_ROLE is NOT set (invalid case)
+
+        IllegalArgumentException exception = expectThrows(IllegalArgumentException.class, () -> {
+            try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+                fs.initialize(new URI("s3n://test-bucket/"), config);
+            }
+        });
+
+        assertEquals("Invalid configuration: hive.s3.iam-role must be provided when hive.s3.web.identity.auth.enabled is set to true",
+                exception.getMessage());
     }
 
     @Test

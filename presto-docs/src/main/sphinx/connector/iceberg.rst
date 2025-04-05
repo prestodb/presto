@@ -308,6 +308,11 @@ the data and delete files of Iceberg tables are stored in S3. An example configu
     hive.s3.endpoint=http://192.168.0.103:9878
     hive.s3.path-style-access=true
 
+Presto C++ Support
+^^^^^^^^^^^^^^^^^^
+
+``HIVE``, ``NESSIE``, ``REST``, and ``HADOOP`` Iceberg catalogs are supported in Presto C++.
+
 Configuration Properties
 ------------------------
 
@@ -319,69 +324,69 @@ Configuration Properties
 
 The following configuration properties are available for all catalog types:
 
-======================================================= ============================================================= ============
-Property Name                                           Description                                                   Default
-======================================================= ============================================================= ============
-``iceberg.catalog.type``                                The catalog type for Iceberg tables. The available values     ``HIVE``
+======================================================= ============================================================= ================================== =================== =============================================
+Property Name                                           Description                                                   Default                            Presto Java Support Presto C++ Support
+======================================================= ============================================================= ================================== =================== =============================================
+``iceberg.catalog.type``                                The catalog type for Iceberg tables. The available values     ``HIVE``                           Yes                 Yes, only needed on coordinator
                                                         are ``HIVE``, ``HADOOP``, and ``NESSIE`` and ``REST``.
 
-``iceberg.hadoop.config.resources``                     The path(s) for Hadoop configuration resources.
+``iceberg.hadoop.config.resources``                     The path(s) for Hadoop configuration resources.                                                  Yes                 Yes, only needed on coordinator
 
                                                         Example: ``/etc/hadoop/conf/core-site.xml.`` This property
                                                         is required if the iceberg.catalog.type is ``hadoop``.
                                                         Otherwise, it will be ignored.
 
-``iceberg.file-format``                                 The storage file format for Iceberg tables. The available     ``PARQUET``
+``iceberg.file-format``                                 The storage file format for Iceberg tables. The available     ``PARQUET``                        Yes                 No, write is not supported yet
                                                         values are ``PARQUET`` and ``ORC``.
 
-``iceberg.compression-codec``                           The compression codec to use when writing files. The          ``GZIP``
+``iceberg.compression-codec``                           The compression codec to use when writing files. The          ``GZIP``                           Yes                 No, write is not supported yet
                                                         available values are ``NONE``, ``SNAPPY``, ``GZIP``,
                                                         ``LZ4``, and ``ZSTD``.
 
-``iceberg.max-partitions-per-writer``                   The Maximum number of partitions handled per writer.          ``100``
+``iceberg.max-partitions-per-writer``                   The maximum number of partitions handled per writer.          ``100``                            Yes                 No, write is not supported yet
 
-``iceberg.minimum-assigned-split-weight``               A decimal value in the range (0, 1] is used as a minimum      ``0.05``
+``iceberg.minimum-assigned-split-weight``               A decimal value in the range (0, 1] is used as a minimum      ``0.05``                           Yes                 Yes
                                                         for weights assigned to each split. A low value may improve
                                                         performance on tables with small files. A higher value may
                                                         improve performance for queries with highly skewed
                                                         aggregations or joins.
 
-``iceberg.enable-merge-on-read-mode``                   Enable reading base tables that use merge-on-read for         ``true``
+``iceberg.enable-merge-on-read-mode``                   Enable reading base tables that use merge-on-read for         ``true``                           Yes                 Yes, only needed on coordinator
                                                         updates.
 
-``iceberg.delete-as-join-rewrite-enabled``              When enabled, equality delete row filtering is applied        ``true``
+``iceberg.delete-as-join-rewrite-enabled``              When enabled, equality delete row filtering is applied        ``true``                           Yes                 No, Equality delete read is not supported
                                                         as a join with the data of the equality delete files.
 
-``iceberg.enable-parquet-dereference-pushdown``         Enable parquet dereference pushdown.                          ``true``
+``iceberg.enable-parquet-dereference-pushdown``         Enable parquet dereference pushdown.                          ``true``                           Yes                 No
 
-``iceberg.statistic-snapshot-record-difference-weight`` The amount that the difference in total record count matters
+``iceberg.statistic-snapshot-record-difference-weight`` The amount that the difference in total record count matters                                     Yes                 Yes, only needed on coordinator
                                                         when calculating the closest snapshot when picking
                                                         statistics. A value of 1 means a single record is equivalent
                                                         to 1 millisecond of time difference.
 
-``iceberg.pushdown-filter-enabled``                     Experimental: Enable filter pushdown for Iceberg. This is     ``false``
-                                                        only supported with Native Worker.
+``iceberg.pushdown-filter-enabled``                     Experimental: Enable filter pushdown for Iceberg. This is     ``false``                          No                  Yes
+                                                        only supported with Presto C++.
 
-``iceberg.rows-for-metadata-optimization-threshold``    The maximum number of partitions in an Iceberg table to       ``1000``
+``iceberg.rows-for-metadata-optimization-threshold``    The maximum number of partitions in an Iceberg table to       ``1000``                           Yes                 Yes
                                                         allow optimizing queries of that table using metadata. If
                                                         an Iceberg table has more partitions than this threshold,
                                                         metadata optimization is skipped.
 
                                                         Set to ``0`` to disable metadata optimization.
 
-``iceberg.split-manager-threads``                       Number of threads to use for generating Iceberg splits.       ``Number of available processors``
+``iceberg.split-manager-threads``                       Number of threads to use for generating Iceberg splits.       ``Number of available processors`` Yes                 Yes, only needed on coordinator
 
-``iceberg.metadata-previous-versions-max``              The max number of old metadata files to keep in current       ``100``
-                                                        metadata log.
+``iceberg.metadata-previous-versions-max``              The maximum number of old metadata files to keep in           ``100``                            Yes                 No, write is not supported yet
+                                                        current metadata log.
 
-``iceberg.metadata-delete-after-commit``                Set to ``true`` to delete the oldest metadata files after     ``false``
+``iceberg.metadata-delete-after-commit``                Set to ``true`` to delete the oldest metadata files after     ``false``                          Yes                 No, write is not supported yet
                                                         each commit.
 
-``iceberg.metrics-max-inferred-column``                 The maximum number of columns for which metrics               ``100``
+``iceberg.metrics-max-inferred-column``                 The maximum number of columns for which metrics               ``100``                            Yes                 No, write is not supported yet
                                                         are collected.
-``iceberg.max-statistics-file-cache-size``              Maximum size in bytes that should be consumed by the          ``256MB``
+``iceberg.max-statistics-file-cache-size``              Maximum size in bytes that should be consumed by the          ``256MB``                          Yes                 Yes, only needed on coordinator
                                                         statistics file cache.
-======================================================= ============================================================= ============
+======================================================= ============================================================= ================================== =================== =============================================
 
 Table Properties
 ------------------------
@@ -400,52 +405,52 @@ connector using a WITH clause:
 
 The following table properties are available, which are specific to the Presto Iceberg connector:
 
-========================================================   ===============================================================   =========================
-Property Name                                              Description                                                       Default
-========================================================   ===============================================================   =========================
-``commit.retry.num-retries``                               Determines the number of attempts for committing the metadata     ``4``
+========================================================   ===============================================================   ===================== =================== =============================================
+Property Name                                              Description                                                       Default               Presto Java Support Presto C++ Support
+========================================================   ===============================================================   ===================== =================== =============================================
+``commit.retry.num-retries``                               Determines the number of attempts for committing the metadata     ``4``                 Yes                 No, write is not supported yet
                                                            in case of concurrent upsert requests, before failing.
 
-``format-version``                                         Optionally specifies the format version of the Iceberg            ``2``
+``format-version``                                         Optionally specifies the format version of the Iceberg            ``2``                 Yes                 No, write is not supported yet
                                                            specification to use for new tables, either ``1`` or ``2``.
 
-``location``                                               Optionally specifies the file system location URI for
+``location``                                               Optionally specifies the file system location URI for                                   Yes                 Yes
                                                            the table.
 
-``partitioning``                                           Optionally specifies table partitioning. If a table
+``partitioning``                                           Optionally specifies table partitioning. If a table                                     Yes                 Yes
                                                            is partitioned by columns ``c1`` and ``c2``, the partitioning
                                                            property is ``partitioning = ARRAY['c1', 'c2']``.
 
-``read.split.target-size``                                 The target size for an individual split when generating splits    ``134217728`` (128MB)
+``read.split.target-size``                                 The target size for an individual split when generating splits    ``134217728`` (128MB) Yes                 Yes
                                                            for a table scan. Generated splits may still be larger or
                                                            smaller than this value. Must be specified in bytes.
 
-``write.data.path``                                        Optionally specifies the file system location URI for
+``write.data.path``                                        Optionally specifies the file system location URI for                                   Yes                 No, write is not supported yet
                                                            storing the data and delete files of the table. This only
                                                            applies to files written after this property is set. Files
                                                            previously written aren't relocated to reflect this
                                                            parameter.
 
-``write.delete.mode``                                      Optionally specifies the write delete mode of the Iceberg         ``merge-on-read``
+``write.delete.mode``                                      Optionally specifies the write delete mode of the Iceberg         ``merge-on-read``     Yes                 No, write is not supported yet
                                                            specification to use for new tables, either ``copy-on-write``
                                                            or ``merge-on-read``.
 
-``write.format.default``                                   Optionally specifies the format of table data files,              ``PARQUET``
+``write.format.default``                                   Optionally specifies the format of table data files,              ``PARQUET``           Yes                 No, write is not supported yet
                                                            either ``PARQUET`` or ``ORC``.
 
-``write.metadata.previous-versions-max``                   Optionally specifies the max number of old metadata files to      ``100``
+``write.metadata.previous-versions-max``                   Optionally specifies the max number of old metadata files to      ``100``               Yes                 No, write is not supported yet
                                                            keep in current metadata log.
 
-``write.metadata.delete-after-commit.enabled``             Set to ``true`` to delete the oldest metadata file after          ``false``
+``write.metadata.delete-after-commit.enabled``             Set to ``true`` to delete the oldest metadata file after          ``false``             Yes                 No, write is not supported yet
                                                            each commit.
 
-``write.metadata.metrics.max-inferred-column-defaults``    Optionally specifies the maximum number of columns for which      ``100``
+``write.metadata.metrics.max-inferred-column-defaults``    Optionally specifies the maximum number of columns for which      ``100``               Yes                 No, write is not supported yet
                                                            metrics are collected.
 
-``write.update.mode``                                      Optionally specifies the write delete mode of the Iceberg         ``merge-on-read``
+``write.update.mode``                                      Optionally specifies the write delete mode of the Iceberg         ``merge-on-read``     Yes                 No, write is not supported yet
                                                            specification to use for new tables, either ``copy-on-write``
                                                            or ``merge-on-read``.
-========================================================   ===============================================================   =========================
+========================================================   ===============================================================   ===================== =================== =============================================
 
 The table definition below specifies format ``ORC``, partitioning by columns ``c1`` and ``c2``,
 and a file system location of ``s3://test_bucket/test_schema/test_table``:
@@ -470,9 +475,9 @@ Some table properties have been deprecated or removed. The following table lists
 properties and their replacements. Update queries to use the new property names as soon as
 possible. They will be removed in a future version.
 
-=======================================   ===============================================================
+=======================================   =======================================================
 Deprecated Property Name                  New Property Name
-=======================================   ===============================================================
+=======================================   =======================================================
 ``format``                                ``write.format.default``
 ``format_version``                        ``format-version``
 ``commit_retries``                        ``commit.retry.num-retries``
@@ -480,28 +485,27 @@ Deprecated Property Name                  New Property Name
 ``metadata_previous_versions_max``        ``write.metadata.previous-versions-max``
 ``metadata_delete_after_commit``          ``write.metadata.delete-after-commit.enabled``
 ``metrics_max_inferred_column``           ``write.metadata.metrics.max-inferred-column-defaults``
-=======================================   ===============================================================
-
+=======================================   =======================================================
 
 Session Properties
 ------------------
 
 Session properties set behavior changes for queries executed within the given session.
 
-===================================================== ======================================================================
-Property Name                                         Description
-===================================================== ======================================================================
-``iceberg.delete_as_join_rewrite_enabled``            Overrides the behavior of the connector property
+===================================================== ======================================================================= =================== =============================================
+Property Name                                         Description                                                             Presto Java Support Presto C++ Support
+===================================================== ======================================================================= =================== =============================================
+``iceberg.delete_as_join_rewrite_enabled``            Overrides the behavior of the connector property                        Yes                 No, Equality delete read is not supported
                                                       ``iceberg.delete-as-join-rewrite-enabled`` in the current session.
-``iceberg.hive_statistics_merge_strategy``            Overrides the behavior of the connector property
+``iceberg.hive_statistics_merge_strategy``            Overrides the behavior of the connector property                        Yes                 Yes
                                                       ``iceberg.hive-statistics-merge-strategy`` in the current session.
-``iceberg.rows_for_metadata_optimization_threshold``  Overrides the behavior of the connector property
+``iceberg.rows_for_metadata_optimization_threshold``  Overrides the behavior of the connector property                        Yes                 Yes
                                                       ``iceberg.rows-for-metadata-optimization-threshold`` in the current
                                                       session.
-``iceberg.target_split_size_bytes``                   Overrides the target split size for all tables in a query in bytes.
+``iceberg.target_split_size_bytes``                   Overrides the target split size for all tables in a query in bytes.     Yes                 Yes
                                                       Set to 0 to use the value in each Iceberg table's
                                                       ``read.split.target-size`` property.
-``iceberg.affinity_scheduling_file_section_size``     When the ``node_selection_strategy`` or
+``iceberg.affinity_scheduling_file_section_size``     When the ``node_selection_strategy`` or                                 Yes                 Yes
                                                       ``hive.node-selection-strategy`` property is set to ``SOFT_AFFINITY``,
                                                       this configuration property will change the size of a file chunk that
                                                       is hashed to a particular node when determining the which worker to
@@ -509,7 +513,9 @@ Property Name                                         Description
                                                       the same chunk will hash to the same node. A smaller chunk size will
                                                       result in a higher probability splits being distributed evenly across
                                                       the cluster, but reduce locality.
-===================================================== ======================================================================
+``iceberg.parquet_dereference_pushdown_enabled``      Overrides the behavior of the connector property                        Yes                 No
+                                                      ``iceberg.enable-parquet-dereference-pushdown`` in the current session.
+===================================================== ======================================================================= =================== =============================================
 
 Caching Support
 ---------------
@@ -559,6 +565,11 @@ JMX query to get the metrics and verify the cache usage::
 
     Manifest file cache statistics are only available through the JMX connector when the Iceberg connector is configured with a HIVE catalog type.
 
+Presto C++ Support
+~~~~~~~~~~~~~~~~~~
+
+Manifest file caching is supported in Presto C++.
+
 Alluxio Data Cache
 ^^^^^^^^^^^^^^^^^^
 
@@ -581,6 +592,11 @@ JMX queries to get the metrics and verify the cache usage::
     SELECT * FROM jmx.current."com.facebook.alluxio:name=client.cachebytesreadcache,type=meters";
 
     SHOW TABLES FROM jmx.current like '%alluxio%';
+
+Presto C++ Support
+~~~~~~~~~~~~~~~~~~
+
+Alluxio data caching is applicable for Presto Java. Async data cache is supported in Presto C++. See :ref:`async_data_caching_and_prefetching`.
 
 File And Stripe Footer Cache
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -612,6 +628,11 @@ The following configuration properties are required to set in the Iceberg catalo
 JMX queries to get the metrics and verify the cache usage::
 
     SELECT * FROM jmx.current."com.facebook.presto.hive:name=iceberg_parquetmetadata,type=cachestatsmbean";
+
+Presto C++ Support
+~~~~~~~~~~~~~~~~~~
+
+File and stripe footer cache is not applicable for Presto C++.
 
 Metastore Cache
 ^^^^^^^^^^^^^^^
@@ -651,6 +672,11 @@ as part of a SQL query by including them in your SELECT statement.
              $data_sequence_number     |  regionkey
      ----------------------------------+------------
                   2                    | 3
+
+Presto C++ Support
+^^^^^^^^^^^^^^^^^^
+
+All above metadata columns are supported in Presto C++.
 
 Extra Hidden Metadata Tables
 ----------------------------
@@ -832,6 +858,10 @@ example uses the earliest snapshot ID: ``2423571386296047175``
       testBranch | BRANCH | 3374797416068698476 | NULL                    | NULL                  | NULL
       testTag    | TAG    | 4686954189838128572 | 10                      | NULL                  | NULL
 
+Presto C++ Support
+^^^^^^^^^^^^^^^^^^
+
+All above metadata tables, except `$changelog`, are supported in Presto C++.
 
 Procedures
 ----------
@@ -1129,8 +1159,53 @@ Examples:
 
     CALL iceberg.system.set_table_property('schema_name', 'table_name', 'commit.retry.num-retries', '10');
 
+Presto C++ Support
+^^^^^^^^^^^^^^^^^^
+
+All above procedures are supported in Presto C++.
+
 SQL Support
 -----------
+
+SQL Support Summary for Presto Java and Presto C++:
+
+============================== ============= ============ ============================================================================
+SQL Operation                  Presto Java   Presto C++   Comments
+============================== ============= ============ ============================================================================
+``CREATE SCHEMA``              Yes           Yes
+
+``CREATE TABLE``               Yes           Yes
+
+``CREATE VIEW``                Yes           Yes
+
+``INSERT INTO``                Yes           No
+
+``CREATE TABLE AS SELECT``     Yes           No
+
+``SELECT``                     Yes           Yes          Read is supported in Presto C++ including those with positional delete files.
+
+``ALTER TABLE``                Yes           Yes
+
+``ALTER VIEW``                 Yes           Yes
+
+``TRUNCATE``                   Yes           Yes
+
+``DELETE``                     Yes           No
+
+``DROP TABLE``                 Yes           Yes
+
+``DROP VIEW``                  Yes           Yes
+
+``DROP SCHEMA``                Yes           Yes
+
+``SHOW CREATE TABLE``          Yes           Yes
+
+``SHOW COLUMNS``               Yes           Yes
+
+``DESCRIBE``                   Yes           Yes
+
+``UPDATE``                     Yes           No
+============================== ============= ============ ============================================================================
 
 The Iceberg connector supports querying and manipulating Iceberg tables and schemas
 (databases). Here are some examples of the SQL operations supported by Presto:
@@ -1268,6 +1343,11 @@ Transform Name        Source Types
 
 ``Hour``              ``timestamp``
 ===================== =======================================================================
+
+Presto C++ Support
+~~~~~~~~~~~~~~~~~~
+
+Reads from tables with partition column transforms is supported in Presto C++.
 
 CREATE VIEW
 ^^^^^^^^^^^
@@ -1590,12 +1670,22 @@ schema evolution, such as adding, dropping, and renaming columns. With schema
 evolution, users can evolve a table schema with SQL after enabling the Presto
 Iceberg connector.
 
+Presto C++ Support
+^^^^^^^^^^^^^^^^^^
+
+Schema evolution is supported in Presto C++.
+
 Parquet Writer Version
 ----------------------
 
 Presto now supports Parquet writer versions V1 and V2 for the Iceberg catalog.
 It can be toggled using the session property ``parquet_writer_version`` and the config property ``hive.parquet.writer.version``.
 Valid values for these properties are ``PARQUET_1_0`` and ``PARQUET_2_0``. Default is ``PARQUET_1_0``.
+
+Presto C++ Support
+^^^^^^^^^^^^^^^^^^
+
+ Reading Parquet data written with Parquet writer version V1 is supported in Presto C++.
 
 Example Queries
 ^^^^^^^^^^^^^^^
@@ -1902,6 +1992,11 @@ Query Iceberg table by specifying the tag name:
             10 | united states |         1 | comment
             20 | canada        |         2 | comment
     (3 rows)
+
+Presto C++ Support
+^^^^^^^^^^^^^^^^^^
+
+Time travel queries are supported in Presto C++.
 
 Type mapping
 ------------

@@ -20,7 +20,8 @@ public enum JoinType
     INNER("InnerJoin"),
     LEFT("LeftJoin"),
     RIGHT("RightJoin"),
-    FULL("FullJoin");
+    FULL("FullJoin"),
+    SOURCE_OUTER("SourceOuter");
 
     private final String joinLabel;
 

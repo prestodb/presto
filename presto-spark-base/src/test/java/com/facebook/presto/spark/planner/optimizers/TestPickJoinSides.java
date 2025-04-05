@@ -66,6 +66,7 @@ import static com.facebook.presto.spi.plan.JoinNode.flipType;
 import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.spi.plan.JoinType.LEFT;
 import static com.facebook.presto.spi.plan.JoinType.RIGHT;
+import static com.facebook.presto.spi.plan.JoinType.SOURCE_OUTER;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
@@ -104,6 +105,7 @@ public class TestPickJoinSides
     public static Object[][] joinTypes()
     {
         return Arrays.stream(JoinType.values())
+                .filter(type -> type != SOURCE_OUTER)
                 .collect(toDataProvider());
     }
 

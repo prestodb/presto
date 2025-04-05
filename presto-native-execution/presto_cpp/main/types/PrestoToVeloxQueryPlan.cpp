@@ -16,6 +16,7 @@
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/connectors/PrestoToVeloxConnector.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
+#include <velox/type/TypeUtil.h>
 #include <velox/type/Filter.h>
 #include "velox/core/QueryCtx.h"
 #include "velox/exec/HashPartitionFunction.h"
@@ -1116,6 +1117,8 @@ core::JoinType toJoinType(protocol::JoinType type) {
       return core::JoinType::kRight;
     case protocol::JoinType::FULL:
       return core::JoinType::kFull;
+    case protocol::JoinType::SOURCE_OUTER:
+      return core::JoinType::kInner; // TODO: Map to proper join type.
   }
 
   VELOX_UNSUPPORTED("Unknown join type");
@@ -1196,6 +1199,54 @@ velox::core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       left,
       right,
       ROW(std::move(outputNames), std::move(outputTypes)));
+}
+
+
+std::shared_ptr<const velox::core::IndexLookupJoinNode>
+VeloxQueryPlanConverterBase::toVeloxQueryPlan(
+  const std::shared_ptr<const protocol::IndexJoinNode>& node,
+  const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+  const protocol::TaskId& taskId) {
+    std::vector<core::FieldAccessTypedExprPtr> leftKeys;
+    std::vector<core::FieldAccessTypedExprPtr> rightKeys;
+
+    leftKeys.reserve(node->criteria.size());
+    rightKeys.reserve(node->criteria.size());
+    for (const auto& clause : node->criteria) {
+      leftKeys.emplace_back(exprConverter_.toVeloxExpr(clause.left));
+      rightKeys.emplace_back(exprConverter_.toVeloxExpr(clause.right));
+    }
+
+    auto left = toVeloxQueryPlan(node->probeSource, tableWriteInfo, taskId);
+    auto right = toVeloxQueryPlan(node->indexSource, tableWriteInfo, taskId);
+
+    return std::make_shared<core::IndexLookupJoinNode>(
+        node->id,
+        core::JoinType::kInner,
+        /*leftKeys=*/leftKeys,
+        /*rightKeys=*/rightKeys,
+        /*joinConditions=*/std::vector<velox::core::IndexLookupConditionPtr>{},
+        /*left=*/left,
+        /*right=*/std::dynamic_pointer_cast<const core::TableScanNode>(right),
+        /*outputType=*/type::concatRowTypes({left->outputType(), right->outputType()}));
+}
+
+std::shared_ptr<const velox::core::TableScanNode>
+VeloxQueryPlanConverterBase::toVeloxQueryPlan(
+  const std::shared_ptr<const protocol::IndexSourceNode>& node,
+  const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+  const protocol::TaskId& taskId) {
+    auto rowType = toRowType(node->outputVariables, typeParser_);
+    std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
+        assignments;
+    for (const auto& entry : node->assignments) {
+      assignments.emplace(
+          entry.first.name, toColumnHandle(entry.second.get(), typeParser_));
+    }
+    auto connectorTableHandle = toConnectorTableHandle(
+        node->tableHandle, exprConverter_, typeParser_, assignments);
+    return std::make_shared<core::TableScanNode>(
+        node->id, rowType, connectorTableHandle, assignments);
 }
 
 core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
@@ -1723,6 +1774,14 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   if (auto join =
           std::dynamic_pointer_cast<const protocol::SemiJoinNode>(node)) {
     return toVeloxQueryPlan(join, tableWriteInfo, taskId);
+  }
+  if (auto join =
+          std::dynamic_pointer_cast<const protocol::IndexJoinNode>(node)) {
+    return toVeloxQueryPlan(join, tableWriteInfo, taskId);
+  }
+  if (auto indexSource =
+          std::dynamic_pointer_cast<const protocol::IndexSourceNode>(node)) {
+    return toVeloxQueryPlan(indexSource, tableWriteInfo, taskId);
   }
   if (auto join =
           std::dynamic_pointer_cast<const protocol::MergeJoinNode>(node)) {

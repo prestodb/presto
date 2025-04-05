@@ -44,6 +44,7 @@ import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static org.testng.Assert.assertTrue;
 
@@ -135,6 +136,16 @@ public class TestArrowFlightQueries
                         getDateTimeAtZone("2005-12-31 23:59:59", session.getTimeZoneKey()))
                 .build();
         assertTrue(actualRow.equals(expectedRow));
+    }
+
+    @Test
+    public void testDescribeUnknownTable()
+    {
+        MaterializedResult actualRows = computeActual("DESCRIBE information_schema.enabled_roles");
+        MaterializedResult expectedRows = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("role_name", "varchar", "", "")
+                .build();
+        assertEquals(actualRows, expectedRows);
     }
 
     private LocalDate getDate(String dateString)

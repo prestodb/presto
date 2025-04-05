@@ -95,6 +95,10 @@ AbstractClasses:
       - { name: RemoteTransactionHandle,  key: $remote }
       - { name: SystemTransactionHandle,  key: $system@system }
 
+  ConnectorIndexHandle:
+    super: JsonEncodedSubclass
+    subclasses:
+
   ConnectorTableLayoutHandle:
     super: JsonEncodedSubclass
     subclasses:
@@ -150,6 +154,8 @@ AbstractClasses:
       - { name: ExchangeNode,             key: com.facebook.presto.sql.planner.plan.ExchangeNode }
       - { name: FilterNode,               key: .FilterNode }
       - { name: JoinNode,                 key: .JoinNode }
+      - { name: IndexJoinNode,            key: com.facebook.presto.sql.planner.plan.IndexJoinNode }
+      - { name: IndexSourceNode,          key: .IndexSourceNode }
       - { name: LimitNode,                key: .LimitNode }
       - { name: MarkDistinctNode,         key: .MarkDistinctNode }
       - { name: SortNode,                 key: .SortNode }
@@ -217,6 +223,7 @@ JavaClasses:
   - presto-spi/src/main/java/com/facebook/presto/spi/ConnectorSplit.java
   - presto-spi/src/main/java/com/facebook/presto/spi/ConnectorTableHandle.java
   - presto-spi/src/main/java/com/facebook/presto/spi/connector/ConnectorTransactionHandle.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/ConnectorIndexHandle.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/DistinctLimitNode.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/MarkDistinctNode.java
   - presto-spi/src/main/java/com/facebook/presto/spi/relation/ConstantExpression.java
@@ -292,6 +299,7 @@ JavaClasses:
   - presto-main-base/src/main/java/com/facebook/presto/cost/StatsAndCosts.java
   - presto-spi/src/main/java/com/facebook/presto/spi/function/SqlInvokedFunction.java
   - presto-spi/src/main/java/com/facebook/presto/spi/TableHandle.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/IndexHandle.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/TableScanNode.java
   - presto-main-base/src/main/java/com/facebook/presto/execution/scheduler/TableWriteInfo.java
   - presto-main-base/src/main/java/com/facebook/presto/execution/scheduler/ExecutionWriterTarget.java
@@ -314,6 +322,8 @@ JavaClasses:
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/JoinNode.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/SemiJoinNode.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/MergeJoinNode.java
+  - presto-main-base/src/main/java/com/facebook/presto/sql/planner/plan/IndexJoinNode.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/plan/IndexSourceNode.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/TopNNode.java
   - presto-spi/src/main/java/com/facebook/presto/spi/ConnectorMetadataUpdateHandle.java
   - presto-main-base/src/main/java/com/facebook/presto/split/EmptySplit.java

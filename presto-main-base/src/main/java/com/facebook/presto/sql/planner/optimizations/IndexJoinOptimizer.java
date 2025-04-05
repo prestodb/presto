@@ -26,6 +26,7 @@ import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IndexSourceNode;
 import com.facebook.presto.spi.plan.JoinNode;
+import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
@@ -150,10 +151,10 @@ public class IndexJoinOptimizer
                         // Prefer the right candidate over the left candidate
                         PlanNode indexJoinNode = null;
                         if (rightIndexCandidate.isPresent()) {
-                            indexJoinNode = new IndexJoinNode(leftRewritten.getSourceLocation(), idAllocator.getNextId(), IndexJoinNode.Type.INNER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinVariables, rightJoinVariables), Optional.empty(), Optional.empty());
+                            indexJoinNode = new IndexJoinNode(leftRewritten.getSourceLocation(), idAllocator.getNextId(), JoinType.INNER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinVariables, rightJoinVariables), Optional.empty(), Optional.empty());
                         }
                         else if (leftIndexCandidate.isPresent()) {
-                            indexJoinNode = new IndexJoinNode(rightRewritten.getSourceLocation(), idAllocator.getNextId(), IndexJoinNode.Type.INNER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinVariables, leftJoinVariables), Optional.empty(), Optional.empty());
+                            indexJoinNode = new IndexJoinNode(rightRewritten.getSourceLocation(), idAllocator.getNextId(), JoinType.INNER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinVariables, leftJoinVariables), Optional.empty(), Optional.empty());
                         }
 
                         if (indexJoinNode != null) {
@@ -177,7 +178,7 @@ public class IndexJoinOptimizer
                         // We cannot use indices for outer joins until index join supports in-line filtering
                         if (!node.getFilter().isPresent() && rightIndexCandidate.isPresent()) {
                             planChanged = true;
-                            return createIndexJoinWithExpectedOutputs(node.getOutputVariables(), IndexJoinNode.Type.SOURCE_OUTER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinVariables, rightJoinVariables), idAllocator);
+                            return createIndexJoinWithExpectedOutputs(node.getOutputVariables(), leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinVariables, rightJoinVariables), idAllocator);
                         }
                         break;
 
@@ -185,7 +186,7 @@ public class IndexJoinOptimizer
                         // We cannot use indices for outer joins until index join supports in-line filtering
                         if (!node.getFilter().isPresent() && leftIndexCandidate.isPresent()) {
                             planChanged = true;
-                            return createIndexJoinWithExpectedOutputs(node.getOutputVariables(), IndexJoinNode.Type.SOURCE_OUTER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinVariables, leftJoinVariables), idAllocator);
+                            return createIndexJoinWithExpectedOutputs(node.getOutputVariables(), rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinVariables, leftJoinVariables), idAllocator);
                         }
                         break;
 
@@ -218,13 +219,12 @@ public class IndexJoinOptimizer
 
         private static PlanNode createIndexJoinWithExpectedOutputs(
                 List<VariableReferenceExpression> expectedOutputs,
-                IndexJoinNode.Type type,
                 PlanNode probe,
                 PlanNode index,
                 List<IndexJoinNode.EquiJoinClause> equiJoinClause,
                 PlanNodeIdAllocator idAllocator)
         {
-            PlanNode result = new IndexJoinNode(index.getSourceLocation(), idAllocator.getNextId(), type, probe, index, equiJoinClause, Optional.empty(), Optional.empty());
+            PlanNode result = new IndexJoinNode(index.getSourceLocation(), idAllocator.getNextId(), JoinType.SOURCE_OUTER, probe, index, equiJoinClause, Optional.empty(), Optional.empty());
             if (!result.getOutputVariables().equals(expectedOutputs)) {
                 result = new ProjectNode(
                         idAllocator.getNextId(),
