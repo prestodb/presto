@@ -501,8 +501,6 @@ TEST_F(MapUnionSumTest, nanKeys) {
       {data}, {"c1"}, {"map_union_sum(c0)"}, {"a0", "c1"}, {expected});
 }
 
-} // namespace
-
 TEST_F(MapUnionSumTest, complexType) {
   // Verify that NaNs with different binary representations are considered equal
   // and deduplicated when used as keys in the output map.
@@ -556,4 +554,22 @@ TEST_F(MapUnionSumTest, unknownKey) {
   auto data = makeRowVector({makeAllNullMapVector(3, UNKNOWN(), BIGINT())});
   testAggregations({data}, {}, {"map_union_sum(c0)"}, {"VALUES (NULL)"});
 }
+
+TEST_F(MapUnionSumTest, decimalKey) {
+  // test on nulls
+  auto null_data =
+      makeRowVector({makeAllNullMapVector(3, DECIMAL(10, 5), BIGINT())});
+  testAggregations({null_data}, {}, {"map_union_sum(c0)"}, {"VALUES (NULL)"});
+
+  // test on non-null decimal keys
+  auto data = makeMapVector<int128_t, int64_t>(
+      {{{{1000}, 2}, {{1001}, 1}}, {{{1000}, 1}, {{1001}, 1}}},
+      MAP(DECIMAL(30, 2), BIGINT()));
+  auto expected = makeRowVector({makeMapVector<int128_t, int64_t>(
+      {{{{1000}, 3}, {{1001}, 2}}}, MAP(DECIMAL(30, 2), BIGINT()))});
+  testAggregations(
+      {makeRowVector({data})}, {}, {"map_union_sum(c0)"}, {expected});
+}
+
+} // namespace
 } // namespace facebook::velox::aggregate::test

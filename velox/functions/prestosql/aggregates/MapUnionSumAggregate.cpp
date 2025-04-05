@@ -558,6 +558,10 @@ void registerMapUnionSumAggregate(
             return createMapUnionSumAggregate<UnknownValue>(
                 valueTypeKind, resultType);
           default:
+            if (mapType.keyType()->isDecimal()) {
+              return createMapUnionSumAggregate<int128_t>(
+                  valueTypeKind, resultType);
+            }
             VELOX_UNREACHABLE(
                 "Unexpected key type {}", mapTypeKindToName(keyTypeKind));
         }
