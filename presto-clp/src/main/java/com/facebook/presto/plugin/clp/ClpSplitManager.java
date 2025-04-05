@@ -23,6 +23,8 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 import javax.inject.Inject;
 
+import static java.util.Objects.requireNonNull;
+
 public class ClpSplitManager
         implements ConnectorSplitManager
 {
@@ -31,7 +33,7 @@ public class ClpSplitManager
     @Inject
     public ClpSplitManager(ClpSplitProvider clpSplitProvider)
     {
-        this.clpSplitProvider = clpSplitProvider;
+        this.clpSplitProvider = requireNonNull(clpSplitProvider, "clpSplitProvider is null");
     }
 
     @Override

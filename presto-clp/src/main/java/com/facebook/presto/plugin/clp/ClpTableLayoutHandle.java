@@ -24,14 +24,14 @@ public class ClpTableLayoutHandle
         implements ConnectorTableLayoutHandle
 {
     private final ClpTableHandle table;
-    private final Optional<String> query;
+    private final Optional<String> kqlQuery;
 
     @JsonCreator
     public ClpTableLayoutHandle(@JsonProperty("table") ClpTableHandle table,
-                                @JsonProperty("query") Optional<String> query)
+                                @JsonProperty("query") Optional<String> kqlQuery)
     {
         this.table = table;
-        this.query = query;
+        this.kqlQuery = kqlQuery;
     }
 
     @JsonProperty
@@ -41,9 +41,9 @@ public class ClpTableLayoutHandle
     }
 
     @JsonProperty
-    public Optional<String> getQuery()
+    public Optional<String> getKqlQuery()
     {
-        return query;
+        return kqlQuery;
     }
 
     @Override

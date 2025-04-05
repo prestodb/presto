@@ -133,7 +133,7 @@ public class TestClpSplit
             assertEquals(splits.size(), NUM_SPLITS);
             for (int i = 0; i < NUM_SPLITS; i++) {
                 assertEquals(splits.get(i).getArchivePath(), "/tmp/archives/" + tableName + "/id_" + i);
-                assertEquals(splits.get(i).getQuery(), Optional.empty());
+                assertEquals(splits.get(i).getKqlQuery(), Optional.empty());
             }
         }
     }

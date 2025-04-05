@@ -34,16 +34,16 @@ public class ClpSplit
 {
     private final SchemaTableName schemaTableName;
     private final String archivePath;
-    private final Optional<String> query;
+    private final Optional<String> kqlQuery;
 
     @JsonCreator
     public ClpSplit(@JsonProperty("schemaTableName") @Nullable SchemaTableName schemaTableName,
                     @JsonProperty("archivePath") @Nullable String archivePath,
-                    @JsonProperty("query") Optional<String> query)
+                    @JsonProperty("kqlQuery") Optional<String> kqlQuery)
     {
         this.schemaTableName = schemaTableName;
         this.archivePath = archivePath;
-        this.query = query;
+        this.kqlQuery = kqlQuery;
     }
 
     @JsonProperty
@@ -60,9 +60,9 @@ public class ClpSplit
     }
 
     @JsonProperty
-    public Optional<String> getQuery()
+    public Optional<String> getKqlQuery()
     {
-        return query;
+        return kqlQuery;
     }
 
     @Override
