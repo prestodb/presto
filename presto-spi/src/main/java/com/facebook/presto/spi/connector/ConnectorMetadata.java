@@ -41,6 +41,8 @@ import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TableLayoutFilterCoverage;
 import com.facebook.presto.spi.api.Experimental;
 import com.facebook.presto.spi.constraints.TableConstraint;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
@@ -850,5 +852,19 @@ public interface ConnectorMetadata
     default void addConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, TableConstraint<String> constraint)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support adding table constraints");
+    }
+
+    /**
+     * Check if pushdown is supported for the given filter against columns of the table handle
+     *
+     * @param session
+     * @param tableHandle
+     * @param filter
+     * @param symbolToColumnHandleMap
+     * @return
+     */
+    default boolean isPushdownSupportedForFilter(ConnectorSession session, ConnectorTableHandle tableHandle, RowExpression filter, Map<VariableReferenceExpression, ColumnHandle> symbolToColumnHandleMap)
+    {
+        return false;
     }
 }
