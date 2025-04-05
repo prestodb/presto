@@ -114,6 +114,7 @@ public class TestArrowFlightEchoQueries
     private static final Logger logger = Logger.get(TestArrowFlightEchoQueries.class);
     private static final CallOption CALL_OPTIONS = CallOptions.timeout(300, TimeUnit.SECONDS);
     private RootAllocator allocator;
+    private int serverPort;
     private FlightServer server;
     private DistributedQueryRunner arrowFlightQueryRunner;
     private JsonCodec<TestingArrowFlightRequest> requestCodec;
@@ -132,7 +133,8 @@ public class TestArrowFlightEchoQueries
         requestCodec = jsonCodec(TestingArrowFlightRequest.class);
         responseCodec = jsonCodec(TestingArrowFlightResponse.class);
 
-        server = FlightServer.builder(allocator, getServerLocation(), new TestingEchoFlightProducer(allocator, requestCodec, responseCodec))
+        Location location = Location.forGrpcTls("localhost", serverPort);
+        server = FlightServer.builder(allocator, location, new TestingEchoFlightProducer(allocator, requestCodec, responseCodec))
                 .useTls(certChainFile, privateKeyFile)
                 .build();
 
@@ -149,21 +151,12 @@ public class TestArrowFlightEchoQueries
         allocator.close();
     }
 
-    public static int getServerPort()
-    {
-        return 9444;
-    }
-
-    public static Location getServerLocation()
-    {
-        return Location.forGrpcTls("localhost", getServerPort());
-    }
-
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return ArrowFlightQueryRunner.createQueryRunner(9444);
+        serverPort = ArrowFlightQueryRunner.findUnusedPort();
+        return ArrowFlightQueryRunner.createQueryRunner(serverPort);
     }
 
     @Test
@@ -173,7 +166,7 @@ public class TestArrowFlightEchoQueries
                 IntVector intVector = new IntVector("id", bufferAllocator);
                 VarCharVector stringVector = new VarCharVector("c", bufferAllocator);
                 VectorSchemaRoot root = new VectorSchemaRoot(Arrays.asList(intVector, stringVector));
-                FlightClient client = createFlightClient(bufferAllocator)) {
+                FlightClient client = createFlightClient(bufferAllocator, serverPort)) {
             MaterializedResult.Builder expectedBuilder = resultBuilder(getSession(), INTEGER, VARCHAR);
 
             final int numValues = 10;
@@ -212,7 +205,7 @@ public class TestArrowFlightEchoQueries
             listVectorVarchar.allocateNew();
 
             try (VectorSchemaRoot expectedRoot = new VectorSchemaRoot(Arrays.asList(intVector, listVectorInt, listVectorVarchar));
-                    FlightClient client = createFlightClient(bufferAllocator)) {
+                    FlightClient client = createFlightClient(bufferAllocator, serverPort)) {
                 MaterializedResult.Builder expectedBuilder = resultBuilder(getSession(), INTEGER, new ArrayType(INTEGER), new ArrayType(VARCHAR));
 
                 final int numValues = 10;
@@ -285,7 +278,7 @@ public class TestArrowFlightEchoQueries
             mapWriter.setValueCount(numValues);
 
             try (VectorSchemaRoot expectedRoot = new VectorSchemaRoot(Arrays.asList(intVector, mapVector));
-                    FlightClient client = createFlightClient(bufferAllocator)) {
+                    FlightClient client = createFlightClient(bufferAllocator, serverPort)) {
                 expectedRoot.setRowCount(numValues);
 
                 String tableName = "map";
@@ -328,7 +321,7 @@ public class TestArrowFlightEchoQueries
             }
 
             try (VectorSchemaRoot expectedRoot = new VectorSchemaRoot(Arrays.asList(intVector, structVector));
-                    FlightClient client = createFlightClient(bufferAllocator)) {
+                    FlightClient client = createFlightClient(bufferAllocator, serverPort)) {
                 expectedRoot.setRowCount(numValues);
 
                 String tableName = "structs";
@@ -377,7 +370,7 @@ public class TestArrowFlightEchoQueries
             try (FieldVector encodedVector = (FieldVector) DictionaryEncoder.encode(rawVector, dictionary);
                     VectorSchemaRoot root = new VectorSchemaRoot(Arrays.asList(intVector, encodedVector));
                     DictionaryProvider.MapDictionaryProvider dictionaryProvider = new DictionaryProvider.MapDictionaryProvider(dictionary);
-                    FlightClient client = createFlightClient(bufferAllocator)) {
+                    FlightClient client = createFlightClient(bufferAllocator, serverPort)) {
                 root.setRowCount(numValues);
 
                 String tableName = "dictionary";
@@ -407,10 +400,11 @@ public class TestArrowFlightEchoQueries
                 keyBlockHashCode);
     }
 
-    private static FlightClient createFlightClient(BufferAllocator allocator) throws IOException
+    private static FlightClient createFlightClient(BufferAllocator allocator, int serverPort) throws IOException
     {
         InputStream trustedCertificate = new ByteArrayInputStream(Files.readAllBytes(Paths.get("src/test/resources/server.crt")));
-        return FlightClient.builder(allocator, getServerLocation()).useTls().trustedCertificates(trustedCertificate).build();
+        Location location = Location.forGrpcTls("localhost", serverPort);
+        return FlightClient.builder(allocator, location).useTls().trustedCertificates(trustedCertificate).build();
     }
 
     private void addTableToServer(FlightClient client, VectorSchemaRoot root, String tableName)

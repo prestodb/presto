@@ -52,8 +52,8 @@ public class TestArrowFlightQueries
 {
     private static final Logger logger = Logger.get(TestArrowFlightQueries.class);
     private RootAllocator allocator;
+    private int serverPort;
     private FlightServer server;
-    private Location serverLocation;
     private DistributedQueryRunner arrowFlightQueryRunner;
 
     @BeforeClass
@@ -65,8 +65,8 @@ public class TestArrowFlightQueries
         File privateKeyFile = new File("src/test/resources/server.key");
 
         allocator = new RootAllocator(Long.MAX_VALUE);
-        serverLocation = Location.forGrpcTls("localhost", 9443);
-        server = FlightServer.builder(allocator, serverLocation, new TestingArrowProducer(allocator))
+        Location location = Location.forGrpcTls("localhost", serverPort);
+        server = FlightServer.builder(allocator, location, new TestingArrowProducer(allocator))
                 .useTls(certChainFile, privateKeyFile)
                 .build();
 
@@ -87,7 +87,8 @@ public class TestArrowFlightQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return ArrowFlightQueryRunner.createQueryRunner(9443);
+        serverPort = ArrowFlightQueryRunner.findUnusedPort();
+        return ArrowFlightQueryRunner.createQueryRunner(serverPort);
     }
 
     @Test

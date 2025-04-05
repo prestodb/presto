@@ -26,6 +26,8 @@ import org.apache.arrow.flight.Location;
 import org.apache.arrow.memory.RootAllocator;
 
 import java.io.File;
+import java.io.IOException;
+import java.net.ServerSocket;
 import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
@@ -40,6 +42,14 @@ public class ArrowFlightQueryRunner
     private ArrowFlightQueryRunner()
     {
         throw new UnsupportedOperationException("This is a utility class and cannot be instantiated");
+    }
+
+    public static int findUnusedPort()
+            throws IOException
+    {
+        try (ServerSocket socket = new ServerSocket(0)) {
+            return socket.getLocalPort();
+        }
     }
 
     public static DistributedQueryRunner createQueryRunner(int flightServerPort) throws Exception
@@ -115,8 +125,16 @@ public class ArrowFlightQueryRunner
     {
         Logging.initialize();
 
+        int serverPort;
+        if (args.length >= 2) {
+            serverPort = Integer.valueOf(args[1]);
+        }
+        else {
+            serverPort = findUnusedPort();
+        }
+
         RootAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-        Location serverLocation = Location.forGrpcTls("localhost", 9443);
+        Location serverLocation = Location.forGrpcTls("localhost", serverPort);
         File certChainFile = new File("src/test/resources/server.crt");
         File privateKeyFile = new File("src/test/resources/server.key");
         FlightServer server = FlightServer.builder(allocator, serverLocation, new TestingArrowProducer(allocator))
@@ -131,7 +149,7 @@ public class ArrowFlightQueryRunner
 
         DistributedQueryRunner queryRunner = createQueryRunner(
                 ImmutableMap.of("http-server.http.port", "8080"),
-                ImmutableMap.of("arrow-flight.server.port", String.valueOf(9443)),
+                ImmutableMap.of("arrow-flight.server.port", String.valueOf(serverPort)),
                 ImmutableMap.of(),
                 Optional.empty());
         Thread.sleep(10);
