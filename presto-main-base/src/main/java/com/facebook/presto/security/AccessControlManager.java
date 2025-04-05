@@ -37,10 +37,9 @@ import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import jakarta.inject.Inject;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.inject.Inject;
 
 import java.io.File;
 import java.security.Principal;

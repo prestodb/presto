@@ -22,9 +22,8 @@ import com.google.common.hash.Hashing;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
-
-import javax.inject.Inject;
-import javax.ws.rs.container.ContainerRequestContext;
+import jakarta.inject.Inject;
+import jakarta.ws.rs.container.ContainerRequestContext;
 
 import java.security.Principal;
 import java.time.ZonedDateTime;

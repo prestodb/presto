@@ -21,8 +21,7 @@ import com.facebook.presto.spi.session.SessionPropertyConfigurationManager;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
 import com.google.common.collect.ImmutableMap;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;

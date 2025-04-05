@@ -30,8 +30,7 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionHandleResolver;
 import com.facebook.presto.split.EmptySplitHandleResolver;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.Map.Entry;
 import java.util.Objects;

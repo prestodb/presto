@@ -14,10 +14,9 @@
 package com.facebook.presto.verifier.source;
 
 import com.facebook.presto.verifier.framework.SnapshotQuery;
+import jakarta.inject.Provider;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
-
-import javax.inject.Provider;
 
 import static java.util.Objects.requireNonNull;
 

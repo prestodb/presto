@@ -19,9 +19,8 @@ import com.facebook.presto.common.type.TimeType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.VarcharType;
+import jakarta.inject.Inject;
 import org.apache.arrow.vector.types.pojo.Field;
-
-import javax.inject.Inject;
 
 import java.util.Optional;
 
