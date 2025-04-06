@@ -98,7 +98,7 @@ public class TestPrestoNativeWriter
         createPrestoBenchTables(queryRunner);
     }
 
-    @Test
+    @Test(groups = {"writer"})
     public void testCreateTableWithUnsupportedFormats()
     {
         // Generate temporary table name.
@@ -109,7 +109,7 @@ public class TestPrestoNativeWriter
         }
     }
 
-    @Test
+    @Test(groups = {"writer"})
     public void testTableFormats()
     {
         Session session = Session.builder(getSession())
@@ -171,7 +171,7 @@ public class TestPrestoNativeWriter
         }
     }
 
-    @Test
+    @Test(groups = {"writer"})
     public void testCreateUnpartitionedTableAsSelect()
     {
         // Generate temporary table name.
@@ -200,7 +200,7 @@ public class TestPrestoNativeWriter
         }
     }
 
-    @Test
+    @Test(groups = {"writer"})
     public void testCreatePartitionedTableAsSelect()
     {
         {
@@ -223,7 +223,7 @@ public class TestPrestoNativeWriter
         }
     }
 
-    @Test
+    @Test(groups = {"writer"})
     public void testInsertIntoPartitionedTable()
     {
         // Generate temporary table name.
@@ -252,7 +252,7 @@ public class TestPrestoNativeWriter
         }
     }
 
-    @Test
+    @Test(groups = {"writer"})
     public void testInsertIntoSpecialPartitionName()
     {
         Session writeSession = buildSessionForTableWrite();
@@ -275,7 +275,7 @@ public class TestPrestoNativeWriter
         }
     }
 
-    @Test
+    @Test(groups = {"writer"})
     public void testCreateBucketTableAsSelect()
     {
         Session session = buildSessionForTableWrite();
@@ -300,7 +300,7 @@ public class TestPrestoNativeWriter
         }
     }
 
-    @Test
+    @Test(groups = {"writer"})
     public void testCreateBucketSortedTableAsSelect()
     {
         Session session = buildSessionForTableWrite();
@@ -324,7 +324,7 @@ public class TestPrestoNativeWriter
         }
     }
 
-    @Test
+    @Test(groups = {"writer"})
     public void testScaleWriterTasks()
     {
         Session session = buildSessionForTableWrite();
@@ -343,7 +343,7 @@ public class TestPrestoNativeWriter
         dropTableIfExists(tmpTableName);
     }
 
-    @Test
+    @Test(groups = {"writer"})
     public void testScaleWriterThreads()
     {
         // no scaling for bucketed tables
@@ -605,7 +605,7 @@ public class TestPrestoNativeWriter
         }
     }
 
-    @Test
+    @Test(groups = {"writer"})
     public void testCollectColumnStatisticsOnCreateTable()
     {
         Session session = buildSessionForTableWrite();
@@ -668,7 +668,7 @@ public class TestPrestoNativeWriter
         dropTableIfExists(tmpTableName);
     }
 
-    @Test
+    @Test(groups = {"writer"})
     public void testCollectColumnStatisticsOnInsert()
     {
         Session session = buildSessionForTableWrite();
