@@ -23,7 +23,6 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -57,7 +56,7 @@ public class TestSchedulingOrderVisitor
         PlanBuilder planBuilder = new PlanBuilder(TEST_SESSION, new PlanNodeIdAllocator(), METADATA);
         TableScanNode a = planBuilder.tableScan(emptyList(), emptyMap());
         TableScanNode b = planBuilder.tableScan(emptyList(), emptyMap());
-        List<PlanNodeId> order = scheduleOrder(planBuilder.indexJoin(IndexJoinNode.Type.INNER, a, b));
+        List<PlanNodeId> order = scheduleOrder(planBuilder.indexJoin(JoinType.INNER, a, b));
         assertEquals(order, ImmutableList.of(b.getId(), a.getId()));
     }
 
