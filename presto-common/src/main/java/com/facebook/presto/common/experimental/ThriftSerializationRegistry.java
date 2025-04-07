@@ -31,6 +31,8 @@ import java.util.function.Function;
 
 public class ThriftSerializationRegistry
 {
+    private ThriftSerializationRegistry() {}
+
     private static final Logger log = Logger.get(ThriftSerializationRegistry.class);
 
     private static final Map<String, Function<byte[], Object>> DESERIALIZERS = new HashMap<>();

@@ -461,7 +461,7 @@ public final class SortedRangeSet
                                     boolean removeConstants = entry.getValue().getLow().getBound().equals(Marker.Bound.EXACTLY) && entry.getValue().getHigh().getBound().equals(Marker.Bound.EXACTLY);
                                     return entry.getValue().canonicalize(removeConstants);
                                 },
-                                (e1, e2) -> {throw new IllegalStateException(format("Duplicate key %s", e1));},
+                                (e1, e2) -> { throw new IllegalStateException(format("Duplicate key %s", e1)); },
                                 TreeMap::new)));
     }
 
