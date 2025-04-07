@@ -235,7 +235,7 @@ Users can enable collection of worker level metrics by setting the property:
   ===================================== ===========================================================
   ``velox.s3.active_connections``       The number of connections open for S3 read operations.
 
-  ``velox.s3.started_uploads``          The number of S3 upload calls that started.
+  ``velox.s3.started_uploads``          The number of S3 upload calls that were started.
 
   ``velox.s3.successful_uploads``       The number of S3 upload calls that were completed.
 
