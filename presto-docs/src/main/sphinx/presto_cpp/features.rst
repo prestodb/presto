@@ -228,7 +228,7 @@ Users can enable collection of worker level metrics by setting the property:
   When true, the default behavior is a no-op. There is a prior setup that must be done before enabling this flag. To enable
   metrics collection in Prometheus Data Format refer `here <https://github.com/prestodb/presto/tree/master/presto-native-execution#build-prestissimo>`_.
 
-  When Presto C++ workers communicate with S3 Filesystem with this property enabled, the following metrics are additionally collected.
+  When Presto C++ workers communicate with an S3 filesystem with this property enabled, the following metrics are collected.
 
   ===================================== ===========================================================
   Metric Name                           Description
