@@ -601,7 +601,7 @@ public class UnaliasSymbolReferences
             }
 
             PlanNode rewrittenSource = node.getSource().get().accept(this, context);
-            Map<String, String> mappings = ((Rewriter)context.getNodeRewriter()).getMapping();
+            Map<String, String> mappings = ((Rewriter) context.getNodeRewriter()).getMapping();
             SymbolMapper mapper = new SymbolMapper(mappings, types, warningCollector);
 
             return mapper.map(node, rewrittenSource);
