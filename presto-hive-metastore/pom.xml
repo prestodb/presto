@@ -72,9 +72,8 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
+            <groupId>com.facebook.airlift</groupId>
             <artifactId>security</artifactId>
-            <version>200</version>
         </dependency>
 
         <dependency>
