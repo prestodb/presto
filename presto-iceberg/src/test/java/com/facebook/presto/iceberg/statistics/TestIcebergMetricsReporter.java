@@ -1,18 +1,48 @@
 import com.facebook.presto.Session;
 import com.facebook.presto.common.RuntimeMetric;
 import com.facebook.presto.common.RuntimeStats;
+
+import com.facebook.presto.iceberg.IcebergQueryRunner;
+
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+
 import com.google.common.collect.ImmutableMap;
+
 import org.testng.annotations.Test;
 
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.testing.assertions.Assert.assertTrue;
+
+import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
+
+import static org.testng.Assert.assertTrue;
+
+
 
 public class TestRuntimeStatsMetricsReporter
         extends AbstractTestQueryFramework
 {
+
+    private IcebergQueryRunner icebergQueryRunner;
+
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
+    {
+        // Set up Iceberg with an extra connector property
+        icebergQueryRunner = IcebergQueryRunner.builder()
+                .setExtraConnectorProperties(ImmutableMap.of(
+                        // This matches the property usage from your TestIcebergHiveStatistics
+                        "iceberg.hive-statistics-merge-strategy", NUMBER_OF_DISTINCT_VALUES.name()
+                ))
+                .build();
+
+        // Return the actual Presto QueryRunner from the underlying IcebergQueryRunner
+        return icebergQueryRunner.getQueryRunner();
+    }
+
     @Test
     public void testRuntimeStatsMetricsReporter()
             throws Exception
