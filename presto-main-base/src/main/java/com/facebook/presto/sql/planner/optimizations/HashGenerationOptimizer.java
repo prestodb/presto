@@ -23,6 +23,7 @@ import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.JoinNode;
+import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.MergeJoinNode;
 import com.facebook.presto.spi.plan.PartitioningScheme;
@@ -490,7 +491,7 @@ public class HashGenerationOptimizer
 
             // build map of all hash variables
             Map<HashComputation, VariableReferenceExpression> allHashVariables = new HashMap<>();
-            if (node.getType() == IndexJoinNode.Type.INNER) {
+            if (node.getType() == JoinType.INNER) {
                 allHashVariables.putAll(probe.getHashVariables());
             }
             allHashVariables.putAll(index.getHashVariables());

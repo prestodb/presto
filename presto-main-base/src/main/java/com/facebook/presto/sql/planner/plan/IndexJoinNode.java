@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.spi.SourceLocation;
+import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -33,7 +34,7 @@ import static java.util.Objects.requireNonNull;
 public class IndexJoinNode
         extends InternalPlanNode
 {
-    private final Type type;
+    private final JoinType type;
     private final PlanNode probeSource;
     private final PlanNode indexSource;
     private final List<EquiJoinClause> criteria;
@@ -44,7 +45,7 @@ public class IndexJoinNode
     public IndexJoinNode(
             Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
-            @JsonProperty("type") Type type,
+            @JsonProperty("type") JoinType type,
             @JsonProperty("probeSource") PlanNode probeSource,
             @JsonProperty("indexSource") PlanNode indexSource,
             @JsonProperty("criteria") List<EquiJoinClause> criteria,
@@ -58,7 +59,7 @@ public class IndexJoinNode
             Optional<SourceLocation> sourceLocation,
             PlanNodeId id,
             Optional<PlanNode> statsEquivalentPlanNode,
-            Type type,
+            JoinType type,
             PlanNode probeSource,
             PlanNode indexSource,
             List<EquiJoinClause> criteria,
@@ -74,26 +75,8 @@ public class IndexJoinNode
         this.indexHashVariable = requireNonNull(indexHashVariable, "indexHashVariable is null");
     }
 
-    public enum Type
-    {
-        INNER("Inner"),
-        SOURCE_OUTER("SourceOuter");
-
-        private final String joinLabel;
-
-        private Type(String joinLabel)
-        {
-            this.joinLabel = joinLabel;
-        }
-
-        public String getJoinLabel()
-        {
-            return joinLabel;
-        }
-    }
-
     @JsonProperty
-    public Type getType()
+    public JoinType getType()
     {
         return type;
     }
