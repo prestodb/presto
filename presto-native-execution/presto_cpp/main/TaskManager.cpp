@@ -619,6 +619,7 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
             std::max(maxSplitSequenceId, protocolSplit.sequenceId);
         execTask->addSplitWithSequence(
             source.planNodeId, std::move(split), protocolSplit.sequenceId);
+        RECORD_METRIC_VALUE(kCounterNumTaskSplits, 1);
       }
     }
     // Update task's max split sequence id after all splits have been added.

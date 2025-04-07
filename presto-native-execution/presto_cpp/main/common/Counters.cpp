@@ -58,6 +58,7 @@ void registerPrestoMetrics() {
   DEFINE_METRIC(
       kCounterNumCancelledTasksByStuckDriver, facebook::velox::StatType::COUNT);
   DEFINE_METRIC(kCounterNumTasksDeadlock, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(kCounterNumTaskSplits, facebook::velox::StatType::COUNT);
   DEFINE_METRIC(
       kCounterNumTaskManagerLockTimeOut, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterNumQueuedDrivers, facebook::velox::StatType::AVG);
