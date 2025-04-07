@@ -472,7 +472,7 @@ public class TableFunctionOperator
         PagesHashStrategy prePartitionedStrategy = hashStrategies.prePartitionedStrategy;
         Page prePartitionedPage = page.getColumns(hashStrategies.prePartitionedChannelsArray);
 
-        if (pagesIndex.getPositionCount() == 0 || pagesIndex.positionNotDistinctFromRow(prePartitionedStrategy, 0, startPosition, prePartitionedPage)) {
+        if (pagesIndex.getPositionCount() == 0 || pagesIndex.positionEqualsRow(prePartitionedStrategy, 0, startPosition, prePartitionedPage)) {
             // we are within the current group. find the position where the pre-grouped columns change
             int groupEnd = findGroupEnd(prePartitionedPage, prePartitionedStrategy, startPosition);
 

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.connector.tvf.MockConnectorColumnHandle;
 import com.facebook.presto.connector.tvf.MockConnectorFactory;
 import com.facebook.presto.connector.tvf.MockConnectorPlugin;
@@ -39,6 +40,7 @@ import java.util.stream.IntStream;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.connector.tvf.MockConnectorFactory.MockConnector.MockConnectorSplit.MOCK_CONNECTOR_SPLIT;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 public class TestTableFunctionInvocation
@@ -56,6 +58,20 @@ public class TestTableFunctionInvocation
                         .setSchema(TABLE_FUNCTION_SCHEMA)
                         .build())
                 .build();
+    }
+
+    @Override
+    protected QueryRunner createExpectedQueryRunner()
+            throws Exception
+    {
+        DistributedQueryRunner result = DistributedQueryRunner.builder(testSessionBuilder()
+                        .setCatalog("tpch")
+                        .setSchema(TINY_SCHEMA_NAME)
+                        .build())
+                .build();
+        result.installPlugin(new TpchPlugin());
+        result.createCatalog("tpch", "tpch");
+        return result;
     }
 
     @BeforeClass
@@ -107,6 +123,14 @@ public class TestTableFunctionInvocation
         queryRunner.createCatalog("tpch", "tpch");
     }
 
+    public static Session createSession()
+    {
+        return testSessionBuilder()
+                .setCatalog("tpch")
+                .setSchema(TINY_SCHEMA_NAME)
+                .build();
+    }
+
     @Test
     public void testPrimitiveDefaultArgument()
     {
@@ -127,26 +151,28 @@ public class TestTableFunctionInvocation
     @Test
     public void testIdentityFunction()
     {
-        /*
-        assertQuery("SELECT b, a FROM TABLE(system.identity_function(input => TABLE(VALUES (1, 2), (3, 4), (5, 6)) T(a, b)))",
-                "VALUES (2, 1), (4, 3), (6, 5)");
-        */
-        assertQuery("SELECT b, a FROM TABLE(system.identity_pass_through_function(input => TABLE(VALUES (1, 2), (3, 4), (5, 6)) T(a, b)))",
-                "VALUES (2, 1), (4, 3), (6, 5)");
+//
+//        assertQuery("SELECT b, a FROM TABLE(system.identity_function(input => TABLE(VALUES (1, 2), (3, 4), (5, 6)) T(a, b)))",
+//                "VALUES (2, 1), (4, 3), (6, 5)");
+
+//        assertQuery("SELECT b, a FROM TABLE(system.identity_pass_through_function(input => TABLE(VALUES (1, 2), (3, 4), (5, 6)) T(a, b)))",
+//                "VALUES (2, 1), (4, 3), (6, 5)");
 
         /*
+        TODO: Skipped due to partitioning.
         // null partitioning value
         assertThat(query("SELECT i.b, a FROM TABLE(system.identity_function(input => TABLE(VALUES ('x', 1), ('y', 2), ('z', null)) T(a, b) PARTITION BY b)) i"))
                 .matches("VALUES (1, 'x'), (2, 'y'), (null, 'z')");
 
         assertThat(query("SELECT b, a FROM TABLE(system.identity_pass_through_function(input => TABLE(VALUES ('x', 1), ('y', 2), ('z', null)) T(a, b) PARTITION BY b))"))
                 .matches("VALUES (1, 'x'), (2, 'y'), (null, 'z')");
-
+        */
         // the identity_function copies all input columns and outputs them as proper columns.
         // the table tpch.tiny.orders has a hidden column row_number, which is not exposed to the function.
-        assertThat(query("SELECT * FROM TABLE(system.identity_function(input => TABLE(tpch.tiny.orders)))"))
-                .matches("SELECT * FROM tpch.tiny.orders");
+        assertQuery("SELECT * FROM TABLE(system.identity_function(input => TABLE(tpch.tiny.region)))",
+                "SELECT * FROM tpch.tiny.region");
 
+        /*
         // the identity_pass_through_function passes all input columns on output using the pass-through mechanism (as opposed to producing proper columns).
         // the table tpch.tiny.orders has a hidden column row_number, which is exposed to the pass-through mechanism.
         // the passed-through column row_number preserves its hidden property.

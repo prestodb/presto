@@ -52,13 +52,6 @@ public interface PagesHashStrategy
     boolean rowEqualsRow(int leftPosition, Page leftPage, int rightPosition, Page rightPage);
 
     /**
-     * Compares the values in the specified pages. The values are compared positionally, so {@code leftPage}
-     * and {@code rightPage} must have the same number of entries as the hashed columns and each entry
-     * is expected to be the same type. The values are compared under "not distinct from" semantics.
-     */
-    boolean rowNotDistinctFromRow(int leftPosition, Page leftPage, int rightPosition, Page rightPage);
-
-    /**
      * Compares the hashed columns in this PagesHashStrategy to the values in the specified page. The
      * values are compared positionally, so {@code rightPage} must have the same number of entries as
      * the hashed columns and each entry is expected to be the same type.
@@ -104,12 +97,6 @@ public interface PagesHashStrategy
      * Compares the hashed columns in this PagesHashStrategy at the specified positions.
      */
     boolean positionEqualsPosition(int leftBlockIndex, int leftPosition, int rightBlockIndex, int rightPosition);
-
-    /**
-     * Compares the hashed columns in this PagesHashStrategy at the specified positions.
-     * The values are compared under "not distinct from" semantics.
-     */
-    boolean positionNotDistinctFromPosition(int leftBlockIndex, int leftPosition, int rightBlockIndex, int rightPosition);
 
     /**
      * Compares the hashed columns in this PagesHashStrategy at the specified positions.

@@ -633,8 +633,8 @@ public class FunctionAndTypeManager
 
     public TableFunctionProcessorProvider getTableFunctionProcessorProvider(TableFunctionHandle tableFunctionHandle)
     {
-//        return new IdentityFunctionProcessorProvider();
-        return new IdentityPassThroughFunctionProcessorProvider();
+        return new IdentityFunctionProcessorProvider();
+//        return new IdentityPassThroughFunctionProcessorProvider();
     }
 
     public AggregationFunctionImplementation getAggregateFunctionImplementation(FunctionHandle functionHandle)

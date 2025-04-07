@@ -398,28 +398,6 @@ public class PagesIndex
         return pagesHashStrategy.positionEqualsRow(pageIndex, pagePosition, rightPosition, rightPage);
     }
 
-    public boolean positionNotDistinctFromPosition(PagesHashStrategy partitionHashStrategy, int leftPosition, int rightPosition)
-    {
-        long leftAddress = valueAddresses.get(leftPosition);
-        int leftPageIndex = decodeSliceIndex(leftAddress);
-        int leftPagePosition = decodePosition(leftAddress);
-
-        long rightAddress = valueAddresses.get(rightPosition);
-        int rightPageIndex = decodeSliceIndex(rightAddress);
-        int rightPagePosition = decodePosition(rightAddress);
-
-        return partitionHashStrategy.positionNotDistinctFromPosition(leftPageIndex, leftPagePosition, rightPageIndex, rightPagePosition);
-    }
-
-    public boolean positionNotDistinctFromRow(PagesHashStrategy pagesHashStrategy, int indexPosition, int rightPosition, Page rightPage)
-    {
-        long pageAddress = valueAddresses.get(indexPosition);
-        int pageIndex = decodeSliceIndex(pageAddress);
-        int pagePosition = decodePosition(pageAddress);
-
-        return pagesHashStrategy.positionNotDistinctFromRow(pageIndex, pagePosition, rightPosition, rightPage);
-    }
-
     private PagesIndexOrdering createPagesIndexComparator(List<Integer> sortChannels, List<SortOrder> sortOrders)
     {
         List<Type> sortTypes = sortChannels.stream()
