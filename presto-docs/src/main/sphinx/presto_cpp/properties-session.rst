@@ -2,10 +2,10 @@
 Presto C++ Session Properties
 =============================
 
-Session Properties
+System Session Properties
 ------------------
 
-The following are the native session properties for C++ based Presto.
+The following are the native system session properties for C++ based Presto.
 
 ``driver_cpu_time_slice_limit_ms``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -439,3 +439,16 @@ If set to ``true``, enables scaling the table scan concurrency on each worker.
 Controls the ratio of available memory that can be used for scaling up table scans.
 A higher value allows more memory to be allocated for scaling up table scans,
 while a lower value limits the amount of memory used.
+
+Hive Connector Session Properties
+------------------
+
+The following are the native Hive connector session properties for C++ based Presto.
+
+``native_stats_based_filter_reorder_disabled``
+^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Native Execution only. Disable statistics based filter reordering.
