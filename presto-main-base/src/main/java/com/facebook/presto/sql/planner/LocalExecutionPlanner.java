@@ -1247,11 +1247,9 @@ public class LocalExecutionPlanner
                     .filter(TableFunctionNode.PassThroughSpecification::isDeclaredAsPassThrough)
                     .count();
 
-            /*
             List<List<Integer>> requiredChannels = node.getRequiredVariables().stream()
                     .map(list -> getChannelsForVariables(list, source.getLayout()))
                     .collect(toImmutableList());
-             */
 
             Optional<Map<Integer, Integer>> markerChannels = node.getMarkerVariables()
                     .map(map -> map.entrySet().stream()
@@ -1287,7 +1285,7 @@ public class LocalExecutionPlanner
                     node.getHandle().getFunctionHandle(),
                     properChannelsCount,
                     toIntExact(passThroughSourcesCount),
-                    ImmutableList.of(), // TODO: Remove required columns?
+                    requiredChannels,
                     markerChannels,
                     passThroughColumnSpecifications.build(),
                     node.isPruneWhenEmpty(),

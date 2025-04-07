@@ -161,6 +161,11 @@ public class UnaliasSymbolReferences
             this.warningCollector = warningCollector;
         }
 
+        public Map<String, String> getMapping()
+        {
+            return mapping;
+        }
+
         @Override
         public PlanNode visitAggregation(AggregationNode node, RewriteContext<UnaliasContext> context)
         {
@@ -596,16 +601,10 @@ public class UnaliasSymbolReferences
             }
 
             PlanNode rewrittenSource = node.getSource().get().accept(this, context);
-            Map<VariableReferenceExpression, VariableReferenceExpression> mappings =
-                    Optional.ofNullable(context.get())
-                            .map(c -> new HashMap<>(c.getCorrelationMapping()))
-                            .orElseGet(HashMap::new);
+            Map<String, String> mappings = ((Rewriter)context.getNodeRewriter()).getMapping();
+            SymbolMapper mapper = new SymbolMapper(mappings, types, warningCollector);
 
-            SymbolMapper mapper = new SymbolMapper(mappings, warningCollector);
-
-            TableFunctionProcessorNode rewrittenTableFunctionProcessor = mapper.map(node, rewrittenSource);
-
-            return rewrittenTableFunctionProcessor;
+            return mapper.map(node, rewrittenSource);
         }
 
         @Override

@@ -61,6 +61,11 @@ public abstract class SimplePlanRewriter<C>
             return userContext;
         }
 
+        public SimplePlanRewriter<C> getNodeRewriter()
+        {
+            return nodeRewriter;
+        }
+
         /**
          * Invoke the rewrite logic recursively on children of the given node and swap it
          * out with an identical copy with the rewritten children
