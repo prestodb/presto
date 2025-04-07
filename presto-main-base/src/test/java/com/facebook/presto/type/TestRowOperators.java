@@ -78,6 +78,8 @@ public class TestRowOperators
     private static FunctionAssertions fieldNameInJsonCastEnabled;
     private static FunctionAssertions legacyJsonCastEnabled;
     private static FunctionAssertions legacyJsonCastDisabled;
+    private static FunctionAssertions canonicalizedJsonExtractDisabled;
+    private static FunctionAssertions canonicalizedJsonExtractEnabled;
 
     @BeforeClass
     public void setUp()
@@ -100,6 +102,13 @@ public class TestRowOperators
         FunctionsConfig featuresConfigWithLegacyJsonCastDisabled = new FunctionsConfig()
                 .setLegacyJsonCast(false);
         legacyJsonCastDisabled = new FunctionAssertions(session, new FeaturesConfig(), featuresConfigWithLegacyJsonCastDisabled, true);
+
+        FunctionsConfig featuresConfigWithCanonicalizedJsonExtractDisabled = new FunctionsConfig()
+                .setCanonicalizedJsonExtract(false);
+        canonicalizedJsonExtractDisabled = new FunctionAssertions(session, new FeaturesConfig(), featuresConfigWithCanonicalizedJsonExtractDisabled, true);
+        FunctionsConfig featuresConfigWithCanonicalizedJsonExtractEnabled = new FunctionsConfig()
+                .setCanonicalizedJsonExtract(true);
+        canonicalizedJsonExtractEnabled = new FunctionAssertions(session, new FeaturesConfig(), featuresConfigWithCanonicalizedJsonExtractEnabled, true);
     }
 
     @AfterClass(alwaysRun = true)
@@ -113,6 +122,10 @@ public class TestRowOperators
         legacyJsonCastEnabled = null;
         legacyJsonCastDisabled.close();
         legacyJsonCastDisabled = null;
+        canonicalizedJsonExtractDisabled.close();
+        canonicalizedJsonExtractDisabled = null;
+        canonicalizedJsonExtractEnabled.close();
+        canonicalizedJsonExtractEnabled = null;
     }
 
     @ScalarFunction
@@ -539,6 +552,13 @@ public class TestRowOperators
         assertInvalidCast("CAST(json_extract('{\"1\":[{\"key1\": \"John\", \"KEY1\":\"Johnny\"}]}', '$') AS MAP<bigint, ARRAY<ROW(key1 VARCHAR)>>)",
                 "Cannot cast to map(bigint,array(row(key1 varchar))). Duplicate field: KEY1\n" +
                         "{\"1\":[{\"key1\":\"John\",\"KEY1\":\"Johnny\"}]}");
+        canonicalizedJsonExtractDisabled.assertInvalidCast("CAST(json_extract('{\"1\":[{\"key1\": \"John\", \"KEY1\":\"Johnny\"}]}', '$') AS MAP<bigint, ARRAY<ROW(key1 VARCHAR)>>)",
+                "Cannot cast to map(bigint,array(row(key1 varchar))). Duplicate field: KEY1\n" +
+                        "{\"1\":[{\"key1\":\"John\",\"KEY1\":\"Johnny\"}]}");
+        canonicalizedJsonExtractEnabled.assertInvalidCast("CAST(json_extract('{\"1\":[{\"key1\": \"John\", \"KEY1\":\"Johnny\"}]}', '$') AS MAP<bigint, ARRAY<ROW(key1 VARCHAR)>>)",
+                "Cannot cast to map(bigint,array(row(key1 varchar))). Duplicate field: key1\n" +
+                        "{\"1\":[{\"KEY1\":\"Johnny\",\"key1\":\"John\"}]}");
+
         assertInvalidCast("CAST(unchecked_to_json('{\"a\":1,\"b\":2,\"a\":3}') AS ROW(a BIGINT, b BIGINT))", "Cannot cast to row(a bigint,b bigint). Duplicate field: a\n{\"a\":1,\"b\":2,\"a\":3}");
         assertInvalidCast("CAST(unchecked_to_json('[{\"a\":1,\"b\":2,\"a\":3}]') AS ARRAY<ROW(a BIGINT, b BIGINT)>)", "Cannot cast to array(row(a bigint,b bigint)). Duplicate field: a\n[{\"a\":1,\"b\":2,\"a\":3}]");
     }
@@ -779,5 +799,19 @@ public class TestRowOperators
             assertFunction(base + operator + greater, BOOLEAN, lessOrInequalityOperators.contains(operator));
             assertFunction(greater + operator + base, BOOLEAN, greaterOrInequalityOperators.contains(operator));
         }
+    }
+
+    @Test
+    public void testRowNestedJsonExtractNullVarchar()
+    {
+        assertInvalidCast("CAST(json_extract('{\"1\":[{\"key1\": \"John\", \"KEY1\":\"Johnny\"}]}', '$') AS MAP<bigint, ARRAY<ROW(key1 VARCHAR)>>)",
+                "Cannot cast to map(bigint,array(row(key1 varchar))). Duplicate field: KEY1\n" +
+                        "{\"1\":[{\"key1\":\"John\",\"KEY1\":\"Johnny\"}]}");
+        canonicalizedJsonExtractDisabled.assertInvalidCast("CAST(json_extract('{\"1\":[{\"key1\": \"John\", \"KEY1\":\"Johnny\"}]}', '$') AS MAP<bigint, ARRAY<ROW(key1 VARCHAR)>>)",
+                "Cannot cast to map(bigint,array(row(key1 varchar))). Duplicate field: KEY1\n" +
+                        "{\"1\":[{\"key1\":\"John\",\"KEY1\":\"Johnny\"}]}");
+        canonicalizedJsonExtractEnabled.assertInvalidCast("CAST(json_extract('{\"1\":[{\"key1\": \"John\", \"KEY1\":\"Johnny\"}]}', '$') AS MAP<bigint, ARRAY<ROW(key1 VARCHAR)>>)",
+                "Cannot cast to map(bigint,array(row(key1 varchar))). Duplicate field: key1\n" +
+                        "{\"1\":[{\"KEY1\":\"Johnny\",\"key1\":\"John\"}]}");
     }
 }
