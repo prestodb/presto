@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.function.OperatorType;
@@ -95,6 +96,7 @@ import java.util.regex.Pattern;
 
 import static com.facebook.presto.SystemSessionProperties.isExperimentalFunctionsEnabled;
 import static com.facebook.presto.SystemSessionProperties.isListBuiltInFunctionsOnly;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.metadata.CastType.toOperatorType;
@@ -108,6 +110,7 @@ import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.EXPERIMENTAL;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
 import static com.facebook.presto.spi.function.table.TableFunctionProcessorState.Finished.FINISHED;
+import static com.facebook.presto.spi.function.table.TableFunctionProcessorState.Processed.usedInputAndProduced;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static com.facebook.presto.sql.planner.LiteralEncoder.MAGIC_LITERAL_FUNCTION_PREFIX;
 import static com.facebook.presto.sql.planner.LiteralEncoder.getMagicLiteralFunctionSignature;
@@ -630,7 +633,8 @@ public class FunctionAndTypeManager
 
     public TableFunctionProcessorProvider getTableFunctionProcessorProvider(TableFunctionHandle tableFunctionHandle)
     {
-        return new IdentityFunctionProcessorProvider();
+//        return new IdentityFunctionProcessorProvider();
+        return new IdentityPassThroughFunctionProcessorProvider();
     }
 
     public AggregationFunctionImplementation getAggregateFunctionImplementation(FunctionHandle functionHandle)
@@ -992,6 +996,39 @@ public class FunctionAndTypeManager
                 Optional<Page> inputPage = getOnlyElement(input);
                 return inputPage.map(TableFunctionProcessorState.Processed::usedInputAndProduced).orElseThrow(NoSuchElementException::new);
             };
+        }
+    }
+
+    public static class IdentityPassThroughFunctionProcessorProvider
+            implements TableFunctionProcessorProvider
+    {
+        @Override
+        public TableFunctionDataProcessor getDataProcessor(ConnectorTableFunctionHandle handle)
+        {
+            return new IdentityPassThroughFunctionDataProcessor();
+        }
+    }
+
+    public static class IdentityPassThroughFunctionDataProcessor
+            implements TableFunctionDataProcessor
+    {
+        private long processedPositions; // stateful
+
+        @Override
+        public TableFunctionProcessorState process(List<Optional<Page>> input)
+        {
+            if (input == null) {
+                return FINISHED;
+            }
+
+            Page page = getOnlyElement(input).orElseThrow(NoSuchElementException::new);
+            BlockBuilder builder = BIGINT.createBlockBuilder(null, page.getPositionCount());
+            for (long index = processedPositions; index < processedPositions + page.getPositionCount(); index++) {
+                // TODO check for long overflow
+                builder.writeLong(index);
+            }
+            processedPositions = processedPositions + page.getPositionCount();
+            return usedInputAndProduced(new Page(builder.build()));
         }
     }
 }

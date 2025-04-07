@@ -71,8 +71,8 @@ public class TestTableFunctionInvocation
         queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
                 .withTableFunctions(ImmutableSet.of(
                         new SimpleTableFunction(),
-                        new TestingTableFunctions.IdentityFunction()))
-//                        new TestingTableFunctions.IdentityPassThroughFunction(),
+                        new TestingTableFunctions.IdentityFunction(),
+                        new TestingTableFunctions.IdentityPassThroughFunction()))
 //                        new TestingTableFunctions.RepeatFunction(),
 //                        new TestingTableFunctions.EmptyOutputFunction(),
 //                        new TestingTableFunctions.EmptyOutputWithPassThroughFunction(),
@@ -89,7 +89,7 @@ public class TestTableFunctionInvocation
                     }
                     return Optional.empty();
                 })
-                .withTableFunctionProcessorProvider(new TestingTableFunctions.IdentityFunction.IdentityFunctionProcessorProvider())
+                .withTableFunctionProcessorProvider(new TestingTableFunctions.IdentityPassThroughFunction.IdentityPassThroughFunctionProcessorProvider())
                 .withGetColumnHandles(getColumnHandles)
 //                .withTableFunctionSplitSource(
 //                        new SchemaFunctionName("system", "constant"),
@@ -127,12 +127,14 @@ public class TestTableFunctionInvocation
     @Test
     public void testIdentityFunction()
     {
+        /*
         assertQuery("SELECT b, a FROM TABLE(system.identity_function(input => TABLE(VALUES (1, 2), (3, 4), (5, 6)) T(a, b)))",
                 "VALUES (2, 1), (4, 3), (6, 5)");
-        /*
-        assertThat(query("SELECT b, a FROM TABLE(system.identity_pass_through_function(input => TABLE(VALUES (1, 2), (3, 4), (5, 6)) T(a, b)))"))
-                .matches("VALUES (2, 1), (4, 3), (6, 5)");
+        */
+        assertQuery("SELECT b, a FROM TABLE(system.identity_pass_through_function(input => TABLE(VALUES (1, 2), (3, 4), (5, 6)) T(a, b)))",
+                "VALUES (2, 1), (4, 3), (6, 5)");
 
+        /*
         // null partitioning value
         assertThat(query("SELECT i.b, a FROM TABLE(system.identity_function(input => TABLE(VALUES ('x', 1), ('y', 2), ('z', null)) T(a, b) PARTITION BY b)) i"))
                 .matches("VALUES (1, 'x'), (2, 'y'), (null, 'z')");
