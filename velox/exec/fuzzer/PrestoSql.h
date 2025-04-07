@@ -19,6 +19,8 @@
 
 namespace facebook::velox::exec::test {
 
+class ReferenceQueryRunner;
+
 /// Appends a comma to a given stringstream if the provided integer is greater
 /// than 0.
 void appendComma(int32_t i, std::stringstream& sql);
@@ -54,4 +56,32 @@ std::string toAggregateCallSql(
     const std::vector<core::SortOrder>& sortingOrders,
     bool distinct);
 
+class PrestoSqlPlanNodeVisitorContext : public core::PlanNodeVisitorContext {
+ public:
+  std::optional<std::string> sql;
+};
+
+class PrestoSqlPlanNodeVisitor : public core::PlanNodeVisitor {
+ public:
+  explicit PrestoSqlPlanNodeVisitor(ReferenceQueryRunner* queryRunner)
+      : queryRunner_(queryRunner) {}
+
+  void visit(const core::HashJoinNode& node, core::PlanNodeVisitorContext& ctx)
+      const override;
+
+  void visit(
+      const core::NestedLoopJoinNode& node,
+      core::PlanNodeVisitorContext& ctx) const override;
+
+  void visit(const core::TableScanNode& node, core::PlanNodeVisitorContext& ctx)
+      const override;
+
+  void visit(const core::ValuesNode& node, core::PlanNodeVisitorContext& ctx)
+      const override;
+
+ protected:
+  std::optional<std::string> toSql(const core::PlanNodePtr& node) const;
+
+  ReferenceQueryRunner* queryRunner_;
+};
 } // namespace facebook::velox::exec::test

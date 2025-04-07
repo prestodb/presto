@@ -60,23 +60,6 @@ class DuckQueryRunner : public ReferenceQueryRunner {
   execute(const core::PlanNodePtr& plan) override;
 
  private:
-  using ReferenceQueryRunner::toSql;
-
-  std::optional<std::string> toSql(
-      const std::shared_ptr<const core::AggregationNode>& aggregationNode);
-
-  std::optional<std::string> toSql(
-      const std::shared_ptr<const core::WindowNode>& windowNode);
-
-  std::optional<std::string> toSql(
-      const std::shared_ptr<const core::ProjectNode>& projectNode);
-
-  std::optional<std::string> toSql(
-      const std::shared_ptr<const core::RowNumberNode>& rowNumberNode);
-
-  std::optional<std::string> toSql(
-      const std::shared_ptr<const core::TopNRowNumberNode>& topNRowNumberNode);
-
   std::unordered_set<std::string> aggregateFunctionNames_;
 };
 

@@ -25,6 +25,19 @@
 namespace facebook::velox::exec::test {
 
 namespace {
+bool containsMap(const TypePtr& type) {
+  if (type->isMap()) {
+    return true;
+  }
+
+  for (auto i = 0; i < type->size(); ++i) {
+    if (containsMap(type->childAt(i))) {
+      return true;
+    }
+  }
+
+  return false;
+}
 
 bool isSupportedType(const TypePtr& type) {
   // DuckDB doesn't support nanosecond precision for timestamps.
@@ -39,6 +52,452 @@ bool isSupportedType(const TypePtr& type) {
 
   return true;
 }
+
+class DuckQueryRunnerToSqlPlanNodeVisitor : public PrestoSqlPlanNodeVisitor {
+ public:
+  DuckQueryRunnerToSqlPlanNodeVisitor(
+      DuckQueryRunner* queryRunner,
+      const std::unordered_set<std::string>& aggregateFunctionNames)
+      : PrestoSqlPlanNodeVisitor(queryRunner),
+        aggregateFunctionNames_(aggregateFunctionNames) {}
+
+  void visit(
+      const core::AggregationNode& node,
+      core::PlanNodeVisitorContext& ctx) const override {
+    // Assume plan is Aggregation over Values.
+    VELOX_CHECK(node.step() == core::AggregationNode::Step::kSingle);
+
+    PrestoSqlPlanNodeVisitorContext& visitorContext =
+        static_cast<PrestoSqlPlanNodeVisitorContext&>(ctx);
+
+    if (!isSupportedType(node.outputType())) {
+      visitorContext.sql = std::nullopt;
+      return;
+    }
+
+    for (const auto& agg : node.aggregates()) {
+      if (aggregateFunctionNames_.count(agg.call->name()) == 0) {
+        visitorContext.sql = std::nullopt;
+        return;
+      }
+    }
+
+    std::vector<std::string> groupingKeys;
+    for (const auto& key : node.groupingKeys()) {
+      // Aggregations with group by keys that contain maps are buggy.
+      if (containsMap(key->type())) {
+        visitorContext.sql = std::nullopt;
+        return;
+      }
+      groupingKeys.push_back(key->name());
+    }
+
+    std::stringstream sql;
+    sql << "SELECT " << folly::join(", ", groupingKeys);
+
+    const auto& aggregates = node.aggregates();
+    if (!aggregates.empty()) {
+      if (!groupingKeys.empty()) {
+        sql << ", ";
+      }
+
+      for (auto i = 0; i < aggregates.size(); ++i) {
+        appendComma(i, sql);
+        const auto& aggregate = aggregates[i];
+        sql << toAggregateCallSql(
+            aggregate.call,
+            aggregate.sortingKeys,
+            aggregate.sortingOrders,
+            aggregate.distinct);
+
+        if (aggregate.mask != nullptr) {
+          sql << " filter (where " << aggregate.mask->name() << ")";
+        }
+        sql << " as " << node.aggregateNames()[i];
+      }
+    }
+
+    // AggregationNode should have a single source.
+    const auto source = toSql(node.sources()[0]);
+    if (!source) {
+      visitorContext.sql = std::nullopt;
+      return;
+    }
+    sql << " FROM " << *source;
+
+    if (!groupingKeys.empty()) {
+      sql << " GROUP BY " << folly::join(", ", groupingKeys);
+    }
+
+    visitorContext.sql = sql.str();
+  }
+
+  void visit(const core::ArrowStreamNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+  void visit(const core::AssignUniqueIdNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+  void visit(const core::EnforceSingleRowNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+  void visit(const core::ExchangeNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+  void visit(const core::ExpandNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+  void visit(const core::FilterNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+  void visit(const core::GroupIdNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+  void visit(const core::HashJoinNode& node, core::PlanNodeVisitorContext& ctx)
+      const override {
+    PrestoSqlPlanNodeVisitorContext& visitorContext =
+        static_cast<PrestoSqlPlanNodeVisitorContext&>(ctx);
+
+    if (!isSupportedType(node.outputType())) {
+      visitorContext.sql = std::nullopt;
+      return;
+    }
+
+    PrestoSqlPlanNodeVisitor::visit(node, ctx);
+  }
+
+  void visit(const core::IndexLookupJoinNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+  void visit(const core::LimitNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+  void visit(const core::LocalMergeNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+  void visit(const core::LocalPartitionNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+  void visit(const core::MarkDistinctNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+  void visit(const core::MergeExchangeNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+  void visit(const core::MergeJoinNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+  void visit(
+      const core::NestedLoopJoinNode& node,
+      core::PlanNodeVisitorContext& ctx) const override {
+    PrestoSqlPlanNodeVisitorContext& visitorContext =
+        static_cast<PrestoSqlPlanNodeVisitorContext&>(ctx);
+
+    if (!isSupportedType(node.outputType())) {
+      visitorContext.sql = std::nullopt;
+      return;
+    }
+
+    PrestoSqlPlanNodeVisitor::visit(node, ctx);
+  }
+
+  void visit(const core::OrderByNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+  void visit(const core::PartitionedOutputNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+  void visit(const core::ProjectNode& node, core::PlanNodeVisitorContext& ctx)
+      const override {
+    PrestoSqlPlanNodeVisitorContext& visitorContext =
+        static_cast<PrestoSqlPlanNodeVisitorContext&>(ctx);
+
+    if (!isSupportedType(node.outputType())) {
+      visitorContext.sql = std::nullopt;
+      return;
+    }
+
+    const auto sourceSql = toSql(node.sources()[0]);
+    if (!sourceSql.has_value()) {
+      visitorContext.sql = std::nullopt;
+      return;
+    }
+
+    std::stringstream sql;
+    sql << "SELECT ";
+
+    for (auto i = 0; i < node.names().size(); ++i) {
+      appendComma(i, sql);
+      auto projection = node.projections()[i];
+      if (auto field =
+              std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(
+                  projection)) {
+        sql << field->name();
+      } else if (
+          auto call = std::dynamic_pointer_cast<const core::CallTypedExpr>(
+              projection)) {
+        sql << toCallSql(call);
+      } else {
+        VELOX_NYI();
+      }
+
+      sql << " as " << node.names()[i];
+    }
+
+    sql << " FROM (" << sourceSql.value() << ")";
+    visitorContext.sql = sql.str();
+  }
+
+  void visit(const core::RowNumberNode& node, core::PlanNodeVisitorContext& ctx)
+      const override {
+    PrestoSqlPlanNodeVisitorContext& visitorContext =
+        static_cast<PrestoSqlPlanNodeVisitorContext&>(ctx);
+
+    if (!isSupportedType(node.outputType())) {
+      visitorContext.sql = std::nullopt;
+      return;
+    }
+
+    std::stringstream sql;
+    sql << "SELECT ";
+
+    const auto& inputType = node.sources()[0]->outputType();
+    for (auto i = 0; i < inputType->size(); ++i) {
+      appendComma(i, sql);
+      sql << inputType->nameOf(i);
+    }
+
+    sql << ", row_number() OVER (";
+
+    const auto& partitionKeys = node.partitionKeys();
+    if (!partitionKeys.empty()) {
+      sql << "partition by ";
+      for (auto i = 0; i < partitionKeys.size(); ++i) {
+        appendComma(i, sql);
+        sql << partitionKeys[i]->name();
+      }
+    }
+
+    // RowNumberNode should have a single source.
+    const auto source = toSql(node.sources()[0]);
+    if (!source) {
+      visitorContext.sql = std::nullopt;
+      return;
+    }
+    sql << ") as row_number FROM " << *source;
+
+    visitorContext.sql = sql.str();
+  }
+
+  void visit(const core::TableScanNode& node, core::PlanNodeVisitorContext& ctx)
+      const override {
+    PrestoSqlPlanNodeVisitorContext& visitorContext =
+        static_cast<PrestoSqlPlanNodeVisitorContext&>(ctx);
+
+    if (!isSupportedType(node.outputType())) {
+      visitorContext.sql = std::nullopt;
+      return;
+    }
+
+    PrestoSqlPlanNodeVisitor::visit(node, ctx);
+  }
+
+  void visit(const core::TableWriteNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+  void visit(const core::TableWriteMergeNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+  void visit(const core::TopNNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+  void visit(
+      const core::TopNRowNumberNode& node,
+      core::PlanNodeVisitorContext& ctx) const override {
+    PrestoSqlPlanNodeVisitorContext& visitorContext =
+        static_cast<PrestoSqlPlanNodeVisitorContext&>(ctx);
+
+    if (!isSupportedType(node.outputType())) {
+      visitorContext.sql = std::nullopt;
+      return;
+    }
+
+    std::stringstream sql;
+    sql << "SELECT * FROM (SELECT ";
+
+    const auto& inputType = node.sources()[0]->outputType();
+    for (auto i = 0; i < inputType->size(); ++i) {
+      appendComma(i, sql);
+      sql << inputType->nameOf(i);
+    }
+
+    sql << ", row_number() OVER (";
+
+    const auto& partitionKeys = node.partitionKeys();
+    if (!partitionKeys.empty()) {
+      sql << "partition by ";
+      for (auto i = 0; i < partitionKeys.size(); ++i) {
+        appendComma(i, sql);
+        sql << partitionKeys[i]->name();
+      }
+    }
+
+    const auto& sortingKeys = node.sortingKeys();
+    const auto& sortingOrders = node.sortingOrders();
+
+    if (!sortingKeys.empty()) {
+      sql << " ORDER BY ";
+      for (auto j = 0; j < sortingKeys.size(); ++j) {
+        appendComma(j, sql);
+        sql << sortingKeys[j]->name() << " " << sortingOrders[j].toString();
+      }
+    }
+
+    std::string rowNumberColumnName = node.generateRowNumber()
+        ? node.outputType()->nameOf(node.outputType()->children().size() - 1)
+        : "row_number";
+
+    // TopNRowNumberNode should have a single source.
+    const auto source = toSql(node.sources()[0]);
+    if (!source) {
+      visitorContext.sql = std::nullopt;
+      return;
+    }
+    sql << ") as " << rowNumberColumnName << " FROM " << *source << ") ";
+    sql << " where " << rowNumberColumnName << " <= " << node.limit();
+
+    visitorContext.sql = sql.str();
+  }
+
+  void visit(const core::TraceScanNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+  void visit(const core::UnnestNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+  void visit(const core::ValuesNode& node, core::PlanNodeVisitorContext& ctx)
+      const override {
+    PrestoSqlPlanNodeVisitorContext& visitorContext =
+        static_cast<PrestoSqlPlanNodeVisitorContext&>(ctx);
+
+    if (!isSupportedType(node.outputType())) {
+      visitorContext.sql = std::nullopt;
+      return;
+    }
+
+    PrestoSqlPlanNodeVisitor::visit(node, ctx);
+  }
+
+  void visit(const core::WindowNode& node, core::PlanNodeVisitorContext& ctx)
+      const override {
+    PrestoSqlPlanNodeVisitorContext& visitorContext =
+        static_cast<PrestoSqlPlanNodeVisitorContext&>(ctx);
+
+    if (!isSupportedType(node.outputType())) {
+      visitorContext.sql = std::nullopt;
+      return;
+    }
+
+    std::stringstream sql;
+    sql << "SELECT ";
+
+    const auto& inputType = node.sources()[0]->outputType();
+    for (auto i = 0; i < inputType->size(); ++i) {
+      appendComma(i, sql);
+      sql << inputType->nameOf(i);
+    }
+
+    sql << ", ";
+
+    const auto& functions = node.windowFunctions();
+    for (auto i = 0; i < functions.size(); ++i) {
+      appendComma(i, sql);
+      sql << toCallSql(functions[i].functionCall);
+    }
+    sql << " OVER (";
+
+    const auto& partitionKeys = node.partitionKeys();
+    if (!partitionKeys.empty()) {
+      sql << "partition by ";
+      for (auto i = 0; i < partitionKeys.size(); ++i) {
+        appendComma(i, sql);
+        sql << partitionKeys[i]->name();
+      }
+    }
+
+    const auto& sortingKeys = node.sortingKeys();
+    const auto& sortingOrders = node.sortingOrders();
+
+    if (!sortingKeys.empty()) {
+      sql << " order by ";
+      for (auto i = 0; i < sortingKeys.size(); ++i) {
+        appendComma(i, sql);
+        sql << sortingKeys[i]->name() << " " << sortingOrders[i].toString();
+      }
+    }
+
+    // WindowNode should have a single source.
+    const auto source = toSql(node.sources()[0]);
+    if (!source) {
+      visitorContext.sql = std::nullopt;
+      return;
+    }
+    sql << ") FROM " << *source;
+
+    visitorContext.sql = sql.str();
+  }
+
+  /// Used to visit custom PlanNodes that extend the set provided by Velox.
+  void visit(const core::PlanNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+ private:
+  std::unordered_set<std::string> aggregateFunctionNames_;
+};
 
 std::unordered_set<std::string> getAggregateFunctions() {
   std::string sql =
@@ -136,301 +595,11 @@ DuckQueryRunner::execute(const core::PlanNodePtr& plan) {
 
 std::optional<std::string> DuckQueryRunner::toSql(
     const core::PlanNodePtr& plan) {
-  if (!isSupportedType(plan->outputType())) {
-    return std::nullopt;
-  }
+  PrestoSqlPlanNodeVisitorContext context;
+  DuckQueryRunnerToSqlPlanNodeVisitor visitor(this, aggregateFunctionNames_);
+  plan->accept(visitor, context);
 
-  for (const auto& source : plan->sources()) {
-    if (!isSupportedType(source->outputType())) {
-      return std::nullopt;
-    }
-  }
-
-  if (const auto projectNode =
-          std::dynamic_pointer_cast<const core::ProjectNode>(plan)) {
-    return toSql(projectNode);
-  }
-
-  if (const auto windowNode =
-          std::dynamic_pointer_cast<const core::WindowNode>(plan)) {
-    return toSql(windowNode);
-  }
-
-  if (const auto aggregationNode =
-          std::dynamic_pointer_cast<const core::AggregationNode>(plan)) {
-    return toSql(aggregationNode);
-  }
-
-  if (const auto rowNumberNode =
-          std::dynamic_pointer_cast<const core::RowNumberNode>(plan)) {
-    return toSql(rowNumberNode);
-  }
-
-  if (const auto topNRowNumberNode =
-          std::dynamic_pointer_cast<const core::TopNRowNumberNode>(plan)) {
-    return toSql(topNRowNumberNode);
-  }
-
-  if (const auto joinNode =
-          std::dynamic_pointer_cast<const core::HashJoinNode>(plan)) {
-    return toSql(joinNode);
-  }
-
-  if (const auto joinNode =
-          std::dynamic_pointer_cast<const core::NestedLoopJoinNode>(plan)) {
-    return toSql(joinNode);
-  }
-
-  if (const auto valuesNode =
-          std::dynamic_pointer_cast<const core::ValuesNode>(plan)) {
-    return toSql(valuesNode);
-  }
-
-  if (const auto tableScanNode =
-          std::dynamic_pointer_cast<const core::TableScanNode>(plan)) {
-    return toSql(tableScanNode);
-  }
-
-  VELOX_NYI();
-}
-
-namespace {
-bool containsMap(const TypePtr& type) {
-  if (type->isMap()) {
-    return true;
-  }
-
-  for (auto i = 0; i < type->size(); ++i) {
-    if (containsMap(type->childAt(i))) {
-      return true;
-    }
-  }
-
-  return false;
-}
-} // namespace
-
-std::optional<std::string> DuckQueryRunner::toSql(
-    const std::shared_ptr<const core::AggregationNode>& aggregationNode) {
-  // Assume plan is Aggregation over Values.
-  VELOX_CHECK(aggregationNode->step() == core::AggregationNode::Step::kSingle);
-
-  for (const auto& agg : aggregationNode->aggregates()) {
-    if (aggregateFunctionNames_.count(agg.call->name()) == 0) {
-      return std::nullopt;
-    }
-  }
-
-  std::vector<std::string> groupingKeys;
-  for (const auto& key : aggregationNode->groupingKeys()) {
-    // Aggregations with group by keys that contain maps are buggy.
-    if (containsMap(key->type())) {
-      return std::nullopt;
-    }
-    groupingKeys.push_back(key->name());
-  }
-
-  std::stringstream sql;
-  sql << "SELECT " << folly::join(", ", groupingKeys);
-
-  const auto& aggregates = aggregationNode->aggregates();
-  if (!aggregates.empty()) {
-    if (!groupingKeys.empty()) {
-      sql << ", ";
-    }
-
-    for (auto i = 0; i < aggregates.size(); ++i) {
-      appendComma(i, sql);
-      const auto& aggregate = aggregates[i];
-      sql << toAggregateCallSql(
-          aggregate.call,
-          aggregate.sortingKeys,
-          aggregate.sortingOrders,
-          aggregate.distinct);
-
-      if (aggregate.mask != nullptr) {
-        sql << " filter (where " << aggregate.mask->name() << ")";
-      }
-      sql << " as " << aggregationNode->aggregateNames()[i];
-    }
-  }
-
-  // AggregationNode should have a single source.
-  std::optional<std::string> source = toSql(aggregationNode->sources()[0]);
-  if (!source) {
-    return std::nullopt;
-  }
-  sql << " FROM " << *source;
-
-  if (!groupingKeys.empty()) {
-    sql << " GROUP BY " << folly::join(", ", groupingKeys);
-  }
-
-  return sql.str();
-}
-
-std::optional<std::string> DuckQueryRunner::toSql(
-    const std::shared_ptr<const core::ProjectNode>& projectNode) {
-  auto sourceSql = toSql(projectNode->sources()[0]);
-  if (!sourceSql.has_value()) {
-    return std::nullopt;
-  }
-
-  std::stringstream sql;
-  sql << "SELECT ";
-
-  for (auto i = 0; i < projectNode->names().size(); ++i) {
-    appendComma(i, sql);
-    auto projection = projectNode->projections()[i];
-    if (auto field =
-            std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(
-                projection)) {
-      sql << field->name();
-    } else if (
-        auto call =
-            std::dynamic_pointer_cast<const core::CallTypedExpr>(projection)) {
-      sql << toCallSql(call);
-    } else {
-      VELOX_NYI();
-    }
-
-    sql << " as " << projectNode->names()[i];
-  }
-
-  sql << " FROM (" << sourceSql.value() << ")";
-  return sql.str();
-}
-
-std::optional<std::string> DuckQueryRunner::toSql(
-    const std::shared_ptr<const core::WindowNode>& windowNode) {
-  std::stringstream sql;
-  sql << "SELECT ";
-
-  const auto& inputType = windowNode->sources()[0]->outputType();
-  for (auto i = 0; i < inputType->size(); ++i) {
-    appendComma(i, sql);
-    sql << inputType->nameOf(i);
-  }
-
-  sql << ", ";
-
-  const auto& functions = windowNode->windowFunctions();
-  for (auto i = 0; i < functions.size(); ++i) {
-    appendComma(i, sql);
-    sql << toCallSql(functions[i].functionCall);
-  }
-  sql << " OVER (";
-
-  const auto& partitionKeys = windowNode->partitionKeys();
-  if (!partitionKeys.empty()) {
-    sql << "partition by ";
-    for (auto i = 0; i < partitionKeys.size(); ++i) {
-      appendComma(i, sql);
-      sql << partitionKeys[i]->name();
-    }
-  }
-
-  const auto& sortingKeys = windowNode->sortingKeys();
-  const auto& sortingOrders = windowNode->sortingOrders();
-
-  if (!sortingKeys.empty()) {
-    sql << " order by ";
-    for (auto i = 0; i < sortingKeys.size(); ++i) {
-      appendComma(i, sql);
-      sql << sortingKeys[i]->name() << " " << sortingOrders[i].toString();
-    }
-  }
-
-  // WindowNode should have a single source.
-  std::optional<std::string> source = toSql(windowNode->sources()[0]);
-  if (!source) {
-    return std::nullopt;
-  }
-  sql << ") FROM " << *source;
-
-  return sql.str();
-}
-
-std::optional<std::string> DuckQueryRunner::toSql(
-    const std::shared_ptr<const core::RowNumberNode>& rowNumberNode) {
-  std::stringstream sql;
-  sql << "SELECT ";
-
-  const auto& inputType = rowNumberNode->sources()[0]->outputType();
-  for (auto i = 0; i < inputType->size(); ++i) {
-    appendComma(i, sql);
-    sql << inputType->nameOf(i);
-  }
-
-  sql << ", row_number() OVER (";
-
-  const auto& partitionKeys = rowNumberNode->partitionKeys();
-  if (!partitionKeys.empty()) {
-    sql << "partition by ";
-    for (auto i = 0; i < partitionKeys.size(); ++i) {
-      appendComma(i, sql);
-      sql << partitionKeys[i]->name();
-    }
-  }
-
-  // RowNumberNode should have a single source.
-  std::optional<std::string> source = toSql(rowNumberNode->sources()[0]);
-  if (!source) {
-    return std::nullopt;
-  }
-  sql << ") as row_number FROM " << *source;
-
-  return sql.str();
-}
-
-std::optional<std::string> DuckQueryRunner::toSql(
-    const std::shared_ptr<const core::TopNRowNumberNode>& topNRowNumberNode) {
-  std::stringstream sql;
-  sql << "SELECT * FROM (SELECT ";
-
-  const auto& inputType = topNRowNumberNode->sources()[0]->outputType();
-  for (auto i = 0; i < inputType->size(); ++i) {
-    appendComma(i, sql);
-    sql << inputType->nameOf(i);
-  }
-
-  sql << ", row_number() OVER (";
-
-  const auto& partitionKeys = topNRowNumberNode->partitionKeys();
-  if (!partitionKeys.empty()) {
-    sql << "partition by ";
-    for (auto i = 0; i < partitionKeys.size(); ++i) {
-      appendComma(i, sql);
-      sql << partitionKeys[i]->name();
-    }
-  }
-
-  const auto& sortingKeys = topNRowNumberNode->sortingKeys();
-  const auto& sortingOrders = topNRowNumberNode->sortingOrders();
-
-  if (!sortingKeys.empty()) {
-    sql << " ORDER BY ";
-    for (auto j = 0; j < sortingKeys.size(); ++j) {
-      appendComma(j, sql);
-      sql << sortingKeys[j]->name() << " " << sortingOrders[j].toString();
-    }
-  }
-
-  std::string rowNumberColumnName = topNRowNumberNode->generateRowNumber()
-      ? topNRowNumberNode->outputType()->nameOf(
-            topNRowNumberNode->outputType()->children().size() - 1)
-      : "row_number";
-
-  // TopNRowNumberNode should have a single source.
-  std::optional<std::string> source = toSql(topNRowNumberNode->sources()[0]);
-  if (!source) {
-    return std::nullopt;
-  }
-  sql << ") as " << rowNumberColumnName << " FROM " << *source << ") ";
-  sql << " where " << rowNumberColumnName
-      << " <= " << topNRowNumberNode->limit();
-
-  return sql.str();
+  return context.sql;
 }
 
 } // namespace facebook::velox::exec::test

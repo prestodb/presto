@@ -16,9 +16,52 @@
 
 #include "velox/exec/fuzzer/PrestoSql.h"
 
+#include "velox/exec/fuzzer/ReferenceQueryRunner.h"
 #include "velox/functions/prestosql/types/JsonType.h"
 
 namespace facebook::velox::exec::test {
+
+namespace {
+std::string joinKeysToSql(
+    const std::vector<core::FieldAccessTypedExprPtr>& keys) {
+  std::vector<std::string> keyNames;
+  keyNames.reserve(keys.size());
+  for (const core::FieldAccessTypedExprPtr& key : keys) {
+    keyNames.push_back(key->name());
+  }
+  return folly::join(", ", keyNames);
+}
+
+std::string filterToSql(const core::TypedExprPtr& filter) {
+  auto call = std::dynamic_pointer_cast<const core::CallTypedExpr>(filter);
+  return toCallSql(call);
+}
+
+std::string joinConditionAsSql(const core::AbstractJoinNode& joinNode) {
+  std::stringstream out;
+  for (auto i = 0; i < joinNode.leftKeys().size(); ++i) {
+    if (i > 0) {
+      out << " AND ";
+    }
+    out << joinNode.leftKeys()[i]->name() << " = "
+        << joinNode.rightKeys()[i]->name();
+  }
+  if (joinNode.filter()) {
+    if (!joinNode.leftKeys().empty()) {
+      out << " AND ";
+    }
+    out << filterToSql(joinNode.filter());
+  }
+  return out.str();
+}
+
+std::optional<std::string> toJoinSourceSql(std::optional<std::string>&& sql) {
+  return sql.has_value() && sql->find(" ") != std::string::npos
+      ? fmt::format("({})", *sql)
+      : sql;
+}
+
+} // namespace
 
 void appendComma(int32_t i, std::stringstream& sql) {
   if (i > 0) {
@@ -332,6 +375,172 @@ std::string toAggregateCallSql(
 
   sql << ")";
   return sql.str();
+}
+
+void PrestoSqlPlanNodeVisitor::visit(
+    const core::ValuesNode& node,
+    core::PlanNodeVisitorContext& ctx) const {
+  PrestoSqlPlanNodeVisitorContext& visitorContext =
+      static_cast<PrestoSqlPlanNodeVisitorContext&>(ctx);
+  if (!queryRunner_->isSupportedDwrfType(node.outputType())) {
+    visitorContext.sql = std::nullopt;
+  } else {
+    visitorContext.sql = queryRunner_->getTableName(node);
+  }
+}
+
+void PrestoSqlPlanNodeVisitor::visit(
+    const core::TableScanNode& node,
+    core::PlanNodeVisitorContext& ctx) const {
+  static_cast<PrestoSqlPlanNodeVisitorContext&>(ctx).sql =
+      node.tableHandle()->name();
+}
+
+void PrestoSqlPlanNodeVisitor::visit(
+    const core::HashJoinNode& node,
+    core::PlanNodeVisitorContext& ctx) const {
+  PrestoSqlPlanNodeVisitorContext& visitorContext =
+      static_cast<PrestoSqlPlanNodeVisitorContext&>(ctx);
+
+  if (!queryRunner_->isSupportedDwrfType(node.sources()[0]->outputType()) ||
+      !queryRunner_->isSupportedDwrfType(node.sources()[1]->outputType())) {
+    visitorContext.sql = std::nullopt;
+    return;
+  }
+
+  std::optional<std::string> probeTableName =
+      toJoinSourceSql(toSql(node.sources()[0]));
+  std::optional<std::string> buildTableName =
+      toJoinSourceSql(toSql(node.sources()[1]));
+  if (!probeTableName || !buildTableName) {
+    visitorContext.sql = std::nullopt;
+    return;
+  }
+
+  const auto& outputNames = node.outputType()->names();
+
+  std::stringstream sql;
+  if (node.isLeftSemiProjectJoin()) {
+    sql << "SELECT "
+        << folly::join(", ", outputNames.begin(), --outputNames.end());
+  } else {
+    sql << "SELECT " << folly::join(", ", outputNames);
+  }
+
+  switch (node.joinType()) {
+    case core::JoinType::kInner:
+      sql << " FROM " << *probeTableName << " INNER JOIN " << *buildTableName
+          << " ON " << joinConditionAsSql(node);
+      break;
+    case core::JoinType::kLeft:
+      sql << " FROM " << *probeTableName << " LEFT JOIN " << *buildTableName
+          << " ON " << joinConditionAsSql(node);
+      break;
+    case core::JoinType::kFull:
+      sql << " FROM " << *probeTableName << " FULL OUTER JOIN "
+          << *buildTableName << " ON " << joinConditionAsSql(node);
+      break;
+    case core::JoinType::kLeftSemiFilter:
+      // Multiple columns returned by a scalar subquery is not supported. A
+      // scalar subquery expression is a subquery that returns one result row
+      // from exactly one column for every input row.
+      if (node.leftKeys().size() > 1) {
+        visitorContext.sql = std::nullopt;
+        return;
+      }
+      sql << " FROM " << *probeTableName << " WHERE "
+          << joinKeysToSql(node.leftKeys()) << " IN (SELECT "
+          << joinKeysToSql(node.rightKeys()) << " FROM " << *buildTableName;
+      if (node.filter()) {
+        sql << " WHERE " << filterToSql(node.filter());
+      }
+      sql << ")";
+      break;
+    case core::JoinType::kLeftSemiProject:
+      if (node.isNullAware()) {
+        sql << ", " << joinKeysToSql(node.leftKeys()) << " IN (SELECT "
+            << joinKeysToSql(node.rightKeys()) << " FROM " << *buildTableName;
+        if (node.filter()) {
+          sql << " WHERE " << filterToSql(node.filter());
+        }
+        sql << ") FROM " << *probeTableName;
+      } else {
+        sql << ", EXISTS (SELECT * FROM " << *buildTableName << " WHERE "
+            << joinConditionAsSql(node);
+        sql << ") FROM " << *probeTableName;
+      }
+      break;
+    case core::JoinType::kAnti:
+      if (node.isNullAware()) {
+        sql << " FROM " << *probeTableName << " WHERE "
+            << joinKeysToSql(node.leftKeys()) << " NOT IN (SELECT "
+            << joinKeysToSql(node.rightKeys()) << " FROM " << *buildTableName;
+        if (node.filter()) {
+          sql << " WHERE " << filterToSql(node.filter());
+        }
+        sql << ")";
+      } else {
+        sql << " FROM " << *probeTableName
+            << " WHERE NOT EXISTS (SELECT * FROM " << *buildTableName
+            << " WHERE " << joinConditionAsSql(node);
+        sql << ")";
+      }
+      break;
+    default:
+      VELOX_UNREACHABLE(
+          "Unknown join type: {}", static_cast<int>(node.joinType()));
+  }
+  visitorContext.sql = sql.str();
+}
+
+void PrestoSqlPlanNodeVisitor::visit(
+    const core::NestedLoopJoinNode& node,
+    core::PlanNodeVisitorContext& ctx) const {
+  PrestoSqlPlanNodeVisitorContext& visitorContext =
+      static_cast<PrestoSqlPlanNodeVisitorContext&>(ctx);
+
+  std::optional<std::string> probeTableName =
+      toJoinSourceSql(toSql(node.sources()[0]));
+  std::optional<std::string> buildTableName =
+      toJoinSourceSql(toSql(node.sources()[1]));
+  if (!probeTableName || !buildTableName) {
+    visitorContext.sql = std::nullopt;
+    return;
+  }
+
+  std::stringstream sql;
+  sql << "SELECT " << folly::join(", ", node.outputType()->names());
+
+  // Nested loop join without filter.
+  VELOX_CHECK_NULL(
+      node.joinCondition(),
+      "This code path should be called only for nested loop join without filter");
+  const std::string joinCondition{"(1 = 1)"};
+  switch (node.joinType()) {
+    case core::JoinType::kInner:
+      sql << " FROM " << *probeTableName << " INNER JOIN " << *buildTableName
+          << " ON " << joinCondition;
+      break;
+    case core::JoinType::kLeft:
+      sql << " FROM " << *probeTableName << " LEFT JOIN " << *buildTableName
+          << " ON " << joinCondition;
+      break;
+    case core::JoinType::kFull:
+      sql << " FROM " << *probeTableName << " FULL OUTER JOIN "
+          << *buildTableName << " ON " << joinCondition;
+      break;
+    default:
+      VELOX_UNREACHABLE(
+          "Unknown join type: {}", static_cast<int>(node.joinType()));
+  }
+  visitorContext.sql = sql.str();
+}
+
+std::optional<std::string> PrestoSqlPlanNodeVisitor::toSql(
+    const core::PlanNodePtr& node) const {
+  PrestoSqlPlanNodeVisitorContext sourceContext;
+  node->accept(*this, sourceContext);
+  return sourceContext.sql;
 }
 
 } // namespace facebook::velox::exec::test

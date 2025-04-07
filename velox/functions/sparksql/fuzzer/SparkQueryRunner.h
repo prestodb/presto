@@ -15,10 +15,10 @@
  */
 #pragma once
 
-#include "grpc++/channel.h"
-#include "grpc++/client_context.h"
-#include "grpc++/create_channel.h"
-#include "grpc++/security/credentials.h"
+#include "grpc++/channel.h" // @manual
+#include "grpc++/client_context.h" // @manual
+#include "grpc++/create_channel.h" // @manual
+#include "grpc++/security/credentials.h" // @manual
 #include "spark/connect/base.grpc.pb.h"
 #include "velox/common/fuzzer/Utils.h"
 #include "velox/common/memory/Memory.h"
@@ -104,13 +104,6 @@ class SparkQueryRunner : public velox::exec::test::ReferenceQueryRunner {
   // Reads the arrow IPC-format string data with arrow IPC reader and convert
   // them into Velox RowVectors.
   std::vector<velox::RowVectorPtr> readArrowData(const std::string& data);
-
-  std::optional<std::string> toSql(
-      const std::shared_ptr<const velox::core::AggregationNode>&
-          aggregationNode);
-
-  std::optional<std::string> toSql(
-      const std::shared_ptr<const core::ProjectNode>& projectNode);
 
   google::protobuf::Arena arena_;
   const std::string userId_;

@@ -107,25 +107,6 @@ class PrestoQueryRunner : public velox::exec::test::ReferenceQueryRunner {
     return pool_.get();
   }
 
-  std::optional<std::string> toSql(
-      const std::shared_ptr<const velox::core::AggregationNode>&
-          aggregationNode);
-
-  std::optional<std::string> toSql(
-      const std::shared_ptr<const velox::core::WindowNode>& windowNode);
-
-  std::optional<std::string> toSql(
-      const std::shared_ptr<const velox::core::ProjectNode>& projectNode);
-
-  std::optional<std::string> toSql(
-      const std::shared_ptr<const velox::core::RowNumberNode>& rowNumberNode);
-
-  std::optional<std::string> toSql(
-      const std::shared_ptr<const core::TopNRowNumberNode>& rowNumberNode);
-
-  std::optional<std::string> toSql(
-      const std::shared_ptr<const core::TableWriteNode>& tableWriteNode);
-
   std::string startQuery(
       const std::string& sql,
       const std::string& sessionProperty = "");

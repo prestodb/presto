@@ -24,7 +24,7 @@
 #include "arrow/ipc/api.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
-#include "grpc/grpc.h"
+#include "grpc/grpc.h" // @manual
 #include "spark/connect/base.pb.h"
 #include "spark/connect/relations.pb.h"
 #include "velox/common/base/Fs.h"
@@ -40,6 +40,248 @@ using namespace spark::connect;
 
 namespace facebook::velox::functions::sparksql::fuzzer {
 namespace {
+using exec::test::PrestoSqlPlanNodeVisitor;
+using exec::test::PrestoSqlPlanNodeVisitorContext;
+
+class SparkQueryRunnerToSqlPlanNodeVisitor : public PrestoSqlPlanNodeVisitor {
+ public:
+  explicit SparkQueryRunnerToSqlPlanNodeVisitor(SparkQueryRunner* queryRunner)
+      : PrestoSqlPlanNodeVisitor(queryRunner) {}
+
+  void visit(
+      const core::AggregationNode& node,
+      core::PlanNodeVisitorContext& ctx) const override {
+    // Assume plan is Aggregation over Values.
+    VELOX_CHECK(node.step() == core::AggregationNode::Step::kSingle);
+
+    PrestoSqlPlanNodeVisitorContext& visitorContext =
+        static_cast<PrestoSqlPlanNodeVisitorContext&>(ctx);
+
+    std::vector<std::string> groupingKeys;
+    for (const auto& key : node.groupingKeys()) {
+      groupingKeys.push_back(key->name());
+    }
+
+    std::stringstream sql;
+    sql << "SELECT " << folly::join(", ", groupingKeys);
+
+    const auto& aggregates = node.aggregates();
+    if (!aggregates.empty()) {
+      if (!groupingKeys.empty()) {
+        sql << ", ";
+      }
+
+      for (auto i = 0; i < aggregates.size(); ++i) {
+        exec::test::appendComma(i, sql);
+        const auto& aggregate = aggregates[i];
+        VELOX_CHECK(
+            aggregate.sortingKeys.empty(),
+            "Sort key is not supported in Spark's aggregation. You may need to disable 'enable_sorted_aggregations' when running the fuzzer test.");
+        sql << exec::test::toAggregateCallSql(
+            aggregate.call, {}, {}, aggregate.distinct);
+
+        if (aggregate.mask != nullptr) {
+          sql << " filter (where " << aggregate.mask->name() << ")";
+        }
+        sql << " as " << node.aggregateNames()[i];
+      }
+    }
+
+    sql << " FROM tmp";
+
+    if (!groupingKeys.empty()) {
+      sql << " GROUP BY " << folly::join(", ", groupingKeys);
+    }
+
+    visitorContext.sql = sql.str();
+  }
+
+  void visit(const core::ArrowStreamNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+  void visit(const core::AssignUniqueIdNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+  void visit(const core::EnforceSingleRowNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+  void visit(const core::ExchangeNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+  void visit(const core::ExpandNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+  void visit(const core::FilterNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+  void visit(const core::GroupIdNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+  void visit(const core::HashJoinNode& node, core::PlanNodeVisitorContext& ctx)
+      const override {
+    PrestoSqlPlanNodeVisitor::visit(node, ctx);
+  }
+
+  void visit(const core::IndexLookupJoinNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+  void visit(const core::LimitNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+  void visit(const core::LocalMergeNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+  void visit(const core::LocalPartitionNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+  void visit(const core::MarkDistinctNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+  void visit(const core::MergeExchangeNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+  void visit(const core::MergeJoinNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+  void visit(
+      const core::NestedLoopJoinNode& node,
+      core::PlanNodeVisitorContext& ctx) const override {
+    PrestoSqlPlanNodeVisitor::visit(node, ctx);
+  }
+
+  void visit(const core::OrderByNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+  void visit(const core::PartitionedOutputNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+  void visit(const core::ProjectNode& node, core::PlanNodeVisitorContext& ctx)
+      const override {
+    PrestoSqlPlanNodeVisitorContext& visitorContext =
+        static_cast<PrestoSqlPlanNodeVisitorContext&>(ctx);
+
+    const auto sourceSql = toSql(node.sources()[0]);
+    if (!sourceSql.has_value()) {
+      visitorContext.sql = std::nullopt;
+      return;
+    }
+
+    std::stringstream sql;
+    sql << "SELECT ";
+
+    for (auto i = 0; i < node.names().size(); ++i) {
+      exec::test::appendComma(i, sql);
+      auto projection = node.projections()[i];
+      if (auto field =
+              std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(
+                  projection)) {
+        sql << field->name();
+      } else if (
+          auto call = std::dynamic_pointer_cast<const core::CallTypedExpr>(
+              projection)) {
+        sql << exec::test::toCallSql(call);
+      } else {
+        VELOX_NYI(
+            "Unsupported projection {} in project node: {}.",
+            projection->toString(),
+            node.toString());
+      }
+
+      sql << " as " << node.names()[i];
+    }
+
+    sql << " FROM (" << sourceSql.value() << ")";
+    visitorContext.sql = sql.str();
+  }
+
+  void visit(const core::RowNumberNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+  void visit(const core::TableScanNode& node, core::PlanNodeVisitorContext& ctx)
+      const override {
+    PrestoSqlPlanNodeVisitor::visit(node, ctx);
+  }
+
+  void visit(const core::TableWriteNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+  void visit(const core::TableWriteMergeNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+  void visit(const core::TopNNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+  void visit(const core::TopNRowNumberNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+  void visit(const core::TraceScanNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+  void visit(const core::UnnestNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+  void visit(const core::ValuesNode& node, core::PlanNodeVisitorContext& ctx)
+      const override {
+    PrestoSqlPlanNodeVisitor::visit(node, ctx);
+  }
+
+  void visit(const core::WindowNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
+  /// Used to visit custom PlanNodes that extend the set provided by Velox.
+  void visit(const core::PlanNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+};
 
 void writeToFile(
     const std::string& path,
@@ -101,15 +343,11 @@ SparkQueryRunner::aggregationFunctionDataSpecs() const {
 
 std::optional<std::string> SparkQueryRunner::toSql(
     const velox::core::PlanNodePtr& plan) {
-  if (const auto aggregationNode =
-          std::dynamic_pointer_cast<const core::AggregationNode>(plan)) {
-    return toSql(aggregationNode);
-  }
-  if (const auto projectNode =
-          std::dynamic_pointer_cast<const core::ProjectNode>(plan)) {
-    return toSql(projectNode);
-  }
-  VELOX_NYI("Unsupported plan node: {}.", plan->toString());
+  PrestoSqlPlanNodeVisitorContext context;
+  SparkQueryRunnerToSqlPlanNodeVisitor visitor(this);
+  plan->accept(visitor, context);
+
+  return context.sql;
 }
 
 std::multiset<std::vector<variant>> SparkQueryRunner::execute(
@@ -232,84 +470,5 @@ std::vector<RowVectorPtr> SparkQueryRunner::readArrowData(
       "Failed to read batch: {}.",
       batchResult.status().ToString());
   return results;
-}
-
-std::optional<std::string> SparkQueryRunner::toSql(
-    const std::shared_ptr<const core::AggregationNode>& aggregationNode) {
-  // Assume plan is Aggregation over Values.
-  VELOX_CHECK(aggregationNode->step() == core::AggregationNode::Step::kSingle);
-
-  std::vector<std::string> groupingKeys;
-  for (const auto& key : aggregationNode->groupingKeys()) {
-    groupingKeys.push_back(key->name());
-  }
-
-  std::stringstream sql;
-  sql << "SELECT " << folly::join(", ", groupingKeys);
-
-  const auto& aggregates = aggregationNode->aggregates();
-  if (!aggregates.empty()) {
-    if (!groupingKeys.empty()) {
-      sql << ", ";
-    }
-
-    for (auto i = 0; i < aggregates.size(); ++i) {
-      exec::test::appendComma(i, sql);
-      const auto& aggregate = aggregates[i];
-      VELOX_CHECK(
-          aggregate.sortingKeys.empty(),
-          "Sort key is not supported in Spark's aggregation. You may need to disable 'enable_sorted_aggregations' when running the fuzzer test.");
-      sql << exec::test::toAggregateCallSql(
-          aggregate.call, {}, {}, aggregate.distinct);
-
-      if (aggregate.mask != nullptr) {
-        sql << " filter (where " << aggregate.mask->name() << ")";
-      }
-      sql << " as " << aggregationNode->aggregateNames()[i];
-    }
-  }
-
-  sql << " FROM tmp";
-
-  if (!groupingKeys.empty()) {
-    sql << " GROUP BY " << folly::join(", ", groupingKeys);
-  }
-
-  return sql.str();
-}
-
-std::optional<std::string> SparkQueryRunner::toSql(
-    const std::shared_ptr<const core::ProjectNode>& projectNode) {
-  auto sourceSql = toSql(projectNode->sources()[0]);
-  if (!sourceSql.has_value()) {
-    return std::nullopt;
-  }
-
-  std::stringstream sql;
-  sql << "SELECT ";
-
-  for (auto i = 0; i < projectNode->names().size(); ++i) {
-    exec::test::appendComma(i, sql);
-    auto projection = projectNode->projections()[i];
-    if (auto field =
-            std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(
-                projection)) {
-      sql << field->name();
-    } else if (
-        auto call =
-            std::dynamic_pointer_cast<const core::CallTypedExpr>(projection)) {
-      sql << exec::test::toCallSql(call);
-    } else {
-      VELOX_NYI(
-          "Unsupported projection {} in project node: {}.",
-          projection->toString(),
-          projectNode->toString());
-    }
-
-    sql << " as " << projectNode->names()[i];
-  }
-
-  sql << " FROM (" << sourceSql.value() << ")";
-  return sql.str();
 }
 } // namespace facebook::velox::functions::sparksql::fuzzer
