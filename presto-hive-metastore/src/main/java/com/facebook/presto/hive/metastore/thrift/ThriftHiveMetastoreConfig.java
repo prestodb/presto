@@ -15,6 +15,7 @@ package com.facebook.presto.hive.metastore.thrift;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
+import com.facebook.airlift.configuration.ConfigSecuritySensitive;
 
 import java.io.File;
 
@@ -54,6 +55,7 @@ public class ThriftHiveMetastoreConfig
 
     @Config("hive.metastore.thrift.client.tls.keystore-password")
     @ConfigDescription("Password to key store")
+    @ConfigSecuritySensitive
     public ThriftHiveMetastoreConfig setKeystorePassword(String keystorePassword)
     {
         this.keystorePassword = keystorePassword;
@@ -80,6 +82,7 @@ public class ThriftHiveMetastoreConfig
 
     @Config("hive.metastore.thrift.client.tls.truststore-password")
     @ConfigDescription("Path to trust store")
+    @ConfigSecuritySensitive
     public ThriftHiveMetastoreConfig setTrustStorePassword(String truststorePassword)
     {
         this.trustStorePassword = truststorePassword;

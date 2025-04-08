@@ -15,6 +15,7 @@ package com.facebook.presto.plugin.prometheus;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
+import com.facebook.airlift.configuration.ConfigSecuritySensitive;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.ConfigurationException;
 import com.google.inject.spi.Message;
@@ -149,6 +150,7 @@ public class PrometheusConnectorConfig
     }
 
     @Config("prometheus.tls.truststore-password")
+    @ConfigSecuritySensitive
     public PrometheusConnectorConfig setTruststorePassword(String password)
     {
         this.truststorePassword = password;
