@@ -105,7 +105,42 @@ public class TestTableFunctionInvocation
                     }
                     return Optional.empty();
                 })
-                .withTableFunctionProcessorProvider(new TestingTableFunctions.IdentityPassThroughFunction.IdentityPassThroughFunctionProcessorProvider())
+                .withGetTableFunctionProcessorProvider(Optional.of(name -> {
+                    if (name.equals(new SchemaFunctionName("system", "identity_function"))) {
+                        return new TestingTableFunctions.IdentityFunction.IdentityFunctionProcessorProvider();
+                    }
+                    else if (name.equals(new SchemaFunctionName("system", "identity_pass_through_function"))) {
+                        return new TestingTableFunctions.IdentityPassThroughFunction.IdentityPassThroughFunctionProcessorProvider();
+                    }
+                    else if (name.equals(new SchemaFunctionName("system", "repeat"))) {
+                        return new TestingTableFunctions.RepeatFunction.RepeatFunctionProcessorProvider();
+                    }
+                    else if (name.equals(new SchemaFunctionName("system", "empty_output"))) {
+                        return new TestingTableFunctions.EmptyOutputFunction.EmptyOutputProcessorProvider();
+                    }
+                    else if (name.equals(new SchemaFunctionName("system", "empty_output_with_pass_through"))) {
+                        return new TestingTableFunctions.EmptyOutputWithPassThroughFunction.EmptyOutputWithPassThroughProcessorProvider();
+                    }
+                    else if (name.equals(new SchemaFunctionName("system", "test_inputs_function"))) {
+                        return new TestingTableFunctions.TestInputsFunction.TestInputsFunctionProcessorProvider();
+                    }
+                    else if (name.equals(new SchemaFunctionName("system", "pass_through"))) {
+                        return new TestingTableFunctions.PassThroughInputFunction.PassThroughInputProcessorProvider();
+                    }
+                    else if (name.equals(new SchemaFunctionName("system", "test_input"))) {
+                        return new TestingTableFunctions.TestInputFunction.TestInputProcessorProvider();
+                    }
+                    else if (name.equals(new SchemaFunctionName("system", "test_single_input_function"))) {
+                        return new TestingTableFunctions.TestSingleInputRowSemanticsFunction.TestSingleInputFunctionProcessorProvider();
+                    }
+                    else if (name.equals(new SchemaFunctionName("system", "constant"))) {
+                        return new TestingTableFunctions.ConstantFunction.ConstantFunctionProcessorProvider();
+                    }
+                    else if (name.equals(new SchemaFunctionName("system", "empty_source"))) {
+                        return new TestingTableFunctions.EmptySourceFunction.EmptySourceFunctionProcessorProvider();
+                    }
+                    return null;
+                }))
                 .withGetColumnHandles(getColumnHandles)
 //                .withTableFunctionSplitSource(
 //                        new SchemaFunctionName("system", "constant"),
@@ -121,14 +156,6 @@ public class TestTableFunctionInvocation
 
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
-    }
-
-    public static Session createSession()
-    {
-        return testSessionBuilder()
-                .setCatalog("tpch")
-                .setSchema(TINY_SCHEMA_NAME)
-                .build();
     }
 
     @Test
@@ -151,12 +178,11 @@ public class TestTableFunctionInvocation
     @Test
     public void testIdentityFunction()
     {
-//
-//        assertQuery("SELECT b, a FROM TABLE(system.identity_function(input => TABLE(VALUES (1, 2), (3, 4), (5, 6)) T(a, b)))",
-//                "VALUES (2, 1), (4, 3), (6, 5)");
+        assertQuery("SELECT b, a FROM TABLE(system.identity_function(input => TABLE(VALUES (1, 2), (3, 4), (5, 6)) T(a, b)))",
+                "VALUES (2, 1), (4, 3), (6, 5)");
 
-//        assertQuery("SELECT b, a FROM TABLE(system.identity_pass_through_function(input => TABLE(VALUES (1, 2), (3, 4), (5, 6)) T(a, b)))",
-//                "VALUES (2, 1), (4, 3), (6, 5)");
+        assertQuery("SELECT b, a FROM TABLE(system.identity_pass_through_function(input => TABLE(VALUES (1, 2), (3, 4), (5, 6)) T(a, b)))",
+                "VALUES (2, 1), (4, 3), (6, 5)");
 
         /*
         TODO: Skipped due to partitioning.

@@ -14,8 +14,12 @@
 package com.facebook.presto.spi.connector;
 
 import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.spi.function.SchemaFunctionName;
+import com.facebook.presto.spi.function.table.TableFunctionProcessorProvider;
 
 import java.util.Map;
+import java.util.Optional;
+import java.util.function.Function;
 
 public interface ConnectorFactory
 {
@@ -24,4 +28,9 @@ public interface ConnectorFactory
     ConnectorHandleResolver getHandleResolver();
 
     Connector create(String catalogName, Map<String, String> config, ConnectorContext context);
+
+    default Optional<Function<SchemaFunctionName, TableFunctionProcessorProvider>> getTableFunctionProcessorProvider()
+    {
+        return Optional.empty();
+    }
 }

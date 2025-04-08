@@ -21,7 +21,6 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.UserDefinedType;
 import com.facebook.presto.spi.api.Experimental;
-import com.facebook.presto.spi.function.table.TableFunctionProcessorProvider;
 
 import java.util.Collection;
 import java.util.List;
@@ -122,10 +121,5 @@ public interface FunctionNamespaceManager<F extends SqlFunction>
     default AggregationFunctionImplementation getAggregateFunctionImplementation(FunctionHandle functionHandle, TypeManager typeManager)
     {
         throw new UnsupportedOperationException("Does not support get aggregation function");
-    }
-
-    default TableFunctionProcessorProvider getTableFunctionProcessorProvider(FunctionHandle functionHandle, TypeManager typeManager)
-    {
-        throw new UnsupportedOperationException("Does not support get table function processor");
     }
 }
