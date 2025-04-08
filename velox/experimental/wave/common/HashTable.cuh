@@ -178,37 +178,39 @@ class GpuHashTable : public GpuHashTableBase {
  public:
   static constexpr int32_t kExclusive = 1;
 
-  template <typename RowType, typename Ops>
-  void __device__ readOnlyProbe(HashProbe* probe, Ops ops) {
-    int32_t blockBase = ops.blockBase(probe);
-    int32_t end = ops.numRowsInBlock(probe) + blockBase;
-    for (auto i = blockBase + threadIdx.x; i < end; i += blockDim.x) {
-      auto h = ops.hash(i, probe);
-      uint32_t tagWord = hashTag(h);
-      tagWord |= tagWord << 8;
-      tagWord = tagWord | tagWord << 16;
-      auto bucketIdx = h & sizeMask;
-      for (;;) {
-        GpuBucket* bucket = buckets + bucketIdx;
-        auto tags = bucket->tags;
-        auto hits = __vcmpeq4(tags, tagWord) & 0x01010101;
-        while (hits) {
-          auto hitIdx = (__ffs(hits) - 1) / 8;
-          auto* hit = bucket->load<RowType>(hitIdx);
-          if (ops.compare(this, hit, i, probe)) {
-            ops.hit(i, probe, hit);
-            goto done;
-          }
-          hits = hits & (hits - 1);
+  template <typename RowType, typename Compare>
+  RowType* __device__ joinProbe(uint64_t h, Compare compare) {
+    uint32_t tagWord = hashTag(h);
+    tagWord |= tagWord << 8;
+    tagWord = tagWord | tagWord << 16;
+    auto bucketIdx = h & sizeMask;
+    for (;;) {
+      GpuBucket* bucket = buckets + bucketIdx;
+      auto tags = bucket->tags;
+      auto hits = __vcmpeq4(tags, tagWord) & 0x01010101;
+      while (hits) {
+        auto hitIdx = (__ffs(hits) - 1) / 8;
+        auto* hit = bucket->load<RowType>(hitIdx);
+        if (compare(hit)) {
+          return hit;
         }
-        if (__vcmpeq4(tags, 0)) {
-          ops.miss(i, probe);
-          break;
-        }
-        bucketIdx = (bucketIdx + 1) & sizeMask;
+        hits = hits & (hits - 1);
       }
-    done:;
+      if (__vcmpeq4(tags, 0)) {
+        return nullptr;
+      }
+      bucketIdx = (bucketIdx + 1) & sizeMask;
     }
+  }
+
+  template <typename RowType, typename Init>
+  bool __device__ addJoinRow(Init init) {
+    auto* row = allocators[0].allocateRow<RowType>();
+    if (!row) {
+      return false;
+    }
+    init(row);
+    return true;
   }
 
   template <typename RowType, typename Ops>
@@ -383,7 +385,7 @@ class GpuHashTable : public GpuHashTableBase {
   template <typename RowType, typename Ops>
   void __device__
   rehash(GpuBucket* oldBuckets, int32_t numOldBuckets, Ops ops) {
-    int32_t stride = blockDim.x * gridDim.x;
+    auto stride = blockDim.x * gridDim.x;
     for (auto idx = threadIdx.x + blockDim.x * blockIdx.x; idx < numOldBuckets;
          idx += stride) {
       for (auto slot = 0; slot < GpuBucketMembers::kNumSlots; ++slot) {
@@ -414,6 +416,62 @@ class GpuHashTable : public GpuHashTableBase {
         }
       next:;
       }
+    }
+    __syncthreads();
+  }
+
+  template <typename RowType, typename Ops>
+  void __device__ joinBuild(RowType* rows, int32_t numRows, Ops ops) {
+    auto stride = blockDim.x * gridDim.x;
+    for (auto idx = threadIdx.x + blockDim.x * blockIdx.x; idx < numRows;
+         idx += stride) {
+      auto* row = rows + idx;
+      uint64_t h = ops.hashRow(row);
+      auto bucketIdx = h & sizeMask;
+      uint32_t tagWord = hashTag(h);
+      tagWord |= tagWord << 8;
+      tagWord = tagWord | tagWord << 16;
+
+      for (;;) {
+        GpuBucket* bucket = buckets + bucketIdx;
+      reprobe:
+        uint32_t tags = asDeviceAtomic<uint32_t>(&bucket->tags)
+                            ->load(cuda::memory_order_consume);
+        auto hits = __vcmpeq4(tags, tagWord) & 0x01010101;
+        while (hits) {
+          auto hitIdx = (__ffs(hits) - 1) / 8;
+          auto candidate = bucket->loadWithWait<RowType>(hitIdx);
+          if (ops.compare(row, candidate)) {
+            for (;;) {
+              auto previous = asDeviceAtomic<RowType*>(candidate->nextPtr())
+                                  ->load(cuda::memory_order_relaxed);
+              if ((unsigned long long)previous ==
+                  atomicCAS(
+                      (unsigned long long*)&candidate->next,
+                      (unsigned long long)previous,
+                      (unsigned long long)row)) {
+                *row->nextPtr() = previous;
+                // Set duplicates flag, no need to set if already set.
+                atomicCAS(&hasDuplicates, 0, 1);
+                goto next;
+              }
+            }
+          }
+          hits &= hits - 1;
+        }
+        auto misses = __vcmpeq4(tags, 0) & 0x01010101;
+        if (misses) {
+          auto missShift = __ffs(misses) - 1;
+          if (!bucket->addNewTag(tagWord, tags, missShift)) {
+            goto reprobe;
+          }
+          bucket->store(missShift / 8, row);
+          goto next;
+        }
+
+        bucketIdx = (bucketIdx + 1) & sizeMask;
+      }
+    next:;
     }
     __syncthreads();
   }

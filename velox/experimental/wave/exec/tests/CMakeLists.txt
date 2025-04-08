@@ -18,7 +18,7 @@ add_executable(
   velox_wave_exec_test
   FilterProjectTest.cpp
   TableScanTest.cpp
-  AggregationTest.cpp
+  HashJoinTest.cpp
   BarrierTest.cpp
   Main.cpp)
 

@@ -66,11 +66,39 @@ enum class StepKind : int8_t {
 
 class CompileState;
 
+/// Describes the wrapped parameters in a filter, join or other wrap.
+struct WrapInfo {
+  /// true if a restart point followed by another wrap follows. If true, the
+  /// wrap made here must be rewindable. The rewind sets 'firstWrapped' to have
+  /// no wrap and 'rewrapped' to  backup.
+  bool needRewind{false};
+
+  // Representative of the operands that get their first wrap here.
+  AbstractOperand* wrappedHere{nullptr};
+
+  /// One Representatives of operands that are wrapped upstream and re-wrapped
+  /// here.
+  std::vector<AbstractOperand*> rewrapped;
+
+  /// Vector with one pointer for each block to back up wraps before rewrap. 1:1
+  /// to 'rewrapped'.
+  std::vector<AbstractOperand*> wrapBackup;
+
+  ///  Wrap indices to compose from existing wrap and wrap introduced here. 1:1
+  ///  to 'rewrapped'.
+  std::vector<AbstractOperand*> wrapIndices;
+};
+
 struct KernelStep {
   virtual ~KernelStep() = default;
   virtual StepKind kind() const = 0;
+
   virtual int32_t isWrap() const {
     return AbstractOperand::kNoWrap;
+  }
+
+  virtual WrapInfo* wrapInfo() {
+    return nullptr;
   }
 
   virtual bool isSink() const {
@@ -81,6 +109,10 @@ struct KernelStep {
   /// 'this' is not a continuable point.
   virtual std::optional<int32_t> continueLabel() const {
     return std::nullopt;
+  }
+
+  virtual bool autoContinueLabel() const {
+    return true;
   }
 
   /// Returns code to execute before jumping to continueLabel() when continuing
@@ -145,9 +177,6 @@ struct KernelStep {
   const T& as() const {
     return *reinterpret_cast<const T*>(this);
   }
-
-  /// Placeholder for instruction return status.
-  InstructionStatus status;
 };
 
 struct ValuesStep : public KernelStep {
@@ -242,6 +271,10 @@ struct Filter : public KernelStep {
     return nthWrap;
   }
 
+  WrapInfo* wrapInfo() override {
+    return &wrapInfo_;
+  }
+
   bool isBarrier() const override {
     return true;
   }
@@ -265,6 +298,8 @@ struct Filter : public KernelStep {
   AbstractOperand* flag;
   AbstractOperand* indices;
   int32_t nthWrap{-1};
+
+  WrapInfo wrapInfo_;
 };
 
 struct AggregateUpdate;
@@ -521,37 +556,130 @@ struct JoinBuild : public KernelStep {
   StepKind kind() const override {
     return StepKind::kJoinBuild;
   }
+
+  bool isBarrier() const override {
+    return true;
+  }
+
+  void visitReferences(
+      std::function<void(AbstractOperand*)> visitor) const override;
+
+  void visitStates(std::function<void(AbstractState*)> visitor) const override {
+    visitor(state);
+  }
+
+  std::unique_ptr<AbstractInstruction> addInstruction(
+      CompileState& state) override;
+
+  void generateMain(CompileState& state, int32_t syncLabel) override;
+
+  std::string preContinueCode(CompileState& state) override;
+
+  std::optional<int32_t> continueLabel() const override {
+    return continueLabel_;
+  }
+
+  std::string toString() const override;
+
   AbstractState* state;
   std::vector<AbstractOperand*> keys;
   std::vector<AbstractOperand*> dependent;
+  core::JoinType joinType;
+  int32_t id{-1};
+  int32_t continueLabel_;
+  std::shared_ptr<exec::HashJoinBridge> joinBridge;
+  AbstractHashBuild* abstractHashBuild{nullptr};
 };
+
+struct JoinExpand;
 
 struct JoinProbe : public KernelStep {
   StepKind kind() const override {
     return StepKind::kJoinProbe;
   }
-  int32_t isWrap() const override {
-    return nthWrap;
+
+  void visitReferences(
+      std::function<void(AbstractOperand*)> visitor) const override;
+
+  void visitResults(
+      std::function<void(AbstractOperand*)> visitor) const override;
+
+  void visitStates(std::function<void(AbstractState*)> visitor) const override {
+    visitor(state);
   }
+
+  void generateMain(CompileState& state, int32_t syncLabel) override;
+
+  std::string toString() const override;
 
   AbstractState* state;
   std::vector<AbstractOperand*> keys;
+  std::vector<AbstractOperand*> filterDependent;
   AbstractOperand* hits;
-  int32_t nthWrap{-1};
+  core::JoinType joinType;
+  JoinExpand* expand;
+  int32_t id{-1};
 };
 
 struct JoinExpand : public KernelStep {
   StepKind kind() const override {
     return StepKind::kJoinExpand;
   }
+
   int32_t isWrap() const override {
     return nthWrap;
   }
 
+  WrapInfo* wrapInfo() override {
+    return &wrapInfo_;
+  }
+
+  std::optional<int32_t> continueLabel() const override {
+    return continueLabel_;
+  }
+
+  bool autoContinueLabel() const override {
+    return false;
+  }
+
+  bool isBarrier() const override {
+    return true;
+  }
+
+  int32_t sharedMemorySize() const {
+    return sizeof(WaveShared) + sizeof(JoinShared);
+  }
+
+  void visitReferences(
+      std::function<void(AbstractOperand*)> visitor) const override;
+
+  void visitResults(
+      std::function<void(AbstractOperand*)> visitor) const override;
+
+  std::unique_ptr<AbstractInstruction> addInstruction(
+      CompileState& state) override;
+
+  void generateMain(CompileState& state, int32_t syncLabel) override;
+
+  std::string preContinueCode(CompileState& state) override;
+
+  std::string toString() const override;
+
+  AbstractState* state;
   AbstractOperand* hits;
-  std::vector<int32_t> columns;
-  std::vector<AbstractOperand*> extract;
+  AbstractOperand* indices;
+  std::vector<int32_t> tableChannels;
+  std::vector<AbstractOperand*> dependent;
+  int32_t numKeys;
+  bool nullableKeys;
+  AbstractOperand* filter{nullptr};
   int32_t nthWrap{-1};
+  WrapInfo wrapInfo_;
+  int32_t continueLabel_{-1};
+  int32_t id{-1};
+  std::string planNodeId;
+  RowTypePtr tableType;
+  std::shared_ptr<exec::HashJoinBridge> joinBridge;
 };
 
 struct KernelBox {
@@ -682,13 +810,13 @@ enum class BoundaryType {
   kExpr,
   // Filter in join or standalone
   kFilter,
+  // hash join build
+  kHashBuild,
   // n:Guaranteed 1 join, e.g, semi/antijoin.
   kReducingJoin,
   // Join that can produce multiple hits
   kJoin,
 
-  // Filter associated to non-inner join.
-  kJoinFilter,
   kAggregation
 };
 
@@ -799,6 +927,11 @@ class CompileState {
 
   void declareNamed(const std::string& line);
 
+  void declareNamed(
+      const std::string& type,
+      const std::string& name,
+      const std::string& debugInit);
+
   int32_t ordinal(const AbstractOperand& op);
 
   int32_t stateOrdinal(const AbstractState& state);
@@ -822,7 +955,10 @@ class CompileState {
 
   // Generates an array of operands to wrap. Returns the number of distinct
   // wraps. 'id' is a sequence number from nextWrapId().
-  int32_t wrapLiteral(int32_t id);
+  int32_t wrapLiteral(const WrapInfo& info, int32_t id);
+
+  void
+  generateWrap(WrapInfo& wrap, int32_t nthWrap, const AbstractOperand* indices);
 
   void setInsideNullPropagating(bool flag) {
     insideNullPropagating_ = flag;
@@ -897,6 +1033,20 @@ class CompileState {
 
   std::optional<int32_t> tryErrorLabel() const {
     return tryErrorLabel_;
+  }
+
+  template <typename T>
+  const T* inputPlanNode(int32_t nodeIndex) {
+    const core::PlanNode* node;
+    if (nodeIndex >= driverFactory_.planNodes.size()) {
+      node = driverFactory_.consumerNode.get();
+    } else {
+      node = driverFactory_.planNodes[nodeIndex].get();
+    }
+    VELOX_CHECK_NOT_NULL(node);
+    auto result = dynamic_cast<const T*>(node);
+    VELOX_CHECK_NOT_NULL(node);
+    return result;
   }
 
  private:
@@ -1001,6 +1151,8 @@ class CompileState {
   NullCheck* addNullCheck(PipelineCandidate& candidate, AbstractOperand* op);
 
   void markOutputStored(PipelineCandidate& candidate, Segment& segment);
+
+  void markWraps(int32_t pipelineIdx);
 
   // Partitions the Driver's Operators into segments, one per cardinality
   // change. 'operatorIndex' is the index of the first considered operator and
@@ -1128,6 +1280,9 @@ class CompileState {
 
   // Query wide counter for kernels.
   int32_t kernelCounter_{0};
+
+  // PlanNodeId of the first operator. Used in making unique kernel name.
+  std::string startNodeId_;
 
   Branches branches_;
   std::vector<Segment> segments_;

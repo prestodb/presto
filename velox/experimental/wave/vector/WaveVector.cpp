@@ -74,6 +74,10 @@ void WaveVector::resize(
     int64_t* backingOffset) {
   auto capacity = values_ ? values_->capacity() : 0;
   size_ = size;
+
+  // Round to next block. A cardinality expanding plan can produce up to full
+  // block for a partial block.
+  size = bits::roundUp(size, kBlockSize);
   int32_t bytesNeeded = backingSize(type_, size, nullable);
   if (bytesNeeded > capacity) {
     if (backing) {
@@ -222,11 +226,12 @@ VectorPtr WaveVector::toVelox(
   numBlocks = bits::roundUp(maxRow, kBlockSize) / kBlockSize;
   int numActive = statusNumRows(status, numBlocks);
   if (!operandIndices) {
-    // Vector sizes are >= active in status because they are allocated before
-    // the row count in status becomes known.
+    // Vector sizes are >= active in status because they are allocated
+    // before the row count in status becomes known. There is always
+    // space up to the end of a full block in a partly filled vector.
     VELOX_CHECK_LE(
         numActive,
-        size_,
+        bits::roundUp(size_, kBlockSize),
         "If there is no indirection in Operand, vector size must be >= BlockStatus");
     // If all blocks except last are full we return base without wrap.
     if (isDenselyFilled(status, numBlocks)) {

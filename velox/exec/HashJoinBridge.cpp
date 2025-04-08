@@ -236,6 +236,23 @@ void HashJoinBridge::setHashTable(
   notify(std::move(promises));
 }
 
+void HashJoinBridge::setHashTable(
+    std::shared_ptr<wave::HashTableHolder> table,
+    bool hasNullKeys) {
+  VELOX_CHECK_NOT_NULL(table, "setHashTable called with null table");
+
+  std::vector<ContinuePromise> promises;
+  {
+    std::lock_guard<std::mutex> l(mutex_);
+    VELOX_CHECK(started_);
+    VELOX_CHECK(!buildResult_.has_value());
+    VELOX_CHECK(restoringSpillShards_.empty());
+    buildResult_ = HashBuildResult(std::move(table), hasNullKeys);
+    promises = std::move(promises_);
+  }
+  notify(std::move(promises));
+}
+
 void HashJoinBridge::appendSpilledHashTablePartitions(
     SpillPartitionSet spillPartitionSet) {
   VELOX_CHECK(

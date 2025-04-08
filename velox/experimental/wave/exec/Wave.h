@@ -35,9 +35,9 @@ DECLARE_bool(wave_timing);
 DECLARE_bool(wave_transfer_timing);
 DECLARE_bool(wave_trace_stream);
 
-#define TR(str, msg)                                                 \
-  if (FLAGS_wave_trace_stream) {                                     \
-    (std::cout << fmt::format("St{}: {}\n", str->streamIdx(), msg)); \
+#define TR(str, msg)                                                   \
+  if (FLAGS_wave_trace_stream) {                                       \
+    (std::cout << fmt::format("St{}: {}\n", (str)->streamIdx(), msg)); \
   }
 
 #define TR1(msg)                 \
@@ -298,6 +298,8 @@ struct AggregateOperatorState : public OperatorState {
   // affecting surrounding data.
   DeviceAggregation* alignedHead;
 
+  GpuHashTableBase* hashTable{nullptr};
+
   // Used bytes counting from 'alignedHead'.
   int32_t alignedHeadSize;
 
@@ -332,9 +334,20 @@ struct AggregateOperatorState : public OperatorState {
   WaveBufferPtr temp;
 };
 
+struct HashTableHolder : public AggregateOperatorState {
+  HashTableHolder(std::shared_ptr<GpuArena> arena)
+      : AggregateOperatorState(std::move(arena)) {}
+
+  void* devicePtr() const override {
+    return hashTable;
+  }
+};
+
 struct OperatorStateMap {
   std::mutex mutex;
   folly::F14FastMap<int32_t, std::shared_ptr<OperatorState>> states;
+
+  void addIfNew(int32_t id, const std::shared_ptr<OperatorState>& state);
 };
 
 /// Represents a kernel or data transfer. Many executables can be in one kernel
@@ -559,6 +572,9 @@ class Program : public std::enable_shared_from_this<Program> {
     return output_;
   }
 
+  /// Calls pipelineFinished() on instructions.
+  void pipelineFinished(WaveStream& stream);
+
   const std::string& label() const {
     return label_;
   }
@@ -580,6 +596,8 @@ class Program : public std::enable_shared_from_this<Program> {
     return !instructions_.empty() &&
         instructions_.front()->opCode == OpCode::kReadAggregate;
   }
+
+  exec::BlockingReason isBlocked(WaveStream& stream, ContinueFuture* future);
 
   /// If partially executed instructions in the call of 'control',
   /// returns the point where to pick up. If fully executed or not
@@ -605,7 +623,10 @@ class Program : public std::enable_shared_from_this<Program> {
 
   /// Runs the update callback in 'advance' with the right instruction.  E.g.
   /// rehash device side table,. Caller synchronizes.
-  void callUpdateStatus(WaveStream& stream, AdvanceResult& result);
+  void callUpdateStatus(
+      WaveStream& stream,
+      const std::vector<WaveStream*>& otherStreams,
+      AdvanceResult& result);
 
   CompiledKernel* kernel() const {
     return kernel_.get();
@@ -943,11 +964,17 @@ class WaveStream {
 
   OperatorState* operatorState(int32_t id);
 
+  std::shared_ptr<OperatorState> operatorStateShared(int32_t id);
+
   OperatorState* newState(ProgramState& init);
 
   /// Initializes 'state' to the device side state for 'inst'. Returns after
   /// 'state' is ready to use on device.
   void makeAggregate(AbstractAggregation& inst, AggregateOperatorState& state);
+
+  /// Initializes 'state' to the device side state for 'inst'. Returns after
+  /// 'state' is ready to use on device.
+  void makeHashBuild(AbstractHashBuild& inst, HashTableHolder& state);
 
   std::unique_ptr<Executable> recycleExecutable(
       Program* program,
@@ -992,6 +1019,7 @@ class WaveStream {
   template <typename T>
   T* gridStatus(const InstructionStatus& status) {
     if (!hostBlockStatus_) {
+      VELOX_CHECK_NULL(deviceBlockStatus_);
       return nullptr;
     }
     auto numBlocks = bits::roundUp(numRows_, kBlockSize) / kBlockSize;
@@ -1043,6 +1071,11 @@ class WaveStream {
     return taskStateMap_;
   }
 
+  /// Mutable reference to flag indicating that
+  bool& mutableExclusiveProcessed() {
+    return exclusiveProcessed_;
+  }
+
   const std::shared_ptr<GpuArena>& arenaShared() const {
     return arena_;
   }
@@ -1054,6 +1087,9 @@ class WaveStream {
   Event* newEvent();
 
   LaunchControl* lastControl() const;
+
+  void
+  makeHashTable(AggregateOperatorState& state, int32_t rowSize, bool makeTable);
 
   static std::unique_ptr<Event> eventFromReserve();
   static void releaseEvent(std::unique_ptr<Event>&& event);
@@ -1153,6 +1189,11 @@ class WaveStream {
   WaveTime start_;
 
   State state_{State::kNotRunning};
+
+  // set to true if 'this' has an exclusieve section coming and
+  // another WaveStream has processed it. If so, the exclusive section
+  // of'this' ends without more action and the flag is reset.
+  bool exclusiveProcessed_{false};
 
   bool hasError_{false};
 

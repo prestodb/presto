@@ -35,7 +35,9 @@ class WaveOperator {
 
   virtual ~WaveOperator() = default;
 
-  virtual exec::BlockingReason isBlocked(ContinueFuture* future) {
+  virtual exec::BlockingReason isBlocked(
+      WaveStream& stream,
+      ContinueFuture* future) {
     return exec::BlockingReason::kNotBlocked;
   }
 
@@ -63,9 +65,7 @@ class WaveOperator {
     VELOX_FAIL("Override for blocking operator");
   }
 
-  virtual void flush(bool /*noMoreInput*/) {
-    VELOX_FAIL("Override for blocking operator");
-  }
+  virtual void pipelineFinished(WaveStream& /*stream*/) {}
 
   /// Returns how many rows of output are available from 'this'. Source
   /// operators and cardinality increasing operators must return a correct
@@ -93,7 +93,10 @@ class WaveOperator {
     return false;
   }
 
-  virtual void callUpdateStatus(WaveStream& stream, AdvanceResult& advance) {
+  virtual void callUpdateStatus(
+      WaveStream& stream,
+      const std::vector<WaveStream*>& otherStreams,
+      AdvanceResult& advance) {
     VELOX_FAIL("Only Project supports callUpdateStatus()");
   }
 

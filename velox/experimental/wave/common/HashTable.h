@@ -18,6 +18,7 @@
 
 #ifndef __CUDACC_RTC__
 #include <string.h>
+#include <string>
 #endif
 #include <stdint.h>
 
@@ -137,6 +138,8 @@ struct AllocationRange {
   bool empty() {
     return capacity == 0;
   }
+
+  std::string toString(int32_t rowSize);
 #endif
   bool fixedFull{true};
   bool variableFull{true};
@@ -190,6 +193,8 @@ struct HashPartitionAllocator {
     target = ranges[0].trimFixed(target);
     ranges[1].trimFixed(target);
   }
+
+  std::string toString();
 #endif
 
   const int32_t rowSize{0};
@@ -269,6 +274,10 @@ struct GpuHashTableBase {
   // partitionMask gives a physical partition of the table. Used as
   // index into 'allocators'.
   uint32_t partitionMask{0};
+
+  /// true if this is a join table where duplicates exist (at least one
+  /// next link is non-nullptr). int32_t to allow atomic ops.
+  int32_t hasDuplicates{0};
 
   /// A RowAllocator for each partition.
   RowAllocator* allocators;

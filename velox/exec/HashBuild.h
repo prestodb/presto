@@ -90,6 +90,14 @@ class HashBuild final : public Operator {
     return exceededMaxSpillLevelLimit_;
   }
 
+  const std::vector<column_index_t>& dependentChannels() const {
+    return dependentChannels_;
+  }
+
+  const std::shared_ptr<HashJoinBridge>& joinBridge() const {
+    return joinBridge_;
+  }
+
  private:
   void setState(State state);
   void checkStateTransition(State state);

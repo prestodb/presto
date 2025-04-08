@@ -27,7 +27,9 @@ std::atomic<uint64_t> TableScan::ioWaitNanos_;
 
 using exec::BlockingReason;
 
-BlockingReason TableScan::isBlocked(ContinueFuture* future) {
+BlockingReason TableScan::isBlocked(
+    WaveStream& /*stream*/,
+    ContinueFuture* future) {
   if (!dataSource_ || needNewSplit_) {
     nextSplit(future);
     isNewSplit_ = true;

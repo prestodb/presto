@@ -62,13 +62,13 @@ struct WarpScan {
     exclusive_output = initial_value + inclusive_output - input;
   }
 
-  __device__ __forceinline__ void ExclusiveSum(
+  __device__ __forceinline__ void exclusiveSum(
       T input,
       T& exclusive_output,
       T initial_value,
       T& warp_aggregate) {
     T inclusive_output;
-    Inclusivesum(input, inclusive_output);
+    inclusivesum(input, inclusive_output);
     warp_aggregate = __shfl_sync(member_mask, inclusive_output, kNumLanes - 1);
     exclusive_output = initial_value + inclusive_output - input;
   }
@@ -110,5 +110,80 @@ struct WarpReduce {
     return val;
   }
 };
+
+/// Returns the block wide exclusive sum (sum of 'input' for all
+/// lanes below threadIdx.x). If 'total' is non-nullptr, the block
+/// wide sum is returned in '*total'. 'temp' must have
+/// exclusiveSumTempSize() writable bytes aligned for T.
+template <typename T, int32_t kBlockSize>
+inline __device__ T exclusiveSum(T input, T* total, T* temp) {
+  constexpr int32_t kNumWarps = kBlockSize / kWarpThreads;
+  using Scan = WarpScan<T>;
+  T sum;
+  Scan().exclusiveSum(input, sum);
+  if (kBlockSize == kWarpThreads) {
+    if (total) {
+      if (threadIdx.x == kWarpThreads - 1) {
+        *total = input + sum;
+      }
+      __syncthreads();
+    }
+    return sum;
+  }
+  if (detail::isLastInWarp()) {
+    temp[threadIdx.x / kWarpThreads] = input + sum;
+  }
+  __syncthreads();
+  using InnerScan = WarpScan<T, kNumWarps>;
+  T warpSum = threadIdx.x < kNumWarps ? temp[threadIdx.x] : 0;
+  T blockSum;
+  InnerScan().exclusiveSum(warpSum, blockSum);
+  if (threadIdx.x < kNumWarps) {
+    temp[threadIdx.x] = blockSum;
+    if (total && threadIdx.x == kNumWarps - 1) {
+      *total = warpSum + blockSum;
+    }
+  }
+  __syncthreads();
+  return sum + temp[threadIdx.x / kWarpThreads];
+}
+
+/// Returns the block wide inclusive sum (sum of 'input' for all
+/// lanes below threadIdx.x). 'temp' must have
+/// exclusiveSumTempSize() writable bytes aligned for T. '*total' is set to the
+/// TB-wide total if 'total' is not nullptr.
+template <typename T, int32_t kBlockSize>
+inline __device__ T inclusiveSum(T input, T* total, T* temp) {
+  constexpr int32_t kNumWarps = kBlockSize / kWarpThreads;
+  using Scan = WarpScan<T>;
+  T sum;
+  Scan().inclusiveSum(input, sum);
+  if (kBlockSize <= kWarpThreads) {
+    if (total != nullptr) {
+      if (threadIdx.x == kBlockSize - 1) {
+        *total = sum;
+      }
+      __syncthreads();
+    }
+    return sum;
+  }
+  if (detail::isLastInWarp()) {
+    temp[threadIdx.x / kWarpThreads] = sum;
+  }
+  __syncthreads();
+  constexpr int32_t kInnerWidth = kNumWarps < 2 ? 2 : kNumWarps;
+  using InnerScan = WarpScan<T, kInnerWidth>;
+  T warpSum = threadIdx.x < kInnerWidth ? temp[threadIdx.x] : 0;
+  T blockSum;
+  InnerScan().exclusiveSum(warpSum, blockSum);
+  if (threadIdx.x < kInnerWidth) {
+    temp[threadIdx.x] = blockSum;
+  }
+  if (total != nullptr && threadIdx.x == kInnerWidth - 1) {
+    *total = blockSum + warpSum;
+  }
+  __syncthreads();
+  return sum + temp[threadIdx.x / kWarpThreads];
+}
 
 } // namespace facebook::velox::wave

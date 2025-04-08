@@ -50,7 +50,7 @@ class BarrierTest : public testing::Test {
       if (action % 10 == 0 && threadIdx % 10 < 5) {
         void* reason = reinterpret_cast<void*>(action + 1);
         message(threadIdx, "acq");
-        barrier->acquire(reason, nullptr);
+        barrier->acquire(nullptr, reason, nullptr);
         message(threadIdx, "exc");
         // std::this_thread::sleep_for(std::chrono::milliseconds(10)); // NOLINT
         ++numAcquired_;
@@ -63,7 +63,7 @@ class BarrierTest : public testing::Test {
         barrier->enter();
       } else {
         message(threadIdx, "mayYield");
-        barrier->mayYield(nullptr);
+        barrier->mayYield(nullptr, nullptr);
         message(threadIdx, "cont");
       }
     }

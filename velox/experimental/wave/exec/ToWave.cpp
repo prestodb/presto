@@ -252,4 +252,9 @@ void registerWave() {
   exec::DriverFactory::registerAdapter(waveAdapter);
   registerWaveFunctions();
 }
+
+std::string planToString(const core::PlanNode* plan) {
+  return plan->toString(true, true);
+}
+
 } // namespace facebook::velox::wave

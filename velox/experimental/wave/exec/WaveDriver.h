@@ -25,6 +25,37 @@ DECLARE_int32(max_streams_per_driver);
 namespace facebook::velox::wave {
 enum class Advance { kBlocked, kResult, kFinished };
 
+struct Pipeline {
+  // Wave operators replacing 'cpuOperators_' on GPU path.
+  std::vector<std::unique_ptr<WaveOperator>> operators;
+
+  // The set of currently pending kernel DAGs for this Pipeline.  If the
+  // source operator can produce multiple consecutive batches before the batch
+  // is executed to completion, multiple such batches can be on device
+  // independently of each other. Limited by max_streams_per_driver.
+  std::vector<std::unique_ptr<WaveStream>> running;
+
+  std::vector<std::unique_ptr<WaveStream>> arrived;
+
+  /// Streams ready to recycle. A stream's device side resources are usually
+  /// reusable for a new batch from the source operator.
+  std::vector<std::unique_ptr<WaveStream>> finished;
+
+  /// True if status copy to host is needed after the last kernel. True if
+  /// returns vectors to host or if can produce multiple batches of output for
+  /// one input.
+  bool needStatus{false};
+  bool sinkFull{false};
+
+  /// True if produces Batches in RowVectors.
+  bool makesHostResult{false};
+  bool canAdvance{false};
+  bool noMoreInput{false};
+
+  /// true if pipelineFinished has been called.
+  bool finishCalled{false};
+};
+
 /// Synchronizes between WaveDrivers on different Drivers of a Task
 /// pipeline. All threads inside WaveDriver::getOutput are the
 /// coordinated set. One or more of these cn acquire the barrier in
@@ -51,7 +82,7 @@ class WaveBarrier {
   /// Gets exclusive access. All other threads in the coordinated set are
   /// stopped wen this returns. If the calling thread will block, 'preWait' is
   /// called first.
-  void acquire(void* reason, std::function<void()> preWait);
+  void acquire(Pipeline* pipeline, void* reason, std::function<void()> preWait);
 
   /// Releases exclusive. The calling thread must have called acquire() first.
   void release();
@@ -62,7 +93,9 @@ class WaveBarrier {
   /// release(). Acquires are continued one by one after all threads
   /// are either blocked in arrive() or acquire(). If the calling thread waits,
   /// 'preWait' is called before the wait.
-  void mayYield(std::function<void()> preWait);
+  void mayYield(Pipeline* pipeline, std::function<void()> preWait);
+
+  std::vector<WaveStream*> waitingStreams() const;
 
   static std::shared_ptr<WaveBarrier>
   get(const std::string& taskId, int32_t driverId, int32_t operatorId);
@@ -81,8 +114,6 @@ class WaveBarrier {
   // arrive or have left.
   void maybeReleaseAcquireLocked();
 
-  void waitForExclDone();
-
   // Serializes all non-static state.
   std::mutex mutex_;
 
@@ -98,12 +129,16 @@ class WaveBarrier {
   /// tids that wait for exclusive section to finish.
   std::vector<int32_t> waitingForExclDone_;
 
+  // Streams waiting for excl. 1:1 to 'exclusiveTokens_'.
+  std::vector<Pipeline*> exclPipelines_;
+
   // Number of threads to coordinate.
   int32_t numJoined_{0};
 
   // Number of threads blocked in mayYield() or release() or enter().
   int32_t numInArrive_{0};
   std::vector<ContinuePromise> promises_;
+  std::vector<Pipeline*> waitingPipelines_;
   std::vector<folly::Promise<bool>> exclusivePromises_;
   std::vector<void*> exclusiveTokens_;
   void* exclusiveToken_{nullptr};
@@ -188,34 +223,6 @@ class WaveDriver : public exec::SourceOperator {
   }
 
  private:
-  struct Pipeline {
-    // Wave operators replacing 'cpuOperators_' on GPU path.
-    std::vector<std::unique_ptr<WaveOperator>> operators;
-
-    // The set of currently pending kernel DAGs for this Pipeline.  If the
-    // source operator can produce multiple consecutive batches before the batch
-    // is executed to completion, multiple such batches can be on device
-    // independently of each other. Limited by max_streams_per_driver.
-    std::vector<std::unique_ptr<WaveStream>> running;
-
-    std::vector<std::unique_ptr<WaveStream>> arrived;
-
-    /// Streams ready to recycle. A stream's device side resources are usually
-    /// reusable for a new batch from the source operator.
-    std::vector<std::unique_ptr<WaveStream>> finished;
-
-    /// True if status copy to host is needed after the last kernel. True if
-    /// returns vectors to host or if can produce multiple batches of output for
-    /// one input.
-    bool needStatus{false};
-    bool sinkFull{false};
-
-    /// True if produces Batches in RowVectors.
-    bool makesHostResult{false};
-    bool canAdvance{false};
-    bool noMoreInput{false};
-  };
-
   // True if all output from 'stream' is fetched.
   bool streamAtEnd(WaveStream& stream);
 
@@ -256,6 +263,10 @@ class WaveDriver : public exec::SourceOperator {
   // end is ready to consume by another pipeline. This is called once,
   // after there is guaranteed no more input.
   void flush(int32_t pipelineIdx);
+
+  // Calls pipelinefinished on abstract instructions. Called on one stream of
+  // last Driver to finish for the Task pipeline.
+  void pipelineFinished(int32_t pipelineIdx);
 
   // Copies from 'waveStats_' to runtimeStates consumed by
   // exec::Driver.

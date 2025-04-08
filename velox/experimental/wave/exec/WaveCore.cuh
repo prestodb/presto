@@ -52,17 +52,21 @@ gridStatus(const WaveShared* shared, const InstructionStatus& status) {
   return gridStatus<T>(shared, status.gridState);
 }
 
+/// Returns a pointer to the first byte of block level status in the extra
+/// status area above the BlockStatus array for the current block.
 template <typename T>
-inline T* __device__ laneStatus(
+inline T* __device__ blockStatus(
     const WaveShared* shared,
-    const InstructionStatus& status,
-    int32_t nthBlock) {
+    int32_t gridStatusSize,
+    int32_t blockStatusOffset,
+    int32_t blockStatusSize = sizeof(T)) {
   return reinterpret_cast<T*>(
       roundUp(
           reinterpret_cast<uintptr_t>(shared->status) +
               shared->numBlocks * sizeof(BlockStatus),
           8) +
-      status.gridStateSize + status.blockState * shared->numBlocks);
+      gridStatusSize + (blockStatusOffset * shared->numBlocks) +
+      (blockStatusSize * (shared->blockBase / kBlockSize)));
 }
 
 inline bool __device__ laneActive(ErrorCode code) {
@@ -84,7 +88,7 @@ __device__ __forceinline__ bool operandOrNull(
     int32_t blockBase,
     T& value) {
   auto op = operands[opIdx];
-  int32_t index = threadIdx.x;
+  auto index = threadIdx.x;
   if (auto indicesInOp = op->indices) {
     auto indices = indicesInOp[blockBase / kBlockSize];
     if (indices) {
@@ -112,7 +116,7 @@ bool __device__ __forceinline__ valueOrNull(
     int32_t blockBase,
     T& value) {
   auto op = operands[opIdx];
-  int32_t index = threadIdx.x;
+  auto index = threadIdx.x;
   if (!kMayWrap) {
     index = (index + blockBase) & op->indexMask;
     if (op->nulls && op->nulls[index] == kNull) {
@@ -158,7 +162,7 @@ template <bool kMayWrap, typename T>
 T __device__ __forceinline__
 nonNullOperand(Operand** operands, OperandIndex opIdx, int32_t blockBase) {
   auto op = operands[opIdx];
-  int32_t index = threadIdx.x;
+  auto index = threadIdx.x;
   if (!kMayWrap) {
     index = (index + blockBase) & op->indexMask;
     return reinterpret_cast<const T*>(op->base)[index];
@@ -261,9 +265,12 @@ __device__ inline T& flatResult(Operand* op, int32_t blockBase) {
     shared->states = params.operatorStates[0];                                 \
     shared->nthBlock = 0;                                                      \
     shared->streamIdx = params.streamIdx;                                      \
+    shared->localContinue = false;                                             \
     shared->isContinue = params.startPC != nullptr;                            \
     if (shared->isContinue) {                                                  \
       shared->startLabel = params.startPC[shared->programIdx];                 \
+    } else {                                                                   \
+      shared->startLabel = -1;                                                 \
     }                                                                          \
     shared->extraWraps = params.extraWraps;                                    \
     shared->numExtraWraps = params.numExtraWraps;                              \
@@ -400,6 +407,131 @@ __device__ void __forceinline__ wrapKernel(
     __syncthreads();
     if (rowActive) {
       state->indices[threadIdx.x] = newIndex;
+    }
+  }
+  __syncthreads();
+}
+
+__device__ void __forceinline__ wrapKernel(
+    const OperandIndex* wraps,
+    int32_t numWraps,
+    OperandIndex indicesIdx,
+    Operand** operands,
+    Operand** newWraps,
+    Operand** backup,
+    int32_t blockBase,
+    WaveShared* shared) {
+  Operand* op = operands[indicesIdx];
+  auto* filterIndices = reinterpret_cast<int32_t*>(op->base);
+  if (filterIndices[blockBase + shared->numRows - 1] ==
+      shared->numRows + blockBase - 1) {
+    // There is no cardinality change.
+    if (threadIdx.x == 0) {
+      auto* op = operands[wraps[0]];
+      op->indices[blockBase / kBlockSize] = nullptr;
+    }
+    __syncthreads();
+    return;
+  }
+
+  struct WrapState {
+    int32_t* indices;
+  };
+
+  auto* state = reinterpret_cast<WrapState*>(&shared->data);
+  bool rowActive = threadIdx.x < shared->numRows;
+  int32_t totalWrap = numWraps + shared->numExtraWraps;
+  for (auto column = 0; column < totalWrap; ++column) {
+    if (threadIdx.x == 0) {
+      auto opIndex = column < numWraps ? wraps[column]
+                                       : shared->extraWraps + column - numWraps;
+      auto* op = operands[opIndex];
+      int32_t** opIndices = &op->indices[blockBase / kBlockSize];
+      // If there is no indirection or if this is column 0 whose indirection is
+      // inited here, use the filter rows.
+      if (!*opIndices || column == 0) {
+        *opIndices = filterIndices + blockBase;
+        state->indices = nullptr;
+      } else {
+        state->indices = *opIndices;
+      }
+    }
+    __syncthreads();
+    // Every thread sees the decision on thred 0 above.
+    if (!state->indices) {
+      continue;
+    }
+    int32_t newIndex;
+    if (rowActive) {
+      newIndex =
+          state->indices[filterIndices[blockBase + threadIdx.x] - blockBase];
+    }
+    // All threads hit this.
+    __syncthreads();
+    if (rowActive) {
+      state->indices[threadIdx.x] = newIndex;
+    }
+  }
+  __syncthreads();
+}
+
+__device__ void __forceinline__ wrapKernel(
+    OperandIndex first,
+    const OperandIndex* wraps,
+    const OperandIndex* newIndices,
+    const OperandIndex* backups,
+    int32_t numWraps,
+    OperandIndex indicesIdx,
+    WaveShared* shared) {
+  auto* operands = shared->operands;
+  Operand* op = operands[indicesIdx];
+  auto* filterIndices = reinterpret_cast<int32_t*>(op->base);
+
+  struct WrapState {
+    int32_t* indices;
+    int32_t* newIndices;
+  };
+
+  auto* state = reinterpret_cast<WrapState*>(&shared->data);
+  bool rowActive = threadIdx.x < shared->numRows;
+
+  if (first != kEmpty) {
+    if (threadIdx.x == 0) {
+      operands[first]->indices[shared->blockBase / kBlockSize] =
+          filterIndices + shared->blockBase;
+    }
+  }
+
+  for (auto column = 0; column < numWraps; ++column) {
+    if (threadIdx.x == 0) {
+      auto nthBlock = shared->blockBase / kBlockSize;
+      auto opIndex = wraps[column];
+      auto* op = operands[opIndex];
+      int32_t** opIndices = &op->indices[nthBlock];
+      // Record previous indirection
+      auto backup =
+          reinterpret_cast<int32_t**>(operands[backups[column]]->base);
+      backup[nthBlock] = *opIndices;
+      if (!*opIndices) {
+        *opIndices = filterIndices + shared->blockBase;
+        state->indices = nullptr;
+      } else {
+        state->indices = *opIndices;
+        state->newIndices =
+            reinterpret_cast<int32_t*>(operands[newIndices[column]]->base);
+      }
+    }
+    __syncthreads();
+    // Every thread sees the decision on thred 0 above.
+    if (!state->indices) {
+      continue;
+    }
+    int32_t newIndex;
+    if (rowActive) {
+      newIndex = state->indices
+                     [filterIndices[shared->blockBase + threadIdx.x] -
+                      shared->blockBase];
+      state->newIndices[threadIdx.x] = newIndex;
     }
   }
   __syncthreads();

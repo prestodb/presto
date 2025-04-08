@@ -30,10 +30,10 @@ namespace {
 
 // Batch size used when iterating the row container.
 constexpr int kBatchSize = 1024;
+} // namespace
 
-// Returns the type for the hash table row. Build side keys first,
-// then dependent build side columns.
-RowTypePtr makeTableType(
+// static
+RowTypePtr HashProbe::makeTableType(
     const RowType* type,
     const std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>&
         keys) {
@@ -57,6 +57,7 @@ RowTypePtr makeTableType(
   return ROW(std::move(names), std::move(types));
 }
 
+namespace {
 // Copy values from 'rows' of 'table' according to 'projections' in
 // 'result'. Reuses 'result' children where possible.
 void extractColumns(

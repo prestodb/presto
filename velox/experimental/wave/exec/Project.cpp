@@ -24,6 +24,22 @@
 
 namespace facebook::velox::wave {
 
+exec::BlockingReason Project::isBlocked(
+    WaveStream& stream,
+    ContinueFuture* future) {
+  for (int32_t i = levels_.size() - 1; i >= 0; --i) {
+    auto& level = levels_[i];
+    for (auto j = 0; j < level.size(); ++j) {
+      auto* program = level[j].get();
+      auto result = program->isBlocked(stream, future);
+      if (result != exec::BlockingReason::kNotBlocked) {
+        return result;
+      }
+    }
+  }
+  return exec::BlockingReason::kNotBlocked;
+}
+
 std::vector<AdvanceResult> Project::canAdvance(WaveStream& stream) {
   auto& controls = stream.launchControls(id_);
   if (controls.empty()) {
@@ -63,10 +79,13 @@ std::vector<AdvanceResult> Project::canAdvance(WaveStream& stream) {
   return {};
 }
 
-void Project::callUpdateStatus(WaveStream& stream, AdvanceResult& advance) {
+void Project::callUpdateStatus(
+    WaveStream& stream,
+    const std::vector<WaveStream*>& otherStreams,
+    AdvanceResult& advance) {
   if (advance.updateStatus) {
     levels_[advance.nthLaunch][advance.programIdx]->callUpdateStatus(
-        stream, advance);
+        stream, otherStreams, advance);
   }
 }
 
@@ -149,6 +168,14 @@ void Project::schedule(WaveStream& stream, int32_t maxRows) {
           stream.checkExecutables();
         });
     isContinue = false;
+  }
+}
+
+void Project::pipelineFinished(WaveStream& stream) {
+  for (auto& level : levels_) {
+    for (auto& program : level) {
+      program->pipelineFinished(stream);
+    }
   }
 }
 

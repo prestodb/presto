@@ -77,7 +77,7 @@ std::string makeAggregateRow(CompileState& state, const AggregateProbe& probe) {
   for (auto n = 0; n < numNullable; n += 32) {
     out << fmt::format("  uint32_t nulls{};\n", n / 32);
   }
-  makeKeyMembers(probe.keys, out);
+  makeKeyMembers(probe.keys, "key", out);
   for (auto i = 0; i < probe.updates.size(); ++i) {
     probe.updates[i]->generator->generateInclude(
         state, probe, *probe.updates[i]);

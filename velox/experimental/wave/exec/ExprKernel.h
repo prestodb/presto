@@ -78,6 +78,12 @@ struct AggregateReturn {
   int64_t numDistinct;
 };
 
+// Return status for hash join build. Only indicates if more space is needed.
+struct BuildReturn {
+  // Flag 8 wide for alignment.
+  int64_t needMore{0};
+};
+
 /// Thread block wide status in Wave kernels
 struct WaveShared {
   /// per lane status and row count.
@@ -101,6 +107,11 @@ struct WaveShared {
   /// indicate that the grid level status should be set to indicate
   /// continue. Reset before end of instruction.
   bool hasContinue;
+
+  /// True if doing an extra iteration to increase cardinality in
+  /// non-continue case, e.g. first kernel of 1:n join or unnest
+  /// producing non-first result for an active lane of input.
+  bool localContinue;
 
   /// If true, all threads in block return before starting next instruction.
   bool stop;
@@ -169,6 +180,30 @@ struct KernelParams {
   /// Id of stream <stream ordinal within WaveDriver> + (<driverId of
   /// WaveDriver> * <number of Drivers>.
   int16_t streamIdx{0};
+};
+
+/// grid status for a hash join expand.
+struct HashJoinExpandGridStatus {
+  /// True if any lane in the grid has unfetched data. If true,
+  /// hashJoinExpandBlockstatus has the lane statuses. int32_t to support
+  /// atomics.
+  int32_t anyContinuable{0};
+  int32_t pad{0};
+};
+
+/// Tracks the state of a hash join probe between batches of output. Needed when
+/// the join increases cardinality.
+struct HashJoinExpandBlockStatus {
+  /// The next row in the hash table to look at. nullptr if all hits produced.
+  void* next[kBlockSize];
+};
+
+// Shared memory resident state for hash join expand.
+struct JoinShared {
+  HashJoinExpandGridStatus* gridStatus;
+  HashJoinExpandBlockStatus* blockStatus;
+  int32_t anyNext;
+  int32_t temp[kBlockSize / 32];
 };
 
 } // namespace facebook::velox::wave

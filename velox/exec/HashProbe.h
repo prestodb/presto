@@ -80,8 +80,28 @@ class HashProbe : public Operator {
     return input_ != nullptr;
   }
 
+  const std::vector<IdentityProjection>& tableOutputProjections() const {
+    return tableOutputProjections_;
+  }
+
+  ExprSet* filterExprSet() const {
+    return filter_.get();
+  }
+
+  /// Returns the type for the hash table row. Build side keys first,
+  /// then dependent build side columns.
+
+  static RowTypePtr makeTableType(
+      const RowType* type,
+      const std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>&
+          keys);
+
   ProbeOperatorState testingState() const {
     return state_;
+  }
+
+  const std::shared_ptr<HashJoinBridge>& joinBridge() const {
+    return joinBridge_;
   }
 
  private:

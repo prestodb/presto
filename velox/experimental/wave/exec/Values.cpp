@@ -23,7 +23,12 @@ namespace facebook::velox::wave {
 Values::Values(CompileState& state, const core::ValuesNode& values)
     : WaveSourceOperator(state, values.outputType(), values.id()),
       values_(values.values()),
-      roundsLeft_(values.repeatTimes()) {}
+      roundsLeft_(values.repeatTimes()) {
+  for (auto& rv : values_) {
+    auto v = std::static_pointer_cast<BaseVector>(rv);
+    BaseVector::flattenVector(v);
+  }
+}
 
 std::vector<AdvanceResult> Values::canAdvance(WaveStream& stream) {
   std::vector<AdvanceResult> results;

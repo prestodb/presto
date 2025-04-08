@@ -82,7 +82,7 @@ __device__ inline void
 bool256ToIndices(Getter8 getter8, T start, T* indices, T& size, char* smem) {
   using Scan = cub::WarpScan<uint16_t>;
   auto* smem16 = reinterpret_cast<uint16_t*>(smem);
-  int32_t group = threadIdx.x / 8;
+  auto group = threadIdx.x / 8;
   uint64_t bits = getter8(group) & 0x0101010101010101;
   if ((threadIdx.x & 7) == 0) {
     smem16[group] = __popcll(bits);
@@ -99,7 +99,7 @@ bool256ToIndices(Getter8 getter8, T start, T* indices, T& size, char* smem) {
     }
   }
   __syncthreads();
-  int32_t tidInGroup = threadIdx.x & 7;
+  auto tidInGroup = threadIdx.x & 7;
   if (bits & (1UL << (tidInGroup * 8))) {
     int32_t base =
         smem16[group] + __popcll(bits & lowMask<uint64_t>(tidInGroup * 8));
@@ -164,7 +164,7 @@ void __device__ blockSort(
 
   // Load items into a blocked arrangement
   for (auto i = 0; i < kItemsPerThread; ++i) {
-    int32_t idx = blockOffset + i * kBlockSize + threadIdx.x;
+    auto idx = blockOffset + i * kBlockSize + threadIdx.x;
     values[i] = valueGetter(idx);
     keys[i] = keyGetter(idx);
   }
@@ -280,85 +280,6 @@ void __device__ partitionRows(
     partitionedRows[keyStart + ranks[i]] = i;
   }
   __syncthreads();
-}
-
-/// Returns the block wide exclusive sum (sum of 'input' for all
-/// lanes below threadIdx.x). If 'total' is non-nullptr, the block
-/// wide sum is returned in '*total'. 'temp' must have
-/// exclusiveSumTempSize() writable bytes aligned for T.
-template <typename T, int32_t kBlockSize>
-inline __device__ T exclusiveSum(T input, T* total, T* temp) {
-  constexpr int32_t kNumWarps = kBlockSize / kWarpThreads;
-  using Scan = cub::WarpScan<T>;
-  T sum;
-  Scan(*reinterpret_cast<typename Scan::TempStorage*>(temp))
-      .ExclusiveSum(input, sum);
-  if (kBlockSize == kWarpThreads) {
-    if (total) {
-      if (threadIdx.x == kWarpThreads - 1) {
-        *total = input + sum;
-      }
-      __syncthreads();
-    }
-    return sum;
-  }
-  if (detail::isLastInWarp()) {
-    temp[threadIdx.x / kWarpThreads] = input + sum;
-  }
-  __syncthreads();
-  using InnerScan = cub::WarpScan<T, kNumWarps>;
-  T warpSum = threadIdx.x < kNumWarps ? temp[threadIdx.x] : 0;
-  T blockSum;
-  InnerScan(*reinterpret_cast<typename InnerScan::TempStorage*>(temp))
-      .ExclusiveSum(warpSum, blockSum);
-  if (threadIdx.x < kNumWarps) {
-    temp[threadIdx.x] = blockSum;
-    if (total && threadIdx.x == kNumWarps - 1) {
-      *total = warpSum + blockSum;
-    }
-  }
-  __syncthreads();
-  return sum + temp[threadIdx.x / kWarpThreads];
-}
-
-/// Returns the block wide inclusive sum (sum of 'input' for all
-/// lanes below threadIdx.x). 'temp' must have
-/// exclusiveSumTempSize() writable bytes aligned for T. '*total' is set to the
-/// TB-wide total if 'total' is not nullptr.
-template <typename T, int32_t kBlockSize>
-inline __device__ T inclusiveSum(T input, T* total, T* temp) {
-  constexpr int32_t kNumWarps = kBlockSize / kWarpThreads;
-  using Scan = cub::WarpScan<T>;
-  T sum;
-  Scan(*reinterpret_cast<typename Scan::TempStorage*>(temp))
-      .InclusiveSum(input, sum);
-  if (kBlockSize <= kWarpThreads) {
-    if (total != nullptr) {
-      if (threadIdx.x == kBlockSize - 1) {
-        *total = sum;
-      }
-      __syncthreads();
-    }
-    return sum;
-  }
-  if (detail::isLastInWarp()) {
-    temp[threadIdx.x / kWarpThreads] = sum;
-  }
-  __syncthreads();
-  constexpr int32_t kInnerWidth = kNumWarps < 2 ? 2 : kNumWarps;
-  using InnerScan = cub::WarpScan<T, kInnerWidth>;
-  T warpSum = threadIdx.x < kInnerWidth ? temp[threadIdx.x] : 0;
-  T blockSum;
-  InnerScan(*reinterpret_cast<typename InnerScan::TempStorage*>(temp))
-      .ExclusiveSum(warpSum, blockSum);
-  if (threadIdx.x < kInnerWidth) {
-    temp[threadIdx.x] = blockSum;
-  }
-  if (total != nullptr && threadIdx.x == kInnerWidth - 1) {
-    *total = blockSum + warpSum;
-  }
-  __syncthreads();
-  return sum + temp[threadIdx.x / kWarpThreads];
 }
 
 } // namespace facebook::velox::wave

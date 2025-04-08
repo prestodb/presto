@@ -20,10 +20,12 @@ namespace facebook::velox::wave {
 
 void makeKeyMembers(
     const std::vector<AbstractOperand*>& keys,
+    const std::string& prefix,
     std::stringstream& out) {
   for (auto i = 0; i < keys.size(); ++i) {
     auto* key = keys[i];
-    out << cudaTypeName(*key->type) << " key" << i << ";\n";
+    VELOX_CHECK_NOT_NULL(key);
+    out << cudaTypeName(*key->type) << " " << prefix << i << ";\n";
   }
 }
 
@@ -43,30 +45,43 @@ void makeHash(
     CompileState& state,
     const std::vector<AbstractOperand*>& keys,
     bool nullableKeys,
-    std::string nullCode) {
+    std::string nullCode,
+    int32_t id) {
   auto& out = state.generated();
-  out << "  hash = 1;\n";
+  std::string idStr;
+  if (id != -1) {
+    idStr = fmt::format("{}", id);
+  }
+  out << "  hash" << idStr << " = 1;\n";
   for (auto i = 0; i < keys.size(); ++i) {
     auto* op = keys[i];
     state.ensureOperand(op);
+    std::string stmt;
     if (!nullableKeys && !op->notNull) {
-      out << "  if (" << state.isNull(op) << ") { goto nullKey; }\n";
+      stmt = fmt::format(
+          "  if ({}) {{ goto nullKey; }}\n"
+          "   hash{} = hashMix(hash{}, hashValue({}));\n",
+          state.isNull(op),
+          id,
+          id,
+          state.operandValue(op));
     } else {
       if (!keys[i]->notNull) {
-        out << fmt::format(
-            "  if ({}) {{ hash = hashMix(hash, 13); }} else {{ hash = hashMix(hash, hashValue({})); }}\n",
+        stmt = fmt::format(
+            "  if ({}) {{ $h$ = hashMix($h$, 13); }} else {{ $h$ = hashMix($h$, hashValue({})); }}\n",
             state.isNull(op),
             state.operandValue(op));
       } else {
-        out << fmt::format(
-            "  hash = hashMix(hash, hashValue({}));\n", state.operandValue(op));
+        stmt = fmt::format(
+            "  $h$ = hashMix($h$, hashValue({}));\n", state.operandValue(op));
       }
     }
+    out << replaceAll(stmt, "$h$", fmt::format("hash{}", idStr));
   }
   if (!nullableKeys) {
     out << " goto hashDone;\n"
         << " nullKey: laneStatus = ErrorCode::kInactive;\n"
-        << nullCode << "  hashDone: ;\n";
+        << nullCode << "\n  hashDone: ;\n";
   }
 }
 
@@ -96,7 +111,7 @@ void makeCompareLambda(
   out << "  return true;\n}\n";
 }
 
-std::string nullsInit(
+std::string initRowNullFlags(
     CompileState& state,
     int32_t begin,
     int32_t end,
@@ -140,7 +155,7 @@ void makeInitGroupRow(
   }
   out << fmt::format(
       "  asDeviceAtomic<uint32_t>(&row->nulls0)->store(keyNulls = {}, cuda::memory_order_release);\n",
-      nullsInit(state, 0, keys.size(), keys));
+      initRowNullFlags(state, 0, keys.size(), keys));
   out << "}\n";
 }
 

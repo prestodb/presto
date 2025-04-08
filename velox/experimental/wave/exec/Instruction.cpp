@@ -15,6 +15,7 @@
  */
 
 #include <iostream>
+#include "velox/exec/HashJoinBridge.h"
 #include "velox/experimental/wave/exec/Wave.h"
 
 DEFINE_int32(
@@ -62,9 +63,12 @@ void restockAllocator(
     AggregateOperatorState& state,
     int32_t size,
     HashPartitionAllocator* allocator) {
+  VELOX_CHECK_LT(0, size);
   // If we can get rows by raising the row limit we do this first.
   int32_t adjustedSize = size - allocator->raiseRowLimits(size);
   if (adjustedSize <= 0) {
+    TR1(fmt::format(
+        "Found {} rows of existing space", size / allocator->rowSize));
     return;
   }
   if (allocator->ranges[0].fixedFull) {
@@ -78,6 +82,7 @@ void restockAllocator(
       size,
       size,
       allocator->rowSize);
+  TR1(fmt::format("Made range of {} rows", size / allocator->rowSize));
   if (allocator->ranges[0].empty()) {
     allocator->ranges[0] = std::move(newRange);
   } else {
@@ -96,13 +101,26 @@ void AggregateOperatorState::setSizesToSafe() {
   for (auto i = 0; i < numPartitions; ++i) {
     auto availableInAllocator = allocators[i].availableFixed() / rowSize;
     if (availableInAllocator > allowedPerPartition) {
+      TR1(fmt::format(
+          "Trim avail from {} to {} rows\n",
+          availableInAllocator,
+          allowedPerPartition));
       allocators[i].trimRows(allowedPerPartition * rowSize);
     }
   }
 }
 
-void resupplyHashTable(WaveStream& stream, AbstractInstruction& inst) {
+void resupplyHashTable(
+    WaveStream& stream,
+    const std::vector<WaveStream*>& otherStreams,
+    AbstractInstruction& inst) {
+  float kLoadFactor = 5 / 6.0;
   auto* agg = &inst.as<AbstractAggregation>();
+  if (stream.mutableExclusiveProcessed()) {
+    TR(&stream, "Resupply already processed");
+    stream.mutableExclusiveProcessed() = false;
+    return;
+  }
   auto deviceStream = WaveStream::streamFromReserve();
   auto stateId = agg->state->id;
   auto* state = stream.operatorState(stateId)->as<AggregateOperatorState>();
@@ -114,23 +132,45 @@ void resupplyHashTable(WaveStream& stream, AbstractInstruction& inst) {
   deviceStream->prefetch(nullptr, state->alignedHead, state->alignedHeadSize);
   deviceStream->wait();
   VELOX_CHECK_EQ(head->debugActiveBlockCounter, 0);
-  auto* blockStatus = stream.hostBlockStatus();
-  int32_t numBlocks = bits::roundUp(stream.numRows(), kBlockSize) / kBlockSize;
-  int32_t numFailed =
-      countErrors(blockStatus, numBlocks, ErrorCode::kInsufficientMemory);
+  std::vector<WaveStream*> allStreams = {&stream};
+  allStreams.insert(allStreams.end(), otherStreams.begin(), otherStreams.end());
+  int32_t numFailed = 0;
+  bool first = true;
+  for (auto* stream : allStreams) {
+    auto* gridState =
+        stream->gridStatus<AggregateReturn>(*inst.mutableInstructionStatus());
+    if (!gridState) {
+      TR(stream, "Does not yet have grid State");
+      continue;
+    }
+    bool hasRetries = gridState->numDistinct != 0;
+    auto* blockStatus = stream->hostBlockStatus();
+    int32_t numBlocks =
+        bits::roundUp(stream->numRows(), kBlockSize) / kBlockSize;
+    auto numRetry =
+        countErrors(blockStatus, numBlocks, ErrorCode::kInsufficientMemory);
+    VELOX_CHECK_EQ(hasRetries, numRetry != 0);
+    numFailed += numRetry;
+    if (!first) {
+      stream->mutableExclusiveProcessed() = true;
+    }
+    first = false;
+  }
   int32_t rowSize = agg->rowSize();
   int32_t numPartitions = hashTable->partitionMask + 1;
-  int64_t newSize =
-      bits::nextPowerOfTwo(numFailed + hashTable->numDistinct * 2);
-  int64_t increment =
-      rowSize * (newSize - hashTable->numDistinct) / numPartitions;
-  TR1(fmt::format(
-      "resupply: size={} newSize={} increment={} numFailed={} ht={}\n",
-      numSlots(hashTable),
-      newSize,
-      increment,
-      numFailed,
-      (void*)hashTable));
+  int64_t newTableSize =
+      bits::nextPowerOfTwo((numFailed + hashTable->numDistinct) / kLoadFactor);
+  int64_t newMaxDistinct = newTableSize * kLoadFactor;
+  int64_t increment = (rowSize * (newMaxDistinct - hashTable->numDistinct)) /
+      (numPartitions == 1 ? 1.0 : numPartitions * 0.8);
+  TR(&stream,
+     fmt::format(
+         "resupply: size={} newSize={} increment={} numFailed={} ht={}\n",
+         numSlots(hashTable),
+         newTableSize,
+         increment,
+         numFailed,
+         (void*)hashTable));
   for (auto i = 0; i < numPartitions; ++i) {
     auto* allocator =
         &reinterpret_cast<HashPartitionAllocator*>(hashTable + 1)[i];
@@ -146,16 +186,16 @@ void resupplyHashTable(WaveStream& stream, AbstractInstruction& inst) {
   int32_t numOldBuckets;
   // Rehash if close to max. We can have growth from variable length
   // accumulators so rehash is not always right.
-  if (newSize > numSlots(hashTable)) {
+  if (newTableSize > numSlots(hashTable)) {
     oldBuckets = state->buffers[1];
     numOldBuckets = hashTable->sizeMask + 1;
     state->buffers[1] = state->arena->allocate<GpuBucketMembers>(
-        newSize / GpuBucketMembers::kNumSlots);
+        newTableSize / GpuBucketMembers::kNumSlots);
     deviceStream->memset(
         state->buffers[1]->as<char>(), 0, state->buffers[1]->size());
-    hashTable->sizeMask = (newSize / GpuBucketMembers::kNumSlots) - 1;
+    hashTable->sizeMask = (newTableSize / GpuBucketMembers::kNumSlots) - 1;
     hashTable->buckets = state->buffers[1]->as<GpuBucket>();
-    hashTable->maxEntries = newSize / 6 * 5;
+    hashTable->maxEntries = newTableSize * kLoadFactor;
     rehash = true;
   }
   state->setSizesToSafe();
@@ -175,7 +215,7 @@ void resupplyHashTable(WaveStream& stream, AbstractInstruction& inst) {
   }
   deviceStream->wait();
   if (rehash) {
-    TR1(fmt::format("rehashed {}\n", (void*)hashTable));
+    TR(&stream, fmt::format("rehashed {}\n", (void*)hashTable));
   }
   WaveStream::releaseStream(std::move(deviceStream));
 }
@@ -194,6 +234,7 @@ AdvanceResult AbstractAggregation::canAdvance(
     return {};
   }
   if (gridState->numDistinct) {
+    TR(&stream, fmt::format("agg need retry: card={}", gridState->numDistinct));
     stream.checkBlockStatuses();
     stream.clearGridStatus<AggregateReturn>(instructionStatus);
     // The hash table needs memory or rehash. Request a Task-wide break to
@@ -207,6 +248,19 @@ AdvanceResult AbstractAggregation::canAdvance(
         .reason = state};
   }
   return {};
+}
+
+std::function<std::shared_ptr<OperatorState>(WaveStream& stream)>
+AbstractAggregation::stateCreateFunction() {
+  return [inst = this](WaveStream& stream) -> std::shared_ptr<OperatorState> {
+    auto newState =
+        std::make_shared<AggregateOperatorState>(stream.arenaShared());
+    newState->isGrouped = !inst->keys.empty();
+    newState->rowSize = inst->rowSize();
+    newState->maxReadStreams = inst->maxReadStreams;
+    stream.makeAggregate(*inst, *newState);
+    return newState;
+  };
 }
 
 std::pair<int64_t, int64_t> countResultRows(
@@ -257,6 +311,21 @@ int32_t makeResultRows(
   return fill;
 }
 
+void allocatorsToRanges(AggregateOperatorState* aggState) {
+  auto* hashTable =
+      reinterpret_cast<GpuHashTableBase*>(aggState->alignedHead + 1);
+  auto* allocators = reinterpret_cast<HashPartitionAllocator*>(hashTable + 1);
+  int32_t numPartitions = hashTable->partitionMask + 1;
+  for (auto i = 0; i < numPartitions; ++i) {
+    for (auto j = 0; j < 2; j++) {
+      if (!allocators[i].ranges[j].empty()) {
+        aggState->ranges.push_back(std::move(allocators[i].ranges[j]));
+        aggState->ranges.back().clearOverflows(aggState->rowSize);
+      }
+    }
+  }
+}
+
 AdvanceResult AbstractReadAggregation::canAdvance(
     WaveStream& stream,
     LaunchControl* control,
@@ -278,19 +347,7 @@ AdvanceResult AbstractReadAggregation::canAdvance(
     // On first continue set up the device side row ranges.
     if (aggState->isNew) {
       aggState->isNew = false;
-      auto* hashTable =
-          reinterpret_cast<GpuHashTableBase*>(aggState->alignedHead + 1);
-      auto* allocators =
-          reinterpret_cast<HashPartitionAllocator*>(hashTable + 1);
-      int32_t numPartitions = hashTable->partitionMask + 1;
-      for (auto i = 0; i < numPartitions; ++i) {
-        for (auto j = 0; j < 2; j++) {
-          if (!allocators[i].ranges[j].empty()) {
-            aggState->ranges.push_back(std::move(allocators[i].ranges[j]));
-            aggState->ranges.back().clearOverflows(aggState->rowSize);
-          }
-        }
-      }
+      allocatorsToRanges(aggState);
       aggState->rangeIdx = 0;
       aggState->rowIdx = 0;
       auto [r, b] = countResultRows(aggState->ranges, rowSize);
@@ -354,6 +411,236 @@ AdvanceResult AbstractReadAggregation::canAdvance(
     return result;
   }
   return result;
+}
+
+AdvanceResult AbstractHashJoinExpand::canAdvance(
+    WaveStream& stream,
+    LaunchControl* control,
+    OperatorState* state,
+    int32_t instructionIdx) const {
+  auto* gridStatus = stream.gridStatus<HashJoinExpandGridStatus>(status);
+  if (!gridStatus) {
+    return {};
+  }
+  if (gridStatus->anyContinuable) {
+    stream.clearGridStatus<HashJoinExpandGridStatus>(status);
+    return AdvanceResult{
+        .numRows = bits::roundUp(stream.numRows(), kBlockSize),
+        .continueLabel = continueLabel,
+        .isRetry = true};
+  }
+  return {};
+}
+
+void AbstractHashJoinExpand::reserveState(InstructionStatus& state) {
+  // 8 bytes per grid.
+  status.gridState = state.gridState;
+  state.gridState += 8;
+  // 8 bytes per lane. 8 for the next
+  // row pointer to look at.
+  status.blockState = state.blockState;
+  state.blockState += kBlockSize * 8;
+}
+
+exec::BlockingReason AbstractHashJoinExpand::isBlocked(
+    WaveStream& stream,
+    OperatorState* state,
+    ContinueFuture* future) const {
+  if (state) {
+    return exec::BlockingReason::kNotBlocked;
+  }
+  auto hashBuildResult = joinBridge->tableOrFuture(future);
+  if (!hashBuildResult.has_value()) {
+    VELOX_CHECK(future->valid());
+    return exec::BlockingReason::kWaitForJoinBuild;
+  }
+  auto* map = stream.taskStateMap();
+  map->addIfNew(state->id, hashBuildResult.value().waveTable);
+  return exec::BlockingReason::kNotBlocked;
+}
+
+void AbstractHashBuild::reserveState(InstructionStatus& state) {
+  // 8 bytes per grid.
+  status.gridState = state.gridState;
+  state.gridState += 8;
+}
+
+void resupplyJoinTable(
+    WaveStream& stream,
+    const std::vector<WaveStream*>& otherStreams,
+    AbstractInstruction& inst) {
+  auto* build = &inst.as<AbstractHashBuild>();
+  if (stream.mutableExclusiveProcessed()) {
+    TR(&stream, "Build resupply already processed");
+    stream.mutableExclusiveProcessed() = false;
+    return;
+  }
+  auto deviceStream = WaveStream::streamFromReserve();
+  auto stateId = build->state->id;
+  auto* state = stream.operatorState(stateId)->as<HashTableHolder>();
+  auto* head = state->alignedHead;
+  auto* hashTable = reinterpret_cast<GpuHashTableBase*>(head + 1);
+  deviceStream->prefetch(nullptr, state->alignedHead, state->alignedHeadSize);
+  deviceStream->wait();
+  VELOX_CHECK_EQ(head->debugActiveBlockCounter, 0);
+  std::vector<WaveStream*> allStreams = {&stream};
+  allStreams.insert(allStreams.end(), otherStreams.begin(), otherStreams.end());
+  int32_t numFailed = 0;
+  bool first = true;
+  for (auto* stream : allStreams) {
+    auto* gridState =
+        stream->gridStatus<BuildReturn>(*inst.mutableInstructionStatus());
+    if (!gridState) {
+      TR(stream, "Does not yet have grid State");
+      continue;
+    }
+    bool hasRetries = gridState->needMore;
+    auto* blockStatus = stream->hostBlockStatus();
+    int32_t numBlocks =
+        bits::roundUp(stream->numRows(), kBlockSize) / kBlockSize;
+    auto numRetry =
+        countErrors(blockStatus, numBlocks, ErrorCode::kInsufficientMemory);
+    VELOX_CHECK_EQ(hasRetries, numRetry != 0);
+    numFailed += numRetry;
+    if (!first) {
+      stream->mutableExclusiveProcessed() = true;
+    }
+    first = false;
+  }
+  int32_t rowSize = build->rowSize();
+  int32_t numPartitions = hashTable->partitionMask + 1;
+
+  int64_t increment = (rowSize * (numFailed + 1000000)) *
+      (numPartitions == 1 ? 1.0 : numPartitions * 0.8);
+  TR(&stream,
+     fmt::format(
+         "resupply: increment ={} numFailed={} ht={}\n",
+         increment,
+         numFailed,
+         (void*)hashTable));
+  for (auto i = 0; i < numPartitions; ++i) {
+    auto* allocator =
+        &reinterpret_cast<HashPartitionAllocator*>(hashTable + 1)[i];
+    // Many concurrent failed allocation attempts can leave the fill way past
+    // limit. Reset fills to limits if over limit.
+    allocator->clearOverflows();
+    if (allocator->availableFixed() < increment) {
+      restockAllocator(*state, increment, allocator);
+    }
+  }
+}
+
+AdvanceResult AbstractHashBuild::canAdvance(
+    WaveStream& stream,
+    LaunchControl* control,
+    OperatorState* state,
+    int32_t instructionIdx) const {
+  auto gridState = stream.gridStatus<BuildReturn>(status);
+  if (!gridState) {
+    // There is no state if there has been no launch. Not continuable.
+    return {};
+  }
+  if (gridState->needMore) {
+    TR(&stream, "Build need more retry: card={}");
+    stream.checkBlockStatuses();
+    stream.clearGridStatus<BuildReturn>(status);
+    // The hash table needs memory. Request a Task-wide break to
+    // resupply the device side hash table.
+    return {
+        .numRows = stream.numRows(),
+        .continueLabel = continueLabel,
+        .isRetry = true,
+        .syncDrivers = true,
+        .updateStatus = resupplyJoinTable,
+        .reason = state};
+  }
+  return {};
+}
+
+int32_t allocatedRowBytes(const AllocationRange& range) {
+  return range.rowOffset - range.firstRowOffset;
+}
+
+void AbstractHashBuild::pipelineFinished(WaveStream& stream, Program* program) {
+  auto deviceStream = WaveStream::streamFromReserve();
+  auto stateId = state->id;
+  auto state = std::dynamic_pointer_cast<HashTableHolder>(
+      stream.operatorStateShared(stateId));
+  auto* head = state->alignedHead;
+  auto* hashTable = head->table;
+  allocatorsToRanges(state.get());
+  int64_t numRows = 0;
+  for (auto i = 0; i < state->ranges.size(); ++i) {
+    numRows += allocatedRowBytes(state->ranges[i]);
+  }
+  numRows /= state->rowSize;
+  int64_t newTableSize =
+      std::max<int64_t>(64, bits::nextPowerOfTwo((numRows / 4) * 5));
+  auto tableBuffer = state->arena->allocate<GpuBucketMembers>(
+      newTableSize / GpuBucketMembers::kNumSlots);
+  state->buffers.push_back(tableBuffer);
+  deviceStream->memset(tableBuffer->as<char>(), 0, tableBuffer->size());
+  hashTable->sizeMask = (newTableSize / GpuBucketMembers::kNumSlots) - 1;
+  hashTable->buckets = tableBuffer->as<GpuBucket>();
+  hashTable->maxEntries = newTableSize;
+
+  state->setSizesToSafe();
+  deviceStream->prefetch(
+      getDevice(), state->alignedHead, state->alignedHeadSize);
+
+  auto entryPointIdx = program->entryPointIdxBySerial(serial);
+
+  struct BuildArgs {
+    BuildArgs() = default;
+    BuildArgs(GpuHashTableBase* table, void* rows, int32_t numRows)
+        : table(table), rows(rows), numRows(numRows) {
+      voids[0] = &this->table;
+      voids[1] = &this->rows;
+      voids[2] = &this->numRows;
+    }
+    GpuHashTableBase* table;
+    void* rows;
+    int32_t numRows;
+    void* voids[3];
+  };
+
+  std::vector<BuildArgs> buildArgs(state->ranges.size());
+  for (auto i = 0; i < state->ranges.size(); ++i) {
+    buildArgs[i] = BuildArgs(
+        hashTable,
+        reinterpret_cast<void*>(
+            state->ranges[i].base + state->ranges[i].firstRowOffset),
+        allocatedRowBytes(state->ranges[i]) / state->rowSize);
+    auto numBlocks =
+        bits::roundUp(buildArgs[i].numRows, kBlockSize) / kBlockSize;
+    if (numBlocks == 0) {
+      continue;
+    }
+    program->kernel()->launch(
+        entryPointIdx,
+        numBlocks,
+        kBlockSize,
+        0,
+        deviceStream.get(),
+        buildArgs[i].voids);
+  }
+
+  deviceStream->wait();
+  TR(&stream, fmt::format("Built {}\n", (void*)hashTable));
+  WaveStream::releaseStream(std::move(deviceStream));
+  joinBridge->setHashTable(std::move(state), false);
+}
+
+std::function<std::shared_ptr<OperatorState>(WaveStream& stream)>
+AbstractHashBuild::stateCreateFunction() {
+  return [inst = this](WaveStream& stream) -> std::shared_ptr<OperatorState> {
+    auto newState = std::make_shared<HashTableHolder>(stream.arenaShared());
+    newState->isGrouped = true;
+    newState->rowSize = inst->rowSize();
+    newState->maxReadStreams = 0;
+    stream.makeHashBuild(*inst, *newState);
+    return newState;
+  };
 }
 
 } // namespace facebook::velox::wave

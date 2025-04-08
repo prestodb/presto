@@ -15,6 +15,8 @@
  */
 
 #include "velox/exec/FilterProject.h"
+#include "velox/exec/HashBuild.h"
+#include "velox/exec/HashProbe.h"
 #include "velox/experimental/wave/exec/Project.h"
 #include "velox/experimental/wave/exec/TableScan.h"
 #include "velox/experimental/wave/exec/ToWave.h"
@@ -392,6 +394,77 @@ bool CompileState::tryPlanOperator(
     }
   } else if (name == "FilterProject") {
     tryFilterProject(op, outputType, nodeIndex);
+  } else if (name == "HashBuild") {
+    auto* node = inputPlanNode<core::HashJoinNode>(nodeIndex);
+    VELOX_CHECK_NOT_NULL(node);
+    addSegment(BoundaryType::kHashBuild, node, node->outputType());
+    auto step = makeStep<JoinBuild>();
+    auto* state = newState(StateKind::kHashBuild, node->id(), "");
+    step->state = state;
+    step->id = atoi(node->id().c_str());
+    step->joinBridge = reinterpret_cast<exec::HashBuild*>(op)->joinBridge();
+    auto& keys = node->rightKeys();
+    for (auto i = 0; i < keys.size(); ++i) {
+      step->keys.push_back(
+          fieldToOperand(*toSubfield(keys[i]->name()), &topScope_));
+    }
+    auto& rightType = node->sources()[1]->outputType();
+    auto* build = dynamic_cast<exec::HashBuild*>(op);
+    for (auto i : build->dependentChannels()) {
+      auto& name = rightType->nameOf(i);
+      step->dependent.push_back(fieldToOperand(*toSubfield(name), &topScope_));
+    }
+    step->joinType = node->joinType();
+    step->continueLabel_ = ++nextContinueLabel_;
+    segments_.back().steps.push_back(step);
+    // A join build has no output columns.
+    segments_.back().outputType = ROW({}, {});
+  } else if (name == "HashProbe") {
+    auto* probe = reinterpret_cast<exec::HashProbe*>(op);
+    auto* node = dynamic_cast<const core::HashJoinNode*>(
+        driverFactory_.planNodes[nodeIndex].get());
+    VELOX_CHECK_NOT_NULL(node);
+    addSegment(BoundaryType::kJoin, node, node->outputType());
+    auto step = makeStep<JoinProbe>();
+    auto* state = newState(StateKind::kHashBuild, node->id(), "");
+    step->hits = newOperand(BIGINT(), "hits");
+    auto& keys = node->leftKeys();
+    for (auto& key : keys) {
+      step->keys.push_back(
+          fieldToOperand(*toSubfield(key->name()), &topScope_));
+    }
+    step->state = state;
+    step->id = atoi(node->id().c_str());
+    segments_.back().steps.push_back(step);
+    auto expand = makeStep<JoinExpand>();
+    step->expand = expand;
+    expand->nthWrap = wrapId_++;
+    expand->state = step->state;
+    expand->joinBridge = reinterpret_cast<exec::HashProbe*>(op)->joinBridge();
+    expand->planNodeId = node->id();
+    expand->id = step->id;
+    expand->tableType = exec::HashProbe::makeTableType(
+        node->sources()[1]->outputType().get(), node->rightKeys());
+    for (auto& projection : probe->tableOutputProjections()) {
+      auto& name = expand->tableType->nameOf(projection.inputChannel);
+      expand->tableChannels.push_back(projection.inputChannel);
+      auto* op =
+          newOperand(expand->tableType->childAt(projection.inputChannel), name);
+      expand->dependent.push_back(op);
+      auto* subfield = toSubfield(name);
+      Value value(subfield);
+      topScope_.operandMap[value] = op;
+    }
+    expand->numKeys = step->keys.size();
+    expand->nullableKeys = false;
+    expand->continueLabel_ = ++nextContinueLabel_;
+    auto* filter = probe->filterExprSet();
+    if (filter) {
+      expand->filter = exprToOperand(*filter->exprs()[0], &topScope_);
+    }
+    expand->hits = step->hits;
+    expand->indices = newOperand(INTEGER(), "join_rows");
+    expand->indices->notNull = true;
   } else if (name == "Aggregation") {
     auto* node = dynamic_cast<const core::AggregationNode*>(
         driverFactory_.planNodes[nodeIndex].get());
@@ -472,6 +545,9 @@ bool CompileState::makeSegments(int32_t& operatorIndex) {
   for (; operatorIndex < operators.size(); ++operatorIndex) {
     if (!tryPlanOperator(operators[operatorIndex], nodeIndex, outputType)) {
       break;
+    }
+    if (startNodeId_.empty()) {
+      startNodeId_ = operators[operatorIndex]->planNodeId();
     }
     ++nodeIndex;
   }
@@ -810,13 +886,38 @@ void CompileState::planSegment(
       }
       break;
     }
+    case BoundaryType::kHashBuild: {
+      auto& build = segment.steps[0]->as<JoinBuild>();
+      for (auto* op : build.keys) {
+        placeExpr(candidate, op, true);
+      }
+      for (auto* op : build.dependent) {
+        placeExpr(candidate, op, true);
+      }
+      candidate.currentBox->steps.push_back(&build);
+      break;
+    }
+    case BoundaryType::kJoin: {
+      auto& probe = segment.steps[0]->as<JoinProbe>();
+      for (auto& key : probe.keys) {
+        placeExpr(candidate, key, true);
+      }
+      candidate.currentBox->steps.push_back(&probe);
+      auto& expand = *probe.expand;
+      if (expand.filter) {
+        placeExpr(candidate, expand.filter, false);
+      }
+      candidate.currentBox->steps.push_back(&expand);
+
+      break;
+    }
     case BoundaryType::kAggregation: {
       // If there are many parallel column groups, bring them to one.
       if (candidate.steps.back().size() > 1) {
         newKernel(candidate);
       }
-      // Append the aggregate probe and updates. May inline all or have a wider
-      // kernel for updates if many updates and few top level rows.
+      // Append the aggregate probe and updates. May inline all or have a
+      // wider kernel for updates if many updates and few top level rows.
       placeAggregation(candidate, segment);
       break;
     }
@@ -869,6 +970,28 @@ void PipelineCandidate::markParams(
     auto step = box.steps[stepIdx];
     step->visitReferences(referenceVisitor);
     step->visitResults(resultVisitor);
+    if (auto* info = step->wrapInfo()) {
+      // There can be an operand that is wrapped here butr not otherwise refd in
+      // this kernel box.
+      auto handleWrapOnly = [&](AbstractOperand* op) {
+        auto flags = this->flags(op);
+        if (flags.definedIn.kernelSeq < kernelSeq) {
+          levelParams[kernelSeq].input.add(op->id);
+        }
+      };
+
+      if (info->wrappedHere) {
+        handleWrapOnly(info->wrappedHere);
+      }
+      for (auto& rewrap : info->rewrapped) {
+        handleWrapOnly(rewrap);
+      }
+      // Mark the extra storage for wrap rewind state as output params.
+      for (auto i = 0; i < info->wrapIndices.size(); ++i) {
+        levelParams[kernelSeq].output.add(info->wrapIndices[i]->id);
+        levelParams[kernelSeq].output.add(info->wrapBackup[i]->id);
+      }
+    }
     if (step->kind() == StepKind::kAggregateProbe) {
       auto probe = step->as<AggregateProbe>();
       for (auto j = 0; j < probe.inlinedUpdates.size(); ++j) {
@@ -897,6 +1020,7 @@ void CompileState::markHostOutput() {
   CodePosition afterEnd(candidate.steps.size());
   for (auto i = 0; i < resultOrder_->size(); ++i) {
     auto* op = operandById((*resultOrder_)[i]);
+    recordReference(candidate, op);
     auto& flags = candidate.flags(op);
     flags.lastUse = afterEnd;
     flags.needStore = true;
@@ -929,7 +1053,105 @@ void CompileState::planPipelines() {
     if (pipelineIdx_ == selectedPipelines_.size() - 1) {
       markHostOutput();
     }
+    markWraps(pipelineIdx_);
     selectedPipelines_[pipelineIdx_].makeOperandSets(pipelineIdx_);
+  }
+}
+
+// True if 'wrapped' has an element that is wrapped at 'wrappedAt'.
+bool containsWrappedAt(
+    PipelineCandidate& pipeline,
+    const std::vector<AbstractOperand*>& wrapped,
+    int32_t wrappedAt) {
+  for (auto& op : wrapped) {
+    if (pipeline.flags(op).wrappedAt == wrappedAt) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void CompileState::markWraps(int32_t pipelineIdx) {
+  auto& pipeline = selectedPipelines_[pipelineIdx];
+  // Mark wraps that need to be rewindable. A continuable wrap or a wrap with a
+  // continuable instruction in front needs to be rewindable.
+  for (int32_t kernelSeq = pipeline.steps.size() - 1; kernelSeq >= 0;
+       --kernelSeq) {
+    auto& boxes = pipeline.steps[kernelSeq];
+    if (boxes.size() > 1) {
+      // If many parallel sequences: Will introduce no wraps but may
+      // have continues. See if any is continuable.
+      for (auto j = 0; j < boxes.size(); ++j) {
+        for (auto& step : boxes[j].steps) {
+          if (step->continueLabel().has_value()) {
+            break;
+          }
+        }
+      }
+    } else {
+      int32_t wrapStep = -1;
+      bool hasWrap = false;
+      auto& box = boxes[0];
+      for (int32_t stepIdx = box.steps.size() - 1; stepIdx >= 0; --stepIdx) {
+        auto* step = box.steps[stepIdx];
+        if (step->isWrap() != AbstractOperand::kNoWrap) {
+          hasWrap = true;
+          wrapStep = stepIdx;
+        }
+        if (step->continueLabel().has_value()) {
+          if (hasWrap) {
+            pipeline.steps[kernelSeq][0]
+                .steps[wrapStep]
+                ->wrapInfo()
+                ->needRewind = true;
+            hasWrap = false;
+          }
+        }
+      }
+    }
+  }
+
+  // Fill in WrapInfos.
+  for (int32_t kernelSeq = 0; kernelSeq < pipeline.steps.size(); ++kernelSeq) {
+    auto& boxes = pipeline.steps[kernelSeq];
+    if (boxes.size() > 1) {
+      // No wraps in a multibox piece.
+      continue;
+    }
+    auto& box = boxes[0];
+    for (auto stepIdx = 0; stepIdx < box.steps.size(); ++stepIdx) {
+      auto* step = box.steps[stepIdx];
+      if (auto* wrap = step->wrapInfo()) {
+        for (auto id = 0; id < pipeline.operandFlags.size(); ++id) {
+          auto& flags = pipeline.operandFlags[id];
+          if (flags.definedIn.empty()) {
+            continue;
+          }
+          if (flags.wrappedAt == step->isWrap()) {
+            if (wrap->wrappedHere == nullptr) {
+              wrap->wrappedHere = operands_[id].get();
+            }
+            continue;
+          }
+          CodePosition wrapPosition(kernelSeq, 0, stepIdx);
+          if (!flags.lastUse.empty() && !flags.definedIn.empty() &&
+              wrapPosition.isBefore(flags.lastUse) &&
+              flags.definedIn.isBefore(wrapPosition)) {
+            auto wrappedAt = flags.wrappedAt;
+            if (!containsWrappedAt(pipeline, wrap->rewrapped, wrappedAt)) {
+              wrap->rewrapped.push_back(operands_[id].get());
+              if (wrap->needRewind) {
+                wrap->wrapBackup.push_back(newOperand(
+                    BIGINT(), fmt::format("wback_{}_{}", wrappedAt, id)));
+                wrap->wrapBackup.back()->elementPerTB = true;
+                wrap->wrapIndices.push_back(newOperand(
+                    INTEGER(), fmt::format("wback_{}_{}", wrappedAt, id)));
+              }
+            }
+          }
+        }
+      }
+    }
   }
 }
 

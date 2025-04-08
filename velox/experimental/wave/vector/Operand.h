@@ -184,7 +184,7 @@ struct InstructionStatus {
   // Total size of gridStates. Block level states start after the last grid
   // state.
   uint16_t gridStateSize{0};
-  // Start of per-block status. gridStateSize + gridDim.x * blocksPerThread *
+  // Start of per-block status. gridStateSize + numBlocks *
   // blockState' is the  offset of the first per block status from the end of
   // BlockStatus array.
   uint16_t blockState{0};

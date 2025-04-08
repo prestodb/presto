@@ -38,7 +38,7 @@ DEFINE_bool(wave_trace_stream, false, "Enable trace of streams and drivers");
 
 DEFINE_int32(
     wave_init_group_by_buckets,
-    30000,
+    2048,
     "Initial buckets in group by hash table (4 slots/bucket)");
 
 namespace facebook::velox::wave {
@@ -105,6 +105,15 @@ std::string definesToString(const DefinesMap* map) {
     out << " = " << id->id << " (" << id->type->toString() << ")" << std::endl;
   }
   return out.str();
+}
+
+void OperatorStateMap::addIfNew(
+    int32_t id,
+    const std::shared_ptr<OperatorState>& state) {
+  std::lock_guard<std::mutex> l(mutex);
+  if (states.count(id) == 0) {
+    states[id] = state;
+  }
 }
 
 AbstractOperand* pathToOperand(
@@ -311,6 +320,14 @@ OperatorState* WaveStream::operatorState(int32_t id) {
   auto it = taskStateMap_->states.find(id);
   if (it != taskStateMap_->states.end()) {
     return it->second.get();
+  }
+  return nullptr;
+}
+
+std::shared_ptr<OperatorState> WaveStream::operatorStateShared(int32_t id) {
+  auto it = taskStateMap_->states.find(id);
+  if (it != taskStateMap_->states.end()) {
+    return it->second;
   }
   return nullptr;
 }
@@ -998,6 +1015,47 @@ void AggregateOperatorState::allocateAggregateHeader(
   new (alignedHead) DeviceAggregation();
 }
 
+void WaveStream::makeHashTable(
+    AggregateOperatorState& state,
+    int32_t rowSize,
+    bool makeTable) {
+  AggregationControl control;
+  auto stream = streamFromReserve();
+  const int32_t numPartitions = 1;
+  int32_t size = sizeof(DeviceAggregation) + sizeof(GpuHashTableBase) +
+      sizeof(HashPartitionAllocator) * numPartitions;
+  state.allocateAggregateHeader(size, *arena_);
+  auto* header = state.alignedHead;
+  auto* hashTable = reinterpret_cast<GpuHashTableBase*>(header + 1);
+  state.hashTable = hashTable;
+  HashPartitionAllocator* allocators =
+      reinterpret_cast<HashPartitionAllocator*>(hashTable + 1);
+  int32_t numBuckets = bits::nextPowerOfTwo(FLAGS_wave_init_group_by_buckets);
+  header->table = hashTable;
+  WaveBufferPtr table;
+  if (makeTable) {
+    table = arena_->allocate<char>(sizeof(GpuBucketMembers) * numBuckets);
+    state.buffers.push_back(table);
+  }
+  new (hashTable) GpuHashTableBase(
+      makeTable ? table->as<GpuBucket>() : nullptr,
+      numBuckets - 1,
+      0,
+      reinterpret_cast<RowAllocator*>(allocators));
+  auto numRows = makeTable ? numBuckets * GpuBucketMembers::kNumSlots
+                           : (1 << 20) / rowSize;
+  WaveBufferPtr rows = arena_->allocate<char>(rowSize * numRows);
+  state.buffers.push_back(rows);
+  new (allocators) HashPartitionAllocator(
+      rows->as<char>(), rows->size(), rows->size(), rowSize);
+  state.setSizesToSafe();
+  stream->prefetch(getDevice(), state.alignedHead, state.alignedHeadSize);
+  if (table) {
+    stream->memset(table->as<char>(), 0, table->size());
+  }
+  releaseStream(std::move(stream));
+}
+
 void WaveStream::makeAggregate(
     AbstractAggregation& inst,
     AggregateOperatorState& state) {
@@ -1042,6 +1100,12 @@ void WaveStream::makeAggregate(
     stream->memset(table->as<char>(), 0, table->size());
   }
   releaseStream(std::move(stream));
+}
+
+void WaveStream::makeHashBuild(
+    AbstractHashBuild& inst,
+    HashTableHolder& state) {
+  makeHashTable(state, inst.rowSize(), false);
 }
 
 void checkOperand(Operand& op) {
@@ -1177,7 +1241,25 @@ void Program::getOperatorStates(WaveStream& stream, std::vector<void*>& ptrs) {
 
 bool Program::isSink() const {
   int32_t size = instructions_.size();
-  return instructions_[size - 1]->isSink();
+  return size > 0 && instructions_[size - 1]->isSink();
+}
+
+exec::BlockingReason Program::isBlocked(
+    WaveStream& stream,
+    ContinueFuture* future) {
+  for (int32_t i = instructions_.size() - 1; i >= 0; --i) {
+    auto* instruction = instructions_[i].get();
+    OperatorState* state = nullptr;
+    auto stateId = instruction->stateId();
+    if (stateId.has_value()) {
+      state = stream.operatorState(stateId.value());
+    }
+    auto result = instruction->isBlocked(stream, state, future);
+    if (result != exec::BlockingReason::kNotBlocked) {
+      return result;
+    }
+  }
+  return exec::BlockingReason::kNotBlocked;
 }
 
 AdvanceResult Program::canAdvance(
@@ -1201,9 +1283,19 @@ AdvanceResult Program::canAdvance(
   return {};
 }
 
-void Program::callUpdateStatus(WaveStream& stream, AdvanceResult& advance) {
+void Program::callUpdateStatus(
+    WaveStream& stream,
+    const std::vector<WaveStream*>& otherStreams,
+    AdvanceResult& advance) {
   if (advance.updateStatus) {
-    advance.updateStatus(stream, *instructions_[advance.instructionIdx]);
+    advance.updateStatus(
+        stream, otherStreams, *instructions_[advance.instructionIdx]);
+  }
+}
+
+void Program::pipelineFinished(WaveStream& stream) {
+  for (auto& instruction : instructions_) {
+    instruction->pipelineFinished(stream, this);
   }
 }
 
