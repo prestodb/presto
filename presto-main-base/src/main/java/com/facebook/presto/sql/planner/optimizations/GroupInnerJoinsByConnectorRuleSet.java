@@ -28,6 +28,7 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.JoinTableInfo;
 import com.facebook.presto.spi.JoinTableSet;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.JoinNode;
@@ -41,6 +42,7 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.EqualityInference;
 import com.facebook.presto.sql.planner.NullabilityAnalyzer;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -155,25 +157,27 @@ import static java.util.Objects.requireNonNull;
 public class GroupInnerJoinsByConnectorRuleSet
 {
     private final Metadata metadata;
+    private final PlanOptimizer predicatePushdownOptimizer;
 
-    public GroupInnerJoinsByConnectorRuleSet(Metadata metadata)
+    public GroupInnerJoinsByConnectorRuleSet(Metadata metadata, PlanOptimizer predicatePushdown)
     {
         this.metadata = metadata;
+        this.predicatePushdownOptimizer = predicatePushdown;
     }
 
     public Set<Rule<?>> rules()
     {
         return ImmutableSet.of(
-                new OnlyJoinRule(metadata),
-                new FilterOnJoinRule(metadata));
+                new OnlyJoinRule(metadata, predicatePushdownOptimizer),
+                new FilterOnJoinRule(metadata, predicatePushdownOptimizer));
     }
 
     public static class OnlyJoinRule
             extends BaseGroupInnerJoinsByConnector<JoinNode>
     {
-        public OnlyJoinRule(Metadata metadata)
+        public OnlyJoinRule(Metadata metadata, PlanOptimizer predicatePushdownOptimizer)
         {
-            super(metadata);
+            super(metadata, predicatePushdownOptimizer);
         }
 
         @Override
@@ -187,7 +191,7 @@ public class GroupInnerJoinsByConnectorRuleSet
         @Override
         public Result apply(JoinNode node, Captures captures, Context context)
         {
-            PlanNode rewrittenPlan = getCombinedJoin(node, functionResolution, determinismEvaluator, metadata, context.getSession(), context.getLookup(), (PlanNodeIdAllocator) context.getIdAllocator());
+            PlanNode rewrittenPlan = getCombinedJoin(node, functionResolution, determinismEvaluator, metadata, context);
 
             if (rewrittenPlan.equals(node)) {
                 return Result.empty();
@@ -203,9 +207,9 @@ public class GroupInnerJoinsByConnectorRuleSet
     {
         private static final Capture<JoinNode> JOIN = newCapture();
 
-        public FilterOnJoinRule(Metadata metadata)
+        public FilterOnJoinRule(Metadata metadata, PlanOptimizer predicatePushdownOptimizer)
         {
-            super(metadata);
+            super(metadata, predicatePushdownOptimizer);
         }
 
         @Override
@@ -239,7 +243,7 @@ public class GroupInnerJoinsByConnectorRuleSet
                     capturedJoinNode.getDistributionType(),
                     capturedJoinNode.getDynamicFilters());
 
-            PlanNode rewrittenPlan = getCombinedJoin(joinNode, functionResolution, determinismEvaluator, metadata, context.getSession(), context.getLookup(), context.getIdAllocator());
+            PlanNode rewrittenPlan = getCombinedJoin(joinNode, functionResolution, determinismEvaluator, metadata, context);
 
             if (rewrittenPlan.equals(filterNode)) {
                 return Result.empty();
@@ -260,14 +264,16 @@ public class GroupInnerJoinsByConnectorRuleSet
         boolean isEnabledForTesting;
 
         final FunctionAndTypeManager functionAndTypeManager;
+        private final PlanOptimizer predicatePushdownOptimizer;
 
-        public BaseGroupInnerJoinsByConnector(Metadata metadata)
+        public BaseGroupInnerJoinsByConnector(Metadata metadata, PlanOptimizer predicatePushdownOptimizer)
         {
             this.functionResolution = new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver());
             this.determinismEvaluator = new RowExpressionDeterminismEvaluator(metadata.getFunctionAndTypeManager());
             this.metadata = metadata;
             this.functionAndTypeManager = metadata.getFunctionAndTypeManager();
             this.nullabilityAnalyzer = new NullabilityAnalyzer(functionAndTypeManager);
+            this.predicatePushdownOptimizer = predicatePushdownOptimizer;
         }
 
         @Override
@@ -332,12 +338,26 @@ public class GroupInnerJoinsByConnectorRuleSet
             }
         }
 
-        protected PlanNode getCombinedJoin(JoinNode node, FunctionResolution functionResolution, DeterminismEvaluator determinismEvaluator, Metadata metadata, Session session, Lookup lookup, PlanNodeIdAllocator idAllocator)
+        protected PlanNode getCombinedJoin(JoinNode node, FunctionResolution functionResolution, DeterminismEvaluator determinismEvaluator, Metadata metadata, Context context)
         {
+            Lookup lookup = context.getLookup();
+            Session session = context.getSession();
+            PlanNodeIdAllocator idAllocator = context.getIdAllocator();
+            VariableAllocator variableAllocator = context.getVariableAllocator();
+
             MultiJoinNode groupInnerJoinsMultiJoinNode = new JoinNodeFlattener(node, functionResolution, determinismEvaluator, lookup).toMultiJoinNode();
             MultiJoinNode rewrittenMultiJoinNode = joinPushdownCombineSources(groupInnerJoinsMultiJoinNode, idAllocator, metadata, session, lookup);
             if (rewrittenMultiJoinNode.getContainsCombinedSources()) {
-                return createLeftDeepJoinTree(rewrittenMultiJoinNode, idAllocator);
+                // Create a left deep join tree
+                PlanNode leftDeepJoinTree = createLeftDeepJoinTree(rewrittenMultiJoinNode, idAllocator);
+                // Push pulled up predicates to re-form the Join conditions and remove CrossJoins
+                return predicatePushdownOptimizer.optimize(
+                        leftDeepJoinTree,
+                        session,
+                        TypeProvider.viewOf(variableAllocator.getVariables()),
+                        variableAllocator,
+                        idAllocator,
+                        context.getWarningCollector()).getPlanNode();
             }
             return node;
         }
