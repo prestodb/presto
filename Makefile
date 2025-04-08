@@ -22,6 +22,8 @@ BENCHMARKS_DUMP_DIR=dumps
 TREAT_WARNINGS_AS_ERRORS ?= 1
 ENABLE_WALL ?= 1
 PYTHON_VENV ?= .venv
+PIP ?= $(shell command -v uv > /dev/null 2>&1 && echo "uv pip" || echo "python3 -m pip")
+VENV ?= $(shell command -v uv > /dev/null 2>&1 && echo "uv venv" || echo "python3 -m venv")
 
 # Option to make a minimal build. By default set to "OFF"; set to
 # "ON" to only build a minimal set of components. This may override
@@ -83,7 +85,7 @@ CPU_TARGET ?= "avx"
 FUZZER_SEED ?= 123456
 FUZZER_DURATION_SEC ?= 60
 
-PYTHON_EXECUTABLE ?= $(shell which python)
+PYTHON_EXECUTABLE ?= $(shell which python3)
 
 all: release			#: Build the release version
 
@@ -219,12 +221,26 @@ help:					#: Show the help messages
 	awk '/^[-a-z]+:/' | \
 	awk -F: '{ printf("%-20s   %s\n", $$1, $$NF) }'
 
-python-clean:
-	DEBUG=1 ${PYTHON_EXECUTABLE} setup.py clean
+python-venv:
+	@if [ ! -f ${PYTHON_VENV}/pyvenv.cfg ]; then \
+		${VENV} $(PYTHON_VENV); \
+	fi
 
-python-build:
-	DEBUG=1 CMAKE_BUILD_PARALLEL_LEVEL=${NUM_THREADS} ${PYTHON_EXECUTABLE} -m pip install -e .$(extras) --verbose
+check-pip-version: python-venv # We need a recent pip for '-C'
+	@if [ "$(PIP)" == "uv pip" ]; then \
+		exit 0; \
+	fi; \
+	source .venv/bin/activate; \
+	pip_version=$$($(PIP) --version | sed -E 's/pip ([0-9]+)\.([0-9]+).*/\1/'); \
+	if [ "$$pip_version" -lt 25 ]; then \
+		$(PIP) install --upgrade pip; \
+	fi
 
-python-test:
-	$(MAKE) python-build extras="[tests]"
-	DEBUG=1 ${PYTHON_EXECUTABLE} -m unittest -v
+python-build: check-pip-version
+	source .venv/bin/activate; \
+	$(PIP) install pyarrow scikit_build_core setuptools_scm[toml]; \
+	${PIP} install --no-build-isolation -Ccmake.build-type=Debug -Cbuild.tool-args="-j${NUM_THREADS}" -v .
+
+python-test: python-build
+	source .venv/bin/activate; \
+	python3 -m unittest discover -v -s python/test

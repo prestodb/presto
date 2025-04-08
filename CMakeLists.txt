@@ -147,6 +147,7 @@ option(VELOX_ENABLE_CCACHE "Use ccache if installed." ON)
 option(VELOX_BUILD_TEST_UTILS "Builds Velox test utilities" OFF)
 option(VELOX_BUILD_VECTOR_TEST_UTILS "Builds Velox vector test utilities" OFF)
 option(VELOX_BUILD_PYTHON_PACKAGE "Builds Velox Python bindings" OFF)
+option(VELOX_PYTHON_LEGACY_ONLY "Build only the pyvelox module" OFF)
 option(VELOX_BUILD_RUNNER "Builds velox runner" ON)
 option(
   VELOX_ENABLE_INT64_BUILD_PARTITION_BOUND
@@ -205,8 +206,11 @@ if(${VELOX_BUILD_PYTHON_PACKAGE})
   set(VELOX_ENABLE_EXEC ON)
   set(VELOX_ENABLE_AGGREGATES ON)
   set(VELOX_ENABLE_SPARK_FUNCTIONS ON)
-  set(VELOX_BUILD_RUNNER OFF)
-  set(VELOX_BUILD_TEST_UTILS ON) # required for velox_exec_test_lib
+
+  if(NOT VELOX_PYTHON_LEGACY_ONLY)
+    set(VELOX_BUILD_RUNNER OFF)
+    set(VELOX_BUILD_TEST_UTILS ON) # required for velox_exec_test_lib
+  endif()
 endif()
 
 if(${VELOX_ENABLE_DUCKDB})
@@ -482,9 +486,12 @@ velox_set_source(re2)
 velox_resolve_dependency(re2)
 
 if(${VELOX_BUILD_PYTHON_PACKAGE})
+  find_package(
+    Python 3.9
+    COMPONENTS Interpreter Development.Module
+    REQUIRED)
   velox_set_source(pybind11)
   velox_resolve_dependency(pybind11 2.10.0)
-  add_subdirectory(pyvelox)
 endif()
 
 # DWIO (ORC/DWRF) and Substrait depend on protobuf.

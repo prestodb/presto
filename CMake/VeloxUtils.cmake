@@ -12,6 +12,35 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 include_guard(GLOBAL)
+function(get_rpath_origin VAR)
+  if(APPLE)
+    set(_origin @loader_path)
+  else()
+    set(_origin "\$ORIGIN")
+  endif()
+  set(${VAR}
+      ${_origin}
+      PARENT_SCOPE)
+endfunction()
+
+function(pyvelox_add_module TARGET)
+  pybind11_add_module(${TARGET} ${ARGN})
+
+  if(DEFINED SKBUILD_PROJECT_VERSION_FULL)
+    target_compile_definitions(
+      ${TARGET} PRIVATE PYVELOX_VERSION=${SKBUILD_PROJECT_VERSION_FULL})
+  else()
+    target_compile_definitions(${TARGET} PRIVATE PYVELOX_VERSION=dev)
+  endif()
+
+  # Set the rpath so linker looks within pyvelox package for libs
+  get_rpath_origin(_origin)
+  set_target_properties(
+    ${TARGET} PROPERTIES INSTALL_RPATH "${_origin}/;${CMAKE_BINARY_DIR}/lib"
+                         INSTALL_RPATH_USE_LINK_PATH TRUE)
+  install(TARGETS ${TARGET} LIBRARY DESTINATION pyvelox
+                                    COMPONENT pyvelox_libraries)
+endfunction()
 
 # TODO use file sets
 function(velox_install_library_headers)
@@ -69,6 +98,8 @@ function(velox_add_library TARGET)
     if(TARGET velox)
       # Target already exists, append sources to it.
       target_sources(velox PRIVATE ${ARGN})
+      install(TARGETS velox LIBRARY DESTINATION pyvelox
+                                    COMPONENT pyvelox_libraries)
     else()
       set(_type STATIC)
       if(VELOX_BUILD_SHARED)

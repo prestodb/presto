@@ -46,7 +46,7 @@ jobs:
     name: Build wheels on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         os: [8-core-ubuntu, macos-13, macos-14]
     steps:
@@ -60,30 +60,6 @@ jobs:
       - uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
         with:
           python-version: '3.10'
-
-      - name: "Determine Version"
-        if: ${{ !inputs.version && github.event_name != 'pull_request' }}
-        id: version
-        run: |
-          # count number of commits since last tag matching a regex
-          # and use that to determine the version number
-          # e.g. if the last tag is 0.0.1, and there have been 5 commits since then
-          # the version will be 0.0.1a5
-          git fetch --tags
-          INITIAL_COMMIT=5d4db2569b7c249644bf36a543ba1bd8f12bf77c
-          # Can't use PCRE for portability
-          BASE_VERSION=$(grep -oE '[0-9]+\.[0-9]+\.[0-9]+' version.txt)
-
-          LAST_TAG=$(git describe --tags --match "pyvelox-v[0-9]*" --abbrev=0 || echo $INITIAL_COMMIT)
-          COMMITS_SINCE_TAG=$(git rev-list --count ${LAST_TAG}..HEAD)
-
-          if [ "$LAST_TAG" = "$INITIAL_COMMIT" ]; then
-            VERSION=$BASE_VERSION
-          else
-            VERSION=$(echo $LAST_TAG | sed '/pyvelox-v//')
-          fi
-          # NEXT_VERSION=$(echo $VERSION | awk -F. -v OFS=. '{$NF++ ; print}')
-          echo "build_version=${VERSION}a${COMMITS_SINCE_TAG}" >> $GITHUB_OUTPUT
 
       - name: "Restore ccache"
         uses: apache/infrastructure-actions/stash/restore@3354c1565d4b0e335b78a76aedd82153a9e144d4
@@ -129,25 +105,19 @@ jobs:
       - name: "Create sdist"
         if: matrix.os == '8-core-ubuntu'
         env:
-          BUILD_VERSION: "${{ inputs.version || steps.version.outputs.build_version }}"
+          BUILD_VERSION: "${{ inputs.version }}"
         run: |
-          python setup.py sdist --dist-dir wheelhouse
+          pipx install uv
+          uv build --sdist --out-dir wheelhouse
 
       - name: Build wheels
         uses: pypa/cibuildwheel@6cccd09a31908ffd175b012fb8bf4e1dbda3bc6c # v2
         env:
-          BUILD_VERSION: "${{ inputs.version || steps.version.outputs.build_version }}"
-          CIBW_ARCHS: "native"
+          BUILD_VERSION: "${{ inputs.version }}"
           # Only build for 3.12 for now
           CIBW_BUILD: ${{ github.event_name == 'pull_request' && 'cp312-*' || 'cp312-*' }}
-          CIBW_SKIP: "*musllinux* cp36-* cp38-*"
-          CIBW_MANYLINUX_X86_64_IMAGE: "ghcr.io/facebookincubator/velox-dev:pyvelox"
           CIBW_ENVIRONMENT_PASS_LINUX:  "BUILD_VERSION"
-          CIBW_BEFORE_ALL: "ccache -sz"
           CIBW_ENVIRONMENT_LINUX: "CCACHE_DIR=/host${{ github.workspace }}/ccache"
-          CIBW_BEFORE_TEST: "ccache -s"
-          CIBW_TEST_EXTRAS: "tests"
-          CIBW_TEST_COMMAND: "echo Adding tests later." #"cd {project}/pyvelox && python -m unittest -v"
           # for macos
           MACOSX_DEPLOYMENT_TARGET: ${{ matrix.os == 'macos-14' && '14' || '13' }}
           CCACHE_DIR: "${{ github.workspace }}/ccache" 

@@ -75,10 +75,6 @@ if(${VELOX_ENABLE_GPU})
   add_subdirectory(external/jitify)
 endif()
 
-if(${VELOX_BUILD_PYTHON_PACKAGE})
-  add_subdirectory(py)
-endif()
-
 # substrait converter
 if(${VELOX_ENABLE_SUBSTRAIT})
   add_subdirectory(substrait)
@@ -86,4 +82,8 @@ endif()
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tool)
+endif()
+
+if(VELOX_BUILD_PYTHON_PACKAGE)
+  add_subdirectory(python)
 endif()

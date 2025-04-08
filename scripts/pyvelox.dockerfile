@@ -27,8 +27,5 @@ RUN mkdir build && ( cd build && bash /setup-manylinux.sh ) && rm -rf build && \
         dnf install -y -q gh jq && \
         dnf clean all
 
-ENV CC=/opt/rh/gcc-toolset-12/root/bin/gcc \
-    CXX=/opt/rh/gcc-toolset-12/root/bin/g++
+ENV LD_LIBRARY_PATH="/usr/local/lib:/usr/local/lib64:$LD_LIBRARY_PATH"
 
-ENTRYPOINT ["/bin/bash", "-c", "source /opt/rh/gcc-toolset-12/enable && exec \"$@\"", "--"]
-CMD ["/bin/bash"]

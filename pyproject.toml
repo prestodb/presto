@@ -1,0 +1,143 @@
+#!/usr/bin/env python
+# Copyright (c) Facebook, Inc. and its affiliates.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+[build-system]
+requires = [
+  "scikit-build-core>=0.10",
+  "setuptools_scm[toml]>=8",
+  "pyarrow",
+  "pybind11",
+]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "pyvelox"
+dynamic = ["version"]
+description = "Python bindings and extensions for Velox"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "Apache-2.0"
+authors = [{ name = "Meta", email = "velox@fb.com" }]
+maintainers = [{ name = "Meta", email = "velox@fb.com" }]
+dependencies = ["pyarrow"]
+classifiers = [
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: C++",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: Implementation :: CPython",
+]
+
+[project.urls]
+homepage = "https://github.com/facebookincubator/velox"
+
+[tool.scikit-build]
+build-dir = "_build/python"
+metadata.version.provider = "scikit_build_core.metadata.setuptools_scm"
+ninja.make-fallback = false
+install.components = ["pyvelox_libraries"]
+wheel.packages = ["python/pyvelox"]
+wheel.exclude = ["*.h*", "*.cpp", "CMakeLists.txt", "test/*"]
+
+[tool.scikit-build.sdist]
+include = ["scripts/setup-helper-functions.sh"]
+exclude = [
+  ".github/",
+  "velox/docs",
+  "velox/experimental",
+  "website",
+  "docs",
+  "static",
+  "scripts",
+  "*.md",
+  "ccache",
+  "Makefile",
+  "docker-compose.yml",
+  "license.header",
+  ".clang-format",
+  ".cmake-format.yaml",
+]
+
+# TODO reuse of already build velox with VELOX_BUILD_DIR
+[tool.scikit-build.cmake]
+version = ">=3.28"
+build-type = "Release"
+
+[tool.scikit-build.cmake.define]
+VELOX_BUILD_PYTHON_PACKAGE = true
+VELOX_BUILD_SHARED = true
+VELOX_BUILD_TESTING = false
+VELOX_MONO_LIBRARY = true
+TREAT_WARNINGS_AS_ERRORS = true
+MAX_HIGH_MEM_JOBS = { env = "MAX_HIGH_MEM_JOBS", default = "" }
+MAX_HIGH_LINK_JOBS = { env = "MAX_HIGH_LINK_JOBS", default = "" }
+
+[[tool.scikit-build.overrides]]
+if.env.DEBUG = true        # 1 maps to true
+cmake.build-type = "Debug"
+
+[[tool.scikit-build.overrides]]
+# These settings are for use with signature verification in CI
+if.env.VELOX_PYTHON_LEGACY_ONLY = 'ON'
+inherit.cmake.define = "append"
+cmake.define.VELOX_PYTHON_LEGACY_ONLY = true
+cmake.define.VELOX_BUILD_SHARED = false
+cmake.define.VELOX_ENABLE_ARROW = true
+
+[[tool.scikit-build.overrides]]
+# The pyvelox cibw image compiler throws cpp 20 warnings we
+# have yet to fix see #10866
+if.env.CIBUILDWHEEL = true
+inherit.cmake.define = "append"
+cmake.define.TREAT_WARNINGS_AS_ERRORS = false
+
+[tool.setuptools_scm]
+root = '.'
+version_scheme = 'guess-next-dev'
+git_describe_command = 'git describe --dirty --tags --long --match "pyvelox-v[0-9]*.*"'
+fallback_version = '0.2.0a'
+
+[tool.cibuildwheel]
+build = "cp312-*"
+skip = "*musllinux* cp36-* cp38-*"
+archs = "native"
+manylinux-x86_64-image = "ghcr.io/facebookincubator/velox-dev:pyvelox"
+before-all = "ccache -sz"
+before-test = "ccache -s"
+test-command = "echo Tests disabled for now see #12836" #"python -m unittest discover -s {project}/python/test"
+
+[tool.cibuildwheel.linux]
+repair-wheel-command = """auditwheel repair \
+                          --exclude 'libarrow*' \
+                          --exclude 'libparquet*' \
+                          --exclude 'libvelox*' \
+                          -w {dest_dir} {wheel}\
+                       """
+
+[tool.cibuildwheel.macos]
+# delocate skips the excluded libs instead of just ignoring it as a dependency
+# see matthew-brett/delocate/issues/207
+before-build = "pip install --upgrade git+https://github.com/assignUser/delocate@fix-exclude"
+repair-wheel-command = """delocate-wheel \
+                          --exclude 'libarrow' \
+                          --exclude 'libparquet' \
+                          --exclude 'libvelox' \
+                          --require-archs {delocate_archs} \
+                          -w {dest_dir} -v {wheel}\
+                       """

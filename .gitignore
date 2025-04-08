@@ -82,6 +82,7 @@ m4/lt~obsolete.m4
 build/
 _build/
 .ccache/
+ccache/
 #*.m4
 *.o
 *.lo
@@ -324,3 +325,5 @@ src/amalgamation/
 velox/docs/sphinx/source/README_generated_*
 velox/docs/bindings/python/_generate/*
 scripts/bm-report/report.html
+dist/
+wheelhouse/

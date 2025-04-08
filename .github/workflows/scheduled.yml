@@ -94,8 +94,11 @@ jobs:
     timeout-minutes: 120
     env:
       CCACHE_DIR: "${{ github.workspace }}/ccache"
-      LINUX_DISTRO: "ubuntu"
-      MAKEFLAGS: "NUM_THREADS=${{ inputs.numThreads || 16 }} MAX_HIGH_MEM_JOBS=${{ inputs.maxHighMemJobs || 8 }} MAX_LINK_JOBS=${{ inputs.maxLinkJobs || 4 }}"
+      NUM_THREADS: "${{ inputs.numThreads || 16 }}"
+      MAX_HIGH_MEM_JOBS: "${{ inputs.maxHighMemJobs || 8 }}"
+      MAX_LINK_JOBS: "${{ inputs.maxLinkJobs || 4 }}"
+      SKBUILD_BUILD_DIR: "_build/debug"
+      PYVELOX_LEGACY_ONLY: "ON"
 
     defaults:
       run:
@@ -150,7 +153,7 @@ jobs:
       - name: Ensure Stash Dirs Exists
         working-directory: ${{ github.workspace }}
         run: |
-          mkdir -p '${{ env.CCACHE_DIR }}'
+          mkdir -p '$CCACHE_DIR'
           mkdir -p /tmp/signatures
 
       - name: Checkout Main
@@ -164,9 +167,6 @@ jobs:
         if: ${{ github.event_name != 'schedule' && steps.get-sig.outputs.stash-hit != 'true' }}
         working-directory: velox_main
         run: |
-          python3 -m venv .venv
-          source .venv/bin/activate
-
           make python-build
 
       - name: Create Baseline Signatures
@@ -199,10 +199,17 @@ jobs:
 
       - name: Build
         env:
-          EXTRA_CMAKE_FLAGS: "-DVELOX_ENABLE_ARROW=ON -DVELOX_BUILD_PYTHON_PACKAGE=ON ${{ inputs.extraCMakeFlags }}"
+          EXTRA_CMAKE_FLAGS: >
+            -DVELOX_ENABLE_ARROW=ON \
+            -DVELOX_MONO_LIBRARY=ON \
+            -DVELOX_BUILD_PYTHON_PACKAGE=ON \
+            -DVELOX_PYTHON_LEGACY_ONLY=ON \
+            ${{ inputs.extraCMakeFlags }}
         run: |
-          EXTRA_CMAKE_FLAGS="-DPYTHON_EXECUTABLE=$(which python3) $EXTRA_CMAKE_FLAGS"
+          make python-venv
+          source .venv/bin/activate
           make debug
+
 
       - name: Ccache after
         run: ccache -s
@@ -218,13 +225,8 @@ jobs:
 
       - name: Build PyVelox
         if: ${{ github.event_name != 'schedule' }}
-        env:
-          VELOX_BUILD_DIR: "_build/debug"
         run: |
-          python3 -m venv .venv
-          source .venv/bin/activate
-
-          python3 -m pip install -e .
+          make python-build
 
       - name: Create and test new function signatures
         if: ${{ github.event_name != 'schedule' }}

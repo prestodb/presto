@@ -49,6 +49,9 @@ ARROW_VERSION="15.0.0"
 STEMMER_VERSION="2.2.0"
 DUCKDB_VERSION="v0.8.1"
 
+# CMake 4.0 removed support for cmake minimums of <=3.5 and will fail builds, this overrides it
+export CMAKE_POLICY_VERSION_MINIMUM="3.5"
+
 function dnf_install {
   dnf install -y -q --setopt=install_weak_deps=False "$@"
 }
