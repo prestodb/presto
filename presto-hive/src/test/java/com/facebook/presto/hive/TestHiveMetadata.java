@@ -84,6 +84,7 @@ public class TestHiveMetadata
                 Optional.empty());
         Column partitionColumn = new Column("ds", HIVE_STRING, Optional.empty(), Optional.empty());
         Table mockTable = new Table(
+                Optional.of("catalogName"),
                 "schema",
                 "table",
                 "user",
