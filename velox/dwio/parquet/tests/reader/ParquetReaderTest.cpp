@@ -97,6 +97,73 @@ TEST_F(ParquetReaderTest, parseSample) {
       sampleSchema(), *rowReader, expected, *leafPool_);
 }
 
+TEST_F(ParquetReaderTest, parseEmptyNestedList) {
+  // parse_empty_nested_list.parquet holds 1,000 rows of the following data:
+  //
+  // { "msg": { "a": { "b": [] } } }
+  //
+  // The create table SQL is:
+  //
+  // CREATE TABLE test (
+  //   msg ROW(
+  //     a ROW(
+  //       b ARRAY<INTEGER>
+  //     )
+  //   )
+  // )
+  // WITH (
+  //   format = 'PARQUET'
+  // );
+  //
+  // All 1000 rows in one row group.
+  // Data is in RLE_DICTIONARY Snappy format.
+  const std::string sample(
+      getExampleFilePath("parse_empty_nested_list.parquet"));
+
+  dwio::common::ReaderOptions readerOptions{leafPool_.get()};
+  auto reader = createReader(sample, readerOptions);
+  EXPECT_EQ(reader->numberOfRows(), 1000ULL);
+
+  // Ensure the intact data structure
+  auto type = reader->typeWithId();
+  EXPECT_EQ(type->size(), 1ULL);
+  auto colMsg = type->childAt(0);
+  EXPECT_EQ(colMsg->type()->kind(), TypeKind::ROW);
+
+  EXPECT_EQ(colMsg->size(), 1ULL);
+  auto childMsgA = colMsg->childAt(0);
+  EXPECT_EQ(childMsgA->type()->kind(), TypeKind::ROW);
+
+  EXPECT_EQ(childMsgA->size(), 1ULL);
+  auto childMsgAB = childMsgA->childAt(0);
+  EXPECT_EQ(childMsgAB->type()->kind(), TypeKind::ARRAY);
+
+  EXPECT_EQ(childMsgAB->size(), 1ULL);
+  auto childMsgABElement = childMsgAB->childAt(0);
+  EXPECT_EQ(childMsgABElement->type()->kind(), TypeKind::INTEGER);
+
+  EXPECT_EQ(type->childByName("msg"), colMsg);
+  EXPECT_EQ(colMsg->childByName("a"), childMsgA);
+  EXPECT_EQ(childMsgA->childByName("b"), childMsgAB);
+
+  // Ensure actual data can be read
+  auto schema = ROW({"msg"}, {ROW({"a"}, {ROW({"b"}, {ARRAY(INTEGER())})})});
+  auto rowReaderOpts = getReaderOpts(schema);
+  auto scanSpec = makeScanSpec(schema);
+  rowReaderOpts.setScanSpec(scanSpec);
+  auto rowReader = reader->createRowReader(rowReaderOpts);
+
+  auto expected =
+      makeRowVector({makeRowVector({makeRowVector({makeArrayVector<int32_t>(
+          1000,
+          // Create empty list
+          [](auto) { return 0; },
+          [](auto) { return 0; },
+          [](auto) { return false; })})})});
+
+  assertReadWithReaderAndExpected(schema, *rowReader, expected, *leafPool_);
+}
+
 TEST_F(ParquetReaderTest, parseUnannotatedList) {
   // unannotated_list.parquet has the following the schema
   // the list is defined without the middle layer
