@@ -87,6 +87,24 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-common</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.facebook.airlift</groupId>
+                    <artifactId>http-client</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.facebook.airlift</groupId>
+                    <artifactId>json</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.fasterxml.jackson.core</groupId>
+                    <artifactId>jackson-core</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.fasterxml.jackson.core</groupId>
+                    <artifactId>jackson-databind</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <!-- Presto Expressions -->

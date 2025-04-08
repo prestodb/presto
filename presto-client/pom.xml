@@ -20,9 +20,30 @@
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-spi</artifactId>
         </dependency>
+
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-common</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.facebook.airlift</groupId>
+                    <artifactId>http-client</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.facebook.drift</groupId>
+                    <artifactId>drift-codec</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.facebook.drift</groupId>
+                    <artifactId>drift-protocol</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.fbthrift</groupId>
+            <artifactId>common</artifactId>
+            <optional>true</optional>
         </dependency>
 
         <dependency>
@@ -139,6 +160,7 @@
                         <!-- This is needed to keep Okio in the build and prevent conflicts with OkHttp and Kotlin dependencies. -->
                         <ignoredUnusedDeclaredDependency>com.squareup.okio:okio-jvm</ignoredUnusedDeclaredDependency>
                         <ignoredUnusedDeclaredDependency>org.jetbrains.kotlin:kotlin-stdlib-jdk8</ignoredUnusedDeclaredDependency>
+                        <ignoredUnusedDeclaredDependency>com.facebook.fbthrift:common</ignoredUnusedDeclaredDependency>
                     </ignoredUnusedDeclaredDependencies>
                 </configuration>
             </plugin>

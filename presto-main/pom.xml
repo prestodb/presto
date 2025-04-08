@@ -52,6 +52,16 @@
         </dependency>
 
         <dependency>
+            <groupId>com.facebook.fbthrift</groupId>
+            <artifactId>common</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.fbthrift</groupId>
+            <artifactId>runtime</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-bytecode</artifactId>
         </dependency>
@@ -520,7 +530,7 @@
             <groupId>io.netty</groupId>
             <artifactId>netty-common</artifactId>
         </dependency>
-        
+
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>mockwebserver</artifactId>

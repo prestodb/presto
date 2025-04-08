@@ -16,6 +16,7 @@ package com.facebook.presto.client;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
+import com.facebook.presto.common.experimental.auto_gen.ThriftErrorLocation;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -30,6 +31,16 @@ public class ErrorLocation
 {
     private final int lineNumber;
     private final int columnNumber;
+
+    public ErrorLocation(ThriftErrorLocation thriftErrorLocation)
+    {
+        this(thriftErrorLocation.getLineNumber(), thriftErrorLocation.getColumnNumber());
+    }
+
+    public ThriftErrorLocation toThrift()
+    {
+        return new ThriftErrorLocation(lineNumber, columnNumber);
+    }
 
     @JsonCreator
     @ThriftConstructor

@@ -18,8 +18,49 @@
     <!-- the SPI should have only minimal dependencies -->
     <dependencies>
         <dependency>
+            <groupId>com.facebook.fbthrift</groupId>
+            <artifactId>common</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.google.guava</groupId>
+                    <artifactId>guava</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-common</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.google.guava</groupId>
+                    <artifactId>guava</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.facebook.airlift</groupId>
+                    <artifactId>log</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.facebook.drift</groupId>
+                    <artifactId>drift-protocol</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.facebook.drift</groupId>
+                    <artifactId>drift-codec</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.facebook.airlift</groupId>
+                    <artifactId>json</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.fasterxml.jackson.core</groupId>
+                    <artifactId>jackson-core</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.fasterxml.jackson.core</groupId>
+                    <artifactId>jackson-databind</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -133,4 +174,16 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <skip>true</skip>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>
