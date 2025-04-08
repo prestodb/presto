@@ -77,6 +77,17 @@ class ChecksumAggregate : public exec::Aggregate {
     }
   }
 
+  bool isNullOrNullArray(const TypePtr& type) {
+    if (type->isUnKnown()) {
+      return true;
+    }
+    // Only supports null array type for now.
+    if (type->kind() == TypeKind::ARRAY) {
+      return type->asArray().elementType()->isUnKnown();
+    }
+    return false;
+  }
+
   void addRawInput(
       char** groups,
       const SelectivityVector& rows,
@@ -84,14 +95,16 @@ class ChecksumAggregate : public exec::Aggregate {
       bool /*mayPushDown*/) override {
     const auto& arg = args[0];
 
-    if (arg->type()->isUnKnown()) {
+    if (isNullOrNullArray(arg->type())) {
       rows.applyToSelected([&](auto row) {
         auto group = groups[row];
         clearNull(group);
-        computeHashForNull(group);
+        if (arg->isNullAt(row)) {
+          computeHashForNull(group);
+        } else {
+          computeHashForEmptyNullArray(group);
+        }
       });
-
-      return;
     }
 
     auto hasher = getPrestoHasher(arg->type());
@@ -141,10 +154,14 @@ class ChecksumAggregate : public exec::Aggregate {
       bool /*mayPushDown*/) override {
     const auto& arg = args[0];
 
-    if (arg->type()->isUnKnown()) {
+    if (isNullOrNullArray(arg->type())) {
       rows.applyToSelected([&](auto row) {
         clearNull(group);
-        computeHashForNull(group);
+        if (arg->isNullAt(row)) {
+          computeHashForNull(group);
+        } else {
+          computeHashForEmptyNullArray(group);
+        }
       });
 
       return;
@@ -203,6 +220,10 @@ class ChecksumAggregate : public exec::Aggregate {
 
   FOLLY_ALWAYS_INLINE void computeHashForNull(char* group) {
     *value<int64_t>(group) += XXH_PRIME64_1;
+  }
+
+  FOLLY_ALWAYS_INLINE void computeHashForEmptyNullArray(char* group) {
+    *value<int64_t>(group) += 0;
   }
 
   FOLLY_ALWAYS_INLINE PrestoHasher* getPrestoHasher(TypePtr typePtr) {

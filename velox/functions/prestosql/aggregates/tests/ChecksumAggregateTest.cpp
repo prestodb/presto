@@ -423,4 +423,12 @@ TEST_F(ChecksumAggregateTest, complexVectorWithNulls) {
   assertChecksum(row, "i5mk/hSs+AQ=");
 }
 
+TEST_F(ChecksumAggregateTest, nullArray) {
+  auto emptyArrayVector = makeArrayVector<UnknownValue>({{}});
+  assertChecksum(emptyArrayVector, "AAAAAAAAAAA=");
+
+  emptyArrayVector = makeArrayVector<UnknownValue>({{}, {}});
+  assertChecksum(emptyArrayVector, "AAAAAAAAAAA=");
+}
+
 } // namespace facebook::velox::aggregate::test
