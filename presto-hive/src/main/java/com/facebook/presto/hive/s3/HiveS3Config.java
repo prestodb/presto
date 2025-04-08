@@ -68,6 +68,7 @@ public class HiveS3Config
     }
 
     @Config("hive.s3.aws-access-key")
+    @ConfigSecuritySensitive
     public HiveS3Config setS3AwsAccessKey(String s3AwsAccessKey)
     {
         this.s3AwsAccessKey = s3AwsAccessKey;

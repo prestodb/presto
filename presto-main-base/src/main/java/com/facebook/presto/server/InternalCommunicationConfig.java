@@ -106,6 +106,7 @@ public class InternalCommunicationConfig
     }
 
     @Config("internal-communication.https.trust-store-password")
+    @ConfigSecuritySensitive
     public InternalCommunicationConfig setTrustStorePassword(String trustStorePassword)
     {
         this.trustStorePassword = trustStorePassword;
