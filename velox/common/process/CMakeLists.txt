@@ -15,7 +15,6 @@
 velox_add_library(
   velox_process
   ProcessBase.cpp
-  Profiler.cpp
   StackTrace.cpp
   ThreadDebugInfo.cpp
   TraceContext.cpp
@@ -24,6 +23,13 @@ velox_add_library(
 velox_link_libraries(
   velox_process
   PUBLIC velox_file velox_flag_definitions Folly::folly
+  PRIVATE fmt::fmt gflags::gflags)
+
+# Profiler need not be part of the core Velox library
+add_library(velox_profiler OBJECT Profiler.cpp)
+target_link_libraries(
+  velox_profiler
+  PUBLIC velox_flag_definitions Folly::folly
   PRIVATE fmt::fmt gflags::gflags glog::glog)
 
 if(${VELOX_BUILD_TESTING})

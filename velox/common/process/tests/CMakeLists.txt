@@ -21,6 +21,7 @@ target_link_libraries(
   velox_process_test
   PRIVATE
     velox_process
+    velox_profiler
     fmt::fmt
     velox_time
     GTest::gtest

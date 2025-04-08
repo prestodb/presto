@@ -51,6 +51,7 @@ target_link_libraries(
   velox_hash_benchmark
   velox_exec
   velox_exec_test_lib
+  velox_profiler
   velox_vector_test_lib
   Folly::follybenchmark)
 
