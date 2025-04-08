@@ -31,7 +31,7 @@ using namespace facebook::velox::memory;
 
 std::string ArbitrationParticipant::Config::toString() const {
   return fmt::format(
-      "initCapacity {}, minCapacity {}, fastExponentialGrowthCapacityLimit {}, slowCapacityGrowRatio {}, minFreeCapacity {}, minFreeCapacityRatio {}, minReclaimBytes {}, abortCapacityLimit {}",
+      "initCapacity {}, minCapacity {}, fastExponentialGrowthCapacityLimit {}, slowCapacityGrowRatio {}, minFreeCapacity {}, minFreeCapacityRatio {}, minReclaimBytes {}, minReclaimPct {}, abortCapacityLimit {}",
       succinctBytes(initCapacity),
       succinctBytes(minCapacity),
       succinctBytes(fastExponentialGrowthCapacityLimit),
@@ -39,6 +39,7 @@ std::string ArbitrationParticipant::Config::toString() const {
       succinctBytes(minFreeCapacity),
       minFreeCapacityRatio,
       succinctBytes(minReclaimBytes),
+      minReclaimPct,
       succinctBytes(abortCapacityLimit));
 }
 
@@ -50,6 +51,7 @@ ArbitrationParticipant::Config::Config(
     uint64_t _minFreeCapacity,
     double _minFreeCapacityRatio,
     uint64_t _minReclaimBytes,
+    double _minReclaimPct,
     uint64_t _abortCapacityLimit)
     : initCapacity(_initCapacity),
       minCapacity(_minCapacity),
@@ -58,6 +60,7 @@ ArbitrationParticipant::Config::Config(
       minFreeCapacity(_minFreeCapacity),
       minFreeCapacityRatio(_minFreeCapacityRatio),
       minReclaimBytes(_minReclaimBytes),
+      minReclaimPct(_minReclaimPct),
       abortCapacityLimit(_abortCapacityLimit) {
   VELOX_CHECK_GE(slowCapacityGrowRatio, 0);
   VELOX_CHECK_EQ(
@@ -83,6 +86,10 @@ ArbitrationParticipant::Config::Config(
       bits::isPowerOfTwo(abortCapacityLimit),
       "abortCapacityLimit {} not a power of two",
       abortCapacityLimit);
+  VELOX_CHECK(
+      0 <= minReclaimPct && minReclaimPct <= 1,
+      "minReclaimPct {} must be in [0, 1]",
+      minReclaimPct);
 }
 
 std::shared_ptr<ArbitrationParticipant> ArbitrationParticipant::create(
@@ -278,7 +285,10 @@ uint64_t ArbitrationParticipant::reclaim(
     uint64_t targetBytes,
     uint64_t maxWaitTimeNs,
     MemoryReclaimer::Stats& stats) noexcept {
-  targetBytes = std::max(targetBytes, config_->minReclaimBytes);
+  const auto minReclaimBytes = std::max(
+      config_->minReclaimBytes,
+      static_cast<uint64_t>(capacity() * config_->minReclaimPct));
+  targetBytes = std::max(targetBytes, minReclaimBytes);
   if (targetBytes == 0) {
     return 0;
   }

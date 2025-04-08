@@ -105,6 +105,9 @@ void OperatorTestBase::setupMemory(
        folly::to<std::string>(memoryPoolReservedCapacity) + "B"},
       {std::string(ExtraConfig::kMemoryPoolMinReclaimBytes),
        folly::to<std::string>(memoryPoolMinReclaimBytes) + "B"},
+      // For simplicity, we set the reclaim pct to 0, so that the tests will be
+      // purely based on kMemoryPoolMinReclaimBytes.
+      {std::string(ExtraConfig::kMemoryPoolMinReclaimPct), "0"},
       {std::string(ExtraConfig::kMemoryPoolAbortCapacityLimit),
        folly::to<std::string>(memoryPoolAbortCapacityLimit) + "B"},
       {std::string(ExtraConfig::kGlobalArbitrationEnabled), "true"},

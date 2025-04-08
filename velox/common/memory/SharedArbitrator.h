@@ -115,8 +115,10 @@ class SharedArbitrator : public memory::MemoryArbitrator {
         const std::unordered_map<std::string, std::string>& configs);
 
     /// Specifies the minimum bytes to reclaim from a participant at a time. The
-    /// global arbitration also avoids to reclaim from a participant if its
-    /// reclaimable used capacity is less than this threshold. This is to
+    /// bigger of 'memory-pool-min-reclaim-bytes' and
+    /// 'memory-pool-min-reclaim-pct' will be applied as the minimum reclaim
+    /// bytes. The global arbitration also avoids to reclaim from a participant
+    /// if its reclaimable used capacity is less than this threshold. This is to
     /// prevent inefficient memory reclaim operations on a participant with
     /// small reclaimable used capacity which could causes a large number of
     /// small spilled file on disk.
@@ -125,6 +127,12 @@ class SharedArbitrator : public memory::MemoryArbitrator {
     static constexpr std::string_view kDefaultMemoryPoolMinReclaimBytes{
         "128MB"};
     static uint64_t memoryPoolMinReclaimBytes(
+        const std::unordered_map<std::string, std::string>& configs);
+
+    static constexpr std::string_view kMemoryPoolMinReclaimPct{
+        "memory-pool-min-reclaim-pct"};
+    static constexpr double kDefaultMemoryPoolMinReclaimPct{0.25};
+    static double memoryPoolMinReclaimPct(
         const std::unordered_map<std::string, std::string>& configs);
 
     /// Specifies the starting memory capacity limit for global arbitration to

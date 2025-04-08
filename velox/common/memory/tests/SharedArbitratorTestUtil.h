@@ -123,6 +123,7 @@ struct ArbitrationTestStructs {
       uint64_t minFreeCapacity = 0,
       double minFreeCapacityRatio = 0,
       uint64_t minReclaimBytes = 128,
+      double minReclaimPct = 0,
       uint64_t abortCapacityLimit = 512,
       uint64_t requestBytes = 128,
       uint64_t maxArbitrationTimeNs = 1'000'000'000'000UL /* 1'000s */) {
@@ -135,6 +136,7 @@ struct ArbitrationTestStructs {
             minFreeCapacity,
             minFreeCapacityRatio,
             minReclaimBytes,
+            minReclaimPct,
             abortCapacityLimit)};
     ret.participant = ArbitrationParticipant::create(
         folly::Random::rand64(), pool, &ret.config);

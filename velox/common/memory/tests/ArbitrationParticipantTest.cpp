@@ -101,7 +101,8 @@ constexpr uint64_t kMemoryPoolReservedCapacity = 64 * MB;
 constexpr uint64_t kMemoryPoolMinFreeCapacity = 32 * MB;
 constexpr double kMemoryPoolMinFreeCapacityRatio = 0.25;
 constexpr uint64_t kFastExponentialGrowthCapacityLimit = 256 * MB;
-constexpr double kMemoryPoolMinReclaimBytes = 0;
+constexpr uint64_t kMemoryPoolMinReclaimBytes = 0;
+constexpr double kMemoryPoolMinReclaimPct = 0;
 constexpr uint64_t kMemoryPoolAbortCapacityLimit = 0;
 constexpr double kSlowCapacityGrowRatio = 0.25;
 
@@ -414,6 +415,7 @@ static ArbitrationParticipant::Config arbitrationConfig(
     uint64_t minFreeCapacity = kMemoryPoolMinFreeCapacity,
     double minFreeCapacityRatio = kMemoryPoolMinFreeCapacityRatio,
     uint64_t minReclaimBytes = kMemoryPoolMinReclaimBytes,
+    double minReclaimPct = kMemoryPoolMinReclaimPct,
     uint64_t abortCapacityLimit = kMemoryPoolAbortCapacityLimit) {
   return ArbitrationParticipant::Config{
       0,
@@ -423,6 +425,7 @@ static ArbitrationParticipant::Config arbitrationConfig(
       minFreeCapacity,
       minFreeCapacityRatio,
       minReclaimBytes,
+      minReclaimPct,
       abortCapacityLimit};
 }
 
@@ -435,13 +438,14 @@ TEST_F(ArbitrationParticipantTest, config) {
     uint64_t minFreeCapacity;
     double minFreeCapacityRatio;
     uint64_t minReclaimBytes;
+    double minReclaimPct;
     uint64_t abortCapacityLimit;
     bool expectedError;
     std::string expectedToString;
 
     std::string debugString() const {
       return fmt::format(
-          "initCapacity {}, minCapacity {}, fastExponentialGrowthCapacityLimit {}, slowCapacityGrowRatio {}, minFreeCapacity {}, minFreeCapacityRatio {}, minReclaimBytes {}, abortCapacityLimit {}, expectedError {}, expectedToString: {}",
+          "initCapacity {}, minCapacity {}, fastExponentialGrowthCapacityLimit {}, slowCapacityGrowRatio {}, minFreeCapacity {}, minFreeCapacityRatio {}, minReclaimBytes {}, minReclaimPct {}, abortCapacityLimit {}, expectedError {}, expectedToString: {}",
           succinctBytes(initCapacity),
           succinctBytes(minCapacity),
           succinctBytes(fastExponentialGrowthCapacityLimit),
@@ -449,6 +453,7 @@ TEST_F(ArbitrationParticipantTest, config) {
           succinctBytes(minFreeCapacity),
           minFreeCapacityRatio,
           succinctBytes(minReclaimBytes),
+          minReclaimPct,
           succinctBytes(abortCapacityLimit),
           expectedError,
           expectedToString);
@@ -461,9 +466,10 @@ TEST_F(ArbitrationParticipantTest, config) {
        1,
        0.1,
        1,
+       0.25,
        2,
        false,
-       "initCapacity 1B, minCapacity 1B, fastExponentialGrowthCapacityLimit 1B, slowCapacityGrowRatio 0.1, minFreeCapacity 1B, minFreeCapacityRatio 0.1, minReclaimBytes 1B, abortCapacityLimit 2B"},
+       "initCapacity 1B, minCapacity 1B, fastExponentialGrowthCapacityLimit 1B, slowCapacityGrowRatio 0.1, minFreeCapacity 1B, minFreeCapacityRatio 0.1, minReclaimBytes 1B, minReclaimPct 0.25, abortCapacityLimit 2B"},
       {0,
        1,
        0,
@@ -471,19 +477,21 @@ TEST_F(ArbitrationParticipantTest, config) {
        1,
        0.1,
        1,
+       0.5,
        0,
        false,
-       "initCapacity 0B, minCapacity 1B, fastExponentialGrowthCapacityLimit 0B, slowCapacityGrowRatio 0, minFreeCapacity 1B, minFreeCapacityRatio 0.1, minReclaimBytes 1B, abortCapacityLimit 0B"},
+       "initCapacity 0B, minCapacity 1B, fastExponentialGrowthCapacityLimit 0B, slowCapacityGrowRatio 0, minFreeCapacity 1B, minFreeCapacityRatio 0.1, minReclaimBytes 1B, minReclaimPct 0.5, abortCapacityLimit 0B"},
       {0,
        1,
        0,
        0,
        0,
        0,
-       false,
        1,
+       0.5,
        0,
-       "initCapacity 0B, minCapacity 1B, fastExponentialGrowthCapacityLimit 0B, slowCapacityGrowRatio 0, minFreeCapacity 0B, minFreeCapacityRatio 0, minReclaimBytes 0B, abortCapacityLimit 1B"},
+       false,
+       "initCapacity 0B, minCapacity 1B, fastExponentialGrowthCapacityLimit 0B, slowCapacityGrowRatio 0, minFreeCapacity 0B, minFreeCapacityRatio 0, minReclaimBytes 1B, minReclaimPct 0.5, abortCapacityLimit 0B"},
       {1,
        1,
        0,
@@ -491,9 +499,10 @@ TEST_F(ArbitrationParticipantTest, config) {
        1,
        0.1,
        1,
+       0.5,
        0,
        false,
-       "initCapacity 1B, minCapacity 1B, fastExponentialGrowthCapacityLimit 0B, slowCapacityGrowRatio 0, minFreeCapacity 1B, minFreeCapacityRatio 0.1, minReclaimBytes 1B, abortCapacityLimit 0B"},
+       "initCapacity 1B, minCapacity 1B, fastExponentialGrowthCapacityLimit 0B, slowCapacityGrowRatio 0, minFreeCapacity 1B, minFreeCapacityRatio 0.1, minReclaimBytes 1B, minReclaimPct 0.5, abortCapacityLimit 0B"},
       {1,
        0,
        1,
@@ -501,9 +510,10 @@ TEST_F(ArbitrationParticipantTest, config) {
        1,
        0.1,
        1,
+       0.5,
        0,
        false,
-       "initCapacity 1B, minCapacity 0B, fastExponentialGrowthCapacityLimit 1B, slowCapacityGrowRatio 0.1, minFreeCapacity 1B, minFreeCapacityRatio 0.1, minReclaimBytes 1B, abortCapacityLimit 0B"},
+       "initCapacity 1B, minCapacity 0B, fastExponentialGrowthCapacityLimit 1B, slowCapacityGrowRatio 0.1, minFreeCapacity 1B, minFreeCapacityRatio 0.1, minReclaimBytes 1B, minReclaimPct 0.5, abortCapacityLimit 0B"},
       {1,
        0,
        0,
@@ -511,9 +521,10 @@ TEST_F(ArbitrationParticipantTest, config) {
        1,
        0.1,
        0,
+       0.5,
        1,
        false,
-       "initCapacity 1B, minCapacity 0B, fastExponentialGrowthCapacityLimit 0B, slowCapacityGrowRatio 0, minFreeCapacity 1B, minFreeCapacityRatio 0.1, minReclaimBytes 0B, abortCapacityLimit 1B"},
+       "initCapacity 1B, minCapacity 0B, fastExponentialGrowthCapacityLimit 0B, slowCapacityGrowRatio 0, minFreeCapacity 1B, minFreeCapacityRatio 0.1, minReclaimBytes 0B, minReclaimPct 0.5, abortCapacityLimit 1B"},
       {0,
        0,
        0,
@@ -521,9 +532,10 @@ TEST_F(ArbitrationParticipantTest, config) {
        0,
        0,
        1,
+       0.5,
        0,
        false,
-       "initCapacity 0B, minCapacity 0B, fastExponentialGrowthCapacityLimit 0B, slowCapacityGrowRatio 0, minFreeCapacity 0B, minFreeCapacityRatio 0, minReclaimBytes 1B, abortCapacityLimit 0B"},
+       "initCapacity 0B, minCapacity 0B, fastExponentialGrowthCapacityLimit 0B, slowCapacityGrowRatio 0, minFreeCapacity 0B, minFreeCapacityRatio 0, minReclaimBytes 1B, minReclaimPct 0.5, abortCapacityLimit 0B"},
       {0,
        0,
        0,
@@ -531,12 +543,13 @@ TEST_F(ArbitrationParticipantTest, config) {
        1,
        0.1,
        1,
+       0.5,
        0,
        false,
-       "initCapacity 0B, minCapacity 0B, fastExponentialGrowthCapacityLimit 0B, slowCapacityGrowRatio 0, minFreeCapacity 1B, minFreeCapacityRatio 0.1, minReclaimBytes 1B, abortCapacityLimit 0B"},
-      {0, 1, 0, 0.1, 1, 0.1, 1, 2, true, ""},
-      {0, 1, 1, 0.1, 0, 0.1, 1, 2, true, ""},
-      {0, 1, 1, 0.1, 1, 0, 1, 2, true, ""},
+       "initCapacity 0B, minCapacity 0B, fastExponentialGrowthCapacityLimit 0B, slowCapacityGrowRatio 0, minFreeCapacity 1B, minFreeCapacityRatio 0.1, minReclaimBytes 1B, minReclaimPct 0.5, abortCapacityLimit 0B"},
+      {0, 1, 0, 0.1, 1, 0.1, 1, 0.5, 2, true, ""},
+      {0, 1, 1, 0.1, 0, 0.1, 1, 0.5, 2, true, ""},
+      {0, 1, 1, 0.1, 1, 0, 1, 0.5, 2, true, ""},
       {1,
        1,
        1,
@@ -544,14 +557,16 @@ TEST_F(ArbitrationParticipantTest, config) {
        1,
        0.1,
        0,
+       0.5,
        0,
        false,
-       "initCapacity 1B, minCapacity 1B, fastExponentialGrowthCapacityLimit 1B, slowCapacityGrowRatio 2, minFreeCapacity 1B, minFreeCapacityRatio 0.1, minReclaimBytes 0B, abortCapacityLimit 0B"},
-      {0, 1, 1, -1, 1, 0.1, 1, 0, true, ""},
-      {0, 1, 1, 0.1, 1, 2, 1, 0, true, ""},
-      {0, 1, 1, 0.1, 1, -1, 1, 0, true, ""},
-      {0, 0, 0, 0, 1, 0.1, 0, 3, true, ""},
-      {0, 0, 0, 0, 1, 0.1, 1, 3, true, ""}};
+       "initCapacity 1B, minCapacity 1B, fastExponentialGrowthCapacityLimit 1B, slowCapacityGrowRatio 2, minFreeCapacity 1B, minFreeCapacityRatio 0.1, minReclaimBytes 0B, minReclaimPct 0.5, abortCapacityLimit 0B"},
+      {0, 1, 1, -1, 1, 0.1, 1, 0.5, 0, true, ""},
+      {0, 1, 1, 0.1, 1, 2, 1, 0.5, 0, true, ""},
+      {0, 1, 1, 0.1, 1, -1, 1, 0.5, 0, true, ""},
+      {0, 0, 0, 0, 1, 0.1, 0, 0.5, 3, true, ""},
+      {0, 0, 0, 0, 1, 0.1, 1, 0.5, 3, true, ""},
+      {0, 0, 0, 0, 1, 0.1, 1, 1.5, 0, true, ""}};
 
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
@@ -565,6 +580,7 @@ TEST_F(ArbitrationParticipantTest, config) {
               testData.minFreeCapacity,
               testData.minFreeCapacityRatio,
               testData.minReclaimBytes,
+              testData.minReclaimPct,
               testData.abortCapacityLimit),
           "");
       continue;
@@ -577,6 +593,7 @@ TEST_F(ArbitrationParticipantTest, config) {
         testData.minFreeCapacity,
         testData.minFreeCapacityRatio,
         testData.minReclaimBytes,
+        testData.minReclaimPct,
         testData.abortCapacityLimit);
     ASSERT_EQ(testData.initCapacity, config.initCapacity);
     ASSERT_EQ(testData.minCapacity, config.minCapacity);
@@ -587,6 +604,7 @@ TEST_F(ArbitrationParticipantTest, config) {
     ASSERT_EQ(testData.minFreeCapacity, config.minFreeCapacity);
     ASSERT_EQ(testData.minFreeCapacityRatio, config.minFreeCapacityRatio);
     ASSERT_EQ(testData.minReclaimBytes, config.minReclaimBytes);
+    ASSERT_EQ(testData.minReclaimPct, config.minReclaimPct);
     ASSERT_EQ(testData.abortCapacityLimit, config.abortCapacityLimit);
     ASSERT_EQ(config.toString(), testData.expectedToString);
   }
@@ -1879,7 +1897,8 @@ TEST_F(ArbitrationParticipantTest, arbitrationOperationState) {
 #ifndef TSAN_BUILD
 TEST_F(ArbitrationParticipantTest, arbitrationOperationTimedLock) {
   auto participantPool = manager_->addRootPool("arbitrationOperationTimedLock");
-  auto config = ArbitrationParticipant::Config(0, 1024, 0, 0, 0, 0, 128, 512);
+  auto config =
+      ArbitrationParticipant::Config(0, 1024, 0, 0, 0, 0, 128, 0, 512);
   auto participant = ArbitrationParticipant::create(
       folly::Random::rand64(), participantPool, &config);
 

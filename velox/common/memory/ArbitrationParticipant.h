@@ -110,12 +110,14 @@ class ArbitrationParticipant
     double minFreeCapacityRatio;
 
     /// Specifies the minimum bytes to reclaim from a participant at a time. The
-    /// global arbitration also avoids to reclaim from a participant if its
-    /// reclaimable used capacity is less than this threshold. This is to
-    /// prevent inefficient memory reclaim operations on a participant with
-    /// small reclaimable used capacity which could causes a large number of
-    /// small spilled file on disk.
+    /// bigger of the specified bytes of 'minReclaimBytes' and 'minReclaimPct'
+    /// will be applied. The global arbitration also avoids to reclaim from a
+    /// participant if its reclaimable used capacity is less than this
+    /// threshold. This is to prevent inefficient memory reclaim operations on a
+    /// participant with small reclaimable used capacity which could causes a
+    /// large number of small spilled file on disk.
     uint64_t minReclaimBytes;
+    double minReclaimPct;
 
     /// Specifies the starting memory capacity limit for global arbitration to
     /// search for victim participant to reclaim used memory by abort. For
@@ -136,6 +138,7 @@ class ArbitrationParticipant
         uint64_t _minFreeCapacity,
         double _minFreeCapacityRatio,
         uint64_t _minReclaimBytes,
+        double _minReclaimPct,
         uint64_t _abortCapacityLimit);
 
     std::string toString() const;

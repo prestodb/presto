@@ -161,6 +161,12 @@ uint64_t SharedArbitrator::ExtraConfig::memoryPoolMinReclaimBytes(
       config::CapacityUnit::BYTE);
 }
 
+double SharedArbitrator::ExtraConfig::memoryPoolMinReclaimPct(
+    const std::unordered_map<std::string, std::string>& configs) {
+  return getConfig<double>(
+      configs, kMemoryPoolMinReclaimPct, kDefaultMemoryPoolMinReclaimPct);
+}
+
 uint64_t SharedArbitrator::ExtraConfig::memoryPoolAbortCapacityLimit(
     const std::unordered_map<std::string, std::string>& configs) {
   return config::toCapacity(
@@ -247,6 +253,7 @@ SharedArbitrator::SharedArbitrator(const Config& config)
           ExtraConfig::memoryPoolMinFreeCapacity(config.extraConfigs),
           ExtraConfig::memoryPoolMinFreeCapacityPct(config.extraConfigs),
           ExtraConfig::memoryPoolMinReclaimBytes(config.extraConfigs),
+          ExtraConfig::memoryPoolMinReclaimPct(config.extraConfigs),
           ExtraConfig::memoryPoolAbortCapacityLimit(config.extraConfigs)),
       memoryReclaimThreadsHwMultiplier_(
           ExtraConfig::memoryReclaimThreadsHwMultiplier(config.extraConfigs)),
