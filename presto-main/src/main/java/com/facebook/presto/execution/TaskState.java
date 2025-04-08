@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.drift.annotations.ThriftEnum;
 import com.facebook.drift.annotations.ThriftEnumValue;
+import com.facebook.presto.common.experimental.auto_gen.ThriftTaskState;
 
 import java.util.Set;
 import java.util.stream.Stream;
@@ -57,10 +58,25 @@ public enum TaskState
     private final int code;
     private final boolean doneState;
 
+    public static TaskState createTaskState(ThriftTaskState thriftTaskState)
+    {
+        return TaskState.valueOf(thriftTaskState.name());
+    }
+
+    public ThriftTaskState toThrift()
+    {
+        return ThriftTaskState.valueOf(name());
+    }
+
     TaskState(int code, boolean doneState)
     {
         this.code = code;
         this.doneState = doneState;
+    }
+
+    public static boolean isDone(ThriftTaskState thriftTaskState)
+    {
+        return createTaskState(thriftTaskState).isDone();
     }
 
     /**
