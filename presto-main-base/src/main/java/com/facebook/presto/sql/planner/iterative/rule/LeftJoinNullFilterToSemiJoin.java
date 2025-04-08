@@ -18,6 +18,7 @@ import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.JoinNode;
@@ -29,7 +30,9 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
 import java.util.Map;
@@ -136,7 +139,33 @@ public class LeftJoinNullFilterToSemiJoin
         }
 
         VariableReferenceExpression semiJoinOutput = context.getVariableAllocator().newVariable("semiJoinOutput", BOOLEAN);
-        SemiJoinNode semiJoinNode = new SemiJoinNode(filterNode.getSourceLocation(), context.getIdAllocator().getNextId(), joinNode.getLeft(), joinNode.getRight(),
+
+        PlanNode semiJoinFilteringSource = joinNode.getRight();
+        // TODO(sreeni) Check if this is alreay distinct (visitng the children to see if it's an agg and/or look at properties)
+        // for now we unconditionally add distinct
+
+        // Skip adding distinct node if a distinct is already applied.
+        if (!((semiJoinFilteringSource instanceof AggregationNode
+                && AggregationNode.isDistinct((AggregationNode) semiJoinFilteringSource))
+                || (semiJoinFilteringSource instanceof ProjectNode &&
+                ((ProjectNode) semiJoinFilteringSource).getSource() instanceof AggregationNode &&
+                AggregationNode.isDistinct((AggregationNode) ((ProjectNode) semiJoinFilteringSource).getSource())))) {
+            AggregationNode.GroupingSetDescriptor groupingSetDescriptor = new AggregationNode.GroupingSetDescriptor(ImmutableList.of(semiJoinFilteringSource.getOutputVariables().get(0)), 1, ImmutableSet.of());
+            semiJoinFilteringSource = new AggregationNode(
+                    semiJoinFilteringSource.getSourceLocation(),
+                    context.getIdAllocator().getNextId(),
+                    Optional.empty(),
+                    semiJoinFilteringSource,
+                    ImmutableMap.of(),
+                    groupingSetDescriptor,
+                    ImmutableList.of(),
+                    AggregationNode.Step.SINGLE,
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty());
+        }
+
+        SemiJoinNode semiJoinNode = new SemiJoinNode(filterNode.getSourceLocation(), context.getIdAllocator().getNextId(), joinNode.getLeft(), semiJoinFilteringSource,
                 leftKey, rightKey, semiJoinOutput, Optional.empty(), Optional.empty(), Optional.empty(), ImmutableMap.of());
         RowExpression filterExpression = not(functionAndTypeManager, coalesceNullToFalse(semiJoinOutput));
         FilterNode semiFilterNode = new FilterNode(filterNode.getSourceLocation(), context.getIdAllocator().getNextId(), semiJoinNode, filterExpression);
