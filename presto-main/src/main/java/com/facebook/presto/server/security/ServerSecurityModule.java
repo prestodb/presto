@@ -18,6 +18,7 @@ import com.facebook.airlift.http.server.Authenticator;
 import com.facebook.airlift.http.server.CertificateAuthenticator;
 import com.facebook.airlift.http.server.KerberosAuthenticator;
 import com.facebook.airlift.http.server.KerberosConfig;
+import com.facebook.airlift.http.server.TheServlet;
 import com.facebook.presto.server.security.SecurityConfig.AuthenticationType;
 import com.facebook.presto.server.security.oauth2.OAuth2AuthenticationSupportModule;
 import com.facebook.presto.server.security.oauth2.OAuth2Authenticator;
@@ -26,6 +27,8 @@ import com.facebook.presto.server.security.oauth2.Oauth2WebUiAuthenticationManag
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
+
+import javax.servlet.Filter;
 
 import java.util.List;
 

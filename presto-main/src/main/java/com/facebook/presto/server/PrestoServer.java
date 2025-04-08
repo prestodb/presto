@@ -52,8 +52,8 @@ import com.facebook.presto.nodeManager.PluginNodeManager;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.security.AccessControlModule;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
-import com.facebook.presto.server.security.SecurityConfig;
 import com.facebook.presto.server.security.PrestoAuthenticatorManager;
+import com.facebook.presto.server.security.SecurityConfig;
 import com.facebook.presto.server.security.ServerSecurityModule;
 import com.facebook.presto.server.security.oauth2.OAuth2Client;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -87,6 +87,7 @@ import static com.facebook.airlift.discovery.client.ServiceAnnouncement.serviceA
 import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 import static com.facebook.presto.server.PrestoSystemRequirements.verifyJvmRequirements;
 import static com.facebook.presto.server.PrestoSystemRequirements.verifySystemTimeIsReasonable;
+import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.OAUTH2;
 import static com.google.common.base.Strings.nullToEmpty;
 import static java.util.Objects.requireNonNull;
 
