@@ -13,15 +13,22 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.semiJoin;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 
 public class TestLeftJoinNullFilterToSemiJoin
@@ -52,7 +59,7 @@ public class TestLeftJoinNullFilterToSemiJoin
                                                 "right_k1",
                                                 "semijoinoutput",
                                                 values("left_k1", "left_k2"),
-                                                values("right_k1")))));
+                                                aggregation(singleGroupingSet(ImmutableList.of("right_k1")), ImmutableMap.of(), ImmutableMap.of(), Optional.empty(), AggregationNode.Step.SINGLE, values("right_k1"))))));
     }
 
     @Test
@@ -192,6 +199,6 @@ public class TestLeftJoinNullFilterToSemiJoin
                                                         "right_k1",
                                                         "semijoinoutput",
                                                         values("left_k1", "left_k2"),
-                                                        values("right_k1"))))));
+                                                        aggregation(singleGroupingSet(ImmutableList.of("right_k1")), ImmutableMap.of(), ImmutableMap.of(), Optional.empty(), AggregationNode.Step.SINGLE, values("right_k1")))))));
     }
 }
