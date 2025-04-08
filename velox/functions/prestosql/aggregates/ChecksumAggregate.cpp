@@ -105,6 +105,7 @@ class ChecksumAggregate : public exec::Aggregate {
           computeHashForEmptyNullArray(group);
         }
       });
+      return;
     }
 
     auto hasher = getPrestoHasher(arg->type());
