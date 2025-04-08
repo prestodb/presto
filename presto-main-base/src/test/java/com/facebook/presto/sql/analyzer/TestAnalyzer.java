@@ -2327,7 +2327,9 @@ public class TestAnalyzer
                 "Invalid index: 1 of required column from table argument INPUT",
                 "SELECT * FROM TABLE(system.required_columns_function(input => TABLE(SELECT 1)))");
 
-        // table s1.t5 has two columns. The second column is hidden. Table function can require a hidden column.
-        analyze("SELECT * FROM TABLE(system.required_columns_function(input => TABLE(s1.t5)))");
+        // table s1.t5 has two columns. The second column is hidden. Table function cannot require a hidden column.
+        assertFails(FUNCTION_IMPLEMENTATION_ERROR,
+                "Invalid index: 1 of required column from table argument INPUT",
+                "SELECT * FROM TABLE(system.required_columns_function(input => TABLE(s1.t5)))");
     }
 }

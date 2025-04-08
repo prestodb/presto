@@ -260,13 +260,15 @@ public class TableFunctionNode
     public static class PassThroughColumn
     {
         private final VariableReferenceExpression outputVariables;
-        private final boolean isPartitioningColumn;
+        private final boolean partitioningColumn;
 
         @JsonCreator
-        public PassThroughColumn(VariableReferenceExpression outputVariables, boolean isPartitioningColumn)
+        public PassThroughColumn(
+                @JsonProperty("outputVariables") VariableReferenceExpression outputVariables,
+                @JsonProperty("partitioningColumn") boolean partitioningColumn)
         {
             this.outputVariables = requireNonNull(outputVariables, "symbol is null");
-            this.isPartitioningColumn = isPartitioningColumn;
+            this.partitioningColumn = partitioningColumn;
         }
 
         @JsonProperty
@@ -278,7 +280,7 @@ public class TableFunctionNode
         @JsonProperty
         public boolean isPartitioningColumn()
         {
-            return isPartitioningColumn;
+            return partitioningColumn;
         }
     }
 }

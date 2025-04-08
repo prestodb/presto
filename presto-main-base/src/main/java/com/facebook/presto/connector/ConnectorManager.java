@@ -211,6 +211,14 @@ public class ConnectorManager
         ConnectorFactory existingConnectorFactory = connectorFactories.putIfAbsent(connectorFactory.getName(), connectorFactory);
         checkArgument(existingConnectorFactory == null, "Connector %s is already registered", connectorFactory.getName());
         handleResolver.addConnectorName(connectorFactory.getName(), connectorFactory.getHandleResolver());
+
+        connectorFactory.getTableFunctionHandleResolver().ifPresent(resolver -> {
+            handleResolver.addTableFunctionNamespace(connectorFactory.getName(), resolver);
+        });
+
+        connectorFactory.getTableFunctionSplitResolver().ifPresent(resolver -> {
+            handleResolver.addTableFunctionSplitNamespace(connectorFactory.getName(), resolver);
+        });
     }
 
     public synchronized ConnectorId createConnection(String catalogName, String connectorName, Map<String, String> properties)

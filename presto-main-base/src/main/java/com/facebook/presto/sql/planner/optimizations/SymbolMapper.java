@@ -362,8 +362,8 @@ public class SymbolMapper
         Optional<Map<VariableReferenceExpression, VariableReferenceExpression>> newMarkerVariables = node.getMarkerVariables()
                 .map(mapping -> mapping.entrySet().stream()
                         .collect(toImmutableMap(
-                                Entry::getKey,
-                                Entry::getValue,
+                                entry -> map(entry.getKey()),
+                                entry -> map(entry.getValue()),
                                 (first, second) -> {
                                     checkState(first.equals(second), "Ambiguous marker symbols: %s and %s", first, second);
                                     return first;

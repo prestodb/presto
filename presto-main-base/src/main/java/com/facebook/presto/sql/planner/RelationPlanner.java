@@ -90,6 +90,7 @@ import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.SetOperation;
+import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableFunctionInvocation;
@@ -100,7 +101,6 @@ import com.facebook.presto.sql.tree.Values;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
@@ -117,6 +117,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.SystemSessionProperties.getCteMaterializationStrategy;
@@ -332,24 +333,19 @@ class RelationPlanner
             RelationPlan sourcePlan = process(tableArgument.getRelation(), context);
             PlanBuilder sourcePlanBuilder = initializePlanBuilder(sourcePlan);
 
-            // map column names to symbols
-            // note: hidden columns are included in the mapping. They are present both in sourceDescriptor.allFields, and in sourcePlan.fieldMappings
-            // note: for an aliased relation or a CTE, the field names in the relation type are in the same case as specified in the alias.
-            //  quotes and canonicalization rules are not applied.
-            ImmutableMultimap.Builder<String, VariableReferenceExpression> columnMapping = ImmutableMultimap.builder();
-            RelationType sourceDescriptor = sourcePlan.getDescriptor();
-            for (int i = 0; i < sourceDescriptor.getAllFieldCount(); i++) {
-                Optional<String> name = sourceDescriptor.getFieldByIndex(i).getName();
-                if (name.isPresent()) {
-                    columnMapping.put(name.get(), sourcePlan.getVariable(i));
-                    Optional<List<Expression>> partitionBy = tableArgument.getPartitionBy();
-                    if (partitionBy.isPresent()) {
-                        sourcePlanBuilder.getTranslations().put(partitionBy.get().get(i), sourcePlan.getVariable(i));
-                    }
+            // required columns are a subset of visible columns of the source. remap required column indexes to field indexes in source relation type.
+            RelationType sourceRelationType = sourcePlan.getScope().getRelationType();
+            int[] fieldIndexForVisibleColumn = new int[sourceRelationType.getVisibleFieldCount()];
+            int visibleColumn = 0;
+            for (int i = 0; i < sourceRelationType.getAllFieldCount(); i++) {
+                if (!sourceRelationType.getFieldByIndex(i).isHidden()) {
+                    fieldIndexForVisibleColumn[visibleColumn] = i;
+                    visibleColumn++;
                 }
             }
 
             List<VariableReferenceExpression> requiredColumns = functionAnalysis.getRequiredColumns().get(tableArgument.getArgumentName()).stream()
+                    .map(column -> fieldIndexForVisibleColumn[column])
                     .map(sourcePlan::getVariable)
                     .collect(toImmutableList());
 
@@ -362,6 +358,7 @@ class RelationPlanner
                 // if there are partitioning columns, they might have to be coerced for copartitioning
                 if (tableArgument.getPartitionBy().isPresent() && !tableArgument.getPartitionBy().get().isEmpty()) {
                     List<Expression> partitioningColumns = tableArgument.getPartitionBy().get();
+                    sourcePlanBuilder = sourcePlanBuilder.appendProjections(partitioningColumns, variableAllocator, idAllocator, session, metadata, sqlParser, analysis, context);
                     QueryPlanner partitionQueryPlanner = new QueryPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session, context, sqlParser);
                     QueryPlanner.PlanAndMappings copartitionCoercions = partitionQueryPlanner.coerce(sourcePlanBuilder, partitioningColumns, analysis, idAllocator, variableAllocator, metadata);
                     sourcePlanBuilder = copartitionCoercions.getSubPlan();
@@ -373,6 +370,8 @@ class RelationPlanner
                 // order by
                 Optional<OrderingScheme> orderBy = Optional.empty();
                 if (tableArgument.getOrderBy().isPresent()) {
+                    List<Expression> orderByColumns = tableArgument.getOrderBy().get().getSortItems().stream().map(SortItem::getSortKey).collect(Collectors.toList());
+                    sourcePlanBuilder = sourcePlanBuilder.appendProjections(orderByColumns, variableAllocator, idAllocator, session, metadata, sqlParser, analysis, context);
                     // the ordering symbols are not coerced
                     orderBy = Optional.of(translateOrderingScheme(tableArgument.getOrderBy().get().getSortItems(), sourcePlanBuilder::translate));
                 }

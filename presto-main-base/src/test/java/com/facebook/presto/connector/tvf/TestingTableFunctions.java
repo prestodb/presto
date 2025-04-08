@@ -68,6 +68,7 @@ import static com.facebook.presto.spi.function.table.TableFunctionProcessorState
 import static com.facebook.presto.spi.function.table.TableFunctionProcessorState.Processed.produced;
 import static com.facebook.presto.spi.function.table.TableFunctionProcessorState.Processed.usedInput;
 import static com.facebook.presto.spi.function.table.TableFunctionProcessorState.Processed.usedInputAndProduced;
+import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -1267,7 +1268,7 @@ public class TestingTableFunctions
             @Override
             public NodeSelectionStrategy getNodeSelectionStrategy()
             {
-                return null;
+                return NO_PREFERENCE;
             }
 
             @Override
