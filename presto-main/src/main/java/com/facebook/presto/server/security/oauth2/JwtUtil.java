@@ -15,8 +15,7 @@ package com.facebook.presto.server.security.oauth2;
 
 import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.JwtParserBuilder;
-import io.jsonwebtoken.impl.DefaultJwtBuilder;
-import io.jsonwebtoken.impl.DefaultJwtParserBuilder;
+import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Deserializer;
 import io.jsonwebtoken.io.Serializer;
 import io.jsonwebtoken.jackson.io.JacksonDeserializer;
@@ -34,13 +33,13 @@ public final class JwtUtil
 
     public static JwtBuilder newJwtBuilder()
     {
-        return new DefaultJwtBuilder()
+        return Jwts.builder()
                 .serializeToJsonWith(JWT_SERIALIZER);
     }
 
     public static JwtParserBuilder newJwtParserBuilder()
     {
-        return new DefaultJwtParserBuilder()
+        return Jwts.parserBuilder()
                 .deserializeJsonWith(JWT_DESERIALIZER);
     }
 }
