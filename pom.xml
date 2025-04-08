@@ -72,7 +72,8 @@
         <!-- Custom druid version built from branch: https://github.ibm.com/lakehouse/wxd-druid/tree/druid-30.0.1 -->
         <dep.druid.version>30.0.1-wxd</dep.druid.version>
         <dep.jaxb.version>2.3.1</dep.jaxb.version>
-        <dep.hudi.version>0.14.0</dep.hudi.version>
+        <!-- Custom hudi version built from branch: https://github.ibm.com/lakehouse/wxd-hudi/tree/release-0.14.1 -->
+        <dep.hudi.version>0.14.2-wxd</dep.hudi.version>
         <dep.testcontainers.version>1.20.5</dep.testcontainers.version>
         <dep.docker-java.version>3.4.1</dep.docker-java.version>
         <dep.jayway.version>2.9.0</dep.jayway.version>
@@ -1584,6 +1585,10 @@
                     <exclusion>
                         <groupId>org.objenesis</groupId>
                         <artifactId>objenesis</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>commons-logging</groupId>
+                        <artifactId>commons-logging</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
