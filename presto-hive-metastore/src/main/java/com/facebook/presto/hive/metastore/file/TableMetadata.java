@@ -318,6 +318,7 @@ public class TableMetadata
     public Table toTable(String databaseName, String tableName, String location)
     {
         return new Table(
+                Optional.empty(),
                 databaseName,
                 tableName,
                 owner,

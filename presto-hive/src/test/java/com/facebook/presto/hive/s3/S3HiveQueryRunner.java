@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.s3;
 
+import com.facebook.presto.hive.HiveCommonClientConfig;
 import com.facebook.presto.hive.HiveQueryRunner;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.metastore.HivePartitionMutator;
@@ -73,7 +74,7 @@ public final class S3HiveQueryRunner
                                 new TestingHiveCluster(metastoreClientConfig,
                                         thriftHiveMetastoreConfig,
                                         hiveEndpoint.getHost(),
-                                        hiveEndpoint.getPort()), metastoreClientConfig,
+                                        hiveEndpoint.getPort(), new HiveCommonClientConfig()), metastoreClientConfig,
                                 HDFS_ENVIRONMENT),
                         new HivePartitionMutator())),
                 ImmutableMap.of());

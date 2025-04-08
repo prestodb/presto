@@ -195,6 +195,13 @@ public class IcebergHiveMetadata
     }
 
     @Override
+    public boolean schemaExists(ConnectorSession session, String schemaName)
+    {
+        Optional<Database> database = metastore.getDatabase(getMetastoreContext(session), schemaName);
+        return database.isPresent();
+    }
+
+    @Override
     protected org.apache.iceberg.Table getRawIcebergTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
         return getHiveIcebergTable(metastore, hdfsEnvironment, hiveTableOeprationsConfig, manifestFileCache, session, schemaTableName);

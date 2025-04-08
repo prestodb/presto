@@ -41,6 +41,9 @@ Property Name                                   Description                     
                                                 metastore to find the location of Delta Lake tables.
                                                 From the Delta Log at given location, schema and data
                                                 file list of the table is found.
+
+``hive.metastore.catalog.name``                 Specifies the catalog name to be passed to the metastore.
+
 ``delta.parquet-dereference-pushdown-enabled``  Enable pushing nested column dereferences into            ``true``
                                                 table scan so that only the required fields
                                                 selected in a ``struct`` data type column are selected.
