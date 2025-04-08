@@ -13,10 +13,6 @@ mvn clean install
 
 ```
 
-### Plugin setup
-- Deploying presto hbase plugin
-  - create a directory called *presto-hbase* in the Presto plugin directory.
-  - Add  jar file *prestodb-hbase-connector-0.0.1-SNAPSHOT.jar* built with above.
 
 ### Catalog config
 - Add hbase config file under Presto *catalog* directory, which named as *hbase.properties* 
