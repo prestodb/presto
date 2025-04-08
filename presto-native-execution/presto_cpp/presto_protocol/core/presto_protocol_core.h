@@ -333,6 +333,20 @@ void to_json(json& j, const std::shared_ptr<ConnectorPartitioningHandle>& p);
 void from_json(const json& j, std::shared_ptr<ConnectorPartitioningHandle>& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+struct ConnectorIndexHandle : public JsonEncodedSubclass {};
+void to_json(json& j, const std::shared_ptr<ConnectorIndexHandle>& p);
+void from_json(const json& j, std::shared_ptr<ConnectorIndexHandle>& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct ColumnHandle : public JsonEncodedSubclass {
+  virtual bool operator<(const ColumnHandle& /* o */) const {
+    throw std::runtime_error("missing operator<() in {class_name} subclass");
+  }
+};
+void to_json(json& j, const std::shared_ptr<ColumnHandle>& p);
+void from_json(const json& j, std::shared_ptr<ColumnHandle>& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 struct ConnectorInsertTableHandle : public JsonEncodedSubclass {};
 void to_json(json& j, const std::shared_ptr<ConnectorInsertTableHandle>& p);
 void from_json(const json& j, std::shared_ptr<ConnectorInsertTableHandle>& p);
@@ -343,15 +357,6 @@ void to_json(json& j, const std::shared_ptr<ConnectorMetadataUpdateHandle>& p);
 void from_json(
     const json& j,
     std::shared_ptr<ConnectorMetadataUpdateHandle>& p);
-} // namespace facebook::presto::protocol
-namespace facebook::presto::protocol {
-struct ColumnHandle : public JsonEncodedSubclass {
-  virtual bool operator<(const ColumnHandle& /* o */) const {
-    throw std::runtime_error("missing operator<() in {class_name} subclass");
-  }
-};
-void to_json(json& j, const std::shared_ptr<ColumnHandle>& p);
-void from_json(const json& j, std::shared_ptr<ColumnHandle>& p);
 } // namespace facebook::presto::protocol
 
 namespace facebook::presto::protocol {
@@ -1487,6 +1492,198 @@ void to_json(json& j, const GroupIdNode& p);
 void from_json(const json& j, GroupIdNode& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+struct IndexHandle {
+  ConnectorId connectorId = {};
+  std::shared_ptr<ConnectorTransactionHandle> transactionHandle = {};
+  std::shared_ptr<ConnectorIndexHandle> connectorHandle = {};
+};
+void to_json(json& j, const IndexHandle& p);
+void from_json(const json& j, IndexHandle& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+enum class JoinType { INNER, LEFT, RIGHT, FULL, SOURCE_OUTER };
+extern void to_json(json& j, const JoinType& e);
+extern void from_json(const json& j, JoinType& e);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct IndexJoinNode : public PlanNode {
+  JoinType type = {};
+  std::shared_ptr<PlanNode> probeSource = {};
+  std::shared_ptr<PlanNode> indexSource = {};
+  List<EquiJoinClause> criteria = {};
+  std::shared_ptr<VariableReferenceExpression> probeHashVariable = {};
+  std::shared_ptr<VariableReferenceExpression> indexHashVariable = {};
+
+  IndexJoinNode() noexcept;
+};
+void to_json(json& j, const IndexJoinNode& p);
+void from_json(const json& j, IndexJoinNode& p);
+} // namespace facebook::presto::protocol
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+namespace facebook::presto::protocol {
+
+template <typename T>
+struct pointerDerefCompare {
+  bool operator()(const std::shared_ptr<T>& a, const std::shared_ptr<T>& b)
+      const {
+    return *a < *b;
+  }
+};
+
+template <typename T>
+struct TupleDomain {
+  std::shared_ptr<Map<T, Domain>> domains;
+};
+
+template <typename T>
+struct TupleDomain<std::shared_ptr<T>> {
+  std::shared_ptr<std::map<std::shared_ptr<T>, Domain, pointerDerefCompare<T>>>
+      domains;
+};
+
+template <class T>
+struct ColumnDomain {
+  T column;
+  Domain domain; // dependency
+};
+
+} // namespace facebook::presto::protocol
+
+namespace nlohmann {
+
+template <typename T>
+struct adl_serializer<facebook::presto::protocol::ColumnDomain<T>> {
+  static void to_json(
+      json& j,
+      const facebook::presto::protocol::ColumnDomain<T>& p) {
+    facebook::presto::protocol::to_json_key(
+        j, "column", p.column, "ColumnDomain", "T", "column");
+    facebook::presto::protocol::to_json_key(
+        j, "domain", p.domain, "ColumnDomain", "Domain", "domain");
+  }
+
+  static void from_json(
+      const json& j,
+      facebook::presto::protocol::ColumnDomain<T>& p) {
+    facebook::presto::protocol::from_json_key(
+        j, "column", p.column, "ColumnDomain", "T", "column");
+    facebook::presto::protocol::from_json_key(
+        j, "domain", p.domain, "ColumnDomain", "Domain", "domain");
+  }
+};
+
+template <typename T>
+struct adl_serializer<facebook::presto::protocol::TupleDomain<T>> {
+  static void to_json(
+      json& j,
+      const facebook::presto::protocol::TupleDomain<T>& tup) {
+    facebook::presto::protocol::List<
+        facebook::presto::protocol::ColumnDomain<T>>
+        list;
+    if (tup.domains != nullptr) {
+      for (auto& el : *tup.domains) {
+        facebook::presto::protocol::ColumnDomain<T> domain;
+        domain.column = el.first;
+        domain.domain = el.second;
+        list.push_back(domain);
+      }
+    }
+
+    j["columnDomains"] = list;
+  }
+
+  static void from_json(
+      const json& j,
+      facebook::presto::protocol::TupleDomain<T>& tup) {
+    if (j.count("columnDomains") != 0U) {
+      std::shared_ptr<facebook::presto::protocol::
+                          Map<T, facebook::presto::protocol::Domain>>
+          map = std::make_shared<
+              std::map<T, facebook::presto::protocol::Domain>>();
+
+      facebook::presto::protocol::List<
+          facebook::presto::protocol::ColumnDomain<T>>
+          list = j.at("columnDomains");
+      for (const facebook::presto::protocol::ColumnDomain<T>& value : list) {
+        map->insert(std::make_pair(T(value.column), value.domain));
+      }
+      tup.domains = map;
+    }
+  }
+};
+
+template <typename T>
+struct adl_serializer<
+    facebook::presto::protocol::TupleDomain<std::shared_ptr<T>>> {
+  static void to_json(
+      json& j,
+      const facebook::presto::protocol::TupleDomain<std::shared_ptr<T>>& tup) {
+    facebook::presto::protocol::List<
+        facebook::presto::protocol::ColumnDomain<std::shared_ptr<T>>>
+        list;
+    if (tup.domains != nullptr) {
+      for (auto& el : *tup.domains) {
+        facebook::presto::protocol::ColumnDomain<std::shared_ptr<T>> domain;
+        domain.column = el.first;
+        domain.domain = el.second;
+        list.push_back(domain);
+      }
+    }
+
+    j["columnDomains"] = list;
+  }
+
+  static void from_json(
+      const json& j,
+      facebook::presto::protocol::TupleDomain<std::shared_ptr<T>>& tup) {
+    if (j.count("columnDomains") != 0U) {
+      auto map = std::make_shared<std::map<
+          std::shared_ptr<T>,
+          facebook::presto::protocol::Domain,
+          facebook::presto::protocol::pointerDerefCompare<T>>>();
+
+      facebook::presto::protocol::List<
+          facebook::presto::protocol::ColumnDomain<std::shared_ptr<T>>>
+          list = j.at("columnDomains");
+      for (const facebook::presto::protocol::ColumnDomain<std::shared_ptr<T>>&
+               value : list) {
+        map->insert(
+            std::make_pair(std::shared_ptr<T>(value.column), value.domain));
+      }
+      tup.domains = map;
+    }
+  }
+};
+
+} // namespace nlohmann
+namespace facebook::presto::protocol {
+struct IndexSourceNode : public PlanNode {
+  IndexHandle indexHandle = {};
+  TableHandle tableHandle = {};
+  List<VariableReferenceExpression> lookupVariables = {};
+  List<VariableReferenceExpression> outputVariables = {};
+  Map<VariableReferenceExpression, std::shared_ptr<ColumnHandle>> assignments =
+      {};
+  TupleDomain<std::shared_ptr<ColumnHandle>> currentConstraint = {};
+
+  IndexSourceNode() noexcept;
+};
+void to_json(json& j, const IndexSourceNode& p);
+void from_json(const json& j, IndexSourceNode& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 struct InsertTableHandle {
   ConnectorId connectorId = {};
   std::shared_ptr<ConnectorTransactionHandle> transactionHandle = {};
@@ -1509,11 +1706,6 @@ namespace facebook::presto::protocol {
 enum class JoinDistributionType { PARTITIONED, REPLICATED };
 extern void to_json(json& j, const JoinDistributionType& e);
 extern void from_json(const json& j, JoinDistributionType& e);
-} // namespace facebook::presto::protocol
-namespace facebook::presto::protocol {
-enum class JoinType { INNER, LEFT, RIGHT, FULL };
-extern void to_json(json& j, const JoinType& e);
-extern void from_json(const json& j, JoinType& e);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 struct JoinNode : public PlanNode {
@@ -2200,155 +2392,6 @@ struct SystemTableHandle : public ConnectorTableHandle {
 void to_json(json& j, const SystemTableHandle& p);
 void from_json(const json& j, SystemTableHandle& p);
 } // namespace facebook::presto::protocol
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-namespace facebook::presto::protocol {
-
-template <typename T>
-struct pointerDerefCompare {
-  bool operator()(const std::shared_ptr<T>& a, const std::shared_ptr<T>& b)
-      const {
-    return *a < *b;
-  }
-};
-
-template <typename T>
-struct TupleDomain {
-  std::shared_ptr<Map<T, Domain>> domains;
-};
-
-template <typename T>
-struct TupleDomain<std::shared_ptr<T>> {
-  std::shared_ptr<std::map<std::shared_ptr<T>, Domain, pointerDerefCompare<T>>>
-      domains;
-};
-
-template <class T>
-struct ColumnDomain {
-  T column;
-  Domain domain; // dependency
-};
-
-} // namespace facebook::presto::protocol
-
-namespace nlohmann {
-
-template <typename T>
-struct adl_serializer<facebook::presto::protocol::ColumnDomain<T>> {
-  static void to_json(
-      json& j,
-      const facebook::presto::protocol::ColumnDomain<T>& p) {
-    facebook::presto::protocol::to_json_key(
-        j, "column", p.column, "ColumnDomain", "T", "column");
-    facebook::presto::protocol::to_json_key(
-        j, "domain", p.domain, "ColumnDomain", "Domain", "domain");
-  }
-
-  static void from_json(
-      const json& j,
-      facebook::presto::protocol::ColumnDomain<T>& p) {
-    facebook::presto::protocol::from_json_key(
-        j, "column", p.column, "ColumnDomain", "T", "column");
-    facebook::presto::protocol::from_json_key(
-        j, "domain", p.domain, "ColumnDomain", "Domain", "domain");
-  }
-};
-
-template <typename T>
-struct adl_serializer<facebook::presto::protocol::TupleDomain<T>> {
-  static void to_json(
-      json& j,
-      const facebook::presto::protocol::TupleDomain<T>& tup) {
-    facebook::presto::protocol::List<
-        facebook::presto::protocol::ColumnDomain<T>>
-        list;
-    if (tup.domains != nullptr) {
-      for (auto& el : *tup.domains) {
-        facebook::presto::protocol::ColumnDomain<T> domain;
-        domain.column = el.first;
-        domain.domain = el.second;
-        list.push_back(domain);
-      }
-    }
-
-    j["columnDomains"] = list;
-  }
-
-  static void from_json(
-      const json& j,
-      facebook::presto::protocol::TupleDomain<T>& tup) {
-    if (j.count("columnDomains") != 0U) {
-      std::shared_ptr<facebook::presto::protocol::
-                          Map<T, facebook::presto::protocol::Domain>>
-          map = std::make_shared<
-              std::map<T, facebook::presto::protocol::Domain>>();
-
-      facebook::presto::protocol::List<
-          facebook::presto::protocol::ColumnDomain<T>>
-          list = j.at("columnDomains");
-      for (const facebook::presto::protocol::ColumnDomain<T>& value : list) {
-        map->insert(std::make_pair(T(value.column), value.domain));
-      }
-      tup.domains = map;
-    }
-  }
-};
-
-template <typename T>
-struct adl_serializer<
-    facebook::presto::protocol::TupleDomain<std::shared_ptr<T>>> {
-  static void to_json(
-      json& j,
-      const facebook::presto::protocol::TupleDomain<std::shared_ptr<T>>& tup) {
-    facebook::presto::protocol::List<
-        facebook::presto::protocol::ColumnDomain<std::shared_ptr<T>>>
-        list;
-    if (tup.domains != nullptr) {
-      for (auto& el : *tup.domains) {
-        facebook::presto::protocol::ColumnDomain<std::shared_ptr<T>> domain;
-        domain.column = el.first;
-        domain.domain = el.second;
-        list.push_back(domain);
-      }
-    }
-
-    j["columnDomains"] = list;
-  }
-
-  static void from_json(
-      const json& j,
-      facebook::presto::protocol::TupleDomain<std::shared_ptr<T>>& tup) {
-    if (j.count("columnDomains") != 0U) {
-      auto map = std::make_shared<std::map<
-          std::shared_ptr<T>,
-          facebook::presto::protocol::Domain,
-          facebook::presto::protocol::pointerDerefCompare<T>>>();
-
-      facebook::presto::protocol::List<
-          facebook::presto::protocol::ColumnDomain<std::shared_ptr<T>>>
-          list = j.at("columnDomains");
-      for (const facebook::presto::protocol::ColumnDomain<std::shared_ptr<T>>&
-               value : list) {
-        map->insert(
-            std::make_pair(std::shared_ptr<T>(value.column), value.domain));
-      }
-      tup.domains = map;
-    }
-  }
-};
-
-} // namespace nlohmann
 namespace facebook::presto::protocol {
 struct SystemSplit : public ConnectorSplit {
   ConnectorId connectorId = {};
