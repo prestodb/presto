@@ -2852,6 +2852,9 @@ namespace {
 // A naive function that wraps the input in a dictionary vector.
 class WrapInDictionaryFunc : public exec::VectorFunction {
  public:
+  explicit WrapInDictionaryFunc(bool identityDictionary = true)
+      : identityDictionary_{identityDictionary} {}
+
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
@@ -2861,7 +2864,11 @@ class WrapInDictionaryFunc : public exec::VectorFunction {
     BufferPtr indices =
         AlignedBuffer::allocate<vector_size_t>(rows.end(), context.pool());
     auto rawIndices = indices->asMutable<vector_size_t>();
-    rows.applyToSelected([&](int row) { rawIndices[row] = row; });
+    if (identityDictionary_) {
+      rows.applyToSelected([&](int row) { rawIndices[row] = row; });
+    } else {
+      rows.applyToSelected([&](int row) { rawIndices[row] = row / 2; });
+    }
 
     result =
         BaseVector::wrapInDictionary(nullptr, indices, rows.end(), args[0]);
@@ -2873,6 +2880,9 @@ class WrapInDictionaryFunc : public exec::VectorFunction {
                 .argumentType("bigint")
                 .build()};
   }
+
+ private:
+  bool identityDictionary_;
 };
 
 class LastRowNullFunc : public exec::VectorFunction {
@@ -2916,7 +2926,7 @@ TEST_P(ParameterizedExprTest, dictionaryResizedInAddNulls) {
   // This test verifies an edge case where applyFunctionWithPeeling may produce
   // a result vector which is dictionary encoded and has fewer values than
   // are rows.
-  // The expression bellow make sure that we call a resize on a dictonary
+  // The expression below make sure that we call a resize on a dictonary
   // vector during addNulls after function `dict_wrap` is evaluated.
 
   // Making the last rows NULL, so we call addNulls in eval.
@@ -4984,6 +4994,23 @@ TEST_F(ExprTest, evaluateConstantExpression) {
   assertEqualVectors(
       eval("transform(array[1, 2, 3], x -> (x * 2))"),
       makeArrayVectorFromJson<int64_t>({"[2, 4, 6]"}));
+}
+
+TEST_F(ExprTest, peelingOnDeterministicFunctionInNonDeterministicExpr) {
+  exec::registerVectorFunction(
+      "dict_wrap",
+      WrapInDictionaryFunc::signatures(),
+      std::make_unique<WrapInDictionaryFunc>(false),
+      exec::VectorFunctionMetadataBuilder().deterministic(false).build());
+
+  auto input = makeRowVector({makeFlatVector<int64_t>({1, 2, 3, 4, 5, 6})});
+  auto [result, stats] = evaluateMultipleWithStats(
+      {"dict_wrap(c0) + 1"}, input, {}, execCtx_.get());
+
+  // dict_wrap() wraps c0 with indices i -> i / 2, so we expect half of the rows
+  // being processed by "plus" after peeling on dict_wrap's result.
+  ASSERT_TRUE(stats.find("plus") != stats.end());
+  ASSERT_EQ(stats["plus"].numProcessedRows, input->size() / 2);
 }
 
 } // namespace

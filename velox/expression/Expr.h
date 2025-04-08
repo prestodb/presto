@@ -227,6 +227,12 @@ class Expr {
     evalSpecialForm(rows, context, result);
   }
 
+  // Return true if the current function is deterministic, regardless of the
+  // determinism of its inputs. Return false otherwise. Note that this is
+  // different from deterministic_ that represents the determinism of the
+  // current expression including its inputs.
+  bool isCurrentFunctionDeterministic() const;
+
   // Compute the following properties: deterministic_, propagatesNulls_,
   // distinctFields_, multiplyReferencedFields_, hasConditionals_ and
   // sameAsParentDistinctFields_.

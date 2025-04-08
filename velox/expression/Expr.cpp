@@ -210,6 +210,15 @@ void Expr::computeDistinctFields() {
   }
 }
 
+bool Expr::isCurrentFunctionDeterministic() const {
+  if (vectorFunction_) {
+    return vectorFunctionMetadata_.deterministic;
+  } else {
+    VELOX_CHECK(isSpecialForm());
+    return true;
+  }
+}
+
 void Expr::computeMetadata() {
   if (metaDataComputed_) {
     return;
@@ -223,13 +232,7 @@ void Expr::computeMetadata() {
   // (1) Compute deterministic_.
   // An expression is deterministic if it is a deterministic function call or
   // a special form, and all its inputs are also deterministic.
-  if (vectorFunction_) {
-    deterministic_ = vectorFunctionMetadata_.deterministic;
-  } else {
-    VELOX_CHECK(isSpecialForm());
-    deterministic_ = true;
-  }
-
+  deterministic_ = isCurrentFunctionDeterministic();
   for (auto& input : inputs_) {
     deterministic_ &= input->deterministic_;
   }
@@ -1405,7 +1408,7 @@ void Expr::evalAllImpl(
     evalSpecialFormWithStats(rows, context, result);
     return;
   }
-  bool tryPeelArgs = deterministic_ ? true : false;
+  bool tryPeelArgs = isCurrentFunctionDeterministic();
   bool defaultNulls = vectorFunctionMetadata_.defaultNullBehavior;
 
   // Tracks what subset of rows shall un-evaluated inputs and current
