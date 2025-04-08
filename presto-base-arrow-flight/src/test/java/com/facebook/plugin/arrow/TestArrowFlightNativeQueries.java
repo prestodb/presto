@@ -108,7 +108,7 @@ public class TestArrowFlightNativeQueries
         return new FeaturesConfig().setNativeExecutionEnabled(true);
     }
 
-    @Test
+    @Test(groups = {"arrowflight"})
     public void testFiltersAndProjections1()
     {
         assertQuery("SELECT * FROM nation");
@@ -127,7 +127,7 @@ public class TestArrowFlightNativeQueries
         assertQuery("SELECT * FROM nation WHERE nationkey NOT IN (1, 2, 3, 4, 5, 10, 11, 12, 13)");
     }
 
-    @Test
+    @Test(groups = {"arrowflight"})
     public void testFiltersAndProjections2()
     {
         assertQuery("SELECT * FROM nation WHERE nationkey NOT BETWEEN 3 AND 7");
@@ -144,7 +144,7 @@ public class TestArrowFlightNativeQueries
         assertQuery("SELECT * FROM nation WHERE name <= 'B' OR 'G' <= name");
     }
 
-    @Test
+    @Test(groups = {"arrowflight"})
     public void testFiltersAndProjections3()
     {
         assertQuery("SELECT * FROM lineitem WHERE shipmode <> 'FOB'");
@@ -166,7 +166,7 @@ public class TestArrowFlightNativeQueries
         assertQuery("SELECT * FROM lineitem WHERE linenumber > 3");
     }
 
-    @Test
+    @Test(groups = {"arrowflight"})
     public void testFiltersAndProjections4()
     {
         assertQuery("SELECT * FROM lineitem WHERE linenumber = 3");
@@ -184,7 +184,7 @@ public class TestArrowFlightNativeQueries
         assertQuery("SELECT linenumber, orderkey, discount FROM lineitem WHERE tax BETWEEN 0.02 AND 0.06");
     }
 
-    @Test
+    @Test(groups = {"arrowflight"})
     public void testFiltersAndProjections6()
     {
         // query with filter using like
@@ -199,7 +199,7 @@ public class TestArrowFlightNativeQueries
         assertQuery("SELECT SUM(discount) FROM lineitem WHERE discount != 0.04");
     }
 
-    @Test
+    @Test(groups = {"arrowflight"})
     public void testTopN()
     {
         assertQueryOrdered("SELECT nationkey, regionkey FROM nation ORDER BY nationkey LIMIT 5");
@@ -220,7 +220,7 @@ public class TestArrowFlightNativeQueries
         assertQuery("SELECT linenumber, NULL FROM lineitem ORDER BY 1 LIMIT 23");
     }
 
-    @Test
+    @Test(groups = {"arrowflight"})
     public void testCast()
     {
         assertQuery("SELECT CAST(linenumber as TINYINT), CAST(linenumber AS SMALLINT), "
@@ -262,7 +262,7 @@ public class TestArrowFlightNativeQueries
         assertQuery("SELECT CAST(nationkey as DECIMAL(22, 6)) FROM nation");
     }
 
-    @Test
+    @Test(groups = {"arrowflight"})
     public void testSwitch()
     {
         assertQuery("SELECT case linenumber % 10 when orderkey % 3 then orderkey + 1 when 2 then orderkey + 2 else 0 end FROM lineitem");
@@ -270,13 +270,13 @@ public class TestArrowFlightNativeQueries
         assertQuery("SELECT case when linenumber = 1 then 'one' when linenumber = 2 then 'two' else '...' end FROM lineitem");
     }
 
-    @Test
+    @Test(groups = {"arrowflight"})
     public void testIn()
     {
         assertQuery("SELECT linenumber IN (orderkey % 7, partkey % 5, suppkey % 3) FROM lineitem");
     }
 
-    @Test
+    @Test(groups = {"arrowflight"})
     public void testSubqueries()
     {
         assertQuery("SELECT name FROM nation WHERE regionkey = (SELECT max(regionkey) FROM region)");
@@ -288,7 +288,7 @@ public class TestArrowFlightNativeQueries
         assertQueryFails("SELECT name FROM nation WHERE regionkey = (SELECT regionkey FROM region)", ".*Expected single row of input. Received 5 rows.*");
     }
 
-    @Test
+    @Test(groups = {"arrowflight"})
     public void testArithmetic()
     {
         assertQuery("SELECT mod(orderkey, linenumber) FROM lineitem");
@@ -298,14 +298,14 @@ public class TestArrowFlightNativeQueries
         assertQuery("SELECT radians(totalprice) FROM orders");
     }
 
-    @Test
+    @Test(groups = {"arrowflight"})
     public void testGreatestLeast()
     {
         assertQuery("SELECT greatest(linenumber, suppkey, partkey) from lineitem");
         assertQuery("SELECT least(shipdate, commitdate) from lineitem");
     }
 
-    @Test
+    @Test(groups = {"arrowflight"})
     public void testSign()
     {
         assertQuery("SELECT sign(totalprice) from orders");
