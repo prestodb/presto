@@ -69,6 +69,8 @@ Property Name                                            Description            
                                                          ``iceberg.catalog.type`` is ``hive`` and ``hive.metastore``
                                                          is ``thrift``.
 
+``hive.metastore.catalog.name``                          Specifies the catalog name to be passed to the metastore.
+
 ``iceberg.hive-statistics-merge-strategy``               Comma separated list of statistics to use from the
                                                          Hive Metastore to override Iceberg table statistics.
                                                          The available values are ``NUMBER_OF_DISTINCT_VALUES``

@@ -147,6 +147,7 @@ public class TestHiveSplitManager
     private static final Table TEST_TABLE = createTestTable(VIEW_STORAGE_FORMAT, ImmutableMap.of());
 
     private ListeningExecutorService executor;
+    private static final String TEST_CATALOG_NAME = "catalogName";
 
     @BeforeClass
     public void setUp()
@@ -162,7 +163,8 @@ public class TestHiveSplitManager
 
     private static Table createTestTable(StorageFormat storageFormat, Map<String, String> parameters)
     {
-        return new Table("test_db",
+        return new Table(Optional.of(TEST_CATALOG_NAME),
+                "test_db",
                 "test_table",
                 "test_owner",
                 MANAGED_TABLE,
@@ -472,8 +474,7 @@ public class TestHiveSplitManager
 
         // Prepare partition with stats
         PartitionWithStatistics partitionWithStatistics = new PartitionWithStatistics(
-                new Partition(
-                        "test_db",
+                new Partition("test_db",
                         "test_table",
                         ImmutableList.of(PARTITION_VALUE),
                         new Storage(

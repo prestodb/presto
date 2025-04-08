@@ -260,6 +260,7 @@ public class SyncPartitionMetadataProcedure
     private static Partition buildPartitionObject(ConnectorSession session, Table table, String partitionName)
     {
         return Partition.builder()
+                .setCatalogName(table.getCatalogName())
                 .setDatabaseName(table.getDatabaseName())
                 .setTableName(table.getTableName())
                 .setColumns(table.getDataColumns())

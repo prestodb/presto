@@ -19,6 +19,7 @@ import org.weakref.jmx.Nested;
 public class ThriftHiveMetastoreStats
 {
     private final HiveMetastoreApiStats getAllDatabases = new HiveMetastoreApiStats();
+    private final HiveMetastoreApiStats getDatabases = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats getDatabase = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats getAllTables = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats getAllViews = new HiveMetastoreApiStats();
@@ -60,6 +61,13 @@ public class ThriftHiveMetastoreStats
     private final HiveMetastoreApiStats addUniqueConstraint = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats addPrimaryKeyConstraint = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats addNotNullConstraint = new HiveMetastoreApiStats();
+
+    @Managed
+    @Nested
+    public HiveMetastoreApiStats getGetDatabases()
+    {
+        return getDatabases;
+    }
 
     @Managed
     @Nested

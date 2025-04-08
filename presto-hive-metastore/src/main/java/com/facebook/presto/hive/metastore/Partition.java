@@ -35,6 +35,7 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public class Partition
 {
+    private final Optional<String> catalogName;
     private final String databaseName;
     private final String tableName;
     private final List<String> values;
@@ -63,6 +64,37 @@ public class Partition
             @JsonProperty("lastDataCommitTime") long lastDataCommitTime,
             @JsonProperty("rowIdPartitionComponent") Optional<byte[]> rowIdPartitionComponent)
     {
+        this(
+                Optional.empty(),
+                databaseName,
+                tableName,
+                values,
+                storage,
+                columns,
+                parameters,
+                partitionVersion,
+                eligibleToIgnore,
+                sealedPartition,
+                createTime,
+                lastDataCommitTime,
+                rowIdPartitionComponent);
+    }
+    public Partition(
+            Optional<String> catalogName,
+            String databaseName,
+            String tableName,
+            List<String> values,
+            Storage storage,
+            List<Column> columns,
+            Map<String, String> parameters,
+            Optional<Long> partitionVersion,
+            boolean eligibleToIgnore,
+            boolean sealedPartition,
+            int createTime,
+            long lastDataCommitTime,
+            Optional<byte[]> rowIdPartitionComponent)
+    {
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.databaseName = requireNonNull(databaseName, "databaseName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.values = ImmutableList.copyOf(requireNonNull(values, "values is null"));
@@ -77,6 +109,11 @@ public class Partition
         this.rowIdPartitionComponent = requireNonNull(rowIdPartitionComponent);
     }
 
+    @JsonProperty
+    public Optional<String> getCatalogName()
+    {
+        return catalogName;
+    }
     @JsonProperty
     public String getDatabaseName()
     {
@@ -184,7 +221,8 @@ public class Partition
         }
 
         Partition partition = (Partition) o;
-        return Objects.equals(databaseName, partition.databaseName) &&
+        return Objects.equals(catalogName, partition.catalogName) &&
+                Objects.equals(databaseName, partition.databaseName) &&
                 Objects.equals(tableName, partition.tableName) &&
                 Objects.equals(values, partition.values) &&
                 Objects.equals(storage, partition.storage) &&
@@ -200,7 +238,7 @@ public class Partition
     @Override
     public int hashCode()
     {
-        return Objects.hash(databaseName, tableName, values, storage, columns, parameters, partitionVersion, eligibleToIgnore, sealedPartition, createTime, lastDataCommitTime);
+        return Objects.hash(catalogName, databaseName, tableName, values, storage, columns, parameters, partitionVersion, eligibleToIgnore, sealedPartition, createTime, lastDataCommitTime);
     }
 
     public static Builder builder()
@@ -216,6 +254,7 @@ public class Partition
     public static class Builder
     {
         private final Storage.Builder storageBuilder;
+        private Optional<String> catalogName;
         private String databaseName;
         private String tableName;
         private List<String> values;
@@ -236,6 +275,7 @@ public class Partition
         private Builder(Partition partition)
         {
             this.storageBuilder = Storage.builder(partition.getStorage());
+            this.catalogName = partition.getCatalogName();
             this.databaseName = partition.getDatabaseName();
             this.tableName = partition.getTableName();
             this.values = partition.getValues();
@@ -248,6 +288,11 @@ public class Partition
             this.rowIdPartitionComponent = partition.getRowIdPartitionComponent();
         }
 
+        public Builder setCatalogName(Optional<String> catalogName)
+        {
+            this.catalogName = catalogName;
+            return this;
+        }
         public Builder setDatabaseName(String databaseName)
         {
             this.databaseName = databaseName;
@@ -332,7 +377,7 @@ public class Partition
 
         public Partition build()
         {
-            return new Partition(databaseName, tableName, values, storageBuilder.build(), columns, parameters, partitionVersion, isEligibleToIgnore, isSealedPartition, createTime, lastDataCommitTime, rowIdPartitionComponent);
+            return new Partition(catalogName, databaseName, tableName, values, storageBuilder.build(), columns, parameters, partitionVersion, isEligibleToIgnore, isSealedPartition, createTime, lastDataCommitTime, rowIdPartitionComponent);
         }
     }
 }

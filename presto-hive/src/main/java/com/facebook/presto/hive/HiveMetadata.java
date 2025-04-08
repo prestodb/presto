@@ -493,6 +493,13 @@ public class HiveMetadata
     }
 
     @Override
+    public boolean schemaExists(ConnectorSession session, String schemaName)
+    {
+        Optional<Database> database = metastore.getDatabase(getMetastoreContext(session), schemaName);
+        return database.isPresent();
+    }
+
+    @Override
     public HiveStatisticsProvider getHiveStatisticsProvider()
     {
         return hiveStatisticsProvider;

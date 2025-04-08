@@ -30,6 +30,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
+import javax.annotation.Nullable;
+
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -49,6 +51,10 @@ import static java.util.stream.Collectors.toMap;
 
 public final class MetadataUtils
 {
+    private static final String CATALOG_DB_SEPARATOR = "#";
+    private static final String CATALOG_DB_THRIFT_NAME_MARKER = "@";
+    private static final String DB_EMPTY_MARKER = "!";
+    private static final String DEFAULT_DATABASE = "default";
     private MetadataUtils() {}
 
     public static Optional<DiscretePredicates> getDiscretePredicates(List<ColumnHandle> partitionColumns, List<HivePartition> partitions)
@@ -159,5 +165,27 @@ public final class MetadataUtils
         }
 
         return Domain.onlyNull(type);
+    }
+
+    /**
+     * Constructs the schema name, including catalog name if applicable.
+     *
+     * @param schemaName the original schema name
+     * @return the formatted schema name (Example - @catalog_name#schema_name)
+     */
+    public static String constructSchemaName(Optional<String> catalogName, @Nullable String schemaName)
+    {
+        if (!catalogName.isPresent() || DEFAULT_DATABASE.equals(schemaName) ||
+                (schemaName != null && schemaName.contains(CATALOG_DB_SEPARATOR))) {
+            return schemaName;
+        }
+
+        StringBuilder catalogDatabaseName = new StringBuilder()
+                .append(CATALOG_DB_THRIFT_NAME_MARKER)
+                .append(catalogName.get()) // Safe since we checked isPresent()
+                .append(CATALOG_DB_SEPARATOR)
+                .append(schemaName == null ? "" : schemaName.isEmpty() ? DB_EMPTY_MARKER : schemaName);
+
+        return catalogDatabaseName.toString();
     }
 }
