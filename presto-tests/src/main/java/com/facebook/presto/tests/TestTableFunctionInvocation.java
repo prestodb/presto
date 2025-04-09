@@ -38,6 +38,7 @@ import java.util.stream.IntStream;
 
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.connector.tvf.MockConnectorFactory.MockConnector.MockConnectorSplit.MOCK_CONNECTOR_SPLIT;
+import static com.facebook.presto.connector.tvf.TestingTableFunctions.ConstantFunction.getConstantFunctionSplitSource;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -93,9 +94,9 @@ public class TestTableFunctionInvocation
                         new TestingTableFunctions.EmptyOutputWithPassThroughFunction(),
 //                        new TestingTableFunctions.TestInputsFunction(),
 //                        new TestingTableFunctions.PassThroughInputFunction(),
-//                        new TestingTableFunctions.TestInputFunction(),
-//                        new TestingTableFunctions.TestSingleInputRowSemanticsFunction(),
-//                        new TestingTableFunctions.ConstantFunction(),
+                        new TestingTableFunctions.TestInputFunction(),
+                        new TestingTableFunctions.TestSingleInputRowSemanticsFunction(),
+                        new TestingTableFunctions.ConstantFunction(),
                         new TestingTableFunctions.EmptySourceFunction()))
                 .withApplyTableFunction((session, handle) -> {
                     if (handle instanceof SimpleTableFunctionHandle) {
@@ -142,10 +143,11 @@ public class TestTableFunctionInvocation
                 }))
                 .withTableFunctionResolver(TestingTableFunctions.RepeatFunction.RepeatFunctionHandle.class)
                 .withTableFunctionResolver(TestingTableFunctions.EmptyTableFunctionHandle.class)
+                .withTableFunctionResolver(TestingTableFunctions.ConstantFunction.ConstantFunctionHandle.class)
                 .withGetColumnHandles(getColumnHandles)
-//                .withTableFunctionSplitSource(
-//                        new SchemaFunctionName("system", "constant"),
-//                        handle -> getConstantFunctionSplitSource((TestingTableFunctions.ConstantFunction.ConstantFunctionHandle) handle))
+                .withTableFunctionSplitSource(
+                        new SchemaFunctionName("system", "constant"),
+                        handle -> getConstantFunctionSplitSource((TestingTableFunctions.ConstantFunction.ConstantFunctionHandle) handle))
                 .withTableFunctionSplitSource(
                         new SchemaFunctionName("system", "empty_source"),
                         handle -> new FixedSplitSource(ImmutableList.of(MOCK_CONNECTOR_SPLIT)))
@@ -615,66 +617,48 @@ public class TestTableFunctionInvocation
                 """))
                 .matches("VALUES (false, false, CAST(null AS integer), CAST(null AS VARCHAR(1)), CAST(null AS integer), CAST(null AS VARCHAR(1)))");
     }
-
+    */
     @Test
     public void testInput()
     {
-        assertThat(query("""
-                SELECT got_input
-                FROM TABLE(system.test_input(TABLE(VALUES 1)))
-                """))
-                .matches("VALUES true");
-
+        assertQuery("SELECT got_input FROM TABLE(system.test_input(TABLE(VALUES 1)))", "VALUES true");
+/*
         assertThat(query("""
                 SELECT got_input
                 FROM TABLE(system.test_input(TABLE(VALUES 1, 2, 3) t(a) PARTITION BY a))
                 """))
                 .matches("VALUES true, true, true");
+*/
+        assertQuery("SELECT got_input FROM TABLE(system.test_input(TABLE(SELECT 1 WHERE false)))", "VALUES false");
 
-        assertThat(query("""
-                SELECT got_input
-                FROM TABLE(system.test_input(TABLE(SELECT 1 WHERE false)))
-                """))
-                .matches("VALUES false");
-
+/*
         assertThat(query("""
                 SELECT got_input
                 FROM TABLE(system.test_input(TABLE(SELECT 1 WHERE false) t(a) PARTITION BY a))
                 """))
                 .matches("VALUES false");
-
-        assertThat(query("""
-                SELECT got_input
-                FROM TABLE(system.test_input(TABLE(SELECT * FROM tpch.tiny.orders WHERE false)))
-                """))
-                .matches("VALUES false");
-
+*/
+        assertQuery("SELECT got_input FROM TABLE(system.test_input(TABLE(SELECT * FROM tpch.tiny.orders WHERE false)))", "VALUES false");
+/*
         assertThat(query("""
                 SELECT got_input
                 FROM TABLE(system.test_input(TABLE(SELECT * FROM tpch.tiny.orders WHERE false) PARTITION BY orderstatus ORDER BY orderkey))
                 """))
                 .matches("VALUES false");
+        */
     }
 
     @Test
     public void testSingleSourceWithRowSemantics()
     {
-        assertThat(query("""
-                SELECT *
-                FROM TABLE(system.test_single_input_function(TABLE(VALUES (true), (false), (true))))
-                """))
-                .matches("VALUES true");
+        assertQuery("SELECT * FROM TABLE(system.test_single_input_function(TABLE(VALUES (true), (false), (true))))", "VALUES true");
     }
 
     @Test
     public void testConstantFunction()
     {
-        assertThat(query("""
-                SELECT *
-                FROM TABLE(system.constant(5))
-                """))
-                .matches("VALUES 5");
-
+        assertQuery("SELECT * FROM TABLE(system.constant(5))", "VALUES 5");
+/*
         assertThat(query("""
                 SELECT *
                 FROM TABLE(system.constant(2, 10))
@@ -705,8 +689,6 @@ public class TestTableFunctionInvocation
                 SELECT count(*), count(DISTINCT constant_column), min(constant_column)
                 FROM TABLE(system.constant(2, 1000000))
                 """))
-                .matches("VALUES (BIGINT '1000000', BIGINT '1', 2)");
+                .matches("VALUES (BIGINT '1000000', BIGINT '1', 2)");*/
     }
-
-    */
 }
