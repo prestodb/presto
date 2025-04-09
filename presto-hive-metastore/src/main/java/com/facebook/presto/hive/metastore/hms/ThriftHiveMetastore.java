@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive.metastore.thrift;
+package com.facebook.presto.hive.metastore.hms;
 
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.type.ArrayType;
@@ -132,13 +132,14 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.deleteDirectoryRe
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveBasicStatistics;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isManagedTable;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.updateStatisticsParameters;
-import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.createMetastoreColumnStatistics;
-import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiPrincipalType;
-import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiTable;
-import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.fromPrestoPrincipalType;
-import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.fromRolePrincipalGrants;
-import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.parsePrivilege;
-import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiPartition;
+import static com.facebook.presto.hive.metastore.hms.ThriftMetastoreUtil.createMetastoreColumnStatistics;
+import static com.facebook.presto.hive.metastore.hms.ThriftMetastoreUtil.fromMetastoreApiColumnStatistics;
+import static com.facebook.presto.hive.metastore.hms.ThriftMetastoreUtil.fromMetastoreApiPrincipalType;
+import static com.facebook.presto.hive.metastore.hms.ThriftMetastoreUtil.fromMetastoreApiTable;
+import static com.facebook.presto.hive.metastore.hms.ThriftMetastoreUtil.fromPrestoPrincipalType;
+import static com.facebook.presto.hive.metastore.hms.ThriftMetastoreUtil.fromRolePrincipalGrants;
+import static com.facebook.presto.hive.metastore.hms.ThriftMetastoreUtil.parsePrivilege;
+import static com.facebook.presto.hive.metastore.hms.ThriftMetastoreUtil.toMetastoreApiPartition;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.constraints.TableConstraintsHolder.validateTableConstraints;
@@ -597,7 +598,7 @@ public class ThriftHiveMetastore
     private Map<String, HiveColumnStatistics> groupStatisticsByColumn(List<ColumnStatisticsObj> statistics, OptionalLong rowCount)
     {
         return statistics.stream()
-                .collect(toImmutableMap(ColumnStatisticsObj::getColName, statisticsObj -> ThriftMetastoreUtil.fromMetastoreApiColumnStatistics(statisticsObj, rowCount)));
+                .collect(toImmutableMap(ColumnStatisticsObj::getColName, statisticsObj -> fromMetastoreApiColumnStatistics(statisticsObj, rowCount)));
     }
 
     @Override
@@ -1218,7 +1219,7 @@ public class ThriftHiveMetastore
             List<PartitionWithStatistics> partitionsWithStatistics)
     {
         List<Partition> partitions = partitionsWithStatistics.stream()
-                .map(part -> ThriftMetastoreUtil.toMetastoreApiPartition(part, metastoreContext.getColumnConverter()))
+                .map(part -> toMetastoreApiPartition(part, metastoreContext.getColumnConverter()))
                 .collect(toImmutableList());
         addPartitionsWithoutStatistics(metastoreContext, databaseName, tableName, partitions);
         for (PartitionWithStatistics partitionWithStatistics : partitionsWithStatistics) {

@@ -15,7 +15,7 @@ package com.facebook.presto.hive.metastore;
 
 import com.facebook.presto.hive.ColumnConverter;
 import com.facebook.presto.hive.PartitionMutator;
-import com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil;
+import com.facebook.presto.hive.metastore.hms.ThriftMetastoreUtil;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;

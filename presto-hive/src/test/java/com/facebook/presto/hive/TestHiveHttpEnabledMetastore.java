@@ -22,6 +22,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.net.URISyntaxException;
 import java.util.Map;
 
 import static com.facebook.airlift.testing.Closeables.closeAllRuntimeException;
@@ -29,24 +30,30 @@ import static com.facebook.presto.hive.containers.HiveHadoopContainer.HIVE4_IMAG
 import static com.facebook.presto.tests.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 
-public abstract class AbstractHiveSslTest
+public class TestHiveHttpEnabledMetastore
         extends AbstractTestQueryFramework
 {
-    private static final String HIVE_TEST_SCHEMA = "hive_ssl_enable";
+    private static final String HIVE_TEST_SCHEMA = "hive_http_enabled";
     private String bucketName;
     private HiveMinIODataLake dockerizedS3DataLake;
 
-    private final Map<String, String> sslConfig;
+    private final Map<String, String> httpConfig;
 
-    AbstractHiveSslTest(Map<String, String> sslConfig)
+    public TestHiveHttpEnabledMetastore() throws URISyntaxException
     {
-        this.sslConfig = sslConfig;
+        httpConfig = ImmutableMap.<String, String>builder()
+                // This is required when connecting to http enabled metastore
+                .put("hive.metastore.uri", "http://localhost:9083/metastore")
+                .put("hive.metastore.http.client.tls.enabled", "false")
+                .put("hive.metastore.http.client.authentication.type", "NONE")
+                .put("hive.metastore.http.client.auth.basic.username", "temp_user")
+                .build();
     }
 
     protected QueryRunner createQueryRunner() throws Exception
     {
-        this.bucketName = "test-hive-ssl-enable-" + randomTableSuffix();
-        this.dockerizedS3DataLake = new HiveMinIODataLake(bucketName, ImmutableMap.of(), HIVE4_IMAGE, true, false);
+        this.bucketName = "test-hive-http-enable-" + randomTableSuffix();
+        this.dockerizedS3DataLake = new HiveMinIODataLake(bucketName, ImmutableMap.of(), HIVE4_IMAGE, false, true);
         this.dockerizedS3DataLake.start();
         return S3HiveQueryRunner.create(
                 this.dockerizedS3DataLake.getHiveHadoop().getHiveMetastoreEndpoint(),
@@ -56,8 +63,9 @@ public abstract class AbstractHiveSslTest
                 ImmutableMap.<String, String>builder()
                         // This is required when using MinIO which requires path style access
                         .put("hive.s3.path-style-access", "true")
+                        .put("hive.insert-existing-partitions-behavior", "OVERWRITE")
                         .put("hive.non-managed-table-writes-enabled", "true")
-                        .build(), sslConfig);
+                        .build(), httpConfig);
     }
 
     @BeforeClass
@@ -100,6 +108,6 @@ public abstract class AbstractHiveSslTest
 
     protected String getTestTableName()
     {
-        return format("hive.%s.%s", HIVE_TEST_SCHEMA, "ssl_" + randomTableSuffix());
+        return format("hive.%s.%s", HIVE_TEST_SCHEMA, "http_" + randomTableSuffix());
     }
 }

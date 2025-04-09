@@ -52,7 +52,7 @@ import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
 import static com.facebook.presto.hive.HiveBasicStatistics.createEmptyStatistics;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.convertPredicateToParts;
 import static com.facebook.presto.hive.metastore.PrestoTableType.OTHER;
-import static com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient.TEST_METASTORE_CONTEXT;
+import static com.facebook.presto.hive.metastore.hms.MockHiveMetastoreClient.TEST_METASTORE_CONTEXT;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.MAX_VALUE;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.MIN_VALUE;

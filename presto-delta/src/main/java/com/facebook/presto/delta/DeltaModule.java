@@ -44,7 +44,7 @@ import com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore;
 import com.facebook.presto.hive.metastore.InvalidateMetastoreCacheProcedure;
 import com.facebook.presto.hive.metastore.MetastoreCacheStats;
 import com.facebook.presto.hive.metastore.MetastoreConfig;
-import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastoreConfig;
+import com.facebook.presto.hive.metastore.hms.thrift.ThriftHiveMetastoreConfig;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;

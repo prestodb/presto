@@ -11,13 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive.metastore.thrift;
+package com.facebook.presto.hive.metastore.hms;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 
+import javax.validation.constraints.AssertFalse;
 import javax.validation.constraints.NotNull;
 
 import java.net.URI;
@@ -76,5 +77,32 @@ public class StaticMetastoreConfig
     {
         this.metastoreLoadBalancingEnabled = enabled;
         return this;
+    }
+
+    @AssertFalse(message = "'hive.metastore.uri' cannot contain both http and https URI schemes")
+    public boolean isMetastoreHttpUrisValid()
+    {
+        if (metastoreUris == null) {
+            // metastoreUris is required, but that's validated on the getter
+            return false;
+        }
+        boolean hasHttpMetastore = metastoreUris.stream().anyMatch(uri -> "http".equalsIgnoreCase(uri.getScheme()));
+        boolean hasHttpsMetastore = metastoreUris.stream().anyMatch(uri -> "https".equalsIgnoreCase(uri.getScheme()));
+        if (hasHttpsMetastore || hasHttpMetastore) {
+            return hasHttpMetastore && hasHttpsMetastore;
+        }
+        return false;
+    }
+
+    @AssertFalse(message = "'hive.metastore.uri' cannot contain both http(s) and thrift URI schemes")
+    public boolean isEitherThriftOrHttpMetastore()
+    {
+        if (metastoreUris == null) {
+            // metastoreUris is required, but that's validated on the getter
+            return false;
+        }
+        boolean hasHttpMetastore = metastoreUris.stream().anyMatch(uri -> "http".equalsIgnoreCase(uri.getScheme()) || "https".equalsIgnoreCase(uri.getScheme()));
+        boolean hasThriftMetastore = metastoreUris.stream().anyMatch(uri -> "thrift".equalsIgnoreCase(uri.getScheme()));
+        return hasHttpMetastore && hasThriftMetastore;
     }
 }

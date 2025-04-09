@@ -43,7 +43,7 @@ import com.facebook.presto.hive.metastore.HivePartitionMutator;
 import com.facebook.presto.hive.metastore.InvalidateMetastoreCacheProcedure;
 import com.facebook.presto.hive.metastore.MetastoreCacheStats;
 import com.facebook.presto.hive.metastore.MetastoreConfig;
-import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastoreConfig;
+import com.facebook.presto.hive.metastore.hms.thrift.ThriftHiveMetastoreConfig;
 import com.facebook.presto.hudi.split.ForHudiBackgroundSplitLoader;
 import com.facebook.presto.hudi.split.ForHudiSplitAsyncQueue;
 import com.facebook.presto.hudi.split.ForHudiSplitSource;

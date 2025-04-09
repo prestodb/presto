@@ -15,8 +15,8 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HivePartitionMutator;
-import com.facebook.presto.hive.metastore.thrift.BridgingHiveMetastore;
-import com.facebook.presto.hive.metastore.thrift.InMemoryHiveMetastore;
+import com.facebook.presto.hive.metastore.hms.BridgingHiveMetastore;
+import com.facebook.presto.hive.metastore.hms.InMemoryHiveMetastore;
 
 import java.io.File;
 

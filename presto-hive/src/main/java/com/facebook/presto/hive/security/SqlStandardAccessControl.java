@@ -50,11 +50,11 @@ import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.UPDATE;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.toHivePrivilege;
-import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.isRoleApplicable;
-import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.isRoleEnabled;
-import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.listApplicableRoles;
-import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.listApplicableTablePrivileges;
-import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.listEnabledTablePrivileges;
+import static com.facebook.presto.hive.metastore.hms.ThriftMetastoreUtil.isRoleApplicable;
+import static com.facebook.presto.hive.metastore.hms.ThriftMetastoreUtil.isRoleEnabled;
+import static com.facebook.presto.hive.metastore.hms.ThriftMetastoreUtil.listApplicableRoles;
+import static com.facebook.presto.hive.metastore.hms.ThriftMetastoreUtil.listApplicableTablePrivileges;
+import static com.facebook.presto.hive.metastore.hms.ThriftMetastoreUtil.listEnabledTablePrivileges;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddConstraint;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateRole;
