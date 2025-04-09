@@ -264,6 +264,12 @@ std::string toCallSql(const core::CallTypedExprPtr& call) {
     sql << "row(";
     toCallInputsSql(call->inputs(), sql);
     sql << ")";
+  } else if (call->name() == "subscript") {
+    VELOX_CHECK_EQ(call->inputs().size(), 2);
+    toCallInputsSql({call->inputs()[0]}, sql);
+    sql << "[";
+    toCallInputsSql({call->inputs()[1]}, sql);
+    sql << "]";
   } else {
     // Regular function call syntax.
     sql << call->name() << "(";
