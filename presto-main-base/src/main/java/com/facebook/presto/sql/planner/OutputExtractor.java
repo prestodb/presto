@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.execution.Column;
 import com.facebook.presto.execution.Output;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.SchemaTableName;
@@ -21,10 +22,14 @@ import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.google.common.base.VerifyException;
+import com.google.common.collect.ImmutableList;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.connector.ConnectorCommitHandle.EMPTY_COMMIT_OUTPUT;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
 public class OutputExtractor
@@ -37,12 +42,12 @@ public class OutputExtractor
         if (visitor.getConnectorId() == null) {
             return Optional.empty();
         }
-
         return Optional.of(new Output(
                 visitor.getConnectorId(),
                 visitor.getSchemaTableName().getSchemaName(),
                 visitor.getSchemaTableName().getTableName(),
-                EMPTY_COMMIT_OUTPUT));
+                EMPTY_COMMIT_OUTPUT,
+                Optional.of(ImmutableList.copyOf(visitor.getColumns()))));
     }
 
     private class Visitor
@@ -50,6 +55,7 @@ public class OutputExtractor
     {
         private ConnectorId connectorId;
         private SchemaTableName schemaTableName;
+        private List<Column> columns = new ArrayList<>();
 
         @Override
         public Void visitTableWriter(TableWriterNode node, Void context)
@@ -59,6 +65,11 @@ public class OutputExtractor
             checkState(schemaTableName == null || schemaTableName.equals(writerTarget.getSchemaTableName()),
                     "cannot have more than a single create, insert or delete in a query");
             schemaTableName = writerTarget.getSchemaTableName();
+
+            checkArgument(node.getColumnNames().size() == node.getColumns().size(), "Column names and columns sizes must be equal");
+            for (int i = 0; i < node.getColumnNames().size(); i++) {
+                columns.add(new Column(node.getColumnNames().get(i), node.getColumns().get(i).getType().toString()));
+            }
             return null;
         }
 
@@ -87,6 +98,11 @@ public class OutputExtractor
         public SchemaTableName getSchemaTableName()
         {
             return schemaTableName;
+        }
+
+        public List<Column> getColumns()
+        {
+            return columns;
         }
     }
 }
