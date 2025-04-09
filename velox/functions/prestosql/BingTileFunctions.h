@@ -71,6 +71,7 @@ struct BingTileFunction {
     if (tile.hasError()) {
       return Status::UserError(tile.error());
     }
+    VELOX_DCHECK(BingTileType::isBingTileIntValid(tile.value()));
     result = tile.value();
     return Status::OK();
   }
@@ -84,6 +85,7 @@ struct BingTileZoomLevelFunction {
       out_type<int8_t>& result,
       const arg_type<BingTile>& tile) {
     uint64_t tileInt = tile;
+    VELOX_DCHECK(BingTileType::isBingTileIntValid(tileInt));
     result = BingTileType::bingTileZoom(tileInt);
   }
 };
@@ -96,6 +98,7 @@ struct BingTileCoordinatesFunction {
       out_type<Row<int32_t, int32_t>>& result,
       const arg_type<BingTile>& tile) {
     uint64_t tileInt = tile;
+    VELOX_DCHECK(BingTileType::isBingTileIntValid(tileInt));
     result = std::make_tuple(
         static_cast<int32_t>(BingTileType::bingTileX(tileInt)),
         static_cast<int32_t>(BingTileType::bingTileY(tileInt)));
@@ -109,6 +112,7 @@ struct BingTileParentFunction {
   FOLLY_ALWAYS_INLINE Status
   call(out_type<BingTile>& result, const arg_type<BingTile>& tile) {
     uint64_t tileInt = tile;
+    VELOX_DCHECK(BingTileType::isBingTileIntValid(tileInt));
     uint8_t tileZoom = BingTileType::bingTileZoom(tile);
     if (FOLLY_UNLIKELY(tileZoom == 0)) {
       return Status::UserError(
@@ -127,6 +131,7 @@ struct BingTileParentFunction {
       const arg_type<BingTile>& tile,
       const arg_type<int8_t>& parentZoom) {
     uint64_t tileInt = tile;
+    VELOX_DCHECK(BingTileType::isBingTileIntValid(tileInt));
     if (FOLLY_UNLIKELY(parentZoom < 0)) {
       return Status::UserError(
           fmt::format("Cannot call bing_tile_parent with negative zoom"));
@@ -147,6 +152,7 @@ struct BingTileChildrenFunction {
   FOLLY_ALWAYS_INLINE Status
   call(out_type<Array<BingTile>>& result, const arg_type<BingTile>& tile) {
     uint64_t tileInt = tile;
+    VELOX_DCHECK(BingTileType::isBingTileIntValid(tileInt));
     uint8_t tileZoom = BingTileType::bingTileZoom(tile);
     if (FOLLY_UNLIKELY(tileZoom >= BingTileType::kBingTileMaxZoomLevel)) {
       return Status::UserError(
@@ -167,6 +173,7 @@ struct BingTileChildrenFunction {
       const arg_type<BingTile>& tile,
       const arg_type<int8_t>& childZoom) {
     uint64_t tileInt = tile;
+    VELOX_DCHECK(BingTileType::isBingTileIntValid(tileInt));
     if (FOLLY_UNLIKELY(childZoom < 0)) {
       return Status::UserError(
           fmt::format("Cannot call bing_tile_children with negative zoom"));
@@ -190,6 +197,7 @@ struct BingTileToQuadKeyFunction {
       out_type<Varchar>& result,
       const arg_type<BingTile>& tile) {
     uint64_t tileInt = static_cast<uint64_t>(tile);
+    VELOX_DCHECK(BingTileType::isBingTileIntValid(tileInt));
     result = BingTileType::bingTileToQuadKey(tileInt);
   }
 };
