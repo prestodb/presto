@@ -91,7 +91,7 @@ public class SqlInvokedFunction
             String body,
             FunctionVersion version)
     {
-        this(functionName, parameters, emptyList(), returnType, description, routineCharacteristics, body, false, version, SCALAR, Optional.empty());
+        this(functionName, parameters, emptyList(), emptyList(), returnType, description, routineCharacteristics, body, false, version, SCALAR, Optional.empty());
     }
 
     public SqlInvokedFunction(
@@ -105,13 +105,14 @@ public class SqlInvokedFunction
             FunctionKind kind,
             Optional<AggregationFunctionMetadata> aggregationMetadata)
     {
-        this(functionName, parameters, emptyList(), returnType, description, routineCharacteristics, body, false, version, kind, aggregationMetadata);
+        this(functionName, parameters, emptyList(), emptyList(), returnType, description, routineCharacteristics, body, false, version, kind, aggregationMetadata);
     }
 
     public SqlInvokedFunction(
             QualifiedObjectName functionName,
             List<Parameter> parameters,
             List<TypeVariableConstraint> typeVariableConstraints,
+            List<LongVariableConstraint> longVariableConstraints,
             TypeSignature returnType,
             String description,
             RoutineCharacteristics routineCharacteristics,
@@ -125,6 +126,7 @@ public class SqlInvokedFunction
                 functionName,
                 parameters,
                 typeVariableConstraints,
+                longVariableConstraints,
                 returnType,
                 description,
                 routineCharacteristics,
@@ -145,6 +147,7 @@ public class SqlInvokedFunction
             QualifiedObjectName functionName,
             List<Parameter> parameters,
             List<TypeVariableConstraint> typeVariableConstraints,
+            List<LongVariableConstraint> longVariableConstraints,
             TypeSignature returnType,
             String description,
             RoutineCharacteristics routineCharacteristics,
@@ -160,7 +163,7 @@ public class SqlInvokedFunction
         this.description = requireNonNull(description, "description is null");
         this.routineCharacteristics = requireNonNull(routineCharacteristics, "routineCharacteristics is null");
         this.body = requireNonNull(body, "body is null");
-        this.signature = new Signature(functionName, kind, typeVariableConstraints, emptyList(), returnType, getArgumentTypes(parameters), variableArity);
+        this.signature = new Signature(functionName, kind, typeVariableConstraints, longVariableConstraints, returnType, getArgumentTypes(parameters), variableArity);
         this.functionId = requireNonNull(functionId, "functionId is null");
         this.variableArity = variableArity;
         this.functionVersion = requireNonNull(version, "version is null");
@@ -193,6 +196,7 @@ public class SqlInvokedFunction
                 signature.getName(),
                 parameters,
                 signature.getTypeVariableConstraints(),
+                signature.getLongVariableConstraints(),
                 signature.getReturnType(),
                 description,
                 routineCharacteristics,

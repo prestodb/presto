@@ -142,6 +142,7 @@ public class TestNativeSidecarPlugin
                 "date_trunc('month', from_unixtime(orderkey, '+03:00')), date_trunc('day', from_unixtime(orderkey, '-07:00')), " +
                 "date_trunc('hour', from_unixtime(orderkey, '-09:30')), date_trunc('minute', from_unixtime(orderkey, '+05:30')), " +
                 "date_trunc('second', from_unixtime(orderkey, '+00:00')) FROM orders");
+        assertQuery("SELECT mod(orderkey, linenumber) FROM lineitem");
     }
 
     @Test

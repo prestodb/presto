@@ -38,6 +38,7 @@ import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.FunctionNamespaceTransactionHandle;
+import com.facebook.presto.spi.function.LongVariableConstraint;
 import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.ScalarFunctionImplementation;
 import com.facebook.presto.spi.function.Signature;
@@ -210,6 +211,8 @@ public class NativeFunctionNamespaceManager
         List<TypeSignature> parameterTypeList = convertApplicableTypeToVariable(jsonBasedUdfFunctionMetaData.getParamTypes());
         List<TypeVariableConstraint> typeVariableConstraintsList = jsonBasedUdfFunctionMetaData.getTypeVariableConstraints().isPresent() ?
                 jsonBasedUdfFunctionMetaData.getTypeVariableConstraints().get() : Collections.emptyList();
+        List<LongVariableConstraint> longVariableConstraintList = jsonBasedUdfFunctionMetaData.getLongVariableConstraints().isPresent() ?
+                jsonBasedUdfFunctionMetaData.getLongVariableConstraints().get() : Collections.emptyList();
 
         TypeSignature outputType = convertApplicableTypeToVariable(jsonBasedUdfFunctionMetaData.getOutputType());
         ImmutableList.Builder<Parameter> parameterBuilder = ImmutableList.builder();
@@ -227,6 +230,7 @@ public class NativeFunctionNamespaceManager
                 qualifiedFunctionName,
                 parameterBuilder.build(),
                 typeVariableConstraintsList,
+                longVariableConstraintList,
                 outputType,
                 jsonBasedUdfFunctionMetaData.getDocString(),
                 jsonBasedUdfFunctionMetaData.getRoutineCharacteristics(),

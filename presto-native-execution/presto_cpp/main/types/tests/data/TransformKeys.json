@@ -3,6 +3,7 @@
     {
       "docString": "presto.default.transform_keys",
       "functionKind": "SCALAR",
+      "longVariableConstraints":[],
       "outputType": "map(k2,v)",
       "paramTypes": [
         "map(k1,v)",

@@ -140,7 +140,8 @@ public class FunctionResource
                                 function.getSignature().getName(),
                                 function.getSignature().getArgumentTypes())),
                 Optional.of("1"),
-                Optional.of(function.getSignature().getTypeVariableConstraints()));
+                Optional.of(function.getSignature().getTypeVariableConstraints()),
+                Optional.ofNullable(function.getSignature().getLongVariableConstraints()));
     }
 
     @GET

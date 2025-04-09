@@ -6207,6 +6207,13 @@ void to_json(json& j, const JsonBasedUdfFunctionMetadata& p) {
       "JsonBasedUdfFunctionMetadata",
       "List<TypeVariableConstraint>",
       "typeVariableConstraints");
+  to_json_key(
+      j,
+      "longVariableConstraints",
+      p.longVariableConstraints,
+      "JsonBasedUdfFunctionMetadata",
+      "List<LongVariableConstraint>",
+      "longVariableConstraints");
 }
 
 void from_json(const json& j, JsonBasedUdfFunctionMetadata& p) {
@@ -6287,6 +6294,13 @@ void from_json(const json& j, JsonBasedUdfFunctionMetadata& p) {
       "JsonBasedUdfFunctionMetadata",
       "List<TypeVariableConstraint>",
       "typeVariableConstraints");
+  from_json_key(
+      j,
+      "longVariableConstraints",
+      p.longVariableConstraints,
+      "JsonBasedUdfFunctionMetadata",
+      "List<LongVariableConstraint>",
+      "longVariableConstraints");
 }
 } // namespace facebook::presto::protocol
 /*
