@@ -59,8 +59,6 @@ public class NativeExpressionsModule
         jsonCodecBinder(binder).bindListJsonCodec(RowExpression.class);
 
         binder.bind(NativeSidecarExpressionInterpreter.class).in(Scopes.SINGLETON);
-
-        // The main service provider
-        binder.bind(NativeExpressionOptimizerProvider.class).in(Scopes.SINGLETON);
+        binder.bind(NativeExpressionOptimizer.class).in(Scopes.SINGLETON);
     }
 }

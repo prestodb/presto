@@ -61,7 +61,7 @@ public class NativeExpressionOptimizerFactory
                     .setRequiredConfigurationProperties(config)
                     .quiet()
                     .initialize();
-            return injector.getInstance(NativeExpressionOptimizerProvider.class).createOptimizer();
+            return injector.getInstance(NativeExpressionOptimizer.class);
         }
     }
 }
