@@ -11,10 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive.metastore;
+package com.facebook.presto.hive.metastore.hms.thrift;
 
 import com.facebook.airlift.configuration.testing.ConfigAssertions;
-import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastoreConfig;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 

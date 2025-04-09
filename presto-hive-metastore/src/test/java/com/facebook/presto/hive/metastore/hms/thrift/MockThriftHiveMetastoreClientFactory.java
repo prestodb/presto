@@ -11,13 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive.metastore.thrift;
+package com.facebook.presto.hive.metastore.hms.thrift;
 
 import com.facebook.presto.hive.authentication.NoHiveMetastoreAuthentication;
+import com.facebook.presto.hive.metastore.hms.HiveMetastoreClient;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 import org.apache.thrift.transport.TTransportException;
 
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -25,19 +27,19 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
-public class MockHiveMetastoreClientFactory
-        extends HiveMetastoreClientFactory
+public class MockThriftHiveMetastoreClientFactory
+        extends ThriftHiveMetastoreClientFactory
 {
     private final List<HiveMetastoreClient> clients;
 
-    public MockHiveMetastoreClientFactory(Optional<HostAndPort> socksProxy, Duration timeout, List<HiveMetastoreClient> clients)
+    public MockThriftHiveMetastoreClientFactory(Optional<HostAndPort> socksProxy, Duration timeout, List<HiveMetastoreClient> clients)
     {
         super(Optional.empty(), socksProxy, timeout, new NoHiveMetastoreAuthentication(), null);
         this.clients = new ArrayList<>(requireNonNull(clients, "clients is null"));
     }
 
     @Override
-    public HiveMetastoreClient create(HostAndPort address, Optional<String> token)
+    public HiveMetastoreClient create(URI uri, Optional<String> token)
             throws TTransportException
     {
         checkState(!clients.isEmpty(), "mock not given enough clients");

@@ -13,7 +13,8 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastoreConfig;
+import com.facebook.presto.hive.metastore.hms.http.HttpHiveMetastoreConfig;
+import com.facebook.presto.hive.metastore.hms.thrift.ThriftHiveMetastoreConfig;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 
@@ -31,5 +32,6 @@ public class MetastoreClientModule
     {
         configBinder(binder).bindConfig(MetastoreClientConfig.class);
         configBinder(binder).bindConfig(ThriftHiveMetastoreConfig.class);
+        configBinder(binder).bindConfig(HttpHiveMetastoreConfig.class);
     }
 }
