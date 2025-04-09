@@ -15,6 +15,7 @@
         <main-class>com.facebook.presto.server.testing.TestingPrestoServerLauncher</main-class>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <project.build.targetJdk>17</project.build.targetJdk>
+        <air.check.skip-modernizer>true</air.check.skip-modernizer>
     </properties>
 
     <dependencies>
