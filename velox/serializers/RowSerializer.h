@@ -414,13 +414,9 @@ class RowDeserializer {
           uncompressedSource, header.uncompressedSize + initialSize);
       while (rowIterator.hasNext()) {
         serializedBuffers.emplace_back(std::move(rowIterator.next()));
-        if constexpr (std::is_same_v<SerializeView, std::string_view>) {
-          serializedRows.push_back(std::string_view(
-              serializedBuffers.back()->data(),
-              serializedBuffers.back()->size()));
-        } else {
-          serializedRows.push_back(serializedBuffers.back()->data());
-        }
+        serializedRows.push_back(std::string_view(
+            serializedBuffers.back()->data(),
+            serializedBuffers.back()->size()));
       }
     }
   }
