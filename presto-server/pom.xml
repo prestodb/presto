@@ -25,6 +25,7 @@
         <process-name>${project.artifactId}</process-name>
 
         <skipTakariLifecyclePlugin>false</skipTakariLifecyclePlugin>
+        <air.check.skip-modernizer>true</air.check.skip-modernizer>
     </properties>
 
     <build>
@@ -57,7 +58,8 @@
                 <!-- takari-lifecycle-plugin is added by the provisio plugin.  During deployment to Sonatype, it should be disabled because this project
                      uses the nexus-staging-maven-plugin for deployment -->
                 <skipTakariLifecyclePlugin>true</skipTakariLifecyclePlugin>
-            </properties>
+                <air.check.skip-modernizer>true</air.check.skip-modernizer>
+    </properties>
         </profile>
     </profiles>
 </project>
