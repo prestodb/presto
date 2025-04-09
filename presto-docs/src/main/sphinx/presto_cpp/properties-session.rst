@@ -470,3 +470,18 @@ to produce a batch of the size specified by this property. If set to ``0``, then
 * **Default value:** ``10``
 
 Maximum wait time for exchange long poll requests in seconds.
+
+Sidecar Session Properties
+--------------------------
+
+The following session properties apply for Presto C++ deployed with native sidecar.
+
+``expression_optimizer_name``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``varchar``
+* **Default value:** ``default``
+
+The default expression optimizer uses Presto Java function implementations. Set
+this to ``native`` to use the native expression optimizer, which uses Presto C++
+function implementations.
