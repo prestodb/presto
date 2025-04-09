@@ -140,6 +140,8 @@ public class TestTableFunctionInvocation
                     }
                     return null;
                 }))
+                .withTableFunctionResolver(TestingTableFunctions.RepeatFunction.RepeatFunctionHandle.class)
+                .withTableFunctionResolver(TestingTableFunctions.EmptyTableFunctionHandle.class)
                 .withGetColumnHandles(getColumnHandles)
 //                .withTableFunctionSplitSource(
 //                        new SchemaFunctionName("system", "constant"),
@@ -210,8 +212,8 @@ public class TestTableFunctionInvocation
         assertQuery("SELECT * FROM TABLE(system.repeat(TABLE(VALUES (1, 2), (3, 4), (5, 6))))",
                 "VALUES (1, 2), (1, 2), (3, 4), (3, 4), (5, 6), (5, 6)");
 
-        //assertQuery("SELECT * FROM TABLE(system.repeat(TABLE(VALUES ('a', true), ('b', false)), 4))",
-        //        "VALUES ('a', true), ('b', false), ('a', true), ('b', false), ('a', true), ('b', false), ('a', true), ('b', false)");
+        assertQuery("SELECT * FROM TABLE(system.repeat(TABLE(VALUES ('a', true), ('b', false)), 4))",
+                "VALUES ('a', true), ('b', false), ('a', true), ('b', false), ('a', true), ('b', false), ('a', true), ('b', false)");
 
         /*
         assertQuery("SELECT *FROM TABLE(system.repeat(TABLE(VALUES ('a', true), ('b', false)) t(x, y) PARTITION BY x,4))",

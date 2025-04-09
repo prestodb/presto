@@ -29,14 +29,17 @@ import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionHandleResolver;
+import com.facebook.presto.spi.function.TableFunctionHandleResolver;
 import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
 import com.facebook.presto.split.EmptySplitHandleResolver;
+import com.google.common.collect.ImmutableSet;
 
 import javax.inject.Inject;
 
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Function;
@@ -51,6 +54,7 @@ public class HandleResolver
 {
     private final ConcurrentMap<String, MaterializedHandleResolver> handleResolvers = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, MaterializedFunctionHandleResolver> functionHandleResolvers = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, MaterializedTableFunctionHandleResolver> tableFunctionHandleResolvers = new ConcurrentHashMap<>();
 
     @Inject
     public HandleResolver()
@@ -79,6 +83,14 @@ public class HandleResolver
         requireNonNull(resolver, "resolver is null");
         MaterializedFunctionHandleResolver existingResolver = functionHandleResolvers.putIfAbsent(name, new MaterializedFunctionHandleResolver(resolver));
         checkState(existingResolver == null || existingResolver.equals(resolver), "Name %s is already assigned to function resolver: %s", name, existingResolver);
+    }
+
+    public void addTableFunctionNamespace(String name, TableFunctionHandleResolver resolver)
+    {
+        requireNonNull(name, "name is null");
+        requireNonNull(resolver, "resolver is null");
+        MaterializedTableFunctionHandleResolver existingResolver = tableFunctionHandleResolvers.putIfAbsent(name, new MaterializedTableFunctionHandleResolver(resolver));
+        checkState(existingResolver == null || existingResolver.equals(resolver), "Name %s is already assigned to table function resolver: %s", name, existingResolver);
     }
 
     public String getId(ConnectorTableHandle tableHandle)
@@ -143,7 +155,7 @@ public class HandleResolver
 
     public String getId(ConnectorTableFunctionHandle tableFunctionHandle)
     {
-        return getId(tableFunctionHandle, MaterializedHandleResolver::getTableFunctionHandleClass);
+        return getTableFunctionId(tableFunctionHandle, MaterializedTableFunctionHandleResolver::getTableFunctionHandleClasses);
     }
 
     public Class<? extends ConnectorTableHandle> getTableHandleClass(String id)
@@ -208,7 +220,17 @@ public class HandleResolver
 
     public Class<? extends ConnectorTableFunctionHandle> getTableFunctionHandleClass(String id)
     {
-        return resolverFor(id).getTableFunctionHandleClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
+        Optional<Class<? extends ConnectorTableFunctionHandle>> tableFunctionHandle;
+        for (Entry<String, MaterializedTableFunctionHandleResolver> entry : tableFunctionHandleResolvers.entrySet()) {
+            MaterializedTableFunctionHandleResolver resolver = entry.getValue();
+            tableFunctionHandle = resolver.getTableFunctionHandleClasses().stream()
+                    .filter(handle -> (entry.getKey() + ":" + handle.getName()).equals(id))
+                    .findFirst();
+            if (tableFunctionHandle.isPresent()) {
+                return tableFunctionHandle.get();
+            }
+        }
+        throw new IllegalArgumentException("No handle resolver for table function namespace: " + id);
     }
 
     private MaterializedHandleResolver resolverFor(String id)
@@ -253,6 +275,24 @@ public class HandleResolver
         throw new IllegalArgumentException("No function namespace for handle: " + handle);
     }
 
+    private <T> String getTableFunctionId(ConnectorTableFunctionHandle handle, Function<MaterializedTableFunctionHandleResolver, Set<Class<? extends ConnectorTableFunctionHandle>>> getters)
+    {
+        for (Entry<String, MaterializedTableFunctionHandleResolver> entry : tableFunctionHandleResolvers.entrySet()) {
+            try {
+                Optional<String> id = getters.apply(entry.getValue()).stream()
+                        .filter(clazz -> clazz.isInstance(handle))
+                        .map(Class::getName)
+                        .findFirst();
+                if (id.isPresent()) {
+                    return entry.getKey() + ":" + id.get();
+                }
+            }
+            catch (UnsupportedOperationException ignored) {
+            }
+        }
+        throw new IllegalArgumentException("No function namespace for handle: " + handle);
+    }
+
     private static class MaterializedHandleResolver
     {
         private final Optional<Class<? extends ConnectorTableHandle>> tableHandle;
@@ -266,7 +306,6 @@ public class HandleResolver
         private final Optional<Class<? extends ConnectorPartitioningHandle>> partitioningHandle;
         private final Optional<Class<? extends ConnectorTransactionHandle>> transactionHandle;
         private final Optional<Class<? extends ConnectorMetadataUpdateHandle>> metadataUpdateHandle;
-        private final Optional<Class<? extends ConnectorTableFunctionHandle>> tableFunctionHandle;
 
         public MaterializedHandleResolver(ConnectorHandleResolver resolver)
         {
@@ -281,7 +320,6 @@ public class HandleResolver
             partitioningHandle = getHandleClass(resolver::getPartitioningHandleClass);
             transactionHandle = getHandleClass(resolver::getTransactionHandleClass);
             metadataUpdateHandle = getHandleClass(resolver::getMetadataUpdateHandleClass);
-            this.tableFunctionHandle = getHandleClass(resolver::getTableFunctionHandleClass);
         }
 
         private static <T> Optional<Class<? extends T>> getHandleClass(Supplier<Class<? extends T>> callable)
@@ -349,11 +387,6 @@ public class HandleResolver
             return metadataUpdateHandle;
         }
 
-        public Optional<Class<? extends ConnectorTableFunctionHandle>> getTableFunctionHandleClass()
-        {
-            return tableFunctionHandle;
-        }
-
         @Override
         public boolean equals(Object o)
         {
@@ -374,14 +407,13 @@ public class HandleResolver
                     Objects.equals(deleteTableHandle, that.deleteTableHandle) &&
                     Objects.equals(partitioningHandle, that.partitioningHandle) &&
                     Objects.equals(transactionHandle, that.transactionHandle) &&
-                    Objects.equals(metadataUpdateHandle, that.metadataUpdateHandle) &&
-                    Objects.equals(tableFunctionHandle, that.tableFunctionHandle);
+                    Objects.equals(metadataUpdateHandle, that.metadataUpdateHandle);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(tableHandle, layoutHandle, columnHandle, split, indexHandle, outputTableHandle, insertTableHandle, deleteTableHandle, partitioningHandle, transactionHandle, metadataUpdateHandle, tableFunctionHandle);
+            return Objects.hash(tableHandle, layoutHandle, columnHandle, split, indexHandle, outputTableHandle, insertTableHandle, deleteTableHandle, partitioningHandle, transactionHandle, metadataUpdateHandle);
         }
     }
 
@@ -426,6 +458,50 @@ public class HandleResolver
         public int hashCode()
         {
             return Objects.hash(functionHandle);
+        }
+    }
+
+    private static class MaterializedTableFunctionHandleResolver
+    {
+        private final Set<Class<? extends ConnectorTableFunctionHandle>> tableFunctionHandles;
+
+        public MaterializedTableFunctionHandleResolver(TableFunctionHandleResolver resolver)
+        {
+            tableFunctionHandles = getHandleClass(resolver::getTableFunctionHandleClasses);
+        }
+
+        private static Set<Class<? extends ConnectorTableFunctionHandle>> getHandleClass(Supplier<Set<Class<? extends ConnectorTableFunctionHandle>>> callable)
+        {
+            try {
+                return callable.get();
+            }
+            catch (UnsupportedOperationException e) {
+                return ImmutableSet.of();
+            }
+        }
+
+        public Set<Class<? extends ConnectorTableFunctionHandle>> getTableFunctionHandleClasses()
+        {
+            return tableFunctionHandles;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            MaterializedTableFunctionHandleResolver that = (MaterializedTableFunctionHandleResolver) o;
+            return Objects.equals(tableFunctionHandles, that.tableFunctionHandles);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(tableFunctionHandles);
         }
     }
 }
