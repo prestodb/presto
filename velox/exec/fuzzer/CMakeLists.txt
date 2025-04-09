@@ -161,3 +161,7 @@ target_link_libraries(
 target_link_libraries(
   velox_cache_fuzzer_lib velox_dwio_common velox_temp_path
   velox_vector_test_lib)
+
+if(${VELOX_BUILD_TESTING})
+  add_subdirectory(tests)
+endif()
