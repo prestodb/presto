@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive.metastore.thrift;
+package com.facebook.presto.hive.metastore.hms;
 
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.type.Type;
@@ -59,12 +59,12 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getPartitionNamesWithEmptyVersion;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyCanDropColumn;
 import static com.facebook.presto.hive.metastore.PrestoTableType.TEMPORARY_TABLE;
-import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiPartition;
-import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiTable;
-import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.isAvroTableWithSchemaSet;
-import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.isCsvTable;
-import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiDatabase;
-import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiTable;
+import static com.facebook.presto.hive.metastore.hms.ThriftMetastoreUtil.fromMetastoreApiPartition;
+import static com.facebook.presto.hive.metastore.hms.ThriftMetastoreUtil.fromMetastoreApiTable;
+import static com.facebook.presto.hive.metastore.hms.ThriftMetastoreUtil.isAvroTableWithSchemaSet;
+import static com.facebook.presto.hive.metastore.hms.ThriftMetastoreUtil.isCsvTable;
+import static com.facebook.presto.hive.metastore.hms.ThriftMetastoreUtil.toMetastoreApiDatabase;
+import static com.facebook.presto.hive.metastore.hms.ThriftMetastoreUtil.toMetastoreApiTable;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
