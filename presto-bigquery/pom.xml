@@ -17,6 +17,7 @@
         <google.auth.library.version>1.33.1</google.auth.library.version>
         <google.auto.value.version>1.11.0</google.auto.value.version>
         <google.http.client.version>1.46.3</google.http.client.version>
+        <air.check.skip-modernizer>true</air.check.skip-modernizer>
     </properties>
 
     <dependencyManagement>
