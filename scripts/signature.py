@@ -20,7 +20,7 @@ from typing import Any
 
 from deepdiff import DeepDiff
 
-import pyvelox as pv
+import pyvelox.legacy as pv
 
 # Utility to export and diff function signatures.
 
