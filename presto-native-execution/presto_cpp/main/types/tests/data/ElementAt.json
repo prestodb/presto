@@ -3,6 +3,7 @@
     {
       "docString": "presto.default.element_at",
       "functionKind": "SCALAR",
+      "longVariableConstraints":[],
       "outputType": "t",
       "paramTypes": [
         "array(t)",
@@ -28,6 +29,7 @@
     {
       "docString": "presto.default.element_at",
       "functionKind": "SCALAR",
+      "longVariableConstraints":[],
       "outputType": "t",
       "paramTypes": [
         "array(t)",
@@ -53,6 +55,7 @@
     {
       "docString": "presto.default.element_at",
       "functionKind": "SCALAR",
+      "longVariableConstraints":[],
       "outputType": "v",
       "paramTypes": [
         "map(k,v)",

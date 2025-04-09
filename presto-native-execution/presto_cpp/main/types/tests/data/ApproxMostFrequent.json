@@ -7,6 +7,7 @@
       },
       "docString": "presto.default.approx_most_frequent",
       "functionKind": "AGGREGATE",
+      "longVariableConstraints":[],
       "outputType": "map(boolean,bigint)",
       "paramTypes": [
         "bigint",
@@ -29,6 +30,7 @@
       },
       "docString": "presto.default.approx_most_frequent",
       "functionKind": "AGGREGATE",
+      "longVariableConstraints":[],
       "outputType": "map(tinyint,bigint)",
       "paramTypes": [
         "bigint",
@@ -51,6 +53,7 @@
       },
       "docString": "presto.default.approx_most_frequent",
       "functionKind": "AGGREGATE",
+      "longVariableConstraints":[],
       "outputType": "map(smallint,bigint)",
       "paramTypes": [
         "bigint",
@@ -73,6 +76,7 @@
       },
       "docString": "presto.default.approx_most_frequent",
       "functionKind": "AGGREGATE",
+      "longVariableConstraints":[],
       "outputType": "map(integer,bigint)",
       "paramTypes": [
         "bigint",
@@ -95,6 +99,7 @@
       },
       "docString": "presto.default.approx_most_frequent",
       "functionKind": "AGGREGATE",
+      "longVariableConstraints":[],
       "outputType": "map(bigint,bigint)",
       "paramTypes": [
         "bigint",
@@ -117,6 +122,7 @@
       },
       "docString": "presto.default.approx_most_frequent",
       "functionKind": "AGGREGATE",
+      "longVariableConstraints":[],
       "outputType": "map(varchar,bigint)",
       "paramTypes": [
         "bigint",
@@ -139,6 +145,7 @@
       },
       "docString": "presto.default.approx_most_frequent",
       "functionKind": "AGGREGATE",
+      "longVariableConstraints":[],
       "outputType": "map(json,bigint)",
       "paramTypes": [
         "bigint",

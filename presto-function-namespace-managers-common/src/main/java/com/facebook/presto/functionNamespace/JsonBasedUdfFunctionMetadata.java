@@ -16,6 +16,7 @@ package com.facebook.presto.functionNamespace;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.function.AggregationFunctionMetadata;
 import com.facebook.presto.spi.function.FunctionKind;
+import com.facebook.presto.spi.function.LongVariableConstraint;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.TypeVariableConstraint;
@@ -73,6 +74,7 @@ public class JsonBasedUdfFunctionMetadata
      * Optional list of the typeVariableConstraints.
      */
     private final Optional<List<TypeVariableConstraint>> typeVariableConstraints;
+    private final Optional<List<LongVariableConstraint>> longVariableConstraints;
     private final Optional<SqlFunctionId> functionId;
     private final Optional<String> version;
 
@@ -88,7 +90,8 @@ public class JsonBasedUdfFunctionMetadata
             @JsonProperty("aggregateMetadata") Optional<AggregationFunctionMetadata> aggregateMetadata,
             @JsonProperty("functionId") Optional<SqlFunctionId> functionId,
             @JsonProperty("version") Optional<String> version,
-            @JsonProperty("typeVariableConstraints") Optional<List<TypeVariableConstraint>> typeVariableConstraints)
+            @JsonProperty("typeVariableConstraints") Optional<List<TypeVariableConstraint>> typeVariableConstraints,
+            @JsonProperty("longVariableConstraints") Optional<List<LongVariableConstraint>> longVariableConstraints)
     {
         this.docString = requireNonNull(docString, "docString is null");
         this.functionKind = requireNonNull(functionKind, "functionKind is null");
@@ -104,6 +107,7 @@ public class JsonBasedUdfFunctionMetadata
         this.functionId = requireNonNull(functionId, "functionId is null");
         this.version = requireNonNull(version, "version is null");
         this.typeVariableConstraints = requireNonNull(typeVariableConstraints, "typeVariableConstraints is null");
+        this.longVariableConstraints = requireNonNull(longVariableConstraints, "longVariableConstraints is null");
     }
 
     @JsonProperty
@@ -176,5 +180,11 @@ public class JsonBasedUdfFunctionMetadata
     public Optional<List<TypeVariableConstraint>> getTypeVariableConstraints()
     {
         return typeVariableConstraints;
+    }
+
+    @JsonProperty
+    public Optional<List<LongVariableConstraint>> getLongVariableConstraints()
+    {
+        return longVariableConstraints;
     }
 }

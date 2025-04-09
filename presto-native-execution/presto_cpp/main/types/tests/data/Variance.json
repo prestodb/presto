@@ -7,6 +7,7 @@
       },
       "docString": "presto.default.variance",
       "functionKind": "AGGREGATE",
+      "longVariableConstraints":[],
       "outputType": "double",
       "paramTypes": [
         "smallint"
@@ -27,6 +28,7 @@
       },
       "docString": "presto.default.variance",
       "functionKind": "AGGREGATE",
+      "longVariableConstraints":[],
       "outputType": "double",
       "paramTypes": [
         "integer"
@@ -47,6 +49,7 @@
       },
       "docString": "presto.default.variance",
       "functionKind": "AGGREGATE",
+      "longVariableConstraints":[],
       "outputType": "double",
       "paramTypes": [
         "bigint"
@@ -67,6 +70,7 @@
       },
       "docString": "presto.default.variance",
       "functionKind": "AGGREGATE",
+      "longVariableConstraints":[],
       "outputType": "double",
       "paramTypes": [
         "real"
@@ -87,6 +91,7 @@
       },
       "docString": "presto.default.variance",
       "functionKind": "AGGREGATE",
+      "longVariableConstraints":[],
       "outputType": "double",
       "paramTypes": [
         "double"
@@ -107,6 +112,7 @@
       },
       "docString": "presto.default.variance",
       "functionKind": "WINDOW",
+      "longVariableConstraints":[],
       "outputType": "double",
       "paramTypes": [
         "smallint"
