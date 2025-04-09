@@ -65,6 +65,7 @@ import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
+import com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
@@ -131,6 +132,7 @@ public final class GraphvizPrinter
         ANALYZE_FINISH,
         EXPLAIN_ANALYZE,
         UPDATE,
+        TABLE_FUNCTION
     }
 
     private static final Map<NodeType, String> NODE_COLORS = immutableEnumMap(ImmutableMap.<NodeType, String>builder()
@@ -162,6 +164,7 @@ public final class GraphvizPrinter
             .put(NodeType.ANALYZE_FINISH, "plum")
             .put(NodeType.EXPLAIN_ANALYZE, "cadetblue1")
             .put(NodeType.UPDATE, "blue")
+            .put(NodeType.TABLE_FUNCTION, "mediumorchid")
             .build());
 
     static {
@@ -645,6 +648,13 @@ public final class GraphvizPrinter
             node.getInput().accept(this, context);
             node.getSubquery().accept(this, context);
 
+            return null;
+        }
+
+        @Override
+        public Void visitTableFunctionProcessor(TableFunctionProcessorNode node, Void context)
+        {
+            printNode(node, "Table Function Processor", node.getHandle().getSchemaFunctionName().toString(), NODE_COLORS.get(NodeType.TABLE_FUNCTION));
             return null;
         }
 
