@@ -15,6 +15,7 @@
         <project.build.targetJdk>17</project.build.targetJdk>
         <dep.iceberg.version>1.5.0</dep.iceberg.version>
         <dep.nessie.version>0.77.1</dep.nessie.version>
+        <air.check.skip-modernizer>true</air.check.skip-modernizer>
     </properties>
 
     <dependencyManagement>
