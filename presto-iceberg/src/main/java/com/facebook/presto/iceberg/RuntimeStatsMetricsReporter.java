@@ -8,7 +8,9 @@ import org.apache.iceberg.metrics.MetricsReporter;
 import org.apache.iceberg.metrics.ScanReport;
 
 import java.util.Objects;
-//com.facebook.presto.tests.statistics;
+
+
+
 
 public class RuntimeStatsMetricsReporter implements MetricsReporter {
 
@@ -16,6 +18,10 @@ public class RuntimeStatsMetricsReporter implements MetricsReporter {
 
     public RuntimeStatsMetricsReporter(RuntimeStats runtimeStats) {
         this.runtimeStats = runtimeStats;
+    }
+
+    private String tableScanString(String tableName, String metricName) {
+        return tableName + ".scan." + metricName;
     }
 
     @Override
@@ -34,7 +40,7 @@ public class RuntimeStatsMetricsReporter implements MetricsReporter {
         if(scanReport.scanMetrics().totalPlanningDuration() != null)
         {
             runtimeStats.addMetricValue(
-                    table_name + "-totalPlanningDuration",
+                    tableScanString(table_name, "totalPlanningDuration"),
                     RuntimeUnit.NANO,
                     scanReport.scanMetrics().totalPlanningDuration().totalDuration().toNanos()
             );
@@ -44,7 +50,7 @@ public class RuntimeStatsMetricsReporter implements MetricsReporter {
         if(scanReport.scanMetrics().resultDataFiles() != null)
         {
             runtimeStats.addMetricValue(
-                    table_name + "-resultDataFiles",
+                    tableScanString(table_name, "resultDataFiles"),
                     RuntimeUnit.NONE,
                     scanReport.scanMetrics().resultDataFiles().value()
             );
@@ -54,7 +60,7 @@ public class RuntimeStatsMetricsReporter implements MetricsReporter {
         if(scanReport.scanMetrics().resultDeleteFiles() != null)
         {
             runtimeStats.addMetricValue(
-                    table_name + "-resultDeleteFiles",
+                    tableScanString(table_name, "resultDeleteFiles"),
                     RuntimeUnit.NONE,
                     scanReport.scanMetrics().resultDeleteFiles().value()
             );
@@ -64,7 +70,7 @@ public class RuntimeStatsMetricsReporter implements MetricsReporter {
         if(scanReport.scanMetrics().totalDataManifests() != null)
         {
             runtimeStats.addMetricValue(
-                    table_name + "-totalDataManifests",
+                    tableScanString(table_name,"totalDataManifests"),
                     RuntimeUnit.NONE,
                     scanReport.scanMetrics().totalDataManifests().value()
             );
@@ -76,7 +82,7 @@ public class RuntimeStatsMetricsReporter implements MetricsReporter {
         if(scanReport.scanMetrics().totalDeleteManifests() != null)
         {
             runtimeStats.addMetricValue(
-                    table_name + "-totalDeleteManifests",
+                    tableScanString(table_name, "totalDeleteManifests"),
                     RuntimeUnit.NONE,
                     scanReport.scanMetrics().totalDeleteManifests().value()
             );
@@ -87,7 +93,7 @@ public class RuntimeStatsMetricsReporter implements MetricsReporter {
         if(scanReport.scanMetrics().scannedDataManifests() != null)
         {
             runtimeStats.addMetricValue(
-                    table_name + "-scannedDataManifests",
+                    tableScanString(table_name,"scannedDataManifests"),
                     RuntimeUnit.NONE,
                     scanReport.scanMetrics().scannedDataManifests().value()
             );
@@ -99,7 +105,7 @@ public class RuntimeStatsMetricsReporter implements MetricsReporter {
         if( scanReport.scanMetrics().skippedDataManifests() != null)
         {
             runtimeStats.addMetricValue(
-                    table_name + "-skippedDataManifests",
+                    tableScanString(table_name, "skippedDataManifests"),
                     RuntimeUnit.NONE,
                     scanReport.scanMetrics().skippedDataManifests().value()
             );
@@ -111,7 +117,7 @@ public class RuntimeStatsMetricsReporter implements MetricsReporter {
         if(scanReport.scanMetrics().totalFileSizeInBytes() != null)
         {
             runtimeStats.addMetricValue(
-                    table_name + "-totalFileSizeInBytes",
+                    tableScanString(table_name, "totalFileSizeInBytes"),
                     RuntimeUnit.BYTE,
                     scanReport.scanMetrics().totalFileSizeInBytes().value()
             );
@@ -123,7 +129,7 @@ public class RuntimeStatsMetricsReporter implements MetricsReporter {
         if(scanReport.scanMetrics().totalDeleteFileSizeInBytes() != null)
         {
             runtimeStats.addMetricValue(
-                    table_name + "-totalDeleteFileSizeInBytes",
+                    tableScanString(table_name, "totalDeleteFileSizeInBytes"),
                     RuntimeUnit.BYTE,
                     scanReport.scanMetrics().totalDeleteFileSizeInBytes().value()
             );
@@ -134,7 +140,7 @@ public class RuntimeStatsMetricsReporter implements MetricsReporter {
         if(scanReport.scanMetrics().skippedDataFiles() != null)
         {
             runtimeStats.addMetricValue(
-                    table_name + "-skippedDataFiles",
+                    tableScanString(table_name, "skippedDataFiles"),
                     RuntimeUnit.NONE,
                     scanReport.scanMetrics().skippedDataFiles().value()
             );
@@ -146,7 +152,7 @@ public class RuntimeStatsMetricsReporter implements MetricsReporter {
         if(scanReport.scanMetrics().skippedDeleteFiles() != null)
         {
             runtimeStats.addMetricValue(
-                    table_name + "-skippedDeleteFiles",
+                    tableScanString(table_name,  "skippedDeleteFiles"),
                     RuntimeUnit.NONE,
                     scanReport.scanMetrics().skippedDeleteFiles().value()
             );
@@ -158,7 +164,7 @@ public class RuntimeStatsMetricsReporter implements MetricsReporter {
         if(scanReport.scanMetrics().scannedDeleteManifests() != null)
         {
             runtimeStats.addMetricValue(
-                    table_name + "-scannedDeleteManifests",
+                    tableScanString(table_name, "scannedDeleteManifests"),
                     RuntimeUnit.NONE,
                     scanReport.scanMetrics().scannedDeleteManifests().value()
             );
@@ -169,7 +175,7 @@ public class RuntimeStatsMetricsReporter implements MetricsReporter {
         if(scanReport.scanMetrics().skippedDeleteManifests() != null)
         {
             runtimeStats.addMetricValue(
-                    table_name + "-skippedDeleteManifests",
+                    tableScanString(table_name,"skippedDeleteManifests"),
                     RuntimeUnit.NONE,
                     scanReport.scanMetrics().skippedDeleteManifests().value()
             );
@@ -181,7 +187,7 @@ public class RuntimeStatsMetricsReporter implements MetricsReporter {
         if(scanReport.scanMetrics().indexedDeleteFiles() != null)
         {
             runtimeStats.addMetricValue(
-                    table_name + "-indexedDeleteFiles",
+                    tableScanString(table_name, "indexedDeleteFiles"),
                     RuntimeUnit.NONE,
                     scanReport.scanMetrics().indexedDeleteFiles().value()
             );
@@ -193,7 +199,7 @@ public class RuntimeStatsMetricsReporter implements MetricsReporter {
         if(scanReport.scanMetrics().equalityDeleteFiles() != null)
         {
             runtimeStats.addMetricValue(
-                    table_name + "-equalityDeleteFiles",
+                    tableScanString(table_name,  "equalityDeleteFiles"),
                     RuntimeUnit.NONE,
                     scanReport.scanMetrics().equalityDeleteFiles().value()
             );
@@ -204,16 +210,10 @@ public class RuntimeStatsMetricsReporter implements MetricsReporter {
         if(scanReport.scanMetrics().positionalDeleteFiles() != null)
         {
             runtimeStats.addMetricValue(
-                    table_name + "-positionalDeleteFiles",
+                    tableScanString(table_name, "positionalDeleteFiles"),
                     RuntimeUnit.NONE,
                     scanReport.scanMetrics().positionalDeleteFiles().value()
             );
         }
-
-
-        // test this code by running Query on iceBerg connector
-        // check webUi -> runtimestats
-
-        // Next steps: Write tests too / Test w Query
     }
 }
