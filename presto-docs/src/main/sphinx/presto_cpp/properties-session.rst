@@ -479,3 +479,19 @@ Maximum wait time for exchange long poll requests in seconds.
 
 Priority of the query in the memory pool reclaimer. Lower value means higher priority.
 This is used in global arbitration victim selection.
+
+
+Sidecar Session Properties
+--------------------------
+
+The following session properties apply for Presto C++ deployed with native sidecar.
+
+``expression_optimizer_name``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``varchar``
+* **Default value:** ``default``
+
+The default expression optimizer uses Presto Java function implementations. Set
+this to ``native`` to use the native expression optimizer, which uses Presto C++
+function implementations.
