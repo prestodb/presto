@@ -18,8 +18,6 @@
 #include <gtest/gtest.h>
 
 #include "velox/common/file/FileSystems.h"
-#include "velox/common/memory/SharedArbitrator.h"
-#include "velox/exec/MemoryReclaimer.h"
 #include "velox/exec/fuzzer/JoinFuzzer.h"
 #include "velox/exec/fuzzer/ReferenceQueryRunner.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"

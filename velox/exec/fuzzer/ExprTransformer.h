@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include "velox/core/Expressions.h"
+#include "velox/core/ITypedExpr.h"
 
 namespace facebook::velox::exec::test {
 

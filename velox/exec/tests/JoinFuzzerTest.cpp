@@ -20,7 +20,6 @@
 
 #include "velox/exec/fuzzer/FuzzerUtil.h"
 #include "velox/exec/fuzzer/JoinFuzzerRunner.h"
-#include "velox/exec/fuzzer/ReferenceQueryRunner.h"
 
 DEFINE_int64(
     seed,
