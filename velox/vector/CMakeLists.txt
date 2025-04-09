@@ -23,6 +23,7 @@ velox_add_library(
   SelectivityVector.cpp
   SequenceVector.cpp
   SimpleVector.cpp
+  StringVectorBuffer.cpp
   VariantToVector.cpp
   VectorEncoding.cpp
   VectorMap.cpp

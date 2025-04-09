@@ -24,6 +24,7 @@ add_executable(
   LazyVectorTest.cpp
   MayHaveNullsRecursiveTest.cpp
   SelectivityVectorTest.cpp
+  StringVectorBufferTest.cpp
   VariantToVectorTest.cpp
   VectorCompareTest.cpp
   VectorEstimateFlatSizeTest.cpp
