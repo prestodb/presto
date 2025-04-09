@@ -38,6 +38,7 @@ class HiveConnectorSerDeTest : public exec::test::HiveConnectorTestBase {
     HiveBucketProperty::registerSerDe();
     HiveSortingColumn::registerSerDe();
     HiveConnectorSplit::registerSerDe();
+    HiveInsertFileNameGenerator::registerSerDe();
   }
 
   template <typename T>

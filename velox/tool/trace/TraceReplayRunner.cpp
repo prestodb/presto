@@ -287,6 +287,7 @@ void TraceReplayRunner::init() {
   connector::hive::LocationHandle::registerSerDe();
   connector::hive::HiveColumnHandle::registerSerDe();
   connector::hive::HiveInsertTableHandle::registerSerDe();
+  connector::hive::HiveInsertFileNameGenerator::registerSerDe();
   connector::hive::HiveConnectorSplit::registerSerDe();
   connector::hive::registerHivePartitionFunctionSerDe();
   connector::hive::HiveBucketProperty::registerSerDe();
