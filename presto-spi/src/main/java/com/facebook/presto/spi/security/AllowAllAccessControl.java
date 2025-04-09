@@ -234,4 +234,10 @@ public class AllowAllAccessControl
     public void checkCanAddConstraints(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
     {
     }
+
+    @Override
+    public boolean isSkipPermissionsCheckEnabled()
+    {
+        return false;
+    }
 }

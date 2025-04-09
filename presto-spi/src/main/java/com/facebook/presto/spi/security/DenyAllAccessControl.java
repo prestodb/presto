@@ -315,4 +315,10 @@ public class DenyAllAccessControl
     {
         denyAddConstraint(tableName.toString());
     }
+
+    @Override
+    public boolean isSkipPermissionsCheckEnabled()
+    {
+        return false;
+    }
 }

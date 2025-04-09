@@ -253,4 +253,11 @@ public abstract class ForwardingSystemAccessControl
     {
         delegate().checkCanAddConstraint(identity, context, table);
     }
+
+    @Override
+    public boolean isSkipPermissionsCheckEnabled()
+    {
+        // Need to override
+        return false;
+    }
 }
