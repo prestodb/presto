@@ -77,7 +77,7 @@ class SignatureTest(unittest.TestCase):
         actual = self.get_bias_messaging(base_signatures, contender_signatures)
         expected = get_error_string(expected_message)
         expected += "\n"  # Add trailing newline for std output.
-        self.assertEquals(expected, actual)
+        self.assertEqual(expected, actual)
 
     def test_messaging(self):
         # Remove a signature
