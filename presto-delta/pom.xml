@@ -16,6 +16,7 @@
         <enforcer.skip>true</enforcer.skip>
         <io.delta.delta-kernel-api.version>3.2.0</io.delta.delta-kernel-api.version>
         <project.build.targetJdk>17</project.build.targetJdk>
+        <air.check.skip-modernizer>true</air.check.skip-modernizer>
     </properties>
 
     <dependencyManagement>
