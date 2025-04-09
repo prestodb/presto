@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sidecar;
 
+import com.facebook.presto.sidecar.expressions.NativeExpressionOptimizerFactory;
 import com.facebook.presto.sidecar.functionNamespace.NativeFunctionNamespaceManagerFactory;
 import com.facebook.presto.sidecar.sessionpropertyproviders.NativeSystemSessionPropertyProviderFactory;
 import com.facebook.presto.sidecar.typemanager.NativeTypeManagerFactory;
@@ -34,5 +35,6 @@ public class NativeSidecarPluginQueryRunnerUtils
                         "supported-function-languages", "CPP",
                         "function-implementation-type", "CPP"));
         queryRunner.loadTypeManager(NativeTypeManagerFactory.NAME);
+        queryRunner.getExpressionManager().loadExpressionOptimizerFactory(NativeExpressionOptimizerFactory.NAME, "native", ImmutableMap.of());
     }
 }
