@@ -11,47 +11,46 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive.metastore.thrift;
+package com.facebook.presto.hive.metastore.hms;
 
-import com.google.common.net.HostAndPort;
+import com.facebook.presto.hive.metastore.hms.thrift.ThriftHiveMetastoreClientFactory;
+import com.google.common.collect.ImmutableList;
 import org.apache.thrift.TException;
 
 import javax.inject.Inject;
 
 import java.net.URI;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 
 public class StaticHiveCluster
         implements HiveCluster
 {
-    private final List<HostAndPort> addresses;
-    private final HiveMetastoreClientFactory clientFactory;
+    private final ImmutableList<URI> metastoreUris;
+    private final ThriftHiveMetastoreClientFactory clientFactory;
     private final String metastoreUsername;
     private final boolean metastoreLoadBalancingEnabled;
 
     @Inject
-    public StaticHiveCluster(StaticMetastoreConfig config, HiveMetastoreClientFactory clientFactory)
+    public StaticHiveCluster(StaticMetastoreConfig config, ThriftHiveMetastoreClientFactory clientFactory)
     {
         this(config.getMetastoreUris(), config.isMetastoreLoadBalancingEnabled(), config.getMetastoreUsername(), clientFactory);
     }
 
-    public StaticHiveCluster(List<URI> metastoreUris, boolean metastoreLoadBalancingEnabled, String metastoreUsername, HiveMetastoreClientFactory clientFactory)
+    public StaticHiveCluster(List<URI> metastoreUris, boolean metastoreLoadBalancingEnabled, String metastoreUsername, ThriftHiveMetastoreClientFactory clientFactory)
     {
         requireNonNull(metastoreUris, "metastoreUris is null");
         this.metastoreLoadBalancingEnabled = metastoreLoadBalancingEnabled;
         checkArgument(!metastoreUris.isEmpty(), "metastoreUris must specify at least one URI");
-        this.addresses = metastoreUris.stream()
+        this.metastoreUris = metastoreUris.stream()
                 .map(StaticHiveCluster::checkMetastoreUri)
-                .map(uri -> HostAndPort.fromParts(uri.getHost(), uri.getPort()))
-                .collect(toList());
+                .collect(toImmutableList());
         this.metastoreUsername = metastoreUsername;
         this.clientFactory = requireNonNull(clientFactory, "clientFactory is null");
     }
@@ -68,15 +67,14 @@ public class StaticHiveCluster
     public HiveMetastoreClient createMetastoreClient(Optional<String> token)
             throws TException
     {
-        List<HostAndPort> metastores = new ArrayList<>(addresses);
         if (metastoreLoadBalancingEnabled) {
-            Collections.shuffle(metastores);
+            Collections.shuffle(metastoreUris);
         }
 
         TException lastException = null;
-        for (HostAndPort metastore : metastores) {
+        for (URI metastoreUri : metastoreUris) {
             try {
-                HiveMetastoreClient client = clientFactory.create(metastore, token);
+                HiveMetastoreClient client = clientFactory.create(metastoreUri, token);
 
                 if (!isNullOrEmpty(metastoreUsername)) {
                     client.setUGI(metastoreUsername);
@@ -87,7 +85,7 @@ public class StaticHiveCluster
                 lastException = e;
             }
         }
-        throw new TException("Failed connecting to Hive metastore: " + addresses, lastException);
+        throw new TException("Failed connecting to Hive metastore: " + metastoreUris, lastException);
     }
 
     private static URI checkMetastoreUri(URI uri)

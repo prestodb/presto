@@ -14,7 +14,7 @@
 package com.facebook.presto.hive.metastore;
 
 import com.facebook.airlift.configuration.testing.ConfigAssertions;
-import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastoreConfig;
+import com.facebook.presto.hive.metastore.hms.ThriftHiveMetastoreConfig;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 

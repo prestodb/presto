@@ -11,18 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive.metastore.thrift;
+package com.facebook.presto.hive.metastore.util;
 
 import com.facebook.airlift.security.pem.PemReader;
 import com.facebook.presto.hive.HiveCommonClientConfig;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.authentication.HiveMetastoreAuthentication;
 import com.facebook.presto.spi.PrestoException;
-import com.google.common.net.HostAndPort;
-import io.airlift.units.Duration;
-import org.apache.thrift.transport.TTransportException;
 
-import javax.inject.Inject;
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
@@ -46,11 +42,9 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_INITIALIZE_SSL_ERROR;
-import static java.lang.Math.toIntExact;
 import static java.util.Collections.list;
-import static java.util.Objects.requireNonNull;
 
-public class HiveMetastoreClientFactory
+public class HiveMetastoreUtils
 {
     private final Optional<SSLContext> sslContext;
     private final Optional<HostAndPort> socksProxy;
@@ -100,7 +94,7 @@ public class HiveMetastoreClientFactory
      * @param trustStorePassword
      * @return SSLContext
      */
-    private static Optional<SSLContext> buildSslContext(boolean tlsEnabled,
+    public static Optional<SSLContext> buildSslContext(boolean tlsEnabled,
                                                         Optional<File> keystorePath,
                                                         Optional<String> keystorePassword,
                                                         Optional<File> truststorePath,
