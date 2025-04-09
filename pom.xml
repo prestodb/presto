@@ -59,7 +59,7 @@
         <dep.okhttp.version>4.12.0</dep.okhttp.version>
         <dep.jdbi3.version>3.4.0</dep.jdbi3.version>
         <dep.oracle.version>19.3.0.0</dep.oracle.version>
-        <dep.drift.version>1.40-SNAPSHOT</dep.drift.version>
+        <dep.drift.version>${dep.airlift.version}</dep.drift.version>
         <!-- Changing joda version changes tzdata which must match deployed JVM tzdata
              Do not change this without also making sure it matches -->
         <dep.joda.version>2.12.7</dep.joda.version>
@@ -1128,24 +1128,48 @@
                 <groupId>com.github.zacblanco.airlift</groupId>
                 <artifactId>log</artifactId>
                 <version>${dep.airlift.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>*</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
                 <groupId>com.github.zacblanco.airlift</groupId>
                 <artifactId>log-manager</artifactId>
                 <version>${dep.airlift.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>*</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
                 <groupId>com.github.zacblanco.airlift</groupId>
                 <artifactId>json</artifactId>
                 <version>${dep.airlift.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>*</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
                 <groupId>com.github.zacblanco.airlift</groupId>
                 <artifactId>security</artifactId>
                 <version>${dep.airlift.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>*</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -1158,42 +1182,84 @@
                 <groupId>com.github.zacblanco.airlift</groupId>
                 <artifactId>concurrent</artifactId>
                 <version>${dep.airlift.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>*</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
                 <groupId>com.github.zacblanco.airlift</groupId>
                 <artifactId>configuration</artifactId>
                 <version>${dep.airlift.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>*</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
                 <groupId>com.github.zacblanco.airlift</groupId>
                 <artifactId>discovery</artifactId>
                 <version>${dep.airlift.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>*</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
                 <groupId>com.github.zacblanco.airlift</groupId>
                 <artifactId>testing</artifactId>
                 <version>${dep.airlift.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>*</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
                 <groupId>com.github.zacblanco.airlift</groupId>
                 <artifactId>node</artifactId>
                 <version>${dep.airlift.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>*</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
                 <groupId>com.github.zacblanco.airlift</groupId>
                 <artifactId>bootstrap</artifactId>
                 <version>${dep.airlift.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>*</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
                 <groupId>com.github.zacblanco.airlift</groupId>
                 <artifactId>event</artifactId>
                 <version>${dep.airlift.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>*</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -1205,6 +1271,10 @@
                         <groupId>io.jsonwebtoken</groupId>
                         <artifactId>jjwt</artifactId>
                     </exclusion>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>*</artifactId>
+                    </exclusion>
                 </exclusions>
             </dependency>
 
@@ -1212,48 +1282,96 @@
                 <groupId>com.github.zacblanco.airlift</groupId>
                 <artifactId>jaxrs</artifactId>
                 <version>${dep.airlift.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>*</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
                 <groupId>com.github.zacblanco.airlift</groupId>
                 <artifactId>jaxrs-testing</artifactId>
                 <version>${dep.airlift.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>*</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
                 <groupId>com.github.zacblanco.airlift</groupId>
                 <artifactId>jmx</artifactId>
                 <version>${dep.airlift.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>*</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
                 <groupId>com.github.zacblanco.airlift</groupId>
                 <artifactId>trace-token</artifactId>
                 <version>${dep.airlift.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>*</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
                 <groupId>com.github.zacblanco.airlift</groupId>
                 <artifactId>dbpool</artifactId>
                 <version>${dep.airlift.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>*</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
                 <groupId>com.github.zacblanco.airlift</groupId>
                 <artifactId>jmx-http</artifactId>
                 <version>${dep.airlift.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>*</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
                 <groupId>com.github.zacblanco.airlift</groupId>
                 <artifactId>http-client</artifactId>
                 <version>${dep.airlift.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>*</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
                 <groupId>com.github.zacblanco.airlift</groupId>
                 <artifactId>stats</artifactId>
                 <version>${dep.airlift.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>*</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -1263,95 +1381,95 @@
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.drift</groupId>
+                <groupId>com.github.zacblanco.airlift</groupId>
                 <artifactId>drift-api</artifactId>
                 <version>${dep.drift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.drift</groupId>
+                <groupId>com.github.zacblanco.airlift</groupId>
                 <artifactId>drift-client</artifactId>
                 <version>${dep.drift.version}</version>
                 <exclusions>
                     <exclusion>
-                        <groupId>com.facebook.airlift</groupId>
+                        <groupId>com.github.zacblanco.airlift</groupId>
                         <artifactId>concurrent</artifactId>
                     </exclusion>
                     <exclusion>
-                        <groupId>com.facebook.airlift</groupId>
+                        <groupId>com.github.zacblanco.airlift</groupId>
                         <artifactId>configuration</artifactId>
                     </exclusion>
                     <exclusion>
-                        <groupId>com.facebook.airlift</groupId>
+                        <groupId>com.github.zacblanco.airlift</groupId>
                         <artifactId>log</artifactId>
                     </exclusion>
                     <exclusion>
-                        <groupId>com.facebook.airlift</groupId>
+                        <groupId>com.github.zacblanco.airlift</groupId>
                         <artifactId>stats</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.drift</groupId>
+                <groupId>com.github.zacblanco.airlift</groupId>
                 <artifactId>drift-codec</artifactId>
                 <version>${dep.drift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.drift</groupId>
+                <groupId>com.github.zacblanco.airlift</groupId>
                 <artifactId>drift-protocol</artifactId>
                 <version>${dep.drift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.drift</groupId>
+                <groupId>com.github.zacblanco.airlift</groupId>
                 <artifactId>drift-server</artifactId>
                 <version>${dep.drift.version}</version>
                 <exclusions>
                     <exclusion>
-                        <groupId>com.facebook.airlift</groupId>
+                        <groupId>com.github.zacblanco.airlift</groupId>
                         <artifactId>stats</artifactId>
                     </exclusion>
                     <exclusion>
-                        <groupId>com.facebook.airlift</groupId>
+                        <groupId>com.github.zacblanco.airlift</groupId>
                         <artifactId>configuration</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.drift</groupId>
+                <groupId>com.github.zacblanco.airlift</groupId>
                 <artifactId>drift-transport-netty</artifactId>
                 <version>${dep.drift.version}</version>
                 <exclusions>
                     <exclusion>
-                        <groupId>com.facebook.airlift</groupId>
+                        <groupId>com.github.zacblanco.airlift</groupId>
                         <artifactId>concurrent</artifactId>
                     </exclusion>
                     <exclusion>
-                        <groupId>com.facebook.airlift</groupId>
+                        <groupId>com.github.zacblanco.airlift</groupId>
                         <artifactId>configuration</artifactId>
                     </exclusion>
                     <exclusion>
-                        <groupId>com.facebook.airlift</groupId>
+                        <groupId>com.github.zacblanco.airlift</groupId>
                         <artifactId>log</artifactId>
                     </exclusion>
                     <exclusion>
-                        <groupId>com.facebook.airlift</groupId>
+                        <groupId>com.github.zacblanco.airlift</groupId>
                         <artifactId>security</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.drift</groupId>
+                <groupId>com.github.zacblanco.airlift</groupId>
                 <artifactId>drift-transport-spi</artifactId>
                 <version>${dep.drift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.drift</groupId>
+                <groupId>com.github.zacblanco.airlift</groupId>
                 <artifactId>drift-codec-utils</artifactId>
                 <version>${dep.drift.version}</version>
             </dependency>
@@ -2719,7 +2837,7 @@
                 <plugin>
                     <groupId>com.facebook.drift</groupId>
                     <artifactId>drift-maven-plugin</artifactId>
-                    <version>${dep.drift.version}</version>
+                    <version>1.40</version>
                 </plugin>
 
                 <plugin>
