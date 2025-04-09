@@ -11,14 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive.metastore.thrift;
+package com.facebook.presto.hive.metastore.hms;
 
 import com.facebook.presto.hive.HiveCommonClientConfig;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.authentication.NoHiveMetastoreAuthentication;
-import com.google.common.net.HostAndPort;
+import com.facebook.presto.hive.metastore.hms.thrift.ThriftHiveMetastoreClientFactory;
 import org.apache.thrift.TException;
 
+import java.net.URI;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -58,12 +59,12 @@ public class TestingHiveCluster
         }
         TestingHiveCluster o = (TestingHiveCluster) obj;
 
-        return Objects.equals(this.address, o.address);
+        return Objects.equals(this.uri, o.uri);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(address);
+        return Objects.hash(uri);
     }
 }

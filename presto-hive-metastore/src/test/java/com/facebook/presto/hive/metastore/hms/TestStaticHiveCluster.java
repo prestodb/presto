@@ -11,8 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive.metastore.thrift;
+package com.facebook.presto.hive.metastore.hms;
 
+import com.facebook.presto.hive.metastore.hms.thrift.MockHiveMetastoreClientFactory;
 import io.airlift.units.Duration;
 import org.apache.thrift.TException;
 import org.testng.annotations.Test;

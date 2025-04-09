@@ -11,25 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive;
+package com.facebook.presto.hive.metastore.hms;
 
-import com.facebook.presto.hive.metastore.hms.ThriftHiveMetastoreConfig;
-import com.google.inject.Binder;
-import com.google.inject.Module;
+import org.apache.thrift.transport.TTransportException;
 
-import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import java.net.URI;
+import java.util.Optional;
 
-public class MetastoreClientModule
-        implements Module
+public interface MetastoreClientFactory
 {
-    public MetastoreClientModule()
-    {
-    }
-
-    @Override
-    public void configure(Binder binder)
-    {
-        configBinder(binder).bindConfig(MetastoreClientConfig.class);
-        configBinder(binder).bindConfig(ThriftHiveMetastoreConfig.class);
-    }
+    HiveMetastoreClient create(URI uri, Optional<String> delegationToken)
+            throws TTransportException;
 }

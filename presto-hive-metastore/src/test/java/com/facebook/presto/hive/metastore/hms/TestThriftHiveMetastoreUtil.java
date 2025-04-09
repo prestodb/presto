@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive.metastore.thrift;
+package com.facebook.presto.hive.metastore.hms;
 
 import com.facebook.presto.hive.HiveBasicStatistics;
 import com.facebook.presto.hive.metastore.BooleanStatistics;
@@ -41,8 +41,8 @@ import java.util.OptionalLong;
 
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveBasicStatistics;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.updateStatisticsParameters;
-import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiColumnStatistics;
-import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreDecimal;
+import static com.facebook.presto.hive.metastore.hms.ThriftMetastoreUtil.fromMetastoreApiColumnStatistics;
+import static com.facebook.presto.hive.metastore.hms.ThriftMetastoreUtil.toMetastoreDecimal;
 import static org.apache.hadoop.hive.metastore.api.ColumnStatisticsData.binaryStats;
 import static org.apache.hadoop.hive.metastore.api.ColumnStatisticsData.booleanStats;
 import static org.apache.hadoop.hive.metastore.api.ColumnStatisticsData.dateStats;
