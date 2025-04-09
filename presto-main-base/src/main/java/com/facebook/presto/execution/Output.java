@@ -16,10 +16,13 @@ package com.facebook.presto.execution;
 import com.facebook.presto.spi.ConnectorId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -30,18 +33,21 @@ public final class Output
     private final String schema;
     private final String table;
     private final String serializedCommitOutput;
+    private final Optional<List<Column>> columns;
 
     @JsonCreator
     public Output(
             @JsonProperty("connectorId") ConnectorId connectorId,
             @JsonProperty("schema") String schema,
             @JsonProperty("table") String table,
-            @JsonProperty("serializedCommitOutput") String serializedCommitOutput)
+            @JsonProperty("serializedCommitOutput") String serializedCommitOutput,
+            @JsonProperty("columns") Optional<List<Column>> columns)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.table = requireNonNull(table, "table is null");
         this.serializedCommitOutput = requireNonNull(serializedCommitOutput, "connectorCommitOutput is null");
+        this.columns = columns.map(ImmutableList::copyOf);
     }
 
     @JsonProperty
@@ -68,6 +74,12 @@ public final class Output
         return serializedCommitOutput;
     }
 
+    @JsonProperty
+    public Optional<List<Column>> getColumns()
+    {
+        return columns;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -81,12 +93,13 @@ public final class Output
         return Objects.equals(connectorId, output.connectorId) &&
                 Objects.equals(schema, output.schema) &&
                 Objects.equals(table, output.table) &&
-                Objects.equals(serializedCommitOutput, output.serializedCommitOutput);
+                Objects.equals(serializedCommitOutput, output.serializedCommitOutput) &&
+                Objects.equals(columns, output.columns);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, schema, table, serializedCommitOutput);
+        return Objects.hash(connectorId, schema, table, serializedCommitOutput, columns);
     }
 }
