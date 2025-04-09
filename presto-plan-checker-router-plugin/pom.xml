@@ -19,6 +19,7 @@
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <air.test.jvm.additional-arguments>-Xms4g -Xmx4g</air.test.jvm.additional-arguments>
         <project.build.targetJdk>17</project.build.targetJdk>
+        <air.check.skip-modernizer>true</air.check.skip-modernizer>
     </properties>
 
     <dependencies>
