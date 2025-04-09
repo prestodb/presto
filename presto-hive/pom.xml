@@ -567,6 +567,7 @@
                                 <exclude>**/TestHive2InsertOverwrite.java</exclude>
                                 <exclude>**/TestHive3InsertOverwrite.java</exclude>
                                 <exclude>**/TestHive4InsertOverwrite.java</exclude>
+                                <exclude>**/TestHiveHttpEnabledMetastore.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -714,6 +715,22 @@
                                 <include>**/TestHive2InsertOverwrite.java</include>
                                 <include>**/TestHive3InsertOverwrite.java</include>
                                 <include>**/TestHive4InsertOverwrite.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>test-hive-http-metastore</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/TestHiveHttpEnabledMetastore.java</include>
                             </includes>
                         </configuration>
                     </plugin>

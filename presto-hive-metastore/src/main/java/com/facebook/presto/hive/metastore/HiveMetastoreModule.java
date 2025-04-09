@@ -16,7 +16,7 @@ package com.facebook.presto.hive.metastore;
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.presto.hive.metastore.file.FileMetastoreModule;
 import com.facebook.presto.hive.metastore.glue.GlueMetastoreModule;
-import com.facebook.presto.hive.metastore.thrift.ThriftMetastoreModule;
+import com.facebook.presto.hive.metastore.hms.HmsModule;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 
@@ -43,7 +43,7 @@ public class HiveMetastoreModule
             binder.bind(ExtendedHiveMetastore.class).toInstance(metastore.get());
         }
         else {
-            bindMetastoreModule("thrift", new ThriftMetastoreModule(connectorId));
+            bindMetastoreModule("thrift", new HmsModule(connectorId));
             bindMetastoreModule("file", new FileMetastoreModule(connectorId));
             bindMetastoreModule("glue", new GlueMetastoreModule(connectorId));
         }
