@@ -13,6 +13,7 @@
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <shadeBase>com.facebook.presto.spark.launcher.internal</shadeBase>
         <main-class>com.facebook.presto.spark.launcher.PrestoSparkLauncher</main-class>
+        <air.check.skip-modernizer>true</air.check.skip-modernizer>
     </properties>
 
     <dependencies>
