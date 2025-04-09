@@ -159,6 +159,7 @@ class HiveDataSource : public DataSource {
   std::unordered_map<std::string, std::shared_ptr<HiveColumnHandle>>
       infoColumns_;
   SpecialColumnNames specialColumns_{};
+  std::vector<common::Subfield> remainingFilterSubfields_;
   folly::F14FastMap<std::string, std::vector<const common::Subfield*>>
       subfields_;
   common::SubfieldFilters filters_;
