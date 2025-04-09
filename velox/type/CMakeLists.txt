@@ -34,6 +34,7 @@ velox_add_library(
   Tokenizer.cpp
   Type.cpp
   TypeEncodingUtil.cpp
+  TypeUtil.cpp
   Variant.cpp)
 
 velox_link_libraries(
