@@ -28,7 +28,6 @@ import com.facebook.presto.cost.HistoryBasedPlanStatisticsTracker;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.eventlistener.EventListenerManager;
-import com.facebook.presto.execution.Column;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.Input;
 import com.facebook.presto.execution.QueryInfo;
@@ -49,6 +48,7 @@ import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.BasicQueryStats;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.eventlistener.Column;
 import com.facebook.presto.spi.eventlistener.OperatorStatistics;
 import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
 import com.facebook.presto.spi.eventlistener.QueryContext;
@@ -167,7 +167,8 @@ public class QueryMonitor
                                 Optional.empty(),
                                 Optional.empty(),
                                 ImmutableList.of(),
-                                queryInfo.getSession().getTraceToken())));
+                                queryInfo.getSession().getTraceToken(),
+                                Optional.empty())));
     }
 
     public void queryUpdatedEvent(QueryInfo queryInfo)
@@ -192,7 +193,8 @@ public class QueryMonitor
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of(),
-                        queryInfo.getSession().getTraceToken()),
+                        queryInfo.getSession().getTraceToken(),
+                        Optional.empty()),
                 createQueryStatistics(queryInfo),
                 createQueryContext(queryInfo.getSession(), queryInfo.getResourceGroupId()),
                 queryInfo.getQueryType(),
@@ -215,7 +217,8 @@ public class QueryMonitor
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of(),
-                        queryInfo.getSession().getTraceToken()),
+                        queryInfo.getSession().getTraceToken(),
+                        Optional.empty()),
                 new QueryStatistics(
                         ofMillis(0),
                         ofMillis(0),
@@ -359,7 +362,8 @@ public class QueryMonitor
                 queryInfo.getRuntimeOptimizedStages().orElse(ImmutableList.of()).stream()
                         .map(stageId -> String.valueOf(stageId.getId()))
                         .collect(toImmutableList()),
-                queryInfo.getSession().getTraceToken());
+                queryInfo.getSession().getTraceToken(),
+                Optional.ofNullable(queryInfo.getUpdateType()));
     }
 
     private List<OperatorStatistics> createOperatorStatistics(QueryInfo queryInfo)
@@ -582,7 +586,8 @@ public class QueryMonitor
                     input.getSchema(),
                     input.getTable(),
                     input.getColumns().stream()
-                            .map(Column::getName).collect(Collectors.toList()),
+                            .map(column -> new Column(column.getName(), column.getType()))
+                            .collect(Collectors.toList()),
                     input.getConnectorInfo(),
                     input.getStatistics(),
                     input.getSerializedCommitOutput()));
@@ -596,6 +601,13 @@ public class QueryMonitor
                     .map(TableFinishInfo.class::cast)
                     .findFirst();
 
+            Optional<List<Column>> outputColumns = queryInfo.getOutput().get().getColumns()
+                    .map(columns -> columns.stream()
+                            .map(column -> new Column(
+                                    column.getName(),
+                                    column.getType()))
+                            .collect(toImmutableList()));
+
             output = Optional.of(
                     new QueryOutputMetadata(
                             queryInfo.getOutput().get().getConnectorId().getCatalogName(),
@@ -603,8 +615,10 @@ public class QueryMonitor
                             queryInfo.getOutput().get().getTable(),
                             tableFinishInfo.map(TableFinishInfo::getSerializedConnectorOutputMetadata),
                             tableFinishInfo.map(TableFinishInfo::isJsonLengthLimitExceeded),
-                            queryInfo.getOutput().get().getSerializedCommitOutput()));
+                            queryInfo.getOutput().get().getSerializedCommitOutput(),
+                            outputColumns));
         }
+
         return new QueryIOMetadata(inputs.build(), output);
     }
 
