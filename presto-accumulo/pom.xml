@@ -17,6 +17,7 @@
         <dep.accumulo.version>1.10.1</dep.accumulo.version>
         <dep.curator.version>2.12.0</dep.curator.version>
         <dep.log4j.version>2.24.3</dep.log4j.version>
+        <air.check.skip-modernizer>true</air.check.skip-modernizer>
     </properties>
 
     <dependencyManagement>
