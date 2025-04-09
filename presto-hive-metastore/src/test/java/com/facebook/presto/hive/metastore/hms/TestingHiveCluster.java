@@ -11,13 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive.metastore.thrift;
+package com.facebook.presto.hive.metastore.hms;
 
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.authentication.NoHiveMetastoreAuthentication;
-import com.google.common.net.HostAndPort;
+import com.facebook.presto.hive.metastore.hms.thrift.ThriftHiveMetastoreClientFactory;
 import org.apache.thrift.TException;
 
+import java.net.URI;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -28,20 +29,20 @@ public class TestingHiveCluster
 {
     private final MetastoreClientConfig metastoreClientConfig;
     private final ThriftHiveMetastoreConfig thriftHiveMetastoreConfig;
-    private final HostAndPort address;
+    private final URI uri;
 
     public TestingHiveCluster(MetastoreClientConfig metastoreClientConfig, ThriftHiveMetastoreConfig thriftHiveMetastoreConfig, String host, int port)
     {
         this.metastoreClientConfig = requireNonNull(metastoreClientConfig, "metastore config is null");
         this.thriftHiveMetastoreConfig = requireNonNull(thriftHiveMetastoreConfig, "thrift metastore config is null");
-        this.address = HostAndPort.fromParts(requireNonNull(host, "host is null"), port);
+        this.uri = URI.create("thrift://" + requireNonNull(host, "host is null") + ":" + port);
     }
 
     @Override
     public HiveMetastoreClient createMetastoreClient(Optional<String> token)
             throws TException
     {
-        return new HiveMetastoreClientFactory(metastoreClientConfig, thriftHiveMetastoreConfig, new NoHiveMetastoreAuthentication()).create(address, token);
+        return new ThriftHiveMetastoreClientFactory(metastoreClientConfig, thriftHiveMetastoreConfig, new NoHiveMetastoreAuthentication()).create(uri, token);
     }
 
     @Override
@@ -55,12 +56,12 @@ public class TestingHiveCluster
         }
         TestingHiveCluster o = (TestingHiveCluster) obj;
 
-        return Objects.equals(this.address, o.address);
+        return Objects.equals(this.uri, o.uri);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(address);
+        return Objects.hash(uri);
     }
 }
