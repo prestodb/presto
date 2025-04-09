@@ -70,6 +70,10 @@ String Functions
     i.e. the minimum number of single-character edits (insertions,
     deletions or substitutions) needed to change ``string1`` into ``string2``.
 
+.. function:: longest_common_prefix(string1, string2) -> varchar
+
+    Returns the longest common prefix between ``string1`` and ``string2``
+
 .. function:: lower(string) -> varchar
 
     Converts ``string`` to lowercase.

@@ -756,6 +756,23 @@ public final class StringFunctions
         return pad(text, targetLength, padString, text.length());
     }
 
+    @Description("returns the longest common prefix shared by two strings")
+    @ScalarFunction("longest_common_prefix")
+    @LiteralParameters({"x", "y"})
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice longestCommonPrefix(@SqlType("varchar(x)") Slice left, @SqlType("varchar(y)") Slice right)
+    {
+        int i = 0;
+        int byteIndex = 0;
+
+				while (i < leftLength && i < rightLength && leftCodePoints[i] == rightCodePoints[i]) {
+            i++;
+            byteIndex += SliceUtf8.lengthOfCodePointSafe(left, byteIndex);
+        }
+
+        return Slices.wrappedBuffer(left.getBytes(0, byteIndex));
+    }
+
     @Description("computes Jaro-Winkler similarity between two strings")
     @ScalarFunction("jarowinkler_similarity")
     @LiteralParameters({"x", "y"})

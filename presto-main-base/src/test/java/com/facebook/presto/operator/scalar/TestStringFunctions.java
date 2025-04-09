@@ -166,6 +166,30 @@ public class TestStringFunctions
     }
 
     @Test
+    public void testLongestCommonPrefix()
+    {
+        assertFunction("LONGEST_COMMON_PREFIX('', '')", VARCHAR, "");
+        assertFunction("LONGEST_COMMON_PREFIX('', 'hello')", VARCHAR, "");
+        assertFunction("LONGEST_COMMON_PREFIX('hello', '')", VARCHAR, "");
+        assertFunction("LONGEST_COMMON_PREFIX('hello', 'hello')", VARCHAR, "hello");
+        assertFunction("LONGEST_COMMON_PREFIX('hello world', 'hello')", VARCHAR, "hello");
+        assertFunction("LONGEST_COMMON_PREFIX('hello', 'hello world')", VARCHAR, "hello");
+        assertFunction("LONGEST_COMMON_PREFIX('hello world', 'hel wold')", VARCHAR, "hel");
+        assertFunction("LONGEST_COMMON_PREFIX('hel wold', 'hello world')", VARCHAR, "hel");
+
+        // Test for non-ASCII
+        assertFunction("LONGEST_COMMON_PREFIX('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '')", VARCHAR, "");
+        assertFunction("LONGEST_COMMON_PREFIX('', '\u4FE1\u5FF5,\u7231,\u5E0C\u671B')", VARCHAR, "");
+        assertFunction("LONGEST_COMMON_PREFIX('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u4FE1\u5FF5,\u7231,\u5E0C\u671B')", VARCHAR, "\u4FE1\u5FF5,\u7231,\u5E0C\u671B");
+        assertFunction("LONGEST_COMMON_PREFIX('\u4FE1\u5FF5,\u7221,\u5E0C\u671B', '\u4FE1\u5FF5,\u7231,\u5E0C\u671B')", VARCHAR, "\u4FE1\u5FF5,");
+        assertFunction("LONGEST_COMMON_PREFIX('hello na\u00EFve world', 'hello na\u00EFve')", VARCHAR, "hello na\u00EFve");
+
+        // Test for invalid-utf8 characters
+        assertInvalidFunction("LONGEST_COMMON_PREFIX('hello world', utf8(from_hex('81')))", "Invalid UTF-8 encoding in characters: �");
+        assertInvalidFunction("LONGEST_COMMON_PREFIX('hello world', utf8(from_hex('3281')))", "Invalid UTF-8 encoding in characters: 2�");
+    }
+
+    @Test
     public void testJaroWinklerSimilarity()
     {
         assertFunction("JAROWINKLER_SIMILARITY('', '')", DOUBLE, 1.0);
