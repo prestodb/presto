@@ -2,7 +2,7 @@
 [Prestodb](https://prestodb.io/) connector for apache HBase, it's a lightweight HBase connector which uses Apache Zookeeper to hold the metadata. This connector is based on Hadoop 3.1, HBase 2.0 and Prestodb 0.241. 
 
 ## Overview
-The Presto HBase connector allows access to HBase data from Presto. This document describe how to setup the Presto HBase connector to run SQL against HBase.
+The Presto HBase connector allows access to HBase data from Presto. This document describes how to setup the Presto HBase connector to run SQL against HBase.
 * Note:    HBase 2.0 or above is required. *
 
 ###  How to build
