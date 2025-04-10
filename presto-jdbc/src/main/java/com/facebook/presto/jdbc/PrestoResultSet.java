@@ -20,6 +20,7 @@ import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryStatusInfo;
 import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.jdbc.ColumnInfo.Nullable;
+import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -1775,14 +1776,14 @@ public class PrestoResultSet
 
         private static boolean isQuery(StatementClient client)
         {
-            String updateType;
+            UpdateInfo updateInfo;
             if (client.isRunning()) {
-                updateType = client.currentStatusInfo().getUpdateType();
+                updateInfo = client.currentStatusInfo().getUpdateInfo();
             }
             else {
-                updateType = client.finalStatusInfo().getUpdateType();
+                updateInfo = client.finalStatusInfo().getUpdateInfo();
             }
-            return updateType == null;
+            return updateInfo == null;
         }
 
         @Override

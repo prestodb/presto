@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -103,6 +104,12 @@ public class CreateTableAsSelect
                 .add(query)
                 .addAll(properties)
                 .build();
+    }
+
+    @Override
+    public UpdateInfo getUpdateInfo()
+    {
+        return new UpdateInfo("CREATE TABLE", name.toString());
     }
 
     @Override
