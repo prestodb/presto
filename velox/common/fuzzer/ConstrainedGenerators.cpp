@@ -78,7 +78,7 @@ variant JsonInputGenerator::generate() {
   const auto object = objectGenerator_->generate();
   const folly::dynamic jsonObject = convertVariantToDynamic(object);
   auto jsonString = folly::json::serialize(jsonObject, opts_);
-  if (makeRandomVariation_ && coinToss(rng_, 0.5)) {
+  if (makeRandomVariation_) {
     makeRandomVariation(jsonString);
   }
   return variant(jsonString);
@@ -258,8 +258,12 @@ std::unique_ptr<AbstractInputGenerator> getRandomInputGeneratorPrimitive(
   return generator;
 }
 
-std::unique_ptr<AbstractInputGenerator>
-getRandomInputGenerator(size_t seed, const TypePtr& type, double nullRatio) {
+std::unique_ptr<AbstractInputGenerator> getRandomInputGenerator(
+    size_t seed,
+    const TypePtr& type,
+    double nullRatio,
+    const std::vector<variant>& mapKeys,
+    size_t maxContainerSize) {
   std::unique_ptr<AbstractInputGenerator> generator;
   if (type->isPrimitiveType()) {
     return VELOX_DYNAMIC_SCALAR_TEMPLATE_TYPE_DISPATCH(
@@ -271,19 +275,154 @@ getRandomInputGenerator(size_t seed, const TypePtr& type, double nullRatio) {
         nullRatio);
   } else if (type->isArray()) {
     generator = std::make_unique<RandomInputGenerator<ArrayType>>(
-        seed, type, nullRatio);
-  } else if (type->isMap()) {
-    generator =
-        std::make_unique<RandomInputGenerator<MapType>>(seed, type, nullRatio);
-
-  } else if (type->isRow()) {
-    generator = std::make_unique<RandomInputGenerator<RowType>>(
         seed,
         type,
-        std::vector<std::unique_ptr<AbstractInputGenerator>>{},
-        nullRatio);
+        nullRatio,
+        maxContainerSize,
+        getRandomInputGenerator(
+            seed, type->childAt(0), nullRatio, mapKeys, maxContainerSize));
+  } else if (type->isMap()) {
+    generator = std::make_unique<RandomInputGenerator<MapType>>(
+        seed,
+        type,
+        nullRatio,
+        maxContainerSize,
+        mapKeys.empty() ? nullptr
+                        : std::make_unique<SetConstrainedGenerator>(
+                              seed, type->childAt(0), mapKeys),
+        mapKeys.empty() ? nullptr
+                        : getRandomInputGenerator(
+                              seed,
+                              type->childAt(1),
+                              nullRatio,
+                              mapKeys,
+                              maxContainerSize));
+  } else if (type->isRow()) {
+    std::vector<std::unique_ptr<AbstractInputGenerator>> children;
+    for (auto i = 0; i < type->size(); ++i) {
+      children.push_back(getRandomInputGenerator(
+          seed, type->childAt(i), nullRatio, mapKeys, maxContainerSize));
+    }
+    generator = std::make_unique<RandomInputGenerator<RowType>>(
+        seed, type, std::move(children), nullRatio);
   }
   return generator;
+}
+
+// JsonPathGenerator
+variant JsonPathGenerator::generate() {
+  if (coinToss(rng_, nullRatio_)) {
+    return variant::null(type_->kind());
+  }
+
+  std::string path = "$";
+  generateImpl(path, jsonType_);
+  if (makeRandomVariation_) {
+    makeRandomStrVariation(
+        path, rng_, RandomStrVariationOptions{0.1, 0.0, 0.1});
+  }
+  return variant(path);
+}
+
+uint64_t JsonPathGenerator::generateRandomIndex() {
+  // 10% of times generate invalid index.
+  if (coinToss(rng_, 0.1)) {
+    return rand<uint64_t>(rng_);
+  }
+  return rand<uint64_t>(rng_, 0, maxContainerLength_);
+}
+
+void JsonPathGenerator::generateImpl(std::string& path, const TypePtr& type) {
+  switch (type->kind()) {
+    case TypeKind::BOOLEAN:
+    case TypeKind::TINYINT:
+    case TypeKind::SMALLINT:
+    case TypeKind::INTEGER:
+    case TypeKind::BIGINT:
+    case TypeKind::REAL:
+    case TypeKind::DOUBLE:
+    case TypeKind::TIMESTAMP:
+    case TypeKind::VARCHAR:
+    case TypeKind::VARBINARY:
+      return;
+    case TypeKind::ARRAY:
+      if (coinToss(rng_, 0.2)) {
+        path += fmt::format(".{}", generateRandomIndex());
+      } else if (coinToss(rng_, 0.2)) {
+        path += fmt::format("[{}]", generateRandomIndex());
+        generateImpl(path, type->childAt(0));
+      } else if (coinToss(rng_, 0.2)) {
+        path += "[*]";
+        generateImpl(path, type->childAt(0));
+      } else if (coinToss(rng_, 0.2)) {
+        path += ".*";
+      } else if (makeRandomVariation_ && coinToss(rng_, 0.1)) {
+        // Intentionally test invalid json path.
+        path += "[]";
+        generateImpl(path, type->childAt(0));
+      }
+      return;
+    case TypeKind::ROW: {
+      const auto selectedField =
+          rand<uint64_t>(rng_, 0, type->asRow().size() - 1);
+      if (coinToss(rng_, 0.2)) {
+        path += fmt::format("[{}]", selectedField);
+        generateImpl(path, type->childAt(selectedField));
+      } else if (coinToss(rng_, 0.6)) {
+        if (coinToss(rng_, 0.2)) {
+          path += ".*";
+        } else if (coinToss(rng_, 0.2)) {
+          path += "[*]";
+        } else if (makeRandomVariation_ && coinToss(rng_, 0.2)) {
+          // Intentionally test invalid json path.
+          path += "[]";
+        }
+        // The result of .* or [*] is a collection of fields that can have
+        // different type from selectedField. We intentionally make invalid
+        // json path here to test corner cases.
+        if (makeRandomVariation_ && coinToss(rng_, 0.3)) {
+          generateImpl(path, type->childAt(selectedField));
+        }
+      }
+      return;
+    }
+    case TypeKind::MAP: {
+      const auto selectedKey =
+          mapKeys_[rand<uint64_t>(rng_, 0, mapKeys_.size() - 1)].toString(
+              type->childAt(0));
+      if (coinToss(rng_, 0.1)) {
+        path += fmt::format("['{}']", selectedKey);
+        generateImpl(path, type->childAt(1));
+      } else if (coinToss(rng_, 0.1)) {
+        path += fmt::format("[\"{}\"]", selectedKey);
+        generateImpl(path, type->childAt(1));
+      } else if (coinToss(rng_, 0.1)) {
+        path += "[*]";
+        generateImpl(path, type->childAt(1));
+      } else if (coinToss(rng_, 0.1)) {
+        path += ".*";
+        generateImpl(path, type->childAt(1));
+      } else if (coinToss(rng_, 0.1)) {
+        path += fmt::format(".{}", selectedKey);
+        generateImpl(path, type->childAt(1));
+      } else if (makeRandomVariation_ && coinToss(rng_, 0.1)) {
+        // Intentionally test invalid json path.
+        path += fmt::format(".\"{}\"", selectedKey);
+        generateImpl(path, type->childAt(1));
+      } else if (makeRandomVariation_ && coinToss(rng_, 0.1)) {
+        // Intentionally test invalid json path.
+        path += "[]";
+        generateImpl(path, type->childAt(1));
+      } else if (makeRandomVariation_ && coinToss(rng_, 0.1)) {
+        // Intentionally test invalid json path.
+        path += fmt::format("[{}]", selectedKey);
+        generateImpl(path, type->childAt(1));
+      }
+      return;
+    }
+    default:
+      VELOX_UNREACHABLE("Unsupported type");
+  }
 }
 
 } // namespace facebook::velox::fuzzer

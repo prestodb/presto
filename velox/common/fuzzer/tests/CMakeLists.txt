@@ -23,6 +23,7 @@ add_test(
 target_link_libraries(
   velox_constrained_input_generators_test
   velox_constrained_input_generators
+  velox_functions_json
   velox_presto_types
   velox_type
   GTest::gtest

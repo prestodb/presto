@@ -467,6 +467,10 @@ class variant {
     return toJsonUnsafe();
   }
 
+  /// Returns a string of the variant value. Currently only supports scalar
+  /// types.
+  std::string toString(const TypePtr& type) const;
+
   folly::dynamic serialize() const;
 
   static variant create(const folly::dynamic&);

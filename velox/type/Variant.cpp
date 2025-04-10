@@ -192,6 +192,74 @@ void variant::throwCheckPtrError() const {
   throw std::invalid_argument{"missing variant value"};
 }
 
+std::string variant::toString(const TypePtr& type) const {
+  if (isNull()) {
+    return "null";
+  }
+
+  VELOX_CHECK(type);
+
+  VELOX_CHECK_EQ(this->kind(), type->kind(), "Wrong type in variant::toString");
+
+  switch (type->kind()) {
+    case TypeKind::VARBINARY: {
+      auto& str = value<TypeKind::VARBINARY>();
+      auto encoded = encoding::Base64::encode(str);
+      return encoded;
+    }
+    case TypeKind::VARCHAR: {
+      auto& str = value<TypeKind::VARCHAR>();
+      return str;
+    }
+    case TypeKind::HUGEINT: {
+      VELOX_CHECK(type->isLongDecimal());
+      return DecimalUtil::toString(value<TypeKind::HUGEINT>(), type);
+    }
+    case TypeKind::TINYINT:
+      [[fallthrough]];
+    case TypeKind::SMALLINT:
+      [[fallthrough]];
+    case TypeKind::INTEGER:
+      if (type->isDate()) {
+        return DATE()->toString(value<TypeKind::INTEGER>());
+      }
+      [[fallthrough]];
+    case TypeKind::BIGINT:
+      if (type->isShortDecimal()) {
+        return DecimalUtil::toString(value<TypeKind::BIGINT>(), type);
+      }
+      [[fallthrough]];
+    case TypeKind::BOOLEAN: {
+      auto converted = VariantConverter::convert<TypeKind::VARCHAR>(*this);
+      if (converted.isNull()) {
+        return "null";
+      } else {
+        return converted.value<TypeKind::VARCHAR>();
+      }
+    }
+    case TypeKind::REAL:
+      return folly::to<std::string>(value<TypeKind::REAL>());
+    case TypeKind::DOUBLE:
+      return folly::to<std::string>(value<TypeKind::DOUBLE>());
+    case TypeKind::TIMESTAMP: {
+      auto& timestamp = value<TypeKind::TIMESTAMP>();
+      return timestamp.toString();
+    }
+    case TypeKind::ARRAY:
+    case TypeKind::MAP:
+    case TypeKind::ROW:
+    case TypeKind::OPAQUE:
+    case TypeKind::FUNCTION:
+    case TypeKind::UNKNOWN:
+    case TypeKind::INVALID:
+      VELOX_NYI();
+  }
+
+  VELOX_UNSUPPORTED(
+      "Given type {} is not supported in variant::toString()",
+      mapTypeKindToName(kind_));
+}
+
 std::string variant::toJson(const TypePtr& type) const {
   // todo(youknowjack): consistent story around std::stringifying, converting,
   // and other basic operations. Stringification logic should not be specific
