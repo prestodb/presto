@@ -81,7 +81,7 @@ public class NoOpTransactionManager
     }
 
     @Override
-    public void ignoreTransactionState(TransactionId transactionId)
+    public void enableRollback(TransactionId transactionId)
     {
         throw new UnsupportedOperationException();
     }
