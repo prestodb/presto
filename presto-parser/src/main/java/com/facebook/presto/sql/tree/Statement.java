@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.spi.analyzer.UpdateInfo;
+
 import java.util.Optional;
 
 public abstract class Statement
@@ -28,4 +30,6 @@ public abstract class Statement
     {
         return visitor.visitStatement(this, context);
     }
+
+    public abstract UpdateInfo getUpdateInfo();
 }

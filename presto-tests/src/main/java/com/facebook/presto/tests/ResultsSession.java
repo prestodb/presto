@@ -16,6 +16,7 @@ package com.facebook.presto.tests;
 import com.facebook.presto.client.QueryData;
 import com.facebook.presto.client.QueryStatusInfo;
 import com.facebook.presto.spi.PrestoWarning;
+import com.facebook.presto.spi.analyzer.UpdateInfo;
 import jakarta.annotation.Nullable;
 
 import java.util.List;
@@ -24,7 +25,7 @@ import java.util.Set;
 
 public interface ResultsSession<T>
 {
-    default void setUpdateType(String type)
+    default void setUpdateInfo(UpdateInfo type)
     {
         throw new UnsupportedOperationException();
     }
