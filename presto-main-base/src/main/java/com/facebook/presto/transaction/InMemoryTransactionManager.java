@@ -224,10 +224,10 @@ public class InMemoryTransactionManager
     }
 
     @Override
-    public void ignoreTransactionState(TransactionId transactionId)
+    public void enableRollback(TransactionId transactionId)
     {
         TransactionMetadata transactionMetadata = getTransactionMetadata(transactionId);
-        transactionMetadata.setIgnoreTransactionState(true);
+        transactionMetadata.enableRollback(true);
     }
 
     @Override
@@ -391,7 +391,7 @@ public class InMemoryTransactionManager
         private final Map<String, FunctionNamespaceTransactionMetadata> functionNamespaceTransactions = new ConcurrentHashMap<>();
         private final Map<String, String> companionCatalogs;
 
-        private boolean ignoreTransactionState;
+        private boolean enableRollback;
 
         public TransactionMetadata(
                 TransactionId transactionId,
@@ -429,9 +429,9 @@ public class InMemoryTransactionManager
             return idleStartTime != null && Duration.nanosSince(idleStartTime).compareTo(idleTimeout) > 0;
         }
 
-        public void setIgnoreTransactionState(boolean ignoreTransactionState)
+        public void enableRollback(boolean enableRollback)
         {
-            this.ignoreTransactionState = ignoreTransactionState;
+            this.enableRollback = enableRollback;
         }
 
         public void checkOpenTransaction()
@@ -493,7 +493,7 @@ public class InMemoryTransactionManager
 
         private synchronized CatalogMetadata getTransactionCatalogMetadata(ConnectorId connectorId)
         {
-            if (!this.ignoreTransactionState) {
+            if (!this.enableRollback) {
                 checkOpenTransaction();
             }
 

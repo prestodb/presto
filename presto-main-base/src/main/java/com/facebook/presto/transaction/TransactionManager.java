@@ -49,7 +49,7 @@ public interface TransactionManager
 
     Optional<CatalogMetadata> getOptionalCatalogMetadata(TransactionId transactionId, String catalogName);
 
-    void ignoreTransactionState(TransactionId transactionId);
+    void enableRollback(TransactionId transactionId);
 
     CatalogMetadata getCatalogMetadata(TransactionId transactionId, ConnectorId connectorId);
 

@@ -94,9 +94,9 @@ public class DelegatingTransactionManager
     }
 
     @Override
-    public void ignoreTransactionState(TransactionId transactionId)
+    public void enableRollback(TransactionId transactionId)
     {
-        delegate.ignoreTransactionState(transactionId);
+        delegate.enableRollback(transactionId);
     }
 
     @Override
