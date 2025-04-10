@@ -87,7 +87,7 @@ class ExpressionFuzzerVerifier {
 
     // Directory path for persistence of data and SQL when fuzzer fails for
     // future reproduction. Empty string disables this feature.
-    std::string reproPersistPath = "";
+    std::string reproPersistPath;
 
     // Persist repro info before evaluation and only run one iteration.
     // This is to rerun with the seed number and persist repro info upon a

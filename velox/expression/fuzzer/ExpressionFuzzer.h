@@ -78,7 +78,7 @@ class ExpressionFuzzer {
     //  pool of candidates by a required return type so not all functions may
     //  compete against the same number of functions at every instance. Number
     //  of tickets must be a positive integer. Example: eq=3,floor=5
-    std::string functionTickets = "";
+    std::string functionTickets;
 
     // Chance of adding a null constant to the plan, or null value in a vector
     // (expressed as double from 0 to 1).
@@ -87,7 +87,7 @@ class ExpressionFuzzer {
     // If specified, Fuzzer will only choose functions from this comma separated
     // list of function names (e.g: --only \"split\" or --only
     // \"substr,ltrim\")."
-    std::string useOnlyFunctions = "";
+    std::string useOnlyFunctions;
 
     // Comma-separated list of special forms to use in generated expression.
     // Supported special forms: and, or, coalesce, if, switch, cast.")
