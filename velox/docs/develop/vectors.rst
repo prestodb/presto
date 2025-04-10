@@ -242,8 +242,8 @@ like substr and split. The results of these functions consist of substrings of
 the original strings and therefore can use StringViews which point to the same
 string buffers as the input vectors.
 
-A result of applying substr(s, 2) function to a vector shown above looks like
-this:
+A result of applying `presto substr(s, 2) <https://prestodb.io/docs/current/functions/string.html#substr-string-start-varchar>`_ function to a vector shown above looks
+like this:
 
 .. image:: images/substr-result.png
     :width: 700
@@ -252,8 +252,8 @@ this:
 This vector is using the same string buffer as the original one. It simply
 references it using std::shared_ptr. The individual StringView entries either
 contain strings inline or refer to positions in the original strings buffer.
-After applying substr(s, 2) function a string in position 1 became short enough
-to fit inside the StringView, hence, it no longer contains a pointer to a
+After applying `presto substr(s, 2) <https://prestodb.io/docs/current/functions/string.html#substr-string-start-varchar>`_ function a string in position 1 became short
+enough to fit inside the StringView, hence, it no longer contains a pointer to a
 position in the string buffer.
 
 Allowing these zero-copy implementations of functions that simply change the
