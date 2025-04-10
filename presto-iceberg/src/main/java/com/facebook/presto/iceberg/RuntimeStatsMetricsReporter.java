@@ -10,8 +10,6 @@ import org.apache.iceberg.metrics.ScanReport;
 import java.util.Objects;
 
 
-
-
 public class RuntimeStatsMetricsReporter implements MetricsReporter {
 
     private final RuntimeStats runtimeStats;
@@ -20,6 +18,7 @@ public class RuntimeStatsMetricsReporter implements MetricsReporter {
         this.runtimeStats = runtimeStats;
     }
 
+    // String Builder using Table Name and Metric Name
     private String tableScanString(String tableName, String metricName) {
         return tableName + ".scan." + metricName;
     }
