@@ -30,6 +30,7 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionHandleResolver;
 import com.facebook.presto.spi.function.TableFunctionHandleResolver;
+import com.facebook.presto.spi.function.TableFunctionSplitResolver;
 import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
 import com.facebook.presto.split.EmptySplitHandleResolver;
 import com.google.common.collect.ImmutableSet;
@@ -55,6 +56,7 @@ public class HandleResolver
     private final ConcurrentMap<String, MaterializedHandleResolver> handleResolvers = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, MaterializedFunctionHandleResolver> functionHandleResolvers = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, MaterializedTableFunctionHandleResolver> tableFunctionHandleResolvers = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, MaterializedTableFunctionSplitResolver> tableFunctionSplitResolvers = new ConcurrentHashMap<>();
 
     @Inject
     public HandleResolver()
@@ -93,6 +95,14 @@ public class HandleResolver
         checkState(existingResolver == null || existingResolver.equals(resolver), "Name %s is already assigned to table function resolver: %s", name, existingResolver);
     }
 
+    public void addTableFunctionSplitNamespace(String name, TableFunctionSplitResolver resolver)
+    {
+        requireNonNull(name, "name is null");
+        requireNonNull(resolver, "resolver is null");
+        MaterializedTableFunctionSplitResolver existingResolver = tableFunctionSplitResolvers.putIfAbsent(name, new MaterializedTableFunctionSplitResolver(resolver));
+        checkState(existingResolver == null || existingResolver.equals(resolver), "Name %s is already assigned to table function resolver: %s", name, existingResolver);
+    }
+
     public String getId(ConnectorTableHandle tableHandle)
     {
         return getId(tableHandle, MaterializedHandleResolver::getTableHandleClass);
@@ -110,7 +120,16 @@ public class HandleResolver
 
     public String getId(ConnectorSplit split)
     {
-        return getId(split, MaterializedHandleResolver::getSplitClass);
+        // TODO: Clean up all connectors and make MaterializedTableFunctionSplitResolver
+        // just a MaterializedSplitResolver and add Connector's split classes to it.
+        // This was added as different table functions in the connector can have different
+        // split classes, but be part of the same Connector.
+        try {
+            return getId(split, MaterializedHandleResolver::getSplitClass);
+        }
+        catch (Exception e) {
+            return getTableFunctionSplitId(split, MaterializedTableFunctionSplitResolver::getTableFunctionSplitClasses);
+        }
     }
 
     public String getId(ConnectorIndexHandle indexHandle)
@@ -175,6 +194,16 @@ public class HandleResolver
 
     public Class<? extends ConnectorSplit> getSplitClass(String id)
     {
+        Optional<Class<? extends ConnectorSplit>> tableFunctionSplit;
+        for (Entry<String, MaterializedTableFunctionSplitResolver> entry : tableFunctionSplitResolvers.entrySet()) {
+            MaterializedTableFunctionSplitResolver resolver = entry.getValue();
+            tableFunctionSplit = resolver.getTableFunctionSplitClasses().stream()
+                    .filter(handle -> (entry.getKey() + ":" + handle.getName()).equals(id))
+                    .findFirst();
+            if (tableFunctionSplit.isPresent()) {
+                return tableFunctionSplit.get();
+            }
+        }
         return resolverFor(id).getSplitClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
     }
 
@@ -291,6 +320,24 @@ public class HandleResolver
             }
         }
         throw new IllegalArgumentException("No function namespace for handle: " + handle);
+    }
+
+    private <T> String getTableFunctionSplitId(ConnectorSplit split, Function<MaterializedTableFunctionSplitResolver, Set<Class<? extends ConnectorSplit>>> getters)
+    {
+        for (Entry<String, MaterializedTableFunctionSplitResolver> entry : tableFunctionSplitResolvers.entrySet()) {
+            try {
+                Optional<String> id = getters.apply(entry.getValue()).stream()
+                        .filter(clazz -> clazz.isInstance(split))
+                        .map(Class::getName)
+                        .findFirst();
+                if (id.isPresent()) {
+                    return entry.getKey() + ":" + id.get();
+                }
+            }
+            catch (UnsupportedOperationException ignored) {
+            }
+        }
+        throw new IllegalArgumentException("No function namespace for handle: " + split);
     }
 
     private static class MaterializedHandleResolver
@@ -502,6 +549,50 @@ public class HandleResolver
         public int hashCode()
         {
             return Objects.hash(tableFunctionHandles);
+        }
+    }
+
+    private static class MaterializedTableFunctionSplitResolver
+    {
+        private final Set<Class<? extends ConnectorSplit>> tableFunctionSplits;
+
+        public MaterializedTableFunctionSplitResolver(TableFunctionSplitResolver resolver)
+        {
+            tableFunctionSplits = getSplitClass(resolver::getTableFunctionSplitClasses);
+        }
+
+        private static Set<Class<? extends ConnectorSplit>> getSplitClass(Supplier<Set<Class<? extends ConnectorSplit>>> callable)
+        {
+            try {
+                return callable.get();
+            }
+            catch (UnsupportedOperationException e) {
+                return ImmutableSet.of();
+            }
+        }
+
+        public Set<Class<? extends ConnectorSplit>> getTableFunctionSplitClasses()
+        {
+            return tableFunctionSplits;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            MaterializedTableFunctionSplitResolver that = (MaterializedTableFunctionSplitResolver) o;
+            return Objects.equals(tableFunctionSplits, that.tableFunctionSplits);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(tableFunctionSplits);
         }
     }
 }

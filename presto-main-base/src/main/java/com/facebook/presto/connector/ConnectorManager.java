@@ -215,6 +215,10 @@ public class ConnectorManager
         connectorFactory.getTableFunctionHandleResolver().ifPresent(resolver -> {
             handleResolver.addTableFunctionNamespace(connectorFactory.getName(), resolver);
         });
+
+        connectorFactory.getTableFunctionSplitResolver().ifPresent(resolver -> {
+            handleResolver.addTableFunctionSplitNamespace(connectorFactory.getName(), resolver);
+        });
     }
 
     public synchronized ConnectorId createConnection(String catalogName, String connectorName, Map<String, String> properties)

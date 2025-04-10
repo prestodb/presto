@@ -144,6 +144,8 @@ public class TestTableFunctionInvocation
                 .withTableFunctionResolver(TestingTableFunctions.RepeatFunction.RepeatFunctionHandle.class)
                 .withTableFunctionResolver(TestingTableFunctions.EmptyTableFunctionHandle.class)
                 .withTableFunctionResolver(TestingTableFunctions.ConstantFunction.ConstantFunctionHandle.class)
+                .withTableFunctionSplitResolver(MockConnectorFactory.MockConnector.MockConnectorSplit.class)
+                .withTableFunctionSplitResolver(TestingTableFunctions.ConstantFunction.ConstantFunctionSplit.class)
                 .withGetColumnHandles(getColumnHandles)
                 .withTableFunctionSplitSource(
                         new SchemaFunctionName("system", "constant"),
@@ -658,37 +660,16 @@ public class TestTableFunctionInvocation
     public void testConstantFunction()
     {
         assertQuery("SELECT * FROM TABLE(system.constant(5))", "VALUES 5");
-/*
-        assertThat(query("""
-                SELECT *
-                FROM TABLE(system.constant(2, 10))
-                """))
-                .matches("VALUES (2), (2), (2), (2), (2), (2), (2), (2), (2), (2)");
 
-        assertThat(query("""
-                SELECT *
-                FROM TABLE(system.constant(null, 3))
-                """))
-                .matches("VALUES (CAST(null AS integer)), (null), (null)");
+        assertQuery("SELECT * FROM TABLE(system.constant(2, 10))", "VALUES (2), (2), (2), (2), (2), (2), (2), (2), (2), (2)");
+
+        assertQuery("SELECT * FROM TABLE(system.constant(null, 3))", "VALUES (CAST(null AS integer)), (null), (null)");
 
         // value as constant expression
-        assertThat(query("""
-                SELECT *
-                FROM TABLE(system.constant(5 * 4, 3))
-                """))
-                .matches("VALUES (20), (20), (20)");
+        assertQuery("SELECT * FROM TABLE(system.constant(5 * 4, 3))", "VALUES (20), (20), (20)");
 
-        // value out of range for INTEGER type: Integer.MAX_VALUE + 1
-        assertThatThrownBy(() -> query("""
-                SELECT *
-                FROM TABLE(system.constant(2147483648, 3))
-                """))
-                .hasMessage("line 2:28: Cannot cast type bigint to integer");
+        assertQueryFails("SELECT * FROM TABLE(system.constant(2147483648, 3))", "line 1:37: Cannot cast type bigint to integer");
 
-        assertThat(query("""
-                SELECT count(*), count(DISTINCT constant_column), min(constant_column)
-                FROM TABLE(system.constant(2, 1000000))
-                """))
-                .matches("VALUES (BIGINT '1000000', BIGINT '1', 2)");*/
+        assertQuery("SELECT count(*), count(DISTINCT constant_column), min(constant_column) FROM TABLE(system.constant(2, 1000000))", "VALUES (BIGINT '1000000', BIGINT '1', 2)");
     }
 }
