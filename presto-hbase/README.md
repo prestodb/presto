@@ -3,7 +3,7 @@
 
 ## Overview
 The Presto HBase connector allows access to HBase data from Presto. This document describes how to setup the Presto HBase connector to run SQL against HBase.
-* Note:    HBase 2.0 or above is required. *
+* Note:    HBase 2.0 or above is required.
 
 ###  How to build
 
