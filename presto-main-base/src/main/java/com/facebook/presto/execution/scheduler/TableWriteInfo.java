@@ -15,29 +15,16 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.metadata.AnalyzeTableHandle;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.TableLayoutResult;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.Constraint;
-import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.plan.DeleteNode;
-import com.facebook.presto.spi.plan.FilterNode;
-import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.PlanNode;
-import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.spi.plan.ProjectNode;
-import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.plan.TableFinishNode;
-import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.VerifyException;
-import com.google.common.collect.ImmutableSet;
 
 import java.util.Collection;
 import java.util.List;
@@ -55,35 +42,29 @@ public class TableWriteInfo
 {
     private final Optional<ExecutionWriterTarget> writerTarget;
     private final Optional<AnalyzeTableHandle> analyzeTableHandle;
-    private final Optional<DeleteScanInfo> deleteScanInfo;
 
     @JsonCreator
     public TableWriteInfo(
             @JsonProperty("writerTarget") Optional<ExecutionWriterTarget> writerTarget,
-            @JsonProperty("analyzeTableHandle") Optional<AnalyzeTableHandle> analyzeTableHandle,
-            @JsonProperty("deleteScanInfo") Optional<DeleteScanInfo> deleteScanInfo)
+            @JsonProperty("analyzeTableHandle") Optional<AnalyzeTableHandle> analyzeTableHandle)
     {
         this.writerTarget = requireNonNull(writerTarget, "writerTarget is null");
         this.analyzeTableHandle = requireNonNull(analyzeTableHandle, "analyzeTableHandle is null");
-        this.deleteScanInfo = requireNonNull(deleteScanInfo, "deleteScanInfo is null");
-        checkArgument(!analyzeTableHandle.isPresent() || !writerTarget.isPresent() && !deleteScanInfo.isPresent(), "analyzeTableHandle is present, so no other fields should be present");
-        checkArgument(!deleteScanInfo.isPresent() || writerTarget.isPresent(), "deleteScanInfo is present, but writerTarget is not present");
+        checkArgument(!analyzeTableHandle.isPresent() || !writerTarget.isPresent(), "analyzeTableHandle is present, so no other fields should be present");
     }
 
     public static TableWriteInfo createTableWriteInfo(StreamingSubPlan plan, Metadata metadata, Session session)
     {
         Optional<ExecutionWriterTarget> writerTarget = createWriterTarget(plan, metadata, session);
         Optional<AnalyzeTableHandle> analyzeTableHandle = createAnalyzeTableHandle(plan, metadata, session);
-        Optional<DeleteScanInfo> deleteScanInfo = createDeleteScanInfo(plan, writerTarget, metadata, session);
-        return new TableWriteInfo(writerTarget, analyzeTableHandle, deleteScanInfo);
+        return new TableWriteInfo(writerTarget, analyzeTableHandle);
     }
 
     public static TableWriteInfo createTableWriteInfo(PlanNode planNode, Metadata metadata, Session session)
     {
         Optional<ExecutionWriterTarget> writerTarget = createWriterTarget(planNode, metadata, session);
         Optional<AnalyzeTableHandle> analyzeTableHandle = createAnalyzeTableHandle(planNode, metadata, session);
-        Optional<DeleteScanInfo> deleteScanInfo = createDeleteScanInfo(planNode, writerTarget, metadata, session);
-        return new TableWriteInfo(writerTarget, analyzeTableHandle, deleteScanInfo);
+        return new TableWriteInfo(writerTarget, analyzeTableHandle);
     }
 
     private static Optional<ExecutionWriterTarget> createWriterTarget(Optional<TableFinishNode> finishNodeOptional, Metadata metadata, Session session)
@@ -141,37 +122,6 @@ public class TableWriteInfo
         return statisticsWriterNodeOptional.map(node -> metadata.beginStatisticsCollection(session, node.getTableHandle()));
     }
 
-    private static Optional<DeleteScanInfo> createDeleteScanInfo(StreamingSubPlan plan, Optional<ExecutionWriterTarget> writerTarget, Metadata metadata, Session session)
-    {
-        if (writerTarget.isPresent() && writerTarget.get() instanceof ExecutionWriterTarget.DeleteHandle) {
-            DeleteNode delete = getOnlyElement(findPlanNodes(plan, DeleteNode.class));
-            return createDeleteScanInfo(delete, metadata, session);
-        }
-        return Optional.empty();
-    }
-
-    private static Optional<DeleteScanInfo> createDeleteScanInfo(PlanNode planNode, Optional<ExecutionWriterTarget> writerTarget, Metadata metadata, Session session)
-    {
-        if (writerTarget.isPresent() && writerTarget.get() instanceof ExecutionWriterTarget.DeleteHandle) {
-            DeleteNode delete = findSinglePlanNode(planNode, DeleteNode.class).get();
-            return createDeleteScanInfo(delete, metadata, session);
-        }
-        return Optional.empty();
-    }
-
-    private static Optional<DeleteScanInfo> createDeleteScanInfo(DeleteNode delete, Metadata metadata, Session session)
-    {
-        TableScanNode tableScan = getDeleteTableScan(delete);
-        TupleDomain<ColumnHandle> originalEnforcedConstraint = tableScan.getEnforcedConstraint();
-        TableLayoutResult layoutResult = metadata.getLayout(
-                session,
-                tableScan.getTable(),
-                new Constraint<>(originalEnforcedConstraint),
-                Optional.of(ImmutableSet.copyOf(tableScan.getAssignments().values())));
-
-        return Optional.of(new DeleteScanInfo(tableScan.getId(), layoutResult.getLayout().getNewTableHandle()));
-    }
-
     private static <T extends PlanNode> Optional<T> findSinglePlanNode(PlanNode planNode, Class<T> clazz)
     {
         return PlanNodeSearcher
@@ -203,30 +153,6 @@ public class TableWriteInfo
                 .collect(toImmutableList());
     }
 
-    private static TableScanNode getDeleteTableScan(PlanNode node)
-    {
-        if (node instanceof TableScanNode) {
-            return (TableScanNode) node;
-        }
-        if (node instanceof DeleteNode) {
-            return getDeleteTableScan(((DeleteNode) node).getSource());
-        }
-        if (node instanceof FilterNode) {
-            return getDeleteTableScan(((FilterNode) node).getSource());
-        }
-        if (node instanceof ProjectNode) {
-            return getDeleteTableScan(((ProjectNode) node).getSource());
-        }
-        if (node instanceof SemiJoinNode) {
-            return getDeleteTableScan(((SemiJoinNode) node).getSource());
-        }
-        if (node instanceof JoinNode) {
-            JoinNode joinNode = (JoinNode) node;
-            return getDeleteTableScan(joinNode.getLeft());
-        }
-        throw new IllegalArgumentException("Invalid descendant for DeleteNode: " + node.getClass().getName());
-    }
-
     @JsonProperty
     public Optional<ExecutionWriterTarget> getWriterTarget()
     {
@@ -237,36 +163,5 @@ public class TableWriteInfo
     public Optional<AnalyzeTableHandle> getAnalyzeTableHandle()
     {
         return analyzeTableHandle;
-    }
-
-    @JsonProperty
-    public Optional<DeleteScanInfo> getDeleteScanInfo()
-    {
-        return deleteScanInfo;
-    }
-
-    public static class DeleteScanInfo
-    {
-        private final PlanNodeId id;
-        private final TableHandle tableHandle;
-
-        @JsonCreator
-        public DeleteScanInfo(@JsonProperty("id") PlanNodeId id, @JsonProperty("tableHandle") TableHandle tableHandle)
-        {
-            this.id = id;
-            this.tableHandle = tableHandle;
-        }
-
-        @JsonProperty
-        public PlanNodeId getId()
-        {
-            return id;
-        }
-
-        @JsonProperty
-        public TableHandle getTableHandle()
-        {
-            return tableHandle;
-        }
     }
 }

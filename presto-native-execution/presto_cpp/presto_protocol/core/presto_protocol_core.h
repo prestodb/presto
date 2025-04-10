@@ -293,11 +293,6 @@ void to_json(json& j, const std::shared_ptr<ConnectorTransactionHandle>& p);
 void from_json(const json& j, std::shared_ptr<ConnectorTransactionHandle>& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-struct ConnectorTableLayoutHandle : public JsonEncodedSubclass {};
-void to_json(json& j, const std::shared_ptr<ConnectorTableLayoutHandle>& p);
-void from_json(const json& j, std::shared_ptr<ConnectorTableLayoutHandle>& p);
-} // namespace facebook::presto::protocol
-namespace facebook::presto::protocol {
 struct ExecutionWriterTarget : public JsonEncodedSubclass {};
 void to_json(json& j, const std::shared_ptr<ExecutionWriterTarget>& p);
 void from_json(const json& j, std::shared_ptr<ExecutionWriterTarget>& p);
@@ -345,6 +340,11 @@ struct ColumnHandle : public JsonEncodedSubclass {
 };
 void to_json(json& j, const std::shared_ptr<ColumnHandle>& p);
 void from_json(const json& j, std::shared_ptr<ColumnHandle>& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct ConnectorTableLayoutHandle : public JsonEncodedSubclass {};
+void to_json(json& j, const std::shared_ptr<ConnectorTableLayoutHandle>& p);
+void from_json(const json& j, std::shared_ptr<ConnectorTableLayoutHandle>& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 struct ConnectorInsertTableHandle : public JsonEncodedSubclass {};
@@ -769,28 +769,9 @@ void to_json(json& j, const SessionRepresentation& p);
 void from_json(const json& j, SessionRepresentation& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-struct TableHandle {
-  ConnectorId connectorId = {};
-  std::shared_ptr<ConnectorTableHandle> connectorHandle = {};
-  std::shared_ptr<ConnectorTransactionHandle> transaction = {};
-  std::shared_ptr<ConnectorTableLayoutHandle> connectorTableLayout = {};
-};
-void to_json(json& j, const TableHandle& p);
-void from_json(const json& j, TableHandle& p);
-} // namespace facebook::presto::protocol
-namespace facebook::presto::protocol {
-struct DeleteScanInfo {
-  PlanNodeId id = {};
-  TableHandle tableHandle = {};
-};
-void to_json(json& j, const DeleteScanInfo& p);
-void from_json(const json& j, DeleteScanInfo& p);
-} // namespace facebook::presto::protocol
-namespace facebook::presto::protocol {
 struct TableWriteInfo {
   std::shared_ptr<ExecutionWriterTarget> writerTarget = {};
   std::shared_ptr<AnalyzeTableHandle> analyzeTableHandle = {};
-  std::shared_ptr<DeleteScanInfo> deleteScanInfo = {};
 };
 void to_json(json& j, const TableWriteInfo& p);
 void from_json(const json& j, TableWriteInfo& p);
@@ -1518,6 +1499,16 @@ struct IndexJoinNode : public PlanNode {
 };
 void to_json(json& j, const IndexJoinNode& p);
 void from_json(const json& j, IndexJoinNode& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct TableHandle {
+  ConnectorId connectorId = {};
+  std::shared_ptr<ConnectorTableHandle> connectorHandle = {};
+  std::shared_ptr<ConnectorTransactionHandle> transaction = {};
+  std::shared_ptr<ConnectorTableLayoutHandle> connectorTableLayout = {};
+};
+void to_json(json& j, const TableHandle& p);
+void from_json(const json& j, TableHandle& p);
 } // namespace facebook::presto::protocol
 /*
  * Licensed under the Apache License, Version 2.0 (the "License");
