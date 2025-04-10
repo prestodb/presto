@@ -35,6 +35,7 @@ import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.plugin.blackhole.BlackHolePlugin;
 import com.facebook.presto.server.testing.TestingPrestoServer;
+import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tpch.TpchPlugin;
@@ -1257,7 +1258,7 @@ public class TestPrestoDriver
             try (PrestoStatement statement = connection.createStatement().unwrap(PrestoStatement.class)) {
                 assertFalse(statement.execute("CREATE TABLE test_more_results_clears_update_count (id bigint)"));
                 assertEquals(statement.getUpdateCount(), 0);
-                assertEquals(statement.getUpdateType(), "CREATE TABLE");
+                assertEquals(statement.getUpdateType(), new UpdateInfo("CREATE TABLE", "test_more_results_clears_update_count"));
                 assertFalse(statement.getMoreResults());
                 assertEquals(statement.getUpdateCount(), -1);
                 assertNull(statement.getUpdateType());

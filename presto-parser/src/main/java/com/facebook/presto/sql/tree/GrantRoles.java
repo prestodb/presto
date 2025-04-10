@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -89,6 +90,12 @@ public class GrantRoles
     public List<? extends Node> getChildren()
     {
         return ImmutableList.of();
+    }
+
+    @Override
+    public UpdateInfo getUpdateInfo()
+    {
+        return new UpdateInfo("GRANT ROLE", "");
     }
 
     @Override

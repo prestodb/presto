@@ -108,8 +108,8 @@ public abstract class AbstractTestingPrestoClient<T>
 
             if (error == null) {
                 QueryStatusInfo results = client.finalStatusInfo();
-                if (results.getUpdateType() != null) {
-                    resultsSession.setUpdateType(results.getUpdateType());
+                if (results.getUpdateInfo() != null) {
+                    resultsSession.setUpdateInfo(results.getUpdateInfo());
                 }
                 if (results.getUpdateCount() != null) {
                     resultsSession.setUpdateCount(results.getUpdateCount());
