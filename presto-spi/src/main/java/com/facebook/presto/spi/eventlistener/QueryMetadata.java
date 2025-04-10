@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.eventlistener;
 
+import com.facebook.presto.spi.analyzer.UpdateType;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.net.URI;
@@ -42,7 +43,7 @@ public class QueryMetadata
     private final Optional<String> payload;
 
     private final List<String> runtimeOptimizedStages;
-    private final Optional<String> updateQueryType;
+    private final Optional<UpdateType> updateQueryType;
 
     public QueryMetadata(
             String queryId,
@@ -58,7 +59,7 @@ public class QueryMetadata
             Optional<String> payload,
             List<String> runtimeOptimizedStages,
             Optional<String> tracingId,
-            Optional<String> updateQueryType)
+            Optional<UpdateType> updateQueryType)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
@@ -154,7 +155,7 @@ public class QueryMetadata
         return tracingId;
     }
 
-    public Optional<String> getUpdateQueryType()
+    public Optional<UpdateType> getUpdateQueryType()
     {
         return updateQueryType;
     }
