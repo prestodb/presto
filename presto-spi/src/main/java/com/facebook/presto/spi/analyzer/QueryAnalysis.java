@@ -27,11 +27,11 @@ import java.util.Set;
 public interface QueryAnalysis
 {
     /**
-     * Returns the update type of the query.
+     * Returns information about the type of Update
      *
      * @return a String representing the type of update (e.g., "INSERT", "CREATE TABLE", "DELETE", etc)
      */
-    String getUpdateType();
+    UpdateInfo getUpdateInfo();
 
     /**
      * Returns the expanded query, which might have been enhanced after analyzing materialized view.
