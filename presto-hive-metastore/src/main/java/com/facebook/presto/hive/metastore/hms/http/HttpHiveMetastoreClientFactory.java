@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive.metastore.hms.http;
 
-import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.metastore.hms.HiveMetastoreClient;
 import com.facebook.presto.hive.metastore.hms.MetastoreClientFactory;
 import com.facebook.presto.hive.metastore.hms.ThriftHiveMetastoreClient;
@@ -39,9 +38,9 @@ import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.hive.MetastoreClientConfig.HttpHiveMetastoreClientAuthenticationType.BASIC;
-import static com.facebook.presto.hive.MetastoreClientConfig.HttpHiveMetastoreClientAuthenticationType.BEARER;
-import static com.facebook.presto.hive.MetastoreClientConfig.HttpHiveMetastoreClientAuthenticationType.NONE;
+import static com.facebook.presto.hive.metastore.hms.http.HttpHiveMetastoreConfig.HttpHiveMetastoreClientAuthenticationType.BASIC;
+import static com.facebook.presto.hive.metastore.hms.http.HttpHiveMetastoreConfig.HttpHiveMetastoreClientAuthenticationType.BEARER;
+import static com.facebook.presto.hive.metastore.hms.http.HttpHiveMetastoreConfig.HttpHiveMetastoreClientAuthenticationType.NONE;
 import static com.facebook.presto.hive.metastore.util.HiveMetastoreUtils.buildSslContext;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.toIntExact;
@@ -53,7 +52,7 @@ import static java.util.Objects.requireNonNull;
 public class HttpHiveMetastoreClientFactory
         implements MetastoreClientFactory
 {
-    private final MetastoreClientConfig.HttpHiveMetastoreClientAuthenticationType authType;
+    private final HttpHiveMetastoreConfig.HttpHiveMetastoreClientAuthenticationType authType;
     private final int readTimeoutMillis;
     private final Optional<SSLContext> sslContext;
     private final Optional<String> httpBearerToken;
@@ -62,19 +61,19 @@ public class HttpHiveMetastoreClientFactory
     private final Map<String, String> httpAdditionalHeaders;
 
     @Inject
-    public HttpHiveMetastoreClientFactory(MetastoreClientConfig metastoreClientConfig)
+    public HttpHiveMetastoreClientFactory(HttpHiveMetastoreConfig httpHiveMetastoreConfig)
     {
-        requireNonNull(metastoreClientConfig, "metastoreClientConfig is null");
-        this.readTimeoutMillis = toIntExact(metastoreClientConfig.getHttpReadTimeout().toMillis());
-        this.sslContext = requireNonNull(createSslContext(metastoreClientConfig), "sslContext is null");
-        this.httpAdditionalHeaders = requireNonNull(metastoreClientConfig.getHttpAdditionalHeaders(), "httpAdditionalHeaders is null");
-        this.authType = requireNonNull(metastoreClientConfig.getHttpHiveMetastoreClientAuthenticationType(), "authType is null");
-        this.httpBearerToken = authType == BEARER ? requireNonNull(metastoreClientConfig.getHttpBearerToken(), "httpBearerToken is null") : Optional.empty();
-        this.httpMetastoreBasicUsername = authType == BASIC ? requireNonNull(metastoreClientConfig.getHttpMetastoreBasicUsername(), "httpMetastoreBasicUsername is null") : Optional.empty();
-        this.httpMetastoreBasicPassword = authType == BASIC ? requireNonNull(metastoreClientConfig.getHttpMetastoreBasicPassword(), "httpMetastoreBasicPassword is null") : Optional.empty();
+        requireNonNull(httpHiveMetastoreConfig, "HttpHiveMetastoreConfig is null");
+        this.readTimeoutMillis = toIntExact(httpHiveMetastoreConfig.getHttpReadTimeout().toMillis());
+        this.sslContext = requireNonNull(createSslContext(httpHiveMetastoreConfig), "sslContext is null");
+        this.httpAdditionalHeaders = requireNonNull(httpHiveMetastoreConfig.getHttpAdditionalHeaders(), "httpAdditionalHeaders is null");
+        this.authType = requireNonNull(httpHiveMetastoreConfig.getHttpHiveMetastoreClientAuthenticationType(), "authType is null");
+        this.httpBearerToken = authType == BEARER ? requireNonNull(httpHiveMetastoreConfig.getHttpBearerToken(), "httpBearerToken is null") : Optional.empty();
+        this.httpMetastoreBasicUsername = authType == BASIC ? requireNonNull(httpHiveMetastoreConfig.getHttpMetastoreBasicUsername(), "httpMetastoreBasicUsername is null") : Optional.empty();
+        this.httpMetastoreBasicPassword = authType == BASIC ? requireNonNull(httpHiveMetastoreConfig.getHttpMetastoreBasicPassword(), "httpMetastoreBasicPassword is null") : Optional.empty();
     }
 
-    private static Optional<SSLContext> createSslContext(MetastoreClientConfig config)
+    private static Optional<SSLContext> createSslContext(HttpHiveMetastoreConfig config)
     {
         return buildSslContext(config.getHttpMetastoreTlsEnabled(),
                 Optional.ofNullable(config.getHttpMetastoreTlsKeystorePath()),

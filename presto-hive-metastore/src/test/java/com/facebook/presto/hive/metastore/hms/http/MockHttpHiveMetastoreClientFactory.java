@@ -13,9 +13,7 @@
  */
 package com.facebook.presto.hive.metastore.hms.http;
 
-import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.metastore.hms.HiveMetastoreClient;
-import io.airlift.units.Duration;
 import org.apache.thrift.transport.TTransportException;
 
 import java.net.URI;
@@ -31,9 +29,9 @@ public class MockHttpHiveMetastoreClientFactory
 {
     private final List<HiveMetastoreClient> clients;
 
-    public MockHttpHiveMetastoreClientFactory(Duration timeout, List<HiveMetastoreClient> clients)
+    public MockHttpHiveMetastoreClientFactory(List<HiveMetastoreClient> clients)
     {
-        super(new MetastoreClientConfig());
+        super(new HttpHiveMetastoreConfig());
         this.clients = new ArrayList<>(requireNonNull(clients, "clients is null"));
     }
 
