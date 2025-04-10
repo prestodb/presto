@@ -67,7 +67,8 @@ public class TestRecordingHiveMetastore
             "owner",
             USER,
             Optional.of("comment"),
-            ImmutableMap.of("param", "value"));
+            ImmutableMap.of("param", "value"),
+            Optional.of("catalogName"));
     private static final Column TABLE_COLUMN = new Column(
             "column",
             HiveType.HIVE_INT,
@@ -96,6 +97,7 @@ public class TestRecordingHiveMetastore
             ImmutableMap.of("param", "value2"),
             ImmutableMap.of());
     private static final Table TABLE = new Table(
+            Optional.of("catalogName"),
             "database",
             "table",
             "owner",

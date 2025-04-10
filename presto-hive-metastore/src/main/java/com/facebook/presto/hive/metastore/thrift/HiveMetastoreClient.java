@@ -50,6 +50,9 @@ public interface HiveMetastoreClient
     String getDelegationToken(String owner, String renewer)
             throws TException;
 
+    List<String> getDatabases(String pattern)
+            throws TException;
+
     List<String> getAllDatabases()
             throws TException;
 

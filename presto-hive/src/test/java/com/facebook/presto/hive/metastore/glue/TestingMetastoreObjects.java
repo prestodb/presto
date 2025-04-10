@@ -126,6 +126,7 @@ public final class TestingMetastoreObjects
     public static com.facebook.presto.hive.metastore.Partition getPrestoTestPartition(String dbName, String tblName, List<String> values)
     {
         return com.facebook.presto.hive.metastore.Partition.builder()
+                .setCatalogName(Optional.of("hive"))
                 .setDatabaseName(dbName)
                 .setTableName(tblName)
                 .setValues(values)
