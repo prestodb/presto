@@ -140,5 +140,6 @@ class IndexLookupJoinTestBase
   facebook::velox::RowTypePtr valueType_;
   facebook::velox::RowTypePtr tableType_;
   facebook::velox::RowTypePtr probeType_;
+  std::optional<facebook::velox::RowTypePtr> partitionType_;
 };
 } // namespace fecebook::velox::exec::test
