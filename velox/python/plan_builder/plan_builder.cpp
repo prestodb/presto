@@ -47,6 +47,9 @@ PYBIND11_MODULE(plan_builder, m) {
       .def("name", &velox::py::PyPlanNode::name, py::doc(R"(
         Returns the name of the current plan node.
       )"))
+      .def("serialize", &velox::py::PyPlanNode::serialize, py::doc(R"(
+        Returns a serialized string containing the plan specification.
+      )"))
       .def(
           "to_string",
           [](const velox::py::PyPlanNode& planNode) {
@@ -58,6 +61,15 @@ PYBIND11_MODULE(plan_builder, m) {
       .def("id", &velox::py::PyPlanNode::id, py::doc(R"(
         Returns the id of the current plan node.
       )"));
+
+  m.def(
+      "deserialize_plan",
+      [](const std::string& serializedPlan) {
+        return velox::py::PyPlanNode::deserialize(serializedPlan, nullptr);
+      },
+      py::doc(R"(
+       Deserializes a serialized plan string.
+  )"));
 
   // Join type enum for hash, merge and nested loop joins.
   py::enum_<velox::core::JoinType>(m, "JoinType")

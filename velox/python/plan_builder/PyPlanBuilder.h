@@ -72,6 +72,15 @@ class PyPlanNode {
     return folly::toJson(planNode_->serialize());
   }
 
+  static PyPlanNode deserialize(
+      const std::string& serializedPlan,
+      memory::MemoryPool* pool) {
+    return PyPlanNode{
+        ISerializable::deserialize<velox::core::PlanNode>(
+            folly::parseJson(serializedPlan), (void*)pool),
+        nullptr};
+  }
+
   std::string name() const {
     return std::string(planNode_->name());
   }

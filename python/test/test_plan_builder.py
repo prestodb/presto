@@ -12,10 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import unittest
 
 from pyvelox.type import BIGINT, ROW
-from pyvelox.plan_builder import PlanBuilder, PlanNode
+from pyvelox.plan_builder import PlanBuilder, PlanNode, deserialize_plan
 
 
 class TestPyVeloxPlanBuidler(unittest.TestCase):
@@ -82,3 +83,20 @@ class TestPyVeloxPlanBuidler(unittest.TestCase):
 
         plan_builder1.project([])
         self.assertEqual(plan_builder1.get_plan_node().id(), "3")
+
+    def test_plan_serialization(self):
+        plan_builder = (
+            PlanBuilder()
+            .table_scan(ROW(["c0"], [BIGINT()]))
+            .project(["c0 + 1 AS d0", "100"])
+            .filter("d0 - 10 > 100")
+        )
+
+        plan_node = plan_builder.get_plan_node()
+        plan_clone = deserialize_plan(plan_node.serialize())
+
+        self.assertEqual(
+            json.loads(plan_node.serialize()), json.loads(plan_clone.serialize())
+        )
+        self.assertEqual(str(plan_node), str(plan_clone))
+        self.assertEqual(plan_node.to_string(), plan_clone.to_string())
