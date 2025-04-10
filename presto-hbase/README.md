@@ -15,7 +15,7 @@ mvn clean install
 
 
 ### Catalog config
-- Add hbase config file under Presto *catalog* directory, which named as *hbase.properties* 
+- Create a *hbase.properties* hbase configuration file under Presto *catalog* directory
 - Add configurations for *hbase.properties* as below:
 ```
 connector.name=hbase
