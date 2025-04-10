@@ -7,7 +7,7 @@ The Presto HBase connector allows access to HBase data from Presto. This documen
 
 ###  How to build
 
-Presto-hbase is a Maven project. You can package the connector jar file using the maven package as below.
+Presto-hbase is a Maven project. You can package the connector jar file by running the following command:
 ```
 mvn clean install
 
