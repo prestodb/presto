@@ -40,20 +40,32 @@ enum UTF8CharList {
 
 bool coinToss(FuzzerGenerator& rng, double threshold);
 
+/// Generate a random type with given scalar types. The level of nesting is up
+/// to maxDepth. If keyTypes is non-empty, choosing from keyTypes when
+/// determining the types of map keys. If keyTypes is empty, choosing from
+/// scalarTypes for the types of map keys. Similar for valueTypes.
 TypePtr randType(
     FuzzerGenerator& rng,
     const std::vector<TypePtr>& scalarTypes,
-    int maxDepth);
+    int maxDepth,
+    const std::vector<TypePtr>& mapKeyTypes = {},
+    const std::vector<TypePtr>& mapValueTypes = {});
 
+/// Similar to randType but generates a random map type.
 TypePtr randMapType(
     FuzzerGenerator& rng,
     const std::vector<TypePtr>& scalarTypes,
-    int maxDepth);
+    int maxDepth,
+    const std::vector<TypePtr>& mapKeyTypes = {},
+    const std::vector<TypePtr>& mapValueTypes = {});
 
+/// Similar to randType but generates a random row type.
 RowTypePtr randRowType(
     FuzzerGenerator& rng,
     const std::vector<TypePtr>& scalarTypes,
-    int maxDepth);
+    int maxDepth,
+    const std::vector<TypePtr>& mapKeyTypes = {},
+    const std::vector<TypePtr>& mapValueTypes = {});
 
 struct DataSpec {
   bool includeNaN;

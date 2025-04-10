@@ -26,7 +26,9 @@ bool coinToss(FuzzerGenerator& rng, double threshold) {
 TypePtr randType(
     FuzzerGenerator& rng,
     const std::vector<TypePtr>& scalarTypes,
-    int maxDepth) {
+    int maxDepth,
+    const std::vector<TypePtr>& mapKeyTypes,
+    const std::vector<TypePtr>& mapValueTypes) {
   const int numScalarTypes = scalarTypes.size();
   // Should we generate a scalar type?
   if (maxDepth <= 1 || rand<bool>(rng)) {
@@ -34,32 +36,45 @@ TypePtr randType(
   }
   switch (rand<uint32_t>(rng) % 3) {
     case 0:
-      return randMapType(rng, scalarTypes, maxDepth);
+      return randMapType(
+          rng, scalarTypes, maxDepth, mapKeyTypes, mapValueTypes);
     case 1:
-      return ARRAY(randType(rng, scalarTypes, maxDepth - 1));
+      return ARRAY(
+          randType(rng, scalarTypes, maxDepth - 1, mapKeyTypes, mapValueTypes));
     default:
-      return randRowType(rng, scalarTypes, maxDepth - 1);
+      return randRowType(
+          rng, scalarTypes, maxDepth - 1, mapKeyTypes, mapValueTypes);
   }
 }
 
 TypePtr randMapType(
     FuzzerGenerator& rng,
     const std::vector<TypePtr>& scalarTypes,
-    int maxDepth) {
+    int maxDepth,
+    const std::vector<TypePtr>& mapKeyTypes,
+    const std::vector<TypePtr>& mapValueTypes) {
+  const auto& selectedKeyTypes =
+      mapKeyTypes.empty() ? scalarTypes : mapKeyTypes;
+  const auto& selectedValueTypes =
+      mapValueTypes.empty() ? scalarTypes : mapValueTypes;
   return MAP(
-      randType(rng, scalarTypes, 0), randType(rng, scalarTypes, maxDepth - 1));
+      randType(rng, selectedKeyTypes, 0),
+      randType(rng, selectedValueTypes, maxDepth - 1, selectedKeyTypes));
 }
 
 RowTypePtr randRowType(
     FuzzerGenerator& rng,
     const std::vector<TypePtr>& scalarTypes,
-    int maxDepth) {
+    int maxDepth,
+    const std::vector<TypePtr>& mapKeyTypes,
+    const std::vector<TypePtr>& mapValueTypes) {
   int numFields = 1 + rand<uint32_t>(rng) % 7;
   std::vector<std::string> names;
   std::vector<TypePtr> fields;
   for (int i = 0; i < numFields; ++i) {
     names.push_back(fmt::format("f{}", i));
-    fields.push_back(randType(rng, scalarTypes, maxDepth));
+    fields.push_back(
+        randType(rng, scalarTypes, maxDepth, mapKeyTypes, mapValueTypes));
   }
   return ROW(std::move(names), std::move(fields));
 }

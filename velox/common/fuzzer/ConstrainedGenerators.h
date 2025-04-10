@@ -352,6 +352,11 @@ class SetConstrainedGenerator : public AbstractInputGenerator {
   std::vector<variant> set_;
 };
 
+// Generates random JSON strings. This generator first generates a value that
+// the expected JSON represents through 'objectGenerator', then converts the
+// value to a JSON string via folly::json::serialize() with randomly generated
+// serialization options. Additionally, it makes a random variation to the JSON
+// string by chance for testing of invalid cases.
 class JsonInputGenerator : public AbstractInputGenerator {
  public:
   JsonInputGenerator(
