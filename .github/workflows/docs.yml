@@ -60,7 +60,7 @@ jobs:
           make clean
           # pyvelox
           mkdir -p bindings/python
-          pandoc ../../pyvelox/README.md --from markdown --to rst -s -o bindings/python/README_generated_pyvelox.rst
+          pandoc ../../python/README.md --from markdown --to rst -s -o bindings/python/README_generated_pyvelox.rst
           # velox
           make html
 
