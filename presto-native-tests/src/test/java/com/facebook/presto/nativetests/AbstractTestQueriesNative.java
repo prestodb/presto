@@ -902,22 +902,6 @@ public abstract class AbstractTestQueriesNative
                 "Cannot cast BIGINT.*to INTEGER. Overflow during arithmetic conversion", true);
     }
 
-    @Override
-    @Test
-    public void testRemoveRedundantCastToVarcharInJoinClause()
-    {
-        Session session = Session.builder(getSession())
-                .setSystemProperty(REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN, "true")
-                .build();
-        // TODO: Check why results do not match for disabled queries.
-        // Trigger optimization
-        computeActual("select * from orders o join customer c on cast(o.custkey as varchar) = cast(c.custkey as varchar)");
-        assertQuery(session, "select o.orderkey, c.name from orders o join customer c on cast(o.custkey as varchar) = cast(c.custkey as varchar)");
-        computeActual(session, "select *, cast(o.custkey as varchar), cast(c.custkey as varchar) from orders o join customer c on cast(o.custkey as varchar) = cast(c.custkey as varchar)");
-        assertQuery(session, "select r.custkey, r.orderkey, r.name, n.nationkey from (select o.custkey, o.orderkey, c.name from orders o join customer c on cast(o.custkey as varchar) = cast(c.custkey as varchar)) r, nation n");
-        // Do not trigger optimization
-        assertQuery(session, "select * from customer c join orders o on cast(acctbal as varchar) = cast(totalprice as varchar)");
-    }
 
     @Override
     @Test
