@@ -30,6 +30,7 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.WarningCode;
+import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.ValuesNode;
@@ -101,7 +102,7 @@ public class TestQueryInfo
         assertEquals(actual.getStartedTransactionId(), expected.getStartedTransactionId());
         assertEquals(actual.isClearTransactionId(), expected.isClearTransactionId());
 
-        assertEquals(actual.getUpdateType(), expected.getUpdateType());
+        assertEquals(actual.getUpdateInfo(), expected.getUpdateInfo());
         assertEquals(actual.getOutputStage(), expected.getOutputStage());
 
         assertEquals(actual.getFailureInfo(), expected.getFailureInfo());
@@ -178,7 +179,7 @@ public class TestQueryInfo
                 ImmutableSet.of("deallocated_prepared_statement", "statement"),
                 Optional.of(TransactionId.create()),
                 true,
-                "update_type",
+                new UpdateInfo("UPDATE TYPE", ""),
                 Optional.empty(),
                 null,
                 null,
