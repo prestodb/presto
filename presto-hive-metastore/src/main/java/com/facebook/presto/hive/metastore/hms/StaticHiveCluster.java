@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive.metastore.hms;
 
-import com.facebook.presto.hive.metastore.hms.thrift.ThriftHiveMetastoreClientFactory;
 import com.google.common.collect.ImmutableList;
 import org.apache.thrift.TException;
 
@@ -33,17 +32,17 @@ public class StaticHiveCluster
         implements HiveCluster
 {
     private final ImmutableList<URI> metastoreUris;
-    private final ThriftHiveMetastoreClientFactory clientFactory;
+    private final MetastoreClientFactory clientFactory;
     private final String metastoreUsername;
     private final boolean metastoreLoadBalancingEnabled;
 
     @Inject
-    public StaticHiveCluster(StaticMetastoreConfig config, ThriftHiveMetastoreClientFactory clientFactory)
+    public StaticHiveCluster(StaticMetastoreConfig config, MetastoreClientFactory clientFactory)
     {
         this(config.getMetastoreUris(), config.isMetastoreLoadBalancingEnabled(), config.getMetastoreUsername(), clientFactory);
     }
 
-    public StaticHiveCluster(List<URI> metastoreUris, boolean metastoreLoadBalancingEnabled, String metastoreUsername, ThriftHiveMetastoreClientFactory clientFactory)
+    public StaticHiveCluster(List<URI> metastoreUris, boolean metastoreLoadBalancingEnabled, String metastoreUsername, MetastoreClientFactory clientFactory)
     {
         requireNonNull(metastoreUris, "metastoreUris is null");
         this.metastoreLoadBalancingEnabled = metastoreLoadBalancingEnabled;
@@ -93,7 +92,6 @@ public class StaticHiveCluster
         requireNonNull(uri, "metastoreUri is null");
         String scheme = uri.getScheme();
         checkArgument(!isNullOrEmpty(scheme), "metastoreUri scheme is missing: %s", uri);
-        checkArgument(scheme.equals("thrift"), "metastoreUri scheme must be thrift: %s", uri);
         checkArgument(uri.getHost() != null, "metastoreUri host is missing: %s", uri);
         checkArgument(uri.getPort() != -1, "metastoreUri port is missing: %s", uri);
         return uri;

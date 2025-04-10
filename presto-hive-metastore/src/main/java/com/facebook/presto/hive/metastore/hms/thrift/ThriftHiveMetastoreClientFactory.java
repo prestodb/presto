@@ -18,7 +18,6 @@ import com.facebook.presto.hive.authentication.HiveMetastoreAuthentication;
 import com.facebook.presto.hive.metastore.hms.HiveMetastoreClient;
 import com.facebook.presto.hive.metastore.hms.MetastoreClientFactory;
 import com.facebook.presto.hive.metastore.hms.ThriftHiveMetastoreClient;
-import com.facebook.presto.hive.metastore.hms.ThriftHiveMetastoreConfig;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 import org.apache.thrift.transport.TTransportException;

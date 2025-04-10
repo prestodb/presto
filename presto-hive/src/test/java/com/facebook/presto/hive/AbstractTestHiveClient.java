@@ -63,7 +63,8 @@ import com.facebook.presto.hive.metastore.hms.BridgingHiveMetastore;
 import com.facebook.presto.hive.metastore.hms.HiveCluster;
 import com.facebook.presto.hive.metastore.hms.TestingHiveCluster;
 import com.facebook.presto.hive.metastore.hms.ThriftHiveMetastore;
-import com.facebook.presto.hive.metastore.hms.ThriftHiveMetastoreConfig;
+import com.facebook.presto.hive.metastore.hms.http.HttpHiveMetastoreConfig;
+import com.facebook.presto.hive.metastore.hms.thrift.ThriftHiveMetastoreConfig;
 import com.facebook.presto.hive.orc.OrcBatchPageSource;
 import com.facebook.presto.hive.orc.OrcSelectivePageSource;
 import com.facebook.presto.hive.pagefile.PageFilePageSource;
@@ -979,13 +980,14 @@ public abstract class AbstractTestHiveClient
         CacheConfig cacheConfig = getCacheConfig();
         MetastoreClientConfig metastoreClientConfig = getMetastoreClientConfig();
         ThriftHiveMetastoreConfig thriftHiveMetastoreConfig = getThriftHiveMetastoreConfig();
+        HttpHiveMetastoreConfig httpHiveMetastoreConfig = getHttpHiveMetastoreConfig();
         hiveClientConfig.setTimeZone(timeZone);
         String proxy = System.getProperty("hive.metastore.thrift.client.socks-proxy");
         if (proxy != null) {
             metastoreClientConfig.setMetastoreSocksProxy(HostAndPort.fromString(proxy));
         }
 
-        HiveCluster hiveCluster = new TestingHiveCluster(metastoreClientConfig, thriftHiveMetastoreConfig, host, port);
+        HiveCluster hiveCluster = new TestingHiveCluster(metastoreClientConfig, thriftHiveMetastoreConfig, httpHiveMetastoreConfig, host, port);
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveClientConfig, metastoreClientConfig), ImmutableSet.of(), hiveClientConfig);
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
         ExtendedHiveMetastore metastore = new InMemoryCachingHiveMetastore(
@@ -1134,6 +1136,11 @@ public abstract class AbstractTestHiveClient
     protected ThriftHiveMetastoreConfig getThriftHiveMetastoreConfig()
     {
         return new ThriftHiveMetastoreConfig();
+    }
+
+    protected HttpHiveMetastoreConfig getHttpHiveMetastoreConfig()
+    {
+        return new HttpHiveMetastoreConfig();
     }
 
     protected ConnectorSession newSession()
