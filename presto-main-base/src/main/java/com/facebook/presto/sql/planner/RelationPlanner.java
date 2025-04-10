@@ -100,7 +100,6 @@ import com.facebook.presto.sql.tree.Values;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
@@ -259,23 +258,6 @@ class RelationPlanner
             RelationPlan sourcePlan = process(tableArgument.getRelation(), context);
             PlanBuilder sourcePlanBuilder = initializePlanBuilder(sourcePlan);
 
-            // map column names to symbols
-            // note: hidden columns are included in the mapping. They are present both in sourceDescriptor.allFields, and in sourcePlan.fieldMappings
-            // note: for an aliased relation or a CTE, the field names in the relation type are in the same case as specified in the alias.
-            //  quotes and canonicalization rules are not applied.
-            ImmutableMultimap.Builder<String, VariableReferenceExpression> columnMapping = ImmutableMultimap.builder();
-            RelationType sourceDescriptor = sourcePlan.getDescriptor();
-            for (int i = 0; i < sourceDescriptor.getAllFieldCount(); i++) {
-                Optional<String> name = sourceDescriptor.getFieldByIndex(i).getName();
-                if (name.isPresent()) {
-                    columnMapping.put(name.get(), sourcePlan.getVariable(i));
-                    Optional<List<Expression>> partitionBy = tableArgument.getPartitionBy();
-                    if (partitionBy.isPresent()) {
-                        sourcePlanBuilder.getTranslations().put(partitionBy.get().get(i), sourcePlan.getVariable(i));
-                    }
-                }
-            }
-
             List<VariableReferenceExpression> requiredColumns = functionAnalysis.getRequiredColumns().get(tableArgument.getArgumentName()).stream()
                     .map(sourcePlan::getVariable)
                     .collect(toImmutableList());
@@ -289,6 +271,9 @@ class RelationPlanner
                 // if there are partitioning columns, they might have to be coerced for copartitioning
                 if (tableArgument.getPartitionBy().isPresent() && !tableArgument.getPartitionBy().get().isEmpty()) {
                     List<Expression> partitioningColumns = tableArgument.getPartitionBy().get();
+                    for (int i = 0; i < partitioningColumns.size(); i++) {
+                        sourcePlanBuilder.getTranslations().put(partitioningColumns.get(i), sourcePlan.getVariable(i));
+                    }
                     QueryPlanner partitionQueryPlanner = new QueryPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session, context, sqlParser);
                     QueryPlanner.PlanAndMappings copartitionCoercions = partitionQueryPlanner.coerce(sourcePlanBuilder, partitioningColumns, analysis, idAllocator, variableAllocator, metadata);
                     sourcePlanBuilder = copartitionCoercions.getSubPlan();
