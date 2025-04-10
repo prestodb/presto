@@ -23,8 +23,7 @@ import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableMap;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.security.Principal;
 import java.util.Collections;

@@ -25,8 +25,7 @@ import com.facebook.presto.spi.function.OutputFunction;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;

@@ -24,6 +24,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import jakarta.inject.Inject;
 import org.apache.arrow.flight.Action;
 import org.apache.arrow.flight.CallOption;
 import org.apache.arrow.flight.CallOptions;
@@ -33,8 +34,6 @@ import org.apache.arrow.flight.Result;
 import org.apache.arrow.flight.auth2.BearerCredentialWriter;
 import org.apache.arrow.flight.grpc.CredentialCallOption;
 import org.apache.arrow.memory.BufferAllocator;
-
-import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Iterator;

@@ -15,8 +15,7 @@ package com.facebook.presto.connector.jmx;
 
 import com.google.common.collect.EvictingQueue;
 import com.google.common.collect.ImmutableList;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Collection;

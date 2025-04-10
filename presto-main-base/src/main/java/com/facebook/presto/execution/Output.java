@@ -16,8 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.spi.ConnectorId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-
-import javax.annotation.concurrent.Immutable;
+import com.google.errorprone.annotations.Immutable;
 
 import java.util.Objects;
 
