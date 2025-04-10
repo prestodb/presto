@@ -19,6 +19,7 @@ set(VELOX_DUCKDB_BUILD_SHA256_CHECKSUM
 set(VELOX_DUCKDB_SOURCE_URL
     "https://github.com/duckdb/duckdb/archive/refs/tags/v${VELOX_DUCKDB_VERSION}.tar.gz"
 )
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 
 velox_resolve_dependency_url(DUCKDB)
 

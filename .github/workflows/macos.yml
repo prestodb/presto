@@ -66,6 +66,7 @@ jobs:
       - name: Install Dependencies
         env:
           HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: "TRUE"
+          CMAKE_POLICY_VERSION_MINIMUM: "3.5"
         run: |
           source scripts/setup-macos.sh
           install_build_prerequisites
@@ -75,6 +76,8 @@ jobs:
           echo "NJOBS=`sysctl -n hw.ncpu`" >> $GITHUB_ENV
           brew unlink protobuf || echo "protobuf not installed"
           brew link --force protobuf@21
+          brew uninstall cmake
+          pipx install --force cmake==3.31
 
       - name: Cache ccache
         uses: assignUser/stash/restore@v1
@@ -86,6 +89,7 @@ jobs:
         env:
           folly_SOURCE: BUNDLED #brew folly does not have int128
           fmt_SOURCE: BUNDLED #brew fmt11 is not supported
+          CMAKE_POLICY_VERSION_MINIMUM: "3.5"
         run: |
             ccache -sz -M 5Gi
             cmake \
