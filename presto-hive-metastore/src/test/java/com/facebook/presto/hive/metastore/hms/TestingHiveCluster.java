@@ -16,7 +16,10 @@ package com.facebook.presto.hive.metastore.hms;
 import com.facebook.presto.hive.HiveCommonClientConfig;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.authentication.NoHiveMetastoreAuthentication;
+import com.facebook.presto.hive.metastore.hms.http.HttpHiveMetastoreClientFactory;
+import com.facebook.presto.hive.metastore.hms.http.HttpHiveMetastoreConfig;
 import com.facebook.presto.hive.metastore.hms.thrift.ThriftHiveMetastoreClientFactory;
+import com.facebook.presto.hive.metastore.hms.thrift.ThriftHiveMetastoreConfig;
 import org.apache.thrift.TException;
 
 import java.net.URI;
@@ -30,14 +33,22 @@ public class TestingHiveCluster
 {
     private final MetastoreClientConfig metastoreClientConfig;
     private final ThriftHiveMetastoreConfig thriftHiveMetastoreConfig;
-    private final HostAndPort address;
+    private final HttpHiveMetastoreConfig httpHiveMetastoreConfig;
+    private final URI uri;
+    private boolean httpEnabled;
     private final HiveCommonClientConfig hiveCommonClientConfig;
 
-    public TestingHiveCluster(MetastoreClientConfig metastoreClientConfig, ThriftHiveMetastoreConfig thriftHiveMetastoreConfig, String host, int port, HiveCommonClientConfig hiveCommonClientConfig)
+    public TestingHiveCluster(MetastoreClientConfig metastoreClientConfig, ThriftHiveMetastoreConfig thriftHiveMetastoreConfig, HttpHiveMetastoreConfig httpHiveMetastoreConfig, String host, int port)
     {
         this.metastoreClientConfig = requireNonNull(metastoreClientConfig, "metastore config is null");
         this.thriftHiveMetastoreConfig = requireNonNull(thriftHiveMetastoreConfig, "thrift metastore config is null");
-        this.address = HostAndPort.fromParts(requireNonNull(host, "host is null"), port);
+        this.httpHiveMetastoreConfig = requireNonNull(httpHiveMetastoreConfig, "http metastore conf is null");
+
+        if (httpHiveMetastoreConfig.getHttpMetastoreTlsEnabled()) {
+            this.httpEnabled = true;
+        }
+        String scheme = this.httpEnabled ? "https://" : "thrift://";
+        this.uri = URI.create(scheme + requireNonNull(host, "host is null") + ":" + port);
         this.hiveCommonClientConfig = hiveCommonClientConfig;
     }
 
@@ -45,7 +56,8 @@ public class TestingHiveCluster
     public HiveMetastoreClient createMetastoreClient(Optional<String> token)
             throws TException
     {
-        return new HiveMetastoreClientFactory(metastoreClientConfig, thriftHiveMetastoreConfig, new NoHiveMetastoreAuthentication(), hiveCommonClientConfig).create(address, token);
+        return (httpEnabled) ? new HttpHiveMetastoreClientFactory(httpHiveMetastoreConfig).create(uri, token)
+                             : new ThriftHiveMetastoreClientFactory(metastoreClientConfig, thriftHiveMetastoreConfig, new NoHiveMetastoreAuthentication(), hiveCommonClientConfig).create(uri, token);
     }
 
     @Override

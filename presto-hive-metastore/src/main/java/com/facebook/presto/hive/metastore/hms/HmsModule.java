@@ -21,6 +21,7 @@ import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore;
 import com.facebook.presto.hive.metastore.RecordingHiveMetastore;
 import com.facebook.presto.hive.metastore.hms.http.HttpHiveMetastoreClientFactory;
+import com.facebook.presto.hive.metastore.hms.http.HttpHiveMetastoreConfig;
 import com.facebook.presto.hive.metastore.hms.thrift.ThriftHiveMetastoreClientFactory;
 import com.facebook.presto.spi.ConnectorId;
 import com.google.inject.Binder;
@@ -55,7 +56,7 @@ public class HmsModule
                     .setDefault().to(HttpHiveMetastoreClientFactory.class).in(Scopes.SINGLETON);
             binder.bind(HiveCluster.class).to(StaticHiveCluster.class).in(Scopes.SINGLETON);
             configBinder(binder).bindConfig(StaticMetastoreConfig.class);
-            MetastoreClientConfig metastoreClientConfig = buildConfigObject(MetastoreClientConfig.class);
+            HttpHiveMetastoreConfig metastoreClientConfig = buildConfigObject(HttpHiveMetastoreConfig.class);
             boolean hasHttpsMetastore = staticMetastoreConfig.getMetastoreUris().stream().anyMatch(uri -> "https".equalsIgnoreCase(uri.getScheme()));
             if (hasHttpsMetastore && !metastoreClientConfig.getHttpMetastoreTlsEnabled()) {
                 throw new IllegalStateException("'hive.metastore.http.client.tls.enabled' must be set to 'true' while using https metastore URIs in 'hive.metastore.uri'");

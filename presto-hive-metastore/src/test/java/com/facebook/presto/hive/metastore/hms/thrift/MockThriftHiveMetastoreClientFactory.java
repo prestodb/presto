@@ -27,12 +27,12 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
-public class MockHiveMetastoreClientFactory
+public class MockThriftHiveMetastoreClientFactory
         extends ThriftHiveMetastoreClientFactory
 {
     private final List<HiveMetastoreClient> clients;
 
-    public MockHiveMetastoreClientFactory(Optional<HostAndPort> socksProxy, Duration timeout, List<HiveMetastoreClient> clients)
+    public MockThriftHiveMetastoreClientFactory(Optional<HostAndPort> socksProxy, Duration timeout, List<HiveMetastoreClient> clients)
     {
         super(Optional.empty(), socksProxy, timeout, new NoHiveMetastoreAuthentication(), null);
         this.clients = new ArrayList<>(requireNonNull(clients, "clients is null"));
