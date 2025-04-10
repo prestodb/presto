@@ -36,7 +36,7 @@ hbase.regionserver.kerberos.principal=hbase/_HOST@HADOOP.COM
 ./presto-cli --server 10.1.3.16:8087 --catalog hbase
 
 ```
-- Select and use the *default* schema, in which refers to HBase's default namespace *default*
+- Select and use the *default* schema, which refers to HBase's default namespace *default*
 ```
  use default;
 ```
