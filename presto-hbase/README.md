@@ -54,7 +54,7 @@ WITH (
 )
 ```
 
-- Produce some some data.
+- Add some data to the table
 ```
 INSERT into test_yyj_0417  VALUES
 ('1', 'Jack Ma', 35, DATE '1988-11-12' ),
