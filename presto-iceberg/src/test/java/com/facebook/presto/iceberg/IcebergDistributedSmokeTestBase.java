@@ -15,6 +15,7 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.Session.SessionBuilder;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
@@ -23,6 +24,7 @@ import com.facebook.presto.hive.s3.HiveS3Config;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.AstVisitor;
@@ -34,6 +36,7 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.assertions.Assert;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import com.facebook.presto.tests.ResultWithQueryId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.fs.FileSystem;
@@ -2088,6 +2091,37 @@ public abstract class IcebergDistributedSmokeTestBase
             assertUpdate(session, "DROP TABLE " + tableName);
         });
     }
+
+    @Test
+    public void testRuntimeMetricsReporter()
+    {
+
+        // do i run a session builder?
+        Session session = Session.builder(getSession())
+                .setCatalog("iceberg")
+                .setSchema("tpch")
+                .build();
+
+        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner()
+                .executeWithQueryId(session, "SELECT * FROM orders WHERE orderkey < 100");
+
+        QueryId queryId = result.getQueryId();
+
+        DistributedQueryRunner distributedQueryRunner = (DistributedQueryRunner)getQueryRunner();
+
+        RuntimeStats runtimestats = distributedQueryRunner.getCoordinator()
+                .getQueryManager()
+                .getFullQueryInfo(queryId)
+                .getQueryStats()
+                .getRuntimeStats();
+
+
+        assertTrue(runtimestats.getMetrics().containsKey("iceberg.tpch.orders.scan.totalPlanningDuration"));
+        
+    }
+
+
+
 
     protected HdfsEnvironment getHdfsEnvironment()
     {
