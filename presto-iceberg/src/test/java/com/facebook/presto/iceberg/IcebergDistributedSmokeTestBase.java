@@ -15,6 +15,7 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.Session.SessionBuilder;
+import com.facebook.presto.common.RuntimeMetric;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.hive.HdfsEnvironment;
@@ -2096,7 +2097,6 @@ public abstract class IcebergDistributedSmokeTestBase
     public void testRuntimeMetricsReporter()
     {
 
-        // do i run a session builder?
         Session session = Session.builder(getSession())
                 .setCatalog("iceberg")
                 .setSchema("tpch")
@@ -2115,8 +2115,23 @@ public abstract class IcebergDistributedSmokeTestBase
                 .getQueryStats()
                 .getRuntimeStats();
 
-
         assertTrue(runtimestats.getMetrics().containsKey("iceberg.tpch.orders.scan.totalPlanningDuration"));
+
+        assertEquals(runtimestats
+                .getMetrics()
+                .get("iceberg.tpch.orders.scan.resultDataFiles")
+                .getCount(), 1);
+
+        assertEquals(runtimestats
+                .getMetrics()
+                .get("iceberg.tpch.orders.scan.totalDeleteManifests")
+                .getCount(), 1);
+
+        assertEquals(runtimestats
+                .getMetrics()
+                .get("iceberg.tpch.orders.scan.totalFileSizeInBytes")
+                .getCount(), 1);
+
         
     }
 
