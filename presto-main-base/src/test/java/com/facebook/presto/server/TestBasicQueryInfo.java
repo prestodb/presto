@@ -21,6 +21,7 @@ import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.operator.BlockedReason;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.StandardErrorCode;
+import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.facebook.presto.spi.eventlistener.StageGcStatistics;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.google.common.collect.ImmutableList;
@@ -37,6 +38,7 @@ import java.util.OptionalDouble;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.QueryState.RUNNING;
+import static com.facebook.presto.spi.analyzer.UpdateType.UPDATE_TYPE;
 import static org.testng.Assert.assertEquals;
 
 public class TestBasicQueryInfo
@@ -130,7 +132,7 @@ public class TestBasicQueryInfo
                         ImmutableSet.of(),
                         Optional.empty(),
                         false,
-                        "33",
+                        new UpdateInfo(UPDATE_TYPE, ""),
                         Optional.empty(),
                         null,
                         StandardErrorCode.ABANDONED_QUERY.toErrorCode(),
