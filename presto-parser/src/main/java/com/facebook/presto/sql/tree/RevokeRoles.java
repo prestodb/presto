@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -95,6 +96,12 @@ public class RevokeRoles
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitRevokeRoles(this, context);
+    }
+
+    @Override
+    public UpdateInfo getUpdateInfo()
+    {
+        return new UpdateInfo("REVOKE ROLES", "");
     }
 
     @Override

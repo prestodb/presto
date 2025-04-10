@@ -14,6 +14,7 @@
 package com.facebook.presto.client;
 
 import com.facebook.presto.spi.PrestoWarning;
+import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -45,7 +46,7 @@ public class QueryResults
     private final StatementStats stats;
     private final QueryError error;
     private final List<PrestoWarning> warnings;
-    private final String updateType;
+    private final UpdateInfo updateInfo;
     private final Long updateCount;
 
     @JsonCreator
@@ -60,7 +61,7 @@ public class QueryResults
             @JsonProperty("stats") StatementStats stats,
             @JsonProperty("error") QueryError error,
             @JsonProperty("warnings") List<PrestoWarning> warnings,
-            @JsonProperty("updateType") String updateType,
+            @JsonProperty("updateInfo") UpdateInfo updateInfo,
             @JsonProperty("updateCount") Long updateCount)
     {
         this(
@@ -74,7 +75,7 @@ public class QueryResults
                 stats,
                 error,
                 firstNonNull(warnings, ImmutableList.of()),
-                updateType,
+                updateInfo,
                 updateCount);
     }
 
@@ -89,7 +90,7 @@ public class QueryResults
             StatementStats stats,
             QueryError error,
             List<PrestoWarning> warnings,
-            String updateType,
+            UpdateInfo updateInfo,
             Long updateCount)
     {
         this.id = requireNonNull(id, "id is null");
@@ -103,7 +104,7 @@ public class QueryResults
         this.stats = requireNonNull(stats, "stats is null");
         this.error = error;
         this.warnings = ImmutableList.copyOf(requireNonNull(warnings, "warnings is null"));
-        this.updateType = updateType;
+        this.updateInfo = updateInfo;
         this.updateCount = updateCount;
     }
 
@@ -226,9 +227,9 @@ public class QueryResults
     @Nullable
     @JsonProperty
     @Override
-    public String getUpdateType()
+    public UpdateInfo getUpdateInfo()
     {
-        return updateType;
+        return updateInfo;
     }
 
     /**
@@ -255,7 +256,7 @@ public class QueryResults
                 .add("hasBinaryData", binaryData != null)
                 .add("stats", stats)
                 .add("error", error)
-                .add("updateType", updateType)
+                .add("updateInfo", updateInfo)
                 .add("updateCount", updateCount)
                 .toString();
     }

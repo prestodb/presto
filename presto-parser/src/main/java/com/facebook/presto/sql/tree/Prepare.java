@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -65,6 +66,12 @@ public class Prepare
     public List<Node> getChildren()
     {
         return ImmutableList.of(statement);
+    }
+
+    @Override
+    public UpdateInfo getUpdateInfo()
+    {
+        return new UpdateInfo("PREPARE", "");
     }
 
     @Override
