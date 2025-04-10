@@ -11,23 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.tree;
 
-import com.facebook.presto.spi.analyzer.UpdateInfoProvider;
+package com.facebook.presto.spi.analyzer;
 
-import java.util.Optional;
-
-public abstract class Statement
-        extends Node implements UpdateInfoProvider
+public interface UpdateInfoProvider
 {
-    protected Statement(Optional<NodeLocation> location)
-    {
-        super(location);
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitStatement(this, context);
-    }
+    UpdateInfo getUpdateInfo();
 }

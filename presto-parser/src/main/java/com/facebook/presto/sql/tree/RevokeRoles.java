@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -21,6 +22,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.spi.analyzer.UpdateType.REVOKE_ROLES;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -95,6 +97,12 @@ public class RevokeRoles
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitRevokeRoles(this, context);
+    }
+
+    @Override
+    public UpdateInfo getUpdateInfo()
+    {
+        return new UpdateInfo(REVOKE_ROLES, "");
     }
 
     @Override
