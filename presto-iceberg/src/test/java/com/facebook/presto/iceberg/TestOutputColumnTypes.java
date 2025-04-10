@@ -35,6 +35,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 
+import static com.facebook.presto.spi.analyzer.UpdateType.CREATE_TABLE;
+import static com.facebook.presto.spi.analyzer.UpdateType.INSERT;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
@@ -104,7 +106,7 @@ public class TestOutputColumnTypes
         assertThat(event.getIoMetadata().getOutput().get().getCatalogName()).isEqualTo("iceberg");
         assertThat(event.getIoMetadata().getOutput().get().getSchema()).isEqualTo("tpch");
         assertThat(event.getIoMetadata().getOutput().get().getTable()).isEqualTo("create_insert_table1");
-        assertThat(event.getMetadata().getUpdateQueryType().get()).isEqualTo("INSERT");
+        assertThat(event.getMetadata().getUpdateQueryType().get()).isEqualTo(INSERT);
 
         assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
                 .containsExactly(
@@ -123,7 +125,7 @@ public class TestOutputColumnTypes
         assertThat(event.getIoMetadata().getOutput().get().getCatalogName()).isEqualTo("iceberg");
         assertThat(event.getIoMetadata().getOutput().get().getSchema()).isEqualTo("tpch");
         assertThat(event.getIoMetadata().getOutput().get().getTable()).isEqualTo("create_update_table");
-        assertThat(event.getMetadata().getUpdateQueryType().get()).isEqualTo("CREATE TABLE");
+        assertThat(event.getMetadata().getUpdateQueryType().get()).isEqualTo(CREATE_TABLE);
 
         assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
                 .containsExactly(

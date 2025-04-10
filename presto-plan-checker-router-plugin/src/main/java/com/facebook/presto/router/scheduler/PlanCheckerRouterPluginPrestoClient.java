@@ -160,7 +160,7 @@ public class PlanCheckerRouterPluginPrestoClient
                 queryStatusInfo.getStats(),
                 newQueryError(queryStatusInfo.getError()),
                 queryStatusInfo.getWarnings(),
-                queryStatusInfo.getUpdateType(),
+                queryStatusInfo.getUpdateInfo(),
                 queryStatusInfo.getUpdateCount());
 
         return QUERY_RESULTS_CODEC.toJson(queryResults);
