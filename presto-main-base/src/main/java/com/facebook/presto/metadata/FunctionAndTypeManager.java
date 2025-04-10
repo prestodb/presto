@@ -55,6 +55,9 @@ import com.facebook.presto.spi.function.SqlFunctionSupplier;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
 import com.facebook.presto.spi.function.table.TableFunctionProcessorProvider;
+import com.facebook.presto.spi.tvf.TVFProvider;
+import com.facebook.presto.spi.tvf.TVFProviderContext;
+import com.facebook.presto.spi.tvf.TVFProviderFactory;
 import com.facebook.presto.spi.type.TypeManagerContext;
 import com.facebook.presto.spi.type.TypeManagerFactory;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -71,6 +74,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import org.weakref.jmx.Managed;
@@ -152,6 +156,8 @@ public class FunctionAndTypeManager
     private final AtomicReference<TypeManager> servingTypeManager;
     private final AtomicReference<Supplier<Map<String, ParametricType>>> servingTypeManagerParametricTypesSupplier;
     private final ConcurrentHashMap<ConnectorId, Function<ConnectorTableFunctionHandle, TableFunctionProcessorProvider>> tableFunctionProcessorProviderMap = new ConcurrentHashMap<>();
+    private final Map<String, TVFProviderFactory> tvfProviderFactories = new ConcurrentHashMap<>();
+    private final Map<String, TVFProvider> tvfProviders = new ConcurrentHashMap<>();
 
     @Inject
     public FunctionAndTypeManager(
@@ -345,6 +351,32 @@ public class FunctionAndTypeManager
         transactionManager.registerFunctionNamespaceManager(catalogName, functionNamespaceManager);
         if (functionNamespaceManagers.putIfAbsent(catalogName, functionNamespaceManager) != null) {
             throw new IllegalArgumentException(format("Function namespace manager is already registered for catalog [%s]", catalogName));
+        }
+    }
+
+    public void loadTVFProvider(String tvfProviderName, NodeManager nodeManager)
+    {
+        requireNonNull(tvfProviderName, "tvfProviderName is null");
+        TVFProviderFactory factory = tvfProviderFactories.get(tvfProviderName);
+        checkState(factory != null, "No factory for tvf provider %s", tvfProviderName);
+        TVFProvider tvfProvider = factory.createTVFProvider(ImmutableMap.of(), new TVFProviderContext(nodeManager));
+
+        if (tvfProviders.putIfAbsent(tvfProviderName, tvfProvider) != null) {
+            throw new IllegalArgumentException(format("TVF provider [%s] is already registered", tvfProvider));
+        }
+    }
+
+    public void loadTVFProviders(NodeManager nodeManager)
+    {
+        for (String tvfProviderName : tvfProviderFactories.keySet()) {
+            loadTVFProvider(tvfProviderName, nodeManager);
+        }
+    }
+
+    public void addTVFProviderFactory(TVFProviderFactory factory)
+    {
+        if (tvfProviderFactories.putIfAbsent(factory.getName(), factory) != null) {
+            throw new IllegalArgumentException(format("TVF provider '%s' is already registered", factory.getName()));
         }
     }
 
