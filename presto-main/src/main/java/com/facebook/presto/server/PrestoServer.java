@@ -53,7 +53,9 @@ import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.security.AccessControlModule;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
 import com.facebook.presto.server.security.PrestoAuthenticatorManager;
+import com.facebook.presto.server.security.SecurityConfig;
 import com.facebook.presto.server.security.ServerSecurityModule;
+import com.facebook.presto.server.security.oauth2.OAuth2Client;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
 import com.facebook.presto.sql.parser.SqlParserOptions;
@@ -85,6 +87,7 @@ import static com.facebook.airlift.discovery.client.ServiceAnnouncement.serviceA
 import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 import static com.facebook.presto.server.PrestoSystemRequirements.verifyJvmRequirements;
 import static com.facebook.presto.server.PrestoSystemRequirements.verifySystemTimeIsReasonable;
+import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.OAUTH2;
 import static com.google.common.base.Strings.nullToEmpty;
 import static java.util.Objects.requireNonNull;
 
@@ -202,6 +205,11 @@ public class PrestoServer
             injector.getInstance(ExpressionOptimizerManager.class).loadExpressionOptimizerFactories();
 
             startAssociatedProcesses(injector);
+
+            SecurityConfig securityConfig = injector.getInstance(SecurityConfig.class);
+            if (securityConfig.getAuthenticationTypes().contains(OAUTH2)) {
+                injector.getInstance(OAuth2Client.class).load();
+            }
 
             injector.getInstance(Announcer.class).start();
 
