@@ -1346,6 +1346,7 @@ bool Task::addSplitWithSequence(
     const core::PlanNodeId& planNodeId,
     exec::Split&& split,
     long sequenceId) {
+  RECORD_METRIC_VALUE(kMetricTaskSplitsCount, 1);
   std::unique_ptr<ContinuePromise> promise;
   bool added = false;
   bool isTaskRunning;
@@ -1378,6 +1379,7 @@ bool Task::addSplitWithSequence(
 }
 
 void Task::addSplit(const core::PlanNodeId& planNodeId, exec::Split&& split) {
+  RECORD_METRIC_VALUE(kMetricTaskSplitsCount, 1);
   bool isTaskRunning;
   std::unique_ptr<ContinuePromise> promise;
   {

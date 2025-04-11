@@ -136,6 +136,9 @@ Memory Management
    * - task_memory_reclaim_wait_timeout_count
      - Count
      - The number of times that the task memory reclaim wait timeouts.
+   * - task_splits_count
+     - Count
+     - The total number of splits received by all tasks.
    * - memory_non_reclaimable_count
      - Count
      - The number of times that the memory reclaim fails because the operator is executing a

@@ -349,6 +349,9 @@ void registerVeloxMetrics() {
       kMetricTaskMemoryReclaimWaitTimeoutCount,
       facebook::velox::StatType::COUNT);
 
+  // Tracks the total number of splits received by all tasks.
+  DEFINE_METRIC(kMetricTaskSplitsCount, facebook::velox::StatType::COUNT);
+
   // The number of times that the memory reclaim fails because the operator is
   // executing a non-reclaimable section where it is expected to have reserved
   // enough memory to execute without asking for more. Therefore, it is an
