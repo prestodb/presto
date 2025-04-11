@@ -26,12 +26,16 @@
 
 /// Push an entry to the history ring buffer with a label from format string
 /// (same as printf) and optional arguments.
-#define VELOX_TRACE_HISTORY_PUSH(_format, ...)                             \
-  ::facebook::velox::process::TraceHistory::push([&](auto& entry) {        \
-    entry.time = ::std::chrono::steady_clock::now();                       \
-    entry.file = __FILE__;                                                 \
-    entry.line = __LINE__;                                                 \
-    ::snprintf(entry.label, entry.kLabelCapacity, _format, ##__VA_ARGS__); \
+#define VELOX_TRACE_HISTORY_PUSH(_format, ...)                                 \
+  ::facebook::velox::process::TraceHistory::push([&](auto& entry) {            \
+    entry.time = ::std::chrono::steady_clock::now();                           \
+    entry.file = __FILE__;                                                     \
+    entry.line = __LINE__;                                                     \
+    auto res =                                                                 \
+        ::snprintf(entry.label, entry.kLabelCapacity, _format, ##__VA_ARGS__); \
+    if (FOLLY_UNLIKELY(res < 0)) {                                             \
+      entry.label[0] = '\0';                                                   \
+    }                                                                          \
   })
 
 namespace facebook::velox::process {

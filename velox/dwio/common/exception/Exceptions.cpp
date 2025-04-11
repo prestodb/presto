@@ -53,7 +53,7 @@ void verify(bool c, std::string fmt...) {
 }
 
 std::string error_string(std::string fmt, va_list ap) {
-  std::array<char, 1024> buf;
+  std::array<char, 1024> buf = {};
   vsnprintf(buf.data(), buf.size(), fmt.data(), ap);
   buf[buf.size() - 1] = 0;
   return std::string(buf.data());
