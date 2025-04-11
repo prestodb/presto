@@ -129,6 +129,11 @@ export class PageTitle extends React.Component<Props, State> {
                                         <span className="text" id="environment">{info.environment}</span>
                                     </span>
                                 </li>
+                                <li>
+                                    <span className="navbar-cluster-info logout">
+                                        <a className="btn btn-md btn-info style-check logout-btn" href="/logout">Logout</a>
+                                    </span>
+                                </li>
                             </ul>
                         </div>
                     </div>
