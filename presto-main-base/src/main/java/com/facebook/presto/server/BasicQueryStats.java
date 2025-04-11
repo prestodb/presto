@@ -62,6 +62,11 @@ public class BasicQueryStats
     private final int runningDrivers;
     private final int completedDrivers;
 
+    private final int totalSplits;
+    private final int queuedSplits;
+    private final int runningSplits;
+    private final int completedSplits;
+
     private final DataSize rawInputDataSize;
     private final long rawInputPositions;
 
@@ -97,6 +102,10 @@ public class BasicQueryStats
             int queuedDrivers,
             int runningDrivers,
             int completedDrivers,
+            int totalSplits,
+            int queuedSplits,
+            int runningSplits,
+            int completedSplits,
             DataSize rawInputDataSize,
             long rawInputPositions,
             double cumulativeUserMemory,
@@ -133,6 +142,14 @@ public class BasicQueryStats
         this.runningDrivers = runningDrivers;
         checkArgument(completedDrivers >= 0, "completedDrivers is negative");
         this.completedDrivers = completedDrivers;
+        checkArgument(totalSplits >= 0, "totalSplits is negative");
+        this.totalSplits = totalSplits;
+        checkArgument(queuedSplits >= 0, "queuedSplits is negative");
+        this.queuedSplits = queuedSplits;
+        checkArgument(runningSplits >= 0, "runningSplits is negative");
+        this.runningSplits = runningSplits;
+        checkArgument(completedSplits >= 0, "completedSplits is negative");
+        this.completedSplits = completedSplits;
 
         this.rawInputDataSize = requireNonNull(rawInputDataSize);
         this.rawInputPositions = rawInputPositions;
@@ -172,6 +189,10 @@ public class BasicQueryStats
             @JsonProperty("queuedDrivers") int queuedDrivers,
             @JsonProperty("runningDrivers") int runningDrivers,
             @JsonProperty("completedDrivers") int completedDrivers,
+            @JsonProperty("totalSplits") int totalSplits,
+            @JsonProperty("queuedSplits") int queuedSplits,
+            @JsonProperty("runningSplits") int runningSplits,
+            @JsonProperty("completedSplits") int completedSplits,
             @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
             @JsonProperty("rawInputPositions") long rawInputPositions,
             @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
@@ -202,6 +223,10 @@ public class BasicQueryStats
                 queuedDrivers,
                 runningDrivers,
                 completedDrivers,
+                totalSplits,
+                queuedSplits,
+                runningSplits,
+                completedSplits,
                 rawInputDataSize,
                 rawInputPositions,
                 cumulativeUserMemory,
@@ -235,6 +260,10 @@ public class BasicQueryStats
                 queryStats.getQueuedDrivers(),
                 queryStats.getRunningDrivers(),
                 queryStats.getCompletedDrivers(),
+                queryStats.getTotalSplits(),
+                queryStats.getQueuedSplits(),
+                queryStats.getRunningSplits(),
+                queryStats.getCompletedSplits(),
                 queryStats.getRawInputDataSize(),
                 queryStats.getRawInputPositions(),
                 queryStats.getCumulativeUserMemory(),
@@ -264,6 +293,10 @@ public class BasicQueryStats
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
+                0,
+                0,
+                0,
+                0,
                 0,
                 0,
                 0,
@@ -498,5 +531,33 @@ public class BasicQueryStats
     public Duration getAnalysisTime()
     {
         return analysisTime;
+    }
+
+    @ThriftField(30)
+    @JsonProperty
+    public int getTotalSplits()
+    {
+        return totalSplits;
+    }
+
+    @ThriftField(31)
+    @JsonProperty
+    public int getQueuedSplits()
+    {
+        return queuedSplits;
+    }
+
+    @ThriftField(32)
+    @JsonProperty
+    public int getRunningSplits()
+    {
+        return runningSplits;
+    }
+
+    @ThriftField(33)
+    @JsonProperty
+    public int getCompletedSplits()
+    {
+        return completedSplits;
     }
 }
