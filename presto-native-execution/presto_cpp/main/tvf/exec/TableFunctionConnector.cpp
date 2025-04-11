@@ -98,7 +98,7 @@ std::optional<RowVectorPtr> TableFunctionDataSource::next(
   VELOX_CHECK(!result->usedInput());
 
   // Don't really understand why the dynamic_pointer_cast is needed.
-  auto resultRows = dynamic_pointer_cast<RowVector>(result->result());
+  auto resultRows = std::dynamic_pointer_cast<RowVector>(result->result());
   VELOX_CHECK(resultRows);
 
   return std::move(resultRows);

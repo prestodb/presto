@@ -233,7 +233,7 @@ void to_json(json& j, const AbstractConnectorTableFunction& p) {
       "arguments",
       p.arguments,
       "AbstractConnectorTableFunction",
-      "List<ArgumentSpecification>",
+      "List<std::shared_ptr<ArgumentSpecification>>",
       "arguments");
   to_json_key(
       j,
@@ -259,7 +259,7 @@ void from_json(const json& j, AbstractConnectorTableFunction& p) {
       "arguments",
       p.arguments,
       "AbstractConnectorTableFunction",
-      "List<ArgumentSpecification>",
+      "List<std::shared_ptr<ArgumentSpecification>>",
       "arguments");
   from_json_key(
       j,
@@ -3233,6 +3233,22 @@ void from_json(const json& j, DataOrganizationSpecification& p) {
       "orderingScheme");
 }
 } // namespace facebook::presto::protocol
+<<<<<<< HEAD
+=======
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+>>>>>>> 48ceb43ef3 ([native] Expose table valued functions to an endpoint)
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ConnectorDeleteTableHandle>& p) {
   if (p == nullptr) {
@@ -5708,6 +5724,35 @@ void from_json(const json& j, Function& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+GenericTableReturnTypeSpecification::
+    GenericTableReturnTypeSpecification() noexcept {
+  _type = "generic_table";
+}
+
+void to_json(json& j, const GenericTableReturnTypeSpecification& p) {
+  j = json::object();
+  j["@type"] = "generic_table";
+  to_json_key(
+      j,
+      "dummy",
+      p.dummy,
+      "GenericTableReturnTypeSpecification",
+      "String",
+      "dummy");
+}
+
+void from_json(const json& j, GenericTableReturnTypeSpecification& p) {
+  p._type = j["@type"];
+  from_json_key(
+      j,
+      "dummy",
+      p.dummy,
+      "GenericTableReturnTypeSpecification",
+      "String",
+      "dummy");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 GroupIdNode::GroupIdNode() noexcept {
   _type = "com.facebook.presto.sql.planner.plan.GroupIdNode";
 }
@@ -7411,6 +7456,35 @@ void from_json(const json& j, NodeStatus& p) {
       "heapAvailable");
   from_json_key(
       j, "nonHeapUsed", p.nonHeapUsed, "NodeStatus", "int64_t", "nonHeapUsed");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+OnlyPassThroughReturnTypeSpecification::
+    OnlyPassThroughReturnTypeSpecification() noexcept {
+  _type = "only_pass_through_table";
+}
+
+void to_json(json& j, const OnlyPassThroughReturnTypeSpecification& p) {
+  j = json::object();
+  j["@type"] = "only_pass_through_table";
+  to_json_key(
+      j,
+      "dummy",
+      p.dummy,
+      "OnlyPassThroughReturnTypeSpecification",
+      "String",
+      "dummy");
+}
+
+void from_json(const json& j, OnlyPassThroughReturnTypeSpecification& p) {
+  p._type = j["@type"];
+  from_json_key(
+      j,
+      "dummy",
+      p.dummy,
+      "OnlyPassThroughReturnTypeSpecification",
+      "String",
+      "dummy");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {

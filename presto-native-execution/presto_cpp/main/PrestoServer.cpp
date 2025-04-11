@@ -383,6 +383,13 @@ void PrestoServer::run() {
                 http::kMimeTypeApplicationJson)
             .sendWithEOM();
       });
+  httpServer_->registerGet(
+      "/v1/functions/tvf",
+      [](proxygen::HTTPMessage* /*message*/,
+         const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+         proxygen::ResponseHandler* downstream) {
+        http::sendOkResponse(downstream, getTableValuedFunctionsMetadata());
+      });
 
   if (systemConfig->enableRuntimeMetricsCollection()) {
     enableWorkerStatsReporting();

@@ -143,8 +143,8 @@ void registerExcludeColumns(const std::string& name) {
   TableArgumentSpecList argSpecs;
   argSpecs.insert(
       std::make_shared<TableArgumentSpecification>(TABLE_ARGUMENT_NAME, true));
-  argSpecs.insert(
-      std::make_shared<ArgumentSpecification>(DESCRIPTOR_ARGUMENT_NAME, true));
+  argSpecs.insert(std::make_shared<DescriptorArgumentSpecification>(
+      DESCRIPTOR_ARGUMENT_NAME, Descriptor({"columns"}), true));
   registerTableFunction(
       name,
       argSpecs,

@@ -375,7 +375,7 @@ namespace facebook::presto::protocol {
 struct AbstractConnectorTableFunction {
   String schema = {};
   String name = {};
-  List<ArgumentSpecification> arguments = {};
+  List<std::shared_ptr<ArgumentSpecification>> arguments = {};
   std::shared_ptr<ReturnTypeSpecification> returnTypeSpecification = {};
 };
 void to_json(json& j, const AbstractConnectorTableFunction& p);
@@ -1373,6 +1373,15 @@ void to_json(json& j, const Function& p);
 void from_json(const json& j, Function& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+struct GenericTableReturnTypeSpecification : public ReturnTypeSpecification {
+  String dummy = {};
+
+  GenericTableReturnTypeSpecification() noexcept;
+};
+void to_json(json& j, const GenericTableReturnTypeSpecification& p);
+void from_json(const json& j, GenericTableReturnTypeSpecification& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 struct GroupIdNode : public PlanNode {
   std::shared_ptr<PlanNode> source = {};
   List<List<VariableReferenceExpression>> groupingSets = {};
@@ -1795,6 +1804,15 @@ struct NodeStatus {
 };
 void to_json(json& j, const NodeStatus& p);
 void from_json(const json& j, NodeStatus& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct OnlyPassThroughReturnTypeSpecification : public ReturnTypeSpecification {
+  String dummy = {};
+
+  OnlyPassThroughReturnTypeSpecification() noexcept;
+};
+void to_json(json& j, const OnlyPassThroughReturnTypeSpecification& p);
+void from_json(const json& j, OnlyPassThroughReturnTypeSpecification& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 enum class BufferState {
