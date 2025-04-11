@@ -577,6 +577,8 @@ class Type : public Tree<const TypePtr>, public velox::ISerializable {
 
   bool containsUnknown() const;
 
+  VELOX_DEFINE_CLASS_NAME(Type)
+
  protected:
   FOLLY_ALWAYS_INLINE bool hasSameTypeId(const Type& other) const {
     return typeid(*this) == typeid(other);
@@ -595,8 +597,6 @@ class Type : public Tree<const TypePtr>, public velox::ISerializable {
  private:
   const TypeKind kind_;
   const bool providesCustomComparison_;
-
-  VELOX_DEFINE_CLASS_NAME(Type)
 };
 
 #undef VELOX_FLUENT_CAST
