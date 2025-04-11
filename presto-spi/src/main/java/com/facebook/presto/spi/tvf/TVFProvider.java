@@ -13,10 +13,9 @@
  */
 package com.facebook.presto.spi.tvf;
 
-import com.facebook.presto.spi.function.SchemaFunctionName;
 import com.facebook.presto.spi.function.table.TableFunctionMetadata;
 
 public interface TVFProvider
 {
-    TableFunctionMetadata resolveTableFunction(SchemaFunctionName schemaFunctionName);
+    TableFunctionMetadata resolveTableFunction(String functionName);
 }

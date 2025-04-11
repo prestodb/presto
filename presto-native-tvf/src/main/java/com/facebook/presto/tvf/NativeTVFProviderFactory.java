@@ -30,7 +30,8 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 public class NativeTVFProviderFactory
         implements TVFProviderFactory
 {
-    public static final String NAME = "native";
+    // Change this to "native" when enabling sidecar is the default behaviour
+    public static final String NAME = "presto";
 
     @Override
     public String getName()

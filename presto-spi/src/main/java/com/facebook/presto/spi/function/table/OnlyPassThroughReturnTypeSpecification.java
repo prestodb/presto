@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.function.table;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
  * The table function has no proper columns.
@@ -21,8 +22,10 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 public class OnlyPassThroughReturnTypeSpecification
         extends ReturnTypeSpecification
 {
-    public static final OnlyPassThroughReturnTypeSpecification ONLY_PASS_THROUGH = new OnlyPassThroughReturnTypeSpecification();
+    public static final OnlyPassThroughReturnTypeSpecification ONLY_PASS_THROUGH = new OnlyPassThroughReturnTypeSpecification("");
 
     @JsonCreator
-    public OnlyPassThroughReturnTypeSpecification() {}
+    public OnlyPassThroughReturnTypeSpecification(@JsonProperty("dummy") String dummy)
+    {
+    }
 }

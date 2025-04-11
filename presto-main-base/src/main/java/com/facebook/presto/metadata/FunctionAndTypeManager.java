@@ -111,7 +111,6 @@ import static com.facebook.presto.metadata.TableFunctionRegistry.toPath;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.TABLE_FUNCTION_NOT_FOUND;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.EXPERIMENTAL;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
@@ -162,6 +161,7 @@ public class FunctionAndTypeManager
     private final ConcurrentHashMap<ConnectorId, Function<ConnectorTableFunctionHandle, TableFunctionProcessorProvider>> tableFunctionProcessorProviderMap = new ConcurrentHashMap<>();
     private final Map<String, TVFProviderFactory> tvfProviderFactories = new ConcurrentHashMap<>();
     private final Map<ConnectorId, TVFProvider> tvfProviders = new ConcurrentHashMap<>();
+    private final AtomicReference<TVFProvider> servingTableFunctionsProvider;
 
     @Inject
     public FunctionAndTypeManager(
@@ -195,6 +195,7 @@ public class FunctionAndTypeManager
         this.defaultNamespace = configureDefaultNamespace(functionsConfig.getDefaultNamespacePrefix());
         this.servingTypeManager = new AtomicReference<>(builtInTypeAndFunctionNamespaceManager);
         this.servingTypeManagerParametricTypesSupplier = new AtomicReference<>(this::getServingTypeManagerParametricTypes);
+        this.servingTableFunctionsProvider = new AtomicReference<>(builtInTypeAndFunctionNamespaceManager);
     }
 
     public static FunctionAndTypeManager createTestFunctionAndTypeManager()
@@ -368,6 +369,7 @@ public class FunctionAndTypeManager
         if (tvfProviders.putIfAbsent(new ConnectorId(tvfProviderName), tvfProvider) != null) {
             throw new IllegalArgumentException(format("TVF provider [%s] is already registered", tvfProvider));
         }
+        servingTableFunctionsProvider.compareAndSet(servingTableFunctionsProvider.get(), tvfProvider);
     }
 
     public void loadTVFProviders(NodeManager nodeManager)
@@ -478,17 +480,19 @@ public class FunctionAndTypeManager
 
     public TableFunctionMetadata resolveTableFunction(Session session, QualifiedName qualifiedName)
     {
-        // populate the registry before trying to resolve the table functions from table functions provider
-        CatalogSchemaFunctionName name = toPath(session, qualifiedName);
-        ConnectorId connectorId = new ConnectorId(name.getCatalogName());
-        if (!tableFunctionRegistry.areTableFunctionsLoaded(connectorId)) {
-            Optional<TVFProvider> provider = getServingTVFProvider(connectorId);
-            if (!provider.isPresent()) {
-                throw new PrestoException(TABLE_FUNCTION_NOT_FOUND, format("Cannot find table functions provider for catalog '%s'", connectorId.getCatalogName()));
-            }
-            return provider.get().resolveTableFunction(name.getSchemaFunctionName());
+        // Fetch if it's a builtin function first
+        TableFunctionMetadata tableFunctionMetadata =
+                 servingTableFunctionsProvider.get()
+                         .resolveTableFunction(
+                                 getFunctionAndTypeResolver()
+                                         .qualifyObjectName(qualifiedName).getObjectName());
+        if (tableFunctionMetadata == null) {
+            // populate the registry before trying to resolve the table functions from table functions provider
+            CatalogSchemaFunctionName name = toPath(session, qualifiedName);
+            ConnectorId connectorId = new ConnectorId(name.getCatalogName());
+            return tableFunctionRegistry.resolve(connectorId, name);
         }
-        return tableFunctionRegistry.resolve(connectorId, name);
+        return tableFunctionMetadata;
     }
 
     public TransactionManager getTransactionManager()
@@ -989,11 +993,6 @@ public class FunctionAndTypeManager
     {
         return servingTypeManager.get().getParametricTypes().stream()
                 .collect(toImmutableMap(ParametricType::getName, parametricType -> parametricType));
-    }
-
-    private Optional<TVFProvider> getServingTVFProvider(ConnectorId connectorId)
-    {
-        return Optional.ofNullable(tvfProviders.get(connectorId));
     }
 
     private static class FunctionResolutionCacheKey

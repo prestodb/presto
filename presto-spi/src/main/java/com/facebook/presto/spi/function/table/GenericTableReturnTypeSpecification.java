@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.function.table;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
  * The proper columns of the table function are not known at function declaration time.
@@ -22,8 +23,10 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 public class GenericTableReturnTypeSpecification
         extends ReturnTypeSpecification
 {
-    public static final GenericTableReturnTypeSpecification GENERIC_TABLE = new GenericTableReturnTypeSpecification();
+    public static final GenericTableReturnTypeSpecification GENERIC_TABLE = new GenericTableReturnTypeSpecification("");
 
     @JsonCreator
-    public GenericTableReturnTypeSpecification() {}
+    public GenericTableReturnTypeSpecification(@JsonProperty("dummy") String dummy)
+    {
+    }
 }

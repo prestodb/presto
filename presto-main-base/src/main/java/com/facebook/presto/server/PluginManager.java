@@ -338,7 +338,7 @@ public class PluginManager
         }
 
         for (TVFProviderFactory tvfProviderFactory : plugin.getTVFProviderFactories()) {
-            log.info("Registering type provider factory %s", tvfProviderFactory.getName());
+            log.info("Registering table functions provider factory %s", tvfProviderFactory.getName());
             metadata.getFunctionAndTypeManager().addTVFProviderFactory(tvfProviderFactory);
         }
     }

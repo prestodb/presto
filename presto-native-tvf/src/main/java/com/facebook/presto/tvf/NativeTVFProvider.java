@@ -21,7 +21,6 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.SchemaFunctionName;
 import com.facebook.presto.spi.function.table.AbstractConnectorTableFunction;
 import com.facebook.presto.spi.function.table.ConnectorTableFunction;
 import com.facebook.presto.spi.function.table.TableFunctionMetadata;
@@ -53,10 +52,10 @@ public class NativeTVFProvider
     private final NodeManager nodeManager;
     private final HttpClient httpClient;
     private final String catalogName;
-    private static final String TABLE_FUNCTIONS_ENDPOINT = "/v1/tableFunctions";
+    private static final String TABLE_FUNCTIONS_ENDPOINT = "/v1/functions/tvf";
     private static final JsonCodec<List<AbstractConnectorTableFunction>> connectorTableFunctionListJsonCodec =
             JsonCodec.listJsonCodec(AbstractConnectorTableFunction.class);
-    private final Supplier<Map<SchemaFunctionName, TableFunctionMetadata>> memoizedTableFunctionsSupplier;
+    private final Supplier<Map<String, TableFunctionMetadata>> memoizedTableFunctionsSupplier;
 
     @Inject
     public NativeTVFProvider(
@@ -72,9 +71,9 @@ public class NativeTVFProvider
     }
 
     @Override
-    public TableFunctionMetadata resolveTableFunction(SchemaFunctionName schemaFunctionName)
+    public TableFunctionMetadata resolveTableFunction(String functionName)
     {
-        return memoizedTableFunctionsSupplier.get().get(schemaFunctionName);
+        return memoizedTableFunctionsSupplier.get().get(functionName);
     }
 
     public static URI getWorkerLocation(NodeManager nodeManager, String endpoint)
@@ -89,7 +88,7 @@ public class NativeTVFProvider
                 .build();
     }
 
-    private synchronized Map<SchemaFunctionName, TableFunctionMetadata> loadConnectorTableFunctions()
+    private synchronized Map<String, TableFunctionMetadata> loadConnectorTableFunctions()
     {
         List<AbstractConnectorTableFunction> connectorTableFunctions;
         try {
@@ -97,18 +96,16 @@ public class NativeTVFProvider
             connectorTableFunctions = httpClient.execute(request, createJsonResponseHandler(connectorTableFunctionListJsonCodec));
         }
         catch (Exception e) {
-            throw new PrestoException(INVALID_ARGUMENTS, "Failed to get table functions from sidecar.", e);
+            throw new PrestoException(INVALID_ARGUMENTS, "Failed to get table functions from endpoint.", e);
         }
 
         List<NativeConnectorTableFunction> nativeConnectorTableFunctions =
                 connectorTableFunctions.stream().map(this::createNativeConnectorTableFunction).collect(ImmutableList.toImmutableList());
 
-        ImmutableMap.Builder<SchemaFunctionName, TableFunctionMetadata> builder = ImmutableMap.builder();
+        ImmutableMap.Builder<String, TableFunctionMetadata> builder = ImmutableMap.builder();
         for (ConnectorTableFunction function : nativeConnectorTableFunctions) {
             builder.put(
-                    new SchemaFunctionName(
-                            function.getName().toLowerCase(ENGLISH),
-                            function.getSchema().toLowerCase(ENGLISH)),
+                    function.getName().toLowerCase(ENGLISH),
                     new TableFunctionMetadata(new ConnectorId(catalogName), function));
         }
 

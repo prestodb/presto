@@ -231,7 +231,6 @@ import com.facebook.presto.spi.function.FunctionNamespaceManager;
 import com.facebook.presto.spi.function.FunctionNamespaceTransactionHandle;
 import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.ScalarFunctionImplementation;
-import com.facebook.presto.spi.function.SchemaFunctionName;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
@@ -1395,7 +1394,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
     }
 
     @Override
-    public TableFunctionMetadata resolveTableFunction(SchemaFunctionName schemaFunctionName)
+    public TableFunctionMetadata resolveTableFunction(String functionName)
     {
         return null;
     }
