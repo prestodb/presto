@@ -70,24 +70,6 @@ class ITypedExpr : public ISerializable {
     return hash;
   }
 
-  /// Returns true if other is recursively equal to 'this'. We do not
-  /// overload == because this is overloaded in a subclass for a
-  /// different purpose.
-  bool equals(const ITypedExpr& other) const {
-    if (type_ != other.type_ || inputs_.size() != other.inputs_.size()) {
-      return false;
-    }
-    if (!equalsNonRecursive(other)) {
-      return false;
-    }
-    for (int32_t i = 0; i < inputs_.size(); ++i) {
-      if (*inputs_[i] == *other.inputs_[i]) {
-        return false;
-      }
-    }
-    return true;
-  }
-
   virtual bool operator==(const ITypedExpr& other) const = 0;
 
   static void registerSerDe();
@@ -106,10 +88,6 @@ class ITypedExpr : public ISerializable {
   }
 
  private:
-  virtual bool equalsNonRecursive(const ITypedExpr& other) const {
-    return false;
-  }
-
   TypePtr type_;
   std::vector<TypedExprPtr> inputs_;
 };
