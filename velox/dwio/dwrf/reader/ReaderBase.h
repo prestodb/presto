@@ -177,7 +177,7 @@ class ReaderBase {
   uint64_t compressionBlockSize() const {
     return postScript_->hasCompressionBlockSize()
         ? postScript_->compressionBlockSize()
-        : common::DEFAULT_COMPRESSION_BLOCK_SIZE;
+        : common::kDefaultCompressionBlockSize;
   }
 
   common::CompressionKind compressionKind() const {
