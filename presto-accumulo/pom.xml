@@ -172,13 +172,10 @@
             <version>${dep.curator.version}</version>
         </dependency>
 
-<!--        <dependency>-->
-<!--            <groupId>com.facebook.presto.hadoop</groupId>-->
-<!--            <artifactId>hadoop-apache2</artifactId>-->
-<!--        </dependency>-->
         <dependency>
-            <groupId>com.github.nishithakbhaskaran</groupId>
-            <artifactId>presto-hadoop-apache2</artifactId>
+            <groupId>com.facebook.presto.hadoop</groupId>
+            <artifactId>hadoop-apache2</artifactId>
+            <version>2.7.4-12</version>
         </dependency>
 
         <dependency>
