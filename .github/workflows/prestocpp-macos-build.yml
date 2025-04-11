@@ -12,6 +12,7 @@ jobs:
     runs-on: macos-13
     env:
       CCACHE_DIR: "${{ github.workspace }}/ccache"
+      CMAKE_POLICY_VERSION_MINIMUM: "3.5"
     steps:
       - uses: actions/checkout@v4
 
