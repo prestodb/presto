@@ -14,6 +14,7 @@
 package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
@@ -32,6 +33,7 @@ public class BaseJdbcConfig
     private String passwordCredentialName;
     private boolean caseInsensitiveNameMatching;
     private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
+    private boolean mixedCaseSupportEnabled;
 
     @NotNull
     public String getConnectionUrl()
@@ -122,6 +124,20 @@ public class BaseJdbcConfig
     public BaseJdbcConfig setCaseInsensitiveNameMatchingCacheTtl(Duration caseInsensitiveNameMatchingCacheTtl)
     {
         this.caseInsensitiveNameMatchingCacheTtl = caseInsensitiveNameMatchingCacheTtl;
+        return this;
+    }
+
+    public boolean isCaseSensitiveNameMatching()
+    {
+        return mixedCaseSupportEnabled;
+    }
+
+    @Config("case-sensitive-name-matching")
+    @ConfigDescription("Enable case-sensitive matching of schema, table names across the connector, " +
+            "When disabled, names are matched case-insensitively, using lowercase normalization.")
+    public BaseJdbcConfig setCaseSensitiveNameMatching(boolean mixedCaseSupportEnabled)
+    {
+        this.mixedCaseSupportEnabled = mixedCaseSupportEnabled;
         return this;
     }
 }
