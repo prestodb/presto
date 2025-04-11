@@ -91,6 +91,8 @@ class StreamingAggregation : public Operator {
 
   const core::AggregationNode::Step step_;
 
+  const bool eagerFlush_;
+
   std::vector<column_index_t> groupingKeys_;
   std::vector<AggregateInfo> aggregates_;
   std::unique_ptr<SortedAggregations> sortedAggregations_;
@@ -116,6 +118,10 @@ class StreamingAggregation : public Operator {
 
   // Pointers to groups for all input rows.
   std::vector<char*> inputGroups_;
+
+  // Indices into `groups` indicating the row after last row of each group.  The
+  // last element of this is the total size of input.
+  std::vector<vector_size_t> groupBoundaries_;
 
   // A subset of input rows to evaluate the aggregate function on. Rows
   // where aggregation mask is false are excluded.

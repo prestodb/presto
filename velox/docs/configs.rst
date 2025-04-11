@@ -31,14 +31,6 @@ Generic Configuration
      - integer
      - 5000
      - TableScan operator will exit getOutput() method after this many milliseconds even if it has no data to return yet. Zero means 'no time limit'.
-   * - abandon_partial_aggregation_min_rows
-     - integer
-     - 100,000
-     - Number of input rows to receive before starting to check whether to abandon partial aggregation.
-   * - abandon_partial_aggregation_min_pct
-     - integer
-     - 80
-     - Abandons partial aggregation if number of groups equals or exceeds this percentage of the number of input rows.
    * - abandon_partial_topn_row_number_min_rows
      - integer
      - 100,000
@@ -398,6 +390,34 @@ Spilling
      - integer
      - 0
      - Percentage of aggregation or join input batches that will be forced to spill for testing. 0 means no extra spilling.
+
+Aggregation
+-----------
+.. list-table::
+   :widths: 20 10 10 70
+   :header-rows: 1
+
+   * - Property Name
+     - Type
+     - Default Value
+     - Description
+   * - abandon_partial_aggregation_min_rows
+     - integer
+     - 100,000
+     - Number of input rows to receive before starting to check whether to abandon partial aggregation.
+   * - abandon_partial_aggregation_min_pct
+     - integer
+     - 80
+     - Abandons partial aggregation if number of groups equals or exceeds this percentage of the number of input rows.
+   * - streaming_aggregation_eager_flush
+     - bool
+     - false
+     - If this is false (the default), in streaming aggregation, wait until we
+       have enough number of output rows to produce a batch of size specified by
+       Operator::outputBatchRows.  If this is true, we put the rows in output
+       batch, as soon as the corresponding groups are fully aggregated.  This is
+       useful for reducing memory consumption, if the downstream operators are
+       not sensitive to small batch size.
 
 Table Scan
 ------------
