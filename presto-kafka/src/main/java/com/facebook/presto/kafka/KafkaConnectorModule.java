@@ -27,6 +27,7 @@ import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
+import org.apache.kafka.common.security.auth.SecurityProtocol;
 
 import javax.inject.Inject;
 
@@ -55,17 +56,18 @@ public class KafkaConnectorModule
         binder.bind(KafkaRecordSetProvider.class).in(Scopes.SINGLETON);
         binder.bind(KafkaPageSinkProvider.class).in(Scopes.SINGLETON);
 
-        binder.bind(KafkaConsumerManager.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(KafkaConnectorConfig.class);
+        configBinder(binder).bindConfig(KafkaSecurityConfig.class);
         bindTopicSchemaProviderModule(FileTableDescriptionSupplier.NAME, new FileTableDescriptionSupplierModule(), KafkaConnectorConfig::getTableDescriptionSupplier);
         bindTopicSchemaProviderModule(FileKafkaClusterMetadataSupplier.NAME, new FileKafkaClusterMetadataSupplierModule(), KafkaConnectorConfig::getClusterMetadataSupplier);
+        bindDefaultModule();
+        bindSaslModule();
 
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
         jsonCodecBinder(binder).bindJsonCodec(KafkaTopicDescription.class);
 
         binder.install(new DecoderModule());
         binder.install(new EncoderModule());
-        binder.install(new KafkaProducerModule());
     }
 
     public static final class TypeDeserializer
@@ -95,5 +97,22 @@ public class KafkaConnectorModule
                 KafkaConnectorConfig.class,
                 kafkaConfig -> name.equalsIgnoreCase(configSupplier.apply(kafkaConfig)),
                 module));
+    }
+
+    private void bindDefaultModule()
+    {
+        install(installModuleIf(
+                KafkaSecurityConfig.class,
+                config -> (config.getSecurityProtocol().isPresent() && config.getSecurityProtocol().get().equals(SecurityProtocol.SASL_PLAINTEXT)
+                        || !config.getSecurityProtocol().isPresent()),
+                new KafkaPlainTextModule()));
+    }
+
+    private void bindSaslModule()
+    {
+        install(installModuleIf(
+                KafkaSecurityConfig.class,
+                config -> (config.getSecurityProtocol().isPresent() && config.getSecurityProtocol().get().equals(SecurityProtocol.SASL_SSL)),
+                new KafkaSaslModule()));
     }
 }
