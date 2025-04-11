@@ -674,5 +674,56 @@ TEST_F(ProbabilityTest, invGammaCDF) {
       "inverseGammaCdf Function: p must be in the interval [0, 1]");
 }
 
+TEST_F(ProbabilityTest, invBinomialCDF) {
+  const auto invBinomialCDF = [&](std::optional<int32_t> numberOfTrials,
+                                  std::optional<double> successProbability,
+                                  std::optional<double> p) {
+    return evaluateOnce<int32_t>(
+        "inverse_binomial_cdf(c0, c1, c2)",
+        numberOfTrials,
+        successProbability,
+        p);
+  };
+
+  EXPECT_EQ(0, invBinomialCDF(20, 0.5, 0.0));
+  EXPECT_EQ(10, invBinomialCDF(20, 0.5, 0.5));
+  EXPECT_EQ(20, invBinomialCDF(20, 0.5, 1.0));
+  EXPECT_EQ(INT32_MAX, invBinomialCDF(INT32_MAX, 0.5, 1));
+  EXPECT_EQ(611204, invBinomialCDF(1223340, 0.5, 0.2));
+
+  EXPECT_EQ(std::nullopt, invBinomialCDF(std::nullopt, 1, 1));
+  EXPECT_EQ(std::nullopt, invBinomialCDF(1, std::nullopt, 1));
+  EXPECT_EQ(std::nullopt, invBinomialCDF(1, 1, std::nullopt));
+
+  VELOX_ASSERT_THROW(
+      invBinomialCDF(5, -0.5, 0.3),
+      "inverseBinomialCdf Function: successProbability must be in the interval [0, 1]");
+  VELOX_ASSERT_THROW(
+      invBinomialCDF(5, 1.5, 0.3),
+      "inverseBinomialCdf Function: successProbability must be in the interval [0, 1]");
+  VELOX_ASSERT_THROW(
+      invBinomialCDF(5, 0.5, -3.0),
+      "inverseBinomialCdf Function: p must be in the interval [0, 1]");
+  VELOX_ASSERT_THROW(
+      invBinomialCDF(5, 0.5, 3.0),
+      "inverseBinomialCdf Function: p must be in the interval [0, 1]");
+  VELOX_ASSERT_THROW(
+      invBinomialCDF(-5, 0.5, 0.3),
+      "inverseBinomialCdf Function: numberOfTrials must be greater than 0");
+
+  VELOX_ASSERT_THROW(
+      invBinomialCDF(1, kInf, 0.5),
+      "inverseBinomialCdf Function: successProbability must be in the interval [0, 1]");
+  VELOX_ASSERT_THROW(
+      invBinomialCDF(1, kNan, 0.5),
+      "inverseBinomialCdf Function: successProbability must be in the interval [0, 1]");
+  VELOX_ASSERT_THROW(
+      invBinomialCDF(1, 0.5, kInf),
+      "inverseBinomialCdf Function: p must be in the interval [0, 1]");
+  VELOX_ASSERT_THROW(
+      invBinomialCDF(1, 0.5, kNan),
+      "inverseBinomialCdf Function: p must be in the interval [0, 1]");
+}
+
 } // namespace
 } // namespace facebook::velox

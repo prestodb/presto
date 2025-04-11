@@ -221,6 +221,7 @@ int main(int argc, char** argv) {
         "map_keys_by_top_n_values", // requires
                                     // https://github.com/prestodb/presto/pull/24570
         "inverse_gamma_cdf", // https://github.com/facebookincubator/velox/issues/12918
+        "inverse_binomial_cdf", // https://github.com/facebookincubator/velox/issues/12981
     });
 
     referenceQueryRunner = std::make_shared<PrestoQueryRunner>(
