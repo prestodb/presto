@@ -1655,4 +1655,27 @@ public final class MathFunctions
 
         return Math.sqrt(norm);
     }
+
+    @Description("factorial of a given integer in the range of 0 to 20")
+    @ScalarFunction
+    @SqlType(StandardTypes.BIGINT)
+    public static long factorial(@SqlType(StandardTypes.INTEGER) long x)
+    {
+        checkCondition(
+                x >= 0,
+                INVALID_FUNCTION_ARGUMENT,
+                "The factorial function is only defined for non-negative integers");
+
+        checkCondition(
+                x <= 20,
+                INVALID_FUNCTION_ARGUMENT,
+                "The output of the factorial function would overflow for any input over 20");
+
+        long result = 1;
+        for (int i = 2; i <= x; i++) {
+            result *= i;
+        }
+
+        return result;
+    }
 }

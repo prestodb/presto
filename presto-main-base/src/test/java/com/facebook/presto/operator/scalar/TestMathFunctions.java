@@ -1641,4 +1641,20 @@ public class TestMathFunctions
 
         assertFunction("wilson_interval_upper(1250, 1310, 1.96e0)", DOUBLE, 0.9642524717143908);
     }
+
+    @Test
+    public void testFactorial()
+    {
+        assertFunction("factorial(1)", BIGINT, 1L);
+        assertFunction("factorial(2)", BIGINT, 2L);
+        assertFunction("factorial(3)", BIGINT, 6L);
+        assertFunction("factorial(4)", BIGINT, 24L);
+        assertFunction("factorial(5)", BIGINT, 120L);
+
+        assertFunction("factorial(0)", BIGINT, 1L);
+        assertFunction("factorial(20)", BIGINT, 2432902008176640000L);
+
+        assertInvalidFunction("factorial(-1)", "The factorial function is only defined for non-negative integers");
+        assertInvalidFunction("factorial(21)", "The output of the factorial function would overflow for any input over 20");
+    }
 }

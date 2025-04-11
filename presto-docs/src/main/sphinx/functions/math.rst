@@ -175,6 +175,10 @@ Mathematical Functions
     element in ``bins``, but due to the binary search algorithm some such elements
     might go unnoticed and the function will return a result.
 
+.. function:: factorial(x) -> bigint
+
+    Returns the factorial of ``x``.
+
 Probability Functions: cdf
 --------------------------
 
