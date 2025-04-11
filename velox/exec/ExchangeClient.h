@@ -47,6 +47,10 @@ class ExchangeClient : public std::enable_shared_from_this<ExchangeClient> {
             numberOfConsumers,
             minOutputBatchBytes)),
         // See comment in 'pickSourcesToRequestLocked' for why this is needed
+        // for 'minOutputBatchBytes_'. Note: ExchangeQueue does not need max(1,
+        // minOutputBatchBytes) because for 'MergeExchangeSource', we want
+        // ExchangeQueue 'minOutputBatchBytes' to be be 0 so that it always
+        // unblocks. In short, 0 has a special meaning for ExchangeQueue
         minOutputBatchBytes_(
             std::max(static_cast<uint64_t>(1), minOutputBatchBytes)) {
     VELOX_CHECK_NOT_NULL(pool_);
