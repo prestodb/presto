@@ -46,7 +46,7 @@ class AggregateWindowTest : public WindowTestBase {
   explicit AggregateWindowTest(const AggregateWindowTestParam& testParam)
       : function_(testParam.function), overClause_(testParam.overClause) {}
 
-  explicit AggregateWindowTest() : function_(""), overClause_("") {}
+  explicit AggregateWindowTest() {}
 
   void SetUp() override {
     WindowTestBase::SetUp();

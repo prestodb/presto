@@ -31,7 +31,7 @@ namespace {
 // the function over all possible frame clauses.
 class NthValueTest : public WindowTestBase {
  protected:
-  NthValueTest() : overClause_("") {}
+  NthValueTest() {}
 
   explicit NthValueTest(const std::string& overClause)
       : overClause_(overClause) {}
