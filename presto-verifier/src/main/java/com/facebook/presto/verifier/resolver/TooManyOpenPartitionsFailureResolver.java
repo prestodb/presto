@@ -30,8 +30,7 @@ import com.facebook.presto.verifier.framework.QueryObjectBundle;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
