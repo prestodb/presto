@@ -56,6 +56,10 @@ String Functions
     i.e. the number of positions at which the corresponding characters are different.
     Note that the two strings must have the same length.
 
+.. function:: jarowinkler_similarity(string1, string2) -> double
+
+    Returns the Jaro-Winkler similarity of ``string1`` and ``string2``.
+
 .. function:: length(string) -> bigint
 
     Returns the length of ``string`` in characters.
