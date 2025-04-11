@@ -27,6 +27,7 @@
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/connectors/Registration.h"
 #include "presto_cpp/main/connectors/SystemConnector.h"
+#include "presto_cpp/main/dynamic_registry/DynamicLibraryLoader.h"
 #include "presto_cpp/main/http/HttpConstants.h"
 #include "presto_cpp/main/http/filters/AccessLogFilter.h"
 #include "presto_cpp/main/http/filters/HttpEndpointLatencyFilter.h"
@@ -371,6 +372,7 @@ void PrestoServer::run() {
   registerRemoteFunctions();
   registerVectorSerdes();
   registerPrestoPlanNodeSerDe();
+  registerDynamicFunctions();
 
   const auto numExchangeHttpClientIoThreads = std::max<size_t>(
       systemConfig->exchangeHttpClientNumIoThreadsHwMultiplier() *
@@ -1563,6 +1565,26 @@ protocol::NodeStatus PrestoServer::fetchNodeStatus() {
       nonHeapUsed};
 
   return nodeStatus;
+}
+
+void PrestoServer::registerDynamicFunctions() {
+  auto systemConfig = SystemConfig::instance();
+  std::error_code ec;
+  const fs::path configPath(systemConfig->dynamicLibraryValidatorConfig());
+  if (!fs::exists(configPath, ec)) {
+    LOG(ERROR) << "Config file not found in path: " << configPath
+               << ". Dynamic libraries will not be loaded on this worker run.";
+    return;
+  } else {
+    if (!systemConfig->pluginDir().empty()) {
+      const fs::path path(systemConfig->pluginDir());
+      PRESTO_STARTUP_LOG(INFO) << "Dynamic library loading path: " << path;
+      if (fs::is_directory(path, ec)) {
+        DynamicLibraryLoader dLoad(configPath, systemConfig->pluginDir());
+        dLoad.loadDynamicFunctions();
+      }
+    }
+  }
 }
 
 } // namespace facebook::presto
