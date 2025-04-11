@@ -157,13 +157,13 @@ public class IndexJoinNode
             this.index = requireNonNull(index, "index is null");
         }
 
-        @JsonProperty("probe")
+        @JsonProperty("left")
         public VariableReferenceExpression getProbe()
         {
             return probe;
         }
 
-        @JsonProperty("index")
+        @JsonProperty("right")
         public VariableReferenceExpression getIndex()
         {
             return index;
