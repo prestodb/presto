@@ -30,7 +30,6 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.net.ServerSocket;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -50,10 +49,16 @@ public class TestArrowFlightNativeQueries
         extends AbstractTestQueryFramework
 {
     private static final Logger log = Logger.get(TestArrowFlightNativeQueries.class);
+    private final int serverPort;
     private RootAllocator allocator;
-    private int serverPort;
     private FlightServer server;
     private DistributedQueryRunner arrowFlightQueryRunner;
+
+    public TestArrowFlightNativeQueries()
+            throws IOException
+    {
+        this.serverPort = ArrowFlightQueryRunner.findUnusedPort();
+    }
 
     @BeforeClass
     public void setup()
@@ -87,9 +92,6 @@ public class TestArrowFlightNativeQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        // Base class initializes query runner first, need to assign server port here
-        serverPort = findUnusedPort();
-
         Path prestoServerPath = Paths.get(getProperty("PRESTO_SERVER")
                         .orElse("_build/debug/presto_cpp/main/presto_server"))
                 .toAbsolutePath();
@@ -313,14 +315,6 @@ public class TestArrowFlightNativeQueries
         assertQuery("SELECT sign(custkey) from orders");
         assertQuery("SELECT sign(-custkey) from orders");
         assertQuery("SELECT sign(shippriority) from orders");
-    }
-
-    private static int findUnusedPort()
-            throws IOException
-    {
-        try (ServerSocket socket = new ServerSocket(0)) {
-            return socket.getLocalPort();
-        }
     }
 
     public static Map<String, String> getNativeWorkerSystemProperties()
