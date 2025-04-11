@@ -37,7 +37,7 @@ class DBGenBackend {
     // structures required by dbgen are populated.
     DBGenContext dbgenCtx;
     load_dists(
-        300 * 1024 * 1024,
+        FLAGS_velox_tpch_text_pool_size_mb * 1024 * 1024,
         &dbgenCtx); // 300 MB buffer size for text generation.
 
     // Initialize global dbgen buffers required to generate data.

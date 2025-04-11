@@ -22,6 +22,8 @@
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 
+DECLARE_int32(velox_tpch_text_pool_size_mb);
+
 namespace {
 
 using namespace facebook::velox;
@@ -35,6 +37,7 @@ class TpchConnectorTest : public exec::test::OperatorTestBase {
   const std::string kTpchConnectorId = "test-tpch";
 
   void SetUp() override {
+    FLAGS_velox_tpch_text_pool_size_mb = 10;
     OperatorTestBase::SetUp();
     connector::registerConnectorFactory(
         std::make_shared<connector::tpch::TpchConnectorFactory>());
@@ -97,11 +100,11 @@ TEST_F(TpchConnectorTest, simple) {
       makeFlatVector<int64_t>({0, 1, 1, 1, 4}),
       // n_comment
       makeFlatVector<StringView>({
-          " haggle. carefully final deposits detect slyly agai",
-          "al foxes promise slyly according to the regular accounts. bold requests alon",
-          "y alongside of the pending deposits. carefully special packages are about the ironic forges. slyly special ",
-          "eas hang ironic, silent packages. slyly regular packages are furiously over the tithes. fluffily bold",
-          "y above the carefully unusual theodolites. final dugouts are quickly across the furiously regular d",
+          "furiously regular requests. platelets affix furious",
+          "instructions wake quickly. final deposits haggle. final, silent theodolites ",
+          "asymptotes use fluffily quickly bold instructions. slyly bold dependencies sleep carefully pending accounts",
+          "ss deposits wake across the pending foxes. packages after the carefully bold requests integrate caref",
+          "usly ironic, pending foxes. even, special instructions nag. sly, final foxes detect slyly fluffily ",
       }),
   });
   test::assertEqualVectors(expected, output);

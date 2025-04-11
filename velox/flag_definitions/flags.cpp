@@ -131,3 +131,9 @@ DEFINE_bool(
     velox_ssd_verify_write,
     false,
     "Read back data after writing to SSD");
+
+// Used in /connectors/tpch
+DEFINE_int32(
+    velox_tpch_text_pool_size_mb,
+    300,
+    "TPC-H DBGen text pool size in MB");

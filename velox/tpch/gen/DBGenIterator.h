@@ -16,11 +16,14 @@
 
 #pragma once
 
+#include <gflags/gflags.h>
 #include <memory>
 #include <mutex>
 
 #include <velox/tpch/gen/dbgen/include/dbgen/dss.h>
 #include <velox/tpch/gen/dbgen/include/dbgen/dsstypes.h>
+
+DECLARE_int32(velox_tpch_text_pool_size_mb);
 
 namespace facebook::velox::tpch {
 
