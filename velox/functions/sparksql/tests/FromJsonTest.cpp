@@ -167,6 +167,37 @@ TEST_F(FromJsonTest, basicDouble) {
   testFromJson(input, makeRowVector({"a"}, {expected}));
 }
 
+TEST_F(FromJsonTest, basicDate) {
+  auto expected = makeNullableFlatVector<int32_t>(
+      {18809,
+       18809,
+       18809,
+       0,
+       18809,
+       18809,
+       -713975,
+       15,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt},
+      DATE());
+  auto input = makeFlatVector<std::string>(
+      {R"({"a": "2021-07-01T"})",
+       R"({"a": "2021-07-01"})",
+       R"({"a": "2021-7"})",
+       R"({"a": "1970"})",
+       R"({"a": "2021-07-01T00:00GMT+01:00"})",
+       R"({"a": "2021-7-GMTGMT1"})",
+       R"({"a": "0015-03-16T123123"})",
+       R"({"a": "015"})",
+       R"({"a": "15.0"})",
+       R"({"a": "AA"})",
+       R"({"a": "1999-08 01"})",
+       R"({"a": "2020/12/1"})"});
+  testFromJson(input, makeRowVector({"a"}, {expected}));
+}
+
 TEST_F(FromJsonTest, basicString) {
   auto expected = makeNullableFlatVector<StringView>(
       {"1", "2.0", "true", "{\"b\": \"test\"}", "[1, 2]"});
@@ -221,16 +252,12 @@ TEST_F(FromJsonTest, structWrongData) {
 
 TEST_F(FromJsonTest, invalidType) {
   auto primitiveTypeOutput = makeFlatVector<int64_t>({2, 2, 3});
-  auto dateTypeOutput = makeFlatVector<int32_t>({2, 2, 3}, DATE());
   auto decimalOutput = makeFlatVector<int64_t>({2, 2, 3}, DECIMAL(16, 7));
   auto mapOutput =
       makeMapVector<int64_t, int64_t>({{{1, 1}}, {{2, 2}}, {{3, 3}}});
   auto input = makeFlatVector<std::string>({R"(2)", R"({2)", R"({3)"});
   VELOX_ASSERT_USER_THROW(
       testFromJson(input, primitiveTypeOutput), "Unsupported type BIGINT.");
-  VELOX_ASSERT_USER_THROW(
-      testFromJson(input, makeRowVector({"a"}, {dateTypeOutput})),
-      "Unsupported type ROW<a:DATE>.");
   VELOX_ASSERT_USER_THROW(
       testFromJson(input, makeRowVector({"a"}, {decimalOutput})),
       "Unsupported type ROW<a:DECIMAL(16, 7)>");

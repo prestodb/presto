@@ -24,17 +24,22 @@ JSON Functions
     Casts ``jsonString`` to an ARRAY, MAP, or ROW type, with the output type 
     determined by the expression. Returns NULL, if the input string is unparsable.
     Supported element types include BOOLEAN, TINYINT, SMALLINT, INTEGER, BIGINT, 
-    REAL, DOUBLE, VARCHAR, ARRAY, MAP and ROW. When casting to ARRAY or MAP, 
+    REAL, DOUBLE, DATE, VARCHAR, ARRAY, MAP and ROW. When casting to ARRAY or MAP, 
     the element type of the array or the value type of the map must be one of 
     these supported types, and for maps, the key type must be VARCHAR. Casting 
-    to ROW supports only JSON objects. ::
+    to ROW supports only JSON objects. 
+    Note that since the result type can be inferred from the expression, in Velox we 
+    do not need to provide the ``schema`` parameter as required by Spark's from_json 
+    function. ::
         
-        SELECT from_json('{"a": true}'); -- {'a'=true} // Output type: ROW({"a"}, {BOOLEAN()})
-        SELECT from_json('{"a": 1}'); -- {'a'=1} // Output type: ROW({"a"}, {INTEGER()})
-        SELECT from_json('{"a": 1.0}'); -- {'a'=1.0} // Output type: ROW({"a"}, {DOUBLE()})
-        SELECT from_json('["name", "age", "id"]'); -- ['name', 'age', 'id'] // Output type: ARRAY(VARCHAR())
-        SELECT from_json('{"a": 1, "b": 2}'); -- {'a'=1, 'b'=2} // Output type: MAP(VARCHAR(),INTEGER())
-        SELECT from_json('{"a": {"b": 1}}'); -- {'a'={b=1}} // Output type: ROW({"a"}, {ROW({"b"}, {INTEGER()})})
+        SELECT from_json('{"a": true}', 'a BOOLEAN'); -- {'a'=true}
+        SELECT from_json('{"a": 1}', 'a INT'); -- {'a'=1}
+        SELECT from_json('{"a": 1.0}', 'a DOUBLE'); -- {'a'=1.0}
+        SELECT from_json('{"a":"2021-7-1T"}', 'a DATE'); -- {'a'="2021-07-01"}
+        SELECT from_json('{"a":"1"}', 'a DATE'); -- {'a'="1970-01-02"}
+        SELECT from_json('["name", "age", "id"]', 'ARRAY<STRING>'); -- ['name', 'age', 'id']
+        SELECT from_json('{"a": 1, "b": 2}', 'MAP<STRING, INT>'); -- {'a'=1, 'b'=2}
+        SELECT from_json('{"a": {"b": 1}}', 'a STRUCT<b INT>'); -- {'a'={b=1}}
 
     The current implementation has the following limitations.
 
