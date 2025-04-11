@@ -273,14 +273,7 @@ class RelationPlanner
                 // if there are partitioning columns, they might have to be coerced for copartitioning
                 if (tableArgument.getPartitionBy().isPresent() && !tableArgument.getPartitionBy().get().isEmpty()) {
                     List<Expression> partitioningColumns = tableArgument.getPartitionBy().get();
-                    for (Expression partitioningColumn : partitioningColumns) {
-                        if (partitioningColumn instanceof Identifier) {
-                            sourcePlanBuilder.getTranslations().put(partitioningColumn, sourcePlan.getVariableByIdentifier((Identifier) partitioningColumn));
-                        }
-                        else {
-                            throw notSupportedException(node, "Only Identifier partition columns are supported");
-                        }
-                    }
+                    sourcePlanBuilder = sourcePlanBuilder.appendProjections(partitioningColumns, variableAllocator, idAllocator, session, metadata, sqlParser, analysis, context);
                     QueryPlanner partitionQueryPlanner = new QueryPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session, context, sqlParser);
                     QueryPlanner.PlanAndMappings copartitionCoercions = partitionQueryPlanner.coerce(sourcePlanBuilder, partitioningColumns, analysis, idAllocator, variableAllocator, metadata);
                     sourcePlanBuilder = copartitionCoercions.getSubPlan();
@@ -293,9 +286,7 @@ class RelationPlanner
                 Optional<OrderingScheme> orderBy = Optional.empty();
                 if (tableArgument.getOrderBy().isPresent()) {
                     List<Expression> orderByColumns = tableArgument.getOrderBy().get().getSortItems().stream().map(SortItem::getSortKey).collect(Collectors.toList());
-                    for (int i = 0; i < orderByColumns.size(); i++) {
-                        sourcePlanBuilder.getTranslations().put(orderByColumns.get(i), sourcePlan.getVariable(i));
-                    }
+                    sourcePlanBuilder = sourcePlanBuilder.appendProjections(orderByColumns, variableAllocator, idAllocator, session, metadata, sqlParser, analysis, context);
                     // the ordering symbols are not coerced
                     orderBy = Optional.of(translateOrderingScheme(tableArgument.getOrderBy().get().getSortItems(), sourcePlanBuilder::translate));
                 }
