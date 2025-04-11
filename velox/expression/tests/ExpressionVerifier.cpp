@@ -148,7 +148,7 @@ ExpressionVerifier::verify(
 
   // Store data and expression in case of reproduction.
   VectorPtr copiedResult;
-  std::string sql = "";
+  std::string sql;
 
   // Complex constants that aren't all expressible in sql
   std::vector<VectorPtr> complexConstants;

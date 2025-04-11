@@ -633,11 +633,11 @@ class ExprExceptionContext {
   /// Path of the file storing the serialized 'vector'. Used to avoid
   /// serializing vector repeatedly in cases when multiple rows generate
   /// exceptions. This happens when exceptions are suppressed by TRY/AND/OR.
-  std::string dataPath_{""};
+  std::string dataPath_;
 
   /// Path of the file storing the expression SQL. Used to avoid writing SQL
   /// repeatedly in cases when multiple rows generate exceptions.
-  std::string sqlPath_{""};
+  std::string sqlPath_;
 
   /// Path of the file storing the SQL for all expressions in the ExprSet that
   /// was executing this expression. Useful if the bug that caused the error
