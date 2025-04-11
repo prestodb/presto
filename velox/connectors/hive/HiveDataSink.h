@@ -516,6 +516,15 @@ class HiveDataSink : public DataSink {
       CommitStrategy commitStrategy,
       const std::shared_ptr<const HiveConfig>& hiveConfig);
 
+  HiveDataSink(
+      RowTypePtr inputType,
+      std::shared_ptr<const HiveInsertTableHandle> insertTableHandle,
+      const ConnectorQueryCtx* connectorQueryCtx,
+      CommitStrategy commitStrategy,
+      const std::shared_ptr<const HiveConfig>& hiveConfig,
+      uint32_t bucketCount,
+      std::unique_ptr<core::PartitionFunction> bucketFunction);
+
   static uint32_t maxBucketCount() {
     static const uint32_t kMaxBucketCount = 100'000;
     return kMaxBucketCount;

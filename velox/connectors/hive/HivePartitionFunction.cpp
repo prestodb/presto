@@ -554,4 +554,26 @@ std::vector<uint32_t>& HivePartitionFunction::getHashes(size_t poolIndex) {
   return *hashesPool_[poolIndex];
 }
 
+HiveIdentityPartitionFunction::HiveIdentityPartitionFunction(
+    int numBuckets,
+    column_index_t keyChannel)
+    : numBuckets_(numBuckets), keyChannel_(keyChannel) {}
+
+std::optional<uint32_t> HiveIdentityPartitionFunction::partition(
+    const RowVector& input,
+    std::vector<uint32_t>& partitions) {
+  const auto& keyVector = input.childAt(keyChannel_);
+  VELOX_CHECK(
+      keyVector->typeKind() == TypeKind::BIGINT,
+      "Only BIGINT type is supported for identity partition function");
+  decodedVector_->decode(*keyVector);
+
+  const auto numRows = input.size();
+  partitions.resize(numRows);
+  for (auto i = 0; i < numRows; i++) {
+    partitions[i] = decodedVector_->valueAt<int64_t>(i) % numBuckets_;
+  }
+  return std::nullopt;
+}
+
 } // namespace facebook::velox::connector::hive

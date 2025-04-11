@@ -88,4 +88,22 @@ class HivePartitionFunction : public core::PartitionFunction {
   // Precomputed hashes for constant partition keys (one per key).
   std::vector<uint32_t> precomputedHashes_;
 };
+
+// PartitionFunction implementation which uses the value extracted
+// from a column channel as the partition index.
+class HiveIdentityPartitionFunction : public core::PartitionFunction {
+ public:
+  HiveIdentityPartitionFunction(int numBuckets, column_index_t keyChannel);
+
+  std::optional<uint32_t> partition(
+      const RowVector& input,
+      std::vector<uint32_t>& partitions) override;
+
+ private:
+  const int numBuckets_;
+  const column_index_t keyChannel_;
+  std::unique_ptr<DecodedVector> decodedVector_ =
+      std::make_unique<DecodedVector>();
+};
+
 } // namespace facebook::velox::connector::hive

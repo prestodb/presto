@@ -195,6 +195,11 @@ uint64_t getFinishTimeSliceLimitMsFromHiveConfig(
       ? std::numeric_limits<uint64_t>::max()
       : flushTimeSliceLimitMsFromConfig;
 }
+
+FOLLY_ALWAYS_INLINE int32_t
+getBucketCount(const HiveBucketProperty* bucketProperty) {
+  return bucketProperty == nullptr ? 0 : bucketProperty->bucketCount();
+}
 } // namespace
 
 const HiveWriterId& HiveWriterId::unpartitionedId() {
@@ -366,6 +371,27 @@ HiveDataSink::HiveDataSink(
     const ConnectorQueryCtx* connectorQueryCtx,
     CommitStrategy commitStrategy,
     const std::shared_ptr<const HiveConfig>& hiveConfig)
+    : HiveDataSink(
+          inputType,
+          insertTableHandle,
+          connectorQueryCtx,
+          commitStrategy,
+          hiveConfig,
+          getBucketCount(insertTableHandle->bucketProperty()),
+          getBucketCount(insertTableHandle->bucketProperty()) > 0
+              ? createBucketFunction(
+                    *insertTableHandle->bucketProperty(),
+                    inputType)
+              : nullptr) {}
+
+HiveDataSink::HiveDataSink(
+    RowTypePtr inputType,
+    std::shared_ptr<const HiveInsertTableHandle> insertTableHandle,
+    const ConnectorQueryCtx* connectorQueryCtx,
+    CommitStrategy commitStrategy,
+    const std::shared_ptr<const HiveConfig>& hiveConfig,
+    uint32_t bucketCount,
+    std::unique_ptr<core::PartitionFunction> bucketFunction)
     : inputType_(std::move(inputType)),
       insertTableHandle_(std::move(insertTableHandle)),
       connectorQueryCtx_(connectorQueryCtx),
@@ -387,15 +413,8 @@ HiveDataSink::HiveDataSink(
               : nullptr),
       dataChannels_(
           getNonPartitionChannels(partitionChannels_, inputType_->size())),
-      bucketCount_(
-          insertTableHandle_->bucketProperty() == nullptr
-              ? 0
-              : insertTableHandle_->bucketProperty()->bucketCount()),
-      bucketFunction_(
-          isBucketed() ? createBucketFunction(
-                             *insertTableHandle_->bucketProperty(),
-                             inputType_)
-                       : nullptr),
+      bucketCount_(static_cast<int32_t>(bucketCount)),
+      bucketFunction_(std::move(bucketFunction)),
       writerFactory_(
           dwio::common::getWriterFactory(insertTableHandle_->storageFormat())),
       spillConfig_(connectorQueryCtx->spillConfig()),
