@@ -20,6 +20,7 @@ import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.eventlistener.CTEInformation;
+import com.facebook.presto.spi.eventlistener.Column;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
 import com.facebook.presto.spi.eventlistener.OperatorStatistics;
@@ -371,13 +372,18 @@ public class TestEventListenerManager
         List<QueryInputMetadata> inputs = new ArrayList<>();
         QueryInputMetadata queryInputMetadata = getQueryInputMetadata();
         inputs.add(queryInputMetadata);
+        Column column1 = new Column("column1", "int");
+        Column column2 = new Column("column2", "varchar");
+        Column column3 = new Column("column3", "varchar");
+        List<Column> columns = Arrays.asList(column1, column2, column3);
         QueryOutputMetadata outputMetadata = new QueryOutputMetadata(
                 "dummyCatalog",
                 "dummySchema",
                 "dummyTable",
                 Optional.of("dummyConnectorMetadata"),
                 Optional.of(true),
-                "dummySerializedCommitOutput");
+                "dummySerializedCommitOutput",
+                Optional.of(columns));
         return new QueryIOMetadata(inputs, Optional.of(outputMetadata));
     }
 
@@ -387,7 +393,11 @@ public class TestEventListenerManager
         String schema = "dummySchema";
         String table = "dummyTable";
         String serializedCommitOutput = "commitOutputDummy";
-        List<String> columns = new ArrayList<>(Arrays.asList("column1", "column2", "column3"));
+        //List<String> columns = new ArrayList<>(Arrays.asList("column1", "column2", "column3"));
+        Column column1 = new Column("column1", "int");
+        Column column2 = new Column("column2", "varchar");
+        Column column3 = new Column("column3", "varchar");
+        List<Column> columns = Arrays.asList(column1, column2, column3);
         Optional<Object> connectorInfo = Optional.of(new Object());
         return new QueryInputMetadata(
                 catalogName,

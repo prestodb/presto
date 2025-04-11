@@ -26,12 +26,12 @@ public class QueryInputMetadata
     private final String catalogName;
     private final String schema;
     private final String table;
-    private final List<String> columns;
+    private final List<Column> columns;
     private final Optional<Object> connectorInfo;
     private final Optional<TableStatistics> statistics;
     private final String serializedCommitOutput;
 
-    public QueryInputMetadata(String catalogName, String schema, String table, List<String> columns, Optional<Object> connectorInfo, Optional<TableStatistics> statistics, String serializedCommitOutput)
+    public QueryInputMetadata(String catalogName, String schema, String table, List<Column> columns, Optional<Object> connectorInfo, Optional<TableStatistics> statistics, String serializedCommitOutput)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.schema = requireNonNull(schema, "schema is null");
@@ -61,7 +61,7 @@ public class QueryInputMetadata
     }
 
     @JsonProperty
-    public List<String> getColumns()
+    public List<Column> getColumns()
     {
         return columns;
     }
