@@ -94,6 +94,12 @@ public class DelegatingTransactionManager
     }
 
     @Override
+    public void enableRollback(TransactionId transactionId)
+    {
+        delegate.enableRollback(transactionId);
+    }
+
+    @Override
     public CatalogMetadata getCatalogMetadata(TransactionId transactionId, ConnectorId connectorId)
     {
         return delegate.getCatalogMetadata(transactionId, connectorId);

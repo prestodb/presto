@@ -365,10 +365,19 @@ public final class Session
 
     public Session beginTransactionId(TransactionId transactionId, TransactionManager transactionManager, AccessControl accessControl)
     {
+        return beginTransactionId(transactionId, false, transactionManager, accessControl);
+    }
+
+    public Session beginTransactionId(TransactionId transactionId, boolean enableRollback, TransactionManager transactionManager, AccessControl accessControl)
+    {
         requireNonNull(transactionId, "transactionId is null");
         checkArgument(!this.transactionId.isPresent(), "Session already has an active transaction");
         requireNonNull(transactionManager, "transactionManager is null");
         requireNonNull(accessControl, "accessControl is null");
+
+        if (enableRollback) {
+            transactionManager.enableRollback(transactionId);
+        }
 
         for (Entry<String, String> property : systemProperties.entrySet()) {
             // verify permissions
