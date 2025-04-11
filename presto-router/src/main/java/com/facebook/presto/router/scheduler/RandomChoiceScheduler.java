@@ -44,9 +44,4 @@ public class RandomChoiceScheduler
     {
         this.candidates = candidates;
     }
-
-    public List<URI> getCandidates()
-    {
-        return candidates;
-    }
 }
