@@ -504,6 +504,7 @@ public class QueryStateMachine
                 windowFunctions.get(),
                 Optional.ofNullable(planCanonicalInfo.get()).orElseGet(ImmutableList::of),
                 Optional.ofNullable(planIdNodeMap.get()).orElseGet(ImmutableMap::of),
+                Optional.empty(),
                 Optional.empty());
     }
 
@@ -1143,7 +1144,8 @@ public class QueryStateMachine
                 queryInfo.getWindowFunctions(),
                 ImmutableList.of(),
                 ImmutableMap.of(),
-                queryInfo.getPrestoSparkExecutionContext());
+                queryInfo.getPrestoSparkExecutionContext(),
+                queryInfo.getQualifiedName());
     }
 
     private static Set<Input> pruneInputHistograms(Set<Input> inputs)
@@ -1261,7 +1263,8 @@ public class QueryStateMachine
                 queryInfo.getWindowFunctions(),
                 ImmutableList.of(),
                 ImmutableMap.of(),
-                queryInfo.getPrestoSparkExecutionContext());
+                queryInfo.getPrestoSparkExecutionContext(),
+                queryInfo.getQualifiedName());
     }
 
     private static StageExecutionInfo pruneStageExecutionInfo(StageExecutionInfo info)

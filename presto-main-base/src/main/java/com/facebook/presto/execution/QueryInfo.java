@@ -104,6 +104,7 @@ public class QueryInfo
     private final List<CanonicalPlanWithInfo> planCanonicalInfo;
     private Map<PlanNodeId, PlanNode> planIdNodeMap;
     private final Optional<PrestoSparkExecutionContext> prestoSparkExecutionContext;
+    private final Optional<String> qualifiedName;
 
     @JsonCreator
     public QueryInfo(
@@ -149,7 +150,8 @@ public class QueryInfo
             @JsonProperty("windowFunctions") Set<String> windowFunctions,
             List<CanonicalPlanWithInfo> planCanonicalInfo,
             Map<PlanNodeId, PlanNode> planIdNodeMap,
-            @JsonProperty("prestoSparkExecutionContext") Optional<PrestoSparkExecutionContext> prestoSparkExecutionContext)
+            @JsonProperty("prestoSparkExecutionContext") Optional<PrestoSparkExecutionContext> prestoSparkExecutionContext,
+            Optional<String> qualifiedName)
     {
         requireNonNull(queryId, "queryId is null");
         requireNonNull(session, "session is null");
@@ -233,6 +235,60 @@ public class QueryInfo
         this.planCanonicalInfo = planCanonicalInfo == null ? ImmutableList.of() : planCanonicalInfo;
         this.planIdNodeMap = planIdNodeMap == null ? ImmutableMap.of() : ImmutableMap.copyOf(planIdNodeMap);
         this.prestoSparkExecutionContext = prestoSparkExecutionContext;
+        this.qualifiedName = qualifiedName;
+    }
+
+    public QueryInfo(QueryInfo queryInfo, Optional<String> qualifiedName)
+    {
+        this.queryId = queryInfo.getQueryId();
+        this.session = queryInfo.getSession();
+        this.state = queryInfo.getState();
+        this.memoryPool = requireNonNull(queryInfo.getMemoryPool(), "memoryPool is null");
+        this.scheduled = queryInfo.isScheduled();
+        this.self = queryInfo.getSelf();
+        this.fieldNames = ImmutableList.copyOf(queryInfo.getFieldNames());
+        this.query = queryInfo.getQuery();
+        this.queryHash = computeQueryHash(query);
+        this.expandedQuery = queryInfo.getExpandedQuery();
+        this.preparedQuery = queryInfo.getPreparedQuery();
+        this.queryStats = queryInfo.getQueryStats();
+        this.setCatalog = queryInfo.getSetCatalog();
+        this.setSchema = queryInfo.getSetSchema();
+        this.setSessionProperties = ImmutableMap.copyOf(queryInfo.getSetSessionProperties());
+        this.resetSessionProperties = ImmutableSet.copyOf(queryInfo.getResetSessionProperties());
+        this.setRoles = ImmutableMap.copyOf(queryInfo.getSetRoles());
+        this.addedPreparedStatements = ImmutableMap.copyOf(queryInfo.getAddedPreparedStatements());
+        this.deallocatedPreparedStatements = ImmutableSet.copyOf(queryInfo.getDeallocatedPreparedStatements());
+        this.startedTransactionId = queryInfo.getStartedTransactionId();
+        this.clearTransactionId = queryInfo.isClearTransactionId();
+        this.updateType = queryInfo.getUpdateType();
+        this.outputStage = queryInfo.getOutputStage();
+        this.failureInfo = queryInfo.getFailureInfo();
+        this.errorType = queryInfo.getErrorCode() == null ? null : queryInfo.getErrorCode().getType();
+        this.errorCode = queryInfo.getErrorCode();
+        this.warnings = ImmutableList.copyOf(queryInfo.getWarnings());
+        this.inputs = ImmutableSet.copyOf(queryInfo.getInputs());
+        this.output = queryInfo.getOutput();
+        this.finalQueryInfo = queryInfo.isFinalQueryInfo();
+        if (finalQueryInfo) {
+            checkArgument(state.isDone(), "finalQueryInfo without a terminal query state: %s", state);
+        }
+        this.resourceGroupId = queryInfo.getResourceGroupId();
+        this.queryType = queryInfo.getQueryType();
+        this.failedTasks = queryInfo.getFailedTasks();
+        this.runtimeOptimizedStages = queryInfo.getRuntimeOptimizedStages();
+        this.addedSessionFunctions = ImmutableMap.copyOf(queryInfo.getAddedSessionFunctions());
+        this.removedSessionFunctions = ImmutableSet.copyOf(queryInfo.getRemovedSessionFunctions());
+        this.planStatsAndCosts = queryInfo.getPlanStatsAndCosts();
+        this.optimizerInformation = queryInfo.getOptimizerInformation();
+        this.cteInformationList = queryInfo.getCteInformationList();
+        this.scalarFunctions = queryInfo.getScalarFunctions();
+        this.aggregateFunctions = queryInfo.getAggregateFunctions();
+        this.windowFunctions = queryInfo.getWindowFunctions();
+        this.planCanonicalInfo = queryInfo.getPlanCanonicalInfo() == null ? ImmutableList.of() : queryInfo.getPlanCanonicalInfo();
+        this.planIdNodeMap = queryInfo.getPlanIdNodeMap() == null ? ImmutableMap.of() : ImmutableMap.copyOf(queryInfo.getPlanIdNodeMap());
+        this.prestoSparkExecutionContext = queryInfo.getPrestoSparkExecutionContext();
+        this.qualifiedName = qualifiedName;
     }
 
     @JsonProperty
@@ -506,6 +562,11 @@ public class QueryInfo
     public Map<PlanNodeId, PlanNode> getPlanIdNodeMap()
     {
         return planIdNodeMap;
+    }
+
+    public Optional<String> getQualifiedName()
+    {
+        return qualifiedName;
     }
 
     @Override
