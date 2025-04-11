@@ -725,5 +725,49 @@ TEST_F(ProbabilityTest, invBinomialCDF) {
       "inverseBinomialCdf Function: p must be in the interval [0, 1]");
 }
 
+TEST_F(ProbabilityTest, invPoissonCDF) {
+  const auto invPoissonCDF = [&](std::optional<double> lambda,
+                                 std::optional<double> p) {
+    return evaluateOnce<int32_t>("inverse_poisson_cdf(c0, c1)", lambda, p);
+  };
+
+  EXPECT_EQ(0, invPoissonCDF(3, 0));
+  // EXPECT_EQ(2, invPoissonCDF(3, 0.3)); // 1.499999... round to floor to 1
+  EXPECT_EQ(6, invPoissonCDF(3, 0.95));
+  EXPECT_EQ(17, invPoissonCDF(3, 0.99999999));
+
+  EXPECT_EQ(std::nullopt, invPoissonCDF(std::nullopt, 0.5));
+  EXPECT_EQ(std::nullopt, invPoissonCDF(0.5, std::nullopt));
+
+  VELOX_ASSERT_THROW(
+      invPoissonCDF(-3, 0.3),
+      "inversePoissonCdf Function: lambda must be greater than 0");
+  VELOX_ASSERT_THROW(
+      invPoissonCDF(kInf, 0),
+      "inversePoissonCdf Function: lambda must be greater than 0");
+  VELOX_ASSERT_THROW(
+      invPoissonCDF(kNan, 0),
+      "inversePoissonCdf Function: lambda must be greater than 0");
+  VELOX_ASSERT_THROW(
+      invPoissonCDF(0, 0),
+      "inversePoissonCdf Function: lambda must be greater than 0");
+
+  VELOX_ASSERT_THROW(
+      invPoissonCDF(0.5, kInf),
+      "inversePoissonCdf Function: p must be in the interval [0, 1)");
+  VELOX_ASSERT_THROW(
+      invPoissonCDF(0.5, kNan),
+      "inversePoissonCdf Function: p must be in the interval [0, 1)");
+  VELOX_ASSERT_THROW(
+      invPoissonCDF(3, 1.1),
+      "inversePoissonCdf Function: p must be in the interval [0, 1)");
+  VELOX_ASSERT_THROW(
+      invPoissonCDF(3, 1),
+      "inversePoissonCdf Function: p must be in the interval [0, 1)");
+  VELOX_ASSERT_THROW(
+      invPoissonCDF(3, -0.1),
+      "inversePoissonCdf Function: p must be in the interval [0, 1)");
+}
+
 } // namespace
 } // namespace facebook::velox

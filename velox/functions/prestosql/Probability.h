@@ -383,5 +383,24 @@ struct InverseBinomialCDFFunction {
   }
 };
 
+template <typename T>
+struct InversePoissonCDFFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(int32_t& result, double lambda, double p) {
+    static constexpr double kInf = std::numeric_limits<double>::infinity();
+
+    VELOX_USER_CHECK(
+        (p >= 0) && (p < 1) && (p != kInf),
+        "inversePoissonCdf Function: p must be in the interval [0, 1)");
+    VELOX_USER_CHECK(
+        (lambda > 0) && (lambda != kInf),
+        "inversePoissonCdf Function: lambda must be greater than 0");
+
+    boost::math::poisson_distribution<> dist(lambda);
+    result = static_cast<int32_t>(boost::math::quantile(dist, p));
+  }
+};
+
 } // namespace
 } // namespace facebook::velox::functions
