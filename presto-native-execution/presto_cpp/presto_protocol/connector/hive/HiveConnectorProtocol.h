@@ -26,5 +26,6 @@ using HiveConnectorProtocol = ConnectorProtocolTemplate<
     HivePartitioningHandle,
     HiveTransactionHandle,
     HiveMetadataUpdateHandle,
+    NotImplemented,
     NotImplemented>;
 } // namespace facebook::presto::protocol::hive

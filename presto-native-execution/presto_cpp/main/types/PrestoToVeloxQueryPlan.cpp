@@ -1436,7 +1436,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   const auto outputType = toRowType(
       generateOutputVariables(node->outputVariables, nullptr),
       typeParser_);
-  
+
   const auto sourceVeloxPlan =
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId);
 
