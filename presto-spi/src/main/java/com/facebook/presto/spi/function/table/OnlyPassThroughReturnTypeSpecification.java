@@ -11,13 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.tvf;
+package com.facebook.presto.spi.function.table;
 
-import java.util.Map;
+import com.fasterxml.jackson.annotation.JsonCreator;
 
-public interface TVFProviderFactory
+/**
+ * The table function has no proper columns.
+ */
+public class OnlyPassThroughReturnTypeSpecification
+        extends ReturnTypeSpecification
 {
-    TVFProvider createTVFProvider(String catalogName, Map<String, String> config, TVFProviderContext context);
+    public static final OnlyPassThroughReturnTypeSpecification ONLY_PASS_THROUGH = new OnlyPassThroughReturnTypeSpecification();
 
-    String getName();
+    @JsonCreator
+    public OnlyPassThroughReturnTypeSpecification() {}
 }

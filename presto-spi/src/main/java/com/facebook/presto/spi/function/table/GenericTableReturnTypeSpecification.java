@@ -11,13 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.tvf;
+package com.facebook.presto.spi.function.table;
 
-import java.util.Map;
+import com.fasterxml.jackson.annotation.JsonCreator;
 
-public interface TVFProviderFactory
+/**
+ * The proper columns of the table function are not known at function declaration time.
+ * They must be determined at query analysis time based on the actual call arguments.
+ */
+public class GenericTableReturnTypeSpecification
+        extends ReturnTypeSpecification
 {
-    TVFProvider createTVFProvider(String catalogName, Map<String, String> config, TVFProviderContext context);
+    public static final GenericTableReturnTypeSpecification GENERIC_TABLE = new GenericTableReturnTypeSpecification();
 
-    String getName();
+    @JsonCreator
+    public GenericTableReturnTypeSpecification() {}
 }

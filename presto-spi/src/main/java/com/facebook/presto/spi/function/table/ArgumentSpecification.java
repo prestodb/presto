@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi.function.table;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import javax.annotation.Nullable;
 
 import static com.facebook.presto.spi.function.table.Preconditions.checkArgument;
@@ -44,16 +46,19 @@ public abstract class ArgumentSpecification
         this.defaultValue = defaultValue;
     }
 
+    @JsonProperty
     public String getName()
     {
         return name;
     }
 
+    @JsonProperty
     public boolean isRequired()
     {
         return required;
     }
 
+    @JsonProperty
     public Object getDefaultValue()
     {
         return defaultValue;

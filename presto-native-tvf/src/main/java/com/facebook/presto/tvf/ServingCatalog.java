@@ -11,13 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.tvf;
+package com.facebook.presto.tvf;
 
-import java.util.Map;
+import javax.inject.Qualifier;
 
-public interface TVFProviderFactory
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
+
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.ElementType.PARAMETER;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
+
+@Retention(RUNTIME)
+@Target({FIELD, PARAMETER, METHOD})
+@Qualifier
+public @interface ServingCatalog
 {
-    TVFProvider createTVFProvider(String catalogName, Map<String, String> config, TVFProviderContext context);
-
-    String getName();
 }

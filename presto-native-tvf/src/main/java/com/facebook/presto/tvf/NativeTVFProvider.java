@@ -17,30 +17,34 @@ import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.HttpUriBuilder;
 import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.json.JsonCodec;
-import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.function.table.Argument;
-import com.facebook.presto.spi.function.table.TableFunctionAnalysis;
+import com.facebook.presto.spi.function.SchemaFunctionName;
+import com.facebook.presto.spi.function.table.AbstractConnectorTableFunction;
+import com.facebook.presto.spi.function.table.ConnectorTableFunction;
+import com.facebook.presto.spi.function.table.TableFunctionMetadata;
 import com.facebook.presto.spi.tvf.TVFProvider;
+import com.google.common.base.Suppliers;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 
 import javax.inject.Inject;
 
 import java.net.URI;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
-import static com.facebook.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static com.facebook.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
-import static com.facebook.airlift.http.client.Request.Builder.preparePost;
+import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_ARGUMENTS;
-import static com.google.common.net.HttpHeaders.ACCEPT;
-import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
-import static com.google.common.net.MediaType.JSON_UTF_8;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class NativeTVFProvider
@@ -48,45 +52,32 @@ public class NativeTVFProvider
 {
     private final NodeManager nodeManager;
     private final HttpClient httpClient;
-    private static final String TVF_ANALYZE_ENDPOINT = "/v1/tvf/analyze";
-    private static final JsonCodec<Map<String, Argument>> jsonCodecMap =
-            JsonCodec.mapJsonCodec(String.class, Argument.class);
-    private static final JsonCodec<TableFunctionAnalysis> tableFunctionAnalysisJsonCodec =
-            JsonCodec.jsonCodec(TableFunctionAnalysis.class);
+    private final String catalogName;
+    private static final String TABLE_FUNCTIONS_ENDPOINT = "/v1/tableFunctions";
+    private static final JsonCodec<List<AbstractConnectorTableFunction>> connectorTableFunctionListJsonCodec =
+            JsonCodec.listJsonCodec(AbstractConnectorTableFunction.class);
+    private final Supplier<Map<SchemaFunctionName, TableFunctionMetadata>> memoizedTableFunctionsSupplier;
 
     @Inject
     public NativeTVFProvider(
+            @ServingCatalog String catalogName,
             NodeManager nodeManager,
             @ForWorkerInfo HttpClient httpClient)
     {
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
+        this.memoizedTableFunctionsSupplier = Suppliers.memoizeWithExpiration(this::loadConnectorTableFunctions,
+                100000, TimeUnit.MILLISECONDS);
     }
 
     @Override
-    public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+    public TableFunctionMetadata resolveTableFunction(SchemaFunctionName schemaFunctionName)
     {
-        try {
-            return httpClient.execute(
-                    getWorkerRequest(arguments),
-                    createJsonResponseHandler(tableFunctionAnalysisJsonCodec));
-        }
-        catch (Exception e) {
-            throw new PrestoException(INVALID_ARGUMENTS, "Failed to analyze table functions from endpoint.", e);
-        }
+        return memoizedTableFunctionsSupplier.get().get(schemaFunctionName);
     }
 
-    private Request getWorkerRequest(Map<String, Argument> arguments)
-    {
-        return preparePost()
-                .setUri(getWorkerLocation())
-                .setBodyGenerator(jsonBodyGenerator(jsonCodecMap, arguments))
-                .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
-                .setHeader(ACCEPT, JSON_UTF_8.toString())
-                .build();
-    }
-
-    private URI getWorkerLocation()
+    public static URI getWorkerLocation(NodeManager nodeManager, String endpoint)
     {
         Set<Node> workerNodes = nodeManager.getWorkerNodes();
         Node workerNode = Iterables.get(workerNodes, new Random().nextInt(workerNodes.size()));
@@ -94,7 +85,44 @@ public class NativeTVFProvider
                 .scheme("http")
                 .host(workerNode.getHost())
                 .port(workerNode.getHostAndPort().getPort())
-                .appendPath(TVF_ANALYZE_ENDPOINT)
+                .appendPath(endpoint)
                 .build();
+    }
+
+    private synchronized Map<SchemaFunctionName, TableFunctionMetadata> loadConnectorTableFunctions()
+    {
+        List<AbstractConnectorTableFunction> connectorTableFunctions;
+        try {
+            Request request = prepareGet().setUri(getWorkerLocation(nodeManager, TABLE_FUNCTIONS_ENDPOINT)).build();
+            connectorTableFunctions = httpClient.execute(request, createJsonResponseHandler(connectorTableFunctionListJsonCodec));
+        }
+        catch (Exception e) {
+            throw new PrestoException(INVALID_ARGUMENTS, "Failed to get table functions from sidecar.", e);
+        }
+
+        List<NativeConnectorTableFunction> nativeConnectorTableFunctions =
+                connectorTableFunctions.stream().map(this::createNativeConnectorTableFunction).collect(ImmutableList.toImmutableList());
+
+        ImmutableMap.Builder<SchemaFunctionName, TableFunctionMetadata> builder = ImmutableMap.builder();
+        for (ConnectorTableFunction function : nativeConnectorTableFunctions) {
+            builder.put(
+                    new SchemaFunctionName(
+                            function.getName().toLowerCase(ENGLISH),
+                            function.getSchema().toLowerCase(ENGLISH)),
+                    new TableFunctionMetadata(new ConnectorId(catalogName), function));
+        }
+
+        return builder.build();
+    }
+
+    private synchronized NativeConnectorTableFunction createNativeConnectorTableFunction(AbstractConnectorTableFunction connectorTableFunction)
+    {
+        return new NativeConnectorTableFunction(
+                httpClient,
+                nodeManager,
+                connectorTableFunction.getName(),
+                connectorTableFunction.getSchema(),
+                connectorTableFunction.getArguments(),
+                connectorTableFunction.getReturnTypeSpecification());
     }
 }

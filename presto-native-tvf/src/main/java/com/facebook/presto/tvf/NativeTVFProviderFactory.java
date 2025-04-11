@@ -39,11 +39,11 @@ public class NativeTVFProviderFactory
     }
 
     @Override
-    public TVFProvider createTVFProvider(Map<String, String> config, TVFProviderContext context)
+    public TVFProvider createTVFProvider(String catalogName, Map<String, String> config, TVFProviderContext context)
     {
         try {
             Bootstrap app = new Bootstrap(
-                    new NativeTVFProviderModule(context.getNodeManager()),
+                    new NativeTVFProviderModule(catalogName, context.getNodeManager()),
                     new NativeWorkerCommunicationModule());
 
             Injector injector = app

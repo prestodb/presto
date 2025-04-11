@@ -13,17 +13,10 @@
  */
 package com.facebook.presto.spi.tvf;
 
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.function.table.Argument;
-import com.facebook.presto.spi.function.table.TableFunctionAnalysis;
-
-import java.util.Map;
+import com.facebook.presto.spi.function.SchemaFunctionName;
+import com.facebook.presto.spi.function.table.TableFunctionMetadata;
 
 public interface TVFProvider
 {
-    /**
-     * Analyzes the table function and returns a TableFunctionAnalysis
-     */
-    TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments);
+    TableFunctionMetadata resolveTableFunction(SchemaFunctionName schemaFunctionName);
 }
