@@ -17,6 +17,7 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.analyzer.Scope;
+import com.facebook.presto.sql.tree.Identifier;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -63,6 +64,13 @@ class RelationPlan
     {
         checkArgument(fieldIndex >= 0 && fieldIndex < fieldMappings.size(), "No field->symbol mapping for field %s", fieldIndex);
         return fieldMappings.get(fieldIndex);
+    }
+
+    public VariableReferenceExpression getVariableByIdentifier(Identifier name)
+    {
+        return fieldMappings.stream()
+                .filter(v -> name.getValue().equals(v.getName()))
+                .findFirst().orElse(null);
     }
 
     public PlanNode getRoot()

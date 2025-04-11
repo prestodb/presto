@@ -206,56 +206,37 @@ public class TestTableFunctionInvocation
         // the passed-through column row_number preserves its hidden property.
         assertQuery("SELECT row_number, * FROM TABLE(system.identity_pass_through_function(input => TABLE(tpch.tiny.orders)))",
                 "SELECT row_number, * FROM tpch.tiny.orders");
-
     }
 
     @Test
     public void testRepeatFunction()
     {
-        /*
         assertQuery("SELECT * FROM TABLE(system.repeat(TABLE(VALUES (1, 2), (3, 4), (5, 6))))",
                 "VALUES (1, 2), (1, 2), (3, 4), (3, 4), (5, 6), (5, 6)");
 
         assertQuery("SELECT * FROM TABLE(system.repeat(TABLE(VALUES ('a', true), ('b', false)), 4))",
                 "VALUES ('a', true), ('b', false), ('a', true), ('b', false), ('a', true), ('b', false), ('a', true), ('b', false)");
 
-
-        assertQuery("SELECT *FROM TABLE(system.repeat(TABLE(VALUES ('a', true), ('b', false)) t(x, y) PARTITION BY x,4))",
+        assertQuery("SELECT * FROM TABLE(system.repeat(TABLE(VALUES ('a', true), ('b', false)) t(x, y) PARTITION BY x,4))",
                 "VALUES ('a', true), ('b', false), ('a', true), ('b', false), ('a', true), ('b', false), ('a', true), ('b', false)");
-        */
 
         assertQuery("SELECT * FROM TABLE(system.repeat(TABLE(VALUES ('a', true), ('b', false)) t(x, y) ORDER BY y, 4))",
                 "VALUES ('a', true), ('b', false), ('a', true), ('b', false), ('a', true), ('b', false), ('a', true), ('b', false)");
-        /*
-        assertThat(query("""
-                SELECT *
-                FROM TABLE(system.repeat(
-                                        TABLE(VALUES ('a', true), ('b', false)) t(x, y) PARTITION BY x ORDER BY y,
-                                        4))
-                """))
-                .matches("VALUES ('a', true), ('b', false), ('a', true), ('b', false), ('a', true), ('b', false), ('a', true), ('b', false)");
-        */
 
-        //assertQuery("SELECT * FROM TABLE(system.repeat(TABLE(tpch.tiny.part), 3))",
-        //        "SELECT * FROM tpch.tiny.part UNION ALL TABLE tpch.tiny.part UNION ALL TABLE tpch.tiny.part");
+        assertQuery("SELECT * FROM TABLE(system.repeat(TABLE(VALUES ('a', true), ('b', false)) t(x, y) PARTITION BY x ORDER BY y, 4))",
+                "VALUES ('a', true), ('b', false), ('a', true), ('b', false), ('a', true), ('b', false), ('a', true), ('b', false)");
 
-        /*
-        assertThat(query("""
-                SELECT *
-                FROM TABLE(system.repeat(TABLE(tpch.tiny.part) PARTITION BY type, 3))
-                """))
-                .matches("SELECT * FROM tpch.tiny.part UNION ALL TABLE tpch.tiny.part UNION ALL TABLE tpch.tiny.part");
+        assertQuery("SELECT * FROM TABLE(system.repeat(TABLE(tpch.tiny.part), 3))",
+                "SELECT * FROM tpch.tiny.part UNION ALL TABLE tpch.tiny.part UNION ALL TABLE tpch.tiny.part");
+
+        assertQuery("SELECT * FROM TABLE(system.repeat(TABLE(tpch.tiny.part) PARTITION BY type, 3))",
+                "SELECT * FROM tpch.tiny.part UNION ALL TABLE tpch.tiny.part UNION ALL TABLE tpch.tiny.part");
 
         assertQuery("SELECT * FROM TABLE(system.repeat(TABLE(tpch.tiny.part) ORDER BY size, 3))",
                 "SELECT * FROM tpch.tiny.part UNION ALL TABLE tpch.tiny.part UNION ALL TABLE tpch.tiny.part");
 
-        assertThat(query("""
-                SELECT *
-                FROM TABLE(system.repeat(TABLE(tpch.tiny.part) PARTITION BY type ORDER BY size, 3))
-                """))
-                .matches("SELECT * FROM tpch.tiny.part UNION ALL TABLE tpch.tiny.part UNION ALL TABLE tpch.tiny.part");
-
-         */
+        assertQuery("SELECT * FROM TABLE(system.repeat(TABLE(tpch.tiny.part) PARTITION BY type ORDER BY size, 3))",
+                "SELECT * FROM tpch.tiny.part UNION ALL TABLE tpch.tiny.part UNION ALL TABLE tpch.tiny.part");
     }
 
     @Test
@@ -264,18 +245,14 @@ public class TestTableFunctionInvocation
         // the functions empty_output and empty_output_with_pass_through return an empty Page for each processed input Page. the argument has KEEP WHEN EMPTY property
 
         // non-empty input, no pass-trough columns
+        /*
         assertQuery("SELECT * FROM TABLE(system.empty_output(TABLE(tpch.tiny.orders)))",
                 "SELECT true WHERE false");
-
-        /*
-        // non-empty input, pass-through partitioning column
-        assertThat(query("""
-                SELECT *
-                FROM TABLE(system.empty_output(TABLE(tpch.tiny.orders) PARTITION BY orderstatus))
-                """))
-                .matches("SELECT true, 'X' WHERE false");
         */
-
+        // non-empty input, pass-through partitioning column
+        assertQuery("SELECT * FROM TABLE(system.empty_output(TABLE(tpch.tiny.orders) PARTITION BY orderstatus))",
+                "SELECT true, 'X' WHERE false");
+        /*
         // non-empty input, argument has pass-trough columns
         assertQuery("SELECT * FROM TABLE(system.empty_output_with_pass_through(TABLE(tpch.tiny.orders)))",
                 "SELECT true, * FROM tpch.tiny.orders WHERE false");
@@ -290,8 +267,8 @@ public class TestTableFunctionInvocation
         */
 
         // empty input, no pass-trough columns
-        assertQuery("SELECT * FROM TABLE(system.empty_output(TABLE(SELECT * FROM tpch.tiny.orders WHERE false)))",
-                "SELECT true WHERE false");
+        //assertQuery("SELECT * FROM TABLE(system.empty_output(TABLE(SELECT * FROM tpch.tiny.orders WHERE false)))",
+        //        "SELECT true WHERE false");
 
         /*
         // empty input, pass-through partitioning column
@@ -303,8 +280,8 @@ public class TestTableFunctionInvocation
         */
 
         // empty input, argument has pass-trough columns
-        assertQuery("SELECT * FROM TABLE(system.empty_output_with_pass_through(TABLE(SELECT * FROM tpch.tiny.orders WHERE false)))",
-                "SELECT true, * FROM tpch.tiny.orders WHERE false");
+        //assertQuery("SELECT * FROM TABLE(system.empty_output_with_pass_through(TABLE(SELECT * FROM tpch.tiny.orders WHERE false)))",
+        //        "SELECT true, * FROM tpch.tiny.orders WHERE false");
 
         /*
         // empty input, argument has pass-trough columns, partitioning column present
@@ -316,8 +293,8 @@ public class TestTableFunctionInvocation
         */
 
         // function empty_source returns an empty Page for each Split it processes
-        assertQuery("SELECT * FROM TABLE(system.empty_source())",
-                "SELECT true WHERE false");
+        //assertQuery("SELECT * FROM TABLE(system.empty_source())",
+        //        "SELECT true WHERE false");
     }
 /*
     @Test

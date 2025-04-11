@@ -90,6 +90,7 @@ import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.SetOperation;
+import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableFunctionInvocation;
@@ -116,6 +117,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.SystemSessionProperties.getCteMaterializationStrategy;
@@ -271,8 +273,13 @@ class RelationPlanner
                 // if there are partitioning columns, they might have to be coerced for copartitioning
                 if (tableArgument.getPartitionBy().isPresent() && !tableArgument.getPartitionBy().get().isEmpty()) {
                     List<Expression> partitioningColumns = tableArgument.getPartitionBy().get();
-                    for (int i = 0; i < partitioningColumns.size(); i++) {
-                        sourcePlanBuilder.getTranslations().put(partitioningColumns.get(i), sourcePlan.getVariable(i));
+                    for (Expression partitioningColumn : partitioningColumns) {
+                        if (partitioningColumn instanceof Identifier) {
+                            sourcePlanBuilder.getTranslations().put(partitioningColumn, sourcePlan.getVariableByIdentifier((Identifier) partitioningColumn));
+                        }
+                        else {
+                            throw notSupportedException(node, "Only Identifier partition columns are supported");
+                        }
                     }
                     QueryPlanner partitionQueryPlanner = new QueryPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session, context, sqlParser);
                     QueryPlanner.PlanAndMappings copartitionCoercions = partitionQueryPlanner.coerce(sourcePlanBuilder, partitioningColumns, analysis, idAllocator, variableAllocator, metadata);
@@ -285,6 +292,10 @@ class RelationPlanner
                 // order by
                 Optional<OrderingScheme> orderBy = Optional.empty();
                 if (tableArgument.getOrderBy().isPresent()) {
+                    List<Expression> orderByColumns = tableArgument.getOrderBy().get().getSortItems().stream().map(SortItem::getSortKey).collect(Collectors.toList());
+                    for (int i = 0; i < orderByColumns.size(); i++) {
+                        sourcePlanBuilder.getTranslations().put(orderByColumns.get(i), sourcePlan.getVariable(i));
+                    }
                     // the ordering symbols are not coerced
                     orderBy = Optional.of(translateOrderingScheme(tableArgument.getOrderBy().get().getSortItems(), sourcePlanBuilder::translate));
                 }
