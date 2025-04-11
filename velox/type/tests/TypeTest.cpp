@@ -559,6 +559,29 @@ TEST(TypeTest, rowParametersMultiThreaded) {
   }
 }
 
+TEST(TypeTest, rowHashKindMultiThreaded) {
+  std::vector<std::string> names;
+  std::vector<TypePtr> types;
+  for (int i = 0; i < 20'000; ++i) {
+    auto name = fmt::format("c{}", i);
+    names.push_back(name);
+    types.push_back(ROW({name}, {BIGINT()}));
+  }
+  auto type = ROW(std::move(names), std::move(types));
+  constexpr int kNumThreads = 72;
+  size_t hashes[kNumThreads];
+  std::vector<std::thread> threads;
+  for (int i = 0; i < kNumThreads; ++i) {
+    threads.emplace_back([&, i] { hashes[i] = type->hashKind(); });
+  }
+  for (auto& thread : threads) {
+    thread.join();
+  }
+  for (int i = 1; i < kNumThreads; ++i) {
+    ASSERT_TRUE(hashes[i] == hashes[0]);
+  }
+}
+
 class Foo {};
 class Bar {};
 
