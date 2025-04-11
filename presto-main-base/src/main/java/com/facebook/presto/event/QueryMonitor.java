@@ -20,6 +20,7 @@ import com.facebook.airlift.stats.Distribution;
 import com.facebook.airlift.stats.Distribution.DistributionSnapshot;
 import com.facebook.presto.SessionRepresentation;
 import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.common.AccessControlResults;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.common.transaction.TransactionId;
@@ -274,7 +275,8 @@ public class QueryMonitor
                 ImmutableSet.of(),
                 Optional.empty(),
                 ImmutableMap.of(),
-                Optional.empty()));
+                Optional.empty(),
+                new AccessControlResults()));
 
         logQueryTimeline(queryInfo);
     }
@@ -317,7 +319,8 @@ public class QueryMonitor
                         queryInfo.getWindowFunctions(),
                         queryInfo.getPrestoSparkExecutionContext(),
                         getPlanHash(queryInfo.getPlanCanonicalInfo(), historyBasedPlanStatisticsTracker.getStatsEquivalentPlanRootNode(queryInfo.getQueryId())),
-                        Optional.of(queryInfo.getPlanIdNodeMap())));
+                        Optional.of(queryInfo.getPlanIdNodeMap()),
+                        queryInfo.getAccessControlResults()));
 
         logQueryTimeline(queryInfo);
     }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spark;
 
+import com.facebook.presto.common.AccessControlResults;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.server.SessionContext;
@@ -54,6 +55,7 @@ public class PrestoSparkSessionContext
     private final Map<String, Map<String, String>> catalogSessionProperties;
     private final Optional<String> traceToken;
     private final RuntimeStats runtimeStats = new RuntimeStats();
+    private final AccessControlResults accessControlResults = new AccessControlResults();
 
     public static PrestoSparkSessionContext createFromSessionInfo(
             PrestoSparkSession prestoSparkSession,
@@ -246,5 +248,11 @@ public class PrestoSparkSessionContext
     public RuntimeStats getRuntimeStats()
     {
         return runtimeStats;
+    }
+
+    @Override
+    public AccessControlResults getAccessControlResults()
+    {
+        return accessControlResults;
     }
 }
