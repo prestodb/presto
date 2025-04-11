@@ -5640,8 +5640,7 @@ void to_json(json& j, const std::shared_ptr<ConnectorIndexHandle>& p) {
     return;
   }
   String type = p->_type;
-
-  throw TypeError(type + " no abstract type ConnectorIndexHandle ");
+  getConnectorProtocol(type).to_json(j, p);
 }
 
 void from_json(const json& j, std::shared_ptr<ConnectorIndexHandle>& p) {
@@ -5650,10 +5649,9 @@ void from_json(const json& j, std::shared_ptr<ConnectorIndexHandle>& p) {
     type = p->getSubclassKey(j);
   } catch (json::parse_error& e) {
     throw ParseError(
-        std::string(e.what()) + " ConnectorIndexHandle  ConnectorIndexHandle");
+        std::string(e.what()) + " ConnectorIndexHandle ConnectorIndexHandle");
   }
-
-  throw TypeError(type + " no abstract type ConnectorIndexHandle ");
+  getConnectorProtocol(type).from_json(j, p);
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {

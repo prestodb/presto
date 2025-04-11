@@ -25,5 +25,6 @@ using ArrowConnectorProtocol = ConnectorProtocolTemplate<
     ArrowSplit,
     NotImplemented,
     ArrowTransactionHandle,
+    NotImplemented,
     NotImplemented>;
 } // namespace facebook::presto::protocol::arrow_flight
