@@ -551,12 +551,12 @@ public class ImplementTableFunctionSource
                                                 COALESCE,
                                                 BIGINT,
                                                 copartitionedNodes.leftRowNumber(),
-                                                new ConstantExpression(-1, BIGINT)),
+                                                new ConstantExpression(-1L, BIGINT)),
                                         new SpecialFormExpression(
                                                 COALESCE,
                                                 BIGINT,
                                                 copartitionedNodes.rightRowNumber(),
-                                                new ConstantExpression(-1, BIGINT)))),
+                                                new ConstantExpression(-1L, BIGINT)))),
                         copartitionedNodes.leftRowNumber(),
                         copartitionedNodes.rightRowNumber()));
 
@@ -577,12 +577,12 @@ public class ImplementTableFunctionSource
                                                 COALESCE,
                                                 BIGINT,
                                                 copartitionedNodes.leftPartitionSize(),
-                                                new ConstantExpression(-1, BIGINT)),
+                                                new ConstantExpression(-1L, BIGINT)),
                                         new SpecialFormExpression(
                                                 COALESCE,
                                                 BIGINT,
                                                 copartitionedNodes.rightPartitionSize(),
-                                                new ConstantExpression(-1, BIGINT)))),
+                                                new ConstantExpression(-1L, BIGINT)))),
                         copartitionedNodes.leftPartitionSize(),
                         copartitionedNodes.rightPartitionSize()));
 
@@ -709,12 +709,12 @@ public class ImplementTableFunctionSource
                                                 COALESCE,
                                                 BIGINT,
                                                 joinedNodes.leftRowNumber(),
-                                                new ConstantExpression(-1, BIGINT)),
+                                                new ConstantExpression(-1L, BIGINT)),
                                         new SpecialFormExpression(
                                                 COALESCE,
                                                 BIGINT,
                                                 joinedNodes.rightRowNumber(),
-                                                new ConstantExpression(-1, BIGINT)))),
+                                                new ConstantExpression(-1L, BIGINT)))),
                         joinedNodes.leftRowNumber(),
                         joinedNodes.rightRowNumber()));
 
@@ -735,12 +735,12 @@ public class ImplementTableFunctionSource
                                                 COALESCE,
                                                 BIGINT,
                                                 joinedNodes.leftPartitionSize(),
-                                                new ConstantExpression(-1, BIGINT)),
+                                                new ConstantExpression(-1L, BIGINT)),
                                         new SpecialFormExpression(
                                                 COALESCE,
                                                 BIGINT,
                                                 joinedNodes.rightPartitionSize(),
-                                                new ConstantExpression(-1, BIGINT)))),
+                                                new ConstantExpression(-1L, BIGINT)))),
                         joinedNodes.leftPartitionSize(),
                         joinedNodes.rightPartitionSize()));
 

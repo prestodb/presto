@@ -289,13 +289,13 @@ public class TestTableFunctionInvocation
     {
         // table function test_inputs_function has four table arguments. input_1 has row semantics. input_2, input_3 and input_4 have set semantics.
         // the function outputs one row per each tuple of partition it processes. The row includes a true value, and partitioning values.
-//        assertQuery("SELECT *\n" +
-//                "FROM TABLE(system.test_inputs_function(\n" +
-//                "               input_1 => TABLE(VALUES 1, 2, 3),\n" +
-//                "               input_2 => TABLE(VALUES 4, 5, 4, 5, 4) t2(x2) PARTITION BY x2,\n" +
-//                "               input_3 => TABLE(VALUES 6, 7, 6) t3(x3) PARTITION BY x3,\n" +
-//                "               input_4 => TABLE(VALUES 8, 9)))\n",
-//                "VALUES (true, 4, 6), (true, 4, 7), (true, 5, 6), (true, 5, 7)");
+        assertQuery("SELECT *\n" +
+                "FROM TABLE(system.test_inputs_function(\n" +
+                "               input_1 => TABLE(VALUES 1, 2, 3),\n" +
+                "               input_2 => TABLE(VALUES 4, 5, 4, 5, 4) t2(x2) PARTITION BY x2,\n" +
+                "               input_3 => TABLE(VALUES 6, 7, 6) t3(x3) PARTITION BY x3,\n" +
+                "               input_4 => TABLE(VALUES 8, 9)))\n",
+                "VALUES (true, 4, 6), (true, 4, 7), (true, 5, 6), (true, 5, 7)");
 /*
         assertThat(query("""
                 SELECT *

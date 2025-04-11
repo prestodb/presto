@@ -116,7 +116,7 @@ public class WindowFilterPushDown
         @Override
         public PlanNode visitWindow(WindowNode node, RewriteContext<Void> context)
         {
-            checkState(node.getWindowFunctions().size() == 1, "WindowFilterPushdown requires that WindowNodes contain exactly one window function");
+//            checkState(node.getWindowFunctions().size() == 1, "WindowFilterPushdown requires that WindowNodes contain exactly one window function");
             PlanNode rewrittenSource = context.rewrite(node.getSource());
 
             if (canReplaceWithRowNumber(node, metadata.getFunctionAndTypeManager())) {
