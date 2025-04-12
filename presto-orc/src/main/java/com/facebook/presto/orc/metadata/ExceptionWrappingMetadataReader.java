@@ -21,6 +21,7 @@ import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.OrcDecompressor;
 import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
 import com.facebook.presto.orc.metadata.statistics.HiveBloomFilter;
+import com.facebook.presto.orc.protobuf.InvalidProtocolBufferException;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -45,25 +46,25 @@ public class ExceptionWrappingMetadataReader
 
     @Override
     public PostScript readPostScript(byte[] data, int offset, int length)
-            throws OrcCorruptionException
+            throws OrcCorruptionException, IOException
     {
         try {
             return delegate.readPostScript(data, offset, length);
         }
-        catch (IOException | RuntimeException e) {
-            throw propagate(e, "Invalid postscript");
+        catch (InvalidProtocolBufferException e) {
+            throw new OrcCorruptionException(e, orcDataSourceId, "Invalid postscript");
         }
     }
 
     @Override
     public Metadata readMetadata(HiveWriterVersion hiveWriterVersion, InputStream inputStream)
-            throws OrcCorruptionException
+            throws OrcCorruptionException, IOException
     {
         try {
             return delegate.readMetadata(hiveWriterVersion, inputStream);
         }
-        catch (IOException | RuntimeException e) {
-            throw propagate(e, "Invalid file metadata");
+        catch (InvalidProtocolBufferException e) {
+            throw new OrcCorruptionException(e, orcDataSourceId, "Invalid file metadata");
         }
     }
 
@@ -74,13 +75,13 @@ public class ExceptionWrappingMetadataReader
             DwrfKeyProvider dwrfKeyProvider,
             OrcDataSource orcDataSource,
             Optional<OrcDecompressor> decompressor)
-            throws OrcCorruptionException
+            throws OrcCorruptionException, IOException
     {
         try {
             return delegate.readFooter(hiveWriterVersion, inputStream, dwrfEncryptionProvider, dwrfKeyProvider, orcDataSource, decompressor);
         }
-        catch (IOException | RuntimeException e) {
-            throw propagate(e, "Invalid file footer");
+        catch (InvalidProtocolBufferException e) {
+            throw new OrcCorruptionException(e, orcDataSourceId, "Invalid file footer");
         }
     }
 
@@ -91,40 +92,32 @@ public class ExceptionWrappingMetadataReader
         try {
             return delegate.readStripeFooter(orcDataSourceId, types, inputStream);
         }
-        catch (IOException e) {
-            throw propagate(e, "Invalid stripe footer");
+        catch (InvalidProtocolBufferException e) {
+            throw new OrcCorruptionException(e, orcDataSourceId, "Invalid stripe footer");
         }
     }
 
     @Override
     public List<RowGroupIndex> readRowIndexes(HiveWriterVersion hiveWriterVersion, InputStream inputStream, List<HiveBloomFilter> bloomFilters)
-            throws OrcCorruptionException
+            throws OrcCorruptionException, IOException
     {
         try {
             return delegate.readRowIndexes(hiveWriterVersion, inputStream, bloomFilters);
         }
-        catch (IOException | RuntimeException e) {
-            throw propagate(e, "Invalid stripe row index");
+        catch (InvalidProtocolBufferException e) {
+            throw new OrcCorruptionException(e, orcDataSourceId, "Invalid stripe row index");
         }
     }
 
     @Override
     public List<HiveBloomFilter> readBloomFilterIndexes(InputStream inputStream)
-            throws OrcCorruptionException
+            throws OrcCorruptionException, IOException
     {
         try {
             return delegate.readBloomFilterIndexes(inputStream);
         }
-        catch (IOException | RuntimeException e) {
-            throw propagate(e, "Invalid bloom filter");
+        catch (InvalidProtocolBufferException e) {
+            throw new OrcCorruptionException(e, orcDataSourceId, "Invalid bloom filter");
         }
-    }
-
-    private OrcCorruptionException propagate(Throwable throwable, String message)
-    {
-        if (throwable.getClass().getSimpleName().equals("PrestoException")) {
-            throw (RuntimeException) throwable;
-        }
-        return new OrcCorruptionException(throwable, orcDataSourceId, message);
     }
 }
