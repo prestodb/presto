@@ -45,36 +45,34 @@ struct CudaSpecialization {
     // Use full warp syncs as hint to encourage reconvergence by default.
     __syncwarp();
   }
-  template <typename T,
-            breeze::utils::MemoryOrder MEMORY_ORDER = breeze::utils::RELAXED,
-            template <breeze::utils::AddressSpace,
-                      breeze::utils::DataArrangement, typename>
-            typename SliceT>
-  static __device__ __forceinline__ T atomic_load(
-      SliceT<breeze::utils::GLOBAL, breeze::utils::BLOCKED, T> address) {
-    if constexpr (MEMORY_ORDER == breeze::utils::RELEASE) {
-      __threadfence();
+  template <breeze::utils::MemoryOrder MEMORY_ORDER = breeze::utils::RELAXED,
+            typename SliceT, typename T = typename SliceT::data_type>
+  static __device__ __forceinline__ T atomic_load(SliceT address) {
+    static_assert(MEMORY_ORDER != breeze::utils::RELEASE,
+                  "RELEASE is not a valid memory order for atomic_load");
+    T value;
+    if constexpr (SliceT::ADDRESS_SPACE == breeze::utils::GLOBAL) {
+      value = __ldcg(address.data());  // cache only globally
+    } else {
+      value = *address.data();
     }
-    T value = __ldcg(address.data());  // cache only globally
     if constexpr (MEMORY_ORDER == breeze::utils::ACQUIRE) {
       __threadfence();
     }
     return value;
   }
-  template <typename T,
-            breeze::utils::MemoryOrder MEMORY_ORDER = breeze::utils::RELAXED,
-            template <breeze::utils::AddressSpace,
-                      breeze::utils::DataArrangement, typename>
-            typename SliceT>
-  static __device__ __forceinline__ void atomic_store(
-      SliceT<breeze::utils::GLOBAL, breeze::utils::BLOCKED, T> address,
-      T value) {
+  template <breeze::utils::MemoryOrder MEMORY_ORDER = breeze::utils::RELAXED,
+            typename SliceT, typename T = typename SliceT::data_type>
+  static __device__ __forceinline__ void atomic_store(SliceT address, T value) {
+    static_assert(MEMORY_ORDER != breeze::utils::ACQUIRE,
+                  "ACQUIRE is not a valid memory order for atomic_store");
     if constexpr (MEMORY_ORDER == breeze::utils::RELEASE) {
       __threadfence();
     }
-    __stcg(address.data(), value);  // cache only globally
-    if constexpr (MEMORY_ORDER == breeze::utils::ACQUIRE) {
-      __threadfence();
+    if constexpr (SliceT::ADDRESS_SPACE == breeze::utils::GLOBAL) {
+      __stcg(address.data(), value);  // cache only globally
+    } else {
+      *address.data() = value;
     }
   }
   template <breeze::utils::MemoryOrder MEMORY_ORDER = breeze::utils::RELAXED,
@@ -184,12 +182,12 @@ struct CudaPlatform {
   template <breeze::utils::MemoryOrder MEMORY_ORDER = breeze::utils::RELAXED,
             typename SliceT, typename T = typename SliceT::data_type>
   __device__ __forceinline__ T atomic_load(SliceT address) {
-    return CudaSpecialization::atomic_load<T, MEMORY_ORDER>(address);
+    return CudaSpecialization::atomic_load<MEMORY_ORDER>(address);
   }
   template <breeze::utils::MemoryOrder MEMORY_ORDER = breeze::utils::RELAXED,
             typename SliceT, typename T = typename SliceT::data_type>
   __device__ __forceinline__ void atomic_store(SliceT address, T value) {
-    CudaSpecialization::atomic_store<T, MEMORY_ORDER>(address, value);
+    CudaSpecialization::atomic_store<MEMORY_ORDER>(address, value);
   }
   template <breeze::utils::MemoryOrder MEMORY_ORDER = breeze::utils::RELAXED,
             typename SliceT, typename T = typename SliceT::data_type>
@@ -266,6 +264,94 @@ struct CudaPlatform {
     CudaSpecialization::scheduling_hint<HIGH_PRIORITY>();
   }
 };
+
+#if CUDART_VERSION >= 12080
+// specialization for MEMORY_ORDER=ACQUIRE, SliceT=Slice<GLOBAL, BLOCKED, int>
+template <>
+__device__ __forceinline__ int CudaSpecialization::atomic_load<
+    breeze::utils::ACQUIRE,
+    breeze::utils::Slice<breeze::utils::GLOBAL, breeze::utils::BLOCKED, int>>(
+    breeze::utils::Slice<breeze::utils::GLOBAL, breeze::utils::BLOCKED, int>
+        address) {
+  return __nv_atomic_load_n(address.data(), __NV_ATOMIC_ACQUIRE,
+                            __NV_THREAD_SCOPE_DEVICE);
+}
+
+// specialization for MEMORY_ORDER=ACQUIRE, SliceT=Slice<GLOBAL, BLOCKED,
+// unsigned>
+template <>
+__device__ __forceinline__ unsigned CudaSpecialization::atomic_load<
+    breeze::utils::ACQUIRE,
+    breeze::utils::Slice<breeze::utils::GLOBAL, breeze::utils::BLOCKED,
+                         unsigned>>(
+    breeze::utils::Slice<breeze::utils::GLOBAL, breeze::utils::BLOCKED,
+                         unsigned>
+        address) {
+  return __nv_atomic_load_n(address.data(), __NV_ATOMIC_ACQUIRE,
+                            __NV_THREAD_SCOPE_DEVICE);
+}
+
+// specialization for MEMORY_ORDER=ACQUIRE, SliceT=Slice<GLOBAL, BLOCKED, int>
+template <>
+__device__ __forceinline__ void CudaSpecialization::atomic_store<
+    breeze::utils::ACQUIRE,
+    breeze::utils::Slice<breeze::utils::GLOBAL, breeze::utils::BLOCKED, int>>(
+    breeze::utils::Slice<breeze::utils::GLOBAL, breeze::utils::BLOCKED, int>
+        address,
+    int value) {
+  __nv_atomic_store_n(address.data(), value, __NV_ATOMIC_RELEASE,
+                      __NV_THREAD_SCOPE_DEVICE);
+}
+
+// specialization for MEMORY_ORDER=ACQUIRE, SliceT=Slice<GLOBAL, BLOCKED,
+// unsigned>
+template <>
+__device__ __forceinline__ void CudaSpecialization::atomic_store<
+    breeze::utils::ACQUIRE,
+    breeze::utils::Slice<breeze::utils::GLOBAL, breeze::utils::BLOCKED,
+                         unsigned>>(
+    breeze::utils::Slice<breeze::utils::GLOBAL, breeze::utils::BLOCKED,
+                         unsigned>
+        address,
+    unsigned value) {
+  __nv_atomic_store_n(address.data(), value, __NV_ATOMIC_RELEASE,
+                      __NV_THREAD_SCOPE_DEVICE);
+}
+
+// specialization for MEMORY_ORDER=ACQUIRE, SliceT=Slice<GLOBAL, BLOCKED,
+// unsigned>
+template <>
+__device__ __forceinline__ int CudaSpecialization::atomic_cas<
+    breeze::utils::ACQUIRE,
+    breeze::utils::Slice<breeze::utils::GLOBAL, breeze::utils::BLOCKED, int>>(
+    breeze::utils::Slice<breeze::utils::GLOBAL, breeze::utils::BLOCKED, int>
+        address,
+    int compare, int value) {
+  int expected = compare;
+  __nv_atomic_compare_exchange_n(address.data(), &expected, value, false,
+                                 __NV_ATOMIC_ACQUIRE, __NV_ATOMIC_ACQUIRE,
+                                 __NV_THREAD_SCOPE_DEVICE);
+  return expected;
+}
+
+// specialization for MEMORY_ORDER=ACQUIRE, SliceT=Slice<GLOBAL, BLOCKED,
+// unsigned>
+template <>
+__device__ __forceinline__ unsigned CudaSpecialization::atomic_cas<
+    breeze::utils::ACQUIRE,
+    breeze::utils::Slice<breeze::utils::GLOBAL, breeze::utils::BLOCKED,
+                         unsigned>>(
+    breeze::utils::Slice<breeze::utils::GLOBAL, breeze::utils::BLOCKED,
+                         unsigned>
+        address,
+    unsigned compare, unsigned value) {
+  unsigned expected = compare;
+  __nv_atomic_compare_exchange_n(address.data(), &expected, value, false,
+                                 __NV_ATOMIC_ACQUIRE, __NV_ATOMIC_ACQUIRE,
+                                 __NV_THREAD_SCOPE_DEVICE);
+  return expected;
+}
+#endif
 
 #if __CUDA_ARCH__ < 600
 // specialization for T=Slice<GLOBAL, BLOCKED, double>
