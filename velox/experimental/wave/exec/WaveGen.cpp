@@ -415,8 +415,9 @@ std::string CompileState::generateIsTrue(const AbstractOperand& op) {
       declareNamed(fmt::format("bool flag{};\n", ord));
       generated_ << fmt::format("flag{} = r{}", ord, ord);
     } else {
+      declareNamed(fmt::format("bool flag{};\n", ord));
       generated_ << fmt::format(
-          "bool flag{} = r{} && !isRegisterNull(nulls{}, {});\n",
+          "flag{} = r{} && !isRegisterNull(nulls{}, {});\n",
           ord,
           ord,
           ord / 32,
@@ -428,12 +429,12 @@ std::string CompileState::generateIsTrue(const AbstractOperand& op) {
     if (op.notNull || insideNullPropagating_) {
       declareNamed(fmt::format("bool flag{};\n", ord));
       generated_ << fmt::format(
-          "bool flag{} = nonNullOperand<bool, {}>(operands, {}, blockBase)",
+          "flag{} = nonNullOperand<bool, {}>(operands, {}, blockBase)",
           ord,
           mayWrap,
           ord);
     } else {
-      generated_ << fmt::format("bool flag{};\n", ord);
+      declareNamed(fmt::format("bool flag{};\n", ord));
       generated_ << fmt::format(
           "if (!valueOrNull<{}, bool>(operands, {}, blockBase, flags{})) {{ flags{} = false; }};\n",
           mayWrap ? "true" : "false",
