@@ -119,6 +119,9 @@ class TimestampColumnReader : public IntegerColumnReader {
       } else {
         VELOX_NYI("Logical type and converted type are not provided.");
       }
+      if (filePrecision_ != requestedPrecision_) {
+        needsConversion_ = true;
+      }
     }
   }
 

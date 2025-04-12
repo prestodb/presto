@@ -916,49 +916,27 @@ TEST_F(ParquetTableScanTest, timestampPrecisionMicrosecond) {
           kSize, [](auto i) { return Timestamp(i, i * 1'001'001); }),
   });
   auto schema = asRowType(vector->type());
-  auto file = TempFilePath::create();
-  WriterOptions options;
-  options.writeInt96AsTimestamp = true;
-  writeToParquetFile(file->getPath(), {vector}, options);
-  auto plan = PlanBuilder().tableScan(schema).planNode();
+  for (const auto writeInt96 : {true, false}) {
+    auto file = TempFilePath::create();
+    WriterOptions options;
+    options.writeInt96AsTimestamp = writeInt96;
+    writeToParquetFile(file->getPath(), {vector}, options);
+    auto plan = PlanBuilder().tableScan(schema).planNode();
 
-  // Read timestamp data from parquet with microsecond precision.
-  CursorParameters params;
-  std::shared_ptr<folly::Executor> executor =
-      std::make_shared<folly::CPUThreadPoolExecutor>(
-          std::thread::hardware_concurrency());
-  std::shared_ptr<core::QueryCtx> queryCtx =
-      core::QueryCtx::create(executor.get());
-  std::unordered_map<std::string, std::string> session = {
-      {std::string(connector::hive::HiveConfig::kReadTimestampUnitSession),
-       "6"}};
-  queryCtx->setConnectorSessionOverridesUnsafe(
-      kHiveConnectorId, std::move(session));
-  params.queryCtx = queryCtx;
-  params.planNode = plan;
-  const int numSplitsPerFile = 1;
-
-  bool noMoreSplits = false;
-  auto addSplits = [&](exec::Task* task) {
-    if (!noMoreSplits) {
-      auto const splits = HiveConnectorTestBase::makeHiveConnectorSplits(
-          {file->getPath()},
-          numSplitsPerFile,
-          dwio::common::FileFormat::PARQUET);
-      for (const auto& split : splits) {
-        task->addSplit("0", exec::Split(split));
-      }
-      task->noMoreSplits("0");
-    }
-    noMoreSplits = true;
-  };
-  auto result = readCursor(params, addSplits);
-  ASSERT_TRUE(waitForTaskCompletion(result.first->task().get()));
-  auto expected = makeRowVector({
-      makeFlatVector<Timestamp>(
-          kSize, [](auto i) { return Timestamp(i, i * 1'001'000); }),
-  });
-  assertEqualResults({expected}, result.second);
+    // Read timestamp data from parquet with microsecond precision.
+    auto split = makeSplit(file->getPath());
+    auto result =
+        AssertQueryBuilder(plan, duckDbQueryRunner_)
+            .connectorSessionProperty(
+                kHiveConnectorId, HiveConfig::kReadTimestampUnitSession, "6")
+            .split(split)
+            .copyResults(pool());
+    auto expected = makeRowVector({
+        makeFlatVector<Timestamp>(
+            kSize, [](auto i) { return Timestamp(i, i * 1'001'000); }),
+    });
+    assertEqualResults({expected}, {result});
+  }
 }
 
 TEST_F(ParquetTableScanTest, testColumnNotExists) {
