@@ -136,6 +136,7 @@ function get_cxx_flags {
       Neoverse_N1="d0c"
       Neoverse_N2="d49"
       Neoverse_V1="d40"
+      Neoverse_V2="d4f"
       if [ -f "$ARM_CPU_FILE" ]; then
         hex_ARM_CPU_DETECT=`cat $ARM_CPU_FILE`
         # PartNum, [15:4]: The primary part number such as Neoverse N1/N2 core.
@@ -147,6 +148,8 @@ function get_cxx_flags {
           echo -n "-mcpu=neoverse-n2 "
         elif [ "$ARM_CPU_PRODUCT" = "$Neoverse_V1" ]; then
           echo -n "-mcpu=neoverse-v1 "
+        elif [ "$ARM_CPU_PRODUCT" = "$Neoverse_V2" ]; then
+          echo -n "-mcpu=neoverse-v2 "
         else
           echo -n "-march=armv8-a+crc+crypto "
         fi
