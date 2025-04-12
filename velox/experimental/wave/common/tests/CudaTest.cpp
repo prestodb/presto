@@ -73,6 +73,11 @@ DEFINE_string(mode, "all", "Mode for reduce test memory transfers.");
 
 DEFINE_bool(enable_bm, false, "Enable custom and long running tests");
 
+DEFINE_int32(
+    num_random_ints,
+    16 << 20,
+    "Number of random integers for add random tests");
+
 DEFINE_string(
     roundtrip_ops,
     "",
@@ -1635,34 +1640,34 @@ TEST_F(CudaTest, roundtripMatrix) {
 }
 
 TEST_F(CudaTest, addRandom) {
-  constexpr int32_t kNumInts = 16 << 20;
+  int32_t numInts = FLAGS_num_random_ints;
   auto arenas = getArenas();
   auto stream = std::make_unique<TestStream>();
-  auto indices = arenas->unified->allocate<int32_t>(kNumInts);
-  auto sourceBuffer = arenas->unified->allocate<int32_t>(kNumInts);
+  auto indices = arenas->unified->allocate<int32_t>(numInts);
+  auto sourceBuffer = arenas->unified->allocate<int32_t>(numInts);
   auto rawIndices = indices->as<int32_t>();
-  for (auto i = 0; i < kNumInts; ++i) {
+  for (auto i = 0; i < numInts; ++i) {
     rawIndices[i] = i + 1;
   }
   stream->prefetch(getDevice(), rawIndices, indices->capacity());
-  auto ints1 = arenas->unified->allocate<int32_t>(kNumInts);
+  auto ints1 = arenas->unified->allocate<int32_t>(numInts);
   auto rawInts1 = ints1->as<int32_t>();
-  auto ints2 = arenas->unified->allocate<int32_t>(kNumInts);
+  auto ints2 = arenas->unified->allocate<int32_t>(numInts);
   auto rawInts2 = ints2->as<int32_t>();
-  auto ints3 = arenas->unified->allocate<int32_t>(kNumInts);
+  auto ints3 = arenas->unified->allocate<int32_t>(numInts);
   auto rawInts3 = ints3->as<int32_t>();
-  memset(rawInts1, 0, kNumInts * sizeof(int32_t));
-  memset(rawInts2, 0, kNumInts * sizeof(int32_t));
-  memset(rawInts3, 0, kNumInts * sizeof(int32_t));
+  memset(rawInts1, 0, numInts * sizeof(int32_t));
+  memset(rawInts2, 0, numInts * sizeof(int32_t));
+  memset(rawInts3, 0, numInts * sizeof(int32_t));
   stream->prefetch(getDevice(), rawInts1, ints1->capacity());
   stream->prefetch(getDevice(), rawInts2, ints2->capacity());
   stream->prefetch(getDevice(), rawInts3, ints3->capacity());
   // Let prefetch finish.
   std::this_thread::sleep_for(std::chrono::milliseconds(100));
   // warm up.
-  stream->addOneRandom(rawInts1, rawIndices, kNumInts, 20, 10240);
-  stream->addOneRandom(rawInts2, rawIndices, kNumInts, 20, 10240, true);
-  stream->addOneRandom(rawInts3, rawIndices, kNumInts, 20, 10240, false, true);
+  stream->addOneRandom(rawInts1, rawIndices, numInts, 20, 10240);
+  stream->addOneRandom(rawInts2, rawIndices, numInts, 20, 10240, true);
+  stream->addOneRandom(rawInts3, rawIndices, numInts, 20, 10240, false, true);
   stream->wait();
 
   uint64_t time1 = 0;
@@ -1671,18 +1676,18 @@ TEST_F(CudaTest, addRandom) {
   for (auto count = 0; count < 20; ++count) {
     {
       MicrosecondTimer t(&time1);
-      stream->addOneRandom(rawInts1, rawIndices, kNumInts, 20, 10240);
+      stream->addOneRandom(rawInts1, rawIndices, numInts, 20, 10240);
       stream->wait();
     }
     {
       MicrosecondTimer t(&time2);
-      stream->addOneRandom(rawInts2, rawIndices, kNumInts, 20, 10240, true);
+      stream->addOneRandom(rawInts2, rawIndices, numInts, 20, 10240, true);
       stream->wait();
     }
     {
       MicrosecondTimer t(&time3);
       stream->addOneRandom(
-          rawInts3, rawIndices, kNumInts, 20, 10240, false, true);
+          rawInts3, rawIndices, numInts, 20, 10240, false, true);
       stream->wait();
     }
   }
@@ -1694,8 +1699,8 @@ TEST_F(CudaTest, addRandom) {
   stream->prefetch(nullptr, rawInts2, ints2->capacity());
   stream->prefetch(nullptr, rawInts3, ints3->capacity());
 
-  EXPECT_EQ(0, memcmp(rawInts1, rawInts2, kNumInts * sizeof(int32_t)));
-  EXPECT_EQ(0, memcmp(rawInts1, rawInts3, kNumInts * sizeof(int32_t)));
+  EXPECT_EQ(0, memcmp(rawInts1, rawInts2, numInts * sizeof(int32_t)));
+  EXPECT_EQ(0, memcmp(rawInts1, rawInts3, numInts * sizeof(int32_t)));
 }
 
 int main(int argc, char** argv) {
