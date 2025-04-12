@@ -151,19 +151,19 @@ public class IndexJoinNode
         private final VariableReferenceExpression index;
 
         @JsonCreator
-        public EquiJoinClause(@JsonProperty("probe") VariableReferenceExpression probe, @JsonProperty("index") VariableReferenceExpression index)
+        public EquiJoinClause(@JsonProperty("left") VariableReferenceExpression probe, @JsonProperty("right") VariableReferenceExpression index)
         {
             this.probe = requireNonNull(probe, "probe is null");
             this.index = requireNonNull(index, "index is null");
         }
 
-        @JsonProperty("probe")
+        @JsonProperty("left")
         public VariableReferenceExpression getProbe()
         {
             return probe;
         }
 
-        @JsonProperty("index")
+        @JsonProperty("right")
         public VariableReferenceExpression getIndex()
         {
             return index;
