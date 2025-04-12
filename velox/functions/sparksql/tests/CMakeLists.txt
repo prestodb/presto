@@ -22,6 +22,7 @@ add_executable(
   ArrayInsertTest.cpp
   ArrayMaxTest.cpp
   ArrayMinTest.cpp
+  ArrayPrependTest.cpp
   ArraySortTest.cpp
   ArrayShuffleTest.cpp
   ArrayUnionTest.cpp

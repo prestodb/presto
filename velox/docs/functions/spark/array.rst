@@ -122,6 +122,17 @@ Array Functions
         SELECT array_position(array(1, 2, 3), 4); -- 0
         SELECT array_position(array(1, 2, 3, 2), 2); -- 2
 
+.. spark:function:: array_prepend(x, element) -> array
+
+    Add the ``element`` at the beginning of the input array ``x``.
+    Type of ``element`` should be the same to the type of elements in the array ``x``.
+    NULL element is also prepended into the array ``x``. Returns NULL when the input array ``x`` is NULL. ::
+
+        SELECT array_prepend(array(1, 2, 3), 2); -- [2, 1, 2, 3]
+        SELECT array_prepend(array(1, 2, 3), NULL); -- [NULL, 1, 2, 3]
+        SELECT array_prepend(NULL, 1); -- NULL
+        SELECT array_prepend(array(NULL, 2, 3), 1); -- [1, NULL, 2, 3]
+
 .. spark:function:: array_remove(x, element) -> array
 
     Remove all elements that equal ``element`` from array ``x``. Returns NULL as result if ``element`` is NULL.
