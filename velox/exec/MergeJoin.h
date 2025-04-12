@@ -88,18 +88,34 @@ class MergeJoin : public Operator {
   // Compare rows on the left and right at index_ and rightIndex_ respectively.
   int32_t compare() const {
     return compare(
-        leftKeys_, input_, index_, rightKeys_, rightInput_, rightIndex_);
+        leftKeyChannels_,
+        input_,
+        leftRowIndex_,
+        rightKeyChannels_,
+        rightInput_,
+        rightRowIndex_);
   }
 
   // Compare two rows on the left: index_ and index.
   int32_t compareLeft(vector_size_t index) const {
-    return compare(leftKeys_, input_, index_, leftKeys_, input_, index);
+    return compare(
+        leftKeyChannels_,
+        input_,
+        leftRowIndex_,
+        leftKeyChannels_,
+        input_,
+        index);
   }
 
   // Compare two rows on the right: rightIndex_ and index.
   int32_t compareRight(vector_size_t index) const {
     return compare(
-        rightKeys_, rightInput_, rightIndex_, rightKeys_, rightInput_, index);
+        rightKeyChannels_,
+        rightInput_,
+        rightRowIndex_,
+        rightKeyChannels_,
+        rightInput_,
+        index);
   }
 
   // Compare two rows from the left side.
@@ -108,7 +124,13 @@ class MergeJoin : public Operator {
       vector_size_t index,
       const RowVectorPtr& otherBatch,
       vector_size_t otherIndex) const {
-    return compare(leftKeys_, batch, index, leftKeys_, otherBatch, otherIndex);
+    return compare(
+        leftKeyChannels_,
+        batch,
+        index,
+        leftKeyChannels_,
+        otherBatch,
+        otherIndex);
   }
 
   // Compare two rows from the right side.
@@ -118,65 +140,70 @@ class MergeJoin : public Operator {
       const RowVectorPtr& otherBatch,
       vector_size_t otherIndex) const {
     return compare(
-        rightKeys_, batch, index, rightKeys_, otherBatch, otherIndex);
+        rightKeyChannels_,
+        batch,
+        index,
+        rightKeyChannels_,
+        otherBatch,
+        otherIndex);
   }
 
-  /// Describes a contiguous set of rows on the left or right side of the join
-  /// with all join keys being the same. The set of rows may span multiple
-  /// batches of input.
+  // Describes a contiguous set of rows on the left or right side of the join
+  // with all join keys being the same. The set of rows may span multiple
+  // batches of input.
   struct Match {
     // One or more batches of inputs that contain rows with matching keys.
     std::vector<RowVectorPtr> inputs;
 
     // Row number in the first batch pointing to the first row with matching
     // keys.
-    vector_size_t startIndex{0};
+    vector_size_t startRowIndex{0};
 
     // Row number in the last batch pointing to the row just past the row with
     // matching keys.
-    vector_size_t endIndex{0};
+    vector_size_t endRowIndex{0};
 
     // True if all matching rows have been collected. False, if more batches
     // need to be processed to identify all matching rows.
     bool complete{false};
 
-    /// Identifies a particular row in a set rows with matching keys (Match).
-    /// Used to store a restart position for when output vector filled up before
-    /// the full set of matching rows was added. The next call to getOutput will
-    /// continue filling up next output batch from that place.
+    // Identifies a particular row in a set rows with matching keys (Match).
+    // Used to store a restart position for when output vector filled up before
+    // the full set of matching rows was added. The next call to getOutput will
+    // continue filling up next output batch from that place.
     struct Cursor {
       // Index of the batch.
       size_t batchIndex{0};
 
       // Row number in the batch specified by batchIndex.
-      vector_size_t index{0};
+      vector_size_t rowIndex{0};
     };
 
-    /// A position to continue producing output from. Set if complete set of
-    /// rows with matching keys didn't fit into output batch.
+    // A position to continue producing output from. Set if complete set of
+    // rows with matching keys didn't fit into output batch.
     std::optional<Cursor> cursor;
 
-    /// A convenience method to set or update 'cursor'.
-    void setCursor(size_t batchIndex, vector_size_t index) {
-      cursor = Cursor{batchIndex, index};
+    // A convenience method to set or update 'cursor'.
+    void setCursor(size_t batchIndex, vector_size_t rowIndex) {
+      cursor = Cursor{batchIndex, rowIndex};
     }
   };
 
-  /// Given a partial set of rows with matching keys (match) finds all rows from
-  /// the start of the 'input' batch that also have matching keys. Updates
-  /// 'match' to include the newly identified rows. Returns true if found the
-  /// last matching row and set match.complete to true. If all rows in 'input'
-  /// have matching keys, adds 'input' to 'match' and returns false to ensure
-  /// that next batch of input is checked for more matching rows.
+  // Given a partial set of rows with matching keys (match) finds all rows from
+  // the start of the 'input' batch that also have matching keys. Updates
+  // 'match' to include the newly identified rows. Returns true if found the
+  // last matching row and set match.complete to true. If all rows in 'input'
+  // have matching keys, adds 'input' to 'match' and returns false to ensure
+  // that next batch of input is checked for more matching rows.
   bool findEndOfMatch(
-      Match& match,
       const RowVectorPtr& input,
-      const std::vector<column_index_t>& keys);
+      const std::vector<column_index_t>& keys,
+      Match& match);
 
-  /// Ensures `output_` is ready to receive records via `addOutput()` or
-  /// `addOutputRowForLeftJoin()`. Initialize vectors using `outputBatchSize_`.
-  /// Returns true is the output_ needs to be returned/produced first, and false
-  /// in case it is ready to take records.
+  // Ensures `output_` is ready to receive records via `addOutput()` or
+  // `addOutputRowForLeftJoin()`. Initialize vectors using `outputBatchSize_`.
+  // Returns true is the output_ needs to be returned/produced first, and false
+  // in case it is ready to take records.
   bool prepareOutput(const RowVectorPtr& left, const RowVectorPtr& right);
 
   // Appends a cartesian product of the current set of matching rows, leftMatch_
@@ -204,10 +231,10 @@ class MergeJoin : public Operator {
   //
   // Advances outputSize_. Assumes that dictionary indices in output_ have room.
   void addOutputRow(
-      const RowVectorPtr& left,
-      vector_size_t leftIndex,
-      const RowVectorPtr& right,
-      vector_size_t rightIndex);
+      const RowVectorPtr& leftBatch,
+      vector_size_t leftRow,
+      const RowVectorPtr& rightBatch,
+      vector_size_t rightRow);
 
   // If the right side projected columns in the current output vector happen to
   // span more than one vector from the right side, they cannot be simply
@@ -217,81 +244,81 @@ class MergeJoin : public Operator {
   // logic is more involved.
   void flattenRightProjections();
 
-  /// Adds one row of output for a left-side row with no right-side match.
-  /// Copies values from the 'leftIndex' row of 'left' and fills in nulls
-  /// for columns that correspond to the right side.
+  // Adds one row of output for a left-side row with no right-side match.
+  // Copies values from the 'leftIndex' row of 'left' and fills in nulls
+  // for columns that correspond to the right side.
   void addOutputRowForLeftJoin(
-      const RowVectorPtr& left,
-      vector_size_t leftIndex);
+      const RowVectorPtr& leftBatch,
+      vector_size_t leftRow);
 
-  /// Adds one row of output for a right-side row with no left-side match.
-  /// Copies values from the 'rightIndex' row of 'right' and fills in nulls
-  /// for columns that correspond to the right side.
+  // Adds one row of output for a right-side row with no left-side match.
+  // Copies values from the 'rightIndex' row of 'right' and fills in nulls
+  // for columns that correspond to the right side.
   void addOutputRowForRightJoin(
       const RowVectorPtr& right,
       vector_size_t rightIndex);
 
-  /// If all rows from the current left batch have been processed.
+  // If all rows from the current left batch have been processed.
   bool finishedLeftBatch() const {
-    return index_ == input_->size();
+    return leftRowIndex_ == input_->size();
   }
 
-  /// If all rows from the current right batch have been processed.
+  // If all rows from the current right batch have been processed.
   bool finishedRightBatch() const {
-    return rightIndex_ == rightInput_->size();
+    return rightRowIndex_ == rightInput_->size();
   }
 
-  /// Properly resizes and produces the current output vector if one is
-  /// available.
+  // Properly resizes and produces the current output vector if one is
+  // available.
   RowVectorPtr produceOutput() {
-    if (output_) {
-      output_->resize(outputSize_);
-      return std::move(output_);
+    if (output_ == nullptr) {
+      return nullptr;
     }
-    return nullptr;
+    output_->resize(outputSize_);
+    return std::move(output_);
   }
 
-  /// Evaluates join filter on 'filterInput_' and returns 'output' that contains
-  /// a subset of rows on which the filter passed. Returns nullptr if no rows
-  /// passed the filter.
+  // Evaluates join filter on 'filterInput_' and returns 'output' that contains
+  // a subset of rows on which the filter passed. Returns nullptr if no rows
+  // passed the filter.
   RowVectorPtr applyFilter(const RowVectorPtr& output);
 
-  /// Evaluates 'filter_' on the specified rows of 'filterInput_' and decodes
-  /// the result using 'decodedFilterResult_'.
+  // Evaluates 'filter_' on the specified rows of 'filterInput_' and decodes
+  // the result using 'decodedFilterResult_'.
   void evaluateFilter(const SelectivityVector& rows);
 
-  /// An anti join is equivalent to a left join that retains only the rows from
-  /// the left side which do not have a corresponding match on the right side.
-  /// When an anti join includes a filter, it is processed using the applyFilter
-  /// method. For an anti join without a filter, we must specifically exclude
-  /// rows from the left side that have a match on the right.
+  // An anti join is equivalent to a left join that retains only the rows from
+  // the left side which do not have a corresponding match on the right side.
+  // When an anti join includes a filter, it is processed using the applyFilter
+  // method. For an anti join without a filter, we must specifically exclude
+  // rows from the left side that have a match on the right.
   RowVectorPtr filterOutputForAntiJoin(const RowVectorPtr& output);
 
-  /// As we populate the results of the join, we track whether a given
-  /// output row is a result of a match between left and right sides or a miss.
-  /// We use JoinTracker::addMatch and addMiss methods for that.
-  ///
-  /// The semantic of the filter is to include at least one left side row in the
-  /// output after filters are applied. Therefore:
-  ///
-  /// 1. if left was a miss on the right side: just leave the current row as-is
-  /// without even evaluating the filter (it would have to be added even if
-  /// filters failed).
-  ///
-  /// 2. if left was a hit on the side: if at least one row from the key match
-  /// passes the filter, leave them as-is. If none passed, add a new row with
-  /// the right projections null (see `noMoreFilterResults()`).
-  ///
-  /// Specifically, once we have a batch of output, we evaluate the filter on a
-  /// subset of rows which correspond to matches between left and right sides.
-  /// There is no point evaluating filters on misses as these need to be
-  /// included in the output regardless of whether filter passes or fails.
-  ///
-  /// We also track blocks of consecutive output rows that correspond to the
-  /// same left-side row. If the filter passes on at least one row in such a
-  /// block, we keep the subset of passing rows. However, if the filter failed
-  /// on all rows in such a block, we add one of these rows back and update
-  /// build-side columns to null.
+  // As we populate the results of the join, we track whether a given
+  // output row is a result of a match between left and right sides or a miss.
+  // We use JoinTracker::addMatch and addMiss methods for that.
+  //
+  // The semantic of the filter is to include at least one left side row in the
+  // output after filters are applied. Therefore:
+  //
+  // 1. if left was a miss on the right side: just leave the current row as-is
+  // without even evaluating the filter (it would have to be added even if
+  // filters failed).
+  //
+  // 2. if left was a hit on the side: if at least one row from the key match
+  // passes the filter, leave them as-is. If none passed, add a new row with
+  // the right projections null (see `noMoreFilterResults()`).
+  //
+  // Specifically, once we have a batch of output, we evaluate the filter on a
+  // subset of rows which correspond to matches between left and right sides.
+  // There is no point evaluating filters on misses as these need to be
+  // included in the output regardless of whether filter passes or fails.
+  //
+  // We also track blocks of consecutive output rows that correspond to the
+  // same left-side row. If the filter passes on at least one row in such a
+  // block, we keep the subset of passing rows. However, if the filter failed
+  // on all rows in such a block, we add one of these rows back and update
+  // build-side columns to null.
   struct JoinTracker {
     JoinTracker(vector_size_t numRows, memory::MemoryPool* pool)
         : matchingRows_{numRows, false} {
@@ -299,64 +326,64 @@ class MergeJoin : public Operator {
       rawLeftRowNumbers_ = leftRowNumbers_->asMutable<vector_size_t>();
     }
 
-    /// Records a row of output that corresponds to a match between a left-side
-    /// row and a right-side row. Assigns synthetic number to uniquely identify
-    /// the corresponding left-side row. The caller must call addMatch or
-    /// addMiss method for each row of output in order, starting with the first
-    /// row.
+    // Records a row of output that corresponds to a match between a left-side
+    // row and a right-side row. Assigns synthetic number to uniquely identify
+    // the corresponding left-side row. The caller must call addMatch or
+    // addMiss method for each row of output in order, starting with the first
+    // row.
     void addMatch(
-        const VectorPtr& left,
-        vector_size_t leftIndex,
+        const VectorPtr& vector,
+        vector_size_t row,
         vector_size_t outputIndex) {
       matchingRows_.setValid(outputIndex, true);
 
-      if (lastVector_ != left || lastIndex_ != leftIndex) {
+      if (lastVector_ != vector || lastIndex_ != row) {
         // New left-side row.
         ++lastLeftRowNumber_;
-        lastVector_ = left;
-        lastIndex_ = leftIndex;
+        lastVector_ = vector;
+        lastIndex_ = row;
       }
 
       rawLeftRowNumbers_[outputIndex] = lastLeftRowNumber_;
     }
 
-    /// Returns a subset of "match" rows in [0, numRows) range that were
-    /// recorded by addMatch.
+    // Returns a subset of "match" rows in [0, numRows) range that were
+    // recorded by addMatch.
     const SelectivityVector& matchingRows(vector_size_t numRows) {
       matchingRows_.setValidRange(numRows, matchingRows_.size(), false);
       matchingRows_.updateBounds();
       return matchingRows_;
     }
 
-    /// Records a row of output that corresponds to a left-side
-    /// row that has no match on the right-side. The caller must call addMatch
-    /// or addMiss method for each row of output in order, starting with the
-    /// first row.
+    // Records a row of output that corresponds to a left-side
+    // row that has no match on the right-side. The caller must call addMatch
+    // or addMiss method for each row of output in order, starting with the
+    // first row.
     void addMiss(vector_size_t outputIndex) {
       matchingRows_.setValid(outputIndex, false);
       resetLastVector();
     }
 
-    /// Clear the left-side vector and index of the last added output row. The
-    /// left-side vector has been fully processed and is now available for
-    /// re-use, hence, need to make sure that new rows won't be confused with
-    /// the old ones.
+    // Clear the left-side vector and index of the last added output row. The
+    // left-side vector has been fully processed and is now available for
+    // re-use, hence, need to make sure that new rows won't be confused with
+    // the old ones.
     void resetLastVector() {
       lastVector_.reset();
       lastIndex_ = -1;
     }
 
-    /// Called for each row that the filter was evaluated on, in order, starting
-    /// with the first row. Calls 'onMiss' if the filter failed on all output
-    /// rows that correspond to a single left-side row. Use
-    /// 'noMoreFilterResults' to make sure 'onMiss' is called for the last
-    /// left-side row.
+    // Called for each row that the filter was evaluated on, in order, starting
+    // with the first row. Calls 'onMiss' if the filter failed on all output
+    // rows that correspond to a single left-side row. Use
+    // 'noMoreFilterResults' to make sure 'onMiss' is called for the last
+    // left-side row.
     template <typename TOnMiss>
     void processFilterResult(
         vector_size_t outputIndex,
         bool passed,
         TOnMiss onMiss) {
-      auto rowNumber = rawLeftRowNumbers_[outputIndex];
+      const auto rowNumber = rawLeftRowNumbers_[outputIndex];
       if (currentLeftRowNumber_ != rowNumber) {
         if (currentRow_ != -1 && !currentRowPassed_) {
           onMiss(currentRow_);
@@ -373,16 +400,16 @@ class MergeJoin : public Operator {
       }
     }
 
-    /// Returns whether `row` corresponds to the same left key as the last
-    /// left match evaluated.
+    // Returns whether `row` corresponds to the same left key as the last
+    // left match evaluated.
     bool isCurrentLeftMatch(vector_size_t row) {
       return currentLeftRowNumber_ == rawLeftRowNumbers_[row];
     }
 
-    /// Called when all rows from the current output batch are processed and the
-    /// next batch of output will start with a new left-side row or there will
-    /// be no more batches. Calls 'onMiss' for the last left-side row if the
-    /// filter failed for all matches of that row.
+    // Called when all rows from the current output batch are processed and the
+    // next batch of output will start with a new left-side row or there will
+    // be no more batches. Calls 'onMiss' for the last left-side row if the
+    // filter failed for all matches of that row.
     template <typename TOnMiss>
     void noMoreFilterResults(TOnMiss onMiss) {
       if (!currentRowPassed_) {
@@ -433,11 +460,11 @@ class MergeJoin : public Operator {
   // Indices buffer used by the output dictionaries. All projection from the
   // left share `leftIndices_`, and projections in the right share
   // `rightIndices_`.
-  BufferPtr leftIndices_;
-  BufferPtr rightIndices_;
+  BufferPtr leftOutputIndices_;
+  BufferPtr rightOutputIndices_;
 
-  vector_size_t* rawLeftIndices_;
-  vector_size_t* rawRightIndices_;
+  vector_size_t* rawLeftOutputIndices_;
+  vector_size_t* rawRightOutputIndices_;
 
   // Stores the current left and right vectors being used by the output
   // dictionaries.
@@ -461,8 +488,8 @@ class MergeJoin : public Operator {
   // driver has started execution. It is reset after the initialization.
   std::shared_ptr<const core::MergeJoinNode> joinNode_;
 
-  std::vector<column_index_t> leftKeys_;
-  std::vector<column_index_t> rightKeys_;
+  std::vector<column_index_t> leftKeyChannels_;
+  std::vector<column_index_t> rightKeyChannels_;
   std::vector<IdentityProjection> leftProjections_;
   std::vector<IdentityProjection> rightProjections_;
 
@@ -478,11 +505,11 @@ class MergeJoin : public Operator {
 
   // Maps left-side input channels to channels in 'filterInputType_', excluding
   // those in 'filterInputToOutputChannel_'.
-  std::vector<IdentityProjection> filterLeftInputs_;
+  std::vector<IdentityProjection> filterLeftInputProjections_;
 
   // Maps right-side input channels to channels in 'filterInputType_', excluding
   // those in 'filterInputToOutputChannel_'.
-  std::vector<IdentityProjection> filterRightInputs_;
+  std::vector<IdentityProjection> filterRightInputProjections_;
 
   // Reusable memory for filter evaluation.
   RowVectorPtr filterInput_;
@@ -497,10 +524,10 @@ class MergeJoin : public Operator {
   RowVectorPtr rightInput_;
 
   // Row number on the left side (input_) to process next.
-  vector_size_t index_{0};
+  vector_size_t leftRowIndex_{0};
 
   // Row number on the right side (rightInput_) to process next.
-  vector_size_t rightIndex_{0};
+  vector_size_t rightRowIndex_{0};
 
   // A set of rows with matching keys on the left side.
   std::optional<Match> leftMatch_;
