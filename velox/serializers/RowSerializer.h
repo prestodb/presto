@@ -29,49 +29,15 @@ struct RowGroupHeader {
   int32_t compressedSize;
   bool compressed;
 
-  static RowGroupHeader read(ByteInputStream* source) {
-    RowGroupHeader header;
-    header.uncompressedSize = source->read<int32_t>();
-    header.compressedSize = source->read<int32_t>();
-    header.compressed = source->read<char>();
+  static RowGroupHeader read(ByteInputStream* source);
 
-    VELOX_CHECK_GE(header.uncompressedSize, 0);
-    VELOX_CHECK_GE(header.compressedSize, 0);
+  void write(OutputStream* out);
 
-    return header;
-  }
+  void write(char* out);
 
-  void write(OutputStream* out) {
-    out->write(reinterpret_cast<char*>(&uncompressedSize), sizeof(int32_t));
-    out->write(reinterpret_cast<char*>(&compressedSize), sizeof(int32_t));
-    const char writeValue = compressed ? 1 : 0;
-    out->write(reinterpret_cast<const char*>(&writeValue), sizeof(char));
-  }
+  static size_t size();
 
-  void write(char* out) {
-    ::memcpy(out, reinterpret_cast<char*>(&uncompressedSize), sizeof(int32_t));
-    ::memcpy(
-        out + sizeof(int32_t),
-        reinterpret_cast<char*>(&compressedSize),
-        sizeof(int32_t));
-    const char writeValue = compressed ? 1 : 0;
-    ::memcpy(
-        out + sizeof(int32_t) * 2,
-        reinterpret_cast<const char*>(&writeValue),
-        sizeof(char));
-  }
-
-  static size_t size() {
-    return sizeof(int32_t) * 2 + sizeof(char);
-  }
-
-  std::string debugString() const {
-    return fmt::format(
-        "uncompressedSize: {}, compressedSize: {}, compressed: {}",
-        succinctBytes(uncompressedSize),
-        succinctBytes(compressedSize),
-        compressed);
-  }
+  std::string debugString() const;
 };
 } // namespace detail
 
@@ -305,64 +271,26 @@ class RowSerializer : public IterativeVectorSerializer {
 class RowIteratorImpl : public velox::RowIterator {
  public:
   /// Constructs a row iterator without source ownership.
-  RowIteratorImpl(ByteInputStream* source, size_t endOffset)
-      : RowIterator(source, endOffset) {}
+  RowIteratorImpl(ByteInputStream* source, size_t endOffset);
 
   /// Constructs a row iterator with source ownership.
   RowIteratorImpl(
       std::unique_ptr<ByteInputStream> source,
       std::unique_ptr<folly::IOBuf> buf,
-      size_t endOffset)
-      : RowIterator(source.get(), endOffset),
-        sourceHolder_(std::move(source)),
-        bufHolder_(std::move(buf)) {
-    VELOX_CHECK_NOT_NULL(source_, "Source cannot be null");
-  }
+      size_t endOffset);
 
-  bool hasNext() const override {
-    return source_->tellp() < endOffset_;
-  }
+  bool hasNext() const override;
 
-  std::unique_ptr<std::string> next() override {
-    const auto rowSize = readRowSize();
-    auto serializedBuffer = std::make_unique<std::string>();
-    serializedBuffer->reserve(rowSize);
-
-    const auto row = source_->nextView(rowSize);
-    serializedBuffer->append(row.data(), row.size());
-    // If we couldn't read the entire row at once, we need to concatenate it
-    // in a different buffer.
-    if (serializedBuffer->size() < rowSize) {
-      concatenatePartialRow(source_, rowSize, *serializedBuffer);
-    }
-
-    VELOX_CHECK_EQ(serializedBuffer->size(), rowSize);
-    return serializedBuffer;
-  }
+  std::unique_ptr<std::string> next() override;
 
  private:
-  TRowSize readRowSize() {
-    return folly::Endian::big(source_->read<TRowSize>());
-  }
+  TRowSize readRowSize();
 
   // Read from the stream until the full row is concatenated.
   static void concatenatePartialRow(
       ByteInputStream* source,
       TRowSize rowSize,
-      std::string& rowBuffer) {
-    while (rowBuffer.size() < rowSize) {
-      const std::string_view rowFragment =
-          source->nextView(rowSize - rowBuffer.size());
-
-      VELOX_CHECK_GT(
-          rowFragment.size(),
-          0,
-          "Unable to read full serialized row. Needed {} but read {} bytes.",
-          rowSize - rowBuffer.size(),
-          rowFragment.size());
-      rowBuffer.append(rowFragment.data(), rowFragment.size());
-    }
-  }
+      std::string& rowBuffer);
 
   // Stream holder if constructed with source ownership.
   const std::unique_ptr<ByteInputStream> sourceHolder_;
