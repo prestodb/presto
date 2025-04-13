@@ -16,6 +16,7 @@
 #include "velox/exec/Exchange.h"
 
 #include "velox/exec/Task.h"
+#include "velox/serializers/CompactRowSerializer.h"
 
 namespace facebook::velox::exec {
 
@@ -142,21 +143,36 @@ bool Exchange::isFinished() {
   return atEnd_ && currentPages_.empty();
 }
 
-RowVectorPtr Exchange::getOutput() {
-  if (currentPages_.empty()) {
-    return nullptr;
+namespace {
+std::unique_ptr<folly::IOBuf> mergePages(
+    std::vector<std::unique_ptr<SerializedPage>>& pages) {
+  VELOX_CHECK(!pages.empty());
+  std::unique_ptr<folly::IOBuf> mergedBufs;
+  for (const auto& page : pages) {
+    if (mergedBufs == nullptr) {
+      mergedBufs = page->getIOBuf();
+    } else {
+      mergedBufs->appendToChain(page->getIOBuf());
+    }
   }
+  return mergedBufs;
+}
+} // namespace
 
-  uint64_t rawInputBytes{0};
-  vector_size_t resultOffset = 0;
-  if (getSerde()->supportsAppendInDeserialize()) {
+RowVectorPtr Exchange::getOutput() {
+  auto* serde = getSerde();
+  if (serde->supportsAppendInDeserialize()) {
+    uint64_t rawInputBytes{0};
+    if (currentPages_.empty()) {
+      return nullptr;
+    }
+    vector_size_t resultOffset = 0;
     for (const auto& page : currentPages_) {
       rawInputBytes += page->size();
 
       auto inputStream = page->prepareStreamForDeserialize();
-
       while (!inputStream->atEnd()) {
-        getSerde()->deserialize(
+        serde->deserialize(
             inputStream.get(),
             pool(),
             outputType_,
@@ -166,44 +182,91 @@ RowVectorPtr Exchange::getOutput() {
         resultOffset = result_->size();
       }
     }
-  } else {
-    VELOX_CHECK(
-        getSerde()->kind() == VectorSerde::Kind::kCompactRow ||
-        getSerde()->kind() == VectorSerde::Kind::kUnsafeRow);
-
-    std::unique_ptr<folly::IOBuf> mergedBufs;
-    for (const auto& page : currentPages_) {
-      rawInputBytes += page->size();
-      if (mergedBufs == nullptr) {
-        mergedBufs = page->getIOBuf()->clone();
-      } else {
-        mergedBufs->appendToChain(page->getIOBuf()->clone());
-      }
-    }
-    VELOX_CHECK_NOT_NULL(mergedBufs);
-    auto mergedPages = std::make_unique<SerializedPage>(std::move(mergedBufs));
-    auto inputStream = mergedPages->prepareStreamForDeserialize();
-    getSerde()->deserialize(
-        inputStream.get(),
-        pool(),
-        outputType_,
-        &result_,
-        resultOffset,
-        serdeOptions_.get());
-    // We expect the row-wise deserialization to consume all the input into one
-    // output vector.
-    VELOX_CHECK(inputStream->atEnd());
+    currentPages_.clear();
+    recordInputStats(rawInputBytes);
+    return result_;
   }
-  currentPages_.clear();
+  if (serde->kind() == VectorSerde::Kind::kCompactRow) {
+    return getOutputFromCompactRows(serde);
+  }
+  if (serde->kind() == VectorSerde::Kind::kUnsafeRow) {
+    return getOutputFromUnsafeRows(serde);
+  }
+  VELOX_UNREACHABLE(
+      "Unsupported serde kind: {}", VectorSerde::kindName(serde->kind()));
+}
 
-  {
-    auto lockedStats = stats_.wlock();
-    lockedStats->rawInputBytes += rawInputBytes;
-    lockedStats->rawInputPositions += result_->size();
-    lockedStats->addInputVector(result_->estimateFlatSize(), result_->size());
+RowVectorPtr Exchange::getOutputFromCompactRows(VectorSerde* serde) {
+  uint64_t rawInputBytes{0};
+  if (currentPages_.empty()) {
+    VELOX_CHECK_NULL(compactRowInputStream_);
+    VELOX_CHECK_NULL(compactRowIterator_);
+    return nullptr;
   }
 
+  if (compactRowInputStream_ == nullptr) {
+    std::unique_ptr<folly::IOBuf> mergedBufs = mergePages(currentPages_);
+    rawInputBytes += mergedBufs->computeChainDataLength();
+    compactRowPages_ = std::make_unique<SerializedPage>(std::move(mergedBufs));
+    compactRowInputStream_ = compactRowPages_->prepareStreamForDeserialize();
+  }
+
+  auto numRows = kInitialOutputCompactRows;
+  if (estimatedCompactRowSize_.has_value()) {
+    numRows = std::max(
+        (preferredOutputBatchBytes_ / estimatedCompactRowSize_.value()),
+        kInitialOutputCompactRows);
+  }
+
+  serde->deserialize(
+      compactRowInputStream_.get(),
+      compactRowIterator_,
+      numRows,
+      outputType_,
+      &result_,
+      pool(),
+      serdeOptions_.get());
+  const auto numOutputRows = result_->size();
+  VELOX_CHECK_GT(numOutputRows, 0);
+
+  estimatedCompactRowSize_ = std::max(
+      result_->estimateFlatSize() / numOutputRows,
+      estimatedCompactRowSize_.value_or(1L));
+
+  if (compactRowInputStream_->atEnd() && compactRowIterator_ == nullptr) {
+    // only clear the input stream if we have reached the end of the row
+    // iterator because row iterator may depend on input stream if serialized
+    // rows are not compressed.
+    compactRowInputStream_ = nullptr;
+    compactRowPages_ = nullptr;
+    currentPages_.clear();
+  }
+
+  recordInputStats(rawInputBytes);
   return result_;
+}
+
+RowVectorPtr Exchange::getOutputFromUnsafeRows(VectorSerde* serde) {
+  uint64_t rawInputBytes{0};
+  if (currentPages_.empty()) {
+    return nullptr;
+  }
+  std::unique_ptr<folly::IOBuf> mergedBufs = mergePages(currentPages_);
+  rawInputBytes += mergedBufs->computeChainDataLength();
+  auto mergedPages = std::make_unique<SerializedPage>(std::move(mergedBufs));
+  auto source = mergedPages->prepareStreamForDeserialize();
+  serde->deserialize(
+      source.get(), pool(), outputType_, &result_, serdeOptions_.get());
+  currentPages_.clear();
+  recordInputStats(rawInputBytes);
+  return result_;
+}
+
+void Exchange::recordInputStats(uint64_t rawInputBytes) {
+  auto lockedStats = stats_.wlock();
+  lockedStats->rawInputBytes += rawInputBytes;
+  lockedStats->rawInputPositions += result_->size();
+  lockedStats->addInputVector(result_->estimateFlatSize(), result_->size());
 }
 
 void Exchange::close() {

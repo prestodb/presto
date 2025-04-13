@@ -177,6 +177,27 @@ class BatchVectorSerializer {
   void serialize(const RowVectorPtr& vector, OutputStream* stream);
 };
 
+/// Iterator interface over a sequence of serialized rows. Used by row wise
+/// serde during deserialization.
+class RowIterator {
+ public:
+  RowIterator(ByteInputStream* source, size_t endOffset)
+      : source_(source), endOffset_(endOffset) {
+    VELOX_CHECK_NOT_NULL(source, "Source cannot be null");
+  }
+
+  virtual ~RowIterator() = default;
+
+  virtual bool hasNext() const = 0;
+
+  virtual std::unique_ptr<std::string> next() = 0;
+
+ protected:
+  ByteInputStream* const source_;
+
+  const size_t endOffset_;
+};
+
 class VectorSerde {
  public:
   enum class Kind {
@@ -303,11 +324,25 @@ class VectorSerde {
       RowVectorPtr* result,
       vector_size_t resultOffset,
       const Options* options = nullptr) {
-    if (resultOffset == 0) {
-      deserialize(source, pool, type, result, options);
-      return;
-    }
     VELOX_UNSUPPORTED();
+  }
+
+  /// A batched version of deserialization, applicable for row-wise serde.
+  /// Deserializes maximum 'numRows' from 'source'.
+  /// @param maxRows Maximum number of rows to deserialize.
+  /// @param rowIterator Iterator that stores the state of the deserialization,
+  /// a nullptr should be passed in the first call and subsequent calls should
+  /// pass the same iterator. The iterator is set non-null if there is more data
+  /// to read from 'source', and null otherwise.
+  virtual void deserialize(
+      ByteInputStream* source,
+      std::unique_ptr<RowIterator>& sourceRowIterator,
+      uint64_t maxRows,
+      RowTypePtr type,
+      RowVectorPtr* result,
+      velox::memory::MemoryPool* pool,
+      const Options* options = nullptr) {
+    VELOX_NYI();
   }
 
  protected:

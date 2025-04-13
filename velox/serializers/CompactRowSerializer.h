@@ -29,21 +29,29 @@ class CompactRowVectorSerde : public VectorSerde {
       const folly::Range<const vector_size_t*>& rows,
       vector_size_t** sizes) override;
 
-  // This method is not used in production code. It is only used to
-  // support round-trip tests for deserialization.
+  /// This method is not used in production code. It is only used to
+  /// support round-trip tests for deserialization.
   std::unique_ptr<IterativeVectorSerializer> createIterativeSerializer(
       RowTypePtr type,
       int32_t numRows,
       StreamArena* streamArena,
       const Options* options) override;
 
-  // This method is used when reading data from the exchange.
   void deserialize(
       ByteInputStream* source,
       velox::memory::MemoryPool* pool,
       RowTypePtr type,
       RowVectorPtr* result,
       const Options* options) override;
+
+  void deserialize(
+      ByteInputStream* source,
+      std::unique_ptr<RowIterator>& sourceRowIterator,
+      uint64_t maxRows,
+      RowTypePtr type,
+      RowVectorPtr* result,
+      velox::memory::MemoryPool* pool,
+      const Options* options = nullptr) override;
 
   static void registerVectorSerde();
   static void registerNamedVectorSerde();

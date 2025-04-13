@@ -21,6 +21,7 @@
 #include "velox/exec/Operator.h"
 #include "velox/exec/OutputBufferManager.h"
 #include "velox/serializers/PrestoSerializer.h"
+#include "velox/serializers/RowSerializer.h"
 
 namespace facebook::velox::exec {
 
@@ -60,6 +61,12 @@ class Exchange : public SourceOperator {
   virtual VectorSerde* getSerde();
 
  private:
+  // When 'estimatedCompactRowSize_' is unset, meaning we haven't materialized
+  // and returned any output from this exchange operator, we return this
+  // conservative number of output rows, to make sure memory does not grow too
+  // much.
+  static constexpr uint64_t kInitialOutputCompactRows = 64;
+
   // Invoked to create exchange client for remote tasks. The function shuffles
   // the source task ids first to randomize the source tasks we fetch data from.
   // This helps to avoid different tasks fetching from the same source task in a
@@ -77,6 +84,12 @@ class Exchange : public SourceOperator {
   // Fetches runtime stats from ExchangeClient and replaces these in this
   // operator's stats.
   void recordExchangeClientStats();
+
+  void recordInputStats(uint64_t rawInputBytes);
+
+  RowVectorPtr getOutputFromCompactRows(VectorSerde* serde);
+
+  RowVectorPtr getOutputFromUnsafeRows(VectorSerde* serde);
 
   const uint64_t preferredOutputBatchBytes_;
 
@@ -104,6 +117,16 @@ class Exchange : public SourceOperator {
   std::vector<std::unique_ptr<SerializedPage>> currentPages_;
   bool atEnd_{false};
   std::default_random_engine rng_{std::random_device{}()};
+
+  // Memory holders needed by compact row serde to perform cursor like reads
+  // across 'getOutputFromCompactRows' calls.
+  std::unique_ptr<SerializedPage> compactRowPages_;
+  std::unique_ptr<ByteInputStream> compactRowInputStream_;
+  std::unique_ptr<RowIterator> compactRowIterator_;
+
+  // The estimated bytes per row of the output of this exchange operator
+  // computed from the last processed output.
+  std::optional<uint64_t> estimatedCompactRowSize_;
 };
 
 } // namespace facebook::velox::exec
