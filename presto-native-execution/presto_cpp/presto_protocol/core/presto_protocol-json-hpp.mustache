@@ -246,7 +246,7 @@ namespace facebook::presto::protocol {
         {{/fields}}
         {{#comparable}}
             virtual bool operator<(const {{&class_name}}& /* o */) const {
-                throw std::runtime_error("missing operator<() in {class_name} subclass");
+                throw std::runtime_error("missing operator<() in {{class_name}} subclass");
             }
         {{/comparable}}
     };

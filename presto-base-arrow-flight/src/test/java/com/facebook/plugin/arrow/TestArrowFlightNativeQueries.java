@@ -317,6 +317,12 @@ public class TestArrowFlightNativeQueries
         assertQuery("SELECT sign(shippriority) from orders");
     }
 
+    @Test
+    public void testQueryWithColumnHandleOrdering()
+    {
+        assertQuery("SELECT * FROM nation WHERE (name <= 'B' OR 'G' <= name) AND (nationkey BETWEEN 1 AND 10)");
+    }
+
     public static Map<String, String> getNativeWorkerSystemProperties()
     {
         return ImmutableMap.<String, String>builder()
