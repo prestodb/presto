@@ -137,9 +137,9 @@ class IndexLookupJoinTestBase
       const std::string& duckDbVefifySql);
 
   facebook::velox::RowTypePtr keyType_;
+  std::optional<facebook::velox::RowTypePtr> partitionType_;
   facebook::velox::RowTypePtr valueType_;
   facebook::velox::RowTypePtr tableType_;
   facebook::velox::RowTypePtr probeType_;
-  std::optional<facebook::velox::RowTypePtr> partitionType_;
 };
 } // namespace fecebook::velox::exec::test
