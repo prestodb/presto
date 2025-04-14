@@ -89,8 +89,8 @@ class WindowFuzzer : public AggregationFuzzerBase {
         core::WindowNode::BoundType::kUnboundedPreceding;
     core::WindowNode::BoundType endBoundType =
         core::WindowNode::BoundType::kCurrentRow;
-    std::string startBoundString = "";
-    std::string endBoundString = "";
+    std::string startBoundString;
+    std::string endBoundString;
   };
 
   void addWindowFunctionSignatures(const WindowFunctionMap& signatureMap);

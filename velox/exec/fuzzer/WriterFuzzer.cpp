@@ -572,7 +572,7 @@ void WriterFuzzer::verifyWriter(
                       .tableScan(rowType, {}, "", rowType, columnHandles)
                       .planNode();
   auto actual = execute(readPlan, maxDrivers, splits);
-  std::string bucketSql = "";
+  std::string bucketSql;
   if (bucketCount > 0) {
     bucketSql = ", \"$bucket\"";
   }
