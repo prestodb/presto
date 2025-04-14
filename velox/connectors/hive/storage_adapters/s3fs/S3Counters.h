@@ -19,38 +19,38 @@ namespace facebook::velox::filesystems {
 
 // The number of connections open for S3 read operations.
 constexpr std::string_view kMetricS3ActiveConnections{
-    "velox.s3.active_connections"};
+    "velox.s3_active_connections"};
 
 // The number of S3 upload calls that started.
-constexpr std::string_view kMetricS3StartedUploads{"velox.s3.started_uploads"};
+constexpr std::string_view kMetricS3StartedUploads{"velox.s3_started_uploads"};
 
 // The number of S3 upload calls that were completed.
 constexpr std::string_view kMetricS3SuccessfulUploads{
-    "velox.s3.successful_uploads"};
+    "velox.s3_successful_uploads"};
 
 // The number of S3 upload calls that failed.
-constexpr std::string_view kMetricS3FailedUploads{"velox.s3.failed_uploads"};
+constexpr std::string_view kMetricS3FailedUploads{"velox.s3_failed_uploads"};
 
 // The number of S3 head (metadata) calls.
-constexpr std::string_view kMetricS3MetadataCalls{"velox.s3.metadata_calls"};
+constexpr std::string_view kMetricS3MetadataCalls{"velox.s3_metadata_calls"};
 
 // The number of S3 head (metadata) calls that failed.
 constexpr std::string_view kMetricS3GetMetadataErrors{
-    "velox.s3.get_metadata_errors"};
+    "velox.s3_get_metadata_errors"};
 
 // The number of retries made during S3 head (metadata) calls.
 constexpr std::string_view kMetricS3GetMetadataRetries{
-    "velox.s3.get_metadata_retries"};
+    "velox.s3_get_metadata_retries"};
 
 // The number of S3 getObject calls.
-constexpr std::string_view kMetricS3GetObjectCalls{"velox.s3.get_object_calls"};
+constexpr std::string_view kMetricS3GetObjectCalls{"velox.s3_get_object_calls"};
 
 // The number of S3 getObject calls that failed.
 constexpr std::string_view kMetricS3GetObjectErrors{
-    "velox.s3.get_object_errors"};
+    "velox.s3_get_object_errors"};
 
 // The number of retries made during S3 getObject calls.
 constexpr std::string_view kMetricS3GetObjectRetries{
-    "velox.s3.get_object_retries"};
+    "velox.s3_get_object_retries"};
 
 } // namespace facebook::velox::filesystems
