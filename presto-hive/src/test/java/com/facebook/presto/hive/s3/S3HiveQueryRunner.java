@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 
 import java.io.File;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
 
@@ -62,25 +63,33 @@ public final class S3HiveQueryRunner
                 thriftHiveMetastoreConfig.setTrustStorePassword(additionalHiveClientProperties.get("hive.metastore.thrift.client.tls.truststore-password"));
             }
 
-            // http configurations
-            if (additionalHiveClientProperties.get("hive.metastore.http.client.tls.enabled") != null) {
-                httpHiveMetastoreConfig.setHttpMetastoreTlsEnabled(Boolean.parseBoolean(additionalHiveClientProperties.get("hive.metastore.http.client.tls.enabled")));
-            }
-            if (additionalHiveClientProperties.get("hive.metastore.http.client.tls.keystore-path") != null) {
-                httpHiveMetastoreConfig.setHttpMetastoreTlsKeystorePath(new File(additionalHiveClientProperties.get("hive.metastore.http.client.tls.keystore-path")));
-                httpHiveMetastoreConfig.setHttpMetastoreTlsKeystorePassword(additionalHiveClientProperties.get("hive.metastore.http.client.tls.keystore-password"));
-            }
-            if (additionalHiveClientProperties.get("hive.metastore.http.client.tls.truststore-path") != null) {
-                httpHiveMetastoreConfig.setHttpMetastoreTlsTruststorePath(new File(additionalHiveClientProperties.get("hive.metastore.http.client.tls.truststore-path")));
-                httpHiveMetastoreConfig.setHttpMetastoreTlsTruststorePassword(additionalHiveClientProperties.get("hive.metastore.http.client.tls.truststore-password"));
-            }
-            if (additionalHiveClientProperties.get("hive.metastore.http.client.authentication.type") != null) {
-                httpHiveMetastoreConfig.setHttpHiveMetastoreClientAuthenticationType(HttpHiveMetastoreConfig.HttpHiveMetastoreClientAuthenticationType.valueOf(additionalHiveClientProperties.get("hive.metastore.http.client.authentication.type")));
-            }
-            if (additionalHiveClientProperties.get("hive.metastore.http.client.bearer-token") != null) {
-                httpHiveMetastoreConfig.setHttpBearerToken("hive.metastore.http.client.bearer-token");
-            }
+            // HTTP TLS Config
+            Optional.ofNullable(additionalHiveClientProperties.get("hive.metastore.http.client.tls.enabled"))
+                    .map(Boolean::parseBoolean)
+                    .ifPresent(httpHiveMetastoreConfig::setHttpMetastoreTlsEnabled);
 
+            Optional.ofNullable(additionalHiveClientProperties.get("hive.metastore.http.client.tls.keystore-path"))
+                    .map(File::new)
+                    .ifPresent(httpHiveMetastoreConfig::setHttpMetastoreTlsKeystorePath);
+
+            Optional.ofNullable(additionalHiveClientProperties.get("hive.metastore.http.client.tls.keystore-password"))
+                    .ifPresent(httpHiveMetastoreConfig::setHttpMetastoreTlsKeystorePassword);
+
+            Optional.ofNullable(additionalHiveClientProperties.get("hive.metastore.http.client.tls.truststore-path"))
+                    .map(File::new)
+                    .ifPresent(httpHiveMetastoreConfig::setHttpMetastoreTlsTruststorePath);
+
+            Optional.ofNullable(additionalHiveClientProperties.get("hive.metastore.http.client.tls.truststore-password"))
+                    .ifPresent(httpHiveMetastoreConfig::setHttpMetastoreTlsTruststorePassword);
+            Optional.ofNullable(additionalHiveClientProperties.get("hive.metastore.http.client.authentication.type"))
+                    .flatMap(authType ->
+                            Arrays.stream(HttpHiveMetastoreConfig.HttpHiveMetastoreClientAuthenticationType.values())
+                                    .filter(type -> type.name().equalsIgnoreCase(authType))
+                                    .findFirst())
+                    .ifPresent(httpHiveMetastoreConfig::setHttpHiveMetastoreClientAuthenticationType);
+
+            Optional.ofNullable(additionalHiveClientProperties.get("hive.metastore.http.client.bearer-token"))
+                    .ifPresent(httpHiveMetastoreConfig::setHttpBearerToken);
         }
         return HiveQueryRunner.createQueryRunner(ImmutableList.of(), ImmutableList.of(), ImmutableMap.of(),
                 ImmutableMap.of(), "sql-standard",

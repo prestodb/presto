@@ -132,6 +132,14 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.deleteDirectoryRe
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveBasicStatistics;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isManagedTable;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.updateStatisticsParameters;
+import static com.facebook.presto.hive.metastore.hms.ThriftMetastoreUtil.createMetastoreColumnStatistics;
+import static com.facebook.presto.hive.metastore.hms.ThriftMetastoreUtil.fromMetastoreApiColumnStatistics;
+import static com.facebook.presto.hive.metastore.hms.ThriftMetastoreUtil.fromMetastoreApiPrincipalType;
+import static com.facebook.presto.hive.metastore.hms.ThriftMetastoreUtil.fromMetastoreApiTable;
+import static com.facebook.presto.hive.metastore.hms.ThriftMetastoreUtil.fromPrestoPrincipalType;
+import static com.facebook.presto.hive.metastore.hms.ThriftMetastoreUtil.fromRolePrincipalGrants;
+import static com.facebook.presto.hive.metastore.hms.ThriftMetastoreUtil.parsePrivilege;
+import static com.facebook.presto.hive.metastore.hms.ThriftMetastoreUtil.toMetastoreApiPartition;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.constraints.TableConstraintsHolder.validateTableConstraints;
@@ -590,7 +598,7 @@ public class ThriftHiveMetastore
     private Map<String, HiveColumnStatistics> groupStatisticsByColumn(List<ColumnStatisticsObj> statistics, OptionalLong rowCount)
     {
         return statistics.stream()
-                .collect(toImmutableMap(ColumnStatisticsObj::getColName, statisticsObj -> ThriftMetastoreUtil.fromMetastoreApiColumnStatistics(statisticsObj, rowCount)));
+                .collect(toImmutableMap(ColumnStatisticsObj::getColName, statisticsObj -> fromMetastoreApiColumnStatistics(statisticsObj, rowCount)));
     }
 
     @Override
@@ -606,10 +614,10 @@ public class ThriftHiveMetastore
         modifiedTable.setParameters(updateStatisticsParameters(modifiedTable.getParameters(), basicStatistics));
         alterTable(metastoreContext, databaseName, tableName, modifiedTable);
 
-        com.facebook.presto.hive.metastore.Table table = ThriftMetastoreUtil.fromMetastoreApiTable(modifiedTable, metastoreContext.getColumnConverter());
+        com.facebook.presto.hive.metastore.Table table = fromMetastoreApiTable(modifiedTable, metastoreContext.getColumnConverter());
         OptionalLong rowCount = basicStatistics.getRowCount();
         List<ColumnStatisticsObj> metastoreColumnStatistics = updatedStatistics.getColumnStatistics().entrySet().stream()
-                .map(entry -> ThriftMetastoreUtil.createMetastoreColumnStatistics(entry.getKey(), table.getColumn(entry.getKey()).get().getType(), entry.getValue(), rowCount))
+                .map(entry -> createMetastoreColumnStatistics(entry.getKey(), table.getColumn(entry.getKey()).get().getType(), entry.getValue(), rowCount))
                 .collect(toImmutableList());
         if (!metastoreColumnStatistics.isEmpty()) {
             setTableColumnStatistics(metastoreContext, databaseName, tableName, metastoreColumnStatistics);
@@ -701,7 +709,7 @@ public class ThriftHiveMetastore
     {
         List<ColumnStatisticsObj> metastoreColumnStatistics = columnStatistics.entrySet().stream()
                 .filter(entry -> columns.containsKey(entry.getKey()))
-                .map(entry -> ThriftMetastoreUtil.createMetastoreColumnStatistics(entry.getKey(), columns.get(entry.getKey()), entry.getValue(), rowCount))
+                .map(entry -> createMetastoreColumnStatistics(entry.getKey(), columns.get(entry.getKey()), entry.getValue(), rowCount))
                 .collect(toImmutableList());
         if (!metastoreColumnStatistics.isEmpty()) {
             setPartitionColumnStatistics(metastoreContext, databaseName, tableName, partitionName, metastoreColumnStatistics);
@@ -822,8 +830,8 @@ public class ThriftHiveMetastore
                 grantRole(
                         metastoreContext,
                         role,
-                        grantee.getName(), ThriftMetastoreUtil.fromPrestoPrincipalType(grantee.getType()),
-                        grantor.getName(), ThriftMetastoreUtil.fromPrestoPrincipalType(grantor.getType()),
+                        grantee.getName(), fromPrestoPrincipalType(grantee.getType()),
+                        grantor.getName(), fromPrestoPrincipalType(grantor.getType()),
                         withAdminOption);
             }
         }
@@ -857,7 +865,7 @@ public class ThriftHiveMetastore
                 revokeRole(
                         metastoreContext,
                         role,
-                        grantee.getName(), ThriftMetastoreUtil.fromPrestoPrincipalType(grantee.getType()),
+                        grantee.getName(), fromPrestoPrincipalType(grantee.getType()),
                         adminOptionFor);
             }
         }
@@ -892,7 +900,7 @@ public class ThriftHiveMetastore
                     .stopOnIllegalExceptions()
                     .run("listRoleGrants", stats.getListRoleGrants().wrap(() ->
                             getMetastoreClientThenCall(metastoreContext, client ->
-                                    ThriftMetastoreUtil.fromRolePrincipalGrants(client.listRoleGrants(principal.getName(), ThriftMetastoreUtil.fromPrestoPrincipalType(principal.getType()))))));
+                                    fromRolePrincipalGrants(client.listRoleGrants(principal.getName(), fromPrestoPrincipalType(principal.getType()))))));
         }
         catch (TException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
@@ -1211,7 +1219,7 @@ public class ThriftHiveMetastore
             List<PartitionWithStatistics> partitionsWithStatistics)
     {
         List<Partition> partitions = partitionsWithStatistics.stream()
-                .map(part -> ThriftMetastoreUtil.toMetastoreApiPartition(part, metastoreContext.getColumnConverter()))
+                .map(part -> toMetastoreApiPartition(part, metastoreContext.getColumnConverter()))
                 .collect(toImmutableList());
         addPartitionsWithoutStatistics(metastoreContext, databaseName, tableName, partitions);
         for (PartitionWithStatistics partitionWithStatistics : partitionsWithStatistics) {
@@ -1349,7 +1357,7 @@ public class ThriftHiveMetastore
     @Override
     public MetastoreOperationResult alterPartition(MetastoreContext metastoreContext, String databaseName, String tableName, PartitionWithStatistics partitionWithStatistics)
     {
-        alterPartitionWithoutStatistics(metastoreContext, databaseName, tableName, ThriftMetastoreUtil.toMetastoreApiPartition(partitionWithStatistics, metastoreContext.getColumnConverter()));
+        alterPartitionWithoutStatistics(metastoreContext, databaseName, tableName, toMetastoreApiPartition(partitionWithStatistics, metastoreContext.getColumnConverter()));
         storePartitionColumnStatistics(metastoreContext, databaseName, tableName, partitionWithStatistics.getPartitionName(), partitionWithStatistics);
         dropExtraColumnStatisticsAfterAlterPartition(metastoreContext, databaseName, tableName, partitionWithStatistics);
 
@@ -1498,7 +1506,7 @@ public class ThriftHiveMetastore
                                 Set<PrivilegeGrantInfo> privilegesToGrant = new HashSet<>(requestedPrivileges);
                                 Iterator<PrivilegeGrantInfo> iterator = privilegesToGrant.iterator();
                                 while (iterator.hasNext()) {
-                                    HivePrivilegeInfo requestedPrivilege = getOnlyElement(ThriftMetastoreUtil.parsePrivilege(iterator.next(), Optional.empty()));
+                                    HivePrivilegeInfo requestedPrivilege = getOnlyElement(parsePrivilege(iterator.next(), Optional.empty()));
 
                                     for (HivePrivilegeInfo existingPrivilege : existingPrivileges) {
                                         if ((requestedPrivilege.isContainedIn(existingPrivilege))) {
@@ -1547,7 +1555,7 @@ public class ThriftHiveMetastore
                                         .collect(toSet());
 
                                 Set<PrivilegeGrantInfo> privilegesToRevoke = requestedPrivileges.stream()
-                                        .filter(privilegeGrantInfo -> existingHivePrivileges.contains(getOnlyElement(ThriftMetastoreUtil.parsePrivilege(privilegeGrantInfo, Optional.empty())).getHivePrivilege()))
+                                        .filter(privilegeGrantInfo -> existingHivePrivileges.contains(getOnlyElement(parsePrivilege(privilegeGrantInfo, Optional.empty())).getHivePrivilege()))
                                         .collect(toSet());
 
                                 if (privilegesToRevoke.isEmpty()) {
@@ -1589,12 +1597,12 @@ public class ThriftHiveMetastore
                                     }
                                     hiveObjectPrivilegeList = client.listPrivileges(
                                             principal.getName(),
-                                            ThriftMetastoreUtil.fromPrestoPrincipalType(principal.getType()),
+                                            fromPrestoPrincipalType(principal.getType()),
                                             new HiveObjectRef(TABLE, databaseName, tableName, null, null));
                                 }
                                 for (HiveObjectPrivilege hiveObjectPrivilege : hiveObjectPrivilegeList) {
-                                    PrestoPrincipal grantee = new PrestoPrincipal(ThriftMetastoreUtil.fromMetastoreApiPrincipalType(hiveObjectPrivilege.getPrincipalType()), hiveObjectPrivilege.getPrincipalName());
-                                    privileges.addAll(ThriftMetastoreUtil.parsePrivilege(hiveObjectPrivilege.getGrantInfo(), Optional.of(grantee)));
+                                    PrestoPrincipal grantee = new PrestoPrincipal(fromMetastoreApiPrincipalType(hiveObjectPrivilege.getPrincipalType()), hiveObjectPrivilege.getPrincipalName());
+                                    privileges.addAll(parsePrivilege(hiveObjectPrivilege.getGrantInfo(), Optional.of(grantee)));
                                 }
                                 return privileges.build();
                             })));
