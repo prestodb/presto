@@ -523,7 +523,7 @@ velox_set_source(folly)
 velox_resolve_dependency(folly)
 
 if(${VELOX_BUILD_TESTING})
-  # Spark qury runner depends on absl, gRPC.
+  # Spark query runner depends on absl, gRPC.
   velox_set_source(absl)
   velox_resolve_dependency(absl)
 
