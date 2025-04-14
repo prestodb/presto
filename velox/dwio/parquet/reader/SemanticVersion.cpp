@@ -22,11 +22,10 @@ const re2::RE2 SemanticVersion::pattern_(
     "(.*?)\\s+version\\s+(\\d+)\\.(\\d+)\\.(\\d+)");
 
 SemanticVersion::SemanticVersion()
-    : application_(""), majorVersion_(0), minorVersion_(0), patchVersion_(0) {}
+    : majorVersion_(0), minorVersion_(0), patchVersion_(0) {}
 
 SemanticVersion::SemanticVersion(int majorVersion, int minorVersion, int patch)
-    : application_(""),
-      majorVersion_(majorVersion),
+    : majorVersion_(majorVersion),
       minorVersion_(minorVersion),
       patchVersion_(patch) {}
 
