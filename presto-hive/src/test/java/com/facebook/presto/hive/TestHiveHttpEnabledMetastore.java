@@ -31,7 +31,7 @@ import static com.facebook.presto.hive.containers.HiveHadoopContainer.HIVE3_IMAG
 import static com.facebook.presto.tests.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 
-public abstract class AbstractHiveHttpProtocolTest
+public class TestHiveHttpEnabledMetastore
         extends AbstractTestQueryFramework
 {
     private static final String HIVE_TEST_SCHEMA = "hive_http_enabled";
@@ -40,7 +40,7 @@ public abstract class AbstractHiveHttpProtocolTest
 
     private final Map<String, String> httpConfig;
 
-    AbstractHiveHttpProtocolTest() throws URISyntaxException {
+    TestHiveHttpEnabledMetastore() throws URISyntaxException {
         httpConfig = ImmutableMap.<String, String>builder()
                 // This is required when connecting to ssl and http enabled metastore
                 .put("hive.metastore.http.client.tls.enabled", "true")
