@@ -185,4 +185,37 @@ public class TestQueryStateInfoResource
                 prepareGet().setUri(server.resolve("/v1/queryState/123")).build(),
                 createJsonResponseHandler(jsonCodec(QueryStateInfo.class)));
     }
+
+    @Test
+    public void testGetQueryStateInfoStateFilter()
+    {
+        List<QueryStateInfo> infos = client.execute(
+                prepareGet()
+                        .setUri(server.resolve("/v1/queryState?state=DISPATCHING")) // Encoded user\d
+                        .build(),
+                createJsonResponseHandler(listJsonCodec(QueryStateInfo.class)));
+        assertEquals(infos.size(), 0);
+
+        infos = client.execute(
+                prepareGet()
+                        .setUri(server.resolve("/v1/queryState?state=QUEUED"))
+                        .build(),
+                createJsonResponseHandler(listJsonCodec(QueryStateInfo.class)));
+        assertEquals(infos.size(), 0);
+
+        infos = client.execute(
+                prepareGet()
+                        .setUri(server.resolve("/v1/queryState?includeAllQueries=true"))
+                        .build(),
+                createJsonResponseHandler(listJsonCodec(QueryStateInfo.class)));
+        assertEquals(infos.size(), 3);
+    }
+
+    @Test(expectedExceptions = {UnexpectedResponseException.class}, expectedExceptionsMessageRegExp = "Expected response code .*, but was 400")
+    public void testGetQueryStateInfoBadStateFilter()
+    {
+        client.execute(
+                prepareGet().setUri(server.resolve("/v1/queryState?state=INVALID_STATE")).build(),
+                createJsonResponseHandler(jsonCodec(QueryStateInfo.class)));
+    }
 }
