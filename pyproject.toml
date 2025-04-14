@@ -23,7 +23,7 @@ requires = [
 build-backend = "scikit_build_core.build"
 
 [project]
-name = "pyvelox"
+name = "PyVelox"
 dynamic = ["version"]
 description = "Python bindings and extensions for Velox"
 readme = "README.md"
@@ -87,6 +87,7 @@ VELOX_MONO_LIBRARY = true
 TREAT_WARNINGS_AS_ERRORS = true
 MAX_HIGH_MEM_JOBS = { env = "MAX_HIGH_MEM_JOBS", default = "" }
 MAX_HIGH_LINK_JOBS = { env = "MAX_HIGH_LINK_JOBS", default = "" }
+CMAKE_POLICY_VERSION_MINIMUM = "3.5" # required for deps that don't support cmake 4.0
 
 [[tool.scikit-build.overrides]]
 if.env.DEBUG = true        # 1 maps to true

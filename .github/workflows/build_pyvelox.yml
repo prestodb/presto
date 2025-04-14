@@ -86,6 +86,9 @@ jobs:
             source scripts/setup-macos.sh
             install_build_prerequisites
             install_velox_deps_from_brew
+            # CMake 4.0 causes issues with arrows bundled dependencies
+            brew uninstall cmake
+            pipx install --force cmake==3.31
 
       - name: Install macOS dependencies
         if: ${{ startsWith(matrix.os, 'macos') && steps.restore-deps.outputs.stash-hit != 'true' }}
@@ -114,8 +117,7 @@ jobs:
         uses: pypa/cibuildwheel@6cccd09a31908ffd175b012fb8bf4e1dbda3bc6c # v2
         env:
           BUILD_VERSION: "${{ inputs.version }}"
-          # Only build for 3.12 for now
-          CIBW_BUILD: ${{ github.event_name == 'pull_request' && 'cp312-*' || 'cp312-*' }}
+          CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-*"
           CIBW_ENVIRONMENT_PASS_LINUX:  "BUILD_VERSION"
           CIBW_ENVIRONMENT_LINUX: "CCACHE_DIR=/host${{ github.workspace }}/ccache"
           # for macos
