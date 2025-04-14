@@ -28,11 +28,6 @@ struct WarpScan {
 
     /// The number of warp scan steps
     STEPS = Log2<kNumLanes>::VALUE,
-
-    /// The 5-bit SHFL mask for logically splitting warps into sub-segments
-    /// starts 8-bits up
-    SHFL_C = (kWarpThreads - kNumLanes) << 8
-
   };
 
   int laneId;
@@ -75,12 +70,14 @@ struct WarpScan {
 
   __device__ __forceinline__ void inclusiveSum(T input, T& inclusive_output) {
     inclusive_output = input;
+    if (IS_ARCH_WARP || (member_mask & (1 << laneId)) != 0) {
 #pragma unroll
-    for (int STEP = 0; STEP < STEPS; STEP++) {
-      int offset = (1 << STEP);
-      T other = __shfl_up_sync(member_mask, inclusive_output, offset);
-      if (laneId >= offset) {
-        inclusive_output += other;
+      for (int STEP = 0; STEP < STEPS; STEP++) {
+        int offset = (1 << STEP);
+        T other = __shfl_up_sync(member_mask, inclusive_output, offset);
+        if (laneId >= offset) {
+          inclusive_output += other;
+        }
       }
     }
   }
