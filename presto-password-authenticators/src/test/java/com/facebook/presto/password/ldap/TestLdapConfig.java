@@ -76,7 +76,7 @@ public class TestLdapConfig
         assertFailsValidation(new LdapConfig().setLdapUrl("localhost"), "ldapUrl", "LDAP without SSL/TLS unsupported. Expected ldaps://", Pattern.class);
         assertFailsValidation(new LdapConfig().setLdapUrl("ldaps:/localhost"), "ldapUrl", "LDAP without SSL/TLS unsupported. Expected ldaps://", Pattern.class);
 
-        assertFailsValidation(new LdapConfig(), "ldapUrl", "may not be null", NotNull.class);
-        assertFailsValidation(new LdapConfig(), "userBindSearchPattern", "may not be null", NotNull.class);
+        assertFailsValidation(new LdapConfig(), "ldapUrl", "must not be null", NotNull.class);
+        assertFailsValidation(new LdapConfig(), "userBindSearchPattern", "must not be null", NotNull.class);
     }
 }

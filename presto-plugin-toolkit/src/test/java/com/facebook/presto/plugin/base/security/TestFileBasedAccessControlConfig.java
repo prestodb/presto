@@ -59,7 +59,7 @@ public class TestFileBasedAccessControlConfig
     {
         assertThatThrownBy(() -> newInstance(ImmutableMap.of(SECURITY_REFRESH_PERIOD, "1ms")))
                 .isInstanceOf(ConfigurationException.class)
-                .hasMessageContaining("security.config-file: may not be null ");
+                .hasMessageContaining("security.config-file: must not be null ");
 
         assertThatThrownBy(() -> newInstance(ImmutableMap.of(
                 SECURITY_CONFIG_FILE, "/test.json",
