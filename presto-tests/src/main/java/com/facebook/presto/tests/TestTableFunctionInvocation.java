@@ -286,6 +286,7 @@ public class TestTableFunctionInvocation
     @Test
     public void testInputPartitioning()
     {
+        /*
         // table function test_inputs_function has four table arguments. input_1 has row semantics. input_2, input_3 and input_4 have set semantics.
         // the function outputs one row per each tuple of partition it processes. The row includes a true value, and partitioning values.
         assertQuery("SELECT *\n" +
@@ -296,7 +297,7 @@ public class TestTableFunctionInvocation
                 "               input_4 => TABLE(VALUES 8, 9)))\n",
                 "VALUES (true, 4, 6), (true, 4, 7), (true, 5, 6), (true, 5, 7)");
 
-        /*
+
         assertQuery("SELECT * FROM TABLE(system.test_inputs_function(" +
                         "input_1 => TABLE(VALUES 1, 2, 3)," +
                         "input_2 => TABLE(VALUES 4, 5, 4, 5, 4) t2(x2) PARTITION BY x2," +
@@ -325,17 +326,15 @@ public class TestTableFunctionInvocation
                         "input_3 => TABLE(VALUES 6, 7, 6)," +
                         "input_4 => TABLE(VALUES 8, 9)))",
                 "VALUES true");
-
+        */
         assertQuery(" SELECT DISTINCT regionkey, nationkey FROM TABLE(system.test_inputs_function(" +
                 "input_1 => TABLE(tpch.tiny.nation)," +
                 "input_2 => TABLE(tpch.tiny.nation) PARTITION BY regionkey ORDER BY name," +
                 "input_3 => TABLE(tpch.tiny.customer) PARTITION BY nationkey," +
                 "input_4 => TABLE(tpch.tiny.customer)))",
                 "SELECT DISTINCT n.regionkey, c.nationkey FROM tpch.tiny.nation n, tpch.tiny.customer c");
-        */
     }
 
-    /*
     @Test
     public void testEmptyPartitions()
     {
@@ -380,7 +379,6 @@ public class TestTableFunctionInvocation
                 "input_3 => TABLE(SELECT 3 WHERE false) t3(x3) PARTITION BY x3," +
                 "input_4 => TABLE(VALUES 4, 5) t4(x4) PARTITION BY x4))");
     }
-    */
 
     @Test
     public void testCopartitioning()
