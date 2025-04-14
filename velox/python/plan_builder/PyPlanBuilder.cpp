@@ -289,6 +289,24 @@ PyPlanBuilder& PyPlanBuilder::mergeJoin(
   return *this;
 }
 
+PyPlanBuilder& PyPlanBuilder::indexLookupJoin(
+    const std::vector<std::string>& leftKeys,
+    const std::vector<std::string>& rightKeys,
+    const PyPlanNode& indexPlanSubtree,
+    const std::vector<std::string>& output,
+    core::JoinType joinType) {
+  if (const auto tableScanNode =
+          std::dynamic_pointer_cast<const core::TableScanNode>(
+              indexPlanSubtree.planNode())) {
+    planBuilder_.indexLookupJoin(
+        leftKeys, rightKeys, tableScanNode, {}, output, joinType);
+  } else {
+    throw std::runtime_error(
+        "Index Loop Join subtree must be a single TableScanNode.");
+  }
+  return *this;
+}
+
 PyPlanBuilder& PyPlanBuilder::sortedMerge(
     const std::vector<std::string>& keys,
     const std::vector<std::optional<PyPlanNode>>& pySources) {

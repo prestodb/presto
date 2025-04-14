@@ -257,6 +257,26 @@ PYBIND11_MODULE(plan_builder, m) {
           join_type: Join type (inner, left, right, full, etc).
       )"))
       .def(
+          "index_lookup_join",
+          &velox::py::PyPlanBuilder::indexLookupJoin,
+          py::arg("left_keys"),
+          py::arg("right_keys"),
+          py::arg("index_plan_node"),
+          py::arg("output") = std::vector<std::string>{},
+          py::arg("join_type") = velox::core::JoinType::kInner,
+          py::doc(R"(
+        Adds an index lookup join node. It requires the index_plan_node
+        subtree to be composed of a single table scan on a connector with
+        indexed access support.
+
+        Args:
+          left_keys: List of keys from the left table.
+          right_keys: List of keys from the right table.
+          index_plan_node: The subtree containing the lookup table scan.
+          output: List of columns to be projected out of the join.
+          join_type: Join type (inner, left, right, full, etc).
+      )"))
+      .def(
           "sorted_merge",
           &velox::py::PyPlanBuilder::sortedMerge,
           py::arg("keys"),

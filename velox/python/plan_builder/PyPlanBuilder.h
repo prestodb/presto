@@ -273,6 +273,24 @@ class PyPlanBuilder {
       const std::string& filter,
       core::JoinType joinType);
 
+  /// Add an index lookup join node. It requires the index_plan_node
+  /// subtree to be composed of a single table scan on a connector with
+  /// indexed access support.
+  ///
+  /// @param leftKeys Set of join keys from the left (current plan builder)
+  /// plan subtree.
+  /// @param leftKeys Set of join keys from the right plan subtree.
+  /// @param index_plan_node The subtree containing the lookup table scan.
+  /// @param output List of column names to project in the output of the
+  /// join.
+  /// @param joinType The type of join (kInner, kLeft, kRight, or kFull)
+  PyPlanBuilder& indexLookupJoin(
+      const std::vector<std::string>& leftKeys,
+      const std::vector<std::string>& rightKeys,
+      const PyPlanNode& indexPlanSubtree,
+      const std::vector<std::string>& output,
+      core::JoinType joinType);
+
   /// Takes N sorted `source` subtrees and merges them into a sorted output.
   /// Assumes that all sources are sorted on `keys`.
   ///
