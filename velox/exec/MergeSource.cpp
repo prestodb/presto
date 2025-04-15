@@ -229,10 +229,32 @@ std::shared_ptr<MergeSource> MergeSource::createMergeExchangeSource(
 }
 
 namespace {
-void notify(std::optional<ContinuePromise>& promise) {
-  if (promise) {
-    promise->setValue();
-    promise.reset();
+class PromiseNotifier {
+ public:
+  explicit PromiseNotifier(size_t initSize) {
+    promises_.reserve(initSize);
+  }
+
+  ~PromiseNotifier() {
+    for (auto& promise : promises_) {
+      promise.setValue();
+    }
+  }
+
+  void add(ContinuePromise&& promise) {
+    promises_.emplace_back(std::move(promise));
+  }
+
+ private:
+  std::vector<ContinuePromise> promises_;
+};
+
+void deferNotify(
+    std::optional<ContinuePromise>& deferPromise,
+    PromiseNotifier& promiseNotifier) {
+  if (deferPromise.has_value()) {
+    promiseNotifier.add(std::move(deferPromise.value()));
+    deferPromise.reset();
   }
 }
 } // namespace
@@ -242,10 +264,12 @@ BlockingReason MergeJoinSource::next(
     RowVectorPtr* data) {
   common::testutil::TestValue::adjust(
       "facebook::velox::exec::MergeSource::next", this);
+  PromiseNotifier notifier(1);
   return state_.withWLock([&](auto& state) {
     if (state.data != nullptr) {
       *data = std::move(state.data);
-      notify(producerPromise_);
+
+      deferNotify(producerPromise_, notifier);
       return BlockingReason::kNotBlocked;
     }
 
@@ -265,6 +289,7 @@ BlockingReason MergeJoinSource::enqueue(
     ContinueFuture* future) {
   common::testutil::TestValue::adjust(
       "facebook::velox::exec::MergeSource::enqueue", this);
+  PromiseNotifier notifier(1);
   return state_.withWLock([&](auto& state) {
     if (state.atEnd) {
       // This can happen if consumer called close() because it doesn't need any
@@ -274,13 +299,13 @@ BlockingReason MergeJoinSource::enqueue(
 
       // Notify consumerPromise_ so the consumer doesn't hang indefinitely if
       // this is because the Driver is closing operators.
-      notify(consumerPromise_);
+      deferNotify(consumerPromise_, notifier);
       return BlockingReason::kNotBlocked;
     }
 
     if (data == nullptr) {
       state.atEnd = true;
-      notify(consumerPromise_);
+      deferNotify(consumerPromise_, notifier);
       return BlockingReason::kNotBlocked;
     }
 
@@ -289,18 +314,18 @@ BlockingReason MergeJoinSource::enqueue(
     }
 
     state.data = std::move(data);
-    notify(consumerPromise_);
-
+    deferNotify(consumerPromise_, notifier);
     return waitForConsumer(future);
   });
 }
 
 void MergeJoinSource::close() {
+  PromiseNotifier notifer(2);
   state_.withWLock([&](auto& state) {
     state.data = nullptr;
     state.atEnd = true;
-    notify(producerPromise_);
-    notify(consumerPromise_);
+    deferNotify(producerPromise_, notifer);
+    deferNotify(consumerPromise_, notifer);
   });
 }
 } // namespace facebook::velox::exec
