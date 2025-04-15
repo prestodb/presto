@@ -29,7 +29,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.Hashing;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -242,27 +241,6 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
         }
     }
 
-    /**
-     * Spark has to deploy Presto on Spark package to every worker for every query.
-     * Unfortunately Spark doesn't try to eagerly delete application data from the workers, and after running
-     * a couple of queries the disk space utilization spikes.
-     * While this might not be an issue when testing locally the disk space is usually very limited on CI environments.
-     * To avoid issues when running on a CI environment we have to drop temporary application data eagerly after each test.
-     */
-    @AfterMethod(alwaysRun = true)
-    public void cleanupSparkWorkDirectory()
-            throws Exception
-    {
-        if (sparkWorkDirectory != null) {
-            // Docker containers are run with a different user id. Run "rm" in a container to avoid permission related issues.
-            int exitCode = dockerCompose.run(
-                    "-v", format("%s:/spark/work", sparkWorkDirectory.getAbsolutePath()),
-                    "spark-submit",
-                    "/bin/bash", "-c", "rm -rf /spark/work/*");
-            assertEquals(exitCode, 0);
-        }
-    }
-
     @AfterClass(alwaysRun = true)
     public void tearDown()
             throws Exception
@@ -300,7 +278,7 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
                 "-v", format("%s:/presto/etc/session-property-config.properties", sessionPropertyConfig.getAbsolutePath()),
                 "-v", format("%s:/presto/etc/session-property-config.json", sessionPropertyConfigJsonFile.getAbsolutePath()),
                 "spark-submit",
-                "/spark/bin/spark-submit",
+                "/opt/spark/bin/spark-submit",
                 "--executor-memory", "512m",
                 "--executor-cores", "4",
                 "--conf", "spark.task.cpus=4",
