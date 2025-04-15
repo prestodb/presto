@@ -392,7 +392,7 @@ class [[nodiscard]] Status {
 
   /// Return the specific error message attached to this status.
   const std::string& message() const {
-    static const std::string kNoMessage = "";
+    static const std::string kNoMessage;
     return ok() ? kNoMessage : state_->msg;
   }
 

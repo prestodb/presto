@@ -534,8 +534,8 @@ TEST_F(SimdUtilTest, basicSimdStrStr) {
   std::string haystack3("abra abracad abracadabra");
   std::string needle12("abracadabra");
 
-  std::string needle13("");
-  std::string haystack4("");
+  std::string needle13;
+  std::string haystack4;
 
   checkOne(haystack1, needle1);
   checkOne(haystack1, needle2);

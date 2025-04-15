@@ -54,7 +54,7 @@ std::string getAdditionalExceptionContextString(
     VeloxException::Type exceptionType,
     const std::string& currentMessage) {
   auto* context = &getExceptionContext();
-  std::string additionalMessage = "";
+  std::string additionalMessage;
   if (!context->parent || !context->parent->parent) {
     return additionalMessage;
   }
