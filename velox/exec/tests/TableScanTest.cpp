@@ -663,7 +663,7 @@ DEBUG_ONLY_TEST_F(TableScanTest, timeLimitInGetOutput) {
   // Ensure the getOutput is long enough to trigger the maxGetOutputTimeMs in
   // TableScan, so we can test early exit (bail) from the TableScan::getOutput.
   SCOPED_TESTVALUE_SET(
-      "facebook::velox::exec::TableScan::getOutput",
+      "facebook::velox::exec::TableScan::getSplit",
       std::function<void(const TableScan*)>(
           ([&](const TableScan* /*tableScan*/) {
             /* sleep override */
@@ -1720,7 +1720,7 @@ DEBUG_ONLY_TEST_F(TableScanTest, tableScanSplitsAndWeights) {
   std::shared_mutex pauseTableScan;
   std::shared_mutex pauseSplitProcessing;
   SCOPED_TESTVALUE_SET(
-      "facebook::velox::exec::TableScan::getOutput",
+      "facebook::velox::exec::TableScan::getSplit",
       std::function<void(const TableScan*)>(
           ([&](const TableScan* /*tableScan*/) {
             pauseTableScan.lock_shared();
@@ -5461,7 +5461,7 @@ DEBUG_ONLY_TEST_F(TableScanTest, cancellationToken) {
 
   std::atomic<Task*> task{nullptr};
   SCOPED_TESTVALUE_SET(
-      "facebook::velox::exec::TableScan::getOutput",
+      "facebook::velox::exec::TableScan::getSplit",
       std::function<void(Operator*)>([&](Operator* op) {
         task = op->testingOperatorCtx()->task().get();
       }));

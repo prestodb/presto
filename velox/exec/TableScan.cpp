@@ -55,12 +55,6 @@ TableScan::TableScan(
   readBatchSize_ = driverCtx_->queryConfig().preferredOutputBatchRows();
 }
 
-folly::dynamic TableScan::toJson() const {
-  auto ret = SourceOperator::toJson();
-  ret["status"] = curStatus_.load();
-  return ret;
-}
-
 bool TableScan::shouldYield(StopReason taskStopReason, size_t startTimeMs)
     const {
   // Checks task-level yield signal, driver-level yield signal and table scan
@@ -77,15 +71,12 @@ bool TableScan::shouldStop(StopReason taskStopReason) const {
 }
 
 RowVectorPtr TableScan::getOutput() {
-  auto exitCurStatusGuard = folly::makeGuard([this]() { curStatus_ = ""; });
-
   VELOX_CHECK(!blockingFuture_.valid());
   blockingReason_ = BlockingReason::kNotBlocked;
 
   if (noMoreSplits_) {
     return nullptr;
   }
-
   // Check if we need to wait for scale up. We expect only wait once on startup.
   if (shouldWaitForScaleUp()) {
     VELOX_CHECK(blockingFuture_.valid());
@@ -93,13 +84,11 @@ RowVectorPtr TableScan::getOutput() {
     return nullptr;
   }
 
-  curStatus_ = "getOutput: enter";
   const auto startTimeMs = getCurrentTimeMs();
   for (;;) {
     // Check if our Task needs us to yield or we've been running for too long
     // w/o producing a result. In this case we return with the Yield blocking
     // reason and an already fulfilled future.
-    curStatus_ = "getOutput: task->shouldStop";
     const StopReason taskStopReason = driverCtx_->task->shouldStop();
     if (shouldStop(taskStopReason) ||
         shouldYield(taskStopReason, startTimeMs)) {
@@ -111,129 +100,35 @@ RowVectorPtr TableScan::getOutput() {
       return nullptr;
     }
 
+    // Check no more split.
+    if (noMoreSplits_) {
+      VELOX_CHECK(needNewSplit_);
+      return nullptr;
+    }
+    // Check for cancellation since scans that filter everything out will not
+    // hit the check in Driver.
+    if (operatorCtx_->task()->isCancelled()) {
+      VELOX_CHECK(needNewSplit_);
+      return nullptr;
+    }
+
     if (needNewSplit_) {
-      // A point for test code injection.
-      TestValue::adjust("facebook::velox::exec::TableScan::getOutput", this);
-
-      exec::Split split;
-      curStatus_ = "getOutput: task->getSplitOrFuture";
-      blockingReason_ = driverCtx_->task->getSplitOrFuture(
-          driverCtx_->splitGroupId,
-          planNodeId(),
-          split,
-          blockingFuture_,
-          maxPreloadedSplits_,
-          splitPreloader_);
-      if (blockingReason_ != BlockingReason::kNotBlocked) {
-        return nullptr;
-      }
-
-      if (!split.hasConnectorSplit()) {
-        noMoreSplits_ = true;
-        dynamicFilters_.clear();
-        if (dataSource_) {
-          curStatus_ = "getOutput: noMoreSplits_=1, updating stats_";
-          const auto connectorStats = dataSource_->runtimeStats();
-          auto lockedStats = stats_.wlock();
-          for (const auto& [name, counter] : connectorStats) {
-            if (FOLLY_UNLIKELY(lockedStats->runtimeStats.count(name) == 0)) {
-              lockedStats->runtimeStats.emplace(
-                  name, RuntimeMetric(counter.unit));
-            } else {
-              VELOX_CHECK_EQ(
-                  lockedStats->runtimeStats.at(name).unit, counter.unit);
-            }
-            lockedStats->runtimeStats.at(name).addValue(counter.value);
-          }
-        }
-        return nullptr;
-      }
-
-      if (FOLLY_UNLIKELY(splitTracer_ != nullptr)) {
-        splitTracer_->write(split);
-      }
-      const auto& connectorSplit = split.connectorSplit;
-      currentSplitWeight_ = connectorSplit->splitWeight;
-      needNewSplit_ = false;
-
-      // A point for test code injection.
-      TestValue::adjust(
-          "facebook::velox::exec::TableScan::getOutput::gotSplit", this);
-
-      VELOX_CHECK_EQ(
-          connector_->connectorId(),
-          connectorSplit->connectorId,
-          "Got splits with different connector IDs");
-
-      if (dataSource_ == nullptr) {
-        curStatus_ = "getOutput: creating dataSource_";
-        connectorQueryCtx_ = operatorCtx_->createConnectorQueryCtx(
-            connectorSplit->connectorId, planNodeId(), connectorPool_);
-        dataSource_ = connector_->createDataSource(
-            outputType_,
-            tableHandle_,
-            columnHandles_,
-            connectorQueryCtx_.get());
-        for (const auto& entry : dynamicFilters_) {
-          dataSource_->addDynamicFilter(entry.first, entry.second);
-        }
-      }
-
-      debugString_ = fmt::format(
-          "Split [{}] Task {}",
-          connectorSplit->toString(),
-          operatorCtx_->task()->taskId());
-
-      ExceptionContextSetter exceptionContext(
-          {[](VeloxException::Type /*exceptionType*/, auto* debugString) {
-             return *static_cast<std::string*>(debugString);
-           },
-           &debugString_});
-
-      if (connectorSplit->dataSource != nullptr) {
-        curStatus_ = "getOutput: preloaded split";
-        ++numPreloadedSplits_;
-        // The AsyncSource returns a unique_ptr to a shared_ptr. The unique_ptr
-        // will be nullptr if there was a cancellation.
-        numReadyPreloadedSplits_ += connectorSplit->dataSource->hasValue();
-        auto preparedDataSource = connectorSplit->dataSource->move();
-        stats_.wlock()->getOutputTiming.add(
-            connectorSplit->dataSource->prepareTiming());
-        if (!preparedDataSource) {
-          // There must be a cancellation.
-          VELOX_CHECK(operatorCtx_->task()->isCancelled());
+      const auto hasNewSplit = getSplit();
+      if (!hasNewSplit) {
+        VELOX_CHECK(needNewSplit_);
+        if (blockingReason_ != BlockingReason::kNotBlocked) {
           return nullptr;
         }
-        dataSource_->setFromDataSource(std::move(preparedDataSource));
-      } else {
-        curStatus_ = "getOutput: adding split";
-        uint64_t addSplitTimeUs{0};
-        {
-          MicrosecondTimer timer(&addSplitTimeUs);
-          dataSource_->addSplit(connectorSplit);
-        }
-        stats_.wlock()->addRuntimeStat(
-            "dataSourceAddSplitWallNanos",
-            RuntimeCounter(
-                addSplitTimeUs * 1'000, RuntimeCounter::Unit::kNanos));
+        continue;
       }
-      curStatus_ = "getOutput: updating stats_.numSplits";
-      ++stats_.wlock()->numSplits;
 
-      curStatus_ = "getOutput: dataSource_->estimatedRowSize";
       const auto estimatedRowSize = dataSource_->estimatedRowSize();
       readBatchSize_ =
           estimatedRowSize == connector::DataSource::kUnknownRowSize
           ? outputBatchRows()
           : outputBatchRows(estimatedRowSize);
     }
-
-    // Check for  cancellation since scans that filter everything out will not
-    // hit the check in Driver.
-    curStatus_ = "getOutput: task->isCancelled";
-    if (operatorCtx_->task()->isCancelled()) {
-      return nullptr;
-    }
+    VELOX_CHECK(!needNewSplit_);
 
     ExceptionContextSetter exceptionContext(
         {[](VeloxException::Type /*exceptionType*/, auto* debugString) {
@@ -247,7 +142,6 @@ RowVectorPtr TableScan::getOutput() {
           maxReadBatchSize_,
           static_cast<int32_t>(readBatchSize / maxFilteringRatio_));
     }
-    curStatus_ = "getOutput: dataSource_->next";
     uint64_t ioTimeUs{0};
     std::optional<RowVectorPtr> dataOptional;
     {
@@ -255,10 +149,8 @@ RowVectorPtr TableScan::getOutput() {
       dataOptional = dataSource_->next(readBatchSize, blockingFuture_);
     }
 
-    curStatus_ = "getOutput: checkPreload";
     checkPreload();
     {
-      curStatus_ = "getOutput: updating stats_.dataSourceReadWallNanos";
       auto lockedStats = stats_.wlock();
       lockedStats->addRuntimeStat(
           "dataSourceReadWallNanos",
@@ -269,7 +161,6 @@ RowVectorPtr TableScan::getOutput() {
         return nullptr;
       }
 
-      curStatus_ = "getOutput: updating stats_.rawInput";
       lockedStats->rawInputPositions = dataSource_->getCompletedRows();
       lockedStats->rawInputBytes = dataSource_->getCompletedBytes();
 
@@ -286,6 +177,8 @@ RowVectorPtr TableScan::getOutput() {
             RECORD_HISTOGRAM_METRIC_VALUE(
                 velox::kMetricTableScanBatchProcessTimeMs, ioTimeUs / 1'000);
           }
+          RECORD_HISTOGRAM_METRIC_VALUE(
+              velox::kMetricTableScanBatchBytes, data->estimateFlatSize());
           return data;
         }
         continue;
@@ -294,7 +187,6 @@ RowVectorPtr TableScan::getOutput() {
 
     uint64_t currNumRawInputRows{0};
     {
-      curStatus_ = "getOutput: updating stats_.preloadedSplits";
       auto lockedStats = stats_.wlock();
       if (numPreloadedSplits_ > 0) {
         lockedStats->addRuntimeStat(
@@ -312,7 +204,6 @@ RowVectorPtr TableScan::getOutput() {
     const bool emptySplit = currNumRawInputRows == rawInputRowsSinceLastSplit_;
     rawInputRowsSinceLastSplit_ = currNumRawInputRows;
 
-    curStatus_ = "getOutput: task->splitFinished";
     driverCtx_->task->splitFinished(true, currentSplitWeight_);
     needNewSplit_ = true;
 
@@ -328,12 +219,110 @@ RowVectorPtr TableScan::getOutput() {
   }
 }
 
+bool TableScan::getSplit() {
+  // A point for test code injection.
+  TestValue::adjust("facebook::velox::exec::TableScan::getSplit", this);
+
+  exec::Split split;
+  blockingReason_ = driverCtx_->task->getSplitOrFuture(
+      driverCtx_->splitGroupId,
+      planNodeId(),
+      split,
+      blockingFuture_,
+      maxPreloadedSplits_,
+      splitPreloader_);
+  if (blockingReason_ != BlockingReason::kNotBlocked) {
+    return false;
+  }
+
+  if (!split.hasConnectorSplit()) {
+    noMoreSplits_ = true;
+    dynamicFilters_.clear();
+    if (dataSource_) {
+      const auto connectorStats = dataSource_->runtimeStats();
+      auto lockedStats = stats_.wlock();
+      for (const auto& [name, counter] : connectorStats) {
+        if (FOLLY_UNLIKELY(lockedStats->runtimeStats.count(name) == 0)) {
+          lockedStats->runtimeStats.emplace(name, RuntimeMetric(counter.unit));
+        } else {
+          VELOX_CHECK_EQ(lockedStats->runtimeStats.at(name).unit, counter.unit);
+        }
+        lockedStats->runtimeStats.at(name).addValue(counter.value);
+      }
+    }
+    return false;
+  }
+
+  if (FOLLY_UNLIKELY(splitTracer_ != nullptr)) {
+    splitTracer_->write(split);
+  }
+  const auto& connectorSplit = split.connectorSplit;
+  currentSplitWeight_ = connectorSplit->splitWeight;
+  needNewSplit_ = false;
+
+  // A point for test code injection.
+  TestValue::adjust(
+      "facebook::velox::exec::TableScan::getOutput::gotSplit", this);
+
+  VELOX_CHECK_EQ(
+      connector_->connectorId(),
+      connectorSplit->connectorId,
+      "Got splits with different connector IDs");
+
+  if (dataSource_ == nullptr) {
+    connectorQueryCtx_ = operatorCtx_->createConnectorQueryCtx(
+        connectorSplit->connectorId, planNodeId(), connectorPool_);
+    dataSource_ = connector_->createDataSource(
+        outputType_, tableHandle_, columnHandles_, connectorQueryCtx_.get());
+    for (const auto& entry : dynamicFilters_) {
+      dataSource_->addDynamicFilter(entry.first, entry.second);
+    }
+  }
+
+  debugString_ = fmt::format(
+      "Split [{}] Task {}",
+      connectorSplit->toString(),
+      operatorCtx_->task()->taskId());
+
+  ExceptionContextSetter exceptionContext(
+      {[](VeloxException::Type /*exceptionType*/, auto* debugString) {
+         return *static_cast<std::string*>(debugString);
+       },
+       &debugString_});
+
+  if (connectorSplit->dataSource != nullptr) {
+    ++numPreloadedSplits_;
+    // The AsyncSource returns a unique_ptr to a shared_ptr. The unique_ptr
+    // will be nullptr if there was a cancellation.
+    numReadyPreloadedSplits_ += connectorSplit->dataSource->hasValue();
+    auto preparedDataSource = connectorSplit->dataSource->move();
+    stats_.wlock()->getOutputTiming.add(
+        connectorSplit->dataSource->prepareTiming());
+    if (!preparedDataSource) {
+      // There must be a cancellation.
+      VELOX_CHECK(operatorCtx_->task()->isCancelled());
+      return false;
+    }
+    dataSource_->setFromDataSource(std::move(preparedDataSource));
+  } else {
+    uint64_t addSplitTimeUs{0};
+    {
+      MicrosecondTimer timer(&addSplitTimeUs);
+      dataSource_->addSplit(connectorSplit);
+    }
+    stats_.wlock()->addRuntimeStat(
+        "dataSourceAddSplitWallNanos",
+        RuntimeCounter(addSplitTimeUs * 1'000, RuntimeCounter::Unit::kNanos));
+  }
+  ++stats_.wlock()->numSplits;
+  return true;
+}
+
 bool TableScan::shouldWaitForScaleUp() {
   if (scaledController_ == nullptr) {
     return false;
   }
 
-  curStatus_ = "getOutput: shouldWaitForScaleUp";
   if (!scaledController_->shouldStop(
           operatorCtx_->driverCtx()->driverId, &blockingFuture_)) {
     VELOX_CHECK(!blockingFuture_.valid());

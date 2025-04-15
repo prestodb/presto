@@ -615,6 +615,10 @@ Table Scan
      - Histogram
      - The time distribution of table scan batch processing time in range of [0,
        16s] with 512 buckets and reports P50, P90, P99, and P100.
+   * - table_scan_batch_bytes
+     - Histogram
+     - The size distribution of table scan output batch in range of [0, 512MB]
+       with 512 buckets and reports P50, P90, P99, and P100
 
 S3 FileSystem
 --------------

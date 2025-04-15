@@ -634,6 +634,11 @@ void registerVeloxMetrics() {
   DEFINE_HISTOGRAM_METRIC(
       kMetricTableScanBatchProcessTimeMs, 32, 0, 16L << 10, 50, 90, 99, 100);
 
+  // The size distribution of table scan output batch in range of [0, 512MB]
+  // with 512 buckets and reports P50, P90, P99, and P100
+  DEFINE_HISTOGRAM_METRIC(
+      kMetricTableScanBatchBytes, 1L << 20, 0, 512L << 20, 50, 90, 99, 100);
+
   /// ================== Storage Counters =================
 
   // The time distribution of storage IO throttled duration in range of [0, 30s]

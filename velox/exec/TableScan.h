@@ -28,8 +28,6 @@ class TableScan : public SourceOperator {
       DriverCtx* driverCtx,
       const std::shared_ptr<const core::TableScanNode>& tableScanNode);
 
-  folly::dynamic toJson() const override;
-
   RowVectorPtr getOutput() override;
 
   BlockingReason isBlocked(ContinueFuture* future) override {
@@ -73,6 +71,9 @@ class TableScan : public SourceOperator {
   // Checks if this table scan operator needs to stop because the task has been
   // terminated.
   bool shouldStop(StopReason taskStopReason) const;
+
+  // Returns true if a new split is fetched from the task otherwise false.
+  bool getSplit();
 
   // Sets 'maxPreloadSplits' and 'splitPreloader' if prefetching splits is
   // appropriate. The preloader will be applied to the 'first 'maxPreloadSplits'
@@ -142,10 +143,6 @@ class TableScan : public SourceOperator {
 
   // String shown in ExceptionContext inside DataSource and LazyVector loading.
   std::string debugString_;
-
-  // Holds the current status of the operator. Used when debugging to understand
-  // what operator is doing.
-  std::atomic<const char*> curStatus_{""};
 
   // The total number of raw input rows read up till the last finished split.
   // This is used to detect if a finished split is empty or not.
