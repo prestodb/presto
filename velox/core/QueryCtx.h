@@ -225,7 +225,7 @@ class QueryCtx : public std::enable_shared_from_this<QueryCtx> {
 
   mutable std::mutex mutex_;
   // Indicates if this query is under memory arbitration or not.
-  bool underArbitration_{false};
+  std::atomic_bool underArbitration_{false};
   std::vector<ContinuePromise> arbitrationPromises_;
 };
 
