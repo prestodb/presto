@@ -237,6 +237,12 @@ TEST_P(MemoryPoolTest, addChild) {
 
   constexpr int64_t kChunkSize{128};
   void* buff = childOne->allocate(kChunkSize);
+
+  // Check treeMemoryUsage displays the correct memory usage.
+  ASSERT_EQ(
+      root->treeMemoryUsage(),
+      "\nTop 1 leaf memory pool usages:\n    child_one usage 128B reserved 1.00MB peak 128B\n\nroot usage 128B reserved 1.00MB peak 1.00MB\n    child_one usage 128B reserved 1.00MB peak 128B\n\n");
+
   // Add child when 'reservedBytes != 0', in which case 'usedBytes()' will call
   // 'visitChildren()'.
   VELOX_ASSERT_THROW(root->addAggregateChild("child_one"), "");
@@ -247,9 +253,10 @@ TEST_P(MemoryPoolTest, addChild) {
   ASSERT_EQ(root->getChildCount(), 1);
   childOne = root->addLeafChild("child_one", isLeafThreadSafe_);
   ASSERT_EQ(root->getChildCount(), 2);
-  ASSERT_EQ(root->treeMemoryUsage(), "root usage 0B reserved 0B peak 1.00MB\n");
   ASSERT_EQ(
-      root->treeMemoryUsage(true), "root usage 0B reserved 0B peak 1.00MB\n");
+      root->treeMemoryUsage(), "root usage 0B reserved 0B peak 1.00MB\n\n");
+  ASSERT_EQ(
+      root->treeMemoryUsage(true), "root usage 0B reserved 0B peak 1.00MB\n\n");
   const std::string treeUsageWithEmptyPool = root->treeMemoryUsage(false);
   ASSERT_THAT(
       treeUsageWithEmptyPool,

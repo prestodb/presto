@@ -1009,15 +1009,18 @@ std::string MemoryPoolImpl::treeMemoryUsage(bool skipEmptyPool) const {
     return true;
   });
 
+  std::stringstream outTopLeafMemUsages;
   if (!topLeafMemUsages.empty()) {
-    out << "\nTop " << topLeafMemUsages.size() << " leaf memory pool usages:\n";
+    outTopLeafMemUsages << "\nTop " << topLeafMemUsages.size()
+                        << " leaf memory pool usages:\n";
     std::vector<MemoryUsage> usages = sortMemoryUsages(topLeafMemUsages);
     for (const auto& usage : usages) {
-      out << std::string(kCapMessageIndentSize, ' ') << usage.toString()
-          << "\n";
+      outTopLeafMemUsages << std::string(kCapMessageIndentSize, ' ')
+                          << usage.toString() << "\n";
     }
+    outTopLeafMemUsages << "\n";
   }
-  return out.str();
+  return outTopLeafMemUsages.str() + out.str() + "\n";
 }
 
 uint64_t MemoryPoolImpl::freeBytes() const {
