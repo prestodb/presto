@@ -50,12 +50,16 @@ on:
         required: false
 
 env:
+  JAVA_VERSION: '17'
+  JAVA_DISTRIBUTION: 'temurin'
   DOCKER_REPO: ${{ github.repository }}
   ORG_NAME: ${{ github.repository_owner }}
   IMAGE_NAME: presto-native
   RELEASE_BRANCH: release-${{ inputs.RELEASE_VERSION }}
   RELEASE_TAG: ${{ inputs.RELEASE_VERSION }}
   RELEASE_NOTES_COMMIT: ${{ inputs.release-notes-commit }}
+  GIT_USER_NAME: prestodb-ci
+  GIT_USER_EMAIL: ci@lists.prestodb.io
 
 jobs:
   publish-release-tag:
@@ -63,12 +67,6 @@ jobs:
     runs-on: ubuntu-latest
     environment: release
     steps:
-      - name: Validate release notes commit
-        if: ${{ github.event.inputs.release-notes-commit == '' }}
-        run: |
-          echo "Error: release-notes-commit is required when publish_release_tag is true"
-          exit 1
-
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -80,11 +78,12 @@ jobs:
 
       - name: Configure Git
         run: |
-          git config --global user.email "ci@lists.prestodb.io"
-          git config --global user.name "prestodb-ci"
+          git config --global user.email "${{ env.GIT_USER_EMAIL }}"
+          git config --global user.name "${{ env.GIT_USER_NAME }}"
           git config pull.rebase false
 
       - name: Cherry-pick release notes
+        if: ${{ github.event.inputs.release-notes-commit != '' }}
         run: |
           git cherry-pick ${{ env.RELEASE_NOTES_COMMIT }}
 
@@ -112,11 +111,11 @@ jobs:
       NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
 
     steps:
-      - name: Setup JDK 11
+      - name: Setup JDK 17
         uses: actions/setup-java@v4
         with:
-          java-version: '11'
-          distribution: 'temurin'
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
           overwrite-settings: true
           gpg-private-key: ${{ secrets.GPG_SECRET }}
 
@@ -135,8 +134,8 @@ jobs:
 
       - name: Configure Git
         run: |
-          git config --global user.email "ci@lists.prestodb.io"
-          git config --global user.name "prestodb-ci"
+          git config --global user.email "${{ env.GIT_USER_EMAIL }}"
+          git config --global user.name "${{ env.GIT_USER_NAME }}"
           git config pull.rebase false
 
       - name: Create Maven Settings
@@ -385,8 +384,8 @@ jobs:
         run: |
           cd ${{ github.workspace }}/prestodb.github.io
           git config --global --add safe.directory ${{ github.workspace }}/prestodb.github.io
-          git config --global user.email "ci@lists.prestodb.io"
-          git config --global user.name "prestodb-ci"
+          git config --global user.email "${{ env.GIT_USER_EMAIL }}"
+          git config --global user.name "${{ env.GIT_USER_NAME }}"
           git config --global alias.ls 'log --pretty=format:"%cd %h %ce: %s" --date=short --no-merges'
           git ls -5
 
