@@ -29,7 +29,8 @@ namespace facebook::velox::wave {
 
 void __global__ setupAggregationKernel(AggregationControl op) {
   assert(!op.oldBuckets);
-  auto* data = new (op.head) DeviceAggregation();
+  auto* data = reinterpret_cast<DeviceAggregation*>(op.head);
+  *data = DeviceAggregation();
   data->rowSize = op.rowSize;
   data->singleRow = reinterpret_cast<char*>(data + 1);
   memset(data->singleRow, 0, op.rowSize);
