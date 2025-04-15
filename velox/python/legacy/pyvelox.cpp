@@ -297,17 +297,6 @@ static void addExpressionBindings(
 }
 
 PYBIND11_MODULE(legacy, m) {
-  m.doc() = R"pbdoc(
-      PyVelox's legacy native code module
-      --------------------------
-
-      .. currentmodule:: pyvelox
-
-      .. autosummary::
-         :toctree: _generate
-
-  )pbdoc";
-
   addVeloxBindings(m);
   addSignatureBindings(m);
   addSerdeBindings(m);

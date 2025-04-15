@@ -46,47 +46,80 @@ PYBIND11_MODULE(arrow, m) {
 
   /// Converts a pyarrow.Array into a pyvelox.vector.Vector using Velox's arrow
   /// bridge.
-  m.def("to_velox", [](py::object& batchObject) {
-    ArrowSchema schema;
-    ArrowArray data;
-    std::shared_ptr<arrow::Array> array;
-    std::shared_ptr<arrow::RecordBatch> batch;
+  m.def(
+      "to_velox",
+      [](py::object& batchObject) {
+        ArrowSchema schema;
+        ArrowArray data;
+        std::shared_ptr<arrow::Array> array;
+        std::shared_ptr<arrow::RecordBatch> batch;
 
-    if (arrow::py::is_array(batchObject.ptr())) {
-      array = *arrow::py::unwrap_array(batchObject.ptr());
-      auto statusType = arrow::ExportType(*array->type(), &schema);
-      auto statusArray = arrow::ExportArray(*array, &data);
+        if (arrow::py::is_array(batchObject.ptr())) {
+          array = *arrow::py::unwrap_array(batchObject.ptr());
+          auto statusType = arrow::ExportType(*array->type(), &schema);
+          auto statusArray = arrow::ExportArray(*array, &data);
 
-      if (!statusArray.ok() || !statusType.ok()) {
-        throw std::runtime_error("Unable to convert Arrow Array to C ABI.");
-      }
-    } else if (arrow::py::is_batch(batchObject.ptr())) {
-      batch = *arrow::py::unwrap_batch(batchObject.ptr());
-      auto statusType = arrow::ExportSchema(*batch->schema(), &schema);
-      auto statusArray = arrow::ExportRecordBatch(*batch, &data);
+          if (!statusArray.ok() || !statusType.ok()) {
+            throw std::runtime_error("Unable to convert Arrow Array to C ABI.");
+          }
+        } else if (arrow::py::is_batch(batchObject.ptr())) {
+          batch = *arrow::py::unwrap_batch(batchObject.ptr());
+          auto statusType = arrow::ExportSchema(*batch->schema(), &schema);
+          auto statusArray = arrow::ExportRecordBatch(*batch, &data);
 
-      if (!statusArray.ok() || !statusType.ok()) {
-        throw std::runtime_error(
-            "Unable to convert Arrow RecorBatch to C ABI.");
-      }
-    } else {
-      throw std::runtime_error("Unknown input Arrow structure.");
-    }
-    return velox::py::PyVector{
-        velox::importFromArrowAsViewer(schema, data, leafPool.get()), leafPool};
-  });
+          if (!statusArray.ok() || !statusType.ok()) {
+            throw std::runtime_error(
+                "Unable to convert Arrow RecorBatch to C ABI.");
+          }
+        } else {
+          throw std::runtime_error("Unknown input Arrow structure.");
+        }
+        return velox::py::PyVector{
+            velox::importFromArrowAsViewer(schema, data, leafPool.get()),
+            leafPool};
+      },
+      R"pbdoc(
+Converts an arrow object to a velox vector.
+
+:param vector: Input arrow object.
+
+:examples:
+
+.. doctest::
+
+    >>> array = pyarrow.array([1, 2, 3, 4, 5, 6])
+    >>> vector = to_velox(array)
+
+)pbdoc");
 
   /// Converts a pyvelox.vector.Vector to a pyarrow.Array using Velox's arrow
   /// bridge.
-  m.def("to_arrow", [](velox::py::PyVector& vector) {
-    ArrowSchema schema;
-    ArrowArray data;
+  m.def(
+      "to_arrow",
+      [](velox::py::PyVector& vector) {
+        ArrowSchema schema;
+        ArrowArray data;
 
-    velox::exportToArrow(vector.vector(), schema);
-    velox::exportToArrow(vector.vector(), data, leafPool.get());
+        velox::exportToArrow(vector.vector(), schema);
+        velox::exportToArrow(vector.vector(), data, leafPool.get());
 
-    auto arrowType = *arrow::ImportType(&schema);
-    auto arrowArray = *arrow::ImportArray(&data, arrowType);
-    return py::reinterpret_steal<py::object>(arrow::py::wrap_array(arrowArray));
-  });
+        auto arrowType = *arrow::ImportType(&schema);
+        auto arrowArray = *arrow::ImportArray(&data, arrowType);
+        return py::reinterpret_steal<py::object>(
+            arrow::py::wrap_array(arrowArray));
+      },
+      R"pbdoc(
+Converts a velox vector to an arrow object.
+
+:param vector: Input arrow object.
+
+:examples:
+
+.. doctest::
+
+    >>> import pyvelox.legacy as pv
+    >>> vec = pv.from_list([1, 2, 3, 4, 5])
+    >>> arrow = to_arrow(vec)
+
+)pbdoc");
 }
