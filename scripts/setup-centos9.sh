@@ -68,7 +68,7 @@ function install_build_prerequisites {
   dnf_install ninja-build cmake ccache gcc-toolset-12 git wget which
   dnf_install autoconf automake python3-devel pip libtool
 
-  pip install cmake==3.28.3
+  pip install cmake==3.30.4
 
   if [[ ${USE_CLANG} != "false" ]]; then
     install_clang15

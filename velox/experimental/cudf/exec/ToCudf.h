@@ -1,0 +1,64 @@
+/*
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#pragma once
+
+#include "velox/exec/Driver.h"
+#include "velox/exec/Operator.h"
+
+#include <gflags/gflags.h>
+
+DECLARE_bool(velox_cudf_enabled);
+DECLARE_string(velox_cudf_memory_resource);
+DECLARE_bool(velox_cudf_debug);
+
+namespace facebook::velox::cudf_velox {
+
+static const std::string kCudfAdapterName = "cuDF";
+
+class CompileState {
+ public:
+  CompileState(const exec::DriverFactory& driverFactory, exec::Driver& driver)
+      : driverFactory_(driverFactory), driver_(driver) {}
+
+  exec::Driver& driver() {
+    return driver_;
+  }
+
+  // Replaces sequences of Operators in the Driver given at construction with
+  // cuDF equivalents. Returns true if the Driver was changed.
+  bool compile();
+
+  const exec::DriverFactory& driverFactory_;
+  exec::Driver& driver_;
+};
+
+struct CudfOptions {
+  bool cudfEnabled = FLAGS_velox_cudf_enabled;
+  std::string cudfMemoryResource = FLAGS_velox_cudf_memory_resource;
+  static CudfOptions defaultOptions() {
+    return CudfOptions();
+  }
+};
+
+/// Registers adapter to add cuDF operators to Drivers.
+void registerCudf(const CudfOptions& options = CudfOptions::defaultOptions());
+void unregisterCudf();
+
+/// Returns true if cuDF is registered.
+bool cudfIsRegistered();
+
+} // namespace facebook::velox::cudf_velox
