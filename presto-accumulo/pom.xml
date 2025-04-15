@@ -362,9 +362,8 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.presto.hadoop</groupId>
-            <artifactId>hadoop-apache2</artifactId>
-            <version>2.7.4-12</version>
+            <groupId>com.github.nishithakbhaskaran</groupId>
+            <artifactId>presto-hadoop-apache2</artifactId>
         </dependency>
     </dependencies>
 
