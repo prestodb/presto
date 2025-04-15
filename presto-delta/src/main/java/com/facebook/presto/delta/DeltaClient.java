@@ -91,12 +91,14 @@ public class DeltaClient
         Table deltaTable = loadDeltaTable(location.toString(), deltaEngine.get());
         Snapshot snapshot = getSnapshot(deltaTable, deltaEngine.get(), schemaTableName, snapshotId,
                 snapshotAsOfTimestampMillis);
+        Optional<Long> snapshotVersion = Optional.of(snapshot.getVersion(deltaEngine.get()));
+        List<DeltaColumn> schema = getSchema(config, schemaTableName, deltaEngine.get(), snapshot);
         return Optional.of(new DeltaTable(
                 schemaTableName.getSchemaName(),
                 schemaTableName.getTableName(),
                 tableLocation,
-                Optional.of(snapshot.getVersion(deltaEngine.get())), // lock the snapshot version
-                getSchema(config, schemaTableName, deltaEngine.get(), snapshot)));
+                snapshotVersion, // lock the snapshot version
+                schema));
     }
 
     private Snapshot getSnapshot(
