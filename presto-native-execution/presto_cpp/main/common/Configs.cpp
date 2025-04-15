@@ -207,6 +207,7 @@ SystemConfig::SystemConfig() {
           STR_PROP(kSharedArbitratorMemoryPoolReservedCapacity, "64MB"),
           STR_PROP(kSharedArbitratorMaxMemoryArbitrationTime, "5m"),
           STR_PROP(kSharedArbitratorGlobalArbitrationEnabled, "false"),
+          STR_PROP(kSharedArbitratorMemoryPoolAbortCapacityLimit, "8GB"),
           NUM_PROP(kLargestSizeClassPages, 256),
           BOOL_PROP(kEnableVeloxTaskLogging, false),
           BOOL_PROP(kEnableVeloxExprSetLogging, false),
