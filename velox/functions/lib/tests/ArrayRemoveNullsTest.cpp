@@ -71,4 +71,11 @@ TEST_F(ArrayRemoveNullsTest, complexType) {
   testArrayRemoveNull(expected, input);
 }
 
+TEST_F(ArrayRemoveNullsTest, nullArray) {
+  const auto input = makeArrayVectorFromJson<int64_t>({"[null]", "[]", "null"});
+
+  auto expected = makeArrayVectorFromJson<int64_t>({"[]", "[]", "null"});
+  testArrayRemoveNull(expected, input);
+}
+
 } // namespace

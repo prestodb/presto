@@ -17,6 +17,7 @@
 #include <string>
 
 #include "velox/functions/Registerer.h"
+#include "velox/functions/lib/ArrayRemoveNullFunction.h"
 #include "velox/functions/lib/ArrayShuffle.h"
 #include "velox/functions/lib/Repeat.h"
 #include "velox/functions/lib/Slice.h"
