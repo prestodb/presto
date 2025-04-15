@@ -299,7 +299,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: join
-          path: velox/_build/debug/velox/exec/tests/velox_join_fuzzer_test
+          path: velox/_build/debug/velox/exec/fuzzer/velox_join_fuzzer
           retention-days: "${{ env.RETENTION }}"
 
       - name: Upload exchange fuzzer
@@ -657,10 +657,10 @@ jobs:
           cd -
           mkdir -p /tmp/join_fuzzer_repro/logs/
           chmod -R 777 /tmp/join_fuzzer_repro
-          chmod +x velox_join_fuzzer_test
+          chmod +x velox_join_fuzzer
           random_seed=${RANDOM}
           echo "Random seed: ${random_seed}"
-          ./velox_join_fuzzer_test \
+          ./velox_join_fuzzer \
                 --seed ${random_seed} \
                 --duration_sec $DURATION \
                 --minloglevel=0 \

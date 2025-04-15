@@ -95,7 +95,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: join
-          path: velox/_build/debug/velox/exec/tests/velox_join_fuzzer_test
+          path: velox/_build/debug/velox/exec/fuzzer/velox_join_fuzzer
 
       - name: Upload Presto expression fuzzer
         uses: actions/upload-artifact@v4
@@ -240,8 +240,8 @@ jobs:
           mkdir -p /tmp/join_fuzzer_repro/
           rm -rfv /tmp/join_fuzzer_repro/*
           chmod -R 777 /tmp/join_fuzzer_repro
-          chmod +x velox_join_fuzzer_test
-          ./velox_join_fuzzer_test \
+          chmod +x velox_join_fuzzer
+          ./velox_join_fuzzer \
                 --seed ${RANDOM} \
                 --duration_sec 1800 \
                 --logtostderr=1 \

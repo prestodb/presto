@@ -36,11 +36,11 @@ The logically equivalent plans are generated as follows:
 How to run
 ----------
 
-Use velox_join_fuzzer_test binary to run join fuzzer:
+Use velox_join_fuzzer binary to run join fuzzer:
 
 ::
 
-    velox/exec/tests/velox_join_fuzzer_test
+    velox/exec/fuzzer/velox_join_fuzzer
 
 By default, the fuzzer will go through 10 iterations. Use --steps
 or --duration-sec flag to run fuzzer for longer. Use --seed to

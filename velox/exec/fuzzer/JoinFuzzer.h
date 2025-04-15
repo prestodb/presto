@@ -18,8 +18,8 @@
 #include <cstddef>
 #include "velox/exec/fuzzer/ReferenceQueryRunner.h"
 
-namespace facebook::velox::exec::test {
+namespace facebook::velox::exec {
 void joinFuzzer(
     size_t seed,
-    std::unique_ptr<ReferenceQueryRunner> referenceQueryRunner);
+    std::unique_ptr<test::ReferenceQueryRunner> referenceQueryRunner);
 }
