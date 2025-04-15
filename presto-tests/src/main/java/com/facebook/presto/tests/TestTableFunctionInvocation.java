@@ -56,10 +56,9 @@ public class TestTableFunctionInvocation
         return DistributedQueryRunner.builder(testSessionBuilder()
                         .setCatalog(TESTING_CATALOG)
                         .setSchema(TABLE_FUNCTION_SCHEMA)
-                        .build())
+                        .build()).setSingleExtraProperty("query.max-memory-per-node", "2GB")
                 .build();
     }
-
     @Override
     protected QueryRunner createExpectedQueryRunner()
             throws Exception
@@ -297,7 +296,6 @@ public class TestTableFunctionInvocation
                 "               input_4 => TABLE(VALUES 8, 9)))\n",
                 "VALUES (true, 4, 6), (true, 4, 7), (true, 5, 6), (true, 5, 7)");
 
-
         assertQuery("SELECT * FROM TABLE(system.test_inputs_function(" +
                         "input_1 => TABLE(VALUES 1, 2, 3)," +
                         "input_2 => TABLE(VALUES 4, 5, 4, 5, 4) t2(x2) PARTITION BY x2," +
@@ -347,10 +345,10 @@ public class TestTableFunctionInvocation
                 "VALUES true");
 
         assertQueryReturnsEmptyResult("SELECT * FROM TABLE(system.test_inputs_function(" +
-            "input_1 => TABLE(SELECT 1 WHERE false)," +
-            "input_2 => TABLE(VALUES 2)," +
-            "input_3 => TABLE(VALUES 3)," +
-            "input_4 => TABLE(VALUES 4)))");
+                "input_1 => TABLE(SELECT 1 WHERE false)," +
+                "input_2 => TABLE(VALUES 2)," +
+                "input_3 => TABLE(VALUES 3)," +
+                "input_4 => TABLE(VALUES 4)))");
 
         assertQuery("SELECT * FROM TABLE(system.test_inputs_function(" +
                         "input_1 => TABLE(VALUES 1, 2, 3)," +
@@ -496,10 +494,10 @@ public class TestTableFunctionInvocation
                 "Table function co-partitioning not currently supported");
 //                "VALUES (true, false, 1, 'a', CAST(null AS integer), CAST(null AS VARCHAR(1))), (true, false, 2, 'b', null, null)");
 
-//               assertQuery("SELECT * FROM TABLE(system.pass_through(" +
-//                                            "TABLE(VALUES (1, 'a'), (2, 'b')) t1(a1, b1) PARTITION BY a1," +
-//                                            "TABLE(SELECT 2, 'x' WHERE false) t2(a2, b2) PARTITION BY a2))",
-//                       "VALUES (true, false, 1, 'a', CAST(null AS integer), CAST(null AS VARCHAR(1))), (true, false, 2, 'b', null, null)");
+        assertQuery("SELECT * FROM TABLE(system.pass_through(" +
+                        "TABLE(VALUES (1, 'a'), (2, 'b')) t1(a1, b1) PARTITION BY a1," +
+                        "TABLE(SELECT 2, 'x' WHERE false) t2(a2, b2) PARTITION BY a2))",
+                "VALUES (true, false, 1, 'a', CAST(null AS integer), CAST(null AS VARCHAR(1))), (true, false, 2, 'b', null, null)");
     }
 
     @Test
@@ -509,8 +507,8 @@ public class TestTableFunctionInvocation
                 "Table function co-partitioning not currently supported");
         //        "VALUES (false, false, CAST(null AS integer), CAST(null AS VARCHAR(1)), CAST(null AS integer), CAST(null AS VARCHAR(1)))");
 
-//        assertQuery("SELECT * FROM TABLE(system.pass_through(TABLE(SELECT 1, 'x' WHERE false) t1(a1, b1) PARTITION BY a1, TABLE(SELECT 2, 'y' WHERE false) t2(a2, b2) PARTITION BY a2))",
-//                "VALUES (false, false, CAST(null AS integer), CAST(null AS VARCHAR(1)), CAST(null AS integer), CAST(null AS VARCHAR(1)))");
+        assertQuery("SELECT * FROM TABLE(system.pass_through(TABLE(SELECT 1, 'x' WHERE false) t1(a1, b1) PARTITION BY a1, TABLE(SELECT 2, 'y' WHERE false) t2(a2, b2) PARTITION BY a2))",
+                "VALUES (false, false, CAST(null AS integer), CAST(null AS VARCHAR(1)), CAST(null AS integer), CAST(null AS VARCHAR(1)))");
     }
 
     @Test
