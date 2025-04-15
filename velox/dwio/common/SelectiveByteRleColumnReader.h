@@ -33,10 +33,6 @@ class SelectiveByteRleColumnReader : public SelectiveColumnReader {
             params,
             scanSpec) {}
 
-  bool hasBulkPath() const override {
-    return false;
-  }
-
   void getValues(const RowSet& rows, VectorPtr* result) override;
 
   template <

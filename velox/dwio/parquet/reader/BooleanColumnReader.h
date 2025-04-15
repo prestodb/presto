@@ -35,6 +35,10 @@ class BooleanColumnReader : public dwio::common::SelectiveByteRleColumnReader {
             params,
             scanSpec) {}
 
+  bool hasBulkPath() const override {
+    return false;
+  }
+
   void seekToRowGroup(int64_t index) override {
     SelectiveByteRleColumnReader::seekToRowGroup(index);
     scanState().clear();

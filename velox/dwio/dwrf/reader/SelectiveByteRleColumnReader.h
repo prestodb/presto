@@ -64,6 +64,10 @@ class SelectiveByteRleColumnReader
     }
   }
 
+  bool hasBulkPath() const override {
+    return false;
+  }
+
   void seekToRowGroup(int64_t index) override {
     dwio::common::SelectiveByteRleColumnReader::seekToRowGroup(index);
     auto positionsProvider = formatData_->seekToRowGroup(index);
