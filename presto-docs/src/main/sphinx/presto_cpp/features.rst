@@ -255,4 +255,4 @@ Users can enable collection of worker level metrics by setting the property:
   metrics collection in Prometheus Data Format see `Worker Metrics Collection <https://github.com/prestodb/presto/tree/master/presto-native-execution#worker-metrics-collection>`_.
 
   When enabled and Presto C++ workers interact with the S3 filesystem, additional runtime metrics are collected.
-  For a detailed list of these metrics, see `runtime metrics <https://facebookincubator.github.io/velox/monitoring/metrics.html#s3-filesystem>`_.
+  For a detailed list of these metrics, see `S3 FileSystem <https://facebookincubator.github.io/velox/monitoring/metrics.html#s3-filesystem>`_.
