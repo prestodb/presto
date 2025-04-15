@@ -309,10 +309,7 @@ BlockingReason MergeJoinSource::enqueue(
       return BlockingReason::kNotBlocked;
     }
 
-    if (state.data != nullptr) {
-      return waitForConsumer(future);
-    }
-
+    VELOX_CHECK_NULL(state.data);
     state.data = std::move(data);
     deferNotify(consumerPromise_, notifier);
     return waitForConsumer(future);

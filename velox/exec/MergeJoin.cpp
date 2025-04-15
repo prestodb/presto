@@ -1058,6 +1058,7 @@ RowVectorPtr MergeJoin::doGetOutput() {
           return std::move(output_);
         }
         input_ = nullptr;
+        rightInput_ = nullptr;
       }
     }
 
