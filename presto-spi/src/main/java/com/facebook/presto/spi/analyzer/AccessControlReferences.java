@@ -28,6 +28,7 @@ public class AccessControlReferences
 {
     private final Map<AccessControlRole, Set<AccessControlInfoForTable>> tableReferences;
     private final Map<AccessControlInfo, Map<QualifiedObjectName, Set<Subfield>>> tableColumnAndSubfieldReferencesForAccessControl;
+    private AccessControlInfo queryAccessControlInfo;
 
     public AccessControlReferences()
     {
@@ -53,5 +54,17 @@ public class AccessControlReferences
     public void addTableColumnAndSubfieldReferencesForAccessControl(Map<AccessControlInfo, Map<QualifiedObjectName, Set<Subfield>>> tableColumnAndSubfieldReferencesForAccessControl)
     {
         this.tableColumnAndSubfieldReferencesForAccessControl.putAll((requireNonNull(tableColumnAndSubfieldReferencesForAccessControl, "tableColumnAndSubfieldReferencesForAccessControl is null")));
+    }
+
+    public void setQueryAccessControlInfo(AccessControlInfo queryAccessControlInfo)
+    {
+        if (this.queryAccessControlInfo == null) {
+            this.queryAccessControlInfo = requireNonNull(queryAccessControlInfo, "queryAccessControlInfo is null");
+        }
+    }
+
+    public AccessControlInfo getQueryAccessControlInfo()
+    {
+        return queryAccessControlInfo;
     }
 }

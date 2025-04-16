@@ -60,7 +60,7 @@ public class PrepareTask
     }
 
     @Override
-    public ListenableFuture<?> execute(Prepare prepare, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine queryStateMachine, List<Expression> parameters)
+    public ListenableFuture<?> execute(Prepare prepare, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine queryStateMachine, List<Expression> parameters, String query)
     {
         Statement statement = prepare.getStatement();
         if ((statement instanceof Prepare) || (statement instanceof Execute) || (statement instanceof Deallocate)) {

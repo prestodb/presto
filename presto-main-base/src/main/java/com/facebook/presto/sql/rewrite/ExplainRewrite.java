@@ -60,9 +60,10 @@ final class ExplainRewrite
             List<Expression> parameter,
             Map<NodeRef<Parameter>, Expression> parameterLookup,
             AccessControl accessControl,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            String query)
     {
-        return (Statement) new Visitor(session, parser, queryExplainer, warningCollector).process(node, null);
+        return (Statement) new Visitor(session, parser, queryExplainer, warningCollector, query).process(node, null);
     }
 
     private static final class Visitor
@@ -72,17 +73,20 @@ final class ExplainRewrite
         private final BuiltInQueryPreparer queryPreparer;
         private final Optional<QueryExplainer> queryExplainer;
         private final WarningCollector warningCollector;
+        private final String query;
 
         public Visitor(
                 Session session,
                 SqlParser parser,
                 Optional<QueryExplainer> queryExplainer,
-                WarningCollector warningCollector)
+                WarningCollector warningCollector,
+                String query)
         {
             this.session = requireNonNull(session, "session is null");
             this.queryPreparer = new BuiltInQueryPreparer(requireNonNull(parser, "queryPreparer is null"));
             this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+            this.query = requireNonNull(query, "query is null");
         }
 
         @Override
@@ -131,13 +135,13 @@ final class ExplainRewrite
             String plan;
             switch (planFormat) {
                 case GRAPHVIZ:
-                    plan = queryExplainer.get().getGraphvizPlan(session, preparedQuery.getStatement(), planType, preparedQuery.getParameters(), warningCollector);
+                    plan = queryExplainer.get().getGraphvizPlan(session, preparedQuery.getStatement(), planType, preparedQuery.getParameters(), warningCollector, query);
                     break;
                 case JSON:
-                    plan = queryExplainer.get().getJsonPlan(session, preparedQuery.getStatement(), planType, preparedQuery.getParameters(), warningCollector);
+                    plan = queryExplainer.get().getJsonPlan(session, preparedQuery.getStatement(), planType, preparedQuery.getParameters(), warningCollector, query);
                     break;
                 case TEXT:
-                    plan = queryExplainer.get().getPlan(session, preparedQuery.getStatement(), planType, preparedQuery.getParameters(), node.isVerbose(), warningCollector);
+                    plan = queryExplainer.get().getPlan(session, preparedQuery.getStatement(), planType, preparedQuery.getParameters(), node.isVerbose(), warningCollector, query);
                     break;
                 default:
                     throw new IllegalArgumentException("Invalid Explain Format: " + planFormat.toString());

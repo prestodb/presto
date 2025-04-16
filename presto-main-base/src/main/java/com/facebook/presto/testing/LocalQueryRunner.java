@@ -472,6 +472,7 @@ public class LocalQueryRunner
         NodeInfo nodeInfo = new NodeInfo("test");
         expressionOptimizerManager = new ExpressionOptimizerManager(new PluginNodeManager(nodeManager, nodeInfo.getEnvironment()), getFunctionAndTypeManager());
 
+        this.accessControl = new TestingAccessControlManager(transactionManager);
         this.statsNormalizer = new StatsNormalizer();
         this.scalarStatsCalculator = new ScalarStatsCalculator(metadata, expressionOptimizerManager);
         this.filterStatsCalculator = new FilterStatsCalculator(metadata, scalarStatsCalculator, statsNormalizer);
@@ -481,7 +482,6 @@ public class LocalQueryRunner
         this.taskCountEstimator = new TaskCountEstimator(() -> nodeCountForStats);
         this.costCalculator = new CostCalculatorUsingExchanges(taskCountEstimator);
         this.estimatedExchangesCostCalculator = new CostCalculatorWithEstimatedExchanges(costCalculator, taskCountEstimator);
-        this.accessControl = new TestingAccessControlManager(transactionManager);
         this.pageSourceManager = new PageSourceManager();
 
         this.pageFunctionCompiler = new PageFunctionCompiler(metadata, 0);
@@ -936,10 +936,10 @@ public class LocalQueryRunner
 
         BuiltInQueryAnalyzer queryAnalyzer = new BuiltInQueryAnalyzer(metadata, sqlParser, accessControl, Optional.of(queryExplainer), metadataExtractorExecutor);
 
-        AnalyzerContext analyzerContext = getAnalyzerContext(queryAnalyzer, metadata.getMetadataResolver(session), idAllocator, new VariableAllocator(), session);
+        AnalyzerContext analyzerContext = getAnalyzerContext(queryAnalyzer, metadata.getMetadataResolver(session), idAllocator, new VariableAllocator(), session, sql);
 
         QueryAnalysis queryAnalysis = queryAnalyzer.analyze(analyzerContext, preparedQuery);
-        checkAccessPermissions(queryAnalysis.getAccessControlReferences());
+        checkAccessPermissions(queryAnalysis.getAccessControlReferences(), sql);
 
         MaterializedResult result = MaterializedResult.resultBuilder(session, BooleanType.BOOLEAN)
                 .row(true)
@@ -1192,10 +1192,10 @@ public class LocalQueryRunner
 
         BuiltInQueryAnalyzer queryAnalyzer = new BuiltInQueryAnalyzer(metadata, sqlParser, accessControl, Optional.of(queryExplainer), metadataExtractorExecutor);
 
-        AnalyzerContext analyzerContext = getAnalyzerContext(queryAnalyzer, metadata.getMetadataResolver(session), idAllocator, new VariableAllocator(), session);
+        AnalyzerContext analyzerContext = getAnalyzerContext(queryAnalyzer, metadata.getMetadataResolver(session), idAllocator, new VariableAllocator(), session, sql);
 
         QueryAnalysis queryAnalysis = queryAnalyzer.analyze(analyzerContext, preparedQuery);
-        checkAccessPermissions(queryAnalysis.getAccessControlReferences());
+        checkAccessPermissions(queryAnalysis.getAccessControlReferences(), sql);
 
         PlanNode planNode = session.getRuntimeStats().recordWallAndCpuTime(
                 LOGICAL_PLANNER_TIME_NANOS,

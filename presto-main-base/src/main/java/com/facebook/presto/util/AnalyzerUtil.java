@@ -85,22 +85,37 @@ public class AnalyzerUtil
             MetadataResolver metadataResolver,
             PlanNodeIdAllocator idAllocator,
             VariableAllocator variableAllocator,
-            Session session)
+            Session session,
+            String query)
     {
         // TODO: Remove this hack once inbuilt query analyzer is moved to presto-analyzer
         if (queryAnalyzer instanceof BuiltInQueryAnalyzer) {
-            return getBuiltInAnalyzerContext(metadataResolver, idAllocator, variableAllocator, session);
+            return getBuiltInAnalyzerContext(metadataResolver, idAllocator, variableAllocator, session, query);
         }
 
-        return new AnalyzerContext(metadataResolver, idAllocator, variableAllocator);
+        return new AnalyzerContext(metadataResolver, idAllocator, variableAllocator, query);
     }
 
-    public static void checkAccessPermissions(AccessControlReferences accessControlReferences)
+    public static void checkAccessPermissions(AccessControlReferences accessControlReferences, String query)
     {
+        // Query check
+        checkAccessPermissionsForQuery(accessControlReferences, query);
         // Table checks
         checkAccessPermissionsForTable(accessControlReferences);
         // Table Column checks
         checkAccessPermissionsForColumns(accessControlReferences);
+    }
+
+    private static void checkAccessPermissionsForQuery(AccessControlReferences accessControlReferences, String query)
+    {
+        AccessControlInfo queryAccessControlInfo = accessControlReferences.getQueryAccessControlInfo();
+        // Only check access if query gets analyzed
+        if (queryAccessControlInfo != null) {
+            AccessControl queryAccessControl = queryAccessControlInfo.getAccessControl();
+            Identity identity = queryAccessControlInfo.getIdentity();
+            AccessControlContext queryAccessControlContext = queryAccessControlInfo.getAccessControlContext();
+            queryAccessControl.checkQueryIntegrity(identity, queryAccessControlContext, query);
+        }
     }
 
     private static void checkAccessPermissionsForColumns(AccessControlReferences accessControlReferences)

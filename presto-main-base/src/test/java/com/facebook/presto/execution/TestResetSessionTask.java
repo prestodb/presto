@@ -94,7 +94,8 @@ public class TestResetSessionTask
                 metadata,
                 accessControl,
                 stateMachine,
-                emptyList()));
+                emptyList(),
+                ""));
 
         Set<String> sessionProperties = stateMachine.getResetSessionProperties();
         assertEquals(sessionProperties, ImmutableSet.of("catalog.baz"));

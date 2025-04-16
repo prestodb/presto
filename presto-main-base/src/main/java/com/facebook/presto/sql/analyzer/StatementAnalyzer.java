@@ -42,6 +42,7 @@ import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.analyzer.AccessControlInfo;
 import com.facebook.presto.spi.analyzer.AccessControlInfoForTable;
 import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
@@ -340,6 +341,8 @@ class StatementAnalyzer
         this.metadataResolver = requireNonNull(metadata.getMetadataResolver(session), "metadataResolver is null");
         requireNonNull(metadata.getFunctionAndTypeManager(), "functionAndTypeManager is null");
         this.functionAndTypeResolver = requireNonNull(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(), "functionAndTypeResolver is null");
+
+        analysis.addQueryAccessControlInfo(new AccessControlInfo(accessControl, session.getIdentity(), session.getTransactionId(), session.getAccessControlContext()));
     }
 
     public Scope analyze(Node node, Scope outerQueryScope)

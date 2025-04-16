@@ -64,9 +64,10 @@ final class DescribeOutputRewrite
             List<Expression> parameters,
             Map<NodeRef<Parameter>, Expression> parameterLookup,
             AccessControl accessControl,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            String query)
     {
-        return (Statement) new Visitor(session, parser, metadata, queryExplainer, parameters, parameterLookup, accessControl, warningCollector).process(node, null);
+        return (Statement) new Visitor(session, parser, metadata, queryExplainer, parameters, parameterLookup, accessControl, warningCollector, query).process(node, null);
     }
 
     private static final class Visitor
@@ -80,6 +81,7 @@ final class DescribeOutputRewrite
         private final Map<NodeRef<Parameter>, Expression> parameterLookup;
         private final AccessControl accessControl;
         private final WarningCollector warningCollector;
+        private final String query;
 
         public Visitor(
                 Session session,
@@ -89,7 +91,8 @@ final class DescribeOutputRewrite
                 List<Expression> parameters,
                 Map<NodeRef<Parameter>, Expression> parameterLookup,
                 AccessControl accessControl,
-                WarningCollector warningCollector)
+                WarningCollector warningCollector,
+                String query)
         {
             this.session = requireNonNull(session, "session is null");
             this.parser = parser;
@@ -99,6 +102,7 @@ final class DescribeOutputRewrite
             this.parameterLookup = parameterLookup;
             this.accessControl = accessControl;
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+            this.query = requireNonNull(query, "query is null");
         }
 
         @Override
@@ -107,7 +111,7 @@ final class DescribeOutputRewrite
             String sqlString = session.getPreparedStatement(node.getName().getValue());
             Statement statement = parser.createStatement(sqlString, createParsingOptions(session, warningCollector));
 
-            Analyzer analyzer = new Analyzer(session, metadata, parser, accessControl, queryExplainer, parameters, parameterLookup, warningCollector);
+            Analyzer analyzer = new Analyzer(session, metadata, parser, accessControl, queryExplainer, parameters, parameterLookup, warningCollector, query);
             Analysis analysis = analyzer.analyze(statement, true);
 
             Optional<String> limit = Optional.empty();

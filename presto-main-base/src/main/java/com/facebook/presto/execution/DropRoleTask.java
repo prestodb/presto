@@ -40,7 +40,7 @@ public class DropRoleTask
     }
 
     @Override
-    public ListenableFuture<?> execute(DropRole statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
+    public ListenableFuture<?> execute(DropRole statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector, String query)
     {
         String catalog = createCatalogName(session, statement);
         String role = statement.getName().getValueLowerCase();
