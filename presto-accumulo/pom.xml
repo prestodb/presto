@@ -173,11 +173,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.presto.hadoop</groupId>
-            <artifactId>hadoop-apache2</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>bootstrap</artifactId>
             <exclusions>
@@ -364,6 +359,11 @@
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>
             <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.github.nishithakbhaskaran</groupId>
+            <artifactId>presto-hadoop-apache2</artifactId>
         </dependency>
     </dependencies>
 
