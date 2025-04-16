@@ -348,13 +348,6 @@ public class TDigest
             weight = Arrays.copyOf(weight, min(weight.length * 2, maxCentroidCount));
         }
 
-        // sanity check
-        double sumWeights = 0;
-        for (int i = 0; i < activeCentroids; i++) {
-            sumWeights += weight[i];
-        }
-
-        checkArgument(Math.abs(sumWeights - totalWeight) < EPSILON, "Sum must equal the total weight, but sum:%s != totalWeight:%s", sumWeights, totalWeight);
         if (runBackwards) {
             reverse(mean, 0, activeCentroids);
             reverse(weight, 0, activeCentroids);
