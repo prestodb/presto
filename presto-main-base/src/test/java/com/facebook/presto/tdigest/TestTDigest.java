@@ -226,6 +226,25 @@ public class TestTDigest
     }
 
     @Test
+    public void testScale()
+    {
+        TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
+        NormalDistribution normal = new NormalDistribution(1000, 100);
+
+        for (int i = 0; i < NUMBER_OF_ENTRIES; i++) {
+            tDigest.add(normal.sample());
+        }
+
+        double oldMin = tDigest.getMin();
+        double oldMax = tDigest.getMax();
+        double oldSum = tDigest.getSum();
+        tDigest.scale(1.7);
+        assertEquals(tDigest.getSum(), oldSum * 1.7);
+        assertEquals(tDigest.getMin(), oldMin);
+        assertEquals(tDigest.getMax(), oldMax);
+    }
+
+    @Test
     public void testNormalDistributionHighVariance()
     {
         TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
