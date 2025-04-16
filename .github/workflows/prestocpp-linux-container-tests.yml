@@ -1,0 +1,104 @@
+name: prestocpp-linux-container-tests
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'presto-native-execution/**'
+      - 'presto-native-sidecar-plugin/**'
+      - '.github/workflows/prestocpp-linux-container-tests.yml'
+
+env:
+  CONTINUOUS_INTEGRATION: true
+  MAVEN_OPTS: "-Xmx1024M -XX:+ExitOnOutOfMemoryError"
+  MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
+  MAVEN_FAST_INSTALL: "-B -V -T 1C -DskipTests -Dair.check.skip-all --no-transfer-progress -Dmaven.javadoc.skip=true"
+  MAVEN_TEST: "-B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --no-transfer-progress --fail-at-end"
+  RETRY: .github/bin/retry
+  DOCKER_BUILDKIT: 1
+
+jobs:
+  prestocpp-linux-container-tests:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fix git permissions
+        # Usually actions/checkout does this but as we run in a container
+        # it doesn't work
+        run: git config --global --add safe.directory ${GITHUB_WORKSPACE}
+
+      - name: Disk space consumption before build
+        run: df
+
+      - name: Set env variables
+        run: |
+          echo "TESTCONTAINERS_RYUK_DISABLED=true" >> $GITHUB_ENV
+      
+      - name: Remove node docker images
+        run: |
+          docker rmi node:20
+          docker rmi node:18
+          docker rmi node:22
+          docker images
+
+      - name: Update velox
+        run: |
+          cd presto-native-execution
+          make velox-submodule
+
+      - name: Install OpenJDK8
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: 8
+          cache: 'maven'
+
+      - name: Build the worker image
+        env:
+          # Use different Maven options to install.
+          MAVEN_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
+        run: |
+          ./mvnw install ${MAVEN_FAST_INSTALL} -Pdocker-build -Ddocker.verbose=true -Denable.docker.build.coordinator=false  -pl ':presto-native-execution' -am
+
+      - name: Disk space consumption after building worker image
+        run: df
+
+      - name: See the docker images
+        run: docker images
+
+      - name: Disk space consumption after removing worker image
+        run: df
+
+      - name: Build the coordinator image
+        env:
+          # Use different Maven options to install.
+          MAVEN_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
+        run: |
+          ./mvnw install ${MAVEN_FAST_INSTALL} -Pdocker-build -Ddocker.verbose=true -Denable.docker.build.worker=false  -pl '!presto-docs'
+
+      - name: Disk space consumption after building coordinator image
+        run: df
+
+      - name: Run presto-native container tests
+        run: |
+          export PRESTO_SERVER_PATH="${GITHUB_WORKSPACE}/presto-native-execution/_build/release/presto_cpp/main/presto_server"
+          export TESTFILES=`find ./presto-native-execution/src/test -type f -name 'TestPrestoContainer*.java'`
+          # Convert file paths to comma separated class names
+          export TESTCLASSES=
+          for test_file in $TESTFILES
+          do
+            tmp=${test_file##*/}
+            test_class=${tmp%%\.*}
+            export TESTCLASSES="${TESTCLASSES},$test_class"
+          done
+          export TESTCLASSES=${TESTCLASSES#,}
+          echo "TESTCLASSES = $TESTCLASSES"
+
+          mvn test \
+            ${MAVEN_TEST} \
+            -pl 'presto-native-execution' \
+            -Dtest="${TESTCLASSES}" \
+            -DPRESTO_SERVER=${PRESTO_SERVER_PATH} \
+            -DDATA_DIR=${RUNNER_TEMP} \
+            -Duser.timezone=America/Bahia_Banderas \
+            -T1C
