@@ -25,7 +25,6 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.node.NodeModule;
 import com.facebook.airlift.tracetoken.TraceTokenModule;
 import com.facebook.presto.router.security.RouterSecurityModule;
-import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
 import com.facebook.presto.server.security.SecurityConfig;
 import com.google.common.collect.ImmutableList;
@@ -60,7 +59,7 @@ public class PrestoRouter
         Logger log = Logger.get(RouterModule.class);
         try {
             Injector injector = app.initialize();
-            injector.getInstance(PluginManager.class).loadPlugins();
+            injector.getInstance(RouterPluginManager.class).loadPlugins();
             injector.getInstance(PasswordAuthenticatorManager.class).loadPasswordAuthenticator();
             SecurityConfig securityConfig = injector.getInstance(SecurityConfig.class);
             log.info("======== SERVER STARTED ========");
