@@ -343,13 +343,6 @@ class ColumnVisitor {
     return currentRow() - rowAt(rowIndex_ - 1) - 1;
   }
 
-  // Returns space for 'size' items of T for a scan to fill. The scan
-  // calls addResults and related to mark which elements are part of
-  // the result.
-  inline T* mutableValues(int32_t size) {
-    return reader_->mutableValues<T>(size);
-  }
-
   SelectiveColumnReader& reader() const {
     return *reader_;
   }
