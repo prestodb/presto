@@ -15,8 +15,8 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <air.checkstyle.config-file>src/checkstyle/presto-checks.xml</air.checkstyle.config-file>
-        <enable.docker.build.coordinator>true</enable.docker.build.coordinator>
-        <enable.docker.build.worker>true</enable.docker.build.worker>
+        <enable.docker.build.coordinator>false</enable.docker.build.coordinator>
+        <enable.docker.build.worker>false</enable.docker.build.worker>
     </properties>
 
     <dependencies>
