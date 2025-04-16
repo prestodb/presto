@@ -3055,6 +3055,7 @@
                     --add-opens java.base/java.lang.invoke=ALL-UNNAMED
                     --add-opens java.base/sun.net.www.protocol.jar=ALL-UNNAMED
                     --add-opens java.base/jdk.internal.perf=ALL-UNNAMED
+                    -XX:OnOutOfMemoryError="kill -3 %p"
                 </air.test.jvm.additional-arguments>
             </properties>
         </profile>
