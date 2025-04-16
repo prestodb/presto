@@ -205,7 +205,9 @@ class LinuxMemoryChecker : public PeriodicMemoryChecker {
       };
 
       // Unit is in bytes.
-      return inactiveAnon + activeAnon;
+      const auto memBytes = inactiveAnon + activeAnon;
+      cachedSystemUsedMemoryBytes_ = memBytes;
+      return memBytes;
     }
 
     // Last resort use host machine info.
@@ -226,7 +228,10 @@ class LinuxMemoryChecker : public PeriodicMemoryChecker {
       }
     };
     // Unit is in bytes.
-    return (memAvailable && memTotal) ? memTotal - memAvailable : 0;
+    const auto memBytes =
+        (memAvailable && memTotal) ? memTotal - memAvailable : 0;
+    cachedSystemUsedMemoryBytes_ = memBytes;
+    return memBytes;
   }
 
   int64_t mallocBytes() const override {
@@ -274,20 +279,18 @@ class LinuxMemoryChecker : public PeriodicMemoryChecker {
   }
 };
 
-folly::Singleton<facebook::presto::PeriodicMemoryChecker> checker(
-    []() -> facebook::presto::PeriodicMemoryChecker* {
-      auto* systemConfig = SystemConfig::instance();
-      if (systemConfig->systemMemPushbackEnabled()) {
-        PeriodicMemoryChecker::Config config;
-        config.systemMemPushbackEnabled =
-            systemConfig->systemMemPushbackEnabled();
-        config.systemMemLimitBytes =
-            static_cast<uint64_t>(systemConfig->systemMemLimitGb()) << 30;
-        config.systemMemShrinkBytes =
-            static_cast<uint64_t>(systemConfig->systemMemShrinkGb()) << 30;
-        return std::make_unique<LinuxMemoryChecker>(config).release();
-      }
-      return nullptr;
-    });
+std::unique_ptr<PeriodicMemoryChecker> createMemoryChecker() {
+  auto* systemConfig = SystemConfig::instance();
+  if (systemConfig->systemMemPushbackEnabled()) {
+    PeriodicMemoryChecker::Config config;
+    config.systemMemPushbackEnabled = systemConfig->systemMemPushbackEnabled();
+    config.systemMemLimitBytes =
+        static_cast<uint64_t>(systemConfig->systemMemLimitGb()) << 30;
+    config.systemMemShrinkBytes =
+        static_cast<uint64_t>(systemConfig->systemMemShrinkGb()) << 30;
+    return std::make_unique<LinuxMemoryChecker>(config);
+  }
+  return nullptr;
+}
 
 } // namespace facebook::presto
