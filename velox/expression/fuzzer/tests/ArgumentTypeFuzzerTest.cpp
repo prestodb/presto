@@ -19,8 +19,9 @@
 #include <gtest/gtest.h>
 
 #include "velox/expression/SignatureBinder.h"
+#include "velox/functions/prestosql/types/TDigestRegistration.h"
+#include "velox/functions/prestosql/types/TDigestType.h"
 #include "velox/type/Type.h"
-
 namespace facebook::velox::fuzzer::test {
 
 namespace {
@@ -702,6 +703,15 @@ TEST_F(ArgumentTypeFuzzerTest, fuzzDecimalReturnType) {
       returnType->asRow().childAt(0)->asArray().elementType()->isDecimal());
   EXPECT_TRUE(
       returnType->asRow().childAt(1)->asArray().elementType()->isDecimal());
+}
+
+TEST_F(ArgumentTypeFuzzerTest, tdigestType) {
+  registerTDigestType();
+  auto signature = exec::FunctionSignatureBuilder()
+                       .returnType("tdigest(double)")
+                       .argumentType("double")
+                       .build();
+  testFuzzingSuccess(signature, TDIGEST(DOUBLE()), {DOUBLE()});
 }
 
 } // namespace facebook::velox::fuzzer::test

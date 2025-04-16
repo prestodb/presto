@@ -263,4 +263,31 @@ std::vector<core::TypedExprPtr> JsonExtractArgValuesGenerator::generate(
   return inputExpressions;
 }
 
+std::vector<core::TypedExprPtr> TDigestArgValuesGenerator::generate(
+    const CallableSignature& signature,
+    const VectorFuzzer::Options& options,
+    FuzzerGenerator& rng,
+    ExpressionFuzzerState& state) {
+  populateInputTypesAndNames(signature, state);
+  const auto seed = rand<uint32_t>(rng);
+  const auto nullRatio = options.nullRatio;
+  std::vector<core::TypedExprPtr> inputExpressions;
+  VELOX_CHECK_EQ(signature.args.size(), 2);
+  if (functionName_ == "value_at_quantile" ||
+      functionName_ == "values_at_quantiles") {
+    // First input: TDigest
+    state.customInputGenerators_.emplace_back(
+        std::make_shared<fuzzer::TDigestInputGenerator>(
+            seed, signature.args[0], nullRatio));
+    VELOX_CHECK_GE(state.inputRowNames_.size(), 2);
+    inputExpressions.emplace_back(std::make_shared<core::FieldAccessTypedExpr>(
+        signature.args[0],
+        state.inputRowNames_[state.inputRowNames_.size() - 2]));
+    // Second input: Quantile(s)
+    state.customInputGenerators_.emplace_back(nullptr);
+    inputExpressions.emplace_back(nullptr);
+  }
+  return inputExpressions;
+}
+
 } // namespace facebook::velox::fuzzer

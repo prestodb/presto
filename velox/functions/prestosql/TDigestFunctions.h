@@ -29,6 +29,7 @@ struct ValueAtQuantileFunction {
       out_type<double>& result,
       const arg_type<SimpleTDigest<double>>& input,
       const arg_type<double>& quantile) {
+    VELOX_USER_CHECK(0 <= quantile && quantile <= 1);
     TDigest<> digest;
     std::vector<int16_t> positions;
     digest.mergeDeserialized(positions, input.data());
@@ -51,7 +52,9 @@ struct ValuesAtQuantilesFunction {
     digest.compress(positions);
     result.resize(quantiles.size());
     for (size_t i = 0; i < quantiles.size(); ++i) {
-      result[i] = digest.estimateQuantile(quantiles[i].value());
+      double quantile = quantiles[i].value();
+      VELOX_USER_CHECK(0 <= quantile && quantile <= 1);
+      result[i] = digest.estimateQuantile(quantile);
     }
   }
 };

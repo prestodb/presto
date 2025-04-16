@@ -17,8 +17,8 @@
 #include "velox/common/fuzzer/ConstrainedGenerators.h"
 
 #include <boost/random/uniform_int_distribution.hpp>
-
 #include "velox/common/fuzzer/Utils.h"
+#include "velox/functions/lib/TDigest.h"
 
 namespace facebook::velox::fuzzer {
 
@@ -244,6 +244,35 @@ std::string PhoneNumberInputGenerator::generateImpl() {
   makeRandomStrVariation(
       phoneNumber, rng_, RandomStrVariationOptions{0.1, 0.1, 0.1});
   return phoneNumber;
+}
+
+TDigestInputGenerator::TDigestInputGenerator(
+    size_t seed,
+    const TypePtr& type,
+    double nullRatio)
+    : AbstractInputGenerator(seed, type, nullptr, nullRatio) {}
+
+TDigestInputGenerator::~TDigestInputGenerator() = default;
+
+variant TDigestInputGenerator::generate() {
+  if (coinToss(rng_, nullRatio_)) {
+    return variant::null(type_->kind());
+  }
+  velox::functions::TDigest<> digest;
+  double compression = rand<double>(rng_, 10.0, 100.0);
+  digest.setCompression(compression);
+  std::vector<int16_t> positions;
+  for (int i = 0; i < 10; i++) {
+    double value = rand<double>(rng_, 0.0, 100.0);
+    int64_t weight = rand<int64_t>(rng_, 1, 100);
+    digest.add(positions, value, weight);
+  }
+  digest.compress(positions);
+  size_t byteSize = digest.serializedByteSize();
+  std::string serializedDigest(byteSize, '\0');
+  digest.serialize(&serializedDigest[0]);
+  StringView serializedView(serializedDigest.data(), serializedDigest.size());
+  return variant::create<TypeKind::VARBINARY>(serializedDigest);
 }
 
 // Utility functions

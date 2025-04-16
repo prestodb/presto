@@ -18,11 +18,14 @@
 
 #include "velox/expression/fuzzer/ExpressionFuzzer.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
+#include "velox/functions/prestosql/types/TDigestRegistration.h"
+#include "velox/functions/prestosql/types/TDigestType.h"
 
 namespace facebook::velox::fuzzer::test {
 class ExpressionFuzzerUnitTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
+    registerTDigestType();
     memory::MemoryManager::testingSetInstance({});
   }
 
@@ -50,7 +53,8 @@ class ExpressionFuzzerUnitTest : public testing::Test {
         DOUBLE(),
         TIMESTAMP(),
         DATE(),
-        INTERVAL_DAY_TIME()};
+        INTERVAL_DAY_TIME(),
+        TDIGEST(DOUBLE())};
     auto index = folly::Random::rand32(kSupportedTypes.size(), seed);
     return kSupportedTypes[index];
   }

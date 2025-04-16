@@ -26,6 +26,7 @@ target_link_libraries(
   velox_expression_fuzzer_unit_test
   velox_expression_fuzzer
   velox_functions_prestosql
+  velox_presto_types
   velox_core
   velox_expression
   velox_expression_fuzzer_test_utility

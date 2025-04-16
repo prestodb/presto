@@ -21,6 +21,7 @@
 #include "velox/common/memory/Memory.h"
 #include "velox/functions/prestosql/json/JsonExtractor.h"
 #include "velox/functions/prestosql/types/JsonType.h"
+#include "velox/functions/prestosql/types/TDigestType.h"
 #include "velox/type/Variant.h"
 
 namespace facebook::velox::fuzzer::test {
@@ -412,6 +413,13 @@ TEST_F(ConstrainedGeneratorsTest, jsonPath) {
     }
   }
   EXPECT_TRUE(hasNull);
+}
+
+TEST_F(ConstrainedGeneratorsTest, tdigest) {
+  std::unique_ptr<TDigestInputGenerator> generator =
+      std::make_unique<TDigestInputGenerator>(0, TDIGEST(DOUBLE()), 0.4);
+  auto value = generator->generate();
+  EXPECT_EQ(value.kind(), TypeKind::VARBINARY);
 }
 
 } // namespace facebook::velox::fuzzer::test

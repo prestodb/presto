@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 #include <folly/base64.h>
-#include "velox/common/base/tests/GTestUtils.h"
-#include "velox/functions/lib/TDigest.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/functions/prestosql/types/TDigestRegistration.h"
 #include "velox/functions/prestosql/types/TDigestType.h"
@@ -61,6 +59,18 @@ TEST_F(TDigestFunctionsTest, valueAtQuantile) {
   ASSERT_EQ(3.0, valueAtQuantile(input, 0.5));
   ASSERT_EQ(5.0, valueAtQuantile(input, 0.9));
   ASSERT_EQ(5.0, valueAtQuantile(input, 0.99));
+};
+
+TEST_F(TDigestFunctionsTest, valueAtQuantileOutOfRange) {
+  const auto valueAtQuantile = [&](const std::optional<std::string>& input,
+                                   const std::optional<double>& quantile) {
+    return evaluateOnce<double>(
+        "value_at_quantile(c0, c1)", TDIGEST_DOUBLE, input, quantile);
+  };
+  const std::string input = decodeBase64(
+      "AQAAAAAAAADwPwAAAAAAABRAAAAAAAAALkAAAAAAAABZQAAAAAAAABRABQAAAAAAAAAAAPA/AAAAAAAA8D8AAAAAAADwPwAAAAAAAPA/AAAAAAAA8D8AAAAAAADwPwAAAAAAAABAAAAAAAAACEAAAAAAAAAQQAAAAAAAABRA");
+  EXPECT_THROW(valueAtQuantile(input, -1), VeloxUserError);
+  EXPECT_THROW(valueAtQuantile(input, 1.1), VeloxUserError);
 };
 
 TEST_F(TDigestFunctionsTest, valuesAtQuantiles) {
