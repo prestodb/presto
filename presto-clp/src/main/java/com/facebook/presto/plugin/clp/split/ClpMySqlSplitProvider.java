@@ -20,6 +20,8 @@ import com.facebook.presto.plugin.clp.ClpTableLayoutHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
 
+import javax.inject.Inject;
+
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -40,10 +42,11 @@ public class ClpMySqlSplitProvider
 
     private final ClpConfig config;
 
+    @Inject
     public ClpMySqlSplitProvider(ClpConfig config)
     {
         try {
-            Class.forName("com.mysql.jdbc.Driver");
+            Class.forName("com.mysql.cj.jdbc.Driver");
         }
         catch (ClassNotFoundException e) {
             log.error(e, "Failed to load MySQL JDBC driver");
