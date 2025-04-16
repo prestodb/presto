@@ -29,6 +29,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -40,6 +41,7 @@ import static com.facebook.presto.common.RuntimeMetricName.TASK_SCHEDULED_TIME_N
 import static com.facebook.presto.common.RuntimeUnit.NANO;
 import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.execution.StageExecutionState.FINISHED;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.Duration.succinctDuration;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -68,185 +70,84 @@ public class StageExecutionInfo
             int finishedLifespans,
             int totalLifespans)
     {
-        int totalTasks = taskInfos.size();
-        int runningTasks = 0;
-        int completedTasks = 0;
-
-        int totalDrivers = 0;
-        int queuedDrivers = 0;
-        int runningDrivers = 0;
-        int blockedDrivers = 0;
-        int completedDrivers = 0;
-
-        double cumulativeUserMemory = 0;
-        double cumulativeTotalMemory = 0;
-        long userMemoryReservation = 0;
-        long totalMemoryReservation = 0;
-
-        long totalScheduledTime = 0;
-        long totalCpuTime = 0;
-        long retriedCpuTime = 0;
-        long totalBlockedTime = 0;
-
-        long totalAllocation = 0;
-
-        long rawInputDataSize = 0;
-        long rawInputPositions = 0;
-
-        long processedInputDataSize = 0;
-        long processedInputPositions = 0;
-
-        long bufferedDataSize = 0;
-        long outputDataSize = 0;
-        long outputPositions = 0;
-
-        long physicalWrittenDataSize = 0;
-
-        int fullGcCount = 0;
-        int fullGcTaskCount = 0;
-        int minFullGcSec = 0;
-        int maxFullGcSec = 0;
-        int totalFullGcSec = 0;
-
-        boolean fullyBlocked = true;
-        Set<BlockedReason> blockedReasons = new HashSet<>();
-
-        Map<String, OperatorStats> operatorToStats = new HashMap<>();
-        RuntimeStats mergedRuntimeStats = new RuntimeStats();
-        mergedRuntimeStats.mergeWith(stageRuntimeStats);
-
-        List<TaskStats> allTaskStats = new ArrayList<>();
+        TaskStatsAggregator taskStatsAggregator = new TaskStatsAggregator(taskInfos.size(), stageRuntimeStats);
 
         for (TaskInfo taskInfo : taskInfos) {
             TaskState taskState = taskInfo.getTaskStatus().getState();
             if (taskState.isDone()) {
-                completedTasks++;
+                taskStatsAggregator.increaseCompleteTaskCount(1);
             }
             else {
-                runningTasks++;
+                taskStatsAggregator.increaseRunningTaskCount(1);
             }
 
             TaskStats taskStats = taskInfo.getStats();
-            allTaskStats.add(taskStats);
 
             if (state == FINISHED && taskInfo.getTaskStatus().getState() == TaskState.FAILED) {
-                retriedCpuTime += taskStats.getTotalCpuTimeInNanos();
+                taskStatsAggregator.increaseRetriedCpuTime(taskStats.getTotalCpuTimeInNanos());
             }
 
             if (!taskState.isDone()) {
-                fullyBlocked &= taskStats.isFullyBlocked();
-                blockedReasons.addAll(taskStats.getBlockedReasons());
+                taskStatsAggregator.updateFullyBlocked(taskStats.isFullyBlocked());
+                taskStatsAggregator.addNewBlockedReasons(taskStats.getBlockedReasons());
             }
 
-            bufferedDataSize += taskInfo.getOutputBuffers().getTotalBufferedBytes();
-        }
-
-        for (TaskStats taskStats : allTaskStats) {
-            totalDrivers += taskStats.getTotalDrivers();
-            queuedDrivers += taskStats.getQueuedDrivers();
-            runningDrivers += taskStats.getRunningDrivers();
-            blockedDrivers += taskStats.getBlockedDrivers();
-            completedDrivers += taskStats.getCompletedDrivers();
-
-            cumulativeUserMemory += taskStats.getCumulativeUserMemory();
-            cumulativeTotalMemory += taskStats.getCumulativeTotalMemory();
-
-            long taskUserMemory = taskStats.getUserMemoryReservationInBytes();
-            long taskSystemMemory = taskStats.getSystemMemoryReservationInBytes();
-            userMemoryReservation += taskUserMemory;
-            totalMemoryReservation += taskUserMemory + taskSystemMemory;
-
-            totalScheduledTime += taskStats.getTotalScheduledTimeInNanos();
-            totalCpuTime += taskStats.getTotalCpuTimeInNanos();
-            totalBlockedTime += taskStats.getTotalBlockedTimeInNanos();
-
-            totalAllocation += taskStats.getTotalAllocationInBytes();
-
-            rawInputDataSize += taskStats.getRawInputDataSizeInBytes();
-            rawInputPositions += taskStats.getRawInputPositions();
-
-            processedInputDataSize += taskStats.getProcessedInputDataSizeInBytes();
-            processedInputPositions += taskStats.getProcessedInputPositions();
-
-            outputDataSize += taskStats.getOutputDataSizeInBytes();
-            outputPositions += taskStats.getOutputPositions();
-
-            physicalWrittenDataSize += taskStats.getPhysicalWrittenDataSizeInBytes();
-
-            fullGcCount += taskStats.getFullGcCount();
-            fullGcTaskCount += taskStats.getFullGcCount() > 0 ? 1 : 0;
-
-            int gcSec = toIntExact(MILLISECONDS.toSeconds(taskStats.getFullGcTimeInMillis()));
-            totalFullGcSec += gcSec;
-            minFullGcSec = min(minFullGcSec, gcSec);
-            maxFullGcSec = max(maxFullGcSec, gcSec);
-
-            for (PipelineStats pipeline : taskStats.getPipelines()) {
-                for (OperatorStats operatorStats : pipeline.getOperatorSummaries()) {
-                    String id = pipeline.getPipelineId() + "." + operatorStats.getOperatorId();
-                    operatorToStats.compute(id, (k, v) -> v == null ? operatorStats : v.add(operatorStats));
-                }
-            }
-            mergedRuntimeStats.mergeWith(taskStats.getRuntimeStats());
-            mergedRuntimeStats.addMetricValue(DRIVER_COUNT_PER_TASK, NONE, taskStats.getTotalDrivers());
-            mergedRuntimeStats.addMetricValue(TASK_ELAPSED_TIME_NANOS, NANO, taskStats.getElapsedTimeInNanos());
-            mergedRuntimeStats.addMetricValueIgnoreZero(TASK_QUEUED_TIME_NANOS, NANO, taskStats.getQueuedTimeInNanos());
-            mergedRuntimeStats.addMetricValue(TASK_SCHEDULED_TIME_NANOS, NANO, taskStats.getTotalScheduledTimeInNanos());
-            mergedRuntimeStats.addMetricValueIgnoreZero(TASK_BLOCKED_TIME_NANOS, NANO, taskStats.getTotalBlockedTimeInNanos());
+            taskStatsAggregator.increaseBufferedDataSize(taskInfo.getOutputBuffers().getTotalBufferedBytes());
+            taskStatsAggregator.processTaskStats(taskStats);
         }
 
         StageExecutionStats stageExecutionStats = new StageExecutionStats(
                 schedulingCompleteInMillis,
                 getSplitDistribution,
 
-                totalTasks,
-                runningTasks,
-                completedTasks,
+                taskStatsAggregator.totalTaskCount,
+                taskStatsAggregator.runningTaskCount,
+                taskStatsAggregator.completedTaskCount,
 
                 totalLifespans,
                 finishedLifespans,
 
-                totalDrivers,
-                queuedDrivers,
-                runningDrivers,
-                blockedDrivers,
-                completedDrivers,
+                taskStatsAggregator.totalDrivers,
+                taskStatsAggregator.queuedDrivers,
+                taskStatsAggregator.runningDrivers,
+                taskStatsAggregator.blockedDrivers,
+                taskStatsAggregator.completedDrivers,
 
-                cumulativeUserMemory,
-                cumulativeTotalMemory,
-                userMemoryReservation,
-                totalMemoryReservation,
+                taskStatsAggregator.cumulativeUserMemory,
+                taskStatsAggregator.cumulativeTotalMemory,
+                taskStatsAggregator.userMemoryReservation,
+                taskStatsAggregator.totalMemoryReservation,
                 peakUserMemoryReservation,
                 peakNodeTotalMemoryReservation,
-                succinctDuration(totalScheduledTime, NANOSECONDS),
-                succinctDuration(totalCpuTime, NANOSECONDS),
-                succinctDuration(retriedCpuTime, NANOSECONDS),
-                succinctDuration(totalBlockedTime, NANOSECONDS),
-                fullyBlocked && runningTasks > 0,
-                blockedReasons,
-                totalAllocation,
+                succinctDuration(taskStatsAggregator.totalScheduledTime, NANOSECONDS),
+                succinctDuration(taskStatsAggregator.totalCpuTime, NANOSECONDS),
+                succinctDuration(taskStatsAggregator.retriedCpuTime, NANOSECONDS),
+                succinctDuration(taskStatsAggregator.totalBlockedTime, NANOSECONDS),
+                taskStatsAggregator.fullyBlocked && taskStatsAggregator.runningTaskCount > 0,
+                taskStatsAggregator.blockedReasons,
 
-                rawInputDataSize,
-                rawInputPositions,
-                processedInputDataSize,
-                processedInputPositions,
-                bufferedDataSize,
-                outputDataSize,
-                outputPositions,
-                physicalWrittenDataSize,
+                taskStatsAggregator.totalAllocation,
+
+                taskStatsAggregator.rawInputDataSize,
+                taskStatsAggregator.rawInputPositions,
+                taskStatsAggregator.processedInputDataSize,
+                taskStatsAggregator.processedInputPositions,
+                taskStatsAggregator.bufferedDataSize,
+                taskStatsAggregator.outputDataSize,
+                taskStatsAggregator.outputPositions,
+                taskStatsAggregator.physicalWrittenDataSize,
 
                 new StageGcStatistics(
                         stageExecutionId.getStageId().getId(),
                         stageExecutionId.getId(),
-                        totalTasks,
-                        fullGcTaskCount,
-                        minFullGcSec,
-                        maxFullGcSec,
-                        totalFullGcSec,
-                        (int) (1.0 * totalFullGcSec / fullGcCount)),
-
-                ImmutableList.copyOf(operatorToStats.values()),
-                mergedRuntimeStats);
+                        taskStatsAggregator.totalTaskCount,
+                        taskStatsAggregator.fullGcTaskCount,
+                        taskStatsAggregator.minFullGcSec,
+                        taskStatsAggregator.maxFullGcSec,
+                        taskStatsAggregator.totalFullGcSec,
+                        (int) (1.0 * taskStatsAggregator.totalFullGcSec / taskStatsAggregator.fullGcCount)),
+                taskStatsAggregator.getOperatorSummaries(),
+                taskStatsAggregator.getMergedRuntimeStats());
 
         return new StageExecutionInfo(
                 state,
@@ -297,12 +198,198 @@ public class StageExecutionInfo
         return state.isDone() && tasks.stream().allMatch(taskInfo -> taskInfo.getTaskStatus().getState().isDone());
     }
 
-    public static StageExecutionInfo unscheduledExecutionInfo(int stageId, boolean isQueryDone)
+    private static class OperatorKey
     {
-        return new StageExecutionInfo(
-                isQueryDone ? StageExecutionState.ABORTED : StageExecutionState.PLANNED,
-                StageExecutionStats.zero(stageId),
-                ImmutableList.of(),
-                Optional.empty());
+        private final int pipelineId;
+        private final int operatorId;
+
+        public OperatorKey(int pipelineId, int operatorId)
+        {
+            this.pipelineId = pipelineId;
+            this.operatorId = operatorId;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            OperatorKey that = (OperatorKey) o;
+            return pipelineId == that.pipelineId && operatorId == that.operatorId;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(pipelineId, operatorId);
+        }
+    }
+
+    private static class TaskStatsAggregator
+    {
+        private final int totalTaskCount;
+        private int runningTaskCount;
+        private int completedTaskCount;
+        private long retriedCpuTime;
+        private long bufferedDataSize;
+
+        private boolean fullyBlocked = true;
+        private final Set<BlockedReason> blockedReasons = new HashSet<>();
+
+        private int totalDrivers;
+        private int queuedDrivers;
+        private int runningDrivers;
+        private int blockedDrivers;
+        private int completedDrivers;
+
+        private double cumulativeUserMemory;
+        private double cumulativeTotalMemory;
+        private long userMemoryReservation;
+        private long totalMemoryReservation;
+
+        private long totalScheduledTime;
+        private long totalCpuTime;
+        private long totalBlockedTime;
+
+        private long totalAllocation;
+
+        private long rawInputDataSize;
+        private long rawInputPositions;
+
+        private long processedInputDataSize;
+        private long processedInputPositions;
+
+        private long outputDataSize;
+        private long outputPositions;
+
+        private long physicalWrittenDataSize;
+
+        private int fullGcCount;
+        private int fullGcTaskCount;
+        private int minFullGcSec;
+        private int maxFullGcSec;
+        private int totalFullGcSec;
+
+        private final RuntimeStats mergedRuntimeStats = new RuntimeStats();
+        private final Map<OperatorKey, List<OperatorStats>> operatorStatsByKey = new HashMap<>();
+
+        public TaskStatsAggregator(int totalTaskCount, RuntimeStats stageRuntimeStats)
+        {
+            this.totalTaskCount = totalTaskCount;
+            this.mergedRuntimeStats.mergeWith(stageRuntimeStats);
+        }
+
+        public void processTaskStats(TaskStats taskStats)
+        {
+            totalDrivers += taskStats.getTotalDrivers();
+            queuedDrivers += taskStats.getQueuedDrivers();
+            runningDrivers += taskStats.getRunningDrivers();
+            blockedDrivers += taskStats.getBlockedDrivers();
+            completedDrivers += taskStats.getCompletedDrivers();
+
+            cumulativeUserMemory += taskStats.getCumulativeUserMemory();
+            cumulativeTotalMemory += taskStats.getCumulativeTotalMemory();
+
+            long taskUserMemory = taskStats.getUserMemoryReservationInBytes();
+            long taskSystemMemory = taskStats.getSystemMemoryReservationInBytes();
+            userMemoryReservation += taskUserMemory;
+            totalMemoryReservation += taskUserMemory + taskSystemMemory;
+
+            totalScheduledTime += taskStats.getTotalScheduledTimeInNanos();
+            totalCpuTime += taskStats.getTotalCpuTimeInNanos();
+            totalBlockedTime += taskStats.getTotalBlockedTimeInNanos();
+
+            totalAllocation += taskStats.getTotalAllocationInBytes();
+
+            rawInputDataSize += taskStats.getRawInputDataSizeInBytes();
+            rawInputPositions += taskStats.getRawInputPositions();
+
+            processedInputDataSize += taskStats.getProcessedInputDataSizeInBytes();
+            processedInputPositions += taskStats.getProcessedInputPositions();
+
+            outputDataSize += taskStats.getOutputDataSizeInBytes();
+            outputPositions += taskStats.getOutputPositions();
+
+            physicalWrittenDataSize += taskStats.getPhysicalWrittenDataSizeInBytes();
+
+            fullGcCount += taskStats.getFullGcCount();
+            fullGcTaskCount += taskStats.getFullGcCount() > 0 ? 1 : 0;
+
+            int gcSec = toIntExact(MILLISECONDS.toSeconds(taskStats.getFullGcTimeInMillis()));
+            totalFullGcSec += gcSec;
+            minFullGcSec = min(minFullGcSec, gcSec);
+            maxFullGcSec = max(maxFullGcSec, gcSec);
+
+            updateOperatorStats(taskStats);
+            updateRuntimeStats(taskStats);
+        }
+
+        private void updateOperatorStats(TaskStats taskStats)
+        {
+            // Collect all operator stats by their key
+            for (PipelineStats pipeline : taskStats.getPipelines()) {
+                for (OperatorStats operatorStats : pipeline.getOperatorSummaries()) {
+                    operatorStatsByKey.computeIfAbsent(new OperatorKey(pipeline.getPipelineId(), operatorStats.getOperatorId()), k -> new ArrayList<>()).add(operatorStats);
+                }
+            }
+        }
+
+        private void updateRuntimeStats(TaskStats taskStats)
+        {
+            mergedRuntimeStats.mergeWith(taskStats.getRuntimeStats());
+            mergedRuntimeStats.addMetricValue(DRIVER_COUNT_PER_TASK, NONE, taskStats.getTotalDrivers());
+            mergedRuntimeStats.addMetricValue(TASK_ELAPSED_TIME_NANOS, NANO, taskStats.getElapsedTimeInNanos());
+            mergedRuntimeStats.addMetricValueIgnoreZero(TASK_QUEUED_TIME_NANOS, NANO, taskStats.getQueuedTimeInNanos());
+            mergedRuntimeStats.addMetricValue(TASK_SCHEDULED_TIME_NANOS, NANO, taskStats.getTotalScheduledTimeInNanos());
+            mergedRuntimeStats.addMetricValueIgnoreZero(TASK_BLOCKED_TIME_NANOS, NANO, taskStats.getTotalBlockedTimeInNanos());
+        }
+
+        public RuntimeStats getMergedRuntimeStats()
+        {
+            return mergedRuntimeStats;
+        }
+
+        public List<OperatorStats> getOperatorSummaries()
+        {
+            return operatorStatsByKey.values().stream()
+                    .map(OperatorStats::merge)
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    .collect(toImmutableList());
+        }
+
+        public void increaseRunningTaskCount(int count)
+        {
+            runningTaskCount += count;
+        }
+
+        public void increaseCompleteTaskCount(int count)
+        {
+            completedTaskCount += count;
+        }
+
+        public void increaseRetriedCpuTime(long time)
+        {
+            retriedCpuTime += time;
+        }
+
+        public void updateFullyBlocked(boolean blocked)
+        {
+            fullyBlocked &= blocked;
+        }
+
+        public void addNewBlockedReasons(Set<BlockedReason> reasons)
+        {
+            blockedReasons.addAll(reasons);
+        }
+
+        public void increaseBufferedDataSize(long bytes)
+        {
+            bufferedDataSize += bytes;
+        }
     }
 }

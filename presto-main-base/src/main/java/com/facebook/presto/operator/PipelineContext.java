@@ -23,18 +23,18 @@ import com.facebook.presto.memory.QueryContextVisitor;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.memory.context.MemoryTrackingContext;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ListMultimap;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
-import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -44,10 +44,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.System.currentTimeMillis;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
 
 @ThreadSafe
 public class PipelineContext
@@ -92,7 +94,7 @@ public class PipelineContext
 
     private final AtomicLong physicalWrittenDataSize = new AtomicLong();
 
-    private final ConcurrentMap<Integer, OperatorStats> operatorSummaries = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Integer, OperatorStats> operatorStatsById = new ConcurrentHashMap<>();
 
     private final MemoryTrackingContext pipelineMemoryContext;
 
@@ -198,10 +200,10 @@ public class PipelineContext
 
         totalAllocation.getAndAdd(driverStats.getTotalAllocationInBytes());
 
-        // merge the operator stats into the operator summary
         List<OperatorStats> operators = driverStats.getOperatorStats();
         for (OperatorStats operator : operators) {
-            operatorSummaries.compute(operator.getOperatorId(), (operatorId, summaryStats) -> summaryStats == null ? operator : summaryStats.add(operator));
+            operatorStatsById.compute(operator.getOperatorId(),
+                    (operatorId, summaryStats) -> summaryStats == null ? operator : OperatorStats.merge(ImmutableList.of(operator, summaryStats)).orElse(null));
         }
 
         rawInputDataSize.update(driverStats.getRawInputDataSizeInBytes());
@@ -377,9 +379,11 @@ public class PipelineContext
         boolean hasUnfinishedDrivers = false;
         boolean unfinishedDriversFullyBlocked = true;
 
-        TreeMap<Integer, OperatorStats> operatorSummaries = new TreeMap<>(this.operatorSummaries);
-        ListMultimap<Integer, OperatorStats> runningOperators = ArrayListMultimap.create();
         ImmutableList.Builder<DriverStats> drivers = ImmutableList.builderWithExpectedSize(driverContexts.size());
+        // Make deep copy of each list
+        Map<Integer, List<OperatorStats>> operatorStatsById = this.operatorStatsById.entrySet().stream()
+                .collect(toMap(Map.Entry::getKey, e -> new ArrayList<>(Arrays.asList(e.getValue()))));
+
         for (DriverContext driverContext : driverContexts) {
             DriverStats driverStats = driverContext.getDriverStats();
             drivers.add(driverStats);
@@ -401,7 +405,7 @@ public class PipelineContext
             totalAllocation += driverStats.getTotalAllocationInBytes();
 
             for (OperatorStats operatorStats : driverStats.getOperatorStats()) {
-                runningOperators.put(operatorStats.getOperatorId(), operatorStats);
+                operatorStatsById.computeIfAbsent(operatorStats.getOperatorId(), k -> new ArrayList<>()).add(operatorStats);
             }
 
             rawInputDataSize += driverStats.getRawInputDataSizeInBytes();
@@ -414,26 +418,6 @@ public class PipelineContext
             outputPositions += driverStats.getOutputPositions();
 
             physicalWrittenDataSize += driverStats.getPhysicalWrittenDataSizeInBytes();
-        }
-
-        // merge the running operator stats into the operator summary
-        for (Integer operatorId : runningOperators.keySet()) {
-            List<OperatorStats> runningStats = runningOperators.get(operatorId);
-            if (runningStats.isEmpty()) {
-                continue;
-            }
-            OperatorStats current = operatorSummaries.get(operatorId);
-            OperatorStats combined;
-            if (current != null) {
-                combined = current.add(runningStats);
-            }
-            else {
-                combined = runningStats.get(0);
-                if (runningStats.size() > 1) {
-                    combined = combined.add(runningStats.subList(1, runningStats.size()));
-                }
-            }
-            operatorSummaries.put(operatorId, combined);
         }
 
         PipelineStatus pipelineStatus = pipelineStatusBuilder.build();
@@ -485,7 +469,11 @@ public class PipelineContext
 
                 physicalWrittenDataSize,
 
-                ImmutableList.copyOf(operatorSummaries.values()),
+                operatorStatsById.values().stream()
+                        .map(OperatorStats::merge)
+                        .filter(Optional::isPresent)
+                        .map(Optional::get)
+                        .collect(toImmutableList()),
                 drivers.build());
     }
 
