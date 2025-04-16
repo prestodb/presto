@@ -543,6 +543,7 @@ struct DateTruncFunction {
   FOLLY_ALWAYS_INLINE void initialize(
       const std::vector<TypePtr>& /*inputTypes*/,
       const core::QueryConfig& config,
+      const arg_type<Varchar>* /*format*/,
       const arg_type<Timestamp>* /*timestamp*/) {
     timeZone_ = getTimeZoneFromConfig(config);
   }
