@@ -70,6 +70,7 @@ public class AccessControlCheckerExecution
     private final AtomicReference<Optional<ResourceGroupQueryLimits>> resourceGroupQueryLimits = new AtomicReference<>(Optional.empty());
 
     private final AnalyzerContext analyzerContext;
+    private final String query;
 
     public AccessControlCheckerExecution(
             QueryAnalyzer queryAnalyzer,
@@ -80,7 +81,8 @@ public class AccessControlCheckerExecution
             Metadata metadata,
             AccessControl accessControl,
             QueryStateMachine stateMachine,
-            ScheduledExecutorService timeoutThreadExecutor)
+            ScheduledExecutorService timeoutThreadExecutor,
+            String query)
     {
         this.queryAnalyzer = requireNonNull(queryAnalyzer, "queryAnalyzer is null");
         this.preparedQuery = requireNonNull(preparedQuery, "preparedQuery is null");
@@ -92,6 +94,7 @@ public class AccessControlCheckerExecution
         this.retryCount = retryCount;
         this.timeoutThreadExecutor = requireNonNull(timeoutThreadExecutor, "timeoutThreadExecutor is null");
         this.analyzerContext = getAnalyzerContext(queryAnalyzer, metadata.getMetadataResolver(stateMachine.getSession()), new PlanNodeIdAllocator(), new VariableAllocator(), stateMachine.getSession());
+        this.query = requireNonNull(query, "query is null");
     }
 
     @Override
@@ -263,7 +266,7 @@ public class AccessControlCheckerExecution
         }
 
         stateMachine.beginColumnAccessPermissionChecking();
-        checkAccessPermissions(queryAnalysis.getAccessControlReferences());
+        checkAccessPermissions(queryAnalysis.getAccessControlReferences(), accessControl, query);
         stateMachine.endColumnAccessPermissionChecking();
         return immediateFuture(null);
     }
@@ -388,9 +391,11 @@ public class AccessControlCheckerExecution
                 String slug,
                 int retryCount,
                 WarningCollector warningCollector,
-                Optional<QueryType> queryType)
+                Optional<QueryType> queryType,
+                AccessControl accessControl,
+                String query)
         {
-            return createAccessControlChecker(analyzerProvider.getQueryAnalyzer(), preparedQuery, stateMachine, slug, retryCount);
+            return createAccessControlChecker(analyzerProvider.getQueryAnalyzer(), preparedQuery, stateMachine, slug, retryCount, query);
         }
 
         private AccessControlCheckerExecution createAccessControlChecker(
@@ -398,9 +403,10 @@ public class AccessControlCheckerExecution
                 PreparedQuery preparedQuery,
                 QueryStateMachine stateMachine,
                 String slug,
-                int retryCount)
+                int retryCount,
+                String query)
         {
-            return new AccessControlCheckerExecution(queryAnalyzer, preparedQuery, slug, retryCount, transactionManager, metadata, accessControl, stateMachine, timeoutThreadExecutor);
+            return new AccessControlCheckerExecution(queryAnalyzer, preparedQuery, slug, retryCount, transactionManager, metadata, accessControl, stateMachine, timeoutThreadExecutor, query);
         }
     }
 }

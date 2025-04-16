@@ -31,6 +31,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.SqlFormatterUtil.getFormattedSql;
 import static com.facebook.presto.sql.analyzer.utils.ParameterUtils.parameterExtractor;
 import static com.facebook.presto.util.AnalyzerUtil.checkAccessPermissions;
 import static java.util.Collections.singletonList;
@@ -84,7 +85,7 @@ public class PrestoSparkAccessControlCheckerExecution
         queryStateTimer.beginSemanticAnalyzing();
         Analysis analysis = analyzer.analyzeSemantic(preparedQuery.getStatement(), false);
         queryStateTimer.beginColumnAccessPermissionChecking();
-        checkAccessPermissions(analysis.getAccessControlReferences());
+        checkAccessPermissions(analysis.getAccessControlReferences(), accessControl, getFormattedSql(preparedQuery.getStatement(), sqlParser, Optional.empty()));
         queryStateTimer.endColumnAccessPermissionChecking();
 
         List<List<Object>> results = new ArrayList<>();

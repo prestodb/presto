@@ -95,7 +95,7 @@ public class AnalyzerUtil
         return new AnalyzerContext(metadataResolver, idAllocator, variableAllocator);
     }
 
-    public static void checkAccessPermissions(AccessControlReferences accessControlReferences)
+    public static void checkAccessPermissions(AccessControlReferences accessControlReferences, AccessControl accessControl, String query)
     {
         // Table checks
         checkAccessPermissionsForTable(accessControlReferences);

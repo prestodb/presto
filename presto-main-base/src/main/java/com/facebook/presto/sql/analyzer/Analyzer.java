@@ -36,6 +36,7 @@ import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.SystemSessionProperties.isCheckAccessControlOnUtilizedColumnsOnly;
 import static com.facebook.presto.SystemSessionProperties.isCheckAccessControlWithSubfields;
+import static com.facebook.presto.sql.SqlFormatterUtil.getFormattedSql;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractExpressions;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractExternalFunctions;
@@ -103,7 +104,7 @@ public class Analyzer
     public Analysis analyze(Statement statement, boolean isDescribe)
     {
         Analysis analysis = analyzeSemantic(statement, isDescribe);
-        checkAccessPermissions(analysis.getAccessControlReferences());
+        checkAccessPermissions(analysis.getAccessControlReferences(), accessControl, getFormattedSql(statement, sqlParser, Optional.empty()));
         return analysis;
     }
 
