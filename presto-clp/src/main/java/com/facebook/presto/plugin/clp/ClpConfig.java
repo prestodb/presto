@@ -163,13 +163,13 @@ public class ClpConfig
         return this;
     }
 
-    public ArchiveSource getInputSource()
+    public ArchiveSource getArchiveSource()
     {
         return archiveSource;
     }
 
-    @Config("clp.input-source")
-    public ClpConfig setInputSource(ArchiveSource archiveSource)
+    @Config("clp.archive-source")
+    public ClpConfig setArchiveSource(ArchiveSource archiveSource)
     {
         this.archiveSource = archiveSource;
         return this;

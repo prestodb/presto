@@ -25,13 +25,13 @@ replacing the properties as appropriate:
 
     connector.name=clp
     clp.archive-source=local
-    clp.metadata-source=mysql
+    clp.metadata-provider-type=mysql
     clp.metadata-db-url=jdbc:mysql://localhost:3306
     clp.metadata-db-name=clp_db
     clp.metadata-db-user=clp_user
     clp.metadata-db-password=clp_password
     clp.metadata-table-prefix=clp_
-    clp.split-source=mysql
+    clp.split-provider-type=mysql
 
 
 Configuration Properties
