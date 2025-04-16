@@ -18,6 +18,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
+import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
@@ -35,6 +36,7 @@ public class ClpConnector
 
     private final LifeCycleManager lifeCycleManager;
     private final ClpMetadata metadata;
+    private final ClpRecordSetProvider recordSetProvider;
     private final ClpSplitManager splitManager;
     private final FunctionMetadataManager functionManager;
     private final StandardFunctionResolution functionResolution;
@@ -42,12 +44,14 @@ public class ClpConnector
     @Inject
     public ClpConnector(LifeCycleManager lifeCycleManager,
                         ClpMetadata metadata,
+                        ClpRecordSetProvider recordSetProvider,
                         ClpSplitManager splitManager,
                         FunctionMetadataManager functionManager,
                         StandardFunctionResolution functionResolution)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.functionManager = requireNonNull(functionManager, "functionManager is null");
         this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
@@ -69,6 +73,12 @@ public class ClpConnector
     public ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
     {
         return metadata;
+    }
+
+    @Override
+    public ConnectorRecordSetProvider getRecordSetProvider()
+    {
+        return recordSetProvider;
     }
 
     @Override

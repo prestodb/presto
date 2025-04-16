@@ -18,6 +18,8 @@ import com.facebook.presto.plugin.clp.ClpColumnHandle;
 import com.facebook.presto.plugin.clp.ClpConfig;
 import com.facebook.presto.spi.SchemaTableName;
 
+import javax.inject.Inject;
+
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -39,10 +41,11 @@ public class ClpMySqlMetadataProvider
 
     private final ClpConfig config;
 
+    @Inject
     public ClpMySqlMetadataProvider(ClpConfig config)
     {
         try {
-            Class.forName("com.mysql.jdbc.Driver");
+            Class.forName("com.mysql.cj.jdbc.Driver");
         }
         catch (ClassNotFoundException e) {
             log.error(e, "Failed to load MySQL JDBC driver");
