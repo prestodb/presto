@@ -768,6 +768,7 @@ public class TDigest
             weight[i] *= scaleFactor;
         }
         totalWeight *= scaleFactor;
+        sum *= scaleFactor;
     }
 
     public String toString()
