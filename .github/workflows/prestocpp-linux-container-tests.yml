@@ -37,14 +37,14 @@ jobs:
       - name: Remove node docker images
         run: |
           docker rmi node:20
-          docker rmi node:18
-          docker rmi node:22
-          docker images
+#          docker rmi node:18
+#          docker rmi node:22
+#          docker images
 
       - name: Update velox
         run: |
-          cd presto-native-execution
-          make velox-submodule
+#          cd presto-native-execution
+#          make velox-submodule
 
       - name: Install OpenJDK8
         uses: actions/setup-java@v4
