@@ -527,8 +527,10 @@ void PrestoServer::run() {
   addServerPeriodicTasks();
   addAdditionalPeriodicTasks();
   periodicTaskManager_->start();
-
-  addMemoryCheckerPeriodicTask();
+  createPeriodicMemoryChecker();
+  if (memoryChecker_ != nullptr) {
+    memoryChecker_->start();
+  }
 
   auto setTaskUriCb = [&](bool useHttps, int port) {
     std::string taskUri;
@@ -618,11 +620,12 @@ void PrestoServer::run() {
   }
 
   PRESTO_SHUTDOWN_LOG(INFO) << "Stopping all periodic tasks";
+
+  if (memoryChecker_ != nullptr) {
+    memoryChecker_->stop();
+  }
   periodicTaskManager_->stop();
-
   stopAdditionalPeriodicTasks();
-
-  stopMemoryCheckerPeriodicTask();
 
   // Destroy entities here to ensure we won't get any messages after Server
   // object is gone and to have nice log in case shutdown gets stuck.
@@ -1032,18 +1035,6 @@ void PrestoServer::updateAnnouncerDetails() {
   }
 }
 
-void PrestoServer::addMemoryCheckerPeriodicTask() {
-  if (folly::Singleton<PeriodicMemoryChecker>::try_get()) {
-    folly::Singleton<PeriodicMemoryChecker>::try_get()->start();
-  }
-}
-
-void PrestoServer::stopMemoryCheckerPeriodicTask() {
-  if (folly::Singleton<PeriodicMemoryChecker>::try_get()) {
-    folly::Singleton<PeriodicMemoryChecker>::try_get()->stop();
-  }
-}
-
 void PrestoServer::addServerPeriodicTasks() {
   periodicTaskManager_->addTask(
       [server = this]() { server->populateMemAndCPUInfo(); },
@@ -1105,6 +1096,12 @@ void PrestoServer::addServerPeriodicTasks() {
         cacheFullPersistenceIntervalUs,
         "cache_full_persistence");
   }
+}
+
+void PrestoServer::createPeriodicMemoryChecker() {
+  // The call below will either produce nullptr or unique pointer to an instance
+  // of LinuxMemoryChecker.
+  memoryChecker_ = createMemoryChecker();
 }
 
 std::shared_ptr<velox::exec::TaskListener> PrestoServer::getTaskListener() {

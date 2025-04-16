@@ -67,6 +67,7 @@ class Announcer;
 class SignalHandler;
 class TaskManager;
 class TaskResource;
+class PeriodicMemoryChecker;
 class PeriodicTaskManager;
 class SystemConfig;
 
@@ -115,15 +116,13 @@ class PrestoServer {
   void enableAnnouncer(bool enable);
 
  protected:
+  virtual void createPeriodicMemoryChecker();
+
   /// Hook for derived PrestoServer implementations to add/stop additional
   /// periodic tasks.
   virtual void addAdditionalPeriodicTasks(){};
 
   virtual void stopAdditionalPeriodicTasks(){};
-
-  virtual void addMemoryCheckerPeriodicTask();
-
-  virtual void stopMemoryCheckerPeriodicTask();
 
   virtual void initializeCoordinatorDiscoverer();
 
@@ -277,6 +276,7 @@ class PrestoServer {
   std::chrono::steady_clock::time_point start_;
   std::unique_ptr<PeriodicTaskManager> periodicTaskManager_;
   std::unique_ptr<PrestoServerOperations> prestoServerOperations_;
+  std::unique_ptr<PeriodicMemoryChecker> memoryChecker_;
 
   // We update these members asynchronously and return in http requests w/o
   // delay.

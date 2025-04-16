@@ -76,9 +76,14 @@ class PeriodicMemoryChecker {
   /// Stops the 'PeriodicMemoryChecker'.
   void stop();
 
+  /// Returns the last known cached 'current' system memory usage in bytes.
+  int64_t cachedSystemUsedMemoryBytes() const {
+    return cachedSystemUsedMemoryBytes_;
+  }
+
  protected:
-  /// Returns current system memory usage. The returned value is used to compare
-  /// with 'Config::systemMemLimitBytes'.
+  /// Fetches and returns current system memory usage in bytes.
+  /// The returned value is used to compare with 'Config::systemMemLimitBytes'.
   virtual int64_t systemUsedMemoryBytes() = 0;
 
   /// Returns current bytes allocated by malloc. The returned value is used to
@@ -102,6 +107,7 @@ class PeriodicMemoryChecker {
   virtual void pushbackMemory();
 
   const Config config_;
+  std::atomic<int64_t> cachedSystemUsedMemoryBytes_{0};
 
  private:
   // Struct that stores the file names of the heap profiles dumped and the
@@ -137,4 +143,6 @@ class PeriodicMemoryChecker {
       std::greater<DumpFileInfo>>
       dumpFilesByHeapMemUsageMinPq_;
 };
+
+std::unique_ptr<PeriodicMemoryChecker> createMemoryChecker();
 } // namespace facebook::presto
