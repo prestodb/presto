@@ -522,9 +522,12 @@ void HttpClient::sendRequest(std::shared_ptr<ResponseHandler> responseHandler) {
 }
 
 folly::SemiFuture<std::unique_ptr<HttpResponse>> HttpClient::sendRequest(
-    const proxygen::HTTPMessage& request,
+    proxygen::HTTPMessage& request,
     const std::string& body,
     int64_t delayMs) {
+  request.setDstAddress(this->address_);
+  request.ensureHostHeader();
+  VLOG(1) << "HTTP CLIENT REQUEST HEADERS" << request;
   auto responseHandler = std::make_shared<ResponseHandler>(
       request,
       maxResponseAllocBytes_,
@@ -532,7 +535,6 @@ folly::SemiFuture<std::unique_ptr<HttpResponse>> HttpClient::sendRequest(
       reportOnBodyStatsFunc_,
       shared_from_this());
   auto future = responseHandler->initialize(responseHandler);
-
   auto sendCb = [this, responseHandler]() mutable {
     sendRequest(std::move(responseHandler));
   };
