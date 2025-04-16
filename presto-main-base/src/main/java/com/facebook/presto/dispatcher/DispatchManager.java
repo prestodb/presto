@@ -285,7 +285,6 @@ public class DispatchManager
                     Optional.ofNullable(sessionContext.getCatalog()),
                     Optional.ofNullable(sessionContext.getSchema()));
 
-            accessControl.checkQueryIntegrity(sessionContext.getIdentity(), accessControlContext, query);
             session = sessionBuilder.build();
 
             // prepare query
