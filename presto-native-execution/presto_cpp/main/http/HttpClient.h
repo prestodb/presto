@@ -172,7 +172,7 @@ class HttpClient : public std::enable_shared_from_this<HttpClient> {
 
   // TODO Avoid copy by using IOBuf for body
   folly::SemiFuture<std::unique_ptr<HttpResponse>> sendRequest(
-      const proxygen::HTTPMessage& request,
+      proxygen::HTTPMessage& request,
       const std::string& body = "",
       int64_t delayMs = 0);
 
@@ -244,7 +244,6 @@ class RequestBuilder {
   send(HttpClient* client, const std::string& body = "", int64_t delayMs = 0) {
     addJwtIfConfigured();
     header(proxygen::HTTP_HEADER_CONTENT_LENGTH, std::to_string(body.size()));
-    headers_.ensureHostHeader();
     return client->sendRequest(headers_, body, delayMs);
   }
 

@@ -522,9 +522,11 @@ void HttpClient::sendRequest(std::shared_ptr<ResponseHandler> responseHandler) {
 }
 
 folly::SemiFuture<std::unique_ptr<HttpResponse>> HttpClient::sendRequest(
-    const proxygen::HTTPMessage& request,
+    proxygen::HTTPMessage& request,
     const std::string& body,
     int64_t delayMs) {
+  request.setDstAddress(this->address_);
+  request.ensureHostHeader();
   auto responseHandler = std::make_shared<ResponseHandler>(
       request,
       maxResponseAllocBytes_,
