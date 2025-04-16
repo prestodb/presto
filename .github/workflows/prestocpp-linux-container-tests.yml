@@ -58,7 +58,7 @@ jobs:
           # Use different Maven options to install.
           MAVEN_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
         run: |
-          ./mvnw install ${MAVEN_FAST_INSTALL} -Pdocker-build -Ddocker.verbose=true -pl '!:presto-docs,:presto-test-coverage,:presto-verifier,:presto-router'
+          ./mvnw install ${MAVEN_FAST_INSTALL} -Pdocker-build -Ddocker.verbose=true -pl '!:presto-docs,!:presto-verifier,!:presto-test-coverage'
 
       - name: Disk space consumption after building images
         run: df
