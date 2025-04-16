@@ -60,9 +60,8 @@ public class PluginClassLoader
     }
 
     public PluginClassLoader clone()
-            throws CloneNotSupportedException
     {
-        return (PluginClassLoader) super.clone();
+        return new PluginClassLoader(ImmutableList.copyOf(getURLs()), spiClassLoader, spiPackages, spiResources);
     }
 
     @Override
