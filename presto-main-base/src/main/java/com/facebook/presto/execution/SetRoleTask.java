@@ -42,7 +42,7 @@ public class SetRoleTask
     }
 
     @Override
-    public ListenableFuture<?> execute(SetRole statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
+    public ListenableFuture<?> execute(SetRole statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters, String query)
     {
         Session session = stateMachine.getSession();
         String catalog = createCatalogName(session, statement);

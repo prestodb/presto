@@ -112,7 +112,8 @@ public interface QueryExecution
                 String slug,
                 int retryCount,
                 WarningCollector warningCollector,
-                Optional<QueryType> queryType);
+                Optional<QueryType> queryType,
+                String query);
     }
 
     /**

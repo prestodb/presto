@@ -171,7 +171,8 @@ public class SqlQueryExecution
             CostCalculator costCalculator,
             PlanChecker planChecker,
             PartialResultQueryManager partialResultQueryManager,
-            PlanCanonicalInfoProvider planCanonicalInfoProvider)
+            PlanCanonicalInfoProvider planCanonicalInfoProvider,
+            String query)
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             this.queryAnalyzer = requireNonNull(queryAnalyzer, "queryAnalyzer is null");
@@ -195,7 +196,7 @@ public class SqlQueryExecution
             this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
             this.planChecker = requireNonNull(planChecker, "planChecker is null");
             this.planCanonicalInfoProvider = requireNonNull(planCanonicalInfoProvider, "planCanonicalInfoProvider is null");
-            this.analyzerContext = getAnalyzerContext(queryAnalyzer, metadata.getMetadataResolver(stateMachine.getSession()), idAllocator, new VariableAllocator(), stateMachine.getSession());
+            this.analyzerContext = getAnalyzerContext(queryAnalyzer, metadata.getMetadataResolver(stateMachine.getSession()), idAllocator, new VariableAllocator(), stateMachine.getSession(), query);
 
             // analyze query
             requireNonNull(preparedQuery, "preparedQuery is null");
@@ -966,7 +967,8 @@ public class SqlQueryExecution
                 String slug,
                 int retryCount,
                 WarningCollector warningCollector,
-                Optional<QueryType> queryType)
+                Optional<QueryType> queryType,
+                String query)
         {
             String executionPolicyName = getExecutionPolicy(stateMachine.getSession());
             ExecutionPolicy executionPolicy = executionPolicies.get(executionPolicyName);
@@ -997,7 +999,8 @@ public class SqlQueryExecution
                     costCalculator,
                     planChecker,
                     partialResultQueryManager,
-                    historyBasedPlanStatisticsManager.getPlanCanonicalInfoProvider());
+                    historyBasedPlanStatisticsManager.getPlanCanonicalInfoProvider(),
+                    query);
         }
     }
 }
