@@ -95,7 +95,8 @@ public class SessionDefinitionExecution<T extends Statement>
                 int retryCount,
                 WarningCollector warningCollector,
                 Optional<QueryType> queryType,
-                String query)
+                String query,
+                AccessControl accessControl)
         {
             //TODO: PreparedQuery should be passed all the way to analyzer
             checkState(preparedQuery instanceof BuiltInQueryPreparer.BuiltInPreparedQuery, "Unsupported prepared query type: %s", preparedQuery.getClass().getSimpleName());

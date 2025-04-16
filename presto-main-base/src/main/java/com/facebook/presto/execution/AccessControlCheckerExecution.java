@@ -264,7 +264,7 @@ public class AccessControlCheckerExecution
         }
 
         stateMachine.beginColumnAccessPermissionChecking();
-        checkAccessPermissions(queryAnalysis.getAccessControlReferences());
+        checkAccessPermissions(queryAnalysis.getAccessControlReferences(), accessControl, analyzerContext.getQuery());
         stateMachine.endColumnAccessPermissionChecking();
         return immediateFuture(null);
     }
@@ -390,7 +390,8 @@ public class AccessControlCheckerExecution
                 int retryCount,
                 WarningCollector warningCollector,
                 Optional<QueryType> queryType,
-                String query)
+                String query,
+                AccessControl accessControl)
         {
             return createAccessControlChecker(analyzerProvider.getQueryAnalyzer(), preparedQuery, stateMachine, slug, retryCount, query);
         }
