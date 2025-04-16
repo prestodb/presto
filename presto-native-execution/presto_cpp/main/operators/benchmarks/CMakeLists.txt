@@ -11,27 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-add_library(
-  presto_operators
-  PartitionAndSerialize.cpp
-  ShuffleRead.cpp
-  ShuffleWrite.cpp
-  UnsafeRowExchangeSource.cpp
-  LocalPersistentShuffle.cpp
-  BroadcastWrite.cpp
-  BroadcastFactory.cpp
-  BroadcastExchangeSource.cpp
-  BinarySortableSerializer.cpp)
 
+add_executable(binary_sortable_serializer_benchmark
+               BinarySortableSerializerBenchmark.cpp)
 target_link_libraries(
-  presto_operators
-  presto_common
-  velox_core
-  velox_exec
-  velox_presto_serializer
-  velox_vector
-  velox_row_fast)
-
-if(PRESTO_ENABLE_TESTING)
-  add_subdirectory(tests)
-endif()
+  binary_sortable_serializer_benchmark
+  PRIVATE
+    presto_operators
+    velox_vector_fuzzer
+    Folly::folly
+    Folly::follybenchmark)
