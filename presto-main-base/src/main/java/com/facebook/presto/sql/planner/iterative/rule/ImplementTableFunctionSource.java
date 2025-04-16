@@ -43,6 +43,7 @@ import com.facebook.presto.sql.planner.plan.TableFunctionNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode.PassThroughSpecification;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode.TableArgumentProperties;
 import com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode;
+import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.GenericLiteral;
@@ -262,11 +263,11 @@ public class ImplementTableFunctionSource
         else {
             NodeWithVariables first = intermediateResultSources.get(0);
             NodeWithVariables second = intermediateResultSources.get(1);
-            JoinedNodes joined = join(first, second, context);
+            JoinedNodes joined = join(first, second, context, metadata);
 
             for (int i = 2; i < intermediateResultSources.size(); i++) {
                 NodeWithVariables joinedWithSymbols = appendHelperSymbolsForJoinedNodes(joined, context, metadata);
-                joined = join(joinedWithSymbols, intermediateResultSources.get(i), context);
+                joined = join(joinedWithSymbols, intermediateResultSources.get(i), context, metadata);
             }
 
             finalResultSource = appendHelperSymbolsForJoinedNodes(joined, context, metadata);
@@ -620,7 +621,7 @@ public class ImplementTableFunctionSource
         return new NodeWithVariables(project, joinedRowNumber, joinedPartitionSize, joinedPartitionBy.build(), joinedPruneWhenEmpty, joinedRowNumberSymbolsMapping);
     }
 
-    private static JoinedNodes join(NodeWithVariables left, NodeWithVariables right, Context context)
+    private static JoinedNodes join(NodeWithVariables left, NodeWithVariables right, Context context, Metadata metadata)
     {
         Expression leftRowNumber = toSymbolReference(left.rowNumber());
         Expression leftPartitionSize = toSymbolReference(left.partitionSize());
@@ -637,16 +638,40 @@ public class ImplementTableFunctionSource
         // (R1 > S2 AND R2 = 1)
         // OR
         // (R2 > S1 AND R1 = 1)
-        Expression joinCondition = new LogicalBinaryExpression(OR,
-                new ComparisonExpression(EQUAL, leftRowNumber, rightRowNumber),
-                new LogicalBinaryExpression(OR,
-                        new LogicalBinaryExpression(AND,
-                                new ComparisonExpression(GREATER_THAN, leftRowNumber, rightPartitionSize),
-                                new ComparisonExpression(EQUAL, rightRowNumber, new GenericLiteral("BIGINT", "1"))),
-                        new LogicalBinaryExpression(AND,
-                                new ComparisonExpression(GREATER_THAN, rightRowNumber, leftPartitionSize),
-                                new ComparisonExpression(EQUAL, leftRowNumber, new GenericLiteral("BIGINT", "1")))));
 
+        FunctionResolution functionResolution = new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver());
+        RowExpression joinCondition = new SpecialFormExpression(SpecialFormExpression.Form.OR,
+                BOOLEAN,
+                ImmutableList.of(
+                        new CallExpression(EQUAL.name(),
+                                functionResolution.comparisonFunction(EQUAL, BIGINT, BIGINT),
+                                BOOLEAN,
+                                ImmutableList.of(left.rowNumber, right.rowNumber)),
+                        new SpecialFormExpression(SpecialFormExpression.Form.OR,
+                                BOOLEAN,
+                                ImmutableList.of(
+                                        new SpecialFormExpression(SpecialFormExpression.Form.AND,
+                                                BOOLEAN,
+                                                ImmutableList.of(
+                                                        new CallExpression(GREATER_THAN.name(),
+                                                                functionResolution.comparisonFunction(GREATER_THAN, BIGINT, BIGINT),
+                                                                BOOLEAN,
+                                                                ImmutableList.of(left.rowNumber, right.partitionSize)),
+                                                        new CallExpression(EQUAL.name(),
+                                                                functionResolution.comparisonFunction(EQUAL, BIGINT, BIGINT),
+                                                                BOOLEAN,
+                                                                ImmutableList.of(right.rowNumber, new ConstantExpression(1L, BIGINT))))),
+                                        new SpecialFormExpression(SpecialFormExpression.Form.AND,
+                                                BOOLEAN,
+                                                ImmutableList.of(
+                                                        new CallExpression(GREATER_THAN.name(),
+                                                                functionResolution.comparisonFunction(GREATER_THAN, BIGINT, BIGINT),
+                                                                BOOLEAN,
+                                                                ImmutableList.of(right.rowNumber, left.partitionSize)),
+                                                        new CallExpression(EQUAL.name(),
+                                                                functionResolution.comparisonFunction(EQUAL, BIGINT, BIGINT),
+                                                                BOOLEAN,
+                                                                ImmutableList.of(left.rowNumber, new ConstantExpression(1L, BIGINT)))))))));
         JoinType joinType;
         if (left.pruneWhenEmpty() && right.pruneWhenEmpty()) {
             joinType = INNER;
@@ -672,8 +697,7 @@ public class ImplementTableFunctionSource
                         Stream.concat(left.node().getOutputVariables().stream(),
                                         right.node().getOutputVariables().stream())
                                 .collect(Collectors.toList()),
-                        //Optional.of(joinCondition),
-                        Optional.empty(),
+                        Optional.of(joinCondition),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
