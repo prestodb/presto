@@ -386,6 +386,7 @@
                 <configuration>
                     <ignoredDependencies>
                         <ignoredDependency>org.yaml:snakeyaml:jar</ignoredDependency>
+                        <ignoredDependency>org.elasticsearch:elasticsearch-x-content:jar</ignoredDependency>
                     </ignoredDependencies>
                 </configuration>
             </plugin>
