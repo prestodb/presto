@@ -101,7 +101,7 @@ public class TestQueryInfo
         assertEquals(actual.getStartedTransactionId(), expected.getStartedTransactionId());
         assertEquals(actual.isClearTransactionId(), expected.isClearTransactionId());
 
-        assertEquals(actual.getUpdateType(), expected.getUpdateType());
+        assertEquals(actual.getUpdateInfo(), expected.getUpdateInfo());
         assertEquals(actual.getOutputStage(), expected.getOutputStage());
 
         assertEquals(actual.getFailureInfo(), expected.getFailureInfo());
