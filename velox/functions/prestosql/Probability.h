@@ -398,7 +398,12 @@ struct InversePoissonCDFFunction {
         "inversePoissonCdf Function: lambda must be greater than 0");
 
     boost::math::poisson_distribution<> dist(lambda);
-    result = static_cast<int32_t>(boost::math::quantile(dist, p));
+    double quantile = boost::math::quantile(dist, p);
+    if (quantile > std::numeric_limits<int32_t>::max()) {
+      result = std::numeric_limits<int32_t>::max();
+    } else {
+      result = static_cast<int32_t>(quantile);
+    }
   }
 };
 

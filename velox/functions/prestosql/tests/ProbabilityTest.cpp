@@ -735,6 +735,9 @@ TEST_F(ProbabilityTest, invPoissonCDF) {
   // EXPECT_EQ(2, invPoissonCDF(3, 0.3)); // 1.499999... round to floor to 1
   EXPECT_EQ(6, invPoissonCDF(3, 0.95));
   EXPECT_EQ(17, invPoissonCDF(3, 0.99999999));
+  EXPECT_EQ(
+      std::numeric_limits<int32_t>::max(),
+      invPoissonCDF(1.8819579427461317E18, 0.659094));
 
   EXPECT_EQ(std::nullopt, invPoissonCDF(std::nullopt, 0.5));
   EXPECT_EQ(std::nullopt, invPoissonCDF(0.5, std::nullopt));
