@@ -369,7 +369,7 @@ public class PrestoSparkQueryExecutionFactory
                 ImmutableSet.of(),
                 Optional.empty(),
                 false,
-                planAndMore.flatMap(PlanAndMore::getUpdateType).orElse(null),
+                planAndMore.flatMap(PlanAndMore::getUpdateInfo).orElse(null),
                 rootStage,
                 failureInfo.orElse(null),
                 failureInfo.map(ExecutionFailureInfo::getErrorCode).orElse(null),
@@ -480,7 +480,7 @@ public class PrestoSparkQueryExecutionFactory
                 stats,
                 Optional.ofNullable(queryInfo.getFailureInfo()).map(PrestoSparkQueryExecutionFactory::toQueryError),
                 warningCollector.getWarnings(),
-                planAndMore.flatMap(PlanAndMore::getUpdateType),
+                planAndMore.flatMap(PlanAndMore::getUpdateInfo),
                 updateCount);
     }
 
