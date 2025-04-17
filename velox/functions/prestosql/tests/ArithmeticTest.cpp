@@ -31,8 +31,6 @@ constexpr double kInf = std::numeric_limits<double>::infinity();
 constexpr double kNan = std::numeric_limits<double>::quiet_NaN();
 constexpr float kInfF = std::numeric_limits<float>::infinity();
 constexpr float kNanF = std::numeric_limits<float>::quiet_NaN();
-constexpr int64_t kLongMax = std::numeric_limits<int64_t>::max();
-constexpr int64_t kLongMin = std::numeric_limits<int64_t>::min();
 
 MATCHER(IsNan, "is NaN") {
   return arg && std::isnan(*arg);
@@ -90,30 +88,109 @@ class ArithmeticTest : public functions::test::FunctionBaseTest {
           std::string(e.what()).find(errorMessage) != std::string::npos);
     }
   }
+
+  template <typename T>
+  void testIntervalPlus(const TypePtr& intervalType) {
+    T max = std::numeric_limits<T>::max();
+    T min = std::numeric_limits<T>::min();
+    auto op1 = makeNullableFlatVector<T>(
+        {-1, 2, -3, 4, max, -1, std::nullopt, 0}, intervalType);
+    auto op2 = makeNullableFlatVector<T>(
+        {2, -3, -1, 1, 1, min, 0, std::nullopt}, intervalType);
+    auto expected = makeNullableFlatVector<T>(
+        {1, -1, -4, 5, min, max, std::nullopt, std::nullopt}, intervalType);
+    assertExpression("c0 + c1", op1, op2, expected);
+  }
+
+  template <typename T>
+  void testIntervalMinus(const TypePtr& intervalType) {
+    T max = std::numeric_limits<T>::max();
+    T min = std::numeric_limits<T>::min();
+    auto op1 = makeNullableFlatVector<T>(
+        {-1, 2, -3, 4, min, -1, std::nullopt, 0}, intervalType);
+    auto op2 = makeNullableFlatVector<T>(
+        {2, 3, -4, 1, 1, max, 0, std::nullopt}, intervalType);
+    auto expected = makeNullableFlatVector<T>(
+        {-3, -1, 1, 3, max, min, std::nullopt, std::nullopt}, intervalType);
+    assertExpression("c0 - c1", op1, op2, expected);
+  }
+
+  template <typename T>
+  void testIntervalDivide(const TypePtr& intervalType) {
+    auto op1 = makeNullableFlatVector<T>(
+        {3, 6, 9, std::nullopt, 12, 15, 18, 21, 0, 0, 1}, intervalType);
+    auto op2 = makeNullableFlatVector<double>(
+        {0.5,
+         -2.0,
+         5.0,
+         1.0,
+         std::nullopt,
+         kNan,
+         kInf,
+         -kInf,
+         0.0,
+         -0.0,
+         0.00000001});
+    auto expected = makeNullableFlatVector<T>(
+        {6, -3, 1, std::nullopt, std::nullopt, 0, 0, 0, 0, 0, 100000000},
+        intervalType);
+    assertExpression("c0 / c1", op1, op2, expected);
+
+    T max = std::numeric_limits<T>::max();
+    T min = std::numeric_limits<T>::min();
+    op1 = makeFlatVector<T>({1, 1, 1, 1, max, min, max, min}, intervalType);
+    op2 = makeFlatVector<double>(
+        {0.0, -0.0, 4.9e-324, -4.9e-324, 0.1, 0.1, -0.1, -0.1});
+    expected = makeFlatVector<T>(
+        {max, min, max, min, max, min, min, max}, intervalType);
+    assertExpression("c0 / c1", op1, op2, expected);
+  }
+
+  template <typename T>
+  void testIntervalMultiply(const TypePtr& intervalType) {
+    T max = std::numeric_limits<T>::max();
+    T min = std::numeric_limits<T>::min();
+    auto op1 = makeNullableFlatVector<T>(
+        {1, 2, 3, std::nullopt, 10, 20}, intervalType);
+    auto op2 = makeNullableFlatVector<T>(
+        {1, std::nullopt, 3, 4, max, min}, CppToType<T>::create());
+    auto expected = makeNullableFlatVector<T>(
+        {1, std::nullopt, 9, std::nullopt, -10, 0}, intervalType);
+    assertExpression("c0 * c1", op1, op2, expected);
+    assertExpression("c1 * c0", op1, op2, expected);
+
+    op1 = makeNullableFlatVector<T>(
+        {1, 2, 3, std::nullopt, 10, 20, 30, 40, 1000, 1000, 1000, 1000},
+        intervalType);
+    auto doubleOp = makeNullableFlatVector<double>(
+        {-1.8,
+         2.1,
+         kNan,
+         4.2,
+         0.0,
+         -0.0,
+         kInf,
+         -kInf,
+         9223372036854775807.01,
+         -9223372036854775808.01,
+         1.7e308,
+         -1.7e308});
+    expected = makeNullableFlatVector<T>(
+        {-1, 4, 0, std::nullopt, 0, 0, max, min, max, min, max, min},
+        intervalType);
+    assertExpression("c0 * c1", op1, doubleOp, expected);
+    assertExpression("c1 * c0", op1, doubleOp, expected);
+  }
 };
 
 TEST_F(ArithmeticTest, plus) {
-  // Test plus for intervals.
-  auto op1 = makeNullableFlatVector<int64_t>(
-      {-1, 2, -3, 4, kLongMax, -1, std::nullopt, 0}, INTERVAL_DAY_TIME());
-  auto op2 = makeNullableFlatVector<int64_t>(
-      {2, -3, -1, 1, 1, kLongMin, 0, std::nullopt}, INTERVAL_DAY_TIME());
-  auto expected = makeNullableFlatVector<int64_t>(
-      {1, -1, -4, 5, kLongMin, kLongMax, std::nullopt, std::nullopt},
-      INTERVAL_DAY_TIME());
-  assertExpression("c0 + c1", op1, op2, expected);
+  testIntervalPlus<int64_t>(INTERVAL_DAY_TIME());
+  testIntervalPlus<int32_t>(INTERVAL_YEAR_MONTH());
 }
 
 TEST_F(ArithmeticTest, minus) {
-  // Test plus for intervals.
-  auto op1 = makeNullableFlatVector<int64_t>(
-      {-1, 2, -3, 4, kLongMin, -1, std::nullopt, 0}, INTERVAL_DAY_TIME());
-  auto op2 = makeNullableFlatVector<int64_t>(
-      {2, 3, -4, 1, 1, kLongMax, 0, std::nullopt}, INTERVAL_DAY_TIME());
-  auto expected = makeNullableFlatVector<int64_t>(
-      {-3, -1, 1, 3, kLongMax, kLongMin, std::nullopt, std::nullopt},
-      INTERVAL_DAY_TIME());
-  assertExpression("c0 - c1", op1, op2, expected);
+  testIntervalMinus<int64_t>(INTERVAL_DAY_TIME());
+  testIntervalMinus<int32_t>(INTERVAL_YEAR_MONTH());
 }
 
 TEST_F(ArithmeticTest, divide)
@@ -144,42 +221,9 @@ __attribute__((__no_sanitize__("float-divide-by-zero")))
   assertExpression<double>(
       "c0 / c1", {10.5, 9.2, 0.0, 0.0}, {2, 0, 0, -1}, {5.25, kInf, kNan, 0.0});
 
-  // Test interval divided by double.
-  auto intervalVector = makeNullableFlatVector<int64_t>(
-      {3, 6, 9, std::nullopt, 12, 15, 18, 21, 0, 0, 1}, INTERVAL_DAY_TIME());
-  auto doubleVector = makeNullableFlatVector<double>(
-      {0.5,
-       -2.0,
-       5.0,
-       1.0,
-       std::nullopt,
-       kNan,
-       kInf,
-       -kInf,
-       0.0,
-       -0.0,
-       0.00000001});
-  auto expected = makeNullableFlatVector<int64_t>(
-      {6, -3, 1, std::nullopt, std::nullopt, 0, 0, 0, 0, 0, 100000000},
-      INTERVAL_DAY_TIME());
-  assertExpression("c0 / c1", intervalVector, doubleVector, expected);
-
-  intervalVector = makeFlatVector<int64_t>(
-      {1, 1, 1, 1, kLongMax, kLongMin, kLongMax, kLongMin},
-      INTERVAL_DAY_TIME());
-  doubleVector = makeFlatVector<double>(
-      {0.0, -0.0, 4.9e-324, -4.9e-324, 0.1, 0.1, -0.1, -0.1});
-  expected = makeFlatVector<int64_t>(
-      {kLongMax,
-       kLongMin,
-       kLongMax,
-       kLongMin,
-       kLongMax,
-       kLongMin,
-       kLongMin,
-       kLongMax},
-      INTERVAL_DAY_TIME());
-  assertExpression("c0 / c1", intervalVector, doubleVector, expected);
+  // Test interval day time and interval year month types divided by double.
+  testIntervalDivide<int64_t>(INTERVAL_DAY_TIME());
+  testIntervalDivide<int32_t>(INTERVAL_YEAR_MONTH());
 }
 
 TEST_F(ArithmeticTest, multiply) {
@@ -189,49 +233,11 @@ TEST_F(ArithmeticTest, multiply) {
       {-1},
       "integer overflow: -2147483648 * -1");
 
-  // Test multiplication of interval type with bigint.
-  auto intervalVector = makeNullableFlatVector<int64_t>(
-      {1, 2, 3, std::nullopt, 10, 20}, INTERVAL_DAY_TIME());
-  auto bigintVector = makeNullableFlatVector<int64_t>(
-      {1, std::nullopt, 3, 4, kLongMax, kLongMin});
-  auto expected = makeNullableFlatVector<int64_t>(
-      {1, std::nullopt, 9, std::nullopt, -10, 0}, INTERVAL_DAY_TIME());
-  assertExpression("c0 * c1", intervalVector, bigintVector, expected);
-  assertExpression("c1 * c0", intervalVector, bigintVector, expected);
+  // Test multiplication of interval day time type with bigint and double.
+  testIntervalMultiply<int64_t>(INTERVAL_DAY_TIME());
 
-  // Test multiplication of interval type with double.
-  intervalVector = makeNullableFlatVector<int64_t>(
-      {1, 2, 3, std::nullopt, 10, 20, 30, 40, 1000, 1000, 1000, 1000},
-      INTERVAL_DAY_TIME());
-  auto doubleVector = makeNullableFlatVector<double>(
-      {-1.8,
-       2.1,
-       kNan,
-       4.2,
-       0.0,
-       -0.0,
-       kInf,
-       -kInf,
-       9223372036854775807.01,
-       -9223372036854775808.01,
-       1.7e308,
-       -1.7e308});
-  expected = makeNullableFlatVector<int64_t>(
-      {-1,
-       4,
-       0,
-       std::nullopt,
-       0,
-       0,
-       kLongMax,
-       kLongMin,
-       kLongMax,
-       kLongMin,
-       kLongMax,
-       kLongMin},
-      INTERVAL_DAY_TIME());
-  assertExpression("c0 * c1", intervalVector, doubleVector, expected);
-  assertExpression("c1 * c0", intervalVector, doubleVector, expected);
+  // Test multiplication of interval year month type with integer and double.
+  testIntervalMultiply<int32_t>(INTERVAL_YEAR_MONTH());
 }
 
 TEST_F(ArithmeticTest, mod) {

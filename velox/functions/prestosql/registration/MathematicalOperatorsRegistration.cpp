@@ -28,12 +28,22 @@ void registerMathOperators(const std::string& prefix = "") {
       IntervalDayTime,
       IntervalDayTime,
       IntervalDayTime>({prefix + "plus"});
+  registerFunction<
+      PlusFunction,
+      IntervalYearMonth,
+      IntervalYearMonth,
+      IntervalYearMonth>({prefix + "plus"});
   registerBinaryFloatingPoint<MinusFunction>({prefix + "minus"});
   registerFunction<
       MinusFunction,
       IntervalDayTime,
       IntervalDayTime,
       IntervalDayTime>({prefix + "minus"});
+  registerFunction<
+      MinusFunction,
+      IntervalYearMonth,
+      IntervalYearMonth,
+      IntervalYearMonth>({prefix + "minus"});
   registerBinaryFloatingPoint<MultiplyFunction>({prefix + "multiply"});
   registerFunction<MultiplyFunction, IntervalDayTime, IntervalDayTime, int64_t>(
       {prefix + "multiply"});
@@ -49,11 +59,36 @@ void registerMathOperators(const std::string& prefix = "") {
       IntervalDayTime,
       double,
       IntervalDayTime>({prefix + "multiply"});
+  registerFunction<
+      MultiplyFunction,
+      IntervalYearMonth,
+      IntervalYearMonth,
+      int32_t>({prefix + "multiply"});
+  registerFunction<
+      MultiplyFunction,
+      IntervalYearMonth,
+      int32_t,
+      IntervalYearMonth>({prefix + "multiply"});
+  registerFunction<
+      IntervalMultiplyFunction,
+      IntervalYearMonth,
+      IntervalYearMonth,
+      double>({prefix + "multiply"});
+  registerFunction<
+      IntervalMultiplyFunction,
+      IntervalYearMonth,
+      double,
+      IntervalYearMonth>({prefix + "multiply"});
   registerBinaryFloatingPoint<DivideFunction>({prefix + "divide"});
   registerFunction<
       IntervalDivideFunction,
       IntervalDayTime,
       IntervalDayTime,
+      double>({prefix + "divide"});
+  registerFunction<
+      IntervalDivideFunction,
+      IntervalYearMonth,
+      IntervalYearMonth,
       double>({prefix + "divide"});
   registerBinaryFloatingPoint<ModulusFunction>({prefix + "mod"});
 }
