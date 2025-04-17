@@ -78,9 +78,8 @@ public abstract class RemoteState
                 sinceUpdate.toMillis() > 10_000 &&
                 future.get() != null) {
             log.warn(
-                    "Coordinator update request to %s has not returned in %s",
-                    String.format("%s:%d", remoteUri.getHost(), remoteUri.getPort()),
-                    sinceUpdate.toString(SECONDS));
+                    "Coordinator update request to %s:%d has not returned in %s",
+                    remoteUri.getHost(), remoteUri.getPort(), sinceUpdate.toString(SECONDS));
             lastWarningLogged.set(System.nanoTime());
         }
 

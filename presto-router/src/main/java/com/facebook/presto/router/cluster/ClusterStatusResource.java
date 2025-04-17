@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.client.NodeVersion.UNKNOWN;
+import static com.facebook.presto.router.cluster.ClusterManager.ClusterStatusTracker;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 
@@ -38,7 +39,7 @@ import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 public class ClusterStatusResource
 {
     private final String environment;
-    private final ClusterManager.ClusterStatusTracker clusterStatusTracker;
+    private final ClusterStatusTracker clusterStatusTracker;
     private final ClusterManager clusterManager;
 
     @Inject

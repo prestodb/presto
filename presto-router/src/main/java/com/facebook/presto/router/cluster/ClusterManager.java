@@ -26,7 +26,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.sun.nio.file.SensitivityWatchEventModifier;
 import org.weakref.jmx.Managed;
 
@@ -49,7 +48,6 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -60,9 +58,10 @@ import static com.facebook.presto.router.scheduler.SchedulerType.WEIGHTED_RANDOM
 import static com.facebook.presto.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
-import static java.util.stream.Collectors.toMap;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class ClusterManager
 {
@@ -72,8 +71,8 @@ public class ClusterManager
     private final Logger log = Logger.get(ClusterManager.class);
 
     // Cluster status
-    private final ConcurrentHashMap<URI, RemoteClusterInfo> remoteClusterInfos = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<URI, RemoteQueryInfo> remoteQueryInfos = new ConcurrentHashMap<>();
+    private final Map<URI, RemoteClusterInfo> remoteClusterInfos = new ConcurrentHashMap<>();
+    private final Map<URI, RemoteQueryInfo> remoteQueryInfos = new ConcurrentHashMap<>();
 
     private final AtomicBoolean isWatchServiceStarted = new AtomicBoolean();
     public OnConfigChangeDetection onConfigChangeDetection;
@@ -86,7 +85,7 @@ public class ClusterManager
         onConfigChangeDetection = () -> {
             RouterSpec newRouterSpec = parseRouterConfig(routerConfig)
                     .orElseThrow(() -> new PrestoException(CONFIGURATION_INVALID, "Failed to load router config"));
-            Map<String, GroupSpec> newGroups = ImmutableMap.copyOf(newRouterSpec.getGroups().stream().collect(toMap(GroupSpec::getName, group -> group)));
+            Map<String, GroupSpec> newGroups = newRouterSpec.getGroups().stream().collect(toImmutableMap(GroupSpec::getName, group -> group));
             List<SelectorRuleSpec> newGroupSelectors = ImmutableList.copyOf(newRouterSpec.getSelectors());
             Scheduler newScheduler = new SchedulerFactory(newRouterSpec.getSchedulerType()).create();
             SchedulerType newSchedulerType = newRouterSpec.getSchedulerType();
@@ -96,26 +95,22 @@ public class ClusterManager
                     .collect(toImmutableList());
 
             Map<URI, URI> newDiscoveryURIs = new HashMap<>();
-            this.initializeMembersDiscoveryURI(newDiscoveryURIs, newGroups);
+            initializeMembersDiscoveryURI(newDiscoveryURIs, newGroups);
 
             updatedAllClusters.forEach(uri -> {
-                if (!remoteClusterInfos.containsKey(uri)) {
-                    log.info("Attaching cluster %s to the router", uri.getHost());
-                    remoteClusterInfos.put(uri, remoteInfoFactory.createRemoteClusterInfo(newDiscoveryURIs.get(uri)));
-                    remoteQueryInfos.put(uri, remoteInfoFactory.createRemoteQueryInfo(newDiscoveryURIs.get(uri)));
-                    log.info("Successfully attached cluster %s to the router. Queries will be routed to cluster after successful health check", uri.getHost());
-                }
+                remoteClusterInfos.computeIfAbsent(uri, value -> remoteInfoFactory.createRemoteClusterInfo(newDiscoveryURIs.get(value)));
+                remoteQueryInfos.computeIfAbsent(uri, value -> remoteInfoFactory.createRemoteQueryInfo(newDiscoveryURIs.get(value)));
+                log.info("Attached cluster %s to the router. Queries will be routed to cluster after successful health check", uri.getHost());
             });
 
             for (URI uri : remoteClusterInfos.keySet()) {
                 if (!updatedAllClusters.contains(uri)) {
-                    log.info("Removing cluster %s from the router", uri.getHost());
                     remoteClusterInfos.remove(uri);
                     remoteQueryInfos.remove(uri);
-                    log.info("Successfully removed cluster %s from the router", uri.getHost());
+                    log.info("Removed cluster %s from the router", uri.getHost());
                 }
             }
-            this.currentConfig.set(new ClusterManagerConfig(newGroups, newGroupSelectors, newScheduler, newSchedulerType));
+            currentConfig.set(new ClusterManagerConfig(newGroups, newGroupSelectors, newScheduler, newSchedulerType));
         };
         onConfigChangeDetection.apply();
     }
@@ -126,7 +121,7 @@ public class ClusterManager
         CompletableFuture.supplyAsync(() -> {
             try (WatchService watchService = FileSystems.getDefault().newWatchService()) {
                 File routerConfigFile = new File(routerConfig.getConfigFile());
-                log.info(String.format("Router config watch service monitoring %s", routerConfig.getConfigFile()));
+                log.info("Router config watch service monitoring %s", routerConfig.getConfigFile());
                 Path parentDir = routerConfigFile.toPath().getParent();
                 parentDir.register(
                         watchService,
@@ -143,13 +138,13 @@ public class ClusterManager
                     WatchKey key = watchService.take();
                     log.info("Changes to router config directory detected: %s", routerConfigFile);
                     for (WatchEvent<?> event : key.pollEvents()) {
-                        log.info("Event detected: %s, path: %s", event.kind().name(), event.context());
+                        log.debug("Event detected: %s, path: %s", event.kind().name(), event.context());
                         Path changed = (Path) event.context();
                         if (changed.endsWith(routerConfigFile.getName())) {
                             this.onConfigChangeDetection.apply();
                         }
                         else {
-                            log.info("Config change to %s ignored by ClusterManager (config file is %s)", event.context(), routerConfigFile.getName());
+                            log.debug("Config change to %s ignored by ClusterManager (config file is %s)", event.context(), routerConfigFile.getName());
                         }
                     }
                     key.reset();
@@ -180,18 +175,13 @@ public class ClusterManager
         checkArgument(config.getGroups().containsKey(target.get()));
         GroupSpec groupSpec = config.getGroups().get(target.get());
 
-        List<URI> healthyClusterURIs = groupSpec.getMembers().stream().filter((entry) -> {
-            if (remoteClusterInfos.containsKey(entry)) {
-                return remoteClusterInfos.get(entry).isHealthy();
-            }
-            else {
-                log.warn("Cluster [%s] is not available in remoteClusterInfos", entry);
-                return false;
-            }
-        }).collect(Collectors.toList());
+        List<URI> healthyClusterURIs = groupSpec.getMembers().stream().filter((entry) ->
+                Optional.ofNullable(remoteClusterInfos.get(entry))
+                        .map(RemoteClusterInfo::isHealthy)
+                        .orElse(false)).collect(Collectors.toList());
 
         if (healthyClusterURIs.isEmpty()) {
-            log.info("No healthy cluster found, will attempt to route using existing group spec");
+            log.debug("No healthy cluster found, will attempt to route using existing group spec");
             healthyClusterURIs = groupSpec.getMembers();
         }
         log.debug("Available clusters: %s", healthyClusterURIs);
@@ -224,13 +214,13 @@ public class ClusterManager
     }
 
     @VisibleForTesting
-    public ConcurrentHashMap<URI, RemoteClusterInfo> getRemoteClusterInfos()
+    public Map<URI, RemoteClusterInfo> getRemoteClusterInfos()
     {
         return remoteClusterInfos;
     }
 
     @VisibleForTesting
-    public ConcurrentHashMap<URI, RemoteQueryInfo> getRemoteQueryInfos()
+    public Map<URI, RemoteQueryInfo> getRemoteQueryInfos()
     {
         return remoteQueryInfos;
     }
@@ -277,7 +267,7 @@ public class ClusterManager
                 catch (Exception e) {
                     log.error(e, "Error polling list of queries");
                 }
-            }, pollingInterval.toMillis(), pollingInterval.toMillis(), TimeUnit.MILLISECONDS);
+            }, pollingInterval.toMillis(), pollingInterval.toMillis(), MILLISECONDS);
         }
 
         @Managed

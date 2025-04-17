@@ -37,6 +37,7 @@ import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static com.facebook.airlift.http.server.HttpServerBinder.httpServerBinder;
 import static com.facebook.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
+import static com.facebook.presto.router.cluster.ClusterManager.ClusterStatusTracker;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -68,7 +69,7 @@ public class RouterModule
         bindHttpClient(binder, QUERY_TRACKER, ForQueryInfoTracker.class, IDLE_TIMEOUT_SECOND, REQUEST_TIMEOUT_SECOND);
         bindHttpClient(binder, QUERY_TRACKER, ForClusterInfoTracker.class, IDLE_TIMEOUT_SECOND, REQUEST_TIMEOUT_SECOND);
 
-        binder.bind(ClusterManager.ClusterStatusTracker.class).in(Scopes.SINGLETON);
+        binder.bind(ClusterStatusTracker.class).in(Scopes.SINGLETON);
 
         binder.bind(PredictorManager.class).in(Scopes.SINGLETON);
         binder.bind(RemoteQueryFactory.class).in(Scopes.SINGLETON);
