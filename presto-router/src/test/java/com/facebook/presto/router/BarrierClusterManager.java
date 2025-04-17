@@ -25,18 +25,15 @@ import java.util.concurrent.TimeoutException;
 public class BarrierClusterManager
         extends ClusterManager
 {
-    private final CyclicBarrier barrier;
-
     public BarrierClusterManager(RouterConfig config, RemoteInfoFactory remoteInfoFactory, RemoteStateConfig remoteStateConfig, CyclicBarrier barrier)
     {
         super(config, remoteInfoFactory, remoteStateConfig);
-        this.barrier = barrier;
 
         OnConfigChangeDetection parentOnConfigChangeDetection = this.onConfigChangeDetection;
         this.onConfigChangeDetection = () -> {
             try {
                 parentOnConfigChangeDetection.apply();
-                this.barrier.await(5, TimeUnit.SECONDS);
+                barrier.await(5, TimeUnit.SECONDS);
             }
             catch (InterruptedException | BrokenBarrierException | TimeoutException e) {
                 throw new RuntimeException("Barrier synchronization failed", e);

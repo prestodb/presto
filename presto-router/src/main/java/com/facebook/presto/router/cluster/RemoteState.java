@@ -108,18 +108,18 @@ public abstract class RemoteState
                             handleResponse(result.getValue());
                         }
                         if (result.getStatusCode() != OK.code()) {
-                            log.warn("Error fetching node state from %s returned status code %d", remoteUri, result.getStatusCode());
+                            log.debug("Error fetching node state from %s returned status code %d", remoteUri, result.getStatusCode());
                         }
                         else {
                             if (!isHealthy.get()) {
-                                log.info("%s:%d was unhealthy, and is now healthy", remoteUri.getHost(), remoteUri.getPort());
+                                log.debug("%s:%d was unhealthy, and is now healthy", remoteUri.getHost(), remoteUri.getPort());
                                 isHealthy.set(true);
                             }
                             lastHealthyResponseTime = Instant.now();
                         }
                     }
                     else {
-                        log.info("RemoteState successful result was null");
+                        log.debug("RemoteState successful result was null");
                     }
                 }
 

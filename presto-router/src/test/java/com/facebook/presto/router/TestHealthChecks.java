@@ -35,8 +35,8 @@ import org.testng.annotations.Test;
 import javax.servlet.http.HttpServletRequest;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.net.URI;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -80,9 +80,7 @@ public class TestHealthChecks
         Map<String, List<String>> groups = ImmutableMap.of("group1", serverURIs);
         TestingRouterConfig config = new TestingRouterConfig(groups, "group1", "ROUND_ROBIN");
 
-        FileOutputStream fileOutputStream = new FileOutputStream(configFile);
-        fileOutputStream.write(config.get().toString().getBytes(UTF_8));
-        fileOutputStream.close();
+        Files.write(configFile.toPath(), config.get().toString().getBytes(UTF_8));
 
         Bootstrap app = new Bootstrap(
                 new TestingNodeModule("test"),

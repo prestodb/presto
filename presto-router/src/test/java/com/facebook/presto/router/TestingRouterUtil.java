@@ -17,9 +17,9 @@ import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.google.common.collect.ImmutableMap;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.URI;
+import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -35,15 +35,13 @@ public class TestingRouterUtil
     public static File getConfigFile(List<TestingPrestoServer> servers, File tempFile)
             throws IOException
     {
-        FileOutputStream fileOutputStream = new FileOutputStream(tempFile);
         List<String> serverURIs = servers.stream()
                 .map(TestingPrestoServer::getBaseUrl)
                 .map(URI::toString)
                 .collect(Collectors.toList());
         Map<String, List<String>> groups = ImmutableMap.of("all", serverURIs);
         TestingRouterConfig config = new TestingRouterConfig(groups, "all", "ROUND_ROBIN");
-        fileOutputStream.write(config.get().toString().getBytes(UTF_8));
-        fileOutputStream.close();
+        Files.write(tempFile.toPath(), config.get().toString().getBytes(UTF_8));
         return tempFile;
     }
 }

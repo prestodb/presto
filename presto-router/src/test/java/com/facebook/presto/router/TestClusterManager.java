@@ -36,7 +36,6 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
@@ -162,16 +161,12 @@ public class TestClusterManager
         String originalConfigContent = new String(Files.readAllBytes(configFilePath));
         String modifiedConfigContent = originalConfigContent.replaceAll("\"members\"\\s*:\\s*\\[.*?\\]", "\"members\": []");
 
-        try (FileOutputStream fos = new FileOutputStream(newConfig, false)) {
-            fos.write(modifiedConfigContent.getBytes());
-        }
+        Files.write(newConfig.toPath(), modifiedConfigContent.getBytes());
         barrier.await(10, SECONDS);
 
         assertEquals(barrierClusterManager.getAllClusters().size(), 0);
 
-        try (FileOutputStream fos = new FileOutputStream(newConfig, false)) {
-            fos.write(originalConfigContent.getBytes());
-        }
+        Files.write(newConfig.toPath(), originalConfigContent.getBytes());
         barrier.await(10, SECONDS);
 
         assertEquals(barrierClusterManager.getAllClusters().size(), 3);
