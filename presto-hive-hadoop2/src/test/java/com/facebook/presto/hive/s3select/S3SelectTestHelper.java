@@ -134,7 +134,7 @@ public class S3SelectTestHelper
         cacheConfig = new CacheConfig();
         metastoreClientConfig = new MetastoreClientConfig();
         thriftHiveMetastoreConfig = new ThriftHiveMetastoreConfig();
-        httpHiveMetastoreConfig =  new HttpHiveMetastoreConfig();
+        httpHiveMetastoreConfig = new HttpHiveMetastoreConfig();
 
         String proxy = System.getProperty("hive.metastore.thrift.client.socks-proxy");
         if (proxy != null) {
