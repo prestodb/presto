@@ -42,7 +42,6 @@ import com.facebook.presto.sql.planner.plan.TableFunctionNode.PassThroughSpecifi
 import com.facebook.presto.sql.planner.plan.TableFunctionNode.TableArgumentProperties;
 import com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
-import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -61,6 +60,7 @@ import java.util.stream.Stream;
 import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_LAST;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.plan.JoinType.FULL;
 import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.spi.plan.JoinType.LEFT;
@@ -71,7 +71,6 @@ import static com.facebook.presto.spi.plan.WindowNode.Frame.WindowType.ROWS;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.COALESCE;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IF;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static com.facebook.presto.sql.planner.QueryPlanner.toSymbolReference;
 import static com.facebook.presto.sql.planner.plan.Patterns.tableFunction;
 import static com.facebook.presto.sql.relational.Expressions.coalesce;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
@@ -404,7 +403,7 @@ public class ImplementTableFunctionSource
                         BOOLEAN,
                         ImmutableList.of(
                                 new CallExpression(IS_DISTINCT_FROM.name(),
-                                    functionResolution.comparisonFunction(IS_DISTINCT_FROM, BIGINT, BIGINT),
+                                    functionResolution.comparisonFunction(IS_DISTINCT_FROM, INTEGER, INTEGER),
                                     BOOLEAN,
                                     ImmutableList.of(leftColumn, rightColumn)))))
                 .collect(toImmutableList());
@@ -632,11 +631,6 @@ public class ImplementTableFunctionSource
 
     private static JoinedNodes join(NodeWithVariables left, NodeWithVariables right, Context context, Metadata metadata)
     {
-        Expression leftRowNumber = toSymbolReference(left.rowNumber());
-        Expression leftPartitionSize = toSymbolReference(left.partitionSize());
-        Expression rightRowNumber = toSymbolReference(right.rowNumber());
-        Expression rightPartitionSize = toSymbolReference(right.partitionSize());
-
         // Align rows from left and right source according to row number. Because every partition is row-numbered, this produces cartesian product of partitions.
         // If one or both sources are ordered, the row number reflects the ordering.
         // The second and third disjunct in the join condition account for the situation when partitions have different sizes. It preserves the outstanding rows
