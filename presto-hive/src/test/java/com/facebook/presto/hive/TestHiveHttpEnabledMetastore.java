@@ -40,7 +40,8 @@ public class TestHiveHttpEnabledMetastore
 
     private final Map<String, String> httpConfig;
 
-    TestHiveHttpEnabledMetastore() throws URISyntaxException {
+    public TestHiveHttpEnabledMetastore() throws URISyntaxException
+    {
         httpConfig = ImmutableMap.<String, String>builder()
                 // This is required when connecting to ssl and http enabled metastore
                 .put("hive.metastore.http.client.tls.enabled", "true")
