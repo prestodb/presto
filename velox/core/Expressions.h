@@ -590,15 +590,21 @@ class LambdaTypedExpr : public ITypedExpr {
       const ITypedExprVisitor& visitor,
       ITypedExprVisitorContext& context) const override;
 
+  friend bool operator==(
+      const LambdaTypedExpr& lhs,
+      const LambdaTypedExpr& rhs) {
+    if (*lhs.type() != *rhs.type()) {
+      return false;
+    }
+    return lhs.signature_ == rhs.signature_ && lhs.body_ == rhs.body_;
+  }
+
   bool operator==(const ITypedExpr& other) const override {
     const auto* casted = dynamic_cast<const LambdaTypedExpr*>(&other);
     if (!casted) {
       return false;
     }
-    if (*casted->type() != *this->type()) {
-      return false;
-    }
-    return *signature_ == *casted->signature_ && *body_ == *casted->body_;
+    return *this == *casted;
   }
 
   folly::dynamic serialize() const override;
