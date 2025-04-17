@@ -26,7 +26,7 @@ import static com.facebook.presto.tpch.util.Types.checkSameType;
 import static com.facebook.presto.tpch.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 
 public class StatisticsEstimator
 {
@@ -48,7 +48,7 @@ public class StatisticsEstimator
         }
         else {
             checkArgument(columnValuesRestrictions.size() <= 1, "Can only estimate stats when at most one column has value restrictions");
-            TpchColumn<?> partitionColumn = getOnlyElement(columnValuesRestrictions.keySet());
+            TpchColumn<?> partitionColumn = columnValuesRestrictions.keySet().stream().collect(onlyElement());
             List<Object> partitionValues = columnValuesRestrictions.get(partitionColumn);
             TableStatisticsData result = zeroStatistics(tpchTable);
             for (Object partitionValue : partitionValues) {

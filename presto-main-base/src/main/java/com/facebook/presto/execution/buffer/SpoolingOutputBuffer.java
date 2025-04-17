@@ -33,11 +33,10 @@ import com.google.common.collect.Range;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.errorprone.annotations.Immutable;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.slice.InputStreamSliceInput;
 import io.airlift.slice.SliceInput;
-
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.Immutable;
 
 import java.io.IOException;
 import java.util.ArrayDeque;

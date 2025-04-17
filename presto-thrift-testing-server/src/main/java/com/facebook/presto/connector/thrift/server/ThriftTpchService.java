@@ -41,9 +41,8 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.tpch.TpchColumn;
 import io.airlift.tpch.TpchEntity;
 import io.airlift.tpch.TpchTable;
-
-import javax.annotation.Nullable;
-import javax.annotation.PreDestroy;
+import jakarta.annotation.Nullable;
+import jakarta.annotation.PreDestroy;
 
 import java.io.Closeable;
 import java.util.ArrayList;

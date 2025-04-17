@@ -97,12 +97,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import io.airlift.units.Duration;
+import jakarta.annotation.Nullable;
+import jakarta.inject.Inject;
 import org.apache.hadoop.fs.Path;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
-
-import javax.annotation.Nullable;
-import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Comparator;

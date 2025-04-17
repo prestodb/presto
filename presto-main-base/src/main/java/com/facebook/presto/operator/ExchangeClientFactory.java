@@ -17,11 +17,10 @@ import com.facebook.airlift.concurrent.ThreadPoolExecutorMBean;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import jakarta.annotation.PreDestroy;
+import jakarta.inject.Inject;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.annotation.PreDestroy;
-import javax.inject.Inject;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;

@@ -18,9 +18,8 @@ import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.util.FinalizerService;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.AtomicDouble;
-
-import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
+import com.google.errorprone.annotations.ThreadSafe;
+import jakarta.inject.Inject;
 
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;

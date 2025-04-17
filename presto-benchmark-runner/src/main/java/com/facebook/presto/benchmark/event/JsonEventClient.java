@@ -18,8 +18,7 @@ import com.facebook.airlift.event.client.JsonEventSerializer;
 import com.facebook.presto.benchmark.framework.BenchmarkRunnerConfig;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.io.ByteArrayOutputStream;
 import java.io.FileNotFoundException;

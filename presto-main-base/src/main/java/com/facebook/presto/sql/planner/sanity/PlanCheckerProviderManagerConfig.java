@@ -15,8 +15,7 @@
 package com.facebook.presto.sql.planner.sanity;
 
 import com.facebook.airlift.configuration.Config;
-
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 import java.io.File;
 

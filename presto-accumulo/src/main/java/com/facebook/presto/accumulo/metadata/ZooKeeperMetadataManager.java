@@ -23,12 +23,11 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import jakarta.inject.Inject;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.retry.RetryForever;
 import org.apache.zookeeper.KeeperException;
-
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.util.HashSet;
