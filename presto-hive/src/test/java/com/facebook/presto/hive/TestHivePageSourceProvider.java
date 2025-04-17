@@ -121,7 +121,7 @@ public class TestHivePageSourceProvider
                 ImmutableSet.of(new MockOrcBatchPageSourceFactory(), new MockRcBinaryBatchPageSourceFactory()),
                 ImmutableSet.of(new MockOrcSelectivePageSourceFactory()),
                 ImmutableSet.of(new MockOrcAggregatedPageSourceFactory()),
-                METADATA.getFunctionAndTypeManager(),
+                METADATA.getFunctionAndTypeManager().getFunctionAndTypeResolver(),
                 ROW_EXPRESSION_SERVICE);
     }
 
