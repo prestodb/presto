@@ -33,7 +33,7 @@ import static java.lang.String.format;
 
 public class HttpHiveMetastoreConfig
 {
-    private HttpHiveMetastoreConfig.HttpHiveMetastoreClientAuthenticationType httpHiveMetastoreClientAuthenticationType = HttpHiveMetastoreConfig.HttpHiveMetastoreClientAuthenticationType.NONE;
+    private HttpHiveMetastoreConfig.HttpHiveMetastoreClientAuthenticationType httpHiveMetastoreClientAuthenticationType = HttpHiveMetastoreClientAuthenticationType.NONE;
     private Duration httpReadTimeout = new Duration(60, TimeUnit.SECONDS);
     private Map<String, String> httpAdditionalHeaders = ImmutableMap.of();
     private boolean httpMetastoreTlsEnabled;

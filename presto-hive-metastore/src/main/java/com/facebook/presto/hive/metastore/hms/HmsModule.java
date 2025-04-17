@@ -26,9 +26,9 @@ import com.facebook.presto.hive.metastore.hms.thrift.ThriftHiveMetastoreClientFa
 import com.facebook.presto.spi.ConnectorId;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
-import com.google.inject.multibindings.OptionalBinder;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static java.util.Objects.requireNonNull;
 import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
@@ -48,11 +48,11 @@ public class HmsModule
     {
         StaticMetastoreConfig staticMetastoreConfig = buildConfigObject(StaticMetastoreConfig.class);
         requireNonNull(staticMetastoreConfig.getMetastoreUris(), "metastoreUris is null");
-        boolean hasHttpOrHttpsMetastore = staticMetastoreConfig.getMetastoreUris().stream()
+        boolean usingHttpProtocol = staticMetastoreConfig.getMetastoreUris().stream()
                 .anyMatch(uri -> ("http".equalsIgnoreCase(uri.getScheme()) || "https".equalsIgnoreCase(uri.getScheme())));
 
-        if (hasHttpOrHttpsMetastore) {
-            OptionalBinder.newOptionalBinder(binder, MetastoreClientFactory.class)
+        if (usingHttpProtocol) {
+            newOptionalBinder(binder, MetastoreClientFactory.class)
                     .setDefault().to(HttpHiveMetastoreClientFactory.class).in(Scopes.SINGLETON);
             binder.bind(HiveCluster.class).to(StaticHiveCluster.class).in(Scopes.SINGLETON);
             configBinder(binder).bindConfig(StaticMetastoreConfig.class);
@@ -61,15 +61,15 @@ public class HmsModule
             if (hasHttpsMetastore && !metastoreClientConfig.getHttpMetastoreTlsEnabled()) {
                 throw new IllegalStateException("'hive.metastore.http.client.tls.enabled' must be set to 'true' while using https metastore URIs in 'hive.metastore.uri'");
             }
-            if (hasHttpsMetastore && metastoreClientConfig.getHttpMetastoreTlsTruststorePath() == null && metastoreClientConfig.getHttpMetastoreTlsTruststorePassword().isEmpty()) {
-                throw new IllegalStateException("'hive.metastore.http.client.tls.truststore.path' & 'hive.metastore.http.client.tls.truststore.password' must be set while using https metastore URIs in 'hive.metastore.uri'");
+            if (hasHttpsMetastore && metastoreClientConfig.getHttpMetastoreTlsTruststorePath() == null || metastoreClientConfig.getHttpMetastoreTlsTruststorePassword().isEmpty()) {
+                throw new IllegalStateException("'hive.metastore.http.client.tls.truststore.path' and 'hive.metastore.http.client.tls.truststore.password' must be set while using https metastore URIs in 'hive.metastore.uri'");
             }
-            if (hasHttpsMetastore && metastoreClientConfig.getHttpMetastoreTlsKeystorePath() == null && metastoreClientConfig.getHttpMetastoreTlsKeystorePassword().isEmpty()) {
-                throw new IllegalStateException("'hive.metastore.http.client.tls.keystore.path' & 'hive.metastore.http.client.tls.keystore.password' must be set while using https metastore URIs in 'hive.metastore.uri'");
+            if (hasHttpsMetastore && metastoreClientConfig.getHttpMetastoreTlsKeystorePath() == null || metastoreClientConfig.getHttpMetastoreTlsKeystorePassword().isEmpty()) {
+                throw new IllegalStateException("'hive.metastore.http.client.tls.keystore.path' and 'hive.metastore.http.client.tls.keystore.password' must be set while using https metastore URIs in 'hive.metastore.uri'");
             }
         }
         else {
-            OptionalBinder.newOptionalBinder(binder, MetastoreClientFactory.class)
+            newOptionalBinder(binder, MetastoreClientFactory.class)
                     .setDefault().to(ThriftHiveMetastoreClientFactory.class).in(Scopes.SINGLETON);
             binder.bind(HiveCluster.class).to(StaticHiveCluster.class).in(Scopes.SINGLETON);
             configBinder(binder).bindConfig(StaticMetastoreConfig.class);

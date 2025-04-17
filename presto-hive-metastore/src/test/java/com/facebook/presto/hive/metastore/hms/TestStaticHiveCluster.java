@@ -48,7 +48,7 @@ public class TestStaticHiveCluster
             .setMetastoreUris("thrift://default:8080")
             .setMetastoreUsername("presto");
 
-    private static final StaticMetastoreConfig CONFIG_WIT_FALLBACK_AND_HTTP_MODE = new StaticMetastoreConfig()
+    private static final StaticMetastoreConfig CONFIG_WITH_FALLBACK_AND_HTTP_MODE = new StaticMetastoreConfig()
             .setMetastoreUris("http://default:8080");
 
     @Test
@@ -63,14 +63,14 @@ public class TestStaticHiveCluster
     public void testHttpHiveMetastore()
             throws TException
     {
-        HiveCluster cluster = createHiveCluster(CONFIG_WIT_FALLBACK_AND_HTTP_MODE, singletonList(DEFAULT_CLIENT));
+        HiveCluster cluster = createHiveCluster(CONFIG_WITH_FALLBACK_AND_HTTP_MODE, singletonList(DEFAULT_CLIENT));
         assertEquals(cluster.createMetastoreClient(Optional.empty()), DEFAULT_CLIENT);
     }
 
     @Test
     public void testFallbackHttpMetastoreFails()
     {
-        HiveCluster cluster = createHiveCluster(CONFIG_WIT_FALLBACK_AND_HTTP_MODE, asList(null, null, null));
+        HiveCluster cluster = createHiveCluster(CONFIG_WITH_FALLBACK_AND_HTTP_MODE, asList(null, null, null));
         assertCreateClientFails(cluster, "Failed connecting to Hive metastore: [http://default:8080]");
     }
 
