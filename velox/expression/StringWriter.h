@@ -45,7 +45,7 @@ class StringWriter : public UDFOutputString {
     auto actualCapacity = newDataBuffer->capacity() - newDataBuffer->size();
 
     // Impossible to be the same due to the way the capacity is computed.
-    DCHECK(dataBuffer_ != newDataBuffer);
+    VELOX_DCHECK(dataBuffer_ != newDataBuffer);
 
     auto newStartAddress =
         newDataBuffer->asMutable<char>() + newDataBuffer->size();
@@ -64,8 +64,9 @@ class StringWriter : public UDFOutputString {
   void finalize() {
     if (!finalized_) {
       VELOX_DCHECK(size() == 0 || data());
+      VELOX_USER_CHECK_LE(size(), INT32_MAX);
       if LIKELY (size()) {
-        DCHECK(dataBuffer_);
+        VELOX_CHECK_NOT_NULL(dataBuffer_);
         dataBuffer_->setSize(dataBuffer_->size() + size());
       }
       vector_->setNoCopy(offset_, StringView(data(), size()));
@@ -111,12 +112,12 @@ class StringWriter : public UDFOutputString {
 
   template <typename T>
   void append(const T& input) {
-    DCHECK(!finalized_);
+    VELOX_DCHECK(!finalized_);
     auto oldSize = size();
     resize(this->size() + input.size());
     if (input.size() != 0) {
-      DCHECK(data());
-      DCHECK(input.data());
+      VELOX_DCHECK(data());
+      VELOX_DCHECK(input.data());
       std::memcpy(data() + oldSize, input.data(), input.size());
     }
   }

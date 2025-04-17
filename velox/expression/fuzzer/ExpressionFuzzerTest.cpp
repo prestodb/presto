@@ -116,7 +116,12 @@ int main(int argc, char** argv) {
       // make other functions throw VeloxRuntimeErrors.
       "from_unixtime",
       // JSON not supported, Real doesn't match exactly, etc.
-      "array_join",
+      "array_join(array(json),varchar) -> varchar",
+      "array_join(array(json),varchar,varchar) -> varchar",
+      "array_join(array(real),varchar) -> varchar",
+      "array_join(array(real),varchar,varchar) -> varchar",
+      "array_join(array(double),varchar) -> varchar",
+      "array_join(array(double),varchar,varchar) -> varchar",
       // BingTiles throw VeloxUserError when zoom/x/y are out of range.
       "bing_tile",
       "bing_tile_zoom_level",

@@ -18,6 +18,7 @@
 #include <glog/logging.h>
 #include "folly/Range.h"
 #include "gtest/gtest.h"
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/expression/VectorWriters.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 
@@ -104,6 +105,15 @@ TEST_F(StringWriterTest, copyFromCString) {
   writer.finalize();
 
   ASSERT_EQ(vector->valueAt(0), "1 2 3 4 5 "_sv);
+}
+
+TEST_F(StringWriterTest, CheckSizeLimit) {
+  auto vector = makeFlatVector<StringView>(4);
+  auto writer = exec::StringWriter(vector.get(), 0);
+
+  size_t limit = (size_t)INT32_MAX + 1;
+  writer.resize(limit);
+  VELOX_ASSERT_THROW(writer.finalize(), "(2147483648 vs. 2147483647)");
 }
 
 TEST_F(StringWriterTest, vectorWriter) {
