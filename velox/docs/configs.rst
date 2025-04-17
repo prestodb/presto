@@ -693,6 +693,16 @@ Each query can override the config by setting corresponding query session proper
      - V1
      - Data Page version used when writing into Parquet through Arrow bridge.
        Valid values are "V1" and "V2".
+   * - hive.parquet.writer.page-size
+     - hive.parquet.writer.page_size
+     - string
+     - 1MB
+     - Data Page size used when writing into Parquet through Arrow bridge.
+   * - hive.parquet.writer.batch-size
+     - hive.parquet.writer.batch_size
+     - integer
+     - 1024
+     - Batch size used when writing into Parquet through Arrow bridge.
 
 ``Amazon S3 Configuration``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -89,7 +89,6 @@ class LambdaFlushPolicy : public DefaultFlushPolicy {
 
 struct WriterOptions : public dwio::common::WriterOptions {
   bool enableDictionary = true;
-  int64_t dataPageSize = 1'024 * 1'024;
   int64_t dictionaryPageSizeLimit = 1'024 * 1'024;
   // Growth ratio passed to ArrowDataBufferSink. The default value is a
   // heuristic borrowed from
@@ -109,6 +108,8 @@ struct WriterOptions : public dwio::common::WriterOptions {
   std::optional<std::string> parquetWriteTimestampTimeZone;
   bool writeInt96AsTimestamp = false;
   std::optional<bool> useParquetDataPageV2;
+  std::optional<int64_t> dataPageSize;
+  std::optional<int64_t> batchSize;
 
   // Parsing session and hive configs.
 
@@ -122,6 +123,14 @@ struct WriterOptions : public dwio::common::WriterOptions {
       "hive.parquet.writer.datapage_version";
   static constexpr const char* kParquetHiveConnectorDataPageVersion =
       "hive.parquet.writer.datapage-version";
+  static constexpr const char* kParquetSessionWritePageSize =
+      "hive.parquet.writer.page_size";
+  static constexpr const char* kParquetHiveConnectorWritePageSize =
+      "hive.parquet.writer.page-size";
+  static constexpr const char* kParquetSessionWriteBatchSize =
+      "hive.parquet.writer.batch_size";
+  static constexpr const char* kParquetHiveConnectorWriteBatchSize =
+      "hive.parquet.writer.batch-size";
 
   // Process hive connector and session configs.
   void processConfigs(

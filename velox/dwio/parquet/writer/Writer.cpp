@@ -142,7 +142,10 @@ std::shared_ptr<WriterProperties> getArrowParquetWriterOptions(
         getArrowParquetCompression(columnCompressionValues.second));
   }
   properties = properties->encoding(options.encoding);
-  properties = properties->data_pagesize(options.dataPageSize);
+  properties = properties->data_pagesize(options.dataPageSize.value_or(
+      facebook::velox::parquet::arrow::kDefaultDataPageSize));
+  properties = properties->write_batch_size(options.batchSize.value_or(
+      facebook::velox::parquet::arrow::DEFAULT_WRITE_BATCH_SIZE));
   properties = properties->max_row_group_length(
       static_cast<int64_t>(flushPolicy->rowsInRowGroup()));
   properties = properties->codec_options(options.codecOptions);
@@ -256,6 +259,28 @@ std::optional<bool> getParquetDataPageVersion(
     } else {
       VELOX_FAIL("Unsupported parquet datapage version {}", version.value());
     }
+  }
+  return std::nullopt;
+}
+
+std::optional<int64_t> getParquetPageSize(
+    const config::ConfigBase& config,
+    const char* configKey) {
+  if (const auto pageSize = config.get<std::string>(configKey)) {
+    return config::toCapacity(pageSize.value(), config::CapacityUnit::BYTE);
+  }
+  return std::nullopt;
+}
+
+std::optional<int64_t> getParquetBatchSize(
+    const config::ConfigBase& config,
+    const char* configKey) {
+  try {
+    if (const auto batchSize = config.get<int64_t>(configKey)) {
+      return batchSize.value();
+    }
+  } catch (const folly::ConversionError& e) {
+    VELOX_USER_FAIL("Invalid parquet writer batch size: {}", e.what());
   }
   return std::nullopt;
 }
@@ -497,6 +522,22 @@ void WriterOptions::processConfigs(
         ? getParquetDataPageVersion(session, kParquetSessionDataPageVersion)
         : getParquetDataPageVersion(
               connectorConfig, kParquetHiveConnectorDataPageVersion);
+  }
+
+  if (!dataPageSize) {
+    dataPageSize =
+        getParquetPageSize(session, kParquetSessionWritePageSize).has_value()
+        ? getParquetPageSize(session, kParquetSessionWritePageSize)
+        : getParquetPageSize(
+              connectorConfig, kParquetHiveConnectorWritePageSize);
+  }
+
+  if (!batchSize) {
+    batchSize =
+        getParquetBatchSize(session, kParquetSessionWriteBatchSize).has_value()
+        ? getParquetBatchSize(session, kParquetSessionWriteBatchSize)
+        : getParquetBatchSize(
+              connectorConfig, kParquetHiveConnectorWriteBatchSize);
   }
 }
 
