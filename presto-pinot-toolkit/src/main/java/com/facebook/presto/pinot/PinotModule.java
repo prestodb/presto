@@ -25,8 +25,7 @@ import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.concurrent.Executor;
 
