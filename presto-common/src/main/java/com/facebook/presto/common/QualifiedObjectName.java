@@ -23,7 +23,6 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.Objects;
 
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -61,10 +60,7 @@ public class QualifiedObjectName
     @ThriftConstructor
     public QualifiedObjectName(String catalogName, String schemaName, String objectName)
     {
-        checkLowerCase(catalogName, "catalogName");
-        checkLowerCase(schemaName, "schemaName");
-        checkLowerCase(objectName, "objectName");
-        this.catalogName = catalogName;
+        this.catalogName = catalogName.toLowerCase(ENGLISH);
         this.schemaName = schemaName;
         this.objectName = objectName;
     }
@@ -118,13 +114,5 @@ public class QualifiedObjectName
     public String toString()
     {
         return catalogName + '.' + schemaName + '.' + objectName;
-    }
-
-    private static void checkLowerCase(String value, String name)
-    {
-        requireNonNull(value, format("%s is null", name));
-        if (!value.equals(value.toLowerCase(ENGLISH))) {
-            throw new IllegalArgumentException(format("%s is not lowercase: %s", name, value));
-        }
     }
 }

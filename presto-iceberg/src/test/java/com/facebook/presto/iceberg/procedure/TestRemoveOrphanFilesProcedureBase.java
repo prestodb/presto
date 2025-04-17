@@ -49,6 +49,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Map;
 
 import static com.facebook.presto.SystemSessionProperties.LEGACY_TIMESTAMP;
+import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
 import static com.facebook.presto.iceberg.IcebergUtil.dataLocation;
 import static com.facebook.presto.iceberg.IcebergUtil.metadataLocation;
