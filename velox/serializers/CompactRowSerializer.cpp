@@ -82,6 +82,25 @@ CompactRowVectorSerde::createIterativeSerializer(
       streamArena->pool(), options);
 }
 
+namespace {
+std::unique_ptr<RowIterator> compactRowIteratorFactory(
+    ByteInputStream* source,
+    std::unique_ptr<BufferInputStream> uncompressedStream,
+    std::unique_ptr<folly::IOBuf> uncompressedBuf,
+    size_t endOffset) {
+  if (source != nullptr) {
+    VELOX_CHECK_NULL(uncompressedStream);
+    VELOX_CHECK_NULL(uncompressedBuf);
+    return std::make_unique<RowIteratorImpl>(source, endOffset);
+  } else {
+    VELOX_CHECK_NOT_NULL(uncompressedStream);
+    VELOX_CHECK_NOT_NULL(uncompressedBuf);
+    return std::make_unique<RowIteratorImpl>(
+        std::move(uncompressedStream), std::move(uncompressedBuf), endOffset);
+  }
+}
+} // namespace
+
 void CompactRowVectorSerde::deserialize(
     ByteInputStream* source,
     velox::memory::MemoryPool* pool,
@@ -91,7 +110,11 @@ void CompactRowVectorSerde::deserialize(
   std::vector<std::string_view> serializedRows;
   std::vector<std::unique_ptr<std::string>> serializedBuffers;
   RowDeserializer<std::string_view>::deserialize(
-      source, serializedRows, serializedBuffers, options);
+      source,
+      serializedRows,
+      serializedBuffers,
+      compactRowIteratorFactory,
+      options);
 
   if (serializedRows.empty()) {
     *result = BaseVector::create<RowVector>(type, 0, pool);
@@ -117,6 +140,7 @@ void CompactRowVectorSerde::deserialize(
       sourceRowIterator,
       serializedRows,
       serializedBuffers,
+      compactRowIteratorFactory,
       options);
 
   if (serializedRows.empty()) {

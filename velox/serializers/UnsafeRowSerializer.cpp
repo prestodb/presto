@@ -47,7 +47,27 @@ void UnsafeRowVectorSerde::deserialize(
   std::vector<std::optional<std::string_view>> serializedRows;
   std::vector<std::unique_ptr<std::string>> serializedBuffers;
   RowDeserializer<std::optional<std::string_view>>::deserialize(
-      source, serializedRows, serializedBuffers, options);
+      source,
+      serializedRows,
+      serializedBuffers,
+      [](auto* source,
+         auto uncompressedStream,
+         auto uncompressedBuf,
+         auto endOffset) {
+        if (source != nullptr) {
+          VELOX_CHECK_NULL(uncompressedStream);
+          VELOX_CHECK_NULL(uncompressedBuf);
+          return std::make_unique<RowIteratorImpl>(source, endOffset);
+        } else {
+          VELOX_CHECK_NOT_NULL(uncompressedStream);
+          VELOX_CHECK_NOT_NULL(uncompressedBuf);
+          return std::make_unique<RowIteratorImpl>(
+              std::move(uncompressedStream),
+              std::move(uncompressedBuf),
+              endOffset);
+        }
+      },
+      options);
 
   if (serializedRows.empty()) {
     *result = BaseVector::create<RowVector>(type, 0, pool);
