@@ -36,19 +36,13 @@ import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.analyzer.SemanticException;
-import com.facebook.presto.sql.planner.QueryPlanner;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode.PassThroughSpecification;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode.TableArgumentProperties;
 import com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
-import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.GenericLiteral;
-import com.facebook.presto.sql.tree.LogicalBinaryExpression;
-import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -76,7 +70,6 @@ import static com.facebook.presto.spi.plan.WindowNode.Frame.BoundType.UNBOUNDED_
 import static com.facebook.presto.spi.plan.WindowNode.Frame.WindowType.ROWS;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.COALESCE;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IF;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ARGUMENTS;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.QueryPlanner.toSymbolReference;
 import static com.facebook.presto.sql.planner.plan.Patterns.tableFunction;
@@ -84,8 +77,6 @@ import static com.facebook.presto.sql.relational.Expressions.coalesce;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.IS_DISTINCT_FROM;
-import static com.facebook.presto.sql.tree.LogicalBinaryExpression.Operator.AND;
-import static com.facebook.presto.sql.tree.LogicalBinaryExpression.Operator.OR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -404,29 +395,18 @@ public class ImplementTableFunctionSource
         // Co-partitioning tables with empty partition by would be ineffective.
         checkState(!left.partitionBy().isEmpty(), "co-partitioned tables must have partitioning columns");
 
-        Expression leftRowNumber = toSymbolReference(left.rowNumber());
-        Expression leftPartitionSize = toSymbolReference(left.partitionSize());
-        List<Expression> leftPartitionBy = left.partitionBy().stream()
-                .map(QueryPlanner::toSymbolReference)
-                .collect(toImmutableList());
-        Expression rightRowNumber = toSymbolReference(right.rowNumber());
-        Expression rightPartitionSize = toSymbolReference(right.partitionSize());
-        List<Expression> rightPartitionBy = right.partitionBy().stream()
-                .map(QueryPlanner::toSymbolReference)
-                .collect(toImmutableList());
-
         FunctionResolution functionResolution = new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver());
         List<RowExpression> copartitionConjuncts = Streams.zip(
-                        left.partitionBy.stream(),
-                        right.partitionBy.stream(),
-                        (leftColumn, rightColumn) -> new CallExpression("NOT",
-                                functionResolution.notFunction(),
-                                BOOLEAN,
-                                ImmutableList.of(
-                                        new CallExpression(IS_DISTINCT_FROM.name(),
-                                            functionResolution.comparisonFunction(IS_DISTINCT_FROM, BIGINT, BIGINT),
-                                            BOOLEAN,
-                                            ImmutableList.of(leftColumn, rightColumn)))))
+                left.partitionBy.stream(),
+                right.partitionBy.stream(),
+                (leftColumn, rightColumn) -> new CallExpression("NOT",
+                        functionResolution.notFunction(),
+                        BOOLEAN,
+                        ImmutableList.of(
+                                new CallExpression(IS_DISTINCT_FROM.name(),
+                                    functionResolution.comparisonFunction(IS_DISTINCT_FROM, BIGINT, BIGINT),
+                                    BOOLEAN,
+                                    ImmutableList.of(leftColumn, rightColumn)))))
                 .collect(toImmutableList());
 
         // Align matching partitions (co-partitions) from left and right source, according to row number.
@@ -479,7 +459,6 @@ public class ImplementTableFunctionSource
                         (expr, conjunct) -> new SpecialFormExpression(SpecialFormExpression.Form.AND,
                                 BOOLEAN,
                                 ImmutableList.of(expr, conjunct)));
-
 
         // The join type depends on the prune when empty property of the sources.
         // If a source is prune when empty, we should not process any co-partition which is not present in this source,
