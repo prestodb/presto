@@ -214,7 +214,7 @@ variant PhoneNumberInputGenerator::generate() {
 }
 
 std::string PhoneNumberInputGenerator::generateImpl() {
-  std::string phoneNumber = "";
+  std::string phoneNumber;
   if (coinToss(rng_, 0.5)) {
     phoneNumber += "+";
   }
