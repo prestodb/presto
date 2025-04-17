@@ -99,6 +99,10 @@ class FileSink : public Closeable {
       const std::string& filePath,
       const Options& options);
 
+  IoStatistics* getIoStatistics() {
+    return stats_;
+  }
+
  protected:
   // General write wrapper with logging. All concrete subclasses gets logging
   // for free if they call a public method that goes through this method.
