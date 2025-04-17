@@ -234,9 +234,6 @@ public class ImplementTableFunctionSource
         FunctionMetadata countFunctionMetadata = functionAndTypeManager.getFunctionMetadata(countFunctionHandle);
         CallExpression countFunction = new CallExpression("count", countFunctionHandle, functionAndTypeManager.getType(countFunctionMetadata.getReturnType()), ImmutableList.of());
 
-        if (!node.getCopartitioningLists().isEmpty()) {
-            throw new SemanticException(INVALID_ARGUMENTS, "Table function co-partitioning not currently supported");
-        }
         // handle co-partitioned sources
         for (List<String> copartitioningList : node.getCopartitioningLists()) {
             List<SourceWithProperties> sourceList = copartitioningList.stream()
@@ -388,18 +385,18 @@ public class ImplementTableFunctionSource
 
         NodeWithVariables first = planWindowFunctionsForSource(sourceList.get(0).source(), sourceList.get(0).properties(), rowNumberFunction, countFunction, context);
         NodeWithVariables second = planWindowFunctionsForSource(sourceList.get(1).source(), sourceList.get(1).properties(), rowNumberFunction, countFunction, context);
-        JoinedNodes copartitioned = copartition(first, second, context);
+        JoinedNodes copartitioned = copartition(first, second, context, metadata);
 
         for (int i = 2; i < sourceList.size(); i++) {
             NodeWithVariables copartitionedWithSymbols = appendHelperSymbolsForCopartitionedNodes(copartitioned, context, metadata);
             NodeWithVariables next = planWindowFunctionsForSource(sourceList.get(i).source(), sourceList.get(i).properties(), rowNumberFunction, countFunction, context);
-            copartitioned = copartition(copartitionedWithSymbols, next, context);
+            copartitioned = copartition(copartitionedWithSymbols, next, context, metadata);
         }
 
         return appendHelperSymbolsForCopartitionedNodes(copartitioned, context, metadata);
     }
 
-    private static JoinedNodes copartition(NodeWithVariables left, NodeWithVariables right, Context context)
+    private static JoinedNodes copartition(NodeWithVariables left, NodeWithVariables right, Context context, Metadata metadata)
     {
         checkArgument(left.partitionBy().size() == right.partitionBy().size(), "co-partitioning lists do not match");
 
@@ -418,10 +415,18 @@ public class ImplementTableFunctionSource
                 .map(QueryPlanner::toSymbolReference)
                 .collect(toImmutableList());
 
-        List<Expression> copartitionConjuncts = Streams.zip(
-                        leftPartitionBy.stream(),
-                        rightPartitionBy.stream(),
-                (leftColumn, rightColumn) -> new NotExpression(new ComparisonExpression(IS_DISTINCT_FROM, leftColumn, rightColumn)))
+        FunctionResolution functionResolution = new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver());
+        List<RowExpression> copartitionConjuncts = Streams.zip(
+                        left.partitionBy.stream(),
+                        right.partitionBy.stream(),
+                        (leftColumn, rightColumn) -> new CallExpression("NOT",
+                                functionResolution.notFunction(),
+                                BOOLEAN,
+                                ImmutableList.of(
+                                        new CallExpression(IS_DISTINCT_FROM.name(),
+                                            functionResolution.comparisonFunction(IS_DISTINCT_FROM, BIGINT, BIGINT),
+                                            BOOLEAN,
+                                            ImmutableList.of(leftColumn, rightColumn)))))
                 .collect(toImmutableList());
 
         // Align matching partitions (co-partitions) from left and right source, according to row number.
@@ -437,18 +442,44 @@ public class ImplementTableFunctionSource
         //      (R1 > S2 AND R2 = 1)
         //      OR
         //      (R2 > S1 AND R1 = 1))
-        Expression joinCondition = copartitionConjuncts.stream()
+        RowExpression joinCondition = copartitionConjuncts.stream()
                 .reduce(
-                        new LogicalBinaryExpression(OR,
-                                new ComparisonExpression(EQUAL, leftRowNumber, rightRowNumber),
-                                new LogicalBinaryExpression(OR,
-                                        new LogicalBinaryExpression(AND,
-                                                new ComparisonExpression(GREATER_THAN, leftRowNumber, rightPartitionSize),
-                                                new ComparisonExpression(EQUAL, rightRowNumber, new GenericLiteral("BIGINT", "1"))),
-                                        new LogicalBinaryExpression(AND,
-                                                new ComparisonExpression(GREATER_THAN, rightRowNumber, leftPartitionSize),
-                                                new ComparisonExpression(EQUAL, leftRowNumber, new GenericLiteral("BIGINT", "1"))))),
-                        (expr, conjuct) -> new LogicalBinaryExpression(AND, conjuct, expr));
+                        new SpecialFormExpression(SpecialFormExpression.Form.OR,
+                                BOOLEAN,
+                                ImmutableList.of(
+                                        new CallExpression(EQUAL.name(),
+                                                functionResolution.comparisonFunction(EQUAL, BIGINT, BIGINT),
+                                                BOOLEAN,
+                                                ImmutableList.of(left.rowNumber, right.rowNumber)),
+                                        new SpecialFormExpression(SpecialFormExpression.Form.OR,
+                                                BOOLEAN,
+                                                ImmutableList.of(
+                                                        new SpecialFormExpression(SpecialFormExpression.Form.AND,
+                                                                BOOLEAN,
+                                                                ImmutableList.of(
+                                                                        new CallExpression(GREATER_THAN.name(),
+                                                                                functionResolution.comparisonFunction(GREATER_THAN, BIGINT, BIGINT),
+                                                                                BOOLEAN,
+                                                                                ImmutableList.of(left.rowNumber, right.partitionSize)),
+                                                                        new CallExpression(EQUAL.name(),
+                                                                                functionResolution.comparisonFunction(EQUAL, BIGINT, BIGINT),
+                                                                                BOOLEAN,
+                                                                                ImmutableList.of(right.rowNumber, new ConstantExpression(1L, BIGINT))))),
+                                                        new SpecialFormExpression(SpecialFormExpression.Form.AND,
+                                                                BOOLEAN,
+                                                                ImmutableList.of(
+                                                                        new CallExpression(GREATER_THAN.name(),
+                                                                                functionResolution.comparisonFunction(GREATER_THAN, BIGINT, BIGINT),
+                                                                                BOOLEAN,
+                                                                                ImmutableList.of(right.rowNumber, left.partitionSize)),
+                                                                        new CallExpression(EQUAL.name(),
+                                                                                functionResolution.comparisonFunction(EQUAL, BIGINT, BIGINT),
+                                                                                BOOLEAN,
+                                                                                ImmutableList.of(left.rowNumber, new ConstantExpression(1L, BIGINT))))))))),
+                        (expr, conjunct) -> new SpecialFormExpression(SpecialFormExpression.Form.AND,
+                                BOOLEAN,
+                                ImmutableList.of(expr, conjunct)));
+
 
         // The join type depends on the prune when empty property of the sources.
         // If a source is prune when empty, we should not process any co-partition which is not present in this source,
@@ -510,8 +541,7 @@ public class ImplementTableFunctionSource
                         Stream.concat(left.node().getOutputVariables().stream(),
                                         right.node().getOutputVariables().stream())
                                 .collect(Collectors.toList()),
-//                        Optional.of(joinCondition),
-                        Optional.empty(),
+                        Optional.of(joinCondition),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),

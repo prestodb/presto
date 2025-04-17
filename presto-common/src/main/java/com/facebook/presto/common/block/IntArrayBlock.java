@@ -306,4 +306,10 @@ public class IntArrayBlock
         result = 31 * result + Arrays.hashCode(values);
         return result;
     }
+
+    @Override
+    public long getLong(int position)
+    {
+        return getInt(position);
+    }
 }

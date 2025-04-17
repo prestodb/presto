@@ -381,117 +381,114 @@ public class TestTableFunctionInvocation
     public void testCopartitioning()
     {
         // all tanbles are by default KEEP WHEN EMPTY. If there is no matching partition, it is null-completed
-        assertQueryFails("SELECT * FROM TABLE(system.test_inputs_function(" +
-                        "input_1 => TABLE(VALUES 1, 2, 3)," +
-                        "input_2 => TABLE(VALUES 1, 1, 2, 2) t2(x2) PARTITION BY x2," +
-                        "input_3 => TABLE(VALUES 4, 5) t3(x3)," +
-                        "input_4 => TABLE(VALUES 2, 2, 2, 3) t4(x4) PARTITION BY x4 " +
-                        "COPARTITION (t2, t4)))",
-                "Table function co-partitioning not currently supported");
-//                "VALUES (true, 1, null), (true, 2, 2), (true, null, 3)");
+        assertQuery("SELECT *\n" +
+                        "FROM TABLE(system.test_inputs_function(\n" +
+                        "               input_1 => TABLE(VALUES 1, 2, 3),\n" +
+                        "               input_2 => TABLE(VALUES 1, 1, 2, 2) t2(x2) PARTITION BY x2,\n" +
+                        "               input_3 => TABLE(VALUES 4, 5) t3(x3),\n" +
+                        "               input_4 => TABLE(VALUES 2, 2, 2, 3) t4(x4) PARTITION BY x4\n" +
+                        "               COPARTITION (t2, t4)))\n",
+                "VALUES (true, 1, null), (true, 2, 2), (true, null, 3)");
 
         // partition `3` from input_4 is pruned because there is no matching partition in input_2
-        assertQueryFails("SELECT * FROM TABLE(system.test_inputs_function(" +
-                        "input_1 => TABLE(VALUES 1, 2, 3)," +
-                        "input_2 => TABLE(VALUES 1, 1, 2, 2) t2(x2) PARTITION BY x2 PRUNE WHEN EMPTY," +
-                        "input_3 => TABLE(VALUES 4, 5) t3(x3)," +
-                        "input_4 => TABLE(VALUES 2, 2, 2, 3) t4(x4) PARTITION BY x4 " +
-                        "COPARTITION (t2, t4)))",
-                "Table function co-partitioning not currently supported");
-//                "VALUES (true, 1, null), (true, 2, 2)");
+        assertQuery("SELECT *\n" +
+                        "FROM TABLE(system.test_inputs_function(\n" +
+                        "               input_1 => TABLE(VALUES 1, 2, 3),\n" +
+                        "               input_2 => TABLE(VALUES 1, 1, 2, 2) t2(x2) PARTITION BY x2 PRUNE WHEN EMPTY,\n" +
+                        "               input_3 => TABLE(VALUES 4, 5) t3(x3),\n" +
+                        "               input_4 => TABLE(VALUES 2, 2, 2, 3) t4(x4) PARTITION BY x4\n" +
+                        "               COPARTITION (t2, t4)))\n",
+                "VALUES (true, 1, null), (true, 2, 2)");
 
         // partition `1` from input_2 is pruned because there is no matching partition in input_4
-        assertQueryFails("SELECT * FROM TABLE(system.test_inputs_function(" +
-                        "input_1 => TABLE(VALUES 1, 2, 3)," +
-                        "input_2 => TABLE(VALUES 1, 1, 2, 2) t2(x2) PARTITION BY x2," +
-                        "input_3 => TABLE(VALUES 4, 5) t3(x3)," +
-                        "input_4 => TABLE(VALUES 2, 2, 2, 3) t4(x4) PARTITION BY x4 PRUNE WHEN EMPTY " +
-                        "COPARTITION (t2, t4)))",
-                "Table function co-partitioning not currently supported");
-//                "VALUES (true, 2, 2), (true, null, 3)");
+        assertQuery("SELECT *\n" +
+                        "FROM TABLE(system.test_inputs_function(\n" +
+                        "               input_1 => TABLE(VALUES 1, 2, 3),\n" +
+                        "               input_2 => TABLE(VALUES 1, 1, 2, 2) t2(x2) PARTITION BY x2,\n" +
+                        "               input_3 => TABLE(VALUES 4, 5) t3(x3),\n" +
+                        "               input_4 => TABLE(VALUES 2, 2, 2, 3) t4(x4) PARTITION BY x4 PRUNE WHEN EMPTY\n" +
+                        "               COPARTITION (t2, t4)))\n",
+                "VALUES (true, 2, 2), (true, null, 3)");
 
-        assertQueryFails("SELECT * FROM TABLE(system.test_inputs_function(" +
-                        "input_1 => TABLE(VALUES 1, 2, 3)," +
-                        "input_2 => TABLE(VALUES 1, 1, 2, 2) t2(x2) PARTITION BY x2 PRUNE WHEN EMPTY," +
-                        "input_3 => TABLE(VALUES 4, 5) t3(x3)," +
-                        "input_4 => TABLE(VALUES 2, 2, 2, 3) t4(x4) PARTITION BY x4 PRUNE WHEN EMPTY " +
-                        "COPARTITION (t2, t4)))",
-                "Table function co-partitioning not currently supported");
-//                "VALUES (true, 2, 2)");
+        assertQuery("SELECT *\n" +
+                        "FROM TABLE(system.test_inputs_function(\n" +
+                        "               input_1 => TABLE(VALUES 1, 2, 3),\n" +
+                        "               input_2 => TABLE(VALUES 1, 1, 2, 2) t2(x2) PARTITION BY x2 PRUNE WHEN EMPTY,\n" +
+                        "               input_3 => TABLE(VALUES 4, 5) t3(x3),\n" +
+                        "               input_4 => TABLE(VALUES 2, 2, 2, 3) t4(x4) PARTITION BY x4 PRUNE WHEN EMPTY\n" +
+                        "               COPARTITION (t2, t4)))\n",
+                "VALUES (true, 2, 2)");
 
         // null partitioning values
-        assertQueryFails("SELECT * FROM TABLE(system.test_inputs_function(" +
-                        "input_1 => TABLE(VALUES 1, 2, 3)," +
-                        "input_2 => TABLE(VALUES 1, 1, null, null, 2, 2) t2(x2) PARTITION BY x2," +
-                        "input_3 => TABLE(VALUES 4, 5) t3(x3)," +
-                        "input_4 => TABLE(VALUES null, 2, 2, 2, 3) t4(x4) PARTITION BY x4 " +
-                        "COPARTITION (t2, t4)))",
-                "Table function co-partitioning not currently supported");
-//                "VALUES (true, 1, null), (true, 2, 2), (true, null, null), (true, null, 3)");
+        assertQuery("SELECT *\n" +
+                        "FROM TABLE(system.test_inputs_function(\n" +
+                        "               input_1 => TABLE(VALUES 1, 2, 3),\n" +
+                        "               input_2 => TABLE(VALUES 1, 1, null, null, 2, 2) t2(x2) PARTITION BY x2,\n" +
+                        "               input_3 => TABLE(VALUES 4, 5) t3(x3),\n" +
+                        "               input_4 => TABLE(VALUES null, 2, 2, 2, 3) t4(x4) PARTITION BY x4\n" +
+                        "               COPARTITION (t2, t4)))\n",
+                "VALUES (true, 1, null), (true, 2, 2), (true, null, null), (true, null, 3)");
 
-        assertQueryFails("SELECT * FROM TABLE(system.test_inputs_function(" +
-                        "input_1 => TABLE(VALUES 1, 2, 3)," +
-                        "input_2 => TABLE(VALUES 1, 1, null, null, 2, 2) t2(x2) PARTITION BY x2 PRUNE WHEN EMPTY," +
-                        "input_3 => TABLE(VALUES 4, 5) t3(x3)," +
-                        "input_4 => TABLE(VALUES null, 2, 2, 2, 3) t4(x4) PARTITION BY x4 PRUNE WHEN EMPTY " +
-                        "COPARTITION (t2, t4)))",
-                "Table function co-partitioning not currently supported");
-//                "VALUES (true, 2, 2), (true, null, null)");
+        assertQuery("SELECT *\n" +
+                        "FROM TABLE(system.test_inputs_function(\n" +
+                        "               input_1 => TABLE(VALUES 1, 2, 3),\n" +
+                        "               input_2 => TABLE(VALUES 1, 1, null, null, 2, 2) t2(x2) PARTITION BY x2 PRUNE WHEN EMPTY,\n" +
+                        "               input_3 => TABLE(VALUES 4, 5) t3(x3),\n" +
+                        "               input_4 => TABLE(VALUES null, 2, 2, 2, 3) t4(x4) PARTITION BY x4 PRUNE WHEN EMPTY\n" +
+                        "               COPARTITION (t2, t4)))\n",
+                "VALUES (true, 2, 2), (true, null, null)");
 
-        assertQueryFails("SELECT * FROM TABLE(system.test_inputs_function(" +
-                        "input_1 => TABLE(VALUES 1, 2, 3)," +
-                        "input_2 => TABLE(VALUES 1, 1, null, null) t2(x2) PARTITION BY x2," +
-                        "input_3 => TABLE(VALUES 2, 2, null) t3(x3) PARTITION BY x3," +
-                        "input_4 => TABLE(VALUES 2, 3, 3) t4(x4) PARTITION BY x4 " +
-                        "COPARTITION (t2, t4, t3)))",
-                "Table function co-partitioning not currently supported");
-//                "VALUES (true, 1, null, null), (true, null, null, null), (true, null, 2, 2), (true, null, null, 3)");
+        assertQuery("SELECT *\n" +
+                        "FROM TABLE(system.test_inputs_function(\n" +
+                        "               input_1 => TABLE(VALUES 1, 2, 3),\n" +
+                        "               input_2 => TABLE(VALUES 1, 1, null, null) t2(x2) PARTITION BY x2,\n" +
+                        "               input_3 => TABLE(VALUES 2, 2, null) t3(x3) PARTITION BY x3,\n" +
+                        "               input_4 => TABLE(VALUES 2, 3, 3) t4(x4) PARTITION BY x4\n" +
+                        "               COPARTITION (t2, t4, t3)))\n",
+                "VALUES (true, 1, null, null), (true, null, null, null), (true, null, 2, 2), (true, null, null, 3)");
 
-        assertQueryFails("SELECT * FROM TABLE(system.test_inputs_function(" +
-                        "input_1 => TABLE(VALUES 1, 2, 3)," +
-                        "input_2 => TABLE(VALUES 1, 1, null, null) t2(x2) PARTITION BY x2," +
-                        "input_3 => TABLE(VALUES 2, 2, null) t3(x3) PARTITION BY x3 PRUNE WHEN EMPTY," +
-                        "input_4 => TABLE(VALUES 2, 3, 3) t4(x4) PARTITION BY x4 " +
-                        "COPARTITION (t2, t4, t3)))",
-                "Table function co-partitioning not currently supported");
-//                "VALUES (true, CAST(null AS integer), null, null), (true, null, 2, 2)");
+        assertQuery("SELECT *\n" +
+                        "FROM TABLE(system.test_inputs_function(\n" +
+                        "               input_1 => TABLE(VALUES 1, 2, 3),\n" +
+                        "               input_2 => TABLE(VALUES 1, 1, null, null) t2(x2) PARTITION BY x2,\n" +
+                        "               input_3 => TABLE(VALUES 2, 2, null) t3(x3) PARTITION BY x3 PRUNE WHEN EMPTY,\n" +
+                        "               input_4 => TABLE(VALUES 2, 3, 3) t4(x4) PARTITION BY x4\n" +
+                        "               COPARTITION (t2, t4, t3)))\n",
+                "VALUES (true, CAST(null AS integer), null, null), (true, null, 2, 2)");
 
-        assertQueryFails("SELECT * FROM TABLE(system.test_inputs_function(" +
-                        "input_1 => TABLE(VALUES 1, 2, 3)," +
-                        "input_2 => TABLE(VALUES 1, 1, null, null) t2(x2) PARTITION BY x2 PRUNE WHEN EMPTY," +
-                        "input_3 => TABLE(VALUES 2, 2, null) t3(x3) PARTITION BY x3," +
-                        "input_4 => TABLE(VALUES 2, 3, 3) t4(x4) PARTITION BY x4 " +
-                        "COPARTITION (t2, t4, t3)))",
-                "Table function co-partitioning not currently supported");
-//                "VALUES (true, 1, CAST(null AS integer), CAST(null AS integer)), (true, null, null, null)");
+        assertQuery("SELECT *\n" +
+                        "FROM TABLE(system.test_inputs_function(\n" +
+                        "               input_1 => TABLE(VALUES 1, 2, 3),\n" +
+                        "               input_2 => TABLE(VALUES 1, 1, null, null) t2(x2) PARTITION BY x2 PRUNE WHEN EMPTY,\n" +
+                        "               input_3 => TABLE(VALUES 2, 2, null) t3(x3) PARTITION BY x3,\n" +
+                        "               input_4 => TABLE(VALUES 2, 3, 3) t4(x4) PARTITION BY x4\n" +
+                        "               COPARTITION (t2, t4, t3)))\n",
+                "VALUES (true, 1, CAST(null AS integer), CAST(null AS integer)), (true, null, null, null)");
 
-//        assertQueryReturnsEmptyResult(
-        assertQueryFails(
-                "SELECT * FROM TABLE(system.test_inputs_function(" +
-                        "input_1 => TABLE(VALUES 1, 2, 3)," +
-                        "input_2 => TABLE(VALUES 1, 1, null, null) t2(x2) PARTITION BY x2 PRUNE WHEN EMPTY," +
-                        "input_3 => TABLE(VALUES 2, 2, null) t3(x3) PARTITION BY x3," +
-                        "input_4 => TABLE(VALUES 2, 3, 3) t4(x4) PARTITION BY x4 PRUNE WHEN EMPTY " +
-                        "COPARTITION (t2, t4, t3)))",
-                "Table function co-partitioning not currently supported");
+        assertQueryReturnsEmptyResult(
+                "SELECT *\n" +
+                        "FROM TABLE(system.test_inputs_function(\n" +
+                        "               input_1 => TABLE(VALUES 1, 2, 3),\n" +
+                        "               input_2 => TABLE(VALUES 1, 1, null, null) t2(x2) PARTITION BY x2 PRUNE WHEN EMPTY,\n" +
+                        "               input_3 => TABLE(VALUES 2, 2, null) t3(x3) PARTITION BY x3,\n" +
+                        "               input_4 => TABLE(VALUES 2, 3, 3) t4(x4) PARTITION BY x4 PRUNE WHEN EMPTY\n" +
+                        "               COPARTITION (t2, t4, t3)))\n");
     }
 
     @Test
     public void testPassThroughWithEmptyPartitions()
     {
-        assertQueryFails("SELECT * FROM TABLE(system.pass_through(" +
+        assertQuery("SELECT * FROM TABLE(system.pass_through(" +
                         "TABLE(VALUES (1, 'a'), (2, 'b')) t1(a1, b1) PARTITION BY a1," +
                         "TABLE(VALUES (2, 'x'), (3, 'y')) t2(a2, b2) PARTITION BY a2 " +
                         "COPARTITION (t1, t2)))",
-                "Table function co-partitioning not currently supported");
-//                "VALUES (true, false, 1, 'a', null, null), (true, true, 2, 'b', 2, 'x'), (false, true, null, null, 3, 'y')");
+                "VALUES (true, false, 1, 'a', null, null), (true, true, 2, 'b', 2, 'x'), (false, true, null, null, 3, 'y')");
 
-        assertQueryFails("SELECT * FROM TABLE(system.pass_through(" +
+        assertQuery("SELECT * FROM TABLE(system.pass_through(" +
                         "TABLE(VALUES (1, 'a'), (2, 'b')) t1(a1, b1) PARTITION BY a1," +
                         "TABLE(SELECT 2, 'x' WHERE false) t2(a2, b2) PARTITION BY a2 " +
                         "COPARTITION (t1, t2)))",
-                "Table function co-partitioning not currently supported");
-//                "VALUES (true, false, 1, 'a', CAST(null AS integer), CAST(null AS VARCHAR(1))), (true, false, 2, 'b', null, null)");
+                "VALUES (true, false, 1, 'a', CAST(null AS integer), CAST(null AS VARCHAR(1))), (true, false, 2, 'b', null, null)");
 
         assertQuery("SELECT * FROM TABLE(system.pass_through(" +
                         "TABLE(VALUES (1, 'a'), (2, 'b')) t1(a1, b1) PARTITION BY a1," +
@@ -502,9 +499,8 @@ public class TestTableFunctionInvocation
     @Test
     public void testPassThroughWithEmptyInput()
     {
-        assertQueryFails("SELECT * FROM TABLE(system.pass_through(TABLE(SELECT 1, 'x' WHERE false) t1(a1, b1) PARTITION BY a1, TABLE(SELECT 2, 'y' WHERE false) t2(a2, b2) PARTITION BY a2 COPARTITION (t1, t2)))",
-                "Table function co-partitioning not currently supported");
-        //        "VALUES (false, false, CAST(null AS integer), CAST(null AS VARCHAR(1)), CAST(null AS integer), CAST(null AS VARCHAR(1)))");
+        assertQuery("SELECT * FROM TABLE(system.pass_through(TABLE(SELECT 1, 'x' WHERE false) t1(a1, b1) PARTITION BY a1, TABLE(SELECT 2, 'y' WHERE false) t2(a2, b2) PARTITION BY a2 COPARTITION (t1, t2)))",
+                "VALUES (false, false, CAST(null AS integer), CAST(null AS VARCHAR(1)), CAST(null AS integer), CAST(null AS VARCHAR(1)))");
 
         assertQuery("SELECT * FROM TABLE(system.pass_through(TABLE(SELECT 1, 'x' WHERE false) t1(a1, b1) PARTITION BY a1, TABLE(SELECT 2, 'y' WHERE false) t2(a2, b2) PARTITION BY a2))",
                 "VALUES (false, false, CAST(null AS integer), CAST(null AS VARCHAR(1)), CAST(null AS integer), CAST(null AS VARCHAR(1)))");
