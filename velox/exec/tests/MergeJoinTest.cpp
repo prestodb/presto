@@ -130,11 +130,13 @@ class MergeJoinTest : public HiveConnectorTestBase {
   template <typename T>
   void testJoin(
       std::function<T(vector_size_t /*row*/)> leftKeyAt,
-      std::function<T(vector_size_t /*row*/)> rightKeyAt) {
+      std::function<T(vector_size_t /*row*/)> rightKeyAt,
+      std::function<bool(vector_size_t /*row*/)> leftNullAt = nullptr,
+      std::function<bool(vector_size_t /*row*/)> rightNullAt = nullptr) {
     // Single batch on the left and right sides of the join.
     {
-      auto leftKeys = makeFlatVector<T>(1'234, leftKeyAt);
-      auto rightKeys = makeFlatVector<T>(1'234, rightKeyAt);
+      auto leftKeys = makeFlatVector<T>(1'234, leftKeyAt, leftNullAt);
+      auto rightKeys = makeFlatVector<T>(1'234, rightKeyAt, rightNullAt);
 
       testJoin({leftKeys}, {rightKeys});
     }
@@ -142,11 +144,16 @@ class MergeJoinTest : public HiveConnectorTestBase {
     // Multiple batches on one side. Single batch on the other side.
     {
       std::vector<VectorPtr> leftKeys = {
-          makeFlatVector<T>(1024, leftKeyAt),
+          makeFlatVector<T>(1024, leftKeyAt, leftNullAt),
           makeFlatVector<T>(
-              1024, [&](auto row) { return leftKeyAt(1024 + row); }),
+              1024,
+              [&](auto row) { return leftKeyAt(1024 + row); },
+              [&](auto row) {
+                return leftNullAt ? leftNullAt(1024 + row) : false;
+              }),
       };
-      std::vector<VectorPtr> rightKeys = {makeFlatVector<T>(2048, rightKeyAt)};
+      std::vector<VectorPtr> rightKeys = {
+          makeFlatVector<T>(2048, rightKeyAt, rightNullAt)};
 
       testJoin(leftKeys, rightKeys);
 
@@ -157,18 +164,34 @@ class MergeJoinTest : public HiveConnectorTestBase {
     // Multiple batches on each side.
     {
       std::vector<VectorPtr> leftKeys = {
-          makeFlatVector<T>(512, leftKeyAt),
+          makeFlatVector<T>(512, leftKeyAt, leftNullAt),
           makeFlatVector<T>(
-              1024, [&](auto row) { return leftKeyAt(512 + row); }),
+              1024,
+              [&](auto row) { return leftKeyAt(512 + row); },
+              [&](auto row) {
+                return leftNullAt ? leftNullAt(512 + row) : false;
+              }),
           makeFlatVector<T>(
-              16, [&](auto row) { return leftKeyAt(512 + 1024 + row); }),
+              16,
+              [&](auto row) { return leftKeyAt(512 + 1024 + row); },
+              [&](auto row) {
+                return leftNullAt ? leftNullAt(512 + 1024 + row) : false;
+              }),
       };
       std::vector<VectorPtr> rightKeys = {
           makeFlatVector<T>(123, rightKeyAt),
           makeFlatVector<T>(
-              1024, [&](auto row) { return rightKeyAt(123 + row); }),
+              1024,
+              [&](auto row) { return rightKeyAt(123 + row); },
+              [&](auto row) {
+                return rightNullAt ? rightNullAt(123 + row) : false;
+              }),
           makeFlatVector<T>(
-              1234, [&](auto row) { return rightKeyAt(123 + 1024 + row); }),
+              1234,
+              [&](auto row) { return rightKeyAt(123 + 1024 + row); },
+              [&](auto row) {
+                return rightNullAt ? rightNullAt(123 + 1024 + row) : false;
+              }),
       };
 
       testJoin(leftKeys, rightKeys);
@@ -363,6 +386,30 @@ TEST_F(MergeJoinTest, fewMatch) {
 TEST_F(MergeJoinTest, duplicateMatch) {
   testJoin<int32_t>(
       [](auto row) { return row / 2; }, [](auto row) { return row / 3; });
+}
+
+TEST_F(MergeJoinTest, someNulls) {
+  testJoin<int32_t>(
+      [](auto row) { return row; },
+      [](auto row) { return row; },
+      [](auto row) { return row > 7; },
+      [](auto row) { return false; });
+}
+
+TEST_F(MergeJoinTest, someNullsOtherSideFinishesEarly) {
+  testJoin<int32_t>(
+      [](auto row) { return row; },
+      [](auto row) { return std::min(row, 7); },
+      [](auto row) { return row > 7; },
+      [](auto row) { return false; });
+}
+
+TEST_F(MergeJoinTest, someNullsOnBothSides) {
+  testJoin<int32_t>(
+      [](auto row) { return row; },
+      [](auto row) { return row; },
+      [](auto row) { return row > 7; },
+      [](auto row) { return row > 8; });
 }
 
 TEST_F(MergeJoinTest, allRowsMatch) {

@@ -224,13 +224,14 @@ class MergeJoin : public Operator {
   // right.
   bool addToOutputForRightJoin();
 
-  // Adds one row of output by writing to the indices of the output
+  // Tries to add one row of output by writing to the indices of the output
   // dictionaries. By default, this operator returns dictionaries wrapped around
   // the input columns from the left and right. If `isRightFlattened_`, the
   // right side projections are copied to the output.
   //
-  // Advances outputSize_. Assumes that dictionary indices in output_ have room.
-  void addOutputRow(
+  // If there is space in the output, advances outputSize_ and returns true.
+  // Otherwise returns false and outputSize_ is unchanged.
+  bool tryAddOutputRow(
       const RowVectorPtr& leftBatch,
       vector_size_t leftRow,
       const RowVectorPtr& rightBatch,
@@ -244,19 +245,23 @@ class MergeJoin : public Operator {
   // logic is more involved.
   void flattenRightProjections();
 
-  // Adds one row of output for a left-side row with no right-side match.
-  // Copies values from the 'leftIndex' row of 'left' and fills in nulls
+  // Tries to add one row of output for a left-side row with no right-side
+  // match. Copies values from the 'leftIndex' row of 'left' and fills in nulls
   // for columns that correspond to the right side.
-  void addOutputRowForLeftJoin(
-      const RowVectorPtr& leftBatch,
-      vector_size_t leftRow);
+  //
+  // If there is space in the output, advances outputSize_ and leftRowIndex_,
+  // and returns true. Otherwise returns false and outputSize_ and leftRowIndex_
+  // are unchanged.
+  bool tryAddOutputRowForLeftJoin();
 
-  // Adds one row of output for a right-side row with no left-side match.
-  // Copies values from the 'rightIndex' row of 'right' and fills in nulls
-  // for columns that correspond to the right side.
-  void addOutputRowForRightJoin(
-      const RowVectorPtr& right,
-      vector_size_t rightIndex);
+  // Tries to add one row of output for a right-side row with no left-side
+  // match. Copies values from the 'rightIndex' row of 'right' and fills in
+  // nulls for columns that correspond to the right side.
+  //
+  // If there is space in the output, advances outputSize_ and rightRowIndex_,
+  // and returns true. Otherwise returns false and outputSize_ and
+  // rightRowIndex_ are unchanged.
+  bool tryAddOutputRowForRightJoin();
 
   // If all rows from the current left batch have been processed.
   bool finishedLeftBatch() const {
