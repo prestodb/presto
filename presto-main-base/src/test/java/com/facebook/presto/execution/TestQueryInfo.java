@@ -204,6 +204,7 @@ public class TestQueryInfo
                                 PlanCanonicalizationStrategy.DEFAULT),
                         new PlanNodeCanonicalInfo("a", ImmutableList.of()))),
                 ImmutableMap.of(),
-                Optional.of(PrestoSparkExecutionContext.create(1024, 300, true, false)));
+                Optional.of(PrestoSparkExecutionContext.create(1024, 300, true, false)),
+                Optional.empty());
     }
 }

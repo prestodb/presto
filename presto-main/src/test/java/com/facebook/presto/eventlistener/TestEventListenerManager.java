@@ -184,7 +184,7 @@ public class TestEventListenerManager
         Optional<PrestoSparkExecutionContext> prestoSparkExecutionContext = Optional.empty();
         Map<PlanCanonicalizationStrategy, String> hboPlanHash = new HashMap<>();
         Optional<Map<PlanNodeId, PlanNode>> planIdNodeMap = Optional.ofNullable(new HashMap<>());
-
+        Optional<String> qualifiedName = Optional.empty();
         return new QueryCompletedEvent(
                 metadata,
                 statistics,
@@ -212,7 +212,8 @@ public class TestEventListenerManager
                 windowFunctions,
                 prestoSparkExecutionContext,
                 hboPlanHash,
-                planIdNodeMap);
+                planIdNodeMap,
+                qualifiedName);
     }
 
     public static QueryStatistics createDummyQueryStatistics()

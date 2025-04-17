@@ -33,8 +33,14 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.facebook.presto.sql.planner.Plan;
+import com.facebook.presto.sql.tree.AddColumn;
+import com.facebook.presto.sql.tree.DropColumn;
+import com.facebook.presto.sql.tree.DropTable;
+import com.facebook.presto.sql.tree.RenameColumn;
+import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.version.EmbedVersion;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
@@ -49,6 +55,7 @@ import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
@@ -57,6 +64,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxCpuTime;
@@ -103,6 +111,14 @@ public class SqlQueryManager
     private final QueryManagerStats stats = new QueryManagerStats();
 
     private final HistoryBasedPlanStatisticsTracker historyBasedPlanStatisticsTracker;
+
+    private static final Map<Class<? extends Statement>, Function<Statement, String>> STATEMENT_TO_QUALIFIED_NAME_MAPPING =
+            ImmutableMap.<Class<? extends Statement>, Function<Statement, String>>builder()
+                    .put(AddColumn.class, stmt -> ((AddColumn) stmt).getName().toString())
+                    .put(DropTable.class, stmt -> ((DropTable) stmt).getTableName().toString())
+                    .put(DropColumn.class, stmt -> ((DropColumn) stmt).getTable().toString())
+                    .put(RenameColumn.class, stmt -> ((RenameColumn) stmt).getTable().toString())
+                    .build();
 
     @Inject
     public SqlQueryManager(
@@ -305,7 +321,14 @@ public class SqlQueryManager
 
         queryExecution.addFinalQueryInfoListener(finalQueryInfo -> {
             try {
-                queryMonitor.queryCompletedEvent(finalQueryInfo);
+                if (queryExecution instanceof DDLDefinitionExecution) {
+                    DDLDefinitionExecution ddl = (DDLDefinitionExecution) queryExecution;
+                    QueryInfo queryInfo = new QueryInfo(finalQueryInfo, setQualifiedName(ddl));
+                    queryMonitor.queryCompletedEvent(queryInfo);
+                }
+                else {
+                    queryMonitor.queryCompletedEvent(finalQueryInfo);
+                }
             }
             finally {
                 // execution MUST be added to the expiration queue or there will be a leak
@@ -480,5 +503,14 @@ public class SqlQueryManager
                 query.fail(new ExceededOutputSizeLimitException(limit));
             }
         }
+    }
+
+    private Optional<String> setQualifiedName(DDLDefinitionExecution ddl)
+    {
+        Function<Statement, String> getQualifiedName = STATEMENT_TO_QUALIFIED_NAME_MAPPING.get(ddl.statement.getClass());
+        if (getQualifiedName != null) {
+            return Optional.of(getQualifiedName.apply(ddl.statement));
+        }
+        return Optional.empty();
     }
 }

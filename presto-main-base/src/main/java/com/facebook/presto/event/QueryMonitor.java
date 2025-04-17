@@ -274,6 +274,7 @@ public class QueryMonitor
                 ImmutableSet.of(),
                 Optional.empty(),
                 ImmutableMap.of(),
+                Optional.empty(),
                 Optional.empty()));
 
         logQueryTimeline(queryInfo);
@@ -317,7 +318,8 @@ public class QueryMonitor
                         queryInfo.getWindowFunctions(),
                         queryInfo.getPrestoSparkExecutionContext(),
                         getPlanHash(queryInfo.getPlanCanonicalInfo(), historyBasedPlanStatisticsTracker.getStatsEquivalentPlanRootNode(queryInfo.getQueryId())),
-                        Optional.of(queryInfo.getPlanIdNodeMap())));
+                        Optional.of(queryInfo.getPlanIdNodeMap()),
+                        queryInfo.getQualifiedName()));
 
         logQueryTimeline(queryInfo);
     }
