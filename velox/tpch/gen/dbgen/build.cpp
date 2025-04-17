@@ -36,6 +36,7 @@
 
 #include <math.h>
 #include "dbgen/rng64.h" // @manual
+#include "velox/common/base/Exceptions.h"
 
 namespace facebook::velox::tpch::dbgen {
 
@@ -85,22 +86,25 @@ static void gen_phone(DSS_HUGE ind, char* target, seed_t* seed) {
   RANDOM(exchg, 100, 999, seed);
   RANDOM(number, 1000, 9999, seed);
 
-  sprintf(target, "%02d", static_cast<int>(10 + (ind % NATIONS_MAX)));
-  sprintf(target + 3, "%03d", static_cast<int>(acode));
-  sprintf(target + 7, "%03d", static_cast<int>(exchg));
-  sprintf(target + 11, "%04d", static_cast<int>(number));
-  target[2] = target[6] = target[10] = '-';
+  auto res = std::sprintf(
+      target,
+      "%02d-%03d-%03d-%04d",
+      10 + static_cast<int>((ind % NATIONS_MAX)),
+      static_cast<int>(acode),
+      static_cast<int>(exchg),
+      static_cast<int>(number));
+  VELOX_CHECK_GT(res, 0);
 
   return;
 }
 
 static char** asc_date = NULL;
 
-static char orderSzFormat[100];
-static char custSzFormat[100];
-static char partSzFormat[100];
-static char partSzBrandFormat[100];
-static char suppSzFormat[100];
+static char orderSzFormat[100] = {0};
+static char custSzFormat[100] = {0};
+static char partSzFormat[100] = {0};
+static char partSzBrandFormat[100] = {0};
+static char suppSzFormat[100] = {0};
 
 // Initializes a series of buffers and structures required to generate data.
 // Clients must ensure this function is called before any of the functions
