@@ -355,13 +355,18 @@ class DwrfStreamIdentifier : public dwio::common::StreamIdentifier {
 
   ~DwrfStreamIdentifier() = default;
 
+  friend bool operator==(
+      const DwrfStreamIdentifier& lhs,
+      const DwrfStreamIdentifier& rhs) {
+    // column == other.column may be join the expression if all files
+    // share the same new version that has column field filled.
+    return lhs.encodingKey_ == rhs.encodingKey_ && lhs.kind_ == rhs.kind_;
+  }
+
   bool operator==(const StreamIdentifier& other) const override {
     if (const auto* otherDwrf =
             dynamic_cast<const DwrfStreamIdentifier*>(&other)) {
-      // column == other.column may be join the expression if all files
-      // share the same new version that has column field filled.
-      return encodingKey_ == otherDwrf->encodingKey_ &&
-          kind_ == otherDwrf->kind_;
+      return *this == *otherDwrf;
     }
     return false;
   }
