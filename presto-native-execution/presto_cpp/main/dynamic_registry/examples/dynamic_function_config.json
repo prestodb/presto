@@ -1,0 +1,85 @@
+{
+  "dynamicLibrariesUdfMap": {
+    "function_registerations": {
+      "dynamic": [
+        {
+          "docString": "",
+          "functionKind": "SCALAR",
+          "outputType": "INTEGER",
+          "entrypoint": "registry", 
+          "fileName": "libpresto_function_my_dynamic",
+          "paramTypes": [
+            "INTEGER"
+          ],
+          "nameSpace": "presto.default",
+          "overwrite": true,
+          "constraints": "",
+          "routineCharacteristics": {
+            "language": "CPP",
+            "determinism": "DETERMINISTIC",
+            "nullCallClause": "CALLED_ON_NULL_INPUT"
+          }
+        }
+      ],
+      "dynamic_array": [
+        {
+          "docString": "",
+          "functionKind": "SCALAR",
+          "outputType": "bigint",
+          "fileName": "libpresto_array_function_my_dynamic",
+          "paramTypes": [
+            "array(bigint)"
+          ],
+          "nameSpace": "presto.default",
+          "overwrite": true,
+          "constraints": "",
+          "routineCharacteristics": {
+            "language": "CPP",
+            "determinism": "DETERMINISTIC",
+            "nullCallClause": "CALLED_ON_NULL_INPUT"
+          }
+        }
+      ],
+      "dynamic_varchar": [
+        {
+          "docString": "",
+          "functionKind": "SCALAR",
+          "outputType": "varchar",
+          "fileName": "libpresto_varchar_function_my_dynamic",
+          "paramTypes": [
+            
+          ],
+          "nameSpace": "presto.default",
+          "overwrite": true,
+          "constraints": "",
+          "routineCharacteristics": {
+            "language": "CPP",
+            "determinism": "DETERMINISTIC",
+            "nullCallClause": "CALLED_ON_NULL_INPUT"
+          }
+        }
+      ]
+    },
+    "function_registerations_non_default": {
+      "dynamic_non_default": [
+        {
+          "docString": "",
+          "functionKind": "SCALAR",
+          "outputType": "bigint",
+          "fileName": "presto_non_defualt_function_my_dynamic",
+          "paramTypes": [
+            
+          ],
+          "nameSpace": "presto.default",
+          "overwrite": true,
+          "constraints": "",
+          "routineCharacteristics": {
+            "language": "CPP",
+            "determinism": "DETERMINISTIC",
+            "nullCallClause": "CALLED_ON_NULL_INPUT"
+          }
+        }
+      ]
+    }
+  }
+}
