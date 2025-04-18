@@ -336,7 +336,27 @@ The corresponding configuration property is :ref:`admin/properties:\`\`optimizer
 
 Enable retry for failed queries who can potentially be helped by HBO. 
 
-The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.retry-query-with-history-based-optimization\`\``. 
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.retry-query-with-history-based-optimization\`\``.
+
+``optimizer_inner_join_pushdown_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Enable push down inner join predicates to database. Only allows equality joins to be pushed down.
+Use :ref:`admin/properties-session:\`\`optimizer_inequality_join_pushdown_enabled\`\`` along with this configuration to push down inequality join predicates.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.inner-join-pushdown-enabled\`\``.
+
+``optimizer_inequality_join_pushdown_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Enable push down inner join inequality predicates to database. For this configuration to be enabled, :ref:`admin/properties-session:\`\`optimizer_inner_join_pushdown_enabled\`\`` should be set to ``true``.
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.inequality-join-pushdown-enabled\`\``.
 
 JDBC Properties
 ---------------
