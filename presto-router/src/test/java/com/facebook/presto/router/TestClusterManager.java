@@ -18,6 +18,7 @@ import com.facebook.airlift.bootstrap.LifeCycleManager;
 import com.facebook.airlift.http.server.HttpServerInfo;
 import com.facebook.airlift.http.server.testing.TestingHttpServerModule;
 import com.facebook.airlift.jaxrs.JaxrsModule;
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonModule;
 import com.facebook.airlift.log.Logging;
 import com.facebook.airlift.node.testing.TestingNodeModule;
@@ -27,6 +28,8 @@ import com.facebook.presto.router.cluster.ClusterManager;
 import com.facebook.presto.router.cluster.ClusterManager.ClusterStatusTracker;
 import com.facebook.presto.router.cluster.RemoteInfoFactory;
 import com.facebook.presto.router.cluster.RemoteStateConfig;
+import com.facebook.presto.router.spec.GroupSpec;
+import com.facebook.presto.router.spec.RouterSpec;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
@@ -50,6 +53,7 @@ import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeoutException;
 
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.router.TestingRouterUtil.getConfigFile;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static java.lang.String.format;
@@ -159,7 +163,20 @@ public class TestClusterManager
 
         Path configFilePath = newConfig.toPath();
         String originalConfigContent = new String(Files.readAllBytes(configFilePath));
+
+        JsonCodec<RouterSpec> codec = jsonCodec(RouterSpec.class);
+
+        RouterSpec originalConfig = codec.fromJson(originalConfigContent);
+
+        RouterSpec modifiedConfig = codec.fromJson(originalConfigContent);
+        List<GroupSpec> modifiedGroups = modifiedConfig.getGroups();
+        modifiedGroups.forEach(groupSpec -> groupSpec.setMembers(ImmutableList.of()));
+        modifiedConfig.setGroups(modifiedGroups);
+        //String modifiedConfigContent = originalConfigContent.replaceAll("\"members\"\\s*:\\s*\\[.*?\\]", "\"members\": []");
         String modifiedConfigContent = originalConfigContent.replaceAll("\"members\"\\s*:\\s*\\[.*?\\]", "\"members\": []");
+        System.out.println(modifiedConfigContent);
+        modifiedConfigContent = codec.toJson(modifiedConfig);
+        System.out.println(modifiedConfigContent);
 
         Files.write(newConfig.toPath(), modifiedConfigContent.getBytes());
         barrier.await(10, SECONDS);

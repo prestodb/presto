@@ -15,6 +15,7 @@ package com.facebook.presto.router.spec;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 
 import java.net.URI;
@@ -28,7 +29,7 @@ import static java.util.Objects.requireNonNull;
 public class GroupSpec
 {
     private final String name;
-    private final List<URI> members;
+    private List<URI> members;
     private final Optional<List<URI>> membersDiscoveryUri;
     private final Optional<List<Integer>> weights;
 
@@ -55,6 +56,13 @@ public class GroupSpec
     public List<URI> getMembers()
     {
         return members;
+    }
+
+    @JsonProperty
+    @VisibleForTesting
+    public void setMembers(List<URI> members)
+    {
+        this.members = members;
     }
 
     @JsonProperty
