@@ -120,7 +120,7 @@ public class TableFunctionProcessorMatcher
             return NO_MATCH;
         }
         if (specification.isPresent()) {
-            if (!matchSpecification(specification.get().getExpectedValue(symbolAliases),tableFunctionProcessorNode.getSpecification().orElseThrow(NoSuchElementException::new))){
+            if (!matchSpecification(specification.get().getExpectedValue(symbolAliases), tableFunctionProcessorNode.getSpecification().orElseThrow(NoSuchElementException::new))) {
                 return NO_MATCH;
             }
         }

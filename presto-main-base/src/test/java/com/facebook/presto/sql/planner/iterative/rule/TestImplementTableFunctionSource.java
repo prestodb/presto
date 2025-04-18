@@ -18,12 +18,9 @@ import com.facebook.presto.spi.plan.DataOrganizationSpecification;
 import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
-import com.facebook.presto.spi.plan.ProjectNode;
-import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode.PassThroughSpecification;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode.TableArgumentProperties;
@@ -44,8 +41,8 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.specification;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableFunctionProcessor;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.window;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.window;
 import static com.facebook.presto.sql.planner.plan.TableFunctionNode.PassThroughColumn;
 
 public class TestImplementTableFunctionSource
@@ -256,11 +253,11 @@ public class TestImplementTableFunctionSource
                                                 "combined_row_number", expression("IF(COALESCE(input_1_row_number, BIGINT '-1') > COALESCE(input_2_row_number, BIGINT '-1'), input_1_row_number, input_2_row_number)"),
                                                 "combined_partition_size", expression("IF(COALESCE(input_1_partition_size, BIGINT '-1') > COALESCE(input_2_partition_size, BIGINT '-1'), input_1_partition_size, input_2_partition_size)")),
                                         join(// join nodes using helper symbols
-                                                /*JoinType.FULL,
+                                                JoinType.FULL,
                                                         ImmutableList.of(),
                                                         Optional.of("input_1_row_number = input_2_row_number OR " +
-                                                                "input_1_row_number > input_2_partition_size AND input_2_row_number = BIGINT '1' OR " +
-                                                                "input_2_row_number > input_1_partition_size AND input_1_row_number = BIGINT '1'"),*/
+                                                                "(input_1_row_number > input_2_partition_size AND input_2_row_number = BIGINT '1' OR " +
+                                                                "input_2_row_number > input_1_partition_size AND input_1_row_number = BIGINT '1')"),
                                                 window(// append helper symbols for source input_1
                                                         builder -> builder
                                                                 .specification(specification(ImmutableList.of("c"), ImmutableList.of(), ImmutableMap.of()))
@@ -343,21 +340,21 @@ public class TestImplementTableFunctionSource
                                                 "combined_row_number_1_2_3", expression("IF(COALESCE(combined_row_number_1_2, BIGINT '-1') > COALESCE(input_3_row_number, BIGINT '-1'), combined_row_number_1_2, input_3_row_number)"),
                                                 "combined_partition_size_1_2_3", expression("IF(COALESCE(combined_partition_size_1_2, BIGINT '-1') > COALESCE(input_3_partition_size, BIGINT '-1'), combined_partition_size_1_2, input_3_partition_size)")),
                                         join(// join nodes using helper symbols
-                                                /*JoinType.FULL,
+                                                JoinType.FULL,
                                                 ImmutableList.of(),
                                                 Optional.of("combined_row_number_1_2 = input_3_row_number OR " +
-                                                        "combined_row_number_1_2 > input_3_partition_size AND input_3_row_number = BIGINT '1' OR " +
-                                                        "input_3_row_number > combined_partition_size_1_2 AND combined_row_number_1_2 = BIGINT '1'"),*/
+                                                        "(combined_row_number_1_2 > input_3_partition_size AND input_3_row_number = BIGINT '1' OR " +
+                                                        "input_3_row_number > combined_partition_size_1_2 AND combined_row_number_1_2 = BIGINT '1')"),
                                                 project(// append helper symbols for joined nodes
                                                         ImmutableMap.of(
                                                                 "combined_row_number_1_2", expression("IF(COALESCE(input_1_row_number, BIGINT '-1') > COALESCE(input_2_row_number, BIGINT '-1'), input_1_row_number, input_2_row_number)"),
                                                                 "combined_partition_size_1_2", expression("IF(COALESCE(input_1_partition_size, BIGINT '-1') > COALESCE(input_2_partition_size, BIGINT '-1'), input_1_partition_size, input_2_partition_size)")),
                                                         join(// join nodes using helper symbols
-                                                                /*JoinType.FULL,
+                                                                JoinType.FULL,
                                                                 ImmutableList.of(),
                                                                 Optional.of("input_1_row_number = input_2_row_number OR " +
-                                                                        " input_1_row_number > input_2_partition_size AND input_2_row_number = BIGINT '1' OR " +
-                                                                        "input_2_row_number > input_1_partition_size AND input_1_row_number = BIGINT '1'"),*/
+                                                                        "(input_1_row_number > input_2_partition_size AND input_2_row_number = BIGINT '1' OR " +
+                                                                        "input_2_row_number > input_1_partition_size AND input_1_row_number = BIGINT '1')"),
                                                                 window(// append helper symbols for source input_1
                                                                         builder -> builder
                                                                                 .specification(specification(ImmutableList.of("c"), ImmutableList.of(), ImmutableMap.of()))
@@ -435,13 +432,13 @@ public class TestImplementTableFunctionSource
                                                 "combined_partition_size", expression("IF(COALESCE(input_1_partition_size, BIGINT '-1') > COALESCE(input_2_partition_size, BIGINT '-1'), input_1_partition_size, input_2_partition_size)"),
                                                 "combined_partition_column", expression("COALESCE(c, e)")),
                                         join(// co-partition nodes
-                                                /*JoinType.LEFT,
+                                                JoinType.LEFT,
                                                 ImmutableList.of(),
                                                 Optional.of("NOT (c IS DISTINCT FROM e) " +
                                                         "AND ( " +
                                                         "input_1_row_number = input_2_row_number OR " +
-                                                        "input_1_row_number > input_2_partition_size AND input_2_row_number = BIGINT '1' OR " +
-                                                        "input_2_row_number > input_1_partition_size AND input_1_row_number = BIGINT '1') "),*/
+                                                        "(input_1_row_number > input_2_partition_size AND input_2_row_number = BIGINT '1' OR " +
+                                                        "input_2_row_number > input_1_partition_size AND input_1_row_number = BIGINT '1')) "),
                                                 window(// append helper symbols for source input_1
                                                         builder -> builder
                                                                 .specification(specification(ImmutableList.of("c"), ImmutableList.of(), ImmutableMap.of()))
@@ -509,13 +506,13 @@ public class TestImplementTableFunctionSource
                                                 "combined_partition_size", expression("IF(COALESCE(input_1_partition_size, BIGINT '-1') > COALESCE(input_2_partition_size, BIGINT '-1'), input_1_partition_size, input_2_partition_size)"),
                                                 "combined_partition_column", expression("COALESCE(c, d)")),
                                         join(// co-partition nodes
-                                                /*JoinType.INNER,
+                                                JoinType.INNER,
                                                 ImmutableList.of(),
                                                 Optional.of("NOT (c IS DISTINCT FROM d) " +
                                                                 "AND ( " +
                                                                 "input_1_row_number = input_2_row_number OR " +
-                                                                "input_1_row_number > input_2_partition_size AND input_2_row_number = BIGINT '1' OR " +
-                                                                "input_2_row_number > input_1_partition_size AND input_1_row_number = BIGINT '1') ")*/
+                                                                "(input_1_row_number > input_2_partition_size AND input_2_row_number = BIGINT '1' OR " +
+                                                                "input_2_row_number > input_1_partition_size AND input_1_row_number = BIGINT '1')) "),
                                                 window(// append helper symbols for source input_1
                                                         builder -> builder
                                                                 .specification(specification(ImmutableList.of("c"), ImmutableList.of(), ImmutableMap.of()))
@@ -579,13 +576,13 @@ public class TestImplementTableFunctionSource
                                                 "combined_partition_size", expression("IF(COALESCE(input_1_partition_size, BIGINT '-1') > COALESCE(input_2_partition_size, BIGINT '-1'), input_1_partition_size, input_2_partition_size)"),
                                                 "combined_partition_column", expression("COALESCE(c, d)")),
                                         join(// co-partition nodes
-                                                /*JoinType.LEFT,
+                                                JoinType.LEFT,
                                                 ImmutableList.of(),
                                                 Optional.of("NOT (c IS DISTINCT FROM d) " +
                                                                 "AND ( " +
                                                                 "     input_1_row_number = input_2_row_number OR " +
-                                                                "     input_1_row_number > input_2_partition_size AND input_2_row_number = BIGINT '1' OR " +
-                                                                "     input_2_row_number > input_1_partition_size AND input_1_row_number = BIGINT '1')")*/
+                                                                "     (input_1_row_number > input_2_partition_size AND input_2_row_number = BIGINT '1' OR " +
+                                                                "     input_2_row_number > input_1_partition_size AND input_1_row_number = BIGINT '1'))"),
                                                 window(// append helper symbols for source input_1
                                                         builder -> builder
                                                                 .specification(specification(ImmutableList.of("c"), ImmutableList.of(), ImmutableMap.of()))
@@ -649,13 +646,13 @@ public class TestImplementTableFunctionSource
                                                 "combined_partition_size", expression("IF(COALESCE(input_2_partition_size, BIGINT '-1') > COALESCE(input_1_partition_size, BIGINT '-1'), input_2_partition_size, input_1_partition_size)"),
                                                 "combined_partition_column", expression("COALESCE(d, c)")),
                                         join(// co-partition nodes
-                                                /*JoinType.LEFT,
+                                                JoinType.LEFT,
                                                 ImmutableList.of(),
                                                 Optional.of("NOT (d IS DISTINCT FROM c) " +
                                                                   "AND (" +
                                                                   "   input_2_row_number = input_1_row_number OR" +
-                                                                  "   input_2_row_number > input_1_partition_size AND input_1_row_number = BIGINT '1' OR" +
-                                                                  "   input_1_row_number > input_2_partition_size AND input_2_row_number = BIGINT '1')"),*/
+                                                                  "   (input_2_row_number > input_1_partition_size AND input_1_row_number = BIGINT '1' OR" +
+                                                                  "   input_1_row_number > input_2_partition_size AND input_2_row_number = BIGINT '1'))"),
                                                 window(// append helper symbols for source input_2
                                                         builder -> builder
                                                                 .specification(specification(ImmutableList.of("d"), ImmutableList.of(), ImmutableMap.of()))
@@ -719,13 +716,13 @@ public class TestImplementTableFunctionSource
                                                 "combined_partition_size", expression("IF(COALESCE(input_1_partition_size, BIGINT '-1') > COALESCE(input_2_partition_size, BIGINT '-1'), input_1_partition_size, input_2_partition_size)"),
                                                 "combined_partition_column", expression("COALESCE(c, d)")),
                                         join(// co-partition nodes
-                                                /*JoinType.FULL,
+                                                JoinType.FULL,
                                                 ImmutableList.of(),
                                                 Optional.of("NOT (c IS DISTINCT FROM d)" +
                                                                 " AND (" +
                                                                 "     input_1_row_number = input_2_row_number OR" +
-                                                                "     input_1_row_number > input_2_partition_size AND input_2_row_number = BIGINT '1' OR" +
-                                                                "     input_2_row_number > input_1_partition_size AND input_1_row_number = BIGINT '1'"),*/
+                                                                "     (input_1_row_number > input_2_partition_size AND input_2_row_number = BIGINT '1' OR" +
+                                                                "     input_2_row_number > input_1_partition_size AND input_1_row_number = BIGINT '1'))"),
                                                 window(// append helper symbols for source input_1
                                                         builder -> builder
                                                                 .specification(specification(ImmutableList.of("c"), ImmutableList.of(), ImmutableMap.of()))
@@ -803,26 +800,26 @@ public class TestImplementTableFunctionSource
                                                 "combined_partition_size_1_2_3", expression("IF(COALESCE(combined_partition_size_1_2, BIGINT '-1') > COALESCE(input_3_partition_size, BIGINT '-1'), combined_partition_size_1_2, input_3_partition_size)"),
                                                 "combined_partition_column_1_2_3", expression("COALESCE(combined_partition_column_1_2, e)")),
                                         join(// co-partition nodes
-                                                /*JoinType.LEFT,
+                                                JoinType.LEFT,
                                                 ImmutableList.of(),
                                                 Optional.of("NOT (combined_partition_column_1_2 IS DISTINCT FROM e) " +
                                                                     "AND (" +
                                                                     "     combined_row_number_1_2 = input_3_row_number OR" +
-                                                                    "     combined_row_number_1_2 > input_3_partition_size AND input_3_row_number = BIGINT '1' OR" +
-                                                                    "     input_3_row_number > combined_partition_size_1_2 AND combined_row_number_1_2 = BIGINT '1'))"),*/
+                                                                    "     (combined_row_number_1_2 > input_3_partition_size AND input_3_row_number = BIGINT '1' OR" +
+                                                                    "     input_3_row_number > combined_partition_size_1_2 AND combined_row_number_1_2 = BIGINT '1'))"),
                                                 project(// append helper and partitioning symbols for co-partitioned nodes
                                                         ImmutableMap.of(
                                                                 "combined_row_number_1_2", expression("IF(COALESCE(input_1_row_number, BIGINT '-1') > COALESCE(input_2_row_number, BIGINT '-1'), input_1_row_number, input_2_row_number)"),
                                                                 "combined_partition_size_1_2", expression("IF(COALESCE(input_1_partition_size, BIGINT '-1') > COALESCE(input_2_partition_size, BIGINT '-1'), input_1_partition_size, input_2_partition_size)"),
                                                                 "combined_partition_column_1_2", expression("COALESCE(c, d)")),
                                                         join(// co-partition nodes
-                                                                /*JoinType.INNER,
+                                                                JoinType.INNER,
                                                                 ImmutableList.of(),
                                                                 Optional.of("NOT (c IS DISTINCT FROM d) " +
                                                                                         "AND (" +
                                                                                         "     input_1_row_number = input_2_row_number OR" +
-                                                                                        "     input_1_row_number > input_2_partition_size AND input_2_row_number = BIGINT '1' OR" +
-                                                                                        "     input_2_row_number > input_1_partition_size AND input_1_row_number = BIGINT '1')"),*/
+                                                                                        "     (input_1_row_number > input_2_partition_size AND input_2_row_number = BIGINT '1' OR" +
+                                                                                        "     input_2_row_number > input_1_partition_size AND input_1_row_number = BIGINT '1'))"),
                                                                 window(// append helper symbols for source input_1
                                                                         builder -> builder
                                                                                 .specification(specification(ImmutableList.of("c"), ImmutableList.of(), ImmutableMap.of()))
@@ -921,24 +918,24 @@ public class TestImplementTableFunctionSource
                                                 "combined_row_number_1_2_3_4", expression("IF(COALESCE(combined_row_number_1_2, BIGINT '-1') > COALESCE(combined_row_number_3_4, BIGINT '-1'), combined_row_number_1_2, combined_row_number_3_4)"),
                                                 "combined_partition_size_1_2_3_4", expression("IF(COALESCE(combined_partition_size_1_2, BIGINT '-1') > COALESCE(combined_partition_size_3_4, BIGINT '-1'), combined_partition_size_1_2, combined_partition_size_3_4)")),
                                         join(// join nodes using helper symbols
-                                                /*JoinType.LEFT,
+                                                JoinType.LEFT,
                                                 ImmutableList.of(),
                                                 Optional.of("combined_row_number_1_2 = combined_row_number_3_4 OR " +
-                                                                "combined_row_number_1_2 > combined_partition_size_3_4 AND combined_row_number_3_4 = BIGINT '1' OR " +
-                                                                "combined_row_number_3_4 > combined_partition_size_1_2 AND combined_row_number_1_2 = BIGINT '1'"),*/
+                                                                "(combined_row_number_1_2 > combined_partition_size_3_4 AND combined_row_number_3_4 = BIGINT '1' OR " +
+                                                                "combined_row_number_3_4 > combined_partition_size_1_2 AND combined_row_number_1_2 = BIGINT '1')"),
                                                 project(// append helper and partitioning symbols for co-partitioned nodes
                                                         ImmutableMap.of(
                                                                 "combined_row_number_1_2", expression("IF(COALESCE(input_1_row_number, BIGINT '-1') > COALESCE(input_2_row_number, BIGINT '-1'), input_1_row_number, input_2_row_number)"),
                                                                 "combined_partition_size_1_2", expression("IF(COALESCE(input_1_partition_size, BIGINT '-1') > COALESCE(input_2_partition_size, BIGINT '-1'), input_1_partition_size, input_2_partition_size)"),
                                                                 "combined_partition_column_1_2", expression("COALESCE(c, d)")),
                                                         join(// co-partition nodes
-                                                                /*JoinType.INNER,
+                                                                JoinType.INNER,
                                                                 ImmutableList.of(),
                                                                 Optional.of("NOT (c IS DISTINCT FROM d) " +
                                                                         "AND ( " +
                                                                         "input_1_row_number = input_2_row_number OR " +
-                                                                        "input_1_row_number > input_2_partition_size AND input_2_row_number = BIGINT '1' OR " +
-                                                                        "input_2_row_number > input_1_partition_size AND input_1_row_number = BIGINT '1')"),*/
+                                                                        "(input_1_row_number > input_2_partition_size AND input_2_row_number = BIGINT '1' OR " +
+                                                                        "input_2_row_number > input_1_partition_size AND input_1_row_number = BIGINT '1'))"),
                                                                 window(// append helper symbols for source input_1
                                                                         builder -> builder
                                                                                 .specification(specification(ImmutableList.of("c"), ImmutableList.of(), ImmutableMap.of()))
@@ -959,13 +956,13 @@ public class TestImplementTableFunctionSource
                                                                 "combined_partition_size_3_4", expression("IF(COALESCE(input_3_partition_size, BIGINT '-1') > COALESCE(input_4_partition_size, BIGINT '-1'), input_3_partition_size, input_4_partition_size)"),
                                                                 "combined_partition_column_3_4", expression("COALESCE(e, f)")),
                                                         join(// co-partition nodes
-                                                                /*JoinType.FULL,
+                                                                JoinType.FULL,
                                                                 ImmutableList.of(),
                                                                 Optional.of("NOT (e IS DISTINCT FROM f) " +
                                                                         "AND ( " +
                                                                         "input_3_row_number = input_4_row_number OR " +
-                                                                        "input_3_row_number > input_4_partition_size AND input_4_row_number = BIGINT '1' OR " +
-                                                                        "input_4_row_number > input_3_partition_size AND input_3_row_number = BIGINT '1') "),*/
+                                                                        "(input_3_row_number > input_4_partition_size AND input_4_row_number = BIGINT '1' OR " +
+                                                                        "input_4_row_number > input_3_partition_size AND input_3_row_number = BIGINT '1')) "),
                                                                 window(// append helper symbols for source input_3
                                                                         builder -> builder
                                                                                 .specification(specification(ImmutableList.of("e"), ImmutableList.of(), ImmutableMap.of()))
@@ -1042,24 +1039,24 @@ public class TestImplementTableFunctionSource
                                                 "combined_row_number_2_3_1", expression("IF(COALESCE(combined_row_number_2_3, BIGINT '-1') > COALESCE(input_1_row_number, BIGINT '-1'), combined_row_number_2_3, input_1_row_number)"),
                                                 "combined_partition_size_2_3_1", expression("IF(COALESCE(combined_partition_size_2_3, BIGINT '-1') > COALESCE(input_1_partition_size, BIGINT '-1'), combined_partition_size_2_3, input_1_partition_size)")),
                                         join(// join nodes using helper symbols
-                                                /*JoinType.INNER,
+                                                JoinType.INNER,
                                                 ImmutableList.of(),
                                                 Optional.of("combined_row_number_2_3 = input_1_row_number OR " +
-                                                        "combined_row_number_2_3 > input_1_partition_size AND input_1_row_number = BIGINT '1' OR " +
-                                                        "input_1_row_number > combined_partition_size_2_3 AND combined_row_number_2_3 = BIGINT '1' "),*/
+                                                        "(combined_row_number_2_3 > input_1_partition_size AND input_1_row_number = BIGINT '1' OR " +
+                                                        "input_1_row_number > combined_partition_size_2_3 AND combined_row_number_2_3 = BIGINT '1')"),
                                                 project(// append helper and partitioning symbols for co-partitioned nodes
                                                         ImmutableMap.of(
                                                                 "combined_row_number_2_3", expression("IF(COALESCE(input_2_row_number, BIGINT '-1') > COALESCE(input_3_row_number, BIGINT '-1'), input_2_row_number, input_3_row_number)"),
                                                                 "combined_partition_size_2_3", expression("IF(COALESCE(input_2_partition_size, BIGINT '-1') > COALESCE(input_3_partition_size, BIGINT '-1'), input_2_partition_size, input_3_partition_size)"),
                                                                 "combined_partition_column_2_3", expression("COALESCE(d, e)")),
                                                         join(// co-partition nodes
-                                                                /*JoinType.LEFT,
+                                                                JoinType.LEFT,
                                                                 ImmutableList.of(),
                                                                 Optional.of("NOT (d IS DISTINCT FROM e) " +
                                                                         "AND ( " +
                                                                         "input_2_row_number = input_3_row_number OR " +
-                                                                        "input_2_row_number > input_3_partition_size AND input_3_row_number = BIGINT '1' OR " +
-                                                                        "input_3_row_number > input_2_partition_size AND input_2_row_number = BIGINT '1')"),*/
+                                                                        "(input_2_row_number > input_3_partition_size AND input_3_row_number = BIGINT '1' OR " +
+                                                                        "input_3_row_number > input_2_partition_size AND input_2_row_number = BIGINT '1'))"),
                                                                 window(// append helper symbols for source input_2
                                                                         builder -> builder
                                                                                 .specification(specification(ImmutableList.of("d"), ImmutableList.of(), ImmutableMap.of()))
@@ -1102,9 +1099,9 @@ public class TestImplementTableFunctionSource
                                     // coerce column c for co-partitioning
                                     p.project(
                                             Assignments.builder()
-                                                    .put(c, PlanBuilder.expression("c"))
-                                                    .put(d, PlanBuilder.expression("d"))
-                                                    .put(cCoerced, PlanBuilder.expression("CAST(c AS INTEGER)"))
+                                                    .put(c, p.rowExpression("c"))
+                                                    .put(d, p.rowExpression("d"))
+                                                    .put(cCoerced, p.rowExpression("CAST(c AS INTEGER)"))
                                                     .build(),
                                             p.values(c, d)),
                                     p.values(e, f)),
@@ -1151,8 +1148,8 @@ public class TestImplementTableFunctionSource
                                                 Optional.of("NOT (c_coerced IS DISTINCT FROM e) " +
                                                                 "AND ( " +
                                                                 "     input_1_row_number = input_2_row_number OR" +
-                                                                "     input_1_row_number > input_2_partition_size AND input_2_row_number = BIGINT '1' OR" +
-                                                                "     input_2_row_number > input_1_partition_size AND input_1_row_number = BIGINT '1')"),
+                                                                "     (input_1_row_number > input_2_partition_size AND input_2_row_number = BIGINT '1' OR" +
+                                                                "     input_2_row_number > input_1_partition_size AND input_1_row_number = BIGINT '1'))"),
                                                 window(// append helper symbols for source input_1
                                                         builder -> builder
                                                                 .specification(specification(ImmutableList.of("c_coerced"), ImmutableList.of(), ImmutableMap.of()))
@@ -1226,14 +1223,14 @@ public class TestImplementTableFunctionSource
                                                 "combined_partition_column_1", expression("COALESCE(c, e)"),
                                                 "combined_partition_column_2", expression("COALESCE(d, f)")),
                                         join(// co-partition nodes
-                                                /*JoinType.LEFT,
+                                                JoinType.LEFT,
                                                 ImmutableList.of(),
                                                 Optional.of("NOT (c IS DISTINCT FROM e) " +
                                                                 "AND NOT (d IS DISTINCT FROM f) " +
                                                                 "AND ( " +
                                                                 "     input_1_row_number = input_2_row_number OR" +
-                                                                "     input_1_row_number > input_2_partition_size AND input_2_row_number = BIGINT '1' OR" +
-                                                                "     input_2_row_number > input_1_partition_size AND input_1_row_number = BIGINT '1')"),*/
+                                                                "     (input_1_row_number > input_2_partition_size AND input_2_row_number = BIGINT '1' OR" +
+                                                                "     input_2_row_number > input_1_partition_size AND input_1_row_number = BIGINT '1'))"),
                                                 window(// append helper symbols for source input_1
                                                         builder -> builder
                                                                 .specification(specification(ImmutableList.of("c", "d"), ImmutableList.of(), ImmutableMap.of()))
@@ -1303,11 +1300,11 @@ public class TestImplementTableFunctionSource
                                                 "combined_row_number", expression("IF(COALESCE(input_1_row_number, BIGINT '-1') > COALESCE(input_2_row_number, BIGINT '-1'), input_1_row_number, input_2_row_number)"),
                                                 "combined_partition_size", expression("IF(COALESCE(input_1_partition_size, BIGINT '-1') > COALESCE(input_2_partition_size, BIGINT '-1'), input_1_partition_size, input_2_partition_size)")),
                                         join(// join nodes using helper symbols
-                                                /*JoinType.FULL,
+                                                JoinType.FULL,
                                                 ImmutableList.of(),
                                                         Optional.of("input_1_row_number = input_2_row_number OR " +
-                                                                "input_1_row_number > input_2_partition_size AND input_2_row_number = BIGINT '1' OR " +
-                                                                "input_2_row_number > input_1_partition_size AND input_1_row_number = BIGINT '1'"),*/
+                                                                "(input_1_row_number > input_2_partition_size AND input_2_row_number = BIGINT '1' OR " +
+                                                                "input_2_row_number > input_1_partition_size AND input_1_row_number = BIGINT '1')"),
                                                         window(// append helper symbols for source input_1
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("c"), ImmutableList.of(), ImmutableMap.of()))
