@@ -131,10 +131,6 @@ class PrestoServer {
 
   virtual std::shared_ptr<velox::exec::ExprSetListener> getExprSetListener();
 
-  /// Returns any additional http filters.
-  virtual std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>>
-  getAdditionalHttpServerFilters();
-
   virtual std::vector<std::string> registerVeloxConnectors(
       const fs::path& configDirectoryPath);
 
@@ -189,8 +185,8 @@ class PrestoServer {
   VeloxPlanValidator* getVeloxPlanValidator();
 
   /// Invoked to get the list of filters passed to the http server.
-  std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>>
-  getHttpServerFilters();
+  virtual std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>>
+  getHttpServerFilters() const;
 
   void initializeVeloxMemory();
 

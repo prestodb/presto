@@ -1117,7 +1117,7 @@ PrestoServer::getExprSetListener() {
 }
 
 std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>>
-PrestoServer::getHttpServerFilters() {
+PrestoServer::getHttpServerFilters() const {
   std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>> filters;
   const auto* systemConfig = SystemConfig::instance();
   if (systemConfig->enableHttpAccessLog()) {
@@ -1126,10 +1126,7 @@ PrestoServer::getHttpServerFilters() {
   }
 
   if (systemConfig->enableHttpStatsFilter()) {
-    auto additionalFilters = getAdditionalHttpServerFilters();
-    for (auto& filter : additionalFilters) {
-      filters.push_back(std::move(filter));
-    }
+    filters.push_back(std::make_unique<http::filters::StatsFilterFactory>());
   }
 
   if (systemConfig->enableHttpEndpointLatencyFilter()) {
@@ -1143,13 +1140,6 @@ PrestoServer::getHttpServerFilters() {
   // without JWT enabled.
   filters.push_back(
       std::make_unique<http::filters::InternalAuthenticationFilterFactory>());
-  return filters;
-}
-
-std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>>
-PrestoServer::getAdditionalHttpServerFilters() {
-  std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>> filters;
-  filters.emplace_back(std::make_unique<http::filters::StatsFilterFactory>());
   return filters;
 }
 
