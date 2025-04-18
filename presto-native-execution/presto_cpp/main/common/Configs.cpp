@@ -872,6 +872,7 @@ NodeConfig::NodeConfig() {
           NONE_PROP(kNodeIp),
           NONE_PROP(kNodeInternalAddress),
           NONE_PROP(kNodeLocation),
+          NONE_PROP(kNodePrometheusExecutorThreads),
       };
 }
 
@@ -882,6 +883,16 @@ NodeConfig* NodeConfig::instance() {
 
 std::string NodeConfig::nodeEnvironment() const {
   return requiredProperty(kNodeEnvironment);
+}
+
+int NodeConfig::prometheusExecutorThreads() const {
+  static constexpr int
+      kNodePrometheusExecutorThreadsDefault = 2;
+  auto resultOpt = optionalProperty<int>(kNodePrometheusExecutorThreads);
+  if (resultOpt.hasValue()) {
+    return resultOpt.value();
+  }
+  return kNodePrometheusExecutorThreadsDefault;
 }
 
 std::string NodeConfig::nodeId() const {
