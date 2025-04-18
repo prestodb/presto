@@ -69,6 +69,7 @@ import com.facebook.presto.operator.aggregation.DoubleCovarianceAggregation;
 import com.facebook.presto.operator.aggregation.DoubleHistogramAggregation;
 import com.facebook.presto.operator.aggregation.DoubleRegressionAggregation;
 import com.facebook.presto.operator.aggregation.DoubleSumAggregation;
+import com.facebook.presto.operator.aggregation.DoubleSumIfAggregation;
 import com.facebook.presto.operator.aggregation.EntropyAggregation;
 import com.facebook.presto.operator.aggregation.GeometricMeanAggregations;
 import com.facebook.presto.operator.aggregation.IntervalDayToSecondAverageAggregation;
@@ -76,6 +77,7 @@ import com.facebook.presto.operator.aggregation.IntervalDayToSecondSumAggregatio
 import com.facebook.presto.operator.aggregation.IntervalYearToMonthAverageAggregation;
 import com.facebook.presto.operator.aggregation.IntervalYearToMonthSumAggregation;
 import com.facebook.presto.operator.aggregation.LongSumAggregation;
+import com.facebook.presto.operator.aggregation.LongSumIfAggregation;
 import com.facebook.presto.operator.aggregation.MaxDataSizeForStats;
 import com.facebook.presto.operator.aggregation.MergeHyperLogLogAggregation;
 import com.facebook.presto.operator.aggregation.MergeQuantileDigestFunction;
@@ -86,6 +88,7 @@ import com.facebook.presto.operator.aggregation.RealGeometricMeanAggregations;
 import com.facebook.presto.operator.aggregation.RealHistogramAggregation;
 import com.facebook.presto.operator.aggregation.RealRegressionAggregation;
 import com.facebook.presto.operator.aggregation.RealSumAggregation;
+import com.facebook.presto.operator.aggregation.RealSumIfAggregation;
 import com.facebook.presto.operator.aggregation.ReduceAggregationFunction;
 import com.facebook.presto.operator.aggregation.SumDataSizeForStats;
 import com.facebook.presto.operator.aggregation.VarianceAggregation;
@@ -712,8 +715,11 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .aggregates(BooleanAndAggregation.class)
                 .aggregates(BooleanOrAggregation.class)
                 .aggregates(DoubleSumAggregation.class)
+                .aggregates(DoubleSumIfAggregation.class)
                 .aggregates(RealSumAggregation.class)
+                .aggregates(RealSumIfAggregation.class)
                 .aggregates(LongSumAggregation.class)
+                .aggregates(LongSumIfAggregation.class)
                 .aggregates(IntervalDayToSecondSumAggregation.class)
                 .aggregates(IntervalYearToMonthSumAggregation.class)
                 .aggregates(AverageAggregations.class)
