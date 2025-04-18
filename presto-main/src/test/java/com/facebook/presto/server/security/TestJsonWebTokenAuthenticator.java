@@ -81,6 +81,7 @@ public class TestJsonWebTokenAuthenticator
                 ImmutableListMultimap.of(AUTHORIZATION, "Bearer " + jsonWebToken),
                 "remoteAddress",
                 ImmutableMap.of());
+
         Principal principal = new JsonWebTokenAuthenticator(jsonWebTokenConfig).authenticate(request);
 
         assertEquals(principal.getName(), TEST_PRINCIPAL);

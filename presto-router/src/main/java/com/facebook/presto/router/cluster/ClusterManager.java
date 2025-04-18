@@ -33,7 +33,9 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.router.RouterUtil.parseRouterConfig;
+import static com.facebook.presto.router.scheduler.SchedulerType.ROUND_ROBIN;
 import static com.facebook.presto.router.scheduler.SchedulerType.WEIGHTED_RANDOM_CHOICE;
+import static com.facebook.presto.router.scheduler.SchedulerType.WEIGHTED_ROUND_ROBIN;
 import static com.facebook.presto.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -41,23 +43,28 @@ import static java.util.stream.Collectors.toMap;
 
 public class ClusterManager
 {
-    private final Map<String, GroupSpec> groups;
-    private final List<SelectorRuleSpec> groupSelectors;
-    private final SchedulerType schedulerType;
-    private final Scheduler scheduler;
-    private final HashMap<String, HashMap<URI, Integer>> serverWeights = new HashMap<>();
+    private final RouterConfig routerConfig;
+    private Map<String, GroupSpec> groups;
+    private List<SelectorRuleSpec> groupSelectors;
+    private SchedulerType schedulerType;
+    private Scheduler scheduler;
+    private Map<String, Map<URI, Integer>> serverWeights = new HashMap<>();
 
     @Inject
     public ClusterManager(RouterConfig config)
     {
-        RouterSpec routerSpec = parseRouterConfig(config)
-                .orElseThrow(() -> new PrestoException(CONFIGURATION_INVALID, "Failed to load router config"));
+        this.routerConfig = config;
+        initializeRouterConfigSpec(this.routerConfig);
+    }
 
+    private void initializeRouterConfigSpec(RouterConfig routerConfig)
+    {
+        RouterSpec routerSpec = parseRouterConfig(routerConfig)
+                .orElseThrow(() -> new PrestoException(CONFIGURATION_INVALID, "Failed to load router config"));
         this.groups = ImmutableMap.copyOf(routerSpec.getGroups().stream().collect(toMap(GroupSpec::getName, group -> group)));
         this.groupSelectors = ImmutableList.copyOf(routerSpec.getSelectors());
         this.schedulerType = routerSpec.getSchedulerType();
         this.scheduler = new SchedulerFactory(routerSpec.getSchedulerType()).create();
-
         this.initializeServerWeights();
     }
 
@@ -77,12 +84,17 @@ public class ClusterManager
 
         checkArgument(groups.containsKey(target.get()));
         GroupSpec groupSpec = groups.get(target.get());
-        scheduler.setCandidates(groupSpec.getMembers());
-        if (schedulerType == WEIGHTED_RANDOM_CHOICE) {
-            scheduler.setWeights(serverWeights.get(groupSpec.getName()));
-        }
+        synchronized (scheduler) {
+            scheduler.setCandidates(groupSpec.getMembers());
+            if (schedulerType == WEIGHTED_RANDOM_CHOICE || schedulerType == WEIGHTED_ROUND_ROBIN) {
+                scheduler.setWeights((HashMap<URI, Integer>) serverWeights.get(groupSpec.getName()));
+            }
 
-        return scheduler.getDestination(requestInfo.getUser());
+            if (schedulerType == ROUND_ROBIN || schedulerType == WEIGHTED_ROUND_ROBIN) {
+                scheduler.setCandidateGroupName(target.get());
+            }
+            return scheduler.getDestination(requestInfo.getUser());
+        }
     }
 
     private Optional<String> matchGroup(RequestInfo requestInfo)
