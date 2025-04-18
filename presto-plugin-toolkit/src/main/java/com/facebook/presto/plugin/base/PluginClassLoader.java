@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.server;
+package com.facebook.presto.plugin.base;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -26,7 +26,7 @@ import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
-class PluginClassLoader
+public class PluginClassLoader
         extends URLClassLoader
 {
     private static final ClassLoader PLATFORM_CLASS_LOADER = findPlatformClassLoader();
