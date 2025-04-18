@@ -18,6 +18,8 @@ import com.facebook.presto.common.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import javax.annotation.Nullable;
+
 import static com.facebook.presto.spi.function.table.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -32,7 +34,7 @@ public class ScalarArgumentSpecification
             @JsonProperty("name") String name,
             @JsonProperty("type") Type type,
             @JsonProperty("required") boolean required,
-            @JsonProperty("defaultValue") Object defaultValue)
+            @Nullable Object defaultValue)
     {
         super(name, required, defaultValue);
         this.type = requireNonNull(type, "type is null");

@@ -315,10 +315,9 @@ buildArgumentSpecsList(TableArgumentSpecList argumentsSpec) {
       auto descriptorArgumentSpecification =
           std::make_shared<protocol::DescriptorArgumentSpecification>();
       descriptorArgumentSpecification->name = descriptorArgumentSpec->name();
-      descriptorArgumentSpecification->required =
-          descriptorArgumentSpec->required();
       descriptorArgumentSpecification->defaultValue =
           buildDescriptor(descriptorArgumentSpec->descriptor());
+          descriptorArgumentSpecification->required = false;
       argumentsSpecsList.emplace_back(descriptorArgumentSpecification);
     } else {
       VELOX_FAIL("Failed to convert to a valid argumentSpec");
@@ -332,10 +331,14 @@ std::shared_ptr<protocol::ReturnTypeSpecification> buildReturnTypeSpecification(
   auto returnTypeSpecification = returnSpec->returnType();
   if (returnTypeSpecification ==
       ReturnTypeSpecification::ReturnType::kGenericTable) {
-    return std::shared_ptr<protocol::GenericTableReturnTypeSpecification>();
+    std::shared_ptr<protocol::GenericTableReturnTypeSpecification>
+        genericTableReturnTypeSpecification
+        = std::make_shared<protocol::GenericTableReturnTypeSpecification>();
+    return genericTableReturnTypeSpecification;
   } else {
     std::shared_ptr<protocol::DescribedTableReturnTypeSpecification>
-        describedTableReturnTypeSpecification;
+    describedTableReturnTypeSpecification
+        = std::make_shared<protocol::DescribedTableReturnTypeSpecification>();
     auto describedTable =
         std::dynamic_pointer_cast<DescribedTableReturnType>(returnSpec);
     describedTableReturnTypeSpecification->descriptor =
@@ -413,8 +416,11 @@ json getTableValuedFunctionsMetadata() {
     function.name = functionName;
     function.schema = schema;
     function.returnTypeSpecification =
-        buildReturnTypeSpecification(functionEntry.returnSpec);
-    function.arguments = buildArgumentSpecsList(functionEntry.argumentsSpec);
+        buildReturnTypeSpecification(
+          getTableFunctionReturnType(entry.first));
+    function.arguments = 
+        buildArgumentSpecsList(
+          getTableFunctionArgumentSpecs(entry.first));
     protocol::to_json(tj, function);
     j[functionName] = tj;
   }

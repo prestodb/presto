@@ -13,9 +13,20 @@
  */
 package com.facebook.presto.spi.function.table;
 
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+
 /**
  * The return type declaration refers to the proper columns of the table function.
  * These are the columns produced by the table function as opposed to the columns
  * of input relations passed through by the table function.
  */
+@JsonTypeInfo(
+        use = JsonTypeInfo.Id.NAME,
+        include = JsonTypeInfo.As.PROPERTY,
+        property = "@type")
+@JsonSubTypes({
+        @JsonSubTypes.Type(value = GenericTableReturnTypeSpecification.class, name = "generic_table"),
+        @JsonSubTypes.Type(value = OnlyPassThroughReturnTypeSpecification.class, name = "only_pass_through_table"),
+        @JsonSubTypes.Type(value = DescribedTableReturnTypeSpecification.class, name = "described_table")})
 public abstract class ReturnTypeSpecification {}

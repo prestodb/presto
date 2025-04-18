@@ -21,7 +21,6 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.table.AbstractConnectorTableFunction;
 import com.facebook.presto.spi.function.table.ConnectorTableFunction;
 import com.facebook.presto.spi.function.table.TableFunctionMetadata;
 import com.facebook.presto.spi.tvf.TVFProvider;
@@ -33,6 +32,7 @@ import com.google.common.collect.Iterables;
 import javax.inject.Inject;
 
 import java.net.URI;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -53,8 +53,8 @@ public class NativeTVFProvider
     private final HttpClient httpClient;
     private final String catalogName;
     private static final String TABLE_FUNCTIONS_ENDPOINT = "/v1/functions/tvf";
-    private static final JsonCodec<List<AbstractConnectorTableFunction>> connectorTableFunctionListJsonCodec =
-            JsonCodec.listJsonCodec(AbstractConnectorTableFunction.class);
+    private static final JsonCodec<Map<String, JsonBasedTableFunctionMetadata>> connectorTableFunctionListJsonCodec =
+            JsonCodec.mapJsonCodec(String.class, JsonBasedTableFunctionMetadata.class);
     private final Supplier<Map<String, TableFunctionMetadata>> memoizedTableFunctionsSupplier;
 
     @Inject
@@ -90,7 +90,7 @@ public class NativeTVFProvider
 
     private synchronized Map<String, TableFunctionMetadata> loadConnectorTableFunctions()
     {
-        List<AbstractConnectorTableFunction> connectorTableFunctions;
+        Map<String, JsonBasedTableFunctionMetadata> connectorTableFunctions = new HashMap<>();
         try {
             Request request = prepareGet().setUri(getWorkerLocation(nodeManager, TABLE_FUNCTIONS_ENDPOINT)).build();
             connectorTableFunctions = httpClient.execute(request, createJsonResponseHandler(connectorTableFunctionListJsonCodec));
@@ -100,7 +100,7 @@ public class NativeTVFProvider
         }
 
         List<NativeConnectorTableFunction> nativeConnectorTableFunctions =
-                connectorTableFunctions.stream().map(this::createNativeConnectorTableFunction).collect(ImmutableList.toImmutableList());
+                connectorTableFunctions.values().stream().map(this::createNativeConnectorTableFunction).collect(ImmutableList.toImmutableList());
 
         ImmutableMap.Builder<String, TableFunctionMetadata> builder = ImmutableMap.builder();
         for (ConnectorTableFunction function : nativeConnectorTableFunctions) {
@@ -112,13 +112,13 @@ public class NativeTVFProvider
         return builder.build();
     }
 
-    private synchronized NativeConnectorTableFunction createNativeConnectorTableFunction(AbstractConnectorTableFunction connectorTableFunction)
+    private synchronized NativeConnectorTableFunction createNativeConnectorTableFunction(JsonBasedTableFunctionMetadata connectorTableFunction)
     {
         return new NativeConnectorTableFunction(
                 httpClient,
                 nodeManager,
-                connectorTableFunction.getName(),
                 connectorTableFunction.getSchema(),
+                connectorTableFunction.getName(),
                 connectorTableFunction.getArguments(),
                 connectorTableFunction.getReturnTypeSpecification());
     }
