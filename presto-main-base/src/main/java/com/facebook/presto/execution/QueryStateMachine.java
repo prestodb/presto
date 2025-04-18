@@ -606,7 +606,8 @@ public class QueryStateMachine
                 outputInfo.getConnectorId(),
                 outputInfo.getSchema(),
                 outputInfo.getTable(),
-                commitHandle.getSerializedCommitOutputForWrite(table))));
+                commitHandle.getSerializedCommitOutputForWrite(table),
+                outputInfo.getColumns())));
     }
 
     private void addSerializedCommitOutputToInputs(List<?> commitHandles)

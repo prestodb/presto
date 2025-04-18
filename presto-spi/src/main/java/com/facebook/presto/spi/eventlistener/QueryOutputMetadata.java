@@ -15,6 +15,7 @@ package com.facebook.presto.spi.eventlistener;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.List;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -29,6 +30,7 @@ public class QueryOutputMetadata
     private final Optional<Boolean> jsonLengthLimitExceeded;
 
     private final String serializedCommitOutput;
+    private final Optional<List<Column>> columns;
 
     public QueryOutputMetadata(
             String catalogName,
@@ -36,7 +38,8 @@ public class QueryOutputMetadata
             String table,
             Optional<String> connectorOutputMetadata,
             Optional<Boolean> jsonLengthLimitExceeded,
-            String serializedCommitOutput)
+            String serializedCommitOutput,
+            Optional<List<Column>> columns)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.schema = requireNonNull(schema, "schema is null");
@@ -44,6 +47,7 @@ public class QueryOutputMetadata
         this.connectorOutputMetadata = requireNonNull(connectorOutputMetadata, "connectorOutputMetadata is null");
         this.jsonLengthLimitExceeded = requireNonNull(jsonLengthLimitExceeded, "jsonLengthLimitExceeded is null");
         this.serializedCommitOutput = requireNonNull(serializedCommitOutput, "connectorCommitHandle is null");
+        this.columns = requireNonNull(columns, "columns is null");
     }
 
     @JsonProperty
@@ -80,5 +84,11 @@ public class QueryOutputMetadata
     public String getSerializedCommitOutput()
     {
         return serializedCommitOutput;
+    }
+
+    @JsonProperty
+    public Optional<List<Column>> getColumns()
+    {
+        return columns;
     }
 }
