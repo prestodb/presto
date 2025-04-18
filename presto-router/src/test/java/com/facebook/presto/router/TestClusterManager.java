@@ -28,7 +28,6 @@ import com.facebook.presto.router.cluster.ClusterManager;
 import com.facebook.presto.router.cluster.ClusterManager.ClusterStatusTracker;
 import com.facebook.presto.router.cluster.RemoteInfoFactory;
 import com.facebook.presto.router.cluster.RemoteStateConfig;
-import com.facebook.presto.router.spec.GroupSpec;
 import com.facebook.presto.router.spec.RouterSpec;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.tpch.TpchPlugin;
@@ -49,11 +48,11 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeoutException;
 
-import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.router.TestingRouterUtil.getConfigFile;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static java.lang.String.format;
@@ -164,21 +163,11 @@ public class TestClusterManager
         Path configFilePath = newConfig.toPath();
         String originalConfigContent = new String(Files.readAllBytes(configFilePath));
 
-        JsonCodec<RouterSpec> codec = jsonCodec(RouterSpec.class);
+        JsonCodec<RouterSpec> jsonCodec = JsonCodec.jsonCodec(RouterSpec.class);
+        RouterSpec spec = jsonCodec.fromJson(originalConfigContent);
+        RouterSpec newSpec = new RouterSpec(ImmutableList.of(), spec.getSelectors(), Optional.ofNullable(spec.getSchedulerType()), spec.getPredictorUri());
 
-        RouterSpec originalConfig = codec.fromJson(originalConfigContent);
-
-        RouterSpec modifiedConfig = codec.fromJson(originalConfigContent);
-        List<GroupSpec> modifiedGroups = modifiedConfig.getGroups();
-        modifiedGroups.forEach(groupSpec -> groupSpec.setMembers(ImmutableList.of()));
-        modifiedConfig.setGroups(modifiedGroups);
-        //String modifiedConfigContent = originalConfigContent.replaceAll("\"members\"\\s*:\\s*\\[.*?\\]", "\"members\": []");
-        String modifiedConfigContent = originalConfigContent.replaceAll("\"members\"\\s*:\\s*\\[.*?\\]", "\"members\": []");
-        System.out.println(modifiedConfigContent);
-        modifiedConfigContent = codec.toJson(modifiedConfig);
-        System.out.println(modifiedConfigContent);
-
-        Files.write(newConfig.toPath(), modifiedConfigContent.getBytes());
+        Files.write(newConfig.toPath(), jsonCodec.toBytes(newSpec));
         barrier.await(10, SECONDS);
 
         assertEquals(barrierClusterManager.getAllClusters().size(), 0);

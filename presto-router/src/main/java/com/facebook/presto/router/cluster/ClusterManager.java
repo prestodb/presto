@@ -75,44 +75,46 @@ public class ClusterManager
     private final Map<URI, RemoteQueryInfo> remoteQueryInfos = new ConcurrentHashMap<>();
 
     private final AtomicBoolean isWatchServiceStarted = new AtomicBoolean();
-    public OnConfigChangeDetection onConfigChangeDetection;
+    private final RemoteInfoFactory remoteInfoFactory;
 
     @Inject
     public ClusterManager(RouterConfig config, RemoteInfoFactory remoteInfoFactory, RemoteStateConfig remoteStateConfig)
     {
         this.routerConfig = requireNonNull(config, "config is null");
+        this.remoteInfoFactory = requireNonNull(remoteInfoFactory, "remoteInfoFactory is null");
+        onConfigChangeDetection();
+    }
 
-        onConfigChangeDetection = () -> {
-            RouterSpec newRouterSpec = parseRouterConfig(routerConfig)
-                    .orElseThrow(() -> new PrestoException(CONFIGURATION_INVALID, "Failed to load router config"));
-            Map<String, GroupSpec> newGroups = newRouterSpec.getGroups().stream().collect(toImmutableMap(GroupSpec::getName, group -> group));
-            List<SelectorRuleSpec> newGroupSelectors = ImmutableList.copyOf(newRouterSpec.getSelectors());
-            Scheduler newScheduler = new SchedulerFactory(newRouterSpec.getSchedulerType()).create();
-            SchedulerType newSchedulerType = newRouterSpec.getSchedulerType();
+    protected void onConfigChangeDetection()
+    {
+        RouterSpec newRouterSpec = parseRouterConfig(routerConfig)
+                .orElseThrow(() -> new PrestoException(CONFIGURATION_INVALID, "Failed to load router config"));
+        Map<String, GroupSpec> newGroups = newRouterSpec.getGroups().stream().collect(toImmutableMap(GroupSpec::getName, group -> group));
+        List<SelectorRuleSpec> newGroupSelectors = ImmutableList.copyOf(newRouterSpec.getSelectors());
+        Scheduler newScheduler = new SchedulerFactory(newRouterSpec.getSchedulerType()).create();
+        SchedulerType newSchedulerType = newRouterSpec.getSchedulerType();
 
-            List<URI> updatedAllClusters = newGroups.values().stream()
-                    .flatMap(groupSpec -> groupSpec.getMembers().stream())
-                    .collect(toImmutableList());
+        List<URI> updatedAllClusters = newGroups.values().stream()
+                .flatMap(groupSpec -> groupSpec.getMembers().stream())
+                .collect(toImmutableList());
 
-            Map<URI, URI> newDiscoveryURIs = new HashMap<>();
-            initializeMembersDiscoveryURI(newDiscoveryURIs, newGroups);
+        Map<URI, URI> newDiscoveryURIs = new HashMap<>();
+        initializeMembersDiscoveryURI(newDiscoveryURIs, newGroups);
 
-            updatedAllClusters.forEach(uri -> {
-                remoteClusterInfos.computeIfAbsent(uri, value -> remoteInfoFactory.createRemoteClusterInfo(newDiscoveryURIs.get(value)));
-                remoteQueryInfos.computeIfAbsent(uri, value -> remoteInfoFactory.createRemoteQueryInfo(newDiscoveryURIs.get(value)));
-                log.info("Attached cluster %s to the router. Queries will be routed to cluster after successful health check", uri.getHost());
-            });
+        updatedAllClusters.forEach(uri -> {
+            remoteClusterInfos.computeIfAbsent(uri, value -> remoteInfoFactory.createRemoteClusterInfo(newDiscoveryURIs.get(value)));
+            remoteQueryInfos.computeIfAbsent(uri, value -> remoteInfoFactory.createRemoteQueryInfo(newDiscoveryURIs.get(value)));
+            log.info("Attached cluster %s to the router. Queries will be routed to cluster after successful health check", uri.getHost());
+        });
 
-            for (URI uri : remoteClusterInfos.keySet()) {
-                if (!updatedAllClusters.contains(uri)) {
-                    remoteClusterInfos.remove(uri);
-                    remoteQueryInfos.remove(uri);
-                    log.info("Removed cluster %s from the router", uri.getHost());
-                }
+        for (URI uri : remoteClusterInfos.keySet()) {
+            if (!updatedAllClusters.contains(uri)) {
+                remoteClusterInfos.remove(uri);
+                remoteQueryInfos.remove(uri);
+                log.info("Removed cluster %s from the router", uri.getHost());
             }
-            currentConfig.set(new ClusterManagerConfig(newGroups, newGroupSelectors, newScheduler, newSchedulerType));
-        };
-        onConfigChangeDetection.apply();
+        }
+        currentConfig.set(new ClusterManagerConfig(newGroups, newGroupSelectors, newScheduler, newSchedulerType));
     }
 
     @PostConstruct
@@ -141,7 +143,7 @@ public class ClusterManager
                         log.debug("Event detected: %s, path: %s", event.kind().name(), event.context());
                         Path changed = (Path) event.context();
                         if (changed.endsWith(routerConfigFile.getName())) {
-                            this.onConfigChangeDetection.apply();
+                            onConfigChangeDetection();
                         }
                         else {
                             log.debug("Config change to %s ignored by ClusterManager (config file is %s)", event.context(), routerConfigFile.getName());
@@ -229,11 +231,6 @@ public class ClusterManager
     public boolean getIsWatchServiceStarted()
     {
         return isWatchServiceStarted.get();
-    }
-
-    public interface OnConfigChangeDetection
-    {
-        void apply();
     }
 
     public static class ClusterStatusTracker

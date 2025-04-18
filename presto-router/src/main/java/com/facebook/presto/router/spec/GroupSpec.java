@@ -37,7 +37,7 @@ public class GroupSpec
     public GroupSpec(
             @JsonProperty("name") String name,
             @JsonProperty("members") List<URI> members,
-            @JsonProperty("membersDiscoveryUri") Optional<List<URI>> membersDiscoveryUri,
+            @JsonProperty("membersDiscoveryURI") Optional<List<URI>> membersDiscoveryUri,
             @JsonProperty("weights") Optional<List<Integer>> weights)
     {
         this.name = requireNonNull(name, "name is null");

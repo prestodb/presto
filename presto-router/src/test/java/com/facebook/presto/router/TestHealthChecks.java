@@ -16,11 +16,14 @@ package com.facebook.presto.router;
 import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.http.server.testing.TestingHttpServerModule;
 import com.facebook.airlift.jaxrs.JaxrsModule;
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonModule;
 import com.facebook.airlift.log.Logging;
 import com.facebook.airlift.node.testing.TestingNodeModule;
 import com.facebook.presto.router.cluster.ClusterManager;
 import com.facebook.presto.router.cluster.RequestInfo;
+import com.facebook.presto.router.spec.GroupSpec;
+import com.facebook.presto.router.spec.RouterSpec;
 import com.facebook.presto.server.security.ServerSecurityModule;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.tpch.TpchPlugin;
@@ -35,6 +38,7 @@ import org.testng.annotations.Test;
 import javax.servlet.http.HttpServletRequest;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.net.URI;
 import java.nio.file.Files;
 import java.util.ArrayList;
@@ -43,7 +47,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.router.scheduler.SchedulerType.ROUND_ROBIN;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.glassfish.jersey.internal.util.collection.ImmutableCollectors.toImmutableList;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -72,15 +78,28 @@ public class TestHealthChecks
         }
 
         prestoServers = builder.build();
-        List<String> serverURIs = prestoServers.stream()
+        List<URI> serverURIs = prestoServers.stream()
                 .map(TestingPrestoServer::getBaseUrl)
-                .map(URI::toString)
-                .collect(Collectors.toList());
+                .collect(toImmutableList());
 
-        Map<String, List<String>> groups = ImmutableMap.of("group1", serverURIs);
-        TestingRouterConfig config = new TestingRouterConfig(groups, "group1", "ROUND_ROBIN");
+        RouterSpec spec = new RouterSpec(ImmutableList.of(new GroupSpec("group1", serverURIs, Optional.empty(), Optional.empty())),
+                  ImmutableList.of(),
+                  Optional.of(ROUND_ROBIN),
+                  Optional.empty());
+        JsonCodec<RouterSpec> jsonCodec = JsonCodec.jsonCodec(RouterSpec.class);
+        Files.write(configFile.toPath(), jsonCodec.toBytes(spec));
 
-        Files.write(configFile.toPath(), config.get().toString().getBytes(UTF_8));
+//        List<String> serverURIs = prestoServers.stream()
+//                .map(TestingPrestoServer::getBaseUrl)
+//                .map(URI::toString)
+//                .collect(Collectors.toList());
+//
+//        Map<String, List<String>> groups = ImmutableMap.of("group1", serverURIs);
+//        TestingRouterConfig config = new TestingRouterConfig(groups, "group1", "ROUND_ROBIN");
+//
+//        FileOutputStream fileOutputStream = new FileOutputStream(configFile);
+//        fileOutputStream.write(config.get().toString().getBytes(UTF_8));
+//        fileOutputStream.close();
 
         Bootstrap app = new Bootstrap(
                 new TestingNodeModule("test"),

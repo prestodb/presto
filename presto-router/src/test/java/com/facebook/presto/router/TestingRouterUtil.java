@@ -13,18 +13,22 @@
  */
 package com.facebook.presto.router;
 
+import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.router.spec.GroupSpec;
+import com.facebook.presto.router.spec.RouterSpec;
 import com.facebook.presto.server.testing.TestingPrestoServer;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
 
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.util.List;
-import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.presto.router.scheduler.SchedulerType.ROUND_ROBIN;
 
 public class TestingRouterUtil
 {
@@ -35,13 +39,15 @@ public class TestingRouterUtil
     public static File getConfigFile(List<TestingPrestoServer> servers, File tempFile)
             throws IOException
     {
-        List<String> serverURIs = servers.stream()
+        List<URI> serverURIs = servers.stream()
                 .map(TestingPrestoServer::getBaseUrl)
-                .map(URI::toString)
                 .collect(Collectors.toList());
-        Map<String, List<String>> groups = ImmutableMap.of("all", serverURIs);
-        TestingRouterConfig config = new TestingRouterConfig(groups, "all", "ROUND_ROBIN");
-        Files.write(tempFile.toPath(), config.get().toString().getBytes(UTF_8));
+        RouterSpec spec = new RouterSpec(ImmutableList.of(new GroupSpec("all", serverURIs, Optional.empty(), Optional.empty())),
+                    ImmutableList.of(),
+                    Optional.of(ROUND_ROBIN),
+                    Optional.empty());
+        JsonCodec<RouterSpec> codec = jsonCodec(RouterSpec.class);
+        Files.write(tempFile.toPath(), codec.toBytes(spec));
         return tempFile;
     }
 }
