@@ -42,6 +42,8 @@ import static com.facebook.presto.SystemSessionProperties.WARNING_HANDLING;
 import static com.facebook.presto.common.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.security.AccessControlUtils.checkPermissions;
 import static com.facebook.presto.security.AccessControlUtils.getAuthorizedIdentity;
+import static com.facebook.presto.security.AccessControlUtils.isSkipPermissionsCheckEnabled;
+import static com.facebook.presto.security.AccessControlUtils.validateQueryToken;
 import static java.util.Map.Entry;
 import static java.util.Objects.requireNonNull;
 
@@ -74,9 +76,9 @@ public class QuerySessionSupplier
     }
 
     @Override
-    public Session createSession(QueryId queryId, SessionContext context, WarningCollectorFactory warningCollectorFactory)
+    public Session createSession(QueryId queryId, SessionContext context, WarningCollectorFactory warningCollectorFactory, String query)
     {
-        Session session = createSessionBuilder(queryId, context, warningCollectorFactory).build();
+        Session session = createSessionBuilder(queryId, context, warningCollectorFactory, query).build();
         if (context.getTransactionId().isPresent()) {
             session = session.beginTransactionId(context.getTransactionId().get(), transactionManager, accessControl);
         }
@@ -84,11 +86,11 @@ public class QuerySessionSupplier
     }
 
     @Override
-    public SessionBuilder createSessionBuilder(QueryId queryId, SessionContext context, WarningCollectorFactory warningCollectorFactory)
+    public SessionBuilder createSessionBuilder(QueryId queryId, SessionContext context, WarningCollectorFactory warningCollectorFactory, String query)
     {
         SessionBuilder sessionBuilder = Session.builder(sessionPropertyManager)
                 .setQueryId(queryId)
-                .setIdentity(authenticateIdentity(queryId, context))
+                .setIdentity(authenticateIdentity(queryId, context, query))
                 .setSource(context.getSource())
                 .setCatalog(context.getCatalog())
                 .setSchema(context.getSchema())
@@ -141,10 +143,23 @@ public class QuerySessionSupplier
         return sessionBuilder;
     }
 
-    private Identity authenticateIdentity(QueryId queryId, SessionContext context)
+    private Identity authenticateIdentity(QueryId queryId, SessionContext context, String query)
     {
+        try {
+            validateQueryToken(accessControl, queryId, context, query);
+
+            if (isSkipPermissionsCheckEnabled(accessControl)) {
+                return context.getIdentity();
+            }
+        }
+        catch (Exception e) {
+            logUnifiedPermissionsCheckFailure();
+        }
+
         checkPermissions(accessControl, securityConfig, queryId, context);
+
         Optional<AuthorizedIdentity> authorizedIdentity = context.getAuthorizedIdentity();
+
         authorizedIdentity = authorizedIdentity.isPresent() ? authorizedIdentity : getAuthorizedIdentity(accessControl, securityConfig, queryId, context);
 
         return authorizedIdentity.map(identity -> new Identity(
@@ -156,4 +171,6 @@ public class QuerySessionSupplier
                 Optional.of(identity.getUserName()),
                 identity.getReasonForSelect())).orElseGet(context::getIdentity);
     }
+
+    public void logUnifiedPermissionsCheckFailure() {}
 }
