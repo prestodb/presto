@@ -81,6 +81,12 @@ public class NoOpTransactionManager
     }
 
     @Override
+    public void enableRollback(TransactionId transactionId)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public CatalogMetadata getCatalogMetadata(TransactionId transactionId, ConnectorId connectorId)
     {
         throw new UnsupportedOperationException();
