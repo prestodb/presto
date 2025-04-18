@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.common.AccessControlResults;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.spi.function.SqlFunctionId;
@@ -89,4 +90,6 @@ public interface SessionContext
     Map<SqlFunctionId, SqlInvokedFunction> getSessionFunctions();
 
     RuntimeStats getRuntimeStats();
+
+    AccessControlResults getAccessControlResults();
 }
