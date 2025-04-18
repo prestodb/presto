@@ -26,6 +26,7 @@ public class OrcRecordReaderOptions
     private final boolean mapNullKeysEnabled;
     private final boolean appendRowNumber;
     private final long maxSliceSize;
+    private final boolean resetAllReaders;
 
     public OrcRecordReaderOptions(OrcReaderOptions options)
     {
@@ -34,7 +35,8 @@ public class OrcRecordReaderOptions
                 options.getMaxBlockSize(),
                 options.mapNullKeysEnabled(),
                 options.appendRowNumber(),
-                options.getMaxSliceSize());
+                options.getMaxSliceSize(),
+                options.isResetAllReaders());
     }
 
     public OrcRecordReaderOptions(
@@ -43,7 +45,8 @@ public class OrcRecordReaderOptions
             DataSize maxBlockSize,
             boolean mapNullKeysEnabled,
             boolean appendRowNumber,
-            DataSize maxSliceSize)
+            DataSize maxSliceSize,
+            boolean resetAllReaders)
     {
         this.maxMergeDistance = requireNonNull(maxMergeDistance, "maxMergeDistance is null");
         this.maxBlockSize = requireNonNull(maxBlockSize, "maxBlockSize is null");
@@ -53,6 +56,7 @@ public class OrcRecordReaderOptions
         checkArgument(maxSliceSize.toBytes() < Integer.MAX_VALUE, "maxSliceSize cannot be larger than Integer.MAX_VALUE");
         checkArgument(maxSliceSize.toBytes() > 0, "maxSliceSize must be positive");
         this.maxSliceSize = maxSliceSize.toBytes();
+        this.resetAllReaders = resetAllReaders;
     }
 
     public DataSize getMaxMergeDistance()
@@ -83,5 +87,10 @@ public class OrcRecordReaderOptions
     public long getMaxSliceSize()
     {
         return maxSliceSize;
+    }
+
+    public boolean isResetAllReaders()
+    {
+        return resetAllReaders;
     }
 }
