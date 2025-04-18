@@ -50,7 +50,7 @@ public abstract class RemoteState
     private static final JsonCodec<JsonNode> JSON_CODEC = jsonCodec(JsonNode.class);
 
     private final HttpClient httpClient;
-    public final URI remoteUri;
+    private final URI remoteUri;
     private final AtomicReference<Future<?>> future = new AtomicReference<>();
     private final AtomicLong lastUpdateNanos = new AtomicLong();
     private final AtomicLong lastWarningLogged = new AtomicLong();

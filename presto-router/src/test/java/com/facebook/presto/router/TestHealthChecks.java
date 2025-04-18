@@ -38,18 +38,14 @@ import org.testng.annotations.Test;
 import javax.servlet.http.HttpServletRequest;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.net.URI;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.router.scheduler.SchedulerType.ROUND_ROBIN;
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.glassfish.jersey.internal.util.collection.ImmutableCollectors.toImmutableList;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -88,18 +84,6 @@ public class TestHealthChecks
                   Optional.empty());
         JsonCodec<RouterSpec> jsonCodec = JsonCodec.jsonCodec(RouterSpec.class);
         Files.write(configFile.toPath(), jsonCodec.toBytes(spec));
-
-//        List<String> serverURIs = prestoServers.stream()
-//                .map(TestingPrestoServer::getBaseUrl)
-//                .map(URI::toString)
-//                .collect(Collectors.toList());
-//
-//        Map<String, List<String>> groups = ImmutableMap.of("group1", serverURIs);
-//        TestingRouterConfig config = new TestingRouterConfig(groups, "group1", "ROUND_ROBIN");
-//
-//        FileOutputStream fileOutputStream = new FileOutputStream(configFile);
-//        fileOutputStream.write(config.get().toString().getBytes(UTF_8));
-//        fileOutputStream.close();
 
         Bootstrap app = new Bootstrap(
                 new TestingNodeModule("test"),
