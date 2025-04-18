@@ -43,13 +43,15 @@ public class LongBatchStreamReader
     private final LongDirectBatchStreamReader directReader;
     private final LongDictionaryBatchStreamReader dictionaryReader;
     private BatchStreamReader currentReader;
+    private final boolean resetAllReaders;
 
-    public LongBatchStreamReader(Type type, StreamDescriptor streamDescriptor, OrcAggregatedMemoryContext systemMemoryContext)
+    public LongBatchStreamReader(Type type, StreamDescriptor streamDescriptor, OrcAggregatedMemoryContext systemMemoryContext, boolean resetAllReaders)
             throws OrcCorruptionException
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         directReader = new LongDirectBatchStreamReader(type, streamDescriptor, systemMemoryContext.newOrcLocalMemoryContext(LongBatchStreamReader.class.getSimpleName()));
         dictionaryReader = new LongDictionaryBatchStreamReader(type, streamDescriptor, systemMemoryContext.newOrcLocalMemoryContext(LongBatchStreamReader.class.getSimpleName()));
+        this.resetAllReaders = resetAllReaders;
     }
 
     @Override
@@ -74,9 +76,17 @@ public class LongBatchStreamReader
                 .getColumnEncodingKind();
         if (kind == DIRECT || kind == DIRECT_V2 || kind == DWRF_DIRECT) {
             currentReader = directReader;
+            if (dictionaryReader != null && resetAllReaders) {
+                dictionaryReader.startStripe(stripe);
+                System.setProperty("RESET_LONG_BATCH_READER", "RESET_LONG_BATCH_READER");
+            }
         }
         else if (kind == DICTIONARY) {
             currentReader = dictionaryReader;
+            if (directReader != null && resetAllReaders) {
+                directReader.startStripe(stripe);
+                System.setProperty("RESET_LONG_BATCH_READER", "RESET_LONG_BATCH_READER");
+            }
         }
         else {
             throw new IllegalArgumentException("Unsupported encoding " + kind);

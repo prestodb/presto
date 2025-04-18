@@ -41,6 +41,7 @@ public class SelectiveReaderContext
     private final OrcAggregatedMemoryContext systemMemoryContext;
     private final boolean isLowMemory;
     private final long maxSliceSize;
+    private final boolean resetAllReaders;
 
     public SelectiveReaderContext(
             StreamDescriptor streamDescriptor,
@@ -48,7 +49,8 @@ public class SelectiveReaderContext
             Optional<TupleDomainFilter> filter,
             OrcAggregatedMemoryContext systemMemoryContext,
             boolean isLowMemory,
-            long maxSliceSize)
+            long maxSliceSize,
+            boolean resetAllReaders)
     {
         this.filter = requireNonNull(filter, "filter is null").orElse(null);
         this.streamDescriptor = requireNonNull(streamDescriptor, "streamDescriptor is null");
@@ -62,6 +64,7 @@ public class SelectiveReaderContext
         checkArgument(maxSliceSize < Integer.MAX_VALUE, "maxSliceSize cannot be larger than Integer.MAX_VALUE");
         checkArgument(maxSliceSize > 0, "maxSliceSize must be positive");
         this.maxSliceSize = maxSliceSize;
+        this.resetAllReaders = resetAllReaders;
     }
 
     public StreamDescriptor getStreamDescriptor()
@@ -115,5 +118,10 @@ public class SelectiveReaderContext
     public long getMaxSliceSize()
     {
         return maxSliceSize;
+    }
+
+    public boolean isResetAllReaders()
+    {
+        return resetAllReaders;
     }
 }
