@@ -13,16 +13,24 @@
  */
 package com.facebook.presto.kafka;
 
+import com.facebook.presto.kafka.security.ForKafkaSasl;
+import com.facebook.presto.kafka.security.KafkaSaslConfig;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 
-public class KafkaProducerModule
+import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+
+public class KafkaSaslModule
         implements Module
 {
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(PlainTextKafkaProducerFactory.class).in(Scopes.SINGLETON);
+        configBinder(binder).bindConfig(KafkaSaslConfig.class);
+        binder.bind(KafkaProducerFactory.class).annotatedWith(ForKafkaSasl.class).to(PlainTextKafkaProducerFactory.class).in(Scopes.SINGLETON);
+        binder.bind(KafkaProducerFactory.class).to(SaslKafkaProducerFactory.class).in(Scopes.SINGLETON);
+        binder.bind(KafkaConsumerManager.class).annotatedWith(ForKafkaSasl.class).to(PlainTextKafkaConsumerManager.class).in(Scopes.SINGLETON);
+        binder.bind(KafkaConsumerManager.class).to(SaslKafkaConsumerManager.class).in(Scopes.SINGLETON);
     }
 }
