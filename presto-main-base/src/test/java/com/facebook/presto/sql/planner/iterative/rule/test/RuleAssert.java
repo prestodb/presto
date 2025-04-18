@@ -43,9 +43,11 @@ import com.facebook.presto.sql.planner.iterative.properties.LogicalPropertiesImp
 import com.facebook.presto.sql.planner.iterative.properties.LogicalPropertiesProviderImpl;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
@@ -68,6 +70,7 @@ public class RuleAssert
     private final PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
+    private final List<String> extraCatalogs;
 
     private Session session;
     private TypeProvider types;
@@ -76,11 +79,11 @@ public class RuleAssert
 
     public RuleAssert(Metadata metadata, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session, Rule rule, TransactionManager transactionManager, AccessControl accessControl)
     {
-        this(metadata, statsCalculator, costCalculator, session, rule, transactionManager, accessControl, Optional.empty());
+        this(metadata, statsCalculator, costCalculator, session, rule, transactionManager, accessControl, Optional.empty(), ImmutableList.of());
     }
 
     public RuleAssert(Metadata metadata, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session, Rule rule,
-            TransactionManager transactionManager, AccessControl accessControl, Optional<LogicalPropertiesProvider> logicalPropertiesProvider)
+                      TransactionManager transactionManager, AccessControl accessControl, Optional<LogicalPropertiesProvider> logicalPropertiesProvider, List<String> extraCatalogs)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.statsCalculator = new TestingStatsCalculator(requireNonNull(statsCalculator, "statsCalculator is null"));
@@ -90,6 +93,7 @@ public class RuleAssert
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.logicalPropertiesProvider = requireNonNull(logicalPropertiesProvider, "logicalPropertiesProvider is null");
+        this.extraCatalogs = requireNonNull(extraCatalogs, "extraCatalogs is null");
     }
 
     public RuleAssert setSystemProperty(String key, String value)
@@ -250,6 +254,7 @@ public class RuleAssert
                 .execute(session, session -> {
                     // metadata.getCatalogHandle() registers the catalog for the transaction
                     session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
+                    extraCatalogs.forEach(catalog -> metadata.getCatalogHandle(session, catalog));
                     return transactionSessionConsumer.apply(session);
                 });
     }
