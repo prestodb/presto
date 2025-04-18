@@ -155,6 +155,15 @@ TEST_F(BingTileFunctionsTest, quadKeyToBingTile) {
       testToBingTile("123123123123123123123123"),
       "Zoom level 24 is greater than max zoom 23"); // 24 digits, invalid
                                                     // quadkey
+
+  const auto getBingTileFromQuadKey = [&](std::optional<std::string> quadKey) {
+    return evaluateOnce<int64_t>(
+        "CAST(bing_tile(c0) AS BIGINT)", std::move(quadKey));
+  };
+
+  ASSERT_EQ(30266097671, getBingTileFromQuadKey("333"));
+  ASSERT_EQ(67108864, getBingTileFromQuadKey("0"));
+  ASSERT_EQ(804212359411419, getBingTileFromQuadKey("123123123123123123"));
 }
 
 TEST_F(BingTileFunctionsTest, bingTileToQuadKey) {
