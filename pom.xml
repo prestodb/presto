@@ -214,6 +214,7 @@
         <module>presto-native-sidecar-plugin</module>
         <module>presto-base-arrow-flight</module>
         <module>presto-function-server</module>
+        <module>presto-clp</module>
     </modules>
 
     <dependencyManagement>
@@ -816,6 +817,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-elasticsearch</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-clp</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
