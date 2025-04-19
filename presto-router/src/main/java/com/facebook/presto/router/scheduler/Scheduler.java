@@ -16,8 +16,8 @@ package com.facebook.presto.router.scheduler;
 import com.facebook.presto.spi.PrestoException;
 
 import java.net.URI;
-import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -38,7 +38,7 @@ public interface Scheduler
     /**
      * Sets the weights of candidates with a hash map object.
      */
-    default void setWeights(HashMap<URI, Integer> weights)
+    default void setWeights(Map<URI, Integer> weights)
     {
         throw new PrestoException(NOT_SUPPORTED, "This scheduler does not support setting weights");
     }

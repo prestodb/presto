@@ -162,10 +162,34 @@
             <artifactId>jmxutils</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>stats</artifactId>
+        </dependency>
+
+<!--        <dependency>-->
+<!--            <groupId>org.glassfish.jersey.core</groupId>-->
+<!--            <artifactId>jersey-common</artifactId>-->
+<!--            <version>3.0.17</version>-->
+<!--        </dependency>-->
+
         <!-- test dependencies-->
         <dependency>
-            <groupId>org.testng</groupId>
-            <artifactId>testng</artifactId>
+            <groupId>com.googlecode.json-simple</groupId>
+            <artifactId>json-simple</artifactId>
+            <version>1.1.1</version>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <artifactId>junit</artifactId>
+                    <groupId>junit</groupId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-main</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -176,8 +200,8 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-main</artifactId>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -199,4 +223,20 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+   <build>
+       <plugins>
+           <plugin>
+               <groupId>org.gaul</groupId>
+               <artifactId>modernizer-maven-plugin</artifactId>
+               <configuration>
+                   <ignorePackages>
+                       <ignorePackage>com.facebook.presto.testing.assertions</ignorePackage>
+                   </ignorePackages>
+                   <ignoreClassNamePatterns>
+                       <ignoreClassNamePattern>com.facebook.presto.router.MockRouterHttpServletRequest</ignoreClassNamePattern>
+                   </ignoreClassNamePatterns>
+               </configuration>
+           </plugin>
+       </plugins>
+   </build>
 </project>

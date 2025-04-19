@@ -31,10 +31,11 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.client.NodeVersion.UNKNOWN;
+import static com.facebook.presto.router.cluster.ClusterManager.ClusterStatusTracker;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 
-@Path("/")
+@Path("/v1")
 public class ClusterStatusResource
 {
     private final String environment;
@@ -42,7 +43,7 @@ public class ClusterStatusResource
     private final ClusterManager clusterManager;
 
     @Inject
-    public ClusterStatusResource(NodeInfo nodeInfo, ClusterStatusTracker clusterStatusTracker, ClusterManager clusterManager)
+    public ClusterStatusResource(NodeInfo nodeInfo, ClusterManager.ClusterStatusTracker clusterStatusTracker, ClusterManager clusterManager)
     {
         this.environment = requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment();
         this.clusterStatusTracker = requireNonNull(clusterStatusTracker, "clusterStatusTracker is null");
@@ -51,7 +52,7 @@ public class ClusterStatusResource
 
     // The web UI depend on the following service endpoints.
     @GET
-    @Path("/v1/info")
+    @Path("info")
     @Produces(APPLICATION_JSON)
     public ServerInfo getInfo()
     {
@@ -59,7 +60,7 @@ public class ClusterStatusResource
     }
 
     @GET
-    @Path("/v1/cluster")
+    @Path("cluster")
     @Produces(APPLICATION_JSON)
     public ClusterStats getClusterStats()
     {
@@ -73,14 +74,14 @@ public class ClusterStatusResource
     }
 
     @GET
-    @Path("/v1/query")
+    @Path("query")
     public List<JsonNode> getAllQueryInfo(@QueryParam("state") String stateFilter)
     {
         return clusterStatusTracker.getAllQueryInfos();
     }
 
     @GET
-    @Path("/v1/all")
+    @Path("all")
     @Produces(APPLICATION_JSON)
     public List<URI> getAllClusters()
     {

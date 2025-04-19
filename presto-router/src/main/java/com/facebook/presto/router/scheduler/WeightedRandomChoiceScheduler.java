@@ -17,8 +17,8 @@ import com.facebook.airlift.log.Logger;
 
 import java.net.URI;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 
@@ -30,7 +30,7 @@ public class WeightedRandomChoiceScheduler
         implements Scheduler
 {
     private List<URI> candidates;
-    private HashMap<URI, Integer> weights;
+    private Map<URI, Integer> weights;
 
     private static final Random RANDOM = new Random();
     private static final Logger log = Logger.get(WeightedRandomChoiceScheduler.class);
@@ -59,17 +59,12 @@ public class WeightedRandomChoiceScheduler
         this.candidates = candidates;
     }
 
-    public List<URI> getCandidates()
-    {
-        return candidates;
-    }
-
-    public void setWeights(HashMap<URI, Integer> weights)
+    public void setWeights(Map<URI, Integer> weights)
     {
         this.weights = weights;
     }
 
-    public HashMap<URI, Integer> getWeights()
+    public Map<URI, Integer> getWeights()
     {
         return weights;
     }

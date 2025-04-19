@@ -28,17 +28,20 @@ import static java.util.Objects.requireNonNull;
 public class GroupSpec
 {
     private final String name;
-    private final List<URI> members;
+    private List<URI> members;
+    private final Optional<List<URI>> membersDiscoveryUri;
     private final Optional<List<Integer>> weights;
 
     @JsonCreator
     public GroupSpec(
             @JsonProperty("name") String name,
             @JsonProperty("members") List<URI> members,
+            @JsonProperty("membersDiscoveryURI") Optional<List<URI>> membersDiscoveryUri,
             @JsonProperty("weights") Optional<List<Integer>> weights)
     {
         this.name = requireNonNull(name, "name is null");
         this.members = ImmutableList.copyOf(requireNonNull(members, "members is null"));
+        this.membersDiscoveryUri = requireNonNull(membersDiscoveryUri, "members is null");
         this.weights = requireNonNull(weights, "weights is null");
     }
 
@@ -52,6 +55,12 @@ public class GroupSpec
     public List<URI> getMembers()
     {
         return members;
+    }
+
+    @JsonProperty
+    public List<URI> getMembersDiscoveryURI()
+    {
+        return membersDiscoveryUri.orElse(members);
     }
 
     @JsonProperty
