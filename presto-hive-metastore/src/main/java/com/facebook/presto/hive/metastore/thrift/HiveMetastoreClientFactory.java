@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.metastore.thrift;
 
 import com.facebook.airlift.security.pem.PemReader;
+import com.facebook.presto.hive.HiveCommonClientConfig;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.authentication.HiveMetastoreAuthentication;
 import com.facebook.presto.spi.PrestoException;
@@ -55,22 +56,25 @@ public class HiveMetastoreClientFactory
     private final Optional<HostAndPort> socksProxy;
     private final int timeoutMillis;
     private final HiveMetastoreAuthentication metastoreAuthentication;
+    private final String catalogName;
     public static final String PROTOCOL = "TLS";
 
     public HiveMetastoreClientFactory(
             Optional<SSLContext> sslContext,
             Optional<HostAndPort> socksProxy,
             Duration timeout,
-            HiveMetastoreAuthentication metastoreAuthentication)
+            HiveMetastoreAuthentication metastoreAuthentication,
+            String catalogName)
     {
         this.sslContext = requireNonNull(sslContext, "sslContext is null");
         this.socksProxy = requireNonNull(socksProxy, "socksProxy is null");
         this.timeoutMillis = toIntExact(timeout.toMillis());
         this.metastoreAuthentication = requireNonNull(metastoreAuthentication, "metastoreAuthentication is null");
+        this.catalogName = catalogName;
     }
 
     @Inject
-    public HiveMetastoreClientFactory(MetastoreClientConfig metastoreClientConfig, ThriftHiveMetastoreConfig thriftHiveMetastoreConfig, HiveMetastoreAuthentication metastoreAuthentication)
+    public HiveMetastoreClientFactory(MetastoreClientConfig metastoreClientConfig, ThriftHiveMetastoreConfig thriftHiveMetastoreConfig, HiveMetastoreAuthentication metastoreAuthentication, HiveCommonClientConfig hiveCommonClientConfig)
     {
         this(buildSslContext(thriftHiveMetastoreConfig.isTlsEnabled(),
                 Optional.ofNullable(thriftHiveMetastoreConfig.getKeystorePath()),
@@ -78,13 +82,13 @@ public class HiveMetastoreClientFactory
                 Optional.ofNullable(thriftHiveMetastoreConfig.getTruststorePath()),
                 Optional.ofNullable(thriftHiveMetastoreConfig.getTrustStorePassword())),
                 Optional.ofNullable(metastoreClientConfig.getMetastoreSocksProxy()),
-                metastoreClientConfig.getMetastoreTimeout(), metastoreAuthentication);
+                metastoreClientConfig.getMetastoreTimeout(), metastoreAuthentication, hiveCommonClientConfig.getCatalogName());
     }
 
     public HiveMetastoreClient create(HostAndPort address, Optional<String> token)
             throws TTransportException
     {
-        return new ThriftHiveMetastoreClient(Transport.create(address, sslContext, socksProxy, timeoutMillis, metastoreAuthentication, token));
+        return new ThriftHiveMetastoreClient(Transport.create(address, sslContext, socksProxy, timeoutMillis, metastoreAuthentication, token), catalogName);
     }
 
     /**

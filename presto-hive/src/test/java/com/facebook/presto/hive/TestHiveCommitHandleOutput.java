@@ -267,6 +267,7 @@ public class TestHiveCommitHandleOutput
     private Partition createPartition(String partitionName, String partitionLocation)
     {
         Partition.Builder partitionBuilder = Partition.builder()
+                .setCatalogName(Optional.of("hive"))
                 .setDatabaseName(TEST_SCHEMA)
                 .setTableName(TEST_TABLE)
                 .setColumns(ImmutableList.of())
