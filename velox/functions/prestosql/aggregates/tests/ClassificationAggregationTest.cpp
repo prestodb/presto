@@ -152,7 +152,7 @@ TEST_F(ClassificationAggregationTest, basic) {
     }
   }
 
-  /// Test invalid threshold.
+  /// Test invalid Weight.
   for (const auto function : functions) {
     VELOX_ASSERT_THROW(
         runTest(
@@ -162,13 +162,18 @@ TEST_F(ClassificationAggregationTest, basic) {
         "Weight must be non-negative.");
   }
 
-  /// Test invalid predictions. Note, a prediction of > 1
-  /// will never actually be hit because convert the pred = std::min(pred,
-  /// 0.99999999999)
+  /// Test invalid predictions.
   for (const auto function : functions) {
     VELOX_ASSERT_THROW(
         runTest(
             fmt::format("{}({}, {}, {})", function, 5, "c0", -0.1),
+            input,
+            expected),
+        "Prediction value must be between 0 and 1");
+
+    VELOX_ASSERT_THROW(
+        runTest(
+            fmt::format("{}({}, {}, {})", function, 5, "c0", 1.2),
             input,
             expected),
         "Prediction value must be between 0 and 1");

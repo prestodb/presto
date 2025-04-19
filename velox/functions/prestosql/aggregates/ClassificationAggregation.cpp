@@ -50,7 +50,7 @@ class FixedDoubleHistogram {
 
   void resizeWeights() {
     validateParameters(bucketCount_, min_, max_);
-    weights_.resize(bucketCount_);
+    weights_.resize(bucketCount_, 0);
   }
 
   /// API to support the case when bucket is created without a bucketCount
@@ -64,9 +64,6 @@ class FixedDoubleHistogram {
 
   /// Add weight to bucket based on the value of the prediction.
   void add(double pred, double weight) {
-    if (weight == 0) {
-      return;
-    }
     if (weight < 0) {
       VELOX_USER_FAIL("Weight must be non-negative.");
     }
@@ -76,6 +73,15 @@ class FixedDoubleHistogram {
           kMinPredictionValue,
           kMaxPredictionValue);
     }
+    /// Short circuit if the weight is 0.
+    if (weight == 0) {
+      return;
+    }
+    /// Similar to Java Presto, the max prediction value for the histogram
+    /// is set to be 0.99999999999 in order to ensure bin corresponding to 1
+    /// is not reached.
+    static const double kMaxUsedPredictionValue = 0.99999999999;
+    pred = std::min(pred, kMaxUsedPredictionValue);
     auto index = getIndexForValue(bucketCount_, min_, max_, pred);
     weights_.at(index) += weight;
     totalWeights_ += weight;
@@ -187,7 +193,7 @@ class FixedDoubleHistogram {
       /// When merging histograms, all the parameters except for the values
       /// accrued inside the buckets must be the same.
       if (histogram.bucketCount_ != bucketCount) {
-        VELOX_USER_FAIL(
+        VELOX_FAIL(
             "Bucket count must be constant."
             "Left bucket count: {}, right bucket count: {}",
             histogram.bucketCount_,
@@ -195,7 +201,7 @@ class FixedDoubleHistogram {
       }
 
       if (histogram.min_ != min || histogram.max_ != max) {
-        VELOX_USER_FAIL(
+        VELOX_FAIL(
             "Cannot merge histograms with different min/max values. "
             "Left min: {}, left max: {}, right min: {}, right max: {}",
             histogram.min_,
@@ -293,11 +299,6 @@ struct Accumulator {
     VELOX_CHECK_EQ(bucketCount, trueWeights_.bucketCount());
     VELOX_CHECK_EQ(bucketCount, falseWeights_.bucketCount());
 
-    /// Similar to Java Presto, the max prediction value for the histogram
-    /// is set to be 0.99999999999 in order to ensure bin corresponding to 1
-    /// is not reached.
-    static const double kMaxPredictionValue = 0.99999999999;
-    pred = std::min(pred, kMaxPredictionValue);
     outcome ? trueWeights_.add(pred, weight) : falseWeights_.add(pred, weight);
   }
 
@@ -330,16 +331,18 @@ struct Accumulator {
   void extractValues(FlatVector<double>* flatResult, vector_size_t offset) {
     const double totalTrueWeight = trueWeights_.totalWeights();
     const double totalFalseWeight = falseWeights_.totalWeights();
-
     double runningFalseWeight = 0;
     double runningTrueWeight = 0;
     int64_t trueWeightIndex = 0;
-    while (trueWeightIndex < trueWeights_.size() &&
-           totalTrueWeight > runningTrueWeight) {
+
+    while (trueWeightIndex < trueWeights_.size()) {
       auto trueBucketResult = trueWeights_.getBucket(trueWeightIndex);
       auto falseBucketResult = falseWeights_.getBucket(trueWeightIndex);
-
-      const double falsePositive = totalFalseWeight - runningFalseWeight;
+      // We need to take the max here because there are cases where double
+      // precision loss occurs and we can get a small negative value which
+      // should practically just be 0
+      const double falsePositive =
+          std::max(totalFalseWeight - runningFalseWeight, 0.0);
       const double negative = totalFalseWeight;
 
       if constexpr (type == ClassificationType::kFallout) {
