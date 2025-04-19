@@ -99,6 +99,24 @@ Valid examples
   SELECT cast(cast(2147483648.90 as DECIMAL(12, 2)) as integer); -- -2147483648
   SELECT cast(cast(2147483648.90 as DECIMAL(12, 2)) as bigint); -- 2147483648
 
+From timestamp
+^^^^^^^^^^^^^
+
+Casting timestamp as integral types returns the number of seconds by converting timestamp as microseconds, dividing by the number of microseconds in a second, and then rounding down to the nearest second since the epoch (1970-01-01 00:00:00 UTC).
+
+Valid examples
+
+::
+
+  SELECT cast(cast('1970-01-01 00:00:00' as timestamp) as bigint); -- 0
+  SELECT cast(cast('1970-01-01 00:00:00' as timestamp) as smallint); -- 0
+  SELECT cast(cast('1970-01-01 00:00:00' as timestamp) as tinyint); -- 0
+  SELECT cast(cast('2000-01-01 12:21:56' as timestamp) as bigint); -- 946684916
+  SELECT cast(cast('2025-02-25 08:00:26.88' as timestamp) as bigint); -- 1740470426
+  SELECT cast(cast('2025-02-25 08:00:26.88' as timestamp) as integer); -- 1740470426
+  SELECT cast(cast('2025-02-25 08:00:26.88' as timestamp) as smallint); -- 30874
+  SELECT cast(cast('2025-02-25 08:00:26.88' as timestamp) as tinyint); -- -102
+
 Cast to Boolean
 ---------------
 

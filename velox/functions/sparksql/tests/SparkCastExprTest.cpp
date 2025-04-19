@@ -109,6 +109,35 @@ class SparkCastExprTest : public functions::test::CastBaseTest {
              Timestamp(std::numeric_limits<T>::min(), 0),
              std::nullopt}));
   }
+
+  template <typename T>
+  void testTimestampToIntegralCast() {
+    testCast(
+        makeFlatVector<Timestamp>({
+            Timestamp(0, 0),
+            Timestamp(1, 0),
+            Timestamp(std::numeric_limits<T>::max(), 0),
+            Timestamp(std::numeric_limits<T>::min(), 0),
+        }),
+        makeFlatVector<T>({
+            0,
+            1,
+            std::numeric_limits<T>::max(),
+            std::numeric_limits<T>::min(),
+        }));
+  }
+
+  template <typename T>
+  void testTimestampToIntegralCastOverflow(std::vector<T> expected) {
+    testCast(
+        makeFlatVector<Timestamp>({
+            Timestamp(1740470426, 0),
+            Timestamp(2147483647, 0),
+            Timestamp(9223372036854, 775'807'000),
+            Timestamp(-9223372036855, 224'192'000),
+        }),
+        makeFlatVector<T>(expected));
+  }
 };
 
 TEST_F(SparkCastExprTest, date) {
@@ -307,6 +336,76 @@ TEST_F(SparkCastExprTest, intToTimestamp) {
   testIntegralToTimestampCast<int8_t>();
   testIntegralToTimestampCast<int16_t>();
   testIntegralToTimestampCast<int32_t>();
+}
+
+TEST_F(SparkCastExprTest, timestampToInt) {
+  // Cast timestamp as bigint.
+  testCast(
+      makeFlatVector<Timestamp>({
+          Timestamp(0, 0),
+          Timestamp(1, 0),
+          Timestamp(10, 0),
+          Timestamp(-1, 0),
+          Timestamp(-10, 0),
+          Timestamp(-1, 500000),
+          Timestamp(-2, 999999),
+          Timestamp(-10, 999999),
+          Timestamp(1, 999999),
+          Timestamp(-1, 1),
+          Timestamp(1234567, 500000),
+          Timestamp(-9876543, 1234),
+          Timestamp(1727181032, 0),
+          Timestamp(-1727181032, 0),
+          Timestamp(9223372036854, 775'807'000),
+          Timestamp(-9223372036855, 224'192'000),
+      }),
+      makeFlatVector<int64_t>({
+          0,
+          1,
+          10,
+          -1,
+          -10,
+          -1,
+          -2,
+          -10,
+          1,
+          -1,
+          1234567,
+          -9876543,
+          1727181032,
+          -1727181032,
+          9223372036854,
+          -9223372036855,
+      }));
+  testInvalidCast<Timestamp>(
+      "bigint",
+      {Timestamp(9223372036856, 0)},
+      "Could not convert Timestamp(9223372036856, 0) to microseconds");
+
+  // Cast timestamp as tinyint/smallint/integer.
+  testTimestampToIntegralCast<int8_t>();
+  testTimestampToIntegralCast<int16_t>();
+  testTimestampToIntegralCast<int32_t>();
+
+  // Cast overflowed timestamp as tinyint/smallint/integer.
+  testTimestampToIntegralCastOverflow<int8_t>({
+      -102,
+      -1,
+      -10,
+      9,
+  });
+  testTimestampToIntegralCastOverflow<int16_t>({
+      30874,
+      -1,
+      23286,
+      -23287,
+  });
+  testTimestampToIntegralCastOverflow<int32_t>({
+      1740470426,
+      2147483647,
+      2077252342,
+      -2077252343,
+  });
 }
 
 TEST_F(SparkCastExprTest, doubleToTimestamp) {

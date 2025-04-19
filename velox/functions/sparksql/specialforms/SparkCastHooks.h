@@ -34,6 +34,8 @@ class SparkCastHooks : public exec::CastHooks {
   /// number of seconds since the epoch (1970-01-01 00:00:00 UTC).
   Expected<Timestamp> castIntToTimestamp(int64_t seconds) const override;
 
+  Expected<int64_t> castTimestampToInt(Timestamp timestamp) const override;
+
   /// When casting double as timestamp, the input is treated as
   /// the number of seconds since the epoch (1970-01-01 00:00:00 UTC).
   Expected<std::optional<Timestamp>> castDoubleToTimestamp(
