@@ -842,7 +842,7 @@ public abstract class AbstractTestHiveClient
                 .setRemainingPredicate(TRUE_CONSTANT)
                 .setPredicateColumns(ImmutableMap.of())
                 .setPartitionColumnPredicate(TupleDomain.all())
-                .setPartitions(ImmutableList.of(new HivePartition(invalidTable, new PartitionNameWithVersion("unknown", Optional.empty()), ImmutableMap.of())))
+                .setPartitions(new LazyLoadedPartitions(ImmutableList.of(new HivePartition(invalidTable, new PartitionNameWithVersion("unknown", Optional.empty()), ImmutableMap.of()))))
                 .setBucketHandle(Optional.empty())
                 .setBucketFilter(Optional.empty())
                 .setPushdownFilterEnabled(false)
@@ -914,7 +914,7 @@ public abstract class AbstractTestHiveClient
                         .setRemainingPredicate(TRUE_CONSTANT)
                         .setPredicateColumns(ImmutableMap.of(dsColumn.getName(), dsColumn))
                         .setPartitionColumnPredicate(tupleDomain)
-                        .setPartitions(partitions).setBucketHandle(Optional.empty())
+                        .setPartitions(new LazyLoadedPartitions(partitions)).setBucketHandle(Optional.empty())
                         .setBucketFilter(Optional.empty())
                         .setPushdownFilterEnabled(false)
                         .setLayoutString("layout")
@@ -961,7 +961,7 @@ public abstract class AbstractTestHiveClient
                         .setRemainingPredicate(TRUE_CONSTANT)
                         .setPredicateColumns(ImmutableMap.of())
                         .setPartitionColumnPredicate(TupleDomain.all())
-                        .setPartitions(unpartitionedPartitions)
+                        .setPartitions(new LazyLoadedPartitions(unpartitionedPartitions))
                         .setBucketHandle(Optional.empty())
                         .setBucketFilter(Optional.empty())
                         .setPushdownFilterEnabled(false)
@@ -1647,7 +1647,7 @@ public abstract class AbstractTestHiveClient
         assertInstanceOf(expectedTableLayoutHandle, HiveTableLayoutHandle.class);
         HiveTableLayoutHandle actual = (HiveTableLayoutHandle) actualTableLayoutHandle;
         HiveTableLayoutHandle expected = (HiveTableLayoutHandle) expectedTableLayoutHandle;
-        assertExpectedPartitions(actual.getPartitions().get(), expected.getPartitions().get());
+        assertExpectedPartitions(actual.getPartitions().get().getFullyLoadedPartitions(), expected.getPartitions().get().getFullyLoadedPartitions());
     }
 
     protected void assertExpectedPartitions(List<HivePartition> actualPartitions, Iterable<HivePartition> expectedPartitions)
@@ -5351,7 +5351,7 @@ public abstract class AbstractTestHiveClient
 
     protected List<?> getAllPartitions(ConnectorTableLayoutHandle layoutHandle)
     {
-        return ((HiveTableLayoutHandle) layoutHandle).getPartitions()
+        return ((HiveTableLayoutHandle) layoutHandle).getPartitions().map(LazyLoadedPartitions::getFullyLoadedPartitions)
                 .orElseThrow(() -> new AssertionError("layout has no partitions"));
     }
 
