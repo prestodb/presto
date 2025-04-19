@@ -51,7 +51,8 @@ public class MaterializedViewOptimizationRewrite
             List<Expression> parameters,
             Map<NodeRef<Parameter>, Expression> parameterLookup,
             AccessControl accessControl,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            String query)
     {
         return (Statement) new MaterializedViewOptimizationRewrite
                 .Visitor(metadata, session, parser, accessControl)

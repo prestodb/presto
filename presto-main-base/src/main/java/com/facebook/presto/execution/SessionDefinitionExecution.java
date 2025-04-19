@@ -40,6 +40,7 @@ public class SessionDefinitionExecution<T extends Statement>
         extends DataDefinitionExecution<T>
 {
     private final SessionTransactionControlTask<T> task;
+    private final String query;
 
     private SessionDefinitionExecution(
             SessionTransactionControlTask<T> task,
@@ -50,16 +51,18 @@ public class SessionDefinitionExecution<T extends Statement>
             Metadata metadata,
             AccessControl accessControl,
             QueryStateMachine stateMachine,
-            List<Expression> parameters)
+            List<Expression> parameters,
+            String query)
     {
         super(statement, slug, retryCount, transactionManager, metadata, accessControl, stateMachine, parameters);
         this.task = requireNonNull(task, "task is null");
+        this.query = requireNonNull(query, "query is null");
     }
 
     @Override
     protected ListenableFuture<?> executeTask()
     {
-        return task.execute(statement, transactionManager, metadata, accessControl, stateMachine, parameters);
+        return task.execute(statement, transactionManager, metadata, accessControl, stateMachine, parameters, query);
     }
 
     public static class SessionDefinitionExecutionFactory
@@ -91,12 +94,14 @@ public class SessionDefinitionExecution<T extends Statement>
                 String slug,
                 int retryCount,
                 WarningCollector warningCollector,
-                Optional<QueryType> queryType)
+                Optional<QueryType> queryType,
+                String query,
+                AccessControl accessControl)
         {
             //TODO: PreparedQuery should be passed all the way to analyzer
             checkState(preparedQuery instanceof BuiltInQueryPreparer.BuiltInPreparedQuery, "Unsupported prepared query type: %s", preparedQuery.getClass().getSimpleName());
             BuiltInQueryPreparer.BuiltInPreparedQuery builtInQueryPreparer = (BuiltInQueryPreparer.BuiltInPreparedQuery) preparedQuery;
-            return createSessionDefinitionExecution(builtInQueryPreparer.getStatement(), builtInQueryPreparer.getParameters(), stateMachine, slug, retryCount);
+            return createSessionDefinitionExecution(builtInQueryPreparer.getStatement(), builtInQueryPreparer.getParameters(), stateMachine, slug, retryCount, query);
         }
 
         private <T extends Statement> SessionDefinitionExecution<T> createSessionDefinitionExecution(
@@ -104,14 +109,15 @@ public class SessionDefinitionExecution<T extends Statement>
                 List<Expression> parameters,
                 QueryStateMachine stateMachine,
                 String slug,
-                int retryCount)
+                int retryCount,
+                String query)
         {
             @SuppressWarnings("unchecked")
             SessionTransactionControlTask<T> task = (SessionTransactionControlTask<T>) tasks.get(statement.getClass());
             checkArgument(task != null, "no task for statement: %s", statement.getClass().getSimpleName());
 
             stateMachine.setUpdateType(task.getName());
-            return new SessionDefinitionExecution<>(task, statement, slug, retryCount, transactionManager, metadata, accessControl, stateMachine, parameters);
+            return new SessionDefinitionExecution<>(task, statement, slug, retryCount, transactionManager, metadata, accessControl, stateMachine, parameters, query);
         }
     }
 }

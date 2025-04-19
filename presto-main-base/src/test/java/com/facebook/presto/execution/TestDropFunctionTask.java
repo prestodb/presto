@@ -85,7 +85,7 @@ public class TestDropFunctionTask
         DropFunction statement = (DropFunction) parser.createStatement(sqlString, ParsingOptions.builder().build());
         TransactionManager tm = createTestTransactionManager();
         QueryStateMachine stateMachine = createQueryStateMachine(sqlString, session, false, tm, executorService, metadataManager);
-        new DropFunctionTask(parser).execute(statement, tm, metadataManager, new AllowAllAccessControl(), stateMachine, emptyList());
+        new DropFunctionTask(parser).execute(statement, tm, metadataManager, new AllowAllAccessControl(), stateMachine, emptyList(), sqlString);
         return stateMachine.getRemovedSessionFunctions();
     }
 }

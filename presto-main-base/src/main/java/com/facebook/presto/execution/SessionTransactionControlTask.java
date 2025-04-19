@@ -35,5 +35,6 @@ public interface SessionTransactionControlTask<T extends Statement>
             Metadata metadata,
             AccessControl accessControl,
             QueryStateMachine stateMachine,
-            List<Expression> parameters);
+            List<Expression> parameters,
+            String query);
 }

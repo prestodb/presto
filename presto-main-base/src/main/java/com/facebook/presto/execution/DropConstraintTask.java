@@ -47,7 +47,7 @@ public class DropConstraintTask
     }
 
     @Override
-    public ListenableFuture<?> execute(DropConstraint statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
+    public ListenableFuture<?> execute(DropConstraint statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector, String query)
     {
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTableName());
         Optional<TableHandle> tableHandleOptional = metadata.getMetadataResolver(session).getTableHandle(tableName);

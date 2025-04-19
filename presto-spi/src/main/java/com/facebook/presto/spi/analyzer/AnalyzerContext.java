@@ -23,12 +23,14 @@ public class AnalyzerContext
     private final MetadataResolver metadataResolver;
     private final PlanNodeIdAllocator idAllocator;
     private final VariableAllocator variableAllocator;
+    private final String query;
 
-    public AnalyzerContext(MetadataResolver metadataResolver, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator)
+    public AnalyzerContext(MetadataResolver metadataResolver, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, String query)
     {
         this.metadataResolver = requireNonNull(metadataResolver, "metadataResolver is null");
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
+        this.query = requireNonNull(query, "query is null");
     }
 
     public MetadataResolver getMetadataResolver()
@@ -44,5 +46,10 @@ public class AnalyzerContext
     public VariableAllocator getVariableAllocator()
     {
         return variableAllocator;
+    }
+
+    public String getQuery()
+    {
+        return query;
     }
 }

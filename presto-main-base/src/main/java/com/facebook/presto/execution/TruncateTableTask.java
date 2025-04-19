@@ -44,7 +44,7 @@ public class TruncateTableTask
     }
 
     @Override
-    public ListenableFuture<?> execute(TruncateTable statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
+    public ListenableFuture<?> execute(TruncateTable statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector, String query)
     {
         MetadataResolver metadataResolver = metadata.getMetadataResolver(session);
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTableName());

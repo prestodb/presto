@@ -37,7 +37,7 @@ public class CommitTask
     }
 
     @Override
-    public ListenableFuture<?> execute(Commit statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
+    public ListenableFuture<?> execute(Commit statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters, String query)
     {
         Session session = stateMachine.getSession();
         if (!session.getTransactionId().isPresent()) {

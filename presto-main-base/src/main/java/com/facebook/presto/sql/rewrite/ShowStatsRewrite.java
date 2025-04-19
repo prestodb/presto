@@ -112,9 +112,10 @@ public class ShowStatsRewrite
             List<Expression> parameters,
             Map<NodeRef<Parameter>, Expression> parameterLookup,
             AccessControl accessControl,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            String query)
     {
-        return (Statement) new Visitor(metadata, session, parameters, queryExplainer, warningCollector).process(node, null);
+        return (Statement) new Visitor(metadata, session, parameters, queryExplainer, warningCollector, query).process(node, null);
     }
 
     private static class Visitor
@@ -125,14 +126,16 @@ public class ShowStatsRewrite
         private final List<Expression> parameters;
         private final Optional<QueryExplainer> queryExplainer;
         private final WarningCollector warningCollector;
+        private final String sqlString;
 
-        public Visitor(Metadata metadata, Session session, List<Expression> parameters, Optional<QueryExplainer> queryExplainer, WarningCollector warningCollector)
+        public Visitor(Metadata metadata, Session session, List<Expression> parameters, Optional<QueryExplainer> queryExplainer, WarningCollector warningCollector, String sqlString)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.session = requireNonNull(session, "session is null");
             this.parameters = requireNonNull(parameters, "parameters is null");
             this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+            this.sqlString = requireNonNull(sqlString, "sqlString is null");
         }
 
         @Override
@@ -143,7 +146,7 @@ public class ShowStatsRewrite
             if (node.getRelation() instanceof TableSubquery) {
                 Query query = ((TableSubquery) node.getRelation()).getQuery();
                 QuerySpecification specification = (QuerySpecification) query.getQueryBody();
-                Plan plan = queryExplainer.get().getLogicalPlan(session, new Query(Optional.empty(), specification, Optional.empty(), Optional.empty(), Optional.empty()), parameters, warningCollector);
+                Plan plan = queryExplainer.get().getLogicalPlan(session, new Query(Optional.empty(), specification, Optional.empty(), Optional.empty(), Optional.empty()), parameters, warningCollector, sqlString);
                 Set<String> columns = validateShowStatsSubquery(node, query, specification, plan);
                 Table table = (Table) specification.getFrom().get();
                 Constraint<ColumnHandle> constraint = getConstraint(plan);

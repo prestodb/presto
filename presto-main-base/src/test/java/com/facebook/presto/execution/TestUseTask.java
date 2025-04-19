@@ -159,6 +159,6 @@ public class TestUseTask
 
         QueryStateMachine stateMachine = createQueryStateMachine(sqlString, session, false, transactionManager, executor, metadata);
         UseTask useTask = new UseTask();
-        useTask.execute(use, transactionManager, metadata, accessControl, stateMachine, emptyList());
+        useTask.execute(use, transactionManager, metadata, accessControl, stateMachine, emptyList(), sqlString);
     }
 }

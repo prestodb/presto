@@ -44,7 +44,7 @@ public class RenameViewTask
         return "RENAME VIEW";
     }
 
-    public ListenableFuture<?> execute(RenameView statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
+    public ListenableFuture<?> execute(RenameView statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector, String query)
     {
         QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getSource());
 

@@ -38,7 +38,7 @@ public class RollbackTask
     }
 
     @Override
-    public ListenableFuture<?> execute(Rollback statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
+    public ListenableFuture<?> execute(Rollback statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters, String query)
     {
         Session session = stateMachine.getSession();
         if (!session.getTransactionId().isPresent()) {

@@ -66,7 +66,7 @@ public class CreateTypeTask
     }
 
     @Override
-    public ListenableFuture<?> execute(CreateType statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
+    public ListenableFuture<?> execute(CreateType statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector, String query)
     {
         TypeSignature signature;
 

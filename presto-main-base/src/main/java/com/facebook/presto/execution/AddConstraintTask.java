@@ -52,7 +52,7 @@ import static java.util.stream.Collectors.toCollection;
 public class AddConstraintTask
         implements DDLDefinitionTask<AddConstraint>
 {
-    public static TableConstraint<String> convertToTableConstraint(Metadata metadata, Session session, ConnectorId connectorId, ConstraintSpecification node, WarningCollector warningCollector)
+    public static TableConstraint<String> convertToTableConstraint(Metadata metadata, Session session, ConnectorId connectorId, ConstraintSpecification node, WarningCollector warningCollector, String query)
     {
         TableConstraint<String> tableConstraint;
         LinkedHashSet<String> constraintColumns = node.getColumns().stream().collect(toCollection(LinkedHashSet::new));
@@ -87,7 +87,7 @@ public class AddConstraintTask
     }
 
     @Override
-    public ListenableFuture<?> execute(AddConstraint statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
+    public ListenableFuture<?> execute(AddConstraint statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector, String query)
     {
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTableName());
         Optional<TableHandle> tableHandle = metadata.getMetadataResolver(session).getTableHandle(tableName);
@@ -111,7 +111,7 @@ public class AddConstraintTask
 
         accessControl.checkCanAddConstraints(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
 
-        metadata.addConstraint(session, tableHandle.get(), convertToTableConstraint(metadata, session, connectorId, statement.getConstraintSpecification(), warningCollector));
+        metadata.addConstraint(session, tableHandle.get(), convertToTableConstraint(metadata, session, connectorId, statement.getConstraintSpecification(), warningCollector, query));
         return immediateFuture(null);
     }
 }

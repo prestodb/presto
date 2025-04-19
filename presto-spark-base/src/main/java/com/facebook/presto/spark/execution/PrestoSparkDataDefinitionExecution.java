@@ -50,6 +50,7 @@ public class PrestoSparkDataDefinitionExecution<T extends Statement>
     private final Session session;
     private final QueryStateTimer queryStateTimer;
     private final WarningCollector warningCollector;
+    private final String query;
 
     public PrestoSparkDataDefinitionExecution(
             DDLDefinitionTask<T> task,
@@ -59,7 +60,8 @@ public class PrestoSparkDataDefinitionExecution<T extends Statement>
             Metadata metadata,
             Session session,
             QueryStateTimer queryStateTimer,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            String query)
     {
         this.task = requireNonNull(task, "task is null");
         this.statement = requireNonNull(statement, "statement is null");
@@ -69,6 +71,7 @@ public class PrestoSparkDataDefinitionExecution<T extends Statement>
         this.session = requireNonNull(session, "session is null");
         this.queryStateTimer = requireNonNull(queryStateTimer, "queryStateTimer is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+        this.query = requireNonNull(query, "query is null");
     }
 
     @Override
@@ -76,7 +79,7 @@ public class PrestoSparkDataDefinitionExecution<T extends Statement>
     {
         queryStateTimer.beginRunning();
         try {
-            ListenableFuture<?> future = task.execute(statement, transactionManager, metadata, accessControl, session, Collections.emptyList(), warningCollector);
+            ListenableFuture<?> future = task.execute(statement, transactionManager, metadata, accessControl, session, Collections.emptyList(), warningCollector, query);
             getFutureValue(future);
             queryStateTimer.beginFinishing();
             commit(session, transactionManager);

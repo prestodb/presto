@@ -85,17 +85,18 @@ public class AnalyzerUtil
             MetadataResolver metadataResolver,
             PlanNodeIdAllocator idAllocator,
             VariableAllocator variableAllocator,
-            Session session)
+            Session session,
+            String query)
     {
         // TODO: Remove this hack once inbuilt query analyzer is moved to presto-analyzer
         if (queryAnalyzer instanceof BuiltInQueryAnalyzer) {
-            return getBuiltInAnalyzerContext(metadataResolver, idAllocator, variableAllocator, session);
+            return getBuiltInAnalyzerContext(metadataResolver, idAllocator, variableAllocator, session, query);
         }
 
-        return new AnalyzerContext(metadataResolver, idAllocator, variableAllocator);
+        return new AnalyzerContext(metadataResolver, idAllocator, variableAllocator, query);
     }
 
-    public static void checkAccessPermissions(AccessControlReferences accessControlReferences)
+    public static void checkAccessPermissions(AccessControlReferences accessControlReferences, AccessControl accessControl, String query)
     {
         // Table checks
         checkAccessPermissionsForTable(accessControlReferences);

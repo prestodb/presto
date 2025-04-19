@@ -214,7 +214,7 @@ public class TestColumnAndSubfieldAnalyzer
                 .readUncommitted()
                 .readOnly()
                 .execute(session, s -> {
-                    Analyzer analyzer = createAnalyzer(s, metadata, WarningCollector.NOOP);
+                    Analyzer analyzer = createAnalyzer(s, metadata, WarningCollector.NOOP, query);
                     Statement statement = SQL_PARSER.createStatement(query);
                     Analysis analysis = analyzer.analyze(statement);
                     assertEquals(
