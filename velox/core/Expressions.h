@@ -596,7 +596,7 @@ class LambdaTypedExpr : public ITypedExpr {
     if (*lhs.type() != *rhs.type()) {
       return false;
     }
-    return lhs.signature_ == rhs.signature_ && lhs.body_ == rhs.body_;
+    return *lhs.signature_ == *rhs.signature_ && *lhs.body_ == *rhs.body_;
   }
 
   bool operator==(const ITypedExpr& other) const override {
