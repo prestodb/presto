@@ -23,7 +23,6 @@ import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.util.Map;
 
@@ -35,24 +34,6 @@ import static org.testng.Assert.assertEquals;
 public class TestUppercasePartitionColumns
         extends AbstractDeltaDistributedQueryTestBase
 {
-    private static final String[] DELTA_TEST_TABLE_NAMES_LIST = {
-            "test-lowercase",
-            "test-uppercase",
-            "test-partitions-lowercase",
-            "test-partitions-uppercase"
-    };
-
-    private static final String[] DELTA_TEST_TABLE_LIST = new String[DELTA_TEST_TABLE_NAMES_LIST.length *
-            DELTA_VERSIONS.length];
-    static {
-        for (int i = 0; i < DELTA_VERSIONS.length; i++) {
-            for (int j = 0; j < DELTA_TEST_TABLE_NAMES_LIST.length; j++) {
-                DELTA_TEST_TABLE_LIST[i * DELTA_TEST_TABLE_NAMES_LIST.length + j] = DELTA_VERSIONS[i] +
-                        FileSystems.getDefault().getSeparator() + DELTA_TEST_TABLE_NAMES_LIST[j];
-            }
-        }
-    }
-
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
