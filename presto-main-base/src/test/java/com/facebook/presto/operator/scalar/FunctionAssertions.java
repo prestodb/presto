@@ -62,6 +62,7 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
+import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.sql.analyzer.ExpressionAnalysis;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -247,6 +248,7 @@ public final class FunctionAssertions
         metadata = runner.getMetadata();
         compiler = runner.getExpressionCompiler();
     }
+
     public FunctionAndTypeManager getFunctionAndTypeManager()
     {
         return runner.getFunctionAndTypeManager();
@@ -696,7 +698,8 @@ public final class FunctionAssertions
                 SYMBOL_TYPES,
                 projectionExpression,
                 ImmutableMap.of(),
-                WarningCollector.NOOP);
+                WarningCollector.NOOP,
+                new AllowAllAccessControl());
         return toRowExpression(projectionExpression, expressionTypes, INPUT_MAPPING);
     }
 
@@ -818,7 +821,8 @@ public final class FunctionAssertions
                 ImmutableList.of(parsedExpression),
                 ImmutableMap.of(),
                 WarningCollector.NOOP,
-                false);
+                false,
+                new AllowAllAccessControl());
 
         Expression rewrittenExpression = ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
         {
@@ -932,8 +936,8 @@ public final class FunctionAssertions
 
     private Object interpret(Expression expression, Type expectedType, Session session)
     {
-        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, SQL_PARSER, SYMBOL_TYPES, expression, emptyMap(), WarningCollector.NOOP);
-        ExpressionInterpreter evaluator = ExpressionInterpreter.expressionInterpreter(expression, metadata, session, expressionTypes);
+        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, SQL_PARSER, SYMBOL_TYPES, expression, emptyMap(), WarningCollector.NOOP, new AllowAllAccessControl());
+        ExpressionInterpreter evaluator = ExpressionInterpreter.expressionInterpreter(expression, metadata, session, expressionTypes, new AllowAllAccessControl());
 
         Object result = evaluator.evaluate(variable -> {
             Symbol symbol = new Symbol(variable.getName());

@@ -18,6 +18,7 @@ import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.sql.InMemoryExpressionOptimizerProvider;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.tree.Cast;
@@ -83,7 +84,7 @@ public abstract class AbstractTestComparisonStatsCalculator
             throws Exception
     {
         MetadataManager metadata = MetadataManager.createTestMetadataManager();
-        filterStatsCalculator = new FilterStatsCalculator(metadata, new ScalarStatsCalculator(metadata, new InMemoryExpressionOptimizerProvider(metadata)), new StatsNormalizer());
+        filterStatsCalculator = new FilterStatsCalculator(metadata, new ScalarStatsCalculator(metadata, new InMemoryExpressionOptimizerProvider(metadata), new AllowAllAccessControl()), new StatsNormalizer(), new AllowAllAccessControl());
 
         uStats = VariableStatsEstimate.builder()
                 .setAverageRowSize(8.0)

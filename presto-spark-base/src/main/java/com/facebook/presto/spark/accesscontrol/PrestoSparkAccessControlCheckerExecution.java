@@ -85,7 +85,7 @@ public class PrestoSparkAccessControlCheckerExecution
         queryStateTimer.beginSemanticAnalyzing();
         Analysis analysis = analyzer.analyzeSemantic(preparedQuery.getStatement(), false);
         queryStateTimer.beginColumnAccessPermissionChecking();
-        checkAccessPermissions(analysis.getAccessControlReferences(), accessControl, session.getAccessControlContext(), session.getIdentity(), getFormattedSql(preparedQuery.getStatement(), sqlParser, Optional.empty()));
+        checkAccessPermissions(analysis.getAccessControlReferences(), getFormattedSql(preparedQuery.getStatement(), sqlParser, Optional.empty()));
         queryStateTimer.endColumnAccessPermissionChecking();
 
         List<List<Object>> results = new ArrayList<>();

@@ -112,7 +112,8 @@ public class AddColumnTask
                 sqlProperties,
                 session,
                 metadata,
-                parameterExtractor(statement, parameters));
+                parameterExtractor(statement, parameters),
+                accessControl);
 
         ColumnMetadata column = ColumnMetadata.builder()
                 .setName(element.getName().getValue())

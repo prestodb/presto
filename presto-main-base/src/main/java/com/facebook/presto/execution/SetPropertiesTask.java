@@ -61,7 +61,8 @@ public class SetPropertiesTask
                     sqlProperties,
                     session,
                     metadata,
-                    parameterExtractor(statement, parameters)).build();
+                    parameterExtractor(statement, parameters),
+                    accessControl).build();
             setTableProperties(statement, tableName, metadata, accessControl, session, properties);
         }
         else {

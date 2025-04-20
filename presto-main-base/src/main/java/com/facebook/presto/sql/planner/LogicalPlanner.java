@@ -45,6 +45,7 @@ import com.facebook.presto.spi.plan.TableWriterNode.DeleteHandle;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
@@ -123,13 +124,15 @@ public class LogicalPlanner
     private final Metadata metadata;
     private final StatisticsAggregationPlanner statisticsAggregationPlanner;
     private final SqlParser sqlParser;
+    private final AccessControl accessControl;
 
     public LogicalPlanner(
             Session session,
             PlanNodeIdAllocator idAllocator,
             Metadata metadata,
             VariableAllocator variableAllocator,
-            SqlParser sqlParser)
+            SqlParser sqlParser,
+            AccessControl accessControl)
     {
         this.session = requireNonNull(session, "session is null");
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
@@ -137,6 +140,7 @@ public class LogicalPlanner
         this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
         this.statisticsAggregationPlanner = new StatisticsAggregationPlanner(this.variableAllocator, metadata.getFunctionAndTypeManager(), session);
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
     public PlanNode plan(Analysis analysis)
@@ -477,7 +481,7 @@ public class LogicalPlanner
     private RelationPlan createDeletePlan(Analysis analysis, Delete node)
     {
         SqlPlannerContext context = new SqlPlannerContext(0);
-        DeleteNode deleteNode = new QueryPlanner(analysis, variableAllocator, idAllocator, buildLambdaDeclarationToVariableMap(analysis, variableAllocator), metadata, session, context, sqlParser)
+        DeleteNode deleteNode = new QueryPlanner(analysis, variableAllocator, idAllocator, buildLambdaDeclarationToVariableMap(analysis, variableAllocator), metadata, session, context, sqlParser, accessControl)
                 .plan(node);
 
         TableHandle handle = analysis.getTableHandle(node.getTable());
@@ -498,7 +502,7 @@ public class LogicalPlanner
     private RelationPlan createUpdatePlan(Analysis analysis, Update node)
     {
         SqlPlannerContext context = new SqlPlannerContext(0);
-        UpdateNode updateNode = new QueryPlanner(analysis, variableAllocator, idAllocator, buildLambdaDeclarationToVariableMap(analysis, variableAllocator), metadata, session, context, sqlParser)
+        UpdateNode updateNode = new QueryPlanner(analysis, variableAllocator, idAllocator, buildLambdaDeclarationToVariableMap(analysis, variableAllocator), metadata, session, context, sqlParser, accessControl)
                 .plan(node);
 
         TableHandle handle = analysis.getTableHandle(node.getTable());
@@ -560,7 +564,7 @@ public class LogicalPlanner
 
     private RelationPlan createRelationPlan(Analysis analysis, Query query, SqlPlannerContext context)
     {
-        return new RelationPlanner(analysis, variableAllocator, idAllocator, buildLambdaDeclarationToVariableMap(analysis, variableAllocator), metadata, session, sqlParser)
+        return new RelationPlanner(analysis, variableAllocator, idAllocator, buildLambdaDeclarationToVariableMap(analysis, variableAllocator), metadata, session, sqlParser, accessControl)
                 .process(query, context);
     }
 
@@ -572,7 +576,8 @@ public class LogicalPlanner
                 propertyExpressions,
                 session,
                 metadata,
-                parameters);
+                parameters,
+                accessControl);
 
         return new ConnectorTableMetadata(toSchemaTableName(table), columns, properties, comment);
     }

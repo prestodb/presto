@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.TestingColumnHandle;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.DoubleRange;
 import com.facebook.presto.spi.statistics.Estimate;
@@ -61,8 +62,9 @@ public class TestConnectorFilterStatsCalculatorService
                 metadata,
                 new ScalarStatsCalculator(
                         metadata,
-                        new InMemoryExpressionOptimizerProvider(metadata)),
-                new StatsNormalizer());
+                        new InMemoryExpressionOptimizerProvider(metadata), new AllowAllAccessControl()),
+                new StatsNormalizer(),
+                new AllowAllAccessControl());
         statsCalculatorService = new ConnectorFilterStatsCalculatorService(statsCalculator);
         xStats = ColumnStatistics.builder()
                 .setDistinctValuesCount(Estimate.of(40))

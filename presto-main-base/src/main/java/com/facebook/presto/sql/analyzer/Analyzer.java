@@ -16,6 +16,7 @@ package com.facebook.presto.sql.analyzer;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.analyzer.AccessControlInfo;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -104,14 +105,14 @@ public class Analyzer
     public Analysis analyze(Statement statement, boolean isDescribe)
     {
         Analysis analysis = analyzeSemantic(statement, isDescribe);
-        checkAccessPermissions(analysis.getAccessControlReferences(), accessControl, session.getAccessControlContext(), session.getIdentity(), getFormattedSql(statement, sqlParser, Optional.empty()));
+        checkAccessPermissions(analysis.getAccessControlReferences(), getFormattedSql(statement, sqlParser, Optional.empty()));
         return analysis;
     }
 
     public Analysis analyzeSemantic(Statement statement, boolean isDescribe)
     {
         Statement rewrittenStatement = StatementRewrite.rewrite(session, metadata, sqlParser, queryExplainer, statement, parameters, parameterLookup, accessControl, warningCollector);
-        Analysis analysis = new Analysis(rewrittenStatement, parameterLookup, isDescribe);
+        Analysis analysis = new Analysis(rewrittenStatement, parameterLookup, isDescribe, new AccessControlInfo(accessControl, session.getIdentity(), Optional.empty(), session.getAccessControlContext()));
 
         metadataExtractor.populateMetadataHandle(session, rewrittenStatement, analysis.getMetadataHandle());
         StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector);

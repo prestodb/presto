@@ -18,6 +18,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.sql.InMemoryExpressionOptimizerProvider;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -70,7 +71,7 @@ public class TestScalarStatsCalculator
     public void setUp()
     {
         MetadataManager metadata = createTestMetadataManager();
-        calculator = new ScalarStatsCalculator(metadata, new InMemoryExpressionOptimizerProvider(metadata));
+        calculator = new ScalarStatsCalculator(metadata, new InMemoryExpressionOptimizerProvider(metadata), new AllowAllAccessControl());
         session = testSessionBuilder().build();
         translator = new TestingRowExpressionTranslator(metadata);
     }

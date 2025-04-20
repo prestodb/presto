@@ -40,6 +40,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.analyzer.AccessControlInfo;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.SqlFunctionId;
@@ -1850,9 +1851,10 @@ public class ExpressionAnalyzer
             TypeProvider types,
             Expression expression,
             Map<NodeRef<Parameter>, Expression> parameters,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            AccessControl accessControl)
     {
-        return getExpressionTypes(session, metadata, sqlParser, types, expression, parameters, warningCollector, false);
+        return getExpressionTypes(session, metadata, sqlParser, types, expression, parameters, warningCollector, false, accessControl);
     }
 
     public static Map<NodeRef<Expression>, Type> getExpressionTypes(
@@ -1863,9 +1865,10 @@ public class ExpressionAnalyzer
             Expression expression,
             Map<NodeRef<Parameter>, Expression> parameters,
             WarningCollector warningCollector,
-            boolean isDescribe)
+            boolean isDescribe,
+            AccessControl accessControl)
     {
-        return getExpressionTypes(session, metadata, sqlParser, types, ImmutableList.of(expression), parameters, warningCollector, isDescribe);
+        return getExpressionTypes(session, metadata, sqlParser, types, ImmutableList.of(expression), parameters, warningCollector, isDescribe, accessControl);
     }
 
     public static Map<NodeRef<Expression>, Type> getExpressionTypes(
@@ -1876,9 +1879,10 @@ public class ExpressionAnalyzer
             Iterable<Expression> expressions,
             Map<NodeRef<Parameter>, Expression> parameters,
             WarningCollector warningCollector,
-            boolean isDescribe)
+            boolean isDescribe,
+            AccessControl accessControl)
     {
-        return analyzeExpressions(session, metadata, sqlParser, types, expressions, parameters, warningCollector, isDescribe).getExpressionTypes();
+        return analyzeExpressions(session, metadata, sqlParser, types, expressions, parameters, warningCollector, isDescribe, accessControl).getExpressionTypes();
     }
 
     public static ExpressionAnalysis analyzeExpressions(
@@ -1889,11 +1893,12 @@ public class ExpressionAnalyzer
             Iterable<Expression> expressions,
             Map<NodeRef<Parameter>, Expression> parameters,
             WarningCollector warningCollector,
-            boolean isDescribe)
+            boolean isDescribe,
+            AccessControl accessControl)
     {
         // expressions at this point can not have sub queries so deny all access checks
         // in the future, we will need a full access controller here to verify access to functions
-        Analysis analysis = new Analysis(null, parameters, isDescribe);
+        Analysis analysis = new Analysis(null, parameters, isDescribe, new AccessControlInfo(accessControl, session.getIdentity(), Optional.empty(), session.getAccessControlContext()));
         ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, new DenyAllAccessControl(), types, warningCollector);
         for (Expression expression : expressions) {
             analyzer.analyze(expression, Scope.builder().withRelationType(RelationId.anonymous(), new RelationType()).build());

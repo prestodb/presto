@@ -72,7 +72,8 @@ public class CreateSchemaTask
                 mapFromProperties(statement.getProperties()),
                 session,
                 metadata,
-                parameterExtractor(statement, parameters));
+                parameterExtractor(statement, parameters),
+                accessControl);
 
         metadata.createSchema(session, schema, properties);
 
