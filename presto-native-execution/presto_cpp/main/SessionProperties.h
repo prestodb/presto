@@ -303,6 +303,10 @@ class SessionProperties {
   static constexpr const char* kTableScanScaleUpMemoryUsageRatio =
       "native_table_scan_scale_up_memory_usage_ratio";
 
+  /// Maximum wait time for exchange long poll requests in seconds.
+  static constexpr const char* kRequestDataSizesMaxWaitSec = 
+      "native_request_data_sizes_max_wait_sec";
+
   SessionProperties();
 
   const std::unordered_map<std::string, std::shared_ptr<SessionProperty>>&
