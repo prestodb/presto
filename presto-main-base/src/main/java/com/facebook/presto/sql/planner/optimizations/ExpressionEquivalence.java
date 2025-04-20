@@ -29,6 +29,7 @@ import com.facebook.presto.spi.relation.RowExpressionVisitor;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression.Form;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.tree.Expression;
@@ -73,12 +74,14 @@ public class ExpressionEquivalence
     private final Metadata metadata;
     private final SqlParser sqlParser;
     private final CanonicalizationVisitor canonicalizationVisitor;
+    private final AccessControl accessControl;
 
-    public ExpressionEquivalence(Metadata metadata, SqlParser sqlParser)
+    public ExpressionEquivalence(Metadata metadata, SqlParser sqlParser, AccessControl accessControl)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.canonicalizationVisitor = new CanonicalizationVisitor(metadata.getFunctionAndTypeManager());
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
     public boolean areExpressionsEquivalent(Session session, Expression leftExpression, Expression rightExpression, TypeProvider types)
@@ -118,7 +121,8 @@ public class ExpressionEquivalence
                 types,
                 expression,
                 emptyMap(), /* parameters have already been replaced */
-                WarningCollector.NOOP);
+                WarningCollector.NOOP,
+                accessControl);
 
         // convert to row expression
         return translate(expression, expressionTypes, variableInput, metadata.getFunctionAndTypeManager(), session);

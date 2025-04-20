@@ -63,6 +63,7 @@ import com.facebook.presto.spi.relation.ExpressionOptimizerProvider;
 import com.facebook.presto.spi.relation.PredicateCompiler;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
+import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.sql.InMemoryExpressionOptimizerProvider;
 import com.facebook.presto.sql.gen.RowExpressionPredicateCompiler;
 import com.facebook.presto.sql.planner.planPrinter.RowExpressionFormatter;
@@ -148,7 +149,7 @@ public class TestRenameTableOnFragileFileSystem
 
     private static final ExpressionOptimizerProvider EXPRESSION_OPTIMIZER_PROVIDER = new InMemoryExpressionOptimizerProvider(METADATA);
     private static final FilterStatsCalculatorService FILTER_STATS_CALCULATOR_SERVICE = new ConnectorFilterStatsCalculatorService(
-            new FilterStatsCalculator(METADATA, new ScalarStatsCalculator(METADATA, EXPRESSION_OPTIMIZER_PROVIDER), new StatsNormalizer()));
+            new FilterStatsCalculator(METADATA, new ScalarStatsCalculator(METADATA, EXPRESSION_OPTIMIZER_PROVIDER, new AllowAllAccessControl()), new StatsNormalizer(), new AllowAllAccessControl()));
     private static final JsonCodec<DatabaseMetadata> DATABASE_CODEC = jsonCodec(DatabaseMetadata.class);
     private static final JsonCodec<TableMetadata> TABLE_CODEC = jsonCodec(TableMetadata.class);
 

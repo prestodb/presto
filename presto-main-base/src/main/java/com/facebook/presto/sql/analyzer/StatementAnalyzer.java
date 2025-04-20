@@ -623,7 +623,8 @@ class StatementAnalyzer
                     mapFromProperties(node.getProperties()),
                     session,
                     metadata,
-                    analysis.getParameters());
+                    analysis.getParameters(),
+                    accessControl);
             TableHandle tableHandle = metadata.getTableHandleForStatisticsCollection(session, tableName, analyzeProperties)
                     .orElseThrow(() -> (new SemanticException(MISSING_TABLE, node, "Table '%s' does not exist", tableName)));
 
@@ -1425,7 +1426,7 @@ class StatementAnalyzer
             if (stateExprType == UNKNOWN) {
                 throw new PrestoException(INVALID_ARGUMENTS, format("Table version AS OF/BEFORE expression cannot be NULL for %s", name.toString()));
             }
-            Object evalStateExpr = evaluateConstantExpression(stateExpr, stateExprType, metadata, session, analysis.getParameters());
+            Object evalStateExpr = evaluateConstantExpression(stateExpr, stateExprType, metadata, session, analysis.getParameters(), accessControl);
             if (tableVersionType == TIMESTAMP) {
                 if (!(stateExprType instanceof TimestampWithTimeZoneType || stateExprType instanceof TimestampType)) {
                     throw new SemanticException(TYPE_MISMATCH, stateExpr,
@@ -1689,15 +1690,16 @@ class StatementAnalyzer
                     relation.getSamplePercentage(),
                     analysis.getParameters(),
                     warningCollector,
-                    analysis.isDescribe());
-            ExpressionInterpreter samplePercentageEval = expressionOptimizer(relation.getSamplePercentage(), metadata, session, expressionTypes);
+                    analysis.isDescribe(),
+                    accessControl);
+            ExpressionInterpreter samplePercentageEval = expressionOptimizer(relation.getSamplePercentage(), metadata, session, expressionTypes, accessControl);
 
             Object samplePercentageObject = samplePercentageEval.optimize(symbol -> {
                 throw new SemanticException(NON_NUMERIC_SAMPLE_PERCENTAGE, relation.getSamplePercentage(), "Sample percentage cannot contain column references");
             });
             try {
                 samplePercentageObject = evaluateConstantExpression(relation.getSamplePercentage(), DOUBLE, metadata, session,
-                        analysis.getParameters());
+                        analysis.getParameters(), accessControl);
             }
             catch (SemanticException e) {
                 if (e.getCode() == TYPE_MISMATCH) {

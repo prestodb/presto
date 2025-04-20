@@ -107,7 +107,8 @@ public class CreateMaterializedViewTask
                 sqlProperties,
                 session,
                 metadata,
-                parameterLookup);
+                parameterLookup,
+                accessControl);
 
         ConnectorTableMetadata viewMetadata = new ConnectorTableMetadata(
                 toSchemaTableName(viewName),

@@ -20,6 +20,7 @@ import com.facebook.presto.common.predicate.ValueSet;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.planner.ExpressionDomainTranslator.ExtractionResult;
 import com.facebook.presto.sql.tree.BetweenPredicate;
@@ -163,7 +164,7 @@ public class TestExpressionDomainTranslator
     {
         metadata = createTestMetadataManager();
         literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
-        domainTranslator = new ExpressionDomainTranslator(literalEncoder);
+        domainTranslator = new ExpressionDomainTranslator(literalEncoder, new AllowAllAccessControl());
     }
 
     @AfterClass(alwaysRun = true)
@@ -1170,7 +1171,7 @@ public class TestExpressionDomainTranslator
     {
         metadata = createTestMetadataManager(new FunctionsConfig().setLegacyCharToVarcharCoercion(true));
         literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
-        domainTranslator = new ExpressionDomainTranslator(literalEncoder);
+        domainTranslator = new ExpressionDomainTranslator(literalEncoder, new AllowAllAccessControl());
 
         String maxCodePoint = new String(Character.toChars(Character.MAX_CODE_POINT));
 
@@ -1252,7 +1253,7 @@ public class TestExpressionDomainTranslator
 
     private ExtractionResult fromPredicate(Expression originalPredicate)
     {
-        return ExpressionDomainTranslator.fromPredicate(metadata, TEST_SESSION, originalPredicate, TYPES);
+        return ExpressionDomainTranslator.fromPredicate(metadata, TEST_SESSION, originalPredicate, TYPES, new AllowAllAccessControl());
     }
 
     private Expression toPredicate(TupleDomain<String> tupleDomain)

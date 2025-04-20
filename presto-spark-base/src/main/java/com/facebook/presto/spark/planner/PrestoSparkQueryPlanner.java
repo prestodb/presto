@@ -125,7 +125,8 @@ public class PrestoSparkQueryPlanner
                 idAllocator,
                 metadata,
                 variableAllocator,
-                sqlParser);
+                sqlParser,
+                accessControl);
 
         PlanNode planNode = session.getRuntimeStats().recordWallAndCpuTime(
                 LOGICAL_PLANNER_TIME_NANOS,

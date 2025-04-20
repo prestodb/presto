@@ -66,6 +66,7 @@ import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -1014,7 +1015,8 @@ public class PlanBuilder
                 getTypes(),
                 expression,
                 ImmutableMap.of(),
-                WarningCollector.NOOP);
+                WarningCollector.NOOP,
+                new AllowAllAccessControl());
         return SqlToRowExpressionTranslator.translate(
                 expression,
                 expressionTypes,

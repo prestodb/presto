@@ -42,6 +42,7 @@ import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analysis.NamedQuery;
@@ -145,6 +146,7 @@ class RelationPlanner
     private final Session session;
     private final SubqueryPlanner subqueryPlanner;
     private final SqlParser sqlParser;
+    private final AccessControl accessControl;
 
     RelationPlanner(
             Analysis analysis,
@@ -153,7 +155,8 @@ class RelationPlanner
             Map<NodeRef<LambdaArgumentDeclaration>, VariableReferenceExpression> lambdaDeclarationToVariableMap,
             Metadata metadata,
             Session session,
-            SqlParser sqlParser)
+            SqlParser sqlParser,
+            AccessControl accessControl)
     {
         this.analysis = requireNonNull(analysis, "analysis is null");
         this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
@@ -161,8 +164,9 @@ class RelationPlanner
         this.lambdaDeclarationToVariableMap = requireNonNull(lambdaDeclarationToVariableMap, "lambdaDeclarationToVariableMap is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.session = requireNonNull(session, "session is null");
-        this.subqueryPlanner = new SubqueryPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session, sqlParser);
+        this.subqueryPlanner = new SubqueryPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session, sqlParser, accessControl);
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
     @Override
@@ -765,14 +769,14 @@ class RelationPlanner
     @Override
     protected RelationPlan visitQuery(Query node, SqlPlannerContext context)
     {
-        return new QueryPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session, context, sqlParser)
+        return new QueryPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session, context, sqlParser, accessControl)
                 .plan(node);
     }
 
     @Override
     protected RelationPlan visitQuerySpecification(QuerySpecification node, SqlPlannerContext context)
     {
-        return new QueryPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session, context, sqlParser)
+        return new QueryPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session, context, sqlParser, accessControl)
                 .plan(node);
     }
 

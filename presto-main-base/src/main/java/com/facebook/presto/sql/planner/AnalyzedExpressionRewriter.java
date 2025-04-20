@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
@@ -36,13 +37,15 @@ public class AnalyzedExpressionRewriter
     private final Metadata metadata;
     private final SqlParser sqlParser;
     private final TypeProvider typeProvider;
+    private final AccessControl accessControl;
 
-    public AnalyzedExpressionRewriter(Session session, Metadata metadata, SqlParser sqlParser, TypeProvider typeProvider)
+    public AnalyzedExpressionRewriter(Session session, Metadata metadata, SqlParser sqlParser, TypeProvider typeProvider, AccessControl accessControl)
     {
         this.session = session;
         this.metadata = metadata;
         this.sqlParser = sqlParser;
         this.typeProvider = typeProvider;
+        this.accessControl = accessControl;
     }
 
     public Expression rewriteWith(RewriterProvider<Void> rewriterProvider, Expression expression)
@@ -64,7 +67,8 @@ public class AnalyzedExpressionRewriter
                 typeProvider,
                 expression,
                 emptyMap(),
-                WarningCollector.NOOP);
+                WarningCollector.NOOP,
+                accessControl);
         return ExpressionTreeRewriter.rewriteWith(rewriterProvider.get(expressionTypes), expression, context);
     }
 

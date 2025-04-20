@@ -28,6 +28,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.nodeManager.PluginNodeManager;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.security.AccessDeniedException;
+import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
@@ -588,7 +589,8 @@ public abstract class AbstractTestQueryFramework
                 new ExpressionOptimizerManager(
                         new PluginNodeManager(new InMemoryNodeManager()),
                         queryRunner.getMetadata().getFunctionAndTypeManager()),
-                new TaskManagerConfig())
+                new TaskManagerConfig(),
+                new AllowAllAccessControl())
                 .getPlanningTimeOptimizers();
         return new QueryExplainer(
                 optimizers,

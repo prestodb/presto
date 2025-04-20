@@ -45,6 +45,7 @@ import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.ExpressionTreeUtils;
 import com.facebook.presto.sql.analyzer.Field;
@@ -153,6 +154,7 @@ class QueryPlanner
     private final SubqueryPlanner subqueryPlanner;
     private final SqlPlannerContext sqlPlannerContext;
     private final SqlParser sqlParser;
+    private final AccessControl accessControl;
 
     QueryPlanner(
             Analysis analysis,
@@ -162,7 +164,8 @@ class QueryPlanner
             Metadata metadata,
             Session session,
             SqlPlannerContext sqlPlannerContext,
-            SqlParser sqlParser)
+            SqlParser sqlParser,
+            AccessControl accessControl)
     {
         requireNonNull(analysis, "analysis is null");
         requireNonNull(variableAllocator, "variableAllocator is null");
@@ -171,6 +174,7 @@ class QueryPlanner
         requireNonNull(metadata, "metadata is null");
         requireNonNull(session, "session is null");
         requireNonNull(sqlParser, "sqlParser is null");
+        requireNonNull(accessControl, "accessControl is null");
 
         this.analysis = analysis;
         this.variableAllocator = variableAllocator;
@@ -178,9 +182,10 @@ class QueryPlanner
         this.lambdaDeclarationToVariableMap = lambdaDeclarationToVariableMap;
         this.metadata = metadata;
         this.session = session;
-        this.subqueryPlanner = new SubqueryPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session, sqlParser);
+        this.subqueryPlanner = new SubqueryPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session, sqlParser, accessControl);
         this.sqlPlannerContext = sqlPlannerContext;
         this.sqlParser = sqlParser;
+        this.accessControl = accessControl;
     }
 
     public RelationPlan plan(Query query)
@@ -407,7 +412,7 @@ class QueryPlanner
 
     private PlanBuilder planQueryBody(Query query)
     {
-        RelationPlan relationPlan = new RelationPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session, sqlParser)
+        RelationPlan relationPlan = new RelationPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session, sqlParser, accessControl)
                 .process(query.getQueryBody(), sqlPlannerContext);
 
         return planBuilderFor(relationPlan);
@@ -418,7 +423,7 @@ class QueryPlanner
         RelationPlan relationPlan;
 
         if (node.getFrom().isPresent()) {
-            relationPlan = new RelationPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session, sqlParser)
+            relationPlan = new RelationPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session, sqlParser, accessControl)
                     .process(node.getFrom().get(), sqlPlannerContext);
         }
         else {
@@ -759,7 +764,7 @@ class QueryPlanner
                                     aggregate.getName().getSuffix(),
                                     functionHandle,
                                     analysis.getType(aggregate),
-                                    callArgumentsToRowExpression(functionHandle, rewrittenFunction.getArguments())),
+                                    callArgumentsToRowExpression(functionHandle, rewrittenFunction.getArguments(), accessControl)),
                             rewrittenFunction.getFilter().map(expression -> rowExpression(expression, sqlPlannerContext)),
                             rewrittenFunction.getOrderBy().map(orderBy -> toOrderingScheme(orderBy, TypeProvider.viewOf(variableAllocator.getVariables()))),
                             rewrittenFunction.isDistinct(),
@@ -1052,7 +1057,7 @@ class QueryPlanner
                             windowFunction.getName().toString(),
                             functionHandle,
                             returnType,
-                            callArgumentsToRowExpression(functionHandle, ((FunctionCall) rewritten).getArguments())),
+                            callArgumentsToRowExpression(functionHandle, ((FunctionCall) rewritten).getArguments(), accessControl)),
                     frame,
                     windowFunction.isIgnoreNulls());
 
@@ -1310,14 +1315,14 @@ class QueryPlanner
     }
 
     // Special treatment of CallExpression
-    private List<RowExpression> callArgumentsToRowExpression(FunctionHandle functionHandle, List<Expression> arguments)
+    private List<RowExpression> callArgumentsToRowExpression(FunctionHandle functionHandle, List<Expression> arguments, AccessControl accessControl)
     {
         return arguments.stream()
                 .map(expression -> toRowExpression(
                         expression,
                         metadata,
                         session,
-                        analyzeCallExpressionTypes(functionHandle, arguments, metadata, sqlParser, session, TypeProvider.viewOf(variableAllocator.getVariables())),
+                        analyzeCallExpressionTypes(functionHandle, arguments, metadata, sqlParser, session, TypeProvider.viewOf(variableAllocator.getVariables()), accessControl),
                         sqlPlannerContext.getTranslatorContext()))
                 .collect(toImmutableList());
     }

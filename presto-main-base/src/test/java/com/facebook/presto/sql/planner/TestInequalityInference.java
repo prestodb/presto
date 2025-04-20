@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.optimizations.ExpressionEquivalence;
 import com.google.common.collect.ImmutableList;
@@ -43,7 +44,7 @@ public class TestInequalityInference
     private static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = createTestFunctionAndTypeManager();
     private static final SqlParser SQL_PARSER = new SqlParser();
     private static final MetadataManager METADATA = MetadataManager.createTestMetadataManager();
-    private static final ExpressionEquivalence EXPRESSION_EQUIVALENCE = new ExpressionEquivalence(METADATA, SQL_PARSER);
+    private static final ExpressionEquivalence EXPRESSION_EQUIVALENCE = new ExpressionEquivalence(METADATA, SQL_PARSER, new AllowAllAccessControl());
 
     @Test
     public void testCanonicalization()

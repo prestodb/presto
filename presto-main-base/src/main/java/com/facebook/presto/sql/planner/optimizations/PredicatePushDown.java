@@ -48,6 +48,7 @@ import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.relation.ExpressionOptimizerProvider;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.EffectivePredicateExtractor;
 import com.facebook.presto.sql.planner.EqualityInference;
@@ -133,8 +134,9 @@ public class PredicatePushDown
     private final RowExpressionDomainTranslator rowExpressionDomainTranslator;
     private final boolean nativeExecution;
     private final ExpressionOptimizerProvider expressionOptimizerProvider;
+    private final AccessControl accessControl;
 
-    public PredicatePushDown(Metadata metadata, SqlParser sqlParser, ExpressionOptimizerProvider expressionOptimizerProvider, boolean nativeExecution)
+    public PredicatePushDown(Metadata metadata, SqlParser sqlParser, ExpressionOptimizerProvider expressionOptimizerProvider, boolean nativeExecution, AccessControl accessControl)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         rowExpressionDomainTranslator = new RowExpressionDomainTranslator(metadata);
@@ -142,6 +144,7 @@ public class PredicatePushDown
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.expressionOptimizerProvider = requireNonNull(expressionOptimizerProvider, "expressionOptimizerProvider is null");
         this.nativeExecution = nativeExecution;
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
     @Override
@@ -152,7 +155,7 @@ public class PredicatePushDown
         requireNonNull(types, "types is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        Rewriter rewriter = new Rewriter(variableAllocator, idAllocator, metadata, effectivePredicateExtractor, rowExpressionDomainTranslator, expressionOptimizerProvider, sqlParser, session, nativeExecution);
+        Rewriter rewriter = new Rewriter(variableAllocator, idAllocator, metadata, effectivePredicateExtractor, rowExpressionDomainTranslator, expressionOptimizerProvider, sqlParser, session, nativeExecution, accessControl);
         PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, TRUE_CONSTANT);
         return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());
     }
@@ -205,7 +208,8 @@ public class PredicatePushDown
                 ExpressionOptimizerProvider expressionOptimizerProvider,
                 SqlParser sqlParser,
                 Session session,
-                boolean nativeExecution)
+                boolean nativeExecution,
+                AccessControl accessControl)
         {
             this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
@@ -215,7 +219,7 @@ public class PredicatePushDown
             this.expressionOptimizerProvider = requireNonNull(expressionOptimizerProvider, "expressionOptimizerProvider is null");
             this.session = requireNonNull(session, "session is null");
             this.nativeExecution = nativeExecution;
-            this.expressionEquivalence = new ExpressionEquivalence(metadata, sqlParser);
+            this.expressionEquivalence = new ExpressionEquivalence(metadata, sqlParser, accessControl);
             this.determinismEvaluator = new RowExpressionDeterminismEvaluator(metadata);
             this.logicalRowExpressions = new LogicalRowExpressions(determinismEvaluator, new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver()), metadata.getFunctionAndTypeManager());
             this.functionAndTypeManager = metadata.getFunctionAndTypeManager();
