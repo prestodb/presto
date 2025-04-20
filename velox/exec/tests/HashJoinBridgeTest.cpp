@@ -127,12 +127,15 @@ class HashJoinBridgeTest : public testing::Test,
     return files;
   }
 
-  SpillPartitionSet makeFakeSpillPartitionSet(uint8_t partitionBitOffset) {
+  SpillPartitionSet makeFakeSpillPartitionSet(
+      std::optional<SpillPartitionId> parent) {
     SpillPartitionSet partitionSet;
     const int32_t numPartitions =
         std::max<int32_t>(1, randInt(maxNumPartitions_));
     for (int32_t partition = 0; partition < numPartitions; ++partition) {
-      const SpillPartitionId id(partitionBitOffset, partition);
+      const SpillPartitionId id = parent.has_value()
+          ? SpillPartitionId(parent.value(), partition)
+          : SpillPartitionId(partition);
       partitionSet.emplace(
           id,
           std::make_unique<SpillPartition>(
@@ -179,7 +182,7 @@ TEST_P(HashJoinBridgeTest, withoutSpill) {
     VELOX_ASSERT_THROW(joinBridge->spillInputOrFuture(&futures[0]), "");
     VELOX_ASSERT_THROW(
         joinBridge->appendSpilledHashTablePartitions(
-            makeFakeSpillPartitionSet(0)),
+            makeFakeSpillPartitionSet(std::nullopt)),
         "");
 
     // Can't start a bridge without any builders.
@@ -300,15 +303,15 @@ TEST_P(HashJoinBridgeTest, withSpill) {
       int32_t spillLevel = -1;
       if (restoringPartitionId.has_value()) {
         ++numRestoredPartitions;
-        spillLevel =
-            getSpillLevel(restoringPartitionId.value().partitionBitOffset());
+        spillLevel = getSpillLevel(partitionBitOffset(
+            restoringPartitionId.value(),
+            startPartitionBitOffset_,
+            numPartitionBits_));
         if (spillLevel < testData.spillLevel) {
-          spillPartitionSet = makeFakeSpillPartitionSet(
-              restoringPartitionId.value().partitionBitOffset() +
-              numPartitionBits_);
+          spillPartitionSet = makeFakeSpillPartitionSet(restoringPartitionId);
         }
       } else {
-        spillPartitionSet = makeFakeSpillPartitionSet(startPartitionBitOffset_);
+        spillPartitionSet = makeFakeSpillPartitionSet(std::nullopt);
       }
 
       bool spillByProber{false};
@@ -369,7 +372,7 @@ TEST_P(HashJoinBridgeTest, withSpill) {
           "Spilled table partitions can't be empty");
       VELOX_ASSERT_THROW(
           joinBridge->appendSpilledHashTablePartitions(
-              makeFakeSpillPartitionSet(0)),
+              makeFakeSpillPartitionSet(std::nullopt)),
           "");
 
       if (!hasMoreSpill) {
@@ -448,13 +451,19 @@ TEST_P(HashJoinBridgeTest, multiThreading) {
             if (oneIn(10)) {
               joinBridge->setAntiJoinHasNullKeys();
             } else {
-              auto partitionBitOffset = restoringPartitionId.has_value()
-                  ? restoringPartitionId->partitionBitOffset() +
+              auto bitOffset = restoringPartitionId.has_value()
+                  ? partitionBitOffset(
+                        restoringPartitionId.value(),
+                        startPartitionBitOffset_,
+                        numPartitionBits_) +
                       numPartitionBits_
                   : startPartitionBitOffset_;
-              if (partitionBitOffset < 64 && oneIn(2)) {
+              if (bitOffset < startPartitionBitOffset_ +
+                          numPartitionBits_ *
+                              (SpillPartitionId::kMaxSpillLevel + 1) &&
+                  oneIn(2)) {
                 auto spillPartitionSet =
-                    makeFakeSpillPartitionSet(partitionBitOffset);
+                    makeFakeSpillPartitionSet(restoringPartitionId);
                 joinBridge->setHashTable(
                     createFakeHashTable(),
                     std::move(spillPartitionSet),

@@ -204,8 +204,13 @@ void HashBuild::setupSpiller(SpillPartition* spillPartition) {
   if (spillPartition != nullptr) {
     spillInputReader_ = spillPartition->createUnorderedReader(
         config->readBufferSize, pool(), &spillStats_);
+    VELOX_CHECK(!restoringPartitionId_.has_value());
+    restoringPartitionId_ = spillPartition->id();
+    const auto numPartitionBits = config->numPartitionBits;
     startPartitionBit =
-        spillPartition->id().partitionBitOffset() + config->numPartitionBits;
+        partitionBitOffset(
+            spillPartition->id(), startPartitionBit, numPartitionBits) +
+        numPartitionBits;
     // Disable spilling if exceeding the max spill level and the query might run
     // out of memory if the restored partition still can't fit in memory.
     if (config->exceedSpillLevelLimit(startPartitionBit)) {
@@ -222,6 +227,7 @@ void HashBuild::setupSpiller(SpillPartition* spillPartition) {
 
   spiller_ = std::make_unique<HashBuildSpiller>(
       joinType_,
+      restoringPartitionId_,
       table_->rows(),
       spillType_,
       HashBitRange(
@@ -764,12 +770,18 @@ bool HashBuild::finishHashBuild() {
   if (canReclaim()) {
     VELOX_CHECK_NOT_NULL(spiller_);
     tableSpillFunc = [hashBitRange = spiller_->hashBits(),
+                      restoringPartitionId = restoringPartitionId_,
                       joinNode = joinNode_,
                       spillConfig = spillConfig(),
                       spillStats =
                           &spillStats_](std::shared_ptr<BaseHashTable> table) {
       return spillHashJoinTable(
-          table, hashBitRange, joinNode, spillConfig, spillStats);
+          table,
+          restoringPartitionId,
+          hashBitRange,
+          joinNode,
+          spillConfig,
+          spillStats);
     };
   }
   joinBridge_->setHashTable(
@@ -854,6 +866,7 @@ void HashBuild::setupSpillInput(HashJoinBridge::SpillInput spillInput) {
   table_.reset();
   spiller_.reset();
   spillInputReader_.reset();
+  restoringPartitionId_.reset();
 
   // Reset the key and dependent channels as the spilled data columns have
   // already been ordered.
@@ -1140,6 +1153,7 @@ void HashBuild::close() {
 
 HashBuildSpiller::HashBuildSpiller(
     core::JoinType joinType,
+    std::optional<SpillPartitionId> parentId,
     RowContainer* container,
     RowTypePtr rowType,
     HashBitRange bits,
@@ -1153,6 +1167,7 @@ HashBuildSpiller::HashBuildSpiller(
           {},
           spillConfig->maxFileSize,
           spillConfig->maxSpillRunRows,
+          parentId,
           spillConfig,
           spillStats),
       spillProbeFlag_(needRightSideJoin(joinType)) {

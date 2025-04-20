@@ -706,6 +706,11 @@ class HashProbe : public Operator {
   // corresponding spilled data on disk.
   std::unique_ptr<UnorderedStreamReader<BatchStream>> spillInputReader_;
 
+  // The spill partition id for the currently restoring input partition,
+  // corresponding to 'spillInputReader_'. Not set if hash probe hasn't spilled
+  // yet.
+  std::optional<SpillPartitionId> restoringPartitionId_;
+
   // Sets to true after read all the probe inputs from 'spillInputReader_'.
   bool noMoreSpillInput_{false};
 

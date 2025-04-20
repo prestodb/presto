@@ -246,6 +246,7 @@ std::vector<std::unique_ptr<HashJoinTableSpillResult>> spillHashJoinTable(
 /// hash probe or hash join bridge to spill a fully built table.
 SpillPartitionSet spillHashJoinTable(
     std::shared_ptr<BaseHashTable> table,
+    std::optional<SpillPartitionId> parentId,
     const HashBitRange& hashBitRange,
     const std::shared_ptr<const core::HashJoinNode>& joinNode,
     const common::SpillConfig* spillConfig,

@@ -289,6 +289,9 @@ class HashBuild final : public Operator {
 
   // Used to read input from previously spilled data for restoring.
   std::unique_ptr<UnorderedStreamReader<BatchStream>> spillInputReader_;
+  // The spill partition id for the currently restoring partition. Not set if
+  // build hasn't spilled yet.
+  std::optional<SpillPartitionId> restoringPartitionId_;
   // Vector used to read from spilled input with type of 'spillType_'.
   RowVectorPtr spillInput_;
 
@@ -324,6 +327,7 @@ class HashBuildSpiller : public SpillerBase {
 
   HashBuildSpiller(
       core::JoinType joinType,
+      std::optional<SpillPartitionId> parentId,
       RowContainer* container,
       RowTypePtr rowType,
       HashBitRange bits,

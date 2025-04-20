@@ -36,6 +36,7 @@ SpillerBase::SpillerBase(
     const std::vector<CompareFlags>& sortCompareFlags,
     uint64_t targetFileSize,
     uint64_t maxSpillRunRows,
+    std::optional<SpillPartitionId> parentId,
     const common::SpillConfig* spillConfig,
     folly::Synchronized<common::SpillStats>* spillStats)
     : container_(container),
@@ -43,6 +44,7 @@ SpillerBase::SpillerBase(
       bits_(bits),
       rowType_(rowType),
       maxSpillRunRows_(maxSpillRunRows),
+      parentId_(parentId),
       spillStats_(spillStats),
       state_(
           spillConfig->getSpillDirPathCb,
@@ -68,6 +70,7 @@ SpillerBase::SpillerBase(
 
 NoRowContainerSpiller::NoRowContainerSpiller(
     RowTypePtr rowType,
+    std::optional<SpillPartitionId> parentId,
     HashBitRange bits,
     const common::SpillConfig* spillConfig,
     folly::Synchronized<common::SpillStats>* spillStats)
@@ -79,6 +82,7 @@ NoRowContainerSpiller::NoRowContainerSpiller(
           {},
           spillConfig->maxFileSize,
           0,
+          parentId,
           spillConfig,
           spillStats) {}
 
@@ -347,7 +351,9 @@ void SpillerBase::finishSpill(SpillPartitionSet& partitionSet) {
   finalizeSpill();
 
   for (auto& partition : state_.spilledPartitionSet()) {
-    const SpillPartitionId partitionId(bits_.begin(), partition);
+    const SpillPartitionId partitionId = parentId_.has_value()
+        ? SpillPartitionId(parentId_.value(), partition)
+        : SpillPartitionId(partition);
     if (partitionSet.count(partitionId) == 0) {
       partitionSet.emplace(
           partitionId,
@@ -421,6 +427,7 @@ SortOutputSpiller::SortOutputSpiller(
           {},
           std::numeric_limits<uint64_t>::max(),
           spillConfig->maxSpillRunRows,
+          std::nullopt,
           spillConfig,
           spillStats) {}
 

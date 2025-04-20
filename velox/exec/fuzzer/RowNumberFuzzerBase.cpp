@@ -53,7 +53,7 @@ DEFINE_bool(enable_spill, true, "Whether to test plans with spilling enabled.");
 DEFINE_int32(
     max_spill_level,
     -1,
-    "Max spill level, -1 means random [0, 7], otherwise the actual level.");
+    "Max spill level, -1 means random [0, 3], otherwise the actual level.");
 
 DEFINE_bool(
     enable_oom_injection,
@@ -257,7 +257,7 @@ void RowNumberFuzzerBase::testPlan(
   if (FLAGS_enable_spill) {
     LOG(INFO) << "Testing plan #" << testNumber << " with spilling";
     const auto fuzzMaxSpillLevel =
-        FLAGS_max_spill_level == -1 ? randInt(0, 7) : FLAGS_max_spill_level;
+        FLAGS_max_spill_level == -1 ? randInt(0, 3) : FLAGS_max_spill_level;
     actual = execute(
         plan,
         pool_,

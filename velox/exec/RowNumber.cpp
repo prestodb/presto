@@ -118,6 +118,7 @@ void RowNumber::restoreNextSpillPartition() {
   }
 
   auto it = spillInputPartitionSet_.begin();
+  restoringPartitionId_ = it->first;
   spillInputReader_ = it->second->createUnorderedReader(
       spillConfig_->readBufferSize, pool(), &spillStats_);
 
@@ -326,7 +327,8 @@ RowVectorPtr RowNumber::getOutput() {
     if (spillInputReader_->nextBatch(unspilledInput)) {
       addInput(std::move(unspilledInput));
     } else {
-      spillInputReader_ = nullptr;
+      spillInputReader_.reset();
+      restoringPartitionId_.reset();
       table_->clear(/*freeTable=*/true);
       restoreNextSpillPartition();
     }
@@ -402,6 +404,7 @@ SpillPartitionNumSet RowNumber::spillHashTable() {
 
   auto hashTableSpiller = std::make_unique<RowNumberHashTableSpiller>(
       table_->rows(),
+      restoringPartitionId_,
       tableType,
       spillPartitionBits_,
       &spillConfig,
@@ -422,7 +425,11 @@ void RowNumber::setupInputSpiller(
   const auto& spillConfig = spillConfig_.value();
 
   inputSpiller_ = std::make_unique<NoRowContainerSpiller>(
-      inputType_, spillPartitionBits_, &spillConfig, &spillStats_);
+      inputType_,
+      restoringPartitionId_,
+      spillPartitionBits_,
+      &spillConfig,
+      &spillStats_);
   inputSpiller_->setPartitionsSpilled(spillPartitionSet);
 
   const auto& hashers = table_->hashers();
@@ -515,7 +522,10 @@ void RowNumber::setSpillPartitionBits(
     const SpillPartitionId* restoredPartitionId) {
   const auto startPartitionBitOffset = restoredPartitionId == nullptr
       ? spillConfig_->startPartitionBit
-      : restoredPartitionId->partitionBitOffset() +
+      : partitionBitOffset(
+            *restoredPartitionId,
+            spillConfig_->startPartitionBit,
+            spillConfig_->numPartitionBits) +
           spillConfig_->numPartitionBits;
   if (spillConfig_->exceedSpillLevelLimit(startPartitionBitOffset)) {
     exceededMaxSpillLevelLimit_ = true;
@@ -530,6 +540,7 @@ void RowNumber::setSpillPartitionBits(
 
 RowNumberHashTableSpiller::RowNumberHashTableSpiller(
     RowContainer* container,
+    std::optional<SpillPartitionId> parentId,
     RowTypePtr rowType,
     HashBitRange bits,
     const common::SpillConfig* spillConfig,
@@ -542,6 +553,7 @@ RowNumberHashTableSpiller::RowNumberHashTableSpiller(
           {},
           spillConfig->maxFileSize,
           spillConfig->maxSpillRunRows,
+          parentId,
           spillConfig,
           spillStats) {}
 

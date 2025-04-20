@@ -339,6 +339,107 @@ void FileSpillMergeStream::close() {
   spillFile_.reset();
 }
 
+SpillPartitionId::SpillPartitionId(uint32_t partitionNumber)
+    : encodedId_(partitionNumber) {
+  if (FOLLY_UNLIKELY(partitionNumber >= kMaxPartitionNum)) {
+    VELOX_FAIL(fmt::format(
+        "Partition number {} exceeds max partition number {}",
+        partitionNumber,
+        kMaxPartitionNum));
+  }
+}
+
+SpillPartitionId::SpillPartitionId(
+    SpillPartitionId parent,
+    uint32_t partitionNumber) {
+  const auto childSpillLevel = parent.spillLevel() + 1;
+  if (FOLLY_UNLIKELY(childSpillLevel > kMaxSpillLevel)) {
+    VELOX_FAIL(fmt::format(
+        "Spill level {} exceeds max spill level {}",
+        childSpillLevel,
+        kMaxSpillLevel));
+  }
+  encodedId_ = parent.encodedId_;
+  encodedId_ = encodedId_ & ~kSpillLevelBitMask;
+
+  // Set spill levels.
+  encodedId_ |= childSpillLevel << kSpillLevelBitOffset;
+
+  // Set partition number.
+  encodedId_ |= partitionNumber << (kNumPartitionBits * childSpillLevel);
+}
+
+bool SpillPartitionId::operator==(const SpillPartitionId& other) const {
+  return encodedId_ == other.encodedId_;
+}
+
+bool SpillPartitionId::operator!=(const SpillPartitionId& other) const {
+  return !(*this == other);
+}
+
+bool SpillPartitionId::operator<(const SpillPartitionId& other) const {
+  if (spillLevel() != other.spillLevel()) {
+    return spillLevel() > other.spillLevel();
+  }
+
+  for (int32_t level = spillLevel(); level >= 0; --level) {
+    if (partitionNumber(level) != other.partitionNumber(level)) {
+      return partitionNumber(level) < other.partitionNumber(level);
+    }
+  }
+  return false;
+}
+
+std::string SpillPartitionId::toString() const {
+  std::stringstream ss;
+  ss << "[levels: " << (spillLevel() + 1) << ", partitions: [";
+  for (auto i = 0; i <= spillLevel(); ++i) {
+    ss << partitionNumber(i);
+    if (i < spillLevel()) {
+      ss << ",";
+    }
+  }
+  ss << "]]";
+  return ss.str();
+}
+
+uint32_t SpillPartitionId::spillLevel() const {
+  return bits::extractBits(encodedId_, kSpillLevelBitMask);
+}
+
+uint32_t SpillPartitionId::partitionNumber() const {
+  return bits::extractBits(
+      encodedId_, kPartitionBitMask << (spillLevel() * kNumPartitionBits));
+}
+
+/// Overloaded method that returns the partition number of the requested spill
+/// level.
+uint32_t SpillPartitionId::partitionNumber(uint32_t level) const {
+  const auto leafLevel = spillLevel();
+  if (FOLLY_UNLIKELY(level > leafLevel)) {
+    VELOX_FAIL(
+        "spillLevel needs to be equal or smaller than leaf level {} vs {}",
+        level,
+        leafLevel);
+  }
+  return bits::extractBits(
+      encodedId_, kPartitionBitMask << (level * kNumPartitionBits));
+}
+
+uint32_t SpillPartitionId::encodedId() const {
+  return encodedId_;
+}
+
+uint8_t partitionBitOffset(
+    const SpillPartitionId& id,
+    uint8_t startPartitionBitOffset,
+    uint8_t numPartitionBits) {
+  const auto partitionOffset =
+      startPartitionBitOffset + numPartitionBits * id.spillLevel();
+  VELOX_CHECK_LE(startPartitionBitOffset, partitionOffset);
+  return partitionOffset;
+}
+
 SpillPartitionIdSet toSpillPartitionIdSet(
     const SpillPartitionSet& partitionSet) {
   SpillPartitionIdSet partitionIdSet;

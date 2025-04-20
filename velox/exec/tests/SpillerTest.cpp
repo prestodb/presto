@@ -616,6 +616,8 @@ class SpillerTest : public exec::test::RowContainerTestBase {
     stats_.clear();
     spillStats_ = folly::Synchronized<common::SpillStats>();
 
+    spillConfig_.startPartitionBit = hashBits_.begin();
+    spillConfig_.numPartitionBits = hashBits_.numBits();
     spillConfig_.getSpillDirPathCb = makeError ? badSpillDirCb : tempSpillDirCb;
     spillConfig_.updateAndCheckSpillLimitCb = [&](uint64_t) {};
     spillConfig_.fileNamePrefix = "prefix";
@@ -633,7 +635,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
 
     if (type_ == SpillerType::NO_ROW_CONTAINER) {
       spiller_ = std::make_unique<NoRowContainerSpiller>(
-          rowType_, hashBits_, &spillConfig_, &spillStats_);
+          rowType_, std::nullopt, hashBits_, &spillConfig_, &spillStats_);
     } else if (type_ == SpillerType::SORT_INPUT) {
       spiller_ = std::make_unique<SortInputSpiller>(
           rowContainer_.get(),
@@ -648,6 +650,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
     } else if (type_ == SpillerType::HASH_BUILD) {
       spiller_ = std::make_unique<HashBuildSpiller>(
           joinType_,
+          std::nullopt,
           rowContainer_.get(),
           rowType_,
           hashBits_,
@@ -668,6 +671,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
     } else if (type_ == SpillerType::ROW_NUMBER_HASH_TABLE) {
       spiller_ = std::make_unique<RowNumberHashTableSpiller>(
           rowContainer_.get(),
+          std::nullopt,
           rowType_,
           hashBits_,
           &spillConfig_,
@@ -1030,7 +1034,11 @@ class SpillerTest : public exec::test::RowContainerTestBase {
     for (auto& spillPartitionEntry : spillPartitionSet) {
       const int partition = spillPartitionEntry.first.partitionNumber();
       ASSERT_EQ(
-          hashBits_.begin(), spillPartitionEntry.first.partitionBitOffset());
+          hashBits_.begin(),
+          partitionBitOffset(
+              spillPartitionEntry.first,
+              spillConfig_.startPartitionBit,
+              spillConfig_.numPartitionBits));
       auto reader = spillPartitionEntry.second->createUnorderedReader(
           spillConfig_.readBufferSize, pool(), &spillStats_);
       if (type_ == SpillerType::NO_ROW_CONTAINER) {
@@ -1108,7 +1116,11 @@ class SpillerTest : public exec::test::RowContainerTestBase {
     for (auto& spillPartitionEntry : spillPartitionSet) {
       const int partition = spillPartitionEntry.first.partitionNumber();
       ASSERT_EQ(
-          hashBits_.begin(), spillPartitionEntry.first.partitionBitOffset());
+          hashBits_.begin(),
+          partitionBitOffset(
+              spillPartitionEntry.first,
+              spillConfig_.startPartitionBit,
+              spillConfig_.numPartitionBits));
       auto reader = spillPartitionEntry.second->createUnorderedReader(
           spillConfig_.readBufferSize, pool(), &spillStats_);
       if (type_ == SpillerType::NO_ROW_CONTAINER) {

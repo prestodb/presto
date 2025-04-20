@@ -1537,6 +1537,7 @@ AggregationInputSpiller::AggregationInputSpiller(
           sortCompareFlags,
           std::numeric_limits<uint64_t>::max(),
           spillConfig->maxSpillRunRows,
+          std::nullopt,
           spillConfig,
           spillStats) {}
 
@@ -1553,6 +1554,7 @@ AggregationOutputSpiller::AggregationOutputSpiller(
           {},
           std::numeric_limits<uint64_t>::max(),
           spillConfig->maxSpillRunRows,
+          std::nullopt,
           spillConfig,
           spillStats) {}
 

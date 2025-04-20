@@ -31,6 +31,7 @@ class SpillerBase {
 
   virtual ~SpillerBase() = default;
 
+  /// Finishes the current spiller.
   void finishSpill(SpillPartitionSet& partitionSet);
 
   const HashBitRange& hashBits() const {
@@ -58,6 +59,7 @@ class SpillerBase {
       const std::vector<CompareFlags>& sortCompareFlags,
       uint64_t targetFileSize,
       uint64_t maxSpillRunRows,
+      std::optional<SpillPartitionId> parentId,
       const common::SpillConfig* spillConfig,
       folly::Synchronized<common::SpillStats>* spillStats);
 
@@ -141,6 +143,8 @@ class SpillerBase {
 
   const uint64_t maxSpillRunRows_;
 
+  const std::optional<SpillPartitionId> parentId_;
+
   folly::Synchronized<common::SpillStats>* const spillStats_;
 
   // True if all rows of spilling partitions are in 'spillRuns_', so
@@ -195,6 +199,7 @@ class NoRowContainerSpiller : public SpillerBase {
 
   NoRowContainerSpiller(
       RowTypePtr rowType,
+      std::optional<SpillPartitionId> parentId,
       HashBitRange bits,
       const common::SpillConfig* spillConfig,
       folly::Synchronized<common::SpillStats>* spillStats);
@@ -236,6 +241,7 @@ class SortInputSpiller : public SpillerBase {
             sortCompareFlags,
             std::numeric_limits<uint64_t>::max(),
             spillConfig->maxSpillRunRows,
+            std::nullopt,
             spillConfig,
             spillStats) {}
 
