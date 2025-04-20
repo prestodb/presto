@@ -133,3 +133,15 @@ TEST(UtilsTest, general) {
   EXPECT_EQ("2021-05-20T19:18:27.001Z", util::toISOTimestamp(1621538307001l));
   EXPECT_EQ("2021-05-20T19:18:27.000Z", util::toISOTimestamp(1621538307000l));
 }
+
+TEST(UtilsTest, extractMessageBody) {
+  std::vector<std::unique_ptr<folly::IOBuf>> body;
+  body.push_back(folly::IOBuf::copyBuffer("body1"));
+  body.push_back(folly::IOBuf::copyBuffer("body2"));
+  body.push_back(folly::IOBuf::copyBuffer("body3"));
+  auto iobuf = folly::IOBuf::copyBuffer("body4");
+  iobuf->appendToChain(folly::IOBuf::copyBuffer("body5"));
+  body.push_back(std::move(iobuf));
+  auto messageBody = util::extractMessageBody(body);
+  EXPECT_EQ(messageBody, "body1body2body3body4body5");
+}

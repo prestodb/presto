@@ -14,6 +14,7 @@
 
 #include "presto_cpp/main/common/Utils.h"
 #include <fmt/format.h>
+#include <folly/io/Cursor.h>
 #include <sys/resource.h>
 #include "velox/common/process/ThreadDebugInfo.h"
 
@@ -66,12 +67,20 @@ void installSignalHandler() {
 
 std::string extractMessageBody(
     const std::vector<std::unique_ptr<folly::IOBuf>>& body) {
-  // TODO Avoid copy
-  std::ostringstream oss;
-  for (auto& buf : body) {
-    oss << std::string(
-        reinterpret_cast<const char*>(buf->data()), buf->length());
+  std::string ret;
+  size_t bodySize = 0;
+  for (const auto& buf : body) {
+    bodySize += buf->computeChainDataLength();
   }
-  return oss.str();
+  ret.resize(bodySize);
+
+  size_t offset = 0;
+  for (const auto& buf : body) {
+    folly::io::Cursor cursor(buf.get());
+    size_t chainLength = buf->computeChainDataLength();
+    cursor.pull(ret.data() + offset, chainLength);
+    offset += chainLength;
+  }
+  return ret;
 }
 } // namespace facebook::presto::util
