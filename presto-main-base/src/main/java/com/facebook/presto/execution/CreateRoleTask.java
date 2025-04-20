@@ -45,7 +45,7 @@ public class CreateRoleTask
     }
 
     @Override
-    public ListenableFuture<?> execute(CreateRole statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
+    public ListenableFuture<?> execute(CreateRole statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector, String query)
     {
         String catalog = createCatalogName(session, statement);
         String role = statement.getName().getValueLowerCase();

@@ -53,7 +53,7 @@ public class TestCreateFunctionTask
         CreateFunction statement = (CreateFunction) parser.createStatement(sqlString, ParsingOptions.builder().build());
         TransactionManager transactionManager = createTestTransactionManager();
         QueryStateMachine stateMachine = createQueryStateMachine(sqlString, TEST_SESSION, false, transactionManager, executorService, metadataManager);
-        new CreateFunctionTask(parser).execute(statement, transactionManager, metadataManager, new AllowAllAccessControl(), stateMachine, emptyList());
+        new CreateFunctionTask(parser).execute(statement, transactionManager, metadataManager, new AllowAllAccessControl(), stateMachine, emptyList(), sqlString);
         assertEquals(stateMachine.getAddedSessionFunctions().size(), 1);
     }
 
@@ -65,7 +65,7 @@ public class TestCreateFunctionTask
         CreateFunction statement = (CreateFunction) parser.createStatement(sqlString, ParsingOptions.builder().build());
         TransactionManager transactionManager = createTestTransactionManager();
         QueryStateMachine stateMachine = createQueryStateMachine(sqlString, TEST_SESSION, false, transactionManager, executorService, metadataManager);
-        new CreateFunctionTask(parser).execute(statement, transactionManager, metadataManager, new AllowAllAccessControl(), stateMachine, emptyList());
-        new CreateFunctionTask(parser).execute(statement, transactionManager, metadataManager, new AllowAllAccessControl(), stateMachine, emptyList());
+        new CreateFunctionTask(parser).execute(statement, transactionManager, metadataManager, new AllowAllAccessControl(), stateMachine, emptyList(), sqlString);
+        new CreateFunctionTask(parser).execute(statement, transactionManager, metadataManager, new AllowAllAccessControl(), stateMachine, emptyList(), sqlString);
     }
 }

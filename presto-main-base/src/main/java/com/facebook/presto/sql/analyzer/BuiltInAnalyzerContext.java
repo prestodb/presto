@@ -24,9 +24,9 @@ public class BuiltInAnalyzerContext
 {
     private final Session session;
 
-    public BuiltInAnalyzerContext(MetadataResolver metadataResolver, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, Session session)
+    public BuiltInAnalyzerContext(MetadataResolver metadataResolver, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, Session session, String query)
     {
-        super(metadataResolver, idAllocator, variableAllocator);
+        super(metadataResolver, idAllocator, variableAllocator, query);
         this.session = session;
     }
 

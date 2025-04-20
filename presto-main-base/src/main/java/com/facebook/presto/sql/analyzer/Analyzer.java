@@ -59,6 +59,7 @@ public class Analyzer
     private final Map<NodeRef<Parameter>, Expression> parameterLookup;
     private final WarningCollector warningCollector;
     private final MetadataExtractor metadataExtractor;
+    private final String query;
 
     public Analyzer(
             Session session,
@@ -68,9 +69,10 @@ public class Analyzer
             Optional<QueryExplainer> queryExplainer,
             List<Expression> parameters,
             Map<NodeRef<Parameter>, Expression> parameterLookup,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            String query)
     {
-        this(session, metadata, sqlParser, accessControl, queryExplainer, parameters, parameterLookup, warningCollector, Optional.empty());
+        this(session, metadata, sqlParser, accessControl, queryExplainer, parameters, parameterLookup, warningCollector, Optional.empty(), query);
     }
 
     public Analyzer(
@@ -82,7 +84,8 @@ public class Analyzer
             List<Expression> parameters,
             Map<NodeRef<Parameter>, Expression> parameterLookup,
             WarningCollector warningCollector,
-            Optional<ExecutorService> metadataExtractorExecutor)
+            Optional<ExecutorService> metadataExtractorExecutor,
+            String query)
     {
         this.session = requireNonNull(session, "session is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -94,6 +97,7 @@ public class Analyzer
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         requireNonNull(metadataExtractorExecutor, "metadataExtractorExecutor is null");
         this.metadataExtractor = new MetadataExtractor(session, metadata, metadataExtractorExecutor, sqlParser, warningCollector);
+        this.query = requireNonNull(query, "query is null");
     }
 
     public Analysis analyze(Statement statement)
@@ -111,7 +115,7 @@ public class Analyzer
 
     public Analysis analyzeSemantic(Statement statement, boolean isDescribe)
     {
-        Statement rewrittenStatement = StatementRewrite.rewrite(session, metadata, sqlParser, queryExplainer, statement, parameters, parameterLookup, accessControl, warningCollector);
+        Statement rewrittenStatement = StatementRewrite.rewrite(session, metadata, sqlParser, queryExplainer, statement, parameters, parameterLookup, accessControl, warningCollector, query);
         Analysis analysis = new Analysis(rewrittenStatement, parameterLookup, isDescribe, new AccessControlInfo(accessControl, session.getIdentity(), Optional.empty(), session.getAccessControlContext()));
 
         metadataExtractor.populateMetadataHandle(session, rewrittenStatement, analysis.getMetadataHandle());

@@ -54,7 +54,8 @@ public class UseTask
             Metadata metadata,
             AccessControl accessControl,
             QueryStateMachine stateMachine,
-            List<Expression> parameters)
+            List<Expression> parameters,
+            String query)
     {
         Session session = stateMachine.getSession();
 

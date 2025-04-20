@@ -93,8 +93,8 @@ public class AccessControlCheckerExecution
         this.slug = requireNonNull(slug, "slug is null");
         this.retryCount = retryCount;
         this.timeoutThreadExecutor = requireNonNull(timeoutThreadExecutor, "timeoutThreadExecutor is null");
-        this.analyzerContext = getAnalyzerContext(queryAnalyzer, metadata.getMetadataResolver(stateMachine.getSession()), new PlanNodeIdAllocator(), new VariableAllocator(), stateMachine.getSession());
         this.query = requireNonNull(query, "query is null");
+        this.analyzerContext = getAnalyzerContext(queryAnalyzer, metadata.getMetadataResolver(stateMachine.getSession()), new PlanNodeIdAllocator(), new VariableAllocator(), stateMachine.getSession(), query);
     }
 
     @Override
