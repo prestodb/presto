@@ -109,7 +109,7 @@ public class Analyzer
     public Analysis analyze(Statement statement, boolean isDescribe)
     {
         Analysis analysis = analyzeSemantic(statement, isDescribe);
-        checkAccessPermissions(analysis.getAccessControlReferences(), getFormattedSql(statement, sqlParser, Optional.empty()));
+        checkAccessPermissions(analysis.getAccessControlReferences(), query);
         return analysis;
     }
 
