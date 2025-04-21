@@ -80,7 +80,7 @@ public class NativeSidecarExpressionInterpreter
                     createJsonResponseHandler(rowExpressionSerde));
         }
         catch (Exception e) {
-            throw new PrestoException(INVALID_ARGUMENTS, "Failed to get expressions from sidecar.", e);
+            throw new PrestoException(INVALID_ARGUMENTS, "Failed to get optimized expressions from sidecar.", e);
         }
 
         checkArgument(
