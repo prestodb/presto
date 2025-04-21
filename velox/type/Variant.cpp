@@ -866,11 +866,6 @@ uint64_t variant::hash<TypeKind::MAP>() const {
       folly::Hash{}, combinedKeyHash, combinedValueHash);
 }
 
-template <>
-uint64_t variant::hash<TypeKind::OPAQUE>() const {
-  VELOX_NYI();
-}
-
 uint64_t variant::hash() const {
   if (isNull()) {
     return folly::Hash{}(static_cast<int32_t>(kind_));
@@ -1037,3 +1032,16 @@ void variant::verifyArrayElements(const std::vector<variant>& inputs) {
 }
 
 } // namespace facebook::velox
+
+namespace folly {
+
+// For opaque values, we hash the shared_ptr<void> which will hash the
+// underlying pointer.
+template <>
+struct hasher<facebook::velox::detail::OpaqueCapsule> {
+  size_t operator()(const facebook::velox::detail::OpaqueCapsule& key) const {
+    return Hash()(key.obj);
+  }
+};
+
+} // namespace folly
