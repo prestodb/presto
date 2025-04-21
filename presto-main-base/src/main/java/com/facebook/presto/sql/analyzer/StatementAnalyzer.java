@@ -1435,7 +1435,7 @@ class StatementAnalyzer
             // proper columns first
             if (properColumnsDescriptor != null) {
                 properColumnsDescriptor.getFields().stream()
-                        // per spec, field names are mandatory
+                        // per spec, field names are mandatory. We support anonymous fields.
                         .map(field -> Field.newUnqualified(Optional.empty(), field.getName(), field.getType().orElseThrow(() -> new IllegalStateException("missing returned type for proper field"))))
                         .forEach(fields::add);
             }

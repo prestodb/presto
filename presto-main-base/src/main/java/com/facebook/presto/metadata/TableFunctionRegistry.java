@@ -98,6 +98,9 @@ public class TableFunctionRegistry
         String currentSchema = session.getSchema()
                 .orElseThrow(() -> new SemanticException(SCHEMA_NOT_SPECIFIED, "Schema must be specified when session schema is not set"));
 
+        // TODO: Temp add builtin.
+        names.add(new CatalogSchemaFunctionName("system", "builtin", parts.get(0)));
+
         // add resolved path items
         names.add(new CatalogSchemaFunctionName(currentCatalog, currentSchema, parts.get(0)));
         return names.build();

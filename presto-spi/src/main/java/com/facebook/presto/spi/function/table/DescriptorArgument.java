@@ -19,6 +19,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.function.table.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -37,6 +38,9 @@ public class DescriptorArgument
     private DescriptorArgument(@JsonProperty("descriptor") Optional<Descriptor> descriptor)
     {
         this.descriptor = requireNonNull(descriptor, "descriptor is null");
+        descriptor.ifPresent(descriptorValue -> checkArgument(
+                descriptorValue.getFields().stream().allMatch(field -> field.getName().isPresent()),
+                "All fields of a descriptor argument must have names"));
     }
 
     @JsonProperty

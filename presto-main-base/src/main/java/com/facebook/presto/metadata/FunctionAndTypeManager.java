@@ -103,6 +103,7 @@ import static com.facebook.presto.metadata.CastType.toOperatorType;
 import static com.facebook.presto.metadata.FunctionSignatureMatcher.constructFunctionNotFoundErrorMessage;
 import static com.facebook.presto.metadata.SessionFunctionHandle.SESSION_NAMESPACE;
 import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
+import static com.facebook.presto.operator.table.ExcludeColumns.getExcludeColumnsFunctionProcessorProvider;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
@@ -189,6 +190,7 @@ public class FunctionAndTypeManager
         this.defaultNamespace = configureDefaultNamespace(functionsConfig.getDefaultNamespacePrefix());
         this.servingTypeManager = new AtomicReference<>(builtInTypeAndFunctionNamespaceManager);
         this.servingTypeManagerParametricTypesSupplier = new AtomicReference<>(this::getServingTypeManagerParametricTypes);
+        this.getTableFunctionProcessorProvider = Optional.empty();
     }
 
     public static FunctionAndTypeManager createTestFunctionAndTypeManager()
@@ -624,8 +626,12 @@ public class FunctionAndTypeManager
         return functionNamespaceManager.get().getScalarFunctionImplementation(functionHandle);
     }
 
-    public Optional<Function<SchemaFunctionName, TableFunctionProcessorProvider>> getTableFunctionProcessorProvider()
+    public Optional<Function<SchemaFunctionName, TableFunctionProcessorProvider>> getTableFunctionProcessorProvider(TableFunctionHandle tableFunctionHandle)
     {
+        //TODO: Temporary code for table function provider.
+        if (new SchemaFunctionName("builtin", "exclude_columns").equals(tableFunctionHandle.getSchemaFunctionName())) {
+            return Optional.of(dump -> getExcludeColumnsFunctionProcessorProvider());
+        }
         return getTableFunctionProcessorProvider;
     }
 

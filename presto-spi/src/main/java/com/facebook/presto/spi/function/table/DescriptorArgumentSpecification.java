@@ -13,12 +13,17 @@
  */
 package com.facebook.presto.spi.function.table;
 
+import static com.facebook.presto.spi.function.table.Preconditions.checkArgument;
+
 public class DescriptorArgumentSpecification
         extends ArgumentSpecification
 {
     private DescriptorArgumentSpecification(String name, boolean required, Descriptor defaultValue)
     {
         super(name, required, defaultValue);
+        checkArgument(
+                defaultValue == null || defaultValue.getFields().stream().allMatch(field -> field.getName().isPresent()),
+                "All fields of a descriptor argument must have names");
     }
 
     public static Builder builder()

@@ -1232,7 +1232,7 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitTableFunctionProcessor(TableFunctionProcessorNode node, LocalExecutionPlanContext context)
         {
-            Function<SchemaFunctionName, TableFunctionProcessorProvider> getTableFunctionProcessProvider = metadata.getFunctionAndTypeManager().getTableFunctionProcessorProvider().orElseThrow(NoSuchElementException::new);
+            Function<SchemaFunctionName, TableFunctionProcessorProvider> getTableFunctionProcessProvider = metadata.getFunctionAndTypeManager().getTableFunctionProcessorProvider(node.getHandle()).orElseThrow(NoSuchElementException::new);
             TableFunctionProcessorProvider processorProvider = getTableFunctionProcessProvider.apply(node.getHandle().getSchemaFunctionName());
 
             if (!node.getSource().isPresent()) {

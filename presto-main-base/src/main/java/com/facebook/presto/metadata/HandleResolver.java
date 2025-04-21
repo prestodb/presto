@@ -32,11 +32,13 @@ import com.facebook.presto.spi.function.FunctionHandleResolver;
 import com.facebook.presto.spi.function.TableFunctionHandleResolver;
 import com.facebook.presto.spi.function.TableFunctionSplitResolver;
 import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
+import com.facebook.presto.spi.function.table.EmptyTableFunctionHandle;
 import com.facebook.presto.split.EmptySplitHandleResolver;
 import com.google.common.collect.ImmutableSet;
 
 import javax.inject.Inject;
 
+import java.util.Collections;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
@@ -68,6 +70,8 @@ public class HandleResolver
 
         functionHandleResolvers.put("$static", new MaterializedFunctionHandleResolver(new BuiltInFunctionNamespaceHandleResolver()));
         functionHandleResolvers.put("$session", new MaterializedFunctionHandleResolver(new SessionFunctionHandleResolver()));
+
+        tableFunctionHandleResolvers.put("$system", new MaterializedTableFunctionHandleResolver(() -> Collections.singleton(EmptyTableFunctionHandle.class)));
     }
 
     public void addConnectorName(String name, ConnectorHandleResolver resolver)

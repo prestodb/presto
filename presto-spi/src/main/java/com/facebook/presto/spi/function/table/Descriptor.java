@@ -25,7 +25,6 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.function.table.Preconditions.checkArgument;
-import static com.facebook.presto.spi.function.table.Preconditions.checkNotNullOrEmpty;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
@@ -93,18 +92,24 @@ public class Descriptor
 
     public static class Field
     {
-        private final String name;
+        private final Optional<String> name;
         private final Optional<Type> type;
 
-        @JsonCreator
-        public Field(@JsonProperty("name") String name, @JsonProperty("type") Optional<Type> type)
+        public Field(String name, Optional<Type> type)
         {
-            this.name = checkNotNullOrEmpty(name, "name");
+            this(Optional.of(name), type);
+        }
+
+        @JsonCreator
+        public Field(@JsonProperty("name") Optional<String> name, @JsonProperty("type") Optional<Type> type)
+        {
+            this.name = requireNonNull(name, "name is null");
+            name.ifPresent(nameValue -> checkArgument(!nameValue.isEmpty(), "name is empty"));
             this.type = requireNonNull(type, "type is null");
         }
 
         @JsonProperty
-        public String getName()
+        public Optional<String> getName()
         {
             return name;
         }
