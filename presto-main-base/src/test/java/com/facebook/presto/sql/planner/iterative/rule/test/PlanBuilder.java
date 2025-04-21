@@ -89,6 +89,7 @@ import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode;
+import com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
@@ -982,6 +983,13 @@ public class PlanBuilder
                 tableArgumentProperties,
                 copartitioningLists,
                 new TableFunctionHandle(new ConnectorId("connector_id"), new SchemaFunctionName("system", name), new ConnectorTableFunctionHandle() {}, TestingTransactionHandle.create()));
+    }
+
+    public TableFunctionProcessorNode tableFunctionProcessor(Consumer<TableFunctionProcessorBuilder> consumer)
+    {
+        TableFunctionProcessorBuilder tableFunctionProcessorBuilder = new TableFunctionProcessorBuilder();
+        consumer.accept(tableFunctionProcessorBuilder);
+        return tableFunctionProcessorBuilder.build(idAllocator);
     }
 
     public RowNumberNode rowNumber(List<VariableReferenceExpression> partitionBy, Optional<Integer> maxRowCountPerPartition, VariableReferenceExpression rowNumberVariable, PlanNode source)

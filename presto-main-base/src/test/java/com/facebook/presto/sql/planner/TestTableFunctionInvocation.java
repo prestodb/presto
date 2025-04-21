@@ -15,15 +15,18 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.connector.tvf.MockConnectorFactory;
 import com.facebook.presto.connector.tvf.MockConnectorPlugin;
-import com.facebook.presto.connector.tvf.TestingTableFunctions;
 import com.facebook.presto.connector.tvf.TestingTableFunctions.DescriptorArgumentFunction;
 import com.facebook.presto.connector.tvf.TestingTableFunctions.DifferentArgumentTypesFunction;
+import com.facebook.presto.connector.tvf.TestingTableFunctions.PassThroughFunction;
 import com.facebook.presto.connector.tvf.TestingTableFunctions.TestingTableFunctionHandle;
 import com.facebook.presto.connector.tvf.TestingTableFunctions.TwoScalarArgumentsFunction;
+import com.facebook.presto.connector.tvf.TestingTableFunctions.TwoTableArgumentsFunction;
 import com.facebook.presto.spi.connector.TableFunctionApplicationResult;
 import com.facebook.presto.spi.function.table.Descriptor;
 import com.facebook.presto.spi.function.table.Descriptor.Field;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
+import com.facebook.presto.sql.planner.assertions.RowNumberSymbolMatcher;
+import com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -39,13 +42,20 @@ import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.Optimizer.PlanStage.CREATED;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.output;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.rowNumber;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.specification;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictOutput;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableFunction;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableFunctionProcessor;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.assertions.TableFunctionMatcher.DescriptorArgumentValue.descriptorArgument;
 import static com.facebook.presto.sql.planner.assertions.TableFunctionMatcher.DescriptorArgumentValue.nullDescriptor;
 import static com.facebook.presto.sql.planner.assertions.TableFunctionMatcher.TableArgumentValue.Builder.tableArgument;
+import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 public class TestTableFunctionInvocation
         extends BasePlanTest
@@ -60,7 +70,8 @@ public class TestTableFunctionInvocation
                         new DifferentArgumentTypesFunction(),
                         new TwoScalarArgumentsFunction(),
                         new DescriptorArgumentFunction(),
-                        new TestingTableFunctions.TwoTableArgumentsFunction()))
+                        new TwoTableArgumentsFunction(),
+                        new PassThroughFunction()))
                 .withApplyTableFunction((session, handle) -> {
                     if (handle instanceof TestingTableFunctionHandle) {
                         TestingTableFunctionHandle functionHandle = (TestingTableFunctionHandle) handle;
@@ -177,5 +188,84 @@ public class TestTableFunctionInvocation
                         .name("descriptor_argument_function")
                         .addDescriptorArgument("SCHEMA", nullDescriptor())
                         .properOutputs(ImmutableList.of("OUTPUT")))));
+    }
+
+    @Test
+    public void testPruneTableFunctionColumns()
+    {
+        // all table function outputs are referenced with SELECT *, no pruning
+        assertPlan("SELECT * FROM TABLE(mock.system.pass_through_function(input => TABLE(SELECT 1, true) t(a, b)))",
+                strictOutput(
+                        ImmutableList.of("x", "a", "b"),
+                        tableFunctionProcessor(
+                                builder -> builder
+                                        .name("pass_through_function")
+                                        .properOutputs(ImmutableList.of("x"))
+                                        .passThroughSymbols(
+                                                ImmutableList.of(ImmutableList.of("a", "b")))
+                                        .requiredSymbols(ImmutableList.of(ImmutableList.of("a")))
+                                        .specification(specification(ImmutableList.of(), ImmutableList.of(), ImmutableMap.of())),
+                                values(ImmutableList.of("a", "b"), ImmutableList.of(ImmutableList.of(new LongLiteral("1"), TRUE_LITERAL))))));
+
+        // no table function outputs are referenced. All pass-through symbols are pruned from the TableFunctionProcessorNode. The unused symbol "b" is pruned from the source values node.
+        assertPlan("SELECT 'constant' c FROM TABLE(mock.system.pass_through_function(input => TABLE(SELECT 1, true) t(a, b)))",
+                strictOutput(
+                        ImmutableList.of("c"),
+                        strictProject(
+                                ImmutableMap.of("c", expression("'constant'")),
+                                tableFunctionProcessor(
+                                        builder -> builder
+                                                .name("pass_through_function")
+                                                .properOutputs(ImmutableList.of("x"))
+                                                .passThroughSymbols(ImmutableList.of(ImmutableList.of()))
+                                                .requiredSymbols(ImmutableList.of(ImmutableList.of("a")))
+                                                .specification(specification(ImmutableList.of(), ImmutableList.of(), ImmutableMap.of())),
+                                        values(ImmutableList.of("a"), ImmutableList.of(ImmutableList.of(new LongLiteral("1"))))))));
+    }
+
+    @Test
+    public void testRemoveRedundantTableFunction()
+    {
+        assertPlan("SELECT * FROM TABLE(mock.system.pass_through_function(input => TABLE(SELECT 1, true WHERE false) t(a, b) PRUNE WHEN EMPTY))",
+                output(values(ImmutableList.of("x", "a", "b"))));
+
+        assertPlan("SELECT *\n" +
+                        "FROM TABLE(mock.system.two_table_arguments_function(\n" +
+                        "                input1 => TABLE(SELECT 1, true WHERE false) t1(a, b) PRUNE WHEN EMPTY,\n" +
+                        "                input2 => TABLE(SELECT 2, false) t2(c, d) KEEP WHEN EMPTY))\n",
+                output(values(ImmutableList.of("column"))));
+
+        assertPlan("SELECT *\n" +
+                        "FROM TABLE(mock.system.two_table_arguments_function(\n" +
+                        "                input1 => TABLE(SELECT 1, true WHERE false) t1(a, b) PRUNE WHEN EMPTY,\n" +
+                        "                input2 => TABLE(SELECT 2, false WHERE false) t2(c, d) PRUNE WHEN EMPTY))\n",
+                output(values(ImmutableList.of("column"))));
+
+        assertPlan("SELECT *\n" +
+                        "FROM TABLE(mock.system.two_table_arguments_function(\n" +
+                        "                input1 => TABLE(SELECT 1, true WHERE false) t1(a, b) PRUNE WHEN EMPTY,\n" +
+                        "                input2 => TABLE(SELECT 2, false WHERE false) t2(c, d) KEEP WHEN EMPTY))\n",
+                output(values(ImmutableList.of("column"))));
+
+        assertPlan("SELECT *\n" +
+                        "FROM TABLE(mock.system.two_table_arguments_function(\n" +
+                        "                input1 => TABLE(SELECT 1, true WHERE false) t1(a, b) KEEP WHEN EMPTY,\n" +
+                        "                input2 => TABLE(SELECT 2, false WHERE false) t2(c, d) KEEP WHEN EMPTY))\n",
+                output(
+                        node(TableFunctionProcessorNode.class,
+                                values(ImmutableList.of("a", "marker_1", "c", "marker_2", "row_number")))));
+
+        assertPlan("SELECT *\n" +
+                        "FROM TABLE(mock.system.two_table_arguments_function(\n" +
+                        "                input1 => TABLE(SELECT 1, true WHERE false) t1(a, b) KEEP WHEN EMPTY,\n" +
+                        "                input2 => TABLE(SELECT 2, false) t2(c, d) PRUNE WHEN EMPTY))\n",
+                output(
+                        node(TableFunctionProcessorNode.class,
+                                project(
+                                        project(
+                                                rowNumber(
+                                                        builder -> builder.partitionBy(ImmutableList.of()),
+                                                        values(ImmutableList.of("c"), ImmutableList.of(ImmutableList.of(new LongLiteral("2")))))
+                                                        .withAlias("input_2_row_number", new RowNumberSymbolMatcher()))))));
     }
 }

@@ -80,6 +80,8 @@ import com.facebook.presto.sql.planner.iterative.rule.PruneProjectColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneRedundantProjectionAssignments;
 import com.facebook.presto.sql.planner.iterative.rule.PruneSemiJoinColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneSemiJoinFilteringSourceColumns;
+import com.facebook.presto.sql.planner.iterative.rule.PruneTableFunctionProcessorColumns;
+import com.facebook.presto.sql.planner.iterative.rule.PruneTableFunctionProcessorSourceColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneTableScanColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneTopNColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneUpdateSourceColumns;
@@ -118,6 +120,7 @@ import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityPro
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantLimit;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantSort;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantSortColumns;
+import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantTableFunction;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantTopN;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantTopNColumns;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveTrivialFilters;
@@ -307,6 +310,8 @@ public class PlanOptimizers
                 new PruneValuesColumns(),
                 new PruneWindowColumns(),
                 new PruneLimitColumns(),
+                new PruneTableFunctionProcessorColumns(),
+                new PruneTableFunctionProcessorSourceColumns(),
                 new PruneTableScanColumns());
 
         builder.add(new LogicalCteOptimizer(metadata));
@@ -421,6 +426,7 @@ public class PlanOptimizers
                                         new PushLimitThroughSemiJoin(),
                                         new PushLimitThroughUnion(),
                                         new RemoveTrivialFilters(),
+                                        new RemoveRedundantTableFunction(),
                                         new ImplementFilteredAggregations(metadata.getFunctionAndTypeManager()),
                                         new SingleDistinctAggregationToGroupBy(),
                                         new MultipleDistinctAggregationToMarkDistinct(),
