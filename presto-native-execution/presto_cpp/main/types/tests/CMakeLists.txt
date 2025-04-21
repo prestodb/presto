@@ -137,3 +137,20 @@ target_link_libraries(
   velox_tpch_connector
   GTest::gtest
   GTest::gtest_main)
+
+add_executable(velox_to_presto_expr_test VeloxToPrestoExprTest.cpp)
+
+add_test(
+  NAME velox_to_presto_expr_test
+  COMMAND velox_to_presto_expr_test
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+target_link_libraries(
+  velox_to_presto_expr_test
+  velox_to_presto_expr
+  presto_http
+  presto_protocol
+  presto_type_test_utils
+  velox_exec_test_lib
+  GTest::gtest
+  GTest::gtest_main)
