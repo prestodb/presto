@@ -221,6 +221,8 @@ class PrestoServer {
 
   std::unique_ptr<velox::cache::SsdCache> setupSsdCache();
 
+  void checkOverload();
+
   const std::string configDirectoryPath_;
 
   std::shared_ptr<CoordinatorDiscoverer> coordinatorDiscoverer_;
@@ -273,6 +275,8 @@ class PrestoServer {
   std::unique_ptr<PeriodicTaskManager> periodicTaskManager_;
   std::unique_ptr<PrestoServerOperations> prestoServerOperations_;
   std::unique_ptr<PeriodicMemoryChecker> memoryChecker_;
+  bool isMemOverloaded_{false};
+  bool isCpuOverloaded_{false};
 
   // We update these members asynchronously and return in http requests w/o
   // delay.
