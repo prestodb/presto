@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
@@ -40,7 +41,6 @@ import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTAN
 import static com.facebook.presto.expressions.LogicalRowExpressions.binaryExpression;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
-import static com.facebook.presto.hive.rule.FilterPushdownUtils.isEntireColumn;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
@@ -100,6 +100,11 @@ public final class MetadataUtils
                 .collect(toImmutableList());
 
         return binaryExpression(SpecialFormExpression.Form.AND, predicatesToCombine);
+    }
+
+    public static boolean isEntireColumn(Subfield subfield)
+    {
+        return subfield.getPath().isEmpty();
     }
 
     @VisibleForTesting
