@@ -76,6 +76,7 @@ public class NativeWorkerSessionPropertyProvider
     public static final String NATIVE_SCALED_WRITER_MIN_PROCESSED_BYTES_REBALANCE_THRESHOLD = "native_scaled_writer_min_processed_bytes_rebalance_threshold";
     public static final String NATIVE_TABLE_SCAN_SCALED_PROCESSING_ENABLED = "native_table_scan_scaled_processing_enabled";
     public static final String NATIVE_TABLE_SCAN_SCALE_UP_MEMORY_USAGE_RATIO = "native_table_scan_scale_up_memory_usage_ratio";
+    public static final String NATIVE_STREAMING_AGGREGATION_EAGER_FLUSH = "native_streaming_aggregation_eager_flush";
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
@@ -336,6 +337,14 @@ public class NativeWorkerSessionPropertyProvider
                                 "thread for scale up, and stop once exceeds this ratio. The value is in the " +
                                 "range of [0, 1].",
                         0.7,
+                        !nativeExecution),
+                booleanProperty(
+                        NATIVE_STREAMING_AGGREGATION_EAGER_FLUSH,
+                        "Controls the way streaming aggregation flushes output. We put the rows in output " +
+                                " batch, as soon as the corresponding groups are fully aggregated. This is useful " +
+                                "for reducing memory consumption, if the downstream operators are not sensitive to " +
+                                "small batch size.",
+                        false,
                         !nativeExecution));
     }
 
