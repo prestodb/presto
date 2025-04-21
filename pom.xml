@@ -1553,9 +1553,9 @@
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.prestodb</groupId>
                 <artifactId>airline</artifactId>
-                <version>0.9-SNAPSHOT</version>
+                <version>master-SNAPSHOT</version>
             </dependency>
 
             <dependency>

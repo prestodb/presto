@@ -33,7 +33,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.prestodb</groupId>
             <artifactId>airline</artifactId>
         </dependency>
 
@@ -67,7 +67,7 @@
                             <dependencyReducedPomLocation>${project.build.directory}/pom.xml</dependencyReducedPomLocation>
                             <relocations>
                                 <relocation>
-                                    <pattern>io.airlift.airline</pattern>
+                                    <pattern>com.github.prestodb</pattern>
                                     <shadedPattern>${shadeBase}.io.airlift.airline</shadedPattern>
                                 </relocation>
                                 <relocation>
