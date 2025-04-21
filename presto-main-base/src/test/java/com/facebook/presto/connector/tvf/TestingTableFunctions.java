@@ -303,6 +303,7 @@ public class TestingTableFunctions
                     ImmutableList.of(
                             TableArgumentSpecification.builder()
                                     .name("INPUT")
+                                    .passThroughColumns()
                                     .keepWhenEmpty()
                                     .build()),
                     ONLY_PASS_THROUGH);

@@ -1364,6 +1364,16 @@ class StatementAnalyzer
                     // so the function's analyze() method should not return the proper columns descriptor.
                     throw new SemanticException(AMBIGUOUS_RETURN_TYPE, node, "Returned relation type for table function %s is ambiguous", node.getName());
                 }
+                if (function.getArguments().stream()
+                        .filter(TableArgumentSpecification.class::isInstance)
+                        .map(TableArgumentSpecification.class::cast)
+                        .noneMatch(TableArgumentSpecification::isPassThroughColumns)) {
+                    // According to SQL standard ISO/IEC 9075-2, 10.4 <routine invocation>, p. 764,
+                    // if there is no generic table parameter that specifies PASS THROUGH, then number of proper columns shall be positive.
+                    // For GENERIC_TABLE and DescribedTable returned types, this is enforced by the Descriptor constructor, which requires positive number of fields.
+                    // Here we enforce it for the remaining returned type specification: ONLY_PASS_THROUGH.
+                    throw new SemanticException(FUNCTION_IMPLEMENTATION_ERROR, "A table function with ONLY_PASS_THROUGH return type must have a table argument with pass-through columns.");
+                }
                 properColumnsDescriptor = null;
             }
             else if (returnTypeSpecification == GENERIC_TABLE) {
