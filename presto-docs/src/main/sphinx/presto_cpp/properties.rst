@@ -590,6 +590,33 @@ The default value of 60 gb is calculated based on available machine memory of 64
 Specifies the amount of memory to shrink when the memory pushback is
 triggered. This only applies if ``system-mem-pushback-enabled`` is ``true``.
 
+``system-mem-pushback-abort-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+If true, memory pushback will abort queries with the largest memory usage under
+low memory condition. This only applies if ``system-mem-pushback-enabled`` is ``true``.
+
+``worker-overloaded-threshold-mem-gb``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``0``
+
+Memory threshold in GB above which the worker is considered overloaded in terms of
+memory use. Ignored if zero.
+
+``worker-overloaded-threshold-cpu-pct``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``0``
+
+CPU threshold in % above which the worker is considered overloaded in terms of
+CPU use. Ignored if zero.
+
 Environment Variables As Values For Worker Properties
 -----------------------------------------------------
 

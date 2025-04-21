@@ -183,6 +183,8 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kSystemMemShrinkGb, 8),
           BOOL_PROP(kMallocMemHeapDumpEnabled, false),
           BOOL_PROP(kSystemMemPushbackAbortEnabled, false),
+          NUM_PROP(kWorkerOverloadedThresholdMemGb, 0),
+          NUM_PROP(kWorkerOverloadedThresholdCpuPct, 0),
           NUM_PROP(kMallocHeapDumpThresholdGb, 20),
           NUM_PROP(kMallocMemMinHeapDumpInterval, 10),
           NUM_PROP(kMallocMemMaxHeapDumpFiles, 5),
@@ -497,6 +499,14 @@ bool SystemConfig::systemMemPushbackEnabled() const {
 
 bool SystemConfig::systemMemPushBackAbortEnabled() const {
   return optionalProperty<bool>(kSystemMemPushbackAbortEnabled).value();
+}
+
+uint64_t SystemConfig::workerOverloadedThresholdMemGb() const {
+  return optionalProperty<uint64_t>(kWorkerOverloadedThresholdMemGb).value();
+}
+
+uint32_t SystemConfig::workerOverloadedThresholdCpuPct() const {
+  return optionalProperty<uint32_t>(kWorkerOverloadedThresholdCpuPct).value();
 }
 
 bool SystemConfig::mallocMemHeapDumpEnabled() const {

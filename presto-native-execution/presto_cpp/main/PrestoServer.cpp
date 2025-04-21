@@ -1426,7 +1426,54 @@ void PrestoServer::populateMemAndCPUInfo() {
   });
   RECORD_METRIC_VALUE(kCounterNumQueryContexts, numContexts);
   cpuMon_.update();
+  checkOverload();
   **memoryInfo_.wlock() = std::move(memoryInfo);
+}
+
+void PrestoServer::checkOverload() {
+  auto systemConfig = SystemConfig::instance();
+
+  const auto overloadedThresholdMemBytes =
+      systemConfig->workerOverloadedThresholdMemGb() * 1024 * 1024 * 1024;
+  if (overloadedThresholdMemBytes > 0) {
+    const auto currentUsedMemoryBytes = (memoryChecker_ != nullptr)
+        ? memoryChecker_->cachedSystemUsedMemoryBytes()
+        : 0;
+    const bool isMemOverloaded =
+        (currentUsedMemoryBytes > overloadedThresholdMemBytes);
+    if (isMemOverloaded) {
+      LOG(WARNING) << "Server memory is overloaded. Currently used: "
+                   << velox::succinctBytes(currentUsedMemoryBytes)
+                   << ", threshold: "
+                   << velox::succinctBytes(overloadedThresholdMemBytes);
+    } else if (isMemOverloaded_) {
+      LOG(INFO) << "Server memory is no longer overloaded. Currently used: "
+                << velox::succinctBytes(currentUsedMemoryBytes)
+                << ", threshold: "
+                << velox::succinctBytes(overloadedThresholdMemBytes);
+    }
+    RECORD_METRIC_VALUE(kCounterOverloadedMem, isMemOverloaded ? 100 : 0);
+    isMemOverloaded_ = isMemOverloaded;
+  }
+
+  const auto overloadedThresholdCpuPct =
+      systemConfig->workerOverloadedThresholdCpuPct();
+  if (overloadedThresholdCpuPct > 0) {
+    const auto currentUsedCpuPct = cpuMon_.getCPULoadPct();
+    const bool isCpuOverloaded =
+        (currentUsedCpuPct > overloadedThresholdCpuPct);
+    if (isCpuOverloaded) {
+      LOG(WARNING) << "Server CPU is overloaded. Currently used: "
+                   << currentUsedCpuPct
+                   << "%, threshold: " << overloadedThresholdCpuPct << "%";
+    } else if (isCpuOverloaded_) {
+      LOG(INFO) << "Server CPU is no longer overloaded. Currently used: "
+                << currentUsedCpuPct
+                << "%, threshold: " << overloadedThresholdCpuPct << "%";
+    }
+    RECORD_METRIC_VALUE(kCounterOverloadedCpu, isCpuOverloaded ? 100 : 0);
+    isCpuOverloaded_ = isCpuOverloaded;
+  }
 }
 
 static protocol::Duration getUptime(
