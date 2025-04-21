@@ -16,6 +16,7 @@ package com.facebook.presto.sql.rewrite;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.type.FixedWidthType;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SessionPropertyManager.SessionPropertyValue;
@@ -41,6 +42,9 @@ import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.sql.QueryUtil;
+import com.facebook.presto.sql.analyzer.Analysis;
+import com.facebook.presto.sql.analyzer.Analyzer;
+import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.ParsingException;
@@ -70,6 +74,7 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.RoutineCharacteristics;
+import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.ShowCatalogs;
 import com.facebook.presto.sql.tree.ShowColumns;
 import com.facebook.presto.sql.tree.ShowCreate;
@@ -135,6 +140,7 @@ import static com.facebook.presto.sql.QueryUtil.selectList;
 import static com.facebook.presto.sql.QueryUtil.simpleQuery;
 import static com.facebook.presto.sql.QueryUtil.singleValueQuery;
 import static com.facebook.presto.sql.QueryUtil.table;
+import static com.facebook.presto.sql.QueryUtil.values;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CATALOG_NOT_SPECIFIED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
@@ -178,7 +184,7 @@ final class ShowQueriesRewrite
             AccessControl accessControl,
             WarningCollector warningCollector)
     {
-        return (Statement) new Visitor(metadata, parser, session, parameters, accessControl, queryExplainer, warningCollector).process(node, null);
+        return (Statement) new Visitor(metadata, parser, session, parameters, parameterLookup, accessControl, queryExplainer, warningCollector).process(node, null);
     }
 
     private static class Visitor
@@ -188,17 +194,19 @@ final class ShowQueriesRewrite
         private final Session session;
         private final SqlParser sqlParser;
         final List<Expression> parameters;
+        Map<NodeRef<Parameter>, Expression> parameterLookup;
         private final AccessControl accessControl;
         private final MetadataResolver metadataResolver;
         private Optional<QueryExplainer> queryExplainer;
         private final WarningCollector warningCollector;
 
-        public Visitor(Metadata metadata, SqlParser sqlParser, Session session, List<Expression> parameters, AccessControl accessControl, Optional<QueryExplainer> queryExplainer, WarningCollector warningCollector)
+        public Visitor(Metadata metadata, SqlParser sqlParser, Session session, List<Expression> parameters, Map<NodeRef<Parameter>, Expression> parameterLookup, AccessControl accessControl, Optional<QueryExplainer> queryExplainer, WarningCollector warningCollector)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
             this.session = requireNonNull(session, "session is null");
             this.parameters = requireNonNull(parameters, "parameters is null");
+            this.parameterLookup = requireNonNull(parameterLookup, "parameterLookup is null");
             this.accessControl = requireNonNull(accessControl, "accessControl is null");
             this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
@@ -398,6 +406,24 @@ final class ShowQueriesRewrite
         @Override
         protected Node visitShowColumns(ShowColumns showColumns, Void context)
         {
+            Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, queryExplainer, parameters, parameterLookup, warningCollector);
+            Analysis analysis = analyzer.analyze(showColumns, true);
+            Row[] rows = analysis.getRootScope().getRelationType().getVisibleFields().stream().map(field -> createShowColumnsOutputRow(field, analysis)).toArray(Row[]::new);
+
+            return simpleQuery(
+                    selectList(
+                            aliasedName("column_name", "Column"),
+                            aliasedName("data_type", "Type"),
+                            aliasedNullToEmpty("extra_info", "Extra"),
+                            aliasedNullToEmpty("comment", "Comment")),
+                    aliased(
+                            values(rows),
+                            "Statement Output",
+                            ImmutableList.of("Column", "Type", "Extra", "Comment")),
+                    Optional.empty(),
+                    Optional.empty());
+
+            /*
             QualifiedObjectName tableName = createQualifiedObjectName(session, showColumns, showColumns.getTable());
 
             if (!metadataResolver.getView(tableName).isPresent() &&
@@ -416,6 +442,26 @@ final class ShowQueriesRewrite
                             equal(identifier("table_schema"), new StringLiteral(tableName.getSchemaName())),
                             equal(identifier("table_name"), new StringLiteral(tableName.getObjectName()))),
                     ordering(ascending("ordinal_position")));
+
+             */
+        }
+
+        private static Row createShowColumnsOutputRow(Field field, Analysis analysis)
+        {
+            String columnName;
+            if (field.getName().isPresent()) {
+                columnName = field.getName().get();
+            }
+            else {
+                int columnIndex = ImmutableList.copyOf(analysis.getOutputDescriptor().getVisibleFields()).indexOf(field);
+                columnName = "_col" + columnIndex;
+            }
+
+            return row(
+                    new StringLiteral(columnName),
+                    new StringLiteral(field.getType().getDisplayName()),
+                    new StringLiteral(""),
+                    new StringLiteral(""));
         }
 
         private static <T> Expression getExpression(PropertyMetadata<T> property, Object value)
