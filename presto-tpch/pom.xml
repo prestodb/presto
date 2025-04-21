@@ -26,6 +26,11 @@
             <artifactId>guava</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>com.facebook.fbthrift</groupId>
+            <artifactId>common</artifactId>
+        </dependency>
+        
         <!-- Presto SPI -->
         <dependency>
             <groupId>com.facebook.presto</groupId>

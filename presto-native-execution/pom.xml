@@ -165,6 +165,10 @@
                     <groupId>org.apache.hudi</groupId>
                     <artifactId>hudi-presto-bundle</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>org.apache.commons</groupId>
+                    <artifactId>commons-lang3</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
 

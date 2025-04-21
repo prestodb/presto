@@ -17,6 +17,11 @@
 
     <dependencies>
         <dependency>
+            <groupId>com.facebook.fbthrift</groupId>
+            <artifactId>common</artifactId>
+        </dependency>
+        
+        <dependency>
             <groupId>com.esri.geometry</groupId>
             <artifactId>esri-geometry-api</artifactId>
         </dependency>
@@ -301,7 +306,6 @@
             <groupId>org.locationtech.jts</groupId>
             <artifactId>jts-core</artifactId>
         </dependency>
-
 
         <dependency>
             <groupId>org.apache.datasketches</groupId>

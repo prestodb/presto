@@ -17,6 +17,12 @@
 
     <dependencies>
         <dependency>
+            <groupId>com.facebook.fbthrift</groupId>
+            <artifactId>common</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
             <groupId>com.teradata.tpcds</groupId>
             <artifactId>tpcds</artifactId>
         </dependency>
