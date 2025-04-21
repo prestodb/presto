@@ -292,6 +292,7 @@ import static com.facebook.presto.hive.MetadataUtils.getCombinedRemainingPredica
 import static com.facebook.presto.hive.MetadataUtils.getDiscretePredicates;
 import static com.facebook.presto.hive.MetadataUtils.getPredicate;
 import static com.facebook.presto.hive.MetadataUtils.getSubfieldPredicate;
+import static com.facebook.presto.hive.MetadataUtils.isEntireColumn;
 import static com.facebook.presto.hive.PartitionUpdate.UpdateMode.APPEND;
 import static com.facebook.presto.hive.PartitionUpdate.UpdateMode.NEW;
 import static com.facebook.presto.hive.PartitionUpdate.UpdateMode.OVERWRITE;
@@ -2697,11 +2698,6 @@ public class HiveMetadata
     private static Subfield toSubfield(ColumnHandle columnHandle)
     {
         return new Subfield(((HiveColumnHandle) columnHandle).getName(), ImmutableList.of());
-    }
-
-    private static boolean isEntireColumn(Subfield subfield)
-    {
-        return subfield.getPath().isEmpty();
     }
 
     private boolean isPushdownFilterEnabled(ConnectorSession session, ConnectorTableHandle tableHandle)

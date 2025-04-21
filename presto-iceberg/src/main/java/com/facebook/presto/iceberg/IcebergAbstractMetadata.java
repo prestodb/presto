@@ -123,6 +123,7 @@ import static com.facebook.presto.hive.MetadataUtils.getCombinedRemainingPredica
 import static com.facebook.presto.hive.MetadataUtils.getDiscretePredicates;
 import static com.facebook.presto.hive.MetadataUtils.getPredicate;
 import static com.facebook.presto.hive.MetadataUtils.getSubfieldPredicate;
+import static com.facebook.presto.hive.MetadataUtils.isEntireColumn;
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.DATA_SEQUENCE_NUMBER_COLUMN_HANDLE;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.DATA_SEQUENCE_NUMBER_COLUMN_METADATA;
@@ -309,11 +310,6 @@ public abstract class IcebergAbstractMetadata
     public static Subfield toSubfield(ColumnHandle columnHandle)
     {
         return new Subfield(((IcebergColumnHandle) columnHandle).getName(), ImmutableList.of());
-    }
-
-    protected static boolean isEntireColumn(Subfield subfield)
-    {
-        return subfield.getPath().isEmpty();
     }
 
     @Override

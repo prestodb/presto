@@ -110,6 +110,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.isAdaptiveFilterReo
 import static com.facebook.presto.hive.HiveSessionProperties.isLegacyTimestampBucketing;
 import static com.facebook.presto.hive.HiveUtil.getPhysicalHiveColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.typedPartitionKey;
+import static com.facebook.presto.hive.MetadataUtils.isEntireColumn;
 import static com.facebook.presto.hive.orc.OrcPageSourceFactoryUtils.getOrcDataSource;
 import static com.facebook.presto.hive.orc.OrcPageSourceFactoryUtils.getOrcReader;
 import static com.facebook.presto.hive.orc.OrcPageSourceFactoryUtils.mapToPrestoException;
@@ -560,11 +561,6 @@ public class OrcSelectivePageSourceFactory
         }
 
         return ImmutableMap.copyOf(filtersByColumn);
-    }
-
-    private static boolean isEntireColumn(Subfield subfield)
-    {
-        return subfield.getPath().isEmpty();
     }
 
     private static OrcPredicate toOrcPredicate(TupleDomain<Subfield> domainPredicate, List<HiveColumnHandle> physicalColumns, Map<Integer, HiveCoercer> coercers, TypeManager typeManager, int domainCompactionThreshold, boolean orcBloomFiltersEnabled)
