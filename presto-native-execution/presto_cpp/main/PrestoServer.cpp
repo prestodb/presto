@@ -24,6 +24,7 @@
 #include "presto_cpp/main/TaskResource.h"
 #include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/common/Counters.h"
+#include "presto_cpp/main/common/Exception.h"
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/connectors/Registration.h"
 #include "presto_cpp/main/connectors/SystemConnector.h"
@@ -41,6 +42,7 @@
 #include "presto_cpp/main/types/FunctionMetadata.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include "presto_cpp/main/types/VeloxPlanConversion.h"
+#include "presto_cpp/main/types/VeloxToPrestoExpr.h"
 #include "velox/common/base/Counters.h"
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/caching/CacheTTLController.h"
@@ -58,6 +60,8 @@
 #include "velox/dwio/parquet/RegisterParquetReader.h"
 #include "velox/dwio/parquet/RegisterParquetWriter.h"
 #include "velox/exec/OutputBufferManager.h"
+#include "velox/expression/ExprCompiler.h"
+#include "velox/expression/ExpressionOptimizer.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/prestosql/window/WindowFunctionsRegistration.h"
@@ -85,6 +89,7 @@ constexpr char const* kHttps = "https";
 constexpr char const* kTaskUriFormat =
     "{}://{}:{}"; // protocol, address and port
 constexpr char const* kConnectorName = "connector.name";
+constexpr char const* kTimezoneHeader = "X-Presto-Time-Zone";
 
 protocol::NodeState convertNodeState(presto::NodeState nodeState) {
   switch (nodeState) {
@@ -1586,6 +1591,14 @@ void PrestoServer::registerSidecarEndpoints() {
          proxygen::ResponseHandler* downstream) {
         http::sendOkResponse(downstream, getFunctionsMetadata());
       });
+  velox::expression::registerExpressionOptimizations();
+  httpServer_->registerPost(
+      "/v1/expressions",
+      [&](proxygen::HTTPMessage* message,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+          proxygen::ResponseHandler* downstream) {
+        optimizeExpressions(message->getHeaders(), body, downstream);
+      });
   httpServer_->registerPost(
       "/v1/velox/plan",
       [server = this](
@@ -1632,6 +1645,55 @@ protocol::NodeStatus PrestoServer::fetchNodeStatus() {
       nonHeapUsed};
 
   return nodeStatus;
+}
+
+void PrestoServer::optimizeExpressions(
+    const proxygen::HTTPHeaders& httpHeaders,
+    const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+    proxygen::ResponseHandler* downstream) {
+  json result;
+  try {
+    const auto& timezone = httpHeaders.getSingleOrEmpty(kTimezoneHeader);
+    std::unordered_map<std::string, std::string> config(
+        {{core::QueryConfig::kSessionTimezone, timezone},
+         {core::QueryConfig::kAdjustTimestampToTimezone, "true"}});
+    auto queryConfig = core::QueryConfig{std::move(config)};
+    TypeParser typeParser;
+    VeloxExprConverter veloxExprConverter(nativeWorkerPool_.get(), &typeParser);
+    expression::VeloxToPrestoExprConverter veloxToPrestoExprConverter(
+        nativeWorkerPool_.get());
+
+    json::array_t inputRowExpressions =
+        json::parse(util::extractMessageBody(body));
+    const auto numExpr = inputRowExpressions.size();
+    result = json::array();
+    for (auto i = 0; i < numExpr; i++) {
+      std::shared_ptr<protocol::RowExpression> inputRowExpr =
+          inputRowExpressions[i];
+      VLOG(1) << "Input Presto RowExpression: "
+              << inputRowExpressions[i].dump();
+      auto expr = veloxExprConverter.toVeloxExpr(inputRowExpr);
+      VLOG(1) << "Converted TypedExpr: " << expr->toString();
+      auto rewritten =
+          exec::rewriteExpression(expr, queryConfig, nativeWorkerPool_.get());
+      VLOG(1) << "Rewritten TypedExpr: " << rewritten->toString();
+      auto folded = velox::expression::constantFold(
+          rewritten, queryConfig, nativeWorkerPool_.get());
+      VLOG(1) << "Folded TypedExpr: " << folded->toString();
+      auto resultExpression =
+          veloxToPrestoExprConverter.getRowExpression(folded, inputRowExpr);
+      VLOG(1) << "optimized Presto RowExpression: " << resultExpression.dump();
+      result.push_back(resultExpression);
+    }
+    http::sendOkResponse(downstream, result);
+  } catch (const VeloxException& e) {
+    result = VeloxToPrestoExceptionTranslator::translate(e);
+    VLOG(1) << "VeloxException during expression evaluation: " << e.what();
+    http::sendErrorResponse(downstream, result);
+  } catch (const std::exception& e) {
+    VLOG(1) << "Error during expression evaluation: " << e.what();
+    http::sendErrorResponse(downstream, result);
+  }
 }
 
 } // namespace facebook::presto
