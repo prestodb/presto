@@ -18,6 +18,8 @@ import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.InvalidTypeDefinitionException;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.experimental.auto_gen.ThriftTypeSignature;
+import com.facebook.presto.common.experimental.auto_gen.ThriftTypeSignatureParameter;
 import com.facebook.presto.common.type.BigintEnumType.LongEnumMap;
 import com.facebook.presto.common.type.VarcharEnumType.VarcharEnumMap;
 import com.facebook.presto.common.type.encoding.Base32;
@@ -99,6 +101,23 @@ public class TypeSignature
     public TypeSignature(String base, List<TypeSignatureParameter> parameters)
     {
         this(TypeSignatureBase.of(base), parameters);
+    }
+
+    public TypeSignature(ThriftTypeSignature thriftTypeSignature)
+    {
+        this(new TypeSignatureBase(thriftTypeSignature.getBase()),
+                thriftTypeSignature.getParameters().stream().map(TypeSignatureParameter::new).collect(Collectors.toList()));
+    }
+
+    public ThriftTypeSignature toThrift()
+    {
+        List<ThriftTypeSignatureParameter> parameters = this.getParameters().stream()
+                .map(TypeSignatureParameter::toThrift)
+                .collect(Collectors.toList());
+        return new ThriftTypeSignature(
+                this.getTypeSignatureBase().toThrift(),
+                parameters,
+                this.isCalculated());
     }
 
     @ThriftConstructor

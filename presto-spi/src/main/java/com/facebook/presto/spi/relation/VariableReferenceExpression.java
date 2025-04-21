@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.spi.relation;
 
+import com.facebook.presto.common.experimental.TypeAdapter;
+import com.facebook.presto.common.experimental.auto_gen.ThriftType;
+import com.facebook.presto.common.experimental.auto_gen.ThriftVariableReferenceExpression;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.SourceLocation;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -34,6 +37,20 @@ public final class VariableReferenceExpression
 {
     private final String name;
     private final Type type;
+
+    public VariableReferenceExpression(ThriftVariableReferenceExpression thriftExpression)
+    {
+        this(Optional.ofNullable(thriftExpression.getSourceLocation()).map(SourceLocation::new),
+                thriftExpression.getName(),
+                (Type) TypeAdapter.fromThrift(thriftExpression.getType()));
+    }
+
+    public ThriftVariableReferenceExpression toThrift()
+    {
+        return new ThriftVariableReferenceExpression(
+                this.getSourceLocation().map(SourceLocation::toThrift).orElse(null),
+                name, (ThriftType) type.toThriftInterface());
+    }
 
     @JsonCreator
     public VariableReferenceExpression(

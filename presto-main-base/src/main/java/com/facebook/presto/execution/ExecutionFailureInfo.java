@@ -19,6 +19,7 @@ import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.client.ErrorLocation;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.common.ErrorCode;
+import com.facebook.presto.common.experimental.auto_gen.ThriftExecutionFailureInfo;
 import com.facebook.presto.spi.ErrorCause;
 import com.facebook.presto.spi.HostAddress;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -29,11 +30,14 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static com.facebook.drift.annotations.ThriftField.Recursiveness.TRUE;
 import static com.facebook.drift.annotations.ThriftField.Requiredness.OPTIONAL;
+import static com.facebook.presto.spi.ErrorCause.createErrorCause;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -53,6 +57,33 @@ public class ExecutionFailureInfo
     // use for transport errors
     private final HostAddress remoteHost;
     private final ErrorCause errorCause;
+
+    public ExecutionFailureInfo(ThriftExecutionFailureInfo thriftInfo)
+    {
+        this(thriftInfo.getType(),
+                thriftInfo.getMessage(),
+                Optional.ofNullable(thriftInfo.getCause()).map(ExecutionFailureInfo::new).orElse(null),
+                Optional.ofNullable(thriftInfo.getSuppressed()).map(suppressed -> suppressed.stream().map(ExecutionFailureInfo::new).collect(Collectors.toList())).orElse(null),
+                thriftInfo.getStack(),
+                Optional.ofNullable(thriftInfo.getErrorLocation()).map(ErrorLocation::new).orElse(null),
+                Optional.ofNullable(thriftInfo.getErrorCode()).map(ErrorCode::new).orElse(null),
+                Optional.ofNullable(thriftInfo.getRemoteHost()).map(HostAddress::new).orElse(null),
+                createErrorCause(thriftInfo.getErrorCause()));
+    }
+
+    public ThriftExecutionFailureInfo toThrift()
+    {
+        return new ThriftExecutionFailureInfo(
+                type,
+                message,
+                Optional.ofNullable(cause).map(ExecutionFailureInfo::toThrift).orElse(null),
+                Optional.ofNullable(suppressed).map(s -> s.stream().map(ExecutionFailureInfo::toThrift).collect(Collectors.toList())).orElse(null),
+                stack,
+                Optional.ofNullable(errorLocation).map(ErrorLocation::toThrift).orElse(null),
+                Optional.ofNullable(errorCode).map(ErrorCode::toThrift).orElse(null),
+                Optional.ofNullable(remoteHost).map(HostAddress::toThrift).orElse(null),
+                Optional.ofNullable(errorCause).map(ErrorCause::toThrift).orElse(null));
+    }
 
     @JsonCreator
     @ThriftConstructor

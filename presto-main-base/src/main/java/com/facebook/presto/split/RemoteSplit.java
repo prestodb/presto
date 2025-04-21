@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.split;
 
+import com.facebook.presto.common.experimental.FbThriftUtils;
+import com.facebook.presto.common.experimental.ThriftSerializationRegistry;
+import com.facebook.presto.common.experimental.auto_gen.ThriftConnectorSplit;
+import com.facebook.presto.common.experimental.auto_gen.ThriftRemoteSplit;
 import com.facebook.presto.execution.Location;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -34,6 +38,16 @@ public class RemoteSplit
 {
     private final Location location;
     private final TaskId remoteSourceTaskId;
+
+    static {
+        ThriftSerializationRegistry.registerSerializer(RemoteSplit.class, RemoteSplit::toThriftInterface, null);
+        ThriftSerializationRegistry.registerDeserializer(RemoteSplit.class, ThriftRemoteSplit.class, RemoteSplit::deserialize, null);
+    }
+
+    public RemoteSplit(ThriftRemoteSplit thriftRemoteSplit)
+    {
+        this(new Location(thriftRemoteSplit.getLocation()), new TaskId(thriftRemoteSplit.getRemoteSourceTaskId()));
+    }
 
     @JsonCreator
     public RemoteSplit(@JsonProperty("location") Location location, @JsonProperty("remoteSourceTaskId") TaskId remoteSourceTaskId)
@@ -79,5 +93,27 @@ public class RemoteSplit
                 .add("location", location)
                 .add("remoteSourceTaskId", remoteSourceTaskId)
                 .toString();
+    }
+
+    @Override
+    public ThriftConnectorSplit toThriftInterface()
+    {
+        return ThriftConnectorSplit.builder()
+                .setType(getImplementationType())
+                .setSerializedSplit(FbThriftUtils.serialize(this.toThrift()))
+                .build();
+    }
+
+    @Override
+    public ThriftRemoteSplit toThrift()
+    {
+        return new ThriftRemoteSplit(
+                location.getLocation(),
+                remoteSourceTaskId.toThrift());
+    }
+
+    public static RemoteSplit deserialize(byte[] bytes)
+    {
+        return new RemoteSplit(FbThriftUtils.deserialize(ThriftRemoteSplit.class, bytes));
     }
 }

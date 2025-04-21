@@ -13,12 +13,14 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.common.experimental.auto_gen.ThriftTaskSource;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -30,6 +32,23 @@ public class TaskSource
     private final Set<ScheduledSplit> splits;
     private final Set<Lifespan> noMoreSplitsForLifespan;
     private final boolean noMoreSplits;
+
+    public TaskSource(ThriftTaskSource thriftTaskSource)
+    {
+        this(new PlanNodeId(thriftTaskSource.getPlanNodeId()),
+                thriftTaskSource.getSplits().stream().map(ScheduledSplit::new).collect(Collectors.toSet()),
+                thriftTaskSource.getNoMoreSplitsForLifespan().stream().map(Lifespan::new).collect(Collectors.toSet()),
+                thriftTaskSource.isNoMoreSplits());
+    }
+
+    public ThriftTaskSource toThrift()
+    {
+        return new ThriftTaskSource(
+                planNodeId.toString(),
+                splits.stream().map(ScheduledSplit::toThrift).collect(Collectors.toSet()),
+                noMoreSplitsForLifespan.stream().map(Lifespan::toThrift).collect(Collectors.toSet()),
+                noMoreSplits);
+    }
 
     @JsonCreator
     public TaskSource(

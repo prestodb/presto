@@ -13,10 +13,44 @@
  */
 package com.facebook.presto.tpch;
 
+import com.facebook.presto.common.experimental.FbThriftUtils;
+import com.facebook.presto.common.experimental.ThriftSerializationRegistry;
+import com.facebook.presto.common.experimental.auto_gen.ThriftConnectorTransactionHandle;
+import com.facebook.presto.common.experimental.auto_gen.ThriftTpchTransactionHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 public enum TpchTransactionHandle
         implements ConnectorTransactionHandle
 {
-    INSTANCE
+    INSTANCE;
+
+    static {
+        ThriftSerializationRegistry.registerSerializer(TpchTransactionHandle.class, TpchTransactionHandle::toThriftInterface, null);
+        ThriftSerializationRegistry.registerDeserializer(TpchTransactionHandle.class, ThriftTpchTransactionHandle.class, TpchTransactionHandle::deserialize, TpchTransactionHandle::createTpchTransactionHandle);
+    }
+
+    public static TpchTransactionHandle createTpchTransactionHandle(ThriftTpchTransactionHandle thriftHandle)
+    {
+        return TpchTransactionHandle.valueOf(thriftHandle.getValue());
+    }
+
+    @Override
+    public ThriftConnectorTransactionHandle toThriftInterface()
+    {
+        return ThriftConnectorTransactionHandle.builder()
+                .setType(getImplementationType())
+                .setSerializedConnectorTransactionHandle(FbThriftUtils.serialize(this.toThrift()))
+                .build();
+    }
+
+    @Override
+    public ThriftTpchTransactionHandle toThrift()
+    {
+        return new ThriftTpchTransactionHandle(this.name());
+    }
+
+    public static TpchTransactionHandle deserialize(byte[] bytes)
+    {
+        return TpchTransactionHandle.valueOf(FbThriftUtils.deserialize(ThriftTpchTransactionHandle.class, bytes).getValue());
+    }
 }

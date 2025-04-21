@@ -36,6 +36,7 @@ import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
+import com.facebook.presto.hive.util.HiveTypeInfoRegister;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
@@ -151,6 +152,10 @@ public class HiveSplitManager
     private final CacheQuotaRequirementProvider cacheQuotaRequirementProvider;
     private final HiveEncryptionInformationProvider encryptionInformationProvider;
     private final PartitionSkippabilityChecker partitionSkippabilityChecker;
+
+    static {
+        HiveTypeInfoRegister.registerHiveTypeInfo();
+    }
 
     @Inject
     public HiveSplitManager(
@@ -369,10 +374,10 @@ public class HiveSplitManager
     }
 
     private HiveSplitSource computeSplitSource(SplitSchedulingContext splitSchedulingContext,
-                                               Table table,
-                                               ConnectorSession session,
-                                               HiveSplitLoader hiveSplitLoader,
-                                               double splitScanRatio)
+            Table table,
+            ConnectorSession session,
+            HiveSplitLoader hiveSplitLoader,
+            double splitScanRatio)
     {
         HiveSplitSource splitSource;
         CacheQuotaRequirement cacheQuotaRequirement = cacheQuotaRequirementProvider.getCacheQuotaRequirement(table.getDatabaseName(), table.getTableName());
@@ -498,16 +503,16 @@ public class HiveSplitManager
     }
 
     private Iterable<List<HivePartitionMetadata>> computePartitionMetadata(Iterable<List<HivePartition>> partitionNameBatches,
-                                                                           ConnectorSession session,
-                                                                           Table table,
-                                                                           SemiTransactionalHiveMetastore metastore,
-                                                                           SchemaTableName tableName,
-                                                                           Map<String, HiveColumnHandle> predicateColumns,
-                                                                           Optional<Map<Subfield, Domain>> domains,
-                                                                           Optional<Set<HiveColumnHandle>> allRequestedColumns,
-                                                                           Optional<HiveBucketHandle> hiveBucketHandle,
-                                                                           Optional<HiveStorageFormat> resolvedHiveStorageFormat,
-                                                                           WarningCollector warningCollector)
+            ConnectorSession session,
+            Table table,
+            SemiTransactionalHiveMetastore metastore,
+            SchemaTableName tableName,
+            Map<String, HiveColumnHandle> predicateColumns,
+            Optional<Map<Subfield, Domain>> domains,
+            Optional<Set<HiveColumnHandle>> allRequestedColumns,
+            Optional<HiveBucketHandle> hiveBucketHandle,
+            Optional<HiveStorageFormat> resolvedHiveStorageFormat,
+            WarningCollector warningCollector)
     {
         Iterable<List<HivePartitionMetadata>> partitionBatches = transform(partitionNameBatches, partitionBatch -> {
             Map<String, PartitionSplitInfo> partitionSplitInfo = getPartitionSplitInfo(session, metastore, tableName, partitionBatch, predicateColumns, domains);

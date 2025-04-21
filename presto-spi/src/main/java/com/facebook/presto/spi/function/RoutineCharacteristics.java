@@ -18,6 +18,9 @@ import com.facebook.drift.annotations.ThriftEnum;
 import com.facebook.drift.annotations.ThriftEnumValue;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
+import com.facebook.presto.common.experimental.auto_gen.ThriftDeterminism;
+import com.facebook.presto.common.experimental.auto_gen.ThriftNullCallClause;
+import com.facebook.presto.common.experimental.auto_gen.ThriftRoutineCharacteristics;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -28,8 +31,10 @@ import java.util.Optional;
 
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.DETERMINISTIC;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.NOT_DETERMINISTIC;
+import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.createDeterminism;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Language.SQL;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT;
+import static com.facebook.presto.spi.function.RoutineCharacteristics.NullCallClause.createNullCallClause;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -92,6 +97,16 @@ public class RoutineCharacteristics
         NOT_DETERMINISTIC(2);
         private final int value;
 
+        public static Determinism createDeterminism(ThriftDeterminism thriftDeterminism)
+        {
+            return Determinism.valueOf(thriftDeterminism.name());
+        }
+
+        public ThriftDeterminism toThrift()
+        {
+            return ThriftDeterminism.valueOf(toString());
+        }
+
         private Determinism(int value)
         {
             this.value = value;
@@ -111,6 +126,16 @@ public class RoutineCharacteristics
         CALLED_ON_NULL_INPUT(2);
         private final int value;
 
+        public static NullCallClause createNullCallClause(ThriftNullCallClause thriftNullCallClause)
+        {
+            return NullCallClause.valueOf(thriftNullCallClause.name());
+        }
+
+        public ThriftNullCallClause toThrift()
+        {
+            return ThriftNullCallClause.valueOf(this.name());
+        }
+
         private NullCallClause(int value)
         {
             this.value = value;
@@ -126,6 +151,21 @@ public class RoutineCharacteristics
     private final Language language;
     private final Determinism determinism;
     private final NullCallClause nullCallClause;
+
+    public RoutineCharacteristics(ThriftRoutineCharacteristics thriftRoutineCharacteristics)
+    {
+        this(new Language(thriftRoutineCharacteristics.getLanguage()),
+                createDeterminism(thriftRoutineCharacteristics.getDeterminism()),
+                createNullCallClause(thriftRoutineCharacteristics.getNullCallClause()));
+    }
+
+    public ThriftRoutineCharacteristics toThrift()
+    {
+        return new ThriftRoutineCharacteristics(
+                this.language.toString(),
+                this.determinism.toThrift(),
+                this.nullCallClause.toThrift());
+    }
 
     @JsonCreator
     public RoutineCharacteristics(

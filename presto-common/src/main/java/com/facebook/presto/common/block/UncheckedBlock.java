@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.common.block;
 
+import com.facebook.presto.common.experimental.ThriftSerializable;
 import io.airlift.slice.Slice;
 
 /**
@@ -22,7 +23,7 @@ import io.airlift.slice.Slice;
  * indexing is not performed with respect to {@link #getOffsetBase} and {@code getPositionCount()}.
  * Implementations of UncheckedBlock should perform any boundary checks within assert statements so they can
  * be disabled in performance critical deployments by disabling assertions.
- *
+ * <p>
  * Example usage:
  *
  * <pre>
@@ -34,13 +35,14 @@ import io.airlift.slice.Slice;
  *  }
  * }
  * </pre>
- *
+ * <p>
  * For nested structures, such as dictionaries and RLEs, the indexing is unchecked with respect to the top
  * level block, but not with respect to the inner blocks.  If, for performance reasons, it is desired to
  * use unchecked indexing also for the inner blocks, you may unpeel the blocks using existing utilities
  * such as {@link ColumnarArray}, {@link ColumnarMap}, {@link ColumnarRow} and {@link BlockFlattener}.
  */
 public interface UncheckedBlock
+        extends ThriftSerializable
 {
     /**
      * Gets a byte value at {@code internalPosition - getOffsetBase()}.

@@ -13,6 +13,12 @@
  */
 package com.facebook.presto.tpch;
 
+import com.facebook.presto.common.experimental.FbThriftUtils;
+import com.facebook.presto.common.experimental.ThriftSerializationRegistry;
+import com.facebook.presto.common.experimental.TypeAdapter;
+import com.facebook.presto.common.experimental.auto_gen.ThriftColumnHandle;
+import com.facebook.presto.common.experimental.auto_gen.ThriftTpchColumnHandle;
+import com.facebook.presto.common.experimental.auto_gen.ThriftType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -27,6 +33,16 @@ public class TpchColumnHandle
 {
     private final String columnName;
     private final Type type;
+
+    static {
+        ThriftSerializationRegistry.registerSerializer(TpchColumnHandle.class, TpchColumnHandle::toThrift, null);
+        ThriftSerializationRegistry.registerDeserializer(TpchColumnHandle.class, ThriftTpchColumnHandle.class, TpchColumnHandle::deserialize, null);
+    }
+
+    public TpchColumnHandle(ThriftTpchColumnHandle thriftHandle)
+    {
+        this(thriftHandle.getColumnName(), (Type) TypeAdapter.fromThrift(thriftHandle.getType()));
+    }
 
     @JsonCreator
     public TpchColumnHandle(
@@ -72,5 +88,30 @@ public class TpchColumnHandle
     public int hashCode()
     {
         return Objects.hash(columnName);
+    }
+
+    @Override
+    public ThriftColumnHandle toThriftInterface()
+    {
+        return ThriftColumnHandle.builder()
+                .setType(getImplementationType())
+                .setSerializedHandle(FbThriftUtils.serialize(this.toThrift()))
+                .build();
+    }
+
+    @Override
+    public ThriftTpchColumnHandle toThrift()
+    {
+        return new ThriftTpchColumnHandle(columnName, (ThriftType) type.toThriftInterface());
+    }
+
+    public static TpchColumnHandle deserialize(byte[] bytes)
+    {
+        return new TpchColumnHandle(FbThriftUtils.deserialize(ThriftTpchColumnHandle.class, bytes));
+    }
+
+    public static byte[] serialize(TpchColumnHandle tpchColumnHandle)
+    {
+        return FbThriftUtils.serialize(tpchColumnHandle.toThrift());
     }
 }

@@ -16,6 +16,7 @@ package com.facebook.presto.execution.buffer;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
+import com.facebook.presto.common.experimental.auto_gen.ThriftPageBufferInfo;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -31,6 +32,16 @@ public class PageBufferInfo
     private final long bufferedBytes;
     private final long rowsAdded;
     private final long pagesAdded;
+
+    public PageBufferInfo(ThriftPageBufferInfo thriftPageBufferInfo)
+    {
+        this(thriftPageBufferInfo.getPartition(), thriftPageBufferInfo.getBufferedPages(), thriftPageBufferInfo.getBufferedBytes(), thriftPageBufferInfo.getRowsAdded(), thriftPageBufferInfo.getPagesAdded());
+    }
+
+    public ThriftPageBufferInfo toThrift()
+    {
+        return new ThriftPageBufferInfo(partition, bufferedPages, bufferedBytes, rowsAdded, pagesAdded);
+    }
 
     @JsonCreator
     @ThriftConstructor

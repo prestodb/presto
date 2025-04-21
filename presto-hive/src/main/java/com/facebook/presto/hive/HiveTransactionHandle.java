@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.experimental.FbThriftUtils;
+import com.facebook.presto.common.experimental.ThriftSerializationRegistry;
+import com.facebook.presto.common.experimental.auto_gen.ThriftConnectorTransactionHandle;
+import com.facebook.presto.common.experimental.auto_gen.ThriftHiveTransactionHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -25,7 +29,17 @@ import static java.util.Objects.requireNonNull;
 public class HiveTransactionHandle
         implements ConnectorTransactionHandle
 {
+    static {
+        ThriftSerializationRegistry.registerSerializer(HiveTransactionHandle.class, HiveTransactionHandle::toThrift, null);
+        ThriftSerializationRegistry.registerDeserializer(HiveTransactionHandle.class, ThriftHiveTransactionHandle.class, HiveTransactionHandle::deserialize, null);
+    }
+
     private final UUID uuid;
+
+    public HiveTransactionHandle(ThriftHiveTransactionHandle thriftHandle)
+    {
+        this(new UUID(thriftHandle.getTaskInstanceIdMostSignificantBits(), thriftHandle.getTaskInstanceIdLeastSignificantBits()));
+    }
 
     public HiveTransactionHandle()
     {
@@ -67,5 +81,23 @@ public class HiveTransactionHandle
     public String toString()
     {
         return uuid.toString();
+    }
+
+    @Override
+    public ThriftConnectorTransactionHandle toThriftInterface()
+    {
+        return ThriftConnectorTransactionHandle.builder().setType(getImplementationType())
+                .setSerializedConnectorTransactionHandle(FbThriftUtils.serialize(this.toThrift())).build();
+    }
+
+    @Override
+    public ThriftHiveTransactionHandle toThrift()
+    {
+        return new ThriftHiveTransactionHandle(uuid.getLeastSignificantBits(), uuid.getMostSignificantBits());
+    }
+
+    public static HiveTransactionHandle deserialize(byte[] bytes)
+    {
+        return new HiveTransactionHandle(FbThriftUtils.deserialize(ThriftHiveTransactionHandle.class, bytes));
     }
 }

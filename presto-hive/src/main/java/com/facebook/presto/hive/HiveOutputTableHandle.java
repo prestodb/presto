@@ -13,6 +13,11 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.experimental.FbThriftUtils;
+import com.facebook.presto.common.experimental.ThriftSerializationRegistry;
+import com.facebook.presto.common.experimental.auto_gen.ThriftConnectorOutputTableHandle;
+import com.facebook.presto.common.experimental.auto_gen.ThriftHiveOutputTableHandle;
+import com.facebook.presto.common.experimental.auto_gen.ThriftHiveWritableTableHandle;
 import com.facebook.presto.hive.metastore.HivePageSinkMetadata;
 import com.facebook.presto.hive.metastore.SortingColumn;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
@@ -24,6 +29,7 @@ import com.google.common.collect.ImmutableMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
@@ -34,6 +40,30 @@ public class HiveOutputTableHandle
     private final List<String> partitionedBy;
     private final String tableOwner;
     private final Map<String, String> additionalTableParameters;
+
+    static {
+        ThriftSerializationRegistry.registerSerializer(HiveOutputTableHandle.class, HiveOutputTableHandle::toThrift, null);
+        ThriftSerializationRegistry.registerDeserializer(HiveOutputTableHandle.class, ThriftHiveOutputTableHandle.class, HiveOutputTableHandle::deserialize, null);
+    }
+
+    public HiveOutputTableHandle(ThriftHiveOutputTableHandle thriftHandle)
+    {
+        this(thriftHandle.getHiveWritableTableHandle().getSchemaName(),
+                thriftHandle.getHiveWritableTableHandle().getTableName(),
+                thriftHandle.getHiveWritableTableHandle().getInputColumns().stream().map(HiveColumnHandle::new).collect(Collectors.toList()),
+                new HivePageSinkMetadata(thriftHandle.getHiveWritableTableHandle().getPageSinkMetadata()),
+                new LocationHandle(thriftHandle.getHiveWritableTableHandle().getLocationHandle()),
+                HiveStorageFormat.valueOf(thriftHandle.getHiveWritableTableHandle().getTableStorageFormat().name()),
+                HiveStorageFormat.valueOf(thriftHandle.getHiveWritableTableHandle().getPartitionStorageFormat().name()),
+                HiveStorageFormat.valueOf(thriftHandle.getHiveWritableTableHandle().getActualStorageFormat().name()),
+                HiveCompressionCodec.valueOf(thriftHandle.getHiveWritableTableHandle().getCompressionCodec().name()),
+                thriftHandle.getPartitionedBy(),
+                Optional.ofNullable(thriftHandle.getHiveWritableTableHandle().getBucketProperty()).map(HiveBucketProperty::new),
+                thriftHandle.getHiveWritableTableHandle().getPreferredOrderingColumns().stream().map(SortingColumn::new).collect(Collectors.toList()),
+                thriftHandle.getTableOwner(),
+                thriftHandle.getAdditionalTableParameters(),
+                Optional.ofNullable(thriftHandle.getHiveWritableTableHandle().getEncryptionInformation()).map(EncryptionInformation::new));
+    }
 
     @JsonCreator
     public HiveOutputTableHandle(
@@ -88,5 +118,31 @@ public class HiveOutputTableHandle
     public Map<String, String> getAdditionalTableParameters()
     {
         return additionalTableParameters;
+    }
+
+    @Override
+    public ThriftHiveOutputTableHandle toThrift()
+    {
+        ThriftHiveWritableTableHandle thriftBase = (ThriftHiveWritableTableHandle) super.toThrift();
+        return new ThriftHiveOutputTableHandle(partitionedBy, tableOwner, additionalTableParameters, thriftBase);
+    }
+
+    @Override
+    public ThriftConnectorOutputTableHandle toThriftInterface()
+    {
+        return ThriftConnectorOutputTableHandle.builder()
+                .setType(getImplementationType())
+                .setSerializedOutputTableHandle(FbThriftUtils.serialize(this.toThrift()))
+                .build();
+    }
+
+    public static byte[] serialize(HiveOutputTableHandle handle)
+    {
+        return FbThriftUtils.serialize(handle.toThrift());
+    }
+
+    public static HiveOutputTableHandle deserialize(byte[] bytes)
+    {
+        return new HiveOutputTableHandle(FbThriftUtils.deserialize(ThriftHiveOutputTableHandle.class, bytes));
     }
 }

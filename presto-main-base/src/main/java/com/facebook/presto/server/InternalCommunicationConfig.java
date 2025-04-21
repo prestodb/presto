@@ -41,6 +41,8 @@ public class InternalCommunicationConfig
     private boolean kerberosUseCanonicalHostname = true;
     private boolean binaryTransportEnabled;
     private boolean thriftTransportEnabled;
+    private boolean experimentalThriftStatusEnabled;
+    private boolean experimentalThriftTaskUpdateEnabled;
     private boolean taskInfoThriftTransportEnabled;
     private Protocol thriftProtocol = Protocol.BINARY;
     private DataSize maxTaskUpdateSize = new DataSize(16, MEGABYTE);
@@ -171,6 +173,30 @@ public class InternalCommunicationConfig
     public InternalCommunicationConfig setBinaryTransportEnabled(boolean binaryTransportEnabled)
     {
         this.binaryTransportEnabled = binaryTransportEnabled;
+        return this;
+    }
+
+    public boolean isExperimentalThriftStatusEnabled()
+    {
+        return experimentalThriftStatusEnabled;
+    }
+
+    @Config("experimental.internal-communication.experimental-thrift-status-enabled")
+    public InternalCommunicationConfig setExperimentalThriftStatusEnabled(boolean experimentalThriftStatusEnabled)
+    {
+        this.experimentalThriftStatusEnabled = experimentalThriftStatusEnabled;
+        return this;
+    }
+
+    public boolean isExperimentalThriftTaskUpdateEnabled()
+    {
+        return experimentalThriftTaskUpdateEnabled;
+    }
+
+    @Config("experimental.internal-communication.experimental-thrift-status-enabled")
+    public InternalCommunicationConfig setExperimentalThriftTaskUpdateEnabled(boolean experimentalThriftTaskUpdateEnabled)
+    {
+        this.experimentalThriftTaskUpdateEnabled = experimentalThriftTaskUpdateEnabled;
         return this;
     }
 

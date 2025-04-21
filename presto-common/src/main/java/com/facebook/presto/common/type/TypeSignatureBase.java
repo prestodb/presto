@@ -17,6 +17,7 @@ import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.experimental.auto_gen.ThriftTypeSignatureBase;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -30,6 +31,19 @@ public class TypeSignatureBase
 {
     private final Optional<String> standardTypeBase;
     private final Optional<QualifiedObjectName> typeName;
+
+    public TypeSignatureBase(ThriftTypeSignatureBase thriftTypeSignatureBase)
+    {
+        this(Optional.ofNullable(thriftTypeSignatureBase.getStandardTypeBase()), Optional.ofNullable(thriftTypeSignatureBase.getTypeName()).map(QualifiedObjectName::new));
+    }
+
+    public ThriftTypeSignatureBase toThrift()
+    {
+        return ThriftTypeSignatureBase.builder()
+                .setStandardTypeBase(standardTypeBase.orElse(null))
+                .setTypeName(typeName.map(QualifiedObjectName::toThrift).orElse(null))
+                .build();
+    }
 
     public static TypeSignatureBase of(String name)
     {

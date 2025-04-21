@@ -65,7 +65,7 @@ public class TestSubfieldTokenizer
 
     private static void assertPath(Subfield path)
     {
-        SubfieldTokenizer tokenizer = new SubfieldTokenizer(path.serialize());
+        SubfieldTokenizer tokenizer = new SubfieldTokenizer(path.toString());
         assertTrue(tokenizer.hasNext());
         assertEquals(new Subfield(((NestedField) tokenizer.next()).getName(), Streams.stream(tokenizer).collect(toImmutableList())), path);
     }

@@ -17,6 +17,8 @@ import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.RuntimeStats;
+import com.facebook.presto.common.experimental.auto_gen.ThriftBlockedReason;
+import com.facebook.presto.common.experimental.auto_gen.ThriftTaskStats;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -25,6 +27,7 @@ import org.joda.time.DateTime;
 
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.util.DateTimeUtils.toTimeStampInMillis;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -88,6 +91,96 @@ public class TaskStats
 
     // RuntimeStats aggregated at the task level including the metrics exposed in this task and each operator of this task.
     private final RuntimeStats runtimeStats;
+
+    public TaskStats(ThriftTaskStats thriftTaskStats)
+    {
+        this(thriftTaskStats.getCreateTimeInMillis(),
+                thriftTaskStats.getFirstStartTimeInMillis(),
+                thriftTaskStats.getLastStartTimeInMillis(), thriftTaskStats.getLastEndTimeInMillis(),
+                thriftTaskStats.getEndTimeInMillis(),
+                thriftTaskStats.getElapsedTimeInNanos(),
+                thriftTaskStats.getQueuedTimeInNanos(),
+                thriftTaskStats.getTotalDrivers(),
+                thriftTaskStats.getQueuedDrivers(),
+                thriftTaskStats.getQueuedPartitionedDrivers(),
+                thriftTaskStats.getQueuedPartitionedSplitsWeight(),
+                thriftTaskStats.getRunningDrivers(),
+                thriftTaskStats.getRunningPartitionedDrivers(),
+                thriftTaskStats.getRunningPartitionedSplitsWeight(),
+                thriftTaskStats.getBlockedDrivers(),
+                thriftTaskStats.getCompletedDrivers(),
+                thriftTaskStats.getCumulativeUserMemory(),
+                thriftTaskStats.getCumulativeTotalMemory(),
+                thriftTaskStats.getUserMemoryReservationInBytes(),
+                thriftTaskStats.getRevocableMemoryReservationInBytes(),
+                thriftTaskStats.getSystemMemoryReservationInBytes(),
+                thriftTaskStats.getPeakTotalMemoryInBytes(),
+                thriftTaskStats.getPeakUserMemoryInBytes(),
+                thriftTaskStats.getPeakNodeTotalMemoryInBytes(),
+                thriftTaskStats.getTotalScheduledTimeInNanos(),
+                thriftTaskStats.getTotalCpuTimeInNanos(),
+                thriftTaskStats.getTotalBlockedTimeInNanos(),
+                thriftTaskStats.isFullyBlocked(),
+                requireNonNull(thriftTaskStats.getBlockedReasons()).stream().map(reason -> BlockedReason.valueOf(reason.name())).collect(Collectors.toSet()),
+                thriftTaskStats.getTotalAllocationInBytes(),
+                thriftTaskStats.getRawInputDataSizeInBytes(),
+                thriftTaskStats.getRawInputPositions(),
+                thriftTaskStats.getProcessedInputDataSizeInBytes(),
+                thriftTaskStats.getProcessedInputPositions(),
+                thriftTaskStats.getOutputDataSizeInBytes(),
+                thriftTaskStats.getOutputPositions(),
+                thriftTaskStats.getPhysicalWrittenDataSizeInBytes(),
+                thriftTaskStats.getFullGcCount(),
+                thriftTaskStats.getFullGcTimeInMillis(),
+                requireNonNull(thriftTaskStats.getPipelines()).stream().map(PipelineStats::new).collect(Collectors.toList()),
+                new RuntimeStats(requireNonNull(thriftTaskStats.getRuntimeStats())));
+    }
+
+    public ThriftTaskStats toThrift()
+    {
+        return new ThriftTaskStats(
+                createTimeInMillis,
+                firstStartTimeInMillis,
+                lastStartTimeInMillis,
+                lastEndTimeInMillis,
+                endTimeInMillis,
+                elapsedTimeInNanos,
+                queuedTimeInNanos,
+                totalDrivers,
+                queuedDrivers,
+                runningDrivers,
+                blockedDrivers,
+                completedDrivers,
+                cumulativeUserMemory,
+                cumulativeTotalMemory,
+                userMemoryReservationInBytes,
+                revocableMemoryReservationInBytes,
+                systemMemoryReservationInBytes,
+                peakUserMemoryInBytes,
+                peakTotalMemoryInBytes,
+                peakNodeTotalMemoryInBytes,
+                totalScheduledTimeInNanos,
+                totalCpuTimeInNanos,
+                totalBlockedTimeInNanos,
+                fullyBlocked,
+                blockedReasons.stream().map(reason -> ThriftBlockedReason.valueOf(reason.name())).collect(Collectors.toSet()),
+                totalAllocationInBytes,
+                rawInputDataSizeInBytes,
+                rawInputPositions,
+                processedInputDataSizeInBytes,
+                processedInputPositions,
+                outputDataSizeInBytes,
+                outputPositions,
+                physicalWrittenDataSizeInBytes,
+                pipelines.stream().map(PipelineStats::toThrift).collect(Collectors.toList()),
+                queuedPartitionedDrivers,
+                queuedPartitionedSplitsWeight,
+                runningPartitionedDrivers,
+                runningPartitionedSplitsWeight,
+                fullGcCount,
+                fullGcTimeInMillis,
+                runtimeStats.toThrift());
+    }
 
     public TaskStats(long createTimeInMillis, long endTimeInMillis)
     {

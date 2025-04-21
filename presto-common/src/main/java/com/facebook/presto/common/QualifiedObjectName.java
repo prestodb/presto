@@ -16,6 +16,7 @@ package com.facebook.presto.common;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
+import com.facebook.presto.common.experimental.auto_gen.ThriftQualifiedObjectName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
@@ -34,6 +35,16 @@ public class QualifiedObjectName
     private final String catalogName;
     private final String schemaName;
     private final String objectName;
+
+    public QualifiedObjectName(ThriftQualifiedObjectName thriftQualifiedObjectName)
+    {
+        this(thriftQualifiedObjectName.getCatalogName(), thriftQualifiedObjectName.getSchemaName(), thriftQualifiedObjectName.getObjectName());
+    }
+
+    public ThriftQualifiedObjectName toThrift()
+    {
+        return new ThriftQualifiedObjectName(catalogName, schemaName, objectName);
+    }
 
     @JsonCreator
     public static QualifiedObjectName valueOf(String name)

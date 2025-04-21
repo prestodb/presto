@@ -18,6 +18,8 @@ import com.facebook.drift.annotations.ThriftEnum;
 import com.facebook.drift.annotations.ThriftEnumValue;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
+import com.facebook.presto.common.experimental.auto_gen.ThriftSelectedRole;
+import com.facebook.presto.common.experimental.auto_gen.ThriftSelectedRoleType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -38,6 +40,16 @@ public class SelectedRole
 
         private final int value;
 
+        public static Type createType(ThriftSelectedRoleType thriftType)
+        {
+            return Type.valueOf(thriftType.name());
+        }
+
+        public ThriftSelectedRoleType toThrift()
+        {
+            return ThriftSelectedRoleType.valueOf(this.name());
+        }
+
         Type(int value)
         {
             this.value = value;
@@ -54,6 +66,16 @@ public class SelectedRole
 
     private final Type type;
     private final Optional<String> role;
+
+    public SelectedRole(ThriftSelectedRole thriftSelectedRole)
+    {
+        this(Type.createType(thriftSelectedRole.getType()), Optional.ofNullable(thriftSelectedRole.getRole()));
+    }
+
+    public ThriftSelectedRole toThrift()
+    {
+        return new ThriftSelectedRole(this.getType().toThrift(), this.role.orElse(null));
+    }
 
     @ThriftConstructor
     @JsonCreator

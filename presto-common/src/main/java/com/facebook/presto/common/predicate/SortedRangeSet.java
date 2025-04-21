@@ -13,6 +13,12 @@
  */
 package com.facebook.presto.common.predicate;
 
+import com.facebook.presto.common.experimental.FbThriftUtils;
+import com.facebook.presto.common.experimental.ThriftSerializationRegistry;
+import com.facebook.presto.common.experimental.TypeAdapter;
+import com.facebook.presto.common.experimental.auto_gen.ThriftSortedRangeSet;
+import com.facebook.presto.common.experimental.auto_gen.ThriftType;
+import com.facebook.presto.common.experimental.auto_gen.ThriftValueSet;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -50,6 +56,21 @@ public final class SortedRangeSet
 {
     private final Type type;
     private final NavigableMap<Marker, Range> lowIndexedRanges;
+
+    static {
+        ThriftSerializationRegistry.registerSerializer(SortedRangeSet.class, SortedRangeSet::toThrift, null);
+        ThriftSerializationRegistry.registerDeserializer(SortedRangeSet.class, ThriftSortedRangeSet.class, SortedRangeSet::deserialize, null);
+    }
+
+    public SortedRangeSet(ThriftSortedRangeSet thriftSet)
+    {
+        this((Type) TypeAdapter.fromThrift(thriftSet.getType()),
+                thriftSet.getLowIndexedRanges().entrySet().stream().collect(Collectors.toMap(
+                        entry -> new Marker(entry.getKey()),
+                        entry -> new Range(entry.getValue()),
+                        (v1, v2) -> v1,
+                        TreeMap::new)));
+    }
 
     private SortedRangeSet(Type type, NavigableMap<Marker, Range> lowIndexedRanges)
     {
@@ -412,8 +433,9 @@ public final class SortedRangeSet
                                 entry -> {
                                     boolean removeConstants = entry.getValue().getLow().getBound().equals(Marker.Bound.EXACTLY) && entry.getValue().getHigh().getBound().equals(Marker.Bound.EXACTLY);
                                     return entry.getValue().canonicalize(removeConstants);
+                                }, (e1, e2) -> {
+                                    throw new IllegalStateException(format("Duplicate key %s", e1));
                                 },
-                                (e1, e2) -> { throw new IllegalStateException(format("Duplicate key %s", e1)); },
                                 TreeMap::new)));
     }
 
@@ -498,5 +520,27 @@ public final class SortedRangeSet
 
             return new SortedRangeSet(type, result);
         }
+    }
+
+    public static SortedRangeSet deserialize(byte[] bytes)
+    {
+        return new SortedRangeSet(FbThriftUtils.deserialize(ThriftSortedRangeSet.class, bytes));
+    }
+
+    @Override
+    public ThriftSortedRangeSet toThrift()
+    {
+        return new ThriftSortedRangeSet((ThriftType) type.toThriftInterface(), lowIndexedRanges.entrySet().stream().collect(Collectors.toMap(
+                entry -> entry.getKey().toThrift(),
+                entry -> entry.getValue().toThrift())));
+    }
+
+    @Override
+    public ThriftValueSet toThriftInterface()
+    {
+        return ThriftValueSet.builder()
+                .setType(getImplementationType())
+                .setSerializedValueSet(FbThriftUtils.serialize(this.toThrift()))
+                .build();
     }
 }

@@ -15,6 +15,9 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.experimental.ExecutionWriterTargetAdapter;
+import com.facebook.presto.common.experimental.auto_gen.ThriftExecutionWriterTarget;
+import com.facebook.presto.common.experimental.auto_gen.ThriftTableWriteInfo;
 import com.facebook.presto.metadata.AnalyzeTableHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -42,6 +45,21 @@ public class TableWriteInfo
 {
     private final Optional<ExecutionWriterTarget> writerTarget;
     private final Optional<AnalyzeTableHandle> analyzeTableHandle;
+
+    public TableWriteInfo(ThriftTableWriteInfo thriftTableWriteInfo)
+    {
+        this(
+                Optional.ofNullable(thriftTableWriteInfo.getWriterTarget()).map(target -> (ExecutionWriterTarget) ExecutionWriterTargetAdapter.fromThrift(target)),
+                Optional.ofNullable(thriftTableWriteInfo.getAnalyzeTableHandle()).map(AnalyzeTableHandle::new));
+    }
+
+    public ThriftTableWriteInfo toThrift()
+    {
+        return ThriftTableWriteInfo.builder()
+                .setWriterTarget(writerTarget.map(target -> (ThriftExecutionWriterTarget) target.toThriftInterface()).orElse(null))
+                .setAnalyzeTableHandle(analyzeTableHandle.map(AnalyzeTableHandle::toThrift).orElse(null))
+                .build();
+    }
 
     @JsonCreator
     public TableWriteInfo(

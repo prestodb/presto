@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.presto.common.experimental.auto_gen.ThriftPrestoTableType;
+import com.facebook.presto.common.experimental.auto_gen.ThriftTable;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -29,6 +31,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -47,6 +50,32 @@ public class Table
     private final Map<String, String> parameters;
     private final Optional<String> viewOriginalText;
     private final Optional<String> viewExpandedText;
+
+    public Table(ThriftTable thriftTable)
+    {
+        this(thriftTable.getDatabaseName(),
+                thriftTable.getTableName(),
+                thriftTable.getOwner(),
+                PrestoTableType.valueOf(thriftTable.getTableType().name()),
+                new Storage(thriftTable.getStorage()),
+                thriftTable.getDataColumns().stream().map(Column::new).collect(Collectors.toList()),
+                thriftTable.getPartitionColumns().stream().map(Column::new).collect(Collectors.toList()),
+                thriftTable.getParameters(),
+                Optional.ofNullable(thriftTable.getViewOriginalText()),
+                Optional.ofNullable(thriftTable.getViewExpandedText()));
+    }
+
+    public ThriftTable toThrift()
+    {
+        return new ThriftTable(databaseName, tableName, owner,
+                ThriftPrestoTableType.valueOf(tableType.name()),
+                dataColumns.stream().map(Column::toThrift).collect(Collectors.toList()),
+                partitionColumns.stream().map(Column::toThrift).collect(Collectors.toList()),
+                storage.toThrift(),
+                parameters,
+                viewOriginalText.orElse(null),
+                viewExpandedText.orElse(null), null);
+    }
 
     @JsonCreator
     public Table(

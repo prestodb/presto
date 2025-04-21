@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.experimental.auto_gen.ThriftPartitionNameWithVersion;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ComparisonChain;
@@ -30,6 +31,16 @@ public class PartitionNameWithVersion
 {
     private final String partitionName;
     private final Optional<Long> partitionVersion;
+
+    public PartitionNameWithVersion(ThriftPartitionNameWithVersion thriftPartitionNameWithVersion)
+    {
+        this(thriftPartitionNameWithVersion.getPartitionName(), Optional.ofNullable(thriftPartitionNameWithVersion.getPartitionVersion()));
+    }
+
+    public ThriftPartitionNameWithVersion toThrift()
+    {
+        return new ThriftPartitionNameWithVersion(partitionName, partitionVersion.orElse(null));
+    }
 
     @JsonCreator
     public PartitionNameWithVersion(@JsonProperty("partitionName") String partitionName, @JsonProperty("partitionVersion") Optional<Long> partitionVersion)

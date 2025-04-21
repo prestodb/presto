@@ -14,6 +14,11 @@
 
 package com.facebook.presto.execution.scheduler;
 
+import com.facebook.presto.common.experimental.FbThriftUtils;
+import com.facebook.presto.common.experimental.ThriftSerializable;
+import com.facebook.presto.common.experimental.ThriftSerializationRegistry;
+import com.facebook.presto.common.experimental.auto_gen.ThriftCreateHandle;
+import com.facebook.presto.common.experimental.auto_gen.ThriftExecutionWriterTarget;
 import com.facebook.presto.metadata.DeleteTableHandle;
 import com.facebook.presto.metadata.InsertTableHandle;
 import com.facebook.presto.metadata.OutputTableHandle;
@@ -35,12 +40,25 @@ import static java.util.Objects.requireNonNull;
         @JsonSubTypes.Type(value = ExecutionWriterTarget.UpdateHandle.class, name = "UpdateHandle")})
 @SuppressWarnings({"EmptyClass", "ClassMayBeInterface"})
 public abstract class ExecutionWriterTarget
+        implements ThriftSerializable
 {
     public static class CreateHandle
             extends ExecutionWriterTarget
     {
         private final OutputTableHandle handle;
         private final SchemaTableName schemaTableName;
+
+        static {
+            ThriftSerializationRegistry.registerSerializer(CreateHandle.class, CreateHandle::toThrift, null);
+            ThriftSerializationRegistry.registerDeserializer(CreateHandle.class, ThriftCreateHandle.class, CreateHandle::deserialize, null);
+        }
+
+        public static CreateHandle newCreateHandle(ThriftCreateHandle thriftHandle)
+        {
+            OutputTableHandle outputTableHandle = new OutputTableHandle(thriftHandle.getHandle());
+            SchemaTableName schemaTableName = new SchemaTableName(thriftHandle.getSchemaTableName());
+            return new CreateHandle(outputTableHandle, schemaTableName);
+        }
 
         @JsonCreator
         public CreateHandle(
@@ -67,6 +85,26 @@ public abstract class ExecutionWriterTarget
         public String toString()
         {
             return handle.toString();
+        }
+
+        @Override
+        public ThriftExecutionWriterTarget toThriftInterface()
+        {
+            return ThriftExecutionWriterTarget.builder()
+                    .setType(this.getClass().getName())
+                    .setSerializedTarget(FbThriftUtils.serialize(this.toThrift()))
+                    .build();
+        }
+
+        @Override
+        public ThriftCreateHandle toThrift()
+        {
+            return new ThriftCreateHandle(handle.toThrift(), schemaTableName.toThrift());
+        }
+
+        public static CreateHandle deserialize(byte[] bytes)
+        {
+            return newCreateHandle(FbThriftUtils.deserialize(ThriftCreateHandle.class, bytes));
         }
     }
 

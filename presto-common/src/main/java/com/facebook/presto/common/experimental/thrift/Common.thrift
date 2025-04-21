@@ -6,6 +6,21 @@ typedef string ThriftPlanNodeId
 typedef string ThriftConnectorId
 typedef i32 ThriftOutputBufferId
 
+enum ThriftTimeUnit {
+  NANOSECONDS = 0,
+  MICROSECONDS = 1,
+  MILLISECONDS = 2,
+  SECONDS = 3,
+  MINUTES = 4,
+  HOURS = 5,
+  DAYS = 6,
+}
+
+struct ThriftDuration {
+  1: double value;
+  2: ThriftTimeUnit unit;
+}
+
 struct BinaryWrapper {
   1: binary data;
 }

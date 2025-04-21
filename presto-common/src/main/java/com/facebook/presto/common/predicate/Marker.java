@@ -15,6 +15,13 @@ package com.facebook.presto.common.predicate;
 
 import com.facebook.presto.common.Utils;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.experimental.BlockAdapter;
+import com.facebook.presto.common.experimental.ThriftSerializable;
+import com.facebook.presto.common.experimental.TypeAdapter;
+import com.facebook.presto.common.experimental.auto_gen.ThriftBlock;
+import com.facebook.presto.common.experimental.auto_gen.ThriftBound;
+import com.facebook.presto.common.experimental.auto_gen.ThriftMarker;
+import com.facebook.presto.common.experimental.auto_gen.ThriftType;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -30,7 +37,7 @@ import static java.util.Objects.requireNonNull;
  * Each point may be just below, exact, or just above the specified value according to the Bound.
  */
 public final class Marker
-        implements Comparable<Marker>
+        implements Comparable<Marker>, ThriftSerializable
 {
     public enum Bound
     {
@@ -42,6 +49,21 @@ public final class Marker
     private final Type type;
     private final Optional<Block> valueBlock;
     private final Bound bound;
+
+    public Marker(ThriftMarker thriftMarker)
+    {
+        this(
+                (Type) TypeAdapter.fromThrift(thriftMarker.getType()),
+                Optional.ofNullable(thriftMarker.getValueBlock()).map(b -> (Block) BlockAdapter.fromThrift(b)),
+                Bound.valueOf(thriftMarker.getBound().name()));
+    }
+
+    public ThriftMarker toThrift()
+    {
+        return new ThriftMarker((ThriftType) type.toThriftInterface(),
+                valueBlock.map(block -> (ThriftBlock) block.toThriftInterface()).orElse(null),
+                ThriftBound.valueOf(bound.name()));
+    }
 
     /**
      * LOWER UNBOUNDED is specified with an empty value and a ABOVE bound

@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.plan;
 
 import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.common.experimental.auto_gen.ThriftOrderingScheme;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -40,6 +41,16 @@ public class OrderingScheme
     private final List<Ordering> orderBy;
     private final Map<VariableReferenceExpression, SortOrder> orderings;
 
+    public OrderingScheme(ThriftOrderingScheme thriftScheme)
+    {
+        this(thriftScheme.getOrderBy().stream().map(Ordering::new).collect(toList()));
+    }
+
+    public ThriftOrderingScheme toThrift()
+    {
+        return new ThriftOrderingScheme(orderBy.stream().map(Ordering::toThrift).collect(toList()));
+    }
+
     @JsonCreator
     public OrderingScheme(@JsonProperty("orderBy") List<Ordering> orderBy)
     {
@@ -61,7 +72,7 @@ public class OrderingScheme
     }
 
     /**
-     *  Sort order of ORDER BY variables.
+     * Sort order of ORDER BY variables.
      */
     public Map<VariableReferenceExpression, SortOrder> getOrderingsMap()
     {

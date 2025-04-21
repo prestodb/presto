@@ -16,6 +16,7 @@ package com.facebook.presto.common.type;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
+import com.facebook.presto.common.experimental.auto_gen.ThriftVarcharEnumMap;
 import com.facebook.presto.common.type.encoding.Base32;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -76,6 +77,19 @@ public class VarcharEnumType
         private final String typeName;
         private final Map<String, String> enumMap;
         private final Map<String, String> flippedEnumMap;
+
+        public VarcharEnumMap(ThriftVarcharEnumMap thriftVarcharEnumMap)
+        {
+            this.typeName = thriftVarcharEnumMap.getTypeName();
+            this.enumMap = thriftVarcharEnumMap.getEnumMap();
+            this.flippedEnumMap = this.enumMap.entrySet().stream()
+                    .collect(toMap(Map.Entry::getValue, Map.Entry::getKey));
+        }
+
+        public ThriftVarcharEnumMap toThrift()
+        {
+            return new ThriftVarcharEnumMap(this.typeName, this.enumMap);
+        }
 
         @ThriftConstructor
         @JsonCreator

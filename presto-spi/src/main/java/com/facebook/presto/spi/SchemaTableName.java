@@ -16,6 +16,7 @@ package com.facebook.presto.spi;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
+import com.facebook.presto.common.experimental.auto_gen.ThriftSchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -29,6 +30,16 @@ public class SchemaTableName
 {
     private final String schemaName;
     private final String tableName;
+
+    public SchemaTableName(ThriftSchemaTableName thriftSchemaTableName)
+    {
+        this(thriftSchemaTableName.getSchemaName(), thriftSchemaTableName.getTableName());
+    }
+
+    public ThriftSchemaTableName toThrift()
+    {
+        return new ThriftSchemaTableName(schemaName, tableName);
+    }
 
     @JsonCreator
     @ThriftConstructor

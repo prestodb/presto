@@ -13,16 +13,23 @@
  */
 package com.facebook.presto.common.block;
 
+import com.facebook.presto.common.experimental.FbThriftUtils;
+import com.facebook.presto.common.experimental.ThriftSerializationRegistry;
+import com.facebook.presto.common.experimental.auto_gen.ThriftBlock;
+import com.facebook.presto.common.experimental.auto_gen.ThriftLongArrayBlock;
 import io.airlift.slice.SliceOutput;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.array.Arrays.ExpansionFactor.SMALL;
 import static com.facebook.presto.common.array.Arrays.ExpansionOption.PRESERVE;
@@ -49,6 +56,23 @@ public class LongArrayBlock
     private final long[] values;
 
     private final long retainedSizeInBytes;
+
+    static {
+        ThriftSerializationRegistry.registerSerializer(LongArrayBlock.class, LongArrayBlock::toThrift, null);
+        ThriftSerializationRegistry.registerDeserializer(LongArrayBlock.class, ThriftLongArrayBlock.class, LongArrayBlock::deserialize, null);
+    }
+
+    public LongArrayBlock(ThriftLongArrayBlock thriftBlock)
+    {
+        this(thriftBlock.getPositionCount(), Optional.ofNullable(thriftBlock.getValueIsNull()).map(list -> {
+            boolean[] valueIsNull = new boolean[list.size()];
+            for (int i = 0; i < list.size(); i++) {
+                Boolean value = list.get(i);
+                valueIsNull[i] = value != null && value;
+            }
+            return valueIsNull;
+        }), thriftBlock.getValues().stream().mapToLong(Long::longValue).toArray());
+    }
 
     public LongArrayBlock(int positionCount, Optional<boolean[]> valueIsNull, long[] values)
     {
@@ -344,5 +368,30 @@ public class LongArrayBlock
                 Arrays.hashCode(valueIsNull),
                 Arrays.hashCode(values),
                 retainedSizeInBytes);
+    }
+
+    public ThriftLongArrayBlock toThrift()
+    {
+        List<Boolean> thriftValueIsNull = null;
+        if (valueIsNull != null) {
+            thriftValueIsNull = new ArrayList<>();
+            for (boolean value : valueIsNull) {
+                thriftValueIsNull.add(value);
+            }
+        }
+        return new ThriftLongArrayBlock(positionCount, thriftValueIsNull, Arrays.stream(values).boxed().collect(Collectors.toList()));
+    }
+
+    public ThriftBlock toThriftInterface()
+    {
+        return ThriftBlock.builder()
+                .setType(getImplementationType())
+                .setSerializedBlock(FbThriftUtils.serialize(this.toThrift()))
+                .build();
+    }
+
+    public static LongArrayBlock deserialize(byte[] bytes)
+    {
+        return new LongArrayBlock(FbThriftUtils.deserialize(ThriftLongArrayBlock.class, bytes));
     }
 }

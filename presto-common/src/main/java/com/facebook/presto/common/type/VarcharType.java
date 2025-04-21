@@ -13,11 +13,26 @@
  */
 package com.facebook.presto.common.type;
 
+import com.facebook.presto.common.experimental.FbThriftUtils;
+import com.facebook.presto.common.experimental.ThriftSerializationRegistry;
+import com.facebook.presto.common.experimental.auto_gen.ThriftType;
+import com.facebook.presto.common.experimental.auto_gen.ThriftVarcharType;
+
 import static java.util.Collections.singletonList;
 
 public final class VarcharType
         extends AbstractVarcharType
 {
+    static {
+        ThriftSerializationRegistry.registerSerializer(VarcharType.class, VarcharType::toThrift, null);
+        ThriftSerializationRegistry.registerDeserializer(VarcharType.class, ThriftVarcharType.class, VarcharType::deserialize, null);
+    }
+
+    public VarcharType(ThriftVarcharType thriftVarcharType)
+    {
+        this(thriftVarcharType.getLength());
+    }
+
     public static final VarcharType VARCHAR = new VarcharType(UNBOUNDED_LENGTH);
 
     public static VarcharType createUnboundedVarcharType()
@@ -46,5 +61,25 @@ public final class VarcharType
                 new TypeSignature(
                         StandardTypes.VARCHAR,
                         singletonList(TypeSignatureParameter.of((long) length))));
+    }
+
+    @Override
+    public ThriftType toThriftInterface()
+    {
+        return ThriftType.builder()
+                .setType(getImplementationType())
+                .setSerializedData(FbThriftUtils.serialize(this.toThrift()))
+                .build();
+    }
+
+    @Override
+    public ThriftVarcharType toThrift()
+    {
+        return new ThriftVarcharType(getLengthSafe());
+    }
+
+    public static VarcharType deserialize(byte[] bytes)
+    {
+        return new VarcharType(FbThriftUtils.deserialize(ThriftVarcharType.class, bytes));
     }
 }

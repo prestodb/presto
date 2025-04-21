@@ -41,6 +41,12 @@ struct ThriftColumn {
   4: optional string typeMetadata;
 }
 
+struct ThriftRowIdComponentV2 {
+  1: i64 metadataVersion;
+  2: i64 partitionId;
+  3: string tableGuid;
+}
+
 struct ThriftPartition {
   1: string databaseName;
   2: string tableName;
@@ -54,6 +60,7 @@ struct ThriftPartition {
   10: i32 createTime;
   11: i64 lastDataCommitTime;
   12: optional binary rowIdPartitionComponent;
+  13: optional ThriftRowIdComponentV2 rowIdPartitionComponentV2;
 }
 
 struct ThriftOptionalPartition {
@@ -98,6 +105,7 @@ struct ThriftTable {
   8: map<string, string> parameters;
   9: optional string viewOriginalText;
   10: optional string viewExpandedText;
+  11: optional i64 metadataVersion;
 }
 
 enum ThriftWriteMode {
@@ -157,7 +165,7 @@ enum ThriftHiveCompressionCodec
 }
 
 struct ThriftDwrfEncryptionMetadata {
-  1: map<string, binary (java.type = "byte[]")> fieldToKeyData;
+  1: map<string, binary> fieldToKeyData;
   2: map<string, string> extraMetadata;
   3: string encryptionAlgorithm;
   4: string encryptionProvider;

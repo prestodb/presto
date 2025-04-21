@@ -14,6 +14,7 @@
 package com.facebook.presto.spi;
 
 import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.experimental.ThriftSerializable;
 import com.facebook.presto.spi.api.Experimental;
 
 import java.util.List;
@@ -21,6 +22,7 @@ import java.util.List;
 import static java.util.Collections.emptyList;
 
 public interface ColumnHandle
+        extends ThriftSerializable
 {
     /**
      * Applies to columns of complex types: arrays, maps and structs. When a query
@@ -28,8 +30,8 @@ public interface ColumnHandle
      * required subfields and the connector is free to prune the rest.
      * <p>
      * Examples:
-     *  - SELECT a[1], b['x'], x.y.z FROM t
-     *  - SELECT a FROM t WHERE b['y'] > 10
+     * - SELECT a[1], b['x'], x.y.z FROM t
+     * - SELECT a FROM t WHERE b['y'] > 10
      * <p>
      * Pruning must preserve the type of the values and support unmodified access.
      * <p>

@@ -16,6 +16,7 @@ package com.facebook.presto.common.transaction;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
+import com.facebook.presto.common.experimental.auto_gen.ThriftTransactionId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
@@ -28,6 +29,17 @@ import static java.util.Objects.requireNonNull;
 public final class TransactionId
 {
     private final UUID uuid;
+
+    public TransactionId(ThriftTransactionId thriftId)
+    {
+        this(new UUID(thriftId.getMostSignificantBits(),
+                thriftId.getLeastSignificantBits()));
+    }
+
+    public ThriftTransactionId toThrift()
+    {
+        return new ThriftTransactionId(this.uuid.getMostSignificantBits(), this.uuid.getLeastSignificantBits());
+    }
 
     @ThriftConstructor
     public TransactionId(UUID uuid)

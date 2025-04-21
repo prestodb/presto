@@ -13,6 +13,12 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.common.experimental.ConnectorOutputTableHandleAdapter;
+import com.facebook.presto.common.experimental.ConnectorTransactionHandleAdapter;
+import com.facebook.presto.common.experimental.ThriftSerializable;
+import com.facebook.presto.common.experimental.auto_gen.ThriftConnectorOutputTableHandle;
+import com.facebook.presto.common.experimental.auto_gen.ThriftConnectorTransactionHandle;
+import com.facebook.presto.common.experimental.auto_gen.ThriftOutputTableHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -24,10 +30,26 @@ import java.util.Objects;
 import static java.util.Objects.requireNonNull;
 
 public final class OutputTableHandle
+        implements ThriftSerializable
 {
     private final ConnectorId connectorId;
     private final ConnectorTransactionHandle transactionHandle;
     private final ConnectorOutputTableHandle connectorHandle;
+
+    public OutputTableHandle(ThriftOutputTableHandle thriftHandle)
+    {
+        this(new ConnectorId(thriftHandle.getConnectorId()),
+                (ConnectorTransactionHandle) ConnectorTransactionHandleAdapter.fromThrift(thriftHandle.getTransactionHandle()),
+                (ConnectorOutputTableHandle) ConnectorOutputTableHandleAdapter.fromThrift(thriftHandle.getConnectorHandle()));
+    }
+
+    public ThriftOutputTableHandle toThrift()
+    {
+        ThriftConnectorTransactionHandle thriftTransactionHandle = (ThriftConnectorTransactionHandle) transactionHandle.toThriftInterface();
+        ThriftConnectorOutputTableHandle thriftConnectorHandle = (ThriftConnectorOutputTableHandle) connectorHandle.toThriftInterface();
+
+        return new ThriftOutputTableHandle(connectorId.toString(), thriftTransactionHandle, thriftConnectorHandle);
+    }
 
     @JsonCreator
     public OutputTableHandle(

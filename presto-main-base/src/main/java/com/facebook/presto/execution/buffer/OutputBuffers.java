@@ -17,16 +17,21 @@ import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftEnum;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
+import com.facebook.presto.common.experimental.auto_gen.ThriftBufferType;
+import com.facebook.presto.common.experimental.auto_gen.ThriftOutputBuffers;
 import com.facebook.presto.spi.plan.PartitioningHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.google.common.collect.ImmutableMap;
 
+import javax.validation.constraints.NotNull;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.execution.buffer.OutputBuffers.BufferType.ARBITRARY;
 import static com.facebook.presto.execution.buffer.OutputBuffers.BufferType.BROADCAST;
@@ -47,6 +52,29 @@ public final class OutputBuffers
     public static final int BROADCAST_PARTITION_ID = 0;
     private static final OutputBuffers DISCARDING_OUTPUT_BUFFERS = createInitialEmptyOutputBuffers(DISCARDING).withNoMoreBufferIds();
     private static final OutputBuffers SPOOLING_OUTPUT_BUFFERS = createInitialEmptyOutputBuffers(SPOOLING).withBuffer(new OutputBufferId(0), 0).withNoMoreBufferIds();
+
+    public OutputBuffers(ThriftOutputBuffers thriftOutputBuffers)
+    {
+        this(BufferType.createBufferType(thriftOutputBuffers.getType()),
+                thriftOutputBuffers.getVersion(),
+                thriftOutputBuffers.isNoMoreBufferIds(),
+                thriftOutputBuffers.getBuffers()
+                        .entrySet().stream().collect(Collectors.toMap(
+                                entry -> new OutputBufferId(entry.getKey()),
+                                Map.Entry::getValue)));
+    }
+
+    public ThriftOutputBuffers toThrift()
+    {
+        return new ThriftOutputBuffers(
+                this.type.toThrift(),
+                this.version,
+                this.isNoMoreBufferIds(),
+                this.buffers.entrySet()
+                        .stream().collect(Collectors.toMap(
+                                entry -> entry.getKey().getId(),
+                                Map.Entry::getValue)));
+    }
 
     public static OutputBuffers createInitialEmptyOutputBuffers(BufferType type)
     {
@@ -85,7 +113,17 @@ public final class OutputBuffers
         BROADCAST,
         ARBITRARY,
         DISCARDING,
-        SPOOLING,
+        SPOOLING;
+
+        public static BufferType createBufferType(@NotNull ThriftBufferType thriftBufferType)
+        {
+            return BufferType.valueOf(thriftBufferType.name());
+        }
+
+        public ThriftBufferType toThrift()
+        {
+            return ThriftBufferType.valueOf(this.name());
+        }
     }
 
     private final BufferType type;

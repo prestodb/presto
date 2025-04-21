@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.common.experimental.ThriftSerializable;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 
 import java.util.List;
@@ -20,6 +21,7 @@ import java.util.Map;
 import java.util.OptionalLong;
 
 public interface ConnectorSplit
+        extends ThriftSerializable
 {
     /**
      * Indicate the node affinity of a Split

@@ -16,6 +16,7 @@ package com.facebook.presto.common;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
+import com.facebook.presto.common.experimental.auto_gen.ThriftRuntimeStats;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
@@ -26,6 +27,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.RuntimeUnit.NANO;
 import static java.util.Objects.requireNonNull;
@@ -42,6 +44,20 @@ public class RuntimeStats
 
     public RuntimeStats()
     {
+    }
+
+    public RuntimeStats(ThriftRuntimeStats thriftRuntimeStats)
+    {
+        this(requireNonNull(thriftRuntimeStats.getMetrics()).entrySet().stream().collect(Collectors.toMap(
+                Map.Entry::getKey,
+                entry -> new RuntimeMetric(entry.getValue()))));
+    }
+
+    public ThriftRuntimeStats toThrift()
+    {
+        return new ThriftRuntimeStats(metrics.entrySet().stream().collect(Collectors.toMap(
+                Map.Entry::getKey,
+                entry -> entry.getValue().toThrift())));
     }
 
     @JsonCreator

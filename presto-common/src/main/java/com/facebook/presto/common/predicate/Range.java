@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.common.predicate;
 
+import com.facebook.presto.common.experimental.ThriftSerializable;
+import com.facebook.presto.common.experimental.auto_gen.ThriftRange;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -27,9 +29,20 @@ import static java.util.Objects.requireNonNull;
  * A Range of values across the continuous space defined by the types of the Markers
  */
 public final class Range
+        implements ThriftSerializable
 {
     private final Marker low;
     private final Marker high;
+
+    public Range(ThriftRange thriftRange)
+    {
+        this(new Marker(thriftRange.getLow()), new Marker(thriftRange.getHigh()));
+    }
+
+    public ThriftRange toThrift()
+    {
+        return new ThriftRange(low.toThrift(), high.toThrift());
+    }
 
     @JsonCreator
     public Range(
@@ -47,8 +60,9 @@ public final class Range
     {
         requireNonNull(low, "value is null");
         requireNonNull(high, "value is null");
+
         if (!low.getType().equals(high.getType())) {
-            throw new IllegalArgumentException(String.format("Marker types do not match: %s vs %s", low.getType(), high.getType()));
+            throw new IllegalArgumentException(String.format("Marker types do not match: .%s. vs .%s.", low.getType(), high.getType()));
         }
         if (low.getBound() == Marker.Bound.BELOW) {
             throw new IllegalArgumentException("low bound must be EXACTLY or ABOVE");

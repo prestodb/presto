@@ -13,14 +13,17 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.common.experimental.ThriftSerializable;
+
 /**
  * ConnectorMetadataUpdateHandle is the basic unit of metadata that is used to represent
  * both the request and the response in the metadata update communication cycle
  * between the worker and the coordinator.
- *
+ * <p>
  * Every connector that supports sending/receiving the metadata requests/responses
  * will implement this interface.
  */
 public interface ConnectorMetadataUpdateHandle
+        extends ThriftSerializable
 {
 }

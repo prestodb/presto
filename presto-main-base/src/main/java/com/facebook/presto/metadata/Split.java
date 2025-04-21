@@ -13,6 +13,11 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.common.experimental.ConnectorSplitAdapter;
+import com.facebook.presto.common.experimental.ConnectorTransactionHandleAdapter;
+import com.facebook.presto.common.experimental.auto_gen.ThriftConnectorSplit;
+import com.facebook.presto.common.experimental.auto_gen.ThriftConnectorTransactionHandle;
+import com.facebook.presto.common.experimental.auto_gen.ThriftSplit;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -40,6 +45,25 @@ public final class Split
     private final ConnectorSplit connectorSplit;
     private final Lifespan lifespan;
     private final SplitContext splitContext;
+
+    public Split(ThriftSplit thriftSplit)
+    {
+        this(new ConnectorId(thriftSplit.getConnectorId()),
+                (ConnectorTransactionHandle) ConnectorTransactionHandleAdapter.fromThrift(thriftSplit.getTransactionHandle()),
+                (ConnectorSplit) ConnectorSplitAdapter.fromThrift(thriftSplit.getConnectorSplit()),
+                new Lifespan(thriftSplit.getLifespan()),
+                new SplitContext(thriftSplit.getSplitContext()));
+    }
+
+    public ThriftSplit toThrift()
+    {
+        return new ThriftSplit(
+                this.connectorId.toString(),
+                (ThriftConnectorTransactionHandle) this.transactionHandle.toThriftInterface(),
+                (ThriftConnectorSplit) this.connectorSplit.toThriftInterface(),
+                this.lifespan.toThrift(),
+                this.splitContext.toThrift());
+    }
 
     // TODO: inline
     public Split(ConnectorId connectorId, ConnectorTransactionHandle transactionHandle, ConnectorSplit connectorSplit)

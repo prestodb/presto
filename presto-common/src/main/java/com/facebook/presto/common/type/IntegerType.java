@@ -16,6 +16,10 @@ package com.facebook.presto.common.type;
 import com.facebook.presto.common.GenericInternalException;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.experimental.FbThriftUtils;
+import com.facebook.presto.common.experimental.ThriftSerializationRegistry;
+import com.facebook.presto.common.experimental.auto_gen.ThriftIntegerType;
+import com.facebook.presto.common.experimental.auto_gen.ThriftType;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -29,6 +33,31 @@ public final class IntegerType
     private IntegerType()
     {
         super(parseTypeSignature(StandardTypes.INTEGER));
+    }
+
+    static {
+        ThriftSerializationRegistry.registerSerializer(IntegerType.class, IntegerType::toThrift, null);
+        ThriftSerializationRegistry.registerDeserializer(IntegerType.class, null, IntegerType::singletonDeseriaize, null);
+    }
+
+    public IntegerType(ThriftIntegerType thriftIntegerType)
+    {
+        this();
+    }
+
+    @Override
+    public ThriftIntegerType toThrift()
+    {
+        return new ThriftIntegerType();
+    }
+
+    @Override
+    public ThriftType toThriftInterface()
+    {
+        return ThriftType.builder()
+                .setType(getImplementationType())
+                .setSerializedData(FbThriftUtils.serialize(this.toThrift()))
+                .build();
     }
 
     @Override
@@ -65,5 +94,10 @@ public final class IntegerType
     public int hashCode()
     {
         return getClass().hashCode();
+    }
+
+    public static IntegerType singletonDeseriaize(byte[] bytes)
+    {
+        return INTEGER;
     }
 }

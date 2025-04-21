@@ -17,6 +17,7 @@ import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.experimental.auto_gen.ThriftSqlFunctionId;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.api.Experimental;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -25,6 +26,7 @@ import com.fasterxml.jackson.annotation.JsonValue;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
@@ -38,6 +40,18 @@ public class SqlFunctionId
 {
     private final QualifiedObjectName functionName;
     private final List<TypeSignature> argumentTypes;
+
+    public SqlFunctionId(ThriftSqlFunctionId thriftSqlFunctionId)
+    {
+        this(new QualifiedObjectName(thriftSqlFunctionId.getFunctionName()),
+                thriftSqlFunctionId.getArgumentTypes().stream().map(TypeSignature::new).collect(Collectors.toList()));
+    }
+
+    public ThriftSqlFunctionId toThrift()
+    {
+        return new ThriftSqlFunctionId(functionName.toThrift(),
+                argumentTypes.stream().map(TypeSignature::toThrift).collect(Collectors.toList()));
+    }
 
     @ThriftConstructor
     public SqlFunctionId(QualifiedObjectName functionName, List<TypeSignature> argumentTypes)

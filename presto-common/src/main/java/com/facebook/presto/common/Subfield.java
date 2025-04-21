@@ -13,8 +13,11 @@
  */
 package com.facebook.presto.common;
 
+import com.facebook.presto.common.experimental.PathElementAdapter;
+import com.facebook.presto.common.experimental.ThriftSerializable;
+import com.facebook.presto.common.experimental.auto_gen.ThriftPathElement;
+import com.facebook.presto.common.experimental.auto_gen.ThriftSubfield;
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -25,8 +28,27 @@ import java.util.stream.Collectors;
 import static java.util.Objects.requireNonNull;
 
 public class Subfield
+        implements ThriftSerializable
 {
+    @Override
+    public String getImplementationType()
+    {
+        return "Subfield";
+    }
+
+    @Override
+    public ThriftSubfield toThrift()
+    {
+        return new ThriftSubfield(name, path.stream().map(path -> (ThriftPathElement) path.toThriftInterface()).collect(Collectors.toList()));
+    }
+
+    public static Subfield createSubfield(ThriftSubfield thriftSubfield)
+    {
+        return new Subfield(thriftSubfield.getName(), thriftSubfield.getPath().stream().map(thriftElement -> (PathElement) PathElementAdapter.fromThrift(thriftElement)).collect(Collectors.toList()));
+    }
+
     public interface PathElement
+            extends ThriftSerializable
     {
         boolean isSubscript();
     }
@@ -301,18 +323,12 @@ public class Subfield
         return new Subfield(name, path.subList(1, path.size()));
     }
 
-    @JsonValue
-    public String serialize()
+    @Override
+    public String toString()
     {
         return name + path.stream()
                 .map(PathElement::toString)
                 .collect(Collectors.joining());
-    }
-
-    @Override
-    public String toString()
-    {
-        return serialize();
     }
 
     @Override

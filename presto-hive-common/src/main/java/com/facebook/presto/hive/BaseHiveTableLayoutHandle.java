@@ -14,6 +14,15 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.experimental.ColumnHandleAdapter;
+import com.facebook.presto.common.experimental.FbThriftUtils;
+import com.facebook.presto.common.experimental.RowExpressionAdapter;
+import com.facebook.presto.common.experimental.ThriftSerializationRegistry;
+import com.facebook.presto.common.experimental.ThriftTupleDomainSerde;
+import com.facebook.presto.common.experimental.auto_gen.ThriftBaseHiveColumnHandle;
+import com.facebook.presto.common.experimental.auto_gen.ThriftBaseHiveTableLayoutHandle;
+import com.facebook.presto.common.experimental.auto_gen.ThriftConnectorTableLayoutHandle;
+import com.facebook.presto.common.experimental.auto_gen.ThriftRowExpression;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
@@ -24,6 +33,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
@@ -38,6 +48,68 @@ public class BaseHiveTableLayoutHandle
 
     // coordinator-only properties
     private final Optional<List<HivePartition>> partitions;
+
+    static {
+        ThriftSerializationRegistry.registerSerializer(BaseHiveTableLayoutHandle.class, BaseHiveTableLayoutHandle::toThrift, null);
+        ThriftSerializationRegistry.registerDeserializer(BaseHiveTableLayoutHandle.class, ThriftBaseHiveTableLayoutHandle.class, BaseHiveTableLayoutHandle::deserialize, null);
+    }
+
+    public BaseHiveTableLayoutHandle(ThriftBaseHiveTableLayoutHandle thriftHandle)
+    {
+        this(thriftHandle.getPartitionColumns().stream().map(BaseHiveColumnHandle::new).collect(Collectors.toList()),
+                TupleDomain.fromThrift(thriftHandle.getDomainPredicate(), new ThriftTupleDomainSerde<Subfield>()
+                {
+                    @Override
+                    public Subfield deserialize(byte[] bytes)
+                    {
+                        return (Subfield) ThriftSerializationRegistry.deserialize(Subfield.class.getSimpleName(), bytes);
+                    }
+                }),
+                (RowExpression) RowExpressionAdapter.fromThrift(thriftHandle.getRemainingPredicate()),
+                thriftHandle.isPushdownFilterEnabled(),
+                TupleDomain.fromThrift(thriftHandle.getPartitionColumnPredicate(), new ThriftTupleDomainSerde<ColumnHandle>()
+                {
+                    @Override
+                    public ColumnHandle deserialize(byte[] bytes)
+                    {
+                        return (ColumnHandle) ColumnHandleAdapter.deserialize(bytes);
+                    }
+                }),
+                Optional.ofNullable(thriftHandle.getPartitions()).map(partitions -> partitions.stream().map(HivePartition::new).collect(Collectors.toList())));
+    }
+
+    @Override
+    public ThriftBaseHiveTableLayoutHandle toThrift()
+    {
+        return new ThriftBaseHiveTableLayoutHandle(
+                partitionColumns.stream().map(column -> (ThriftBaseHiveColumnHandle) column.toThrift()).collect(Collectors.toList()),
+                domainPredicate.toThrift(new ThriftTupleDomainSerde<Subfield>()
+                {
+                    @Override
+                    public byte[] serialize(Subfield obj)
+                    {
+                        return ThriftSerializationRegistry.serialize(obj);
+                    }
+                }),
+                (ThriftRowExpression) this.remainingPredicate.toThriftInterface(),
+                this.pushdownFilterEnabled,
+                this.partitionColumnPredicate.toThrift(new ThriftTupleDomainSerde<ColumnHandle>()
+                {
+                    @Override
+                    public byte[] serialize(ColumnHandle obj)
+                    {
+                        return ColumnHandleAdapter.serialize(obj);
+                    }
+                }),
+                // Partitions are oordinator-only properties
+                null);
+    }
+
+    @Override
+    public ThriftConnectorTableLayoutHandle toThriftInterface()
+    {
+        return new ThriftConnectorTableLayoutHandle(getImplementationType(), FbThriftUtils.serialize(this.toThrift()));
+    }
 
     public BaseHiveTableLayoutHandle(
             List<BaseHiveColumnHandle> partitionColumns,
@@ -94,5 +166,10 @@ public class BaseHiveTableLayoutHandle
     public Optional<List<HivePartition>> getPartitions()
     {
         return partitions;
+    }
+
+    public static BaseHiveTableLayoutHandle deserialize(byte[] bytes)
+    {
+        return new BaseHiveTableLayoutHandle(FbThriftUtils.deserialize(ThriftBaseHiveTableLayoutHandle.class, bytes));
     }
 }

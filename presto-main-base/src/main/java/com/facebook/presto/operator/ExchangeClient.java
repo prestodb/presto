@@ -165,6 +165,7 @@ public class ExchangeClient
     public synchronized void addLocation(URI location, TaskId remoteSourceTaskId)
     {
         requireNonNull(location, "location is null");
+        requireNonNull(location.getScheme(), "scheme is null");
 
         // Ignore new locations after close
         // NOTE: this MUST happen before checking no more locations is checked

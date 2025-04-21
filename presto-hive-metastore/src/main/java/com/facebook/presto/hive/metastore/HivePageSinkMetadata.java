@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.presto.common.experimental.auto_gen.ThriftHivePageSinkMetadata;
+import com.facebook.presto.common.experimental.auto_gen.ThriftListOfStringAsKey;
+import com.facebook.presto.common.experimental.auto_gen.ThriftOptionalPartition;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -30,6 +33,43 @@ public class HivePageSinkMetadata
     private final SchemaTableName schemaTableName;
     private final Optional<Table> table;
     private final Map<List<String>, Optional<Partition>> modifiedPartitions;
+
+    public HivePageSinkMetadata(ThriftHivePageSinkMetadata thriftMetadata)
+    {
+        this(
+                new SchemaTableName(thriftMetadata.getSchemaTableName()),
+                Optional.ofNullable(thriftMetadata.getTable()).map(Table::new), thriftMetadata.getModifiedPartitions().entrySet().stream().collect(Collectors.toMap(
+                        entry -> entry.getKey().getKey(),
+                        entry -> fromThriftValue(entry.getValue()))));
+    }
+
+    private static Optional<Partition> fromThriftValue(ThriftOptionalPartition partition)
+    {
+        if (!partition.isIsPresent()) {
+            return Optional.empty();
+        }
+        return Optional.of(new Partition(partition.getPartition()));
+    }
+
+    private static ThriftOptionalPartition toThriftValue(Optional<Partition> partition)
+    {
+        if (!partition.isPresent()) {
+            return new ThriftOptionalPartition(false, null);
+        }
+        return new ThriftOptionalPartition(true, partition.get().toThrift());
+    }
+
+    public ThriftHivePageSinkMetadata toThrift()
+    {
+        Map<ThriftListOfStringAsKey, ThriftOptionalPartition> thriftPartitions = modifiedPartitions.entrySet().stream()
+                .collect(Collectors.toMap(
+                        entry -> new ThriftListOfStringAsKey(entry.getKey()),
+                        entry -> toThriftValue(entry.getValue())));
+        return new ThriftHivePageSinkMetadata(
+                schemaTableName.toThrift(),
+                table.map(Table::toThrift).orElse(null),
+                thriftPartitions);
+    }
 
     public HivePageSinkMetadata(
             SchemaTableName schemaTableName,

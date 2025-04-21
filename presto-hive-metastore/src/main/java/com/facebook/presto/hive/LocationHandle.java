@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.experimental.auto_gen.ThriftLocationHandle;
+import com.facebook.presto.common.experimental.auto_gen.ThriftTableType;
+import com.facebook.presto.common.experimental.auto_gen.ThriftWriteMode;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.hadoop.fs.Path;
@@ -29,6 +32,24 @@ public class LocationHandle
     private final Optional<Path> tempPath;
     private final TableType tableType;
     private final WriteMode writeMode;
+
+    public LocationHandle(ThriftLocationHandle thriftHandle)
+    {
+        this(new Path(thriftHandle.getTargetPath()),
+                new Path(thriftHandle.getWritePath()),
+                Optional.ofNullable(thriftHandle.getTempPath()).map(Path::new),
+                TableType.valueOf(thriftHandle.getTableType().name()),
+                WriteMode.valueOf(thriftHandle.getWriteMode().name()));
+    }
+
+    public ThriftLocationHandle toThrift()
+    {
+        return new ThriftLocationHandle(targetPath.toString(),
+                writePath.toString(),
+                tempPath.map(Path::toString).orElse(null),
+                ThriftTableType.valueOf(tableType.name()),
+                ThriftWriteMode.valueOf(writeMode.name()));
+    }
 
     public LocationHandle(
             Path targetPath,

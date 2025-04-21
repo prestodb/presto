@@ -17,6 +17,7 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.BlockBuilderStatus;
 import com.facebook.presto.common.block.UncheckedBlock;
+import com.facebook.presto.common.experimental.ThriftSerializable;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.fasterxml.jackson.annotation.JsonValue;
 import io.airlift.slice.Slice;
@@ -24,6 +25,7 @@ import io.airlift.slice.Slice;
 import java.util.List;
 
 public interface Type
+        extends ThriftSerializable
 {
     /**
      * Gets the name of this type which must be case insensitive globally unique.

@@ -16,14 +16,17 @@ package com.facebook.presto.spi.session;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
+import com.facebook.presto.common.experimental.auto_gen.ThriftResourceEstimates;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
  * Estimated resource usage for a query.
@@ -42,6 +45,23 @@ public final class ResourceEstimates
     private final Optional<Duration> cpuTime;
     private final Optional<DataSize> peakMemory;
     private final Optional<DataSize> peakTaskMemory;
+
+    public ResourceEstimates(ThriftResourceEstimates estimates)
+    {
+        this(
+                Optional.ofNullable(estimates.getExecutionTimeInMillis()).map(MILLISECONDS::toNanos).map(Duration::succinctNanos),
+                Optional.ofNullable(estimates.getCpuTimeInNanos()).map(Duration::succinctNanos),
+                Optional.ofNullable(estimates.getPeakMemoryInBytes()).map(DataSize::succinctBytes),
+                Optional.ofNullable(estimates.getPeakTaskMemoryInBytes()).map(DataSize::succinctBytes));
+    }
+
+    public ThriftResourceEstimates toThrift()
+    {
+        return ThriftResourceEstimates.builder().setExecutionTimeInMillis(this.executionTime.map(Duration::toMillis).orElse(0L))
+                .setCpuTimeInNanos(this.cpuTime.map(d -> d.roundTo(TimeUnit.NANOSECONDS)).orElse(0L))
+                .setPeakMemoryInBytes(this.peakMemory.map(DataSize::toBytes).orElse(0L))
+                .setPeakTaskMemoryInBytes(this.peakTaskMemory.map(DataSize::toBytes).orElse(0L)).build();
+    }
 
     @ThriftConstructor
     @JsonCreator

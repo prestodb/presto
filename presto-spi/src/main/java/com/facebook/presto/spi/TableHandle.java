@@ -13,6 +13,14 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.common.experimental.ConnectorTableHandleAdapter;
+import com.facebook.presto.common.experimental.ConnectorTableLayoutHandleAdapter;
+import com.facebook.presto.common.experimental.ConnectorTransactionHandleAdapter;
+import com.facebook.presto.common.experimental.ThriftSerializable;
+import com.facebook.presto.common.experimental.auto_gen.ThriftConnectorTableHandle;
+import com.facebook.presto.common.experimental.auto_gen.ThriftConnectorTableLayoutHandle;
+import com.facebook.presto.common.experimental.auto_gen.ThriftConnectorTransactionHandle;
+import com.facebook.presto.common.experimental.auto_gen.ThriftTableHandle;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -25,6 +33,7 @@ import java.util.function.Supplier;
 import static java.util.Objects.requireNonNull;
 
 public final class TableHandle
+        implements ThriftSerializable
 {
     private final ConnectorId connectorId;
     private final ConnectorTableHandle connectorHandle;
@@ -36,6 +45,24 @@ public final class TableHandle
 
     // This is not serializable; for local execution only
     private final Optional<Supplier<TupleDomain<ColumnHandle>>> dynamicFilter;
+
+    public TableHandle(ThriftTableHandle thriftTableHandle)
+    {
+        this(new ConnectorId(thriftTableHandle.getConnectorId()),
+                (ConnectorTableHandle) ConnectorTableHandleAdapter.fromThrift(thriftTableHandle.getConnectorTableHandle()),
+                (ConnectorTransactionHandle) ConnectorTransactionHandleAdapter.fromThrift(thriftTableHandle.getTransactionHandle()),
+                Optional.ofNullable(thriftTableHandle.getLayout()).map(handle -> (ConnectorTableLayoutHandle) ConnectorTableLayoutHandleAdapter.fromThrift(handle)));
+    }
+
+    @Override
+    public ThriftTableHandle toThrift()
+    {
+        return new ThriftTableHandle(
+                connectorId.toString(),
+                (ThriftConnectorTableHandle) connectorHandle.toThriftInterface(),
+                (ThriftConnectorTransactionHandle) transaction.toThriftInterface(),
+                layout.map(handle -> (ThriftConnectorTableLayoutHandle) handle.toThriftInterface()).orElse(null));
+    }
 
     @JsonCreator
     public TableHandle(

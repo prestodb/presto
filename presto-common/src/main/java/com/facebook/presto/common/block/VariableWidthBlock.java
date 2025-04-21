@@ -13,6 +13,11 @@
  */
 package com.facebook.presto.common.block;
 
+import com.facebook.presto.common.experimental.FbThriftUtils;
+import com.facebook.presto.common.experimental.ThriftSerializationRegistry;
+import com.facebook.presto.common.experimental.auto_gen.ThriftBlock;
+import com.facebook.presto.common.experimental.auto_gen.ThriftSlice;
+import com.facebook.presto.common.experimental.auto_gen.ThriftVariableWidthBlock;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
@@ -21,11 +26,14 @@ import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.block.BlockUtil.appendNullToIsNullArray;
 import static com.facebook.presto.common.block.BlockUtil.appendNullToOffsetsArray;
@@ -60,6 +68,53 @@ public class VariableWidthBlock
 
     private final long retainedSizeInBytes;
     private final long sizeInBytes;
+
+    static {
+        ThriftSerializationRegistry.registerSerializer(VariableWidthBlock.class, VariableWidthBlock::toThrift, null);
+        ThriftSerializationRegistry.registerDeserializer(VariableWidthBlock.class, ThriftVariableWidthBlock.class, VariableWidthBlock::deserialize, null);
+    }
+
+    public VariableWidthBlock(ThriftVariableWidthBlock thriftBlock)
+    {
+        this(thriftBlock.getPositionCount(),
+                Slices.wrappedBuffer(thriftBlock.getSlice().getData()),
+                thriftBlock.getOffsets().stream().mapToInt(Integer::intValue).toArray(),
+                Optional.ofNullable(thriftBlock.getValueIsNull()).map(list -> {
+                    boolean[] valueIsNull = new boolean[list.size()];
+                    for (int i = 0; i < list.size(); i++) {
+                        Boolean value = list.get(i);
+                        valueIsNull[i] = value != null && value;
+                    }
+                    return valueIsNull;
+                }));
+    }
+
+    public static VariableWidthBlock deserialize(byte[] bytes)
+    {
+        return new VariableWidthBlock(FbThriftUtils.deserialize(ThriftVariableWidthBlock.class, bytes));
+    }
+
+    public ThriftVariableWidthBlock toThrift()
+    {
+        ThriftSlice thriftSlice = ThriftSlice.builder().setData(slice.getBytes()).build();
+
+        List<Boolean> thriftValueIsNull = null;
+        if (valueIsNull != null) {
+            thriftValueIsNull = new ArrayList<>();
+            for (boolean value : valueIsNull) {
+                thriftValueIsNull.add(value);
+            }
+        }
+        return new ThriftVariableWidthBlock(positionCount, thriftSlice, Arrays.stream(offsets).boxed().collect(Collectors.toList()), thriftValueIsNull);
+    }
+
+    public ThriftBlock toThriftInterface()
+    {
+        return ThriftBlock.builder()
+                .setType(getImplementationType())
+                .setSerializedBlock(FbThriftUtils.serialize(this.toThrift()))
+                .build();
+    }
 
     public VariableWidthBlock(int positionCount, Slice slice, int[] offsets, Optional<boolean[]> valueIsNull)
     {

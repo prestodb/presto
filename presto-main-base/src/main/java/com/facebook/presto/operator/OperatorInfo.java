@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.common.experimental.ThriftSerializable;
 import com.facebook.presto.operator.TableWriterOperator.TableWriterInfo;
 import com.facebook.presto.operator.exchange.LocalExchangeBufferInfo;
 import com.facebook.presto.operator.repartition.PartitionedOutputInfo;
@@ -35,6 +36,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
         @JsonSubTypes.Type(value = TableWriterInfo.class, name = "tableWriter"),
         @JsonSubTypes.Type(value = TableWriterMergeInfo.class, name = "tableWriterMerge")})
 public interface OperatorInfo
+        extends ThriftSerializable
 {
     /**
      * @return true if this OperatorInfo should be collected and sent to the coordinator when the task completes (i.e. it will not be stripped away during summarization).

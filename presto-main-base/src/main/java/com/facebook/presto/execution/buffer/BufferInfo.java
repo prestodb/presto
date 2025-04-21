@@ -16,6 +16,7 @@ package com.facebook.presto.execution.buffer;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
+import com.facebook.presto.common.experimental.auto_gen.ThriftBufferInfo;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -35,6 +36,16 @@ public class BufferInfo
 
     private final long pagesSent;
     private final PageBufferInfo pageBufferInfo;
+
+    public BufferInfo(ThriftBufferInfo thriftBufferInfo)
+    {
+        this(new OutputBufferId(thriftBufferInfo.getBufferId()), thriftBufferInfo.isFinished(), thriftBufferInfo.getBufferedPages(), thriftBufferInfo.getPagesSent(), new PageBufferInfo(requireNonNull(thriftBufferInfo.getPageBufferInfo())));
+    }
+
+    public ThriftBufferInfo toThrift()
+    {
+        return new ThriftBufferInfo(bufferId.getId(), finished, bufferedPages, pagesSent, pageBufferInfo.toThrift());
+    }
 
     @JsonCreator
     @ThriftConstructor

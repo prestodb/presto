@@ -14,6 +14,10 @@
 package com.facebook.presto.common.type;
 
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.experimental.FbThriftUtils;
+import com.facebook.presto.common.experimental.ThriftSerializationRegistry;
+import com.facebook.presto.common.experimental.auto_gen.ThriftBigintType;
+import com.facebook.presto.common.experimental.auto_gen.ThriftType;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -22,6 +26,31 @@ public final class BigintType
         extends AbstractLongType
 {
     public static final BigintType BIGINT = new BigintType();
+
+    static {
+        ThriftSerializationRegistry.registerSerializer(BigintType.class, BigintType::toThrift, null);
+        ThriftSerializationRegistry.registerDeserializer(BigintType.class, null, BigintType::singletonDeseriaize, null);
+    }
+
+    public BigintType(ThriftBigintType thriftBigintType)
+    {
+        this();
+    }
+
+    @Override
+    public ThriftBigintType toThrift()
+    {
+        return new ThriftBigintType();
+    }
+
+    @Override
+    public ThriftType toThriftInterface()
+    {
+        return ThriftType.builder()
+                .setType(getImplementationType())
+                .setSerializedData(FbThriftUtils.serialize(this.toThrift()))
+                .build();
+    }
 
     private BigintType()
     {
@@ -49,5 +78,10 @@ public final class BigintType
     public int hashCode()
     {
         return getClass().hashCode();
+    }
+
+    public static BigintType singletonDeseriaize(byte[] bytes)
+    {
+        return BIGINT;
     }
 }

@@ -17,6 +17,10 @@ import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.RuntimeStats;
+import com.facebook.presto.common.experimental.OperatorInfoAdapter;
+import com.facebook.presto.common.experimental.auto_gen.ThriftBlockedReason;
+import com.facebook.presto.common.experimental.auto_gen.ThriftOperatorInfo;
+import com.facebook.presto.common.experimental.auto_gen.ThriftOperatorStats;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.util.Mergeable;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -31,6 +35,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.units.Duration.nanosSince;
 import static io.airlift.units.Duration.succinctNanos;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
@@ -105,6 +110,124 @@ public class OperatorStats
     private final long joinBuildKeyCount;
     private final long nullJoinProbeKeyCount;
     private final long joinProbeKeyCount;
+
+    public OperatorStats(ThriftOperatorStats thriftStats)
+    {
+        this(
+                thriftStats.getStageId(),
+                thriftStats.getStageExecutionId(),
+                thriftStats.getPipelineId(),
+                thriftStats.getOperatorId(),
+                new PlanNodeId(thriftStats.getPlanNodeId()),
+                thriftStats.getOperatorType(),
+
+                thriftStats.getTotalDrivers(),
+
+                thriftStats.getIsBlockedCalls(),
+                nanosSince(thriftStats.getIsBlockedWallInNanos()),
+                nanosSince(thriftStats.getIsBlockedCpuInNanos()),
+                thriftStats.getIsBlockedAllocationInBytes(),
+
+                thriftStats.getAddInputCalls(),
+                nanosSince(thriftStats.getAddInputWallInNanos()),
+                nanosSince(thriftStats.getAddInputCpuInNanos()),
+                thriftStats.getAddInputAllocationInBytes(),
+                thriftStats.getRawInputDataSizeInBytes(),
+                thriftStats.getRawInputPositions(),
+                thriftStats.getInputDataSizeInBytes(),
+                thriftStats.getInputPositions(),
+                thriftStats.getSumSquaredInputPositions(),
+
+                thriftStats.getGetOutputCalls(),
+                nanosSince(thriftStats.getGetOutputWallInNanos()),
+                nanosSince(thriftStats.getGetOutputCpuInNanos()),
+                thriftStats.getGetOutputAllocationInBytes(),
+                thriftStats.getOutputDataSizeInBytes(),
+                thriftStats.getOutputPositions(),
+
+                thriftStats.getPhysicalWrittenDataSizeInBytes(),
+
+                nanosSince(thriftStats.getAdditionalCpuInNanos()),
+                nanosSince(thriftStats.getBlockedWallInNanos()),
+
+                thriftStats.getFinishCalls(),
+                nanosSince(thriftStats.getFinishWallInNanos()),
+                nanosSince(thriftStats.getFinishCpuInNanos()),
+                thriftStats.getFinishAllocationInBytes(),
+
+                thriftStats.getUserMemoryReservationInBytes(),
+                thriftStats.getRevocableMemoryReservationInBytes(),
+                thriftStats.getSystemMemoryReservationInBytes(),
+                thriftStats.getPeakUserMemoryReservationInBytes(),
+                thriftStats.getPeakSystemMemoryReservationInBytes(),
+                thriftStats.getPeakTotalMemoryReservationInBytes(),
+
+                thriftStats.getSpilledDataSizeInBytes(),
+
+                Optional.ofNullable(thriftStats.getBlockedReason()).map(reason -> BlockedReason.valueOf(reason.name())),
+
+                (OperatorInfo) OperatorInfoAdapter.fromThrift(requireNonNull(thriftStats.getInfo())),
+
+                new RuntimeStats(thriftStats.getRuntimeStats()),
+                new DynamicFilterStats(thriftStats.getDynamicFilterStats()),
+                thriftStats.getNullJoinBuildKeyCount(),
+                thriftStats.getJoinBuildKeyCount(),
+                thriftStats.getNullJoinProbeKeyCount(),
+                thriftStats.getJoinProbeKeyCount());
+    }
+
+    public ThriftOperatorStats toThrift()
+    {
+        return new ThriftOperatorStats(
+                stageId,
+                stageExecutionId,
+                pipelineId,
+                operatorId,
+                planNodeId.toString(),
+                operatorType,
+                totalDrivers,
+                isBlockedCalls,
+                isBlockedWall.roundTo(NANOSECONDS),
+                isBlockedCpu.roundTo(NANOSECONDS),
+                isBlockedAllocationInBytes,
+                addInputCalls,
+                addInputWall.roundTo(NANOSECONDS),
+                addInputCpu.roundTo(NANOSECONDS),
+                addInputAllocationInBytes,
+                rawInputDataSizeInBytes,
+                rawInputPositions,
+                inputDataSizeInBytes,
+                inputPositions,
+                sumSquaredInputPositions,
+                getOutputCalls,
+                getOutputWall.roundTo(NANOSECONDS),
+                getOutputCpu.roundTo(NANOSECONDS),
+                getOutputAllocationInBytes,
+                outputDataSizeInBytes,
+                outputPositions,
+                physicalWrittenDataSizeInBytes,
+                additionalCpu.roundTo(NANOSECONDS),
+                blockedWall.roundTo(NANOSECONDS),
+                finishCalls,
+                finishWall.roundTo(NANOSECONDS),
+                finishCpu.roundTo(NANOSECONDS),
+                finishAllocationInBytes,
+                userMemoryReservationInBytes,
+                revocableMemoryReservationInBytes,
+                systemMemoryReservationInBytes,
+                peakUserMemoryReservationInBytes,
+                peakSystemMemoryReservationInBytes,
+                peakTotalMemoryReservationInBytes,
+                spilledDataSizeInBytes,
+                blockedReason.map(reason -> ThriftBlockedReason.valueOf(reason.name())).orElse(null),
+                Optional.ofNullable(info).map(OperatorInfo::toThriftInterface).map(ThriftOperatorInfo.class::cast).orElse(null),
+                runtimeStats.toThrift(),
+                dynamicFilterStats.toThrift(),
+                nullJoinBuildKeyCount,
+                joinBuildKeyCount,
+                nullJoinProbeKeyCount,
+                joinProbeKeyCount);
+    }
 
     @JsonCreator
     public OperatorStats(

@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
+import com.facebook.presto.common.experimental.auto_gen.ThriftTaskInfo;
 import com.facebook.presto.execution.buffer.BufferInfo;
 import com.facebook.presto.execution.buffer.OutputBufferInfo;
 import com.facebook.presto.metadata.MetadataUpdates;
@@ -31,7 +32,9 @@ import javax.annotation.concurrent.Immutable;
 import java.net.URI;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
+import static com.facebook.presto.execution.TaskStatus.createTaskStatus;
 import static com.facebook.presto.execution.TaskStatus.initialTaskStatus;
 import static com.facebook.presto.execution.buffer.BufferState.OPEN;
 import static com.facebook.presto.metadata.MetadataUpdates.DEFAULT_METADATA_UPDATES;
@@ -54,6 +57,33 @@ public class TaskInfo
     private final boolean needsPlan;
     private final MetadataUpdates metadataUpdates;
     private final String nodeId;
+
+    public TaskInfo(ThriftTaskInfo thriftTaskInfo)
+    {
+        this(new TaskId(requireNonNull(thriftTaskInfo.getTaskId())),
+                createTaskStatus(requireNonNull(thriftTaskInfo.getTaskStatus())),
+                thriftTaskInfo.getLastHeartbeatInMillis(),
+                new OutputBufferInfo(requireNonNull(thriftTaskInfo.getOutputBuffers())),
+                requireNonNull(thriftTaskInfo.getNoMoreSplits()).stream().map(PlanNodeId::new).collect(Collectors.toSet()),
+                new TaskStats(requireNonNull(thriftTaskInfo.getStats())),
+                thriftTaskInfo.isNeedsPlan(),
+                new MetadataUpdates(requireNonNull(thriftTaskInfo.getMetadataUpdates())),
+                thriftTaskInfo.getNodeId());
+    }
+
+    public ThriftTaskInfo toThrift()
+    {
+        return new ThriftTaskInfo(
+                taskId.toThrift(),
+                taskStatus.toThrift(),
+                lastHeartbeatInMillis,
+                outputBuffers.toThrift(),
+                noMoreSplits.stream().map(Object::toString).collect(Collectors.toSet()),
+                stats.toThrift(),
+                needsPlan,
+                metadataUpdates.toThrift(),
+                nodeId);
+    }
 
     @JsonCreator
     @ThriftConstructor

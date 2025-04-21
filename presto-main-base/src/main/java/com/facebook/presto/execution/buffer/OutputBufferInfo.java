@@ -16,14 +16,18 @@ package com.facebook.presto.execution.buffer;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
+import com.facebook.presto.common.experimental.auto_gen.ThriftBufferState;
+import com.facebook.presto.common.experimental.auto_gen.ThriftOutputBufferInfo;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 @ThriftStruct
 public final class OutputBufferInfo
@@ -37,6 +41,18 @@ public final class OutputBufferInfo
     private final long totalRowsSent;
     private final long totalPagesSent;
     private final List<BufferInfo> buffers;
+
+    public OutputBufferInfo(ThriftOutputBufferInfo thriftInfo)
+    {
+        this(thriftInfo.getType(), BufferState.valueOf(requireNonNull(thriftInfo.getState()).name()), thriftInfo.isCanAddBuffers(), thriftInfo.isCanAddPages(),
+                thriftInfo.getTotalBufferedBytes(), thriftInfo.getTotalBufferedPages(), thriftInfo.getTotalRowsSent(), thriftInfo.getTotalPagesSent(),
+                requireNonNull(thriftInfo.getBuffers()).stream().map(BufferInfo::new).collect(Collectors.toList()));
+    }
+
+    public ThriftOutputBufferInfo toThrift()
+    {
+        return new ThriftOutputBufferInfo(type, ThriftBufferState.valueOf(state.name()), canAddBuffers, canAddPages, totalBufferedBytes, totalBufferedPages, totalRowsSent, totalPagesSent, buffers.stream().map(BufferInfo::toThrift).collect(Collectors.toList()));
+    }
 
     @JsonCreator
     @ThriftConstructor

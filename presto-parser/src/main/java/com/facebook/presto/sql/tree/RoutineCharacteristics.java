@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.experimental.auto_gen.ThriftNullCallClause;
+
 import java.util.Objects;
 import java.util.Optional;
 
@@ -77,6 +79,16 @@ public class RoutineCharacteristics
     {
         RETURNS_NULL_ON_NULL_INPUT,
         CALLED_ON_NULL_INPUT;
+
+        public static NullCallClause createNullCallClause(ThriftNullCallClause thriftNullCallClause)
+        {
+            return NullCallClause.values()[thriftNullCallClause.getValue()];
+        }
+
+        public ThriftNullCallClause toThrift()
+        {
+            return ThriftNullCallClause.values()[this.ordinal()];
+        }
     }
 
     private final Language language;

@@ -16,7 +16,13 @@ package com.facebook.presto.server;
 import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.json.Codec;
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.json.smile.SmileCodec;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.experimental.FbThriftUtils;
+import com.facebook.presto.common.experimental.auto_gen.ThriftTaskInfo;
+import com.facebook.presto.common.experimental.auto_gen.ThriftTaskStatus;
+import com.facebook.presto.common.experimental.auto_gen.ThriftTaskUpdateRequest;
 import com.facebook.presto.connector.ConnectorTypeSerdeManager;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
@@ -67,12 +73,15 @@ import static com.facebook.presto.PrestoMediaTypes.APPLICATION_JACKSON_SMILE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_REMAINING_BYTES;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CURRENT_STATE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_EXPERIMENTAL;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
 import static com.facebook.presto.server.TaskResourceUtils.convertToThriftTaskInfo;
 import static com.facebook.presto.server.TaskResourceUtils.isThriftRequest;
 import static com.facebook.presto.server.security.RoleType.INTERNAL;
 import static com.facebook.presto.util.TaskUtils.randomizeWaitTime;
 import static com.google.common.collect.Iterables.transform;
+import static com.google.common.net.HttpHeaders.CONTENT_LENGTH;
+import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -87,12 +96,15 @@ import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 public class TaskResource
 {
     private static final Duration ADDITIONAL_WAIT_TIME = new Duration(5, SECONDS);
+    private static final Logger log = Logger.get(TaskResource.class);
 
     private final TaskManager taskManager;
     private final SessionPropertyManager sessionPropertyManager;
     private final Executor responseExecutor;
     private final ScheduledExecutorService timeoutExecutor;
     private final Codec<PlanFragment> planFragmentCodec;
+    private final JsonCodec<TaskUpdateRequest> taskUpdateRequestJsonCodec;
+    private final SmileCodec<TaskUpdateRequest> taskUpdateRequestSmileCodec;
     private final HandleResolver handleResolver;
     private final ConnectorTypeSerdeManager connectorTypeSerdeManager;
 
@@ -103,6 +115,8 @@ public class TaskResource
             @ForAsyncRpc BoundedExecutor responseExecutor,
             @ForAsyncRpc ScheduledExecutorService timeoutExecutor,
             JsonCodec<PlanFragment> planFragmentJsonCodec,
+            JsonCodec<TaskUpdateRequest> taskUpdateRequestJsonCodec,
+            SmileCodec<TaskUpdateRequest> taskUpdateRequestSmileCodec,
             HandleResolver handleResolver,
             ConnectorTypeSerdeManager connectorTypeSerdeManager)
     {
@@ -111,6 +125,8 @@ public class TaskResource
         this.responseExecutor = requireNonNull(responseExecutor, "responseExecutor is null");
         this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
         this.planFragmentCodec = planFragmentJsonCodec;
+        this.taskUpdateRequestJsonCodec = taskUpdateRequestJsonCodec;
+        this.taskUpdateRequestSmileCodec = taskUpdateRequestSmileCodec;
         this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
         this.connectorTypeSerdeManager = requireNonNull(connectorTypeSerdeManager, "connectorTypeSerdeManager is null");
     }
@@ -129,11 +145,31 @@ public class TaskResource
 
     @POST
     @Path("{taskId}")
-    @Consumes({APPLICATION_JSON, APPLICATION_JACKSON_SMILE})
-    @Produces({APPLICATION_JSON, APPLICATION_JACKSON_SMILE})
-    public Response createOrUpdateTask(@PathParam("taskId") TaskId taskId, TaskUpdateRequest taskUpdateRequest, @Context UriInfo uriInfo)
+    @Consumes({APPLICATION_JSON, APPLICATION_JACKSON_SMILE, APPLICATION_THRIFT_BINARY})
+    @Produces({APPLICATION_JSON, APPLICATION_JACKSON_SMILE, APPLICATION_THRIFT_BINARY})
+    public Response createOrUpdateTask(
+            @PathParam("taskId") TaskId taskId,
+            @HeaderParam(PRESTO_EXPERIMENTAL) boolean isExperimental,
+            byte[] requestBody,
+            @Context HttpHeaders httpHeaders,
+            @Context UriInfo uriInfo)
     {
-        requireNonNull(taskUpdateRequest, "taskUpdateRequest is null");
+        requireNonNull(requestBody, "taskUpdateRequest is null");
+
+        String contentType = httpHeaders.getHeaderString(HttpHeaders.CONTENT_TYPE);
+        TaskUpdateRequest taskUpdateRequest = null;
+        if (isExperimental) {
+            taskUpdateRequest = new TaskUpdateRequest(FbThriftUtils.deserialize(ThriftTaskUpdateRequest.class, requestBody));
+        }
+        else if (contentType.contains("json")) {
+            taskUpdateRequest = taskUpdateRequestJsonCodec.fromJson(requestBody);
+        }
+        else if (contentType.contains("smile")) {
+            taskUpdateRequest = taskUpdateRequestSmileCodec.fromSmile(requestBody);
+        }
+        else {
+            throw new RuntimeException("Can not understand the content-type");
+        }
 
         Session session = taskUpdateRequest.getSession().toSession(sessionPropertyManager, taskUpdateRequest.getExtraCredentials());
         TaskInfo taskInfo = taskManager.updateTask(session,
@@ -146,7 +182,14 @@ public class TaskResource
         if (shouldSummarize(uriInfo)) {
             taskInfo = taskInfo.summarize();
         }
-
+        if (isExperimental) {
+            ThriftTaskInfo thriftTaskInfo = taskInfo.toThrift();
+            byte[] responseBody = FbThriftUtils.serialize(thriftTaskInfo);
+            Response.ResponseBuilder responseBuilder = Response.ok(responseBody)
+                    .header(CONTENT_TYPE, APPLICATION_THRIFT_BINARY)
+                    .header(CONTENT_LENGTH, responseBody.length);
+            return responseBuilder.build();
+        }
         return Response.ok().entity(taskInfo).build();
     }
 
@@ -211,13 +254,24 @@ public class TaskResource
             @PathParam("taskId") TaskId taskId,
             @HeaderParam(PRESTO_CURRENT_STATE) TaskState currentState,
             @HeaderParam(PRESTO_MAX_WAIT) Duration maxWait,
+            @HeaderParam(PRESTO_EXPERIMENTAL) boolean isExperimental,
             @Context UriInfo uriInfo,
+            @Context HttpHeaders httpHeaders,
             @Suspended AsyncResponse asyncResponse)
     {
         requireNonNull(taskId, "taskId is null");
 
         if (currentState == null || maxWait == null) {
             TaskStatus taskStatus = taskManager.getTaskStatus(taskId);
+            if (isExperimental) {
+                ThriftTaskStatus thriftTaskStatus = taskStatus.toThrift();
+                byte[] responseBody = FbThriftUtils.serialize(thriftTaskStatus);
+                Response.ResponseBuilder responseBuilder = Response.ok(responseBody)
+                        .header(CONTENT_TYPE, APPLICATION_THRIFT_BINARY)
+                        .header(CONTENT_LENGTH, responseBody.length);
+                asyncResponse.resume(responseBuilder.build());
+                return;
+            }
             asyncResponse.resume(taskStatus);
             return;
         }
@@ -234,8 +288,15 @@ public class TaskResource
 
         // For hard timeout, add an additional time to max wait for thread scheduling contention and GC
         Duration timeout = new Duration(waitTime.toMillis() + ADDITIONAL_WAIT_TIME.toMillis(), MILLISECONDS);
-        bindAsyncResponse(asyncResponse, futureTaskStatus, responseExecutor)
-                .withTimeout(timeout);
+        if (isExperimental) {
+            ListenableFuture<ThriftTaskStatus> futureThriftTaskStatus = Futures.transform(futureTaskStatus, TaskStatus::toThrift, directExecutor());
+            bindAsyncResponse(asyncResponse, futureThriftTaskStatus, responseExecutor)
+                    .withTimeout(timeout);
+        }
+        else {
+            bindAsyncResponse(asyncResponse, futureTaskStatus, responseExecutor)
+                    .withTimeout(timeout);
+        }
     }
 
     @POST

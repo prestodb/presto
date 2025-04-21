@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.experimental.auto_gen.ThriftEncryptionInformation;
 import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -32,6 +33,16 @@ public class EncryptionInformation
 {
     // Add a field for new file format encryption types
     private final Optional<DwrfEncryptionMetadata> dwrfEncryptionMetadata;
+
+    public EncryptionInformation(ThriftEncryptionInformation thriftInformation)
+    {
+        this(Optional.ofNullable(thriftInformation.getDwrfEncryptionMetadata()).map(DwrfEncryptionMetadata::new));
+    }
+
+    public ThriftEncryptionInformation toThrift()
+    {
+        return new ThriftEncryptionInformation(dwrfEncryptionMetadata.map(DwrfEncryptionMetadata::toThrift).orElse(null));
+    }
 
     // Only to be used by Jackson. Otherwise use {@link this#fromEncryptionMetadata}
     @JsonCreator

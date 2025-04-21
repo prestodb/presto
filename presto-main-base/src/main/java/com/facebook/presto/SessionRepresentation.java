@@ -17,6 +17,10 @@ import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.RuntimeStats;
+import com.facebook.presto.common.experimental.auto_gen.ThriftSelectedRole;
+import com.facebook.presto.common.experimental.auto_gen.ThriftSessionRepresentation;
+import com.facebook.presto.common.experimental.auto_gen.ThriftSqlFunctionId;
+import com.facebook.presto.common.experimental.auto_gen.ThriftSqlInvokedFunction;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.metadata.SessionPropertyManager;
@@ -39,6 +43,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
@@ -69,6 +74,84 @@ public final class SessionRepresentation
     private final Map<String, SelectedRole> roles;
     private final Map<String, String> preparedStatements;
     private final Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions;
+
+    public static SessionRepresentation createSessionRepresentation(ThriftSessionRepresentation thriftSession)
+    {
+        Map<ConnectorId, Map<String, String>> catalogProperties = thriftSession.getCatalogProperties().entrySet().stream().collect(Collectors.toMap(
+                entry -> new ConnectorId(entry.getKey()),
+                Map.Entry::getValue));
+        Map<String, SelectedRole> roles = thriftSession.getRoles().entrySet()
+                .stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> new SelectedRole(entry.getValue())));
+
+        Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions = thriftSession.getSessionFunctions().entrySet().stream()
+                .collect(Collectors.toMap(
+                        entry -> new SqlFunctionId(entry.getKey()),
+                        entry -> new SqlInvokedFunction(entry.getValue())));
+        return new SessionRepresentation(
+                thriftSession.getQueryId(),
+                Optional.ofNullable(thriftSession.getTransactionId()).map(TransactionId::new),
+                thriftSession.isClientTransactionSupport(),
+                thriftSession.getUser(),
+                Optional.ofNullable(thriftSession.getPrincipal()),
+                Optional.ofNullable(thriftSession.getSource()),
+                Optional.ofNullable(thriftSession.getCatalog()),
+                Optional.ofNullable(thriftSession.getSchema()),
+                Optional.ofNullable(thriftSession.getTraceToken()),
+                new TimeZoneKey(thriftSession.getTimeZoneKey()),
+                Locale.forLanguageTag(thriftSession.getLocale().replace('_', '-')),
+                Optional.ofNullable(thriftSession.getRemoteUserAddress()),
+                Optional.ofNullable(thriftSession.getUserAgent()),
+                Optional.ofNullable(thriftSession.getClientInfo()),
+                thriftSession.getClientTags(),
+                new ResourceEstimates(thriftSession.getResourceEstimates()),
+                thriftSession.getStartTime(),
+                thriftSession.getSystemProperties(),
+                catalogProperties,
+                thriftSession.getUnprocessedCatalogProperties(),
+                roles,
+                thriftSession.getPreparedStatements(),
+                sessionFunctions);
+    }
+
+    public ThriftSessionRepresentation toThrift()
+    {
+        Map<String, Map<String, String>> thriftCatalogProperties = catalogProperties.entrySet().stream().collect(Collectors.toMap(
+                Object::toString,
+                Map.Entry::getValue));
+        Map<String, ThriftSelectedRole> thriftRoles = roles.entrySet()
+                .stream().collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        entry -> entry.getValue().toThrift()));
+        Map<ThriftSqlFunctionId, ThriftSqlInvokedFunction> thriftSessionFunctions = sessionFunctions.entrySet()
+                .stream().collect(Collectors.toMap(
+                        entry -> entry.getKey().toThrift(),
+                        entry -> entry.getValue().toThrift()));
+
+        return new ThriftSessionRepresentation(
+                queryId,
+                transactionId.map(TransactionId::toThrift).orElse(null),
+                clientTransactionSupport,
+                user,
+                principal.orElse(null),
+                source.orElse(null),
+                catalog.orElse(null),
+                schema.orElse(null),
+                traceToken.orElse(null),
+                timeZoneKey.toThrift(),
+                locale.toString(),
+                remoteUserAddress.orElse(null),
+                userAgent.orElse(null),
+                clientInfo.orElse(null),
+                clientTags,
+                startTime,
+                resourceEstimates.toThrift(),
+                systemProperties,
+                thriftCatalogProperties,
+                unprocessedCatalogProperties,
+                thriftRoles,
+                preparedStatements,
+                thriftSessionFunctions);
+    }
 
     @ThriftConstructor
     @JsonCreator

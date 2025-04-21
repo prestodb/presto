@@ -15,6 +15,7 @@ package com.facebook.presto.spi;
 
 import com.facebook.drift.annotations.ThriftEnum;
 import com.facebook.drift.annotations.ThriftEnumValue;
+import com.facebook.presto.common.experimental.auto_gen.ThriftErrorCause;
 
 @ThriftEnum
 public enum ErrorCause
@@ -24,6 +25,16 @@ public enum ErrorCause
     EXCEEDS_BROADCAST_MEMORY_LIMIT(2);
 
     private final int code;
+
+    public static ErrorCause createErrorCause(ThriftErrorCause thriftErrorCause)
+    {
+        return ErrorCause.valueOf(thriftErrorCause.name());
+    }
+
+    public ThriftErrorCause toThrift()
+    {
+        return ThriftErrorCause.valueOf(name());
+    }
 
     ErrorCause(int code)
     {

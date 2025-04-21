@@ -15,11 +15,15 @@ package com.facebook.presto.common.predicate;
 
 import com.facebook.presto.common.Utils;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.experimental.ObjectAdapter;
+import com.facebook.presto.common.experimental.TypeAdapter;
+import com.facebook.presto.common.experimental.auto_gen.ThriftNullableValue;
 import com.facebook.presto.common.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -29,6 +33,13 @@ public final class NullableValue
 {
     private final Type type;
     private final Object value;
+
+    public static NullableValue createNullableValue(ThriftNullableValue thriftNullableValue)
+    {
+        Type theType = (Type) TypeAdapter.fromThrift(thriftNullableValue.getType());
+        Object theObject = Optional.ofNullable(thriftNullableValue.getObject()).map(ObjectAdapter::fromThrift).orElse(null);
+        return new NullableValue(theType, theObject);
+    }
 
     public NullableValue(Type type, Object value)
     {

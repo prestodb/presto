@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.function;
 
 import com.facebook.presto.common.CatalogSchemaName;
+import com.facebook.presto.common.experimental.ThriftSerializable;
 import com.facebook.presto.common.type.TypeSignature;
 
 import java.util.List;
@@ -23,6 +24,7 @@ import java.util.List;
  * However, currently it is still under changes, so please don't assume it is backward compatible.
  */
 public interface FunctionHandle
+        extends ThriftSerializable
 {
     CatalogSchemaName getCatalogSchemaName();
 

@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.spi.plan;
 
+import com.facebook.presto.common.experimental.RowExpressionAdapter;
+import com.facebook.presto.common.experimental.auto_gen.ThriftAggregation;
+import com.facebook.presto.common.experimental.auto_gen.ThriftRowExpression;
 import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.CallExpression;
@@ -66,7 +69,7 @@ public final class AggregationNode
             @JsonProperty("step") Step step,
             @JsonProperty("hashVariable") Optional<VariableReferenceExpression> hashVariable,
             @JsonProperty("groupIdVariable") Optional<VariableReferenceExpression> groupIdVariable,
-            @JsonProperty("aggregationId")Optional<Integer> aggregationId)
+            @JsonProperty("aggregationId") Optional<Integer> aggregationId)
     {
         this(sourceLocation, id, Optional.empty(), source, aggregations, groupingSets, preGroupedVariables, step, hashVariable, groupIdVariable, aggregationId);
     }
@@ -439,6 +442,26 @@ public final class AggregationNode
         private final Optional<OrderingScheme> orderingScheme;
         private final boolean isDistinct;
         private final Optional<VariableReferenceExpression> mask;
+
+        public Aggregation(ThriftAggregation thriftAggregation)
+        {
+            this(
+                    new CallExpression(thriftAggregation.getCall()),
+                    Optional.ofNullable(thriftAggregation.getFilter()).map(thriftExpression -> (RowExpression) RowExpressionAdapter.fromThrift(thriftExpression)),
+                    Optional.ofNullable(thriftAggregation.getOrderingScheme()).map(OrderingScheme::new),
+                    thriftAggregation.isIsDistinct(),
+                    Optional.ofNullable(thriftAggregation.getMask()).map(VariableReferenceExpression::new));
+        }
+
+        public ThriftAggregation toThrift()
+        {
+            return new ThriftAggregation(
+                    call.toThrift(),
+                    filter.map(expression -> (ThriftRowExpression) expression.toThriftInterface()).orElse(null),
+                    orderingScheme.map(OrderingScheme::toThrift).orElse(null),
+                    isDistinct,
+                    mask.map(VariableReferenceExpression::toThrift).orElse(null));
+        }
 
         @JsonCreator
         public Aggregation(

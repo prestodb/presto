@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
+import com.facebook.presto.common.experimental.auto_gen.ThriftStageId;
 import com.facebook.presto.spi.QueryId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
@@ -44,6 +45,16 @@ public class StageId
 
     private final QueryId queryId;
     private final int id;
+
+    public StageId(ThriftStageId thriftStageId)
+    {
+        this(thriftStageId.getQueryId(), thriftStageId.getId());
+    }
+
+    public ThriftStageId toThrift()
+    {
+        return new ThriftStageId(queryId.toString(), id);
+    }
 
     public StageId(QueryId queryId, int id)
     {

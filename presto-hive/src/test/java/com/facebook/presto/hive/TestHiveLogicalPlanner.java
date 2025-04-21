@@ -2147,7 +2147,7 @@ public class TestHiveLogicalPlanner
         List<String> actualRequestedColumns = new ArrayList<>();
         for (HiveColumnHandle column : requestedColumns) {
             if (!column.getRequiredSubfields().isEmpty()) {
-                column.getRequiredSubfields().stream().map(Subfield::serialize).forEach(actualRequestedColumns::add);
+                column.getRequiredSubfields().stream().map(Subfield::toString).forEach(actualRequestedColumns::add);
             }
             else {
                 actualRequestedColumns.add(column.getName());

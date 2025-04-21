@@ -17,6 +17,7 @@ import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.experimental.auto_gen.ThriftSignature;
 import com.facebook.presto.common.type.TypeSignature;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -25,7 +26,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
+import static com.facebook.presto.spi.function.FunctionKind.createFunctionKind;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
@@ -42,6 +45,29 @@ public final class Signature
     private final TypeSignature returnType;
     private final List<TypeSignature> argumentTypes;
     private final boolean variableArity;
+
+    public Signature(ThriftSignature thriftSignature)
+    {
+        this(new QualifiedObjectName(thriftSignature.getName()),
+                createFunctionKind(thriftSignature.getKind()),
+                thriftSignature.getTypeVariableConstraints().stream().map(TypeVariableConstraint::new).collect(Collectors.toList()),
+                thriftSignature.getLongVariableConstraints().stream().map(LongVariableConstraint::new).collect(Collectors.toList()),
+                new TypeSignature(thriftSignature.getReturnType()),
+                thriftSignature.getArgumentTypes().stream().map(TypeSignature::new).collect(Collectors.toList()),
+                thriftSignature.isVariableArity());
+    }
+
+    public ThriftSignature toThrift()
+    {
+        return new ThriftSignature(
+                name.toThrift(),
+                kind.toThrift(),
+                typeVariableConstraints.stream().map(TypeVariableConstraint::toThrift).collect(Collectors.toList()),
+                longVariableConstraints.stream().map(LongVariableConstraint::toThrift).collect(Collectors.toList()),
+                returnType.toThrift(),
+                argumentTypes.stream().map(TypeSignature::toThrift).collect(Collectors.toList()),
+                variableArity);
+    }
 
     @ThriftConstructor
     @JsonCreator

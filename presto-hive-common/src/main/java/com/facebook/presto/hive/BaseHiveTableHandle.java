@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.experimental.FbThriftUtils;
+import com.facebook.presto.common.experimental.ThriftSerializationRegistry;
+import com.facebook.presto.common.experimental.auto_gen.ThriftBaseHiveTableHandle;
+import com.facebook.presto.common.experimental.auto_gen.ThriftConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -24,6 +28,22 @@ public class BaseHiveTableHandle
 {
     private final String schemaName;
     private final String tableName;
+
+    static {
+        ThriftSerializationRegistry.registerSerializer(BaseHiveTableHandle.class, BaseHiveTableHandle::toThrift, null);
+        ThriftSerializationRegistry.registerDeserializer(BaseHiveTableHandle.class, ThriftBaseHiveTableHandle.class, BaseHiveTableHandle::deserialize, null);
+    }
+
+    public BaseHiveTableHandle(ThriftBaseHiveTableHandle thriftHandle)
+    {
+        this(thriftHandle.getSchemaName(), thriftHandle.getTableName());
+    }
+
+    @Override
+    public ThriftConnectorTableHandle toThriftInterface()
+    {
+        return new ThriftConnectorTableHandle(getImplementationType(), FbThriftUtils.serialize(this.toThrift()));
+    }
 
     public BaseHiveTableHandle(String schemaName, String tableName)
     {
@@ -46,5 +66,10 @@ public class BaseHiveTableHandle
     public SchemaTableName getSchemaTableName()
     {
         return new SchemaTableName(schemaName, tableName);
+    }
+
+    public static BaseHiveTableHandle deserialize(byte[] bytes)
+    {
+        return new BaseHiveTableHandle(FbThriftUtils.deserialize(ThriftBaseHiveTableHandle.class, bytes));
     }
 }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.common.experimental.auto_gen.ThriftSplitContext;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -29,6 +30,16 @@ public class SplitContext
     private final boolean cacheable;
     // For local execution only; no need for serialization.
     private final Optional<TupleDomain<ColumnHandle>> dynamicFilterPredicate;
+
+    public SplitContext(ThriftSplitContext thriftSplitContext)
+    {
+        this(thriftSplitContext.isCacheable());
+    }
+
+    public ThriftSplitContext toThrift()
+    {
+        return new ThriftSplitContext(cacheable);
+    }
 
     @JsonCreator
     public SplitContext(@JsonProperty boolean cacheable)

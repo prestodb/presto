@@ -16,11 +16,13 @@ package com.facebook.presto.operator;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
+import com.facebook.presto.common.experimental.auto_gen.ThriftDynamicFilterStats;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
@@ -31,6 +33,16 @@ import static java.util.Objects.requireNonNull;
 public class DynamicFilterStats
 {
     private final Set<PlanNodeId> producerNodeIds;
+
+    public DynamicFilterStats(ThriftDynamicFilterStats thriftStats)
+    {
+        this(requireNonNull(thriftStats.getProducerNodeIds()).stream().map(PlanNodeId::new).collect(Collectors.toSet()));
+    }
+
+    public ThriftDynamicFilterStats toThrift()
+    {
+        return new ThriftDynamicFilterStats(producerNodeIds.stream().map(Object::toString).collect(Collectors.toSet()));
+    }
 
     /**
      * Creates a DynamicFilterStats.

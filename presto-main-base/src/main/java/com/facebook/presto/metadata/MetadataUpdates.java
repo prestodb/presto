@@ -16,6 +16,9 @@ package com.facebook.presto.metadata;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
+import com.facebook.presto.common.experimental.ConnectorMetadataUpdateHandleAdapter;
+import com.facebook.presto.common.experimental.auto_gen.ThriftConnectorMetadataUpdateHandle;
+import com.facebook.presto.common.experimental.auto_gen.ThriftMetadataUpdates;
 import com.facebook.presto.server.thrift.Any;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
@@ -26,6 +29,8 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.Nullable;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
@@ -34,10 +39,26 @@ public class MetadataUpdates
 {
     public static final MetadataUpdates DEFAULT_METADATA_UPDATES = new MetadataUpdates(null, ImmutableList.of());
 
+    @Nullable
     private final ConnectorId connectorId;
     private List<ConnectorMetadataUpdateHandle> metadataUpdates;
     private List<Any> metadataUpdatesAny;
     private boolean dummy;
+
+    public MetadataUpdates(ThriftMetadataUpdates thriftMetadataUpdates)
+    {
+        this(Optional.ofNullable(thriftMetadataUpdates.getConnectorId()).map(ConnectorId::new).orElse(null),
+                requireNonNull(thriftMetadataUpdates.getMetadataUpdates()).stream().map(ConnectorMetadataUpdateHandleAdapter::fromThrift).map(ConnectorMetadataUpdateHandle.class::cast).collect(Collectors.toList()));
+    }
+
+    public ThriftMetadataUpdates toThrift()
+    {
+        return new ThriftMetadataUpdates(Optional.ofNullable(connectorId).map(ConnectorId::getCatalogName).orElse(null),
+                metadataUpdates.stream().map(handle -> {
+                    System.out.println("====> " + handle.getClass().getName());
+                    return handle.toThriftInterface();
+                }).map(ThriftConnectorMetadataUpdateHandle.class::cast).collect(Collectors.toList()));
+    }
 
     @JsonCreator
     public MetadataUpdates(

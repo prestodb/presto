@@ -16,6 +16,8 @@ package com.facebook.presto.common;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
+import com.facebook.presto.common.experimental.auto_gen.ThriftRuntimeMetric;
+import com.facebook.presto.common.experimental.auto_gen.ThriftRuntimeUnit;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -53,6 +55,16 @@ public class RuntimeMetric
     {
         requireNonNull(metric, "metric is null");
         return new RuntimeMetric(metric.getName(), metric.getUnit(), metric.getSum(), metric.getCount(), metric.getMax(), metric.getMin());
+    }
+
+    public RuntimeMetric(ThriftRuntimeMetric thriftMetrics)
+    {
+        this(thriftMetrics.getName(), RuntimeUnit.valueOf(requireNonNull(thriftMetrics.getUnit()).name()), thriftMetrics.getSum(), thriftMetrics.getCount(), thriftMetrics.getMax(), thriftMetrics.getMin());
+    }
+
+    public ThriftRuntimeMetric toThrift()
+    {
+        return new ThriftRuntimeMetric(name, ThriftRuntimeUnit.valueOf(unit.name()), sum.get(), count.get(), max.get(), min.get());
     }
 
     @JsonCreator

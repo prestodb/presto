@@ -13,6 +13,15 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.experimental.FbThriftUtils;
+import com.facebook.presto.common.experimental.ThriftSerializable;
+import com.facebook.presto.common.experimental.TypeInfoAdapter;
+import com.facebook.presto.common.experimental.auto_gen.ThriftCharTypeInfo;
+import com.facebook.presto.common.experimental.auto_gen.ThriftDecimalTypeInfo;
+import com.facebook.presto.common.experimental.auto_gen.ThriftHiveType;
+import com.facebook.presto.common.experimental.auto_gen.ThriftPrimitiveTypeInfo;
+import com.facebook.presto.common.experimental.auto_gen.ThriftTypeInfo;
+import com.facebook.presto.common.experimental.auto_gen.ThriftVarcharTypeInfo;
 import com.facebook.presto.common.type.NamedTypeSignature;
 import com.facebook.presto.common.type.RowFieldName;
 import com.facebook.presto.common.type.StandardTypes;
@@ -76,6 +85,7 @@ import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils.getTypeInfoFr
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils.getTypeInfosFromTypeString;
 
 public final class HiveType
+        implements ThriftSerializable
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(HiveType.class).instanceSize();
 
@@ -134,6 +144,34 @@ public final class HiveType
 
     private final HiveTypeName hiveTypeName;
     private final TypeInfo typeInfo;
+
+    public HiveType(ThriftHiveType thriftHiveType)
+    {
+        this((TypeInfo) TypeInfoAdapter.fromThrift(thriftHiveType.getTypeInfo()));
+    }
+
+    @Override
+    public ThriftHiveType toThrift()
+    {
+        ThriftTypeInfo.Builder thriftTypeInfoBuilder = ThriftTypeInfo.builder();
+        thriftTypeInfoBuilder.setType(typeInfo.getClass().getName());
+
+        if (typeInfo instanceof VarcharTypeInfo) {
+            thriftTypeInfoBuilder.setSerializedTypeInfo(FbThriftUtils.serialize(new ThriftVarcharTypeInfo(((VarcharTypeInfo) typeInfo).getLength())));
+        }
+        else if (typeInfo instanceof DecimalTypeInfo) {
+            DecimalTypeInfo decimalTypeInfo = (DecimalTypeInfo) typeInfo;
+            thriftTypeInfoBuilder.setSerializedTypeInfo(FbThriftUtils.serialize(new ThriftDecimalTypeInfo(decimalTypeInfo.getPrecision(), decimalTypeInfo.getScale())));
+        }
+        else if (typeInfo instanceof CharTypeInfo) {
+            thriftTypeInfoBuilder.setSerializedTypeInfo(FbThriftUtils.serialize(new ThriftCharTypeInfo(((CharTypeInfo) typeInfo).getLength())));
+        }
+        else if (typeInfo instanceof PrimitiveTypeInfo) {
+            thriftTypeInfoBuilder.setSerializedTypeInfo(FbThriftUtils.serialize(new ThriftPrimitiveTypeInfo(typeInfo.getTypeName())));
+        }
+
+        return new ThriftHiveType(thriftTypeInfoBuilder.build());
+    }
 
     private HiveType(TypeInfo typeInfo)
     {

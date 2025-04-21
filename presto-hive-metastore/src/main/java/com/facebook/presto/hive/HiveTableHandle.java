@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.experimental.FbThriftUtils;
+import com.facebook.presto.common.experimental.auto_gen.ThriftConnectorTableHandle;
+import com.facebook.presto.common.experimental.auto_gen.ThriftHiveTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -27,6 +30,23 @@ public class HiveTableHandle
         extends BaseHiveTableHandle
 {
     private final Optional<List<List<String>>> analyzePartitionValues;
+
+    public HiveTableHandle(ThriftHiveTableHandle thriftHandle)
+    {
+        this(thriftHandle.getSchemaName(), thriftHandle.getTableName(), Optional.ofNullable(thriftHandle.getAnalyzePartitionValues()));
+    }
+
+    @Override
+    public ThriftHiveTableHandle toThrift()
+    {
+        return new ThriftHiveTableHandle(getSchemaName(), getTableName(), analyzePartitionValues.orElse(null));
+    }
+
+    @Override
+    public ThriftConnectorTableHandle toThriftInterface()
+    {
+        return new ThriftConnectorTableHandle(getImplementationType(), FbThriftUtils.serialize(this.toThrift()));
+    }
 
     @JsonCreator
     public HiveTableHandle(

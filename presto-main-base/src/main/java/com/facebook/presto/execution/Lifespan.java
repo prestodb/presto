@@ -17,6 +17,7 @@ package com.facebook.presto.execution;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
+import com.facebook.presto.common.experimental.auto_gen.ThriftLifespan;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
@@ -33,6 +34,16 @@ public class Lifespan
 
     private final boolean grouped;
     private final int groupId;
+
+    public Lifespan(ThriftLifespan thriftLifespan)
+    {
+        this(thriftLifespan.isGrouped(), thriftLifespan.getGroupId());
+    }
+
+    public ThriftLifespan toThrift()
+    {
+        return new ThriftLifespan(grouped, groupId);
+    }
 
     public static Lifespan taskWide()
     {

@@ -16,6 +16,8 @@ package com.facebook.presto.operator;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
+import com.facebook.presto.common.experimental.auto_gen.ThriftBlockedReason;
+import com.facebook.presto.common.experimental.auto_gen.ThriftDriverStats;
 import com.facebook.presto.execution.Lifespan;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -28,11 +30,14 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.units.Duration.nanosSince;
 import static java.lang.System.currentTimeMillis;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @Immutable
 @ThriftStruct
@@ -72,6 +77,63 @@ public class DriverStats
     private final long physicalWrittenDataSizeInBytes;
 
     private final List<OperatorStats> operatorStats;
+
+    public DriverStats(ThriftDriverStats thriftDriverStats)
+    {
+        this(new Lifespan(requireNonNull(thriftDriverStats.getLifespan())),
+                thriftDriverStats.getCreateTimeInMillis(),
+                thriftDriverStats.getStartTimeInMillis(),
+                thriftDriverStats.getEndTimeInMillis(),
+                nanosSince(thriftDriverStats.getQueuedTimeInNanos()),
+                nanosSince(thriftDriverStats.getElapsedTimeInNanos()),
+                thriftDriverStats.getUserMemoryReservationInBytes(),
+                thriftDriverStats.getRevocableMemoryReservationInBytes(),
+                thriftDriverStats.getSystemMemoryReservationInBytes(),
+                nanosSince(thriftDriverStats.getTotalScheduledTimeInNanos()),
+                nanosSince(thriftDriverStats.getTotalCpuTimeInNanos()),
+                nanosSince(thriftDriverStats.getTotalBlockedTimeInNanos()),
+                thriftDriverStats.isFullyBlocked(),
+                requireNonNull(thriftDriverStats.getBlockedReasons()).stream().map(reason -> BlockedReason.valueOf(reason.name())).collect(Collectors.toSet()),
+                thriftDriverStats.getTotalAllocationInBytes(),
+                thriftDriverStats.getRawInputDataSizeInBytes(),
+                thriftDriverStats.getRawInputPositions(),
+                nanosSince(thriftDriverStats.getRawInputReadTimeInNanos()),
+                thriftDriverStats.getProcessedInputDataSizeInBytes(),
+                thriftDriverStats.getProcessedInputPositions(),
+                thriftDriverStats.getOutputDataSizeInBytes(),
+                thriftDriverStats.getOutputPositions(),
+                thriftDriverStats.getPhysicalWrittenDataSizeInBytes(),
+                requireNonNull(thriftDriverStats.getOperatorStats()).stream().map(OperatorStats::new).collect(Collectors.toList()));
+    }
+
+    public ThriftDriverStats toThrift()
+    {
+        return new ThriftDriverStats(
+                lifespan.toThrift(),
+                createTimeInMillis,
+                startTimeInMillis,
+                endTimeInMillis,
+                queuedTime.roundTo(NANOSECONDS),
+                elapsedTime.roundTo(NANOSECONDS),
+                userMemoryReservationInBytes,
+                revocableMemoryReservationInBytes,
+                systemMemoryReservationInBytes,
+                totalScheduledTime.roundTo(NANOSECONDS),
+                totalCpuTime.roundTo(NANOSECONDS),
+                totalBlockedTime.roundTo(NANOSECONDS),
+                fullyBlocked,
+                blockedReasons.stream().map(reason -> ThriftBlockedReason.valueOf(reason.name())).collect(Collectors.toSet()),
+                totalAllocationInBytes,
+                rawInputDataSizeInBytes,
+                rawInputReadTime.roundTo(NANOSECONDS),
+                rawInputPositions,
+                processedInputDataSizeInBytes,
+                processedInputPositions,
+                outputDataSizeInBytes,
+                outputPositions,
+                physicalWrittenDataSizeInBytes,
+                operatorStats.stream().map(OperatorStats::toThrift).collect(Collectors.toList()));
+    }
 
     public DriverStats()
     {

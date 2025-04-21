@@ -17,6 +17,7 @@ import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.experimental.auto_gen.ThriftSqlInvokedFunction;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.api.Experimental;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -26,9 +27,11 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
+import static com.facebook.presto.spi.function.FunctionKind.createFunctionKind;
 import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
 import static java.lang.String.format;
@@ -57,6 +60,39 @@ public class SqlInvokedFunction
      * Metadata required for Aggregation Functions
      */
     private final Optional<AggregationFunctionMetadata> aggregationMetadata;
+
+    public SqlInvokedFunction(ThriftSqlInvokedFunction thriftFunction)
+    {
+        this(new Signature(thriftFunction.getSignature()).getName(),
+                thriftFunction.getParameters().stream().map(Parameter::new).collect(Collectors.toList()),
+                thriftFunction.getSignature().getTypeVariableConstraints().stream().map(TypeVariableConstraint::new).collect(toList()),
+                emptyList(),
+                new TypeSignature(thriftFunction.getSignature().getReturnType()),
+                thriftFunction.getDescription(),
+                new RoutineCharacteristics(thriftFunction.getRoutineCharacteristics()),
+                thriftFunction.getBody(),
+                thriftFunction.isVariableArity(),
+                new FunctionVersion(thriftFunction.getFunctionVersion()),
+                createFunctionKind(thriftFunction.getSignature().getKind()),
+                new SqlFunctionId(thriftFunction.getFunctionId()),
+                Optional.ofNullable(thriftFunction.getAggregationMetadata()).map(AggregationFunctionMetadata::new),
+                Optional.ofNullable(thriftFunction.getFunctionHandle()).map(SqlFunctionHandle::new));
+    }
+
+    public ThriftSqlInvokedFunction toThrift()
+    {
+        return new ThriftSqlInvokedFunction(
+                parameters.stream().map(Parameter::toThrift).collect(Collectors.toList()),
+                description,
+                routineCharacteristics.toThrift(),
+                body,
+                variableArity,
+                signature.toThrift(),
+                functionId.toThrift(),
+                functionVersion.toThrift(),
+                this.functionHandle.map(SqlFunctionHandle::toThrift).orElse(null),
+                this.aggregationMetadata.map(AggregationFunctionMetadata::toThrift).orElse(null));
+    }
 
     @ThriftConstructor
     @JsonCreator
