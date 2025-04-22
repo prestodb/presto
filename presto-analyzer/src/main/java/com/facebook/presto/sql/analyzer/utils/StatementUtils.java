@@ -178,4 +178,9 @@ public final class StatementUtils
     {
         return statement instanceof StartTransaction || statement instanceof Commit || statement instanceof Rollback;
     }
+
+    public static boolean isRollbackStatement(Statement statement)
+    {
+        return statement instanceof Rollback;
+    }
 }
