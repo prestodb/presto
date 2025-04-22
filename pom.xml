@@ -2580,13 +2580,13 @@
             <dependency>
                 <groupId>com.nimbusds</groupId>
                 <artifactId>nimbus-jose-jwt</artifactId>
-                <version>9.14</version>
+                <version>9.30.2</version>
             </dependency>
 
             <dependency>
                 <groupId>com.nimbusds</groupId>
                 <artifactId>oauth2-oidc-sdk</artifactId>
-                <version>9.18</version>
+                <version>11.0</version>
                 <exclusions>
                     <exclusion>
                         <groupId>org.aw2</groupId>
@@ -2594,7 +2594,6 @@
                     </exclusion>
                 </exclusions>
             </dependency>
-
         </dependencies>
     </dependencyManagement>
 
