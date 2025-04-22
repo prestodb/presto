@@ -113,6 +113,8 @@ class E2EWriterTestUtil {
 
   static std::vector<VectorPtr> generateBatches(VectorPtr batch);
 
+  /// NOTE: This will trigger flush before first write and disable dictionary
+  /// encoding.
   static std::function<std::unique_ptr<DWRFFlushPolicy>()>
   simpleFlushPolicyFactory(bool flushPerBatch) {
     return [flushPerBatch]() {
