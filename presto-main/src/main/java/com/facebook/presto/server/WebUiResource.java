@@ -69,6 +69,7 @@ public class WebUiResource
         return Response
                 .seeOther(uriInfo.getBaseUriBuilder().scheme(proto).path("/ui/logout.html").build())
                 .cookie(OAuthWebUiCookie.delete())
+                .status(302)
                 .build();
     }
 }
