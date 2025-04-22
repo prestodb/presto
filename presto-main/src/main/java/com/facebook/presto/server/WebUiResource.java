@@ -53,6 +53,7 @@ public class WebUiResource
 
         return Response
                 .seeOther(uriInfo.getRequestUriBuilder().scheme(proto).path("/ui/").replaceQuery("").build())
+                .status(302)
                 .build();
     }
 
