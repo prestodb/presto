@@ -14,7 +14,6 @@
 package com.facebook.presto.delta;
 
 import com.facebook.airlift.log.Logger;
-import com.facebook.presto.common.GenericInternalException;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.ValueSet;
@@ -25,6 +24,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Streams;
 import io.airlift.slice.Slice;
 import io.delta.kernel.data.FilteredColumnarBatch;
 import io.delta.kernel.data.Row;
@@ -34,6 +34,7 @@ import io.delta.kernel.utils.CloseableIterator;
 import java.io.IOException;
 import java.sql.Date;
 import java.sql.Timestamp;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -127,73 +128,38 @@ public final class DeltaExpressionUtils
             implements CloseableIterator<Row>
     {
         private final CloseableIterator<FilteredColumnarBatch> inputIterator;
-        private Row nextRow;
-        private boolean rowsRemaining;
-        private CloseableIterator<Row> row;
+        private final Iterator<Row> rows;
+        private CloseableIterator<Row> prev;
 
         public AllFilesIterator(CloseableIterator<FilteredColumnarBatch> inputIterator)
         {
             this.inputIterator = inputIterator;
+            this.rows = Streams.stream(inputIterator)
+                    .flatMap(batch -> {
+                        if (prev != null) {
+                            try {
+                                prev.close();
+                            }
+                            catch (IOException e) {
+                                throw new RuntimeException("Failed to close previous rowBatch");
+                            }
+                        }
+                        prev = batch.getRows();
+                        return Streams.stream(prev);
+                    })
+                    .iterator();
         }
 
         @Override
         public boolean hasNext()
         {
-            if (this.nextRow != null) {
-                return true;
-            }
-
-            if (!this.rowsRemaining) {
-                while (this.inputIterator.hasNext()) {
-                    // get new batch
-                    FilteredColumnarBatch nextBatch = this.inputIterator.next();
-                    this.row = nextBatch.getRows();
-                    this.rowsRemaining = false;
-                    if (this.row.hasNext()) {
-                        // it the batch has rows to return, we break out of the loop
-                        this.nextRow = this.row.next();
-                        this.rowsRemaining = true;
-                        break;
-                    }
-                    else {
-                        // it the batch is empty we close the row iterator and we test
-                        // the next batch
-                        try {
-                            this.row.close();
-                        }
-                        catch (IOException e) {
-                            throw new GenericInternalException("Could not close row batch", e);
-                        }
-                    }
-                }
-            }
-            else {
-                rowsRemaining = false;
-                if (row.hasNext()) {
-                    nextRow = row.next();
-                    rowsRemaining = true;
-                }
-                if (!rowsRemaining) {
-                    try {
-                        row.close();
-                    }
-                    catch (IOException e) {
-                        throw new GenericInternalException("Could not close row batch", e);
-                    }
-                }
-            }
-            return this.nextRow != null;
+            return rows.hasNext();
         }
 
         @Override
         public Row next()
         {
-            if (!hasNext()) {
-                throw new NoSuchElementException("There are no more files");
-            }
-            Row toReturn = nextRow;
-            nextRow = null;
-            return toReturn;
+            return rows.next();
         }
 
         @Override
@@ -238,91 +204,40 @@ public final class DeltaExpressionUtils
             implements CloseableIterator<Row>
     {
         private final CloseableIterator<FilteredColumnarBatch> inputIterator;
-        private final TupleDomain<String> partitionPredicate;
-        private final List<DeltaColumnHandle> partitionColumns;
-        private final TypeManager typeManager;
-        private Row nextItem;
-        private boolean rowsRemaining;
-        private CloseableIterator<Row> row;
+        private final Iterator<Row> rows;
+        private CloseableIterator<Row> prev;
 
         public FilteredByPredicateIterator(CloseableIterator<FilteredColumnarBatch> inputIterator,
                                            TupleDomain<String> partitionPredicate,
                                            List<DeltaColumnHandle> partitionColumns, TypeManager typeManager)
         {
             this.inputIterator = inputIterator;
-            this.partitionPredicate = partitionPredicate;
-            this.partitionColumns = partitionColumns;
-            this.typeManager = typeManager;
+            this.rows = Streams.stream(inputIterator)
+                    .flatMap(batch -> {
+                        if (prev != null) {
+                            try {
+                                prev.close();
+                            }
+                            catch (IOException e) {
+                                throw new RuntimeException("Failed to close previous rowBatch");
+                            }
+                        }
+                        prev = batch.getRows();
+                        return Streams.stream(prev);
+                    }).filter(row -> evaluatePartitionPredicate(partitionPredicate, partitionColumns, typeManager, row))
+                    .iterator();
         }
 
         @Override
         public boolean hasNext()
         {
-            if (nextItem != null) {
-                return true;
-            }
-
-            if (rowsRemaining) {
-                Row nextRow;
-                rowsRemaining = false;
-                while (row.hasNext()) {
-                    nextRow = row.next();
-                    if (evaluatePartitionPredicate(partitionPredicate, partitionColumns, typeManager,
-                            nextRow)) {
-                        nextItem = nextRow;
-                        rowsRemaining = true;
-                        break;
-                    }
-                }
-                if (!rowsRemaining) {
-                    try {
-                        row.close();
-                    }
-                    catch (IOException e) {
-                        throw new GenericInternalException("Cloud not close row batch", e);
-                    }
-                }
-            }
-            else {
-                while (inputIterator.hasNext()) {
-                    FilteredColumnarBatch nextFile = inputIterator.next();
-                    row = nextFile.getRows();
-                    Row nextRow;
-                    rowsRemaining = false;
-                    while (row.hasNext()) {
-                        nextRow = row.next();
-                        if (evaluatePartitionPredicate(partitionPredicate, partitionColumns, typeManager,
-                                nextRow)) {
-                            nextItem = nextRow;
-                            rowsRemaining = true;
-                            break;
-                        }
-                    }
-                    if (rowsRemaining) {
-                        break;
-                    }
-                    else {
-                        try {
-                            row.close();
-                        }
-                        catch (IOException e) {
-                            throw new GenericInternalException("Cloud not close row batch", e);
-                        }
-                    }
-                }
-            }
-            return nextItem != null;
+            return rows.hasNext();
         }
 
         @Override
         public Row next()
         {
-            if (!hasNext()) {
-                throw new NoSuchElementException("There are no more files");
-            }
-            Row toReturn = nextItem;
-            nextItem = null;
-            return toReturn;
+            return rows.next();
         }
 
         @Override
