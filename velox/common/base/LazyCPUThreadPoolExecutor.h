@@ -23,6 +23,9 @@
 
 namespace facebook::velox {
 
+/// The folly cpu executor wrapper that lazily creates the executor on first
+/// use. This reduces the memory consumption for cases where the executor is not
+/// actually used.
 class LazyCPUThreadPoolExecutor : public folly::DefaultKeepAliveExecutor {
  public:
   LazyCPUThreadPoolExecutor(size_t numThreads, std::string prefix)

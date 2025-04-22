@@ -1,10 +1,27 @@
+/*
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "velox/common/base/LazyCPUThreadPoolExecutor.h"
 
 #include <folly/executors/ThreadPoolExecutor.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-TEST(LazyCPUThreadPoolExecutor, DelayedInitialization) {
+namespace facebook::velox {
+namespace {
+TEST(LazyCPUThreadPoolExecutorTest, delayedInitialization) {
   const std::string prefix = "MyUnIqUeNaMePrEfIx";
 
   // All ThreadPoolExecutor instances get placed on a global list at
@@ -35,3 +52,5 @@ TEST(LazyCPUThreadPoolExecutor, DelayedInitialization) {
 
   ASSERT_THAT(after, testing::Contains(prefix).Times(1));
 }
+} // namespace
+} // namespace facebook::velox
