@@ -341,11 +341,11 @@ void FileSpillMergeStream::close() {
 
 SpillPartitionId::SpillPartitionId(uint32_t partitionNumber)
     : encodedId_(partitionNumber) {
-  if (FOLLY_UNLIKELY(partitionNumber >= kMaxPartitionNum)) {
+  if (FOLLY_UNLIKELY(partitionNumber >= (1 << kMaxPartitionBits))) {
     VELOX_FAIL(fmt::format(
         "Partition number {} exceeds max partition number {}",
         partitionNumber,
-        kMaxPartitionNum));
+        1 << kMaxPartitionBits));
   }
 }
 
@@ -392,6 +392,9 @@ bool SpillPartitionId::operator<(const SpillPartitionId& other) const {
 
 std::string SpillPartitionId::toString() const {
   std::stringstream ss;
+  if (!valid()) {
+    return "[invalid]";
+  }
   ss << "[levels: " << (spillLevel() + 1) << ", partitions: [";
   for (auto i = 0; i <= spillLevel(); ++i) {
     ss << partitionNumber(i);
@@ -428,6 +431,96 @@ uint32_t SpillPartitionId::partitionNumber(uint32_t level) const {
 
 uint32_t SpillPartitionId::encodedId() const {
   return encodedId_;
+}
+
+bool SpillPartitionId::valid() const {
+  return encodedId_ != kInvalidEncodedId;
+}
+
+namespace {
+uint32_t numSpillLevels(const SpillPartitionIdSet& spillPartitionIds) {
+  VELOX_CHECK(!spillPartitionIds.empty());
+  uint32_t maxSpillLevel{0};
+  for (const auto& id : spillPartitionIds) {
+    maxSpillLevel = std::max(maxSpillLevel, id.spillLevel());
+  }
+  return maxSpillLevel + 1;
+}
+} // namespace
+
+SpillPartitionIdLookup::SpillPartitionIdLookup(
+    const SpillPartitionIdSet& spillPartitionIds,
+    uint32_t startPartitionBit,
+    uint32_t numPartitionBits)
+    : partitionBitsMask_(
+          bits::lowMask(numPartitionBits * (numSpillLevels(spillPartitionIds)))
+          << startPartitionBit) {
+  const auto numLookupBits =
+      (numSpillLevels(spillPartitionIds)) * numPartitionBits;
+  VELOX_CHECK_LT(
+      startPartitionBit,
+      sizeof(uint64_t) * 8 - numLookupBits,
+      "Insufficient lookup bits.");
+  lookup_.resize(1UL << numLookupBits, SpillPartitionId());
+
+  for (const auto& id : spillPartitionIds) {
+    generateLookup(id, startPartitionBit, numPartitionBits, numLookupBits);
+  }
+}
+
+void SpillPartitionIdLookup::generateLookup(
+    const SpillPartitionId& id,
+    uint32_t startPartitionBit,
+    uint32_t numPartitionBits,
+    uint32_t numLookupBits) {
+  // Enumerate all possible numbers for enumeration range and combine with spill
+  // level partition bits range to form the lookup keys.
+  //
+  // |..MSB..|...enumeration range...|...partition bits range...|..LSB..|
+  //
+  // Calculate the range of bits that need to be enumerated [start, end).
+  const auto enumStartBit =
+      startPartitionBit + (id.spillLevel() + 1) * numPartitionBits;
+  const auto enumEndBit = startPartitionBit + numLookupBits;
+
+  // Calculate the spill level partition bits range bits which are fixed.
+  uint64_t lookupBits{0};
+  for (auto i = 0; i <= id.spillLevel(); ++i) {
+    const auto partitionNum = id.partitionNumber(i);
+    VELOX_CHECK_LT(
+        partitionNum,
+        1UL << numPartitionBits,
+        "Partition number exceeds max partition number");
+    lookupBits |= static_cast<uint64_t>(partitionNum) << (i * numPartitionBits);
+  }
+  lookupBits = lookupBits << startPartitionBit;
+
+  // Start building from fixed bits and enumerate the rest.
+  generateLookupHelper(id, enumStartBit, enumEndBit, lookupBits);
+}
+
+void SpillPartitionIdLookup::generateLookupHelper(
+    const SpillPartitionId& id,
+    uint32_t currentBit,
+    uint32_t endBit,
+    uint64_t lookupBits) {
+  if (currentBit == endBit) {
+    const auto index = bits::extractBits(lookupBits, partitionBitsMask_);
+    VELOX_CHECK(
+        !lookup_[index].valid(),
+        "Duplicated lookup key {}, likely due to non-leaf spill partition id used "
+        "to construct lookup.",
+        id.toString());
+    lookup_[index] = id;
+    return;
+  }
+  generateLookupHelper(
+      id, currentBit + 1, endBit, lookupBits | (1UL << currentBit));
+  generateLookupHelper(id, currentBit + 1, endBit, lookupBits);
+}
+
+SpillPartitionId SpillPartitionIdLookup::partition(uint64_t hash) const {
+  return lookup_[bits::extractBits(hash, partitionBitsMask_)];
 }
 
 uint8_t partitionBitOffset(

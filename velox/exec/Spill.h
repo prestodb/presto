@@ -208,9 +208,12 @@ class SpillPartitionId {
   /// Maximum spill level supported by 'SpillPartitionId'.
   static constexpr uint32_t kMaxSpillLevel{3};
 
-  /// Maximum number of partitions per spill level supported by
+  /// Maximum number of partition bits per spill level supported by
   /// 'SpillPartitionId'.
-  static constexpr uint32_t kMaxPartitionNum{8};
+  static constexpr uint32_t kMaxPartitionBits{3};
+
+  /// Constructs an default invalid id.
+  SpillPartitionId() = default;
 
   /// Constructs a root spill level id.
   explicit SpillPartitionId(uint32_t partitionNumber);
@@ -248,7 +251,12 @@ class SpillPartitionId {
 
   uint32_t encodedId() const;
 
+  bool valid() const;
+
  private:
+  // Default invalid encoded id.
+  static constexpr uint32_t kInvalidEncodedId{0xFFFFFFFF};
+
   // Number of bits to represent one spill level, details see 'encodedId_'.
   static constexpr uint8_t kNumPartitionBits = 3;
   static constexpr uint8_t kSpillLevelBitOffset = 29;
@@ -270,7 +278,7 @@ class SpillPartitionId {
   //   (12 ~ 28 bits): Unused
   //   (29 ~ 31 bits): Represents the current spill level.
   //   <MSB>
-  uint32_t encodedId_{0};
+  uint32_t encodedId_{kInvalidEncodedId};
 };
 
 inline std::ostream& operator<<(std::ostream& os, SpillPartitionId id) {
@@ -280,6 +288,40 @@ inline std::ostream& operator<<(std::ostream& os, SpillPartitionId id) {
 
 using SpillPartitionIdSet = folly::F14FastSet<SpillPartitionId>;
 using SpillPartitionNumSet = folly::F14FastSet<uint32_t>;
+
+/// Provides the mapping from the computed hash value to 'SpillPartitionId'. It
+/// is used to lookup the spill partition id for a spilled row.
+class SpillPartitionIdLookup {
+ public:
+  SpillPartitionIdLookup(
+      const SpillPartitionIdSet& spillPartitionIds,
+      uint32_t startPartitionBit,
+      uint32_t numPartitionBits);
+
+  SpillPartitionId partition(uint64_t hash) const;
+
+ private:
+  void generateLookup(
+      const SpillPartitionId& id,
+      uint32_t startPartitionBit,
+      uint32_t numPartitionBits,
+      uint32_t numLookupBits);
+
+  void generateLookupHelper(
+      const SpillPartitionId& id,
+      uint32_t currentBit,
+      uint32_t endBit,
+      uint64_t lookupBits);
+
+  const uint64_t partitionBitsMask_;
+
+  // The lookup_ array index is the extracted hash value key, value is the
+  // corresponding spill partition id. The vector is sized to accommodate all
+  // possible combinations of partition bits (2^numLookupBits entries). When a
+  // hash value is used to partition, its lookup bits range will be used as
+  // index to check against 'lookup_' and find the corresponding id.
+  std::vector<SpillPartitionId> lookup_;
+};
 
 /// Contains a spill partition data which includes the partition id and
 /// corresponding spill files.
