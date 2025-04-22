@@ -89,6 +89,11 @@ TEST_F(TypeParserTest, varcharType) {
   ASSERT_EQ(*parseType("varchar(4)"), *VARCHAR());
 }
 
+TEST_F(TypeParserTest, charType) {
+  VELOX_ASSERT_UNSUPPORTED_THROW(parseType("char"), "");
+  VELOX_ASSERT_UNSUPPORTED_THROW(parseType("char(4)"), "");
+}
+
 TEST_F(TypeParserTest, varbinary) {
   ASSERT_EQ(*parseType("varbinary"), *VARBINARY());
 }
