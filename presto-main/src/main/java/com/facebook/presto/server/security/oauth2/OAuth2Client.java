@@ -60,15 +60,13 @@ public interface OAuth2Client
     {
         private final String accessToken;
         private final Instant expiration;
-        private final Optional<String> idToken;
 
         private final Optional<String> refreshToken;
 
-        public Response(String accessToken, Instant expiration, Optional<String> idToken, Optional<String> refreshToken)
+        public Response(String accessToken, Instant expiration, Optional<String> refreshToken)
         {
             this.accessToken = requireNonNull(accessToken, "accessToken is null");
             this.expiration = requireNonNull(expiration, "expiration is null");
-            this.idToken = requireNonNull(idToken, "idToken is null");
             this.refreshToken = requireNonNull(refreshToken, "refreshToken is null");
         }
 

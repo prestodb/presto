@@ -241,7 +241,6 @@ public class NimbusOAuth2Client
             return new Response(
                     accessToken.getValue(),
                     determineExpiration(getExpiration(accessToken), claims.getExpirationTime()),
-                    Optional.empty(),
                     buildRefreshToken(refreshToken, existingRefreshToken));
         }
     }
@@ -304,7 +303,6 @@ public class NimbusOAuth2Client
             return new Response(
                     accessToken.getValue(),
                     determineExpiration(getExpiration(accessToken), claims.getExpirationTime()),
-                    Optional.ofNullable(tokens.getIDTokenString()),
                     buildRefreshToken(refreshToken, existingRefreshToken));
         }
 
