@@ -47,7 +47,7 @@ class StreamArena {
   ///
   /// NOTE: The method does not guarantee returned 'range' has size of 'bytes',
   /// it is caller's responsibility to check.
-  virtual void newRange(int32_t bytes, ByteRange* lastRange, ByteRange* range);
+  virtual void newRange(int64_t bytes, ByteRange* lastRange, ByteRange* range);
 
   /// Returns the Total size in bytes held by all Allocations.
   virtual size_t size() const {

@@ -29,7 +29,7 @@ using namespace facebook::velox::memory;
 class ByteStreamTest : public testing::Test {
  protected:
   void SetUp() override {
-    constexpr uint64_t kMaxMappedMemory = 64 << 20;
+    constexpr uint64_t kMaxMappedMemory = 3ULL << 30;
     MemoryManagerOptions options;
     options.useMmapAllocator = true;
     options.allocatorCapacity = kMaxMappedMemory;
@@ -431,6 +431,19 @@ TEST_F(ByteStreamTest, unalignedWrite) {
   int128_t data{};
   // This only crashes in opt mode.
   stream.append<int128_t>(folly::Range(&data, 1));
+  ASSERT_EQ(stream.size(), kSize);
+}
+
+TEST_F(ByteStreamTest, hugeWrite) {
+  const int64_t kSize =
+      std::numeric_limits<int32_t>::max() + static_cast<int64_t>(1);
+  auto arena = newArena();
+  ByteOutputStream stream(arena.get());
+  stream.startWrite(kSize);
+  auto iobuf = folly::IOBuf::create(kSize);
+  memset(iobuf->writableData(), 'x', kSize);
+  iobuf->append(kSize);
+  stream.appendStringView(std::string_view((const char*)iobuf->data(), kSize));
   ASSERT_EQ(stream.size(), kSize);
 }
 

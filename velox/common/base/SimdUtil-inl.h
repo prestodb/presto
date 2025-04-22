@@ -340,7 +340,7 @@ struct CopyWord<xsimd::batch<int8_t, A>, A> {
 // Copies one element of T and advances 'to', 'from', and 'bytes' by
 // sizeof(T). Returns false if 'bytes' went to 0.
 template <typename T, typename A>
-inline bool copyNextWord(void*& to, const void*& from, int32_t& bytes) {
+inline bool copyNextWord(void*& to, const void*& from, int64_t& bytes) {
   if (bytes >= sizeof(T)) {
     CopyWord<T, A>::apply(to, from);
     bytes -= sizeof(T);
@@ -356,7 +356,7 @@ inline bool copyNextWord(void*& to, const void*& from, int32_t& bytes) {
 } // namespace detail
 
 template <typename A>
-inline void memcpy(void* to, const void* from, int32_t bytes, const A& arch) {
+inline void memcpy(void* to, const void* from, int64_t bytes, const A& arch) {
   while (bytes >= batchByteSize(arch)) {
     if (!detail::copyNextWord<xsimd::batch<int8_t, A>, A>(to, from, bytes)) {
       return;

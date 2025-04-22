@@ -31,13 +31,13 @@ struct ByteRange {
   uint8_t* buffer;
 
   /// Number of bytes or bits starting at 'buffer'.
-  int32_t size;
+  int64_t size;
 
   /// Index of next byte/bit to be read/written in 'buffer'.
-  int32_t position;
+  int64_t position;
 
   /// Returns the available bytes left in this range.
-  uint32_t availableBytes() const;
+  int64_t availableBytes() const;
 
   std::string toString() const;
 };
@@ -91,10 +91,10 @@ class BufferedOutputStream : public OutputStream {
   }
 
   void write(const char* s, std::streamsize count) override {
-    auto remaining = count;
+    int64_t remaining = count;
     while (remaining > 0) {
-      const int32_t copyLength =
-          std::min(remaining, (std::streamsize)buffer_.size - buffer_.position);
+      const int64_t copyLength =
+          std::min(remaining, buffer_.size - buffer_.position);
       simd::memcpy(
           buffer_.buffer + buffer_.position, s + count - remaining, copyLength);
       buffer_.position += copyLength;
@@ -204,7 +204,7 @@ class ByteInputStream {
   /// Returns a view over the read buffer for up to 'size' next bytes. The size
   /// of the value may be less if the current byte range ends within 'size'
   /// bytes from the current position.  The size will be 0 if at end.
-  virtual std::string_view nextView(int32_t size) = 0;
+  virtual std::string_view nextView(int64_t size) = 0;
 
   virtual void skip(int32_t size) = 0;
 
@@ -243,7 +243,7 @@ class BufferInputStream : public ByteInputStream {
 
   void readBytes(uint8_t* bytes, int32_t size) override;
 
-  std::string_view nextView(int32_t size) override;
+  std::string_view nextView(int64_t size) override;
 
   void skip(int32_t size) override;
 
@@ -322,7 +322,7 @@ class ByteOutputStream {
   /// e.g. PrestoSerializer resets these. The memory formerly backing
   /// 'ranges_' is not owned and the caller needs to recycle or free
   /// this independently.
-  void startWrite(int32_t initialSize) {
+  void startWrite(int64_t initialSize) {
     ranges_.clear();
     isReversed_ = false;
     isNegated_ = false;
@@ -345,7 +345,7 @@ class ByteOutputStream {
   /// of non-last ranges + the greatest write position of the last range.
   size_t size() const;
 
-  int32_t lastRangeEnd() const {
+  int64_t lastRangeEnd() const {
     updateEnd();
     return lastRangeEnd_;
   }
@@ -371,7 +371,7 @@ class ByteOutputStream {
     current_->position += sizeof(T) * values.size();
   }
 
-  inline void appendBool(bool value, int32_t count) {
+  inline void appendBool(bool value, int64_t count) {
     VELOX_DCHECK(isBits_);
 
     if (count == 1 && current_->size > current_->position) {
@@ -383,9 +383,9 @@ class ByteOutputStream {
       return;
     }
 
-    int32_t offset{0};
+    int64_t offset{0};
     for (;;) {
-      const int32_t bitsFit =
+      const int64_t bitsFit =
           std::min(count - offset, current_->size - current_->position);
       bits::fillBits(
           reinterpret_cast<uint64_t*>(current_->buffer),
@@ -474,14 +474,14 @@ class ByteOutputStream {
     return reinterpret_cast<uint8_t*>(scratchPtr.get(size));
   }
 
-  void extend(int32_t bytes);
+  void extend(int64_t bytes);
 
   // Calls extend() enough times to make sure 'bytes' bytes can be
   // appended without new allocation. Does not change the append
   // position.
   void ensureSpace(int32_t bytes);
 
-  int32_t newRangeSize(int32_t bytes) const;
+  int64_t newRangeSize(int64_t bytes) const;
 
   void updateEnd() const {
     if (!ranges_.empty() && current_ == &ranges_.back() &&
@@ -519,7 +519,7 @@ class ByteOutputStream {
   // of 'ranges_'. In a write situation, all non-last ranges are full
   // and the last may be partly full. The position in the last range
   // is not necessarily the the end if there has been a seek.
-  mutable int32_t lastRangeEnd_{0};
+  mutable int64_t lastRangeEnd_{0};
 
   template <typename T>
   friend class AppendWindow;

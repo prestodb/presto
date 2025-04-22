@@ -21,7 +21,7 @@ namespace facebook::velox {
 StreamArena::StreamArena(memory::MemoryPool* pool) : pool_(pool) {}
 
 void StreamArena::newRange(
-    int32_t bytes,
+    int64_t bytes,
     ByteRange* /*lastRange*/,
     ByteRange* range) {
   VELOX_CHECK_GT(bytes, 0, "StreamArena::newRange can't be zero length");
@@ -54,7 +54,7 @@ void StreamArena::newRange(
   }
   auto run = allocation_.runAt(currentRun_);
   range->buffer = run.data() + currentOffset_;
-  const int32_t availableBytes = run.numBytes() - currentOffset_;
+  const int64_t availableBytes = run.numBytes() - currentOffset_;
   range->size = std::min(bytes, availableBytes);
   range->position = 0;
   currentOffset_ += range->size;

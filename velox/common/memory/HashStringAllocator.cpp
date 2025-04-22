@@ -283,7 +283,7 @@ void HashStringAllocator::newSlab() {
 }
 
 void HashStringAllocator::newRange(
-    int32_t bytes,
+    int64_t bytes,
     ByteRange* lastRange,
     ByteRange* range,
     bool contiguous) {
@@ -316,7 +316,7 @@ void HashStringAllocator::newRange(
 }
 
 void HashStringAllocator::newRange(
-    int32_t bytes,
+    int64_t bytes,
     ByteRange* lastRange,
     ByteRange* range) {
   newRange(bytes, lastRange, range, false);
@@ -371,7 +371,7 @@ void HashStringAllocator::removeFromFreeList(Header* header) {
 }
 
 HashStringAllocator::Header* HashStringAllocator::allocate(
-    int32_t size,
+    int64_t size,
     bool exactSize) {
   if (size > kMaxAlloc && exactSize) {
     VELOX_CHECK_LE(size, Header::kSizeMask);

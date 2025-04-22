@@ -22,7 +22,7 @@ namespace facebook::velox::bits {
 // A boost compatible CRC32 calculator.
 class Crc32 {
  public:
-  void process_bytes(const void* data, int32_t size) {
+  void process_bytes(const void* data, int64_t size) {
     checksum_ =
         folly::crc32(reinterpret_cast<const uint8_t*>(data), size, checksum_);
   }

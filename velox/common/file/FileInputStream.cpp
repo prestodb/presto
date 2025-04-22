@@ -183,7 +183,7 @@ void FileInputStream::readBytes(uint8_t* bytes, int32_t size) {
   }
 }
 
-std::string_view FileInputStream::nextView(int32_t size) {
+std::string_view FileInputStream::nextView(int64_t size) {
   VELOX_CHECK_GE(size, 0, "Attempting to view negative number of bytes");
   if (remainingSize() == 0) {
     return std::string_view(nullptr, 0);

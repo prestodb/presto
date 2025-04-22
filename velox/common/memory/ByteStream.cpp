@@ -32,8 +32,8 @@ std::vector<ByteRange> byteRangesFromIOBuf(folly::IOBuf* iobuf) {
   return byteRanges;
 }
 
-uint32_t ByteRange::availableBytes() const {
-  return std::max(0, size - position);
+int64_t ByteRange::availableBytes() const {
+  return std::max(static_cast<int64_t>(0), size - position);
 }
 
 std::string ByteRange::toString() const {
@@ -156,7 +156,7 @@ void BufferInputStream::readBytes(uint8_t* bytes, int32_t size) {
   }
 }
 
-std::string_view BufferInputStream::nextView(int32_t size) {
+std::string_view BufferInputStream::nextView(int64_t size) {
   VELOX_CHECK_GE(size, 0, "Attempting to view negative number of bytes");
   if (current_->position == current_->size) {
     if (current_ == &ranges_.back()) {
@@ -203,7 +203,7 @@ void ByteOutputStream::appendBits(
     int32_t end) {
   VELOX_DCHECK(isBits_);
 
-  const int32_t count = end - begin;
+  const int64_t count = end - begin;
 
   if (count == 1 && current_->size > current_->position) {
     bits::setBit(
@@ -214,9 +214,9 @@ void ByteOutputStream::appendBits(
     return;
   }
 
-  int32_t offset = 0;
+  int64_t offset = 0;
   for (;;) {
-    const int32_t bitsFit =
+    const int64_t bitsFit =
         std::min(count - offset, current_->size - current_->position);
     bits::copyBits(
         bits,
@@ -239,10 +239,10 @@ void ByteOutputStream::appendStringView(StringView value) {
 }
 
 void ByteOutputStream::appendStringView(std::string_view value) {
-  const int32_t bytes = value.size();
-  int32_t offset = 0;
+  const int64_t bytes = value.size();
+  int64_t offset = 0;
   for (;;) {
-    const int32_t bytesFit =
+    const int64_t bytesFit =
         std::min(bytes - offset, current_->size - current_->position);
     simd::memcpy(
         current_->buffer + current_->position, value.data() + offset, bytesFit);
@@ -294,8 +294,8 @@ void ByteOutputStream::seekp(std::streampos position) {
 void ByteOutputStream::flush(OutputStream* out) {
   updateEnd();
   for (int32_t i = 0; i < ranges_.size(); ++i) {
-    int32_t count = i == ranges_.size() - 1 ? lastRangeEnd_ : ranges_[i].size;
-    int32_t bytes = isBits_ ? bits::nbytes(count) : count;
+    int64_t count = i == ranges_.size() - 1 ? lastRangeEnd_ : ranges_[i].size;
+    int64_t bytes = isBits_ ? bits::nbytes(count) : count;
     if (isBits_ && isNegateBits_ && !isNegated_) {
       bits::negate(reinterpret_cast<uint64_t*>(ranges_[i].buffer), count);
     }
@@ -319,7 +319,7 @@ char* ByteOutputStream::writePosition() {
   return reinterpret_cast<char*>(current_->buffer) + current_->position;
 }
 
-void ByteOutputStream::extend(int32_t bytes) {
+void ByteOutputStream::extend(int64_t bytes) {
   if (current_ && current_->position != current_->size) {
     LOG(FATAL) << "Extend ByteOutputStream before range full: "
                << current_->position << " vs. " << current_->size;
@@ -352,8 +352,8 @@ void ByteOutputStream::extend(int32_t bytes) {
   }
 }
 
-int32_t ByteOutputStream::newRangeSize(int32_t bytes) const {
-  const int32_t newSize = allocatedBytes_ + bytes;
+int64_t ByteOutputStream::newRangeSize(int64_t bytes) const {
+  const int64_t newSize = allocatedBytes_ + bytes;
   if (newSize < 128) {
     return 128;
   }
