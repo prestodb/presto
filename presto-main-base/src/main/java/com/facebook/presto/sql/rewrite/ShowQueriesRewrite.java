@@ -46,6 +46,7 @@ import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.analyzer.SemanticException;
+import com.facebook.presto.sql.analyzer.utils.AnalyzerUtil;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.AllColumns;
@@ -105,6 +106,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
 
+import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_COLUMNS;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_ENABLED_ROLES;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_ROLES;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_SCHEMATA;
@@ -404,29 +406,30 @@ final class ShowQueriesRewrite
         @Override
         protected Node visitShowColumns(ShowColumns showColumns, Void context)
         {
-            Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, queryExplainer, parameters, parameterLookup, warningCollector);
-            Analysis analysis = analyzer.analyze(showColumns, true);
-            Row[] rows = analysis.getRootScope().getRelationType().getVisibleFields().stream().map(field -> createShowColumnsOutputRow(field, analysis)).toArray(Row[]::new);
-
-            return simpleQuery(
-                    selectList(
-                            aliasedName("column_name", "Column"),
-                            aliasedName("data_type", "Type"),
-                            aliasedNullToEmpty("extra_info", "Extra"),
-                            aliasedNullToEmpty("comment", "Comment")),
-                    aliased(
-                            values(rows),
-                            "Statement Output",
-                            ImmutableList.of("Column", "Type", "Extra", "Comment")),
-                    Optional.empty(),
-                    Optional.empty());
-
-            /*
             QualifiedObjectName tableName = createQualifiedObjectName(session, showColumns, showColumns.getTable());
 
             if (!metadataResolver.getView(tableName).isPresent() &&
                     !metadataResolver.getTableHandle(tableName).isPresent()) {
                 throw new SemanticException(MISSING_TABLE, showColumns, "Table '%s' does not exist", tableName);
+            }
+
+            if (metadataResolver.getView(tableName).isPresent()) {
+                ViewDefinition viewDefinition = metadataResolver.getView(tableName).get();
+                String viewSql = viewDefinition.getOriginalSql();
+                Statement viewStatement = sqlParser.createStatement(viewSql, createParsingOptions());
+                Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, queryExplainer, parameters, parameterLookup, warningCollector);
+                Analysis analysis = analyzer.analyze(viewStatement, true); // use isDescribe
+                Row[] rows = analysis.getRootScope().getRelationType().getVisibleFields().stream().map(field -> createShowColumnsOutputRow(field, analysis)).toArray(Row[]::new);
+                return simpleQuery(
+                        selectList(
+                                aliasedName("column_name", "Column"),
+                                aliasedName("data_type", "Type"),
+                                aliasedNullToEmpty("extra_info", "Extra"),
+                                aliasedNullToEmpty("comment", "Comment")),
+                        aliased(
+                                values(rows),
+                                "Statement Output",
+                                ImmutableList.of("Column", "Type", "Extra", "Comment")));
             }
 
             return simpleQuery(
@@ -440,8 +443,6 @@ final class ShowQueriesRewrite
                             equal(identifier("table_schema"), new StringLiteral(tableName.getSchemaName())),
                             equal(identifier("table_name"), new StringLiteral(tableName.getObjectName()))),
                     ordering(ascending("ordinal_position")));
-
-             */
         }
 
         private static Row createShowColumnsOutputRow(Field field, Analysis analysis)
