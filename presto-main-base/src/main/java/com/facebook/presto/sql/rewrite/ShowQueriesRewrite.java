@@ -63,6 +63,8 @@ import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Identifier;
+import com.facebook.presto.sql.tree.Join;
+import com.facebook.presto.sql.tree.JoinOn;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
@@ -426,10 +428,12 @@ final class ShowQueriesRewrite
                                 aliasedName("data_type", "Type"),
                                 aliasedNullToEmpty("extra_info", "Extra"),
                                 aliasedNullToEmpty("comment", "Comment")),
-                        aliased(
+                        new Join(Join.Type.LEFT, aliased(
                                 values(rows),
-                                "Statement Output",
-                                ImmutableList.of("Column", "Type", "Extra", "Comment")));
+                                "statement_output",
+                                ImmutableList.of("Column", "Type", "Extra", "Comment")),
+                                from(tableName.getCatalogName(), TABLE_COLUMNS), Optional.of(new JoinOn(sqlParser.createExpression("statement_output.column_name = " + tableName.getCatalogName() + "." + TABLE_COLUMNS.getSchemaName() + "." +TABLE_COLUMNS.getTableName() + ".column_name",createParsingOptions())))));
+
             }
 
             return simpleQuery(
