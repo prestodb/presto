@@ -133,7 +133,12 @@ void toCallInputsSql(
     if (auto field =
             std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(
                 input)) {
-      sql << field->name();
+      if (field->isInputColumn()) {
+        sql << field->name();
+      } else {
+        toCallInputsSql(field->inputs(), sql);
+        sql << fmt::format(".{}", field->name());
+      }
     } else if (
         auto call =
             std::dynamic_pointer_cast<const core::CallTypedExpr>(input)) {
@@ -325,11 +330,10 @@ std::string toCastSql(const core::CastTypedExpr& cast) {
 }
 
 std::string toConcatSql(const core::ConcatTypedExpr& concat) {
-  std::stringstream sql;
-  sql << "row(";
-  toCallInputsSql(concat.inputs(), sql);
-  sql << ")";
-  return sql.str();
+  std::stringstream input;
+  toCallInputsSql(concat.inputs(), input);
+  return fmt::format(
+      "cast(row({}) as {})", input.str(), toTypeSql(concat.type()));
 }
 
 template <typename T>

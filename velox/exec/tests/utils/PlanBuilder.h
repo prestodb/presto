@@ -552,6 +552,8 @@ class PlanBuilder {
   /// the type.
   PlanBuilder& projectExpressions(
       const std::vector<core::ExprPtr>& projections);
+  PlanBuilder& projectExpressions(
+      const std::vector<core::TypedExprPtr>& projections);
 
   /// Similar to project() except 'optionalProjections' could be empty and the
   /// function will skip creating a ProjectNode in that case.

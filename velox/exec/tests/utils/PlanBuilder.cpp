@@ -419,6 +419,27 @@ PlanBuilder& PlanBuilder::projectExpressions(
   return *this;
 }
 
+PlanBuilder& PlanBuilder::projectExpressions(
+    const std::vector<std::shared_ptr<const core::ITypedExpr>>& projections) {
+  std::vector<core::TypedExprPtr> expressions;
+  std::vector<std::string> projectNames;
+  for (auto i = 0; i < projections.size(); ++i) {
+    expressions.push_back(projections[i]);
+    if (auto fieldExpr =
+            dynamic_cast<const core::FieldAccessExpr*>(projections[i].get())) {
+      projectNames.push_back(fieldExpr->getFieldName());
+    } else {
+      projectNames.push_back(fmt::format("p{}", i));
+    }
+  }
+  planNode_ = std::make_shared<core::ProjectNode>(
+      nextPlanNodeId(),
+      std::move(projectNames),
+      std::move(expressions),
+      planNode_);
+  return *this;
+}
+
 PlanBuilder& PlanBuilder::project(const std::vector<std::string>& projections) {
   VELOX_CHECK_NOT_NULL(planNode_, "Project cannot be the source node");
   std::vector<std::shared_ptr<const core::IExpr>> expressions;

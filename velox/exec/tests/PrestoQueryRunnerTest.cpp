@@ -254,6 +254,19 @@ TEST_F(PrestoQueryRunnerTest, toSql) {
         queryRunner->toSql(plan),
         "SELECT avg(c0) filter (where c2) as a0, avg(c1) as a1 FROM tmp");
   }
+
+  // Test dereference queries.
+  {
+    auto plan =
+        PlanBuilder()
+            .tableScan("tmp", ROW({"c0"}, {ROW({"field0"}, {BIGINT()})}))
+            .projectExpressions({std::make_shared<core::FieldAccessTypedExpr>(
+                VARCHAR(),
+                std::make_shared<core::FieldAccessTypedExpr>(VARCHAR(), "c0"),
+                "field0")})
+            .planNode();
+    EXPECT_EQ(queryRunner->toSql(plan), "SELECT c0.field0 as p0 FROM (tmp)");
+  }
 }
 
 TEST_F(PrestoQueryRunnerTest, toSqlJoins) {

@@ -323,5 +323,28 @@ TEST(PrestoSqlTest, toCallSql) {
       "infinity()");
 }
 
+TEST(PrestoSqlTest, toConcatSql) {
+  auto expression = core::ConcatTypedExpr(
+      {"field0", "field1"},
+      std::vector<core::TypedExprPtr>{
+          std::make_shared<core::ConstantTypedExpr>(VARCHAR(), "a"),
+          std::make_shared<core::ConstantTypedExpr>(VARCHAR(), "b")});
+
+  EXPECT_EQ(
+      toConcatSql(expression),
+      "cast(row('a', 'b') as ROW(field0 VARCHAR, field1 VARCHAR))");
+}
+
+TEST(PrestoSqlTest, toCallInputsSql) {
+  std::stringstream sql;
+  auto expression = std::make_shared<core::FieldAccessTypedExpr>(
+      VARCHAR(),
+      std::make_shared<core::FieldAccessTypedExpr>(VARCHAR(), "c0"),
+      "field0");
+
+  toCallInputsSql({expression}, sql);
+  EXPECT_EQ(sql.str(), "c0.field0");
+}
+
 } // namespace
 } // namespace facebook::velox::exec::test

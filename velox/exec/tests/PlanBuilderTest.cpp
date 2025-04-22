@@ -15,9 +15,12 @@
  */
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/core/Expressions.h"
 #include "velox/exec/WindowFunction.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
+#include "velox/parse/Expressions.h"
+#include "velox/parse/IExpr.h"
 #include "velox/parse/TypeResolver.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
@@ -248,6 +251,54 @@ TEST_F(PlanBuilderTest, missingOutputType) {
   VELOX_ASSERT_THROW(
       PlanBuilder().startTableScan().endTableScan(),
       "outputType must be specified");
+}
+
+TEST_F(PlanBuilderTest, projectExpressions) {
+  // Non-typed Expressions.
+  // Simple field access.
+  auto data = ROW({"c0"}, {BIGINT()});
+  VELOX_CHECK_EQ(
+      PlanBuilder()
+          .tableScan("tmp", data)
+          .projectExpressions(
+              {std::make_shared<core::FieldAccessExpr>("c0", std::nullopt)})
+          .planNode()
+          ->toString(true, false),
+      "-- Project[1][expressions: (c0:BIGINT, ROW[\"c0\"])] -> c0:BIGINT\n");
+  // Dereference test using field access query.
+  data = ROW({"c0"}, {ROW({"field0"}, {BIGINT()})});
+  VELOX_CHECK_EQ(
+      PlanBuilder()
+          .tableScan("tmp", data)
+          .projectExpressions({std::make_shared<core::FieldAccessExpr>(
+              "field0",
+              std::nullopt,
+              std::vector<core::ExprPtr>{
+                  std::make_shared<core::FieldAccessExpr>(
+                      "c0", std::nullopt)})})
+          .planNode()
+          ->toString(true, false),
+      "-- Project[1][expressions: (field0:BIGINT, ROW[\"c0\"][field0])] -> field0:BIGINT\n");
+
+  // Test Typed Expressions
+  VELOX_CHECK_EQ(
+      PlanBuilder()
+          .tableScan("tmp", ROW({"c0"}, {ROW({VARCHAR()})}))
+          .projectExpressions(
+              {std::make_shared<core::FieldAccessTypedExpr>(VARCHAR(), "c0")})
+          .planNode()
+          ->toString(true, false),
+      "-- Project[1][expressions: (p0:VARCHAR, \"c0\")] -> p0:VARCHAR\n");
+  VELOX_CHECK_EQ(
+      PlanBuilder()
+          .tableScan("tmp", ROW({"c0"}, {ROW({VARCHAR()})}))
+          .projectExpressions({std::make_shared<core::FieldAccessTypedExpr>(
+              VARCHAR(),
+              std::make_shared<core::FieldAccessTypedExpr>(VARCHAR(), "c0"),
+              "field0")})
+          .planNode()
+          ->toString(true, false),
+      "-- Project[1][expressions: (p0:VARCHAR, \"c0\"[\"field0\"])] -> p0:VARCHAR\n");
 }
 
 } // namespace facebook::velox::exec::test

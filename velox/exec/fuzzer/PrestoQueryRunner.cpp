@@ -231,7 +231,12 @@ class PrestoQueryRunnerToSqlPlanNodeVisitor : public PrestoSqlPlanNodeVisitor {
       if (auto field =
               std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(
                   projection)) {
-        sql << field->name();
+        if (field->isInputColumn()) {
+          sql << field->name();
+        } else {
+          toCallInputsSql(field->inputs(), sql);
+          sql << fmt::format(".{}", field->name());
+        }
       } else if (
           auto call = std::dynamic_pointer_cast<const core::CallTypedExpr>(
               projection)) {
