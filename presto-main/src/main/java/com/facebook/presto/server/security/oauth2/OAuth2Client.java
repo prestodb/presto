@@ -82,11 +82,6 @@ public interface OAuth2Client
             return expiration;
         }
 
-        public Optional<String> getIdToken()
-        {
-            return idToken;
-        }
-
         public Optional<String> getRefreshToken()
         {
             return refreshToken;
