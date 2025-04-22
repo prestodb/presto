@@ -127,6 +127,7 @@ public class ContainerQueryRunner
             throws IOException
     {
         ContainerQueryRunnerUtils.createCoordinatorTpchProperties();
+        ContainerQueryRunnerUtils.createCoordinatorTpcdsProperties();
         ContainerQueryRunnerUtils.createCoordinatorConfigProperties(coordinatorPort);
         ContainerQueryRunnerUtils.createCoordinatorJvmConfig();
         ContainerQueryRunnerUtils.createCoordinatorLogProperties();
