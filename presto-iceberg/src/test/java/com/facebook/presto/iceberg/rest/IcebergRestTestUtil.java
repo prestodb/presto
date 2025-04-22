@@ -14,7 +14,10 @@
 package com.facebook.presto.iceberg.rest;
 
 import com.facebook.airlift.bootstrap.Bootstrap;
+import com.facebook.airlift.configuration.ConfigBinder;
+import com.facebook.airlift.http.server.HttpServerConfig;
 import com.facebook.airlift.http.server.TheServlet;
+import com.facebook.airlift.http.server.UriCompliance;
 import com.facebook.airlift.http.server.testing.TestingHttpServer;
 import com.facebook.airlift.http.server.testing.TestingHttpServerModule;
 import com.facebook.airlift.node.NodeInfo;
@@ -75,7 +78,6 @@ public class IcebergRestTestUtil
                 .put("jdbc.schema-version", "V1")
                 .build();
         backingCatalog.initialize("rest_jdbc_backend", properties);
-
         DelegateRestSessionCatalog delegate = new DelegateRestSessionCatalog(new RESTCatalogAdapter(backingCatalog), backingCatalog);
         return delegate.getServerInstance();
     }
@@ -124,6 +126,11 @@ public class IcebergRestTestUtil
             @Override
             public void configure(Binder binder)
             {
+                ConfigBinder.configBinder(binder)
+                        .bindConfigDefaults(HttpServerConfig.class, config -> {
+                            // This is required to support nested namespace URI paths
+                            config.setUriComplianceMode(UriCompliance.LEGACY);
+                        });
                 binder.bind(new TypeLiteral<Map<String, String>>() {}).annotatedWith(TheServlet.class).toInstance(ImmutableMap.of());
                 binder.bind(jakarta.servlet.Servlet.class).annotatedWith(TheServlet.class).toInstance(new IcebergRestCatalogServlet(adapter));
                 binder.bind(NodeInfo.class).toInstance(new NodeInfo("test"));
