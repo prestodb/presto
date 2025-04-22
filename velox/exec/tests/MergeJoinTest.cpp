@@ -917,6 +917,55 @@ TEST_F(MergeJoinTest, semiJoin) {
       core::JoinType::kRightSemiFilter);
 }
 
+TEST_F(MergeJoinTest, semiJoinWithMultipleMatchVectors) {
+  std::vector<RowVectorPtr> leftVectors;
+  for (int i = 0; i < 10; ++i) {
+    leftVectors.push_back(makeRowVector(
+        {"t0"}, {makeFlatVector<int64_t>({i / 2, i / 2, i / 2})}));
+  }
+  std::vector<RowVectorPtr> rightVectors;
+  for (int i = 0; i < 10; ++i) {
+    rightVectors.push_back(makeRowVector(
+        {"u0"}, {makeFlatVector<int64_t>({i / 2, i / 2, i / 2})}));
+  }
+
+  createDuckDbTable("t", leftVectors);
+  createDuckDbTable("u", rightVectors);
+
+  auto testSemiJoin = [&](const std::string& filter,
+                          const std::string& sql,
+                          const std::vector<std::string>& outputLayout,
+                          core::JoinType joinType) {
+    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+    auto plan = PlanBuilder(planNodeIdGenerator)
+                    .values(leftVectors)
+                    .mergeJoin(
+                        {"t0"},
+                        {"u0"},
+                        PlanBuilder(planNodeIdGenerator)
+                            .values(rightVectors)
+                            .planNode(),
+                        filter,
+                        outputLayout,
+                        joinType)
+                    .planNode();
+    AssertQueryBuilder(plan, duckDbQueryRunner_)
+        .config(core::QueryConfig::kMaxOutputBatchRows, "1")
+        .assertResults(sql);
+  };
+
+  testSemiJoin(
+      "u0 > 1",
+      "SELECT u0 FROM u where u0 IN (SELECT t0 from t) and u0 > 1",
+      {"u0"},
+      core::JoinType::kRightSemiFilter);
+  testSemiJoin(
+      "t0 >1",
+      "SELECT t0 FROM t where t0 IN (SELECT u0 from u) and t0 > 1",
+      {"t0"},
+      core::JoinType::kLeftSemiFilter);
+}
+
 TEST_F(MergeJoinTest, rightJoin) {
   auto left = makeRowVector(
       {"t0"},
