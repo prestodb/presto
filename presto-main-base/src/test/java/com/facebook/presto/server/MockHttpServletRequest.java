@@ -68,14 +68,6 @@ public class MockHttpServletRequest
         this(headers, DEFAULT_ADDRESS, ImmutableMap.of());
     }
 
-    public MockHttpServletRequest(ListMultimap<String, String> headers, String remoteAddress)
-    {
-        this.headers = ImmutableListMultimap.copyOf(requireNonNull(headers, "headers is null"));
-        this.remoteAddress = requireNonNull(remoteAddress, "remoteAddress is null");
-        this.requestUrl = null;
-        this.attributes = ImmutableMap.of();
-    }
-
     public MockHttpServletRequest(ListMultimap<String, String> headers, String remoteAddress, String requestUrl)
     {
         this.headers = ImmutableListMultimap.copyOf(requireNonNull(headers, "headers is null"));
