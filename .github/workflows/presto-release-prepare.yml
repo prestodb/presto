@@ -15,8 +15,11 @@ on:
         required: false
 
 env:
-  JAVA_VERSION: '17'
-  JAVA_DISTRIBUTION: 'temurin'
+  JAVA_VERSION: ${{ vars.JAVA_VERSION || '11' }}
+  JAVA_DISTRIBUTION: ${{ vars.JAVA_DISTRIBUTION || 'temurin' }}
+  MAVEN_OPTS: ${{ vars.MAVEN_OPTS }}
+  GIT_CI_USER: ${{ vars.GIT_CI_USER || 'prestodb-ci' }}
+  GIT_CI_EMAIL: ${{ vars.GIT_CI_EMAIL || 'ci@lists.prestodb.io' }}
 
 jobs:
   prepare-release-branch:
@@ -39,7 +42,7 @@ jobs:
           show-progress: false
           fetch-depth: 5
 
-      - name: Set up JDK
+      - name: Set up JDK ${{ env.JAVA_DISTRIBUTION }}/${{ env.JAVA_VERSION }}
         uses: actions/setup-java@v4
         with:
           java-version: ${{ env.JAVA_VERSION }}
@@ -48,8 +51,8 @@ jobs:
       - name: Configure git
         run: |
           git config --global --add safe.directory ${{github.workspace}}
-          git config --global user.email "ci@lists.prestodb.io"
-          git config --global user.name "prestodb-ci"
+          git config --global user.email "${{ env.GIT_CI_EMAIL }}"
+          git config --global user.name "${{ env.GIT_CI_USER }}"
           git config --global alias.ls 'log --pretty=format:"%cd %h %ce: %s" --date=short --no-merges'
           git config pull.rebase false
 
@@ -111,7 +114,7 @@ jobs:
           ref: master
           show-progress: false
 
-      - name: Set up JDK
+      - name: Set up JDK $${{ env.JAVA_DISTRIBUTION }}/${{ env.JAVA_VERSION }}
         uses: actions/setup-java@v4
         with:
           java-version: ${{ env.JAVA_VERSION }}
@@ -120,8 +123,8 @@ jobs:
       - name: Configure git
         run: |
           git config --global --add safe.directory ${{github.workspace}}
-          git config --global user.email "ci@lists.prestodb.io"
-          git config --global user.name "prestodb-ci"
+          git config --global user.email "${{ env.GIT_CI_EMAIL }}"
+          git config --global user.name "${{ env.GIT_CI_USER }}"
           git config pull.rebase false
 
       - name: Add git upstream
