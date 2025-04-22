@@ -29,6 +29,7 @@ import static com.facebook.presto.server.security.RoleType.ADMIN;
 import static com.facebook.presto.server.security.oauth2.OAuth2Utils.getLastURLParameter;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
+import static javax.ws.rs.core.Response.Status.FOUND;
 
 @Path(WebUiResource.UI_ENDPOINT)
 @RolesAllowed(ADMIN)
@@ -53,7 +54,7 @@ public class WebUiResource
 
         return Response
                 .seeOther(uriInfo.getRequestUriBuilder().scheme(proto).path("/ui/").replaceQuery("").build())
-                .status(302)
+                .status(FOUND)
                 .build();
     }
 
@@ -69,7 +70,7 @@ public class WebUiResource
         return Response
                 .seeOther(uriInfo.getBaseUriBuilder().scheme(proto).path("/ui/logout.html").build())
                 .cookie(OAuthWebUiCookie.delete())
-                .status(302)
+                .status(FOUND)
                 .build();
     }
 }

@@ -49,6 +49,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.Instant.now;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
+import static javax.ws.rs.core.Response.Status.FORBIDDEN;
 
 public class OAuth2Service
 {
@@ -164,7 +165,7 @@ public class OAuth2Service
         }
         catch (ChallengeFailedException | RuntimeException e) {
             logger.error(e, "Authentication response could not be verified invalid state: state=%s", state);
-            return Response.status(BAD_REQUEST)
+            return Response.status(FORBIDDEN)
                     .entity(getInternalFailureHtml("Authentication response could not be verified"))
                     .cookie(NonceCookie.delete())
                     .build();
