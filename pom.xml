@@ -1604,7 +1604,7 @@
             <dependency>
                 <groupId>com.facebook.airlift.discovery</groupId>
                 <artifactId>discovery-server</artifactId>
-                <version>1.33</version>
+                <version>1.34-SNAPSHOT</version>
             </dependency>
 
             <dependency>
