@@ -64,6 +64,15 @@ public class ContainerQueryRunnerUtils
         createPropertiesFile("testcontainers/coordinator/etc/catalog/tpch.properties", properties);
     }
 
+    public static void createCoordinatorTpcdsProperties()
+            throws IOException
+    {
+        Properties properties = new Properties();
+        properties.setProperty("connector.name", "tpcds");
+        properties.setProperty("tpcds.use-varchar-type", "true");
+        createPropertiesFile("testcontainers/coordinator/etc/catalog/tpcds.properties", properties);
+    }
+
     public static void createNativeWorkerTpchProperties(String nodeId)
             throws IOException
     {
