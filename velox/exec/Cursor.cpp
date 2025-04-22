@@ -269,8 +269,17 @@ class MultiThreadedTaskCursor : public TaskCursorBase {
   void start() override {
     if (!started_) {
       started_ = true;
-      task_->start(maxDrivers_, numConcurrentSplitGroups_);
-      queue_->setNumProducers(numSplitGroups_ * task_->numOutputDrivers());
+      try {
+        task_->start(maxDrivers_, numConcurrentSplitGroups_);
+        queue_->setNumProducers(numSplitGroups_ * task_->numOutputDrivers());
+      } catch (const VeloxException& e) {
+        // Could not find output pipeline, due to Task terminated before
+        // start. Do not override the error.
+        if (e.message().find("Output pipeline not found for task") ==
+            std::string::npos) {
+          throw;
+        }
+      }
     }
   }
 
@@ -282,19 +291,11 @@ class MultiThreadedTaskCursor : public TaskCursorBase {
       std::rethrow_exception(error_);
     }
 
+    // Task might be aborted before start.
+    checkTaskError();
     current_ = queue_->dequeue();
-    if (task_->error()) {
-      // Wait for the task to finish (there's' a small period of time between
-      // when the error is set on the Task and terminate is called).
-      task_->taskCompletionFuture()
-          .within(std::chrono::microseconds(5'000'000))
-          .wait();
 
-      // Wait for all task drivers to finish to avoid destroying the executor_
-      // before task_ finished using it and causing a crash.
-      waitForTaskDriversToFinish(task_.get());
-      std::rethrow_exception(task_->error());
-    }
+    checkTaskError();
     if (!current_) {
       atEnd_ = true;
     }
@@ -321,6 +322,22 @@ class MultiThreadedTaskCursor : public TaskCursorBase {
   }
 
  private:
+  void checkTaskError() {
+    if (!task_->error()) {
+      return;
+    }
+    // Wait for the task to finish (there's' a small period of time between
+    // when the error is set on the Task and terminate is called).
+    task_->taskCompletionFuture()
+        .within(std::chrono::microseconds(5'000'000))
+        .wait();
+
+    // Wait for all task drivers to finish to avoid destroying the executor_
+    // before task_ finished using it and causing a crash.
+    waitForTaskDriversToFinish(task_.get());
+    std::rethrow_exception(task_->error());
+  }
+
   const int32_t maxDrivers_;
   const int32_t numConcurrentSplitGroups_;
   const int32_t numSplitGroups_;
