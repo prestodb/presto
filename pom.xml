@@ -1396,9 +1396,9 @@
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>airline</artifactId>
-                <version>0.8</version>
+                <version>0.9</version>
             </dependency>
 
             <dependency>
