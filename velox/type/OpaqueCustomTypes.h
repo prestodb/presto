@@ -82,6 +82,10 @@ class OpaqueCustomTypeRegister {
     return VeloxType::get();
   }
 
+  static const TypePtr& get() {
+    return VeloxType::get();
+  }
+
  private:
   class TypeFactory : public CustomTypeFactories {
    public:
