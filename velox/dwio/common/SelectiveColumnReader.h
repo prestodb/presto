@@ -226,7 +226,7 @@ class SelectiveColumnReader {
 
   template <typename T>
   T* mutableValues(int32_t size) {
-    DCHECK(values_->capacity() >= (numValues_ + size) * sizeof(T));
+    VELOX_DCHECK_GE(values_->capacity(), (numValues_ + size) * sizeof(T));
     return reinterpret_cast<T*>(rawValues_) + numValues_;
   }
 
@@ -457,7 +457,7 @@ class SelectiveColumnReader {
   static constexpr uint32_t kRowGroupNotSet = ~0;
 
   template <typename T>
-  void ensureValuesCapacity(vector_size_t numRows);
+  void ensureValuesCapacity(vector_size_t numRows, bool preserveData = false);
 
   // Prepares the result buffer for nulls for reading 'rows'. Leaves
   // 'extraSpace' bits worth of space in the nulls buffer.

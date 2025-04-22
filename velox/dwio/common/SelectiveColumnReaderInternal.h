@@ -32,14 +32,21 @@
 namespace facebook::velox::dwio::common {
 
 template <typename T>
-void SelectiveColumnReader::ensureValuesCapacity(vector_size_t numRows) {
+void SelectiveColumnReader::ensureValuesCapacity(
+    vector_size_t numRows,
+    bool preserveData) {
   if (values_ && (isFlatMapValue_ || values_->unique()) &&
       values_->capacity() >=
           BaseVector::byteSize<T>(numRows) + simd::kPadding) {
     return;
   }
-  values_ = AlignedBuffer::allocate<T>(
-      numRows + (simd::kPadding / sizeof(T)), memoryPool_);
+  auto newValues = AlignedBuffer::allocate<T>(
+      numRows + simd::kPadding / sizeof(T), memoryPool_);
+  if (preserveData) {
+    std::memcpy(
+        newValues->template asMutable<char>(), rawValues_, values_->capacity());
+  }
+  values_ = std::move(newValues);
   rawValues_ = values_->asMutable<char>();
 }
 
