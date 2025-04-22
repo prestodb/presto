@@ -22,6 +22,7 @@ import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.plan.PlanFragmentId;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.sql.planner.planPrinter.JsonRenderer;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
@@ -54,6 +55,7 @@ import static com.facebook.presto.SystemSessionProperties.VERBOSE_OPTIMIZER_INFO
 import static com.facebook.presto.common.type.UuidType.UUID;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
+import static com.facebook.presto.spi.security.SelectedRole.Type.ROLE;
 import static com.facebook.presto.sql.tree.CreateView.Security.INVOKER;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.ADD_COLUMN;
@@ -71,6 +73,7 @@ import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.QueryAssertions.assertContains;
+import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
@@ -241,6 +244,40 @@ public abstract class AbstractTestDistributedQueries
 
         assertUpdate("DROP TABLE test_create_like");
         assertFalse(getQueryRunner().tableExists(getSession(), "test_create_like"));
+    }
+
+    @Test
+    public void testNonAutoCommitTransactionWithFailAndRollback()
+    {
+        assertUpdate("create table test_non_autocommit_table(a int, b varchar)");
+        Session session = getQueryRunner().getDefaultSession();
+        String defaultCatalog = session.getCatalog().get();
+        transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
+                .execute(Session.builder(session)
+                                .setIdentity(new Identity("admin",
+                                        Optional.empty(),
+                                        ImmutableMap.of(defaultCatalog, new SelectedRole(ROLE, Optional.of("admin"))),
+                                        ImmutableMap.of(),
+                                        ImmutableMap.of(),
+                                        Optional.empty(),
+                                        Optional.empty()))
+                                .build(),
+                        txnSession -> {
+                            // simulate failure of SQL statement execution
+                            assertQueryFails(txnSession, "SELECT fail('forced failure')", "forced failure");
+
+                            // cannot execute any SQLs except `rollback` in current session
+                            assertQueryFails(txnSession, "select count(*) from test_non_autocommit_table", "Current transaction is aborted, commands ignored until end of transaction block");
+                            assertQueryFails(txnSession, "show tables", "Current transaction is aborted, commands ignored until end of transaction block");
+                            assertQueryFails(txnSession, "insert into test_non_autocommit_table values(1, '1001')", "Current transaction is aborted, commands ignored until end of transaction block");
+                            assertQueryFails(txnSession, "create table test_table(a int, b varchar)", "Current transaction is aborted, commands ignored until end of transaction block");
+
+                            // execute `rollback` successfully
+                            assertUpdate(txnSession, "rollback");
+                        });
+
+        assertQuery("select count(*) from test_non_autocommit_table", "values(0)");
+        assertUpdate("drop table if exists test_non_autocommit_table");
     }
 
     @Test

@@ -166,6 +166,11 @@ public class BuiltInQueryPreparer
             return StatementUtils.isTransactionControlStatement(getStatement());
         }
 
+        public boolean isRollbackStatement()
+        {
+            return StatementUtils.isRollbackStatement(getStatement());
+        }
+
         @Override
         public boolean isExplainTypeValidate()
         {
