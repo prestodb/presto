@@ -523,6 +523,41 @@ SpillPartitionId SpillPartitionIdLookup::partition(uint64_t hash) const {
   return lookup_[bits::extractBits(hash, partitionBitsMask_)];
 }
 
+SpillPartitionFunction::SpillPartitionFunction(
+    const SpillPartitionIdLookup& lookup,
+    const RowTypePtr& inputType,
+    const std::vector<column_index_t>& keyChannels)
+    : lookup_(lookup) {
+  VELOX_CHECK(!keyChannels.empty(), "Key channels must not be empty.");
+  hashers_.reserve(keyChannels.size());
+  for (const auto channel : keyChannels) {
+    VELOX_CHECK_NE(channel, kConstantChannel);
+    hashers_.emplace_back(
+        VectorHasher::create(inputType->childAt(channel), channel));
+  }
+}
+
+void SpillPartitionFunction::partition(
+    const RowVector& input,
+    std::vector<SpillPartitionId>& partitionIds) {
+  const auto size = input.size();
+  rows_.resize(size);
+  rows_.setAll();
+
+  hashes_.resize(size);
+  for (auto i = 0; i < hashers_.size(); ++i) {
+    auto& hasher = hashers_[i];
+    hashers_[i]->decode(*input.childAt(hasher->channel()), rows_);
+    hashers_[i]->hash(rows_, i > 0, hashes_);
+  }
+
+  partitionIds.resize(size);
+
+  for (auto i = 0; i < size; ++i) {
+    partitionIds[i] = lookup_.partition(hashes_[i]);
+  }
+}
+
 uint8_t partitionBitOffset(
     const SpillPartitionId& id,
     uint8_t startPartitionBitOffset,

@@ -27,11 +27,14 @@
 #include "velox/exec/SpillFile.h"
 #include "velox/exec/TreeOfLosers.h"
 #include "velox/exec/UnorderedStreamReader.h"
+#include "velox/exec/VectorHasher.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/DecodedVector.h"
 #include "velox/vector/VectorStream.h"
 
 namespace facebook::velox::exec {
+class VectorHasher;
+
 /// A source of sorted spilled RowVectors coming either from a file or memory.
 class SpillMergeStream : public MergeStream {
  public:
@@ -212,7 +215,7 @@ class SpillPartitionId {
   /// 'SpillPartitionId'.
   static constexpr uint32_t kMaxPartitionBits{3};
 
-  /// Constructs an default invalid id.
+  /// Constructs a default invalid id.
   SpillPartitionId() = default;
 
   /// Constructs a root spill level id.
@@ -321,6 +324,30 @@ class SpillPartitionIdLookup {
   // hash value is used to partition, its lookup bits range will be used as
   // index to check against 'lookup_' and find the corresponding id.
   std::vector<SpillPartitionId> lookup_;
+};
+
+/// Vectorized partitioning function for spill. The partitioning takes advantage
+/// of SpillPartitionIdLookup and performs a fast partitioning for the input
+/// vector.
+class SpillPartitionFunction {
+ public:
+  SpillPartitionFunction(
+      const SpillPartitionIdLookup& lookup,
+      const RowTypePtr& inputType,
+      const std::vector<column_index_t>& keyChannels);
+
+  void partition(
+      const RowVector& input,
+      std::vector<SpillPartitionId>& partitionIds);
+
+ private:
+  const SpillPartitionIdLookup lookup_;
+
+  std::vector<std::unique_ptr<VectorHasher>> hashers_;
+
+  // Reusable resources for hashing.
+  SelectivityVector rows_;
+  raw_vector<uint64_t> hashes_;
 };
 
 /// Contains a spill partition data which includes the partition id and

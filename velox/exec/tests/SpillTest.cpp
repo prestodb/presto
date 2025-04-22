@@ -895,6 +895,118 @@ TEST_P(SpillTest, spillPartitionIdLookup) {
   }
 }
 
+TEST_P(SpillTest, spillPartitionFunctionBasic) {
+  std::vector<RowVectorPtr> inputVectors;
+  const auto rowType =
+      ROW({"key1", "key2", "key3", "value"},
+          {BIGINT(), VARCHAR(), VARCHAR(), VARCHAR()});
+  {
+    // Simple input vector for basic testing.
+    const uint64_t numRows = 100;
+    std::vector<VectorPtr> columns;
+    columns.push_back(
+        makeFlatVector<int64_t>(numRows, [](auto row) { return row; }));
+    columns.push_back(makeFlatVector<std::string>(
+        numRows, [](auto row) { return fmt::format("key_{}", row); }));
+    columns.push_back(makeFlatVector<std::string>(
+        numRows, [](auto row) { return fmt::format("key_{}_{}", row, row); }));
+    columns.push_back(makeFlatVector<std::string>(
+        numRows, [](auto row) { return fmt::format("val_{}", row); }));
+    inputVectors.push_back(makeRowVector(columns));
+  }
+
+  // Additional 2 fuzzed vector for wider range testing.
+  {
+    VectorFuzzer::Options options;
+    options.vectorSize = 100;
+    options.nullRatio = 0.3;
+    options.allowDictionaryVector = true;
+    inputVectors.push_back(VectorFuzzer(options, pool()).fuzzRow(rowType));
+  }
+
+  {
+    VectorFuzzer::Options options;
+    options.vectorSize = 1000;
+    options.nullRatio = 0.2;
+    options.stringVariableLength = true;
+    options.allowDictionaryVector = true;
+    inputVectors.push_back(VectorFuzzer(options, pool()).fuzzRow(rowType));
+  }
+
+  struct TestData {
+    std::string name;
+    SpillPartitionIdSet partitionIds;
+    uint32_t startPartitionBit;
+    uint32_t numPartitionBits;
+    std::vector<column_index_t> keyChannels;
+    size_t numRows;
+  };
+
+  std::vector<TestData> testCases = {
+      // Basic test with multiple partitions
+      {"basic",
+       {genPartitionId({0}),
+        genPartitionId({1}),
+        genPartitionId({2, 1}),
+        genPartitionId({3, 2})},
+       0,
+       2,
+       {0, 1},
+       100},
+
+      // Test with empty key channels
+      {"emptyKeys", {genPartitionId({0}), genPartitionId({1})}, 0, 2, {}, 50},
+
+      // Test with nulls
+      {"withNulls",
+       {genPartitionId({0}), genPartitionId({1}), genPartitionId({2})},
+       0,
+       2,
+       {0, 1},
+       80},
+
+      // Test with higher start partition bits
+      {"highStartBits",
+       {genPartitionId({0}),
+        genPartitionId({1}),
+        genPartitionId({2}),
+        genPartitionId({3})},
+       8,
+       2,
+       {0, 1, 2},
+       120}};
+
+  for (const auto& data : testCases) {
+    for (auto i = 0; i < inputVectors.size(); ++i) {
+      SCOPED_TRACE(fmt::format("Test case: {}, Input vector {}", data.name, i));
+
+      SpillPartitionIdLookup lookup(
+          data.partitionIds, data.startPartitionBit, data.numPartitionBits);
+      if (data.keyChannels.empty()) {
+        VELOX_ASSERT_THROW(
+            SpillPartitionFunction(lookup, rowType, data.keyChannels),
+            "Key channels must not be empty");
+        continue;
+      }
+      SpillPartitionFunction partitionFunction(
+          lookup, rowType, data.keyChannels);
+
+      auto& input = inputVectors[i];
+      std::vector<SpillPartitionId> resultPartitionIds;
+      partitionFunction.partition(*input, resultPartitionIds);
+
+      ASSERT_EQ(resultPartitionIds.size(), input->size());
+      for (const auto& id : resultPartitionIds) {
+        ASSERT_TRUE((!id.valid()) || data.partitionIds.contains(id));
+      }
+
+      std::unordered_set<SpillPartitionId> uniquePartitions(
+          resultPartitionIds.begin(), resultPartitionIds.end());
+      ASSERT_GT(uniquePartitions.size(), 1);
+    }
+  }
+}
+
 TEST_P(SpillTest, spillPartitionSet) {
   for (int iter = 0; iter < 3; ++iter) {
     folly::Random::DefaultGenerator rng;
