@@ -55,6 +55,7 @@ using namespace facebook::velox::exec::test;
 using facebook::velox::exec::test::PrestoQueryRunner;
 using facebook::velox::fuzzer::ArgTypesGenerator;
 using facebook::velox::fuzzer::ArgValuesGenerator;
+using facebook::velox::fuzzer::CastVarcharAndJsonArgValuesGenerator;
 using facebook::velox::fuzzer::ExpressionFuzzer;
 using facebook::velox::fuzzer::FuzzerRunner;
 using facebook::velox::fuzzer::JsonExtractArgValuesGenerator;
@@ -156,6 +157,7 @@ int main(int argc, char** argv) {
 
   std::unordered_map<std::string, std::shared_ptr<ArgValuesGenerator>>
       argValuesGenerators = {
+          {"cast", std::make_shared<CastVarcharAndJsonArgValuesGenerator>()},
           {"json_parse", std::make_shared<JsonParseArgValuesGenerator>()},
           {"json_extract", std::make_shared<JsonExtractArgValuesGenerator>()},
           {"value_at_quantile",

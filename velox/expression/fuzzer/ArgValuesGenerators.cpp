@@ -19,6 +19,7 @@
 #include "velox/common/fuzzer/ConstrainedGenerators.h"
 #include "velox/common/fuzzer/Utils.h"
 #include "velox/core/Expressions.h"
+#include "velox/functions/prestosql/types/JsonType.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
 namespace facebook::velox::fuzzer {
@@ -263,6 +264,53 @@ std::vector<core::TypedExprPtr> JsonExtractArgValuesGenerator::generate(
   return inputExpressions;
 }
 
+std::vector<core::TypedExprPtr> CastVarcharAndJsonArgValuesGenerator::generate(
+    const CallableSignature& signature,
+    const VectorFuzzer::Options& options,
+    FuzzerGenerator& rng,
+    ExpressionFuzzerState& state) {
+  VELOX_CHECK_EQ(signature.args.size(), 1);
+  populateInputTypesAndNames(signature, state);
+  std::vector<core::TypedExprPtr> inputExpressions;
+
+  // Use default input generation for non-varchar inputs.
+  if (signature.args[0]->kind() != TypeKind::VARCHAR) {
+    state.customInputGenerators_.emplace_back(nullptr);
+    inputExpressions.emplace_back(nullptr);
+  }
+  // Use custom input generation for varchar.
+  // This will be used to test casting to primitive and complex types.
+  else {
+    const auto seed = rand<uint32_t>(rng);
+    const auto nullRatio = options.nullRatio;
+
+    // Populate state.customInputGenerators_ and inputExpressions for inputs
+    // that require custom input generators. Casting to complex type should
+    // require JSON as input.
+    if (isJsonType(signature.args[0])) {
+      state.customInputGenerators_.emplace_back(
+          std::make_shared<fuzzer::JsonInputGenerator>(
+              seed,
+              signature.args[0],
+              nullRatio,
+              fuzzer::getRandomInputGenerator(
+                  seed, signature.returnType, nullRatio),
+              true));
+    } else {
+      VELOX_CHECK(signature.args[0]->isPrimitiveType());
+      state.customInputGenerators_.emplace_back(
+          std::make_shared<fuzzer::CastVarcharInputGenerator>(
+              seed, signature.args[0], nullRatio, signature.returnType));
+    }
+
+    VELOX_CHECK_GE(signature.args.size(), 1);
+    inputExpressions.emplace_back(std::make_shared<core::FieldAccessTypedExpr>(
+        signature.args[0], state.inputRowNames_.back()));
+  }
+
+  return inputExpressions;
+}
+
 std::vector<core::TypedExprPtr> TDigestArgValuesGenerator::generate(
     const CallableSignature& signature,
     const VectorFuzzer::Options& options,
@@ -289,5 +337,4 @@ std::vector<core::TypedExprPtr> TDigestArgValuesGenerator::generate(
   }
   return inputExpressions;
 }
-
 } // namespace facebook::velox::fuzzer

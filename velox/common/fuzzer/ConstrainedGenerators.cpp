@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-#include "velox/common/fuzzer/ConstrainedGenerators.h"
-
 #include <boost/random/uniform_int_distribution.hpp>
+#include <cfloat>
+
+#include "velox/common/fuzzer/ConstrainedGenerators.h"
 #include "velox/common/fuzzer/Utils.h"
 #include "velox/functions/lib/TDigest.h"
 
@@ -452,6 +453,112 @@ void JsonPathGenerator::generateImpl(std::string& path, const TypePtr& type) {
     default:
       VELOX_UNREACHABLE("Unsupported type");
   }
+}
+
+// CastVarcharInputGenerator
+CastVarcharInputGenerator::CastVarcharInputGenerator(
+    size_t seed,
+    const TypePtr& type,
+    double nullRatio,
+    const TypePtr& castToType)
+    : AbstractInputGenerator(seed, type, nullptr, nullRatio) {
+  castToType_ = castToType;
+}
+
+CastVarcharInputGenerator::~CastVarcharInputGenerator() = default;
+
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+std::string CastVarcharInputGenerator::generateValidPrimitiveAsString() {
+  switch (castToType_->kind()) {
+    case TypeKind::BOOLEAN: {
+      // For boolean let's alternate between true/false and 1/0.
+      if (coinToss(rng_, .5))
+        return std::to_string(rand<bool>(rng_));
+      else
+        return (rand<bool>(rng_) ? "true" : "false");
+    }
+    case TypeKind::INTEGER: {
+      if (castToType_->isDate()) {
+        return DATE()->toString(randDate(rng_));
+      } else {
+        return std::to_string(rand<int32_t>(rng_));
+      }
+    }
+    case TypeKind::TINYINT:
+      return std::to_string(rand<int8_t>(rng_, INT8_MIN, INT8_MAX));
+    case TypeKind::SMALLINT:
+      return std::to_string(rand<int16_t>(rng_, INT16_MIN, INT16_MAX));
+    case TypeKind::BIGINT:
+      return std::to_string(rand<int64_t>(rng_, INT64_MIN, INT64_MAX));
+    case TypeKind::HUGEINT:
+      return std::to_string(rand<int128_t>(rng_, INT64_MIN, INT64_MAX));
+    // Maximum precision number before it starts formatting it as 1.0E7. Once it
+    // does so Java and C++ begin handling rounding differently leading to test
+    // failures due to imprecision.
+    case TypeKind::REAL:
+      return std::to_string(rand<float>(rng_, -1000000, 1000000));
+    case TypeKind::DOUBLE:
+      return std::to_string(rand<double>(rng_, -1000000, 1000000));
+    case TypeKind::TIMESTAMP:
+      return std::to_string(
+          randTimestamp(rng_, FuzzerTimestampPrecision::kMicroSeconds));
+    case TypeKind::VARCHAR: {
+      // Generate random string.
+      std::string input;
+      std::wstring_convert<std::codecvt_utf8<char16_t>, char16_t> converter;
+      auto randomStr = randString(
+          rng_,
+          rand<size_t>(rng_, 0, 20),
+          {UTF8CharList::ASCII},
+          input,
+          converter);
+      return input;
+    }
+    default:
+      // cast from varchar doesn't support complex types
+      VELOX_FAIL_UNSUPPORTED_INPUT_UNCATCHABLE(fmt::format(
+          "Type `{}` not supported for cast varchar custom generator",
+          castToType_->kind()));
+  }
+}
+
+variant CastVarcharInputGenerator::generate() {
+  // Randomly add nulls.
+  if (coinToss(rng_, nullRatio_)) {
+    return variant::null(type_->kind());
+  }
+
+  auto input = generateValidPrimitiveAsString();
+
+  // Randomly generate and insert garbage strings into input data. We
+  // don't want to add too many though to trigger too many exceptions or
+  // else we won't be able to verify output.
+  if (coinToss(rng_, 0.2)) {
+    // Define extra input modifications probabilities.
+    // For integer characters, let's avoid adding UNICODE due to error catching
+    // mismatch between Presto and Velox.
+    const auto CONTROL_CHARACTER_PROBABILITY =
+        (castToType_->kind() == TypeKind::TINYINT ||
+         castToType_->kind() == TypeKind::SMALLINT ||
+         castToType_->kind() == TypeKind::INTEGER ||
+         castToType_->kind() == TypeKind::BIGINT ||
+         castToType_->kind() == TypeKind::HUGEINT ||
+         castToType_->kind() == TypeKind::REAL ||
+         castToType_->kind() == TypeKind::DOUBLE)
+        ? 0.0
+        : 0.1;
+    const auto ESCAPE_STRING_PROBABILITY = 0.1;
+    const auto TRUNCATE_PROBABILITY = 0.1;
+    makeRandomStrVariation(
+        input,
+        rng_,
+        RandomStrVariationOptions{
+            CONTROL_CHARACTER_PROBABILITY,
+            ESCAPE_STRING_PROBABILITY,
+            TRUNCATE_PROBABILITY});
+  }
+
+  return variant(input);
 }
 
 } // namespace facebook::velox::fuzzer
