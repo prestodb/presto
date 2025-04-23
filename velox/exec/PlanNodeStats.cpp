@@ -37,7 +37,6 @@ PlanNodeStats& PlanNodeStats::operator+=(const PlanNodeStats& another) {
   addInputTiming.add(another.addInputTiming);
   getOutputTiming.add(another.getOutputTiming);
   finishTiming.add(another.finishTiming);
-  cpuWallTiming.add(another.isBlockedTiming);
   cpuWallTiming.add(another.addInputTiming);
   cpuWallTiming.add(another.getOutputTiming);
   cpuWallTiming.add(another.finishTiming);
