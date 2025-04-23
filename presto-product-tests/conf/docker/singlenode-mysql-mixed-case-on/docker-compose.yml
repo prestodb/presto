@@ -1,6 +1,6 @@
 services:
 
-  mysql:
+  mysql-mixed-case-on:
     hostname: mysql
     image: 'mysql:8.0'
     ports:
@@ -14,3 +14,7 @@ services:
       MYSQL_DATABASE: test
     volumes:
       - ${MYSQL_INIT_PATH}:/docker-entrypoint-initdb.d
+
+  presto-master:
+    volumes:
+      - ../../../conf/presto/etc/environment-specific-catalogs/singlenode-mysql-mixed-case-on/mysql.properties:/docker/volumes/conf/presto/etc/catalog/mysql.properties
