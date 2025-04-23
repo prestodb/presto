@@ -237,8 +237,9 @@ struct AsJson {
       const SelectivityVector& rows,
       const BufferPtr& elementToTopLevelRows,
       const std::shared_ptr<exec::CastHooks>& hooks,
-      bool isMapKey = false)
-      : decoded_(context) {
+      bool isMapKey = false,
+      std::optional<std::string> fieldName = std::nullopt)
+      : decoded_(context), fieldName_(std::move(fieldName)) {
     VELOX_CHECK(rows.hasSelections());
 
     exec::EvalErrorsPtr oldErrors;
@@ -294,12 +295,20 @@ struct AsJson {
       // Null values are inlined as "null".
       return 4;
     } else {
+      // If we have field names, we need to add the field name to the length.
+      if (fieldName_.has_value()) {
+        return fieldName_->size() + 3 + this->at(i).size();
+      }
       return this->at(i).size();
     }
   }
 
   // Appends the json string of the value at i to a string writer.
   void append(vector_size_t i, exec::StringWriter& proxy) const {
+    if (fieldName_.has_value()) {
+      proxy.append(fmt::format("\"{}\":", fieldName_.value()));
+    }
+
     if (decoded_->isNullAt(i)) {
       proxy.append("null");
     } else {
@@ -353,6 +362,7 @@ struct AsJson {
   exec::LocalDecodedVector decoded_;
   VectorPtr json_;
   const SimpleVector<StringView>* jsonStrings_;
+  std::optional<std::string> fieldName_;
 };
 
 void castToJsonFromArray(
@@ -537,26 +547,44 @@ void castToJsonFromRow(
     const SelectivityVector& rows,
     FlatVector<StringView>& flatResult,
     const std::shared_ptr<exec::CastHooks>& hooks) {
+  using NameJsonPair = std::pair<std::string, AsJson>;
   // input is guaranteed to be in flat encoding when passed in.
   VELOX_CHECK_EQ(input.encoding(), VectorEncoding::Simple::ROW);
   auto inputRow = input.as<RowVector>();
   auto childrenSize = inputRow->childrenSize();
+  auto fieldNamesInJsonCastEnabled = context.execCtx()
+                                         ->queryCtx()
+                                         ->queryConfig()
+                                         .isFieldNamesInJsonCastEnabled();
 
   // Estimates an upperbound of the total length of all Json strings for the
   // input according to the length of all children Json strings and the
   // delimiters to be added.
   size_t childrenStringSize = 0;
-  std::vector<AsJson> childrenAsJson;
+  std::vector<NameJsonPair> jsonChildren;
+
   for (int i = 0; i < childrenSize; ++i) {
-    childrenAsJson.emplace_back(
-        context, inputRow->childAt(i), rows, nullptr, hooks);
+    auto name = inputRow->type()->asRow().nameOf(i);
+    std::optional<std::string> fieldName =
+        fieldNamesInJsonCastEnabled ? std::optional{name} : std::nullopt;
+
+    jsonChildren.emplace_back(
+        name,
+        AsJson{
+            context,
+            inputRow->childAt(i),
+            rows,
+            nullptr,
+            hooks,
+            false,
+            std::move(fieldName)});
 
     context.applyToSelectedNoThrow(rows, [&](auto row) {
       if (inputRow->isNullAt(row)) {
         // "null" will be inlined in the StringView.
         return;
       }
-      childrenStringSize += childrenAsJson[i].lengthAt(row);
+      childrenStringSize += jsonChildren[i].second.lengthAt(row);
     });
   }
 
@@ -564,6 +592,19 @@ void castToJsonFromRow(
   childrenStringSize +=
       rows.countSelected() * (childrenSize > 0 ? childrenSize + 1 : 2);
   flatResult.getBufferWithSpace(childrenStringSize);
+
+  // Make sure to sort the children based on their field names if
+  // fieldNamesInJsonCastEnabled is true. This is to make sure the output is
+  // canoncialized.
+
+  if (fieldNamesInJsonCastEnabled) {
+    std::sort(
+        jsonChildren.begin(),
+        jsonChildren.end(),
+        [](const NameJsonPair& a, const NameJsonPair& b) {
+          return a.first < b.first;
+        });
+  }
 
   // Constructs Json string of each row from Json strings of its children.
   context.applyToSelectedNoThrow(rows, [&](auto row) {
@@ -574,14 +615,24 @@ void castToJsonFromRow(
 
     auto proxy = exec::StringWriter(&flatResult, row);
 
-    proxy.append("["_sv);
-    for (int i = 0; i < childrenSize; ++i) {
+    if (fieldNamesInJsonCastEnabled) {
+      proxy.append("{"_sv);
+    } else {
+      proxy.append("["_sv);
+    }
+
+    for (int i = 0; i < jsonChildren.size(); ++i) {
       if (i > 0) {
         proxy.append(","_sv);
       }
-      childrenAsJson[i].append(row, proxy);
+      jsonChildren[i].second.append(row, proxy);
     }
-    proxy.append("]"_sv);
+
+    if (fieldNamesInJsonCastEnabled) {
+      proxy.append("}"_sv);
+    } else {
+      proxy.append("]"_sv);
+    }
 
     proxy.finalize();
   });

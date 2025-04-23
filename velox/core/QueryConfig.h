@@ -542,6 +542,11 @@ class QueryConfig {
   static constexpr const char* kStreamingAggregationEagerFlush =
       "streaming_aggregation_eager_flush";
 
+  /// If this is true, then it allows you to get the struct field names
+  /// as json element names when casting a row to json.
+  static constexpr const char* kFieldNamesInJsonCastEnabled =
+      "field_names_in_json_cast_enabled";
+
   bool selectiveNimbleReaderEnabled() const {
     return get<bool>(kSelectiveNimbleReaderEnabled, false);
   }
@@ -989,6 +994,10 @@ class QueryConfig {
 
   bool streamingAggregationEagerFlush() const {
     return get<bool>(kStreamingAggregationEagerFlush, false);
+  }
+
+  bool isFieldNamesInJsonCastEnabled() const {
+    return get<bool>(kFieldNamesInJsonCastEnabled, false);
   }
 
   template <typename T>
