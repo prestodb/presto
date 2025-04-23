@@ -38,7 +38,7 @@ class raw_vector {
 
   explicit raw_vector(memory::MemoryPool* pool = nullptr) : pool_(pool) {}
 
-  explicit raw_vector(int32_t size, memory::MemoryPool* pool = nullptr)
+  explicit raw_vector(int64_t size, memory::MemoryPool* pool = nullptr)
       : pool_(pool) {
     resize(size);
   }
@@ -92,11 +92,11 @@ class raw_vector {
     return size_ == 0;
   }
 
-  int32_t size() const {
+  int64_t size() const {
     return size_;
   }
 
-  int32_t capacity() const {
+  int64_t capacity() const {
     return capacity_;
   }
 
@@ -104,11 +104,11 @@ class raw_vector {
     return data_;
   }
 
-  T& operator[](int32_t index) {
+  T& operator[](int64_t index) {
     return data_[index];
   }
 
-  const T& operator[](int32_t index) const {
+  const T& operator[](int64_t index) const {
     return data_[index];
   }
 
@@ -127,7 +127,7 @@ class raw_vector {
     size_ = 0;
   }
 
-  void resize(int32_t size) {
+  void resize(int64_t size) {
     if (LIKELY(size <= capacity_)) {
       size_ = size;
       return;
@@ -136,7 +136,7 @@ class raw_vector {
     size_ = size;
   }
 
-  void reserve(int32_t size) {
+  void reserve(int64_t size) {
     if (capacity_ < size) {
       grow(size);
     }
@@ -176,23 +176,23 @@ class raw_vector {
   }
 
   // Returns the size in bytes of the allocated raw buffer.
-  static inline int32_t bufferSize(int32_t capacity) {
+  static inline int64_t bufferSize(int64_t capacity) {
     return capacity * sizeof(T) + 2 * simd::kPadding;
   }
 
   // Returns the corresponding capacity given the number of elements size of the
   // container.
-  static inline int32_t calculateCapacity(int32_t size) {
+  static inline int64_t calculateCapacity(int64_t size) {
     return (paddedSize(sizeof(T) * size) - 2 * simd::kPadding) / sizeof(T);
   }
 
   // Size with one full width SIMD load worth data above and below, rounded to
   // power of 2.
-  static inline int32_t paddedSize(int32_t size) {
+  static inline int64_t paddedSize(int64_t size) {
     return bits::nextPowerOfTwo(size + (2 * simd::kPadding));
   }
 
-  T* allocateData(int32_t size) {
+  T* allocateData(int64_t size) {
     const auto bytes = paddedSize(sizeof(T) * size);
     uint8_t* buffer;
     if (pool_ != nullptr) {
@@ -223,7 +223,7 @@ class raw_vector {
     data_ = nullptr;
   }
 
-  FOLLY_NOINLINE void grow(int32_t size) {
+  FOLLY_NOINLINE void grow(int64_t size) {
     auto* newData = allocateData(size);
     const auto newCapacity = calculateCapacity(size);
     if (data_ != nullptr) {
@@ -251,8 +251,8 @@ class raw_vector {
   // buffer is larger than it. The layout is as follows:
   // | padding | data_ | padding |
   T* data_{nullptr};
-  int32_t size_{0};
-  int32_t capacity_{0};
+  int64_t size_{0};
+  int64_t capacity_{0};
 };
 
 // Returns a pointer to 'size' int32_t's with consecutive values

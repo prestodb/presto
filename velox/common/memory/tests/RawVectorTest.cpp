@@ -31,7 +31,7 @@ class RawVectorTest : public testing::WithParamInterface<TestParam>,
  protected:
   void SetUp() override {
     if (GetParam().useMemoryPool) {
-      constexpr uint64_t kMaxMappedMemory = 64 << 20;
+      constexpr uint64_t kMaxMappedMemory = 5UL << 30; // 5GB
       memory::MemoryManagerOptions options;
       options.allocatorCapacity = kMaxMappedMemory;
       options.useMmapAllocator = false;
@@ -82,6 +82,10 @@ TEST_P(RawVectorTest, resize) {
   EXPECT_LE(oldCapacity * 2, ints.capacity());
   ints.clear();
   EXPECT_TRUE(ints.empty());
+  // Large resize should not overflow.
+  ints.resize(100000);
+  ints.resize(std::numeric_limits<int32_t>::max() / sizeof(int32_t) + 10);
+  ints.clear();
 }
 
 TEST_P(RawVectorTest, copyAndMove) {
