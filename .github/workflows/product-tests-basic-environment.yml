@@ -69,4 +69,4 @@ jobs:
         if: needs.changes.outputs.codechange == 'true'
         env:
           OVERRIDE_JDK_DIR: ${{ env.JAVA_HOME }}
-        run: presto-product-tests/bin/run_on_docker.sh multinode -x quarantine,big_query,storage_formats,profile_specific_tests,tpcds,cassandra,mysql_connector,postgresql_connector,mysql,kafka,avro
+        run: presto-product-tests/bin/run_on_docker.sh multinode -x quarantine,big_query,storage_formats,profile_specific_tests,tpcds,cassandra,mysql_connector,mysql_mixed_case,postgresql_connector,mysql,kafka,avro,mixed_case
