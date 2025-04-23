@@ -15,7 +15,6 @@ package com.facebook.presto.sql.rewrite;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
-import com.facebook.presto.UnknownTypeException;
 import com.facebook.presto.common.type.BigintEnumType;
 import com.facebook.presto.common.type.EnumType;
 import com.facebook.presto.common.type.Type;
@@ -57,7 +56,7 @@ import static java.util.Objects.requireNonNull;
  * Queries can fail on native worker due to following missing support in Velox:<p>
  * 1. Named types: Presto supports {@link TypeWithName} which Velox is not able to parse.<p>
  * 2. {@link EnumType}: Velox does not support EnumTypes as well as its companion function {@code ENUM_KEY}.<p>
- *
+ * <p>
  * This rewrite addresses the above issues by resolving the type or function in coordinator for native execution:<p>
  * 1. Peel {@link TypeWithName} and only preserve the actual base type.<p>
  * 2. Rewrite {@code CAST(col AS EnumType<T>)} -> {@code CAST(col AS <T>)}. <p> TODO: preserve the original type information for `typeof`. <p>
@@ -118,7 +117,7 @@ final class NativeExecutionTypeRewrite
                     }
                 }
             }
-            catch (IllegalArgumentException | UnknownTypeException e) {
+            catch (IllegalArgumentException e) {
                 throw new SemanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
             }
             return node;

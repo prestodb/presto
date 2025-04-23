@@ -14,7 +14,6 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.UnknownTypeException;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
@@ -126,7 +125,7 @@ public class CreateTableTask
                 try {
                     type = metadata.getType(parseTypeSignature(column.getType()));
                 }
-                catch (IllegalArgumentException | UnknownTypeException e) {
+                catch (IllegalArgumentException e) {
                     throw new SemanticException(TYPE_MISMATCH, element, "Unknown type '%s' for column '%s'", column.getType(), column.getName());
                 }
                 if (type.equals(UNKNOWN)) {

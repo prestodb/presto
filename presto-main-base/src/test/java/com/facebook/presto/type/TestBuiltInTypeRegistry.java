@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.UnknownTypeException;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
@@ -74,13 +73,13 @@ public class TestBuiltInTypeRegistry
     {
         try {
             functionAndTypeManager.getType(parseTypeSignature("not a real type"));
-            fail("Expect to throw UnknownTypeException");
+            fail("Expect to throw IllegalArgumentException");
         }
-        catch (UnknownTypeException e) {
+        catch (IllegalArgumentException e) {
             assertTrue(e.getMessage().matches("Unknown type.*"));
         }
         catch (Throwable t) {
-            fail("Expect to throw UnknownTypeException, got " + t.getClass());
+            fail("Expect to throw IllegalArgumentException, got " + t.getClass());
         }
     }
 
