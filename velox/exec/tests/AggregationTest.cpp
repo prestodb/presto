@@ -1603,7 +1603,7 @@ TEST_F(AggregationTest, disableNonBooleanMasks) {
                       false)
                   .planNode();
 
-  VELOX_ASSERT_THROW(
+  VELOX_ASSERT_USER_THROW(
       AssertQueryBuilder(plan).copyResults(pool()),
       "FILTER(WHERE..) clause must use masks that are BOOLEAN");
 

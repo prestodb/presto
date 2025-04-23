@@ -37,7 +37,7 @@ void AggregationMasks::addInput(
 
     // Get the projection column vector that would be our mask.
     const auto& maskVector = input->childAt(entry.first);
-    VELOX_CHECK_EQ(
+    VELOX_USER_CHECK_EQ(
         maskVector->type(),
         BOOLEAN(),
         "FILTER(WHERE..) clause must use masks that are BOOLEAN");
