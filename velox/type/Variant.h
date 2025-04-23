@@ -572,6 +572,19 @@ class variant {
     return std::static_pointer_cast<T>(capsule.obj);
   }
 
+  /// Try to cast to the target custom type
+  /// Throw if the variant is not an opaque type
+  /// Return nullptr if it's opaque type but the underlying custom type doesn't
+  /// match the target. Otherwise return the data in custom type.
+  template <class T>
+  std::shared_ptr<T> tryOpaque() const {
+    const auto& capsule = value<TypeKind::OPAQUE>();
+    if (capsule.type->typeIndex() == std::type_index(typeid(T))) {
+      return std::static_pointer_cast<T>(capsule.obj);
+    }
+    return nullptr;
+  }
+
   std::shared_ptr<const Type> inferType() const {
     switch (kind_) {
       case TypeKind::MAP: {

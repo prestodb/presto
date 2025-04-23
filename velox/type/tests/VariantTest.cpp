@@ -124,6 +124,22 @@ TEST(VariantTest, opaque) {
     EXPECT_NE(v1.hash(), v3.hash());
     EXPECT_NE(v2.hash(), v3.hash());
   }
+
+  // Test opaque casting.
+  {
+    variant fooOpaque = variant::opaque(foo);
+    variant barOpaque = variant::opaque(bar);
+    variant int1 = variant((int64_t)123);
+
+    auto castFoo1 = fooOpaque.tryOpaque<Foo>();
+    auto castBar1 = fooOpaque.tryOpaque<Bar>();
+    auto castBar2 = barOpaque.tryOpaque<Bar>();
+
+    EXPECT_EQ(castFoo1, foo);
+    EXPECT_EQ(castBar1, nullptr);
+    EXPECT_EQ(castBar2, bar);
+    EXPECT_THROW(int1.tryOpaque<Foo>(), std::invalid_argument);
+  }
 }
 
 /// Test variant::equalsWithEpsilon by summing up large 64-bit integers (> 15
