@@ -104,6 +104,7 @@ void LocalPersistentShuffleWriter::storePartitionBlock(int32_t partition) {
 
 void LocalPersistentShuffleWriter::collect(
     int32_t partition,
+    std::string_view /* key */,
     std::string_view data) {
   using TRowSize = uint32_t;
 

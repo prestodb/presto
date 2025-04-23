@@ -23,7 +23,8 @@ class ShuffleWriter {
   virtual ~ShuffleWriter() = default;
 
   /// Write to the shuffle one row at a time.
-  virtual void collect(int32_t partition, std::string_view data) = 0;
+  virtual void
+  collect(int32_t partition, std::string_view key, std::string_view data) = 0;
 
   /// Tell the shuffle system the writer is done.
   /// @param success set to false to indicate aborted client.
