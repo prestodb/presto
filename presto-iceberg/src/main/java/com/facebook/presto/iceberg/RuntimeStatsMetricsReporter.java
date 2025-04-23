@@ -19,15 +19,14 @@ import org.apache.iceberg.metrics.MetricsReport;
 import org.apache.iceberg.metrics.MetricsReporter;
 import org.apache.iceberg.metrics.ScanReport;
 
-
 /**
  * A MetricsReporter implementation for reporting
  * Iceberg scan metrics to Presto's RuntimeStats.
  */
 
-public final class RuntimeStatsMetricsReporter implements MetricsReporter {
-
-
+public final class RuntimeStatsMetricsReporter
+        implements MetricsReporter
+{
     /**
      * RuntimeStats variable used for storing scan metrics from Iceberg reports.
      */
@@ -38,25 +37,26 @@ public final class RuntimeStatsMetricsReporter implements MetricsReporter {
      *
      * @param runtimeStat the RuntimeStats instance to report metrics to
      */
-    public RuntimeStatsMetricsReporter(final RuntimeStats runtimeStat) {
+    public RuntimeStatsMetricsReporter(final RuntimeStats runtimeStat)
+    {
         this.runtimeStats = runtimeStat;
     }
 
     /**
      * Helper method to construct the full metric name for a table scan.
      *
-     * @param tableName the name of the table
+     * @param tableName  the name of the table
      * @param metricName the name of the metric
      * @return the composed metric name in the format: table.scan.metric
      */
-    private String tableScanString(final String tableName,
-                                   final String metricName) {
+    private String tableScanString(final String tableName, final String metricName)
+    {
         return tableName + ".scan." + metricName;
     }
 
     @Override
-    public void report(final MetricsReport report) {
-
+    public void report(final MetricsReport report)
+    {
         if (!(report instanceof ScanReport)) {
             return;
         }
@@ -153,7 +153,7 @@ public final class RuntimeStatsMetricsReporter implements MetricsReporter {
         // skippedDeleteFiles() Metric
         if (scanReport.scanMetrics().skippedDeleteFiles() != null) {
             runtimeStats.addMetricValue(
-                    tableScanString(tableName,  "skippedDeleteFiles"),
+                    tableScanString(tableName, "skippedDeleteFiles"),
                     RuntimeUnit.NONE,
                     scanReport.scanMetrics().skippedDeleteFiles().value());
         }
@@ -185,7 +185,7 @@ public final class RuntimeStatsMetricsReporter implements MetricsReporter {
         // equalityDeleteFiles() Metric
         if (scanReport.scanMetrics().equalityDeleteFiles() != null) {
             runtimeStats.addMetricValue(
-                    tableScanString(tableName,  "equalityDeleteFiles"),
+                    tableScanString(tableName, "equalityDeleteFiles"),
                     RuntimeUnit.NONE,
                     scanReport.scanMetrics().equalityDeleteFiles().value());
         }
