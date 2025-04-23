@@ -37,39 +37,40 @@ namespace facebook::velox::exec {
 /// kNullAsIndeterminate. Can adjust in the future to be more configurable.
 template <typename T>
 struct ViewWithComparison {
-  bool operator==(const T& other) const {
+  friend bool operator==(const T& lhs, const T& rhs) {
     static constexpr auto kEqualValueAtFlags =
         CompareFlags::equality(CompareFlags::NullHandlingMode::kNullAsValue);
-    return this->compareOrThrow(other, kEqualValueAtFlags) == 0;
+    return compareOrThrow(lhs, rhs, kEqualValueAtFlags) == 0;
   }
 
-  bool operator<(const T& other) const {
-    return this->compareOrThrow(other) < 0;
+  friend bool operator!=(const T& lhs, const T& rhs) {
+    return !(lhs == rhs);
   }
 
-  bool operator<=(const T& other) const {
-    return this->compareOrThrow(other) <= 0;
+  friend bool operator<(const T& lhs, const T& rhs) {
+    return compareOrThrow(lhs, rhs) < 0;
   }
 
-  bool operator>(const T& other) const {
-    return this->compareOrThrow(other) > 0;
+  friend bool operator>(const T& lhs, const T& rhs) {
+    return rhs < lhs;
   }
 
-  bool operator>=(const T& other) const {
-    return this->compareOrThrow(other) >= 0;
+  friend bool operator<=(const T& lhs, const T& rhs) {
+    return !(lhs > rhs);
   }
 
-  bool operator!=(const T& other) const {
-    return this->compareOrThrow(other) != 0;
+  friend bool operator>=(const T& lhs, const T& rhs) {
+    return !(lhs < rhs);
   }
 
  private:
-  int32_t compareOrThrow(
-      const T& other,
+  static int32_t compareOrThrow(
+      const T& lhs,
+      const T& rhs,
       CompareFlags flags = CompareFlags{
           .nullHandlingMode =
-              CompareFlags::NullHandlingMode::kNullAsIndeterminate}) const {
-    auto result = static_cast<const T*>(this)->compare(other, flags);
+              CompareFlags::NullHandlingMode::kNullAsIndeterminate}) {
+    auto result = lhs.compare(rhs, flags);
     // Will throw if it encounters null elements before result is determined.
     VELOX_DCHECK(
         result.has_value(),
