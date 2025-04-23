@@ -39,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.function.Predicate;
 
 import static com.facebook.presto.delta.DeltaColumnHandle.ColumnType.PARTITION;
 import static com.facebook.presto.delta.DeltaErrorCode.DELTA_INVALID_PARTITION_VALUE;
@@ -124,52 +125,6 @@ public final class DeltaExpressionUtils
                 });
     }
 
-    private static class AllFilesIterator
-            implements CloseableIterator<Row>
-    {
-        private final CloseableIterator<FilteredColumnarBatch> inputIterator;
-        private final Iterator<Row> rows;
-        private CloseableIterator<Row> prev;
-
-        public AllFilesIterator(CloseableIterator<FilteredColumnarBatch> inputIterator)
-        {
-            this.inputIterator = inputIterator;
-            this.rows = Streams.stream(inputIterator)
-                    .flatMap(batch -> {
-                        if (prev != null) {
-                            try {
-                                prev.close();
-                            }
-                            catch (IOException e) {
-                                throw new RuntimeException("Failed to close previous rowBatch");
-                            }
-                        }
-                        prev = batch.getRows();
-                        return Streams.stream(prev);
-                    })
-                    .iterator();
-        }
-
-        @Override
-        public boolean hasNext()
-        {
-            return rows.hasNext();
-        }
-
-        @Override
-        public Row next()
-        {
-            return rows.next();
-        }
-
-        @Override
-        public void close()
-                throws IOException
-        {
-            inputIterator.close();
-        }
-    }
-
     private static class NoneFilesIterator
             implements CloseableIterator<Row>
     {
@@ -200,16 +155,15 @@ public final class DeltaExpressionUtils
         }
     }
 
-    private static class FilteredByPredicateIterator
+    private static class BatchRowIterator
             implements CloseableIterator<Row>
     {
         private final CloseableIterator<FilteredColumnarBatch> inputIterator;
         private final Iterator<Row> rows;
         private CloseableIterator<Row> prev;
 
-        public FilteredByPredicateIterator(CloseableIterator<FilteredColumnarBatch> inputIterator,
-                                           TupleDomain<String> partitionPredicate,
-                                           List<DeltaColumnHandle> partitionColumns, TypeManager typeManager)
+        public BatchRowIterator(CloseableIterator<FilteredColumnarBatch> inputIterator,
+                Optional<Predicate<Row>> rowFilter)
         {
             this.inputIterator = inputIterator;
             this.rows = Streams.stream(inputIterator)
@@ -219,12 +173,14 @@ public final class DeltaExpressionUtils
                                 prev.close();
                             }
                             catch (IOException e) {
-                                throw new RuntimeException("Failed to close previous rowBatch");
+                                throw new RuntimeException("Failed to close previous row batch", e);
                             }
                         }
                         prev = batch.getRows();
                         return Streams.stream(prev);
-                    }).filter(row -> evaluatePartitionPredicate(partitionPredicate, partitionColumns, typeManager, row))
+                    })
+                    // if there is a filter to be applied, it applies it
+                    .filter(row -> !rowFilter.isPresent() || rowFilter.get().test(row))
                     .iterator();
         }
 
@@ -241,10 +197,36 @@ public final class DeltaExpressionUtils
         }
 
         @Override
-        public void close()
-                throws IOException
+        public void close() throws IOException
         {
-            inputIterator.close();
+            if (prev != null) {
+                prev.close();
+            }
+            if (inputIterator != null) {
+                inputIterator.close();
+            }
+        }
+    }
+
+    private static class AllFilesIterator
+            extends BatchRowIterator
+    {
+        public AllFilesIterator(CloseableIterator<FilteredColumnarBatch> inputIterator)
+        {
+            super(inputIterator, Optional.empty());
+        }
+    }
+
+    private static class FilteredByPredicateIterator
+            extends BatchRowIterator
+    {
+        public FilteredByPredicateIterator(CloseableIterator<FilteredColumnarBatch> inputIterator,
+                TupleDomain<String> partitionPredicate,
+                List<DeltaColumnHandle> partitionColumns,
+                TypeManager typeManager)
+        {
+            super(inputIterator,
+                    Optional.of(row -> evaluatePartitionPredicate(partitionPredicate, partitionColumns, typeManager, row)));
         }
 
         private static boolean evaluatePartitionPredicate(
