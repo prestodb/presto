@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.UnknownTypeException;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.QualifiedObjectName;
@@ -1313,7 +1312,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
 
         ParametricType parametricType = parametricTypes.get(signature.getBase().toLowerCase(Locale.ENGLISH));
         if (parametricType == null) {
-            throw new UnknownTypeException(signature);
+            throw new IllegalArgumentException("Unknown type " + signature);
         }
 
         if (parametricType instanceof MapParametricType) {
