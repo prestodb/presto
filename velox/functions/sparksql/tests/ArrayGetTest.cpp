@@ -26,24 +26,40 @@ namespace {
 
 class ArrayGetTest : public SparkFunctionBaseTest {
  protected:
-  template <typename T>
+  template <typename T, typename IndexType>
   std::optional<T> arrayGet(
       const ArrayVectorPtr& arrayVector,
-      const std::optional<int32_t>& index) {
+      const std::optional<IndexType>& index) {
     auto input =
         makeRowVector({arrayVector, makeConstant(index, arrayVector->size())});
     return evaluateOnce<T>("get(c0, c1)", input);
   }
+
+  template <typename IndexType>
+  void testArrayGet() {
+    auto arrayVector = makeNullableArrayVector<int32_t>({{1, std::nullopt, 2}});
+
+    auto result = arrayGet<int32_t, IndexType>(arrayVector, 0);
+    EXPECT_EQ(result, 1);
+    result = arrayGet<int32_t, IndexType>(arrayVector, 1);
+    EXPECT_EQ(result, std::nullopt);
+    result = arrayGet<int32_t, IndexType>(arrayVector, 2);
+    EXPECT_EQ(result, 2);
+
+    result = arrayGet<int32_t, IndexType>(arrayVector, -1);
+    EXPECT_EQ(result, std::nullopt);
+    result = arrayGet<int32_t, IndexType>(arrayVector, 3);
+    EXPECT_EQ(result, std::nullopt);
+    result = arrayGet<int32_t, IndexType>(arrayVector, std::nullopt);
+    EXPECT_EQ(result, std::nullopt);
+  }
 };
 
 TEST_F(ArrayGetTest, basic) {
-  auto arrayVector = makeNullableArrayVector<int32_t>({{1, 2, std::nullopt}});
-  EXPECT_EQ(arrayGet<int32_t>(arrayVector, -1), std::nullopt);
-  EXPECT_EQ(arrayGet<int32_t>(arrayVector, 0), 1);
-  EXPECT_EQ(arrayGet<int32_t>(arrayVector, 1), 2);
-  EXPECT_EQ(arrayGet<int32_t>(arrayVector, 2), std::nullopt);
-  EXPECT_EQ(arrayGet<int32_t>(arrayVector, 3), std::nullopt);
-  EXPECT_EQ(arrayGet<int32_t>(arrayVector, std::nullopt), std::nullopt);
+  testArrayGet<int8_t>();
+  testArrayGet<int16_t>();
+  testArrayGet<int32_t>();
+  testArrayGet<int64_t>();
 }
 } // namespace
 } // namespace facebook::velox::functions::sparksql::test

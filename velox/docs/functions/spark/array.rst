@@ -239,14 +239,15 @@ Array Functions
     Returns whether all elements of an array match the given predicate.
 
         Returns true if all the elements match the predicate (a special case is when the array is empty);
-        Returns false if one or more elements don’t match;
+        Returns false if one or more elements don't match;
         Returns NULL if the predicate function returns NULL for one or more elements and true for all other elements.
         Throws an exception if the predicate fails for one or more elements and returns true or NULL for the rest.
 
 .. spark:function:: get(array(E), index) -> E
 
-    Returns an element of the array at the specified 0-based index.
-    Returns NULL if index points outside of the array boundaries. ::
+    Returns an element of the array at the specified 0-based ``index``.
+    Returns NULL if ``index`` points outside of the array boundaries.
+    ``index`` must be of an integral type. ::
 
         SELECT get(array(1, 2, 3), 0); -- 1
         SELECT get(array(1, 2, 3), 3); -- NULL

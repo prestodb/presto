@@ -35,13 +35,19 @@ class ArrayGetFunction : public SubscriptImpl<
   explicit ArrayGetFunction() : SubscriptImpl(false) {}
 
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
-    return {// array(T), integer -> T
-            exec::FunctionSignatureBuilder()
-                .typeVariable("T")
-                .returnType("T")
-                .argumentType("array(T)")
-                .argumentType("integer")
-                .build()};
+    std::vector<std::shared_ptr<exec::FunctionSignature>> signatures;
+
+    // array(T), tinyint|smallint|integer|bigint -> T
+    for (const auto& indexType : {"tinyint", "smallint", "integer", "bigint"}) {
+      signatures.push_back(exec::FunctionSignatureBuilder()
+                               .typeVariable("T")
+                               .returnType("T")
+                               .argumentType("array(T)")
+                               .argumentType(indexType)
+                               .build());
+    }
+
+    return signatures;
   }
 };
 } // namespace

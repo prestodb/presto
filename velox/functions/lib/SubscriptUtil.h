@@ -262,6 +262,12 @@ class SubscriptImpl : public exec::Subscript {
     auto indexArg = args[1];
 
     switch (indexArg->typeKind()) {
+      case TypeKind::TINYINT:
+        return applyArrayTyped<int8_t>(rows, arrayArg, indexArg, context);
+
+      case TypeKind::SMALLINT:
+        return applyArrayTyped<int16_t>(rows, arrayArg, indexArg, context);
+
       case TypeKind::INTEGER:
         return applyArrayTyped<int32_t>(rows, arrayArg, indexArg, context);
 
