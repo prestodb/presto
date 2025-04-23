@@ -854,6 +854,7 @@ public class PlanBuilder
                 index,
                 emptyList(),
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
     }
 

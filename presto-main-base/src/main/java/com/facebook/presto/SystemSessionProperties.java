@@ -333,7 +333,7 @@ public final class SystemSessionProperties
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_AGGREGATION_SPILL_ALL = "native_aggregation_spill_all";
-    private static final String NATIVE_EXECUTION_ENABLED = "native_execution_enabled";
+    public static final String NATIVE_EXECUTION_ENABLED = "native_execution_enabled";
     private static final String NATIVE_EXECUTION_EXECUTABLE_PATH = "native_execution_executable_path";
     private static final String NATIVE_EXECUTION_PROGRAM_ARGUMENTS = "native_execution_program_arguments";
     public static final String NATIVE_EXECUTION_PROCESS_REUSE_ENABLED = "native_execution_process_reuse_enabled";
