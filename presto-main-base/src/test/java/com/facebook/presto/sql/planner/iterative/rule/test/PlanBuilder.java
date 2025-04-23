@@ -28,7 +28,6 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.function.FunctionHandle;
-import com.facebook.presto.spi.function.SchemaFunctionName;
 import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
@@ -982,7 +981,7 @@ public class PlanBuilder
                 sources,
                 tableArgumentProperties,
                 copartitioningLists,
-                new TableFunctionHandle(new ConnectorId("connector_id"), new SchemaFunctionName("system", name), new ConnectorTableFunctionHandle() {}, TestingTransactionHandle.create()));
+                new TableFunctionHandle(new ConnectorId("connector_id"), new ConnectorTableFunctionHandle() {}, TestingTransactionHandle.create()));
     }
 
     public TableFunctionProcessorNode tableFunctionProcessor(Consumer<TableFunctionProcessorBuilder> consumer)

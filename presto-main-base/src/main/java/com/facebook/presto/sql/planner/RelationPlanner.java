@@ -27,7 +27,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.constraints.TableConstraint;
-import com.facebook.presto.spi.function.SchemaFunctionName;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.CteReferenceNode;
@@ -423,7 +422,6 @@ class RelationPlanner
                 functionAnalysis.getCopartitioningLists(),
                 new TableFunctionHandle(
                         functionAnalysis.getConnectorId(),
-                        new SchemaFunctionName(functionAnalysis.getSchemaName(), functionAnalysis.getFunctionName()),
                         functionAnalysis.getConnectorTableFunctionHandle(),
                         functionAnalysis.getTransactionHandle()));
 

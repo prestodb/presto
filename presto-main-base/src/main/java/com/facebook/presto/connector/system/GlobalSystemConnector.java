@@ -36,7 +36,6 @@ import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.function.SchemaFunctionName;
 import com.facebook.presto.spi.function.table.ConnectorTableFunction;
 import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
 import com.facebook.presto.spi.procedure.Procedure;
@@ -185,7 +184,7 @@ public class GlobalSystemConnector
             }
 
             @Override
-            public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, SchemaFunctionName name, ConnectorTableFunctionHandle function)
+            public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableFunctionHandle function)
             {
                 if (function instanceof SequenceFunctionHandle) {
                     SequenceFunctionHandle sequenceFunctionHandle = (SequenceFunctionHandle) function;

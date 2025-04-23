@@ -654,7 +654,7 @@ public final class GraphvizPrinter
         @Override
         public Void visitTableFunctionProcessor(TableFunctionProcessorNode node, Void context)
         {
-            printNode(node, "Table Function Processor", node.getHandle().getSchemaFunctionName().toString(), NODE_COLORS.get(NodeType.TABLE_FUNCTION));
+            printNode(node, "Table Function Processor", NODE_COLORS.get(NodeType.TABLE_FUNCTION));
             return null;
         }
 

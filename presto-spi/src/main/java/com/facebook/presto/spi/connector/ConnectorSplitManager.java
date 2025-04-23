@@ -17,7 +17,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.WarningCollector;
-import com.facebook.presto.spi.function.SchemaFunctionName;
 import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
 
 import static java.util.Objects.requireNonNull;
@@ -77,7 +76,6 @@ public interface ConnectorSplitManager
     default ConnectorSplitSource getSplits(
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
-            SchemaFunctionName name,
             ConnectorTableFunctionHandle function)
     {
         throw new UnsupportedOperationException();

@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner.iterative.rule.test;
 
 import com.facebook.presto.metadata.TableFunctionHandle;
 import com.facebook.presto.spi.ConnectorId;
-import com.facebook.presto.spi.function.SchemaFunctionName;
 import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
 import com.facebook.presto.spi.plan.DataOrganizationSpecification;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -129,6 +128,6 @@ public class TableFunctionProcessorBuilder
                 prePartitioned,
                 preSorted,
                 hashSymbol,
-                new TableFunctionHandle(new ConnectorId("connector_id"), new SchemaFunctionName("system", name), new ConnectorTableFunctionHandle() {}, TestingTransactionHandle.create()));
+                new TableFunctionHandle(new ConnectorId("connector_id"), new ConnectorTableFunctionHandle() {}, TestingTransactionHandle.create()));
     }
 }

@@ -32,6 +32,10 @@ import com.facebook.presto.common.type.TypeSignatureBase;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.UserDefinedType;
+import com.facebook.presto.operator.table.ExcludeColumns;
+import com.facebook.presto.operator.table.ExcludeColumns.ExcludeColumnsFunctionHandle;
+import com.facebook.presto.operator.table.Sequence;
+import com.facebook.presto.operator.table.Sequence.SequenceFunctionHandle;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
@@ -47,7 +51,6 @@ import com.facebook.presto.spi.function.FunctionNamespaceTransactionHandle;
 import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.facebook.presto.spi.function.JavaScalarFunctionImplementation;
 import com.facebook.presto.spi.function.ScalarFunctionImplementation;
-import com.facebook.presto.spi.function.SchemaFunctionName;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.SqlFunctionId;
@@ -103,8 +106,6 @@ import static com.facebook.presto.metadata.CastType.toOperatorType;
 import static com.facebook.presto.metadata.FunctionSignatureMatcher.constructFunctionNotFoundErrorMessage;
 import static com.facebook.presto.metadata.SessionFunctionHandle.SESSION_NAMESPACE;
 import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
-import static com.facebook.presto.operator.table.ExcludeColumns.getExcludeColumnsFunctionProcessorProvider;
-import static com.facebook.presto.operator.table.Sequence.getSequenceFunctionProcessorProvider;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
@@ -157,7 +158,7 @@ public class FunctionAndTypeManager
     private final CatalogSchemaName defaultNamespace;
     private final AtomicReference<TypeManager> servingTypeManager;
     private final AtomicReference<Supplier<Map<String, ParametricType>>> servingTypeManagerParametricTypesSupplier;
-    private Optional<Function<SchemaFunctionName, TableFunctionProcessorProvider>> getTableFunctionProcessorProvider;
+    private Function<ConnectorTableFunctionHandle, TableFunctionProcessorProvider> tableFunctionProcessorProvider;
 
     @Inject
     public FunctionAndTypeManager(
@@ -191,7 +192,7 @@ public class FunctionAndTypeManager
         this.defaultNamespace = configureDefaultNamespace(functionsConfig.getDefaultNamespacePrefix());
         this.servingTypeManager = new AtomicReference<>(builtInTypeAndFunctionNamespaceManager);
         this.servingTypeManagerParametricTypesSupplier = new AtomicReference<>(this::getServingTypeManagerParametricTypes);
-        this.getTableFunctionProcessorProvider = Optional.empty();
+        this.tableFunctionProcessorProvider = defaultTableFunctionProcessorProvider();
     }
 
     public static FunctionAndTypeManager createTestFunctionAndTypeManager()
@@ -627,16 +628,27 @@ public class FunctionAndTypeManager
         return functionNamespaceManager.get().getScalarFunctionImplementation(functionHandle);
     }
 
-    public Optional<Function<SchemaFunctionName, TableFunctionProcessorProvider>> getTableFunctionProcessorProvider(TableFunctionHandle tableFunctionHandle)
+    public TableFunctionProcessorProvider getTableFunctionProcessorProvider(ConnectorTableFunctionHandle connectorTableFunctionHandle)
     {
-        //TODO: Temporary code for table function provider.
-        if (new SchemaFunctionName("builtin", "exclude_columns").equals(tableFunctionHandle.getSchemaFunctionName())) {
-            return Optional.of(dump -> getExcludeColumnsFunctionProcessorProvider());
-        }
-        if (new SchemaFunctionName("builtin", "sequence").equals(tableFunctionHandle.getSchemaFunctionName())) {
-            return Optional.of(dump -> getSequenceFunctionProcessorProvider());
-        }
-        return getTableFunctionProcessorProvider;
+        return tableFunctionProcessorProvider.apply(connectorTableFunctionHandle);
+    }
+
+    public Function<ConnectorTableFunctionHandle, TableFunctionProcessorProvider> defaultTableFunctionProcessorProvider()
+    {
+        return connectorTableFunctionHandle -> {
+            if (connectorTableFunctionHandle instanceof ExcludeColumnsFunctionHandle) {
+                return ExcludeColumns.getExcludeColumnsFunctionProcessorProvider();
+            }
+            else if (connectorTableFunctionHandle instanceof SequenceFunctionHandle) {
+                return Sequence.getSequenceFunctionProcessorProvider();
+            }
+            return null;
+        };
+    }
+
+    public void setTableFunctionProcessorProvider(Function<ConnectorTableFunctionHandle, TableFunctionProcessorProvider> tableFunctionProcessorProvider)
+    {
+        this.tableFunctionProcessorProvider = tableFunctionProcessorProvider;
     }
 
     public AggregationFunctionImplementation getAggregateFunctionImplementation(FunctionHandle functionHandle)
@@ -983,11 +995,6 @@ public class FunctionAndTypeManager
                     .add("parameterTypes", parameterTypes)
                     .toString();
         }
-    }
-
-    public void setGetTableFunctionProcessorProvider(Optional<Function<SchemaFunctionName, TableFunctionProcessorProvider>> getTableFunctionProcessorProvider)
-    {
-        this.getTableFunctionProcessorProvider = getTableFunctionProcessorProvider;
     }
 
     private class IdentityFunctionProcessorProvider

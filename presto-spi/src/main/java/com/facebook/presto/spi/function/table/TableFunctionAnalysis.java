@@ -20,7 +20,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.spi.function.table.EmptyTableFunctionHandle.EMPTY_HANDLE;
 import static com.facebook.presto.spi.function.table.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -80,7 +79,7 @@ public final class TableFunctionAnalysis
     {
         private Descriptor returnedType;
         private final Map<String, List<Integer>> requiredColumns = new HashMap<>();
-        private ConnectorTableFunctionHandle handle = EMPTY_HANDLE;
+        private ConnectorTableFunctionHandle handle;
 
         private Builder() {}
 

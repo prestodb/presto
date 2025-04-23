@@ -18,7 +18,7 @@ import com.facebook.presto.connector.tvf.MockConnectorPlugin;
 import com.facebook.presto.connector.tvf.TestingTableFunctions.DescriptorArgumentFunction;
 import com.facebook.presto.connector.tvf.TestingTableFunctions.DifferentArgumentTypesFunction;
 import com.facebook.presto.connector.tvf.TestingTableFunctions.PassThroughFunction;
-import com.facebook.presto.connector.tvf.TestingTableFunctions.TestingTableFunctionHandle;
+import com.facebook.presto.connector.tvf.TestingTableFunctions.TestingTableFunctionPushdownHandle;
 import com.facebook.presto.connector.tvf.TestingTableFunctions.TwoScalarArgumentsFunction;
 import com.facebook.presto.connector.tvf.TestingTableFunctions.TwoTableArgumentsFunction;
 import com.facebook.presto.spi.connector.TableFunctionApplicationResult;
@@ -73,8 +73,8 @@ public class TestTableFunctionInvocation
                         new TwoTableArgumentsFunction(),
                         new PassThroughFunction()))
                 .withApplyTableFunction((session, handle) -> {
-                    if (handle instanceof TestingTableFunctionHandle) {
-                        TestingTableFunctionHandle functionHandle = (TestingTableFunctionHandle) handle;
+                    if (handle instanceof TestingTableFunctionPushdownHandle) {
+                        TestingTableFunctionPushdownHandle functionHandle = (TestingTableFunctionPushdownHandle) handle;
                         return Optional.of(new TableFunctionApplicationResult<>(functionHandle.getTableHandle(), functionHandle.getTableHandle().getColumns().orElseThrow(() -> new IllegalStateException("Missing columns"))));
                     }
                     throw new IllegalStateException("Unsupported table function handle: " + handle.getClass().getSimpleName());

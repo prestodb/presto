@@ -17,8 +17,22 @@ import com.facebook.presto.connector.tvf.MockConnectorColumnHandle;
 import com.facebook.presto.connector.tvf.MockConnectorFactory;
 import com.facebook.presto.connector.tvf.MockConnectorPlugin;
 import com.facebook.presto.connector.tvf.TestingTableFunctions;
+import com.facebook.presto.connector.tvf.TestingTableFunctions.ConstantFunction.ConstantFunctionHandle;
+import com.facebook.presto.connector.tvf.TestingTableFunctions.ConstantFunction.ConstantFunctionProcessorProvider;
+import com.facebook.presto.connector.tvf.TestingTableFunctions.EmptyOutputFunction.EmptyOutputProcessorProvider;
+import com.facebook.presto.connector.tvf.TestingTableFunctions.EmptyOutputWithPassThroughFunction.EmptyOutputWithPassThroughProcessorProvider;
+import com.facebook.presto.connector.tvf.TestingTableFunctions.EmptySourceFunction.EmptySourceFunctionProcessorProvider;
+import com.facebook.presto.connector.tvf.TestingTableFunctions.IdentityFunction.IdentityFunctionProcessorProvider;
+import com.facebook.presto.connector.tvf.TestingTableFunctions.IdentityPassThroughFunction.IdentityPassThroughFunctionProcessorProvider;
+import com.facebook.presto.connector.tvf.TestingTableFunctions.PassThroughInputFunction.PassThroughInputProcessorProvider;
+import com.facebook.presto.connector.tvf.TestingTableFunctions.RepeatFunction.RepeatFunctionHandle;
+import com.facebook.presto.connector.tvf.TestingTableFunctions.RepeatFunction.RepeatFunctionProcessorProvider;
 import com.facebook.presto.connector.tvf.TestingTableFunctions.SimpleTableFunction;
 import com.facebook.presto.connector.tvf.TestingTableFunctions.SimpleTableFunction.SimpleTableFunctionHandle;
+import com.facebook.presto.connector.tvf.TestingTableFunctions.TestInputFunction.TestInputProcessorProvider;
+import com.facebook.presto.connector.tvf.TestingTableFunctions.TestInputsFunction.TestInputsFunctionProcessorProvider;
+import com.facebook.presto.connector.tvf.TestingTableFunctions.TestSingleInputRowSemanticsFunction.TestSingleInputFunctionProcessorProvider;
+import com.facebook.presto.connector.tvf.TestingTableFunctions.TestingTableFunctionHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.FixedSplitSource;
@@ -104,57 +118,56 @@ public class TestTableFunctionInvocation
                     }
                     return Optional.empty();
                 })
-                .withGetTableFunctionProcessorProvider(Optional.of(name -> {
-                    if (name.equals(new SchemaFunctionName("system", "identity_function"))) {
-                        return new TestingTableFunctions.IdentityFunction.IdentityFunctionProcessorProvider();
-                    }
-                    else if (name.equals(new SchemaFunctionName("system", "identity_pass_through_function"))) {
-                        return new TestingTableFunctions.IdentityPassThroughFunction.IdentityPassThroughFunctionProcessorProvider();
-                    }
-                    else if (name.equals(new SchemaFunctionName("system", "repeat"))) {
-                        return new TestingTableFunctions.RepeatFunction.RepeatFunctionProcessorProvider();
-                    }
-                    else if (name.equals(new SchemaFunctionName("system", "empty_output"))) {
-                        return new TestingTableFunctions.EmptyOutputFunction.EmptyOutputProcessorProvider();
-                    }
-                    else if (name.equals(new SchemaFunctionName("system", "empty_output_with_pass_through"))) {
-                        return new TestingTableFunctions.EmptyOutputWithPassThroughFunction.EmptyOutputWithPassThroughProcessorProvider();
-                    }
-                    else if (name.equals(new SchemaFunctionName("system", "test_inputs_function"))) {
-                        return new TestingTableFunctions.TestInputsFunction.TestInputsFunctionProcessorProvider();
-                    }
-                    else if (name.equals(new SchemaFunctionName("system", "pass_through"))) {
-                        return new TestingTableFunctions.PassThroughInputFunction.PassThroughInputProcessorProvider();
-                    }
-                    else if (name.equals(new SchemaFunctionName("system", "test_input"))) {
-                        return new TestingTableFunctions.TestInputFunction.TestInputProcessorProvider();
-                    }
-                    else if (name.equals(new SchemaFunctionName("system", "test_single_input_function"))) {
-                        return new TestingTableFunctions.TestSingleInputRowSemanticsFunction.TestSingleInputFunctionProcessorProvider();
-                    }
-                    else if (name.equals(new SchemaFunctionName("system", "constant"))) {
-                        return new TestingTableFunctions.ConstantFunction.ConstantFunctionProcessorProvider();
-                    }
-                    else if (name.equals(new SchemaFunctionName("system", "empty_source"))) {
-                        return new TestingTableFunctions.EmptySourceFunction.EmptySourceFunctionProcessorProvider();
-                    }
-                    return null;
-                }))
+                .withTableFunctionProcessorProvider(
+                        connectorTableFunctionHandle -> {
+                            if (connectorTableFunctionHandle instanceof TestingTableFunctionHandle) {
+                                switch (((TestingTableFunctionHandle) connectorTableFunctionHandle).getSchemaFunctionName().getFunctionName()) {
+                                    case "identity_function":
+                                        return new IdentityFunctionProcessorProvider();
+                                    case "identity_pass_through_function":
+                                        return new IdentityPassThroughFunctionProcessorProvider();
+                                    case "empty_output":
+                                        return new EmptyOutputProcessorProvider();
+                                    case "empty_output_with_pass_through":
+                                        return new EmptyOutputWithPassThroughProcessorProvider();
+                                    case "test_inputs_function":
+                                        return new TestInputsFunctionProcessorProvider();
+                                    case "pass_through":
+                                        return new PassThroughInputProcessorProvider();
+                                    case "test_input":
+                                        return new TestInputProcessorProvider();
+                                    case "test_single_input_function":
+                                        return new TestSingleInputFunctionProcessorProvider();
+                                    case "empty_source":
+                                        return new EmptySourceFunctionProcessorProvider();
+                                    default:
+                                        throw new IllegalArgumentException("unexpected table function: " + ((TestingTableFunctionHandle) connectorTableFunctionHandle).getSchemaFunctionName());
+                                }
+                            }
+                            else if (connectorTableFunctionHandle instanceof RepeatFunctionHandle) {
+                                return new RepeatFunctionProcessorProvider();
+                            }
+                            else if (connectorTableFunctionHandle instanceof ConstantFunctionHandle) {
+                                return new ConstantFunctionProcessorProvider();
+                            }
+                            return null;
+                        })
                 .withTableFunctionResolver(TestingTableFunctions.RepeatFunction.RepeatFunctionHandle.class)
-                .withTableFunctionResolver(TestingTableFunctions.EmptyTableFunctionHandle.class)
+                .withTableFunctionResolver(TestingTableFunctions.TestingTableFunctionHandle.class)
                 .withTableFunctionResolver(TestingTableFunctions.ConstantFunction.ConstantFunctionHandle.class)
                 .withTableFunctionSplitResolver(MockConnectorFactory.MockConnector.MockConnectorSplit.class)
                 .withTableFunctionSplitResolver(TestingTableFunctions.ConstantFunction.ConstantFunctionSplit.class)
                 .withGetColumnHandles(getColumnHandles)
                 .withTableFunctionSplitSource(
-                        new SchemaFunctionName("system", "constant"),
-                        handle -> getConstantFunctionSplitSource((TestingTableFunctions.ConstantFunction.ConstantFunctionHandle) handle))
-                .withTableFunctionSplitSource(
-                        new SchemaFunctionName("system", "empty_source"),
-                        handle -> new FixedSplitSource(ImmutableList.of(MOCK_CONNECTOR_SPLIT)))
-                .withTableFunctionSplitSource(
-                        new SchemaFunctionName("system", "identity_function"),
-                        handle -> new FixedSplitSource(ImmutableList.of(MOCK_CONNECTOR_SPLIT)))
+                        connectorTableFunctionHandle -> {
+                            if (connectorTableFunctionHandle instanceof ConstantFunctionHandle) {
+                                return getConstantFunctionSplitSource((ConstantFunctionHandle) connectorTableFunctionHandle);
+                            }
+                            else if (connectorTableFunctionHandle instanceof TestingTableFunctionHandle && ((TestingTableFunctionHandle) connectorTableFunctionHandle).getSchemaFunctionName().equals(new SchemaFunctionName("system", "empty_source"))) {
+                                return new FixedSplitSource(ImmutableList.of(MOCK_CONNECTOR_SPLIT));
+                            }
+                            return null;
+                        })
                 .build()));
         queryRunner.createCatalog(TESTING_CATALOG, "mock");
 
