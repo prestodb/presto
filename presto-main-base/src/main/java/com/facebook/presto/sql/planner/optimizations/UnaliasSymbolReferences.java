@@ -650,7 +650,16 @@ public class UnaliasSymbolReferences
             PlanNode probeSource = context.rewrite(node.getProbeSource());
             PlanNode indexSource = context.rewrite(node.getIndexSource());
 
-            return new IndexJoinNode(node.getSourceLocation(), node.getId(), node.getType(), probeSource, indexSource, canonicalizeIndexJoinCriteria(node.getCriteria()), canonicalize(node.getProbeHashVariable()), canonicalize(node.getIndexHashVariable()));
+            return new IndexJoinNode(
+                    node.getSourceLocation(),
+                    node.getId(),
+                    node.getType(),
+                    probeSource,
+                    indexSource,
+                    canonicalizeIndexJoinCriteria(node.getCriteria()),
+                    node.getFilter().map(this::canonicalize),
+                    canonicalize(node.getProbeHashVariable()),
+                    canonicalize(node.getIndexHashVariable()));
         }
 
         @Override

@@ -345,7 +345,17 @@ public class PruneUnreferencedOutputs
             PlanNode probeSource = context.rewrite(node.getProbeSource(), probeInputs);
             PlanNode indexSource = context.rewrite(node.getIndexSource(), indexInputs);
 
-            return new IndexJoinNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), node.getType(), probeSource, indexSource, node.getCriteria(), node.getProbeHashVariable(), node.getIndexHashVariable());
+            return new IndexJoinNode(
+                    node.getSourceLocation(),
+                    node.getId(),
+                    node.getStatsEquivalentPlanNode(),
+                    node.getType(),
+                    probeSource,
+                    indexSource,
+                    node.getCriteria(),
+                    node.getFilter(),
+                    node.getProbeHashVariable(),
+                    node.getIndexHashVariable());
         }
 
         @Override

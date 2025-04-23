@@ -102,7 +102,6 @@ import com.facebook.presto.sql.planner.plan.UpdateNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.util.GraphvizPrinter;
 import com.google.common.base.CaseFormat;
 import com.google.common.base.Functions;
@@ -597,12 +596,13 @@ public class PlanPrinter
         @Override
         public Void visitIndexJoin(IndexJoinNode node, Void context)
         {
-            List<Expression> joinExpressions = new ArrayList<>();
+            List<String> joinExpressions = new ArrayList<>();
             for (IndexJoinNode.EquiJoinClause clause : node.getCriteria()) {
                 joinExpressions.add(new ComparisonExpression(ComparisonExpression.Operator.EQUAL,
                         createSymbolReference(clause.getProbe()),
-                        createSymbolReference(clause.getIndex())));
+                        createSymbolReference(clause.getIndex())).toString());
             }
+            node.getFilter().map(formatter).ifPresent(joinExpressions::add);
 
             addNode(node,
                     format("%sIndexJoin", node.getType().getJoinLabel()),
