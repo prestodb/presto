@@ -18,6 +18,7 @@
 #include "velox/functions/prestosql/types/BingTileType.h"
 #include "velox/functions/prestosql/types/HyperLogLogType.h"
 #include "velox/functions/prestosql/types/JsonType.h"
+#include "velox/functions/prestosql/types/QDigestType.h"
 #include "velox/functions/prestosql/types/TDigestType.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 
@@ -61,6 +62,10 @@ TEST_F(TypeOfTest, basic) {
   EXPECT_EQ("HyperLogLog", typeOf(HYPERLOGLOG()));
 
   EXPECT_EQ("tdigest(double)", typeOf(TDIGEST(DOUBLE())));
+
+  EXPECT_EQ("qdigest(bigint)", typeOf(QDIGEST(BIGINT())));
+  EXPECT_EQ("qdigest(real)", typeOf(QDIGEST(REAL())));
+  EXPECT_EQ("qdigest(double)", typeOf(QDIGEST(DOUBLE())));
 
   EXPECT_EQ("unknown", typeOf(UNKNOWN()));
 

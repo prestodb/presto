@@ -22,6 +22,7 @@ velox_add_library(
   JsonCastOperator.cpp
   JsonRegistration.cpp
   TDigestRegistration.cpp
+  QDigestRegistration.cpp
   TimestampWithTimeZoneRegistration.cpp
   UuidRegistration.cpp)
 

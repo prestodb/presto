@@ -106,6 +106,7 @@ add_executable(
   TrimFunctionsTest.cpp
   TypeOfTest.cpp
   TDigestCastTest.cpp
+  QDigestCastTest.cpp
   URLFunctionsTest.cpp
   UuidFunctionsTest.cpp
   WidthBucketArrayTest.cpp
