@@ -647,7 +647,7 @@ as part of a SQL query by including them in your SELECT statement.
 
 ``$path`` column
 ^^^^^^^^^^^^^^^^
-* ``$path``: Full file system path name of the file for this row
+The full file system path name of the file for this row.
 
 .. code-block:: sql
 
@@ -661,7 +661,7 @@ as part of a SQL query by including them in your SELECT statement.
 
 ``$data_sequence_number`` column
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-* ``$data_sequence_number``: The Iceberg data sequence number in which this row was added
+The Iceberg data sequence number in which this row was added.
 
 .. code-block:: sql
 
@@ -686,7 +686,7 @@ as a part of a SQL query by appending name to the table.
 
 ``$properties`` Table
 ^^^^^^^^^^^^^^^^^^^^^
-* ``$properties`` : General properties of the given table
+General properties of the given table.
 
 .. code-block:: sql
 
@@ -700,7 +700,7 @@ as a part of a SQL query by appending name to the table.
 
 ``$history`` Table
 ^^^^^^^^^^^^^^^^^^
-* ``$history`` : History of table state changes
+History of table state changes.
 
 .. code-block:: sql
 
@@ -714,7 +714,7 @@ as a part of a SQL query by appending name to the table.
 
 ``$snapshots`` Table
 ^^^^^^^^^^^^^^^^^^^^
-* ``$snapshots`` : Details about the table snapshots. For more information see `Snapshots <https://iceberg.apache.org/spec/#snapshots>`_ in the Iceberg Table Spec.
+Details about the table snapshots. For more information see `Snapshots <https://iceberg.apache.org/spec/#snapshots>`_ in the Iceberg Table Spec.
 
 .. code-block:: sql
 
@@ -728,7 +728,7 @@ as a part of a SQL query by appending name to the table.
 
 ``$manifests`` Table
 ^^^^^^^^^^^^^^^^^^^^
-* ``$manifests`` : Details about the manifests of different table snapshots. For more information see `Manifests <https://iceberg.apache.org/spec/#manifests>`_ in the Iceberg Table Spec.
+Details about the manifests of different table snapshots. For more information see `Manifests <https://iceberg.apache.org/spec/#manifests>`_ in the Iceberg Table Spec.
 
 .. code-block:: sql
 
@@ -742,7 +742,7 @@ as a part of a SQL query by appending name to the table.
 
 ``$partitions`` Table
 ^^^^^^^^^^^^^^^^^^^^^
-* ``$partitions`` : Detailed partition information for the table
+Detailed partition information for the table.
 
 .. code-block:: sql
 
@@ -756,7 +756,7 @@ as a part of a SQL query by appending name to the table.
 
 ``$files`` Table
 ^^^^^^^^^^^^^^^^
-* ``$files`` : Overview of data files in the current snapshot of the table
+Overview of data files in the current snapshot of the table.
 
 .. code-block:: sql
 
@@ -772,8 +772,8 @@ as a part of a SQL query by appending name to the table.
 ^^^^^^^^^^^^^^^^^^^^
 
 This table lets you view which row-level changes have occurred to the table in a
-particular order over time. The ``$changelog`` table represents the history of
-changes to the table, while also making the data available to process through a
+particular order over time. The ``$changelog`` table presents the history of
+changes to the table and makes the data available to process through a
 query.
 
 The result of a changelog query always returns a static schema with four
@@ -844,7 +844,7 @@ example uses the earliest snapshot ID: ``2423571386296047175``
 
 ``$refs`` Table
 ^^^^^^^^^^^^^^^^^^^^
-* ``$refs`` : Details about Iceberg references including branches and tags. For more information see `Branching and Tagging <https://iceberg.apache.org/docs/nightly/branching/>`_.
+Details about Iceberg references including branches and tags. For more information see `Branching and Tagging <https://iceberg.apache.org/docs/nightly/branching/>`_.
 
 .. code-block:: sql
 
@@ -880,16 +880,13 @@ The following arguments are available:
 
 
 ===================== ========== =============== =======================================================================
-
-Argument Name         required   type            Description
-
+Argument Name         Required   Type            Description
 ===================== ========== =============== =======================================================================
+``schema``            Yes        string          Schema of the table to register
 
-``schema``            ✔️         string          Schema of the table to register
+``table_name``        Yes        string          Name of the table to register
 
-``table_name``        ✔️         string          Name of the table to register
-
-``metadata_location`` ✔️         string          The location of the table metadata which is to be registered
+``metadata_location`` Yes        string          The location of the table metadata which is to be registered
 
 ``metadata_file``                string          An optionally specified metadata file which is to be registered
 ===================== ========== =============== =======================================================================
@@ -902,10 +899,10 @@ Examples:
 
     CALL iceberg.system.register_table(table_name => 'table_name', schema => 'schema_name', metadata_location => 'hdfs://localhost:9000/path/to/iceberg/table/metadata/dir')
 
-.. note::
+  .. note::
 
-    If multiple metadata files of the same version exist at the specified
-    location, the most recently modified one is used.
+    If multiple metadata files of the same version exist at the specified location,
+    the most recently modified one is used.
 
 * Register a table through additionally supplying a specific metadata file::
 
@@ -913,19 +910,19 @@ Examples:
 
     CALL iceberg.system.register_table(table_name => 'table_name', schema => 'schema_name', metadata_location => 'hdfs://localhost:9000/path/to/iceberg/table/metadata/dir', metadata_file => '00000-35a08aed-f4b0-4010-95d2-9d73ef4be01c.metadata.json')
 
-.. note::
+  .. note::
 
     The Iceberg REST catalog may not support table register depending on the
     type of the backing catalog.
 
-.. note::
+  .. note::
 
-    When registering a table with the Hive metastore, the user calling the
-    procedure is set as the owner of the table and has ``SELECT``,
-    ``INSERT``, ``UPDATE``, and ``DELETE`` privileges for that table. These
-    privileges can be altered using the ``GRANT`` and ``REVOKE`` commands.
+    When registering a table with the Hive metastore, the user calling the procedure 
+    is set as the owner of the table and has ``SELECT``, ``INSERT``, ``UPDATE``, and 
+    ``DELETE`` privileges for that table. These privileges can be altered using the 
+    ``GRANT`` and ``REVOKE`` commands.
 
-.. note::
+  .. note::
 
     When using the Hive catalog, attempts to read registered Iceberg tables
     using the Hive connector will fail.
@@ -939,11 +936,11 @@ procedure on the catalog's ``system`` schema.
 The following arguments are available:
 
 ===================== ========== =============== ===================================
-Argument Name         required   type            Description
+Argument Name         Required   Type            Description
 ===================== ========== =============== ===================================
-``schema``            ✔️         string          Schema of the table to unregister
+``schema``            Yes        string          Schema of the table to unregister
 
-``table_name``        ✔️         string          Name of the table to unregister
+``table_name``        Yes        string          Name of the table to unregister
 ===================== ========== =============== ===================================
 
 Examples::
@@ -969,13 +966,13 @@ Rollback a table to a specific snapshot ID. Iceberg can rollback to a specific s
 The following arguments are available:
 
 ===================== ========== =============== =======================================================================
-Argument Name         required   type            Description
+Argument Name         Required   Type            Description
 ===================== ========== =============== =======================================================================
-``schema``            ✔️          string          Schema of the table to update
+``schema``            Yes         string          Schema of the table to update
 
-``table_name``        ✔️          string          Name of the table to update
+``table_name``        Yes         string          Name of the table to update
 
-``snapshot_id``       ✔️          long            Snapshot ID to rollback to
+``snapshot_id``       Yes         long            Snapshot ID to rollback to
 ===================== ========== =============== =======================================================================
 
 Rollback to Timestamp
@@ -986,13 +983,13 @@ Rollback a table to a given point in time. Iceberg can rollback to a specific po
 The following arguments are available:
 
 ===================== ========== =============== =======================================================================
-Argument Name         required   type            Description
+Argument Name         Required   Type            Description
 ===================== ========== =============== =======================================================================
-``schema``            ✔️          string          Schema of the table to update
+``schema``            Yes        string          Schema of the table to update
 
-``table_name``        ✔️          string          Name of the table to update
+``table_name``        Yes        string          Name of the table to update
 
-``timestamp``         ✔️          timestamp       Timestamp to rollback to
+``timestamp``         Yes        timestamp       Timestamp to rollback to
 ===================== ========== =============== =======================================================================
 
 Example::
@@ -1002,17 +999,20 @@ Example::
 Set Current Snapshot
 ^^^^^^^^^^^^^^^^^^^^
 
-This procedure sets a current snapshot ID for a table by using ``snapshot_id`` or ``ref``.
-Use either ``snapshot_id`` or ``ref``, but do not use both in the same procedure.
+Set a ``snapshot_id`` or ``ref`` as the current snapshot for a table.
+
+.. note::
+
+    Use either ``snapshot_id`` or ``ref``, but do not use both in the same procedure.
 
 The following arguments are available:
 
 ===================== ========== =============== =======================================================================
-Argument Name         required   type            Description
+Argument Name         Required   Type            Description
 ===================== ========== =============== =======================================================================
-``schema``            ✔️         string          Schema of the table to update
+``schema``            Yes        string          Schema of the table to update
 
-``table_name``        ✔️         string          Name of the table to update
+``table_name``        Yes        string          Name of the table to update
 
 ``snapshot_id``                  long            Snapshot ID to set as current
 
@@ -1039,11 +1039,11 @@ This procedure removes old snapshots and their corresponding files, and never re
 The following arguments are available:
 
 ===================== ========== =============== =======================================================================
-Argument Name         required   type            Description
+Argument Name         Required   Type            Description
 ===================== ========== =============== =======================================================================
-``schema``            ✔️         string          Schema of the table to update
+``schema``            Yes        string          Schema of the table to update
 
-``table_name``        ✔️         string          Name of the table to update
+``table_name``        Yes        string          Name of the table to update
 
 ``older_than``                   timestamp       Timestamp before which snapshots will be removed (Default: 5 days ago)
 
@@ -1071,11 +1071,11 @@ Use to remove files which are not referenced in any metadata files of an Iceberg
 The following arguments are available:
 
 ===================== ========== =============== =======================================================================
-Argument Name         required   type            Description
+Argument Name         Required   Type            Description
 ===================== ========== =============== =======================================================================
-``schema``            ✔️         string          Schema of the table to clean
+``schema``            Yes        string          Schema of the table to clean
 
-``table_name``        ✔️         string          Name of the table to clean
+``table_name``        Yes        string          Name of the table to clean
 
 ``older_than``                   timestamp       Remove orphan files created before this timestamp (Default: 3 days ago)
 ===================== ========== =============== =======================================================================
@@ -1101,61 +1101,61 @@ The following arguments are available:
 ===================== ========== =============== =======================================================================
 Argument Name         required   type            Description
 ===================== ========== =============== =======================================================================
-``schema``            ✔️         string          Schema of the table to update
+``schema``            Yes        string          Schema of the table to update
 
-``table_name``        ✔️         string          Name of the table to update
+``table_name``        Yes        string          Name of the table to update
 
-``branch``            ✔️         string          The branch you want to fast-forward
+``branch``            Yes        string          The branch you want to fast-forward
 
-``to``                ✔️         string          The branch you want to fast-forward to
+``to``                Yes        string          The branch you want to fast-forward to
 ===================== ========== =============== =======================================================================
 
 Examples:
 
-* Fast-forward the ``dev`` branch to the latest snapshot of the ``main`` branch ::
+* Fast-forward the ``dev`` branch to the latest snapshot of the ``main`` branch: ::
 
     CALL iceberg.system.fast_forward('schema_name', 'table_name', 'dev', 'main');
 
-* Given the branch named ``branch1`` does not exist yet, create a new branch named ``branch1``  and set it's current snapshot equal to the latest snapshot of the ``main`` branch ::
+* Given the branch named ``branch1`` does not exist yet, create a new branch named ``branch1``  and set it's current snapshot equal to the latest snapshot of the ``main`` branch: ::
 
     CALL iceberg.system.fast_forward('schema_name', 'table_name', 'branch1', 'main');
 
 Statistics file cache invalidation procedure
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* Invalidate Statistics file cache ::
+* Invalidate Statistics file cache: ::
 
     CALL <catalog-name>.system.invalidate_statistics_file_cache();
 
 Manifest file cache invalidation procedure
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* Invalidate Manifest file cache ::
+* Invalidate Manifest file cache: ::
 
     CALL <catalog-name>.system.invalidate_manifest_file_cache();
 
 Set Table Property
 ^^^^^^^^^^^^^^^^^^
 
-Iceberg table property can be set from the catalog using the ``set_table_property`` procedure on the catalog's ``system`` schema.
+Set from the catalog using the ``set_table_property`` procedure on the catalog's ``system`` schema.
 
 The following arguments are available:
 
 ===================== ========== =============== =======================================================================
-Argument Name         required   type            Description
+Argument Name         Required   Type            Description
 ===================== ========== =============== =======================================================================
-``schema``            ✔️         string          Schema of the table to update
+``schema``            Yes        string          Schema of the table to update
 
-``table_name``        ✔️         string          Name of the table to update
+``table_name``        Yes        string          Name of the table to update
 
-``key``               ✔️         string          Name of the table property
+``key``               Yes        string          Name of the table property
 
-``value``             ✔️         string          Value for the table property
+``value``             Yes        string          Value for the table property
 ===================== ========== =============== =======================================================================
 
 Examples:
 
-* Set table property ``commit.retry.num-retries`` to ``10`` for a Iceberg table ::
+* Set table property ``commit.retry.num-retries`` to ``10`` for a Iceberg table: ::
 
     CALL iceberg.system.set_table_property('schema_name', 'table_name', 'commit.retry.num-retries', '10');
 
@@ -1166,8 +1166,6 @@ All above procedures are supported in Presto C++.
 
 SQL Support
 -----------
-
-SQL Support Summary for Presto Java and Presto C++:
 
 ============================== ============= ============ ============================================================================
 SQL Operation                  Presto Java   Presto C++   Comments
