@@ -132,6 +132,14 @@ RowTypePtr getAggregationOutputType(
 
 } // namespace
 
+// static
+const std::vector<vector_size_t> AggregationNode::kDefaultGlobalGroupingSets =
+    {};
+
+// static
+const std::optional<FieldAccessTypedExprPtr> AggregationNode::kDefaultGroupId =
+    std::nullopt;
+
 AggregationNode::AggregationNode(
     const PlanNodeId& id,
     Step step,
@@ -214,8 +222,8 @@ AggregationNode::AggregationNode(
           preGroupedKeys,
           aggregateNames,
           aggregates,
-          {},
-          std::nullopt,
+          kDefaultGlobalGroupingSets,
+          kDefaultGroupId,
           ignoreNullKeys,
           source) {}
 
@@ -1132,13 +1140,14 @@ UnnestNode::UnnestNode(
     const PlanNodeId& id,
     std::vector<FieldAccessTypedExprPtr> replicateVariables,
     std::vector<FieldAccessTypedExprPtr> unnestVariables,
-    const std::vector<std::string>& unnestNames,
-    const std::optional<std::string>& ordinalityName,
+    std::vector<std::string> unnestNames,
+    std::optional<std::string> ordinalityName,
     const PlanNodePtr& source)
     : PlanNode(id),
       replicateVariables_{std::move(replicateVariables)},
       unnestVariables_{std::move(unnestVariables)},
-      withOrdinality_{ordinalityName.has_value()},
+      unnestNames_{std::move(unnestNames)},
+      ordinalityName_{std::move(ordinalityName)},
       sources_{source} {
   // Calculate output type. First come "replicate" columns, followed by
   // "unnest" columns, followed by an optional ordinality column.
@@ -1153,15 +1162,15 @@ UnnestNode::UnnestNode(
   int unnestIndex = 0;
   for (const auto& variable : unnestVariables_) {
     if (variable->type()->isArray()) {
-      names.emplace_back(unnestNames[unnestIndex++]);
+      names.emplace_back(unnestNames_[unnestIndex++]);
       types.emplace_back(variable->type()->asArray().elementType());
     } else if (variable->type()->isMap()) {
       const auto& mapType = variable->type()->asMap();
 
-      names.emplace_back(unnestNames[unnestIndex++]);
+      names.emplace_back(unnestNames_[unnestIndex++]);
       types.emplace_back(mapType.keyType());
 
-      names.emplace_back(unnestNames[unnestIndex++]);
+      names.emplace_back(unnestNames_[unnestIndex++]);
       types.emplace_back(mapType.valueType());
     } else {
       VELOX_FAIL(
@@ -1170,8 +1179,8 @@ UnnestNode::UnnestNode(
     }
   }
 
-  if (ordinalityName.has_value()) {
-    names.emplace_back(ordinalityName.value());
+  if (ordinalityName_.has_value()) {
+    names.emplace_back(ordinalityName_.value());
     types.emplace_back(BIGINT());
   }
   outputType_ = ROW(std::move(names), std::move(types));
@@ -1185,20 +1194,10 @@ folly::dynamic UnnestNode::serialize() const {
   auto obj = PlanNode::serialize();
   obj["replicateVariables"] = ISerializable::serialize(replicateVariables_);
   obj["unnestVariables"] = ISerializable::serialize(unnestVariables_);
+  obj["unnestNames"] = ISerializable::serialize(unnestNames_);
 
-  obj["unnestNames"] = folly::dynamic::array();
-
-  // Extract 'unnest' column names from the 'outputType'.
-  // Output types contains 'replicated' column names, followed by 'unnest'
-  // column names, followed by an optional 'ordinal' column name.
-  for (auto i = replicateVariables_.size();
-       i < outputType()->size() - (withOrdinality_ ? 1 : 0);
-       ++i) {
-    obj["unnestNames"].push_back(outputType()->names()[i]);
-  }
-
-  if (withOrdinality_) {
-    obj["ordinalityName"] = outputType()->names().back();
+  if (ordinalityName_.has_value()) {
+    obj["ordinalityName"] = ordinalityName_.value();
   }
   return obj;
 }
@@ -1575,6 +1574,11 @@ bool IndexLookupJoinNode::isSupported(core::JoinType joinType) {
   }
 }
 
+// static
+const JoinType NestedLoopJoinNode::kDefaultJoinType = JoinType::kInner;
+// static
+const TypedExprPtr NestedLoopJoinNode::kDefaultJoinCondition = nullptr;
+
 NestedLoopJoinNode::NestedLoopJoinNode(
     const PlanNodeId& id,
     JoinType joinType,
@@ -1615,8 +1619,8 @@ NestedLoopJoinNode::NestedLoopJoinNode(
     RowTypePtr outputType)
     : NestedLoopJoinNode(
           id,
-          JoinType::kInner,
-          nullptr,
+          kDefaultJoinType,
+          kDefaultJoinCondition,
           left,
           right,
           outputType) {}
@@ -1789,12 +1793,13 @@ WindowNode::WindowNode(
       partitionKeys_(std::move(partitionKeys)),
       sortingKeys_(std::move(sortingKeys)),
       sortingOrders_(std::move(sortingOrders)),
+      windowColumnNames_(std::move(windowColumnNames)),
       windowFunctions_(std::move(windowFunctions)),
       inputsSorted_(inputsSorted),
       sources_{std::move(source)},
       outputType_(getWindowOutputType(
           sources_[0]->outputType(),
-          windowColumnNames,
+          windowColumnNames_,
           windowFunctions_)) {
   VELOX_CHECK_GT(
       windowFunctions_.size(),
@@ -1980,13 +1985,7 @@ folly::dynamic WindowNode::serialize() const {
     obj["functions"].push_back(function.serialize());
   }
 
-  auto numInputs = sources()[0]->outputType()->size();
-  auto numOutputs = outputType()->size();
-  std::vector<std::string> windowNames;
-  for (auto i = numInputs; i < numOutputs; ++i) {
-    windowNames.push_back(outputType_->nameOf(i));
-  }
-  obj["names"] = ISerializable::serialize(windowNames);
+  obj["names"] = ISerializable::serialize(windowColumnNames_);
   obj["inputsSorted"] = inputsSorted_;
 
   return obj;

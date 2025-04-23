@@ -289,8 +289,8 @@ class ValuesNode : public PlanNode {
   ValuesNode(
       const PlanNodeId& id,
       std::vector<RowVectorPtr> values,
-      bool parallelizable = false,
-      size_t repeatTimes = 1)
+      bool parallelizable = kDefaultParallelizable,
+      size_t repeatTimes = kDefaultRepeatTimes)
       : PlanNode(id),
         values_(std::move(values)),
         outputType_(
@@ -299,6 +299,52 @@ class ValuesNode : public PlanNode {
                 : std::dynamic_pointer_cast<const RowType>(values_[0]->type())),
         parallelizable_(parallelizable),
         repeatTimes_(repeatTimes) {}
+
+  class Builder {
+   public:
+    Builder() = default;
+
+    explicit Builder(const ValuesNode& other) {
+      id_ = other.id();
+      values_ = other.values();
+      parallelizable_ = other.isParallelizable();
+      repeatTimes_ = other.repeatTimes();
+    }
+
+    Builder& id(PlanNodeId id) {
+      id_ = std::move(id);
+      return *this;
+    }
+
+    Builder& values(std::vector<RowVectorPtr> values) {
+      values_ = std::move(values);
+      return *this;
+    }
+
+    Builder& parallelizable(const bool parallelizable) {
+      parallelizable_ = parallelizable;
+      return *this;
+    }
+
+    Builder& repeatTimes(const size_t repeatTimes) {
+      repeatTimes_ = repeatTimes;
+      return *this;
+    }
+
+    std::shared_ptr<ValuesNode> build() const {
+      VELOX_USER_CHECK(id_.has_value(), "ValuesNode id is not set");
+      VELOX_USER_CHECK(values_.has_value(), "ValuesNode values is not set");
+
+      return std::make_shared<ValuesNode>(
+          id_.value(), values_.value(), parallelizable_, repeatTimes_);
+    }
+
+   private:
+    std::optional<PlanNodeId> id_;
+    std::optional<std::vector<RowVectorPtr>> values_;
+    bool parallelizable_ = kDefaultParallelizable;
+    size_t repeatTimes_ = kDefaultRepeatTimes;
+  };
 
   const RowTypePtr& outputType() const override {
     return outputType_;
@@ -335,6 +381,9 @@ class ValuesNode : public PlanNode {
   static PlanNodePtr create(const folly::dynamic& obj, void* context);
 
  private:
+  static constexpr bool kDefaultParallelizable = false;
+  static constexpr size_t kDefaultRepeatTimes = 1;
+
   void addDetails(std::stringstream& stream) const override;
 
   const std::vector<RowVectorPtr> values_;
@@ -356,6 +405,48 @@ class ArrowStreamNode : public PlanNode {
         arrowStream_(std::move(arrowStream)) {
     VELOX_USER_CHECK_NOT_NULL(arrowStream_);
   }
+
+  class Builder {
+   public:
+    Builder() = default;
+
+    explicit Builder(const ArrowStreamNode& other) {
+      id_ = other.id();
+      outputType_ = other.outputType();
+      arrowStream_ = other.arrowStream();
+    }
+
+    Builder& id(PlanNodeId id) {
+      id_ = std::move(id);
+      return *this;
+    }
+
+    Builder& outputType(RowTypePtr outputType) {
+      outputType_ = std::move(outputType);
+      return *this;
+    }
+
+    Builder& arrowStream(std::shared_ptr<ArrowArrayStream> arrowStream) {
+      arrowStream_ = std::move(arrowStream);
+      return *this;
+    }
+
+    std::shared_ptr<ArrowStreamNode> build() const {
+      VELOX_USER_CHECK(id_.has_value(), "ArrowStreamNode id is not set");
+      VELOX_USER_CHECK(
+          outputType_.has_value(), "ArrowStreamNode outputType is not set");
+      VELOX_USER_CHECK(
+          arrowStream_.has_value(), "ArrowStreamNode arrowStream is not set");
+
+      return std::make_shared<ArrowStreamNode>(
+          id_.value(), outputType_.value(), arrowStream_.value());
+    }
+
+   private:
+    std::optional<PlanNodeId> id_;
+    std::optional<RowTypePtr> outputType_;
+    std::optional<std::shared_ptr<ArrowArrayStream>> arrowStream_;
+  };
 
   const RowTypePtr& outputType() const override {
     return outputType_;
@@ -398,6 +489,70 @@ class TraceScanNode final : public PlanNode {
         pipelineId_(pipelineId),
         driverIds_(std::move(driverIds)),
         outputType_(outputType) {}
+
+  class Builder {
+   public:
+    Builder() = default;
+
+    explicit Builder(const TraceScanNode& other) {
+      id_ = other.id();
+      traceDir_ = other.traceDir();
+      pipelineId_ = other.pipelineId();
+      driverIds_ = other.driverIds();
+      outputType_ = other.outputType();
+    }
+
+    Builder& id(PlanNodeId id) {
+      id_ = std::move(id);
+      return *this;
+    }
+
+    Builder& traceDir(const std::string& traceDir) {
+      traceDir_ = traceDir;
+      return *this;
+    }
+
+    Builder& pipelineId(const uint32_t pipelineId) {
+      pipelineId_ = pipelineId;
+      return *this;
+    }
+
+    Builder& driverIds(std::vector<uint32_t> driverIds) {
+      driverIds_ = std::move(driverIds);
+      return *this;
+    }
+
+    Builder& outputType(const RowTypePtr& outputType) {
+      outputType_ = outputType;
+      return *this;
+    }
+
+    std::shared_ptr<TraceScanNode> build() const {
+      VELOX_USER_CHECK(id_.has_value(), "TraceScanNode id is not set");
+      VELOX_USER_CHECK(
+          traceDir_.has_value(), "TraceScanNode traceDir is not set");
+      VELOX_USER_CHECK(
+          pipelineId_.has_value(), "TraceScanNode pipelineId is not set");
+      VELOX_USER_CHECK(
+          driverIds_.has_value(), "TraceScanNode driverIds is not set");
+      VELOX_USER_CHECK(
+          outputType_.has_value(), "TraceScanNode outputType is not set");
+
+      return std::make_shared<TraceScanNode>(
+          id_.value(),
+          traceDir_.value(),
+          pipelineId_.value(),
+          driverIds_.value(),
+          outputType_.value());
+    }
+
+   private:
+    std::optional<PlanNodeId> id_;
+    std::optional<std::string> traceDir_;
+    std::optional<uint32_t> pipelineId_;
+    std::optional<std::vector<uint32_t>> driverIds_;
+    std::optional<RowTypePtr> outputType_;
+  };
 
   const RowTypePtr& outputType() const override {
     return outputType_;
@@ -446,6 +601,47 @@ class FilterNode : public PlanNode {
         "Filter expression must be of type BOOLEAN. Got {}.",
         filter_->type()->toString());
   }
+
+  class Builder {
+   public:
+    Builder() = default;
+
+    explicit Builder(const FilterNode& other) {
+      id_ = other.id();
+      filter_ = other.filter();
+      VELOX_CHECK_EQ(other.sources().size(), 1);
+      source_ = other.sources()[0];
+    }
+
+    Builder& id(PlanNodeId id) {
+      id_ = std::move(id);
+      return *this;
+    }
+
+    Builder& filter(TypedExprPtr filter) {
+      filter_ = std::move(filter);
+      return *this;
+    }
+
+    Builder& source(PlanNodePtr source) {
+      source_ = std::move(source);
+      return *this;
+    }
+
+    std::shared_ptr<FilterNode> build() const {
+      VELOX_USER_CHECK(id_.has_value(), "FilterNode id is not set");
+      VELOX_USER_CHECK(filter_.has_value(), "FilterNode filter is not set");
+      VELOX_USER_CHECK(source_.has_value(), "FilterNode source is not set");
+
+      return std::make_shared<FilterNode>(
+          id_.value(), filter_.value(), source_.value());
+    }
+
+   private:
+    std::optional<PlanNodeId> id_;
+    std::optional<TypedExprPtr> filter_;
+    std::optional<PlanNodePtr> source_;
+  };
 
   const RowTypePtr& outputType() const override {
     return sources_[0]->outputType();
@@ -507,6 +703,48 @@ class AbstractProjectNode : public PlanNode {
         names_(names),
         projections_(projections),
         outputType_(makeOutputType(names_, projections_)) {}
+
+  template <typename DerivedPlanNode, typename DerivedBuilder>
+  class Builder {
+   public:
+    Builder() = default;
+
+    explicit Builder(const DerivedPlanNode& other) {
+      id_ = other.id();
+      names_ = other.names();
+      projections_ = other.projections();
+      VELOX_CHECK_EQ(other.sources().size(), 1);
+      source_ = other.sources()[0];
+    }
+
+    virtual ~Builder() = default;
+
+    DerivedBuilder& id(PlanNodeId id) {
+      id_ = std::move(id);
+      return static_cast<DerivedBuilder&>(*this);
+    }
+
+    DerivedBuilder& names(std::vector<std::string> names) {
+      names_ = std::move(names);
+      return static_cast<DerivedBuilder&>(*this);
+    }
+
+    DerivedBuilder& projections(std::vector<TypedExprPtr> projections) {
+      projections_ = std::move(projections);
+      return static_cast<DerivedBuilder&>(*this);
+    }
+
+    DerivedBuilder& source(PlanNodePtr source) {
+      source_ = std::move(source);
+      return static_cast<DerivedBuilder&>(*this);
+    }
+
+   protected:
+    std::optional<PlanNodeId> id_;
+    std::optional<std::vector<std::string>> names_;
+    std::optional<std::vector<TypedExprPtr>> projections_;
+    std::optional<PlanNodePtr> source_;
+  };
 
   const RowTypePtr& outputType() const override {
     return outputType_;
@@ -581,6 +819,25 @@ class ProjectNode : public AbstractProjectNode {
       PlanNodePtr source)
       : AbstractProjectNode(id, names, projections, source) {}
 
+  class Builder : public AbstractProjectNode::Builder<ProjectNode, Builder> {
+   public:
+    Builder() : AbstractProjectNode::Builder<ProjectNode, Builder>() {}
+
+    explicit Builder(const ProjectNode& other)
+        : AbstractProjectNode::Builder<ProjectNode, Builder>(other) {}
+
+    std::shared_ptr<ProjectNode> build() const {
+      VELOX_USER_CHECK(id_.has_value(), "ProjectNode id is not set");
+      VELOX_USER_CHECK(names_.has_value(), "ProjectNode names is not set");
+      VELOX_USER_CHECK(
+          projections_.has_value(), "ProjectNode projections is not set");
+      VELOX_USER_CHECK(source_.has_value(), "ProjectNode source is not set");
+
+      return std::make_shared<ProjectNode>(
+          id_.value(), names_.value(), projections_.value(), source_.value());
+    }
+  };
+
   folly::dynamic serialize() const override;
 
   void accept(const PlanNodeVisitor& visitor, PlanNodeVisitorContext& context)
@@ -602,6 +859,68 @@ class TableScanNode : public PlanNode {
         outputType_(std::move(outputType)),
         tableHandle_(tableHandle),
         assignments_(assignments) {}
+
+  class Builder {
+   public:
+    Builder() = default;
+
+    explicit Builder(const TableScanNode& other) {
+      id_ = other.id();
+      outputType_ = other.outputType();
+      tableHandle_ = other.tableHandle();
+      assignments_ = other.assignments();
+    }
+
+    Builder& id(PlanNodeId id) {
+      id_ = std::move(id);
+      return *this;
+    }
+
+    Builder& outputType(RowTypePtr outputType) {
+      outputType_ = std::move(outputType);
+      return *this;
+    }
+
+    Builder& tableHandle(
+        std::shared_ptr<connector::ConnectorTableHandle> tableHandle) {
+      tableHandle_ = std::move(tableHandle);
+      return *this;
+    }
+
+    Builder& assignments(
+        std::unordered_map<
+            std::string,
+            std::shared_ptr<connector::ColumnHandle>> assignments) {
+      assignments_ = std::move(assignments);
+      return *this;
+    }
+
+    std::shared_ptr<TableScanNode> build() const {
+      VELOX_USER_CHECK(id_.has_value(), "TableScanNode id is not set");
+      VELOX_USER_CHECK(
+          outputType_.has_value(), "TableScanNode outputType is not set");
+      VELOX_USER_CHECK(
+          tableHandle_.has_value(), "TableScanNode tableHandle is not set");
+      VELOX_USER_CHECK(
+          assignments_.has_value(), "TableScanNode assignments is not set");
+
+      return std::make_shared<TableScanNode>(
+          id_.value(),
+          outputType_.value(),
+          tableHandle_.value(),
+          assignments_.value());
+    }
+
+   private:
+    std::optional<PlanNodeId> id_;
+    std::optional<RowTypePtr> outputType_;
+    std::optional<std::shared_ptr<connector::ConnectorTableHandle>>
+        tableHandle_;
+    std::optional<std::unordered_map<
+        std::string,
+        std::shared_ptr<connector::ColumnHandle>>>
+        assignments_;
+  };
 
   const std::vector<PlanNodePtr>& sources() const override;
 
@@ -724,6 +1043,120 @@ class AggregationNode : public PlanNode {
       bool ignoreNullKeys,
       PlanNodePtr source);
 
+  class Builder {
+   public:
+    Builder() = default;
+
+    explicit Builder(const AggregationNode& other) {
+      id_ = other.id();
+      step_ = other.step();
+      groupingKeys_ = other.groupingKeys();
+      preGroupedKeys_ = other.preGroupedKeys();
+      aggregateNames_ = other.aggregateNames();
+      aggregates_ = other.aggregates();
+      globalGroupingSets_ = other.globalGroupingSets();
+      groupId_ = other.groupId();
+      ignoreNullKeys_ = other.ignoreNullKeys();
+      VELOX_CHECK_EQ(other.sources().size(), 1);
+      source_ = other.sources()[0];
+    }
+
+    Builder& id(PlanNodeId id) {
+      id_ = std::move(id);
+      return *this;
+    }
+
+    Builder& step(Step step) {
+      step_ = step;
+      return *this;
+    }
+
+    Builder& groupingKeys(std::vector<FieldAccessTypedExprPtr> groupingKeys) {
+      groupingKeys_ = std::move(groupingKeys);
+      return *this;
+    }
+
+    Builder& preGroupedKeys(
+        std::vector<FieldAccessTypedExprPtr> preGroupedKeys) {
+      preGroupedKeys_ = std::move(preGroupedKeys);
+      return *this;
+    }
+
+    Builder& aggregateNames(std::vector<std::string> aggregateNames) {
+      aggregateNames_ = std::move(aggregateNames);
+      return *this;
+    }
+
+    Builder& aggregates(std::vector<Aggregate> aggregates) {
+      aggregates_ = std::move(aggregates);
+      return *this;
+    }
+
+    Builder& globalGroupingSets(std::vector<vector_size_t> globalGroupingSets) {
+      globalGroupingSets_ = std::move(globalGroupingSets);
+      return *this;
+    }
+
+    Builder& groupId(std::optional<FieldAccessTypedExprPtr> groupId) {
+      groupId_ = std::move(groupId);
+      return *this;
+    }
+
+    Builder& ignoreNullKeys(bool ignoreNullKeys) {
+      ignoreNullKeys_ = ignoreNullKeys;
+      return *this;
+    }
+
+    Builder& source(PlanNodePtr source) {
+      source_ = std::move(source);
+      return *this;
+    }
+
+    std::shared_ptr<AggregationNode> build() const {
+      VELOX_USER_CHECK(id_.has_value(), "AggregationNode id is not set");
+      VELOX_USER_CHECK(step_.has_value(), "AggregationNode step is not set");
+      VELOX_USER_CHECK(
+          groupingKeys_.has_value(), "AggregationNode groupingKeys is not set");
+      VELOX_USER_CHECK(
+          preGroupedKeys_.has_value(),
+          "AggregationNode preGroupedKeys is not set");
+      VELOX_USER_CHECK(
+          aggregateNames_.has_value(),
+          "AggregationNode aggregateNames is not set");
+      VELOX_USER_CHECK(
+          aggregates_.has_value(), "AggregationNode aggregates is not set");
+      VELOX_USER_CHECK(
+          ignoreNullKeys_.has_value(),
+          "AggregationNode ignoreNullKeys is not set");
+      VELOX_USER_CHECK(
+          source_.has_value(), "AggregationNode source is not set");
+
+      return std::make_shared<AggregationNode>(
+          id_.value(),
+          step_.value(),
+          groupingKeys_.value(),
+          preGroupedKeys_.value(),
+          aggregateNames_.value(),
+          aggregates_.value(),
+          globalGroupingSets_,
+          groupId_,
+          ignoreNullKeys_.value(),
+          source_.value());
+    }
+
+   private:
+    std::optional<PlanNodeId> id_;
+    std::optional<Step> step_;
+    std::optional<std::vector<FieldAccessTypedExprPtr>> groupingKeys_;
+    std::optional<std::vector<FieldAccessTypedExprPtr>> preGroupedKeys_;
+    std::optional<std::vector<std::string>> aggregateNames_;
+    std::optional<std::vector<Aggregate>> aggregates_;
+    std::vector<vector_size_t> globalGroupingSets_ = kDefaultGlobalGroupingSets;
+    std::optional<FieldAccessTypedExprPtr> groupId_ = kDefaultGroupId;
+    std::optional<bool> ignoreNullKeys_;
+    std::optional<PlanNodePtr> source_;
+  };
+
   const std::vector<PlanNodePtr>& sources() const override {
     return sources_;
   }
@@ -799,6 +1232,9 @@ class AggregationNode : public PlanNode {
   static PlanNodePtr create(const folly::dynamic& obj, void* context);
 
  private:
+  static const std::vector<vector_size_t> kDefaultGlobalGroupingSets;
+  static const std::optional<FieldAccessTypedExprPtr> kDefaultGroupId;
+
   void addDetails(std::stringstream& stream) const override;
 
   const Step step_;
@@ -867,6 +1303,116 @@ class TableWriteNode : public PlanNode {
           source->outputType()->toString());
     }
   }
+
+  class Builder {
+   public:
+    Builder() = default;
+
+    explicit Builder(const TableWriteNode& other) {
+      id_ = other.id();
+      columns_ = other.columns();
+      columnNames_ = other.columnNames();
+      aggregationNode_ = other.aggregationNode();
+      insertTableHandle_ = other.insertTableHandle();
+      hasPartitioningScheme_ = other.hasPartitioningScheme();
+      outputType_ = other.outputType();
+      commitStrategy_ = other.commitStrategy();
+      VELOX_CHECK_EQ(other.sources().size(), 1);
+      source_ = other.sources()[0];
+    }
+
+    Builder& id(PlanNodeId id) {
+      id_ = std::move(id);
+      return *this;
+    }
+
+    Builder& columns(RowTypePtr columns) {
+      columns_ = std::move(columns);
+      return *this;
+    }
+
+    Builder& columnNames(std::vector<std::string> columnNames) {
+      columnNames_ = std::move(columnNames);
+      return *this;
+    }
+
+    Builder& aggregationNode(std::shared_ptr<AggregationNode> aggregationNode) {
+      aggregationNode_ = std::move(aggregationNode);
+      return *this;
+    }
+
+    Builder& insertTableHandle(
+        std::shared_ptr<InsertTableHandle> insertTableHandle) {
+      insertTableHandle_ = std::move(insertTableHandle);
+      return *this;
+    }
+
+    Builder& hasPartitioningScheme(bool hasPartitioningScheme) {
+      hasPartitioningScheme_ = hasPartitioningScheme;
+      return *this;
+    }
+
+    Builder& outputType(RowTypePtr outputType) {
+      outputType_ = std::move(outputType);
+      return *this;
+    }
+
+    Builder& commitStrategy(connector::CommitStrategy commitStrategy) {
+      commitStrategy_ = commitStrategy;
+      return *this;
+    }
+
+    Builder& source(PlanNodePtr source) {
+      source_ = std::move(source);
+      return *this;
+    }
+
+    std::shared_ptr<TableWriteNode> build() const {
+      VELOX_USER_CHECK(id_.has_value(), "TableWriteNode id is not set");
+      VELOX_USER_CHECK(
+          columns_.has_value(), "TableWriteNode columns is not set");
+      VELOX_USER_CHECK(
+          columnNames_.has_value(), "TableWriteNode columnNames is not set");
+      VELOX_USER_CHECK(
+          aggregationNode_.has_value(),
+          "TableWriteNode aggregationNode is not set");
+      VELOX_USER_CHECK(
+
+          insertTableHandle_.has_value(),
+          "TableWriteNode insertTableHandle is not set");
+      VELOX_USER_CHECK(
+          hasPartitioningScheme_.has_value(),
+          "TableWriteNode hasPartitioningScheme is not set");
+      VELOX_USER_CHECK(
+          outputType_.has_value(), "TableWriteNode outputType is not set");
+      VELOX_USER_CHECK(
+          commitStrategy_.has_value(),
+          "TableWriteNode commitStrategy is not set");
+      VELOX_USER_CHECK(source_.has_value(), "TableWriteNode source is not set");
+
+      return std::make_shared<TableWriteNode>(
+          id_.value(),
+          columns_.value(),
+          columnNames_.value(),
+          aggregationNode_.value(),
+          insertTableHandle_.value(),
+          hasPartitioningScheme_.value(),
+          outputType_.value(),
+          commitStrategy_.value(),
+          source_.value());
+    }
+
+   private:
+    std::optional<PlanNodeId> id_;
+    std::optional<RowTypePtr> columns_;
+    std::optional<std::vector<std::string>> columnNames_;
+    std::optional<std::shared_ptr<AggregationNode>> aggregationNode_;
+    std::optional<std::shared_ptr<InsertTableHandle>> insertTableHandle_;
+    std::optional<bool> hasPartitioningScheme_;
+    std::optional<RowTypePtr> outputType_;
+    std::optional<connector::CommitStrategy> commitStrategy_;
+    std::optional<PlanNodePtr> source_;
+  };
 
   const std::vector<PlanNodePtr>& sources() const override {
     return sources_;
@@ -953,6 +1499,62 @@ class TableWriteMergeNode : public PlanNode {
         sources_{std::move(source)},
         outputType_(std::move(outputType)) {}
 
+  class Builder {
+   public:
+    Builder() = default;
+
+    explicit Builder(const TableWriteMergeNode& other) {
+      id_ = other.id();
+      outputType_ = other.outputType();
+      aggregationNode_ = other.aggregationNode();
+      VELOX_CHECK_EQ(other.sources().size(), 1);
+      source_ = other.sources()[0];
+    }
+
+    Builder& id(PlanNodeId id) {
+      id_ = std::move(id);
+      return *this;
+    }
+
+    Builder& outputType(RowTypePtr outputType) {
+      outputType_ = std::move(outputType);
+      return *this;
+    }
+
+    Builder& aggregationNode(std::shared_ptr<AggregationNode> aggregationNode) {
+      aggregationNode_ = std::move(aggregationNode);
+      return *this;
+    }
+
+    Builder& source(PlanNodePtr source) {
+      source_ = std::move(source);
+      return *this;
+    }
+
+    std::shared_ptr<TableWriteMergeNode> build() const {
+      VELOX_USER_CHECK(id_.has_value(), "TableWriteMergeNode id is not set");
+      VELOX_USER_CHECK(
+          outputType_.has_value(), "TableWriteMergeNode outputType is not set");
+      VELOX_USER_CHECK(
+          aggregationNode_.has_value(),
+          "TableWriteMergeNode aggregationNode is not set");
+      VELOX_USER_CHECK(
+          source_.has_value(), "TableWriteMergeNode source is not set");
+
+      return std::make_shared<TableWriteMergeNode>(
+          id_.value(),
+          outputType_.value(),
+          aggregationNode_.value(),
+          source_.value());
+    }
+
+   private:
+    std::optional<PlanNodeId> id_;
+    std::optional<RowTypePtr> outputType_;
+    std::optional<std::shared_ptr<AggregationNode>> aggregationNode_;
+    std::optional<PlanNodePtr> source_;
+  };
+
   /// Optional aggregation node for column statistics collection
   std::shared_ptr<AggregationNode> aggregationNode() const {
     return aggregationNode_;
@@ -998,6 +1600,56 @@ class ExpandNode : public PlanNode {
       std::vector<std::vector<TypedExprPtr>> projections,
       std::vector<std::string> names,
       PlanNodePtr source);
+
+  class Builder {
+   public:
+    Builder() = default;
+
+    explicit Builder(const ExpandNode& other) {
+      id_ = other.id();
+      projections_ = other.projections();
+      names_ = other.names();
+      VELOX_CHECK_EQ(other.sources().size(), 1);
+      source_ = other.sources()[0];
+    }
+
+    Builder& id(PlanNodeId id) {
+      id_ = std::move(id);
+      return *this;
+    }
+
+    Builder& projections(std::vector<std::vector<TypedExprPtr>> projections) {
+      projections_ = std::move(projections);
+      return *this;
+    }
+
+    Builder& names(std::vector<std::string> names) {
+      names_ = std::move(names);
+      return *this;
+    }
+
+    Builder& source(PlanNodePtr source) {
+      source_ = std::move(source);
+      return *this;
+    }
+
+    std::shared_ptr<ExpandNode> build() const {
+      VELOX_USER_CHECK(id_.has_value(), "ExpandNode id is not set");
+      VELOX_USER_CHECK(
+          projections_.has_value(), "ExpandNode projections is not set");
+      VELOX_USER_CHECK(names_.has_value(), "ExpandNode names is not set");
+      VELOX_USER_CHECK(source_.has_value(), "ExpandNode source is not set");
+
+      return std::make_shared<ExpandNode>(
+          id_.value(), projections_.value(), names_.value(), source_.value());
+    }
+
+   private:
+    std::optional<PlanNodeId> id_;
+    std::optional<std::vector<std::vector<TypedExprPtr>>> projections_;
+    std::optional<std::vector<std::string>> names_;
+    std::optional<PlanNodePtr> source_;
+  };
 
   const RowTypePtr& outputType() const override {
     return outputType_;
@@ -1074,6 +1726,83 @@ class GroupIdNode : public PlanNode {
       std::string groupIdName,
       PlanNodePtr source);
 
+  class Builder {
+   public:
+    Builder() = default;
+
+    explicit Builder(const GroupIdNode& other) {
+      id_ = other.id();
+      groupingSets_ = other.groupingSets();
+      groupingKeyInfos_ = other.groupingKeyInfos();
+      aggregationInputs_ = other.aggregationInputs();
+      groupIdName_ = other.groupIdName();
+      VELOX_CHECK_EQ(other.sources().size(), 1);
+      source_ = other.sources()[0];
+    }
+
+    Builder& id(PlanNodeId id) {
+      id_ = std::move(id);
+      return *this;
+    }
+
+    Builder& groupingSets(std::vector<std::vector<std::string>> groupingSets) {
+      groupingSets_ = std::move(groupingSets);
+      return *this;
+    }
+
+    Builder& groupingKeyInfos(std::vector<GroupingKeyInfo> groupingKeyInfos) {
+      groupingKeyInfos_ = std::move(groupingKeyInfos);
+      return *this;
+    }
+
+    Builder& aggregationInputs(
+        std::vector<FieldAccessTypedExprPtr> aggregationInputs) {
+      aggregationInputs_ = std::move(aggregationInputs);
+      return *this;
+    }
+
+    Builder& groupIdName(std::string groupIdName) {
+      groupIdName_ = std::move(groupIdName);
+      return *this;
+    }
+
+    Builder& source(PlanNodePtr source) {
+      source_ = std::move(source);
+      return *this;
+    }
+
+    std::shared_ptr<GroupIdNode> build() const {
+      VELOX_USER_CHECK(id_.has_value(), "GroupIdNode id is not set");
+      VELOX_USER_CHECK(
+          groupingSets_.has_value(), "GroupIdNode groupingSets is not set");
+      VELOX_USER_CHECK(
+          groupingKeyInfos_.has_value(),
+          "GroupIdNode groupingKeyInfos is not set");
+      VELOX_USER_CHECK(
+          aggregationInputs_.has_value(),
+          "GroupIdNode aggregationInputs is not set");
+      VELOX_USER_CHECK(
+          groupIdName_.has_value(), "GroupIdNode groupIdName is not set");
+      VELOX_USER_CHECK(source_.has_value(), "GroupIdNode source is not set");
+
+      return std::make_shared<GroupIdNode>(
+          id_.value(),
+          groupingSets_.value(),
+          groupingKeyInfos_.value(),
+          aggregationInputs_.value(),
+          groupIdName_.value(),
+          source_.value());
+    }
+
+   private:
+    std::optional<PlanNodeId> id_;
+    std::optional<std::vector<std::vector<std::string>>> groupingSets_;
+    std::optional<std::vector<GroupingKeyInfo>> groupingKeyInfos_;
+    std::optional<std::vector<FieldAccessTypedExprPtr>> aggregationInputs_;
+    std::optional<std::string> groupIdName_;
+    std::optional<PlanNodePtr> source_;
+  };
+
   const RowTypePtr& outputType() const override {
     return outputType_;
   }
@@ -1137,6 +1866,48 @@ class ExchangeNode : public PlanNode {
       VectorSerde::Kind serdeKind)
       : PlanNode(id), outputType_(type), serdeKind_(serdeKind) {}
 
+  class Builder {
+   public:
+    Builder() = default;
+
+    explicit Builder(const ExchangeNode& other) {
+      id_ = other.id();
+      outputType_ = other.outputType();
+      serdeKind_ = other.serdeKind();
+    }
+
+    Builder& id(PlanNodeId id) {
+      id_ = std::move(id);
+      return *this;
+    }
+
+    Builder& outputType(RowTypePtr outputType) {
+      outputType_ = std::move(outputType);
+      return *this;
+    }
+
+    Builder& serdeKind(VectorSerde::Kind serdeKind) {
+      serdeKind_ = serdeKind;
+      return *this;
+    }
+
+    std::shared_ptr<ExchangeNode> build() const {
+      VELOX_USER_CHECK(id_.has_value(), "ExchangeNode id is not set");
+      VELOX_USER_CHECK(
+          outputType_.has_value(), "ExchangeNode outputType is not set");
+      VELOX_USER_CHECK(
+          serdeKind_.has_value(), "ExchangeNode serdeKind is not set");
+
+      return std::make_shared<ExchangeNode>(
+          id_.value(), outputType_.value(), serdeKind_.value());
+    }
+
+   private:
+    std::optional<PlanNodeId> id_;
+    std::optional<RowTypePtr> outputType_;
+    std::optional<VectorSerde::Kind> serdeKind_;
+  };
+
   const RowTypePtr& outputType() const override {
     return outputType_;
   }
@@ -1182,6 +1953,71 @@ class MergeExchangeNode : public ExchangeNode {
       const std::vector<SortOrder>& sortingOrders,
       VectorSerde::Kind serdeKind);
 
+  class Builder {
+   public:
+    Builder() = default;
+
+    explicit Builder(const MergeExchangeNode& other) {
+      id_ = other.id();
+      outputType_ = other.outputType();
+      sortingKeys_ = other.sortingKeys();
+      sortingOrders_ = other.sortingOrders();
+      serdeKind_ = other.serdeKind();
+    }
+
+    Builder& id(PlanNodeId id) {
+      id_ = std::move(id);
+      return *this;
+    }
+
+    Builder& outputType(RowTypePtr outputType) {
+      outputType_ = std::move(outputType);
+      return *this;
+    }
+
+    Builder& sortingKeys(std::vector<FieldAccessTypedExprPtr> sortingKeys) {
+      sortingKeys_ = std::move(sortingKeys);
+      return *this;
+    }
+
+    Builder& sortingOrders(std::vector<SortOrder> sortingOrders) {
+      sortingOrders_ = std::move(sortingOrders);
+      return *this;
+    }
+
+    Builder& serdeKind(VectorSerde::Kind serdeKind) {
+      serdeKind_ = serdeKind;
+      return *this;
+    }
+
+    std::shared_ptr<MergeExchangeNode> build() const {
+      VELOX_USER_CHECK(id_.has_value(), "MergeExchangeNode id is not set");
+      VELOX_USER_CHECK(
+          outputType_.has_value(), "MergeExchangeNode outputType is not set");
+      VELOX_USER_CHECK(
+          sortingKeys_.has_value(), "MergeExchangeNode sortingKeys is not set");
+      VELOX_USER_CHECK(
+          sortingOrders_.has_value(),
+          "MergeExchangeNode sortingOrders is not set");
+      VELOX_USER_CHECK(
+          serdeKind_.has_value(), "MergeExchangeNode serdeKind is not set");
+
+      return std::make_shared<MergeExchangeNode>(
+          id_.value(),
+          outputType_.value(),
+          sortingKeys_.value(),
+          sortingOrders_.value(),
+          serdeKind_.value());
+    }
+
+   private:
+    std::optional<PlanNodeId> id_;
+    std::optional<RowTypePtr> outputType_;
+    std::optional<std::vector<FieldAccessTypedExprPtr>> sortingKeys_;
+    std::optional<std::vector<SortOrder>> sortingOrders_;
+    std::optional<VectorSerde::Kind> serdeKind_;
+  };
+
   const std::vector<FieldAccessTypedExprPtr>& sortingKeys() const {
     return sortingKeys_;
   }
@@ -1219,6 +2055,61 @@ class LocalMergeNode : public PlanNode {
         sources_{std::move(sources)},
         sortingKeys_{std::move(sortingKeys)},
         sortingOrders_{std::move(sortingOrders)} {}
+
+  class Builder {
+   public:
+    Builder() = default;
+
+    explicit Builder(const LocalMergeNode& other) {
+      id_ = other.id();
+      sortingKeys_ = other.sortingKeys();
+      sortingOrders_ = other.sortingOrders();
+      sources_ = other.sources();
+    }
+
+    Builder& id(PlanNodeId id) {
+      id_ = std::move(id);
+      return *this;
+    }
+
+    Builder& sortingKeys(std::vector<FieldAccessTypedExprPtr> sortingKeys) {
+      sortingKeys_ = std::move(sortingKeys);
+      return *this;
+    }
+
+    Builder& sortingOrders(std::vector<SortOrder> sortingOrders) {
+      sortingOrders_ = std::move(sortingOrders);
+      return *this;
+    }
+
+    Builder& sources(std::vector<PlanNodePtr> sources) {
+      sources_ = std::move(sources);
+      return *this;
+    }
+
+    std::shared_ptr<LocalMergeNode> build() const {
+      VELOX_USER_CHECK(id_.has_value(), "LocalMergeNode id is not set");
+      VELOX_USER_CHECK(
+          sortingKeys_.has_value(), "LocalMergeNode sortingKeys is not set");
+      VELOX_USER_CHECK(
+          sortingOrders_.has_value(),
+          "LocalMergeNode sortingOrders is not set");
+      VELOX_USER_CHECK(
+          sources_.has_value(), "LocalMergeNode sources is not set");
+
+      return std::make_shared<LocalMergeNode>(
+          id_.value(),
+          sortingKeys_.value(),
+          sortingOrders_.value(),
+          sources_.value());
+    }
+
+   private:
+    std::optional<PlanNodeId> id_;
+    std::optional<std::vector<FieldAccessTypedExprPtr>> sortingKeys_;
+    std::optional<std::vector<SortOrder>> sortingOrders_;
+    std::optional<std::vector<PlanNodePtr>> sources_;
+  };
 
   const RowTypePtr& outputType() const override {
     return sources_[0]->outputType();
@@ -1357,6 +2248,71 @@ class LocalPartitionNode : public PlanNode {
     }
   }
 
+  class Builder {
+   public:
+    Builder() = default;
+
+    explicit Builder(const LocalPartitionNode& other) {
+      id_ = other.id();
+      type_ = other.type();
+      scaleWriter_ = other.scaleWriter();
+      partitionFunctionSpec_ = other.partitionFunctionSpec_;
+      sources_ = other.sources();
+    }
+
+    Builder& id(PlanNodeId id) {
+      id_ = std::move(id);
+      return *this;
+    }
+
+    Builder& type(LocalPartitionNode::Type type) {
+      type_ = type;
+      return *this;
+    }
+
+    Builder& scaleWriter(bool scaleWriter) {
+      scaleWriter_ = scaleWriter;
+      return *this;
+    }
+
+    Builder& partitionFunctionSpec(PartitionFunctionSpecPtr spec) {
+      partitionFunctionSpec_ = std::move(spec);
+      return *this;
+    }
+
+    Builder& sources(std::vector<PlanNodePtr> sources) {
+      sources_ = std::move(sources);
+      return *this;
+    }
+
+    std::shared_ptr<LocalPartitionNode> build() const {
+      VELOX_USER_CHECK(id_.has_value(), "LocalPartitionNode id is not set");
+      VELOX_USER_CHECK(type_.has_value(), "LocalPartitionNode type is not set");
+      VELOX_USER_CHECK(
+          scaleWriter_.has_value(),
+          "LocalPartitionNode scaleWriter is not set");
+      VELOX_USER_CHECK(
+          partitionFunctionSpec_.has_value(),
+          "LocalPartitionNode partitionFunctionSpec is not set");
+      VELOX_USER_CHECK(
+          sources_.has_value(), "LocalPartitionNode sources is not set");
+
+      return std::make_shared<LocalPartitionNode>(
+          id_.value(),
+          type_.value(),
+          scaleWriter_.value(),
+          partitionFunctionSpec_.value(),
+          sources_.value());
+    }
+
+   private:
+    std::optional<PlanNodeId> id_;
+    std::optional<LocalPartitionNode::Type> type_;
+    std::optional<bool> scaleWriter_;
+    std::optional<PartitionFunctionSpecPtr> partitionFunctionSpec_;
+    std::optional<std::vector<PlanNodePtr>> sources_;
+  };
+
   static std::shared_ptr<LocalPartitionNode> gather(
       const PlanNodeId& id,
       std::vector<PlanNodePtr> sources) {
@@ -1448,6 +2404,115 @@ class PartitionedOutputNode : public PlanNode {
       RowTypePtr outputType,
       VectorSerde::Kind VectorSerde,
       PlanNodePtr source);
+
+  class Builder {
+   public:
+    Builder() = default;
+
+    explicit Builder(const PartitionedOutputNode& other) {
+      id_ = other.id();
+      kind_ = other.kind();
+      keys_ = other.keys();
+      numPartitions_ = other.numPartitions();
+      replicateNullsAndAny_ = other.isReplicateNullsAndAny();
+      partitionFunctionSpec_ = other.partitionFunctionSpecPtr();
+      outputType_ = other.outputType();
+      serdeKind_ = other.serdeKind();
+      VELOX_CHECK_EQ(other.sources().size(), 1);
+      source_ = other.sources()[0];
+    }
+
+    Builder& id(PlanNodeId id) {
+      id_ = std::move(id);
+      return *this;
+    }
+
+    Builder& kind(PartitionedOutputNode::Kind kind) {
+      kind_ = kind;
+      return *this;
+    }
+
+    Builder& keys(std::vector<TypedExprPtr> keys) {
+      keys_ = std::move(keys);
+      return *this;
+    }
+
+    Builder& numPartitions(int numPartitions) {
+      numPartitions_ = numPartitions;
+      return *this;
+    }
+
+    Builder& replicateNullsAndAny(bool replicate) {
+      replicateNullsAndAny_ = replicate;
+      return *this;
+    }
+
+    Builder& partitionFunctionSpec(PartitionFunctionSpecPtr spec) {
+      partitionFunctionSpec_ = std::move(spec);
+      return *this;
+    }
+
+    Builder& outputType(RowTypePtr outputType) {
+      outputType_ = std::move(outputType);
+      return *this;
+    }
+
+    Builder& serdeKind(VectorSerde::Kind serdeKind) {
+      serdeKind_ = serdeKind;
+      return *this;
+    }
+
+    Builder& source(PlanNodePtr source) {
+      source_ = std::move(source);
+      return *this;
+    }
+
+    std::shared_ptr<PartitionedOutputNode> build() const {
+      VELOX_USER_CHECK(id_.has_value(), "PartitionedOutputNode id is not set");
+      VELOX_USER_CHECK(
+          kind_.has_value(), "PartitionedOutputNode kind is not set");
+      VELOX_USER_CHECK(
+          keys_.has_value(), "PartitionedOutputNode keys is not set");
+      VELOX_USER_CHECK(
+          numPartitions_.has_value(),
+          "PartitionedOutputNode numPartitions is not set");
+      VELOX_USER_CHECK(
+          replicateNullsAndAny_.has_value(),
+          "PartitionedOutputNode replicateNullsAndAny is not set");
+      VELOX_USER_CHECK(
+          partitionFunctionSpec_.has_value(),
+          "PartitionedOutputNode partitionFunctionSpec is not set");
+      VELOX_USER_CHECK(
+          outputType_.has_value(),
+          "PartitionedOutputNode outputType is not set");
+      VELOX_USER_CHECK(
+          serdeKind_.has_value(), "PartitionedOutputNode serdeKind is not set");
+      VELOX_USER_CHECK(
+          source_.has_value(), "PartitionedOutputNode source is not set");
+
+      return std::make_shared<PartitionedOutputNode>(
+          id_.value(),
+          kind_.value(),
+          keys_.value(),
+          numPartitions_.value(),
+          replicateNullsAndAny_.value(),
+          partitionFunctionSpec_.value(),
+          outputType_.value(),
+          serdeKind_.value(),
+          source_.value());
+    }
+
+   private:
+    std::optional<PlanNodeId> id_;
+    std::optional<PartitionedOutputNode::Kind> kind_;
+    std::optional<std::vector<TypedExprPtr>> keys_;
+    std::optional<int> numPartitions_;
+    std::optional<bool> replicateNullsAndAny_;
+    std::optional<PartitionFunctionSpecPtr> partitionFunctionSpec_;
+    std::optional<RowTypePtr> outputType_;
+    std::optional<VectorSerde::Kind> serdeKind_;
+    std::optional<PlanNodePtr> source_;
+  };
 
   const RowTypePtr& outputType() const override {
     return outputType_;
@@ -1672,6 +2737,76 @@ class AbstractJoinNode : public PlanNode {
       PlanNodePtr right,
       RowTypePtr outputType);
 
+  template <typename DerivedPlanNode, typename DerivedBuilder>
+  class Builder {
+   public:
+    Builder() = default;
+
+    explicit Builder(const AbstractJoinNode& other) {
+      id_ = other.id();
+      joinType_ = other.joinType();
+      leftKeys_ = other.leftKeys();
+      rightKeys_ = other.rightKeys();
+      filter_ = other.filter();
+      VELOX_CHECK_EQ(other.sources().size(), 2);
+      left_ = other.sources()[0];
+      right_ = other.sources()[1];
+      outputType_ = other.outputType();
+    }
+
+    virtual ~Builder() = default;
+
+    DerivedBuilder& id(PlanNodeId id) {
+      id_ = std::move(id);
+      return static_cast<DerivedBuilder&>(*this);
+    }
+
+    DerivedBuilder& joinType(JoinType joinType) {
+      joinType_ = joinType;
+      return static_cast<DerivedBuilder&>(*this);
+    }
+
+    DerivedBuilder& leftKeys(std::vector<FieldAccessTypedExprPtr> leftKeys) {
+      leftKeys_ = std::move(leftKeys);
+      return static_cast<DerivedBuilder&>(*this);
+    }
+
+    DerivedBuilder& rightKeys(std::vector<FieldAccessTypedExprPtr> rightKeys) {
+      rightKeys_ = std::move(rightKeys);
+      return static_cast<DerivedBuilder&>(*this);
+    }
+
+    DerivedBuilder& filter(TypedExprPtr filter) {
+      filter_ = std::move(filter);
+      return static_cast<DerivedBuilder&>(*this);
+    }
+
+    DerivedBuilder& left(PlanNodePtr left) {
+      left_ = std::move(left);
+      return static_cast<DerivedBuilder&>(*this);
+    }
+
+    DerivedBuilder& right(PlanNodePtr right) {
+      right_ = std::move(right);
+      return static_cast<DerivedBuilder&>(*this);
+    }
+
+    DerivedBuilder& outputType(RowTypePtr outputType) {
+      outputType_ = std::move(outputType);
+      return static_cast<DerivedBuilder&>(*this);
+    }
+
+   protected:
+    std::optional<PlanNodeId> id_;
+    std::optional<JoinType> joinType_;
+    std::optional<std::vector<FieldAccessTypedExprPtr>> leftKeys_;
+    std::optional<std::vector<FieldAccessTypedExprPtr>> rightKeys_;
+    std::optional<TypedExprPtr> filter_;
+    std::optional<PlanNodePtr> left_;
+    std::optional<PlanNodePtr> right_;
+    std::optional<RowTypePtr> outputType_;
+  };
+
   const std::vector<PlanNodePtr>& sources() const override {
     return sources_;
   }
@@ -1797,6 +2932,53 @@ class HashJoinNode : public AbstractJoinNode {
     }
   }
 
+  class Builder : public AbstractJoinNode::Builder<HashJoinNode, Builder> {
+   public:
+    Builder() = default;
+
+    explicit Builder(const HashJoinNode& other)
+        : AbstractJoinNode::Builder<HashJoinNode, Builder>(other) {
+      nullAware_ = other.isNullAware();
+    }
+
+    Builder& nullAware(bool value) {
+      nullAware_ = value;
+      return *this;
+    }
+
+    std::shared_ptr<HashJoinNode> build() const {
+      VELOX_USER_CHECK(id_.has_value(), "HashJoinNode id is not set");
+      VELOX_USER_CHECK(
+          joinType_.has_value(), "HashJoinNode joinType is not set");
+      VELOX_USER_CHECK(
+          leftKeys_.has_value(), "HashJoinNode leftKeys is not set");
+      VELOX_USER_CHECK(
+          rightKeys_.has_value(), "HashJoinNode rightKeys is not set");
+      VELOX_USER_CHECK(
+          left_.has_value(), "HashJoinNode left source is not set");
+      VELOX_USER_CHECK(
+          right_.has_value(), "HashJoinNode right source is not set");
+      VELOX_USER_CHECK(
+          outputType_.has_value(), "HashJoinNode outputType is not set");
+      VELOX_USER_CHECK(
+          nullAware_.has_value(), "HashJoinNode nullAware flag is not set");
+
+      return std::make_shared<HashJoinNode>(
+          id_.value(),
+          joinType_.value(),
+          nullAware_.value(),
+          leftKeys_.value(),
+          rightKeys_.value(),
+          filter_.value_or(nullptr),
+          left_.value(),
+          right_.value(),
+          outputType_.value());
+    }
+
+   private:
+    std::optional<bool> nullAware_;
+  };
+
   std::string_view name() const override {
     return "HashJoin";
   }
@@ -1843,6 +3025,40 @@ class MergeJoinNode : public AbstractJoinNode {
       PlanNodePtr left,
       PlanNodePtr right,
       RowTypePtr outputType);
+
+  class Builder : public AbstractJoinNode::Builder<MergeJoinNode, Builder> {
+   public:
+    Builder() = default;
+
+    explicit Builder(const MergeJoinNode& other)
+        : AbstractJoinNode::Builder<MergeJoinNode, Builder>(other) {}
+
+    std::shared_ptr<MergeJoinNode> build() const {
+      VELOX_USER_CHECK(id_.has_value(), "MergeJoinNode id is not set");
+      VELOX_USER_CHECK(
+          joinType_.has_value(), "MergeJoinNode joinType is not set");
+      VELOX_USER_CHECK(
+          leftKeys_.has_value(), "MergeJoinNode leftKeys is not set");
+      VELOX_USER_CHECK(
+          rightKeys_.has_value(), "MergeJoinNode rightKeys is not set");
+      VELOX_USER_CHECK(
+          left_.has_value(), "MergeJoinNode left source is not set");
+      VELOX_USER_CHECK(
+          right_.has_value(), "MergeJoinNode right source is not set");
+      VELOX_USER_CHECK(
+          outputType_.has_value(), "MergeJoinNode outputType is not set");
+
+      return std::make_shared<MergeJoinNode>(
+          id_.value(),
+          joinType_.value(),
+          leftKeys_.value(),
+          rightKeys_.value(),
+          filter_.value_or(nullptr),
+          left_.value(),
+          right_.value(),
+          outputType_.value());
+    }
+  };
 
   std::string_view name() const override {
     return "MergeJoin";
@@ -2020,6 +3236,55 @@ class IndexLookupJoinNode : public AbstractJoinNode {
         joinTypeName(joinType_));
   }
 
+  class Builder
+      : public AbstractJoinNode::Builder<IndexLookupJoinNode, Builder> {
+   public:
+    Builder() = default;
+
+    explicit Builder(const IndexLookupJoinNode& other)
+        : AbstractJoinNode::Builder<IndexLookupJoinNode, Builder>(other) {
+      joinConditions_ = other.joinConditions();
+    }
+
+    Builder& joinConditions(
+        std::vector<IndexLookupConditionPtr> joinConditions) {
+      joinConditions_ = std::move(joinConditions);
+      return *this;
+    }
+
+    std::shared_ptr<IndexLookupJoinNode> build() const {
+      VELOX_USER_CHECK(id_.has_value(), "IndexLookupJoinNode id is not set");
+      VELOX_USER_CHECK(
+          joinType_.has_value(), "IndexLookupJoinNode joinType is not set");
+      VELOX_USER_CHECK(
+          leftKeys_.has_value(), "IndexLookupJoinNode leftKeys is not set");
+      VELOX_USER_CHECK(
+          rightKeys_.has_value(), "IndexLookupJoinNode rightKeys is not set");
+      VELOX_USER_CHECK(
+          left_.has_value(), "IndexLookupJoinNode left source is not set");
+      VELOX_USER_CHECK(
+          right_.has_value(), "IndexLookupJoinNode right source is not set");
+      VELOX_USER_CHECK(
+          outputType_.has_value(), "IndexLookupJoinNode outputType is not set");
+      VELOX_USER_CHECK(
+          joinConditions_.has_value(),
+          "IndexLookupJoinNode join conditions are not set");
+
+      return std::make_shared<IndexLookupJoinNode>(
+          id_.value(),
+          joinType_.value(),
+          leftKeys_.value(),
+          rightKeys_.value(),
+          joinConditions_.value(),
+          left_.value(),
+          std::dynamic_pointer_cast<const TableScanNode>(right_.value()),
+          outputType_.value());
+    }
+
+   private:
+    std::optional<std::vector<IndexLookupConditionPtr>> joinConditions_;
+  };
+
   const TableScanNodePtr& lookupSource() const {
     return lookupSourceNode_;
   }
@@ -2078,6 +3343,77 @@ class NestedLoopJoinNode : public PlanNode {
       PlanNodePtr right,
       RowTypePtr outputType);
 
+  class Builder {
+   public:
+    Builder() = default;
+
+    explicit Builder(const NestedLoopJoinNode& other) {
+      id_ = other.id();
+      joinType_ = other.joinType();
+      joinCondition_ = other.joinCondition();
+      VELOX_CHECK_EQ(other.sources().size(), 2);
+      left_ = other.sources()[0];
+      right_ = other.sources()[1];
+      outputType_ = other.outputType();
+    }
+
+    Builder& id(PlanNodeId id) {
+      id_ = std::move(id);
+      return *this;
+    }
+
+    Builder& joinType(JoinType joinType) {
+      joinType_ = joinType;
+      return *this;
+    }
+
+    Builder& joinCondition(TypedExprPtr joinCondition) {
+      joinCondition_ = std::move(joinCondition);
+      return *this;
+    }
+
+    Builder& left(PlanNodePtr left) {
+      left_ = std::move(left);
+      return *this;
+    }
+
+    Builder& right(PlanNodePtr right) {
+      right_ = std::move(right);
+      return *this;
+    }
+
+    Builder& outputType(RowTypePtr outputType) {
+      outputType_ = std::move(outputType);
+      return *this;
+    }
+
+    std::shared_ptr<NestedLoopJoinNode> build() const {
+      VELOX_USER_CHECK(id_.has_value(), "NestedLoopJoinNode id is not set");
+      VELOX_USER_CHECK(
+          left_.has_value(), "NestedLoopJoinNode left source is not set");
+      VELOX_USER_CHECK(
+          right_.has_value(), "NestedLoopJoinNode right source is not set");
+      VELOX_USER_CHECK(
+          outputType_.has_value(), "NestedLoopJoinNode outputType is not set");
+
+      return std::make_shared<NestedLoopJoinNode>(
+          id_.value(),
+          joinType_,
+          joinCondition_,
+          left_.value(),
+          right_.value(),
+          outputType_.value());
+    }
+
+   private:
+    std::optional<PlanNodeId> id_;
+    JoinType joinType_ = kDefaultJoinType;
+    TypedExprPtr joinCondition_ = kDefaultJoinCondition;
+    std::optional<PlanNodePtr> left_;
+    std::optional<PlanNodePtr> right_;
+    std::optional<RowTypePtr> outputType_;
+  };
+
   const std::vector<PlanNodePtr>& sources() const override {
     return sources_;
   }
@@ -2109,6 +3445,9 @@ class NestedLoopJoinNode : public PlanNode {
   static PlanNodePtr create(const folly::dynamic& obj, void* context);
 
  private:
+  static const JoinType kDefaultJoinType;
+  static const TypedExprPtr kDefaultJoinCondition;
+
   void addDetails(std::stringstream& stream) const override;
 
   const JoinType joinType_;
@@ -2146,6 +3485,70 @@ class OrderByNode : public PlanNode {
           sortKey->name());
     }
   }
+
+  class Builder {
+   public:
+    Builder() = default;
+
+    explicit Builder(const OrderByNode& other) {
+      id_ = other.id();
+      sortingKeys_ = other.sortingKeys();
+      sortingOrders_ = other.sortingOrders();
+      isPartial_ = other.isPartial();
+      VELOX_CHECK_EQ(other.sources().size(), 1);
+      source_ = other.sources()[0];
+    }
+
+    Builder& id(PlanNodeId id) {
+      id_ = std::move(id);
+      return *this;
+    }
+
+    Builder& sortingKeys(std::vector<FieldAccessTypedExprPtr> sortingKeys) {
+      sortingKeys_ = std::move(sortingKeys);
+      return *this;
+    }
+
+    Builder& sortingOrders(std::vector<SortOrder> sortingOrders) {
+      sortingOrders_ = std::move(sortingOrders);
+      return *this;
+    }
+
+    Builder& isPartial(bool isPartial) {
+      isPartial_ = isPartial;
+      return *this;
+    }
+
+    Builder& source(PlanNodePtr source) {
+      source_ = std::move(source);
+      return *this;
+    }
+
+    std::shared_ptr<OrderByNode> build() const {
+      VELOX_USER_CHECK(id_.has_value(), "OrderByNode id is not set");
+      VELOX_USER_CHECK(
+          sortingKeys_.has_value(), "OrderByNode sortingKeys is not set");
+      VELOX_USER_CHECK(
+          sortingOrders_.has_value(), "OrderByNode sortingOrders is not set");
+      VELOX_USER_CHECK(
+          isPartial_.has_value(), "OrderByNode isPartial is not set");
+      VELOX_USER_CHECK(source_.has_value(), "OrderByNode source is not set");
+
+      return std::make_shared<OrderByNode>(
+          id_.value(),
+          sortingKeys_.value(),
+          sortingOrders_.value(),
+          isPartial_.value(),
+          source_.value());
+    }
+
+   private:
+    std::optional<PlanNodeId> id_;
+    std::optional<std::vector<FieldAccessTypedExprPtr>> sortingKeys_;
+    std::optional<std::vector<SortOrder>> sortingOrders_;
+    std::optional<bool> isPartial_;
+    std::optional<PlanNodePtr> source_;
+  };
 
   const std::vector<FieldAccessTypedExprPtr>& sortingKeys() const {
     return sortingKeys_;
@@ -2203,6 +3606,78 @@ class TopNNode : public PlanNode {
       int32_t count,
       bool isPartial,
       const PlanNodePtr& source);
+
+  class Builder {
+   public:
+    Builder() = default;
+
+    explicit Builder(const TopNNode& other) {
+      id_ = other.id();
+      sortingKeys_ = other.sortingKeys();
+      sortingOrders_ = other.sortingOrders();
+      count_ = other.count();
+      isPartial_ = other.isPartial();
+      VELOX_CHECK_EQ(other.sources().size(), 1);
+      source_ = other.sources()[0];
+    }
+
+    Builder& id(PlanNodeId id) {
+      id_ = std::move(id);
+      return *this;
+    }
+
+    Builder& sortingKeys(std::vector<FieldAccessTypedExprPtr> sortingKeys) {
+      sortingKeys_ = std::move(sortingKeys);
+      return *this;
+    }
+
+    Builder& sortingOrders(std::vector<SortOrder> sortingOrders) {
+      sortingOrders_ = std::move(sortingOrders);
+      return *this;
+    }
+
+    Builder& count(int32_t count) {
+      count_ = count;
+      return *this;
+    }
+
+    Builder& isPartial(bool isPartial) {
+      isPartial_ = isPartial;
+      return *this;
+    }
+
+    Builder& source(PlanNodePtr source) {
+      source_ = std::move(source);
+      return *this;
+    }
+
+    std::shared_ptr<TopNNode> build() const {
+      VELOX_USER_CHECK(id_.has_value(), "TopNNode id is not set");
+      VELOX_USER_CHECK(
+          sortingKeys_.has_value(), "TopNNode sortingKeys is not set");
+      VELOX_USER_CHECK(
+          sortingOrders_.has_value(), "TopNNode sortingOrders is not set");
+      VELOX_USER_CHECK(count_.has_value(), "TopNNode count is not set");
+      VELOX_USER_CHECK(isPartial_.has_value(), "TopNNode isPartial is not set");
+      VELOX_USER_CHECK(source_.has_value(), "TopNNode source is not set");
+
+      return std::make_shared<TopNNode>(
+          id_.value(),
+          sortingKeys_.value(),
+          sortingOrders_.value(),
+          count_.value(),
+          isPartial_.value(),
+          source_.value());
+    }
+
+   private:
+    std::optional<PlanNodeId> id_;
+    std::optional<std::vector<FieldAccessTypedExprPtr>> sortingKeys_;
+    std::optional<std::vector<SortOrder>> sortingOrders_;
+    std::optional<int32_t> count_;
+    std::optional<bool> isPartial_;
+    std::optional<PlanNodePtr> source_;
+  };
 
   const std::vector<FieldAccessTypedExprPtr>& sortingKeys() const {
     return sortingKeys_;
@@ -2271,6 +3746,68 @@ class LimitNode : public PlanNode {
         "Limit must specify greater than zero number of rows to keep");
   }
 
+  class Builder {
+   public:
+    Builder() = default;
+
+    explicit Builder(const LimitNode& other) {
+      id_ = other.id();
+      offset_ = other.offset();
+      count_ = other.count();
+      isPartial_ = other.isPartial();
+      VELOX_CHECK_EQ(other.sources().size(), 1);
+      source_ = other.sources()[0];
+    }
+
+    Builder& id(PlanNodeId id) {
+      id_ = std::move(id);
+      return *this;
+    }
+
+    Builder& offset(int64_t offset) {
+      offset_ = offset;
+      return *this;
+    }
+
+    Builder& count(int64_t count) {
+      count_ = count;
+      return *this;
+    }
+
+    Builder& isPartial(bool isPartial) {
+      isPartial_ = isPartial;
+      return *this;
+    }
+
+    Builder& source(PlanNodePtr source) {
+      source_ = std::move(source);
+      return *this;
+    }
+
+    std::shared_ptr<LimitNode> build() const {
+      VELOX_USER_CHECK(id_.has_value(), "LimitNode id is not set");
+      VELOX_USER_CHECK(offset_.has_value(), "LimitNode offset is not set");
+      VELOX_USER_CHECK(count_.has_value(), "LimitNode count is not set");
+      VELOX_USER_CHECK(
+          isPartial_.has_value(), "LimitNode isPartial is not set");
+      VELOX_USER_CHECK(source_.has_value(), "LimitNode source is not set");
+
+      return std::make_shared<LimitNode>(
+          id_.value(),
+          offset_.value(),
+          count_.value(),
+          isPartial_.value(),
+          source_.value());
+    }
+
+   private:
+    std::optional<PlanNodeId> id_;
+    std::optional<int64_t> offset_;
+    std::optional<int64_t> count_;
+    std::optional<bool> isPartial_;
+    std::optional<PlanNodePtr> source_;
+  };
+
   const RowTypePtr& outputType() const override {
     return sources_[0]->outputType();
   }
@@ -2331,9 +3868,85 @@ class UnnestNode : public PlanNode {
       const PlanNodeId& id,
       std::vector<FieldAccessTypedExprPtr> replicateVariables,
       std::vector<FieldAccessTypedExprPtr> unnestVariables,
-      const std::vector<std::string>& unnestNames,
-      const std::optional<std::string>& ordinalityName,
+      std::vector<std::string> unnestNames,
+      std::optional<std::string> ordinalityName,
       const PlanNodePtr& source);
+
+  class Builder {
+   public:
+    Builder() = default;
+
+    explicit Builder(const UnnestNode& other) {
+      id_ = other.id();
+      replicateVariables_ = other.replicateVariables();
+      unnestVariables_ = other.unnestVariables();
+      unnestNames_ = other.unnestNames_;
+      ordinalityName_ = other.ordinalityName_;
+      VELOX_CHECK_EQ(other.sources().size(), 1);
+      source_ = other.sources()[0];
+    }
+
+    Builder& id(PlanNodeId id) {
+      id_ = std::move(id);
+      return *this;
+    }
+
+    Builder& replicateVariables(
+        std::vector<FieldAccessTypedExprPtr> replicateVariables) {
+      replicateVariables_ = std::move(replicateVariables);
+      return *this;
+    }
+
+    Builder& unnestVariables(
+        std::vector<FieldAccessTypedExprPtr> unnestVariables) {
+      unnestVariables_ = std::move(unnestVariables);
+      return *this;
+    }
+
+    Builder& unnestNames(std::vector<std::string> unnestNames) {
+      unnestNames_ = std::move(unnestNames);
+      return *this;
+    }
+
+    Builder& ordinalityName(std::optional<std::string> ordinalityName) {
+      ordinalityName_ = std::move(ordinalityName);
+      return *this;
+    }
+
+    Builder& source(PlanNodePtr source) {
+      source_ = std::move(source);
+      return *this;
+    }
+
+    std::shared_ptr<UnnestNode> build() const {
+      VELOX_USER_CHECK(id_.has_value(), "UnnestNode id is not set");
+      VELOX_USER_CHECK(
+          replicateVariables_.has_value(),
+          "UnnestNode replicateVariables is not set");
+      VELOX_USER_CHECK(
+          unnestVariables_.has_value(),
+          "UnnestNode unnestVariables is not set");
+      VELOX_USER_CHECK(
+          unnestNames_.has_value(), "UnnestNode unnestNames is not set");
+      VELOX_USER_CHECK(source_.has_value(), "UnnestNode source is not set");
+
+      return std::make_shared<UnnestNode>(
+          id_.value(),
+          replicateVariables_.value(),
+          unnestVariables_.value(),
+          unnestNames_.value(),
+          ordinalityName_,
+          source_.value());
+    }
+
+   private:
+    std::optional<PlanNodeId> id_;
+    std::optional<std::vector<FieldAccessTypedExprPtr>> replicateVariables_;
+    std::optional<std::vector<FieldAccessTypedExprPtr>> unnestVariables_;
+    std::optional<std::vector<std::string>> unnestNames_;
+    std::optional<std::string> ordinalityName_;
+    std::optional<PlanNodePtr> source_;
+  };
 
   /// The order of columns in the output is: replicated columns (in the order
   /// specified), unnested columns (in the order specified, for maps: key
@@ -2358,7 +3971,7 @@ class UnnestNode : public PlanNode {
   }
 
   bool withOrdinality() const {
-    return withOrdinality_;
+    return ordinalityName_.has_value();
   }
 
   std::string_view name() const override {
@@ -2374,7 +3987,8 @@ class UnnestNode : public PlanNode {
 
   const std::vector<FieldAccessTypedExprPtr> replicateVariables_;
   const std::vector<FieldAccessTypedExprPtr> unnestVariables_;
-  const bool withOrdinality_;
+  const std::vector<std::string> unnestNames_;
+  const std::optional<std::string> ordinalityName_;
   const std::vector<PlanNodePtr> sources_;
   RowTypePtr outputType_;
 };
@@ -2388,6 +4002,40 @@ class EnforceSingleRowNode : public PlanNode {
  public:
   EnforceSingleRowNode(const PlanNodeId& id, PlanNodePtr source)
       : PlanNode(id), sources_{std::move(source)} {}
+
+  class Builder {
+   public:
+    Builder() = default;
+
+    explicit Builder(const EnforceSingleRowNode& other) {
+      id_ = other.id();
+      VELOX_CHECK_EQ(other.sources().size(), 1);
+      source_ = other.sources()[0];
+    }
+
+    Builder& id(PlanNodeId id) {
+      id_ = std::move(id);
+      return *this;
+    }
+
+    Builder& source(PlanNodePtr source) {
+      source_ = std::move(source);
+      return *this;
+    }
+
+    std::shared_ptr<EnforceSingleRowNode> build() const {
+      VELOX_USER_CHECK(id_.has_value(), "EnforceSingleRowNode id is not set");
+      VELOX_USER_CHECK(
+          source_.has_value(), "EnforceSingleRowNode source is not set");
+
+      return std::make_shared<EnforceSingleRowNode>(
+          id_.value(), source_.value());
+    }
+
+   private:
+    std::optional<PlanNodeId> id_;
+    std::optional<PlanNodePtr> source_;
+  };
 
   const RowTypePtr& outputType() const override {
     return sources_[0]->outputType();
@@ -2431,6 +4079,58 @@ class AssignUniqueIdNode : public PlanNode {
       const std::string& idName,
       const int32_t taskUniqueId,
       PlanNodePtr source);
+
+  class Builder {
+   public:
+    Builder() = default;
+
+    explicit Builder(const AssignUniqueIdNode& other) {
+      id_ = other.id();
+      idName_ = other.outputType()->names().back();
+      taskUniqueId_ = other.taskUniqueId();
+      VELOX_CHECK_EQ(other.sources().size(), 1);
+      source_ = other.sources()[0];
+    }
+
+    Builder& id(PlanNodeId id) {
+      id_ = std::move(id);
+      return *this;
+    }
+
+    Builder& idName(std::string idName) {
+      idName_ = std::move(idName);
+      return *this;
+    }
+
+    Builder& taskUniqueId(int32_t taskUniqueId) {
+      taskUniqueId_ = taskUniqueId;
+      return *this;
+    }
+
+    Builder& source(PlanNodePtr source) {
+      source_ = std::move(source);
+      return *this;
+    }
+
+    std::shared_ptr<AssignUniqueIdNode> build() const {
+      VELOX_USER_CHECK(id_.has_value(), "AssignUniqueIdNode id not set");
+      VELOX_USER_CHECK(
+          idName_.has_value(), "AssignUniqueIdNode idName not set");
+      VELOX_USER_CHECK(
+          taskUniqueId_.has_value(), "AssignUniqueIdNode taskUniqueId not set");
+      VELOX_USER_CHECK(
+          source_.has_value(), "AssignUniqueIdNode source is not set");
+
+      return std::make_shared<AssignUniqueIdNode>(
+          id_.value(), idName_.value(), taskUniqueId_.value(), source_.value());
+    }
+
+   private:
+    std::optional<PlanNodeId> id_;
+    std::optional<std::string> idName_;
+    std::optional<int32_t> taskUniqueId_;
+    std::optional<PlanNodePtr> source_;
+  };
 
   const RowTypePtr& outputType() const override {
     return outputType_;
@@ -2543,6 +4243,103 @@ class WindowNode : public PlanNode {
       bool inputsSorted,
       PlanNodePtr source);
 
+  class Builder {
+   public:
+    Builder() = default;
+
+    explicit Builder(const WindowNode& other) {
+      id_ = other.id();
+      partitionKeys_ = other.partitionKeys();
+      sortingKeys_ = other.sortingKeys();
+      sortingOrders_ = other.sortingOrders();
+      windowColumnNames_ = other.windowColumnNames_;
+      windowFunctions_ = other.windowFunctions();
+      inputsSorted_ = other.inputsSorted();
+      VELOX_CHECK_EQ(other.sources().size(), 1);
+      source_ = other.sources()[0];
+    }
+
+    Builder& id(PlanNodeId id) {
+      id_ = std::move(id);
+      return *this;
+    }
+
+    Builder& partitionKeys(std::vector<FieldAccessTypedExprPtr> partitionKeys) {
+      partitionKeys_ = std::move(partitionKeys);
+      return *this;
+    }
+
+    Builder& sortingKeys(std::vector<FieldAccessTypedExprPtr> sortingKeys) {
+      sortingKeys_ = std::move(sortingKeys);
+      return *this;
+    }
+
+    Builder& sortingOrders(std::vector<SortOrder> sortingOrders) {
+      sortingOrders_ = std::move(sortingOrders);
+      return *this;
+    }
+
+    Builder& windowColumnNames(std::vector<std::string> windowColumNames) {
+      windowColumnNames_ = std::move(windowColumNames);
+      return *this;
+    }
+
+    Builder& windowFunctions(
+        std::vector<WindowNode::Function> windowFunctions) {
+      windowFunctions_ = std::move(windowFunctions);
+      return *this;
+    }
+
+    Builder& inputsSorted(bool inputsSorted) {
+      inputsSorted_ = inputsSorted;
+      return *this;
+    }
+
+    Builder& source(PlanNodePtr source) {
+      source_ = std::move(source);
+      return *this;
+    }
+
+    std::shared_ptr<WindowNode> build() const {
+      VELOX_USER_CHECK(id_.has_value(), "WindowNode id is not set");
+      VELOX_USER_CHECK(
+          partitionKeys_.has_value(), "WindowNode partitionKeys is not set");
+      VELOX_USER_CHECK(
+          sortingKeys_.has_value(), "WindowNode sortingKeys is not set");
+      VELOX_USER_CHECK(
+          sortingOrders_.has_value(), "WindowNode sortingOrders is not set");
+      VELOX_USER_CHECK(
+          windowColumnNames_.has_value(),
+          "WindowNode windowColumnNames is not set");
+      VELOX_USER_CHECK(
+          windowFunctions_.has_value(),
+          "WindowNode windowFunctions is not set");
+      VELOX_USER_CHECK(
+          inputsSorted_.has_value(), "WindowNode inputsSorted is not set");
+      VELOX_USER_CHECK(source_.has_value(), "WindowNode source is not set");
+
+      return std::make_shared<WindowNode>(
+          id_.value(),
+          partitionKeys_.value(),
+          sortingKeys_.value(),
+          sortingOrders_.value(),
+          windowColumnNames_.value(),
+          windowFunctions_.value(),
+          inputsSorted_.value(),
+          source_.value());
+    }
+
+   private:
+    std::optional<PlanNodeId> id_;
+    std::optional<std::vector<FieldAccessTypedExprPtr>> partitionKeys_;
+    std::optional<std::vector<FieldAccessTypedExprPtr>> sortingKeys_;
+    std::optional<std::vector<SortOrder>> sortingOrders_;
+    std::optional<std::vector<std::string>> windowColumnNames_;
+    std::optional<std::vector<WindowNode::Function>> windowFunctions_;
+    std::optional<bool> inputsSorted_;
+    std::optional<PlanNodePtr> source_;
+  };
+
   const std::vector<PlanNodePtr>& sources() const override {
     return sources_;
   }
@@ -2604,6 +4401,7 @@ class WindowNode : public PlanNode {
   const std::vector<FieldAccessTypedExprPtr> sortingKeys_;
   const std::vector<SortOrder> sortingOrders_;
 
+  const std::vector<std::string> windowColumnNames_;
   const std::vector<Function> windowFunctions_;
 
   const bool inputsSorted_;
@@ -2632,6 +4430,73 @@ class RowNumberNode : public PlanNode {
       const std::optional<std::string>& rowNumberColumnName,
       std::optional<int32_t> limit,
       PlanNodePtr source);
+
+  class Builder {
+   public:
+    Builder() = default;
+
+    explicit Builder(const RowNumberNode& other) {
+      id_ = other.id();
+      partitionKeys_ = other.partitionKeys();
+      rowNumberColumnName_ = other.generateRowNumber()
+          ? std::make_optional(other.outputType()->names().back())
+          : std::nullopt;
+      limit_ = other.limit();
+      VELOX_CHECK_EQ(other.sources().size(), 1);
+      source_ = other.sources()[0];
+    }
+
+    Builder& id(PlanNodeId id) {
+      id_ = std::move(id);
+      return *this;
+    }
+
+    Builder& partitionKeys(std::vector<FieldAccessTypedExprPtr> partitionKeys) {
+      partitionKeys_ = std::move(partitionKeys);
+      return *this;
+    }
+
+    Builder& rowNumberColumnName(
+        std::optional<std::string> rowNumberColumnName) {
+      rowNumberColumnName_ = std::move(rowNumberColumnName);
+      return *this;
+    }
+
+    Builder& limit(std::optional<int32_t> limit) {
+      limit_ = limit;
+      return *this;
+    }
+
+    Builder& source(PlanNodePtr source) {
+      source_ = std::move(source);
+      return *this;
+    }
+
+    std::shared_ptr<RowNumberNode> build() const {
+      VELOX_USER_CHECK(id_.has_value(), "RowNumberNode id is not set");
+      VELOX_USER_CHECK(
+          partitionKeys_.has_value(), "RowNumberNode partitionKeys is not set");
+      VELOX_USER_CHECK(
+          rowNumberColumnName_.has_value(),
+          "RowNumberNode rowNumberColumnName is not set");
+      VELOX_USER_CHECK(limit_.has_value(), "RowNumberNode limit is not set");
+      VELOX_USER_CHECK(source_.has_value(), "RowNumberNode source is not set");
+
+      return std::make_shared<RowNumberNode>(
+          id_.value(),
+          partitionKeys_.value(),
+          rowNumberColumnName_.value(),
+          limit_.value(),
+          source_.value());
+    }
+
+   private:
+    std::optional<PlanNodeId> id_;
+    std::optional<std::vector<FieldAccessTypedExprPtr>> partitionKeys_;
+    std::optional<std::optional<std::string>> rowNumberColumnName_;
+    std::optional<std::optional<int32_t>> limit_;
+    std::optional<PlanNodePtr> source_;
+  };
 
   const std::vector<PlanNodePtr>& sources() const override {
     return sources_;
@@ -2692,6 +4557,62 @@ class MarkDistinctNode : public PlanNode {
       std::string markerName,
       std::vector<FieldAccessTypedExprPtr> distinctKeys,
       PlanNodePtr source);
+
+  class Builder {
+   public:
+    Builder() = default;
+
+    explicit Builder(const MarkDistinctNode& other) {
+      id_ = other.id();
+      markerName_ = other.markerName();
+      distinctKeys_ = other.distinctKeys();
+      VELOX_CHECK_EQ(other.sources().size(), 1);
+      source_ = other.sources()[0];
+    }
+
+    Builder& id(PlanNodeId id) {
+      id_ = std::move(id);
+      return *this;
+    }
+
+    Builder& markerName(std::string markerName) {
+      markerName_ = std::move(markerName);
+      return *this;
+    }
+
+    Builder& distinctKeys(std::vector<FieldAccessTypedExprPtr> distinctKeys) {
+      distinctKeys_ = std::move(distinctKeys);
+      return *this;
+    }
+
+    Builder& source(PlanNodePtr source) {
+      source_ = std::move(source);
+      return *this;
+    }
+
+    std::shared_ptr<MarkDistinctNode> build() const {
+      VELOX_USER_CHECK(id_.has_value(), "MarkDistinctNode id is not set");
+      VELOX_USER_CHECK(
+          markerName_.has_value(), "MarkDistinctNode markerName is not set");
+      VELOX_USER_CHECK(
+          distinctKeys_.has_value(),
+          "MarkDistinctNode distinctKeys is not set");
+      VELOX_USER_CHECK(
+          source_.has_value(), "MarkDistinctNode source is not set");
+
+      return std::make_shared<MarkDistinctNode>(
+          id_.value(),
+          markerName_.value(),
+          distinctKeys_.value(),
+          source_.value());
+    }
+
+   private:
+    std::optional<PlanNodeId> id_;
+    std::optional<std::string> markerName_;
+    std::optional<std::vector<FieldAccessTypedExprPtr>> distinctKeys_;
+    std::optional<PlanNodePtr> source_;
+  };
 
   const std::vector<PlanNodePtr>& sources() const override {
     return sources_;
@@ -2758,6 +4679,97 @@ class TopNRowNumberNode : public PlanNode {
       const std::optional<std::string>& rowNumberColumnName,
       int32_t limit,
       PlanNodePtr source);
+
+  class Builder {
+   public:
+    Builder() = default;
+
+    explicit Builder(const TopNRowNumberNode& other) {
+      id_ = other.id();
+      partitionKeys_ = other.partitionKeys();
+      sortingKeys_ = other.sortingKeys();
+      sortingOrders_ = other.sortingOrders();
+      rowNumberColumnName_ = other.generateRowNumber()
+          ? std::make_optional(other.outputType()->names().back())
+          : std::nullopt;
+      limit_ = other.limit();
+      VELOX_CHECK_EQ(other.sources().size(), 1);
+      source_ = other.sources()[0];
+    }
+
+    Builder& id(PlanNodeId id) {
+      id_ = std::move(id);
+      return *this;
+    }
+
+    Builder& partitionKeys(std::vector<FieldAccessTypedExprPtr> partitionKeys) {
+      partitionKeys_ = std::move(partitionKeys);
+      return *this;
+    }
+
+    Builder& sortingKeys(std::vector<FieldAccessTypedExprPtr> sortingKeys) {
+      sortingKeys_ = std::move(sortingKeys);
+      return *this;
+    }
+
+    Builder& sortingOrders(std::vector<SortOrder> sortingOrders) {
+      sortingOrders_ = std::move(sortingOrders);
+      return *this;
+    }
+
+    Builder& rowNumberColumnName(
+        std::optional<std::string> rowNumberColumNName) {
+      rowNumberColumnName_ = std::move(rowNumberColumNName);
+      return *this;
+    }
+
+    Builder& limit(int32_t limit) {
+      limit_ = limit;
+      return *this;
+    }
+
+    Builder& source(PlanNodePtr source) {
+      source_ = std::move(source);
+      return *this;
+    }
+
+    std::shared_ptr<TopNRowNumberNode> build() const {
+      VELOX_USER_CHECK(id_.has_value(), "TopNRowNumberNode id is not set");
+      VELOX_USER_CHECK(
+          partitionKeys_.has_value(),
+          "TopNRowNumberNode partitionKeys is not set");
+      VELOX_USER_CHECK(
+          sortingKeys_.has_value(), "TopNRowNumberNode sortingKeys is not set");
+      VELOX_USER_CHECK(
+          sortingOrders_.has_value(),
+          "TopNRowNumberNode sortingOrders is not set");
+      VELOX_USER_CHECK(
+          rowNumberColumnName_.has_value(),
+          "TopNRowNumberNode rowNumberColumnName is not set");
+      VELOX_USER_CHECK(
+          limit_.has_value(), "TopNRowNumberNode limit is not set");
+      VELOX_USER_CHECK(
+          source_.has_value(), "TopNRowNumberNode source is not set");
+
+      return std::make_shared<TopNRowNumberNode>(
+          id_.value(),
+          partitionKeys_.value(),
+          sortingKeys_.value(),
+          sortingOrders_.value(),
+          rowNumberColumnName_.value(),
+          limit_.value(),
+          source_.value());
+    }
+
+   private:
+    std::optional<PlanNodeId> id_;
+    std::optional<std::vector<FieldAccessTypedExprPtr>> partitionKeys_;
+    std::optional<std::vector<FieldAccessTypedExprPtr>> sortingKeys_;
+    std::optional<std::vector<SortOrder>> sortingOrders_;
+    std::optional<std::optional<std::string>> rowNumberColumnName_;
+    std::optional<int32_t> limit_;
+    std::optional<PlanNodePtr> source_;
+  };
 
   const std::vector<PlanNodePtr>& sources() const override {
     return sources_;
