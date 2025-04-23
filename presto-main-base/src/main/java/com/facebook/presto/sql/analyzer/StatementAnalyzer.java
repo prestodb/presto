@@ -16,6 +16,7 @@ package com.facebook.presto.sql.analyzer;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.UnknownTypeException;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.function.OperatorType;
@@ -1708,7 +1709,7 @@ class StatementAnalyzer
                                                         try {
                                                             return functionAndTypeResolver.getType(parseTypeSignature(type));
                                                         }
-                                                        catch (IllegalArgumentException e) {
+                                                        catch (IllegalArgumentException | UnknownTypeException e) {
                                                             throw new SemanticException(TYPE_MISMATCH, field, "Unknown type: %s", type);
                                                         }
                                                     })))

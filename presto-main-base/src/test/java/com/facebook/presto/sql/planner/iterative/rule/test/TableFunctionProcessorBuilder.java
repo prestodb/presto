@@ -44,6 +44,7 @@ public class TableFunctionProcessorBuilder
     private Set<VariableReferenceExpression> prePartitioned = ImmutableSet.of();
     private int preSorted;
     private Optional<VariableReferenceExpression> hashSymbol = Optional.empty();
+    private ConnectorTableFunctionHandle connectorHandle = new ConnectorTableFunctionHandle() {};
 
     public TableFunctionProcessorBuilder() {}
 
@@ -113,6 +114,12 @@ public class TableFunctionProcessorBuilder
         return this;
     }
 
+    public TableFunctionProcessorBuilder connectorHandle(ConnectorTableFunctionHandle connectorHandle)
+    {
+        this.connectorHandle = connectorHandle;
+        return this;
+    }
+
     public TableFunctionProcessorNode build(PlanNodeIdAllocator idAllocator)
     {
         return new TableFunctionProcessorNode(
@@ -128,6 +135,6 @@ public class TableFunctionProcessorBuilder
                 prePartitioned,
                 preSorted,
                 hashSymbol,
-                new TableFunctionHandle(new ConnectorId("connector_id"), new ConnectorTableFunctionHandle() {}, TestingTransactionHandle.create()));
+                new TableFunctionHandle(new ConnectorId("connector_id"), connectorHandle, TestingTransactionHandle.create()));
     }
 }

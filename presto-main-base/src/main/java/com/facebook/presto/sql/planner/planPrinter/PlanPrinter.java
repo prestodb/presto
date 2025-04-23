@@ -1329,7 +1329,7 @@ public class PlanPrinter
             NodeRepresentation nodeOutput = addNode(
                     node,
                     "TableFunction",
-                    "name",
+                    node.getName(),
                     context.getTag());
 
             if (!node.getArguments().isEmpty()) {
@@ -1339,12 +1339,12 @@ public class PlanPrinter
                         .collect(toImmutableMap(TableArgumentProperties::getArgumentName, identity()));
 
                 node.getArguments().entrySet().stream()
-                        .forEach(entry -> nodeOutput.appendDetails(formatArgument(entry.getKey(), entry.getValue(), tableArguments)));
+                        .forEach(entry -> nodeOutput.appendDetailsLine(formatArgument(entry.getKey(), entry.getValue(), tableArguments)));
 
                 if (!node.getCopartitioningLists().isEmpty()) {
-                    nodeOutput.appendDetails(node.getCopartitioningLists().stream()
+                    nodeOutput.appendDetailsLine(node.getCopartitioningLists().stream()
                             .map(list -> list.stream().collect(Collectors.joining(", ", "(", ")")))
-                            .collect(joining(", ", "Co-partition: [", "]")));
+                            .collect(joining(", ", "Co-partition: [", "] ")));
                 }
             }
 
@@ -1396,39 +1396,37 @@ public class PlanPrinter
 
         private String formatTableArgument(String argumentName, TableArgumentProperties argumentProperties)
         {
-            StringBuilder properties = new StringBuilder();
+            List<String> properties = new ArrayList<>();
+
             if (argumentProperties.rowSemantics()) {
-                properties.append("row semantics");
+                properties.add("row semantics ");
             }
             argumentProperties.specification().ifPresent(specification -> {
-                properties
+                StringBuilder specificationBuilder = new StringBuilder();
+                specificationBuilder
                         .append("partition by: [")
                         .append(Joiner.on(", ").join(specification.getPartitionBy()))
                         .append("]");
                 specification.getOrderingScheme().ifPresent(orderingScheme -> {
-                    properties
+                    specificationBuilder
                             .append(", order by: ")
                             .append(formatOrderingScheme(orderingScheme));
                 });
+                properties.add(specificationBuilder.toString());
             });
 
-            properties.append("required columns: [")
-                    .append(Joiner.on(", ").join(argumentProperties.getRequiredColumns()))
-                    .append("]");
-
-            properties.append("required columns: [")
-                    .append(Joiner.on(", ").join(argumentProperties.getRequiredColumns()))
-                    .append("]");
+            properties.add("required columns: [" +
+                    Joiner.on(", ").join(argumentProperties.getRequiredColumns()) + "]");
 
             if (argumentProperties.pruneWhenEmpty()) {
-                properties.append(", prune when empty");
+                properties.add("prune when empty");
             }
 
             if (argumentProperties.getPassThroughSpecification().isDeclaredAsPassThrough()) {
-                properties.append(", pass through columns");
+                properties.add("pass through columns");
             }
 
-            return format("%s => TableArgument{%s}", argumentName, properties);
+            return format("%s => TableArgument{%s}", argumentName, Joiner.on(", ").join(properties));
         }
 
         @Override
@@ -1467,7 +1465,7 @@ public class PlanPrinter
                 specification.getOrderingScheme().ifPresent(orderingScheme -> descriptor.put("orderBy", formatOrderingScheme(orderingScheme, node.getPreSorted())));
             });
 
-            addNode(node, "TableFunctionDataProcessor" + descriptor.build(), context.getTag());
+            addNode(node, "TableFunctionProcessorNode" + descriptor.build(), context.getTag());
 
             return processChildren(node, new Context());
         }

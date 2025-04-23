@@ -65,7 +65,6 @@ public class TestImplementTableFunctionSource
     @Test
     public void testSingleSourceWithRowSemantics()
     {
-        /*
         // no pass-through columns
         tester().assertThat(new ImplementTableFunctionSource(tester().getMetadata()))
                 .on(p -> {
@@ -90,7 +89,7 @@ public class TestImplementTableFunctionSource
                                 .properOutputs(ImmutableList.of("a", "b"))
                                 .passThroughSymbols(ImmutableList.of(ImmutableList.of()))
                                 .requiredSymbols(ImmutableList.of(ImmutableList.of("c"))),
-                        values("c")));*/
+                        values("c")));
 
         // pass-through columns
         tester().assertThat(new ImplementTableFunctionSource(tester().getMetadata()))
