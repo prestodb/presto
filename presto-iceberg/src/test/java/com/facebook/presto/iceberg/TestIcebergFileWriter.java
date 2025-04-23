@@ -184,8 +184,7 @@ public class TestIcebergFileWriter
             throw new UnsupportedOperationException();
         }
 
-        @Override
-        public List<Type> getTypes()
+        private List<Type> getTypes()
         {
             return ImmutableList.of(BooleanType.BOOLEAN, INTEGER, BIGINT, DoubleType.DOUBLE, VARCHAR, VARBINARY, TIMESTAMP, DATE, HYPER_LOG_LOG);
         }
