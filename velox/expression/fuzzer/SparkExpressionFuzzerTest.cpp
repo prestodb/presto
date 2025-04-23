@@ -66,6 +66,8 @@ int main(int argc, char** argv) {
       "chr",
       "replace",
       "might_contain",
+      // unix_timestamp with empty parameter returns current unix timestamp so
+      // the results are different for each evaluation.
       "unix_timestamp",
       // from_unixtime throws VeloxRuntimeError when the timestamp is out of the
       // supported range.

@@ -285,24 +285,24 @@ These functions support TIMESTAMP and DATE input types.
 
         SELECT timestamp_millis(1230219000123); -- '2008-12-25 15:30:00.123'
 
-.. spark:function:: to_unix_timestamp(date) -> integer
+.. spark:function:: to_unix_timestamp(date) -> bigint
    :noindex:
 
-    Alias for ``unix_timestamp(date) -> integer``.
+    Alias for ``unix_timestamp(date) -> bigint``.
 
-.. spark:function:: to_unix_timestamp(string) -> integer
+.. spark:function:: to_unix_timestamp(string) -> bigint
 
-    Alias for ``unix_timestamp(string) -> integer``.
+    Alias for ``unix_timestamp(string) -> bigint``.
 
-.. spark:function:: to_unix_timestamp(string, format) -> integer
+.. spark:function:: to_unix_timestamp(string, format) -> bigint
    :noindex:
 
-    Alias for ``unix_timestamp(string, format) -> integer``.
+    Alias for ``unix_timestamp(string, format) -> bigint``.
 
-.. spark:function:: to_unix_timestamp(timestamp) -> integer
+.. spark:function:: to_unix_timestamp(timestamp) -> bigint
    :noindex:
 
-    Alias for ``unix_timestamp(timestamp) -> integer``.
+    Alias for ``unix_timestamp(timestamp) -> bigint``.
 
 .. spark:function:: to_utc_timestamp(timestamp, string) -> timestamp
 
@@ -337,11 +337,11 @@ These functions support TIMESTAMP and DATE input types.
 
         SELECT unix_seconds('1970-01-01 00:00:01'); -- 1
 
-.. spark:function:: unix_timestamp() -> integer
+.. spark:function:: unix_timestamp() -> bigint
 
     Returns the current UNIX timestamp in seconds.
 
-.. spark:function:: unix_timestamp(date) -> integer
+.. spark:function:: unix_timestamp(date) -> bigint
 
     Converts the time represented by ``date`` at the configured session timezone to the GMT time, and extracts the seconds. ::
 
@@ -349,14 +349,14 @@ These functions support TIMESTAMP and DATE input types.
         SELECT unix_timestamp('2024-10-01'); -- 1727740800
         SELECT unix_timestamp('-2025-02-18'); -- -126065894400
 
-.. spark:function:: unix_timestamp(string) -> integer
+.. spark:function:: unix_timestamp(string) -> bigint
    :noindex:
 
     Returns the UNIX timestamp of time specified by ``string``. Assumes the
     format ``yyyy-MM-dd HH:mm:ss``. Returns null if ``string`` does not match
     ``format``.
 
-.. spark:function:: unix_timestamp(string, format) -> integer
+.. spark:function:: unix_timestamp(string, format) -> bigint
    :noindex:
 
     Returns the UNIX timestamp of time specified by ``string`` using the
@@ -366,7 +366,7 @@ These functions support TIMESTAMP and DATE input types.
     Returns null if ``string`` does not match ``format`` or if ``format``
     is invalid.
 
-.. spark:function:: unix_timestamp(timestamp) -> integer
+.. spark:function:: unix_timestamp(timestamp) -> bigint
 
     Returns the UNIX timestamp of the given ``timestamp`` in seconds. ::
 

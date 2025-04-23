@@ -337,10 +337,12 @@ TEST_F(DateTimeFunctionsTest, unixTimestampDateInput) {
   EXPECT_EQ(1727766000, unixTimestamp(parseDate("2024-10-01")));
   EXPECT_EQ(-126065866022, unixTimestamp(parseDate("-2025-02-18")));
   EXPECT_EQ(2398320000, unixTimestamp(parseDate("2045-12-31")));
-  EXPECT_EQ(
-      185542587126000, unixTimestamp(std::numeric_limits<int32_t>::max()));
-  EXPECT_EQ(
-      -185542587158822, unixTimestamp(std::numeric_limits<int32_t>::min()));
+  VELOX_ASSERT_USER_THROW(
+      unixTimestamp(kMax),
+      "Could not convert date 5881580-07-11 to unix timestamp.");
+  VELOX_ASSERT_USER_THROW(
+      unixTimestamp(kMin),
+      "Could not convert date -5877641-06-23 to unix timestamp.");
 }
 
 // unix_timestamp and to_unix_timestamp are aliases.
