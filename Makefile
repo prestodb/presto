@@ -100,8 +100,11 @@ cmake:					#: Use CMake to create a Makefile build system
 		$(GENERATOR) \
 		${EXTRA_CMAKE_FLAGS}
 
-cmake-gpu:
-	$(MAKE) EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS} -DVELOX_ENABLE_GPU=ON -DVELOX_ENABLE_CUDF=ON" cmake
+cmake-wave:
+	$(MAKE) EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS} -DVELOX_ENABLE_WAVE=ON" cmake
+
+cmake-cudf:
+	$(MAKE) EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS} -DVELOX_ENABLE_CUDF=ON" cmake
 
 build:					#: Build the software based in BUILD_DIR and BUILD_TYPE variables
 	cmake --build $(BUILD_BASE_DIR)/$(BUILD_DIR) -j $(NUM_THREADS)
@@ -124,12 +127,20 @@ minimal:				 #: Minimal build
 	$(MAKE) cmake BUILD_DIR=release BUILD_TYPE=release EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS} -DVELOX_BUILD_MINIMAL=ON"
 	$(MAKE) build BUILD_DIR=release
 
-gpu:						 #: Build with GPU support
-	$(MAKE) cmake BUILD_DIR=release BUILD_TYPE=release EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS} -DVELOX_ENABLE_GPU=ON -DVELOX_ENABLE_CUDF=ON"
+wave:			   	         #: Build with Wave GPU support
+	$(MAKE) cmake-wave BUILD_DIR=release BUILD_TYPE=release
 	$(MAKE) build BUILD_DIR=release
 
-gpu_debug:			 #: Build with debugging symbols and GPU support
-	$(MAKE) cmake BUILD_DIR=debug BUILD_TYPE=debug EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS} -DVELOX_ENABLE_GPU=ON -DVELOX_ENABLE_CUDF=ON"
+cudf:			   	         #: Build with cuDF GPU support
+	$(MAKE) cmake-cudf BUILD_DIR=release BUILD_TYPE=release
+	$(MAKE) build BUILD_DIR=release
+
+wave-debug:			 #: Build with debugging symbols and Wave GPU support
+	$(MAKE) cmake-wave BUILD_DIR=debug BUILD_TYPE=debug
+	$(MAKE) build BUILD_DIR=debug
+
+cudf-debug:			 #: Build with debugging symbols and cuDF GPU support
+	$(MAKE) cmake-cudf BUILD_DIR=debug BUILD_TYPE=debug
 	$(MAKE) build BUILD_DIR=debug
 
 dwio:						#: Minimal build with dwio enabled.

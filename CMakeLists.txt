@@ -386,7 +386,7 @@ if(ENABLE_ALL_WARNINGS)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra ${KNOWN_WARNINGS}")
 endif()
 
-if(VELOX_ENABLE_GPU)
+if(VELOX_ENABLE_WAVE OR VELOX_ENABLE_CUDF)
   enable_language(CUDA)
   # Determine CUDA_ARCHITECTURES automatically.
   cmake_policy(SET CMP0104 NEW)
