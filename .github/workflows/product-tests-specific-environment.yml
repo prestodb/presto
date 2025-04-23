@@ -69,7 +69,7 @@ jobs:
         if: needs.changes.outputs.codechange == 'true'
         env:
           OVERRIDE_JDK_DIR: ${{ env.JAVA_HOME }}
-        run: presto-product-tests/bin/run_on_docker.sh singlenode -g hdfs_no_impersonation,avro
+        run: presto-product-tests/bin/run_on_docker.sh singlenode -g hdfs_no_impersonation,avro,mixed_case
       - name: Product Tests Specific 1.2
         if: needs.changes.outputs.codechange == 'true'
         env:
@@ -169,3 +169,8 @@ jobs:
         env:
           OVERRIDE_JDK_DIR: ${{ env.JAVA_HOME }}
         run: presto-product-tests/bin/run_on_docker.sh singlenode-sqlserver -g sqlserver
+      - name: Product Tests Specific 2.9
+        if: needs.changes.outputs.codechange == 'true'
+        env:
+          OVERRIDE_JDK_DIR: ${{ env.JAVA_HOME }}
+        run: presto-product-tests/bin/run_on_docker.sh singlenode-mysql-mixed-case-on -g mysql_connector,mysql_mixed_case
