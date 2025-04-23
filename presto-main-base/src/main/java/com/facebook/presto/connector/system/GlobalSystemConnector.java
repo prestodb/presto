@@ -15,11 +15,13 @@ package com.facebook.presto.connector.system;
 
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.transaction.TransactionId;
+import com.facebook.presto.operator.table.Sequence.SequenceFunctionHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
@@ -34,7 +36,9 @@ import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.function.SchemaFunctionName;
 import com.facebook.presto.spi.function.table.ConnectorTableFunction;
+import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.facebook.presto.transaction.InternalConnector;
@@ -47,6 +51,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.operator.table.Sequence.getSequenceFunctionSplitSource;
 import static java.util.Objects.requireNonNull;
 
 public class GlobalSystemConnector
@@ -139,14 +144,6 @@ public class GlobalSystemConnector
     }
 
     @Override
-    public ConnectorSplitManager getSplitManager()
-    {
-        return (transactionHandle, session, layout, splitSchedulingContext) -> {
-            throw new UnsupportedOperationException();
-        };
-    }
-
-    @Override
     public ConnectorPageSourceProvider getPageSourceProvider()
     {
         return new ConnectorPageSourceProvider() {
@@ -174,5 +171,28 @@ public class GlobalSystemConnector
     public Set<ConnectorTableFunction> getTableFunctions()
     {
         return tableFunctions;
+    }
+
+    @Override
+    public ConnectorSplitManager getSplitManager()
+    {
+        return new ConnectorSplitManager()
+        {
+            @Override
+            public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layout, SplitSchedulingContext splitSchedulingContext)
+            {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, SchemaFunctionName name, ConnectorTableFunctionHandle function)
+            {
+                if (function instanceof SequenceFunctionHandle) {
+                    SequenceFunctionHandle sequenceFunctionHandle = (SequenceFunctionHandle) function;
+                    return getSequenceFunctionSplitSource(sequenceFunctionHandle);
+                }
+                throw new UnsupportedOperationException();
+            }
+        };
     }
 }

@@ -15,6 +15,8 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.connector.informationSchema.InformationSchemaHandleResolver;
 import com.facebook.presto.connector.system.SystemHandleResolver;
+import com.facebook.presto.operator.table.Sequence;
+import com.facebook.presto.operator.table.Sequence.SequenceFunctionHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorDeleteTableHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
@@ -72,6 +74,9 @@ public class HandleResolver
         functionHandleResolvers.put("$session", new MaterializedFunctionHandleResolver(new SessionFunctionHandleResolver()));
 
         tableFunctionHandleResolvers.put("$system", new MaterializedTableFunctionHandleResolver(() -> Collections.singleton(EmptyTableFunctionHandle.class)));
+        tableFunctionHandleResolvers.put("$sequence", new MaterializedTableFunctionHandleResolver(() -> Collections.singleton(SequenceFunctionHandle.class)));
+
+        tableFunctionSplitResolvers.put("$sequence", new MaterializedTableFunctionSplitResolver(() -> Collections.singleton(Sequence.SequenceFunctionSplit.class)));
     }
 
     public void addConnectorName(String name, ConnectorHandleResolver resolver)

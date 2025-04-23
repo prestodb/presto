@@ -104,6 +104,7 @@ import static com.facebook.presto.metadata.FunctionSignatureMatcher.constructFun
 import static com.facebook.presto.metadata.SessionFunctionHandle.SESSION_NAMESPACE;
 import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
 import static com.facebook.presto.operator.table.ExcludeColumns.getExcludeColumnsFunctionProcessorProvider;
+import static com.facebook.presto.operator.table.Sequence.getSequenceFunctionProcessorProvider;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
@@ -631,6 +632,9 @@ public class FunctionAndTypeManager
         //TODO: Temporary code for table function provider.
         if (new SchemaFunctionName("builtin", "exclude_columns").equals(tableFunctionHandle.getSchemaFunctionName())) {
             return Optional.of(dump -> getExcludeColumnsFunctionProcessorProvider());
+        }
+        if (new SchemaFunctionName("builtin", "sequence").equals(tableFunctionHandle.getSchemaFunctionName())) {
+            return Optional.of(dump -> getSequenceFunctionProcessorProvider());
         }
         return getTableFunctionProcessorProvider;
     }
