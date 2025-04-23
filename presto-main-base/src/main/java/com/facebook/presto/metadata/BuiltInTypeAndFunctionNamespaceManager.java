@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.UnknownTypeException;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.QualifiedObjectName;
@@ -532,7 +531,7 @@ import static java.util.concurrent.TimeUnit.HOURS;
 
 @ThreadSafe
 public class BuiltInTypeAndFunctionNamespaceManager
-        implements FunctionNamespaceManager<SqlFunction>, TypeManager
+        implements FunctionNamespaceManager<SqlFunction>
 {
     public static final CatalogSchemaName JAVA_BUILTIN_NAMESPACE = new CatalogSchemaName("presto", "default");
     public static final String ID = "builtin";
@@ -1262,32 +1261,19 @@ public class BuiltInTypeAndFunctionNamespaceManager
         }
     }
 
-    @Override
-    public Type getType(TypeSignature typeSignature)
+    public Optional<Type> getType(TypeSignature typeSignature)
     {
         Type type = types.get(typeSignature);
         if (type != null) {
-            return type;
+            return Optional.of(type);
         }
         try {
-            return parametricTypeCache.getUnchecked(new ExactTypeSignature(typeSignature));
+            return Optional.ofNullable(parametricTypeCache.getUnchecked(new ExactTypeSignature(typeSignature)));
         }
         catch (UncheckedExecutionException e) {
             throwIfUnchecked(e.getCause());
             throw new RuntimeException(e.getCause());
         }
-    }
-
-    @Override
-    public Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean canCoerce(Type actualType, Type expectedType)
-    {
-        throw new UnsupportedOperationException();
     }
 
     public List<Type> getTypes()
@@ -1309,22 +1295,14 @@ public class BuiltInTypeAndFunctionNamespaceManager
         parametricTypes.putIfAbsent(name, parametricType);
     }
 
-    @Override
     public Collection<ParametricType> getParametricTypes()
     {
         return parametricTypes.values();
     }
 
-    private Type instantiateParametricType(ExactTypeSignature exactTypeSignature)
+    private Type instantiateParametricType(ExactTypeSignature exactSignature)
     {
-        return instantiateParametricType(exactTypeSignature.getTypeSignature(), functionAndTypeManager, parametricTypes);
-    }
-
-    public Type instantiateParametricType(
-            TypeSignature signature,
-            FunctionAndTypeManager functionAndTypeManager,
-            Map<String, ParametricType> parametricTypes)
-    {
+        TypeSignature signature = exactSignature.getTypeSignature();
         List<TypeParameter> parameters = new ArrayList<>();
 
         for (TypeSignatureParameter parameter : signature.getParameters()) {
@@ -1334,7 +1312,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
 
         ParametricType parametricType = parametricTypes.get(signature.getBase().toLowerCase(Locale.ENGLISH));
         if (parametricType == null) {
-            throw new UnknownTypeException(signature);
+            throw new IllegalArgumentException("Unknown type " + signature);
         }
 
         if (parametricType instanceof MapParametricType) {

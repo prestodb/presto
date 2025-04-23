@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.UnknownTypeException;
 import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.Subfield;
@@ -890,7 +889,7 @@ public class ExpressionAnalyzer
             try {
                 type = functionAndTypeResolver.getType(parseTypeSignature(node.getType()));
             }
-            catch (UnknownTypeException e) {
+            catch (IllegalArgumentException e) {
                 throw new SemanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
             }
 
@@ -913,7 +912,7 @@ public class ExpressionAnalyzer
             try {
                 type = functionAndTypeResolver.getType(parseTypeSignature(node.getType()));
             }
-            catch (UnknownTypeException e) {
+            catch (IllegalArgumentException e) {
                 throw new SemanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
             }
 
@@ -1340,7 +1339,7 @@ public class ExpressionAnalyzer
             try {
                 type = functionAndTypeResolver.getType(parseTypeSignature(node.getType()));
             }
-            catch (IllegalArgumentException | UnknownTypeException e) {
+            catch (IllegalArgumentException e) {
                 throw new SemanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
             }
 
