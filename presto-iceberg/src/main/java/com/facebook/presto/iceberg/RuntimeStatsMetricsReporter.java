@@ -1,218 +1,201 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.facebook.presto.iceberg;
 
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.RuntimeUnit;
-import io.grpc.services.MetricReport;
 import org.apache.iceberg.metrics.MetricsReport;
 import org.apache.iceberg.metrics.MetricsReporter;
 import org.apache.iceberg.metrics.ScanReport;
 
-import java.util.Objects;
+
+/**
+ * A MetricsReporter implementation for reporting
+ * Iceberg scan metrics to Presto's RuntimeStats.
+ */
+
+public final class RuntimeStatsMetricsReporter implements MetricsReporter {
 
 
-public class RuntimeStatsMetricsReporter implements MetricsReporter {
-
+    /**
+     * RuntimeStats variable used for storing scan metrics from Iceberg reports.
+     */
     private final RuntimeStats runtimeStats;
 
-    public RuntimeStatsMetricsReporter(RuntimeStats runtimeStats) {
-        this.runtimeStats = runtimeStats;
+    /**
+     * Constructs a RuntimeStatsMetricsReporter.
+     *
+     * @param runtimeStat the RuntimeStats instance to report metrics to
+     */
+    public RuntimeStatsMetricsReporter(final RuntimeStats runtimeStat) {
+        this.runtimeStats = runtimeStat;
     }
 
-    // String Builder using Table Name and Metric Name
-    private String tableScanString(String tableName, String metricName) {
+    /**
+     * Helper method to construct the full metric name for a table scan.
+     *
+     * @param tableName the name of the table
+     * @param metricName the name of the metric
+     * @return the composed metric name in the format: table.scan.metric
+     */
+    private String tableScanString(final String tableName,
+                                   final String metricName) {
         return tableName + ".scan." + metricName;
     }
 
     @Override
-    public void report(MetricsReport report) {
+    public void report(final MetricsReport report) {
 
-        if(!(report instanceof ScanReport)) {
+        if (!(report instanceof ScanReport)) {
             return;
         }
 
         // Cast report to scanReport instance
-        ScanReport scanReport = (ScanReport)report;
+        ScanReport scanReport = (ScanReport) report;
 
-        String table_name = scanReport.tableName();
+        String tableName = scanReport.tableName();
 
         // TotalPlanning Duration Metric
-        if(scanReport.scanMetrics().totalPlanningDuration() != null)
-        {
+        if (scanReport.scanMetrics().totalPlanningDuration() != null) {
             runtimeStats.addMetricValue(
-                    tableScanString(table_name, "totalPlanningDuration"),
+                    tableScanString(tableName, "totalPlanningDuration"),
                     RuntimeUnit.NANO,
-                    scanReport.scanMetrics().totalPlanningDuration().totalDuration().toNanos()
-            );
+                    scanReport.scanMetrics().totalPlanningDuration()
+                            .totalDuration().toNanos());
         }
 
         // resultDataFiles Metric
-        if(scanReport.scanMetrics().resultDataFiles() != null)
-        {
+        if (scanReport.scanMetrics().resultDataFiles() != null) {
             runtimeStats.addMetricValue(
-                    tableScanString(table_name, "resultDataFiles"),
+                    tableScanString(tableName, "resultDataFiles"),
                     RuntimeUnit.NONE,
-                    scanReport.scanMetrics().resultDataFiles().value()
-            );
+                    scanReport.scanMetrics().resultDataFiles().value());
         }
 
         // resultDeleteFiles Metric
-        if(scanReport.scanMetrics().resultDeleteFiles() != null)
-        {
+        if (scanReport.scanMetrics().resultDeleteFiles() != null) {
             runtimeStats.addMetricValue(
-                    tableScanString(table_name, "resultDeleteFiles"),
+                    tableScanString(tableName, "resultDeleteFiles"),
                     RuntimeUnit.NONE,
-                    scanReport.scanMetrics().resultDeleteFiles().value()
-            );
+                    scanReport.scanMetrics().resultDeleteFiles().value());
         }
 
         // totalDataManifests Metric
-        if(scanReport.scanMetrics().totalDataManifests() != null)
-        {
+        if (scanReport.scanMetrics().totalDataManifests() != null) {
             runtimeStats.addMetricValue(
-                    tableScanString(table_name,"totalDataManifests"),
+                    tableScanString(tableName, "totalDataManifests"),
                     RuntimeUnit.NONE,
-                    scanReport.scanMetrics().totalDataManifests().value()
-            );
+                    scanReport.scanMetrics().totalDataManifests().value());
         }
-
-
 
         // totalDeleteManifests() Metric
-        if(scanReport.scanMetrics().totalDeleteManifests() != null)
-        {
+        if (scanReport.scanMetrics().totalDeleteManifests() != null) {
             runtimeStats.addMetricValue(
-                    tableScanString(table_name, "totalDeleteManifests"),
+                    tableScanString(tableName, "totalDeleteManifests"),
                     RuntimeUnit.NONE,
-                    scanReport.scanMetrics().totalDeleteManifests().value()
-            );
+                    scanReport.scanMetrics().totalDeleteManifests().value());
         }
-
 
         // scannedDataManifests() Metric
-        if(scanReport.scanMetrics().scannedDataManifests() != null)
-        {
+        if (scanReport.scanMetrics().scannedDataManifests() != null) {
             runtimeStats.addMetricValue(
-                    tableScanString(table_name,"scannedDataManifests"),
+                    tableScanString(tableName, "scannedDataManifests"),
                     RuntimeUnit.NONE,
-                    scanReport.scanMetrics().scannedDataManifests().value()
-            );
+                    scanReport.scanMetrics().scannedDataManifests().value());
         }
-
-
 
         // skippedDataManifests() Metric
-        if( scanReport.scanMetrics().skippedDataManifests() != null)
-        {
+        if (scanReport.scanMetrics().skippedDataManifests() != null) {
             runtimeStats.addMetricValue(
-                    tableScanString(table_name, "skippedDataManifests"),
+                    tableScanString(tableName, "skippedDataManifests"),
                     RuntimeUnit.NONE,
-                    scanReport.scanMetrics().skippedDataManifests().value()
-            );
+                    scanReport.scanMetrics().skippedDataManifests().value());
         }
-
-
 
         // totalFileSizeInBytes() -> RuntimeUnit.BYTES ?
-        if(scanReport.scanMetrics().totalFileSizeInBytes() != null)
-        {
+        if (scanReport.scanMetrics().totalFileSizeInBytes() != null) {
             runtimeStats.addMetricValue(
-                    tableScanString(table_name, "totalFileSizeInBytes"),
+                    tableScanString(tableName, "totalFileSizeInBytes"),
                     RuntimeUnit.BYTE,
-                    scanReport.scanMetrics().totalFileSizeInBytes().value()
-            );
+                    scanReport.scanMetrics().totalFileSizeInBytes()
+                            .value());
         }
-
-
 
         // totalDeleteFileSizeInBytes() -> RuntimeUnit.BYTES ?
-        if(scanReport.scanMetrics().totalDeleteFileSizeInBytes() != null)
-        {
+        if (scanReport.scanMetrics().totalDeleteFileSizeInBytes() != null) {
             runtimeStats.addMetricValue(
-                    tableScanString(table_name, "totalDeleteFileSizeInBytes"),
+                    tableScanString(tableName, "totalDeleteFileSizeInBytes"),
                     RuntimeUnit.BYTE,
-                    scanReport.scanMetrics().totalDeleteFileSizeInBytes().value()
-            );
+                    scanReport.scanMetrics().totalDeleteFileSizeInBytes()
+                            .value());
         }
-
 
         // skippedDataFiles() Metric
-        if(scanReport.scanMetrics().skippedDataFiles() != null)
-        {
+        if (scanReport.scanMetrics().skippedDataFiles() != null) {
             runtimeStats.addMetricValue(
-                    tableScanString(table_name, "skippedDataFiles"),
+                    tableScanString(tableName, "skippedDataFiles"),
                     RuntimeUnit.NONE,
-                    scanReport.scanMetrics().skippedDataFiles().value()
-            );
+                    scanReport.scanMetrics().skippedDataFiles()
+                            .value());
         }
-
-
 
         // skippedDeleteFiles() Metric
-        if(scanReport.scanMetrics().skippedDeleteFiles() != null)
-        {
+        if (scanReport.scanMetrics().skippedDeleteFiles() != null) {
             runtimeStats.addMetricValue(
-                    tableScanString(table_name,  "skippedDeleteFiles"),
+                    tableScanString(tableName,  "skippedDeleteFiles"),
                     RuntimeUnit.NONE,
-                    scanReport.scanMetrics().skippedDeleteFiles().value()
-            );
+                    scanReport.scanMetrics().skippedDeleteFiles().value());
         }
-
-
 
         // scannedDeleteManifests() Metric
-        if(scanReport.scanMetrics().scannedDeleteManifests() != null)
-        {
+        if (scanReport.scanMetrics().scannedDeleteManifests() != null) {
             runtimeStats.addMetricValue(
-                    tableScanString(table_name, "scannedDeleteManifests"),
+                    tableScanString(tableName, "scannedDeleteManifests"),
                     RuntimeUnit.NONE,
-                    scanReport.scanMetrics().scannedDeleteManifests().value()
-            );
+                    scanReport.scanMetrics().scannedDeleteManifests().value());
         }
-
 
         // skippedDeleteManifests() Metric
-        if(scanReport.scanMetrics().skippedDeleteManifests() != null)
-        {
+        if (scanReport.scanMetrics().skippedDeleteManifests() != null) {
             runtimeStats.addMetricValue(
-                    tableScanString(table_name,"skippedDeleteManifests"),
+                    tableScanString(tableName, "skippedDeleteManifests"),
                     RuntimeUnit.NONE,
-                    scanReport.scanMetrics().skippedDeleteManifests().value()
-            );
+                    scanReport.scanMetrics().skippedDeleteManifests().value());
         }
-
-
 
         // indexedDeleteFiles() Metric
-        if(scanReport.scanMetrics().indexedDeleteFiles() != null)
-        {
+        if (scanReport.scanMetrics().indexedDeleteFiles() != null) {
             runtimeStats.addMetricValue(
-                    tableScanString(table_name, "indexedDeleteFiles"),
+                    tableScanString(tableName, "indexedDeleteFiles"),
                     RuntimeUnit.NONE,
-                    scanReport.scanMetrics().indexedDeleteFiles().value()
-            );
+                    scanReport.scanMetrics().indexedDeleteFiles().value());
         }
-
-
 
         // equalityDeleteFiles() Metric
-        if(scanReport.scanMetrics().equalityDeleteFiles() != null)
-        {
+        if (scanReport.scanMetrics().equalityDeleteFiles() != null) {
             runtimeStats.addMetricValue(
-                    tableScanString(table_name,  "equalityDeleteFiles"),
+                    tableScanString(tableName,  "equalityDeleteFiles"),
                     RuntimeUnit.NONE,
-                    scanReport.scanMetrics().equalityDeleteFiles().value()
-            );
+                    scanReport.scanMetrics().equalityDeleteFiles().value());
         }
 
-
         // positionalDeleteFiles() Metric
-        if(scanReport.scanMetrics().positionalDeleteFiles() != null)
-        {
+        if (scanReport.scanMetrics().positionalDeleteFiles() != null) {
             runtimeStats.addMetricValue(
-                    tableScanString(table_name, "positionalDeleteFiles"),
+                    tableScanString(tableName, "positionalDeleteFiles"),
                     RuntimeUnit.NONE,
-                    scanReport.scanMetrics().positionalDeleteFiles().value()
-            );
+                    scanReport.scanMetrics().positionalDeleteFiles().value());
         }
     }
 }
