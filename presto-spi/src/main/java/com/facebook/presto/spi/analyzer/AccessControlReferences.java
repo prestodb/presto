@@ -15,6 +15,7 @@ package com.facebook.presto.spi.analyzer;
 
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.Subfield;
+import com.facebook.presto.spi.MaterializedViewDefinition;
 
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -29,11 +30,15 @@ public class AccessControlReferences
     private final Map<AccessControlRole, Set<AccessControlInfoForTable>> tableReferences;
     private final Map<AccessControlInfo, Map<QualifiedObjectName, Set<Subfield>>> tableColumnAndSubfieldReferencesForAccessControl;
     private AccessControlInfo queryAccessControlInfo;
+    private final Map<QualifiedObjectName, ViewDefinition> viewDefinitions;
+    private final Map<QualifiedObjectName, MaterializedViewDefinition> materializedViewDefinitions;
 
     public AccessControlReferences()
     {
         tableReferences = new LinkedHashMap<>();
         tableColumnAndSubfieldReferencesForAccessControl = new LinkedHashMap<>();
+        viewDefinitions = new LinkedHashMap<>();
+        materializedViewDefinitions = new LinkedHashMap<>();
     }
 
     public Map<AccessControlRole, Set<AccessControlInfoForTable>> getTableReferences()
@@ -66,5 +71,25 @@ public class AccessControlReferences
     public AccessControlInfo getQueryAccessControlInfo()
     {
         return queryAccessControlInfo;
+    }
+
+    public void addViewDefinitionReference(QualifiedObjectName viewDefinitionName, ViewDefinition viewDefinition)
+    {
+        viewDefinitions.put(viewDefinitionName, viewDefinition);
+    }
+
+    public void addMaterializedViewDefinitionReference(QualifiedObjectName viewDefinitionName, MaterializedViewDefinition materializedViewDefinition)
+    {
+        materializedViewDefinitions.put(viewDefinitionName, materializedViewDefinition);
+    }
+
+    public Map<QualifiedObjectName, ViewDefinition> getViewDefinitions()
+    {
+        return unmodifiableMap(new LinkedHashMap<>(viewDefinitions));
+    }
+
+    public Map<QualifiedObjectName, MaterializedViewDefinition> getMaterializedViewDefinitions()
+    {
+        return unmodifiableMap(new LinkedHashMap<>(materializedViewDefinitions));
     }
 }

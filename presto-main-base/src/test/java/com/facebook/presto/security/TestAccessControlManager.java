@@ -26,10 +26,12 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.CatalogSchemaTableName;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -171,6 +173,8 @@ public class TestAccessControlManager
         accessControlManager.addSystemAccessControlFactory(accessControlFactory);
         accessControlManager.setSystemAccessControl("test", ImmutableMap.of());
         String testQuery = "test_query";
+        Map<QualifiedObjectName, ViewDefinition> viewDefinitions = ImmutableMap.of();
+        Map<QualifiedObjectName, MaterializedViewDefinition> materializedViewDefinitions = ImmutableMap.of();
 
         accessControlManager.checkQueryIntegrity(
                 new Identity(
@@ -182,7 +186,9 @@ public class TestAccessControlManager
                         Optional.empty(),
                         Optional.empty()),
                 context,
-                testQuery);
+                testQuery,
+                viewDefinitions,
+                materializedViewDefinitions);
         assertEquals(accessControlFactory.getCheckedUserName(), USER_NAME);
         assertEquals(accessControlFactory.getCheckedPrincipal(), Optional.of(PRINCIPAL));
         assertEquals(accessControlFactory.getCheckedQuery(), testQuery);
@@ -199,7 +205,9 @@ public class TestAccessControlManager
                                 Optional.empty(),
                                 Optional.empty()),
                         context,
-                        testQuery));
+                        testQuery,
+                        viewDefinitions,
+                        materializedViewDefinitions));
     }
 
     @Test
@@ -298,7 +306,7 @@ public class TestAccessControlManager
                     }
 
                     @Override
-                    public void checkQueryIntegrity(Identity identity, AccessControlContext context, String query)
+                    public void checkQueryIntegrity(Identity identity, AccessControlContext context, String query, Map<QualifiedObjectName, ViewDefinition> viewDefinitions, Map<QualifiedObjectName, MaterializedViewDefinition> materializedViewDefinitionMap)
                     {
                     }
 
@@ -369,6 +377,8 @@ public class TestAccessControlManager
         private Optional<Principal> checkedPrincipal;
         private String checkedUserName;
         private String checkedQuery;
+        private Map<QualifiedObjectName, ViewDefinition> checkedViewDefinitions;
+        private Map<QualifiedObjectName, MaterializedViewDefinition> checkedMaterializedViewDefinitions;
 
         public TestSystemAccessControlFactory(String name)
         {
@@ -410,7 +420,7 @@ public class TestAccessControlManager
                 }
 
                 @Override
-                public void checkQueryIntegrity(Identity identity, AccessControlContext context, String query)
+                public void checkQueryIntegrity(Identity identity, AccessControlContext context, String query, Map<QualifiedObjectName, ViewDefinition> viewDefinitions, Map<QualifiedObjectName, MaterializedViewDefinition> materializedViewDefinitions)
                 {
                     if (!query.equals(identity.getExtraCredentials().get(QUERY_TOKEN_FIELD))) {
                         denyQueryIntegrityCheck();
@@ -418,6 +428,8 @@ public class TestAccessControlManager
                     checkedUserName = identity.getUser();
                     checkedPrincipal = identity.getPrincipal();
                     checkedQuery = query;
+                    checkedViewDefinitions = viewDefinitions;
+                    checkedMaterializedViewDefinitions = materializedViewDefinitions;
                 }
 
                 @Override

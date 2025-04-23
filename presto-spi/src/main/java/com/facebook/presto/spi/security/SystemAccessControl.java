@@ -14,9 +14,12 @@
 package com.facebook.presto.spi.security;
 
 import com.facebook.presto.common.CatalogSchemaName;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.spi.CatalogSchemaTableName;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.analyzer.ViewDefinition;
 
 import java.security.Principal;
 import java.security.cert.X509Certificate;
@@ -72,7 +75,7 @@ public interface SystemAccessControl
      *
      * @throws AccessDeniedException if query is modified.
      */
-    void checkQueryIntegrity(Identity identity, AccessControlContext context, String query);
+    void checkQueryIntegrity(Identity identity, AccessControlContext context, String query, Map<QualifiedObjectName, ViewDefinition> viewDefinitions, Map<QualifiedObjectName, MaterializedViewDefinition> materializedViewDefinitions);
 
     /**
      * Check if identity is allowed to set the specified system property.
