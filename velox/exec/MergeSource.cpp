@@ -263,7 +263,7 @@ BlockingReason MergeJoinSource::next(
     ContinueFuture* future,
     RowVectorPtr* data) {
   common::testutil::TestValue::adjust(
-      "facebook::velox::exec::MergeSource::next", this);
+      "facebook::velox::exec::MergeJoinSource::next", this);
   PromiseNotifier notifier(1);
   return state_.withWLock([&](auto& state) {
     if (state.data != nullptr) {
@@ -288,7 +288,7 @@ BlockingReason MergeJoinSource::enqueue(
     RowVectorPtr data,
     ContinueFuture* future) {
   common::testutil::TestValue::adjust(
-      "facebook::velox::exec::MergeSource::enqueue", this);
+      "facebook::velox::exec::MergeJoinSource::enqueue", this);
   PromiseNotifier notifier(1);
   return state_.withWLock([&](auto& state) {
     if (state.atEnd) {

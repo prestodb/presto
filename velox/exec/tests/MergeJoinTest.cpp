@@ -1499,14 +1499,14 @@ DEBUG_ONLY_TEST_F(MergeJoinTest, failureOnRightSide) {
   // this to be called at least once to ensure consumerPromise_ is created in
   // the MergeSource.
   SCOPED_TESTVALUE_SET(
-      "facebook::velox::exec::MergeSource::next",
+      "facebook::velox::exec::MergeJoinSource::next",
       std::function<void(const MergeJoinSource*)>([&](const MergeJoinSource*) {
         nextCalled = true;
         nextCalledWait.notifyAll();
       }));
 
   SCOPED_TESTVALUE_SET(
-      "facebook::velox::exec::MergeSource::enqueue",
+      "facebook::velox::exec::MergeJoinSource::enqueue",
       std::function<void(const MergeJoinSource*)>([&](const MergeJoinSource*) {
         // Only call this the first time, otherwise if we throw an exception
         // during Driver.close the process will crash.
