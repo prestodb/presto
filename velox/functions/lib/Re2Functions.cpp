@@ -1594,13 +1594,13 @@ class RegexpReplaceWithLambdaFunction : public exec::VectorFunction {
       vector_size_t numMatchesPerRow = 0;
 
       size_t pos = 0;
-      re2::StringPiece subMatches[numGroups + 1];
+      std::vector<re2::StringPiece> subMatches(numGroups + 1);
       while (re->Match(
           toStringPiece(hay),
           pos,
           hay.size(),
           RE2::Anchor::UNANCHORED,
-          subMatches,
+          subMatches.data(),
           numGroups + 1)) {
         ++numMatchesPerRow;
         matches.ensureSize(matchRow + 1);

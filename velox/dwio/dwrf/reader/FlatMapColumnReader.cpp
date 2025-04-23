@@ -377,8 +377,8 @@ void FlatMapColumnReader<T>::next(
     return;
   }
 
-  size_t startIndices[nodeBatches.size()];
-  size_t nodeIndices[nodeBatches.size()];
+  std::vector<size_t> startIndices(nodeBatches.size());
+  std::vector<size_t> nodeIndices(nodeBatches.size());
 
   auto& mapValueType = requestedType_->type()->asMap().valueType();
   if (totalChildren > 0) {

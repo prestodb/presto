@@ -754,10 +754,10 @@ bool GroupingSet::getOutput(
   VELOX_CHECK(!isDistinct());
 
   // @lint-ignore CLANGTIDY
-  char* groups[maxOutputRows];
+  std::vector<char*> groups(maxOutputRows);
   const int32_t numGroups = table_
       ? table_->rows()->listRows(
-            &iterator, maxOutputRows, maxOutputBytes, groups)
+            &iterator, maxOutputRows, maxOutputBytes, groups.data())
       : 0;
   if (numGroups == 0) {
     if (table_ != nullptr) {
@@ -766,7 +766,7 @@ bool GroupingSet::getOutput(
     return false;
   }
   extractGroups(
-      table_->rows(), folly::Range<char**>(groups, numGroups), result);
+      table_->rows(), folly::Range<char**>(groups.data(), numGroups), result);
   return true;
 }
 

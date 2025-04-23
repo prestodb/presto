@@ -299,11 +299,11 @@ struct ExtractJsonTypeImpl {
       } else if (stringImpl::stringPosition</*isAscii=*/true>(s, kGMT, 1) > 0) {
         // Try converting the string view as a date value after cleaning up the
         // legacy timestamp string by removing the "GMT" string.
-        char dateStr[s.size()];
+        std::vector<char> dateStr(s.size());
         auto size = stringCore::replace</*ignoreEmptyReplaced=*/true>(
-            dateStr, s, kGMT, std::string_view(), false);
+            dateStr.data(), s, kGMT, std::string_view(), false);
         castResult = util::fromDateString(
-            StringView(dateStr, size), util::ParseMode::kSparkCast);
+            StringView(dateStr.data(), size), util::ParseMode::kSparkCast);
         if (!castResult.hasError()) {
           day = castResult.value();
         } else {

@@ -54,12 +54,12 @@ class FileInputStreamTest : public testing::Test {
     const auto filePath =
         fmt::format("{}/{}", tempDirPath_->getPath(), fileId_++);
     auto writeFile = fs_->openFileForWrite(filePath);
-    std::uint8_t buffer[streamSize];
+    std::vector<std::uint8_t> buffer(streamSize);
     for (int i = 0; i < streamSize; ++i) {
       buffer[i] = i % 256;
     }
     writeFile->append(
-        std::string_view(reinterpret_cast<char*>(buffer), streamSize));
+        std::string_view(reinterpret_cast<char*>(buffer.data()), streamSize));
     writeFile->close();
     return std::make_unique<common::FileInputStream>(
         fs_->openFileForRead(filePath), bufferSize, pool_.get());
@@ -95,9 +95,9 @@ TEST_F(FileInputStreamTest, stats) {
         byteStream->stats().readBytes,
         std::min(testData.streamSize, testData.bufferSize));
     ASSERT_GT(byteStream->stats().readTimeNs, 0);
-    uint8_t buffer[testData.streamSize / 8];
+    std::vector<uint8_t> buffer(testData.streamSize / 8);
     for (int offset = 0; offset < testData.streamSize;) {
-      byteStream->readBytes(buffer, testData.streamSize / 8);
+      byteStream->readBytes(buffer.data(), testData.streamSize / 8);
       for (int i = 0; i < testData.streamSize / 8; ++i, ++offset) {
         ASSERT_EQ(buffer[i], offset % 256);
       }

@@ -520,12 +520,12 @@ class FaultyFsTest : public ::testing::Test {
   }
 
   void readData(ReadFile* file, bool useReadv = false) {
-    char readBuf[buffer_.size()];
+    std::vector<char> readBuf(buffer_.size());
     if (!useReadv) {
-      file->pread(0, buffer_.size(), readBuf);
+      file->pread(0, buffer_.size(), readBuf.data());
     } else {
       std::vector<folly::Range<char*>> buffers;
-      buffers.push_back(folly::Range<char*>(readBuf, buffer_.size()));
+      buffers.push_back(folly::Range<char*>(readBuf.data(), buffer_.size()));
       file->preadv(0, buffers);
     }
     for (int i = 0; i < buffer_.size(); ++i) {
