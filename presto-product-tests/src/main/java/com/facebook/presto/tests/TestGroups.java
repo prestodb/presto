@@ -28,6 +28,7 @@ public final class TestGroups
     public static final String SMOKE = "smoke";
     public static final String JDBC = "jdbc";
     public static final String MYSQL = "mysql";
+    public static final String MYSQL_MIXED_CASE = "mysql_mixed_case";
     public static final String PRESTO_JDBC = "presto_jdbc";
     public static final String SIMBA_JDBC = "simba_jdbc";
     public static final String QUERY_ENGINE = "qe";
@@ -67,6 +68,7 @@ public final class TestGroups
     public static final String ICEBERG = "iceberg";
     public static final String HIVE_LIST_CACHING = "hive_list_caching";
     public static final String INVALIDATE_METASTORE_CACHE = "invalidate_metastore_cache";
+    public static final String MIXED_CASE = "mixed_case";
 
     private TestGroups() {}
 }
