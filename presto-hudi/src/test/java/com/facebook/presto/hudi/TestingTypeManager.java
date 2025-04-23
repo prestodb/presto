@@ -58,8 +58,7 @@ public class TestingTypeManager
         throw new UnsupportedOperationException();
     }
 
-    @Override
-    public List<Type> getTypes()
+    private List<Type> getTypes()
     {
         return ImmutableList.of(BOOLEAN, INTEGER, BIGINT, DOUBLE, VARCHAR, VARBINARY, TIMESTAMP, DATE, HYPER_LOG_LOG);
     }

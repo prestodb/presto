@@ -116,11 +116,6 @@ public interface QueryRunner
 
     Lock getExclusiveLock();
 
-    default void loadTypeManager(String typeManagerName)
-    {
-        throw new UnsupportedOperationException();
-    }
-
     class MaterializedResultWithPlan
     {
         private final MaterializedResult materializedResult;
