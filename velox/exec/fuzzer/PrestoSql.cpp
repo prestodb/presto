@@ -284,12 +284,14 @@ std::string toCallSql(const core::CallTypedExprPtr& call) {
         call->inputs().size(),
         3,
         "Expected three arguments to function 'between'");
+    sql << "(";
     const auto& inputs = call->inputs();
     toCallInputsSql({inputs[0]}, sql);
     sql << " between ";
     toCallInputsSql({inputs[1]}, sql);
     sql << " and ";
     toCallInputsSql({inputs[2]}, sql);
+    sql << ")";
   } else if (call->name() == "row_constructor") {
     VELOX_CHECK_GE(
         call->inputs().size(),
