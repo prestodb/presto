@@ -90,6 +90,285 @@ std::vector<CompressionKind> params = {
     CompressionKind::CompressionKind_GZIP,
 };
 
+TEST_F(ParquetWriterTest, dictionaryEncodingWithDictionaryPageSize) {
+  const auto schema = ROW({"c0"}, {SMALLINT()});
+  constexpr int64_t kRows = 10'000;
+  const auto data = makeRowVector({
+      makeFlatVector<int16_t>(kRows, [](auto row) { return row + 1; }),
+  });
+
+  // Write Parquet test data, then read and return the DataPage
+  // (thrift::PageType::type) used.
+  const auto testEnableDictionaryAndDictionaryPageSizeToGetPageHeader =
+      [&](std::unordered_map<std::string, std::string> configFromFile,
+          std::unordered_map<std::string, std::string> sessionProperties,
+          bool isFirstPageOrSecondPage) {
+        // Create an in-memory writer.
+        auto sink = std::make_unique<MemorySink>(
+            200 * 1024 * 1024,
+            dwio::common::FileSink::Options{.pool = leafPool_.get()});
+        auto sinkPtr = sink.get();
+        parquet::WriterOptions writerOptions;
+        writerOptions.memoryPool = leafPool_.get();
+
+        auto connectorConfig = config::ConfigBase(std::move(configFromFile));
+        auto connectorSessionProperties =
+            config::ConfigBase(std::move(sessionProperties));
+
+        writerOptions.processConfigs(
+            connectorConfig, connectorSessionProperties);
+        auto writer = std::make_unique<parquet::Writer>(
+            std::move(sink), writerOptions, rootPool_, schema);
+        writer->write(data);
+        writer->close();
+
+        // Read to identify DataPage used.
+        dwio::common::ReaderOptions readerOptions{leafPool_.get()};
+        auto reader = createReaderInMemory(*sinkPtr, readerOptions);
+
+        auto colChunkPtr = reader->fileMetaData().rowGroup(0).columnChunk(0);
+        std::string_view sinkData(sinkPtr->data(), sinkPtr->size());
+
+        auto readFile = std::make_shared<InMemoryReadFile>(sinkData);
+        auto file = std::make_shared<ReadFileInputStream>(std::move(readFile));
+
+        if (isFirstPageOrSecondPage) {
+          auto inputStream = std::make_unique<SeekableFileInputStream>(
+              std::move(file),
+              colChunkPtr.dataPageOffset(),
+              150,
+              *leafPool_,
+              LogType::TEST);
+          auto pageReader = std::make_unique<PageReader>(
+              std::move(inputStream),
+              *leafPool_,
+              colChunkPtr.compression(),
+              colChunkPtr.totalCompressedSize());
+          return pageReader->readPageHeader();
+        }
+        constexpr int64_t kFirstDataPageCompressedSize = 1291;
+        constexpr int64_t kFirstDataPageHeaderSize = 48;
+        auto inputStream = std::make_unique<SeekableFileInputStream>(
+            std::move(file),
+            colChunkPtr.dataPageOffset() + kFirstDataPageCompressedSize +
+                kFirstDataPageHeaderSize,
+            150,
+            *leafPool_,
+            LogType::TEST);
+        auto pageReader = std::make_unique<PageReader>(
+            std::move(inputStream),
+            *leafPool_,
+            colChunkPtr.compression(),
+            colChunkPtr.totalCompressedSize());
+        return pageReader->readPageHeader();
+      };
+
+  // Test default config (i.e., no explicit config)
+
+  const std::unordered_map<std::string, std::string> defaultConfigFromFile;
+  const std::unordered_map<std::string, std::string>
+      defaultSessionPropertiesFromFile;
+
+  const auto defaultHeader =
+      testEnableDictionaryAndDictionaryPageSizeToGetPageHeader(
+          defaultConfigFromFile, defaultSessionPropertiesFromFile, true);
+  // We use the default version of data page (V1)
+  EXPECT_EQ(defaultHeader.type, thrift::PageType::type::DATA_PAGE);
+  // Dictionary encoding is enabled as default
+  EXPECT_EQ(
+      defaultHeader.data_page_header.encoding,
+      thrift::Encoding::RLE_DICTIONARY);
+  // Default dictionary page size is 1MB (same as data page size), so it can
+  // contain a dictionary for all values. So all data will be in the first
+  // data page
+  EXPECT_EQ(defaultHeader.data_page_header.num_values, kRows);
+
+  // Test normal config
+
+  // Set the dictionary page size limit to 1B so that the first data page will
+  // only contain one batch of data encoded with dictionary, and from the
+  // second batch it falls back to PLAIN encoding. If not set the dictionary
+  // page size limit, the default is 1MB (same as data page default size) then
+  // there will be only one data page contains all data encoded with dictionary
+  const std::unordered_map<std::string, std::string> normalConfigFromFile = {
+      {parquet::WriterOptions::kParquetHiveConnectorEnableDictionary, "true"},
+      {parquet::WriterOptions::kParquetHiveConnectorDictionaryPageSizeLimit,
+       "1B"},
+  };
+  const std::unordered_map<std::string, std::string> normalSessionProperties = {
+      {parquet::WriterOptions::kParquetSessionEnableDictionary, "true"},
+      {parquet::WriterOptions::kParquetSessionDictionaryPageSizeLimit, "1B"},
+  };
+
+  // Here we are reading the second data page. If we don't set the dictionary
+  // page size, then there will be only one data page (See the comments above
+  // the declaration of configFromFile)
+  const auto normalHeader =
+      testEnableDictionaryAndDictionaryPageSizeToGetPageHeader(
+          normalConfigFromFile, normalSessionProperties, false);
+
+  // We use the default version of data page (V1)
+  EXPECT_EQ(normalHeader.type, thrift::PageType::type::DATA_PAGE);
+  // The second data page will fall back to PLAIN encoding
+  EXPECT_EQ(normalHeader.data_page_header.encoding, thrift::Encoding::PLAIN);
+
+  // Test incorrect enable dictionary config
+
+  const std::string invalidEnableDictionaryValue{"NaB"};
+  const std::unordered_map<std::string, std::string>
+      incorrectEnableDictionaryConfigFromFile = {
+          {parquet::WriterOptions::kParquetHiveConnectorEnableDictionary,
+           invalidEnableDictionaryValue},
+      };
+  const std::unordered_map<std::string, std::string>
+      incorrectEnableDictionarySessionProperties = {
+          {parquet::WriterOptions::kParquetSessionEnableDictionary,
+           invalidEnableDictionaryValue},
+      };
+
+  // Values cannot be parsed so that the exception is thrown
+  VELOX_ASSERT_THROW(
+      testEnableDictionaryAndDictionaryPageSizeToGetPageHeader(
+          incorrectEnableDictionaryConfigFromFile,
+          incorrectEnableDictionarySessionProperties,
+          true),
+      fmt::format(
+          "Invalid parquet writer enable dictionary option: Non-whitespace character found after end of conversion: \"{}\"",
+          invalidEnableDictionaryValue.substr(1)));
+
+  // Test incorrect dictionary page size config
+
+  const std::string invalidDictionaryPageSizeValue{"NaN"};
+  const std::unordered_map<std::string, std::string>
+      incorrectDictionaryPageSizeConfigFromFile = {
+          {parquet::WriterOptions::kParquetHiveConnectorDictionaryPageSizeLimit,
+           invalidDictionaryPageSizeValue},
+      };
+  const std::unordered_map<std::string, std::string>
+      incorrectDictionaryPageSizeSessionProperties = {
+          {parquet::WriterOptions::kParquetSessionDictionaryPageSizeLimit,
+           invalidDictionaryPageSizeValue},
+      };
+
+  // Values cannot be parsed so that the exception is thrown
+  VELOX_ASSERT_THROW(
+      testEnableDictionaryAndDictionaryPageSizeToGetPageHeader(
+          incorrectDictionaryPageSizeConfigFromFile,
+          incorrectDictionaryPageSizeSessionProperties,
+          true),
+      fmt::format(
+          "Invalid capacity string '{}'", invalidDictionaryPageSizeValue));
+}
+
+TEST_F(ParquetWriterTest, dictionaryEncodingOff) {
+  const auto schema = ROW({"c0"}, {SMALLINT()});
+  constexpr int64_t kRows = 10'000;
+  const auto data = makeRowVector({
+      makeFlatVector<int16_t>(kRows, [](auto row) { return row + 1; }),
+  });
+
+  // Write Parquet test data, then read and return the DataPage
+  // (thrift::PageType::type) used.
+  const auto testEnableDictionaryAndDictionaryPageSizeToGetPageHeader =
+      [&](std::unordered_map<std::string, std::string> configFromFile,
+          std::unordered_map<std::string, std::string> sessionProperties) {
+        // Create an in-memory writer.
+        auto sink = std::make_unique<MemorySink>(
+            200 * 1024 * 1024,
+            dwio::common::FileSink::Options{.pool = leafPool_.get()});
+        auto sinkPtr = sink.get();
+        parquet::WriterOptions writerOptions;
+        writerOptions.memoryPool = leafPool_.get();
+
+        auto connectorConfig = config::ConfigBase(std::move(configFromFile));
+        auto connectorSessionProperties =
+            config::ConfigBase(std::move(sessionProperties));
+
+        writerOptions.processConfigs(
+            connectorConfig, connectorSessionProperties);
+        auto writer = std::make_unique<parquet::Writer>(
+            std::move(sink), writerOptions, rootPool_, schema);
+        writer->write(data);
+        writer->close();
+
+        // Read to identify DataPage used.
+        dwio::common::ReaderOptions readerOptions{leafPool_.get()};
+        auto reader = createReaderInMemory(*sinkPtr, readerOptions);
+
+        auto colChunkPtr = reader->fileMetaData().rowGroup(0).columnChunk(0);
+        std::string_view sinkData(sinkPtr->data(), sinkPtr->size());
+
+        auto readFile = std::make_shared<InMemoryReadFile>(sinkData);
+        auto file = std::make_shared<ReadFileInputStream>(std::move(readFile));
+
+        auto inputStream = std::make_unique<SeekableFileInputStream>(
+            std::move(file),
+            colChunkPtr.dataPageOffset(),
+            150,
+            *leafPool_,
+            LogType::TEST);
+        auto pageReader = std::make_unique<PageReader>(
+            std::move(inputStream),
+            *leafPool_,
+            colChunkPtr.compression(),
+            colChunkPtr.totalCompressedSize());
+        return pageReader->readPageHeader();
+      };
+
+  // Test only dictionary off without dictionary page size configured
+
+  const std::unordered_map<std::string, std::string>
+      withoutPageSizeConfigFromFile = {
+          {parquet::WriterOptions::kParquetHiveConnectorEnableDictionary,
+           "false"},
+      };
+  const std::unordered_map<std::string, std::string>
+      withoutPageSizeSessionProperties = {
+          {parquet::WriterOptions::kParquetSessionEnableDictionary, "false"},
+      };
+
+  const auto withoutPageSizeHeader =
+      testEnableDictionaryAndDictionaryPageSizeToGetPageHeader(
+          withoutPageSizeConfigFromFile, withoutPageSizeSessionProperties);
+
+  // We use the default version of data page (V1)
+  EXPECT_EQ(withoutPageSizeHeader.type, thrift::PageType::type::DATA_PAGE);
+  // Since we turn off the dictionary encoding, and the default data page size
+  // is 1MB, there is only one page, and its encoding should be PLAIN, which
+  // means the configuration is applied
+  EXPECT_EQ(
+      withoutPageSizeHeader.data_page_header.encoding, thrift::Encoding::PLAIN);
+  // All rows will be on the only data page, this is a sanity check
+  EXPECT_EQ(withoutPageSizeHeader.data_page_header.num_values, kRows);
+
+  // Test dictionary off but with dictionary page size configured
+
+  const std::unordered_map<std::string, std::string>
+      withPageSizeConfigFromFile = {
+          {parquet::WriterOptions::kParquetHiveConnectorEnableDictionary,
+           "false"},
+          {parquet::WriterOptions::kParquetHiveConnectorDictionaryPageSizeLimit,
+           "1B"},
+      };
+  const std::unordered_map<std::string, std::string>
+      withPageSizeSessionProperties = {
+          {parquet::WriterOptions::kParquetSessionEnableDictionary, "false"},
+          {parquet::WriterOptions::kParquetSessionDictionaryPageSizeLimit,
+           "1B"},
+      };
+
+  const auto withPageSizeHeader =
+      testEnableDictionaryAndDictionaryPageSizeToGetPageHeader(
+          withPageSizeConfigFromFile, withPageSizeSessionProperties);
+
+  // Should be the same as without dictionary page size configured, because
+  // when the dictionary is disabled, the dictionary page silze is meaningless
+  EXPECT_EQ(withPageSizeHeader.type, thrift::PageType::type::DATA_PAGE);
+  EXPECT_EQ(
+      withPageSizeHeader.data_page_header.encoding, thrift::Encoding::PLAIN);
+  EXPECT_EQ(withPageSizeHeader.data_page_header.num_values, kRows);
+}
+
 TEST_F(ParquetWriterTest, compression) {
   auto schema =
       ROW({"c0", "c1", "c2", "c3", "c4", "c5", "c6"},

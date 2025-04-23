@@ -131,7 +131,14 @@ std::shared_ptr<WriterProperties> getArrowParquetWriterOptions(
     const std::unique_ptr<DefaultFlushPolicy>& flushPolicy) {
   auto builder = WriterProperties::Builder();
   WriterProperties::Builder* properties = &builder;
-  if (!options.enableDictionary) {
+  if (options.enableDictionary.value_or(
+          facebook::velox::parquet::arrow::DEFAULT_IS_DICTIONARY_ENABLED)) {
+    properties = properties->enable_dictionary();
+    properties = properties->dictionary_pagesize_limit(
+        options.dictionaryPageSizeLimit.value_or(
+            facebook::velox::parquet::arrow::
+                DEFAULT_DICTIONARY_PAGE_SIZE_LIMIT));
+  } else {
     properties = properties->disable_dictionary();
   }
   properties = properties->compression(getArrowParquetCompression(
@@ -244,6 +251,20 @@ std::optional<std::string> getTimestampTimeZone(
     const char* configKey) {
   if (const auto timezone = config.get<std::string>(configKey)) {
     return timezone.value();
+  }
+  return std::nullopt;
+}
+
+std::optional<bool> isParquetEnableDictionary(
+    const config::ConfigBase& config,
+    const char* configKey) {
+  try {
+    if (const auto enableDictionary = config.get<bool>(configKey)) {
+      return enableDictionary.value();
+    }
+  } catch (const folly::ConversionError& e) {
+    VELOX_USER_FAIL(
+        "Invalid parquet writer enable dictionary option: {}", e.what());
   }
   return std::nullopt;
 }
@@ -513,6 +534,24 @@ void WriterOptions::processConfigs(
   }
   if (!parquetWriteTimestampTimeZone) {
     parquetWriteTimestampTimeZone = parquetWriterOptions->sessionTimezoneName;
+  }
+
+  if (!enableDictionary) {
+    enableDictionary =
+        isParquetEnableDictionary(session, kParquetSessionEnableDictionary)
+            .has_value()
+        ? isParquetEnableDictionary(session, kParquetSessionEnableDictionary)
+        : isParquetEnableDictionary(
+              connectorConfig, kParquetHiveConnectorEnableDictionary);
+  }
+
+  if (!dictionaryPageSizeLimit) {
+    dictionaryPageSizeLimit =
+        getParquetPageSize(session, kParquetSessionDictionaryPageSizeLimit)
+            .has_value()
+        ? getParquetPageSize(session, kParquetSessionDictionaryPageSizeLimit)
+        : getParquetPageSize(
+              connectorConfig, kParquetHiveConnectorDictionaryPageSizeLimit);
   }
 
   if (!useParquetDataPageV2) {
