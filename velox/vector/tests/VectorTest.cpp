@@ -3820,7 +3820,7 @@ TEST_F(VectorTest, mapUpdateMultipleUpdates) {
 TEST_F(VectorTest, mapUpdateConstant) {
   auto base = makeNullableMapVector<int64_t, int64_t>({
       {{{1, 1}, {2, 1}}},
-      {{}},
+      common::testutil::optionalEmpty,
       {{{3, 1}}},
       std::nullopt,
       {{{4, 1}}},
@@ -3842,7 +3842,7 @@ TEST_F(VectorTest, mapUpdateConstant) {
 TEST_F(VectorTest, mapUpdateDictionary) {
   auto base = makeNullableMapVector<int64_t, int64_t>({
       {{{1, 1}, {2, 1}}},
-      {{}},
+      common::testutil::optionalEmpty,
       {{{3, 1}}},
       std::nullopt,
       {{{4, 1}}},
