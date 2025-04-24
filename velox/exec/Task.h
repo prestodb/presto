@@ -1326,7 +1326,10 @@ class TaskListener {
       TaskState state,
       std::exception_ptr error,
       const TaskStats& stats,
-      const core::PlanFragment& /*fragment*/) {
+      const core::PlanFragment& /*fragment*/,
+      const std::
+          unordered_map<core::PlanNodeId, std::shared_ptr<ExchangeClient>>&
+      /*exchangeClientMap*/) {
     onTaskCompletion(taskUuid, taskId, state, error, stats);
   }
 };

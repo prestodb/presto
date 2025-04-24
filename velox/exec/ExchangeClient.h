@@ -113,6 +113,10 @@ class ExchangeClient : public std::enable_shared_from_this<ExchangeClient> {
     return kRequestDataSizesMaxWaitSec_;
   }
 
+  const std::unordered_set<std::string>& getRemoteTaskIdList() const {
+    return remoteTaskIds_;
+  }
+
  private:
   struct RequestSpec {
     std::shared_ptr<ExchangeSource> source;
