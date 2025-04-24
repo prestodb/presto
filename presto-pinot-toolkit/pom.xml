@@ -282,6 +282,12 @@
         </dependency>
 
         <dependency>
+            <groupId>org.apache.helix</groupId>
+            <artifactId>helix-core</artifactId>
+            <version>1.1.0</version>
+        </dependency>
+
+        <dependency>
             <groupId>org.apache.calcite</groupId>
             <artifactId>calcite-core</artifactId>
             <version>${dep.calcite.version}</version>
