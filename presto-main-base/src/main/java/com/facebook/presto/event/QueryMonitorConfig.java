@@ -15,11 +15,11 @@ package com.facebook.presto.event;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
-import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
-import io.airlift.units.Duration;
-import io.airlift.units.MaxDataSize;
-import io.airlift.units.MinDataSize;
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.DataSize.Unit;
+import com.facebook.airlift.units.Duration;
+import com.facebook.airlift.units.MaxDataSize;
+import com.facebook.airlift.units.MinDataSize;
 import jakarta.validation.constraints.NotNull;
 
 import static java.util.concurrent.TimeUnit.MINUTES;

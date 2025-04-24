@@ -24,9 +24,9 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static com.facebook.airlift.testing.Assertions.assertLessThan;
+import static com.facebook.airlift.units.Duration.nanosSince;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.utils.ResourceUtils.getResourceFilePath;
-import static io.airlift.units.Duration.nanosSince;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;

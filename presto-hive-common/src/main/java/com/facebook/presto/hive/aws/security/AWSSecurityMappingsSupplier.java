@@ -14,8 +14,8 @@
 package com.facebook.presto.hive.aws.security;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.units.Duration;
 import com.google.common.base.Suppliers;
-import io.airlift.units.Duration;
 
 import java.io.File;
 import java.util.Optional;

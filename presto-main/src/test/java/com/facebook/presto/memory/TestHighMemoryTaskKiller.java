@@ -15,6 +15,7 @@ package com.facebook.presto.memory;
 
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.airlift.stats.TestingGcMonitor;
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.execution.SqlTask;
 import com.facebook.presto.execution.SqlTaskExecutionFactory;
@@ -40,7 +41,6 @@ import com.google.common.base.Functions;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ListMultimap;
-import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.net.URI;
@@ -52,6 +52,8 @@ import java.util.function.Function;
 
 import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
+import static com.facebook.airlift.units.DataSize.Unit.GIGABYTE;
+import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.SqlTask.createSqlTask;
 import static com.facebook.presto.execution.TaskManagerConfig.TaskPriorityTracking.TASK_FAIR;
@@ -62,8 +64,6 @@ import static com.facebook.presto.execution.buffer.OutputBuffers.BufferType.PART
 import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
-import static io.airlift.units.DataSize.Unit.GIGABYTE;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;

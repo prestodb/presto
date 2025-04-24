@@ -105,7 +105,7 @@ public class PluginManager
             .add("com.fasterxml.jackson.annotation.")
             .add("com.fasterxml.jackson.module.afterburner.")
             .add("io.airlift.slice.")
-            .add("io.airlift.units.")
+            .add("com.facebook.airlift.units.")
             .add("org.openjdk.jol.")
             .add("com.facebook.presto.common")
             .add("com.facebook.drift.annotations.")

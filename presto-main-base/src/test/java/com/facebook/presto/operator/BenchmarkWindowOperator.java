@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockBuilder;
@@ -21,7 +22,6 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.testing.TestingTaskContext;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
-import io.airlift.units.DataSize;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -45,6 +45,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.airlift.units.DataSize.Unit.GIGABYTE;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockAssertions.createLongSequenceBlock;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -52,7 +53,6 @@ import static com.facebook.presto.operator.BenchmarkWindowOperator.Context.ROWS_
 import static com.facebook.presto.operator.BenchmarkWindowOperator.Context.TOTAL_PAGES;
 import static com.facebook.presto.operator.TestWindowOperator.ROW_NUMBER;
 import static com.facebook.presto.operator.TestWindowOperator.createFactoryUnbounded;
-import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;

@@ -15,6 +15,7 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.log.Logging;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.SqlDecimal;
 import com.facebook.presto.common.type.SqlTimestampWithTimeZone;
@@ -44,7 +45,6 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.joni.Regex;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.AfterClass;

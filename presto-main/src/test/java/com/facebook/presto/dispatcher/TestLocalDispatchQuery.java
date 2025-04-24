@@ -14,6 +14,7 @@
 package com.facebook.presto.dispatcher;
 
 import com.facebook.airlift.node.NodeInfo;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.cost.HistoryBasedOptimizationConfig;
@@ -51,7 +52,6 @@ import com.facebook.presto.transaction.TransactionManager;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.SettableFuture;
-import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Map;

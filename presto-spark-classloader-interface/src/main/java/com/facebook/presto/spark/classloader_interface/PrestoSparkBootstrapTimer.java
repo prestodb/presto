@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.spark.classloader_interface;
 
+import com.facebook.airlift.units.Duration;
 import com.google.common.base.Ticker;
-import io.airlift.units.Duration;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static io.airlift.units.Duration.succinctNanos;
+import static com.facebook.airlift.units.Duration.succinctNanos;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 
