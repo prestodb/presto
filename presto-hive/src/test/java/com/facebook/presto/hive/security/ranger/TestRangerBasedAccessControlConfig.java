@@ -87,7 +87,7 @@ public class TestRangerBasedAccessControlConfig
                 RANGER_REST_USER_GROUPS_AUTH_USERNAME, "admin",
                 RANGER_REST_USER_GROUPS_AUTH_PASSWORD, "admin")))
                 .isInstanceOf(ConfigurationException.class)
-                .hasMessageContaining("Invalid configuration property hive.ranger.rest-endpoint: may not be null");
+                .hasMessageContaining("Invalid configuration property hive.ranger.rest-endpoint: must not be null");
 
         assertThatThrownBy(() -> newInstance(ImmutableMap.of(
                 RANGER_POLICY_REFRESH_PERIOD, "120s",
@@ -95,7 +95,7 @@ public class TestRangerBasedAccessControlConfig
                 RANGER_REST_USER_GROUPS_AUTH_USERNAME, "admin",
                 RANGER_REST_USER_GROUPS_AUTH_PASSWORD, "admin")))
                 .isInstanceOf(ConfigurationException.class)
-                .hasMessageContaining("Invalid configuration property hive.ranger.policy.hive-servicename: may not be null");
+                .hasMessageContaining("Invalid configuration property hive.ranger.policy.hive-servicename: must not be null");
     }
 
     private static RangerBasedAccessControlConfig newInstance(Map<String, String> properties)
