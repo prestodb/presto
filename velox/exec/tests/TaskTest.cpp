@@ -1226,7 +1226,7 @@ DEBUG_ONLY_TEST_F(TaskTest, liveStats) {
     EXPECT_EQ(32 * i, operatorStats.outputBytes);
     EXPECT_EQ(3 * i, operatorStats.outputPositions);
     EXPECT_EQ(i, operatorStats.outputVectors);
-    EXPECT_EQ(2 * (i + 1), operatorStats.isBlockedTiming.count);
+    EXPECT_EQ(i + 1, operatorStats.isBlockedTiming.count);
     EXPECT_EQ(0, operatorStats.finishTiming.count);
     EXPECT_EQ(0, operatorStats.backgroundTiming.count);
 
@@ -1253,11 +1253,18 @@ DEBUG_ONLY_TEST_F(TaskTest, liveStats) {
   EXPECT_EQ(32 * numBatches, operatorStats.outputBytes);
   EXPECT_EQ(3 * numBatches, operatorStats.outputPositions);
   EXPECT_EQ(numBatches, operatorStats.outputVectors);
-  // isBlocked() should be called at least twice for each batch
-  EXPECT_LE(2 * numBatches, operatorStats.isBlockedTiming.count);
+  // For the first operator, 'isBlocked()' should be called at least once for
+  // each batch.
+  EXPECT_LE(numBatches, operatorStats.isBlockedTiming.count);
   EXPECT_EQ(1, operatorStats.finishTiming.count);
   // No operators with background CPU time yet.
   EXPECT_EQ(0, operatorStats.backgroundTiming.count);
+
+  const auto& secondOperatorStats =
+      finishStats.pipelineStats[0].operatorStats[1];
+  // For non-first operators, 'isBlocked()' should be called at least twice for
+  // each batch.
+  EXPECT_LE(2 * numBatches, secondOperatorStats.isBlockedTiming.count);
 
   EXPECT_NE(0, finishStats.executionEndTimeMs);
   EXPECT_NE(0, finishStats.terminationTimeMs);
