@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.rcfile;
 
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.DataSize.Unit;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
@@ -27,8 +29,6 @@ import io.airlift.slice.ChunkedSliceInput.SliceLoader;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.Slices;
-import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 
 import java.io.Closeable;
 import java.io.IOException;

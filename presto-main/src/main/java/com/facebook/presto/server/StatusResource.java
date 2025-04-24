@@ -28,8 +28,8 @@ import jakarta.ws.rs.core.Response;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 
+import static com.facebook.airlift.units.Duration.nanosSince;
 import static com.facebook.presto.server.security.RoleType.INTERNAL;
-import static io.airlift.units.Duration.nanosSince;
 import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
 import static java.util.Objects.requireNonNull;
 

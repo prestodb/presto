@@ -14,6 +14,8 @@
 package com.facebook.presto.router.scheduler;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.spi.function.SqlFunctionId;
@@ -28,8 +30,6 @@ import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;

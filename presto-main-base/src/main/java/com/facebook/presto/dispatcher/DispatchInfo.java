@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.dispatcher;
 
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.execution.ExecutionFailureInfo;
-import io.airlift.units.Duration;
 
 import java.util.Optional;
 

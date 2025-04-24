@@ -15,6 +15,7 @@ package com.facebook.presto.ttl.nodettlfetchermanagers;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.CounterStat;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.metadata.InternalNode;
@@ -28,7 +29,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import io.airlift.units.Duration;
 import jakarta.annotation.PreDestroy;
 import jakarta.inject.Inject;
 import org.weakref.jmx.Managed;

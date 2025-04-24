@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
@@ -25,7 +26,6 @@ import com.facebook.presto.orc.writer.DictionaryColumnWriter;
 import com.facebook.presto.orc.writer.SliceDictionaryColumnWriter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -37,6 +37,7 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
 
+import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.StandardTypes.ARRAY;
@@ -61,7 +62,6 @@ import static com.google.common.collect.Iterables.limit;
 import static com.google.common.collect.Lists.newArrayList;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.toIntExact;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;

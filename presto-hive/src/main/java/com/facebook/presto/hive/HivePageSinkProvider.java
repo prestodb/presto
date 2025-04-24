@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.airlift.event.client.EventClient;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.smile.SmileCodec;
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HivePageSinkMetadataProvider;
@@ -35,7 +36,6 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import io.airlift.units.DataSize;
 import jakarta.inject.Inject;
 
 import java.util.List;
