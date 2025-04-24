@@ -13,10 +13,10 @@
  */
 package com.facebook.presto;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.spi.ErrorCause;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
-import io.airlift.units.DataSize;
 
 import java.util.Optional;
 
