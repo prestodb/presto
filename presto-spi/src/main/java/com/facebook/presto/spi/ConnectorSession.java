@@ -15,6 +15,7 @@ package com.facebook.presto.spi;
 
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
@@ -58,6 +59,11 @@ public interface ConnectorSession
 
     Optional<String> getSchema();
 
+    default Optional<String> getCatalog()
+    {
+        return Optional.empty();
+    };
+
     default boolean isReadConstraints()
     {
         return false;
@@ -72,4 +78,9 @@ public interface ConnectorSession
      * @return
      */
     ConnectorSession forConnectorId(ConnectorId connectorId);
+
+    default Optional<QueryType> getQueryType()
+    {
+        return Optional.empty();
+    }
 }
