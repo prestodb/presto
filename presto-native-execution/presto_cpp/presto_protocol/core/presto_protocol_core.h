@@ -1492,6 +1492,7 @@ struct IndexJoinNode : public PlanNode {
   std::shared_ptr<PlanNode> probeSource = {};
   std::shared_ptr<PlanNode> indexSource = {};
   List<EquiJoinClause> criteria = {};
+  std::shared_ptr<std::shared_ptr<RowExpression>> filter = {};
   std::shared_ptr<VariableReferenceExpression> probeHashVariable = {};
   std::shared_ptr<VariableReferenceExpression> indexHashVariable = {};
 

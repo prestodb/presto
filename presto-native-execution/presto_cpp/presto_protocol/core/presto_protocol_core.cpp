@@ -5774,6 +5774,13 @@ void to_json(json& j, const IndexJoinNode& p) {
       "criteria");
   to_json_key(
       j,
+      "filter",
+      p.filter,
+      "IndexJoinNode",
+      "std::shared_ptr<RowExpression>",
+      "filter");
+  to_json_key(
+      j,
       "probeHashVariable",
       p.probeHashVariable,
       "IndexJoinNode",
@@ -5813,6 +5820,13 @@ void from_json(const json& j, IndexJoinNode& p) {
       "IndexJoinNode",
       "List<EquiJoinClause>",
       "criteria");
+  from_json_key(
+      j,
+      "filter",
+      p.filter,
+      "IndexJoinNode",
+      "std::shared_ptr<RowExpression>",
+      "filter");
   from_json_key(
       j,
       "probeHashVariable",
