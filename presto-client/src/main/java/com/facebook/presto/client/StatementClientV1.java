@@ -498,7 +498,7 @@ class StatementClientV1
         if (!response.hasValue()) {
             if (response.getStatusCode() == HTTP_UNAUTHORIZED) {
                 return new ClientException("Authentication failed" +
-                        Optional.ofNullable(response.getStatusMessage())
+                        Optional.ofNullable(response.getResponseBody())
                                 .map(message -> ": " + message)
                                 .orElse(""));
             }
