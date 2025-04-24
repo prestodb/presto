@@ -14,12 +14,12 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.http.client.thrift.ThriftProtocolUtils;
+import com.facebook.airlift.units.DataSize;
 import com.facebook.drift.codec.ThriftCodec;
 import com.facebook.drift.codec.ThriftCodecManager;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
-import io.airlift.units.DataSize;
 import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
@@ -28,9 +28,9 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 import java.util.Optional;
 
+import static com.facebook.airlift.units.DataSize.Unit.BYTE;
 import static com.facebook.drift.transport.netty.codec.Protocol.FB_COMPACT;
 import static com.facebook.presto.hive.HiveFileInfo.createHiveFileInfo;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.Math.toIntExact;
 import static org.testng.Assert.assertEquals;
 
