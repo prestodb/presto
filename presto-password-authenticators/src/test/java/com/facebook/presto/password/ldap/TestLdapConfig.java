@@ -14,8 +14,8 @@
  */
 package com.facebook.presto.password.ldap;
 
+import com.facebook.airlift.units.Duration;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.Duration;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import org.testng.annotations.Test;
