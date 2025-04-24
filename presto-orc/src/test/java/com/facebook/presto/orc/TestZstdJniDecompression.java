@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.orc.zstd.ZstdJniCompressor;
 import com.facebook.presto.testing.assertions.Assert;
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.DataSize;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 

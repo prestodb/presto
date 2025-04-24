@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.orc;
 
-import io.airlift.units.DataSize;
+import com.facebook.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.facebook.airlift.units.DataSize.Unit.BYTE;
 import static com.facebook.presto.orc.FlushReason.DICTIONARY_FULL;
 import static com.facebook.presto.orc.FlushReason.MAX_BYTES;
 import static com.facebook.presto.orc.FlushReason.MAX_ROWS;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;

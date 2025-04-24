@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.execution;
 
-import io.airlift.units.Duration;
+import com.facebook.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;

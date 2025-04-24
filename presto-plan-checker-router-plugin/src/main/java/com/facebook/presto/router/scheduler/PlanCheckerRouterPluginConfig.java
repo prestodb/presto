@@ -14,10 +14,10 @@
 package com.facebook.presto.router.scheduler;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.units.Duration;
+import com.facebook.airlift.units.MinDuration;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Streams;
-import io.airlift.units.Duration;
-import io.airlift.units.MinDuration;
 
 import java.net.URI;
 import java.util.List;
