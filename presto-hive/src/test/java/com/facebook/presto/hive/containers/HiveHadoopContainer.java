@@ -33,6 +33,7 @@ public class HiveHadoopContainer
     private static final String IMAGE_VERSION = "latest";
     public static final String DEFAULT_IMAGE = "imjalpreet/hdp3.1-hive:" + IMAGE_VERSION;
     public static final String HIVE3_IMAGE = "prestodb/hive3.1-hive:10";
+    public static final String HIVE4_IMAGE = "imjalpreet/hive4.0-hive:" + IMAGE_VERSION;
 
     public static final String HOST_NAME = "hadoop-master";
 
