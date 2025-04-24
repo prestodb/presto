@@ -265,7 +265,7 @@ struct CudaPlatform {
   }
 };
 
-#if CUDART_VERSION >= 12080
+#if CUDART_VERSION >= 12080 && __CUDA_ARCH__ >= 700
 // specialization for MEMORY_ORDER=ACQUIRE, SliceT=Slice<GLOBAL, BLOCKED, int>
 template <>
 __device__ __forceinline__ int CudaSpecialization::atomic_load<
