@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.verifier;
 
-import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.plugin.memory.MemoryPlugin;
@@ -53,7 +52,6 @@ import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class VerifierTestUtil
 {
@@ -75,7 +73,6 @@ public class VerifierTestUtil
             false);
 
     private static final MySqlOptions MY_SQL_OPTIONS = MySqlOptions.builder()
-            .setCommandTimeout(new Duration(90, SECONDS))
             .build();
 
     private VerifierTestUtil() {}
