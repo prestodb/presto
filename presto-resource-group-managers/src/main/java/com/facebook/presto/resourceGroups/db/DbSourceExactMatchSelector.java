@@ -25,8 +25,8 @@ import org.jdbi.v3.core.JdbiException;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.airlift.units.Duration.nanosSince;
 import static com.facebook.presto.resourceGroups.VariableMap.emptyVariableMap;
-import static io.airlift.units.Duration.nanosSince;
 import static java.util.Objects.requireNonNull;
 
 public class DbSourceExactMatchSelector

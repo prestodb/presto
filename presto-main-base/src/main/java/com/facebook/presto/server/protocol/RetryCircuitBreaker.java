@@ -14,9 +14,9 @@
 package com.facebook.presto.server.protocol;
 
 import com.facebook.airlift.stats.DecayCounter;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.google.inject.Inject;
-import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
 
 import static com.google.common.base.Preconditions.checkArgument;

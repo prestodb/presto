@@ -36,12 +36,12 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.airlift.testing.Closeables.closeAllSuppress;
+import static com.facebook.airlift.units.Duration.nanosSince;
 import static com.facebook.presto.kafka.util.TestUtils.installKafkaPlugin;
 import static com.facebook.presto.kafka.util.TestUtils.loadTpchTopicDescription;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static com.google.common.io.ByteStreams.toByteArray;
-import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.SECONDS;

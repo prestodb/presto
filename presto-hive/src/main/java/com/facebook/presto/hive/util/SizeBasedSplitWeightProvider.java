@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.hive.util;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.hive.HiveSplitWeightProvider;
 import com.facebook.presto.spi.SplitWeight;
-import io.airlift.units.DataSize;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;

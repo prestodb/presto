@@ -15,11 +15,11 @@ package com.facebook.presto.hive;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.orc.DefaultOrcWriterFlushPolicy;
 import com.facebook.presto.orc.OrcWriterOptions;
 import com.facebook.presto.orc.metadata.DwrfStripeCacheMode;
 import com.facebook.presto.orc.writer.StreamLayoutFactory;
-import io.airlift.units.DataSize;
 import jakarta.validation.constraints.NotNull;
 
 import java.util.OptionalInt;

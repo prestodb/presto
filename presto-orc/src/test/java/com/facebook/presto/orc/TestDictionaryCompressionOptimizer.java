@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.DataSize.Unit;
 import com.facebook.presto.orc.DictionaryCompressionOptimizer.DictionaryColumn;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.math.IntMath;
-import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 import org.testng.annotations.Test;
 
 import java.util.List;
