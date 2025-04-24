@@ -35,5 +35,10 @@ void registerTDigestFunctions(const std::string& prefix) {
       MergeTDigestFunction,
       SimpleTDigest<double>,
       Array<SimpleTDigest<double>>>({prefix + "merge_tdigest"});
+  registerFunction<
+      ScaleTDigestFunction,
+      SimpleTDigest<double>,
+      SimpleTDigest<double>,
+      double>({prefix + "scale_tdigest"});
 }
 } // namespace facebook::velox::functions

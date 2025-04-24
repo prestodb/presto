@@ -161,7 +161,9 @@ int main(int argc, char** argv) {
           {"json_parse", std::make_shared<JsonParseArgValuesGenerator>()},
           {"json_extract", std::make_shared<JsonExtractArgValuesGenerator>()},
           {"value_at_quantile",
-           std::make_shared<TDigestArgValuesGenerator>("value_at_quantile")}};
+           std::make_shared<TDigestArgValuesGenerator>("value_at_quantile")},
+          {"scale_tdigest",
+           std::make_shared<TDigestArgValuesGenerator>("scale_tdigest")}};
 
   std::shared_ptr<facebook::velox::memory::MemoryPool> rootPool{
       facebook::velox::memory::memoryManager()->addRootPool()};

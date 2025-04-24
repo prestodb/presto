@@ -435,5 +435,61 @@ TEST(TDigestTest, infinity) {
   ASSERT_EQ(digest.estimateQuantile(1), INFINITY);
 }
 
+TEST(TDigestTest, scale) {
+  std::vector<int16_t> positions;
+  TDigest digest;
+  for (int i = 1; i <= 5; ++i) {
+    digest.add(positions, i);
+  }
+  digest.compress(positions);
+  double originalSum = digest.sum();
+
+  // Scale weights by negative
+  ASSERT_THROW(digest.scale(-1), VeloxRuntimeError);
+
+  // Scale weights by 1.7
+  digest.scale(1.7);
+  digest.compress(positions);
+  ASSERT_NEAR(digest.sum(), originalSum * 1.7, kSumError);
+}
+
+TEST(TDigestTest, largeScalePreservesWeights) {
+  TDigest digest;
+  std::vector<int16_t> positions;
+  std::normal_distribution<double> normal(1000, 100);
+  std::default_random_engine gen(common::testutil::getRandomSeed(42));
+  constexpr int N = 1e5;
+  std::vector<double> values;
+  values.reserve(N);
+  for (int i = 0; i < N; ++i) {
+    double value = normal(gen);
+    digest.add(positions, value);
+    values.push_back(value);
+  }
+  digest.compress(positions);
+  // Store original percentiles and sum
+  std::vector<double> originalPercentiles;
+  for (auto q : kQuantiles) {
+    originalPercentiles.push_back(digest.estimateQuantile(q));
+  }
+  double originalSum = digest.sum();
+
+  // Scale TDigest
+  double scaleFactor = std::numeric_limits<int>::max() * 2.0;
+  digest.scale(scaleFactor);
+  digest.compress(positions);
+
+  // Verify sum is scaled correctly.
+  ASSERT_NEAR(digest.sum(), originalSum * scaleFactor, kSumError * scaleFactor);
+  // Verify percentiles remain the same.
+  std::sort(values.begin(), values.end());
+  for (size_t i = 0; i < std::size(kQuantiles); ++i) {
+    ASSERT_NEAR(
+        digest.estimateQuantile(kQuantiles[i]),
+        originalPercentiles[i],
+        kRankError * (values.back() - values.front()));
+  }
+}
+
 } // namespace
 } // namespace facebook::velox::functions

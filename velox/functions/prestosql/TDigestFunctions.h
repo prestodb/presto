@@ -87,4 +87,23 @@ struct MergeTDigestFunction {
   }
 };
 
+template <typename T>
+struct ScaleTDigestFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<SimpleTDigest<double>>& result,
+      const arg_type<SimpleTDigest<double>>& input,
+      const arg_type<double>& scaleFactor) {
+    VELOX_USER_CHECK(scaleFactor > 0, "Scale factor should be positive.");
+    TDigest<> digest;
+    std::vector<int16_t> positions;
+    digest.mergeDeserialized(positions, input.data());
+    digest.compress(positions);
+    digest.scale(scaleFactor);
+    int64_t size = digest.serializedByteSize();
+    result.resize(size);
+    digest.serialize(result.data());
+  }
+};
 } // namespace facebook::velox::functions

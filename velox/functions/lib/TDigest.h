@@ -101,6 +101,9 @@ class TDigest {
   /// @param input The input serialization.
   void mergeDeserialized(std::vector<int16_t>& positions, const char* input);
 
+  /// Scale the tdigest by given factor
+  /// @param scaleFactor The factor to scale weight by.
+  void scale(double scaleFactor);
   /// Returns the total sum of all values added to this digest.
   double sum() const;
 
@@ -115,7 +118,6 @@ class TDigest {
 
  private:
   void mergeNewValues(std::vector<int16_t>& positions, double compression);
-
   void merge(
       double compression,
       const double* weights,
@@ -366,6 +368,14 @@ double TDigest<A>::estimateQuantile(double quantile) const {
   auto z1 = index - totalWeight - weights_.back() / 2;
   auto z2 = weights_.back() / 2 - z1;
   return weightedAverageSorted(means_.back(), z1, max_, z2);
+}
+
+template <typename A>
+void TDigest<A>::scale(double scaleFactor) {
+  VELOX_CHECK_GT(scaleFactor, 0, "scale factor must be > 0");
+  for (auto& weight : weights_) {
+    weight *= scaleFactor;
+  }
 }
 
 namespace tdigest::detail {
