@@ -21,6 +21,13 @@
 namespace facebook::velox {
 
 namespace {
+// This is a struct used for computing the string offset in the string buffers.
+// See 'writeStringViews' for more
+struct BufferMetadata {
+  const char* start;
+  const char* end;
+  int64_t indexInStringBuffers;
+};
 
 enum class Encoding : int8_t {
   kFlat = 0,
@@ -160,10 +167,10 @@ VectorPtr createFlat(
       std::move(stringBuffers));
 }
 
-int32_t computeStringOffset(
+int64_t computeStringOffset(
     StringView value,
     const std::vector<BufferPtr>& stringBuffers) {
-  int32_t offset = 0;
+  int64_t offset = 0;
   for (const auto& buffer : stringBuffers) {
     auto start = buffer->as<char>();
 
@@ -174,6 +181,30 @@ int32_t computeStringOffset(
     offset += buffer->size();
   }
 
+  VELOX_FAIL("String view points outside of the string buffers");
+}
+
+int64_t computeStringOffsetWithBisect(
+    StringView value,
+    const std::vector<BufferPtr>& stringBuffers,
+    const std::vector<int64_t>& offsetSum,
+    const std::vector<BufferMetadata>& sortedStringBuffers) {
+  const char* valueData = value.data();
+  int64_t lo = 0;
+  int64_t hi = offsetSum.size() - 1;
+  while (lo <= hi) {
+    int64_t mid = lo + (hi - lo) / 2;
+    const auto& buffer = sortedStringBuffers[mid];
+    if (valueData >= buffer.start) {
+      if (valueData < buffer.end) {
+        return (valueData - buffer.start) +
+            offsetSum[buffer.indexInStringBuffers];
+      }
+      lo = mid + 1;
+    } else {
+      hi = mid - 1;
+    }
+  }
   VELOX_FAIL("String view points outside of the string buffers");
 }
 
@@ -200,6 +231,50 @@ void writeStringViews(
     std::ostream& out) {
   write<int32_t>(strings->size(), out);
 
+  // Compute the offset prefix sum in the stringBuffer based on their original
+  // position in stringBuffers
+  std::vector<int64_t> offsetSum;
+  offsetSum.reserve(stringBuffers.size());
+  int64_t cumulativeOffsetSum = 0;
+  for (const auto& buffer : stringBuffers) {
+    offsetSum.push_back(cumulativeOffsetSum);
+    cumulativeOffsetSum += buffer->size();
+  }
+
+  // Create a sorted list of the string buffer based on their start position.
+  // Track (start, end) of the buffer and the original index in 'stringBuffers'.
+  // The index is tracked to compute the offset prefix sum.
+  std::vector<BufferMetadata> sortedStringBuffers;
+  sortedStringBuffers.reserve(stringBuffers.size());
+  for (int64_t i = 0; i < stringBuffers.size(); ++i) {
+    sortedStringBuffers.push_back(BufferMetadata{
+        stringBuffers[i]->as<char>(),
+        stringBuffers[i]->as<char>() + stringBuffers[i]->size(),
+        i});
+  }
+
+  std::sort(
+      sortedStringBuffers.begin(),
+      sortedStringBuffers.end(),
+      [](const auto& lhs, const auto& rhs) { return lhs.start < rhs.start; });
+
+  bool canUseFastPath = false;
+  // Check for any overlapping ranges in the 'sortedStringBuffers'. If there
+  // are, we might as well take the slow path since we want to find the first
+  // element in 'stringBuffers' which contains the string view.
+  if (!sortedStringBuffers.empty()) {
+    auto maxEnd = sortedStringBuffers.front().end;
+    bool containsOverlappingRanges = false;
+    for (size_t i = 1; i < sortedStringBuffers.size(); ++i) {
+      if (sortedStringBuffers[i].start < maxEnd) {
+        containsOverlappingRanges = true;
+        break;
+      }
+      maxEnd = std::max(maxEnd, sortedStringBuffers[i].end);
+    }
+    canUseFastPath = !containsOverlappingRanges;
+  }
+
   auto rawBytes = strings->as<char>();
   auto rawValues = strings->as<StringView>();
   for (auto i = 0; i < size; ++i) {
@@ -215,7 +290,10 @@ void writeStringViews(
       write<int32_t>(0, out);
 
       // Offset.
-      auto offset = computeStringOffset(stringView, stringBuffers);
+      auto offset = canUseFastPath
+          ? computeStringOffsetWithBisect(
+                stringView, stringBuffers, offsetSum, sortedStringBuffers)
+          : computeStringOffset(stringView, stringBuffers);
       write<int64_t>(offset, out);
     }
   }
