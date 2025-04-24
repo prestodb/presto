@@ -58,10 +58,9 @@ public class OracleClientModule
     {
         requireNonNull(config, "BaseJdbc config is null");
 
-        boolean isCredentialsInUrl = JDBCUrlValidator.checkCredentialsInJdbcUrl(config.getConnectionUrl());
-        // Throws an exception when username and password present in both connection url and configs
+        boolean isCredentialsInUrl = JDBCUrlValidator.findCredentialsInJdbcUrl(config.getConnectionUrl());
         if (isCredentialsInUrl && (config.getConnectionUser() != null || config.getConnectionPassword() != null)) {
-            throw new PrestoException(NOT_SUPPORTED, "User credentials in both configs and url");
+            throw new PrestoException(NOT_SUPPORTED, "Credentials are specified in both connection-url and user/password properties. Use only one");
         }
         Properties connectionProperties = basicConnectionProperties(config);
         connectionProperties.setProperty(OracleConnection.CONNECTION_PROPERTY_INCLUDE_SYNONYMS, String.valueOf(oracleConfig.isSynonymsEnabled()));
@@ -73,13 +72,12 @@ public class OracleClientModule
                 Optional.empty(),
                 connectionProperties);
     }
+
     public static class JDBCUrlValidator
     {
-        //To check the presence of username and password in the connection url
-        public static boolean checkCredentialsInJdbcUrl(String jdbcUrl)
+        public static boolean findCredentialsInJdbcUrl(String jdbcUrl)
         {
-            String regex = "jdbc:oracle:thin:([^/]+?)/([^@]+?)@";
-
+            String regex = "jdbc:oracle:thin:[^@]+@";
             Pattern pattern = Pattern.compile(regex);
             Matcher matcher = pattern.matcher(jdbcUrl);
 
