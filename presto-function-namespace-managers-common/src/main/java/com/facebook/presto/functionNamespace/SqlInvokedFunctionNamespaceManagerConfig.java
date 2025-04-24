@@ -14,10 +14,10 @@
 package com.facebook.presto.functionNamespace;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.units.Duration;
+import com.facebook.airlift.units.MinDuration;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.units.Duration;
-import io.airlift.units.MinDuration;
 
 import java.util.Set;
 
