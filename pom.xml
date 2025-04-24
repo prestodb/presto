@@ -63,7 +63,7 @@
         <!-- Changing joda version changes tzdata which must match deployed JVM tzdata
              Do not change this without also making sure it matches -->
         <dep.joda.version>2.12.7</dep.joda.version>
-        <dep.tempto.version>1.54</dep.tempto.version>
+        <dep.tempto.version>upstream-jakarta-jitpack-82b57be7e6-1</dep.tempto.version>
         <dep.testng.version>7.5</dep.testng.version>
         <dep.lucene.version>8.11.3</dep.lucene.version>
         <dep.assertj-core.version>3.8.0</dep.assertj-core.version>
@@ -2445,7 +2445,7 @@
             </dependency>
 
             <dependency>
-                <groupId>io.prestodb.tempto</groupId>
+                <groupId>com.github.zacblanco.tempto</groupId>
                 <artifactId>tempto-core</artifactId>
                 <version>${dep.tempto.version}</version>
                 <exclusions>
@@ -2469,7 +2469,7 @@
             </dependency>
 
             <dependency>
-                <groupId>io.prestodb.tempto</groupId>
+                <groupId>com.github.zacblanco.tempto</groupId>
                 <artifactId>tempto-ldap</artifactId>
                 <version>${dep.tempto.version}</version>
                 <exclusions>
@@ -2485,7 +2485,7 @@
             </dependency>
 
             <dependency>
-                <groupId>io.prestodb.tempto</groupId>
+                <groupId>com.github.zacblanco.tempto</groupId>
                 <artifactId>tempto-kafka</artifactId>
                 <version>${dep.tempto.version}</version>
                 <exclusions>
@@ -2505,7 +2505,7 @@
             </dependency>
 
             <dependency>
-                <groupId>io.prestodb.tempto</groupId>
+                <groupId>com.github.zacblanco.tempto</groupId>
                 <artifactId>tempto-runner</artifactId>
                 <version>${dep.tempto.version}</version>
                 <exclusions>
