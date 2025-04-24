@@ -14,11 +14,11 @@
 package com.facebook.presto.kudu;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.units.Duration;
+import com.facebook.airlift.units.MaxDuration;
+import com.facebook.airlift.units.MinDuration;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.Duration;
-import io.airlift.units.MaxDuration;
-import io.airlift.units.MinDuration;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 

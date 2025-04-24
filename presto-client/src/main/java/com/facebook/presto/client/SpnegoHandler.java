@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.client;
 
+import com.facebook.airlift.units.Duration;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.sun.security.auth.module.Krb5LoginModule;
-import io.airlift.units.Duration;
 import okhttp3.Authenticator;
 import okhttp3.Interceptor;
 import okhttp3.Request;

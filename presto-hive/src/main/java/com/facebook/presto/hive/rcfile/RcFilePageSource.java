@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.rcfile;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
@@ -28,7 +29,6 @@ import com.facebook.presto.rcfile.RcFileReader;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.DataSize;
 
 import java.io.IOException;
 import java.util.List;

@@ -14,16 +14,16 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.configuration.testing.ConfigAssertions;
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.orc.OrcWriteValidation;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
+import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class TestHiveCommonClientConfig
 {
