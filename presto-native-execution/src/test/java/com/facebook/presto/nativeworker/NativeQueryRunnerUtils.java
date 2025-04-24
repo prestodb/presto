@@ -99,13 +99,39 @@ public class NativeQueryRunnerUtils
     }
 
     /**
+     * Creates all tables for local testing, similar to the method above.
+     * The only difference is that it uses createLineitemStandard to create the lineitem table with 16 columns,
+     * instead of using createLineitem.
+     *
+     * @param queryRunner
+     */
+    public static void createAllTablesStandard(QueryRunner queryRunner, boolean castDateToVarchar)
+    {
+        createLineitemStandard(queryRunner, castDateToVarchar);
+        createOrders(queryRunner, castDateToVarchar);
+        createOrdersEx(queryRunner);
+        createOrdersHll(queryRunner);
+        createNation(queryRunner);
+        createPartitionedNation(queryRunner);
+        createBucketedCustomer(queryRunner);
+        createCustomer(queryRunner);
+        createPart(queryRunner);
+        createPartSupp(queryRunner);
+        createRegion(queryRunner);
+        createTableToTestHiddenColumns(queryRunner);
+        createSupplier(queryRunner);
+        createEmptyTable(queryRunner);
+        createBucketedLineitemAndOrders(queryRunner);
+    }
+
+    /**
      * Creates all iceberg tables for local testing.
      *
      * @param queryRunner
      */
     public static void createAllIcebergTables(QueryRunner queryRunner)
     {
-        createLineitemStandard(queryRunner);
+        createLineitemStandard(queryRunner, true);
         createOrders(queryRunner);
         createNationWithFormat(queryRunner, ICEBERG_DEFAULT_STORAGE_FORMAT);
         createCustomer(queryRunner);
@@ -137,20 +163,23 @@ public class NativeQueryRunnerUtils
                 "FROM tpch.tiny.lineitem");
     }
 
-    public static void createLineitemStandard(QueryRunner queryRunner)
+    public static void createLineitemStandard(QueryRunner queryRunner, boolean castDateToVarchar)
     {
-        createLineitemStandard(queryRunner.getDefaultSession(), queryRunner);
+        createLineitemStandard(queryRunner.getDefaultSession(), queryRunner, castDateToVarchar);
     }
 
-    public static void createLineitemStandard(Session session, QueryRunner queryRunner)
+    public static void createLineitemStandard(Session session, QueryRunner queryRunner, boolean castDateToVarchar)
     {
-        if (!queryRunner.tableExists(session, "lineitem")) {
-            queryRunner.execute(session, "CREATE TABLE lineitem AS " +
+        String shipDate = castDateToVarchar ? "cast(shipdate as varchar) as shipdate" : "shipdate";
+        String commitDate = castDateToVarchar ? "cast(commitdate as varchar) as commitdate" : "commitdate";
+        String receiptDate = castDateToVarchar ? "cast(receiptdate as varchar) as receiptdate" : "receiptdate";
+
+        queryRunner.execute("DROP TABLE IF EXISTS lineitem");
+        queryRunner.execute(session, "CREATE TABLE lineitem AS " +
                     "SELECT orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax, " +
-                    "   returnflag, linestatus, cast(shipdate as varchar) as shipdate, cast(commitdate as varchar) as commitdate, " +
-                    "   cast(receiptdate as varchar) as receiptdate, shipinstruct, shipmode, comment " +
+                    "   returnflag, linestatus, " + shipDate + ", " + commitDate + ", " + receiptDate + ", " +
+                    "   shipinstruct, shipmode, comment " +
                     "FROM tpch.tiny.lineitem");
-        }
     }
 
     public static void createOrders(QueryRunner queryRunner)
