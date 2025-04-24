@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.plugin.mysql;
 
-import com.facebook.airlift.units.Duration;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.mysql.MySqlOptions;
@@ -31,14 +30,12 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 @Test(singleThreaded = true)
 public class TestMySqlDistributedQueries
         extends AbstractTestDistributedQueries
 {
     private static final MySqlOptions MY_SQL_OPTIONS = MySqlOptions.builder()
-            .setCommandTimeout(new Duration(90, SECONDS))
             .build();
 
     private final TestingMySqlServer mysqlServer;
