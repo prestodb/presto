@@ -2089,6 +2089,46 @@ public abstract class IcebergDistributedSmokeTestBase
         });
     }
 
+    @Test
+    public void testRuntimeMetricsReporterAcrossSchemas()
+    {
+        Session sessionTpch = Session.builder(getSession())
+                .setCatalog("iceberg")
+                .setSchema("tpch")
+                .build();
+
+        Session sessionTpch2 = Session.builder(getSession())
+                .setCatalog("iceberg")
+                .setSchema("tpch2")
+                .build();
+
+        DistributedQueryRunner distributedQueryRunner = (DistributedQueryRunner) getQueryRunner();
+
+        // Query from tpch.orders
+        ResultWithQueryId<MaterializedResult> resultTpch = distributedQueryRunner
+                .executeWithQueryId(sessionTpch, "SELECT * FROM orders WHERE orderkey < 100");
+
+        RuntimeStats runtimeStatsTpch = distributedQueryRunner.getCoordinator()
+                .getQueryManager()
+                .getFullQueryInfo(resultTpch.getQueryId())
+                .getQueryStats()
+                .getRuntimeStats();
+
+        // Query from tpch2.orders
+        ResultWithQueryId<MaterializedResult> resultTpch2 = distributedQueryRunner
+                .executeWithQueryId(sessionTpch2, "SELECT * FROM orders WHERE orderkey < 100");
+
+        RuntimeStats runtimeStatsTpch2 = distributedQueryRunner.getCoordinator()
+                .getQueryManager()
+                .getFullQueryInfo(resultTpch2.getQueryId())
+                .getQueryStats()
+                .getRuntimeStats();
+
+        // Verify distinct runtime metrics exist
+        assertTrue(runtimeStatsTpch.getMetrics().containsKey("iceberg.tpch.orders.scan.totalPlanningDuration"));
+        assertTrue(runtimeStatsTpch2.getMetrics().containsKey("iceberg.tpch2.orders.scan.totalPlanningDuration"));
+    }
+
     protected HdfsEnvironment getHdfsEnvironment()
     {
         HiveClientConfig hiveClientConfig = new HiveClientConfig();
