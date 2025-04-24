@@ -14,7 +14,6 @@
 package com.facebook.presto.functionNamespace.rest;
 
 import com.facebook.airlift.http.client.HttpClient;
-import com.facebook.airlift.http.client.HttpUriBuilder;
 import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.http.client.Response;
 import com.facebook.airlift.http.client.ResponseHandler;
@@ -48,7 +47,6 @@ import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.airlift.concurrent.MoreFutures.failedFuture;
 import static com.facebook.airlift.concurrent.MoreFutures.toCompletableFuture;
-import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static com.facebook.airlift.http.client.Request.Builder.preparePost;
 import static com.facebook.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static com.facebook.presto.functionNamespace.rest.RestErrorCode.REST_SERVER_BAD_RESPONSE;
@@ -139,17 +137,17 @@ public class RestSqlFunctionExecutor
         String encodedFunctionId;
         encodedFunctionId = URLEncoder.encode(functionId.toJsonString(), UTF_8);
 
+        String path = format("/v1/functions/%s/%s/%s/%s",
+                functionId.getFunctionName().getSchemaName(),
+                functionId.getFunctionName().getObjectName(),
+                encodedFunctionId,
+                functionVersion);
+
         // Use execution endpoint from handle if present, otherwise use default
         URI baseUri = restFunctionHandle.getExecutionEndpoint()
                 .orElse(URI.create(restBasedFunctionNamespaceManagerConfig.getRestUrl()));
 
-        HttpUriBuilder uri = uriBuilderFrom(baseUri)
-                .appendPath(format("/v1/functions/%s/%s/%s/%s",
-                        functionId.getFunctionName().getSchemaName(),
-                        functionId.getFunctionName().getObjectName(),
-                        encodedFunctionId,
-                        functionVersion));
-        return uri.build();
+        return baseUri.resolve(path);
     }
 
     public static class SqlFunctionResultResponseHandler
