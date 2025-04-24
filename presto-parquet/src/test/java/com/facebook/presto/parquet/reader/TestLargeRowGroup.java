@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.parquet.reader;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.parquet.Field;
 import com.facebook.presto.parquet.ParquetDataSourceId;
 import com.facebook.presto.parquet.cache.MetadataReader;
-import io.airlift.units.DataSize;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
