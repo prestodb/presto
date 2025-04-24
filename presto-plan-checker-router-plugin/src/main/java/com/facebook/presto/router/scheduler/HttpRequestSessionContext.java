@@ -14,6 +14,8 @@
 package com.facebook.presto.router.scheduler;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.spi.function.SqlFunctionId;
@@ -28,11 +30,7 @@ import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 
-import java.io.UnsupportedEncodingException;
-import java.net.URLDecoder;
 import java.security.Principal;
 import java.util.Collection;
 import java.util.HashMap;
@@ -67,6 +65,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static java.lang.String.format;
+import static java.net.URLDecoder.decode;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.emptyList;
 import static java.util.Locale.ROOT;
 import static java.util.Objects.requireNonNull;
@@ -316,6 +316,7 @@ public class HttpRequestSessionContext
                             return existing;
                         }));
     }
+
     private static Map<String, String> parseSessionHeaders(Map<String, List<String>> headerMap)
     {
         return parseProperty(headerMap, PRESTO_SESSION);
@@ -492,12 +493,7 @@ public class HttpRequestSessionContext
 
     private static String urlDecode(String value)
     {
-        try {
-            return URLDecoder.decode(value, "UTF-8");
-        }
-        catch (UnsupportedEncodingException e) {
-            throw new AssertionError(e);
-        }
+        return decode(value, UTF_8);
     }
 
     private Set<String> parseClientTags()

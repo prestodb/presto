@@ -93,7 +93,7 @@ public class TestPrometheusSplit
      * @param queryChunkDuration the duration value that would be used for each query, `30s` for instance
      * @return the values from the Prometheus data that would be return by all the chunked queries
      */
-    private static List<String> mockPrometheusResponseToChunkedQueries(io.airlift.units.Duration queryChunkDuration, List<String> splitTimes)
+    private static List<String> mockPrometheusResponseToChunkedQueries(com.facebook.airlift.units.Duration queryChunkDuration, List<String> splitTimes)
     {
         return Lists.reverse(splitTimes).stream()
                 .map(endTime -> mockPrometheusResponseToQuery(queryChunkDuration, endTime))
@@ -106,7 +106,7 @@ public class TestPrometheusSplit
     /**
      * mock Prometheus instant query
      */
-    private static List<Double> mockPrometheusResponseToQuery(io.airlift.units.Duration queryChunkDuration, String endTimeStr)
+    private static List<Double> mockPrometheusResponseToQuery(com.facebook.airlift.units.Duration queryChunkDuration, String endTimeStr)
     {
         Double endTime = Double.valueOf(endTimeStr);
         Double duration = queryChunkDuration.getValue(TimeUnit.SECONDS);
@@ -141,16 +141,16 @@ public class TestPrometheusSplit
     private static String getQueryChunkSizeDurationAsPrometheusCompatibleDurationString(PrometheusConnectorConfig config)
     {
         return config.getQueryChunkSizeDuration().roundTo(config.getQueryChunkSizeDuration().getUnit()) +
-                io.airlift.units.Duration.timeUnitToString(config.getQueryChunkSizeDuration().getUnit());
+                com.facebook.airlift.units.Duration.timeUnitToString(config.getQueryChunkSizeDuration().getUnit());
     }
 
     private static PrometheusConnectorConfig getCommonConfig(URI dataUri)
     {
         PrometheusConnectorConfig config = new PrometheusConnectorConfig();
         config.setPrometheusURI(dataUri);
-        config.setMaxQueryRangeDuration(io.airlift.units.Duration.valueOf("21d"));
-        config.setQueryChunkSizeDuration(io.airlift.units.Duration.valueOf("1d"));
-        config.setCacheDuration(io.airlift.units.Duration.valueOf("30s"));
+        config.setMaxQueryRangeDuration(com.facebook.airlift.units.Duration.valueOf("21d"));
+        config.setQueryChunkSizeDuration(com.facebook.airlift.units.Duration.valueOf("1d"));
+        config.setCacheDuration(com.facebook.airlift.units.Duration.valueOf("30s"));
         return config;
     }
 
@@ -328,8 +328,8 @@ public class TestPrometheusSplit
     @Test
     public void testSplitTimesCorrect()
     {
-        io.airlift.units.Duration maxQueryRangeDuration = new io.airlift.units.Duration(3, TimeUnit.DAYS);
-        io.airlift.units.Duration queryChunkSizeDuration = new io.airlift.units.Duration(1, TimeUnit.DAYS);
+        com.facebook.airlift.units.Duration maxQueryRangeDuration = new com.facebook.airlift.units.Duration(3, TimeUnit.DAYS);
+        com.facebook.airlift.units.Duration queryChunkSizeDuration = new com.facebook.airlift.units.Duration(1, TimeUnit.DAYS);
         Instant now = ofEpochMilli(1000000000L);
 
         PrometheusTableHandle prometheusTableHandle = new PrometheusTableHandle("schemaName", "tableName");
@@ -344,8 +344,8 @@ public class TestPrometheusSplit
     @Test
     public void testSplitTimesCorrectNonModuloZeroDurationToChunk()
     {
-        io.airlift.units.Duration maxQueryRangeDuration = new io.airlift.units.Duration(3, TimeUnit.DAYS);
-        io.airlift.units.Duration queryChunkSizeDuration = new io.airlift.units.Duration(2, TimeUnit.DAYS);
+        com.facebook.airlift.units.Duration maxQueryRangeDuration = new com.facebook.airlift.units.Duration(3, TimeUnit.DAYS);
+        com.facebook.airlift.units.Duration queryChunkSizeDuration = new com.facebook.airlift.units.Duration(2, TimeUnit.DAYS);
         Instant now = ofEpochMilli(1000000000L);
 
         PrometheusTableHandle prometheusTableHandle = new PrometheusTableHandle("schemaName", "tableName");
@@ -358,8 +358,8 @@ public class TestPrometheusSplit
     @Test
     public void testSplitTimesCorrectVersusMock()
     {
-        io.airlift.units.Duration maxQueryRangeDuration = new io.airlift.units.Duration(120, TimeUnit.SECONDS);
-        io.airlift.units.Duration queryChunkSizeDuration = new io.airlift.units.Duration(30, TimeUnit.SECONDS);
+        com.facebook.airlift.units.Duration maxQueryRangeDuration = new com.facebook.airlift.units.Duration(120, TimeUnit.SECONDS);
+        com.facebook.airlift.units.Duration queryChunkSizeDuration = new com.facebook.airlift.units.Duration(30, TimeUnit.SECONDS);
         Instant now = ofEpochMilli(1568638172000L);
 
         PrometheusTableHandle prometheusTableHandle = new PrometheusTableHandle("schemaName", "tableName");
@@ -371,8 +371,8 @@ public class TestPrometheusSplit
     @Test
     public void testSplitTimesAreTimesNearBoundaryNotMissing()
     {
-        io.airlift.units.Duration maxQueryRangeDuration = new io.airlift.units.Duration(120, TimeUnit.SECONDS);
-        io.airlift.units.Duration queryChunkSizeDuration = new io.airlift.units.Duration(30, TimeUnit.SECONDS);
+        com.facebook.airlift.units.Duration maxQueryRangeDuration = new com.facebook.airlift.units.Duration(120, TimeUnit.SECONDS);
+        com.facebook.airlift.units.Duration queryChunkSizeDuration = new com.facebook.airlift.units.Duration(30, TimeUnit.SECONDS);
         Instant now = ofEpochMilli(1568638171999L);
 
         PrometheusTableHandle prometheusTableHandle = new PrometheusTableHandle("schemaName", "tableName");
@@ -385,21 +385,21 @@ public class TestPrometheusSplit
     public void testMockPrometheusResponseShouldBeCorrectWhenUpperBoundaryAlignsWithData()
     {
         List<Double> expectedResponse = ImmutableList.of(1568638142.0, 1568638157.0, 1568638171.999);
-        assertEquals(mockPrometheusResponseToQuery(new io.airlift.units.Duration(30, TimeUnit.SECONDS), "1568638171.999"), expectedResponse);
+        assertEquals(mockPrometheusResponseToQuery(new com.facebook.airlift.units.Duration(30, TimeUnit.SECONDS), "1568638171.999"), expectedResponse);
     }
 
     @Test
     public void testMockPrometheusResponseShouldBeCorrectWhenLowerBoundaryAlignsWithData()
     {
         List<Double> expectedResponse = ImmutableList.of(1568638142.0, 1568638157.0, 1568638171.999);
-        assertEquals(mockPrometheusResponseToQuery(new io.airlift.units.Duration(30, TimeUnit.SECONDS), "1568638172."), expectedResponse);
+        assertEquals(mockPrometheusResponseToQuery(new com.facebook.airlift.units.Duration(30, TimeUnit.SECONDS), "1568638172."), expectedResponse);
     }
 
     @Test
     public void testMockPrometheusResponseShouldBeCorrectWhenLowerBoundaryLaterThanData()
     {
         List<Double> expectedResponse = ImmutableList.of(1568638157.0, 1568638171.999);
-        assertEquals(mockPrometheusResponseToQuery(new io.airlift.units.Duration(30, TimeUnit.SECONDS), "1568638172.001"), expectedResponse);
+        assertEquals(mockPrometheusResponseToQuery(new com.facebook.airlift.units.Duration(30, TimeUnit.SECONDS), "1568638172.001"), expectedResponse);
     }
 
     @Test
@@ -407,7 +407,7 @@ public class TestPrometheusSplit
     {
         List<String> expectedResponse = ImmutableList.of("1568638112", "1568638126.997", "1568638142", "1568638157", "1568638171.999");
         List<String> splitTimes = ImmutableList.of("1568638141.999", "1568638172.");
-        assertEquals(mockPrometheusResponseToChunkedQueries(new io.airlift.units.Duration(30, TimeUnit.SECONDS), splitTimes), expectedResponse);
+        assertEquals(mockPrometheusResponseToChunkedQueries(new com.facebook.airlift.units.Duration(30, TimeUnit.SECONDS), splitTimes), expectedResponse);
     }
 
     @Test
@@ -437,8 +437,8 @@ public class TestPrometheusSplit
                 new PrometheusColumnHandle("timestamp", TIMESTAMP_WITH_TIME_ZONE, 2), testDomain));
         PrometheusTableHandle prometheusTableHandle = new PrometheusTableHandle("schemaName", "tableName")
                 .withPredicate(testTupleDomain);
-        io.airlift.units.Duration maxQueryRangeDuration = new io.airlift.units.Duration(120, TimeUnit.SECONDS);
-        io.airlift.units.Duration queryChunkSizeDuration = new io.airlift.units.Duration(30, TimeUnit.SECONDS);
+        com.facebook.airlift.units.Duration maxQueryRangeDuration = new com.facebook.airlift.units.Duration(120, TimeUnit.SECONDS);
+        com.facebook.airlift.units.Duration queryChunkSizeDuration = new com.facebook.airlift.units.Duration(30, TimeUnit.SECONDS);
         Instant now = ofEpochMilli(1568638171999L);
         TemporalAmount maxQueryAsTime = java.time.Duration.ofMillis(maxQueryRangeDuration.toMillis());
         List<String> splitTimes = PrometheusSplitManager.generateTimesForSplits(now, maxQueryRangeDuration, queryChunkSizeDuration, prometheusTableHandle);
@@ -463,8 +463,8 @@ public class TestPrometheusSplit
                 new PrometheusColumnHandle("timestamp", TIMESTAMP_WITH_TIME_ZONE, 2), testDomain));
         PrometheusTableHandle prometheusTableHandle = new PrometheusTableHandle("schemaName", "tableName")
                 .withPredicate(testTupleDomain);
-        io.airlift.units.Duration maxQueryRangeDuration = new io.airlift.units.Duration(120, TimeUnit.SECONDS);
-        io.airlift.units.Duration queryChunkSizeDuration = new io.airlift.units.Duration(30, TimeUnit.SECONDS);
+        com.facebook.airlift.units.Duration maxQueryRangeDuration = new com.facebook.airlift.units.Duration(120, TimeUnit.SECONDS);
+        com.facebook.airlift.units.Duration queryChunkSizeDuration = new com.facebook.airlift.units.Duration(30, TimeUnit.SECONDS);
         Instant now = ofEpochMilli(1568638171999L + 600000L);
 
         List<String> splitTimes = PrometheusSplitManager.generateTimesForSplits(now, maxQueryRangeDuration, queryChunkSizeDuration, prometheusTableHandle);
@@ -497,13 +497,13 @@ public class TestPrometheusSplit
                 new PrometheusColumnHandle("timestamp", TIMESTAMP_WITH_TIME_ZONE, 2), testDomain));
         PrometheusTableHandle prometheusTableHandle = new PrometheusTableHandle("schemaName", "tableName")
                 .withPredicate(testTupleDomain);
-        io.airlift.units.Duration maxQueryRangeDuration = new io.airlift.units.Duration(120, TimeUnit.SECONDS);
-        io.airlift.units.Duration queryChunkSizeDuration = new io.airlift.units.Duration(30, TimeUnit.SECONDS);
+        com.facebook.airlift.units.Duration maxQueryRangeDuration = new com.facebook.airlift.units.Duration(120, TimeUnit.SECONDS);
+        com.facebook.airlift.units.Duration queryChunkSizeDuration = new com.facebook.airlift.units.Duration(30, TimeUnit.SECONDS);
         Instant now = ofEpochMilli(1568638171999L + 1200000L);
 
         List<String> splitTimes = PrometheusSplitManager.generateTimesForSplits(now, maxQueryRangeDuration, queryChunkSizeDuration, prometheusTableHandle);
 
-        TemporalAmount expectedMaxQueryAsTime = java.time.Duration.ofMillis(new io.airlift.units.Duration(10, TimeUnit.MINUTES).toMillis() +
+        TemporalAmount expectedMaxQueryAsTime = java.time.Duration.ofMillis(new com.facebook.airlift.units.Duration(10, TimeUnit.MINUTES).toMillis() +
                 ((splitTimes.size() - 1) * OFFSET_MILLIS));
         String lastSplit = splitTimes.get(splitTimes.size() - 1);
         Instant lastSplitAsTime = ofEpochMilli(longFromDecimalSecondString(lastSplit));
@@ -522,8 +522,8 @@ public class TestPrometheusSplit
     {
         long predicateLowValue = 1570460709643L;
         PrometheusTableHandle prometheusTableHandle = new PrometheusTableHandle("schemaName", "tableName");
-        io.airlift.units.Duration maxQueryRangeDuration = new io.airlift.units.Duration(120, TimeUnit.SECONDS);
-        io.airlift.units.Duration queryChunkSizeDuration = new io.airlift.units.Duration(30, TimeUnit.SECONDS);
+        com.facebook.airlift.units.Duration maxQueryRangeDuration = new com.facebook.airlift.units.Duration(120, TimeUnit.SECONDS);
+        com.facebook.airlift.units.Duration queryChunkSizeDuration = new com.facebook.airlift.units.Duration(30, TimeUnit.SECONDS);
         Instant now = ofEpochMilli(1568638171999L);
         TemporalAmount maxQueryAsTime = java.time.Duration.ofMillis(maxQueryRangeDuration.toMillis());
         List<String> splitTimes = PrometheusSplitManager.generateTimesForSplits(now, maxQueryRangeDuration, queryChunkSizeDuration, prometheusTableHandle);
