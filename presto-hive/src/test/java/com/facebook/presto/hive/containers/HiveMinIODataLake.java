@@ -26,9 +26,11 @@ import org.testcontainers.containers.Network;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.hive.containers.HiveHadoopContainer.HIVE3_IMAGE;
+import static com.facebook.presto.hive.containers.HiveHadoopContainer.HIVE4_IMAGE;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.Network.newNetwork;
 
@@ -67,7 +69,8 @@ public class HiveMinIODataLake
                 .putAll(hiveHadoopFilesToMount);
 
         String hadoopCoreSitePath = "/etc/hadoop/conf/core-site.xml";
-        if (hiveHadoopImage == HIVE3_IMAGE) {
+
+        if (Objects.equals(hiveHadoopImage, HIVE3_IMAGE) || Objects.equals(hiveHadoopImage, HIVE4_IMAGE)) {
             hadoopCoreSitePath = "/opt/hadoop/etc/hadoop/core-site.xml";
             filesToMount.put("hive_s3_insert_overwrite/hive-site.xml", "/opt/hive/conf/hive-site.xml");
         }
