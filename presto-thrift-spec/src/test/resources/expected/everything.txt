@@ -1,0 +1,85 @@
+include "common/fruit.thrift"
+
+enum Letter {
+  A = 65;
+  B = 66;
+  C = 67;
+  D = 68;
+}
+
+struct Bonk {
+  1: string message;
+  2: i32 type;
+}
+
+union Combined {
+  1: string stringValue;
+  2: i64 longValue;
+  3: fruit.Fruit fruitValue;
+}
+
+struct URIField {
+  1: string uri;
+}
+
+struct OneOfEverything {
+  1: bool aBoolean;
+  2: byte aByte;
+  3: i16 aShort;
+  4: i32 aInt;
+  5: i64 aLong;
+  6: double aDouble;
+  7: string aString;
+  8: Bonk aStruct;
+  9: fruit.Fruit aEnum;
+  10: Letter aCustomEnum;
+  11: set<bool> aBooleanSet;
+  12: set<byte> aByteSet;
+  13: set<i16> aShortSet;
+  14: set<i32> aIntegerSet;
+  15: set<i64> aLongSet;
+  16: set<double> aDoubleSet;
+  17: set<string> aStringSet;
+  18: set<Bonk> aStructSet;
+  19: set<fruit.Fruit> aEnumSet;
+  20: set<Letter> aCustomEnumSet;
+  21: list<bool> aBooleanList;
+  22: list<byte> aByteList;
+  23: list<i16> aShortList;
+  24: list<i32> aIntegerList;
+  25: list<i64> aLongList;
+  26: list<double> aDoubleList;
+  27: list<string> aStringList;
+  28: list<Bonk> aStructList;
+  29: list<fruit.Fruit> aEnumList;
+  30: list<Letter> aCustomEnumList;
+  31: map<string, bool> aBooleanValueMap;
+  32: map<string, byte> aByteValueMap;
+  33: map<string, i16> aShortValueMap;
+  34: map<string, i32> aIntegerValueMap;
+  35: map<string, i64> aLongValueMap;
+  36: map<string, double> aDoubleValueMap;
+  37: map<string, string> aStringValueMap;
+  38: map<string, Bonk> aStructValueMap;
+  39: map<string, fruit.Fruit> aEnumValueMap;
+  40: map<string, Letter> aCustomEnumValueMap;
+  41: map<bool, string> aBooleanKeyMap;
+  42: map<byte, string> aByteKeyMap;
+  43: map<i16, string> aShortKeyMap;
+  44: map<i32, string> aIntegerKeyMap;
+  45: map<i64, string> aLongKeyMap;
+  46: map<double, string> aDoubleKeyMap;
+  47: map<string, string> aStringKeyMap;
+  48: map<Bonk, string> aStructKeyMap;
+  49: map<fruit.Fruit, string> aEnumKeyMap;
+  50: map<Letter, string> aCustomEnumKeyMap;
+  60: Combined aUnion;
+  61: set<Combined> aUnionSet;
+  62: list<Combined> aUnionList;
+  63: map<Combined, string> aUnionKeyMap;
+  64: map<string, Combined> aUnionValueMap;
+  70: binary aByteArray;
+  100: set<list<map<string, Bonk>>> aSetOfListsOfMaps;
+  101: map<list<string>, set<Bonk>> aMapOfListToSet;
+  102: URIField uriField;
+}

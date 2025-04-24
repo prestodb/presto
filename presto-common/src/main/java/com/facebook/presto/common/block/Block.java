@@ -224,7 +224,7 @@ public interface Block
      * Returns the size of the block contents, regardless of internal representation.
      * The same logical data values should always have the same size, no matter
      * what block type is used or how they are represented within a specific block.
-     *
+     * <p>
      * This can differ substantially from {@link #getSizeInBytes} for certain block
      * types. For RLE, it will be {@code N} times larger. For dictionary, it will be
      * larger based on how many times dictionary entries are reused.
@@ -269,6 +269,7 @@ public interface Block
      * and not dependent on any particular specific position. This allows for some complex block wrappings
      * to potentially avoid having to call {@link Block#getPositionsSizeInBytes(boolean[], int)}  which
      * would require computing the specific positions selected
+     *
      * @return The size in bytes, per position, if this block type does not require specific position information to compute its size
      */
     OptionalInt fixedSizeInBytesPerPosition();
@@ -388,7 +389,7 @@ public interface Block
 
     /**
      * Returns the converted long value at {@code position} if the value at {@code position} can be converted to long.
-     *
+     * <p>
      * Difference between toLong() and getLong() is:
      * getLong() would only return value when the block is LongArrayBlock, otherwise it would throw exception.
      * toLong() would return value for compatible types: LongArrayBlock, IntArrayBlock, ByteArrayBlock and ShortArrayBlock.

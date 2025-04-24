@@ -62,6 +62,14 @@ public final class Utils
         }
     }
 
+    public static long checkNonNegativeLongArgument(long data, String message)
+    {
+        if (data < 0) {
+            throw new IllegalArgumentException(message);
+        }
+        return data;
+    }
+
     /**
      * Returns a supplier which caches the instance retrieved during the first call to {@code get()}
      * and returns that value on subsequent calls to {@code get()}.

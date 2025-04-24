@@ -26,6 +26,7 @@ import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.facebook.drift.annotations.ThriftField.Requiredness.OPTIONAL;
 import static java.util.Objects.requireNonNull;
 
 @ThriftStruct
@@ -55,7 +56,6 @@ public class SelectedRole
     private final Type type;
     private final Optional<String> role;
 
-    @ThriftConstructor
     @JsonCreator
     public SelectedRole(@JsonProperty("type") Type type, @JsonProperty("role") Optional<String> role)
     {
@@ -66,6 +66,12 @@ public class SelectedRole
         }
     }
 
+    @ThriftConstructor
+    public SelectedRole(Type type, String role)
+    {
+        this(type, Optional.ofNullable(role));
+    }
+
     @ThriftField(1)
     @JsonProperty
     public Type getType()
@@ -73,11 +79,16 @@ public class SelectedRole
         return type;
     }
 
-    @ThriftField(2)
     @JsonProperty
     public Optional<String> getRole()
     {
         return role;
+    }
+
+    @ThriftField(value = 2, name = "role", requiredness = OPTIONAL)
+    public String getRoleString()
+    {
+        return role.orElse(null);
     }
 
     @Override

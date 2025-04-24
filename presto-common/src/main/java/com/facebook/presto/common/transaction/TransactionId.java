@@ -22,17 +22,26 @@ import com.fasterxml.jackson.annotation.JsonValue;
 import java.util.Objects;
 import java.util.UUID;
 
+import static com.facebook.presto.common.Utils.checkNonNegativeLongArgument;
 import static java.util.Objects.requireNonNull;
 
 @ThriftStruct
 public final class TransactionId
 {
-    private final UUID uuid;
+    private final long mostSignificantBits;
+    private final long leastSignificantBits;
 
     @ThriftConstructor
+    public TransactionId(long mostSignificantBits, long leastSignificantBits)
+    {
+        this.mostSignificantBits = checkNonNegativeLongArgument(mostSignificantBits, "mostSignificantBits is negative");
+        this.leastSignificantBits = checkNonNegativeLongArgument(leastSignificantBits, "leastSignificantBits is negative");
+    }
+
     public TransactionId(UUID uuid)
     {
-        this.uuid = requireNonNull(uuid, "uuid is null");
+        this.mostSignificantBits = requireNonNull(uuid, "uuid is null").getMostSignificantBits();
+        this.leastSignificantBits = requireNonNull(uuid, "uuid is null").getLeastSignificantBits();
     }
 
     public static TransactionId create()
@@ -49,7 +58,7 @@ public final class TransactionId
     @Override
     public int hashCode()
     {
-        return Objects.hash(uuid);
+        return Objects.hash(getUuid());
     }
 
     @Override
@@ -62,19 +71,30 @@ public final class TransactionId
             return false;
         }
         final TransactionId other = (TransactionId) obj;
-        return Objects.equals(this.uuid, other.uuid);
+        return Objects.equals(this.mostSignificantBits, other.mostSignificantBits) && Objects.equals(this.leastSignificantBits, other.leastSignificantBits);
     }
 
     @Override
     @JsonValue
     public String toString()
     {
-        return uuid.toString();
+        return getUuid().toString();
     }
 
-    @ThriftField(value = 1, name = "uuid")
     public UUID getUuid()
     {
-        return uuid;
+        return new UUID(mostSignificantBits, leastSignificantBits);
+    }
+
+    @ThriftField(1)
+    public long getMostSignificantBits()
+    {
+        return mostSignificantBits;
+    }
+
+    @ThriftField(2)
+    public long getLeastSignificantBits()
+    {
+        return leastSignificantBits;
     }
 }

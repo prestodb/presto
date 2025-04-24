@@ -106,7 +106,7 @@ public class ExecutionFailureInfo
     }
 
     @JsonProperty
-    @ThriftField(4)
+    @ThriftField(value = 4, requiredness = OPTIONAL)
     public List<ExecutionFailureInfo> getSuppressed()
     {
         return suppressed;

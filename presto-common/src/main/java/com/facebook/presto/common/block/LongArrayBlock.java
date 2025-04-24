@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.common.block;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import io.airlift.slice.SliceOutput;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -36,6 +39,7 @@ import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
+@ThriftStruct
 public class LongArrayBlock
         implements Block
 {
@@ -49,6 +53,12 @@ public class LongArrayBlock
     private final long[] values;
 
     private final long retainedSizeInBytes;
+
+    @ThriftConstructor
+    public LongArrayBlock(int positionCount, boolean[] valueIsNull, long[] values)
+    {
+        this(0, positionCount, valueIsNull, values);
+    }
 
     public LongArrayBlock(int positionCount, Optional<boolean[]> valueIsNull, long[] values)
     {
@@ -126,6 +136,7 @@ public class LongArrayBlock
     }
 
     @Override
+    @ThriftField(1)
     public int getPositionCount()
     {
         return positionCount;

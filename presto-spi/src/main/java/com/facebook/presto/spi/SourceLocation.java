@@ -13,17 +13,22 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
+@ThriftStruct
 public class SourceLocation
 {
     private final int line;
     private final int column;
 
     @JsonCreator
+    @ThriftConstructor
     public SourceLocation(
             @JsonProperty("line") int line,
             @JsonProperty("column") int column)
@@ -39,12 +44,14 @@ public class SourceLocation
     }
 
     @JsonProperty
+    @ThriftField(1)
     public int getLine()
     {
         return line;
     }
 
     @JsonProperty
+    @ThriftField(2)
     public int getColumn()
     {
         return column;

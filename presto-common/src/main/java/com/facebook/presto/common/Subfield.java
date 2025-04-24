@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.common;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
+import com.facebook.presto.common.serde.ThriftSerializable;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
@@ -27,6 +31,7 @@ import static java.util.Objects.requireNonNull;
 public class Subfield
 {
     public interface PathElement
+            extends ThriftSerializable
     {
         boolean isSubscript();
     }
@@ -81,16 +86,26 @@ public class Subfield
         }
     }
 
+    @ThriftStruct
     public static final class NestedField
             implements PathElement
     {
         private final String name;
 
-        public NestedField(String name)
+        @ThriftConstructor
+        public NestedField(@ThriftField(2) String name)
         {
             this.name = requireNonNull(name, "name is null");
         }
 
+        @Override
+        @ThriftField(1)
+        public byte getTypeId()
+        {
+            return 1;
+        }
+
+        @ThriftField(2)
         public String getName()
         {
             return name;
@@ -129,16 +144,26 @@ public class Subfield
         }
     }
 
+    @ThriftStruct
     public static final class LongSubscript
             implements PathElement
     {
         private final long index;
 
-        public LongSubscript(long index)
+        @ThriftConstructor
+        public LongSubscript(@ThriftField(2) long index)
         {
             this.index = index;
         }
 
+        @Override
+        @ThriftField(1)
+        public byte getTypeId()
+        {
+            return 2;
+        }
+
+        @ThriftField(2)
         public long getIndex()
         {
             return index;
