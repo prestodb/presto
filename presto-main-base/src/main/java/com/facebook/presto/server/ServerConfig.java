@@ -14,8 +14,8 @@
 package com.facebook.presto.server;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.spi.NodePoolType;
-import io.airlift.units.Duration;
 import jakarta.validation.constraints.NotNull;
 
 import static com.facebook.presto.spi.NodePoolType.DEFAULT;

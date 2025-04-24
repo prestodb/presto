@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.exchange;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.Lifespan;
@@ -30,7 +31,6 @@ import com.facebook.presto.sql.planner.SystemPartitioningHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
-import io.airlift.units.DataSize;
 
 import java.io.Closeable;
 import java.util.ArrayList;
