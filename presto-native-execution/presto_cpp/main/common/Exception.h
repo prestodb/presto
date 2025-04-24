@@ -27,6 +27,39 @@ struct ExecutionFailureInfo;
 struct ErrorCode;
 } // namespace protocol
 
+using namespace folly::string_literals;
+
+namespace presto_error_code {
+
+// Ref: presto-hive-common/src/main/java/com/facebook/presto/hive/HiveErrorCode.java
+inline constexpr auto kHiveErrorCodeMask = 0x1000000;
+inline constexpr auto kHiveCannotOpenSplitCode = kHiveErrorCodeMask + 3;
+inline constexpr auto kHiveFileNotFoundCode = kHiveErrorCodeMask + 4;
+
+}
+
+namespace presto_error_name {
+
+// Ref: presto-hive-common/src/main/java/com/facebook/presto/hive/HiveErrorCode.java
+inline constexpr auto kHiveCannotOpenSplitName = "HIVE_CANNOT_OPEN_SPLIT"_fs;
+inline constexpr auto kHiveFileNotFoundName = "HIVE_FILE_NOT_FOUND"_fs;
+
+}
+
+namespace error_source_file {
+
+// Path: velox/connectors/hive/storage_adapters/gcs/GcsFileSystem.cpp
+inline constexpr auto kGcsFileSystemCpp = "GcsFileSystem.cpp"_fs;
+
+}
+
+namespace error_source_function {
+
+// Path: velox/connectors/hive/storage_adapters/gcs/GcsFileSystem.cpp
+inline constexpr auto kCheckGcsStatus = "checkGcsStatus"_fs;
+
+}
+
 class VeloxToPrestoExceptionTranslator {
  public:
   // Translates to Presto error from Velox exceptions
@@ -117,6 +150,34 @@ class VeloxToPrestoExceptionTranslator {
 
             {velox::error_source::kErrorSourceSystem, {}}};
     return kTranslateMap;
+  }
+
+ static const std::unordered_map<
+    std::string,
+    std::unordered_map<std::string, std::unordered_map<std::string, std::unordered_map<std::string, protocol::ErrorCode>>>>&
+translateWithSourceLocationMap() {
+   static const std::unordered_map<
+     std::string,
+     std::unordered_map<std::string, std::unordered_map<std::string, std::unordered_map<std::string, protocol::ErrorCode>>>>
+   kTranslateWithSourceLocationMap = {
+    {error_source_file::kGcsFileSystemCpp, {
+         {error_source_function::kCheckGcsStatus, {
+           {velox::error_source::kErrorSourceRuntime, {
+             {velox::error_code::kFileNotFound, {
+              presto_error_code::kHiveFileNotFoundCode,
+              presto_error_name::kHiveFileNotFoundName,
+              protocol::ErrorType::EXTERNAL
+            }},
+            {velox::error_code::kInvalidState, {
+             presto_error_code::kHiveCannotOpenSplitCode,
+             presto_error_name::kHiveCannotOpenSplitName,
+             protocol::ErrorType::EXTERNAL
+           }}
+           }}
+         }}
+    }}
+   };
+   return kTranslateWithSourceLocationMap;
   }
 };
 } // namespace facebook::presto

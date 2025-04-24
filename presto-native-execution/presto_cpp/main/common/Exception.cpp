@@ -14,6 +14,8 @@
 
 #include "presto_cpp/main/common/Exception.h"
 
+#include <filesystem>
+
 namespace facebook::presto {
 protocol::ExecutionFailureInfo VeloxToPrestoExceptionTranslator::translate(
     const velox::VeloxException& e) {
@@ -39,7 +41,27 @@ protocol::ExecutionFailureInfo VeloxToPrestoExceptionTranslator::translate(
 
   const auto& errorSource = e.errorSource();
   const auto& errorCode = e.errorCode();
+  const auto errorSourceFilePathString = std::filesystem::path(e.file()).filename().string();
+  const auto& errorSourceFileName = errorSourceFilePathString.c_str();
+  const auto& errorSourceFunction = e.function();
 
+  // Fine-grained error classification via source location (file and function names)
+  auto itrSourceFileErrorCodesMap = translateWithSourceLocationMap().find(errorSourceFileName);
+  if (itrSourceFileErrorCodesMap != translateWithSourceLocationMap().end()) {
+    auto itrSourceFunctionErrorCodesMap = itrSourceFileErrorCodesMap->second.find(errorSourceFunction);
+    if (itrSourceFunctionErrorCodesMap != itrSourceFileErrorCodesMap->second.end()) {
+      auto itrErrorCodesMap = itrSourceFunctionErrorCodesMap->second.find(errorSource);
+      if (itrErrorCodesMap != itrSourceFunctionErrorCodesMap->second.end()) {
+        auto itrErrorCode = itrErrorCodesMap->second.find(errorCode);
+        if (itrErrorCode != itrErrorCodesMap->second.end()) {
+          error.errorCode = itrErrorCode->second;
+          return error;
+        }
+      }
+    }
+  }
+
+  // General error classification
   auto itrErrorCodesMap = translateMap().find(errorSource);
   if (itrErrorCodesMap != translateMap().end()) {
     auto itrErrorCode = itrErrorCodesMap->second.find(errorCode);
@@ -48,6 +70,8 @@ protocol::ExecutionFailureInfo VeloxToPrestoExceptionTranslator::translate(
       return error;
     }
   }
+
+  // Fallback
   error.errorCode.code = 0x00010000;
   error.errorCode.name = "GENERIC_INTERNAL_ERROR";
   error.errorCode.type = protocol::ErrorType::INTERNAL_ERROR;
