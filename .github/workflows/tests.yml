@@ -92,5 +92,5 @@ jobs:
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl $(echo '${{ matrix.modules }}' | cut -d' ' -f1)
       - name: Maven Tests
-        if: needs.changes.outputs.codechange == 'true' && ${{ matrix.modules }} == ':presto-accumulo'
-        run: ./mvnw test ${MAVEN_TEST} -pl ${{ matrix.modules }} -Dhadoop.profile=3
+        if: needs.changes.outputs.codechange == 'true'
+        run: ./mvnw test ${MAVEN_TEST} -pl ${{ matrix.modules }}
