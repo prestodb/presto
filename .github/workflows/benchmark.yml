@@ -74,6 +74,7 @@ jobs:
             run_and_time install_fmt
             run_and_time install_protobuf
             run_and_time install_boost
+            run_and_time install_fast_float
             run_and_time install_folly
             run_and_time install_stemmer
             run_and_time install_thrift

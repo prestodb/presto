@@ -11,23 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
---- a/CMake/FollyConfigChecks.cmake
-+++ b/CMake/FollyConfigChecks.cmake
-@@ -181,7 +181,7 @@ check_cxx_source_runs("
-   HAVE_VSNPRINTF_ERRORS
- )
- 
--if (FOLLY_HAVE_LIBGFLAGS)
-+if (FOLLY_HAVE_LIBGFLAGS AND NOT FOLLY_GFLAGS_NAMESPACE)
-   # Older releases of gflags used the namespace "gflags"; newer releases
-   # use "google" but also make symbols available in the deprecated "gflags"
-   # namespace too.  The folly code internally uses "gflags" unless we tell it
 --- a/CMake/folly-deps.cmake
 +++ b/CMake/folly-deps.cmake
-@@ -52,19 +52,20 @@ find_package(DoubleConversion MODULE REQUIRED)
- list(APPEND FOLLY_LINK_LIBRARIES ${DOUBLE_CONVERSION_LIBRARY})
- list(APPEND FOLLY_INCLUDE_DIRECTORIES ${DOUBLE_CONVERSION_INCLUDE_DIR})
- 
+@@ -55,19 +55,20 @@ list(APPEND FOLLY_INCLUDE_DIRECTORIES ${DOUBLE_CONVERSION_INCLUDE_DIR})
+ find_package(FastFloat MODULE REQUIRED)
+ list(APPEND FOLLY_INCLUDE_DIRECTORIES ${FASTFLOAT_INCLUDE_DIR})
+
 -find_package(Gflags MODULE)
 -set(FOLLY_HAVE_LIBGFLAGS ${LIBGFLAGS_FOUND})
 -if(LIBGFLAGS_FOUND)
@@ -43,7 +32,7 @@
 +  set(FOLLY_LIBGFLAGS_LIBRARY ${gflags_LIBRARY})
 +  set(FOLLY_LIBGFLAGS_INCLUDE ${gflags_INCLUDE_DIR})
  endif()
- 
+
 -find_package(Glog MODULE)
 -set(FOLLY_HAVE_LIBGLOG ${GLOG_FOUND})
 -list(APPEND FOLLY_LINK_LIBRARIES ${GLOG_LIBRARY})
@@ -53,6 +42,6 @@
 +list(APPEND FOLLY_LINK_LIBRARIES ${glog_LIBRARY})
 +list(APPEND FOLLY_INCLUDE_DIRECTORIES ${glog_INCLUDE_DIR})
 +message(STATUS "glog_LIBRARY: ${glog_LIBRARY}")
- 
+
  find_package(LibEvent MODULE REQUIRED)
  list(APPEND FOLLY_LINK_LIBRARIES ${LIBEVENT_LIB})

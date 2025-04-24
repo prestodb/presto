@@ -40,7 +40,7 @@ USE_CLANG="${USE_CLANG:-false}"
 export INSTALL_PREFIX=${INSTALL_PREFIX:-"/usr/local"}
 DEPENDENCY_DIR=${DEPENDENCY_DIR:-$(pwd)/deps-download}
 
-FB_OS_VERSION="v2024.07.01.00"
+FB_OS_VERSION="v2025.04.07.00"
 FMT_VERSION="10.1.1"
 BOOST_VERSION="boost-1.84.0"
 THRIFT_VERSION="v0.16.0"
@@ -48,6 +48,7 @@ THRIFT_VERSION="v0.16.0"
 ARROW_VERSION="15.0.0"
 STEMMER_VERSION="2.2.0"
 DUCKDB_VERSION="v0.8.1"
+FAST_FLOAT_VERSION="v8.0.2"
 
 # CMake 4.0 removed support for cmake minimums of <=3.5 and will fail builds, this overrides it
 export CMAKE_POLICY_VERSION_MINIMUM="3.5"
@@ -80,7 +81,7 @@ function install_velox_deps_from_dnf {
   dnf_install libevent-devel \
     openssl-devel re2-devel libzstd-devel lz4-devel double-conversion-devel \
     libdwarf-devel elfutils-libelf-devel curl-devel libicu-devel bison flex \
-    libsodium-devel zlib-devel
+    libsodium-devel zlib-devel xxhash-devel
 }
 
 function install_conda {
@@ -151,6 +152,11 @@ function install_protobuf {
 function install_fizz {
   wget_and_untar https://github.com/facebookincubator/fizz/archive/refs/tags/${FB_OS_VERSION}.tar.gz fizz
   cmake_install_dir fizz/fizz -DBUILD_TESTS=OFF
+}
+
+function install_fast_float {
+  wget_and_untar https://github.com/fastfloat/fast_float/archive/refs/tags/${FAST_FLOAT_VERSION}.tar.gz fast_float
+  cmake_install_dir fast_float -DBUILD_TESTS=OFF
 }
 
 function install_folly {
@@ -255,6 +261,7 @@ function install_velox_deps {
   run_and_time install_boost
   run_and_time install_protobuf
   run_and_time install_fmt
+  run_and_time install_fast_float
   run_and_time install_folly
   run_and_time install_fizz
   run_and_time install_wangle
