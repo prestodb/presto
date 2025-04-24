@@ -1174,7 +1174,7 @@ bool HashTable<ignoreNullKeys>::arrayPushRow(
   auto* existingRow = table_[index];
   if (existingRow != nullptr) {
     if (nextOffset_ > 0) {
-      hasDuplicates_ = true;
+      hasDuplicates_.set();
       rows->appendNextRow(existingRow, row, allocator);
     }
     return false;
@@ -1190,7 +1190,7 @@ void HashTable<ignoreNullKeys>::pushNext(
     char* next,
     HashStringAllocator* allocator) {
   VELOX_CHECK_GT(nextOffset_, 0);
-  hasDuplicates_ = true;
+  hasDuplicates_.set();
   rows->appendNextRow(row, next, allocator);
 }
 
@@ -1660,8 +1660,8 @@ std::string HashTable<ignoreNullKeys>::toString() {
     int64_t occupied = 0;
 
     // Count of buckets indexed by the number of non-empty slots.
-    // Each bucket has 16 slots. Hence, the number of non-empty slots is between
-    // 0 and 16 (17 possible values).
+    // Each bucket has 16 slots. Hence, the number of non-empty slots is
+    // between 0 and 16 (17 possible values).
     int64_t numBuckets[sizeof(TagVector) + 1] = {};
     for (int64_t bucketOffset = 0; bucketOffset < sizeMask_;
          bucketOffset += kBucketSize) {
