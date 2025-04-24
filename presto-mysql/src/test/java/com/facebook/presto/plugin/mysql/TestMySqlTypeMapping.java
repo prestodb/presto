@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.mysql;
 
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.common.type.VarcharType;
@@ -28,7 +29,6 @@ import com.facebook.presto.tests.sql.JdbcSqlExecutor;
 import com.facebook.presto.tests.sql.PrestoSqlExecutor;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.Duration;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 

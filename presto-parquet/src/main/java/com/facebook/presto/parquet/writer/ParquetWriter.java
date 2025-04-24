@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.parquet.writer;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.parquet.writer.ColumnWriter.BufferData;
@@ -22,7 +23,6 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.airlift.units.DataSize;
 import org.apache.parquet.column.ParquetProperties;
 import org.apache.parquet.column.ParquetProperties.Builder;
 import org.apache.parquet.format.ColumnMetaData;

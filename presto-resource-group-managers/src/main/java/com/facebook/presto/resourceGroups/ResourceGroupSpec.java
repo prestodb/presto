@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.resourceGroups;
 
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.facebook.presto.spi.resourceGroups.SchedulingPolicy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 
 import java.util.HashSet;
 import java.util.List;

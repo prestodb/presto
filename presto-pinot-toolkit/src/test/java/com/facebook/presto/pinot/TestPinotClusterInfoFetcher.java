@@ -18,13 +18,13 @@ import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.HttpStatus;
 import com.facebook.airlift.http.client.testing.TestingHttpClient;
 import com.facebook.airlift.http.client.testing.TestingResponse;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.pinot.auth.PinotBrokerAuthenticationProvider;
 import com.facebook.presto.pinot.auth.PinotControllerAuthenticationProvider;
 import com.facebook.presto.pinot.auth.none.PinotEmptyAuthenticationProvider;
 import com.facebook.presto.testing.assertions.Assert;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.MediaType;
-import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.concurrent.TimeUnit;

@@ -62,7 +62,7 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
+            <groupId>com.facebook.airlift</groupId>
             <artifactId>units</artifactId>
         </dependency>
 
@@ -345,8 +345,8 @@
                                 </relocation>
                                 <!-- TODO: Remove this shading rule once io.airlift:unit is migrated -->
                                 <relocation>
-                                    <pattern>io.airlift</pattern>
-                                    <shadedPattern>${shadeBase}.io.airlift</shadedPattern>
+                                    <pattern>com.facebook.airlift</pattern>
+                                    <shadedPattern>${shadeBase}.com.facebook.airlift</shadedPattern>
                                 </relocation>
                                 <relocation>
                                     <pattern>com.facebook.airlift</pattern>

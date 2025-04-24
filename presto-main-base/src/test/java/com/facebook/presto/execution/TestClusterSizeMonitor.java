@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.spi.ConnectorId;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.Duration;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;

@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.event;
 
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
-import io.airlift.units.Duration;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import jakarta.inject.Inject;

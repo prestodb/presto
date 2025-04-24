@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.spi.WarningCollector;
@@ -23,9 +24,10 @@ import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
+import static com.facebook.airlift.units.DataSize.Unit.KILOBYTE;
+import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static com.facebook.presto.SystemSessionProperties.ADD_EXCHANGE_BELOW_PARTIAL_AGGREGATION_OVER_GROUP_ID;
 import static com.facebook.presto.SystemSessionProperties.MERGE_AGGREGATIONS_WITH_AND_WITHOUT_FILTER;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -37,8 +39,6 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableS
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
-import static io.airlift.units.DataSize.Unit.KILOBYTE;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class TestLogicalAddExchangesBelowPartialAggregationOverGroupIdRuleSet
         extends BasePlanTest

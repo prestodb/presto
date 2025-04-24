@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.resourcemanager;
 
+import com.facebook.airlift.units.Duration;
 import com.facebook.drift.client.DriftClient;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupRuntimeInfo;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
-import io.airlift.units.Duration;
 import jakarta.inject.Inject;
 
 import java.util.List;

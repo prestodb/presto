@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.orc;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.function.SqlFunctionProperties;
@@ -68,7 +69,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import io.airlift.units.DataSize;
 import jakarta.inject.Inject;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;

@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.sql.planner.planPrinter;
 
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.operator.DynamicFilterStats;
 import com.facebook.presto.spi.plan.PlanNodeId;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 
 import java.util.Map;
 import java.util.Optional;

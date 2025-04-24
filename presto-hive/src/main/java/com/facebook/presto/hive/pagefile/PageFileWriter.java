@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.hive.pagefile;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.io.DataSink;
 import com.facebook.presto.hive.HiveCompressionCodec;
 import com.facebook.presto.hive.HiveFileWriter;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.page.PagesSerde;
-import io.airlift.units.DataSize;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;

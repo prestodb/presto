@@ -14,6 +14,7 @@
 package com.facebook.presto.dispatcher;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.event.QueryMonitor;
@@ -34,7 +35,6 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import io.airlift.units.Duration;
 
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;

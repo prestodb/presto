@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.parquet;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.Block;
@@ -58,7 +59,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.airlift.units.DataSize;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
@@ -97,6 +97,7 @@ import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.Set;
 
+import static com.facebook.airlift.units.DataSize.succinctBytes;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.Chars.truncateToLengthAndTrimSpaces;
@@ -128,7 +129,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Math.toIntExact;
 import static java.util.Arrays.stream;
 import static java.util.Collections.singletonList;

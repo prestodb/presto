@@ -13,18 +13,18 @@
  */
 package com.facebook.presto.plugin.memory;
 
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
 import static com.facebook.airlift.testing.Assertions.assertLessThan;
-import static io.airlift.units.Duration.nanosSince;
+import static com.facebook.airlift.units.Duration.nanosSince;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
