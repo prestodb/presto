@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.hive.gcs.GcsConfigurationInitializer;
 import com.facebook.presto.hive.s3.S3ConfigurationUpdater;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
-import io.airlift.units.Duration;
 import jakarta.inject.Inject;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;

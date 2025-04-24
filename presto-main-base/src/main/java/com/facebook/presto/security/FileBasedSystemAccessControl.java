@@ -14,6 +14,7 @@
 package com.facebook.presto.security;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.plugin.base.security.ForwardingSystemAccessControl;
@@ -36,7 +37,6 @@ import com.facebook.presto.spi.security.ViewExpression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.units.Duration;
 
 import java.nio.file.Paths;
 import java.security.Principal;

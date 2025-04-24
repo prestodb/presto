@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.verifier.prestoaction;
 
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.verifier.framework.QueryConfiguration;
 import com.facebook.presto.verifier.framework.VerificationContext;
 import com.facebook.presto.verifier.retry.RetryConfig;
-import io.airlift.units.Duration;
 
 import static java.util.Objects.requireNonNull;
 

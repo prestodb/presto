@@ -14,6 +14,7 @@
 package com.facebook.presto.tests;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.spi.WarningCollector;
@@ -29,7 +30,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Multisets;
 import io.airlift.tpch.TpchTable;
-import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
 
 import java.util.List;
@@ -39,9 +39,9 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
+import static com.facebook.airlift.units.Duration.nanosSince;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
-import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;

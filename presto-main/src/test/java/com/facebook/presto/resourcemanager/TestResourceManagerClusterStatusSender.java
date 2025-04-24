@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.resourcemanager;
 
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.execution.MockManagedQueryExecution;
 import com.facebook.presto.execution.resourceGroups.NoOpResourceGroupManager;
@@ -23,8 +25,6 @@ import com.facebook.presto.server.NodeStatus;
 import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.spi.ConnectorId;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 import org.testng.annotations.AfterTest;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
@@ -32,7 +32,7 @@ import org.testng.annotations.Test;
 import java.net.URI;
 import java.util.OptionalInt;
 
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.String.format;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;

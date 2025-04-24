@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.block.Block;
@@ -40,7 +41,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.airlift.units.DataSize;
 import org.joda.time.DateTimeZone;
 
 import java.io.IOException;

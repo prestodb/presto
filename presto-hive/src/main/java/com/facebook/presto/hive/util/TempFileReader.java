@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.util;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.block.Block;
@@ -28,7 +29,6 @@ import com.facebook.presto.orc.StorageStripeMetadataSource;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.AbstractIterator;
-import io.airlift.units.DataSize;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
@@ -36,11 +36,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
 import static org.joda.time.DateTimeZone.UTC;
 

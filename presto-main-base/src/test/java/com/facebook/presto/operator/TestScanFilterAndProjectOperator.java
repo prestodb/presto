@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.SequencePageBuilder;
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.common.Page;
@@ -48,7 +49,6 @@ import com.facebook.presto.testing.TestingSplit;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
-import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.util.Iterator;
@@ -59,6 +59,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Supplier;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.airlift.units.DataSize.Unit.BYTE;
+import static com.facebook.airlift.units.DataSize.Unit.KILOBYTE;
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockAssertions.toValues;
@@ -77,8 +79,6 @@ import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.units.DataSize.Unit.BYTE;
-import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
