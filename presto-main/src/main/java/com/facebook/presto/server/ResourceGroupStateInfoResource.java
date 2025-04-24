@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
@@ -20,7 +21,6 @@ import com.facebook.presto.resourcemanager.ResourceManagerProxy;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
-import io.airlift.units.Duration;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.servlet.http.HttpServletRequest;

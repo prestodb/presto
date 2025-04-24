@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.server.remotetask;
 
+import com.facebook.airlift.units.Duration;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.ThreadSafe;
-import io.airlift.units.Duration;
 
 import java.util.List;
 

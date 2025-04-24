@@ -15,6 +15,8 @@ package com.facebook.presto.server.protocol;
 
 import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.stats.TimeStat;
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.server.ForStatementResource;
@@ -22,8 +24,6 @@ import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.spi.QueryId;
 import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.DELETE;
@@ -44,6 +44,7 @@ import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 import static com.facebook.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
+import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREFIX_URL;
 import static com.facebook.presto.server.protocol.QueryResourceUtil.abortIfPrefixUrlInvalid;
 import static com.facebook.presto.server.protocol.QueryResourceUtil.toResponse;
@@ -53,7 +54,6 @@ import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.Futures.transformAsync;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 

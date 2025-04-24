@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.verifier;
 
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.plugin.memory.MemoryPlugin;
@@ -37,7 +38,6 @@ import com.facebook.presto.verifier.source.MySqlSourceQueryConfig;
 import com.facebook.presto.verifier.source.VerifierDao;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.Duration;
 import jakarta.inject.Provider;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;

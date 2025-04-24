@@ -15,11 +15,11 @@ package com.facebook.presto.server;
 
 import com.facebook.airlift.bootstrap.LifeCycleManager;
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
-import io.airlift.units.Duration;
 import jakarta.annotation.PreDestroy;
 import jakarta.inject.Inject;
 
