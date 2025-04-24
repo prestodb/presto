@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.hive.OrcFileWriterConfig.StreamLayoutType;
 import com.facebook.presto.orc.OrcWriterOptions;
 import com.facebook.presto.orc.metadata.DwrfStripeCacheMode;
 import com.facebook.presto.orc.writer.StreamLayoutFactory.ColumnSizeLayoutFactory;
 import com.facebook.presto.orc.writer.StreamLayoutFactory.StreamSizeLayoutFactory;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -29,14 +29,14 @@ import java.util.OptionalInt;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static com.facebook.airlift.units.DataSize.Unit.BYTE;
+import static com.facebook.airlift.units.DataSize.Unit.KILOBYTE;
+import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static com.facebook.presto.hive.OrcFileWriterConfig.StreamLayoutType.BY_COLUMN_SIZE;
 import static com.facebook.presto.hive.OrcFileWriterConfig.StreamLayoutType.BY_STREAM_SIZE;
 import static com.facebook.presto.orc.metadata.DwrfStripeCacheMode.FOOTER;
 import static com.facebook.presto.orc.metadata.DwrfStripeCacheMode.INDEX;
 import static com.facebook.presto.orc.metadata.DwrfStripeCacheMode.INDEX_AND_FOOTER;
-import static io.airlift.units.DataSize.Unit.BYTE;
-import static io.airlift.units.DataSize.Unit.KILOBYTE;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.toIntExact;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;

@@ -14,12 +14,12 @@
 package com.facebook.presto.hive.metastore.thrift;
 
 import com.facebook.airlift.security.pem.PemReader;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.hive.HiveCommonClientConfig;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.authentication.HiveMetastoreAuthentication;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.net.HostAndPort;
-import io.airlift.units.Duration;
 import jakarta.inject.Inject;
 import org.apache.thrift.transport.TTransportException;
 

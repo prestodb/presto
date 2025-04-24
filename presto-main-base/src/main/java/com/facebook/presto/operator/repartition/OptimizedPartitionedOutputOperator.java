@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.repartition;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.ArrayAllocator;
 import com.facebook.presto.common.block.ArrayBlock;
@@ -51,7 +52,6 @@ import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SliceOutput;
-import io.airlift.units.DataSize;
 import jakarta.annotation.Nullable;
 import org.openjdk.jol.info.ClassLayout;
 

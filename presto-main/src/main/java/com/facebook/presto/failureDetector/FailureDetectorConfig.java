@@ -15,8 +15,8 @@ package com.facebook.presto.failureDetector;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
-import io.airlift.units.Duration;
-import io.airlift.units.MinDuration;
+import com.facebook.airlift.units.Duration;
+import com.facebook.airlift.units.MinDuration;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
