@@ -15,6 +15,7 @@
 package com.facebook.presto.eventlistener;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.common.resourceGroups.QueryType;
@@ -45,7 +46,6 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.spi.statistics.PlanStatisticsWithSourceInfo;
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -346,10 +346,10 @@ public class TestEventListenerManager
         sessionProperties.put("property2", "value2");
 
         ResourceEstimates resourceEstimates = new ResourceEstimates(
-                Optional.of(new io.airlift.units.Duration(1200, TimeUnit.SECONDS)),
-                Optional.of(new io.airlift.units.Duration(1200, TimeUnit.SECONDS)),
-                Optional.of(new io.airlift.units.DataSize(2, DataSize.Unit.GIGABYTE)),
-                Optional.of(new io.airlift.units.DataSize(2, DataSize.Unit.GIGABYTE)));
+                Optional.of(new com.facebook.airlift.units.Duration(1200, TimeUnit.SECONDS)),
+                Optional.of(new com.facebook.airlift.units.Duration(1200, TimeUnit.SECONDS)),
+                Optional.of(new com.facebook.airlift.units.DataSize(2, DataSize.Unit.GIGABYTE)),
+                Optional.of(new com.facebook.airlift.units.DataSize(2, DataSize.Unit.GIGABYTE)));
         return new QueryContext(
                 user,
                 principal,

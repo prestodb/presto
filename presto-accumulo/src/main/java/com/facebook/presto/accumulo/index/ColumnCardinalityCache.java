@@ -15,6 +15,7 @@ package com.facebook.presto.accumulo.index;
 
 import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.accumulo.conf.AccumuloConfig;
 import com.facebook.presto.accumulo.model.AccumuloColumnConstraint;
 import com.facebook.presto.spi.PrestoException;
@@ -27,7 +28,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
-import io.airlift.units.Duration;
 import jakarta.annotation.PreDestroy;
 import jakarta.inject.Inject;
 import org.apache.accumulo.core.client.BatchScanner;

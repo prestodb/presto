@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.tests.utils;
 
+import com.facebook.airlift.units.Duration;
 import com.google.common.base.Joiner;
 import com.google.common.collect.Iterables;
-import io.airlift.units.Duration;
 import io.prestodb.tempto.query.QueryResult;
 
 import java.util.function.Supplier;
 
+import static com.facebook.airlift.units.Duration.nanosSince;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
-import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.fail;

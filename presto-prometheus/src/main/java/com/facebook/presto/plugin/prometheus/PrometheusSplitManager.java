@@ -14,6 +14,7 @@
 package com.facebook.presto.plugin.prometheus;
 
 import com.facebook.airlift.http.client.HttpUriBuilder;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.Marker;
 import com.facebook.presto.common.predicate.TupleDomain;
@@ -29,7 +30,6 @@ import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
-import io.airlift.units.Duration;
 import jakarta.inject.Inject;
 
 import java.math.BigDecimal;

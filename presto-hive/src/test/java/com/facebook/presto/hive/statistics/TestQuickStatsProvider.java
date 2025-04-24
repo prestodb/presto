@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.statistics;
 
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.hive.DirectoryLister;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
@@ -35,7 +36,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.units.Duration;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 

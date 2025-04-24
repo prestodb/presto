@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.hive.s3select;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.testing.MaterializedResult;
-import io.airlift.units.DataSize;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Parameters;
@@ -26,12 +26,12 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.facebook.airlift.testing.Assertions.assertEqualsIgnoreOrder;
+import static com.facebook.airlift.units.DataSize.Unit.KILOBYTE;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveFileSystemTestUtils.newSession;
 import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.s3select.S3SelectTestHelper.expectedResult;
 import static com.facebook.presto.hive.s3select.S3SelectTestHelper.isSplitCountInOpenInterval;
-import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static org.testng.Assert.assertTrue;
 
 public class TestHiveFileSystemS3SelectCsvPushdownWithSplits

@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.resourceGroups;
 
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.spi.memory.MemoryPoolId;
@@ -21,8 +23,6 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 
 import java.util.AbstractMap;
 import java.util.ArrayList;
@@ -33,9 +33,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
 
+import static com.facebook.airlift.units.DataSize.Unit.BYTE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.String.format;
 import static java.util.function.Predicate.isEqual;
 
