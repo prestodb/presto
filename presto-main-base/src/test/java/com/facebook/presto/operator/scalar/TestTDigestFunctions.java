@@ -87,6 +87,36 @@ public class TestTDigestFunctions
                 null);
     }
 
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "All quantiles should be non-null.")
+    public void testValuesAtQuantilesWithNullsThrowsError()
+    {
+        TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
+        for (int i = 0; i < 100; i++) {
+            tDigest.add(i);
+        }
+
+        functionAssertions.assertFunction(
+                format("values_at_quantiles(%s, ARRAY[0.25, NULL, 0.75])",
+                        toSqlString(tDigest)),
+                new ArrayType(DOUBLE),
+                null);
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "All values should be non-null.")
+    public void testQuantilesAtValuesWithNullsThrowsError()
+    {
+        TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
+        for (int i = 0; i < 100; i++) {
+            tDigest.add(i);
+        }
+
+        functionAssertions.assertFunction(
+                format("quantiles_at_values(%s, ARRAY[25.0, NULL, 75.0])",
+                        toSqlString(tDigest)),
+                new ArrayType(DOUBLE),
+                null);
+    }
+
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testGetValueAtQuantileBelowZero()
     {
