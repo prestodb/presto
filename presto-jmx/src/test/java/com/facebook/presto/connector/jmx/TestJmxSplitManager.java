@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.connector.jmx;
 
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
@@ -36,7 +37,6 @@ import com.facebook.presto.testing.TestingNodeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.units.Duration;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
