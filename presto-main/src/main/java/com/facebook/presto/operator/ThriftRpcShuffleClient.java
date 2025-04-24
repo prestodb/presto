@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.drift.client.DriftClient;
 import com.facebook.drift.transport.client.MessageTooLargeException;
 import com.facebook.presto.execution.TaskId;
@@ -23,7 +24,6 @@ import com.facebook.presto.server.thrift.ThriftTaskClient;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
-import io.airlift.units.DataSize;
 
 import java.net.URI;
 import java.util.Optional;

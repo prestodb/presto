@@ -1156,9 +1156,9 @@
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>units</artifactId>
-                <version>1.3</version>
+                <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>

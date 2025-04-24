@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.hive.s3;
 
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.hive.aws.AbstractSdkMetricsCollector;
-import io.airlift.units.Duration;
 
 import static java.util.Objects.requireNonNull;
 
