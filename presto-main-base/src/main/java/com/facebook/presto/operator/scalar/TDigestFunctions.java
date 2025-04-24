@@ -70,6 +70,7 @@ public final class TDigestFunctions
         TDigest tDigest = createTDigest(input);
         BlockBuilder output = DOUBLE.createBlockBuilder(null, percentilesArrayBlock.getPositionCount());
         for (int i = 0; i < percentilesArrayBlock.getPositionCount(); i++) {
+            checkCondition(!percentilesArrayBlock.isNull(i), INVALID_FUNCTION_ARGUMENT, "All quantiles should be non-null.");
             DOUBLE.writeDouble(output, tDigest.getQuantile(DOUBLE.getDouble(percentilesArrayBlock, i)));
         }
         return output.build();
@@ -91,6 +92,7 @@ public final class TDigestFunctions
         TDigest tDigest = createTDigest(input);
         BlockBuilder output = DOUBLE.createBlockBuilder(null, valuesArrayBlock.getPositionCount());
         for (int i = 0; i < valuesArrayBlock.getPositionCount(); i++) {
+            checkCondition(!valuesArrayBlock.isNull(i), INVALID_FUNCTION_ARGUMENT, "All values should be non-null.");
             DOUBLE.writeDouble(output, tDigest.getCdf(DOUBLE.getDouble(valuesArrayBlock, i)));
         }
         return output.build();
