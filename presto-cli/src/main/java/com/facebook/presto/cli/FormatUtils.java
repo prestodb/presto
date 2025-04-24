@@ -13,16 +13,16 @@
  */
 package com.facebook.presto.cli;
 
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
 import com.google.common.primitives.Ints;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
 
+import static com.facebook.airlift.units.DataSize.Unit.BYTE;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.repeat;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;

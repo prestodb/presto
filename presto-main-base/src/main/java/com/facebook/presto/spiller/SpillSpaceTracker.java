@@ -13,18 +13,18 @@
  */
 package com.facebook.presto.spiller;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.ExceededSpillLimitException;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
-import io.airlift.units.DataSize;
 import org.weakref.jmx.Managed;
 
+import static com.facebook.airlift.units.DataSize.succinctBytes;
 import static com.facebook.presto.ExceededSpillLimitException.exceededLocalLimit;
 import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe

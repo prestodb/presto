@@ -15,6 +15,7 @@ package com.facebook.presto.router.cluster;
 
 import com.facebook.airlift.bootstrap.LifeCycleManager;
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.router.RouterConfig;
 import com.facebook.presto.router.scheduler.Scheduler;
 import com.facebook.presto.router.scheduler.SchedulerFactory;
@@ -248,7 +249,7 @@ public class ClusterManager
 
         private final ClusterManager clusterManager;
         private final ScheduledExecutorService queryInfoUpdateExecutor;
-        private final io.airlift.units.Duration pollingInterval;
+        private final Duration pollingInterval;
 
         @Inject
         public ClusterStatusTracker(ClusterManager clusterManager, RemoteStateConfig remoteStateConfig)

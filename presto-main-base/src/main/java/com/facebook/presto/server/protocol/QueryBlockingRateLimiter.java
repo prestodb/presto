@@ -15,6 +15,7 @@ package com.facebook.presto.server.protocol;
 
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.airlift.stats.TimeStat;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.spi.QueryId;
 import com.google.common.cache.CacheBuilder;
@@ -24,7 +25,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.RateLimiter;
 import com.google.inject.Inject;
-import io.airlift.units.Duration;
 import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;

@@ -13,16 +13,16 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.operator.BlockedReason;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.units.Duration;
 
 import java.util.HashSet;
 import java.util.OptionalDouble;
 import java.util.Set;
 
+import static com.facebook.airlift.units.Duration.succinctDuration;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.units.Duration.succinctDuration;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;

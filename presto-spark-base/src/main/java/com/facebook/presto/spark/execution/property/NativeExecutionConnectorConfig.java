@@ -14,8 +14,8 @@
 package com.facebook.presto.spark.execution.property;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.units.DataSize;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.DataSize;
 
 import java.util.Map;
 

@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.spi.eventlistener;
 
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.errorprone.annotations.Immutable;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 
 import java.util.Optional;
 

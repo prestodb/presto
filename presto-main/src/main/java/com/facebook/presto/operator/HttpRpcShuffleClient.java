@@ -20,6 +20,7 @@ import com.facebook.airlift.http.client.Response;
 import com.facebook.airlift.http.client.ResponseHandler;
 import com.facebook.airlift.http.client.ResponseTooLargeException;
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.operator.PageBufferClient.PagesResponse;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.page.SerializedPage;
@@ -29,7 +30,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.slice.InputStreamSliceInput;
 import io.airlift.slice.SliceInput;
-import io.airlift.units.DataSize;
 
 import java.io.BufferedReader;
 import java.io.IOException;

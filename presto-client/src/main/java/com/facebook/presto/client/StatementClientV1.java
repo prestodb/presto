@@ -14,6 +14,7 @@
 package com.facebook.presto.client;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.client.OkHttpUtil.NullCallback;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.spi.security.SelectedRole;
@@ -22,7 +23,6 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.ThreadSafe;
-import io.airlift.units.Duration;
 import jakarta.annotation.Nullable;
 import okhttp3.Headers;
 import okhttp3.HttpUrl;

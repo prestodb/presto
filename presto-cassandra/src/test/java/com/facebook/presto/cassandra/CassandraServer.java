@@ -18,9 +18,9 @@ import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.units.Duration;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Resources;
-import io.airlift.units.Duration;
 import org.testcontainers.containers.GenericContainer;
 
 import java.io.Closeable;

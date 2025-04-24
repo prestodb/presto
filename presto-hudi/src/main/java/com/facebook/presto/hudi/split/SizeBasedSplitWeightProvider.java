@@ -14,8 +14,8 @@
 
 package com.facebook.presto.hudi.split;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.spi.SplitWeight;
-import io.airlift.units.DataSize;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.primitives.Doubles.constrainToRange;

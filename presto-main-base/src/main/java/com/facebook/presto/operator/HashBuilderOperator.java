@@ -40,6 +40,7 @@ import java.util.OptionalLong;
 import java.util.Queue;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getDone;
+import static com.facebook.airlift.units.DataSize.succinctBytes;
 import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalUserMemoryLimit;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxMemoryPerNode;
 import static com.facebook.presto.operator.SpillingUtils.checkSpillSucceeded;
@@ -47,7 +48,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

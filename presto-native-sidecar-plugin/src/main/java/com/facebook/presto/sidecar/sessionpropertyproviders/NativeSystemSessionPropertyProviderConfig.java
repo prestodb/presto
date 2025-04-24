@@ -14,8 +14,8 @@
 package com.facebook.presto.sidecar.sessionpropertyproviders;
 
 import com.facebook.airlift.configuration.Config;
-import io.airlift.units.Duration;
-import io.airlift.units.MinDuration;
+import com.facebook.airlift.units.Duration;
+import com.facebook.airlift.units.MinDuration;
 
 import static java.util.concurrent.TimeUnit.MINUTES;
 

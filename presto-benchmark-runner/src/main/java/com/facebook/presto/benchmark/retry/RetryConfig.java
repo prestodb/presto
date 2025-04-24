@@ -14,8 +14,8 @@
 package com.facebook.presto.benchmark.retry;
 
 import com.facebook.airlift.configuration.Config;
-import io.airlift.units.Duration;
-import io.airlift.units.MinDuration;
+import com.facebook.airlift.units.Duration;
+import com.facebook.airlift.units.MinDuration;
 import jakarta.validation.constraints.Min;
 
 import static java.util.concurrent.TimeUnit.MINUTES;

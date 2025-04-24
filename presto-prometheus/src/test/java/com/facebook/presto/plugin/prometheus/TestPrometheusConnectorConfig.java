@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.plugin.prometheus;
 
+import com.facebook.airlift.units.Duration;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.ConfigurationException;
-import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.io.File;
