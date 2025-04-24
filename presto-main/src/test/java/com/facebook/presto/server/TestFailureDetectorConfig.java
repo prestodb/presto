@@ -14,9 +14,9 @@
 package com.facebook.presto.server;
 
 import com.facebook.airlift.configuration.testing.ConfigAssertions;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.failureDetector.FailureDetectorConfig;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Map;
