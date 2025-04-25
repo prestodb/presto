@@ -15,7 +15,7 @@ on:
         required: false
 
 env:
-  JAVA_VERSION: ${{ vars.JAVA_VERSION || '11' }}
+  JAVA_VERSION: ${{ vars.JAVA_VERSION || '17' }}
   JAVA_DISTRIBUTION: ${{ vars.JAVA_DISTRIBUTION || 'temurin' }}
   JVM_OPTS: ${{ vars.JVM_OPTS }}
   MAVEN_OPTS: ${{ vars.JVM_OPTS }}

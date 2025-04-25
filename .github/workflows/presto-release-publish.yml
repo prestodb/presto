@@ -50,9 +50,10 @@ on:
         required: false
 
 env:
-  JAVA_VERSION: ${{ vars.JAVA_VERSION || '11' }}
+  JAVA_VERSION: ${{ vars.JAVA_VERSION || '17' }}
   JAVA_DISTRIBUTION: ${{ vars.JAVA_DISTRIBUTION || 'temurin' }}
-  MAVEN_OPTS: ${{ vars.MAVEN_OPTS || '' }}
+  JVM_OPTS: ${{ vars.JVM_OPTS }}
+  MAVEN_OPTS: ${{ vars.JVM_OPTS }}
   DOCKER_REPO: ${{ github.repository }}
   ORG_NAME: ${{ github.repository_owner }}
   IMAGE_NAME: presto-native
