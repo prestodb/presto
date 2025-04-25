@@ -180,10 +180,12 @@ include_directories(SYSTEM ${FOLLY_INCLUDE_DIRS})
 find_package(OpenSSL REQUIRED)
 
 find_package(Sodium REQUIRED)
+find_package(mvfst REQUIRED)
 find_library(PROXYGEN proxygen)
 find_library(PROXYGEN_HTTP_SERVER proxygenhttpserver)
 find_library(FIZZ fizz)
 find_library(WANGLE wangle)
+find_library(MVFST mvfst)
 
 find_library(RE2 re2)
 
@@ -192,7 +194,7 @@ find_package(wangle CONFIG)
 find_package(FBThrift)
 include_directories(SYSTEM ${FBTHRIFT_INCLUDE_DIR})
 
-set(PROXYGEN_LIBRARIES ${PROXYGEN_HTTP_SERVER} ${PROXYGEN} ${WANGLE} ${FIZZ})
+set(PROXYGEN_LIBRARIES ${PROXYGEN_HTTP_SERVER} ${PROXYGEN} ${WANGLE} ${FIZZ} ${MVFST})
 find_path(PROXYGEN_DIR NAMES include/proxygen)
 set(PROXYGEN_INCLUDE_DIR "${PROXYGEN_DIR}/include/proxygen")
 
