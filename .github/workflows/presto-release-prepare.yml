@@ -17,7 +17,8 @@ on:
 env:
   JAVA_VERSION: ${{ vars.JAVA_VERSION || '11' }}
   JAVA_DISTRIBUTION: ${{ vars.JAVA_DISTRIBUTION || 'temurin' }}
-  MAVEN_OPTS: ${{ vars.MAVEN_OPTS }}
+  JVM_OPTS: ${{ vars.JVM_OPTS }}
+  MAVEN_OPTS: ${{ vars.JVM_OPTS }}
   GIT_CI_USER: ${{ vars.GIT_CI_USER || 'prestodb-ci' }}
   GIT_CI_EMAIL: ${{ vars.GIT_CI_EMAIL || 'ci@lists.prestodb.io' }}
 
@@ -108,7 +109,7 @@ jobs:
         with:
           show-progress: false
 
-      - name: Set up JDK $${{ env.JAVA_DISTRIBUTION }}/${{ env.JAVA_VERSION }}
+      - name: Set up JDK ${{ env.JAVA_DISTRIBUTION }}/${{ env.JAVA_VERSION }}
         uses: actions/setup-java@v4
         with:
           java-version: ${{ env.JAVA_VERSION }}
