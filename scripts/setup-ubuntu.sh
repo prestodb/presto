@@ -73,7 +73,7 @@ function install_gcc11_if_needed {
   fi
 }
 
-FB_OS_VERSION="v2025.04.07.00"
+FB_OS_VERSION="v2024.07.01.00"
 FMT_VERSION="10.1.1"
 BOOST_VERSION="boost-1.84.0"
 THRIFT_VERSION="v0.16.0"
@@ -82,7 +82,6 @@ ARROW_VERSION="15.0.0"
 STEMMER_VERSION="2.2.0"
 DUCKDB_VERSION="v0.8.1"
 GEOS_VERSION="3.13.0"
-FAST_FLOAT_VERSION="v8.0.2"
 
 # Install packages required for build.
 function install_build_prerequisites {
@@ -151,8 +150,7 @@ function install_velox_deps_from_apt {
     bison \
     flex \
     libfl-dev \
-    tzdata \
-    libxxhash-dev
+    tzdata
 }
 
 function install_fmt {
@@ -181,11 +179,6 @@ function install_boost {
 function install_protobuf {
   wget_and_untar https://github.com/protocolbuffers/protobuf/releases/download/v21.8/protobuf-all-21.8.tar.gz protobuf
   cmake_install_dir protobuf -Dprotobuf_BUILD_TESTS=OFF
-}
-
-function install_fast_float {
-  wget_and_untar https://github.com/fastfloat/fast_float/archive/refs/tags/${FAST_FLOAT_VERSION}.tar.gz fast_float
-  cmake_install_dir fast_float -DBUILD_TESTS=OFF
 }
 
 function install_folly {
@@ -325,7 +318,6 @@ function install_velox_deps {
   run_and_time install_fmt
   run_and_time install_protobuf
   run_and_time install_boost
-  run_and_time install_fast_float
   run_and_time install_folly
   run_and_time install_fizz
   run_and_time install_wangle
