@@ -139,10 +139,8 @@ public class NativeSystemSessionPropertyProvider
     private URI getSidecarLocation()
     {
         Node sidecarNode = nodeManager.getSidecarNode();
-        return HttpUriBuilder.uriBuilder()
-                .scheme("http")
-                .host(sidecarNode.getHost())
-                .port(sidecarNode.getHostAndPort().getPort())
+        return HttpUriBuilder
+                .uriBuilderFrom(sidecarNode.getHttpUri())
                 .appendPath(SESSION_PROPERTIES_ENDPOINT)
                 .build();
     }
