@@ -229,12 +229,21 @@ class SpillPartitionId {
   bool operator!=(const SpillPartitionId& other) const;
 
   /// Customize the compare operator for recursive spilling control. It
-  /// ensures the partition with higher partition bit (deeper spill level) is
-  /// handled prior than one with lower partition bit (lower spill level). With
-  /// the same partition bit, the one with smaller partition number is handled
-  /// first. We put all spill partitions in an ordered map sorted based on the
-  /// partition id. The recursive spilling will advance the partition start bit
-  /// when go to the next level of recursive spilling.
+  /// ensures the order such that:
+  /// 1.  For partitions with the same parent, it orders them by their partition
+  /// number, smaller partition numbers in the front.
+  /// 2.  For partitions with different levels, it compares them level by level
+  /// on condition 1 starting from the root. And if all common ancestors are the
+  /// same, putting shallower spill level partitions in the front.
+  ///
+  /// e.g.: p_0 < p_1 < p_2_0 < p_2_1 < p_2_2 < p_2_3 < p_3
+  ///
+  /// This creates a hierarchical ordering where child partitions are grouped
+  /// after their parent. This ordering ensures that related partitions are
+  /// processed together and in a predictable sequence. We put all spill
+  /// partitions in an ordered map sorted based on the partition id. The
+  /// recursive spilling will advance the partition start bit when go to the
+  /// next level of recursive spilling.
   bool operator<(const SpillPartitionId& other) const;
 
   bool operator>(const SpillPartitionId& other) const {
@@ -253,6 +262,8 @@ class SpillPartitionId {
   uint32_t partitionNumber(uint32_t spillLevel) const;
 
   uint32_t encodedId() const;
+
+  std::optional<SpillPartitionId> parentId() const;
 
   bool valid() const;
 
@@ -425,6 +436,41 @@ class SpillPartition {
 
 using SpillPartitionSet =
     std::map<SpillPartitionId, std::unique_ptr<SpillPartition>>;
+
+/// Used in recursive spilling scenario. Capable of handling spill partition
+/// insertion while handling the partition retrieving order such that deeper and
+/// lower partition number partitions are retrieved first. It also preserves the
+/// entire leaf spill partition set that could be retrieved by calling
+/// 'extractAll()' after the set is fully iterated.
+class IterableSpillPartitionSet {
+ public:
+  IterableSpillPartitionSet();
+
+  /// Inserts 'spillPartitionSet', and replaces the common parent of
+  /// 'spillPartitionSet' in the iteration list if not root.
+  ///
+  /// NOTE: All spill partitions in 'spillPartitionSet' must have the same
+  /// direct parent if they are not root. And the common parent must be the
+  /// same as the partition latest returned by next().
+  void insert(SpillPartitionSet&& spillPartitionSet);
+
+  bool hasNext() const;
+
+  SpillPartition next();
+
+  /// Retrieves the entire leaf spill partition set. This method can be called
+  /// only after the set is fully iterated. This is used in hash join in mixed
+  /// mode spilling.
+  const SpillPartitionSet& spillPartitions() const;
+
+  void reset();
+
+ private:
+  // Iterator on 'spillPartitions_' pointing to the next returning spill
+  // partition.
+  SpillPartitionSet::iterator spillPartitionIter_;
+  SpillPartitionSet spillPartitions_;
+};
 
 /// Represents all spilled data of an operator, e.g. order by or group
 /// by. This has one SpillFileList per partition of spill data.

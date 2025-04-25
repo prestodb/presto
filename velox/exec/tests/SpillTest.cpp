@@ -162,13 +162,55 @@ class SpillTest : public ::testing::TestWithParam<uint32_t>,
     return id;
   }
 
+  // Randomly generate a partition set with common 'parent'. The set contains
+  // 'numIds' of partition ids with randomly picked partition nums.
+  SpillPartitionIdSet genPartitionIdSet(
+      std::optional<SpillPartitionId> parent,
+      uint32_t numIds) {
+    const auto maxPartitions = 1 << SpillPartitionId::kMaxPartitionBits;
+    VELOX_CHECK_LE(numIds, maxPartitions);
+    std::vector<uint32_t> partitionNums;
+    partitionNums.resize(maxPartitions);
+    std::iota(partitionNums.begin(), partitionNums.end(), 0);
+    std::shuffle(partitionNums.begin(), partitionNums.end(), rng_);
+    SpillPartitionIdSet result;
+    for (auto i = 0; i < numIds; ++i) {
+      auto id = parent.has_value()
+          ? SpillPartitionId(parent.value(), partitionNums[i])
+          : SpillPartitionId(partitionNums[i]);
+      result.emplace(id);
+    }
+    return result;
+  }
+
+  SpillPartitionSet genSpillPartitionSet(
+      std::optional<SpillPartitionId> parent,
+      uint32_t numIds) {
+    auto ids = genPartitionIdSet(parent, numIds);
+    SpillPartitionSet result;
+    for (const auto& id : ids) {
+      result.emplace(id, std::make_unique<SpillPartition>(id));
+    }
+    return result;
+  }
+
   SpillPartitionId randPartitionId() {
-    const auto spillDepth = randSpillLevel();
+    const auto spillLevel = randSpillLevel();
     SpillPartitionId partitionId(randPartitionNum());
-    for (auto i = 0; i < spillDepth; ++i) {
+    for (auto i = 0; i < spillLevel; ++i) {
       partitionId = SpillPartitionId(partitionId, randPartitionNum());
     }
     return partitionId;
+  }
+
+  SpillPartitionSet copySpillPartitionSet(
+      const SpillPartitionSet& spillPartitionSet) {
+    SpillPartitionSet result;
+    for (const auto& [id, partition] : spillPartitionSet) {
+      result.emplace(
+          id, std::make_unique<SpillPartition>(id, partition->files()));
+    }
+    return result;
   }
 
   void setupSpillState(
@@ -642,8 +684,6 @@ TEST_P(SpillTest, spillPartitionId) {
   ASSERT_NE(partitionId1_2, partitionId1_3);
   ASSERT_LT(partitionId1_2, partitionId1_3);
 
-  const uint8_t kStartPartitionBitOffset = 19;
-  const uint8_t kNumPartitionBits = 3;
   for (int iter = 0; iter < 3; ++iter) {
     folly::Random::DefaultGenerator rng;
     rng.seed(iter);
@@ -659,27 +699,28 @@ TEST_P(SpillTest, spillPartitionId) {
     distinctSpillPartitionIds.reserve(numIds);
     distinctSpillPartitionIds.push_back(spillPartitionIds[0]);
     for (int i = 0; i < numIds - 1; ++i) {
-      ASSERT_GE(
-          partitionBitOffset(
-              spillPartitionIds[i],
-              kStartPartitionBitOffset,
-              kNumPartitionBits),
-          partitionBitOffset(
-              spillPartitionIds[i + 1],
-              kStartPartitionBitOffset,
-              kNumPartitionBits));
-      if (partitionBitOffset(
-              spillPartitionIds[i],
-              kStartPartitionBitOffset,
-              kNumPartitionBits) ==
-          partitionBitOffset(
-              spillPartitionIds[i + 1],
-              kStartPartitionBitOffset,
-              kNumPartitionBits)) {
-        ASSERT_LE(
-            spillPartitionIds[i].partitionNumber(),
-            spillPartitionIds[i + 1].partitionNumber());
+      const auto curLevel = spillPartitionIds[i].spillLevel();
+      const auto nextLevel = spillPartitionIds[i + 1].spillLevel();
+      int32_t commonAncestorLevel{-1};
+      for (auto level = 0; level <= std::min(curLevel, nextLevel); ++level) {
+        const auto curPartitionNum =
+            spillPartitionIds[i].partitionNumber(level);
+        const auto nextPartitionNum =
+            spillPartitionIds[i + 1].partitionNumber(level);
+        if (curPartitionNum != nextPartitionNum) {
+          commonAncestorLevel = level - 1;
+          break;
+        }
       }
+
+      if (commonAncestorLevel >= 0) {
+        ASSERT_EQ(
+            spillPartitionIds[i].partitionNumber(commonAncestorLevel),
+            spillPartitionIds[i + 1].partitionNumber(commonAncestorLevel));
+      }
+      ASSERT_LE(
+          spillPartitionIds[i].partitionNumber(commonAncestorLevel + 1),
+          spillPartitionIds[i + 1].partitionNumber(commonAncestorLevel + 1));
       if (distinctSpillPartitionIds.back() != spillPartitionIds[i + 1]) {
         distinctSpillPartitionIds.push_back(spillPartitionIds[i + 1]);
       }
@@ -708,15 +749,15 @@ TEST(SpillTest, spillPartitionIdInvalid) {
 
 TEST_P(SpillTest, spillPartitionIdHierarchy) {
   std::vector<SpillPartitionId> ids{
-      genPartitionId({5}),
+      genPartitionId({6}),
       genPartitionId({5, 6}),
       genPartitionId({5, 5}),
-      genPartitionId({6})};
+      genPartitionId({5})};
   std::sort(ids.begin(), ids.end());
   std::vector<SpillPartitionId> expectedIds{
+      genPartitionId({5}),
       genPartitionId({5, 5}),
       genPartitionId({5, 6}),
-      genPartitionId({5}),
       genPartitionId({6})};
   ASSERT_TRUE(ids == expectedIds);
 
@@ -1004,6 +1045,136 @@ TEST_P(SpillTest, spillPartitionFunctionBasic) {
           resultPartitionIds.begin(), resultPartitionIds.end());
       ASSERT_GT(uniquePartitions.size(), 1);
     }
+  }
+}
+
+TEST_P(SpillTest, iterableSpillPartitionSetBasic) {
+  // Create first level spill partitions
+  SpillPartitionSet firstLevelPartitions;
+  SpillPartitionId id0(0);
+  SpillPartitionId id1(1);
+  SpillPartitionId id2(2);
+  firstLevelPartitions.emplace(id0, std::make_unique<SpillPartition>(id0));
+  firstLevelPartitions.emplace(id1, std::make_unique<SpillPartition>(id1));
+  firstLevelPartitions.emplace(id2, std::make_unique<SpillPartition>(id2));
+
+  SpillPartitionSet secondLevelPartitions;
+  SpillPartitionId id1_0(id1, 0);
+  SpillPartitionId id1_1(id1, 1);
+  SpillPartitionId id1_2(id1, 2);
+  secondLevelPartitions.emplace(id1_0, std::make_unique<SpillPartition>(id1_0));
+  secondLevelPartitions.emplace(id1_1, std::make_unique<SpillPartition>(id1_1));
+  secondLevelPartitions.emplace(id1_2, std::make_unique<SpillPartition>(id1_2));
+
+  IterableSpillPartitionSet iterableSet;
+  VELOX_ASSERT_THROW(
+      iterableSet.insert({}), "Inserted spill partition set must not be empty");
+  ASSERT_FALSE(iterableSet.hasNext());
+  VELOX_ASSERT_THROW(iterableSet.next(), "No more spill partitions to read");
+  iterableSet.insert(std::move(firstLevelPartitions));
+  ASSERT_TRUE(iterableSet.hasNext());
+
+  ASSERT_EQ(iterableSet.next().id(), id0);
+  SpillPartitionSet secondLevelPartitionsCopy =
+      copySpillPartitionSet(secondLevelPartitions);
+
+  VELOX_ASSERT_THROW(
+      iterableSet.insert(std::move(secondLevelPartitionsCopy)),
+      "Partition set does not have the same parent");
+  ASSERT_EQ(iterableSet.next().id(), id1);
+
+  iterableSet.insert(std::move(secondLevelPartitions));
+  ASSERT_EQ(iterableSet.next().id(), id1_0);
+  ASSERT_EQ(iterableSet.next().id(), id1_1);
+  ASSERT_EQ(iterableSet.next().id(), id1_2);
+
+  VELOX_ASSERT_THROW(
+      iterableSet.spillPartitions(),
+      "Spill partitions can only be extracted out after entire set is read");
+  ASSERT_EQ(iterableSet.next().id(), id2);
+  ASSERT_FALSE(iterableSet.hasNext());
+
+  const auto& extractedPartitions = iterableSet.spillPartitions();
+  ASSERT_EQ(extractedPartitions.size(), 5);
+  ASSERT_TRUE(extractedPartitions.find(id0) != extractedPartitions.end());
+  ASSERT_TRUE(extractedPartitions.find(id2) != extractedPartitions.end());
+  ASSERT_TRUE(extractedPartitions.find(id1_0) != extractedPartitions.end());
+  ASSERT_TRUE(extractedPartitions.find(id1_1) != extractedPartitions.end());
+  ASSERT_TRUE(extractedPartitions.find(id1_2) != extractedPartitions.end());
+
+  ASSERT_FALSE(iterableSet.hasNext());
+  ASSERT_EQ(iterableSet.spillPartitions().size(), 5);
+  iterableSet.reset();
+  for (auto i = 0; i < 5; ++i) {
+    ASSERT_TRUE(iterableSet.hasNext());
+    iterableSet.next();
+  }
+  ASSERT_FALSE(iterableSet.hasNext());
+}
+
+TEST_P(SpillTest, iterableSpillPartitionSet) {
+  struct TestData {
+    uint32_t maxPartitions;
+    uint32_t maxNumInsertions;
+
+    std::string debugString() {
+      return fmt::format(
+          "maxPartitions: {}, maxNumInsertions: {}",
+          maxPartitions,
+          maxNumInsertions);
+    }
+  };
+
+  std::vector<TestData> testData{{1, 1}, {4, 4}, {8, 2}, {8, 20}};
+  for (const auto& data : testData) {
+    SpillPartitionSet expectedPartitions;
+    IterableSpillPartitionSet iterableSet;
+
+    for (auto i = data.maxNumInsertions; i > 0; --i) {
+      if (!iterableSet.hasNext()) {
+        if (i != data.maxNumInsertions) {
+          break;
+        }
+        iterableSet.insert(genSpillPartitionSet(
+            std::nullopt,
+            folly::Random::rand32(rng_) % data.maxPartitions + 1));
+        continue;
+      }
+      ASSERT_TRUE(iterableSet.hasNext());
+      auto partition = iterableSet.next();
+      expectedPartitions.emplace(
+          partition.id(),
+          std::make_unique<SpillPartition>(partition.id(), partition.files()));
+      if (fuzzer::coinToss(rng_, 1.0 / data.maxPartitions)) {
+        iterableSet.insert(genSpillPartitionSet(
+            partition.id(),
+            folly::Random::rand32(rng_) % data.maxPartitions + 1));
+        auto iter = expectedPartitions.find(partition.id());
+        ASSERT_TRUE(iter != expectedPartitions.end());
+        expectedPartitions.erase(iter);
+      }
+    }
+
+    while (iterableSet.hasNext()) {
+      const auto partition = iterableSet.next();
+      expectedPartitions.emplace(
+          partition.id(),
+          std::make_unique<SpillPartition>(partition.id(), partition.files()));
+    }
+
+    const auto& actualPartitions = iterableSet.spillPartitions();
+
+    auto iterExpected = expectedPartitions.begin();
+    auto iterActual = actualPartitions.begin();
+    while (iterExpected != expectedPartitions.end()) {
+      ASSERT_EQ(iterActual->first, iterExpected->first);
+      ASSERT_EQ(iterActual->second->id(), iterExpected->second->id());
+      ASSERT_EQ(
+          iterActual->second->numFiles(), iterExpected->second->numFiles());
+      ++iterExpected;
+      ++iterActual;
+    }
+    ASSERT_TRUE(iterActual == actualPartitions.end());
   }
 }
 
