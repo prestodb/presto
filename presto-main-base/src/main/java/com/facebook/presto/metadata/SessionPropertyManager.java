@@ -32,7 +32,6 @@ import com.facebook.presto.sessionpropertyproviders.JavaWorkerSessionPropertyPro
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.session.SessionPropertyContext;
 import com.facebook.presto.spi.session.WorkerSessionPropertyProvider;
@@ -340,10 +339,10 @@ public final class SessionPropertyManager
         }
     }
 
-    public static Object evaluatePropertyValue(Expression expression, Type expectedType, Session session, Metadata metadata, Map<NodeRef<Parameter>, Expression> parameters, AccessControl accessControl)
+    public static Object evaluatePropertyValue(Expression expression, Type expectedType, Session session, Metadata metadata, Map<NodeRef<Parameter>, Expression> parameters)
     {
         Expression rewritten = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameters), expression);
-        Object value = evaluateConstantExpression(rewritten, expectedType, metadata, session, parameters, accessControl);
+        Object value = evaluateConstantExpression(rewritten, expectedType, metadata, session, parameters);
 
         // convert to object value type of SQL type
         BlockBuilder blockBuilder = expectedType.createBlockBuilder(null, 1);

@@ -20,7 +20,6 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
@@ -143,8 +142,7 @@ public class TestCommonSubExpressionRewriter
                 TYPES,
                 expression,
                 ImmutableMap.of(),
-                WarningCollector.NOOP,
-                new AllowAllAccessControl());
+                WarningCollector.NOOP);
         return SqlToRowExpressionTranslator.translate(
                 expression,
                 expressionTypes,

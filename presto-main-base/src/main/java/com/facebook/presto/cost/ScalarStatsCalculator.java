@@ -30,7 +30,6 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionVisitor;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
@@ -81,19 +80,17 @@ public class ScalarStatsCalculator
 {
     private final Metadata metadata;
     private final ExpressionOptimizerProvider expressionOptimizerProvider;
-    private final AccessControl accessControl;
 
     @Inject
-    public ScalarStatsCalculator(Metadata metadata, ExpressionOptimizerManager expressionOptimizerManager, AccessControl accessControl)
+    public ScalarStatsCalculator(Metadata metadata, ExpressionOptimizerManager expressionOptimizerManager)
     {
-        this(metadata, (ExpressionOptimizerProvider) expressionOptimizerManager, accessControl);
+        this(metadata, (ExpressionOptimizerProvider) expressionOptimizerManager);
     }
 
-    public ScalarStatsCalculator(Metadata metadata, ExpressionOptimizerProvider expressionOptimizerProvider, AccessControl accessControl)
+    public ScalarStatsCalculator(Metadata metadata, ExpressionOptimizerProvider expressionOptimizerProvider)
     {
         this.metadata = requireNonNull(metadata, "metadata can not be null");
         this.expressionOptimizerProvider = requireNonNull(expressionOptimizerProvider, "expressionOptimizerManager can not be null");
-        this.accessControl = requireNonNull(accessControl, "accessControl can not be null");
     }
 
     @Deprecated
@@ -384,7 +381,7 @@ public class ScalarStatsCalculator
         protected VariableStatsEstimate visitFunctionCall(FunctionCall node, Void context)
         {
             Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, node, types);
-            ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(node, metadata, session, expressionTypes, accessControl);
+            ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(node, metadata, session, expressionTypes);
             Object value = interpreter.optimize(NoOpVariableResolver.INSTANCE);
 
             if (value == null || value instanceof NullLiteral) {

@@ -18,7 +18,6 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -91,7 +90,7 @@ public class TestingRowExpressionTranslator
         // Testing simplified expressions is important, since simplification may create CASTs or function calls that cannot be simplified by the ExpressionOptimizer
 
         Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(expression, TypeProvider.empty());
-        ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(expression, metadata, TEST_SESSION, expressionTypes, new AllowAllAccessControl());
+        ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(expression, metadata, TEST_SESSION, expressionTypes);
         Object value = interpreter.optimize(NoOpVariableResolver.INSTANCE);
         return literalEncoder.toExpression(value, expressionTypes.get(NodeRef.of(expression)));
     }

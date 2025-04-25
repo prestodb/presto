@@ -37,7 +37,6 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.planner.ExpressionDomainTranslator;
 import com.facebook.presto.sql.planner.LiteralEncoder;
@@ -537,7 +536,7 @@ public class TestTupleDomainFilterUtils
 
     private ExpressionDomainTranslator.ExtractionResult fromPredicate(Expression originalPredicate, boolean useNewNanDefitition)
     {
-        return ExpressionDomainTranslator.fromPredicate(useNewNanDefitition ? metadata : oldNanDefinitionMetadata, TEST_SESSION, originalPredicate, useNewNanDefitition ? TYPES : OLD_NAN_DEFINITION_TYPES, new AllowAllAccessControl());
+        return ExpressionDomainTranslator.fromPredicate(useNewNanDefitition ? metadata : oldNanDefinitionMetadata, TEST_SESSION, originalPredicate, useNewNanDefitition ? TYPES : OLD_NAN_DEFINITION_TYPES);
     }
 
     private static ComparisonExpression equal(Symbol symbol, Expression expression)

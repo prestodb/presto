@@ -26,7 +26,6 @@ import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.ExistsExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
@@ -95,7 +94,6 @@ class SubqueryPlanner
     private final Metadata metadata;
     private final Session session;
     private final SqlParser sqlParser;
-    private final AccessControl accessControl;
 
     SubqueryPlanner(
             Analysis analysis,
@@ -104,8 +102,7 @@ class SubqueryPlanner
             Map<NodeRef<LambdaArgumentDeclaration>, VariableReferenceExpression> lambdaDeclarationToVariableMap,
             Metadata metadata,
             Session session,
-            SqlParser sqlParser,
-            AccessControl accessControl)
+            SqlParser sqlParser)
     {
         requireNonNull(analysis, "analysis is null");
         requireNonNull(variableAllocator, "variableAllocator is null");
@@ -114,7 +111,6 @@ class SubqueryPlanner
         requireNonNull(metadata, "metadata is null");
         requireNonNull(session, "session is null");
         requireNonNull(sqlParser, "sqlParser is null");
-        requireNonNull(accessControl, "accessControl is null");
 
         this.analysis = analysis;
         this.variableAllocator = variableAllocator;
@@ -123,7 +119,6 @@ class SubqueryPlanner
         this.metadata = metadata;
         this.session = session;
         this.sqlParser = sqlParser;
-        this.accessControl = accessControl;
     }
 
     public PlanBuilder handleSubqueries(PlanBuilder builder, Collection<Expression> expressions, Node node, SqlPlannerContext context)
@@ -507,7 +502,7 @@ class SubqueryPlanner
 
     private PlanBuilder createPlanBuilder(Node node, SqlPlannerContext context)
     {
-        RelationPlan relationPlan = new RelationPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session, sqlParser, accessControl)
+        RelationPlan relationPlan = new RelationPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session, sqlParser)
                 .process(node, context);
         TranslationMap translations = new TranslationMap(relationPlan, analysis, lambdaDeclarationToVariableMap);
 

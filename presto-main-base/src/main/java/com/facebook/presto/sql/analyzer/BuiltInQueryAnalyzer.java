@@ -105,8 +105,7 @@ public class BuiltInQueryAnalyzer
                 analyzerContext.getIdAllocator(),
                 metadata,
                 analyzerContext.getVariableAllocator(),
-                sqlParser,
-                accessControl);
+                sqlParser);
         return logicalPlanner.plan(((BuiltInQueryAnalysis) queryAnalysis).getAnalysis());
     }
 }

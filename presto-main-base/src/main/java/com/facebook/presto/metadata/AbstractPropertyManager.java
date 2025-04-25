@@ -19,7 +19,6 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.planner.ParameterRewriter;
@@ -77,8 +76,7 @@ abstract class AbstractPropertyManager
             Map<String, Expression> sqlPropertyValues,
             Session session,
             Metadata metadata,
-            Map<NodeRef<Parameter>, Expression> parameters,
-            AccessControl accessControl)
+            Map<NodeRef<Parameter>, Expression> parameters)
     {
         Map<String, PropertyMetadata<?>> supportedProperties = getSupportedProperties(connectorId, catalog);
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
@@ -97,7 +95,7 @@ abstract class AbstractPropertyManager
 
             Object sqlObjectValue;
             try {
-                sqlObjectValue = evaluatePropertyValue(sqlProperty.getValue(), property.getSqlType(), session, metadata, parameters, accessControl);
+                sqlObjectValue = evaluatePropertyValue(sqlProperty.getValue(), property.getSqlType(), session, metadata, parameters);
             }
             catch (SemanticException e) {
                 throw new PrestoException(propertyError,
@@ -132,8 +130,7 @@ abstract class AbstractPropertyManager
             Map<String, Expression> sqlPropertyValues,
             Session session,
             Metadata metadata,
-            Map<NodeRef<Parameter>, Expression> parameters,
-            AccessControl accessControl)
+            Map<NodeRef<Parameter>, Expression> parameters)
     {
         Map<String, PropertyMetadata<?>> supportedProperties = getSupportedProperties(connectorId, catalog);
         ImmutableMap.Builder<String, Object> properties = getUserSpecifiedProperties(
@@ -142,8 +139,7 @@ abstract class AbstractPropertyManager
                 sqlPropertyValues,
                 session,
                 metadata,
-                parameters,
-                accessControl);
+                parameters);
         Map<String, Object> userSpecifiedProperties = properties.build();
 
         // Fill in the remaining properties with non-null defaults
@@ -172,10 +168,10 @@ abstract class AbstractPropertyManager
         return supportedProperties;
     }
 
-    private Object evaluatePropertyValue(Expression expression, Type expectedType, Session session, Metadata metadata, Map<NodeRef<Parameter>, Expression> parameters, AccessControl accessControl)
+    private Object evaluatePropertyValue(Expression expression, Type expectedType, Session session, Metadata metadata, Map<NodeRef<Parameter>, Expression> parameters)
     {
         Expression rewritten = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameters), expression);
-        Object value = evaluateConstantExpression(rewritten, expectedType, metadata, session, parameters, accessControl);
+        Object value = evaluateConstantExpression(rewritten, expectedType, metadata, session, parameters);
 
         // convert to object value type of SQL type
         BlockBuilder blockBuilder = expectedType.createBlockBuilder(null, 1);

@@ -474,8 +474,8 @@ public class LocalQueryRunner
 
         this.accessControl = new TestingAccessControlManager(transactionManager);
         this.statsNormalizer = new StatsNormalizer();
-        this.scalarStatsCalculator = new ScalarStatsCalculator(metadata, expressionOptimizerManager, getAccessControl());
-        this.filterStatsCalculator = new FilterStatsCalculator(metadata, scalarStatsCalculator, statsNormalizer, getAccessControl());
+        this.scalarStatsCalculator = new ScalarStatsCalculator(metadata, expressionOptimizerManager);
+        this.filterStatsCalculator = new FilterStatsCalculator(metadata, scalarStatsCalculator, statsNormalizer);
         this.historyBasedPlanStatisticsManager = new HistoryBasedPlanStatisticsManager(objectMapper, createTestingSessionPropertyManager(), metadata, new HistoryBasedOptimizationConfig(), featuresConfig, new NodeVersion("1"));
         this.fragmentStatsProvider = new FragmentStatsProvider();
         this.statsCalculator = createNewStatsCalculator(metadata, scalarStatsCalculator, statsNormalizer, filterStatsCalculator, historyBasedPlanStatisticsManager, fragmentStatsProvider);
@@ -513,7 +513,7 @@ public class LocalQueryRunner
                 new RowExpressionDomainTranslator(metadata),
                 new RowExpressionPredicateCompiler(metadata),
                 new RowExpressionDeterminismEvaluator(metadata.getFunctionAndTypeManager()),
-                new FilterStatsCalculator(metadata, scalarStatsCalculator, statsNormalizer, getAccessControl()),
+                new FilterStatsCalculator(metadata, scalarStatsCalculator, statsNormalizer),
                 blockEncodingManager,
                 featuresConfig);
 
@@ -939,7 +939,7 @@ public class LocalQueryRunner
         AnalyzerContext analyzerContext = getAnalyzerContext(queryAnalyzer, metadata.getMetadataResolver(session), idAllocator, new VariableAllocator(), session, sql);
 
         QueryAnalysis queryAnalysis = queryAnalyzer.analyze(analyzerContext, preparedQuery);
-        checkAccessPermissions(queryAnalysis.getAccessControlReferences(), sql);
+        checkAccessPermissions(queryAnalysis.getAccessControlReferences(), accessControl, session.getAccessControlContext(), session.getIdentity(), sql);
 
         MaterializedResult result = MaterializedResult.resultBuilder(session, BooleanType.BOOLEAN)
                 .row(true)
@@ -1162,8 +1162,7 @@ public class LocalQueryRunner
                 partitioningProviderManager,
                 featuresConfig,
                 expressionOptimizerManager,
-                taskManagerConfig,
-                accessControl).getPlanningTimeOptimizers());
+                taskManagerConfig).getPlanningTimeOptimizers());
         return planOptimizers.build();
     }
 
@@ -1196,7 +1195,7 @@ public class LocalQueryRunner
         AnalyzerContext analyzerContext = getAnalyzerContext(queryAnalyzer, metadata.getMetadataResolver(session), idAllocator, new VariableAllocator(), session, sql);
 
         QueryAnalysis queryAnalysis = queryAnalyzer.analyze(analyzerContext, preparedQuery);
-        checkAccessPermissions(queryAnalysis.getAccessControlReferences(), sql);
+        checkAccessPermissions(queryAnalysis.getAccessControlReferences(), accessControl, session.getAccessControlContext(), session.getIdentity(), sql);
 
         PlanNode planNode = session.getRuntimeStats().recordWallAndCpuTime(
                 LOGICAL_PLANNER_TIME_NANOS,

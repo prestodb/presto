@@ -96,9 +96,9 @@ public class AnalyzerUtil
         return new AnalyzerContext(metadataResolver, idAllocator, variableAllocator, query);
     }
 
-    public static void checkAccessPermissions(AccessControlReferences accessControlReferences, String query)
+    public static void checkAccessPermissions(AccessControlReferences accessControlReferences, AccessControl accessControl, AccessControlContext accessControlContext, Identity identity, String query)
     {
-        accessControlReferences.getQueryAccessControlInfo().getAccessControl().checkQueryIntegrity(accessControlReferences.getQueryAccessControlInfo().getIdentity(), accessControlReferences.getQueryAccessControlInfo().getAccessControlContext(), query);
+        accessControl.checkQueryIntegrity(identity, accessControlContext, query);
         // Table checks
         checkAccessPermissionsForTable(accessControlReferences);
         // Table Column checks

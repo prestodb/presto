@@ -23,7 +23,6 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.security.DenyAllAccessControl;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.RelationId;
@@ -84,8 +83,7 @@ public class TranslateExpressionsUtil
             Metadata metadata,
             SqlParser sqlParser,
             Session session,
-            TypeProvider typeProvider,
-            AccessControl accessControl)
+            TypeProvider typeProvider)
     {
         List<LambdaExpression> lambdaExpressions = arguments.stream()
                 .filter(LambdaExpression.class::isInstance)
@@ -141,20 +139,19 @@ public class TranslateExpressionsUtil
                                 TypeProvider.copyOf(lambdaArgumentSymbolTypes),
                                 lambdaExpression.getBody(),
                                 emptyMap(),
-                                NOOP,
-                                accessControl));
+                                NOOP));
             }
         }
         for (Expression argument : arguments) {
             if (argument instanceof LambdaExpression) {
                 continue;
             }
-            builder.putAll(analyze(argument, metadata, sqlParser, session, typeProvider, accessControl));
+            builder.putAll(analyze(argument, metadata, sqlParser, session, typeProvider));
         }
         return builder.build();
     }
 
-    private static Map<NodeRef<Expression>, Type> analyze(Expression expression, Metadata metadata, SqlParser sqlParser, Session session, TypeProvider typeProvider, AccessControl accessControl)
+    private static Map<NodeRef<Expression>, Type> analyze(Expression expression, Metadata metadata, SqlParser sqlParser, Session session, TypeProvider typeProvider)
     {
         return getExpressionTypes(
                 session,
@@ -163,7 +160,6 @@ public class TranslateExpressionsUtil
                 typeProvider,
                 expression,
                 emptyMap(),
-                NOOP,
-                accessControl);
+                NOOP);
     }
 }

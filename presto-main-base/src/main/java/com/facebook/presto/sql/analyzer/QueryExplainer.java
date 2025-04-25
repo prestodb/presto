@@ -211,8 +211,7 @@ public class QueryExplainer
                 idAllocator,
                 metadata,
                 planVariableAllocator,
-                sqlParser,
-                accessControl);
+                sqlParser);
 
         PlanNode planNode = session.getRuntimeStats().recordWallAndCpuTime(
                 LOGICAL_PLANNER_TIME_NANOS,

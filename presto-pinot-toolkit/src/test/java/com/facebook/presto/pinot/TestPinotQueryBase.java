@@ -42,7 +42,6 @@ import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -235,8 +234,7 @@ public class TestPinotQueryBase
                 typeProvider,
                 expression,
                 ImmutableMap.of(),
-                WarningCollector.NOOP,
-                new AllowAllAccessControl());
+                WarningCollector.NOOP);
         return SqlToRowExpressionTranslator.translate(expression, expressionTypes, ImmutableMap.of(), functionAndTypeManager, session);
     }
 

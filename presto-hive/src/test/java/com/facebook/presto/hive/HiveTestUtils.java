@@ -68,7 +68,6 @@ import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.relation.PredicateCompiler;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
-import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.sql.gen.RowExpressionPredicateCompiler;
 import com.facebook.presto.sql.planner.planPrinter.RowExpressionFormatter;
@@ -152,7 +151,7 @@ public final class HiveTestUtils
     };
 
     public static final FilterStatsCalculatorService FILTER_STATS_CALCULATOR_SERVICE = new ConnectorFilterStatsCalculatorService(
-            new FilterStatsCalculator(METADATA, new ScalarStatsCalculator(METADATA, ROW_EXPRESSION_SERVICE, new AllowAllAccessControl()), new StatsNormalizer(), new AllowAllAccessControl()));
+            new FilterStatsCalculator(METADATA, new ScalarStatsCalculator(METADATA, ROW_EXPRESSION_SERVICE), new StatsNormalizer()));
 
     public static final HiveClientConfig HIVE_CLIENT_CONFIG = new HiveClientConfig();
     public static final MetastoreClientConfig METASTORE_CLIENT_CONFIG = new MetastoreClientConfig();

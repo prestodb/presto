@@ -20,7 +20,6 @@ import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.cost.TaskCountEstimator;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -210,7 +209,6 @@ public class PlanOptimizers
     private final RuleStatsRecorder ruleStats = new RuleStatsRecorder();
     private final OptimizerStatsRecorder optimizerStats = new OptimizerStatsRecorder();
     private final MBeanExporter exporter;
-    private final AccessControl accessControl;
 
     @Inject
     public PlanOptimizers(
@@ -228,8 +226,7 @@ public class PlanOptimizers
             PartitioningProviderManager partitioningProviderManager,
             FeaturesConfig featuresConfig,
             ExpressionOptimizerManager expressionOptimizerManager,
-            TaskManagerConfig taskManagerConfig,
-            AccessControl accessControl)
+            TaskManagerConfig taskManagerConfig)
     {
         this(metadata,
                 sqlParser,
@@ -246,8 +243,7 @@ public class PlanOptimizers
                 partitioningProviderManager,
                 featuresConfig,
                 expressionOptimizerManager,
-                taskManagerConfig,
-                accessControl);
+                taskManagerConfig);
     }
 
     @PostConstruct
@@ -280,11 +276,9 @@ public class PlanOptimizers
             PartitioningProviderManager partitioningProviderManager,
             FeaturesConfig featuresConfig,
             ExpressionOptimizerManager expressionOptimizerManager,
-            TaskManagerConfig taskManagerConfig,
-            AccessControl accessControl)
+            TaskManagerConfig taskManagerConfig)
     {
         this.exporter = exporter;
-        this.accessControl = accessControl;
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
 
         Set<Rule<?>> predicatePushDownRules = ImmutableSet.of(
@@ -363,7 +357,7 @@ public class PlanOptimizers
                 estimatedExchangesCostCalculator,
                 new RewriteConstantArrayContainsToInExpression(metadata.getFunctionAndTypeManager()).rules());
 
-        PlanOptimizer predicatePushDown = new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(metadata, sqlParser, expressionOptimizerManager, featuresConfig.isNativeExecutionEnabled(), accessControl));
+        PlanOptimizer predicatePushDown = new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(metadata, sqlParser, expressionOptimizerManager, featuresConfig.isNativeExecutionEnabled()));
         PlanOptimizer prefilterForLimitingAggregation = new StatsRecordingPlanOptimizer(optimizerStats, new PrefilterForLimitingAggregation(metadata, statsCalculator));
 
         builder.add(

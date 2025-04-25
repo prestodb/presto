@@ -18,7 +18,6 @@ import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.sql.InMemoryExpressionOptimizerProvider;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
 import com.facebook.presto.sql.planner.TypeProvider;
@@ -148,7 +147,7 @@ public abstract class AbstractTestFilterStatsCalculator
                 .build());
 
         MetadataManager metadata = MetadataManager.createTestMetadataManager();
-        statsCalculator = new FilterStatsCalculator(metadata, new ScalarStatsCalculator(metadata, new InMemoryExpressionOptimizerProvider(metadata), new AllowAllAccessControl()), new StatsNormalizer(), new AllowAllAccessControl());
+        statsCalculator = new FilterStatsCalculator(metadata, new ScalarStatsCalculator(metadata, new InMemoryExpressionOptimizerProvider(metadata)), new StatsNormalizer());
         translator = new TestingRowExpressionTranslator(MetadataManager.createTestMetadataManager());
     }
 

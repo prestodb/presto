@@ -30,7 +30,6 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionHandle;
-import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.InterpretedFunctionInvoker;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
@@ -91,12 +90,10 @@ import static java.util.stream.Collectors.toList;
 public final class ExpressionDomainTranslator
 {
     private final LiteralEncoder literalEncoder;
-    private final AccessControl accessControl;
 
-    public ExpressionDomainTranslator(LiteralEncoder literalEncoder, AccessControl accessControl)
+    public ExpressionDomainTranslator(LiteralEncoder literalEncoder)
     {
         this.literalEncoder = requireNonNull(literalEncoder, "literalEncoder is null");
-        this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
     public Expression toPredicate(TupleDomain<String> tupleDomain)
@@ -258,10 +255,9 @@ public final class ExpressionDomainTranslator
             Metadata metadata,
             Session session,
             Expression predicate,
-            TypeProvider types,
-            AccessControl accessControl)
+            TypeProvider types)
     {
-        return new Visitor(metadata, session, types, accessControl).process(predicate, false);
+        return new Visitor(metadata, session, types).process(predicate, false);
     }
 
     private static class Visitor
@@ -272,16 +268,14 @@ public final class ExpressionDomainTranslator
         private final Session session;
         private final TypeProvider types;
         private final InterpretedFunctionInvoker functionInvoker;
-        private final AccessControl accessControl;
 
-        private Visitor(Metadata metadata, Session session, TypeProvider types, AccessControl accessControl)
+        private Visitor(Metadata metadata, Session session, TypeProvider types)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
             this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");
             this.functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionAndTypeManager());
-            this.accessControl = requireNonNull(accessControl, "accessControl is null");
         }
 
         private Type checkedTypeLookup(Expression expression)
@@ -410,7 +404,7 @@ public final class ExpressionDomainTranslator
                     return super.visitComparisonExpression(node, complement);
                 }
 
-                Type castSourceType = typeOf(castExpression.getExpression(), session, metadata, types, accessControl); // type of expression which is then cast to type of value
+                Type castSourceType = typeOf(castExpression.getExpression(), session, metadata, types); // type of expression which is then cast to type of value
 
                 // we use saturated floor cast value -> castSourceType to rewrite original expression to new one with one cast peeled off the symbol side
                 Optional<Expression> coercedExpression = coerceComparisonWithRounding(
@@ -433,8 +427,8 @@ public final class ExpressionDomainTranslator
         private Optional<NormalizedSimpleComparison> toNormalizedSimpleComparison(ComparisonExpression comparison)
         {
             Map<NodeRef<Expression>, Type> expressionTypes = analyzeExpression(comparison);
-            Object left = ExpressionInterpreter.expressionOptimizer(comparison.getLeft(), metadata, session, expressionTypes, accessControl).optimize(NoOpVariableResolver.INSTANCE);
-            Object right = ExpressionInterpreter.expressionOptimizer(comparison.getRight(), metadata, session, expressionTypes, accessControl).optimize(NoOpVariableResolver.INSTANCE);
+            Object left = ExpressionInterpreter.expressionOptimizer(comparison.getLeft(), metadata, session, expressionTypes).optimize(NoOpVariableResolver.INSTANCE);
+            Object right = ExpressionInterpreter.expressionOptimizer(comparison.getRight(), metadata, session, expressionTypes).optimize(NoOpVariableResolver.INSTANCE);
 
             Type leftType = expressionTypes.get(NodeRef.of(comparison.getLeft()));
             Type rightType = expressionTypes.get(NodeRef.of(comparison.getRight()));
@@ -475,7 +469,7 @@ public final class ExpressionDomainTranslator
 
         private Map<NodeRef<Expression>, Type> analyzeExpression(Expression expression)
         {
-            return ExpressionAnalyzer.getExpressionTypes(session, metadata, new SqlParser(), types, expression, emptyMap(), WarningCollector.NOOP, accessControl);
+            return ExpressionAnalyzer.getExpressionTypes(session, metadata, new SqlParser(), types, expression, emptyMap(), WarningCollector.NOOP);
         }
 
         private static ExtractionResult createComparisonExtractionResult(ComparisonExpression.Operator comparisonOperator, String column, Type type, @Nullable Object value, boolean complement)
@@ -739,9 +733,9 @@ public final class ExpressionDomainTranslator
         }
     }
 
-    private static Type typeOf(Expression expression, Session session, Metadata metadata, TypeProvider types, AccessControl accessControl)
+    private static Type typeOf(Expression expression, Session session, Metadata metadata, TypeProvider types)
     {
-        Map<NodeRef<Expression>, Type> expressionTypes = ExpressionAnalyzer.getExpressionTypes(session, metadata, new SqlParser(), types, expression, emptyMap(), WarningCollector.NOOP, accessControl);
+        Map<NodeRef<Expression>, Type> expressionTypes = ExpressionAnalyzer.getExpressionTypes(session, metadata, new SqlParser(), types, expression, emptyMap(), WarningCollector.NOOP);
         return expressionTypes.get(NodeRef.of(expression));
     }
 

@@ -103,7 +103,7 @@ public class Analysis
     private final Map<NodeRef<Node>, Scope> scopes = new LinkedHashMap<>();
     private final Multimap<NodeRef<Expression>, FieldId> columnReferences = ArrayListMultimap.create();
 
-    private final AccessControlReferences accessControlReferences;
+    private final AccessControlReferences accessControlReferences = new AccessControlReferences();
 
     // a map of users to the columns per table that they access
     private final Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> tableColumnReferences = new LinkedHashMap<>();
@@ -190,12 +190,11 @@ public class Analysis
     // Keeps track of the subquery we are visiting, so we have access to base query information when processing materialized view status
     private Optional<QuerySpecification> currentQuerySpecification = Optional.empty();
 
-    public Analysis(@Nullable Statement root, Map<NodeRef<Parameter>, Expression> parameters, boolean isDescribe, AccessControlInfo queryAccessControlInfo)
+    public Analysis(@Nullable Statement root, Map<NodeRef<Parameter>, Expression> parameters, boolean isDescribe)
     {
         this.root = root;
         this.parameters = ImmutableMap.copyOf(requireNonNull(parameters, "parameterMap is null"));
         this.isDescribe = isDescribe;
-        this.accessControlReferences = new AccessControlReferences(queryAccessControlInfo);
     }
 
     public Statement getStatement()

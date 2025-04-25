@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Symbol;
@@ -42,7 +41,7 @@ public class TestExpressionEquivalence
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
     private static final MetadataManager METADATA = MetadataManager.createTestMetadataManager();
-    private static final ExpressionEquivalence EQUIVALENCE = new ExpressionEquivalence(METADATA, SQL_PARSER, new AllowAllAccessControl());
+    private static final ExpressionEquivalence EQUIVALENCE = new ExpressionEquivalence(METADATA, SQL_PARSER);
 
     @Test
     public void testEquivalent()

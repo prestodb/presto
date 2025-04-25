@@ -26,7 +26,6 @@ import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -609,7 +608,7 @@ public class BenchmarkDecimalOperators
         {
             Expression expression = createExpression(value, metadata, TypeProvider.copyOf(symbolTypes));
 
-            Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(TEST_SESSION, metadata, SQL_PARSER, TypeProvider.copyOf(symbolTypes), expression, emptyMap(), WarningCollector.NOOP, new AllowAllAccessControl());
+            Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(TEST_SESSION, metadata, SQL_PARSER, TypeProvider.copyOf(symbolTypes), expression, emptyMap(), WarningCollector.NOOP);
             RowExpression rowExpression = SqlToRowExpressionTranslator.translate(expression, expressionTypes, sourceLayout, metadata.getFunctionAndTypeManager(), TEST_SESSION);
             RowExpressionOptimizer optimizer = new RowExpressionOptimizer(metadata);
             return optimizer.optimize(rowExpression, OPTIMIZED, TEST_SESSION.toConnectorSession());

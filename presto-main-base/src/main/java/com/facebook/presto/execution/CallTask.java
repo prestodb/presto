@@ -141,7 +141,7 @@ public class CallTask
             Type type = metadata.getType(argument.getType());
             checkCondition(type != null, INVALID_PROCEDURE_DEFINITION, "Unknown procedure argument type: %s", argument.getType());
 
-            Object value = evaluateConstantExpression(expression, type, metadata, session, parameterLookup, accessControl);
+            Object value = evaluateConstantExpression(expression, type, metadata, session, parameterLookup);
 
             values[index] = toTypeObjectValue(session, type, value);
         }

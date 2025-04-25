@@ -21,7 +21,6 @@ import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.relation.ExpressionOptimizerProvider;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.sql.InMemoryExpressionOptimizerProvider;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterClass;
@@ -96,7 +95,7 @@ public class TestJoinStatsRule
 
     private static final ExpressionOptimizerProvider EXPRESSION_OPTIMIZER_PROVIDER = new InMemoryExpressionOptimizerProvider(METADATA);
     private static final JoinStatsRule JOIN_STATS_RULE = new JoinStatsRule(
-            new FilterStatsCalculator(METADATA, new ScalarStatsCalculator(METADATA, EXPRESSION_OPTIMIZER_PROVIDER, new AllowAllAccessControl()), NORMALIZER, new AllowAllAccessControl()),
+            new FilterStatsCalculator(METADATA, new ScalarStatsCalculator(METADATA, EXPRESSION_OPTIMIZER_PROVIDER), NORMALIZER),
             NORMALIZER,
             1.0);
 

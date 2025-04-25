@@ -18,7 +18,6 @@ import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.WindowNode;
-import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.sql.InMemoryExpressionOptimizerProvider;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
@@ -478,7 +477,7 @@ public class TestPredicatePushdown
     public void testPredicatePushDownCanReduceInnerToCrossJoin()
     {
         RuleTester tester = new RuleTester();
-        tester.assertThat(new PredicatePushDown(tester.getMetadata(), tester.getSqlParser(), new InMemoryExpressionOptimizerProvider(tester.getMetadata()), false, new AllowAllAccessControl()))
+        tester.assertThat(new PredicatePushDown(tester.getMetadata(), tester.getSqlParser(), new InMemoryExpressionOptimizerProvider(tester.getMetadata()), false))
                 .on(p ->
                         p.join(INNER,
                                 p.filter(p.comparison(OperatorType.EQUAL, p.variable("a1"), constant(1L, INTEGER)),
@@ -511,7 +510,7 @@ public class TestPredicatePushdown
     public void testPredicatePushdownDoesNotAddProjectsBetweenJoinNodes()
     {
         RuleTester tester = new RuleTester();
-        PredicatePushDown predicatePushDownOptimizer = new PredicatePushDown(tester.getMetadata(), tester.getSqlParser(), new InMemoryExpressionOptimizerProvider(tester.getMetadata()), false, new AllowAllAccessControl());
+        PredicatePushDown predicatePushDownOptimizer = new PredicatePushDown(tester.getMetadata(), tester.getSqlParser(), new InMemoryExpressionOptimizerProvider(tester.getMetadata()), false);
 
         tester.assertThat(predicatePushDownOptimizer)
                 .on("SELECT 1 " +
@@ -591,7 +590,7 @@ public class TestPredicatePushdown
     public void testDomainFiltersCanBeInferredForLargeDisjunctiveFilters()
     {
         RuleTester tester = new RuleTester(emptyList(), ImmutableMap.of(GENERATE_DOMAIN_FILTERS, "true"));
-        PredicatePushDown predicatePushDownOptimizer = new PredicatePushDown(tester.getMetadata(), tester.getSqlParser(), new InMemoryExpressionOptimizerProvider(tester.getMetadata()), false, new AllowAllAccessControl());
+        PredicatePushDown predicatePushDownOptimizer = new PredicatePushDown(tester.getMetadata(), tester.getSqlParser(), new InMemoryExpressionOptimizerProvider(tester.getMetadata()), false);
 
         // For Inner Join
         tester.assertThat(predicatePushDownOptimizer)

@@ -41,7 +41,6 @@ import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.SqlInvokedScalarFunctionImplementation;
-import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.InterpretedFunctionInvoker;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
 import com.facebook.presto.sql.analyzer.Scope;
@@ -179,23 +178,21 @@ public class ExpressionInterpreter
     private final IdentityHashMap<LikePredicate, Regex> likePatternCache = new IdentityHashMap<>();
     private final IdentityHashMap<InListExpression, Set<?>> inListCache = new IdentityHashMap<>();
 
-    private final AccessControl accessControl;
-
-    public static ExpressionInterpreter expressionInterpreter(Expression expression, Metadata metadata, Session session, Map<NodeRef<Expression>, Type> expressionTypes, AccessControl accessControl)
+    public static ExpressionInterpreter expressionInterpreter(Expression expression, Metadata metadata, Session session, Map<NodeRef<Expression>, Type> expressionTypes)
     {
-        return new ExpressionInterpreter(expression, metadata, session, expressionTypes, false, accessControl);
+        return new ExpressionInterpreter(expression, metadata, session, expressionTypes, false);
     }
 
-    public static ExpressionInterpreter expressionOptimizer(Expression expression, Metadata metadata, Session session, Map<NodeRef<Expression>, Type> expressionTypes, AccessControl accessControl)
+    public static ExpressionInterpreter expressionOptimizer(Expression expression, Metadata metadata, Session session, Map<NodeRef<Expression>, Type> expressionTypes)
     {
         requireNonNull(expression, "expression is null");
         requireNonNull(metadata, "metadata is null");
         requireNonNull(session, "session is null");
 
-        return new ExpressionInterpreter(expression, metadata, session, expressionTypes, true, accessControl);
+        return new ExpressionInterpreter(expression, metadata, session, expressionTypes, true);
     }
 
-    public static Object evaluateConstantExpression(Expression expression, Type expectedType, Metadata metadata, Session session, Map<NodeRef<Parameter>, Expression> parameters, AccessControl accessControl)
+    public static Object evaluateConstantExpression(Expression expression, Type expectedType, Metadata metadata, Session session, Map<NodeRef<Parameter>, Expression> parameters)
     {
         ExpressionAnalyzer analyzer = createConstantAnalyzer(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(), session, parameters, WarningCollector.NOOP);
         analyzer.analyze(expression, Scope.create());
@@ -211,7 +208,7 @@ public class ExpressionInterpreter
                 .putAll(analyzer.getExpressionCoercions())
                 .put(NodeRef.of(expression), expectedType)
                 .build();
-        return evaluateConstantExpression(expression, coercions, analyzer.getTypeOnlyCoercions(), metadata, session, ImmutableSet.of(), parameters, accessControl);
+        return evaluateConstantExpression(expression, coercions, analyzer.getTypeOnlyCoercions(), metadata, session, ImmutableSet.of(), parameters);
     }
 
     private static Object evaluateConstantExpression(
@@ -221,8 +218,7 @@ public class ExpressionInterpreter
             Metadata metadata,
             Session session,
             Set<NodeRef<Expression>> columnReferences,
-            Map<NodeRef<Parameter>, Expression> parameters,
-            AccessControl accessControl)
+            Map<NodeRef<Parameter>, Expression> parameters)
     {
         requireNonNull(columnReferences, "columnReferences is null");
 
@@ -248,12 +244,12 @@ public class ExpressionInterpreter
         analyzer.analyze(canonicalized, Scope.create());
 
         // evaluate the expression
-        Object result = expressionInterpreter(canonicalized, metadata, session, analyzer.getExpressionTypes(), accessControl).evaluate();
+        Object result = expressionInterpreter(canonicalized, metadata, session, analyzer.getExpressionTypes()).evaluate();
         verify(!(result instanceof Expression), "Expression interpreter returned an unresolved expression");
         return result;
     }
 
-    private ExpressionInterpreter(Expression expression, Metadata metadata, Session session, Map<NodeRef<Expression>, Type> expressionTypes, boolean optimize, AccessControl accessControl)
+    private ExpressionInterpreter(Expression expression, Metadata metadata, Session session, Map<NodeRef<Expression>, Type> expressionTypes, boolean optimize)
     {
         this.expression = requireNonNull(expression, "expression is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -265,7 +261,6 @@ public class ExpressionInterpreter
         this.optimize = optimize;
         this.functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionAndTypeManager());
         this.legacyRowFieldOrdinalAccess = isLegacyRowFieldOrdinalAccessEnabled(session);
-        this.accessControl = requireNonNull(accessControl, "accessControl is null");
 
         this.visitor = new Visitor();
     }
@@ -967,9 +962,8 @@ public class ExpressionInterpreter
                         function,
                         metadata,
                         session,
-                        getExpressionTypes(session, metadata, new SqlParser(), TypeProvider.empty(), function, emptyMap(), WarningCollector.NOOP, accessControl),
-                        optimize,
-                        accessControl);
+                        getExpressionTypes(session, metadata, new SqlParser(), TypeProvider.empty(), function, emptyMap(), WarningCollector.NOOP),
+                        optimize);
                 result = functionInterpreter.visitor.process(function, context);
                 if (result instanceof FunctionCall) {
                     // Cannot interpret function to constant
