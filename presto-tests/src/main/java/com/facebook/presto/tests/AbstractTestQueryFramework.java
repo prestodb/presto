@@ -27,10 +27,12 @@ import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.nodeManager.PluginNodeManager;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
+import com.facebook.presto.sql.expressions.JsonCodecRowExpressionSerde;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.Plan;
@@ -62,6 +64,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.function.Consumer;
 
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.airlift.testing.Closeables.closeAllRuntimeException;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
@@ -587,7 +590,8 @@ public abstract class AbstractTestQueryFramework
                 featuresConfig,
                 new ExpressionOptimizerManager(
                         new PluginNodeManager(new InMemoryNodeManager()),
-                        queryRunner.getMetadata().getFunctionAndTypeManager()),
+                        queryRunner.getMetadata().getFunctionAndTypeManager(),
+                        new JsonCodecRowExpressionSerde(jsonCodec(RowExpression.class))),
                 new TaskManagerConfig())
                 .getPlanningTimeOptimizers();
         return new QueryExplainer(
