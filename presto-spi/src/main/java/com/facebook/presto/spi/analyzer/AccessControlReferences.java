@@ -63,6 +63,6 @@ public class AccessControlReferences
 
     public AccessControlInfo getQueryAccessControlInfo()
     {
-        return requireNonNull(queryAccessControlInfo, "queryAccessControlInfo is null");
+        return queryAccessControlInfo;
     }
 }

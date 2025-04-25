@@ -109,10 +109,13 @@ public class AnalyzerUtil
     private static void checkAccessPermissionsForQuery(AccessControlReferences accessControlReferences, String query)
     {
         AccessControlInfo queryAccessControlInfo = accessControlReferences.getQueryAccessControlInfo();
-        AccessControl queryAccessControl = queryAccessControlInfo.getAccessControl();
-        Identity identity = queryAccessControlInfo.getIdentity();
-        AccessControlContext queryAccessControlContext = queryAccessControlInfo.getAccessControlContext();
-        queryAccessControl.checkQueryIntegrity(identity, queryAccessControlContext, query);
+        // Only check access if query gets analyzed
+        if (queryAccessControlInfo != null) {
+            AccessControl queryAccessControl = queryAccessControlInfo.getAccessControl();
+            Identity identity = queryAccessControlInfo.getIdentity();
+            AccessControlContext queryAccessControlContext = queryAccessControlInfo.getAccessControlContext();
+            queryAccessControl.checkQueryIntegrity(identity, queryAccessControlContext, query);
+        }
     }
 
     private static void checkAccessPermissionsForColumns(AccessControlReferences accessControlReferences)
