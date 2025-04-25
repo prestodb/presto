@@ -218,6 +218,10 @@ Expression Evaluation Configuration
      - bool
      - false
      - Disable optimization in expression evaluation to delay loading of lazy inputs unless required. Should only be used for debugging.
+   * - debug_lambda_function_evaluation_batch_size
+     - integer
+     - 10000
+     - Some lambda functions over arrays and maps are evaluated in batches of the underlying elements that comprise the arrays/maps. This is done to make the batch size managable as array vectors can have thousands of elements each and hit scaling limits as implementations typically expect BaseVectors to a couple of thousand entries. This lets up tune those batch sizes. Setting this to zero is setting unlimited batch size.
 
 Memory Management
 -----------------

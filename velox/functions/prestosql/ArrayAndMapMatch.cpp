@@ -53,45 +53,55 @@ class MatchFunction : public exec::VectorFunction {
     const auto numElements = lambdaArgs[0]->size();
 
     context.ensureWritable(rows, BOOLEAN(), result);
+    VELOX_CHECK(result->isFlatEncoding());
     auto* flatResult = result->asFlatVector<bool>();
 
     VectorPtr matchBits;
     exec::LocalDecodedVector bitsDecoder(context);
 
+    const int32_t maxElementRowsPerIteration =
+        context.execCtx()
+            ->queryCtx()
+            ->queryConfig()
+            .debugLambdaFunctionEvaluationBatchSize();
+
     // Loop over lambda functions and apply these to elements of the base array,
     // in most cases there will be only one function and the loop will run once.
     auto it = args[1]->asUnchecked<FunctionVector>()->iterator(&rows);
     while (auto entry = it.next()) {
-      auto elementRows = toElementRows<TContainer>(
-          numElements, *entry.rows, flatContainer.get());
-      auto wrapCapture = toWrapCapture<TContainer>(
-          numElements, entry.callable, *entry.rows, flatContainer);
-
       exec::EvalErrorsPtr elementErrors;
-      entry.callable->applyNoThrow(
-          elementRows,
-          nullptr, // No need to preserve any values in 'matchBits'.
-          wrapCapture,
-          &context,
-          lambdaArgs,
-          elementErrors,
-          &matchBits);
+      exec::LocalSelectivityVector elementRowsLocal(context, numElements);
+      exec::LocalSelectivityVector topLevelRowsLocal(context, *entry.rows);
+      ElementRowsIterator elementRowsIter(
+          maxElementRowsPerIteration, *entry.rows, flatContainer.get());
+      while (elementRowsIter.next(*elementRowsLocal, *topLevelRowsLocal)) {
+        auto wrapCapture = toWrapCapture<TContainer>(
+            numElements, entry.callable, *topLevelRowsLocal, flatContainer);
+        entry.callable->applyNoThrow(
+            *elementRowsLocal,
+            nullptr, // No need to preserve any values in 'matchBits'.
+            wrapCapture,
+            &context,
+            lambdaArgs,
+            elementErrors,
+            &matchBits);
 
-      bitsDecoder.get()->decode(*matchBits, elementRows);
-      entry.rows->applyToSelected([&](vector_size_t row) {
-        if (flatContainer->isNullAt(row)) {
-          flatResult->setNull(row, true);
-        } else {
-          applyInternal(
-              *flatResult,
-              context,
-              row,
-              rawOffsets[row],
-              rawSizes[row],
-              elementErrors,
-              bitsDecoder);
-        }
-      });
+        bitsDecoder.get()->decode(*matchBits, elementRowsLocal.get());
+        topLevelRowsLocal->applyToSelected([&](vector_size_t row) {
+          if (flatContainer->isNullAt(row)) {
+            flatResult->setNull(row, true);
+          } else {
+            applyInternal(
+                *flatResult,
+                context,
+                row,
+                rawOffsets[row],
+                rawSizes[row],
+                elementErrors,
+                bitsDecoder);
+          }
+        });
+      }
     }
   }
 

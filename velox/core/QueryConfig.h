@@ -462,6 +462,15 @@ class QueryConfig {
   static constexpr const char* kDebugMemoryPoolNameRegex =
       "debug_memory_pool_name_regex";
 
+  /// Some lambda functions over arrays and maps are evaluated in batches of the
+  /// underlying elements that comprise the arrays/maps. This is done to make
+  /// the batch size managable as array vectors can have thousands of elements
+  /// each and hit scaling limits as implementations typically expect
+  /// BaseVectors to a couple of thousand entries. This lets up tune those batch
+  /// sizes.
+  static constexpr const char* kDebugLambdaFunctionEvaluationBatchSize =
+      "debug_lambda_function_evaluation_batch_size";
+
   /// Temporary flag to control whether selective Nimble reader should be used
   /// in this query or not.  Will be removed after the selective Nimble reader
   /// is fully rolled out.
@@ -574,6 +583,10 @@ class QueryConfig {
   std::optional<uint32_t> debugAggregationApproxPercentileFixedRandomSeed()
       const {
     return get<uint32_t>(kDebugAggregationApproxPercentileFixedRandomSeed);
+  }
+
+  int32_t debugLambdaFunctionEvaluationBatchSize() const {
+    return get<int32_t>(kDebugLambdaFunctionEvaluationBatchSize, 10'000);
   }
 
   uint64_t queryMaxMemoryPerNode() const {

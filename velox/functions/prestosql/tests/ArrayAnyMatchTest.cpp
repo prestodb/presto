@@ -15,12 +15,12 @@
  */
 
 #include "velox/common/base/tests/GTestUtils.h"
-#include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
+#include "velox/functions/prestosql/tests/utils/LambdaParameterizedBaseTest.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::test;
 
-class ArrayAnyMatchTest : public functions::test::FunctionBaseTest {
+class ArrayAnyMatchTest : public functions::test::LambdaParameterizedBaseTest {
  protected:
   void testAnyMatchExpr(
       const std::vector<std::optional<bool>>& expected,
@@ -43,12 +43,12 @@ class ArrayAnyMatchTest : public functions::test::FunctionBaseTest {
       const std::vector<std::optional<bool>>& expected,
       const std::string& expression,
       const RowVectorPtr& input) {
-    auto result = evaluate(expression, (input));
+    auto result = evaluateParameterized(expression, (input));
     assertEqualVectors(makeNullableFlatVector<bool>(expected), result);
   }
 };
 
-TEST_F(ArrayAnyMatchTest, basic) {
+TEST_P(ArrayAnyMatchTest, basic) {
   std::vector<std::vector<std::optional<int32_t>>> ints{
       {std::nullopt, 2, 0},
       {-1, 3},
@@ -89,7 +89,7 @@ TEST_F(ArrayAnyMatchTest, basic) {
   testAnyMatchExpr(expectedResult, "x", bools);
 }
 
-TEST_F(ArrayAnyMatchTest, complexTypes) {
+TEST_P(ArrayAnyMatchTest, complexTypes) {
   auto arrayOfArrays = makeNestedArrayVectorFromJson<int32_t>({
       "[[1, 2, 3]]",
       "[[2, 2], [3, 3], [4, 4], [5, 5]]",
@@ -117,7 +117,7 @@ TEST_F(ArrayAnyMatchTest, complexTypes) {
   testAnyMatchExpr(expectedResult, "cardinality(x) > 2", arrayOfArrays);
 }
 
-TEST_F(ArrayAnyMatchTest, strings) {
+TEST_P(ArrayAnyMatchTest, strings) {
   std::vector<std::vector<std::optional<StringView>>> input{
       {},
       {"abc"},
@@ -133,7 +133,7 @@ TEST_F(ArrayAnyMatchTest, strings) {
   testAnyMatchExpr(expectedResult, "x = 'abc'", input);
 }
 
-TEST_F(ArrayAnyMatchTest, doubles) {
+TEST_P(ArrayAnyMatchTest, doubles) {
   std::vector<std::vector<std::optional<double>>> input{
       {},
       {0.2},
@@ -149,7 +149,7 @@ TEST_F(ArrayAnyMatchTest, doubles) {
   testAnyMatchExpr(expectedResult, "x > 1.1", input);
 }
 
-TEST_F(ArrayAnyMatchTest, errors) {
+TEST_P(ArrayAnyMatchTest, errors) {
   // No throw and return false if there are unmatched elements except nulls
   auto expression = "(10 / x) > 2";
   std::vector<std::vector<std::optional<int8_t>>> input{
@@ -184,7 +184,7 @@ TEST_F(ArrayAnyMatchTest, errors) {
       expectedResult, "any_match(c0, x -> (TRY((10 / x) > 2)))", errorInputRow);
 }
 
-TEST_F(ArrayAnyMatchTest, conditional) {
+TEST_P(ArrayAnyMatchTest, conditional) {
   // No throw and return false if there are unmatched elements except nulls
   auto c0 = makeFlatVector<int32_t>({1, 2, 3, 4, 5});
   auto c1 = makeNullableArrayVector<int32_t>({
@@ -209,7 +209,7 @@ TEST_F(ArrayAnyMatchTest, conditional) {
 // the vector. In this case, we still need to create 'capture' vectors of the
 // size of the original vector. Otherwise, peeling dictionary encoding from
 // 'capture' vectors will fail.
-TEST_F(ArrayAnyMatchTest, underConditionalWithCapture) {
+TEST_P(ArrayAnyMatchTest, underConditionalWithCapture) {
   auto input = makeRowVector({
       makeFlatVector<int64_t>({1, 2}),
       makeArrayVector<int64_t>({
@@ -228,3 +228,8 @@ TEST_F(ArrayAnyMatchTest, underConditionalWithCapture) {
 
   assertEqualVectors(makeFlatVector<int64_t>({2, 1}), result);
 }
+
+VELOX_INSTANTIATE_TEST_SUITE_P(
+    ArrayAnyMatchTest,
+    ArrayAnyMatchTest,
+    testing::ValuesIn(ArrayAnyMatchTest::getTestParams()));

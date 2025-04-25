@@ -15,12 +15,12 @@
  */
 
 #include "velox/common/base/tests/GTestUtils.h"
-#include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
+#include "velox/functions/prestosql/tests/utils/LambdaParameterizedBaseTest.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::test;
 
-class ArrayNoneMatchTest : public functions::test::FunctionBaseTest {
+class ArrayNoneMatchTest : public functions::test::LambdaParameterizedBaseTest {
  protected:
   void testNoneMatchExpr(
       const std::vector<std::optional<bool>>& expected,
@@ -44,12 +44,12 @@ class ArrayNoneMatchTest : public functions::test::FunctionBaseTest {
       const std::vector<std::optional<bool>>& expected,
       const std::string& expression,
       const RowVectorPtr& input) {
-    auto result = evaluate(expression, (input));
+    auto result = evaluateParameterized(expression, (input));
     assertEqualVectors(makeNullableFlatVector<bool>(expected), result);
   }
 };
 
-TEST_F(ArrayNoneMatchTest, basic) {
+TEST_P(ArrayNoneMatchTest, basic) {
   std::vector<std::vector<std::optional<int32_t>>> ints{
       {std::nullopt, 2, 0},
       {-1, 3},
@@ -90,7 +90,7 @@ TEST_F(ArrayNoneMatchTest, basic) {
   testNoneMatchExpr(expectedResult, "x", bools);
 }
 
-TEST_F(ArrayNoneMatchTest, complexTypes) {
+TEST_P(ArrayNoneMatchTest, complexTypes) {
   auto arrayOfArrays = makeNestedArrayVectorFromJson<int32_t>({
       "[[1, 2, 3]]",
       "[[2, 2], [3, 3], [4, 4], [5, 5]]",
@@ -109,7 +109,7 @@ TEST_F(ArrayNoneMatchTest, complexTypes) {
   testNoneMatchExpr(expectedResult, "cardinality(x) > 2", arrayOfArrays);
 }
 
-TEST_F(ArrayNoneMatchTest, strings) {
+TEST_P(ArrayNoneMatchTest, strings) {
   std::vector<std::vector<std::optional<StringView>>> input{
       {},
       {"abc"},
@@ -125,7 +125,7 @@ TEST_F(ArrayNoneMatchTest, strings) {
   testNoneMatchExpr(expectedResult, "x = 'abc'", input);
 }
 
-TEST_F(ArrayNoneMatchTest, doubles) {
+TEST_P(ArrayNoneMatchTest, doubles) {
   std::vector<std::vector<std::optional<double>>> input{
       {},
       {0.2},
@@ -141,7 +141,7 @@ TEST_F(ArrayNoneMatchTest, doubles) {
   testNoneMatchExpr(expectedResult, "x > 1.1", input);
 }
 
-TEST_F(ArrayNoneMatchTest, errors) {
+TEST_P(ArrayNoneMatchTest, errors) {
   // No throw and return false if there are unmatched elements except nulls
   auto expression = "(10 / x) > 2";
   std::vector<std::vector<std::optional<int8_t>>> input{
@@ -180,7 +180,7 @@ TEST_F(ArrayNoneMatchTest, errors) {
       errorInputRow);
 }
 
-TEST_F(ArrayNoneMatchTest, conditional) {
+TEST_P(ArrayNoneMatchTest, conditional) {
   // No throw and return false if there are unmatched elements except nulls
   auto c0 = makeFlatVector<int32_t>({1, 2, 3, 4, 5});
   auto c1 = makeNullableArrayVector<int32_t>({
@@ -203,3 +203,8 @@ TEST_F(ArrayNoneMatchTest, conditional) {
       "none_match(c1, if (c0 <= 2, x -> (x > 100), x -> (10 / x > 2)))",
       input);
 }
+
+VELOX_INSTANTIATE_TEST_SUITE_P(
+    ArrayNoneMatchTest,
+    ArrayNoneMatchTest,
+    testing::ValuesIn(ArrayNoneMatchTest::getTestParams()));

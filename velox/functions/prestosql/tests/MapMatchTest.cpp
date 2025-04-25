@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 #include "velox/common/base/tests/GTestUtils.h"
-#include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
+#include "velox/functions/prestosql/tests/utils/LambdaParameterizedBaseTest.h"
 
 namespace facebook::velox::functions {
 namespace {
 
-class MapMatchTest : public functions::test::FunctionBaseTest {
+class MapMatchTest : public functions::test::LambdaParameterizedBaseTest {
  protected:
   void match(
       const std::string& functionName,
@@ -30,7 +30,7 @@ class MapMatchTest : public functions::test::FunctionBaseTest {
         fmt::format("{}(c0, x -> ({}))", functionName, lambda);
 
     SCOPED_TRACE(expr);
-    auto result = evaluate(expr, makeRowVector({input}));
+    auto result = evaluateParameterized(expr, makeRowVector({input}));
     velox::test::assertEqualVectors(
         makeNullableFlatVector<bool>(expected), result);
   }
@@ -71,7 +71,7 @@ class MapMatchTest : public functions::test::FunctionBaseTest {
   }
 };
 
-TEST_F(MapMatchTest, anyKeysMatch) {
+TEST_P(MapMatchTest, anyKeysMatch) {
   auto data = makeMapVectorFromJson<int32_t, int64_t>({
       "{1: 10, 2: 20, 3: 30}",
       "{-1: 10, -2: 20}",
@@ -85,7 +85,7 @@ TEST_F(MapMatchTest, anyKeysMatch) {
   anyKeysMatch(data, "x <= -5", {false, false});
 }
 
-TEST_F(MapMatchTest, anyKeysMatchNull) {
+TEST_P(MapMatchTest, anyKeysMatchNull) {
   auto data = makeMapVectorFromJson<int32_t, int64_t>({
       "{1: 10, 2: 20, 3: 30}",
       "{-1: 10, -2: 20}",
@@ -95,7 +95,7 @@ TEST_F(MapMatchTest, anyKeysMatchNull) {
   anyKeysMatch(data, "if(x = 2, null::boolean, true)", {true, true});
 }
 
-TEST_F(MapMatchTest, allKeysMatch) {
+TEST_P(MapMatchTest, allKeysMatch) {
   auto data = makeMapVectorFromJson<int32_t, int64_t>({
       "{1: 10, 2: 20, 3: 30}",
       "{-1: 10, -2: 20}",
@@ -109,7 +109,7 @@ TEST_F(MapMatchTest, allKeysMatch) {
   allKeysMatch(data, "x <= 100", {true, true});
 }
 
-TEST_F(MapMatchTest, allKeysMatchNull) {
+TEST_P(MapMatchTest, allKeysMatchNull) {
   auto data = makeMapVectorFromJson<int32_t, int64_t>({
       "{1: 10, 2: 20, 3: 30}",
       "{-1: 10, -2: 20}",
@@ -119,7 +119,7 @@ TEST_F(MapMatchTest, allKeysMatchNull) {
   allKeysMatch(data, "if(x = 2, null::boolean, true)", {std::nullopt, true});
 }
 
-TEST_F(MapMatchTest, noKeysMatch) {
+TEST_P(MapMatchTest, noKeysMatch) {
   auto data = makeMapVectorFromJson<int32_t, int64_t>({
       "{1: 10, 2: 20, 3: 30}",
       "{-1: 10, -2: 20}",
@@ -132,7 +132,7 @@ TEST_F(MapMatchTest, noKeysMatch) {
   noKeysMatch(data, "x > 2 OR x < -1", {false, false});
 }
 
-TEST_F(MapMatchTest, noKeysMatchNull) {
+TEST_P(MapMatchTest, noKeysMatchNull) {
   auto data = makeMapVectorFromJson<int32_t, int64_t>({
       "{1: 10, 2: 20, 3: 30}",
       "{-1: 10, -2: 20}",
@@ -142,7 +142,7 @@ TEST_F(MapMatchTest, noKeysMatchNull) {
   noKeysMatch(data, "if(x = 2, null::boolean, true)", {false, false});
 }
 
-TEST_F(MapMatchTest, anyValuesMatch) {
+TEST_P(MapMatchTest, anyValuesMatch) {
   auto data = makeMapVectorFromJson<int32_t, int64_t>({
       "{1: 10, 2: 20, 3: 30}",
       "{-1: 11, -2: 22}",
@@ -155,7 +155,7 @@ TEST_F(MapMatchTest, anyValuesMatch) {
   anyValuesMatch(data, "x IN (20, 11)", {true, true});
 }
 
-TEST_F(MapMatchTest, anyValuesMatchNull) {
+TEST_P(MapMatchTest, anyValuesMatchNull) {
   auto data = makeMapVectorFromJson<int32_t, int64_t>({
       "{1: 10, 2: 20, 3: 30}",
       "{-1: 11, -2: 22}",
@@ -166,7 +166,7 @@ TEST_F(MapMatchTest, anyValuesMatchNull) {
   anyValuesMatch(data, "if(x = 20, null::boolean, true)", {true, true});
 }
 
-TEST_F(MapMatchTest, noValuesMatch) {
+TEST_P(MapMatchTest, noValuesMatch) {
   auto data = makeMapVectorFromJson<int32_t, int64_t>({
       "{1: 10, 2: 20, 3: 30}",
       "{-1: 11, -2: 22}",
@@ -178,7 +178,7 @@ TEST_F(MapMatchTest, noValuesMatch) {
   noValuesMatch(data, "x % 11 = 0", {true, false});
 }
 
-TEST_F(MapMatchTest, noValuesMatchNull) {
+TEST_P(MapMatchTest, noValuesMatchNull) {
   auto data = makeMapVectorFromJson<int32_t, int64_t>({
       "{1: 10, 2: 20, 3: 30}",
       "{-1: 11, -2: 22}",
@@ -187,6 +187,11 @@ TEST_F(MapMatchTest, noValuesMatchNull) {
   noValuesMatch(data, "if(x = 20, null::boolean, false)", {std::nullopt, true});
   noValuesMatch(data, "if(x = 20, null::boolean, true)", {false, false});
 }
+
+VELOX_INSTANTIATE_TEST_SUITE_P(
+    MapMatchTest,
+    MapMatchTest,
+    testing::ValuesIn(MapMatchTest::getTestParams()));
 
 } // namespace
 } // namespace facebook::velox::functions
