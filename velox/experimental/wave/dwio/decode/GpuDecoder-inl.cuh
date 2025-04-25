@@ -16,6 +16,9 @@
 
 #pragma once
 
+#include <breeze/platforms/platform.h>
+#include <breeze/utils/types.h>
+#include <breeze/platforms/cuda.cuh>
 #include <cub/cub.cuh> // @manual
 #include "velox/experimental/wave/common/Bits.cuh"
 #include "velox/experimental/wave/common/Block.cuh"
@@ -93,7 +96,7 @@ __device__ void storeResult(
 #if 1
 template <typename T, ResultOp resultOp>
 __device__ void decodeDictionaryOnBitpack(GpuDecode::DictionaryOnBitpack& op) {
-  int32_t i = op.begin + threadIdx.x;
+  auto i = op.begin + threadIdx.x;
   auto end = op.end;
   auto address = reinterpret_cast<uint64_t>(op.indices);
   int32_t alignOffset = (address & 7) * 8;
@@ -123,7 +126,7 @@ __device__ void decodeDictionaryOnBitpack(GpuDecode::DictionaryOnBitpack& op) {
 
 template <typename T, ResultOp resultOp>
 __device__ void decodeDictionaryOnBitpack(GpuDecode::DictionaryOnBitpack& op) {
-  int32_t i = op.begin + threadIdx.x;
+  auto i = op.begin + threadIdx.x;
   __shared__ int32_t end;
   __shared__ uint64_t address;
   __shared__ int32_t alignOffset;
@@ -167,7 +170,7 @@ __device__ void decodeDictionaryOnBitpack(GpuDecode::DictionaryOnBitpack& op) {
 
 template <typename T, ResultOp resultOp>
 __device__ void decodeDictionaryOnBitpack(GpuDecode::DictionaryOnBitpack& op) {
-  int32_t i = op.begin + threadIdx.x;
+  auto i = op.begin + threadIdx.x;
   auto address = reinterpret_cast<uint64_t>(op.indices);
   int32_t alignOffset = (address & 7) * 8;
   address &= ~7UL;
@@ -195,7 +198,7 @@ __device__ void decodeDictionaryOnBitpack(GpuDecode::DictionaryOnBitpack& op) {
 #elif 0
 template <typename T, ResultOp resultOp>
 __device__ void decodeDictionaryOnBitpack(GpuDecode::DictionaryOnBitpack& op) {
-  int32_t i = op.begin + threadIdx.x;
+  auto i = op.begin + threadIdx.x;
   auto scatter = op.scatter;
   auto baseline = op.baseline;
   for (; i < op.end; i += blockDim.x) {
@@ -335,11 +338,11 @@ bitpackBools(const bool* input, int count, uint8_t* out) {
 }
 
 __device__ inline void decodeSparseBool(GpuDecode::SparseBool& op) {
-  for (int i = threadIdx.x; i < op.totalCount; i += blockDim.x) {
+  for (auto i = threadIdx.x; i < op.totalCount; i += blockDim.x) {
     op.bools[i] = !op.sparseValue;
   }
   __syncthreads();
-  for (int i = threadIdx.x; i < op.sparseCount; i += blockDim.x) {
+  for (auto i = threadIdx.x; i < op.sparseCount; i += blockDim.x) {
     op.bools[op.sparseIndices[i]] = op.sparseValue;
   }
   __syncthreads();
@@ -462,11 +465,11 @@ __device__ void decodeMainlyConstant(GpuDecode::MainlyConstant& op) {
   auto commonValue = *(const T*)op.commonValue;
   auto* otherValues = (const T*)op.otherValues;
   auto* result = (T*)op.result;
-  for (int i = threadIdx.x; i < op.count; i += blockDim.x) {
+  for (auto i = threadIdx.x; i < op.count; i += blockDim.x) {
     result[i] = commonValue;
   }
   __syncthreads();
-  for (int i = threadIdx.x; i < otherCount; i += blockDim.x) {
+  for (auto i = threadIdx.x; i < otherCount; i += blockDim.x) {
     result[op.otherIndices[i]] = otherValues[i];
   }
   if (threadIdx.x == 0 && op.otherCount) {
@@ -560,8 +563,11 @@ __device__ void decodeRle(GpuDecode::Rle& op) {
     __syncthreads();
     offsets[threadIdx.x] = offset;
     __syncthreads();
-    for (int j = threadIdx.x; j < subtotal; j += blockDim.x) {
-      result[total + j] = values[i + upperBound(offsets, blockDim.x, j)];
+    for (auto j = threadIdx.x; j < subtotal; j += blockDim.x) {
+      result[total + j] = values
+          [i +
+           upperBound(
+               offsets, static_cast<int>(blockDim.x), static_cast<int32_t>(j))];
     }
     total += subtotal;
   }
@@ -719,6 +725,7 @@ template <
     bool kHasResult,
     typename IndexT = T>
 __device__ void decodeSelective(GpuDecode* op) {
+  using namespace breeze::utils;
   int32_t nthLoop = 0;
   constexpr bool kAlwaysDict = !std::is_same_v<T, IndexT>;
   switch (op->nullMode) {
@@ -761,8 +768,9 @@ __device__ void decodeSelective(GpuDecode* op) {
             int32_t bitIndex = (i + base) * bitWidth + alignOffset;
             int32_t wordIndex = bitIndex >> 6;
             if (false && threadIdx.x < 3) {
-              asm volatile("prefetch.global.L1 [%0];" ::"l"(
-                  &words[wordIndex + 48 + threadIdx.x * 4]));
+              CudaPlatform<kBlockSize, kWarpThreads> p;
+              p.prefetch(
+                  make_slice<GLOBAL>(&words[wordIndex + 48 + threadIdx.x * 4]));
             }
             int32_t bit = bitIndex & 63;
             uint64_t word = words[wordIndex];
@@ -777,7 +785,7 @@ __device__ void decodeSelective(GpuDecode* op) {
         }
       } else {
         do {
-          int32_t row = threadIdx.x + op->baseRow + nthLoop * kBlockSize;
+          auto row = threadIdx.x + op->baseRow + nthLoop * kBlockSize;
           bool filterPass = false;
           IndexT data{};
           if (row < op->maxRow) {
@@ -1042,7 +1050,7 @@ __device__ void countBits(GpuDecode& step) {
   int32_t numResults = (numBits - 1) / op.resultStride;
   auto* bits = reinterpret_cast<const uint64_t*>(op.bits);
   for (auto i = 0; i < numBits; i += 64 * kBlockSize) {
-    int32_t idx = threadIdx.x + (i / 64);
+    auto idx = threadIdx.x + (i / 64);
     int32_t cnt = 0;
     if (idx < numWords) {
       if (aligned) {

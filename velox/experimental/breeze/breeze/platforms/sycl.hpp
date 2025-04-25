@@ -199,5 +199,7 @@ struct SyCLPlatform {
   }
   template <bool HIGH_PRIORITY>
   inline void scheduling_hint() {}
+  template <typename SliceT>
+  inline void prefetch(SliceT) {}
   cl::sycl::nd_item<1> work_item;
 };

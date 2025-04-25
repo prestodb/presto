@@ -161,6 +161,8 @@ struct HipPlatform {
   }
   template <bool HIGH_PRIORITY>
   __device__ __forceinline__ void scheduling_hint() {}
+  template <typename SliceT>
+  __device__ __forceinline__ void prefetch(SliceT) {}
 };
 
 // specialization for T=unsigned

@@ -282,6 +282,8 @@ struct MetalPlatform {
   }
   template <bool HIGH_PRIORITY>
   inline void scheduling_hint() {}
+  template <typename SliceT>
+  inline void prefetch(SliceT) {}
 
   uint thread_idx_;
   uint block_idx_;

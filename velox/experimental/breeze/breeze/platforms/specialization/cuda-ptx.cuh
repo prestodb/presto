@@ -68,3 +68,18 @@ __device__ __forceinline__ unsigned CudaSpecialization::extract_bits(
     unsigned value, int start_bit, int num_bits) {
   return BFE(value, start_bit, num_bits);
 }
+
+__device__ __forceinline__ void PREFETCH(void *ptr) {
+  asm("prefetch.global.L1 [%0];" ::"l"(ptr));
+}
+
+// specialization for T=Slice<GLOBAL, BLOCKED, unsigned long long>
+template <>
+__device__ __forceinline__ void
+CudaSpecialization::prefetch<breeze::utils::Slice<
+    breeze::utils::GLOBAL, breeze::utils::BLOCKED, unsigned long long>>(
+    breeze::utils::Slice<breeze::utils::GLOBAL, breeze::utils::BLOCKED,
+                         unsigned long long>
+        address) {
+  PREFETCH(address.data());
+}

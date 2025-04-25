@@ -417,6 +417,8 @@ struct OpenMPPlatform {
   }
   template <bool HIGH_PRIORITY>
   inline void scheduling_hint() {}
+  template <typename SliceT>
+  inline void prefetch(SliceT) {}
   int block_idx_;
   void *shared_scratch_;
 };

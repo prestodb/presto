@@ -14,13 +14,6 @@
  * limitations under the License.
  */
 
-#define PLATFORM_CUDA
-
-// clang-format off
-#define CUDA_PLATFORM_SPECIALIZATION_HEADER \
-  breeze/platforms/specialization/cuda-ptx.cuh
-// clang-format on
-
 #include <breeze/functions/reduce.h>
 #include <breeze/platforms/platform.h>
 #include <breeze/utils/device_vector.h>

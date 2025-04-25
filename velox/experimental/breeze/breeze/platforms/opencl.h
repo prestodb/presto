@@ -130,4 +130,6 @@ struct OpenCLPlatform {
   }
   template <bool HIGH_PRIORITY>
   inline void scheduling_hint() {}
+  template <typename SliceT>
+  inline void prefetch(SliceT) {}
 };
