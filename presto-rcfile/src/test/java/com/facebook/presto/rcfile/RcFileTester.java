@@ -84,6 +84,7 @@ import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.compress.BZip2Codec;
 import org.apache.hadoop.io.compress.GzipCodec;
 import org.apache.hadoop.io.compress.Lz4Codec;
+import org.apache.hadoop.io.compress.SnappyCodec;
 import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.JobConf;
@@ -138,6 +139,7 @@ import static com.facebook.presto.rcfile.RcFileDecoderUtils.findFirstSyncPositio
 import static com.facebook.presto.rcfile.RcFileTester.Compression.BZIP2;
 import static com.facebook.presto.rcfile.RcFileTester.Compression.LZ4;
 import static com.facebook.presto.rcfile.RcFileTester.Compression.NONE;
+import static com.facebook.presto.rcfile.RcFileTester.Compression.SNAPPY;
 import static com.facebook.presto.rcfile.RcFileTester.Compression.ZLIB;
 import static com.facebook.presto.rcfile.RcFileWriter.PRESTO_RCFILE_WRITER_VERSION;
 import static com.facebook.presto.rcfile.RcFileWriter.PRESTO_RCFILE_WRITER_VERSION_METADATA_KEY;
@@ -253,6 +255,13 @@ public class RcFileTester
                 return Optional.of(GzipCodec.class.getName());
             }
         },
+        SNAPPY {
+            @Override
+            Optional<String> getCodecName()
+            {
+                return Optional.of(SnappyCodec.class.getName());
+            }
+        },
         LZO {
             @Override
             Optional<String> getCodecName()
@@ -295,6 +304,7 @@ public class RcFileTester
         rcFileTester.complexStructuralTestsEnabled = false;
         rcFileTester.readLastBatchOnlyEnabled = false;
         rcFileTester.formats = ImmutableSet.copyOf(Format.values());
+        rcFileTester.compressions = ImmutableSet.of(SNAPPY);
         return rcFileTester;
     }
 
