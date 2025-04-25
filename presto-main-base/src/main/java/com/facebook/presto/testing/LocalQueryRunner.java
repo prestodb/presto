@@ -939,7 +939,7 @@ public class LocalQueryRunner
         AnalyzerContext analyzerContext = getAnalyzerContext(queryAnalyzer, metadata.getMetadataResolver(session), idAllocator, new VariableAllocator(), session, sql);
 
         QueryAnalysis queryAnalysis = queryAnalyzer.analyze(analyzerContext, preparedQuery);
-        checkAccessPermissions(queryAnalysis.getAccessControlReferences(), accessControl, session.getAccessControlContext(), session.getIdentity(), sql);
+        checkAccessPermissions(queryAnalysis.getAccessControlReferences(), sql);
 
         MaterializedResult result = MaterializedResult.resultBuilder(session, BooleanType.BOOLEAN)
                 .row(true)
@@ -1195,7 +1195,7 @@ public class LocalQueryRunner
         AnalyzerContext analyzerContext = getAnalyzerContext(queryAnalyzer, metadata.getMetadataResolver(session), idAllocator, new VariableAllocator(), session, sql);
 
         QueryAnalysis queryAnalysis = queryAnalyzer.analyze(analyzerContext, preparedQuery);
-        checkAccessPermissions(queryAnalysis.getAccessControlReferences(), accessControl, session.getAccessControlContext(), session.getIdentity(), sql);
+        checkAccessPermissions(queryAnalysis.getAccessControlReferences(), sql);
 
         PlanNode planNode = session.getRuntimeStats().recordWallAndCpuTime(
                 LOGICAL_PLANNER_TIME_NANOS,

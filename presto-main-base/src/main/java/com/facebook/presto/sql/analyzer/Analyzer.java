@@ -107,19 +107,14 @@ public class Analyzer
     public Analysis analyze(Statement statement, boolean isDescribe)
     {
         Analysis analysis = analyzeSemantic(statement, isDescribe);
-        checkAccessPermissions(analysis.getAccessControlReferences(), accessControl, session.getAccessControlContext(), session.getIdentity(), query);
+        checkAccessPermissions(analysis.getAccessControlReferences(), query);
         return analysis;
     }
 
     public Analysis analyzeSemantic(Statement statement, boolean isDescribe)
     {
-<<<<<<< HEAD
         Statement rewrittenStatement = StatementRewrite.rewrite(session, metadata, sqlParser, queryExplainer, statement, parameters, parameterLookup, accessControl, warningCollector, query);
-        Analysis analysis = new Analysis(rewrittenStatement, parameterLookup, isDescribe, new AccessControlInfo(accessControl, session.getIdentity(), Optional.empty(), session.getAccessControlContext()));
-=======
-        Statement rewrittenStatement = StatementRewrite.rewrite(session, metadata, sqlParser, queryExplainer, statement, parameters, parameterLookup, accessControl, warningCollector);
         Analysis analysis = new Analysis(rewrittenStatement, parameterLookup, isDescribe);
->>>>>>> parent of 012f8e32ce (Move to AccessControlInfo)
 
         metadataExtractor.populateMetadataHandle(session, rewrittenStatement, analysis.getMetadataHandle());
         StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector);
