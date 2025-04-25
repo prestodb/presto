@@ -23,10 +23,9 @@ class RepeatFunction : public exec::VectorFunction {
  public:
   // @param allowNegativeCount If true, negative 'count' is allowed
   // and treated the same as zero (Spark's behavior).
-  explicit RepeatFunction(bool allowNegativeCount)
-      : allowNegativeCount_(allowNegativeCount) {}
-
-  static constexpr int32_t kMaxResultEntries = 10'000;
+  explicit RepeatFunction(bool allowNegativeCount, int32_t maxElementsSize)
+      : allowNegativeCount_(allowNegativeCount),
+        maxElementsSize_(maxElementsSize) {}
 
   void apply(
       const SelectivityVector& rows,
@@ -48,7 +47,7 @@ class RepeatFunction : public exec::VectorFunction {
 
  private:
   // Check count to make sure it is in valid range.
-  static int32_t checkCount(int32_t count, bool allowNegativeCount) {
+  int32_t checkCount(int32_t count, bool allowNegativeCount) const {
     if (count < 0) {
       if (allowNegativeCount) {
         return 0;
@@ -58,10 +57,12 @@ class RepeatFunction : public exec::VectorFunction {
           count,
           0);
     }
+
     VELOX_USER_CHECK_LE(
         count,
-        kMaxResultEntries,
-        "Count argument of repeat function must be less than or equal to 10000");
+        maxElementsSize_,
+        "Count argument of repeat function must be less than or equal to {}",
+        maxElementsSize_);
     return count;
   }
 
@@ -122,9 +123,11 @@ class RepeatFunction : public exec::VectorFunction {
     exec::DecodedArgs decodedArgs(rows, args, context);
     auto countDecoded = decodedArgs.at(1);
     int32_t totalCount = 0;
+
     context.applyToSelectedNoThrow(rows, [&](auto row) {
       auto count =
           countDecoded->isNullAt(row) ? 0 : countDecoded->valueAt<int32_t>(row);
+
       count = checkCount(count, allowNegativeCount_);
       totalCount += count;
     });
@@ -181,6 +184,7 @@ class RepeatFunction : public exec::VectorFunction {
   }
 
   const bool allowNegativeCount_;
+  const int32_t maxElementsSize_;
 };
 } // namespace
 
@@ -204,15 +208,17 @@ exec::VectorFunctionMetadata repeatMetadata() {
 std::shared_ptr<exec::VectorFunction> makeRepeat(
     const std::string& /* name */,
     const std::vector<exec::VectorFunctionArg>& /* inputArgs */,
-    const core::QueryConfig& /*config*/) {
-  return std::make_unique<RepeatFunction>(false);
+    const core::QueryConfig& queryConfig) {
+  return std::make_unique<RepeatFunction>(
+      false, queryConfig.maxElementsSizeInRepeatAndSequence());
 }
 
 std::shared_ptr<exec::VectorFunction> makeRepeatAllowNegativeCount(
     const std::string& /* name */,
     const std::vector<exec::VectorFunctionArg>& /* inputArgs */,
-    const core::QueryConfig& /*config*/) {
-  return std::make_unique<RepeatFunction>(true);
+    const core::QueryConfig& queryConfig) {
+  return std::make_unique<RepeatFunction>(
+      true, queryConfig.maxElementsSizeInRepeatAndSequence());
 }
 
 } // namespace facebook::velox::functions

@@ -97,6 +97,52 @@ TEST_F(RepeatTest, repeat) {
   testExpression("try(repeat(C0, '0'::INTEGER))", {elementVector}, expected);
 }
 
+TEST_F(RepeatTest, repeatWithEntriesWithMaxElementsSize) {
+  const auto elementVector =
+      makeNullableFlatVector<float>({0.0, 2.0, std::nullopt, 3.0});
+  execCtx_.queryCtx()->testingOverrideConfigUnsafe({
+      {core::QueryConfig::kMaxElementsSizeInRepeatAndSequence, "15000"},
+  });
+
+  const int32_t within_limit = 13'000;
+  auto countVectorWithinLimit = makeNullableFlatVector<int32_t>(
+      {within_limit, within_limit, within_limit, std::nullopt});
+
+  auto withinLimitData = makeRowVector({elementVector, countVectorWithinLimit});
+  auto typedExprWithinLimit =
+      makeTypedExpr("repeat(C0, C1)", asRowType(withinLimitData->type()));
+
+  exec::ExprSet exprSetWithinLimit({typedExprWithinLimit}, &execCtx_);
+  exec::EvalCtx evalCtxWithinLimit(
+      &execCtx_, &exprSetWithinLimit, withinLimitData.get());
+
+  auto result = evaluate(exprSetWithinLimit, withinLimitData);
+
+  VectorPtr expected = makeNullableArrayVector<float>({
+      std::vector<std::optional<float>>(within_limit, 0.0),
+      std::vector<std::optional<float>>(within_limit, 2.0),
+      std::vector<std::optional<float>>(within_limit, std::nullopt),
+      std::nullopt,
+  });
+
+  assertEqualVectors(expected, result);
+
+  const int32_t over_limit = 15'200;
+  auto countVectorOverLimit = makeNullableFlatVector<int32_t>(
+      {over_limit, over_limit, over_limit, std::nullopt});
+
+  auto overLimitData = makeRowVector({elementVector, countVectorOverLimit});
+  auto typedExprWithOverLimit =
+      makeTypedExpr("repeat(C0, C1)", asRowType(overLimitData->type()));
+
+  exec::ExprSet exprSetOverLimit({typedExprWithOverLimit}, &execCtx_);
+  exec::EvalCtx evalCtx(&execCtx_, &exprSetOverLimit, overLimitData.get());
+
+  VELOX_ASSERT_THROW(
+      evaluate(exprSetOverLimit, overLimitData),
+      "Count argument of repeat function must be less than or equal to 15000");
+}
+
 TEST_F(RepeatTest, repeatWithInvalidCount) {
   const auto elementVector =
       makeNullableFlatVector<float>({0.0, 2.0, 3.333333});

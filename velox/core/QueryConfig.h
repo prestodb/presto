@@ -140,6 +140,9 @@ class QueryConfig {
   static constexpr const char* kAbandonPartialTopNRowNumberMinPct =
       "abandon_partial_topn_row_number_min_pct";
 
+  static constexpr const char* kMaxElementsSizeInRepeatAndSequence =
+      "max_elements_size_in_repeat_and_sequence";
+
   /// The maximum number of bytes to buffer in PartitionedOutput operator to
   /// avoid creating tiny SerializedPages.
   ///
@@ -619,6 +622,10 @@ class QueryConfig {
 
   int32_t abandonPartialTopNRowNumberMinPct() const {
     return get<int32_t>(kAbandonPartialTopNRowNumberMinPct, 80);
+  }
+
+  int32_t maxElementsSizeInRepeatAndSequence() const {
+    return get<int32_t>(kMaxElementsSizeInRepeatAndSequence, 10'000);
   }
 
   uint64_t maxSpillRunRows() const {

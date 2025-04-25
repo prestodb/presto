@@ -27,6 +27,10 @@ Generic Configuration
      - 10000
      - Max number of rows that could be return by operators from Operator::getOutput. It is used when an estimate of
        average row size is known and preferred_output_batch_bytes is used to compute the number of output rows.
+   * - max_elements_size_in_repeat_and_sequence
+     - integer
+     - 10000
+     - Max number of elements that can be set in `repeat` and `sequence` functions.
    * - table_scan_getoutput_time_limit_ms
      - integer
      - 5000
