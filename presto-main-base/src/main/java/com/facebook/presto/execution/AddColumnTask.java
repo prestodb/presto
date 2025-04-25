@@ -89,7 +89,7 @@ public class AddColumnTask
         try {
             type = metadata.getType(parseTypeSignature(element.getType()));
         }
-        catch (UnknownTypeException e) {
+        catch (IllegalArgumentException | UnknownTypeException e) {
             throw new SemanticException(TYPE_MISMATCH, element, "Unknown type '%s' for column '%s'", element.getType(), element.getName());
         }
         if (type.equals(UNKNOWN)) {
