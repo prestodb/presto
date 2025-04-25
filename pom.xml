@@ -250,7 +250,7 @@
             <dependency>
                 <groupId>com.github.nishithakbhaskaran</groupId>
                 <artifactId>presto-hadoop-apache2</artifactId>
-                <version>upgrade_3.4.1_13</version>
+                <version>upgrade_3.4.1_10</version>
             </dependency>
 
             <dependency>
