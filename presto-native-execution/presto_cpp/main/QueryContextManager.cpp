@@ -53,8 +53,9 @@ void updateFromSystemConfigs(
           {core::QueryConfig::kOrderBySpillEnabled,
           std::string(SystemConfig::kOrderBySpillEnabled)},
           {core::QueryConfig::kAggregationSpillEnabled,
-          std::string(SystemConfig::kAggregationSpillEnabled)}};
-
+          std::string(SystemConfig::kAggregationSpillEnabled)},
+          {core::QueryConfig::kRequestDataSizesMaxWaitSec,
+          std::string(SystemConfig::kRequestDataSizesMaxWaitSec)}};
   for (const auto& configNameEntry : sessionSystemConfigMapping) {
     const auto& sessionName = configNameEntry.first;
     const auto& systemConfigName = configNameEntry.second;
