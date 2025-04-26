@@ -473,6 +473,14 @@ void castToJsonFromMap(
     return;
   }
 
+  // Is map key and value unknown ?
+  if (mapKeys->type()->kind() == TypeKind::UNKNOWN &&
+      mapValues->type()->kind() == TypeKind::UNKNOWN) {
+    context.applyToSelectedNoThrow(
+        rows, [&](auto row) { flatResult.set(row, "{}"); });
+    return;
+  }
+
   auto elementToTopLevelRows = functions::getElementToTopLevelRows(
       mapKeys->size(), rows, inputMap, context.pool());
   // Maps with unsupported key types should have already been rejected by
@@ -1184,6 +1192,14 @@ bool JsonCastOperator::isSupportedFromType(const TypePtr& other) const {
       }
       return true;
     case TypeKind::MAP:
+      if (other->childAt(1)->isUnKnown()) {
+        if (other->childAt(0)->isUnKnown()) {
+          return true;
+        }
+        return isSupportedBasicType(other->childAt(0)) &&
+            !isJsonType(other->childAt(0));
+      }
+
       return (
           isSupportedBasicType(other->childAt(0)) &&
           isSupportedFromType(other->childAt(1)));

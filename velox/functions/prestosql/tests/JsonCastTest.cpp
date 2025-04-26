@@ -1259,6 +1259,32 @@ TEST_F(JsonCastTest, toMap) {
       "The JSON document has an improper structure");
 }
 
+TEST_F(JsonCastTest, unknownType) {
+  // Test map of unknown key and value types.
+
+  auto unknownKeyData = makeFlatUnknownVector(1);
+  auto unknownValueData = makeFlatUnknownVector(1);
+  auto unknownMapData = makeMapVector({0}, unknownKeyData, unknownValueData);
+  auto unknownMap = makeNullableFlatVector<JsonNativeType>({R"({})"}, JSON());
+
+  testCast(unknownMapData, unknownMap);
+
+  // Test map with unknown value types.
+  auto unknownValueMapData = makeMapVector(
+      {0}, makeFlatVector<StringView>({"red"_sv}), unknownValueData);
+  auto unknownValueMap =
+      makeNullableFlatVector<JsonNativeType>({R"({"red":null})"}, JSON());
+
+  testCast(unknownValueMapData, unknownValueMap);
+
+  // Test array of unknown element types.
+  auto unknownArrayData = makeArrayVector({0}, unknownKeyData);
+  auto unknownArray =
+      makeNullableFlatVector<JsonNativeType>({R"([null])"}, JSON());
+
+  testCast(unknownArrayData, unknownArray);
+}
+
 TEST_F(JsonCastTest, orderOfKeys) {
   auto data = makeFlatVector<JsonNativeType>(
       {
