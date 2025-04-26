@@ -19,7 +19,6 @@ import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.iceberg.statistics.StatisticsFileCache;
-import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.relation.RowExpressionService;
@@ -73,7 +72,7 @@ public class IcebergHiveMetadataFactory
         this.tableProperties = requireNonNull(tableProperties, "icebergTableProperties is null");
     }
 
-    public ConnectorMetadata create()
+    public IcebergTransactionMetadata create()
     {
         return new IcebergHiveMetadata(
                 metastore,

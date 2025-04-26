@@ -49,11 +49,12 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TableNotFoundException;
-import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorCommitHandle;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.connector.ConnectorTableVersion;
 import com.facebook.presto.spi.connector.ConnectorTableVersion.VersionOperator;
 import com.facebook.presto.spi.connector.ConnectorTableVersion.VersionType;
+import com.facebook.presto.spi.connector.EmptyConnectorCommitHandle;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -72,6 +73,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import io.airlift.slice.Slice;
 import org.apache.hadoop.fs.Path;
+import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.DeleteFiles;
@@ -131,6 +133,7 @@ import static com.facebook.presto.iceberg.IcebergColumnHandle.PATH_COLUMN_HANDLE
 import static com.facebook.presto.iceberg.IcebergColumnHandle.PATH_COLUMN_METADATA;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
+import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_TRANSACTION_CONFLICT_ERROR;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.DATA_SEQUENCE_NUMBER;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.FILE_PATH;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.UPDATE_ROW_DATA;
@@ -174,7 +177,6 @@ import static com.facebook.presto.iceberg.SortFieldUtils.toSortFields;
 import static com.facebook.presto.iceberg.TableStatisticsMaker.getSupportedColumnStatistics;
 import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
-import static com.facebook.presto.iceberg.changelog.ChangelogOperation.INSERT;
 import static com.facebook.presto.iceberg.changelog.ChangelogOperation.UPDATE_AFTER;
 import static com.facebook.presto.iceberg.changelog.ChangelogOperation.UPDATE_BEFORE;
 import static com.facebook.presto.iceberg.changelog.ChangelogUtil.getRowTypeFromColumnMeta;
@@ -201,7 +203,7 @@ import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL_DEFAULT;
 import static org.apache.iceberg.TableProperties.WRITE_DATA_LOCATION;
 
 public abstract class IcebergAbstractMetadata
-        implements ConnectorMetadata
+        implements IcebergTransactionMetadata
 {
     private static final Logger log = Logger.get(IcebergAbstractMetadata.class);
     protected static final String INFORMATION_SCHEMA = "information_schema";
@@ -212,6 +214,7 @@ public abstract class IcebergAbstractMetadata
     protected final RowExpressionService rowExpressionService;
     protected final FilterStatsCalculatorService filterStatsCalculatorService;
     protected Transaction transaction;
+    protected boolean containsDDLTransaction;
     protected final StatisticsFileCache statisticsFileCache;
     protected final IcebergTableProperties tableProperties;
 
@@ -484,6 +487,7 @@ public abstract class IcebergAbstractMetadata
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
+        checkEmptyTransactionForDDL();
         Optional<ConnectorNewTableLayout> layout = getNewTableLayout(session, tableMetadata);
         finishCreateTable(session, beginCreateTable(session, tableMetadata, layout), ImmutableList.of(), ImmutableList.of());
     }
@@ -491,12 +495,12 @@ public abstract class IcebergAbstractMetadata
     @Override
     public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
-        return finishWrite(session, (IcebergOutputTableHandle) tableHandle, fragments, INSERT);
+        return finishInsert(session, (IcebergOutputTableHandle) tableHandle, fragments);
     }
 
     protected ConnectorInsertTableHandle beginIcebergTableInsert(ConnectorSession session, IcebergTableHandle table, Table icebergTable)
     {
-        transaction = icebergTable.newTransaction();
+        transaction = getOrCreateTransaction(icebergTable);
 
         return new IcebergInsertTableHandle(
                 table.getSchemaName(),
@@ -538,13 +542,42 @@ public abstract class IcebergAbstractMetadata
     @Override
     public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
-        return finishWrite(session, (IcebergInsertTableHandle) insertHandle, fragments, INSERT);
+        return finishInsert(session, (IcebergInsertTableHandle) insertHandle, fragments);
+    }
+
+    private Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, IcebergWritableTableHandle writableTableHandle, Collection<Slice> fragments)
+    {
+        if (fragments.isEmpty()) {
+            return Optional.empty();
+        }
+
+        List<CommitTaskData> commitTasks = fragments.stream()
+                .map(slice -> commitTaskCodec.fromJson(slice.getBytes()))
+                .collect(toImmutableList());
+
+        Table icebergTable = transaction.table();
+        AppendFiles appendFiles = transaction.newAppend();
+
+        ImmutableSet.Builder<String> writtenFiles = ImmutableSet.builder();
+        commitTasks.forEach(task -> handleInsertTask(task, icebergTable, appendFiles, writtenFiles));
+
+        try {
+            appendFiles.set(PRESTO_QUERY_ID, session.getQueryId());
+            appendFiles.commit();
+        }
+        catch (ValidationException e) {
+            log.error(e, "ValidationException in finishWrite");
+            throw new PrestoException(ICEBERG_COMMIT_ERROR, "Failed to commit Iceberg update to table: " + writableTableHandle.getTableName(), e);
+        }
+
+        return Optional.of(new HiveWrittenPartitions(commitTasks.stream()
+                .map(CommitTaskData::getPath)
+                .collect(toImmutableList())));
     }
 
     private Optional<ConnectorOutputMetadata> finishWrite(ConnectorSession session, IcebergWritableTableHandle writableTableHandle, Collection<Slice> fragments, ChangelogOperation operationType)
     {
         if (fragments.isEmpty()) {
-            transaction.commitTransaction();
             return Optional.empty();
         }
 
@@ -576,7 +609,6 @@ public abstract class IcebergAbstractMetadata
         try {
             rowDelta.set(PRESTO_QUERY_ID, session.getQueryId());
             rowDelta.commit();
-            transaction.commitTransaction();
         }
         catch (ValidationException e) {
             log.error(e, "ValidationException in finishWrite");
@@ -586,6 +618,15 @@ public abstract class IcebergAbstractMetadata
         return Optional.of(new HiveWrittenPartitions(commitTasks.stream()
                 .map(CommitTaskData::getPath)
                 .collect(toImmutableList())));
+    }
+
+    private void handleInsertTask(CommitTaskData task, Table icebergTable, AppendFiles appendFiles, ImmutableSet.Builder<String> writtenFiles)
+    {
+        PartitionSpec partitionSpec = icebergTable.specs().get(task.getPartitionSpecId());
+        Type[] partitionColumnTypes = partitionSpec.fields().stream()
+                .map(field -> field.transform().getResultType(icebergTable.schema().findType(field.sourceId())))
+                .toArray(Type[]::new);
+        handleFinishInsertData(task, icebergTable, partitionSpec, partitionColumnTypes, appendFiles, writtenFiles);
     }
 
     private void handleTask(CommitTaskData task, Table icebergTable, RowDelta rowDelta, ImmutableSet.Builder<String> writtenFiles, ImmutableSet.Builder<String> referencedDataFiles)
@@ -624,6 +665,23 @@ public abstract class IcebergAbstractMetadata
         rowDelta.addDeletes(deleteBuilder.build());
         writtenFiles.add(task.getPath());
         task.getReferencedDataFile().ifPresent(referencedDataFiles::add);
+    }
+
+    private void handleFinishInsertData(CommitTaskData task, Table icebergTable, PartitionSpec partitionSpec, Type[] partitionColumnTypes, AppendFiles appendFiles, ImmutableSet.Builder<String> writtenFiles)
+    {
+        DataFiles.Builder builder = DataFiles.builder(partitionSpec)
+                .withPath(task.getPath())
+                .withFormat(task.getFileFormat().toIceberg())
+                .withFileSizeInBytes(task.getFileSizeInBytes())
+                .withMetrics(task.getMetrics().metrics());
+
+        if (!icebergTable.spec().fields().isEmpty()) {
+            String partitionDataJson = task.getPartitionDataJson()
+                    .orElseThrow(() -> new VerifyException("No partition data for partitioned table"));
+            builder.withPartition(PartitionData.fromJson(partitionDataJson, partitionColumnTypes));
+        }
+        appendFiles.appendFile(builder.build());
+        writtenFiles.add(task.getPath());
     }
 
     private void handleFinishData(CommitTaskData task, Table icebergTable, PartitionSpec partitionSpec, Type[] partitionColumnTypes, RowDelta rowDelta, ImmutableSet.Builder<String> writtenFiles, ImmutableSet.Builder<String> referencedDataFiles)
@@ -795,9 +853,22 @@ public abstract class IcebergAbstractMetadata
         TableStatisticsMaker.writeTableStatistics(nodeVersion, typeManager, icebergTableHandle, icebergTable, session, computedStatistics);
     }
 
+    public ConnectorCommitHandle commit()
+    {
+        System.out.println("----try to commit!!!!");
+        if (transaction != null) {
+            transaction.commitTransaction();
+            System.out.println("----finish commit!!!!");
+        }
+        containsDDLTransaction = false;
+        return EmptyConnectorCommitHandle.INSTANCE;
+    }
+
     public void rollback()
     {
-        // TODO: cleanup open transaction
+        // TODO: no need to explicitly rollback
+        transaction = null;
+        containsDDLTransaction = false;
     }
 
     @Override
@@ -806,20 +877,20 @@ public abstract class IcebergAbstractMetadata
         if (!column.isNullable()) {
             throw new PrestoException(NOT_SUPPORTED, "This connector does not support add column with non null");
         }
+        checkEmptyTransactionForDDL();
 
         Type columnType = toIcebergType(column.getType());
 
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         verify(handle.getIcebergTableName().getTableType() == DATA, "only the data table can have columns added");
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
-        Transaction transaction = icebergTable.newTransaction();
+        transaction = getOrCreateTransaction(icebergTable);
         transaction.updateSchema().addColumn(column.getName(), columnType, column.getComment().orElse(null)).commit();
         if (column.getProperties().containsKey(PARTITIONING_PROPERTY)) {
             String transform = (String) column.getProperties().get(PARTITIONING_PROPERTY);
             transaction.updateSpec().addField(getPartitionColumnName(column.getName(), transform),
                     getTransformTerm(column.getName(), transform)).commit();
         }
-        transaction.commitTransaction();
     }
 
     @Override
@@ -828,6 +899,8 @@ public abstract class IcebergAbstractMetadata
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
         IcebergColumnHandle handle = (IcebergColumnHandle) column;
         verify(icebergTableHandle.getIcebergTableName().getTableType() == DATA, "only the data table can have columns dropped");
+
+        checkEmptyTransactionForDDL();
         Table icebergTable = getIcebergTable(session, icebergTableHandle.getSchemaTableName());
 
         // Currently drop partition column used in any partition specs of a table would introduce some problems in Iceberg.
@@ -849,13 +922,14 @@ public abstract class IcebergAbstractMetadata
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
         verify(icebergTableHandle.getIcebergTableName().getTableType() == DATA, "only the data table can have columns renamed");
         IcebergColumnHandle columnHandle = (IcebergColumnHandle) source;
+
+        checkEmptyTransactionForDDL();
         Table icebergTable = getIcebergTable(session, icebergTableHandle.getSchemaTableName());
-        Transaction transaction = icebergTable.newTransaction();
+        transaction = getOrCreateTransaction(icebergTable);
         transaction.updateSchema().renameColumn(columnHandle.getName(), target).commit();
         if (icebergTable.spec().fields().stream().map(PartitionField::sourceId).anyMatch(sourceId -> sourceId == columnHandle.getId())) {
             transaction.updateSpec().renameField(columnHandle.getName(), target).commit();
         }
-        transaction.commitTransaction();
     }
 
     @Override
@@ -992,7 +1066,7 @@ public abstract class IcebergAbstractMetadata
             throw new PrestoException(NOT_SUPPORTED, "This connector only supports delete where one or more partitions are deleted entirely. Configure write.delete.mode table property to allow row level deletions.");
         }
         validateTableMode(session, icebergTable);
-        transaction = icebergTable.newTransaction();
+        transaction = getOrCreateTransaction(icebergTable);
 
         return handle;
     }
@@ -1040,7 +1114,7 @@ public abstract class IcebergAbstractMetadata
         }
 
         rowDelta.commit();
-        transaction.commitTransaction();
+        System.out.println("----finish delete!!!!");
     }
 
     @Override
@@ -1115,8 +1189,10 @@ public abstract class IcebergAbstractMetadata
     public void setTableProperties(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Object> properties)
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
+
+        checkEmptyTransactionForDDL();
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
-        transaction = icebergTable.newTransaction();
+        transaction = getOrCreateTransaction(icebergTable);
 
         UpdateProperties updateProperties = transaction.updateProperties();
         for (Map.Entry<String, Object> entry : properties.entrySet()) {
@@ -1135,7 +1211,6 @@ public abstract class IcebergAbstractMetadata
         }
 
         updateProperties.commit();
-        transaction.commitTransaction();
     }
 
     private static PrestoWarning getPrestoWarning(String newPropertyKey, String propertyName)
@@ -1157,13 +1232,12 @@ public abstract class IcebergAbstractMetadata
      */
     private OptionalLong removeScanFiles(Table icebergTable, TupleDomain<IcebergColumnHandle> predicate)
     {
-        transaction = icebergTable.newTransaction();
+        transaction = getOrCreateTransaction(icebergTable);
         DeleteFiles deleteFiles = transaction.newDelete()
                 .deleteFromRowFilter(toIcebergExpression(predicate));
         deleteFiles.commit();
-        transaction.commitTransaction();
 
-        Map<String, String> summary = icebergTable.currentSnapshot().summary();
+        Map<String, String> summary = deleteFiles.apply().summary();
         long deletedRecords = Long.parseLong(summary.getOrDefault(DELETED_RECORDS_PROP, "0"));
         long removedPositionDeletes = Long.parseLong(summary.getOrDefault(REMOVED_POS_DELETES_PROP, "0"));
         long removedEqualityDeletes = Long.parseLong(summary.getOrDefault(REMOVED_EQ_DELETES_PROP, "0"));
@@ -1250,7 +1324,7 @@ public abstract class IcebergAbstractMetadata
             throw new RuntimeException("Iceberg table updates require at least format version 2 and update mode must be merge-on-read");
         }
         validateTableMode(session, icebergTable);
-        transaction = icebergTable.newTransaction();
+        transaction = getOrCreateTransaction(icebergTable);
         return handle
                 .withUpdatedColumns(updatedColumns.stream()
                         .map(IcebergColumnHandle.class::cast)
@@ -1279,5 +1353,27 @@ public abstract class IcebergAbstractMetadata
     protected Optional<String> getDataLocationBasedOnWarehouseDataDir(SchemaTableName schemaTableName)
     {
         return Optional.empty();
+    }
+
+    private Transaction getOrCreateTransaction(Table icebergTable)
+    {
+        if (transaction == null) {
+            transaction = icebergTable.newTransaction();
+        }
+        else if (containsDDLTransaction) {
+            throw new PrestoException(ICEBERG_TRANSACTION_CONFLICT_ERROR, "Writes to multiple tables within a single transaction are forbidden.");
+        }
+        else if (!transaction.table().uuid().equals(icebergTable.uuid())) {
+            throw new PrestoException(ICEBERG_TRANSACTION_CONFLICT_ERROR, "Writes cannot be in the same transaction with DDL statement.");
+        }
+        return transaction;
+    }
+
+    private void checkEmptyTransactionForDDL()
+    {
+        if (transaction != null) {
+            throw new PrestoException(ICEBERG_TRANSACTION_CONFLICT_ERROR, "DDL cannot be in the same transaction with other non-read-only statements.");
+        }
+        containsDDLTransaction = true;
     }
 }

@@ -13,7 +13,13 @@
  */
 package com.facebook.presto.iceberg;
 
-public interface IcebergMetadataFactory
+import com.facebook.presto.spi.connector.ConnectorCommitHandle;
+import com.facebook.presto.spi.connector.ConnectorMetadata;
+
+public interface IcebergTransactionMetadata
+        extends ConnectorMetadata
 {
-    IcebergTransactionMetadata create();
+    ConnectorCommitHandle commit();
+
+    void rollback();
 }

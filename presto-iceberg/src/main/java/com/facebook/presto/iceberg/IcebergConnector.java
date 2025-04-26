@@ -101,7 +101,7 @@ public class IcebergConnector
     @Override
     public boolean isSingleStatementWritesOnly()
     {
-        return true;
+        return false;
     }
 
     @Override
@@ -197,6 +197,7 @@ public class IcebergConnector
     @Override
     public ConnectorCommitHandle commit(ConnectorTransactionHandle transaction)
     {
+        transactionManager.get(transaction).commit();
         transactionManager.remove(transaction);
         return INSTANCE;
     }
@@ -204,6 +205,7 @@ public class IcebergConnector
     @Override
     public void rollback(ConnectorTransactionHandle transaction)
     {
+        transactionManager.get(transaction).rollback();
         transactionManager.remove(transaction);
     }
 
