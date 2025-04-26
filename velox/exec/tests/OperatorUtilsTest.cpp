@@ -207,6 +207,29 @@ TEST_F(OperatorUtilsTest, processFilterResults) {
     EXPECT_EQ(nullptr, filterEvalCtx.selectedIndices);
   }
 
+  // Run case where the size of filteredResults is equal to the number of valid
+  // rows in filterRows. In this case, the selectedIndices should not be null.
+  {
+    // Explicitly set selectedIndices to be nullptr
+    filterEvalCtx.selectedIndices = nullptr;
+    filteredResults = makeConstant(true, 5);
+    SelectivityVector filterRows(10, false);
+    for (auto i = 0; i < 5; ++i) {
+      filterRows.setValid(i, true);
+    }
+    filterRows.updateBounds();
+    EXPECT_EQ(
+        exec::processFilterResults(
+            filteredResults, filterRows, filterEvalCtx, pool_.get()),
+        5);
+    const auto* rawIndices = filterEvalCtx.selectedIndices->as<vector_size_t>();
+    EXPECT_EQ(rawIndices[0], 0);
+    EXPECT_EQ(rawIndices[1], 1);
+    EXPECT_EQ(rawIndices[2], 2);
+    EXPECT_EQ(rawIndices[3], 3);
+    EXPECT_EQ(rawIndices[4], 4);
+  }
+
   // Run case with 50 rows with the last 10 of them valid to get large
   // indices in the selected indices buffer.
   {

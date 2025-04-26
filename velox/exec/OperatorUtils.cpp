@@ -189,7 +189,7 @@ vector_size_t processConstantFilterResults(
   // If not all rows are selected we need to update the selected indices.
   // If we don't do this, the caller will use the indices from the previous
   // batch.
-  if (numSelected < filterResult->size()) {
+  if (!rows.isAllSelected()) {
     auto* rawSelected = filterEvalCtx.getRawSelectedIndices(numSelected, pool);
     vector_size_t passed = 0;
     rows.applyToSelected([&](auto row) { rawSelected[passed++] = row; });
