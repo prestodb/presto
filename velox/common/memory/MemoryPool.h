@@ -684,7 +684,7 @@ class MemoryPoolImpl : public MemoryPool {
   ///
   /// Exceeded memory cap of 5.00MB when requesting 2.00MB
   /// default_root_1 usage 5.00MB peak 5.00MB
-  ///     task.test_cursor 1 usage 5.00MB peak 5.00MB
+  ///     task.test_cursor_1 usage 5.00MB peak 5.00MB
   ///         node.N/A usage 0B peak 0B
   ///             op.N/A.0.0.CallbackSink usage 0B peak 0B
   ///         node.2 usage 4.00MB peak 4.00MB

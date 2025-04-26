@@ -367,7 +367,7 @@ TEST_F(OperatorTraceTest, task) {
       return fmt::format(
           "taskRegExpr: {}, expectedNumDirs: ", taskRegExpr, expectedNumDirs);
     }
-  } testSettings[]{{".*", 1}, {"test_cursor .*", 1}, {"xxx_yyy \\d+", 0}};
+  } testSettings[]{{".*", 1}, {"test_cursor_.*", 1}, {"xxx_yyy \\d+", 0}};
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
     const auto outputDir = TempDirectoryPath::create();
@@ -550,8 +550,8 @@ TEST_F(OperatorTraceTest, traceTableWriter) {
       {".*", 10UL << 30, numBatch, false},
       {".*", 0, numBatch, true},
       {"wrong id", 10UL << 30, 0, false},
-      {"test_cursor \\d+", 10UL << 30, numBatch, false},
-      {"test_cursor \\d+", 800, 2, true}};
+      {"test_cursor_\\d+", 10UL << 30, numBatch, false},
+      {"test_cursor_\\d+", 800, 2, true}};
 
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
@@ -655,8 +655,8 @@ TEST_F(OperatorTraceTest, filterProject) {
       {".*", 10UL << 30, numBatch, false},
       {".*", 0, numBatch, true},
       {"wrong id", 10UL << 30, 0, false},
-      {"test_cursor \\d+", 10UL << 30, numBatch, false},
-      {"test_cursor \\d+", 800, 2, true}};
+      {"test_cursor_\\d+", 10UL << 30, numBatch, false},
+      {"test_cursor_\\d+", 800, 2, true}};
 
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
@@ -1018,8 +1018,8 @@ TEST_F(OperatorTraceTest, hashJoin) {
       {".*", 10UL << 30, numBatch, false},
       {".*", 0, numBatch, true},
       {"wrong id", 10UL << 30, 0, false},
-      {"test_cursor \\d+", 10UL << 30, numBatch, false},
-      {"test_cursor \\d+", 800, 2, true}};
+      {"test_cursor_\\d+", 10UL << 30, numBatch, false},
+      {"test_cursor_\\d+", 800, 2, true}};
 
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());

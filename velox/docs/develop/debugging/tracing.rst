@@ -338,7 +338,7 @@ Then we can re-execute the query using the following command in the terminal or 
   Stats of replaying operator HashProbe : Output: 13578240 rows (1.17GB, 13280 batches), Cpu time: 3.99s, Wall time: 4.01s, Blocked wall time: 98.58ms, Peak memory: 108.00KB, Memory allocations: 12534, Threads: 2, CPU breakdown: B/I/O/F (8.52ms/1.59s/2.39s/20.29us)
 
   Memory usage: TaskCursorQuery_0 usage 0B reserved 0B peak 10.00MB
-      task.test_cursor 1 usage 0B reserved 0B peak 10.00MB
+      task.test_cursor_1 usage 0B reserved 0B peak 10.00MB
           node.2 usage 0B reserved 0B peak 0B
               op.2.1.1.OperatorTraceScan usage 0B reserved 0B peak 0B
               op.2.1.0.OperatorTraceScan usage 0B reserved 0B peak 0B

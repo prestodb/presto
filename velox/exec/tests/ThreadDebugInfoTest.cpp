@@ -76,7 +76,7 @@ DEBUG_ONLY_TEST_F(ThreadDebugInfoDeathTest, withinSeperateDriverThread) {
 #ifndef IS_BUILDING_WITH_SAN
   ASSERT_DEATH(
       (assertQuery(op, vector)),
-      ".*Fatal signal handler. Query Id= TaskCursorQuery_0 Task Id= test_cursor 1.*");
+      ".*Fatal signal handler. Query Id= TaskCursorQuery_0 Task Id= test_cursor_1.*");
 #endif
 }
 
@@ -90,7 +90,7 @@ DEBUG_ONLY_TEST_F(ThreadDebugInfoDeathTest, withinQueryCompilation) {
 #ifndef IS_BUILDING_WITH_SAN
   ASSERT_DEATH(
       (assertQuery(op, vector)),
-      ".*Fatal signal handler. Query Id= TaskCursorQuery_0 Task Id= test_cursor 1.*");
+      ".*Fatal signal handler. Query Id= TaskCursorQuery_0 Task Id= test_cursor_1.*");
 #endif
 }
 
