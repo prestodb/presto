@@ -1,0 +1,17 @@
+[
+  {
+    "@type": "constant",
+    "type": "integer",
+    "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAgAAAA=="
+  },
+  {
+    "@type": "constant",
+    "type": "boolean",
+    "valueBlock": "CgAAAEJZVEVfQVJSQVkBAAAAAAE="
+  },
+  {
+    "@type": "constant",
+    "type": "boolean",
+    "valueBlock": "CgAAAEJZVEVfQVJSQVkBAAAAAAE="
+  }
+]

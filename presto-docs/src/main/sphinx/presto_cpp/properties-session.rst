@@ -450,3 +450,18 @@ Controls the way streaming aggregation flushes output. We put the rows in output
 batch, as soon as the corresponding groups are fully aggregated. This is useful
 for reducing memory consumption, if the downstream operators are not sensitive to
 small batch size.
+
+Sidecar Session Properties
+--------------------------
+
+The following session properties apply for Presto C++ deployed with native sidecar.
+
+``expression_optimizer_name``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``varchar``
+* **Default value:** ``default``
+
+The default expression optimizer uses Presto Java function implementations. Set
+this to ``native`` to use the native expression optimizer, which uses Presto C++
+function implementations.

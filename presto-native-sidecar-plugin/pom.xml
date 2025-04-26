@@ -196,6 +196,12 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-parser</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
             <artifactId>presto-tpcds</artifactId>
             <scope>test</scope>
         </dependency>
@@ -203,6 +209,12 @@
         <dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>jaxrs</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>javax.ws.rs</groupId>
+            <artifactId>javax.ws.rs-api</artifactId>
             <scope>test</scope>
         </dependency>
 
