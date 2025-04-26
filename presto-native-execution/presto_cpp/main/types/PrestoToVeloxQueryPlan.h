@@ -227,6 +227,10 @@ class VeloxQueryPlanConverterBase {
       std::vector<velox::core::AggregationNode::Aggregate>& aggregates,
       std::vector<std::string>& aggregateNames);
 
+  void parseIndexLookupCondition(
+      const std::shared_ptr<protocol::RowExpression>& filter,
+      std::vector<velox::core::IndexLookupConditionPtr>& joinConditionPtrs);
+
   velox::memory::MemoryPool* const pool_;
   velox::core::QueryCtx* const queryCtx_;
   VeloxExprConverter exprConverter_;
