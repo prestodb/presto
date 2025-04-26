@@ -29,6 +29,7 @@ import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
+import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -183,5 +184,111 @@ public abstract class TestIcebergDistributedQueries
         assertQuery("SELECT count(*) FROM test_varcharn_filter WHERE shipmode = 'AIR       '", "VALUES (0)");
         assertQuery("SELECT count(*) FROM test_varcharn_filter WHERE shipmode = 'AIR            '", "VALUES (0)");
         assertQuery("SELECT count(*) FROM test_varcharn_filter WHERE shipmode = 'NONEXIST'", "VALUES (0)");
+    }
+
+    @Test
+    public void testNonAutoCommitTransactionForCreateTable()
+    {
+        Session session = getQueryRunner().getDefaultSession();
+        String catalog = session.getCatalog().get();
+        String schema = session.getSchema().get();
+        String tableName = "test_non_autocommit_table_for_create";
+        transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
+                .execute(session,
+                        txnSession -> {
+                            assertUpdate(txnSession, format("create table %s(a int, b varchar)", tableName));
+                            // rollback the table creation
+                            assertUpdate(txnSession, "rollback");
+                        });
+        assertQueryFails(session, "select * from " + tableName,
+                format("Table %s.%s.%s does not exist", catalog, schema, tableName));
+
+        transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
+                .execute(session,
+                        txnSession -> {
+                            assertUpdate(txnSession, format("create table %s(a int, b varchar)", tableName));
+                            assertQueryFails(txnSession, format("insert into %s values(1, '1001')", tableName),
+                                    format("Table %s.%s.%s does not exist", catalog, schema, tableName));
+                            // rollback to quit the corrupted transaction
+                            assertUpdate(txnSession, "rollback");
+                        });
+        assertQueryFails(session, "select * from " + tableName,
+                format("Table %s.%s.%s does not exist", catalog, schema, tableName));
+
+        transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
+                .execute(session,
+                        txnSession -> {
+                            assertUpdate(txnSession, format("create table %s(a int, b varchar)", tableName));
+                            // commit the table creation
+                            assertUpdate(txnSession, "commit");
+                        });
+        assertUpdate(session, format("insert into %s values(1, '1001'), (2, '1002')", tableName), 2);
+        assertUpdate(session, format("insert into %s values(3, '1003'), (4, '1004')", tableName), 2);
+        assertQuery(session, "select * from " + tableName, "values(1, '1001'), (2, '1002'), (3, '1003'), (4, '1004')");
+
+        String tableName2 = "test_non_autocommit_table_for_create2";
+        transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
+                .execute(session,
+                        txnSession -> {
+                            assertUpdate(txnSession, format("create table %s as select * from %s", tableName2, tableName), 4);
+                            // commit the table creation
+                            assertUpdate(txnSession, "commit");
+                        });
+        assertQuery(session, "select * from " + tableName2, "values(1, '1001'), (2, '1002'), (3, '1003'), (4, '1004')");
+
+        assertUpdate("drop table " + tableName);
+        assertUpdate("drop table " + tableName2);
+    }
+
+    @Test
+    public void testNonAutoCommitTransactionForMultipleInsert()
+    {
+        Session session = getQueryRunner().getDefaultSession();
+        String tableName = "test_non_autocommit_table_for_inserts";
+        assertUpdate(session, format("create table %s(a int, b varchar)", tableName));
+
+        transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
+                .execute(session,
+                        txnSession -> {
+                            assertUpdate(txnSession, format("insert into %s values(1, '1001')", tableName), 1);
+                            assertUpdate(txnSession, format("insert into %s values(2, '1002')", tableName), 1);
+                            assertUpdate(txnSession, format("insert into %s values(3, '1003'), (4, '1004')", tableName), 2);
+                            assertUpdate(txnSession, "rollback");
+                        });
+        assertQuery(session, "select count(*) from " + tableName, "values(0)");
+
+        transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
+                .execute(session,
+                        txnSession -> {
+                            assertUpdate(txnSession, format("insert into %s values(1, '1001')", tableName), 1);
+                            assertUpdate(txnSession, format("insert into %s values(2, '1002')", tableName), 1);
+                            assertUpdate(txnSession, format("insert into %s values(3, '1003'), (4, '1004')", tableName), 2);
+
+                            // Cannot read its own writes
+                            assertQuery(session, "select count(*) from " + tableName, "values(0)");
+                            assertUpdate(txnSession, "commit");
+                        });
+        assertQuery(session, "select * from " + tableName, "values(1, '1001'), (2, '1002'), (3, '1003'), (4, '1004')");
+
+        assertUpdate("drop table " + tableName);
+    }
+
+    @Test
+    public void testNonAutoCommitTransactionForUnRollbackableStatement()
+    {
+        Session session = getQueryRunner().getDefaultSession();
+        String tableName = "test_non_autocommit_table_for_unrollable";
+        assertUpdate(session, format("create table %s(a int, b varchar)", tableName));
+        assertUpdate(session, format("insert into %s values(1, '1001'), (2, '1002')", tableName), 2);
+
+        transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
+                .execute(session,
+                        txnSession -> {
+                            assertQueryFails(txnSession, "drop table " + tableName,
+                                    "DROP TABLE cannot be called within a transaction \\(use autocommit mode\\) in Iceberg connector\\.");
+                            assertUpdate(txnSession, "rollback");
+                        });
+        assertQuery(session, "select * from " + tableName, "values(1, '1001'), (2, '1002')");
+        assertUpdate("drop table " + tableName);
     }
 }

@@ -217,6 +217,7 @@ public abstract class IcebergAbstractMetadata
     protected boolean containsDDLTransaction;
     protected final StatisticsFileCache statisticsFileCache;
     protected final IcebergTableProperties tableProperties;
+    protected final boolean autoCommitContext;
 
     private final StandardFunctionResolution functionResolution;
     private final ConcurrentMap<SchemaTableName, Table> icebergTables = new ConcurrentHashMap<>();
@@ -229,7 +230,8 @@ public abstract class IcebergAbstractMetadata
             NodeVersion nodeVersion,
             FilterStatsCalculatorService filterStatsCalculatorService,
             StatisticsFileCache statisticsFileCache,
-            IcebergTableProperties tableProperties)
+            IcebergTableProperties tableProperties,
+            boolean autoCommitContext)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
@@ -239,6 +241,7 @@ public abstract class IcebergAbstractMetadata
         this.filterStatsCalculatorService = requireNonNull(filterStatsCalculatorService, "filterStatsCalculatorService is null");
         this.statisticsFileCache = requireNonNull(statisticsFileCache, "statisticsFileCache is null");
         this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");
+        this.autoCommitContext = autoCommitContext;
     }
 
     protected final Table getIcebergTable(ConnectorSession session, SchemaTableName schemaTableName)
@@ -487,7 +490,7 @@ public abstract class IcebergAbstractMetadata
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
-        checkEmptyTransactionForDDL();
+        checkTransactionForDDL();
         Optional<ConnectorNewTableLayout> layout = getNewTableLayout(session, tableMetadata);
         finishCreateTable(session, beginCreateTable(session, tableMetadata, layout), ImmutableList.of(), ImmutableList.of());
     }
@@ -877,7 +880,7 @@ public abstract class IcebergAbstractMetadata
         if (!column.isNullable()) {
             throw new PrestoException(NOT_SUPPORTED, "This connector does not support add column with non null");
         }
-        checkEmptyTransactionForDDL();
+        checkTransactionForDDL();
 
         Type columnType = toIcebergType(column.getType());
 
@@ -900,7 +903,7 @@ public abstract class IcebergAbstractMetadata
         IcebergColumnHandle handle = (IcebergColumnHandle) column;
         verify(icebergTableHandle.getIcebergTableName().getTableType() == DATA, "only the data table can have columns dropped");
 
-        checkEmptyTransactionForDDL();
+        checkTransactionForDDL();
         Table icebergTable = getIcebergTable(session, icebergTableHandle.getSchemaTableName());
 
         // Currently drop partition column used in any partition specs of a table would introduce some problems in Iceberg.
@@ -923,7 +926,7 @@ public abstract class IcebergAbstractMetadata
         verify(icebergTableHandle.getIcebergTableName().getTableType() == DATA, "only the data table can have columns renamed");
         IcebergColumnHandle columnHandle = (IcebergColumnHandle) source;
 
-        checkEmptyTransactionForDDL();
+        checkTransactionForDDL();
         Table icebergTable = getIcebergTable(session, icebergTableHandle.getSchemaTableName());
         transaction = getOrCreateTransaction(icebergTable);
         transaction.updateSchema().renameColumn(columnHandle.getName(), target).commit();
@@ -1190,7 +1193,7 @@ public abstract class IcebergAbstractMetadata
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
 
-        checkEmptyTransactionForDDL();
+        checkTransactionForDDL();
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
         transaction = getOrCreateTransaction(icebergTable);
 
@@ -1369,11 +1372,22 @@ public abstract class IcebergAbstractMetadata
         return transaction;
     }
 
-    private void checkEmptyTransactionForDDL()
+    private void checkTransactionForDDL()
     {
         if (transaction != null) {
             throw new PrestoException(ICEBERG_TRANSACTION_CONFLICT_ERROR, "DDL cannot be in the same transaction with other non-read-only statements.");
         }
         containsDDLTransaction = true;
+    }
+
+    /**
+     * For operations that cannot be rolled back, we should ensure that they are executed in a single-statement transaction
+     * with autocommit context set to true.
+     * */
+    protected void checkAutoCommitForUnRollbackableStatement(String statement)
+    {
+        if (!autoCommitContext) {
+            throw new PrestoException(ICEBERG_TRANSACTION_CONFLICT_ERROR, statement + " cannot be called within a transaction (use autocommit mode) in Iceberg connector.");
+        }
     }
 }

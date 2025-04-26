@@ -99,7 +99,7 @@ public class RegisterTableProcedure
 
     private void doRegisterTable(ConnectorSession clientSession, String schema, String table, String metadataLocation, Optional<String> metadataFile)
     {
-        IcebergAbstractMetadata metadata = (IcebergAbstractMetadata) metadataFactory.create();
+        IcebergAbstractMetadata metadata = (IcebergAbstractMetadata) metadataFactory.create(true);
         SchemaTableName schemaTableName = new SchemaTableName(schema, table);
         if (!metadata.schemaExists(clientSession, schemaTableName.getSchemaName())) {
             throw new SchemaNotFoundException(schemaTableName.getSchemaName());

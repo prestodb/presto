@@ -68,7 +68,7 @@ public class FastForwardBranchProcedure
     public void fastForwardToBranch(ConnectorSession clientSession, String schemaName, String tableName, String fromBranch, String targetBranch)
     {
         SchemaTableName schemaTableName = new SchemaTableName(schemaName, tableName);
-        ConnectorMetadata metadata = metadataFactory.create();
+        ConnectorMetadata metadata = metadataFactory.create(true);
         Table icebergTable = getIcebergTable(metadata, clientSession, schemaTableName);
         icebergTable.manageSnapshots().fastForwardBranch(fromBranch, targetBranch).commit();
     }

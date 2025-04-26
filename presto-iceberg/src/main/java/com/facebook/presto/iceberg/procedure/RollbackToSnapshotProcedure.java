@@ -66,7 +66,7 @@ public class RollbackToSnapshotProcedure
     public void rollbackToSnapshot(ConnectorSession clientSession, String schema, String table, Long snapshotId)
     {
         SchemaTableName schemaTableName = new SchemaTableName(schema, table);
-        ConnectorMetadata metadata = metadataFactory.create();
+        ConnectorMetadata metadata = metadataFactory.create(true);
         getIcebergTable(metadata, clientSession, schemaTableName)
                 .manageSnapshots().rollbackTo(snapshotId).commit();
     }

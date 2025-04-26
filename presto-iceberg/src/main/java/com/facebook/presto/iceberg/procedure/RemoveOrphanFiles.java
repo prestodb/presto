@@ -110,7 +110,7 @@ public class RemoveOrphanFiles
 
     private void doRemoveOrphanFiles(ConnectorSession clientSession, String schema, String tableName, SqlTimestamp olderThan)
     {
-        IcebergAbstractMetadata metadata = (IcebergAbstractMetadata) metadataFactory.create();
+        IcebergAbstractMetadata metadata = (IcebergAbstractMetadata) metadataFactory.create(true);
         SchemaTableName schemaTableName = new SchemaTableName(schema, tableName);
         Table icebergTable = getIcebergTable(metadata, clientSession, schemaTableName);
 

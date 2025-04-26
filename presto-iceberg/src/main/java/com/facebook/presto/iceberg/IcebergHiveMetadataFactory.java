@@ -72,7 +72,7 @@ public class IcebergHiveMetadataFactory
         this.tableProperties = requireNonNull(tableProperties, "icebergTableProperties is null");
     }
 
-    public IcebergTransactionMetadata create()
+    public IcebergTransactionMetadata create(boolean autoCommitContext)
     {
         return new IcebergHiveMetadata(
                 metastore,
@@ -86,6 +86,7 @@ public class IcebergHiveMetadataFactory
                 operationsConfig,
                 statisticsFileCache,
                 manifestFileCache,
-                tableProperties);
+                tableProperties,
+                autoCommitContext);
     }
 }

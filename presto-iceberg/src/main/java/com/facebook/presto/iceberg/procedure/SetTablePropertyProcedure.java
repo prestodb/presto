@@ -86,7 +86,7 @@ public class SetTablePropertyProcedure
      */
     public void setTableProperty(ConnectorSession session, String schema, String table, String key, String value)
     {
-        ConnectorMetadata metadata = metadataFactory.create();
+        ConnectorMetadata metadata = metadataFactory.create(true);
         IcebergTableName tableName = IcebergTableName.from(table);
         SchemaTableName schemaTableName = new SchemaTableName(schema, tableName.getTableName());
         Table icebergTable = IcebergUtil.getIcebergTable(metadata, session, schemaTableName);

@@ -15,5 +15,5 @@ package com.facebook.presto.iceberg;
 
 public interface IcebergMetadataFactory
 {
-    IcebergTransactionMetadata create();
+    IcebergTransactionMetadata create(boolean autoCommitContext);
 }

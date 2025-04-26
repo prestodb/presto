@@ -75,7 +75,7 @@ public class RollbackToTimestampProcedure
     private void doRollbackToTimestamp(ConnectorSession clientSession, String schema, String tableName, SqlTimestamp timestamp)
     {
         SchemaTableName schemaTableName = new SchemaTableName(schema, tableName);
-        ConnectorMetadata metadata = metadataFactory.create();
+        ConnectorMetadata metadata = metadataFactory.create(true);
         getIcebergTable(metadata, clientSession, schemaTableName)
                 .manageSnapshots()
                 .rollbackToTime(timestamp.isLegacyTimestamp() ? timestamp.getMillisUtc() : timestamp.getMillis())

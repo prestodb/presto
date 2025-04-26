@@ -417,7 +417,7 @@ public class TestRenameTableOnFragileFileSystem
                 new StatisticsFileCache(CacheBuilder.newBuilder().build()),
                 new ManifestFileCache(CacheBuilder.newBuilder().build(), false, 0, 1024),
                 new IcebergTableProperties(new IcebergConfig()));
-        return icebergHiveMetadataFactory.create();
+        return icebergHiveMetadataFactory.create(true);
     }
 
     private interface RenameLogic

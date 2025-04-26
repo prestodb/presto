@@ -65,8 +65,19 @@ public class IcebergNativeMetadataFactory
         this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");
     }
 
-    public IcebergTransactionMetadata create()
+    public IcebergTransactionMetadata create(boolean autoCommitContext)
     {
-        return new IcebergNativeMetadata(catalogFactory, typeManager, functionResolution, rowExpressionService, commitTaskCodec, catalogType, nodeVersion, filterStatsCalculatorService, statisticsFileCache, tableProperties);
+        return new IcebergNativeMetadata(
+                catalogFactory,
+                typeManager,
+                functionResolution,
+                rowExpressionService,
+                commitTaskCodec,
+                catalogType,
+                nodeVersion,
+                filterStatsCalculatorService,
+                statisticsFileCache,
+                tableProperties,
+                autoCommitContext);
     }
 }

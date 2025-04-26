@@ -73,7 +73,7 @@ public class SetCurrentSnapshotProcedure
         checkState((snapshotId != null && reference == null) || (snapshotId == null && reference != null),
                 "Either snapshot_id or reference must be provided, not both");
         SchemaTableName schemaTableName = new SchemaTableName(schema, table);
-        ConnectorMetadata metadata = metadataFactory.create();
+        ConnectorMetadata metadata = metadataFactory.create(true);
         Table icebergTable = getIcebergTable(metadata, clientSession, schemaTableName);
         long targetSnapshotId = snapshotId != null ? snapshotId : getSnapshotIdFromReference(icebergTable, reference);
         icebergTable.manageSnapshots().setCurrentSnapshot(targetSnapshotId).commit();
