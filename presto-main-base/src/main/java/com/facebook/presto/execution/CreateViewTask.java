@@ -78,7 +78,7 @@ public class CreateViewTask
     }
 
     @Override
-    public ListenableFuture<?> execute(CreateView statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
+    public ListenableFuture<?> execute(CreateView statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector, String query)
     {
         QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName());
 
@@ -86,7 +86,7 @@ public class CreateViewTask
 
         String sql = getFormattedSql(statement.getQuery(), sqlParser, Optional.of(parameters));
 
-        Analysis analysis = analyzeStatement(statement, session, metadata, accessControl, parameters, warningCollector);
+        Analysis analysis = analyzeStatement(statement, session, metadata, accessControl, parameters, warningCollector, query);
 
         List<ViewColumn> columns = analysis.getOutputDescriptor(statement.getQuery())
                 .getVisibleFields().stream()
@@ -115,9 +115,9 @@ public class CreateViewTask
         return immediateFuture(null);
     }
 
-    private Analysis analyzeStatement(Statement statement, Session session, Metadata metadata, AccessControl accessControl, List<Expression> parameters, WarningCollector warningCollector)
+    private Analysis analyzeStatement(Statement statement, Session session, Metadata metadata, AccessControl accessControl, List<Expression> parameters, WarningCollector warningCollector, String query)
     {
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.empty(), parameters, parameterExtractor(statement, parameters), warningCollector);
+        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.empty(), parameters, parameterExtractor(statement, parameters), warningCollector, query);
         return analyzer.analyze(statement);
     }
 }

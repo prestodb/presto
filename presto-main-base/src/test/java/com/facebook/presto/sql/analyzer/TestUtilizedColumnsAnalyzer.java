@@ -656,7 +656,7 @@ public class TestUtilizedColumnsAnalyzer
                 .readUncommitted()
                 .readOnly()
                 .execute(CLIENT_SESSION, session -> {
-                    Analyzer analyzer = createAnalyzer(session, metadata, WarningCollector.NOOP);
+                    Analyzer analyzer = createAnalyzer(session, metadata, WarningCollector.NOOP, query);
                     Statement statement = SQL_PARSER.createStatement(query);
                     Analysis analysis = analyzer.analyze(statement);
                     assertEquals(analysis.getUtilizedTableColumnReferences().entrySet().stream().collect(Collectors.toMap(entry -> extractAccessControlInfo(entry.getKey()), Map.Entry::getValue)), expected);

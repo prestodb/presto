@@ -23,6 +23,7 @@ import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.AnalyzerProvider;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
+import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.planner.Plan;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -112,7 +113,9 @@ public interface QueryExecution
                 String slug,
                 int retryCount,
                 WarningCollector warningCollector,
-                Optional<QueryType> queryType);
+                Optional<QueryType> queryType,
+                String query,
+                AccessControl accessControl);
     }
 
     /**

@@ -669,15 +669,15 @@ public class PrestoSparkQueryExecutionFactory
             if (queryType.isPresent() && (queryType.get() == QueryType.DATA_DEFINITION || queryType.get() == QueryType.CONTROL)) {
                 queryStateTimer.endAnalysis();
                 DDLDefinitionTask<?> task = (DDLDefinitionTask<?>) ddlTasks.get(preparedQuery.getStatement().getClass());
-                return new PrestoSparkDataDefinitionExecution(task, preparedQuery.getStatement(), transactionManager, accessControl, metadata, session, queryStateTimer, warningCollector);
+                return new PrestoSparkDataDefinitionExecution(task, preparedQuery.getStatement(), transactionManager, accessControl, metadata, session, queryStateTimer, warningCollector, sql);
             }
             else if (preparedQuery.isExplainTypeValidate()) {
-                return accessControlChecker.createExecution(session, preparedQuery, queryStateTimer, warningCollector);
+                return accessControlChecker.createExecution(session, preparedQuery, queryStateTimer, warningCollector, sql);
             }
             else {
                 VariableAllocator variableAllocator = new VariableAllocator();
                 PlanNodeIdAllocator planNodeIdAllocator = new PlanNodeIdAllocator();
-                planAndMore = queryPlanner.createQueryPlan(session, preparedQuery, warningCollector, variableAllocator, planNodeIdAllocator, sparkContext);
+                planAndMore = queryPlanner.createQueryPlan(session, preparedQuery, warningCollector, variableAllocator, planNodeIdAllocator, sparkContext, sql);
                 JavaSparkContext javaSparkContext = new JavaSparkContext(sparkContext);
                 CollectionAccumulator<SerializedTaskInfo> taskInfoCollector = new CollectionAccumulator<>();
                 taskInfoCollector.register(sparkContext, Option.empty(), false);

@@ -47,6 +47,7 @@ import com.facebook.presto.spi.plan.PartitioningHandle;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
+import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.split.CloseableSplitSourceProvider;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.Optimizer;
@@ -145,6 +146,7 @@ public class SqlQueryExecution
     private final AnalyzerContext analyzerContext;
     private final CompletableFuture<PlanRoot> planFuture;
     private final AtomicBoolean planFutureLocked = new AtomicBoolean();
+    private final AccessControl accessControl;
 
     private SqlQueryExecution(
             QueryAnalyzer queryAnalyzer,
@@ -171,7 +173,9 @@ public class SqlQueryExecution
             CostCalculator costCalculator,
             PlanChecker planChecker,
             PartialResultQueryManager partialResultQueryManager,
-            PlanCanonicalInfoProvider planCanonicalInfoProvider)
+            PlanCanonicalInfoProvider planCanonicalInfoProvider,
+            String query,
+            AccessControl accesscontrol)
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             this.queryAnalyzer = requireNonNull(queryAnalyzer, "queryAnalyzer is null");
@@ -195,7 +199,8 @@ public class SqlQueryExecution
             this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
             this.planChecker = requireNonNull(planChecker, "planChecker is null");
             this.planCanonicalInfoProvider = requireNonNull(planCanonicalInfoProvider, "planCanonicalInfoProvider is null");
-            this.analyzerContext = getAnalyzerContext(queryAnalyzer, metadata.getMetadataResolver(stateMachine.getSession()), idAllocator, new VariableAllocator(), stateMachine.getSession());
+            this.analyzerContext = getAnalyzerContext(queryAnalyzer, metadata.getMetadataResolver(stateMachine.getSession()), idAllocator, new VariableAllocator(), stateMachine.getSession(), query);
+            this.accessControl = requireNonNull(accesscontrol, "accessControl is null");
 
             // analyze query
             requireNonNull(preparedQuery, "preparedQuery is null");
@@ -215,7 +220,7 @@ public class SqlQueryExecution
             stateMachine.setExpandedQuery(queryAnalysis.getExpandedQuery());
 
             stateMachine.beginColumnAccessPermissionChecking();
-            checkAccessPermissions(queryAnalysis.getAccessControlReferences());
+            checkAccessPermissions(queryAnalysis.getAccessControlReferences(), accessControl, query);
             stateMachine.endColumnAccessPermissionChecking();
 
             // when the query finishes cache the final query info, and clear the reference to the output stage
@@ -966,7 +971,9 @@ public class SqlQueryExecution
                 String slug,
                 int retryCount,
                 WarningCollector warningCollector,
-                Optional<QueryType> queryType)
+                Optional<QueryType> queryType,
+                String query,
+                AccessControl accessControl)
         {
             String executionPolicyName = getExecutionPolicy(stateMachine.getSession());
             ExecutionPolicy executionPolicy = executionPolicies.get(executionPolicyName);
@@ -997,7 +1004,9 @@ public class SqlQueryExecution
                     costCalculator,
                     planChecker,
                     partialResultQueryManager,
-                    historyBasedPlanStatisticsManager.getPlanCanonicalInfoProvider());
+                    historyBasedPlanStatisticsManager.getPlanCanonicalInfoProvider(),
+                    query,
+                    accessControl);
         }
     }
 }

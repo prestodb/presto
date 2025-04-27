@@ -40,6 +40,7 @@ public class DDLDefinitionExecution<T extends Statement>
         extends DataDefinitionExecution<T>
 {
     private final DDLDefinitionTask<T> task;
+    private final String query;
 
     private DDLDefinitionExecution(
             DDLDefinitionTask<T> task,
@@ -50,16 +51,18 @@ public class DDLDefinitionExecution<T extends Statement>
             Metadata metadata,
             AccessControl accessControl,
             QueryStateMachine stateMachine,
-            List<Expression> parameters)
+            List<Expression> parameters,
+            String query)
     {
         super(statement, slug, retryCount, transactionManager, metadata, accessControl, stateMachine, parameters);
         this.task = requireNonNull(task, "task is null");
+        this.query = requireNonNull(query, "query is null");
     }
 
     @Override
     protected ListenableFuture<?> executeTask()
     {
-        return task.execute(statement, transactionManager, metadata, accessControl, stateMachine.getSession(), parameters, stateMachine.getWarningCollector());
+        return task.execute(statement, transactionManager, metadata, accessControl, stateMachine.getSession(), parameters, stateMachine.getWarningCollector(), query);
     }
 
     public static class DDLDefinitionExecutionFactory
@@ -91,13 +94,15 @@ public class DDLDefinitionExecution<T extends Statement>
                 String slug,
                 int retryCount,
                 WarningCollector warningCollector,
-                Optional<QueryType> queryType)
+                Optional<QueryType> queryType,
+                String query,
+                AccessControl accessControl)
         {
             //TODO: PreparedQuery should be passed all the way to analyzer
             checkState(preparedQuery instanceof BuiltInQueryPreparer.BuiltInPreparedQuery, "Unsupported prepared query type: %s", preparedQuery.getClass().getSimpleName());
             BuiltInQueryPreparer.BuiltInPreparedQuery builtInQueryPreparer = (BuiltInQueryPreparer.BuiltInPreparedQuery) preparedQuery;
 
-            return createDDLDefinitionExecution(builtInQueryPreparer.getStatement(), builtInQueryPreparer.getParameters(), stateMachine, slug, retryCount);
+            return createDDLDefinitionExecution(builtInQueryPreparer.getStatement(), builtInQueryPreparer.getParameters(), stateMachine, slug, retryCount, query);
         }
 
         private <T extends Statement> DDLDefinitionExecution<T> createDDLDefinitionExecution(
@@ -105,14 +110,15 @@ public class DDLDefinitionExecution<T extends Statement>
                 List<Expression> parameters,
                 QueryStateMachine stateMachine,
                 String slug,
-                int retryCount)
+                int retryCount,
+                String query)
         {
             @SuppressWarnings("unchecked")
             DDLDefinitionTask<T> task = (DDLDefinitionTask<T>) tasks.get(statement.getClass());
             checkArgument(task != null, "no task for statement: %s", statement.getClass().getSimpleName());
 
             stateMachine.setUpdateType(task.getName());
-            return new DDLDefinitionExecution<>(task, statement, slug, retryCount, transactionManager, metadata, accessControl, stateMachine, parameters);
+            return new DDLDefinitionExecution<>(task, statement, slug, retryCount, transactionManager, metadata, accessControl, stateMachine, parameters, query);
         }
     }
 }

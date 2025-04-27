@@ -59,7 +59,7 @@ public class AddColumnTask
     }
 
     @Override
-    public ListenableFuture<?> execute(AddColumn statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
+    public ListenableFuture<?> execute(AddColumn statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector, String query)
     {
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
         Optional<TableHandle> tableHandle = metadata.getMetadataResolver(session).getTableHandle(tableName);

@@ -63,9 +63,10 @@ public class BuiltInQueryAnalyzer
             MetadataResolver metadataResolver,
             PlanNodeIdAllocator idAllocator,
             VariableAllocator variableAllocator,
-            Session session)
+            Session session,
+            String query)
     {
-        return new BuiltInAnalyzerContext(metadataResolver, idAllocator, variableAllocator, session);
+        return new BuiltInAnalyzerContext(metadataResolver, idAllocator, variableAllocator, session, query);
     }
 
     @Override
@@ -88,7 +89,8 @@ public class BuiltInQueryAnalyzer
                 builtInPreparedQuery.getParameters(),
                 parameterExtractor(builtInPreparedQuery.getStatement(), builtInPreparedQuery.getParameters()),
                 session.getWarningCollector(),
-                Optional.of(metadataExtractorExecutor));
+                Optional.of(metadataExtractorExecutor),
+                analyzerContext.getQuery());
 
         Analysis analysis = analyzer.analyzeSemantic(((BuiltInQueryPreparer.BuiltInPreparedQuery) preparedQuery).getStatement(), false);
         return new BuiltInQueryAnalysis(analysis);
