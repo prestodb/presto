@@ -165,7 +165,7 @@ public class TestIcebergSystemTables
                         "('manifest_list', 'varchar', '', '')," +
                         "('summary', 'map(varchar, varchar)', '', '')");
 
-        assertQuery("SELECT operation FROM test_schema.\"test_table$snapshots\"", "VALUES 'overwrite', 'overwrite'");
+        assertQuery("SELECT operation FROM test_schema.\"test_table$snapshots\"", "VALUES 'append', 'append'");
         assertQuery("SELECT summary['total-records'] FROM test_schema.\"test_table$snapshots\"", "VALUES '3', '6'");
     }
 

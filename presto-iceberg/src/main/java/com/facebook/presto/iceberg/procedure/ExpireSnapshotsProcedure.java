@@ -82,7 +82,7 @@ public class ExpireSnapshotsProcedure
 
     private void doExpireSnapshots(ConnectorSession clientSession, String schema, String tableName, SqlTimestamp olderThan, Integer retainLast, List<Long> snapshotIds)
     {
-        IcebergAbstractMetadata metadata = (IcebergAbstractMetadata) metadataFactory.create();
+        IcebergAbstractMetadata metadata = (IcebergAbstractMetadata) metadataFactory.create(true);
         SchemaTableName schemaTableName = new SchemaTableName(schema, tableName);
         Table icebergTable = IcebergUtil.getIcebergTable(metadata, clientSession, schemaTableName);
 

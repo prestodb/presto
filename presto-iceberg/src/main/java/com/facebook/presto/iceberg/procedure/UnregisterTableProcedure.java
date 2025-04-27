@@ -70,7 +70,7 @@ public class UnregisterTableProcedure
 
     private void doUnregisterTable(ConnectorSession clientSession, String schema, String table)
     {
-        IcebergAbstractMetadata metadata = (IcebergAbstractMetadata) metadataFactory.create();
+        IcebergAbstractMetadata metadata = (IcebergAbstractMetadata) metadataFactory.create(true);
         SchemaTableName schemaTableName = new SchemaTableName(schema, table);
         if (!metadata.schemaExists(clientSession, schemaTableName.getSchemaName())) {
             throw new SchemaNotFoundException(schemaTableName.getSchemaName());
