@@ -58,9 +58,7 @@ public class AccessControlReferences
 
     public void setQueryAccessControlInfo(AccessControlInfo queryAccessControlInfo)
     {
-        if (this.queryAccessControlInfo == null) {
-            this.queryAccessControlInfo = requireNonNull(queryAccessControlInfo, "queryAccessControlInfo is null");
-        }
+        this.queryAccessControlInfo = requireNonNull(queryAccessControlInfo, "queryAccessControlInfo is null");
     }
 
     public AccessControlInfo getQueryAccessControlInfo()
