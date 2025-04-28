@@ -77,6 +77,8 @@ public class NativeWorkerSessionPropertyProvider
     public static final String NATIVE_TABLE_SCAN_SCALED_PROCESSING_ENABLED = "native_table_scan_scaled_processing_enabled";
     public static final String NATIVE_TABLE_SCAN_SCALE_UP_MEMORY_USAGE_RATIO = "native_table_scan_scale_up_memory_usage_ratio";
     public static final String NATIVE_STREAMING_AGGREGATION_EAGER_FLUSH = "native_streaming_aggregation_eager_flush";
+    public static final String NATIVE_REQUEST_DATA_SIZES_MAX_WAIT_SEC = "native_request_data_sizes_max_wait_sec";
+
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
@@ -345,6 +347,11 @@ public class NativeWorkerSessionPropertyProvider
                                 "for reducing memory consumption, if the downstream operators are not sensitive to " +
                                 "small batch size.",
                         false,
+                        !nativeExecution),
+                integerProperty(
+                        NATIVE_REQUEST_DATA_SIZES_MAX_WAIT_SEC,
+                        "Maximum wait time for exchange long poll requests in seconds.",
+                        10,
                         !nativeExecution));
     }
 

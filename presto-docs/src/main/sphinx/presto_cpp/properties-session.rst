@@ -104,7 +104,7 @@ This should only be used for debugging purposes.
 * **Default value:** ``false``
 
 Temporary flag to control whether selective Nimble reader should be used in this
-query or not.  
+query or not.
 
 ``native_join_spill_enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -184,7 +184,7 @@ Native Execution only. Enable simplified path in expression evaluation.
 * **Type:** ``integer``
 * **Default value:** ``100000``
 
-Native Execution only. The `reduce <https://prestodb.io/docs/current/functions/array.html#reduce-array-T-initialState-S-inputFunction-S-T-S-outputFunction-S-R-R>`_ 
+Native Execution only. The `reduce <https://prestodb.io/docs/current/functions/array.html#reduce-array-T-initialState-S-inputFunction-S-T-S-outputFunction-S-R-R>`_
 function will throw an error if it encounters an array of size greater than this value.
 
 ``native_expression_max_compiled_regexes``
@@ -450,3 +450,11 @@ Controls the way streaming aggregation flushes output. We put the rows in output
 batch, as soon as the corresponding groups are fully aggregated. This is useful
 for reducing memory consumption, if the downstream operators are not sensitive to
 small batch size.
+
+``native_request_data_sizes_max_wait_sec``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``10``
+
+Maximum wait time for exchange long poll requests in seconds.

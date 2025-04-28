@@ -310,6 +310,10 @@ class SessionProperties {
   static constexpr const char* kStreamingAggregationEagerFlush =
       "native_streaming_aggregation_eager_flush";
 
+  /// Maximum wait time for exchange long poll requests in seconds.
+  static constexpr const char* kRequestDataSizesMaxWaitSec = 
+      "native_request_data_sizes_max_wait_sec";
+
   SessionProperties();
 
   const std::unordered_map<std::string, std::shared_ptr<SessionProperty>>&
