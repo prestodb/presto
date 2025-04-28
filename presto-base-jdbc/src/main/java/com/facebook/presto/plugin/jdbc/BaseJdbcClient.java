@@ -636,6 +636,8 @@ public class BaseJdbcClient
         requireNonNull(schemaName, "schemaName is null");
 
         if (caseInsensitiveNameMatching) {
+            log.warn("The 'case-insensitive-name-matching' config is deprecated and may lead to query issues. " +
+                    "Please use 'case-sensitive-name-matching=true' for proper case handling.");
             try {
                 Map<String, String> mapping = remoteSchemaNames.getIfPresent(identity);
                 if (mapping != null && !mapping.containsKey(schemaName)) {
@@ -680,6 +682,8 @@ public class BaseJdbcClient
         requireNonNull(tableName, "tableName is null");
 
         if (caseInsensitiveNameMatching) {
+            log.warn("The 'case-insensitive-name-matching' config is deprecated and may lead to query issues. " +
+                    "Please use 'case-sensitive-name-matching=true' for proper case handling.");
             try {
                 RemoteTableNameCacheKey cacheKey = new RemoteTableNameCacheKey(identity, remoteSchema);
                 Map<String, String> mapping = remoteTableNames.getIfPresent(cacheKey);
