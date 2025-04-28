@@ -111,12 +111,18 @@ public class BaseJdbcConfig
         return this;
     }
 
+    @Deprecated
     public boolean isCaseInsensitiveNameMatching()
     {
         return caseInsensitiveNameMatching;
     }
 
+    @Deprecated
     @Config("case-insensitive-name-matching")
+    @ConfigDescription("Deprecated: This will be removed in future releases. Use 'case-sensitive-name-matching=true' instead for mysql. " +
+            "This configuration setting converts all schema/table names to lowercase. " +
+            "If your source database contains names differing only by case (e.g., 'Testdb' and 'testdb'), " +
+            "this setting can lead to conflicts and query failures.")
     public BaseJdbcConfig setCaseInsensitiveNameMatching(boolean caseInsensitiveNameMatching)
     {
         this.caseInsensitiveNameMatching = caseInsensitiveNameMatching;
