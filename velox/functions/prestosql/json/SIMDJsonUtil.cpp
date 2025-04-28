@@ -38,6 +38,12 @@ simdjson::padded_string_view reusePaddedStringView(
     const std::string_view& json) {
   return simdjson::padded_string_view(
       json.data(), json.length(), json.length() + simdjson::SIMDJSON_PADDING);
-};
+}
+
+simdjson::simdjson_result<simdjson::ondemand::document> simdjsonParseIncomplete(
+    const simdjson::padded_string_view& json) {
+  thread_local simdjson::ondemand::parser parser;
+  return parser.iterate_allow_incomplete_json(json);
+}
 
 } // namespace facebook::velox

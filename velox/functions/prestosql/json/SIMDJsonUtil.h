@@ -54,4 +54,9 @@ simdjson::simdjson_result<simdjson::ondemand::document> simdjsonParse(
 simdjson::padded_string_view reusePaddedStringView(
     const std::string_view& json);
 
+/// Parse the input json string using a thread local on demand parser. Allow
+/// incomplete json input.
+simdjson::simdjson_result<simdjson::ondemand::document> simdjsonParseIncomplete(
+    const simdjson::padded_string_view& json);
+
 } // namespace facebook::velox

@@ -119,5 +119,34 @@ TEST_F(GetJsonObjectTest, nullResult) {
       std::nullopt);
 }
 
+TEST_F(GetJsonObjectTest, incompleteJson) {
+  EXPECT_EQ(getJsonObject(R"({"hello": "3.5"},)", "$.hello"), "3.5");
+  EXPECT_EQ(getJsonObject(R"({"hello": "3.5",,,,})", "$.hello"), "3.5");
+  EXPECT_EQ(
+      getJsonObject(R"({"hello": "3.5",,,,"taskSort":"2"})", "$.hello"), "3.5");
+  EXPECT_EQ(
+      getJsonObject(
+          R"({"hello": "3.5","taskSort":"2",,,,,"taskSort",})", "$.hello"),
+      "3.5");
+  EXPECT_EQ(
+      getJsonObject(R"({"hello": "3.5","taskSort":"2",,,,,,})", "$.hello"),
+      "3.5");
+  EXPECT_EQ(
+      getJsonObject(R"({"hello": "boy","taskSort":"2"},,,,,)", "$.hello"),
+      "boy");
+  EXPECT_EQ(getJsonObject(R"({"hello": "boy\n"},)", "$.hello"), "boy\n");
+  EXPECT_EQ(getJsonObject(R"({"hello": "boy\n\t"},)", "$.hello"), "boy\n\t");
+  EXPECT_EQ(
+      getJsonObject(
+          R"([{"my": {"info": {"name": "Alice"}}}, {"other": ["v1", "v2"]}],)",
+          "$[1].other[1]"),
+      "v2");
+  EXPECT_EQ(
+      getJsonObject(
+          R"({"my": {"info": {"name": "Alice", "age": "5", "id": "001"}}},)",
+          "$['my']['info']"),
+      R"({"name": "Alice", "age": "5", "id": "001"})");
+}
+
 } // namespace
 } // namespace facebook::velox::functions::sparksql::test

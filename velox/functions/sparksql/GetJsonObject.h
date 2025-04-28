@@ -54,7 +54,7 @@ struct GetJsonObjectFunction {
     }
     simdjson::ondemand::document jsonDoc;
     simdjson::padded_string paddedJson(json.data(), json.size());
-    if (simdjsonParse(paddedJson).get(jsonDoc)) {
+    if (simdjsonParseIncomplete(paddedJson).get(jsonDoc)) {
       return false;
     }
     const auto formattedJsonPath = jsonPath_.has_value()
