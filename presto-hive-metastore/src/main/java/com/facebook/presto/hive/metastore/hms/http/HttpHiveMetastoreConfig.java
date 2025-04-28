@@ -27,8 +27,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.hive.CustomMetastoreAuthConfigUtils.getMetastoreToken;
-import static com.facebook.presto.hive.CustomMetastoreAuthConfigUtils.getMetastoreUsername;
 import static java.lang.String.format;
 
 public class HttpHiveMetastoreConfig
@@ -188,10 +186,7 @@ public class HttpHiveMetastoreConfig
 
     public Optional<String> getHttpMetastoreBasicPassword()
     {
-        if (this.httpMetastoreBasicPassword.isPresent()) {
-            return this.httpMetastoreBasicPassword;
-        }
-        return Optional.ofNullable(getMetastoreToken());
+       return this.httpMetastoreBasicPassword;
     }
 
     @Config("hive.metastore.http.client.auth.basic.username")
@@ -204,10 +199,7 @@ public class HttpHiveMetastoreConfig
 
     public Optional<String> getHttpMetastoreBasicUsername()
     {
-        if (this.httpMetastoreBasicUsername.isPresent()) {
-            return this.httpMetastoreBasicUsername;
-        }
-        return Optional.ofNullable(getMetastoreUsername());
+        return this.httpMetastoreBasicUsername;
     }
 
     @Config("hive.metastore.http.client.authentication.type")
