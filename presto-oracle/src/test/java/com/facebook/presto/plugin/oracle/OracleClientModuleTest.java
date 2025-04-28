@@ -28,6 +28,8 @@ public class OracleClientModuleTest
     public void testConnectionFactory_credentialsInUrlAndConfig() throws SQLException
     {
         BaseJdbcConfig config = new BaseJdbcConfig();
+
+        // Credentials in both config and url
         config.setConnectionUrl("jdbc:oracle:thin:user/pass@localhost:1521/database");
         config.setConnectionUser("user");
         config.setConnectionPassword("pass");
@@ -42,18 +44,11 @@ public class OracleClientModuleTest
         catch (PrestoException e) {
             assertEquals("User credentials in both configs and url", e.getMessage());
         }
-    }
 
-    @Test
-    public void testConnectionFactory_credentialsInUrlNotInConfig() throws SQLException
-    {
-        BaseJdbcConfig config = new BaseJdbcConfig();
+        // Credentials in URl but not in the config
         config.setConnectionUrl("jdbc:oracle:thin:user/pass@localhost:1521/database");
         config.setConnectionUser(null);
         config.setConnectionPassword(null);
-
-        OracleConfig oracleConfig = new OracleConfig();
-        oracleConfig.setSynonymsEnabled(true);
 
         try {
             OracleClientModule.connectionFactory(config, oracleConfig);
@@ -61,24 +56,29 @@ public class OracleClientModuleTest
         catch (PrestoException e) {
             fail("Expected no exception but got this" + e.getMessage());
         }
-    }
 
-    @Test
-    public void testConnectionFactory_credentialsInConfigNotInUrl() throws SQLException
-    {
-        BaseJdbcConfig config = new BaseJdbcConfig();
+        // Credentials in configs but not in url
         config.setConnectionUrl("jdbc:oracle:thin:@localhost:1521/database");
         config.setConnectionUser("user");
         config.setConnectionPassword("pass");
-
-        OracleConfig oracleConfig = new OracleConfig();
-        oracleConfig.setSynonymsEnabled(true);
 
         try {
             OracleClientModule.connectionFactory(config, oracleConfig);
         }
         catch (PrestoException e) {
             fail("Expected no exception but got this: " + e.getMessage());
+        }
+
+        // No credentials in both config and url
+        config.setConnectionUrl("jdbc:oracle:thin:@localhost:1521/database");
+        config.setConnectionUser(null);
+        config.setConnectionPassword(null);
+
+        try {
+            OracleClientModule.connectionFactory(config, oracleConfig);
+        }
+        catch (PrestoException e) {
+            fail("Expected no exception, but got: " + e.getMessage(), e);
         }
     }
 }
