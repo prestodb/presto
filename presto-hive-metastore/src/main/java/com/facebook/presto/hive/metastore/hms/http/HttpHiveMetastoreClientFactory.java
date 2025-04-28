@@ -59,6 +59,7 @@ public class HttpHiveMetastoreClientFactory
     private final Optional<String> httpMetastoreBasicUsername;
     private final Optional<String> httpMetastoreBasicPassword;
     private final Map<String, String> httpAdditionalHeaders;
+    private final String httpUserName = "x-actor-username";
 
     @Inject
     public HttpHiveMetastoreClientFactory(HttpHiveMetastoreConfig httpHiveMetastoreConfig)
@@ -69,7 +70,7 @@ public class HttpHiveMetastoreClientFactory
         this.httpAdditionalHeaders = requireNonNull(httpHiveMetastoreConfig.getHttpAdditionalHeaders(), "httpAdditionalHeaders is null");
         this.authType = requireNonNull(httpHiveMetastoreConfig.getHttpHiveMetastoreClientAuthenticationType(), "authType is null");
         this.httpBearerToken = authType == BEARER ? requireNonNull(httpHiveMetastoreConfig.getHttpBearerToken(), "httpBearerToken is null") : Optional.empty();
-        this.httpMetastoreBasicUsername = authType == BASIC ? requireNonNull(httpHiveMetastoreConfig.getHttpMetastoreBasicUsername(), "httpMetastoreBasicUsername is null") : Optional.empty();
+        this.httpMetastoreBasicUsername = authType == BASIC ? requireNonNull(httpHiveMetastoreConfig.getHttpMetastoreBasicUsername(), "httpMetastoreBasicUsername is null") : Optional.of("temp_user"); //setting a dummy username  for http requests which should match with the configured username on server side.
         this.httpMetastoreBasicPassword = authType == BASIC ? requireNonNull(httpHiveMetastoreConfig.getHttpMetastoreBasicPassword(), "httpMetastoreBasicPassword is null") : Optional.empty();
     }
 
@@ -123,6 +124,7 @@ public class HttpHiveMetastoreClientFactory
         else {
             checkArgument(NONE.equals(authType),
                     "'hive.metastore.http.client.authentication.type' does not have a valid authentication type when using http metastore URIs in 'hive.metastore.uri'");
+            httpClientBuilder.addInterceptorFirst((HttpRequest request, HttpContext context) -> httpMetastoreBasicUsername.ifPresent(username -> request.addHeader(httpUserName, username)));
         }
         httpClientBuilder.addInterceptorFirst((HttpRequest request, HttpContext context) -> {
             httpAdditionalHeaders.forEach(request::addHeader);

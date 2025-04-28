@@ -61,10 +61,10 @@ public class HmsModule
             if (hasHttpsMetastore && !metastoreClientConfig.getHttpMetastoreTlsEnabled()) {
                 throw new IllegalStateException("'hive.metastore.http.client.tls.enabled' must be set to 'true' while using https metastore URIs in 'hive.metastore.uri'");
             }
-            if (hasHttpsMetastore && metastoreClientConfig.getHttpMetastoreTlsTruststorePath() == null || metastoreClientConfig.getHttpMetastoreTlsTruststorePassword().isEmpty()) {
+            if (hasHttpsMetastore && (metastoreClientConfig.getHttpMetastoreTlsTruststorePath() == null || metastoreClientConfig.getHttpMetastoreTlsTruststorePassword().isEmpty())) {
                 throw new IllegalStateException("'hive.metastore.http.client.tls.truststore.path' and 'hive.metastore.http.client.tls.truststore.password' must be set while using https metastore URIs in 'hive.metastore.uri'");
             }
-            if (hasHttpsMetastore && metastoreClientConfig.getHttpMetastoreTlsKeystorePath() == null || metastoreClientConfig.getHttpMetastoreTlsKeystorePassword().isEmpty()) {
+            if (hasHttpsMetastore && (metastoreClientConfig.getHttpMetastoreTlsKeystorePath() == null || metastoreClientConfig.getHttpMetastoreTlsKeystorePassword().isEmpty())) {
                 throw new IllegalStateException("'hive.metastore.http.client.tls.keystore.path' and 'hive.metastore.http.client.tls.keystore.password' must be set while using https metastore URIs in 'hive.metastore.uri'");
             }
         }
