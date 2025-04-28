@@ -36,6 +36,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import org.joda.time.DateTimeZone;
 
@@ -47,6 +48,7 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.DateTimeEncoding.unpackMillisUtc;
@@ -55,6 +57,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.DAYS;
@@ -104,22 +107,15 @@ public class QueryBuilder
             String schema,
             String table,
             List<JdbcColumnHandle> columns,
+            Map<String, String> columnExpressions,
             TupleDomain<ColumnHandle> tupleDomain,
             Optional<JdbcExpression> additionalPredicate)
             throws SQLException
     {
         StringBuilder sql = new StringBuilder();
 
-        String columnNames = columns.stream()
-                .map(JdbcColumnHandle::getColumnName)
-                .map(this::quote)
-                .collect(joining(", "));
-
         sql.append("SELECT ");
-        sql.append(columnNames);
-        if (columns.isEmpty()) {
-            sql.append("null");
-        }
+        sql.append(addColumns(columns, columnExpressions));
 
         sql.append(" FROM ");
         if (!isNullOrEmpty(catalog)) {
@@ -200,6 +196,40 @@ public class QueryBuilder
         }
 
         return statement;
+    }
+
+    public PreparedStatement buildSql(
+            JdbcClient client,
+            ConnectorSession session,
+            Connection connection,
+            String catalog,
+            String schema,
+            String table,
+            List<JdbcColumnHandle> columns,
+            TupleDomain<ColumnHandle> tupleDomain,
+            Optional<JdbcExpression> additionalPredicate)
+            throws SQLException
+    {
+        return buildSql(client, session, connection, catalog, schema, table, columns, ImmutableMap.of(), tupleDomain, additionalPredicate);
+    }
+
+    private String addColumns(List<JdbcColumnHandle> columns, Map<String, String> columnExpressions)
+    {
+        if (columns.isEmpty()) {
+            return "null";
+        }
+
+        return columns.stream()
+                .map(jdbcColumnHandle -> {
+                    String columnName = jdbcColumnHandle.getColumnName();
+                    String columnAlias = quote(columnName);
+                    String expression = columnExpressions.get(columnName);
+                    if (expression == null) {
+                        return columnAlias;
+                    }
+                    return format("%s AS %s", expression, columnAlias);
+                })
+                .collect(joining(", "));
     }
 
     private static boolean isAcceptedType(Type type)
@@ -298,8 +328,13 @@ public class QueryBuilder
 
     private String quote(String name)
     {
-        name = name.replace(quote, quote + quote);
-        return quote + name + quote;
+        return quote(quote, name);
+    }
+
+    public static String quote(String identifierQuote, String name)
+    {
+        name = name.replace(identifierQuote, identifierQuote + identifierQuote);
+        return identifierQuote + name + identifierQuote;
     }
 
     private static void bindValue(Object value, Type type, List<TypeAndValue> accumulator)
