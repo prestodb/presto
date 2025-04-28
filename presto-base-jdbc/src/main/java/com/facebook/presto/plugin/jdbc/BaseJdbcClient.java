@@ -27,6 +27,7 @@ import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.statistics.TableStatistics;
@@ -69,6 +70,7 @@ import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static com.facebook.presto.plugin.jdbc.JdbcWarningCode.USE_OF_DEPRECATED_CONFIGURATION_PROPERTY;
 import static com.facebook.presto.plugin.jdbc.StandardReadMappings.jdbcTypeToPrestoType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -182,7 +184,7 @@ public class BaseJdbcClient
     public List<SchemaTableName> getTableNames(ConnectorSession session, JdbcIdentity identity, Optional<String> schema)
     {
         try (Connection connection = connectionFactory.openConnection(identity)) {
-            Optional<String> remoteSchema = schema.map(schemaName -> toRemoteSchemaName(identity, connection, schemaName));
+            Optional<String> remoteSchema = schema.map(schemaName -> toRemoteSchemaName(session, identity, connection, schemaName));
             try (ResultSet resultSet = getTables(connection, remoteSchema, Optional.empty())) {
                 ImmutableList.Builder<SchemaTableName> list = ImmutableList.builder();
                 while (resultSet.next()) {
@@ -204,8 +206,8 @@ public class BaseJdbcClient
     public JdbcTableHandle getTableHandle(ConnectorSession session, JdbcIdentity identity, SchemaTableName schemaTableName)
     {
         try (Connection connection = connectionFactory.openConnection(identity)) {
-            String remoteSchema = toRemoteSchemaName(identity, connection, schemaTableName.getSchemaName());
-            String remoteTable = toRemoteTableName(identity, connection, remoteSchema, schemaTableName.getTableName());
+            String remoteSchema = toRemoteSchemaName(session, identity, connection, schemaTableName.getSchemaName());
+            String remoteTable = toRemoteTableName(session, identity, connection, remoteSchema, schemaTableName.getTableName());
             try (ResultSet resultSet = getTables(connection, Optional.of(remoteSchema), Optional.of(remoteTable))) {
                 List<JdbcTableHandle> tableHandles = new ArrayList<>();
                 while (resultSet.next()) {
@@ -364,8 +366,8 @@ public class BaseJdbcClient
 
         try (Connection connection = connectionFactory.openConnection(identity)) {
             boolean uppercase = connection.getMetaData().storesUpperCaseIdentifiers();
-            String remoteSchema = toRemoteSchemaName(identity, connection, schemaTableName.getSchemaName());
-            String remoteTable = toRemoteTableName(identity, connection, remoteSchema, schemaTableName.getTableName());
+            String remoteSchema = toRemoteSchemaName(session, identity, connection, schemaTableName.getSchemaName());
+            String remoteTable = toRemoteTableName(session, identity, connection, remoteSchema, schemaTableName.getTableName());
             if (uppercase) {
                 tableName = tableName.toUpperCase(ENGLISH);
             }
@@ -632,11 +634,14 @@ public class BaseJdbcClient
         return resultSet.getString("TABLE_SCHEM");
     }
 
-    protected String toRemoteSchemaName(JdbcIdentity identity, Connection connection, String schemaName)
+    protected String toRemoteSchemaName(ConnectorSession session, JdbcIdentity identity, Connection connection, String schemaName)
     {
         requireNonNull(schemaName, "schemaName is null");
 
         if (caseInsensitiveNameMatching) {
+            session.getWarningCollector().add(new PrestoWarning(USE_OF_DEPRECATED_CONFIGURATION_PROPERTY,
+                    "'case-insensitive-name-matching' is deprecated. Use of this configuration value may lead to query failures. " +
+                            "Please switch to using 'case-sensitive-name-matching' for proper case sensitivity behavior."));
             try {
                 Map<String, String> mapping = remoteSchemaNames.getIfPresent(identity);
                 if (mapping != null && !mapping.containsKey(schemaName)) {
@@ -675,12 +680,15 @@ public class BaseJdbcClient
                 .collect(toImmutableMap(schemaName -> schemaName.toLowerCase(ENGLISH), schemaName -> schemaName));
     }
 
-    protected String toRemoteTableName(JdbcIdentity identity, Connection connection, String remoteSchema, String tableName)
+    protected String toRemoteTableName(ConnectorSession session, JdbcIdentity identity, Connection connection, String remoteSchema, String tableName)
     {
         requireNonNull(remoteSchema, "remoteSchema is null");
         requireNonNull(tableName, "tableName is null");
 
         if (caseInsensitiveNameMatching) {
+            session.getWarningCollector().add(new PrestoWarning(USE_OF_DEPRECATED_CONFIGURATION_PROPERTY,
+                    "'case-insensitive-name-matching' is deprecated. Use of this configuration value may lead to query failures. " +
+                            "Please switch to using 'case-sensitive-name-matching' for proper case sensitivity behavior."));
             try {
                 RemoteTableNameCacheKey cacheKey = new RemoteTableNameCacheKey(identity, remoteSchema);
                 Map<String, String> mapping = remoteTableNames.getIfPresent(cacheKey);
