@@ -15,9 +15,9 @@ services:
     command: /opt/spark/sbin/start-worker.sh spark://spark-master:7077
     environment:
       - "TZ=America/Bahia_Banderas"
-      - SPARK_DRIVER_MEMORY=512m
+      - SPARK_DRIVER_MEMORY=1g
       - SPARK_WORKER_CORES=4
-      - SPARK_WORKER_MEMORY=1G
+      - SPARK_WORKER_MEMORY=2G
       - SPARK_NO_DAEMONIZE=true
     volumes:
       - ./work:/spark/work

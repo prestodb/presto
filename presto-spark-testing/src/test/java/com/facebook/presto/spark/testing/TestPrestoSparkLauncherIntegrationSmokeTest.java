@@ -301,7 +301,7 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
                 "-v", format("%s:/presto/etc/session-property-config.json", sessionPropertyConfigJsonFile.getAbsolutePath()),
                 "spark-submit",
                 "/opt/spark/bin/spark-submit",
-                "--executor-memory", "512m",
+                "--executor-memory", "1g",
                 "--executor-cores", "4",
                 "--conf", "spark.task.cpus=4",
                 "--master", "spark://spark-master:7077",
