@@ -121,6 +121,8 @@ if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
   target_link_libraries(presto_server_remote_function velox_expression
                         velox_functions_remote ${FOLLY_WITH_DEPENDENCIES})
   target_link_libraries(presto_server_lib presto_server_remote_function)
+  target_link_libraries(presto_server presto_thrift-cpp2 presto_thrift_extra
+          ${THRIFT_LIBRARY})
 endif()
 
 set_property(TARGET presto_server PROPERTY JOB_POOL_LINK presto_link_job_pool)
