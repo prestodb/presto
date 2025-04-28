@@ -44,6 +44,7 @@ public class TestHiveHttpEnabledMetastore
     {
         httpConfig = ImmutableMap.<String, String>builder()
                 // This is required when connecting to ssl and http enabled metastore
+                .put("hive.metastore.uri", "http://localhost:9083/metastore")
                 .put("hive.metastore.http.client.tls.enabled", "true")
                 .put("hive.metastore.http.client.tls.keystore-path", Paths.get((TestHiveSslWithTrustStoreKeyStore.class.getResource("/hive_ssl_enable/hive-metastore.jks")).toURI()).toFile().toString())
                 .put("hive.metastore.http.client.tls.keystore-password", "123456")
@@ -51,6 +52,7 @@ public class TestHiveHttpEnabledMetastore
                 .put("hive.metastore.http.client.tls.truststore-password", "123456")
                 .put("hive.metastore.http.client.authentication.type", "BEARER")
                 .put("hive.metastore.http.client.bearer-token", "test_token")
+                .put("hive.metastore.http.client.auth.basic.username", "temp_user")
                 .build();
     }
 
