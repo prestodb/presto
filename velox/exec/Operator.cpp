@@ -364,6 +364,11 @@ vector_size_t Operator::outputBatchRows(
   return std::max<vector_size_t>(batchSize, 1);
 }
 
+void Operator::loadLazyReclaimable(RowVectorPtr& vector) {
+  ReclaimableSectionGuard guard(this);
+  vector->loadedVector();
+}
+
 void Operator::recordBlockingTime(uint64_t start, BlockingReason reason) {
   uint64_t now =
       std::chrono::duration_cast<std::chrono::microseconds>(

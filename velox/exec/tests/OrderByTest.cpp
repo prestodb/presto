@@ -1367,4 +1367,50 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimFromEmptyOrderBy) {
   ASSERT_EQ(stats[0].operatorStats[1].spilledBytes, 0);
   ASSERT_EQ(stats[0].operatorStats[1].spilledPartitions, 0);
 }
+
+DEBUG_ONLY_TEST_F(OrderByTest, orderByWithLazyInput) {
+  auto nonLazyVector = createVectors(1, rowType_, fuzzerOpts_)[0];
+
+  std::vector<RowVectorPtr> lazyInput;
+  lazyInput.push_back(
+      VectorFuzzer(fuzzerOpts_, pool()).fuzzRowChildrenToLazy(nonLazyVector));
+
+  std::vector<RowVectorPtr> lazyInputCopy;
+  lazyInputCopy.push_back(std::dynamic_pointer_cast<RowVector>(
+      nonLazyVector->copyPreserveEncodings()));
+  createDuckDbTable(lazyInputCopy);
+
+  std::atomic_bool nonReclaimableSectionEntered{false};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::SortBuffer::addInput",
+      std::function<void(void*)>(
+          ([&](void* /* unused */) { nonReclaimableSectionEntered = true; })));
+
+  std::optional<bool> lazyLoadedInNonReclaimableSection;
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::{}::VectorLoaderWrap::loadInternal",
+      std::function<void(void*)>(([&](void* /* unused */) {
+        ASSERT_FALSE(lazyLoadedInNonReclaimableSection.has_value());
+        if (nonReclaimableSectionEntered) {
+          lazyLoadedInNonReclaimableSection = true;
+        } else {
+          lazyLoadedInNonReclaimableSection = false;
+        }
+      })));
+
+  const auto spillDirectory = exec::test::TempDirectoryPath::create();
+  auto task =
+      AssertQueryBuilder(duckDbQueryRunner_)
+          .spillDirectory(spillDirectory->getPath())
+          .config(core::QueryConfig::kSpillEnabled, true)
+          .config(core::QueryConfig::kOrderBySpillEnabled, true)
+          .plan(PlanBuilder()
+                    .values(lazyInput)
+                    .orderBy({"c0 ASC NULLS LAST"}, false)
+                    .planNode())
+          .assertResults("SELECT * FROM tmp ORDER BY c0 ASC NULLS LAST");
+
+  ASSERT_TRUE(lazyLoadedInNonReclaimableSection.has_value());
+  ASSERT_FALSE(lazyLoadedInNonReclaimableSection.value());
+}
 } // namespace facebook::velox::exec::test

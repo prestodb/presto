@@ -589,6 +589,14 @@ class Operator : public BaseRuntimeStatWriter {
   vector_size_t outputBatchRows(
       std::optional<uint64_t> averageRowSize = std::nullopt) const;
 
+  /// Load 'vector' if lazy. Potential large memory usage site that might
+  /// trigger arbitration. Hence this call is made reclaimable. This is often
+  /// used at the start of 'addInput()' call to load the input if needed.
+  ///
+  /// NOTE: Caller must make sure operator is in a reclaimable state when making
+  /// this call.
+  void loadLazyReclaimable(RowVectorPtr& vector);
+
   /// Invoked to record spill stats in operator stats.
   virtual void recordSpillStats();
 

@@ -200,6 +200,8 @@ class VectorLoaderWrap : public VectorLoader {
       ValueHook* hook,
       vector_size_t resultSize,
       VectorPtr* result) override {
+    velox::common::testutil::TestValue::adjust(
+        "facebook::velox::{}::VectorLoaderWrap::loadInternal", this);
     VELOX_CHECK(!hook, "VectorLoaderWrap doesn't support ValueHook");
     SelectivityVector rows(rowSet.back() + 1, false);
     for (auto row : rowSet) {

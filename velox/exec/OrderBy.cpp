@@ -71,6 +71,7 @@ OrderBy::OrderBy(
 }
 
 void OrderBy::addInput(RowVectorPtr input) {
+  loadLazyReclaimable(input);
   sortBuffer_->addInput(input);
 }
 
