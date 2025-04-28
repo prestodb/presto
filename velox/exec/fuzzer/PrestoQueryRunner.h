@@ -52,6 +52,8 @@ class PrestoQueryRunner : public velox::exec::test::ReferenceQueryRunner {
 
   const std::vector<TypePtr>& supportedScalarTypes() const override;
 
+  static bool isSupportedDwrfType(const TypePtr& type);
+
   const std::unordered_map<std::string, DataSpec>&
   aggregationFunctionDataSpecs() const override;
 

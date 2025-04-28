@@ -16,6 +16,7 @@
 
 #include "velox/exec/fuzzer/PrestoSql.h"
 
+#include "velox/exec/fuzzer/PrestoQueryRunner.h"
 #include "velox/exec/fuzzer/ReferenceQueryRunner.h"
 #include "velox/functions/prestosql/types/JsonType.h"
 
@@ -418,10 +419,10 @@ void PrestoSqlPlanNodeVisitor::visit(
     core::PlanNodeVisitorContext& ctx) const {
   PrestoSqlPlanNodeVisitorContext& visitorContext =
       static_cast<PrestoSqlPlanNodeVisitorContext&>(ctx);
-  if (!queryRunner_->isSupportedDwrfType(node.outputType())) {
+  if (!PrestoQueryRunner::isSupportedDwrfType(node.outputType())) {
     visitorContext.sql = std::nullopt;
   } else {
-    visitorContext.sql = queryRunner_->getTableName(node);
+    visitorContext.sql = ReferenceQueryRunner::getTableName(node);
   }
 }
 
@@ -438,8 +439,10 @@ void PrestoSqlPlanNodeVisitor::visit(
   PrestoSqlPlanNodeVisitorContext& visitorContext =
       static_cast<PrestoSqlPlanNodeVisitorContext&>(ctx);
 
-  if (!queryRunner_->isSupportedDwrfType(node.sources()[0]->outputType()) ||
-      !queryRunner_->isSupportedDwrfType(node.sources()[1]->outputType())) {
+  if (!PrestoQueryRunner::isSupportedDwrfType(
+          node.sources()[0]->outputType()) ||
+      !PrestoQueryRunner::isSupportedDwrfType(
+          node.sources()[1]->outputType())) {
     visitorContext.sql = std::nullopt;
     return;
   }

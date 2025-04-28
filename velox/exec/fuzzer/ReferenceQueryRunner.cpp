@@ -20,19 +20,6 @@
 #include "velox/exec/fuzzer/ReferenceQueryRunner.h"
 
 namespace facebook::velox::exec::test {
-bool ReferenceQueryRunner::isSupportedDwrfType(const TypePtr& type) {
-  if (type->isDate() || type->isIntervalDayTime() || type->isUnKnown()) {
-    return false;
-  }
-
-  for (auto i = 0; i < type->size(); ++i) {
-    if (!isSupportedDwrfType(type->childAt(i))) {
-      return false;
-    }
-  }
-
-  return true;
-}
 
 std::unordered_map<std::string, std::vector<velox::RowVectorPtr>>
 ReferenceQueryRunner::getAllTables(const core::PlanNodePtr& plan) {

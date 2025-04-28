@@ -156,10 +156,8 @@ class ReferenceQueryRunner {
     VELOX_UNSUPPORTED();
   }
 
-  bool isSupportedDwrfType(const TypePtr& type);
-
   /// Returns the name of the values node table in the form t_<id>.
-  std::string getTableName(const core::ValuesNode& valuesNode) {
+  static std::string getTableName(const core::ValuesNode& valuesNode) {
     return fmt::format("t_{}", valuesNode.id());
   }
 

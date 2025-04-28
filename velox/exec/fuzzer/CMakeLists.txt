@@ -16,9 +16,11 @@ add_library(
   velox_fuzzer_util
   ReferenceQueryRunner.cpp
   DuckQueryRunner.cpp
+  DuckQueryRunnerToSqlPlanNodeVisitor.cpp
   PrestoQueryRunner.cpp
   PrestoQueryRunnerIntermediateTypeTransforms.cpp
   PrestoQueryRunnerTimestampWithTimeZoneTransform.cpp
+  PrestoQueryRunnerToSqlPlanNodeVisitor.cpp
   FuzzerUtil.cpp
   PrestoSql.cpp)
 

@@ -80,8 +80,9 @@ add_custom_command(
   COMMENT "Running gRPC C++ protocol buffer compiler"
   VERBATIM)
 
-add_library(velox_spark_query_runner ${PROTO_SRCS} ${GRPC_SRCS}
-                                     SparkQueryRunner.cpp)
+add_library(
+  velox_spark_query_runner ${PROTO_SRCS} ${GRPC_SRCS} SparkQueryRunner.cpp
+                           SparkQueryRunnerToSqlPlanNodeVisitor.cpp)
 
 target_include_directories(velox_spark_query_runner
                            PUBLIC ${PROJECT_BINARY_DIR}/spark/connect/)
