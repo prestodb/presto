@@ -342,6 +342,7 @@ public final class SystemSessionProperties
     public static final String NATIVE_MIN_COLUMNAR_ENCODING_CHANNELS_TO_PREFER_ROW_WISE_ENCODING = "native_min_columnar_encoding_channels_to_prefer_row_wise_encoding";
     public static final String NATIVE_ENFORCE_JOIN_BUILD_INPUT_PARTITION = "native_enforce_join_build_input_partition";
     public static final String NATIVE_EXECUTION_SCALE_WRITER_THREADS_ENABLED = "native_execution_scale_writer_threads_enabled";
+    private static final String NATIVE_EXECUTION_TYPE_REWRITE_ENABLED = "native_execution_type_rewrite_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1877,6 +1878,10 @@ public final class SystemSessionProperties
                         "Enable automatic scaling of writer threads",
                         featuresConfig.isNativeExecutionScaleWritersThreadsEnabled(),
                         !featuresConfig.isNativeExecutionEnabled()),
+                booleanProperty(NATIVE_EXECUTION_TYPE_REWRITE_ENABLED,
+                        "Enable type rewrite for native execution",
+                        featuresConfig.isNativeExecutionTypeRewriteEnabled(),
+                        !featuresConfig.isNativeExecutionEnabled()),
                 stringProperty(
                         EXPRESSION_OPTIMIZER_NAME,
                         "Configure which expression optimizer to use",
@@ -3195,6 +3200,11 @@ public final class SystemSessionProperties
     public static boolean isNativeExecutionScaleWritersThreadsEnabled(Session session)
     {
         return session.getSystemProperty(NATIVE_EXECUTION_SCALE_WRITER_THREADS_ENABLED, Boolean.class);
+    }
+
+    public static boolean isNativeExecutionTypeRewriteEnabled(Session session)
+    {
+        return session.getSystemProperty(NATIVE_EXECUTION_TYPE_REWRITE_ENABLED, Boolean.class);
     }
 
     public static String getExpressionOptimizerName(Session session)
