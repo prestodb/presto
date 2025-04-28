@@ -326,6 +326,46 @@ TEST(PrestoSqlTest, toCallSql) {
           "subscript")),
       "Expected two arguments to function 'subscript'");
 
+  // Function SWITCH, builds 'CASE WHEN ... THEN ... ELSE ... END' SQL
+  // SWITCH cases with no ELSE.
+  EXPECT_EQ(
+      toCallSql(std::make_shared<core::CallTypedExpr>(
+          INTEGER(),
+          std::vector<core::TypedExprPtr>{
+              std::make_shared<core::FieldAccessTypedExpr>(BOOLEAN(), "c0"),
+              std::make_shared<core::FieldAccessTypedExpr>(VARCHAR(), "c1")},
+          "switch")),
+      "case when c0 then c1 end");
+  EXPECT_EQ(
+      toCallSql(std::make_shared<core::CallTypedExpr>(
+          INTEGER(),
+          std::vector<core::TypedExprPtr>{
+              std::make_shared<core::FieldAccessTypedExpr>(BOOLEAN(), "c0"),
+              std::make_shared<core::FieldAccessTypedExpr>(INTEGER(), "c1"),
+              std::make_shared<core::FieldAccessTypedExpr>(BOOLEAN(), "c2"),
+              std::make_shared<core::FieldAccessTypedExpr>(INTEGER(), "c3")},
+          "switch")),
+      "case when c0 then c1 when c2 then c3 end");
+  // SWITCH case with ELSE.
+  EXPECT_EQ(
+      toCallSql(std::make_shared<core::CallTypedExpr>(
+          INTEGER(),
+          std::vector<core::TypedExprPtr>{
+              std::make_shared<core::FieldAccessTypedExpr>(BOOLEAN(), "c0"),
+              std::make_shared<core::FieldAccessTypedExpr>(INTEGER(), "c1"),
+              std::make_shared<core::FieldAccessTypedExpr>(BOOLEAN(), "c2"),
+              std::make_shared<core::FieldAccessTypedExpr>(INTEGER(), "c3"),
+              std::make_shared<core::FieldAccessTypedExpr>(INTEGER(), "c4")},
+          "switch")),
+      "case when c0 then c1 when c2 then c3 else c4 end");
+  VELOX_ASSERT_THROW(
+      toCallSql(std::make_shared<core::CallTypedExpr>(
+          INTEGER(),
+          std::vector<core::TypedExprPtr>{
+              std::make_shared<core::FieldAccessTypedExpr>(INTEGER(), "c0")},
+          "switch")),
+      "Expected at least two arguments to function 'switch'");
+
   // Generic functions
   EXPECT_EQ(
       toCallSql(std::make_shared<core::CallTypedExpr>(

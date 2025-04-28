@@ -310,6 +310,24 @@ std::string toCallSql(const core::CallTypedExprPtr& call) {
     sql << "[";
     toCallInputsSql({call->inputs()[1]}, sql);
     sql << "]";
+  } else if (call->name() == "switch") {
+    VELOX_CHECK_GE(
+        call->inputs().size(),
+        2,
+        "Expected at least two arguments to function 'switch'");
+    sql << "case";
+    int i = 0;
+    for (; i < call->inputs().size() - 1; i += 2) {
+      sql << " when ";
+      toCallInputsSql({call->inputs()[i]}, sql);
+      sql << " then ";
+      toCallInputsSql({call->inputs()[i + 1]}, sql);
+    }
+    if (i < call->inputs().size()) {
+      sql << " else ";
+      toCallInputsSql({call->inputs()[i]}, sql);
+    }
+    sql << " end";
   } else {
     // Regular function call syntax.
     sql << call->name() << "(";
