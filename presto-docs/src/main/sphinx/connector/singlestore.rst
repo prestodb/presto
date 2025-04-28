@@ -30,6 +30,9 @@ available in the `SingleStore Connection String Parameters
 The ``connection-user`` and ``connection-password`` are typically required and
 determine the user credentials for the connection, often a service user.
 
+An optional ``list-schemas-ignored-schemas`` config can be set to ignore certain schemas
+when listing schemas. The default value for this is ``information_schema,memsql``.
+
 Multiple SingleStore Servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

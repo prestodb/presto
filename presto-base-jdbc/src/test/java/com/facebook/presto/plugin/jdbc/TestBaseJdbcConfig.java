@@ -35,7 +35,8 @@ public class TestBaseJdbcConfig
                 .setUserCredentialName(null)
                 .setPasswordCredentialName(null)
                 .setCaseInsensitiveNameMatching(false)
-                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES)));
+                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES))
+                .setlistSchemasIgnoredSchemas("information_schema"));
     }
 
     @Test
@@ -49,6 +50,7 @@ public class TestBaseJdbcConfig
                 .put("password-credential-name", "bar")
                 .put("case-insensitive-name-matching", "true")
                 .put("case-insensitive-name-matching.cache-ttl", "1s")
+                .put("list-schemas-ignored-schemas", "test,test2")
                 .build();
 
         BaseJdbcConfig expected = new BaseJdbcConfig()
@@ -58,6 +60,7 @@ public class TestBaseJdbcConfig
                 .setUserCredentialName("foo")
                 .setPasswordCredentialName("bar")
                 .setCaseInsensitiveNameMatching(true)
+                .setlistSchemasIgnoredSchemas("test,test2")
                 .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, SECONDS));
 
         ConfigAssertions.assertFullMapping(properties, expected);
