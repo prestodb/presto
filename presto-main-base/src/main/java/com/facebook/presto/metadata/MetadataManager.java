@@ -109,6 +109,7 @@ import java.util.concurrent.ConcurrentMap;
 
 import static com.facebook.airlift.concurrent.MoreFutures.toListenableFuture;
 import static com.facebook.presto.SystemSessionProperties.isIgnoreStatsCalculatorFailures;
+import static com.facebook.presto.common.RuntimeMetricName.GET_IDENTIFIER_NORMALIZATION_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.GET_LAYOUT_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.GET_MATERIALIZED_VIEW_STATUS_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeUnit.NANO;
@@ -1508,13 +1509,16 @@ public class MetadataManager
     @Override
     public String normalizeIdentifier(Session session, String catalogName, String identifier)
     {
+        long startTime = System.nanoTime();
+        String normalizedString = identifier.toLowerCase(ENGLISH);
         Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, transactionManager, catalogName);
         if (catalogMetadata.isPresent()) {
             ConnectorId connectorId = catalogMetadata.get().getConnectorId();
             ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(connectorId);
-            return metadata.normalizeIdentifier(session.toConnectorSession(connectorId), identifier);
+            normalizedString = metadata.normalizeIdentifier(session.toConnectorSession(connectorId), identifier);
         }
-        return identifier.toLowerCase(ENGLISH);
+        session.getRuntimeStats().addMetricValue(GET_IDENTIFIER_NORMALIZATION_TIME_NANOS, NANO, System.nanoTime() - startTime);
+        return normalizedString;
     }
 
     private ViewDefinition deserializeView(String data)
