@@ -58,8 +58,7 @@ public class OracleClientModule
     {
         requireNonNull(config, "BaseJdbc config is null");
 
-        boolean isCredentialsInUrl = JDBCUrlValidator.checkCredentialsInJdbcUrl(config.getConnectionUrl());
-        // Throws an exception when username and password present in both connection url and configs
+        boolean isCredentialsInUrl = JDBCUrlValidator.findCredentialsInJdbcUrl(config.getConnectionUrl());
         if (isCredentialsInUrl && (config.getConnectionUser() != null || config.getConnectionPassword() != null)) {
             throw new PrestoException(NOT_SUPPORTED, "User credentials in both configs and url");
         }
@@ -75,8 +74,7 @@ public class OracleClientModule
     }
     public static class JDBCUrlValidator
     {
-        //To check the presence of username and password in the connection url
-        public static boolean checkCredentialsInJdbcUrl(String jdbcUrl)
+        public static boolean findCredentialsInJdbcUrl(String jdbcUrl)
         {
             String regex = "jdbc:oracle:thin:([^/]+?)/([^@]+?)@";
 
