@@ -39,7 +39,8 @@ public final class StatementRewrite
             new ShowQueriesRewrite(),
             new ShowStatsRewrite(),
             new ExplainRewrite(),
-            new MaterializedViewOptimizationRewrite());
+            new MaterializedViewOptimizationRewrite(),
+            new NativeExecutionTypeRewrite());
 
     private StatementRewrite() {}
 
