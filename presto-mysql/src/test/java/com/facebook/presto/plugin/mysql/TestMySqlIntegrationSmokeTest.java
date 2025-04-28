@@ -107,6 +107,13 @@ public class TestMySqlIntegrationSmokeTest
     }
 
     @Test
+    public void testIgnoredSchemas()
+    {
+        MaterializedResult actual = computeActual("SHOW SCHEMAS");
+        assertFalse(actual.getMaterializedRows().stream().anyMatch(schemaResult -> schemaResult.getField(0).equals("mysql")));
+    }
+
+    @Test
     public void testViews()
             throws SQLException
     {

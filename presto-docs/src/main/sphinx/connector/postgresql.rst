@@ -54,6 +54,8 @@ Property Name                                      Description                  
 
 ``case-insensitive-name-matching.cache-ttl``       Duration for which remote dataset and table names will be
                                                    cached. Set to ``0ms`` to disable the cache.                         ``1m``
+
+``list-schemas-ignored-schemas``                   List of schemas to ignore when listing schemas.                      ``information_schema``
 ================================================== ==================================================================== ===========
 
 Querying PostgreSQL

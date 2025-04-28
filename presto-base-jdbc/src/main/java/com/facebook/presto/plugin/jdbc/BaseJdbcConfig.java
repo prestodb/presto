@@ -15,12 +15,17 @@ package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigSecuritySensitive;
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
 import javax.annotation.Nullable;
 import javax.validation.constraints.NotNull;
 
+import java.util.Set;
+
+import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class BaseJdbcConfig
@@ -32,6 +37,7 @@ public class BaseJdbcConfig
     private String passwordCredentialName;
     private boolean caseInsensitiveNameMatching;
     private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
+    private Set<String> listSchemasIgnoredSchemas = ImmutableSet.of("information_schema");
 
     @NotNull
     public String getConnectionUrl()
@@ -122,6 +128,18 @@ public class BaseJdbcConfig
     public BaseJdbcConfig setCaseInsensitiveNameMatchingCacheTtl(Duration caseInsensitiveNameMatchingCacheTtl)
     {
         this.caseInsensitiveNameMatchingCacheTtl = caseInsensitiveNameMatchingCacheTtl;
+        return this;
+    }
+
+    public Set<String> getlistSchemasIgnoredSchemas()
+    {
+        return listSchemasIgnoredSchemas;
+    }
+
+    @Config("list-schemas-ignored-schemas")
+    public BaseJdbcConfig setlistSchemasIgnoredSchemas(String listSchemasIgnoredSchemas)
+    {
+        this.listSchemasIgnoredSchemas = ImmutableSet.copyOf(Splitter.on(",").trimResults().omitEmptyStrings().split(listSchemasIgnoredSchemas.toLowerCase(ENGLISH)));
         return this;
     }
 }
