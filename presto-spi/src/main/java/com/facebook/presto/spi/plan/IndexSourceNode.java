@@ -37,7 +37,7 @@ import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
 
-public class IndexSourceNode
+public final class IndexSourceNode
         extends PlanNode
 {
     private final IndexHandle indexHandle;
