@@ -166,6 +166,8 @@ The connector maps MySQL types to the corresponding PrestoDB types:
     - ``DATETIME``
   * - ``TIMESTAMP(n)``
     - ``TIMESTAMP``
+  * - ``GEOMETRY``
+    - ``VARCHAR``
 
 No other types are supported.
 
