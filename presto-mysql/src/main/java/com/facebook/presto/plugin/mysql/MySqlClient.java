@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.mysql;
 
+import com.esri.core.geometry.ogc.OGCGeometry;
 import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
@@ -23,14 +24,20 @@ import com.facebook.presto.plugin.jdbc.DriverConnectionFactory;
 import com.facebook.presto.plugin.jdbc.JdbcColumnHandle;
 import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
 import com.facebook.presto.plugin.jdbc.JdbcIdentity;
+import com.facebook.presto.plugin.jdbc.JdbcSplit;
 import com.facebook.presto.plugin.jdbc.JdbcTableHandle;
+import com.facebook.presto.plugin.jdbc.JdbcTypeHandle;
+import com.facebook.presto.plugin.jdbc.QueryBuilder;
+import com.facebook.presto.plugin.jdbc.ReadMapping;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.mysql.cj.jdbc.JdbcStatement;
 import com.mysql.jdbc.Driver;
+import io.airlift.slice.Slice;
 
 import javax.inject.Inject;
 
@@ -41,21 +48,32 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLSyntaxErrorException;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 
+import static com.esri.core.geometry.ogc.OGCGeometry.fromBinary;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
+import static com.facebook.presto.geospatial.GeometryUtils.wktFromJtsGeometry;
+import static com.facebook.presto.geospatial.serde.EsriGeometrySerde.serialize;
+import static com.facebook.presto.geospatial.serde.JtsGeometrySerde.deserialize;
 import static com.facebook.presto.plugin.jdbc.DriverConnectionFactory.basicConnectionProperties;
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 
 public class MySqlClient
         extends BaseJdbcClient
@@ -194,6 +212,68 @@ public class MySqlClient
         }
 
         return super.toSqlType(type);
+    }
+
+    @Override
+    public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, List<JdbcColumnHandle> columnHandles) throws SQLException
+    {
+        Map<String, String> supposedColumnExps = new HashMap<>();
+        columnHandles.forEach(handle -> {
+            if (handle.getJdbcTypeHandle().getJdbcTypeName().equalsIgnoreCase("geometry")) {
+                String columnName = handle.getColumnName();
+                supposedColumnExps.put(columnName, "ST_AsBinary(" + columnName + ")");
+            }
+        });
+
+        ImmutableMap<String, String> columnExpressions = ImmutableMap.<String, String>builder().putAll(supposedColumnExps).build();
+        return new QueryBuilder(identifierQuote).buildSql(
+                this,
+                session,
+                connection,
+                split.getCatalogName(),
+                split.getSchemaName(),
+                split.getTableName(),
+                columnHandles,
+                columnExpressions,
+                split.getTupleDomain(),
+                split.getAdditionalPredicate());
+    }
+
+    @Override
+    public Optional<ReadMapping> toPrestoType(ConnectorSession session, JdbcTypeHandle typeHandle)
+    {
+        String typeName = typeHandle.getJdbcTypeName();
+
+        if (typeName.equalsIgnoreCase("geometry")) {
+            return Optional.of(geometryReadMapping());
+        }
+
+        return super.toPrestoType(session, typeHandle);
+    }
+
+    private ReadMapping geometryReadMapping()
+    {
+        return ReadMapping.sliceReadMapping(VarcharType.VARCHAR,
+                (resultSet, columnIndex) -> getAsText(stGeomFromBinary(wrappedBuffer(resultSet.getBytes(columnIndex)))));
+    }
+
+    private static Slice getAsText(Slice input)
+    {
+        return utf8Slice(wktFromJtsGeometry(deserialize(input)));
+    }
+
+    private static Slice stGeomFromBinary(Slice input)
+    {
+        requireNonNull(input, "input is null");
+        OGCGeometry geometry;
+        try {
+            geometry = fromBinary(input.toByteBuffer().slice());
+        }
+        catch (IllegalArgumentException | IndexOutOfBoundsException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid WKB", e);
+        }
+        geometry.setSpatialReference(null);
+        return serialize(geometry);
     }
 
     @Override
