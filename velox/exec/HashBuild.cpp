@@ -423,8 +423,7 @@ void HashBuild::addInput(RowVectorPtr input) {
 void HashBuild::ensureInputFits(RowVectorPtr& input) {
   // NOTE: we don't need memory reservation if all the partitions are spilling
   // as we spill all the input rows to disk directly.
-  if (!canSpill() || spiller_ == nullptr ||
-      spiller_->state().isAllPartitionSpilled()) {
+  if (!canSpill() || spiller_ == nullptr || spiller_->spillTriggered()) {
     return;
   }
 
@@ -494,7 +493,7 @@ void HashBuild::ensureInputFits(RowVectorPtr& input) {
       // itself, we will no longer need the reserved memory for building hash
       // table as the table is spilled, and the input will be directly spilled,
       // too.
-      if (spiller_->state().isAllPartitionSpilled()) {
+      if (spiller_->spillTriggered()) {
         pool()->release();
       }
       return;
@@ -509,23 +508,19 @@ void HashBuild::ensureInputFits(RowVectorPtr& input) {
 void HashBuild::spillInput(const RowVectorPtr& input) {
   VELOX_CHECK_EQ(input->size(), activeRows_.size());
 
-  if (!canSpill() || spiller_ == nullptr ||
-      !spiller_->state().isAnyPartitionSpilled() ||
+  if (!canSpill() || spiller_ == nullptr || !spiller_->spillTriggered() ||
       !activeRows_.hasSelections()) {
     return;
   }
 
   const auto numInput = input->size();
-  prepareInputIndicesBuffers(numInput, spiller_->state().spilledPartitionSet());
+  prepareInputIndicesBuffers(numInput);
   computeSpillPartitions(input);
 
   vector_size_t numSpillInputs = 0;
   for (auto row = 0; row < numInput; ++row) {
     const auto partition = spillPartitions_[row];
     if (FOLLY_UNLIKELY(!activeRows_.isValid(row))) {
-      continue;
-    }
-    if (!spiller_->state().isPartitionSpilled(partition)) {
       continue;
     }
     activeRows_.setValid(row, false);
@@ -544,9 +539,10 @@ void HashBuild::spillInput(const RowVectorPtr& input) {
     if (numInputs == 0) {
       continue;
     }
-    VELOX_CHECK(spiller_->state().isPartitionSpilled(partition));
     spillPartition(
         partition, numInputs, spillInputIndicesBuffers_[partition], input);
+    VELOX_CHECK(
+        spiller_->state().isPartitionSpilled(SpillPartitionId(partition)));
   }
   activeRows_.updateBounds();
 }
@@ -569,11 +565,10 @@ void HashBuild::maybeSetupSpillChildVectors(const RowVectorPtr& input) {
   }
 }
 
-void HashBuild::prepareInputIndicesBuffers(
-    vector_size_t numInput,
-    const SpillPartitionNumSet& spillPartitions) {
+void HashBuild::prepareInputIndicesBuffers(vector_size_t numInput) {
   const auto maxIndicesBufferBytes = numInput * sizeof(vector_size_t);
-  for (const auto& partition : spillPartitions) {
+  for (auto partition = 0; partition < (1UL << spillConfig_->numPartitionBits);
+       ++partition) {
     if (spillInputIndicesBuffers_[partition] == nullptr ||
         (spillInputIndicesBuffers_[partition]->size() <
          maxIndicesBufferBytes)) {
@@ -613,10 +608,10 @@ void HashBuild::spillPartition(
   VELOX_DCHECK(canSpill());
 
   if (isInputFromSpill()) {
-    spiller_->spill(partition, wrap(size, indices, input));
+    spiller_->spill(SpillPartitionId(partition), wrap(size, indices, input));
   } else {
     spiller_->spill(
-        partition,
+        SpillPartitionId(partition),
         wrap(size, indices, spillType_, spillChildVectors_, input->pool()));
   }
 }
@@ -798,8 +793,8 @@ bool HashBuild::finishHashBuild() {
 void HashBuild::ensureTableFits(uint64_t numRows) {
   // NOTE: we don't need memory reservation if all the partitions have been
   // spilled as nothing need to be built.
-  if (!canSpill() || spiller_ == nullptr ||
-      spiller_->state().isAllPartitionSpilled() || numRows == 0) {
+  if (!canSpill() || spiller_ == nullptr || spiller_->spillTriggered() ||
+      numRows == 0) {
     return;
   }
 
@@ -824,7 +819,7 @@ void HashBuild::ensureTableFits(uint64_t numRows) {
       // If reservation triggers the spilling of 'HashBuild' operator itself, we
       // will no longer need the reserved memory for building hash table as the
       // table is spilled.
-      if (spiller_->state().isAllPartitionSpilled()) {
+      if (spiller_->spillTriggered()) {
         pool()->release();
       }
       return;
@@ -934,7 +929,7 @@ void HashBuild::addRuntimeStats() {
   }
 
   // Add max spilling level stats if spilling has been triggered.
-  if (spiller_ != nullptr && spiller_->state().isAnyPartitionSpilled()) {
+  if (spiller_ != nullptr && spiller_->spillTriggered()) {
     lockedStats->addRuntimeStat(
         "maxSpillLevel",
         RuntimeCounter(
@@ -1175,26 +1170,22 @@ HashBuildSpiller::HashBuildSpiller(
 }
 
 void HashBuildSpiller::spill() {
+  spillTriggered_ = true;
   SpillerBase::spill(nullptr);
 }
 
 void HashBuildSpiller::spill(
-    uint32_t partition,
+    const SpillPartitionId& partitionId,
     const RowVectorPtr& spillVector) {
+  VELOX_CHECK(spillTriggered_);
   VELOX_CHECK(!finalized_);
-  if (FOLLY_UNLIKELY(!state_.isPartitionSpilled(partition))) {
-    VELOX_FAIL(
-        "Can't spill vector to a non-spilling partition: {}, {}",
-        partition,
-        toString());
-  }
-  VELOX_DCHECK(spillRuns_[partition].rows.empty());
-
   if (FOLLY_UNLIKELY(spillVector == nullptr)) {
     return;
   }
-
-  state_.appendToPartition(partition, spillVector);
+  if (!state_.isPartitionSpilled(partitionId)) {
+    state_.setPartitionSpilled(partitionId);
+  }
+  state_.appendToPartition(partitionId, spillVector);
 }
 
 void HashBuildSpiller::extractSpill(

@@ -29,8 +29,8 @@ class RowNumberTest : public OperatorTestBase {
   RowNumberTest() {
     filesystems::registerLocalFileSystem();
     rowType_ = ROW(
-        {{"c0", INTEGER()},
-         {"c1", INTEGER()},
+        {{"c0", BIGINT()},
+         {"c1", BIGINT()},
          {"c2", VARCHAR()},
          {"c3", VARCHAR()}});
     fuzzerOpts_.vectorSize = 1024;

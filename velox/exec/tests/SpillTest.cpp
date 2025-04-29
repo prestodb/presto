@@ -162,9 +162,17 @@ class SpillTest : public ::testing::TestWithParam<uint32_t>,
     return id;
   }
 
+  SpillPartitionIdSet genPartitionIdSet(uint32_t maxPartitions) {
+    SpillPartitionIdSet result;
+    for (auto i = 0; i < maxPartitions; ++i) {
+      result.emplace(SpillPartitionId(i));
+    }
+    return result;
+  }
+
   // Randomly generate a partition set with common 'parent'. The set contains
   // 'numIds' of partition ids with randomly picked partition nums.
-  SpillPartitionIdSet genPartitionIdSet(
+  SpillPartitionIdSet genRandomPartitionIdSet(
       std::optional<SpillPartitionId> parent,
       uint32_t numIds) {
     const auto maxPartitions = 1 << SpillPartitionId::kMaxPartitionBits;
@@ -186,7 +194,7 @@ class SpillTest : public ::testing::TestWithParam<uint32_t>,
   SpillPartitionSet genSpillPartitionSet(
       std::optional<SpillPartitionId> parent,
       uint32_t numIds) {
-    auto ids = genPartitionIdSet(parent, numIds);
+    auto ids = genRandomPartitionIdSet(parent, numIds);
     SpillPartitionSet result;
     for (const auto& id : ids) {
       result.emplace(id, std::make_unique<SpillPartition>(id));
@@ -214,9 +222,9 @@ class SpillTest : public ::testing::TestWithParam<uint32_t>,
   }
 
   void setupSpillState(
+      const SpillPartitionIdSet& partitionIds,
       int64_t targetFileSize,
       uint64_t writeBufferSize,
-      int numPartitions,
       int numBatches,
       int numRowsPerBatch = 1000,
       int numDuplicates = 1,
@@ -268,7 +276,6 @@ class SpillTest : public ::testing::TestWithParam<uint32_t>,
         }
       }
     }
-    batchesByPartition_.resize(numPartitions);
 
     // Setup state that has 'numPartitions' partitions, each with its own
     // file list. We write 'numBatches' sorted vectors in each partition. The
@@ -285,7 +292,6 @@ class SpillTest : public ::testing::TestWithParam<uint32_t>,
         [&]() -> const std::string& { return tempDir_->getPath(); },
         updateSpilledBytesCb_,
         fileNamePrefix_,
-        numPartitions,
         numSortKeys,
         compareFlags,
         targetFileSize,
@@ -295,29 +301,28 @@ class SpillTest : public ::testing::TestWithParam<uint32_t>,
         pool(),
         &spillStats_);
     ASSERT_EQ(targetFileSize, state_->targetFileSize());
-    ASSERT_EQ(numPartitions, state_->maxPartitions());
     ASSERT_EQ(spillStats_.rlock()->spilledPartitions, 0);
     ASSERT_EQ(spillStats_.rlock()->spilledPartitions, 0);
-    ASSERT_TRUE(state_->spilledPartitionSet().empty());
+    ASSERT_TRUE(state_->spilledPartitionIdSet().empty());
     ASSERT_EQ(compressionKind_, state_->compressionKind());
     ASSERT_EQ(state_->sortCompareFlags().size(), numSortKeys);
 
-    for (auto partition = 0; partition < state_->maxPartitions(); ++partition) {
-      ASSERT_FALSE(state_->isPartitionSpilled(partition));
-      ASSERT_EQ(state_->numFinishedFiles(partition), 0);
+    for (const auto& partitionId : partitionIds) {
+      ASSERT_FALSE(state_->isPartitionSpilled(partitionId));
+      ASSERT_EQ(state_->numFinishedFiles(partitionId), 0);
       // Expect an exception if partition is not set to spill.
       {
         RowVectorPtr dummyInput;
         VELOX_ASSERT_THROW(
-            state_->appendToPartition(partition, dummyInput),
-            fmt::format("Partition {} is not spilled", partition));
+            state_->appendToPartition(partitionId, dummyInput),
+            fmt::format("Partition {} is not spilled", partitionId.toString()));
       }
-      state_->setPartitionSpilled(partition);
-      ASSERT_TRUE(state_->isPartitionSpilled(partition));
+      state_->setPartitionSpilled(partitionId);
+      ASSERT_TRUE(state_->isPartitionSpilled(partitionId));
       ASSERT_FALSE(
-          state_->testingNonEmptySpilledPartitionSet().contains(partition));
+          state_->testingNonEmptySpilledPartitionIdSet().contains(partitionId));
       for (auto iter = 0; iter < numBatches / 2; ++iter) {
-        batchesByPartition_[partition].push_back(
+        batchesByPartition_[partitionId].push_back(
             makeRowVector({makeFlatVector<int64_t>(
                 numRowsPerBatch,
                 [&](auto row) {
@@ -329,47 +334,50 @@ class SpillTest : public ::testing::TestWithParam<uint32_t>,
                   return !values_[row * numBatches / 2 + iter].has_value();
                 })}));
         state_->appendToPartition(
-            partition, batchesByPartition_[partition].back());
-        ASSERT_TRUE(
-            state_->testingNonEmptySpilledPartitionSet().contains(partition));
+            partitionId, batchesByPartition_[partitionId].back());
+        ASSERT_TRUE(state_->testingNonEmptySpilledPartitionIdSet().contains(
+            partitionId));
 
-        batchesByPartition_[partition].push_back(makeRowVector({makeFlatVector<
-            int64_t>(
-            numRowsPerBatch,
-            [&](auto row) {
-              return values_[(numRowsPerBatch + row) * numBatches / 2 + iter]
-                         .has_value()
-                  ? values_[(numRowsPerBatch + row) * numBatches / 2 + iter]
-                        .value()
-                  : 0;
-            },
-            [&](auto row) {
-              return !values_[(numRowsPerBatch + row) * numBatches / 2 + iter]
-                          .has_value();
-            })}));
+        batchesByPartition_[partitionId].push_back(
+            makeRowVector({makeFlatVector<int64_t>(
+                numRowsPerBatch,
+                [&](auto row) {
+                  return values_
+                             [(numRowsPerBatch + row) * numBatches / 2 + iter]
+                                 .has_value()
+                      ? values_[(numRowsPerBatch + row) * numBatches / 2 + iter]
+                            .value()
+                      : 0;
+                },
+                [&](auto row) {
+                  return !values_
+                              [(numRowsPerBatch + row) * numBatches / 2 + iter]
+                                  .has_value();
+                })}));
         state_->appendToPartition(
-            partition, batchesByPartition_[partition].back());
-        ASSERT_TRUE(
-            state_->testingNonEmptySpilledPartitionSet().contains(partition));
+            partitionId, batchesByPartition_[partitionId].back());
+        ASSERT_TRUE(state_->testingNonEmptySpilledPartitionIdSet().contains(
+            partitionId));
 
-        ASSERT_GE(state_->numFinishedFiles(partition), 0);
+        ASSERT_GE(state_->numFinishedFiles(partitionId), 0);
         // Indicates that the next additions to 'partition' are not sorted
         // with respect to the values added so far.
-        state_->finishFile(partition);
-        ASSERT_GE(state_->numFinishedFiles(partition), 1);
-        ASSERT_TRUE(
-            state_->testingNonEmptySpilledPartitionSet().contains(partition));
+        state_->finishFile(partitionId);
+        ASSERT_GE(state_->numFinishedFiles(partitionId), 1);
+        ASSERT_TRUE(state_->testingNonEmptySpilledPartitionIdSet().contains(
+            partitionId));
       }
     }
-    ASSERT_EQ(spillStats_.rlock()->spilledPartitions, numPartitions);
-    for (int i = 0; i < numPartitions; ++i) {
-      ASSERT_TRUE(state_->spilledPartitionSet().contains(i));
+    ASSERT_EQ(spillStats_.rlock()->spilledPartitions, partitionIds.size());
+    for (const auto& partitionId : partitionIds) {
+      ASSERT_TRUE(state_->spilledPartitionIdSet().contains(partitionId));
     }
     // NOTE: we write numBatches for each partition. If the target file size is
     // 1, we will end up with 'numPartitions * numBatches' spilled files as each
     // batch will generate one spill file. If not, the target file size is set
     // to vary large and only finishWrite() generates a new spill file which is
     // called every two batches.
+    const auto numPartitions = partitionIds.size();
     auto expectedFiles = numPartitions * numBatches;
     if (targetFileSize > 1) {
       expectedFiles /= 2;
@@ -379,8 +387,8 @@ class SpillTest : public ::testing::TestWithParam<uint32_t>,
         spillStats_.rlock()->spilledBytes,
         numPartitions * numBatches * sizeof(int64_t));
     int numFinishedFiles{0};
-    for (int partition = 0; partition < numPartitions; ++partition) {
-      numFinishedFiles += state_->numFinishedFiles(partition);
+    for (const auto& partitionId : partitionIds) {
+      numFinishedFiles += state_->numFinishedFiles(partitionId);
     }
     ASSERT_EQ(numFinishedFiles, expectedFiles);
   }
@@ -405,10 +413,13 @@ class SpillTest : public ::testing::TestWithParam<uint32_t>,
         compareFlags.empty() ? true : compareFlags[0].ascending));
 
     const auto prevGStats = common::globalSpillStats();
+
+    SpillPartitionIdSet partitionIds = genPartitionIdSet(numPartitions);
+
     setupSpillState(
+        partitionIds,
         targetFileSize,
         0,
-        numPartitions,
         numBatches,
         numRowsPerBatch,
         numDuplicates,
@@ -452,8 +463,8 @@ class SpillTest : public ::testing::TestWithParam<uint32_t>,
         newGStats.spillSortTimeNanos);
 
     // Verifies the spill file id
-    for (auto& partitionNum : state_->spilledPartitionSet()) {
-      const auto spilledFileIds = state_->testingSpilledFileIds(partitionNum);
+    for (auto& partitionId : state_->spilledPartitionIdSet()) {
+      const auto spilledFileIds = state_->testingSpilledFileIds(partitionId);
       uint32_t expectedFileId{0};
       for (auto spilledFileId : spilledFileIds) {
         ASSERT_EQ(spilledFileId, expectedFileId++);
@@ -476,11 +487,11 @@ class SpillTest : public ::testing::TestWithParam<uint32_t>,
     ASSERT_EQ(stats.spilledBytes, totalFileBytes);
     ASSERT_EQ(prevGStats.spilledBytes + totalFileBytes, newGStats.spilledBytes);
 
-    for (auto partition = 0; partition < state_->maxPartitions(); ++partition) {
-      auto spillFiles = state_->finish(partition);
-      ASSERT_EQ(state_->numFinishedFiles(partition), 0);
+    for (const auto& partitionId : partitionIds) {
+      auto spillFiles = state_->finish(partitionId);
+      ASSERT_EQ(state_->numFinishedFiles(partitionId), 0);
       auto spillPartition =
-          SpillPartition(SpillPartitionId(partition), std::move(spillFiles));
+          SpillPartition(SpillPartitionId(partitionId), std::move(spillFiles));
       auto merge =
           spillPartition.createOrderedReader(1 << 20, pool(), &spillStats_);
       int numReadBatches = 0;
@@ -564,7 +575,8 @@ class SpillTest : public ::testing::TestWithParam<uint32_t>,
   common::CompressionKind compressionKind_;
   bool enablePrefixSort_;
   std::vector<std::optional<int64_t>> values_;
-  std::vector<std::vector<RowVectorPtr>> batchesByPartition_;
+  folly::F14FastMap<SpillPartitionId, std::vector<RowVectorPtr>>
+      batchesByPartition_;
   std::string fileNamePrefix_;
   folly::Synchronized<common::SpillStats> spillStats_;
   std::unique_ptr<SpillState> state_;
@@ -615,7 +627,6 @@ TEST_P(SpillTest, spillTimestamp) {
       updateSpilledBytesCb_,
       "test",
       1,
-      1,
       emptyCompareFlags,
       1024,
       0,
@@ -623,18 +634,18 @@ TEST_P(SpillTest, spillTimestamp) {
       prefixSortConfig,
       pool(),
       &spillStats_);
-  int partitionIndex = 0;
-  state.setPartitionSpilled(partitionIndex);
-  ASSERT_TRUE(state.isPartitionSpilled(partitionIndex));
+  SpillPartitionId partitionId{0};
+  state.setPartitionSpilled(partitionId);
+  ASSERT_TRUE(state.isPartitionSpilled(partitionId));
   ASSERT_FALSE(
-      state.testingNonEmptySpilledPartitionSet().contains(partitionIndex));
+      state.testingNonEmptySpilledPartitionIdSet().contains(partitionId));
   state.appendToPartition(
-      partitionIndex, makeRowVector({makeFlatVector<Timestamp>(timeValues)}));
-  state.finishFile(partitionIndex);
+      partitionId, makeRowVector({makeFlatVector<Timestamp>(timeValues)}));
+  state.finishFile(partitionId);
   EXPECT_TRUE(
-      state.testingNonEmptySpilledPartitionSet().contains(partitionIndex));
+      state.testingNonEmptySpilledPartitionIdSet().contains(partitionId));
 
-  SpillPartition spillPartition(SpillPartitionId{0}, state.finish(0));
+  SpillPartition spillPartition(SpillPartitionId{0}, state.finish(partitionId));
   auto merge =
       spillPartition.createOrderedReader(1 << 20, pool(), &spillStats_);
   ASSERT_TRUE(merge != nullptr);
@@ -1229,51 +1240,62 @@ TEST_P(SpillTest, spillPartitionSet) {
   // Spill partition with files test.
   const int numSpillers = 10;
   const int numPartitions = 4;
-  std::vector<std::vector<RowVectorPtr>> batchesByPartition(numPartitions);
-  std::vector<std::unique_ptr<SpillPartition>> spillPartitions;
+  SpillPartitionIdSet partitionIds = genPartitionIdSet(numPartitions);
+
+  folly::F14FastMap<SpillPartitionId, std::vector<RowVectorPtr>>
+      batchesByPartition;
+  folly::F14FastMap<SpillPartitionId, std::unique_ptr<SpillPartition>>
+      spillPartitions;
   int numBatchesPerPartition = 0;
   const int numRowsPerBatch = 50;
-  std::vector<uint64_t> expectedPartitionSizes(numPartitions, 0);
-  std::vector<uint64_t> expectedPartitionFiles(numPartitions, 0);
+  folly::F14FastMap<SpillPartitionId, uint64_t> expectedPartitionSizes;
+  folly::F14FastMap<SpillPartitionId, uint64_t> expectedPartitionFiles;
   for (int iter = 0; iter < numSpillers; ++iter) {
     folly::Random::DefaultGenerator rng;
     rng.seed(iter);
     int numBatches = 2 * (1 + folly::Random::rand32(rng) % 16);
+
     setupSpillState(
-        iter % 2 ? 1 : kGB, 0, numPartitions, numBatches, numRowsPerBatch);
+        partitionIds, iter % 2 ? 1 : kGB, 0, numBatches, numRowsPerBatch);
     numBatchesPerPartition += numBatches;
-    for (int i = 0; i < numPartitions; ++i) {
-      const SpillPartitionId id(i);
-      auto spillFiles = state_->finish(i);
+    for (const auto& partitionId : partitionIds) {
+      expectedPartitionSizes.try_emplace(partitionId, 0);
+      expectedPartitionFiles.try_emplace(partitionId, 0);
+
+      auto spillFiles = state_->finish(partitionId);
       for (const auto& fileInfo : spillFiles) {
-        expectedPartitionSizes[i] += fileInfo.size;
-        ++expectedPartitionFiles[i];
+        expectedPartitionSizes[partitionId] += fileInfo.size;
+        ++expectedPartitionFiles[partitionId];
       }
       if (iter == 0) {
-        spillPartitions.emplace_back(
-            std::make_unique<SpillPartition>(id, std::move(spillFiles)));
+        spillPartitions.emplace(
+            partitionId,
+            std::make_unique<SpillPartition>(
+                partitionId, std::move(spillFiles)));
       } else {
-        spillPartitions[i]->addFiles(std::move(spillFiles));
+        spillPartitions[partitionId]->addFiles(std::move(spillFiles));
       }
       std::copy(
-          batchesByPartition_[i].begin(),
-          batchesByPartition_[i].end(),
-          std::back_inserter(batchesByPartition[i]));
+          batchesByPartition_[partitionId].begin(),
+          batchesByPartition_[partitionId].end(),
+          std::back_inserter(batchesByPartition[partitionId]));
     }
   }
   // Read verification.
-  for (int i = 0; i < numPartitions; ++i) {
+  for (const auto& partitionId : partitionIds) {
     RowVectorPtr output;
     {
-      ASSERT_EQ(spillPartitions[i]->size(), expectedPartitionSizes[i]);
       ASSERT_EQ(
-          spillPartitions[i]->toString(),
+          spillPartitions[partitionId]->size(),
+          expectedPartitionSizes[partitionId]);
+      ASSERT_EQ(
+          spillPartitions[partitionId]->toString(),
           fmt::format(
-              "SPILLED PARTITION[ID:[levels: 1, partitions: [{}]] FILES:{} SIZE:{}]",
-              i,
-              expectedPartitionFiles[i],
-              succinctBytes(expectedPartitionSizes[i])));
-      auto reader = spillPartitions[i]->createUnorderedReader(
+              "SPILLED PARTITION[ID:{} FILES:{} SIZE:{}]",
+              partitionId.toString(),
+              expectedPartitionFiles[partitionId],
+              succinctBytes(expectedPartitionSizes[partitionId])));
+      auto reader = spillPartitions[partitionId]->createUnorderedReader(
           1 << 20, pool(), &spillStats_);
       for (int j = 0; j < numBatchesPerPartition; ++j) {
         ASSERT_TRUE(reader->nextBatch(output));
@@ -1281,14 +1303,17 @@ TEST_P(SpillTest, spillPartitionSet) {
           ASSERT_EQ(
               0,
               output->compare(
-                  batchesByPartition[i][j].get(), row, row, CompareFlags{}));
+                  batchesByPartition[partitionId][j].get(),
+                  row,
+                  row,
+                  CompareFlags{}));
         }
       }
     }
     // Check spill partition state after creating the reader.
-    ASSERT_EQ(0, spillPartitions[i]->numFiles());
+    ASSERT_EQ(0, spillPartitions[partitionId]->numFiles());
     {
-      auto reader = spillPartitions[i]->createUnorderedReader(
+      auto reader = spillPartitions[partitionId]->createUnorderedReader(
           1 << 20, pool(), &spillStats_);
       ASSERT_FALSE(reader->nextBatch(output));
     }
@@ -1303,14 +1328,19 @@ TEST_P(SpillTest, spillPartitionSpilt) {
     batches.reserve(numBatches);
 
     const int numRowsPerBatch = 50;
-    setupSpillState(seed % 2 ? 1 : kGB, 0, 1, numBatches, numRowsPerBatch);
-    const SpillPartitionId id(0);
+    setupSpillState(
+        genPartitionIdSet(1),
+        seed % 2 ? 1 : kGB,
+        0,
+        numBatches,
+        numRowsPerBatch);
+    const SpillPartitionId partitionId(0);
 
-    auto spillPartition =
-        std::make_unique<SpillPartition>(id, state_->finish(0));
+    auto spillPartition = std::make_unique<SpillPartition>(
+        partitionId, state_->finish(partitionId));
     std::copy(
-        batchesByPartition_[0].begin(),
-        batchesByPartition_[0].end(),
+        batchesByPartition_[partitionId].begin(),
+        batchesByPartition_[partitionId].end(),
         std::back_inserter(batches));
 
     folly::Random::DefaultGenerator rng;
@@ -1319,7 +1349,7 @@ TEST_P(SpillTest, spillPartitionSpilt) {
     const int32_t numShards = 1 + folly::Random::rand32(totalNumFiles * 2 / 3);
     auto spillPartitionShards = spillPartition->split(numShards);
     for (const auto& partitionShard : spillPartitionShards) {
-      ASSERT_EQ(id, partitionShard->id());
+      ASSERT_EQ(partitionId, partitionShard->id());
     }
 
     // Even split distribution verification.
@@ -1355,7 +1385,7 @@ TEST_P(SpillTest, spillPartitionSpilt) {
 TEST_P(SpillTest, nonExistSpillFileOnDeletion) {
   const int32_t numRowsPerBatch = 50;
   std::vector<RowVectorPtr> batches;
-  setupSpillState(kGB, 0, 1, 2, numRowsPerBatch);
+  setupSpillState(genPartitionIdSet(1), kGB, 0, 2, numRowsPerBatch);
   // Delete the tmp dir to verify the spill file deletion error won't fail the
   // test.
   tempDir_.reset();
@@ -1380,7 +1410,6 @@ TEST_P(SpillTest, validatePerSpillWriteSize) {
       updateSpilledBytesCb_,
       "test",
       1,
-      1,
       {},
       1024,
       0,
@@ -1389,12 +1418,12 @@ TEST_P(SpillTest, validatePerSpillWriteSize) {
       pool(),
       &spillStats_,
       "");
-  int partitionIndex = 0;
-  state.setPartitionSpilled(partitionIndex);
-  ASSERT_TRUE(state.isPartitionSpilled(partitionIndex));
+  SpillPartitionId partitionId{0};
+  state.setPartitionSpilled(partitionId);
+  ASSERT_TRUE(state.isPartitionSpilled(partitionId));
   VELOX_ASSERT_THROW(
       state.appendToPartition(
-          partitionIndex, std::make_shared<TestRowVector>(HUGEINT())),
+          partitionId, std::make_shared<TestRowVector>(HUGEINT())),
       "Spill bytes will overflow");
 }
 

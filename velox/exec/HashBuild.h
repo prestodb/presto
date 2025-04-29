@@ -176,9 +176,7 @@ class HashBuild final : public Operator {
   void maybeSetupSpillChildVectors(const RowVectorPtr& input);
 
   // Invoked to prepare indices buffers for input spill processing.
-  void prepareInputIndicesBuffers(
-      vector_size_t numInput,
-      const SpillPartitionNumSet& spillPartitions);
+  void prepareInputIndicesBuffers(vector_size_t numInput);
 
   // Invoked to reset the operator state to restore previously spilled data. It
   // setup (recursive) spiller and spill input reader from 'spillInput' received
@@ -339,7 +337,13 @@ class HashBuildSpiller : public SpillerBase {
   void spill();
 
   /// Invoked to spill a given partition from the input vector 'spillVector'.
-  void spill(uint32_t partition, const RowVectorPtr& spillVector);
+  void spill(
+      const SpillPartitionId& partitionId,
+      const RowVectorPtr& spillVector);
+
+  bool spillTriggered() const {
+    return spillTriggered_;
+  }
 
  private:
   void extractSpill(folly::Range<char**> rows, RowVectorPtr& resultPtr)
@@ -354,6 +358,8 @@ class HashBuildSpiller : public SpillerBase {
   }
 
   const bool spillProbeFlag_;
+
+  bool spillTriggered_{false};
 };
 } // namespace facebook::velox::exec
 

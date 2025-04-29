@@ -111,7 +111,7 @@ void checkSpillStats(PlanNodeStats& stats, bool expectedSpill) {
     ASSERT_GT(stats.spilledRows, 0);
     ASSERT_GT(stats.spilledInputBytes, 0);
     ASSERT_GT(stats.spilledBytes, 0);
-    ASSERT_EQ(stats.spilledPartitions, 8);
+    ASSERT_GT(stats.spilledPartitions, 0);
     ASSERT_GT(stats.customStats[Operator::kSpillRuns].sum, 0);
     ASSERT_GT(stats.customStats[Operator::kSpillFillTime].sum, 0);
     ASSERT_GT(stats.customStats[Operator::kSpillSortTime].sum, 0);
@@ -1961,16 +1961,20 @@ DEBUG_ONLY_TEST_F(AggregationTest, minSpillableMemoryReservation) {
 TEST_F(AggregationTest, distinctWithSpilling) {
   struct TestParam {
     std::vector<RowVectorPtr> inputs;
+    uint32_t expectedSpilledPartitions;
     std::function<void(uint32_t)> expectedSpillFilesCheck{nullptr};
   };
 
   std::vector<TestParam> testParams{
       {makeVectors(rowType_, 10, 100),
+       8,
        [](uint32_t spilledFiles) { ASSERT_GE(spilledFiles, 100); }},
+
       {{makeRowVector(
            {"c0"},
            {makeFlatVector<int64_t>(
                2'000, [](vector_size_t /* unused */) { return 100; })})},
+       1,
        [](uint32_t spilledFiles) { ASSERT_EQ(spilledFiles, 1); }}};
 
   for (const auto& testParam : testParams) {
@@ -1993,7 +1997,8 @@ TEST_F(AggregationTest, distinctWithSpilling) {
     const auto planNodeStatsMap = toPlanStats(task->taskStats());
     const auto& aggrNodeStats = planNodeStatsMap.at(aggrNodeId);
     ASSERT_GT(aggrNodeStats.spilledInputBytes, 0);
-    ASSERT_EQ(aggrNodeStats.spilledPartitions, 8);
+    ASSERT_EQ(
+        aggrNodeStats.spilledPartitions, testParam.expectedSpilledPartitions);
     ASSERT_GT(aggrNodeStats.spilledBytes, 0);
     testParam.expectedSpillFilesCheck(aggrNodeStats.spilledFiles);
     OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);

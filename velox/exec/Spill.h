@@ -299,9 +299,34 @@ inline std::ostream& operator<<(std::ostream& os, SpillPartitionId id) {
   os << id.toString();
   return os;
 }
+} // namespace facebook::velox::exec
 
+// Adding the custom hash for SpillPartitionId to std::hash to make it usable
+// with maps and other standard data structures.
+namespace std {
+template <>
+struct hash<::facebook::velox::exec::SpillPartitionId> {
+  uint32_t operator()(
+      const ::facebook::velox::exec::SpillPartitionId& id) const {
+    return std::hash<uint32_t>()(id.encodedId());
+  }
+};
+} // namespace std
+
+template <>
+struct fmt::formatter<facebook::velox::exec::SpillPartitionId>
+    : formatter<std::string> {
+  auto format(facebook::velox::exec::SpillPartitionId s, format_context& ctx)
+      const {
+    return formatter<std::string>::format(s.toString(), ctx);
+  }
+};
+
+namespace facebook::velox::exec {
 using SpillPartitionIdSet = folly::F14FastSet<SpillPartitionId>;
 using SpillPartitionNumSet = folly::F14FastSet<uint32_t>;
+using SpillPartitionWriterSet =
+    folly::F14FastMap<SpillPartitionId, std::unique_ptr<SpillWriter>>;
 
 /// Provides the mapping from the computed hash value to 'SpillPartitionId'. It
 /// is used to lookup the spill partition id for a spilled row.
@@ -487,7 +512,6 @@ class SpillState {
       const common::GetSpillDirectoryPathCB& getSpillDirectoryPath,
       const common::UpdateAndCheckSpillLimitCB& updateAndCheckSpillLimitCb,
       const std::string& fileNamePrefix,
-      int32_t maxPartitions,
       int32_t numSortKeys,
       const std::vector<CompareFlags>& sortCompareFlags,
       uint64_t targetFileSize,
@@ -499,18 +523,12 @@ class SpillState {
       const std::string& fileCreateConfig = {});
 
   /// Indicates if a given 'partition' has been spilled or not.
-  bool isPartitionSpilled(uint32_t partition) const {
-    VELOX_DCHECK_LT(partition, maxPartitions_);
-    return spilledPartitionSet_.contains(partition);
+  bool isPartitionSpilled(const SpillPartitionId& id) const {
+    return spilledPartitionIdSet_.contains(id);
   }
 
   // Sets a partition as spilled.
-  void setPartitionSpilled(uint32_t partition);
-
-  // Returns how many ways spilled data can be partitioned.
-  int32_t maxPartitions() const {
-    return maxPartitions_;
-  }
+  void setPartitionSpilled(const SpillPartitionId& id);
 
   uint64_t targetFileSize() const {
     return targetFileSize_;
@@ -529,47 +547,44 @@ class SpillState {
   }
 
   bool isAnyPartitionSpilled() const {
-    return !spilledPartitionSet_.empty();
+    return !spilledPartitionIdSet_.empty();
   }
 
-  bool isAllPartitionSpilled() const {
-    VELOX_CHECK_LE(spilledPartitionSet_.size(), maxPartitions_);
-    return spilledPartitionSet_.size() == maxPartitions_;
-  }
-
-  /// Appends data to 'partition'. The rows given by 'indices' must be sorted
-  /// for a sorted spill and must hash to 'partition'. It is safe to call this
-  /// on multiple threads if all threads specify a different partition.
+  /// Appends data to partition with 'id'. The rows given by 'indices' must be
+  /// sorted for a sorted spill and must hash to 'partition'. It is safe to call
+  /// this on multiple threads if all threads specify a different partition.
   /// Returns the size to append to partition.
-  uint64_t appendToPartition(uint32_t partition, const RowVectorPtr& rows);
+  uint64_t appendToPartition(
+      const SpillPartitionId& id,
+      const RowVectorPtr& rows);
 
-  /// Finishes a sorted run for 'partition'. If write is called for
+  /// Finishes a sorted run for partition with 'id'. If write is called for
   /// 'partition' again, the data does not have to be sorted relative to the
   /// data written so far.
-  void finishFile(uint32_t partition);
+  void finishFile(const SpillPartitionId& id);
 
   /// Returns the current number of finished files from a given partition.
   ///
   /// NOTE: the fucntion returns zero if the state has finished or the
   /// partition is not spilled yet.
-  size_t numFinishedFiles(uint32_t partition) const;
+  size_t numFinishedFiles(const SpillPartitionId& id) const;
 
   /// Returns the spill file objects from a given 'partition'. The function
   /// returns an empty list if either the partition has not been spilled or
   /// has no spilled data.
-  SpillFiles finish(uint32_t partition);
+  SpillFiles finish(const SpillPartitionId& id);
 
-  /// Returns the spilled partition number set.
-  const SpillPartitionNumSet& spilledPartitionSet() const;
+  /// Returns the spilled partition id set.
+  const SpillPartitionIdSet& spilledPartitionIdSet() const;
 
   /// Returns the spilled file paths from all the partitions.
   std::vector<std::string> testingSpilledFilePaths() const;
 
-  /// Returns the file ids from a given partition.
-  std::vector<uint32_t> testingSpilledFileIds(int32_t partitionNum) const;
+  /// Returns the file ids from a given partition id.
+  std::vector<uint32_t> testingSpilledFileIds(const SpillPartitionId& id) const;
 
-  /// Returns the set of partitions that have spilled data.
-  SpillPartitionNumSet testingNonEmptySpilledPartitionSet() const;
+  /// Returns the set of partition ids that have spilled data.
+  SpillPartitionIdSet testingNonEmptySpilledPartitionIdSet() const;
 
  private:
   // Ensures that the bytes to spill is within the limit of
@@ -581,7 +596,7 @@ class SpillState {
 
   void updateSpilledInputBytes(uint64_t bytes);
 
-  SpillWriter* partitionWriter(uint32_t partition) const;
+  SpillWriter* partitionWriter(const SpillPartitionId& id) const;
 
   const RowTypePtr type_;
 
@@ -595,7 +610,6 @@ class SpillState {
 
   // Prefix for spill files.
   const std::string fileNamePrefix_;
-  const int32_t maxPartitions_;
   const int32_t numSortKeys_;
   const std::vector<CompareFlags> sortCompareFlags_;
   const uint64_t targetFileSize_;
@@ -606,12 +620,13 @@ class SpillState {
   memory::MemoryPool* const pool_;
   folly::Synchronized<common::SpillStats>* const stats_;
 
-  // A set of spilled partition numbers.
-  SpillPartitionNumSet spilledPartitionSet_;
+  // A set of spilled partition ids.
+  SpillPartitionIdSet spilledPartitionIdSet_;
 
-  // A file list for each spilled partition. Only partitions that have
-  // started spilling have an entry here.
-  std::vector<std::unique_ptr<SpillWriter>> partitionWriters_;
+  // A file writer list for each spilled partition. Only partitions that have
+  // started spilling have an entry here. It is made thread safe because
+  // concurrent writes may involve concurrent creations of writers.
+  folly::Synchronized<SpillPartitionWriterSet> partitionWriters_;
 };
 
 /// Returns the partition bit offset of the current spill level of 'id'.
@@ -623,6 +638,16 @@ uint8_t partitionBitOffset(
 /// Generate partition id set from given spill partition set.
 SpillPartitionIdSet toSpillPartitionIdSet(
     const SpillPartitionSet& partitionSet);
+
+/// TODO(jtan6): Temporary helper method. Remove after migrating all spill cases
+/// fully to SpillPartitionId
+SpillPartitionIdSet toSpillPartitionIdSet(
+    const SpillPartitionNumSet& partitionNumSet);
+
+/// TODO(jtan6): Temporary helper method. Remove after migrating all spill cases
+/// fully to SpillPartitionId
+SpillPartitionNumSet toPartitionNumSet(
+    const SpillPartitionIdSet& partitionIdSet);
 
 /// Scoped spill percentage utility that allows user to set the behavior of
 /// triggered spill.
@@ -653,24 +678,3 @@ tsan_atomic<uint32_t>& injectedSpillCount();
 /// Removes empty partitions from given spill partition set.
 void removeEmptyPartitions(SpillPartitionSet& partitionSet);
 } // namespace facebook::velox::exec
-
-// Adding the custom hash for SpillPartitionId to std::hash to make it usable
-// with maps and other standard data structures.
-namespace std {
-template <>
-struct hash<::facebook::velox::exec::SpillPartitionId> {
-  uint32_t operator()(
-      const ::facebook::velox::exec::SpillPartitionId& id) const {
-    return std::hash<uint32_t>()(id.encodedId());
-  }
-};
-} // namespace std
-
-template <>
-struct fmt::formatter<facebook::velox::exec::SpillPartitionId>
-    : formatter<std::string> {
-  auto format(facebook::velox::exec::SpillPartitionId s, format_context& ctx)
-      const {
-    return formatter<std::string>::format(s.toString(), ctx);
-  }
-};

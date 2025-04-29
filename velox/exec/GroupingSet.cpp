@@ -1027,9 +1027,6 @@ void GroupingSet::spill() {
         std::vector<CompareFlags>(),
         spillConfig_,
         spillStats_);
-    VELOX_CHECK_EQ(
-        inputSpiller_->state().maxPartitions(),
-        1 << spillConfig_->numPartitionBits);
   }
   // Spilling may execute on multiple partitions in parallel, and
   // HashStringAllocator is not thread safe. If any aggregations
@@ -1039,12 +1036,11 @@ void GroupingSet::spill() {
   rows->stringAllocator().freezeAndExecute([&]() { inputSpiller_->spill(); });
   if (isDistinct() && numDistinctSpillFilesPerPartition_.empty()) {
     size_t totalNumDistinctSpilledFiles{0};
-    numDistinctSpillFilesPerPartition_.resize(
-        inputSpiller_->state().maxPartitions(), 0);
-    for (int partition = 0; partition < inputSpiller_->state().maxPartitions();
-         ++partition) {
+    const auto maxPartitions = 1 << spillConfig_->numPartitionBits;
+    numDistinctSpillFilesPerPartition_.resize(maxPartitions, 0);
+    for (int partition = 0; partition < maxPartitions; ++partition) {
       numDistinctSpillFilesPerPartition_[partition] =
-          inputSpiller_->state().numFinishedFiles(partition);
+          inputSpiller_->state().numFinishedFiles(SpillPartitionId(partition));
       totalNumDistinctSpilledFiles +=
           numDistinctSpillFilesPerPartition_[partition];
     }
@@ -1266,7 +1262,7 @@ bool GroupingSet::mergeNextWithoutAggregates(
   VELOX_CHECK_NOT_NULL(inputSpiller_);
   VELOX_CHECK_EQ(
       numDistinctSpillFilesPerPartition_.size(),
-      inputSpiller_->state().maxPartitions());
+      1 << spillConfig_->numPartitionBits);
 
   // We are looping over sorted rows produced by tree-of-losers. We logically
   // split the stream into runs of duplicate rows. As we process each run we
@@ -1569,8 +1565,8 @@ void AggregationOutputSpiller::spill(const RowContainerIterator& startRowIter) {
 void AggregationOutputSpiller::runSpill(bool lastRun) {
   SpillerBase::runSpill(lastRun);
   if (lastRun) {
-    for (auto partition = 0; partition < spillRuns_.size(); ++partition) {
-      state_.finishFile(partition);
+    for (const auto& [partitionId, spillRun] : spillRuns_) {
+      state_.finishFile(partitionId);
     }
   }
 }

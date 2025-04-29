@@ -188,7 +188,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
   }
 
   struct SpillParams {
-    std::optional<int32_t> partition;
+    std::optional<SpillPartitionId> partitionId;
     std::optional<RowVectorPtr> spillVector;
     std::optional<SpillerBase::SpillRows*> spillRows;
     std::optional<RowContainerIterator*> rowIter;
@@ -199,9 +199,10 @@ class SpillerTest : public exec::test::RowContainerTestBase {
     const auto type = spiller->type();
     if (type == std::string(NoRowContainerSpiller::kType)) {
       auto* spillerImpl = castOrThrow<NoRowContainerSpiller*>(spiller);
-      ASSERT_TRUE(params.partition.has_value());
+      ASSERT_TRUE(params.partitionId.has_value());
       ASSERT_TRUE(params.spillVector.has_value());
-      spillerImpl->spill(params.partition.value(), params.spillVector.value());
+      spillerImpl->spill(
+          params.partitionId.value(), params.spillVector.value());
     } else if (type == std::string(SortInputSpiller::kType)) {
       auto* spillerImpl = castOrThrow<SortInputSpiller*>(spiller);
       spillerImpl->spill();
@@ -211,9 +212,9 @@ class SpillerTest : public exec::test::RowContainerTestBase {
       spillerImpl->spill(*params.spillRows.value());
     } else if (type == std::string(HashBuildSpiller::kType)) {
       auto* spillerImpl = castOrThrow<HashBuildSpiller*>(spiller);
-      if (params.partition.has_value() && params.spillVector.has_value()) {
+      if (params.partitionId.has_value() && params.spillVector.has_value()) {
         spillerImpl->spill(
-            params.partition.value(), params.spillVector.value());
+            params.partitionId.value(), params.spillVector.value());
       } else {
         spillerImpl->spill();
       }
@@ -371,7 +372,6 @@ class SpillerTest : public exec::test::RowContainerTestBase {
       totalSpilledBytes += readFile->size();
     }
     ASSERT_TRUE(spiller_->state().isAnyPartitionSpilled());
-    ASSERT_TRUE(spiller_->state().isAllPartitionSpilled());
     ASSERT_FALSE(spiller_->finalized());
     SpillPartitionSet spillPartitionSet;
     spiller_->finishSpill(spillPartitionSet);
@@ -379,7 +379,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
     ASSERT_TRUE(spiller_->finalized());
     ASSERT_EQ(rowContainer_->numRows(), 0);
     ASSERT_EQ(numPartitions_, spiller_->stats().spilledPartitions);
-    ASSERT_EQ(numPartitions_, spiller_->state().spilledPartitionSet().size());
+    ASSERT_EQ(numPartitions_, spiller_->state().spilledPartitionIdSet().size());
     ASSERT_EQ(numSpilledFiles, spiller_->stats().spilledFiles);
 
     // Assert we can't call any spill function after the spiller has been
@@ -680,8 +680,6 @@ class SpillerTest : public exec::test::RowContainerTestBase {
       VELOX_UNREACHABLE("Unknown spiller type");
     }
 
-    ASSERT_EQ(spiller_->state().maxPartitions(), numPartitions_);
-    ASSERT_FALSE(spiller_->state().isAllPartitionSpilled());
     ASSERT_FALSE(spiller_->state().isAnyPartitionSpilled());
     ASSERT_EQ(spiller_->hashBits(), hashBits_);
   }
@@ -703,8 +701,8 @@ class SpillerTest : public exec::test::RowContainerTestBase {
       SpillPartitionSet& spillPartitionSet,
       int32_t outputBatchSize = 0) {
     for (auto& spillPartitionEntry : spillPartitionSet) {
-      ASSERT_TRUE(spiller_->state().isPartitionSpilled(
-          spillPartitionEntry.first.partitionNumber()));
+      ASSERT_TRUE(
+          spiller_->state().isPartitionSpilled(spillPartitionEntry.first));
       const auto partition = spillPartitionEntry.first.partitionNumber();
       auto* spillPartition = spillPartitionEntry.second.get();
       // We make a merge reader that merges the spill files and the rows that
@@ -849,18 +847,26 @@ class SpillerTest : public exec::test::RowContainerTestBase {
     const int numSpillPartitions = (type_ != SpillerType::NO_ROW_CONTAINER)
         ? numPartitions_
         : 1 + folly::Random().rand32() % numPartitions_;
-    SpillPartitionNumSet spillPartitionNumSet;
-    while (spillPartitionNumSet.size() < numSpillPartitions) {
-      spillPartitionNumSet.insert(folly::Random().rand32() % numPartitions_);
+    SpillPartitionIdSet spillPartitionIdSet;
+    while (spillPartitionIdSet.size() < numSpillPartitions) {
+      spillPartitionIdSet.insert(
+          SpillPartitionId(folly::Random().rand32() % numPartitions_));
     }
+
+    std::stringstream ss;
+    ss << "[";
+    for (const auto& partitionId : spillPartitionIdSet) {
+      ss << partitionId.toString() << " ";
+    }
+    ss << "]";
     SCOPED_TRACE(fmt::format(
-        "Param: {}, numSpillers: {}, numBatchRows: {}, numAppendBatches: {}, targetFileSize: {}, spillPartitionNumSet: {}",
+        "Param: {}, numSpillers: {}, numBatchRows: {}, numAppendBatches: {}, targetFileSize: {}, spillPartitionIdSet: {}",
         param_.toString(),
         numSpillers,
         numBatchRows,
         numAppendBatches,
         targetFileSize,
-        folly::join(",", spillPartitionNumSet)));
+        ss.str()));
 
     std::vector<std::vector<RowVectorPtr>> inputsByPartition(numPartitions_);
 
@@ -878,28 +884,19 @@ class SpillerTest : public exec::test::RowContainerTestBase {
           nullptr,
           {});
       setupSpiller(targetFileSize, 0, false, maxSpillRunRows, readBufferSize);
-      // Can't append without marking a partition as spilling.
-      if (auto* noRowContainerSpiller =
-              dynamic_cast<NoRowContainerSpiller*>(spiller_.get())) {
-        VELOX_ASSERT_THROW(noRowContainerSpiller->spill(0, rowVector_), "");
-      } else if (
-          auto* hashBuildSpiller =
-              dynamic_cast<HashBuildSpiller*>(spiller_.get())) {
-        VELOX_ASSERT_THROW(hashBuildSpiller->spill(0, rowVector_), "");
-      }
 
       splitByPartition(rowVector_, spillHashFunction, inputsByPartition);
       if (auto* spiller =
               dynamic_cast<NoRowContainerSpiller*>(spiller_.get())) {
-        spiller->setPartitionsSpilled(spillPartitionNumSet);
+        spiller->setPartitionsSpilled(spillPartitionIdSet);
 #ifndef NDEBUG
         VELOX_ASSERT_THROW(
-            spiller->setPartitionsSpilled(spillPartitionNumSet), "");
+            spiller->setPartitionsSpilled(spillPartitionIdSet), "");
 #endif
       } else {
         spiller_->spill(nullptr);
         rowContainer_->clear();
-        ASSERT_TRUE(spiller_->state().isAllPartitionSpilled());
+        ASSERT_TRUE(spiller_->state().isAnyPartitionSpilled());
       }
       // Spill data.
       if (type_ == SpillerType::NO_ROW_CONTAINER) {
@@ -908,8 +905,10 @@ class SpillerTest : public exec::test::RowContainerTestBase {
         for (int i = 0; i < numAppendBatches; ++i) {
           RowVectorPtr batch = makeDataset(rowType_, numBatchRows, nullptr);
           splitByPartition(batch, spillHashFunction, inputsByPartition);
-          for (const auto& partition : spillPartitionNumSet) {
-            spiller->spill(partition, inputsByPartition[partition].back());
+          for (const auto& partition : spillPartitionIdSet) {
+            spiller->spill(
+                partition,
+                inputsByPartition[partition.partitionNumber()].back());
           }
         }
       }
@@ -917,7 +916,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
       // spilling.
       if (type_ != SpillerType::NO_ROW_CONTAINER) {
         spiller_->spill(nullptr);
-        ASSERT_TRUE(spiller_->state().isAllPartitionSpilled());
+        ASSERT_TRUE(spiller_->state().isAnyPartitionSpilled());
       }
 
       const auto stats = spiller_->stats();
@@ -998,7 +997,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
 
     // Read back data from all the spilled partitions and verify.
     verifyNonSortedSpillData(
-        std::move(spillers), spillPartitionNumSet, inputsByPartition);
+        std::move(spillers), spillPartitionIdSet, inputsByPartition);
 
     // Spilled file stats should be updated after finalizing spiller.
     if (numAppendBatches > 0) {
@@ -1008,7 +1007,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
 
   void verifyNonSortedSpillData(
       std::vector<std::unique_ptr<SpillerBase>> spillers,
-      const SpillPartitionNumSet& spillPartitionNumSet,
+      const SpillPartitionIdSet& spillPartitionNumSet,
       const std::vector<std::vector<RowVectorPtr>>& inputsByPartition) {
     needSort(type_);
 
@@ -1019,12 +1018,14 @@ class SpillerTest : public exec::test::RowContainerTestBase {
         auto* spillerImpl = dynamic_cast<NoRowContainerSpiller*>(spiller.get());
         ASSERT_NE(spillerImpl, nullptr);
         // Check finalized throw
-        VELOX_ASSERT_THROW(spillerImpl->spill(0, nullptr), "");
+        VELOX_ASSERT_THROW(
+            spillerImpl->spill(SpillPartitionId(0), nullptr), "");
       } else if (type_ == SpillerType::HASH_BUILD) {
         auto* spillerImpl = dynamic_cast<HashBuildSpiller*>(spiller.get());
         ASSERT_NE(spillerImpl, nullptr);
         // Check finalized throw
-        VELOX_ASSERT_THROW(spillerImpl->spill(0, nullptr), "");
+        VELOX_ASSERT_THROW(
+            spillerImpl->spill(SpillPartitionId(0), nullptr), "");
       }
       // Check finalized throw
       VELOX_ASSERT_THROW(spiller->spill(nullptr), "");
@@ -1091,7 +1092,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
   }
 
   void verifyNonSortedSpillData(
-      const SpillPartitionNumSet& spillPartitionNumSet,
+      const SpillPartitionNumSet& spillPartitionIdSet,
       const std::vector<std::vector<RowVectorPtr>>& inputsByPartition) {
     ASSERT_TRUE(
         type_ == SpillerType::HASH_BUILD ||
@@ -1104,14 +1105,14 @@ class SpillerTest : public exec::test::RowContainerTestBase {
     if (type_ == SpillerType::NO_ROW_CONTAINER) {
       auto* spillerImpl = dynamic_cast<NoRowContainerSpiller*>(spiller_.get());
       ASSERT_NE(spillerImpl, nullptr);
-      VELOX_ASSERT_THROW(spillerImpl->spill(0, nullptr), "");
+      VELOX_ASSERT_THROW(spillerImpl->spill(SpillPartitionId(0), nullptr), "");
     } else if (type_ == SpillerType::HASH_BUILD) {
       auto* spillerImpl = dynamic_cast<HashBuildSpiller*>(spiller_.get());
       ASSERT_NE(spillerImpl, nullptr);
-      VELOX_ASSERT_THROW(spillerImpl->spill(0, nullptr), "");
+      VELOX_ASSERT_THROW(spillerImpl->spill(SpillPartitionId(0), nullptr), "");
     }
     VELOX_ASSERT_THROW(spiller_->spill(nullptr), "");
-    ASSERT_EQ(spillPartitionSet.size(), spillPartitionNumSet.size());
+    ASSERT_EQ(spillPartitionSet.size(), spillPartitionIdSet.size());
 
     for (auto& spillPartitionEntry : spillPartitionSet) {
       const int partition = spillPartitionEntry.first.partitionNumber();
@@ -1416,7 +1417,7 @@ TEST_P(HashJoinBuildOnly, writeBufferSize) {
     spill(
         spiller_.get(),
         {std::nullopt, std::nullopt, std::nullopt, std::nullopt});
-    ASSERT_TRUE(spiller_->state().isAllPartitionSpilled());
+    ASSERT_TRUE(spiller_->state().isAnyPartitionSpilled());
     const int numDiskWrites = spiller_->stats().spillWrites;
     if (writeBufferSize != 0) {
       ASSERT_EQ(numDiskWrites, 0);
@@ -1441,7 +1442,7 @@ TEST_P(HashJoinBuildOnly, writeBufferSize) {
           // TODO: Check if this is for all types?
           spill(
               spiller_.get(),
-              {std::optional(partition),
+              {std::optional(SpillPartitionId(partition)),
                std::optional(splitVector.back()),
                std::nullopt,
                std::nullopt});
@@ -1452,7 +1453,7 @@ TEST_P(HashJoinBuildOnly, writeBufferSize) {
       rowVector_->append(inputVector.get());
     }
     const int numNonEmptySpilledPartitions =
-        spiller_->state().testingNonEmptySpilledPartitionSet().size();
+        spiller_->state().testingNonEmptySpilledPartitionIdSet().size();
 
     std::vector<std::vector<RowVectorPtr>> expectedVectorByPartition(
         numPartitions_);
@@ -1557,16 +1558,17 @@ TEST_P(AggregationOutputOnly, basic) {
 
     SpillPartitionSet spillPartitionSet;
     spiller_->finishSpill(spillPartitionSet);
-    ASSERT_EQ(spillPartitionSet.size(), 1);
     ASSERT_TRUE(spiller_->finalized());
-    auto spillPartition = std::move(spillPartitionSet.begin()->second);
 
     const int expectedNumSpilledRows = numRows - numListedRows;
-    auto merge = spillPartition->createOrderedReader(
-        spillConfig_.readBufferSize, pool(), &spillStats_);
     if (expectedNumSpilledRows == 0) {
-      ASSERT_TRUE(merge == nullptr);
+      ASSERT_EQ(spillPartitionSet.size(), 0);
     } else {
+      ASSERT_EQ(spillPartitionSet.size(), 1);
+      auto spillPartition = std::move(spillPartitionSet.begin()->second);
+      auto merge = spillPartition->createOrderedReader(
+          spillConfig_.readBufferSize, pool(), &spillStats_);
+
       for (auto i = 0; i < expectedNumSpilledRows; ++i) {
         auto* stream = merge->next();
         ASSERT_TRUE(stream != nullptr);

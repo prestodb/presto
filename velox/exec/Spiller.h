@@ -79,9 +79,9 @@ class SpillerBase {
 
   virtual std::string type() const = 0;
 
-  // Marks all the partitions have been spilled as we don't support
-  // fine-grained spilling as for now.
-  void markAllPartitionsSpilled();
+  // Marks all the seen partitions in 'spillRuns_' have been spilled in spill
+  // state.
+  void markSeenPartitionsSpilled();
 
   void updateSpillFillTime(uint64_t timeNs);
 
@@ -121,16 +121,20 @@ class SpillerBase {
     }
   };
 
+  // Retrieves the spill run at given spill partition id. Creates one if not
+  // existed.
+  inline SpillRun& createOrGetSpillRun(const SpillPartitionId& id);
+
   struct SpillStatus {
-    const int32_t partition;
+    const SpillPartitionId partitionId;
     const int32_t rowsWritten;
     const std::exception_ptr error;
 
     SpillStatus(
-        int32_t _partition,
+        SpillPartitionId _partitionId,
         int32_t _numWritten,
         std::exception_ptr _error)
-        : partition(_partition), rowsWritten(_numWritten), error(_error) {}
+        : partitionId(_partitionId), rowsWritten(_numWritten), error(_error) {}
   };
 
   RowContainer* const container_{nullptr};
@@ -154,14 +158,14 @@ class SpillerBase {
   SpillState state_;
 
   // Collects the rows to spill for each partition.
-  std::vector<SpillRun> spillRuns_;
+  folly::F14FastMap<SpillPartitionId, SpillRun> spillRuns_;
 
  private:
   // Function for writing a spill partition on an executor. Writes to
-  // 'partition' until all rows in spillRuns_[partition] are written
+  // partition with 'id' until all rows in spillRuns_[id] are written
   // or spill file size limit is exceeded. Returns the number of rows
   // written.
-  std::unique_ptr<SpillStatus> writeSpill(int32_t partition);
+  std::unique_ptr<SpillStatus> writeSpill(const SpillPartitionId& id);
 
   // Prepares spill runs for the spillable data from all the hash partitions.
   // If 'startRowIter' is not null, we prepare runs starting from the offset
@@ -204,11 +208,13 @@ class NoRowContainerSpiller : public SpillerBase {
       const common::SpillConfig* spillConfig,
       folly::Synchronized<common::SpillStats>* spillStats);
 
-  void spill(uint32_t partition, const RowVectorPtr& spillVector);
+  void spill(
+      const SpillPartitionId& partitionId,
+      const RowVectorPtr& spillVector);
 
-  void setPartitionsSpilled(const SpillPartitionNumSet& partitions) {
-    for (const auto& partition : partitions) {
-      state_.setPartitionSpilled(partition);
+  void setPartitionsSpilled(const SpillPartitionIdSet& ids) {
+    for (const auto& id : ids) {
+      state_.setPartitionSpilled(id);
     }
   }
 

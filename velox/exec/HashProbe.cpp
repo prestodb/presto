@@ -98,17 +98,6 @@ BlockingReason fromStateToBlockingReason(ProbeOperatorState state) {
   }
 }
 
-// Generate partition number set from spill partition id set.
-SpillPartitionNumSet toPartitionNumSet(
-    const SpillPartitionIdSet& partitionIdSet) {
-  SpillPartitionNumSet partitionNumSet;
-  partitionNumSet.reserve(partitionIdSet.size());
-  for (const auto& partitionId : partitionIdSet) {
-    partitionNumSet.insert(partitionId.partitionNumber());
-  }
-  return partitionNumSet;
-}
-
 template <typename T>
 T* initBuffer(BufferPtr& buffer, vector_size_t size, memory::MemoryPool* pool) {
   VELOX_CHECK(!buffer || buffer->isMutable());
@@ -117,7 +106,6 @@ T* initBuffer(BufferPtr& buffer, vector_size_t size, memory::MemoryPool* pool) {
   }
   return buffer->asMutable<T>();
 }
-
 } // namespace
 
 HashProbe::HashProbe(
@@ -263,8 +251,10 @@ void HashProbe::maybeSetupInputSpiller(
       &spillStats_);
   // Set the spill partitions to the corresponding ones at the build side. The
   // hash probe operator itself won't trigger any spilling.
+  // TODO: Remove flattening of the partition id after nested spill id is fully
+  // integrated.
   inputSpiller_->setPartitionsSpilled(
-      toPartitionNumSet(spillInputPartitionIds_));
+      toSpillPartitionIdSet(toPartitionNumSet(spillInputPartitionIds_)));
 
   spillHashFunction_ = std::make_unique<HashPartitionFunction>(
       inputSpiller_->hashBits(), probeType_, keyChannels_);
@@ -533,7 +523,8 @@ void HashProbe::spillInput(RowVectorPtr& input) {
 
   const auto numInput = input->size();
   prepareInputIndicesBuffers(
-      input->size(), inputSpiller_->state().spilledPartitionSet());
+      input->size(),
+      toPartitionNumSet(inputSpiller_->state().spilledPartitionIdSet()));
   const auto singlePartition =
       spillHashFunction_->partition(*input, spillPartitions_);
 
@@ -541,7 +532,8 @@ void HashProbe::spillInput(RowVectorPtr& input) {
   for (auto row = 0; row < numInput; ++row) {
     const auto partition = singlePartition.has_value() ? singlePartition.value()
                                                        : spillPartitions_[row];
-    if (!inputSpiller_->state().isPartitionSpilled(partition)) {
+    if (!inputSpiller_->state().isPartitionSpilled(
+            SpillPartitionId(partition))) {
       rawNonSpillInputIndicesBuffer_[numNonSpillingInput++] = row;
       continue;
     }
@@ -561,9 +553,10 @@ void HashProbe::spillInput(RowVectorPtr& input) {
     if (numSpillInputs == 0) {
       continue;
     }
-    VELOX_CHECK(inputSpiller_->state().isPartitionSpilled(partition));
+    VELOX_CHECK(
+        inputSpiller_->state().isPartitionSpilled(SpillPartitionId(partition)));
     inputSpiller_->spill(
-        partition,
+        SpillPartitionId(partition),
         wrap(numSpillInputs, spillInputIndicesBuffers_[partition], input));
   }
 
@@ -1664,7 +1657,7 @@ void HashProbe::noMoreInputInternal() {
     VELOX_CHECK_NOT_NULL(inputSpiller_);
     VELOX_CHECK_EQ(
         spillInputPartitionIds_.size(),
-        inputSpiller_->state().spilledPartitionSet().size());
+        inputSpiller_->state().spilledPartitionIdSet().size());
     inputSpiller_->finishSpill(inputSpillPartitionSet_);
     VELOX_CHECK_EQ(spillStats_.rlock()->spillSortTimeNanos, 0);
   }
@@ -1935,7 +1928,7 @@ void HashProbe::spillOutput() {
   // We spill all the outputs produced from 'input_' into a single partition.
   auto outputSpiller = std::make_unique<NoRowContainerSpiller>(
       outputType_, std::nullopt, HashBitRange{}, spillConfig(), &spillStats_);
-  outputSpiller->setPartitionsSpilled({0});
+  outputSpiller->setPartitionsSpilled({SpillPartitionId(0)});
 
   RowVectorPtr output{nullptr};
   for (;;) {
@@ -1945,7 +1938,7 @@ void HashProbe::spillOutput() {
       for (int32_t i = 0; i < output->childrenSize(); ++i) {
         output->childAt(i)->loadedVector();
       }
-      outputSpiller->spill(0, output);
+      outputSpiller->spill(SpillPartitionId(0), output);
       continue;
     }
     // NOTE: for right semi join types, we need to check if 'input_' has been
@@ -1958,7 +1951,7 @@ void HashProbe::spillOutput() {
         isRightSemiFilterJoin(joinType_) || isRightSemiProjectJoin(joinType_));
     VELOX_CHECK((output == nullptr) && (input_ != nullptr));
   }
-  VELOX_CHECK_LE(outputSpiller->state().spilledPartitionSet().size(), 1);
+  VELOX_CHECK_LE(outputSpiller->state().spilledPartitionIdSet().size(), 1);
 
   VELOX_CHECK(spillOutputPartitionSet_.empty());
   outputSpiller->finishSpill(spillOutputPartitionSet_);

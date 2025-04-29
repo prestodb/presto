@@ -5618,10 +5618,10 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringWaitForProbe) {
   std::atomic_bool testWaitFlag{true};
   folly::EventCount testWait;
 
-  Operator* op;
+  Operator* op{nullptr};
   std::atomic<bool> injectSpillOnce{true};
   SCOPED_TESTVALUE_SET(
-      "facebook::velox::exec::Driver::runInternal::addInput",
+      "facebook::velox::exec::HashBuild::finishHashBuild",
       std::function<void(Operator*)>(([&](Operator* testOp) {
         if (testOp->operatorType() != "HashBuild") {
           return;
@@ -5633,11 +5633,8 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringWaitForProbe) {
         auto* driver = op->testingOperatorCtx()->driver();
         auto task = driver->task();
         memory::ScopedMemoryArbitrationContext ctx(op->pool());
-        TestSuspendedSection suspendedSection(driver);
-        auto taskPauseWait = task->requestPause();
-        taskPauseWait.wait();
-        op->reclaim(0, reclaimerStats_);
-        Task::resume(task);
+        Operator::ReclaimableSectionGuard guard(testOp);
+        testingRunArbitration(testOp->pool());
       })));
 
   std::atomic<bool> injectOnce{true};
@@ -6268,7 +6265,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, exceededMaxSpillLevel) {
         ASSERT_FALSE(hashProbe->testingExceededMaxSpillLevelLimit());
       })));
   SCOPED_TESTVALUE_SET(
-      "facebook::velox::exec::HashBuild::addInput",
+      "facebook::velox::exec::HashBuild::finishHashBuild",
       std::function<void(exec::HashBuild*)>(([&](exec::HashBuild* hashBuild) {
         Operator::ReclaimableSectionGuard guard(hashBuild);
         testingRunArbitration(hashBuild->pool());

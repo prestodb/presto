@@ -415,12 +415,12 @@ SpillPartitionNumSet RowNumber::spillHashTable() {
 
   table_->clear(/*freeTable=*/true);
   pool()->release();
-  return hashTableSpiller->state().spilledPartitionSet();
+  return toPartitionNumSet(hashTableSpiller->state().spilledPartitionIdSet());
 }
 
 void RowNumber::setupInputSpiller(
-    const SpillPartitionNumSet& spillPartitionSet) {
-  VELOX_CHECK(!spillPartitionSet.empty());
+    const SpillPartitionNumSet& spillPartitionNumSet) {
+  VELOX_CHECK(!spillPartitionNumSet.empty());
 
   const auto& spillConfig = spillConfig_.value();
 
@@ -430,7 +430,8 @@ void RowNumber::setupInputSpiller(
       spillPartitionBits_,
       &spillConfig,
       &spillStats_);
-  inputSpiller_->setPartitionsSpilled(spillPartitionSet);
+  inputSpiller_->setPartitionsSpilled(
+      toSpillPartitionIdSet(spillPartitionNumSet));
 
   const auto& hashers = table_->hashers();
 
@@ -447,10 +448,10 @@ void RowNumber::setupInputSpiller(
 void RowNumber::spill() {
   VELOX_CHECK(spillEnabled());
 
-  const auto spillPartitionSet = spillHashTable();
+  const auto spillPartitionNumSet = spillHashTable();
   VELOX_CHECK_EQ(table_->numDistinct(), 0);
 
-  setupInputSpiller(spillPartitionSet);
+  setupInputSpiller(spillPartitionNumSet);
   if (input_ != nullptr) {
     spillInput(input_, memory::spillMemoryPool());
     input_ = nullptr;
@@ -500,7 +501,8 @@ void RowNumber::spillInput(
     }
 
     inputSpiller_->spill(
-        partition, wrap(numInputs, partitionIndices[partition], input));
+        SpillPartitionId(partition),
+        wrap(numInputs, partitionIndices[partition], input));
   }
 }
 

@@ -48,7 +48,7 @@ void JoinSpillInputBenchmarkBase::setUp() {
   spiller_ = std::make_unique<NoRowContainerSpiller>(
       rowType_, std::nullopt, HashBitRange{29, 29}, &spillConfig, &spillStats_);
   dynamic_cast<NoRowContainerSpiller*>(spiller_.get())
-      ->setPartitionsSpilled({0});
+      ->setPartitionsSpilled({SpillPartitionId(0)});
 }
 
 void JoinSpillInputBenchmarkBase::run() {
@@ -57,7 +57,8 @@ void JoinSpillInputBenchmarkBase::run() {
       dynamic_cast<NoRowContainerSpiller*>(spiller_.get());
   VELOX_CHECK_NOT_NULL(noRowContainerSpiller);
   for (auto i = 0; i < numInputVectors_; ++i) {
-    noRowContainerSpiller->spill(0, rowVectors_[i % numSampleVectors]);
+    noRowContainerSpiller->spill(
+        SpillPartitionId(0), rowVectors_[i % numSampleVectors]);
   }
 }
 
