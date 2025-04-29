@@ -77,6 +77,7 @@ PlanBuilder& PlanBuilder::tableScan(
         std::string,
         std::shared_ptr<connector::ColumnHandle>>& assignments) {
   return TableScanBuilder(*this)
+      .filtersAsNode(filtersAsNode_ ? planNodeIdGenerator_ : nullptr)
       .outputType(outputType)
       .assignments(assignments)
       .subfieldFilters(subfieldFilters)
@@ -97,6 +98,7 @@ PlanBuilder& PlanBuilder::tableScan(
         std::string,
         std::shared_ptr<connector::ColumnHandle>>& assignments) {
   return TableScanBuilder(*this)
+      .filtersAsNode(filtersAsNode_ ? planNodeIdGenerator_ : nullptr)
       .tableName(tableName)
       .outputType(outputType)
       .columnAliases(columnAliases)
@@ -127,6 +129,7 @@ PlanBuilder& PlanBuilder::tpchTableScan(
   }
   auto rowType = ROW(std::move(columnNames), std::move(outputTypes));
   return TableScanBuilder(*this)
+      .filtersAsNode(filtersAsNode_ ? planNodeIdGenerator_ : nullptr)
       .outputType(rowType)
       .tableHandle(std::make_shared<connector::tpch::TpchTableHandle>(
           std::string(connectorId), table, scaleFactor))
@@ -153,6 +156,21 @@ PlanBuilder::TableScanBuilder& PlanBuilder::TableScanBuilder::remainingFilter(
   }
   return *this;
 }
+
+namespace {
+void addConjunct(
+    const core::TypedExprPtr& conjunct,
+    core::TypedExprPtr& conjunction) {
+  if (!conjunction) {
+    conjunction = conjunct;
+  } else {
+    conjunction = std::make_shared<core::CallTypedExpr>(
+        BOOLEAN(),
+        std::vector<core::TypedExprPtr>{conjunction, conjunct},
+        "and");
+  }
+}
+} // namespace
 
 core::PlanNodePtr PlanBuilder::TableScanBuilder::build(core::PlanNodeId id) {
   VELOX_CHECK_NOT_NULL(outputType_, "outputType must be specified");
@@ -184,6 +202,7 @@ core::PlanNodePtr PlanBuilder::TableScanBuilder::build(core::PlanNodeId id) {
 
   const RowTypePtr& parseType = dataColumns_ ? dataColumns_ : outputType_;
 
+  core::TypedExprPtr filterNodeExpr;
   common::SubfieldFilters filters;
   filters.reserve(subfieldFilters_.size());
   auto queryCtx = core::QueryCtx::create();
@@ -192,20 +211,24 @@ core::PlanNodePtr PlanBuilder::TableScanBuilder::build(core::PlanNodeId id) {
   for (const auto& filter : subfieldFilters_) {
     auto filterExpr =
         core::Expressions::inferTypes(filter, parseType, planBuilder_.pool_);
-    auto [subfield, subfieldFilter] =
-        exec::toSubfieldFilter(filterExpr, &evaluator);
+    if (filtersAsNode_) {
+      addConjunct(filterExpr, filterNodeExpr);
+    } else {
+      auto [subfield, subfieldFilter] =
+          exec::toSubfieldFilter(filterExpr, &evaluator);
 
-    auto it = columnAliases_.find(subfield.toString());
-    if (it != columnAliases_.end()) {
-      subfield = common::Subfield(it->second);
+      auto it = columnAliases_.find(subfield.toString());
+      if (it != columnAliases_.end()) {
+        subfield = common::Subfield(it->second);
+      }
+      VELOX_CHECK_EQ(
+          filters.count(subfield),
+          0,
+          "Duplicate subfield: {}",
+          subfield.toString());
+
+      filters[std::move(subfield)] = std::move(subfieldFilter);
     }
-    VELOX_CHECK_EQ(
-        filters.count(subfield),
-        0,
-        "Duplicate subfield: {}",
-        subfield.toString());
-
-    filters[std::move(subfield)] = std::move(subfieldFilter);
   }
 
   core::TypedExprPtr remainingFilterExpr;
@@ -213,6 +236,10 @@ core::PlanNodePtr PlanBuilder::TableScanBuilder::build(core::PlanNodeId id) {
     remainingFilterExpr = core::Expressions::inferTypes(
                               remainingFilter_, parseType, planBuilder_.pool_)
                               ->rewriteInputNames(typedMapping);
+    if (filtersAsNode_) {
+      addConjunct(remainingFilterExpr, filterNodeExpr);
+      remainingFilterExpr = nullptr;
+    }
   }
 
   if (!tableHandle_) {
@@ -224,8 +251,14 @@ core::PlanNodePtr PlanBuilder::TableScanBuilder::build(core::PlanNodeId id) {
         remainingFilterExpr,
         dataColumns_);
   }
-  return std::make_shared<core::TableScanNode>(
+  core::PlanNodePtr result = std::make_shared<core::TableScanNode>(
       id, outputType_, tableHandle_, assignments_);
+  if (filtersAsNode_ && filterNodeExpr) {
+    auto filterId = planNodeIdGenerator_->next();
+    result =
+        std::make_shared<core::FilterNode>(filterId, filterNodeExpr, result);
+  }
+  return result;
 }
 
 core::PlanNodePtr PlanBuilder::TableWriterBuilder::build(core::PlanNodeId id) {

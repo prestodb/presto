@@ -202,6 +202,16 @@ class PlanBuilder {
       return *this;
     }
 
+    /// if 'idGenerator' is non-nullptr, produces filters that would be pushed
+    /// down into the scan as a separate FilterNode instead. 'idGenerator'
+    /// produces the id for the filterNode.
+    TableScanBuilder& filtersAsNode(
+        std::shared_ptr<core::PlanNodeIdGenerator> idGenerator) {
+      filtersAsNode_ = idGenerator != nullptr;
+      planNodeIdGenerator_ = idGenerator;
+      return *this;
+    }
+
     /// @param connectorId The id of the connector to scan.
     TableScanBuilder& connectorId(std::string connectorId) {
       connectorId_ = std::move(connectorId);
@@ -300,6 +310,12 @@ class PlanBuilder {
     std::shared_ptr<connector::ConnectorTableHandle> tableHandle_;
     std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
         assignments_;
+
+    // produce filters as a FilterNode instead of pushdown.
+    bool filtersAsNode_{false};
+
+    // Generates the id of a FilterNode if 'filtersAsNode_'.
+    std::shared_ptr<core::PlanNodeIdGenerator> planNodeIdGenerator_;
   };
 
   /// Start a TableScanBuilder.
@@ -480,6 +496,11 @@ class PlanBuilder {
       const std::vector<RowVectorPtr>& values,
       bool parallelizable = false,
       size_t repeatTimes = 1);
+
+  PlanBuilder& filtersAsNode(bool _filtersAsNode) {
+    filtersAsNode_ = _filtersAsNode;
+    return *this;
+  }
 
   /// Adds a QueryReplayNode for query tracing.
   ///
@@ -1240,6 +1261,20 @@ class PlanBuilder {
     return *this;
   }
 
+  /// Captures the id for the latest TableScanNode. this is useful when using
+  /// filtersAsNode(), where a table scan can have a filter over it.
+  PlanBuilder& captureScanNodeId(core::PlanNodeId& id) {
+    auto node = planNode_;
+    for (;;) {
+      VELOX_CHECK_NOT_NULL(node);
+      if (dynamic_cast<const core::TableScanNode*>(node.get())) {
+        id = node->id();
+        return *this;
+      }
+      node = node->sources()[0];
+    }
+  }
+
   /// Stores the latest plan node into the specified variable. Useful for
   /// capturing intermediate plan nodes without interrupting the build flow.
   template <typename T = core::PlanNode>
@@ -1394,5 +1429,6 @@ class PlanBuilder {
  private:
   std::shared_ptr<core::PlanNodeIdGenerator> planNodeIdGenerator_;
   memory::MemoryPool* pool_;
+  bool filtersAsNode_{false};
 };
 } // namespace facebook::velox::exec::test

@@ -60,8 +60,10 @@ struct TpchTableMetadata {
 /// should be in the same order as in the TPC-H standard.
 class TpchQueryBuilder {
  public:
-  explicit TpchQueryBuilder(dwio::common::FileFormat format)
-      : format_(format) {}
+  explicit TpchQueryBuilder(
+      dwio::common::FileFormat format,
+      bool filtersAsNode = false)
+      : format_(format), filtersAsNode_(filtersAsNode) {}
 
   /// Read each data file, initialize row types, and determine data paths for
   /// each table.
@@ -147,6 +149,7 @@ class TpchQueryBuilder {
   static constexpr const char* kPartsupp = "partsupp";
   std::shared_ptr<memory::MemoryPool> pool_ =
       memory::memoryManager()->addLeafPool();
+  const bool filtersAsNode_;
 };
 
 } // namespace facebook::velox::exec::test
