@@ -66,6 +66,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.common.resourceGroups.QueryType.CONTROL;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.expectThrows;
@@ -335,7 +336,7 @@ public class TestEventListenerManager
         Optional<String> catalog = Optional.of("dummyCatalog");
         Optional<String> schema = Optional.of("dummySchema");
         Optional<ResourceGroupId> resourceGroupId = Optional.of(new ResourceGroupId("dummyGroupId"));
-
+        Optional<QueryType> queryType = Optional.of(CONTROL);
         Set<String> clientTags = new HashSet<>(Arrays.asList("tag1", "tag2", "tag3"));
 
         Map<String, String> sessionProperties = new HashMap<>();
@@ -363,7 +364,8 @@ public class TestEventListenerManager
                 serverAddress,
                 serverVersion,
                 environment,
-                workerType);
+                workerType,
+                queryType);
     }
 
     private static QueryIOMetadata createDummyQueryIoMetadata()

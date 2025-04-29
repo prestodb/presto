@@ -220,6 +220,7 @@ public class TestEventListener
         assertEquals(queryCreatedEvent.getContext().getServerAddress(), "127.0.0.1");
         assertEquals(queryCreatedEvent.getContext().getEnvironment(), "testing");
         assertEquals(queryCreatedEvent.getContext().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
+        assertEquals(queryCreatedEvent.getContext().getQueryType().get().toString(), "CONTROL");
         assertEquals(queryCreatedEvent.getMetadata().getQuery(), prepareQuery);
         assertFalse(queryCreatedEvent.getMetadata().getPreparedQuery().isPresent());
 
