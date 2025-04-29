@@ -98,15 +98,11 @@ public final class PrestoSystemRequirements
         }
 
         JavaVersion version = JavaVersion.parse(javaVersion);
-        if (version.getMajor() == 8 && version.getUpdate().isPresent() && version.getUpdate().getAsInt() >= 151) {
+        if (version.getMajor() >= 17) {
             return;
         }
 
-        if (version.getMajor() >= 9) {
-            return;
-        }
-
-        failRequirement("Presto requires Java 8u151+ (found %s)", javaVersion);
+        failRequirement("Presto requires Java 17 (found %s)", javaVersion);
     }
 
     private static void verifyUsingG1Gc()
