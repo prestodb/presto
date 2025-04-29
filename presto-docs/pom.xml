@@ -36,7 +36,7 @@
 
         <plugins>
             <plugin>
-                <groupId>com.facebook.drift</groupId>
+                <groupId>com.facebook.airlift.drift</groupId>
                 <artifactId>drift-maven-plugin</artifactId>
                 <executions>
                     <execution>
