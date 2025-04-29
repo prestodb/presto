@@ -48,7 +48,7 @@ public class GrantRolesTask
     }
 
     @Override
-    public ListenableFuture<?> execute(GrantRoles statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
+    public ListenableFuture<?> execute(GrantRoles statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector, String query)
     {
         Set<String> roles = statement.getRoles().stream().map(role -> role.getValue().toLowerCase(Locale.ENGLISH)).collect(toImmutableSet());
         Set<PrestoPrincipal> grantees = statement.getGrantees().stream()

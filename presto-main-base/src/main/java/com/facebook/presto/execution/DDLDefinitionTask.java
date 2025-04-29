@@ -29,5 +29,5 @@ public interface DDLDefinitionTask<T extends Statement>
 {
     ListenableFuture<?> execute(T statement, TransactionManager transactionManager, Metadata metadata,
                                 AccessControl accessControl, Session session, List<Expression> parameters,
-                                WarningCollector warningCollector);
+                                WarningCollector warningCollector, String query);
 }

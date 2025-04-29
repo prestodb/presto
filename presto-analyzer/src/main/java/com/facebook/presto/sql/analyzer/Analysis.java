@@ -843,6 +843,11 @@ public class Analysis
         return accessControlReferences;
     }
 
+    public void addQueryAccessControlInfo(AccessControlInfo accessControlInfo)
+    {
+        accessControlReferences.setQueryAccessControlInfo(accessControlInfo);
+    }
+
     public void addAccessControlCheckForTable(AccessControlRole accessControlRole, AccessControlInfoForTable accessControlInfoForTable)
     {
         accessControlReferences.addTableReference(accessControlRole, accessControlInfoForTable);

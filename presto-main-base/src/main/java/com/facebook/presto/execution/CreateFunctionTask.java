@@ -80,11 +80,11 @@ public class CreateFunctionTask
     }
 
     @Override
-    public ListenableFuture<?> execute(CreateFunction statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
+    public ListenableFuture<?> execute(CreateFunction statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters, String query)
     {
         Map<NodeRef<com.facebook.presto.sql.tree.Parameter>, Expression> parameterLookup = parameterExtractor(statement, parameters);
         Session session = stateMachine.getSession();
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.empty(), parameters, parameterLookup, stateMachine.getWarningCollector());
+        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.empty(), parameters, parameterLookup, stateMachine.getWarningCollector(), query);
         Analysis analysis = analyzer.analyze(statement);
         if (analysis.getFunctionHandles().values().stream()
                 .anyMatch(SqlFunctionHandle.class::isInstance)) {

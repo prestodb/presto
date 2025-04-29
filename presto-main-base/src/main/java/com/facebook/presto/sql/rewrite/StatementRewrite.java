@@ -53,10 +53,11 @@ public final class StatementRewrite
             List<Expression> parameters,
             Map<NodeRef<Parameter>, Expression> parameterLookup,
             AccessControl accessControl,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            String query)
     {
         for (Rewrite rewrite : REWRITES) {
-            node = requireNonNull(rewrite.rewrite(session, metadata, parser, queryExplainer, node, parameters, parameterLookup, accessControl, warningCollector), "Statement rewrite returned null");
+            node = requireNonNull(rewrite.rewrite(session, metadata, parser, queryExplainer, node, parameters, parameterLookup, accessControl, warningCollector, query), "Statement rewrite returned null");
         }
         return node;
     }
@@ -72,6 +73,7 @@ public final class StatementRewrite
                 List<Expression> parameters,
                 Map<NodeRef<Parameter>, Expression> parameterLookup,
                 AccessControl accessControl,
-                WarningCollector warningCollector);
+                WarningCollector warningCollector,
+                String query);
     }
 }

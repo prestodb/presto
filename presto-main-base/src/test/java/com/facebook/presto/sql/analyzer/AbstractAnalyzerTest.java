@@ -488,7 +488,7 @@ public class AbstractAnalyzerTest
                 .readUncommitted()
                 .readOnly()
                 .execute(clientSession, session -> {
-                    Analyzer analyzer = AbstractAnalyzerTest.createAnalyzer(session, metadata, warningCollector);
+                    Analyzer analyzer = AbstractAnalyzerTest.createAnalyzer(session, metadata, warningCollector, query);
                     Statement statement = SQL_PARSER.createStatement(query);
                     analyzer.analyze(statement);
                 });
@@ -559,7 +559,7 @@ public class AbstractAnalyzerTest
         }
     }
 
-    protected static Analyzer createAnalyzer(Session session, Metadata metadata, WarningCollector warningCollector)
+    protected static Analyzer createAnalyzer(Session session, Metadata metadata, WarningCollector warningCollector, String query)
     {
         return new Analyzer(
                 session,
@@ -569,7 +569,8 @@ public class AbstractAnalyzerTest
                 Optional.empty(),
                 emptyList(),
                 emptyMap(),
-                warningCollector);
+                warningCollector,
+                query);
     }
 
     private Catalog createTestingCatalog(String catalogName, ConnectorId connectorId)

@@ -176,7 +176,8 @@ final class ShowQueriesRewrite
             List<Expression> parameters,
             Map<NodeRef<Parameter>, Expression> parameterLookup,
             AccessControl accessControl,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            String query)
     {
         return (Statement) new Visitor(metadata, parser, session, parameters, accessControl, queryExplainer, warningCollector).process(node, null);
     }
