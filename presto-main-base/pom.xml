@@ -149,44 +149,48 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.drift</groupId>
+            <groupId>com.facebook.airlift.drift</groupId>
             <artifactId>drift-server</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.drift</groupId>
+            <groupId>com.facebook.airlift.drift</groupId>
             <artifactId>drift-transport-netty</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.drift</groupId>
-            <artifactId>drift-transport-spi</artifactId>
-            <scope>compile</scope>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-buffer</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.drift</groupId>
+            <groupId>com.facebook.airlift.drift</groupId>
+            <artifactId>drift-transport-spi</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.airlift.drift</groupId>
             <artifactId>drift-client</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.drift</groupId>
+            <groupId>com.facebook.airlift.drift</groupId>
             <artifactId>drift-protocol</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.drift</groupId>
+            <groupId>com.facebook.airlift.drift</groupId>
             <artifactId>drift-codec</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.drift</groupId>
+            <groupId>com.facebook.airlift.drift</groupId>
             <artifactId>drift-api</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.drift</groupId>
+            <groupId>com.facebook.airlift.drift</groupId>
             <artifactId>drift-codec-utils</artifactId>
             <scope>test</scope>
         </dependency>
@@ -525,7 +529,11 @@
                         <ignoredDependency>com.facebook.presto:presto-ui:jar</ignoredDependency>
                     </ignoredDependencies>
                     <!-- Not used, but required to compile due to use of an implementation which uses the "Address" type from this dependency -->
-                    <ignoredNonTestScopedDependencies>com.facebook.drift:drift-transport-spi</ignoredNonTestScopedDependencies>
+                    <ignoredNonTestScopedDependencies>
+                        <ignoredNonTestScopedDependency>com.facebook.airlift.drift:drift-transport-spi</ignoredNonTestScopedDependency>
+                        <!-- Used in tests, but required by drift-transport-netty which is in compile scope -->
+                        <ignoredNonTestScopedDependency>io.netty:netty-buffer</ignoredNonTestScopedDependency>
+                    </ignoredNonTestScopedDependencies>
                 </configuration>
             </plugin>
         </plugins>
