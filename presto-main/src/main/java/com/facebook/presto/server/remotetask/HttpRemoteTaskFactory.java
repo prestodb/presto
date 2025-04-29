@@ -109,6 +109,7 @@ public class HttpRemoteTaskFactory
     private final DecayCounter taskUpdateRequestSize;
     private final boolean taskUpdateSizeTrackingEnabled;
     private final Optional<SafeEventLoopGroup> eventLoopGroup;
+    private final long slowMethodThresholdOnEventLoopInNanos;
 
     @Inject
     public HttpRemoteTaskFactory(
@@ -194,8 +195,9 @@ public class HttpRemoteTaskFactory
         this.taskUpdateRequestSize = new DecayCounter(ExponentialDecay.oneMinute());
         this.taskUpdateSizeTrackingEnabled = taskConfig.isTaskUpdateSizeTrackingEnabled();
 
+        this.slowMethodThresholdOnEventLoopInNanos = taskConfig.getSlowMethodThresholdOnEventLoop();
         this.eventLoopGroup = taskConfig.isEventLoopEnabled() ? Optional.of(new SafeEventLoopGroup(config.getRemoteTaskMaxCallbackThreads(),
-                new ThreadFactoryBuilder().setNameFormat("task-event-loop-%s").setDaemon(true).build())
+                new ThreadFactoryBuilder().setNameFormat("task-event-loop-%s").setDaemon(true).build(), this.slowMethodThresholdOnEventLoopInNanos)
         {
             @Override
             protected EventLoop newChild(Executor executor, Object... args)

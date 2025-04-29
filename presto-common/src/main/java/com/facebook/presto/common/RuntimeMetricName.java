@@ -68,6 +68,8 @@ public class RuntimeMetricName
     public static final String TASK_UPDATE_DELIVERED_WALL_TIME_NANOS = "taskUpdateDeliveredWallTimeNanos";
     public static final String TASK_UPDATE_SERIALIZED_CPU_TIME_NANOS = "taskUpdateSerializedCpuNanos";
     public static final String TASK_PLAN_SERIALIZED_CPU_TIME_NANOS = "taskPlanSerializedCpuNanos";
+    // Time for event loop to execute a method
+    public static final String EVENT_LOOP_METHOD_EXECUTION_CPU_TIME_NANOS = "eventLoopMethodExecutionCpuNanos";
     // Time taken for a read call to storage
     public static final String STORAGE_READ_TIME_NANOS = "storageReadTimeNanos";
     // Size of the data retrieved by read call to storage

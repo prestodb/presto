@@ -14,17 +14,22 @@
 package com.facebook.presto.execution;
 
 import com.facebook.airlift.log.Logger;
+import com.sun.management.ThreadMXBean;
 import io.netty.channel.DefaultEventLoop;
 import io.netty.channel.DefaultEventLoopGroup;
 import io.netty.channel.EventLoop;
 import io.netty.channel.EventLoopGroup;
 
+import java.lang.management.GarbageCollectorMXBean;
+import java.lang.management.ManagementFactory;
+import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadFactory;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 /***
  *  One observation about event loop is if submitted task fails, it could kill the thread but the event loop group will not create a new one.
@@ -35,10 +40,15 @@ public class SafeEventLoopGroup
         extends DefaultEventLoopGroup
 {
     private static final Logger log = Logger.get(SafeEventLoopGroup.class);
+    private static final ThreadMXBean THREAD_MX_BEAN = (ThreadMXBean) ManagementFactory.getThreadMXBean();
+    private static final List<GarbageCollectorMXBean> gcBeans = ManagementFactory.getGarbageCollectorMXBeans();
 
-    public SafeEventLoopGroup(int nThreads, ThreadFactory threadFactory)
+    private final long slowMethodThresholdOnEventLoopInNanos;
+
+    public SafeEventLoopGroup(int nThreads, ThreadFactory threadFactory, long slowMethodThresholdOnEventLoopInNanos)
     {
         super(nThreads, threadFactory);
+        this.slowMethodThresholdOnEventLoopInNanos = slowMethodThresholdOnEventLoopInNanos;
     }
 
     @Override
@@ -47,7 +57,7 @@ public class SafeEventLoopGroup
         return new SafeEventLoop(this, executor);
     }
 
-    public static class SafeEventLoop
+    public class SafeEventLoop
             extends DefaultEventLoop
     {
         public SafeEventLoop(EventLoopGroup parent, Executor executor)
@@ -73,9 +83,11 @@ public class SafeEventLoopGroup
             while (!this.confirmShutdown());
         }
 
-        public void execute(Runnable task, Consumer<Throwable> failureHandler)
+        public void execute(Runnable task, Consumer<Throwable> failureHandler, SchedulerStatsTracker statsTracker, String methodSignature)
         {
             requireNonNull(task, "task is null");
+            long initialGCTime = getTotalGCTime();
+            long start = THREAD_MX_BEAN.getCurrentThreadCpuTime();
             this.execute(() -> {
                 try {
                     task.run();
@@ -84,6 +96,15 @@ public class SafeEventLoopGroup
                     log.error("Error executing task on event loop", t);
                     if (failureHandler != null) {
                         failureHandler.accept(t);
+                    }
+                }
+                finally {
+                    long currentGCTime = getTotalGCTime();
+                    long cpuTimeInNanos = THREAD_MX_BEAN.getCurrentThreadCpuTime() - start - (currentGCTime - initialGCTime);
+
+                    statsTracker.recordEventLoopMethodExecutionCpuTime(cpuTimeInNanos);
+                    if (cpuTimeInNanos > slowMethodThresholdOnEventLoopInNanos) {
+                        log.warn("Slow method execution on event loop: %s took %s milliseconds", methodSignature, NANOSECONDS.toMillis(cpuTimeInNanos));
                     }
                 }
             });
@@ -107,5 +128,10 @@ public class SafeEventLoopGroup
                 }
             });
         }
+    }
+
+    private long getTotalGCTime()
+    {
+        return gcBeans.stream().mapToLong(GarbageCollectorMXBean::getCollectionTime).sum();
     }
 }
