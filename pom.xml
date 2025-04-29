@@ -52,7 +52,7 @@
         <dep.okhttp.version>4.12.0</dep.okhttp.version>
         <dep.jdbi3.version>3.4.0</dep.jdbi3.version>
         <dep.oracle.version>19.3.0.0</dep.oracle.version>
-        <dep.drift.version>1.40</dep.drift.version>
+        <dep.drift.version>${dep.airlift.version}</dep.drift.version>
         <!-- Changing joda version changes tzdata which must match deployed JVM tzdata
              Do not change this without also making sure it matches -->
         <dep.joda.version>2.12.7</dep.joda.version>
@@ -1270,49 +1270,49 @@
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.drift</groupId>
+                <groupId>com.facebook.airlift.drift</groupId>
                 <artifactId>drift-api</artifactId>
                 <version>${dep.drift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.drift</groupId>
+                <groupId>com.facebook.airlift.drift</groupId>
                 <artifactId>drift-client</artifactId>
                 <version>${dep.drift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.drift</groupId>
+                <groupId>com.facebook.airlift.drift</groupId>
                 <artifactId>drift-codec</artifactId>
                 <version>${dep.drift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.drift</groupId>
+                <groupId>com.facebook.airlift.drift</groupId>
                 <artifactId>drift-protocol</artifactId>
                 <version>${dep.drift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.drift</groupId>
+                <groupId>com.facebook.airlift.drift</groupId>
                 <artifactId>drift-server</artifactId>
                 <version>${dep.drift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.drift</groupId>
+                <groupId>com.facebook.airlift.drift</groupId>
                 <artifactId>drift-transport-netty</artifactId>
                 <version>${dep.drift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.drift</groupId>
+                <groupId>com.facebook.airlift.drift</groupId>
                 <artifactId>drift-transport-spi</artifactId>
                 <version>${dep.drift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.drift</groupId>
+                <groupId>com.facebook.airlift.drift</groupId>
                 <artifactId>drift-codec-utils</artifactId>
                 <version>${dep.drift.version}</version>
             </dependency>
@@ -2660,7 +2660,7 @@
                 </plugin>
 
                 <plugin>
-                    <groupId>com.facebook.drift</groupId>
+                    <groupId>com.facebook.airlift.drift</groupId>
                     <artifactId>drift-maven-plugin</artifactId>
                     <version>${dep.drift.version}</version>
                 </plugin>
