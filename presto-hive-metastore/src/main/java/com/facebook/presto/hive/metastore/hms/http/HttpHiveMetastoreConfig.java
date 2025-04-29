@@ -186,7 +186,7 @@ public class HttpHiveMetastoreConfig
 
     public Optional<String> getHttpMetastoreBasicPassword()
     {
-       return this.httpMetastoreBasicPassword;
+        return this.httpMetastoreBasicPassword;
     }
 
     @Config("hive.metastore.http.client.auth.basic.username")
