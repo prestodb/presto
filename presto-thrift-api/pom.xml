@@ -35,7 +35,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.drift</groupId>
+            <groupId>com.facebook.airlift.drift</groupId>
             <artifactId>drift-api</artifactId>
         </dependency>
 
@@ -88,7 +88,7 @@
                 <configuration>
                     <annotationProcessorPaths>
                         <path>
-                            <groupId>com.facebook.drift</groupId>
+                            <groupId>com.facebook.airlift.drift</groupId>
                             <artifactId>drift-javadoc</artifactId>
                             <version>${dep.drift.version}</version>
                         </path>
