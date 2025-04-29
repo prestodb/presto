@@ -68,6 +68,7 @@ import static com.facebook.drift.client.ExceptionClassifier.NORMAL_RESULT;
 import static com.facebook.drift.server.guice.DriftServerBinder.driftServerBinder;
 import static com.facebook.drift.transport.netty.client.DriftNettyMethodInvokerFactory.createStaticDriftNettyMethodInvokerFactory;
 import static com.facebook.presto.execution.buffer.BufferResult.emptyResults;
+import static io.netty.buffer.ByteBufAllocator.DEFAULT;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
@@ -109,7 +110,7 @@ public class TestThriftTaskIntegration
         AddressSelector<SimpleAddressSelector.SimpleAddress> addressSelector = new SimpleAddressSelector(
                 ImmutableSet.of(HostAndPort.fromParts("localhost", thriftServerPort)),
                 true);
-        try (DriftNettyMethodInvokerFactory<?> invokerFactory = createStaticDriftNettyMethodInvokerFactory(new DriftNettyClientConfig())) {
+        try (DriftNettyMethodInvokerFactory<?> invokerFactory = createStaticDriftNettyMethodInvokerFactory(new DriftNettyClientConfig(), DEFAULT)) {
             DriftClientFactory clientFactory = new DriftClientFactory(new ThriftCodecManager(), invokerFactory, addressSelector, NORMAL_RESULT);
             ThriftTaskClient client = clientFactory.createDriftClient(ThriftTaskClient.class).get();
 
