@@ -478,9 +478,8 @@ class ExchangeFuzzer : public VectorTestBase {
     for (const auto& vector : vectors) {
       saveVector(*vector, out);
     }
-    LOG(ERROR)
-        << "Saved repro. To replay, do velox_exchange_fuzzer_test --replay "
-        << filePath;
+    LOG(ERROR) << "Saved repro. To replay, do velox_exchange_fuzzer --replay "
+               << filePath;
   }
 
   int64_t randInt(int64_t min, int64_t max) {
@@ -561,7 +560,6 @@ class ExchangeFuzzer : public VectorTestBase {
 int32_t ExchangeFuzzer::iteration_;
 
 int main(int argc, char** argv) {
-  ::testing::InitGoogleTest(&argc, argv);
   folly::Init init{&argc, &argv};
   memory::MemoryManagerOptions options;
   options.useMmapAllocator = true;

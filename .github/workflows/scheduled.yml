@@ -306,7 +306,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: exchange
-          path: velox/_build/debug//velox/exec/tests/velox_exchange_fuzzer_test
+          path: velox/_build/debug//velox/exec/fuzzer/velox_exchange_fuzzer
           retention-days: "${{ env.RETENTION }}"
 
       - name: Upload window fuzzer
@@ -697,10 +697,10 @@ jobs:
           cat /proc/sys/vm/max_map_count
           mkdir -p /tmp/exchange_fuzzer_repro/logs/
           chmod -R 777 /tmp/exchange_fuzzer_repro
-          chmod +x velox_exchange_fuzzer_test
+          chmod +x velox_exchange_fuzzer
           random_seed=${RANDOM}
           echo "Random seed: ${random_seed}"
-          ./velox_exchange_fuzzer_test \
+          ./velox_exchange_fuzzer \
                 --seed ${random_seed} \
                 --duration_sec $DURATION \
                 --minloglevel=0 \
