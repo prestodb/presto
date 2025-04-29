@@ -249,7 +249,7 @@ void TraceReplayRunner::init() {
   if (!memory::MemoryManager::testInstance()) {
     memory::MemoryManagerOptions options;
     options.arbitratorKind = FLAGS_memory_arbitrator_type;
-    memory::initializeMemoryManager({});
+    memory::initializeMemoryManager(options);
   }
   filesystems::registerLocalFileSystem();
   filesystems::registerS3FileSystem();
