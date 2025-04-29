@@ -38,7 +38,7 @@ public class TestingHiveCluster
     private boolean httpEnabled;
     private final HiveCommonClientConfig hiveCommonClientConfig;
 
-    public TestingHiveCluster(MetastoreClientConfig metastoreClientConfig, ThriftHiveMetastoreConfig thriftHiveMetastoreConfig, HttpHiveMetastoreConfig httpHiveMetastoreConfig, String host, int port)
+    public TestingHiveCluster(MetastoreClientConfig metastoreClientConfig, ThriftHiveMetastoreConfig thriftHiveMetastoreConfig, HttpHiveMetastoreConfig httpHiveMetastoreConfig, String host, int port, HiveCommonClientConfig hiveCommonClientConfig)
     {
         this.metastoreClientConfig = requireNonNull(metastoreClientConfig, "metastore config is null");
         this.thriftHiveMetastoreConfig = requireNonNull(thriftHiveMetastoreConfig, "thrift metastore config is null");
@@ -56,7 +56,7 @@ public class TestingHiveCluster
     public HiveMetastoreClient createMetastoreClient(Optional<String> token)
             throws TException
     {
-        return (httpEnabled) ? new HttpHiveMetastoreClientFactory(httpHiveMetastoreConfig).create(uri, token)
+        return (httpEnabled) ? new HttpHiveMetastoreClientFactory(httpHiveMetastoreConfig, hiveCommonClientConfig).create(uri, token)
                              : new ThriftHiveMetastoreClientFactory(metastoreClientConfig, thriftHiveMetastoreConfig, new NoHiveMetastoreAuthentication(), hiveCommonClientConfig).create(uri, token);
     }
 
