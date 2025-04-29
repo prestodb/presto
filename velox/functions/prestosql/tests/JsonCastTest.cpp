@@ -1616,6 +1616,16 @@ TEST_F(JsonCastTest, castInTry) {
 }
 
 TEST_F(JsonCastTest, tryCastFromJson) {
+  // Ensure bad unicode characters are handled correctly during casts.
+  auto dataj = makeFlatVector<JsonNativeType>(
+      {
+          R"("\uD83E褙")"_sv,
+      },
+      JSON());
+  auto expectedj = makeFlatVector<StringView>({R"(�褙)"}, VARCHAR());
+  evaluateAndVerify(
+      JSON(), VARCHAR(), makeRowVector({dataj}), expectedj, false);
+
   // Test try_cast to map when there are error in the conversions of map
   // elements.
   // To map(bigint, real).

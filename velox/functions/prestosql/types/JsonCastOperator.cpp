@@ -785,7 +785,7 @@ struct CastFromJsonTypedImpl {
         std::string_view s;
         switch (type) {
           case simdjson::ondemand::json_type::string: {
-            SIMDJSON_ASSIGN_OR_RAISE(s, value.get_string());
+            SIMDJSON_ASSIGN_OR_RAISE(s, value.get_string(true));
             break;
           }
           case simdjson::ondemand::json_type::number:
