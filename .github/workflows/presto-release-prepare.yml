@@ -17,8 +17,7 @@ on:
 env:
   JAVA_VERSION: ${{ vars.JAVA_VERSION || '17' }}
   JAVA_DISTRIBUTION: ${{ vars.JAVA_DISTRIBUTION || 'temurin' }}
-  JVM_OPTS: ${{ vars.JVM_OPTS }}
-  MAVEN_OPTS: ${{ vars.JVM_OPTS }}
+  MAVEN_OPTS: ${{ vars.MAVEN_OPTS }}
   GIT_CI_USER: ${{ vars.GIT_CI_USER || 'prestodb-ci' }}
   GIT_CI_EMAIL: ${{ vars.GIT_CI_EMAIL || 'ci@lists.prestodb.io' }}
 
@@ -129,6 +128,8 @@ jobs:
           git remote -v
 
       - name: Create release notes pull request
+        env:
+          JVM_OPTS: ${{ env.MAVEN_OPTS }}
         run: |
           echo "In case this job failed, please delete the release notes branch(e.g. release-notes-0.292) in repository ${{ github.repository }}, and re-run the job"
           ./src/release/release-notes.sh ${{ github.repository_owner }} ${{ secrets.PRESTODB_CI_TOKEN }}
