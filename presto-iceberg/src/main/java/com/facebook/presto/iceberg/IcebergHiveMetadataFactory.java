@@ -75,6 +75,11 @@ public class IcebergHiveMetadataFactory
 
     public ConnectorMetadata create()
     {
+        return create(true);
+    }
+
+    public ConnectorMetadata create(boolean autoCommitContext)
+    {
         return new IcebergHiveMetadata(
                 metastore,
                 hdfsEnvironment,
@@ -87,6 +92,7 @@ public class IcebergHiveMetadataFactory
                 operationsConfig,
                 statisticsFileCache,
                 manifestFileCache,
-                tableProperties);
+                tableProperties,
+                autoCommitContext);
     }
 }
