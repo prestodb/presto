@@ -125,6 +125,48 @@ TEST_F(SequenceTest, exceedMaxEntries) {
   testExpression("try(sequence(C0, C1))", {startVector, stopVector}, expected);
 }
 
+TEST_F(SequenceTest, sequenceWithEntriesWithMaxElementsSize) {
+  const int32_t withinLimit = 13000;
+  const auto startVector = makeFlatVector<int64_t>({1, 100});
+  auto stopVector = makeFlatVector<int64_t>({withinLimit, 100});
+  execCtx_.queryCtx()->testingOverrideConfigUnsafe({
+      {core::QueryConfig::kMaxElementsSizeInRepeatAndSequence, "15000"},
+  });
+
+  auto withinLimitData = makeRowVector({startVector, stopVector});
+  auto typedExprWithinLimit =
+      makeTypedExpr("sequence(C0, C1)", asRowType(withinLimitData->type()));
+
+  exec::ExprSet exprSetWithinLimit({typedExprWithinLimit}, &execCtx_);
+  exec::EvalCtx evalCtxWithinLimit(
+      &execCtx_, &exprSetWithinLimit, withinLimitData.get());
+
+  auto result = evaluate(exprSetWithinLimit, withinLimitData);
+
+  std::vector<int64_t> numbers;
+  numbers.reserve(withinLimit);
+  for (int i = 1; i <= withinLimit; ++i) {
+    numbers.push_back(i);
+  }
+
+  VectorPtr expected = makeArrayVector<int64_t>({numbers, {100}});
+
+  assertEqualVectors(expected, result);
+
+  const int32_t over_limit = 15'200;
+  stopVector = makeFlatVector<int64_t>({over_limit, 100});
+  auto overLimitData = makeRowVector({startVector, stopVector});
+  auto typedExprWithOverLimit =
+      makeTypedExpr("sequence(C0, C1)", asRowType(overLimitData->type()));
+
+  exec::ExprSet exprSetOverLimit({typedExprWithOverLimit}, &execCtx_);
+  exec::EvalCtx evalCtx(&execCtx_, &exprSetOverLimit, overLimitData.get());
+
+  VELOX_ASSERT_THROW(
+      evaluate(exprSetOverLimit, overLimitData),
+      "result of sequence function must not have more than 15000 entries");
+}
+
 TEST_F(SequenceTest, invalidStep) {
   const auto startVector = makeFlatVector<int64_t>({1, 2});
   const auto stopVector = makeFlatVector<int64_t>({2, 5});

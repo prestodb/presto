@@ -96,8 +96,6 @@ int128_t getStepCount(Timestamp start, Timestamp end, int32_t step) {
 template <typename T, typename K>
 class SequenceFunction : public exec::VectorFunction {
  public:
-  static constexpr int32_t kMaxResultEntries = 10'000;
-
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
@@ -131,7 +129,11 @@ class SequenceFunction : public exec::VectorFunction {
           stepVector,
           row,
           isDate,
-          isIntervalYearMonth);
+          isIntervalYearMonth,
+          context.execCtx()
+              ->queryCtx()
+              ->queryConfig()
+              .maxElementsSizeInRepeatAndSequence());
       numElements += rawSizes[row];
     });
 
@@ -170,7 +172,8 @@ class SequenceFunction : public exec::VectorFunction {
       DecodedVector* stepVector,
       vector_size_t row,
       bool isDate,
-      bool isYearMonth) {
+      bool isYearMonth,
+      int32_t maxElementsSize) {
     T start = startVector->valueAt<T>(row);
     T stop = stopVector->valueAt<T>(row);
     auto step = getStep(
@@ -189,10 +192,12 @@ class SequenceFunction : public exec::VectorFunction {
               step +
           1; // prevent overflow
     }
+
     VELOX_USER_CHECK_LE(
         sequenceCount,
-        kMaxResultEntries,
-        "result of sequence function must not have more than 10000 entries");
+        maxElementsSize,
+        "result of sequence function must not have more than {} entries",
+        maxElementsSize);
     return sequenceCount;
   }
 
