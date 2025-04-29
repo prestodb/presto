@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.metastore.hms.http;
 
+import com.facebook.presto.hive.HiveCommonClientConfig;
 import com.facebook.presto.hive.metastore.hms.HiveMetastoreClient;
 import com.facebook.presto.hive.metastore.hms.MetastoreClientFactory;
 import com.facebook.presto.hive.metastore.hms.ThriftHiveMetastoreClient;
@@ -60,9 +61,10 @@ public class HttpHiveMetastoreClientFactory
     private final Optional<String> httpMetastoreBasicPassword;
     private final Map<String, String> httpAdditionalHeaders;
     private final String httpUserName = "x-actor-username";
+    private final String catalogName;
 
     @Inject
-    public HttpHiveMetastoreClientFactory(HttpHiveMetastoreConfig httpHiveMetastoreConfig)
+    public HttpHiveMetastoreClientFactory(HttpHiveMetastoreConfig httpHiveMetastoreConfig, HiveCommonClientConfig hiveCommonClientConfig)
     {
         requireNonNull(httpHiveMetastoreConfig, "HttpHiveMetastoreConfig is null");
         this.readTimeoutMillis = toIntExact(httpHiveMetastoreConfig.getHttpReadTimeout().toMillis());
@@ -72,6 +74,7 @@ public class HttpHiveMetastoreClientFactory
         this.httpBearerToken = authType == BEARER ? requireNonNull(httpHiveMetastoreConfig.getHttpBearerToken(), "httpBearerToken is null") : Optional.empty();
         this.httpMetastoreBasicUsername = authType == BASIC ? requireNonNull(httpHiveMetastoreConfig.getHttpMetastoreBasicUsername(), "httpMetastoreBasicUsername is null") : Optional.of("temp_user"); //setting a dummy username  for http requests which should match with the configured username on server side.
         this.httpMetastoreBasicPassword = authType == BASIC ? requireNonNull(httpHiveMetastoreConfig.getHttpMetastoreBasicPassword(), "httpMetastoreBasicPassword is null") : Optional.empty();
+        this.catalogName = hiveCommonClientConfig.getCatalogName();
     }
 
     private static Optional<SSLContext> createSslContext(HttpHiveMetastoreConfig config)
@@ -87,7 +90,7 @@ public class HttpHiveMetastoreClientFactory
     public HiveMetastoreClient create(URI uri, Optional<String> delegationToken)
             throws TTransportException
     {
-        return new ThriftHiveMetastoreClient(createHttpTransport(uri));
+        return new ThriftHiveMetastoreClient(createHttpTransport(uri), catalogName);
     }
 
     private TTransport createHttpTransport(URI uri) throws TTransportException

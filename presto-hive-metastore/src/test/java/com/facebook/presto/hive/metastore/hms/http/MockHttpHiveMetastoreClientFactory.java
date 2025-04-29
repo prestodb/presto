@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.metastore.hms.http;
 
+import com.facebook.presto.hive.HiveCommonClientConfig;
 import com.facebook.presto.hive.metastore.hms.HiveMetastoreClient;
 import org.apache.thrift.transport.TTransportException;
 
@@ -31,7 +32,7 @@ public class MockHttpHiveMetastoreClientFactory
 
     public MockHttpHiveMetastoreClientFactory(List<HiveMetastoreClient> clients)
     {
-        super(new HttpHiveMetastoreConfig());
+        super(new HttpHiveMetastoreConfig(), new HiveCommonClientConfig());
         this.clients = new ArrayList<>(requireNonNull(clients, "clients is null"));
     }
 
