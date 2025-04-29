@@ -10,7 +10,7 @@ ENV PRESTO_HOME="/opt/presto-server"
 COPY $PRESTO_PKG .
 COPY $PRESTO_CLI_JAR /opt/presto-cli
 
-RUN dnf install -y java-11-openjdk less procps python3 \
+RUN dnf install -y java-17-openjdk less procps python3 \
     && ln -s $(which python3) /usr/bin/python \
     # Download Presto and move \
     && tar -zxf $PRESTO_PKG \
