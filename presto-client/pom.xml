@@ -66,7 +66,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.drift</groupId>
+            <groupId>com.facebook.airlift.drift</groupId>
             <artifactId>drift-api</artifactId>
         </dependency>
 
@@ -125,19 +125,19 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.drift</groupId>
+            <groupId>com.facebook.airlift.drift</groupId>
             <artifactId>drift-protocol</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.drift</groupId>
+            <groupId>com.facebook.airlift.drift</groupId>
             <artifactId>drift-codec</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.drift</groupId>
+            <groupId>com.facebook.airlift.drift</groupId>
             <artifactId>drift-codec-utils</artifactId>
             <scope>test</scope>
         </dependency>
