@@ -17,29 +17,60 @@
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/ShuffleWrite.h"
 #include "velox/exec/HashPartitionFunction.h"
+#include "velox/parse/Expressions.h"
+#include "velox/parse/ExpressionsParser.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::core;
 
 namespace facebook::presto::operators {
 
+namespace {
+std::pair<
+    std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>,
+    std::vector<core::SortOrder>>
+parseSortByClause(
+    const std::vector<std::string>& sortExpr,
+    const RowTypePtr& inputType,
+    memory::MemoryPool* pool) {
+  std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>> sortingKeys;
+  std::vector<core::SortOrder> sortingOrders;
+  for (const auto& expr : sortExpr) {
+    const auto [untypedExpr, sortOrder] = parse::parseOrderByExpr(expr);
+    const auto typedExpr =
+        core::Expressions::inferTypes(untypedExpr, inputType, pool);
+
+    const auto sortingKey =
+        std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(typedExpr);
+    VELOX_CHECK_NOT_NULL(
+        sortingKey,
+        "sort by clause must use a column name, not an expression: {}",
+        expr);
+    sortingKeys.emplace_back(sortingKey);
+    sortingOrders.emplace_back(sortOrder);
+  }
+
+  return {sortingKeys, sortingOrders};
+}
+} // namespace
+
 std::function<PlanNodePtr(std::string nodeId, PlanNodePtr)>
 addPartitionAndSerializeNode(
     uint32_t numPartitions,
     bool replicateNullsAndAny,
+    const std::vector<core::TypedExprPtr>& partitionKeys,
     const std::vector<std::string>& serializedColumns,
     const std::optional<std::vector<velox::core::SortOrder>>& sortOrders,
     const std::optional<std::vector<velox::core::FieldAccessTypedExprPtr>>&
-        fields) {
+        sortKeys) {
   return [numPartitions,
-          &serializedColumns,
           replicateNullsAndAny,
+          &partitionKeys,
+          &serializedColumns,
           &sortOrders,
-          &fields](
+          &sortKeys](
              core::PlanNodeId nodeId,
              core::PlanNodePtr source) -> core::PlanNodePtr {
-    std::vector<core::TypedExprPtr> keys{
-        std::make_shared<core::FieldAccessTypedExpr>(INTEGER(), "c0")};
     const auto inputType = source->outputType();
 
     std::vector<std::string> names = serializedColumns;
@@ -54,15 +85,60 @@ addPartitionAndSerializeNode(
 
     return std::make_shared<PartitionAndSerializeNode>(
         nodeId,
-        keys,
+        partitionKeys,
         numPartitions,
         serializedType,
         std::move(source),
         replicateNullsAndAny,
         std::make_shared<exec::HashPartitionFunctionSpec>(
-            inputType, exec::toChannels(inputType, keys)),
+            inputType, exec::toChannels(inputType, partitionKeys)),
         sortOrders,
-        fields);
+        sortKeys);
+  };
+}
+
+std::function<PlanNodePtr(std::string nodeId, PlanNodePtr)>
+addPartitionAndSerializeNode(
+    uint32_t numPartitions,
+    const std::vector<std::string>& partitionKeys,
+    const std::optional<std::vector<std::string>>& sortExpr,
+    memory::MemoryPool* pool) {
+  return [numPartitions, &partitionKeys, &sortExpr, pool](
+             core::PlanNodeId nodeId,
+             core::PlanNodePtr source) -> core::PlanNodePtr {
+    VELOX_CHECK_NOT_NULL(
+        source, "partitionAndSerialize cannot be the source node");
+    const auto outputType = source->outputType();
+
+    std::vector<core::TypedExprPtr> partitionKeyExprs;
+    for (auto& expr : partitionKeys) {
+      const auto typedExpression = core::Expressions::inferTypes(
+          parse::parseExpr(expr, parse::ParseOptions{}), outputType, pool);
+
+      if (dynamic_cast<const core::FieldAccessTypedExpr*>(
+              typedExpression.get())) {
+        partitionKeyExprs.push_back(typedExpression);
+      } else if (dynamic_cast<const core::ConstantTypedExpr*>(
+                     typedExpression.get())) {
+        partitionKeyExprs.push_back(typedExpression);
+      } else {
+        VELOX_FAIL("Expected field name or constant: {}", expr);
+      }
+    }
+
+    std::optional<std::vector<core::FieldAccessTypedExprPtr>> sortingKeys;
+    std::optional<std::vector<core::SortOrder>> sortingOrders;
+    if (sortExpr.has_value()) {
+      std::tie(sortingKeys, sortingOrders) =
+          parseSortByClause(sortExpr.value(), outputType, pool);
+    }
+    return addPartitionAndSerializeNode(
+        numPartitions,
+        false, // replicateNullsAndAny
+        partitionKeyExprs,
+        {}, // serializedColumns
+        sortingOrders,
+        sortingKeys)(nodeId, source);
   };
 }
 
