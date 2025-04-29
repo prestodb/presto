@@ -54,8 +54,11 @@ class Merge : public SourceOperator {
   virtual BlockingReason addMergeSources(ContinueFuture* future) = 0;
 
   std::vector<std::shared_ptr<MergeSource>> sources_;
+  size_t numStartedSources_{0};
 
  private:
+  void startSources();
+
   void initializeTreeOfLosers();
 
   /// Maximum number of rows in the output batch.

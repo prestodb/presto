@@ -25,13 +25,15 @@ class CallbackSink : public Operator {
   CallbackSink(
       int32_t operatorId,
       DriverCtx* driverCtx,
-      std::function<BlockingReason(RowVectorPtr, ContinueFuture*)> callback)
+      std::function<BlockingReason(RowVectorPtr, ContinueFuture*)> consumeCb,
+      std::function<BlockingReason(ContinueFuture*)> startedCb = nullptr)
       : Operator(driverCtx, nullptr, operatorId, "N/A", "CallbackSink"),
-        callback_{std::move(callback)} {}
+        startedCb_{std::move(startedCb)},
+        consumeCb_{std::move(consumeCb)} {}
 
   void addInput(RowVectorPtr input) override {
     loadColumns(input, *operatorCtx_->execCtx());
-    blockingReason_ = callback_(std::move(input), &future_);
+    blockingReason_ = consumeCb_(std::move(input), &future_);
   }
 
   RowVectorPtr getOutput() override {
@@ -39,7 +41,7 @@ class CallbackSink : public Operator {
   }
 
   bool needsInput() const override {
-    return callback_ != nullptr;
+    return consumeCb_ != nullptr;
   }
 
   void noMoreInput() override {
@@ -48,6 +50,10 @@ class CallbackSink : public Operator {
   }
 
   BlockingReason isBlocked(ContinueFuture* future) override {
+    if (startedCb_ != nullptr) {
+      blockingReason_ = startedCb_(&future_);
+      startedCb_ = nullptr;
+    }
     if (blockingReason_ != BlockingReason::kNotBlocked) {
       *future = std::move(future_);
       blockingReason_ = BlockingReason::kNotBlocked;
@@ -62,15 +68,16 @@ class CallbackSink : public Operator {
 
  private:
   void close() override {
-    if (callback_) {
-      callback_(nullptr, nullptr);
-      callback_ = nullptr;
+    if (consumeCb_) {
+      consumeCb_(nullptr, nullptr);
+      consumeCb_ = nullptr;
     }
   }
 
   ContinueFuture future_;
   BlockingReason blockingReason_{BlockingReason::kNotBlocked};
-  std::function<BlockingReason(RowVectorPtr, ContinueFuture*)> callback_;
+  std::function<BlockingReason(ContinueFuture*)> startedCb_;
+  std::function<BlockingReason(RowVectorPtr, ContinueFuture*)> consumeCb_;
 };
 
 } // namespace facebook::velox::exec

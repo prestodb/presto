@@ -13,11 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "folly/experimental/EventCount.h"
+#include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/testutil/TestValue.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
+using namespace facebook::velox::common::testutil;
 using namespace facebook::velox::exec::test;
 
 class MergeTest : public OperatorTestBase {
@@ -151,6 +155,57 @@ TEST_F(MergeTest, localMerge) {
 
   testTwoKeys(vectors, "c0", "c3");
   testTwoKeys(vectors, "c3", "c0");
+}
+
+DEBUG_ONLY_TEST_F(MergeTest, localMergeStart) {
+  const auto data1 = makeRowVector({
+      makeFlatVector<int64_t>({0, 1, 10}),
+  });
+  const auto data2 = makeRowVector({
+      makeFlatVector<int64_t>({2, 3, 4, 5}),
+  });
+
+  folly::EventCount sourceStartCallWait;
+  std::atomic_bool sourceStartCallWaitFlag{true};
+  folly::EventCount sourceStartWait;
+  std::atomic_bool sourceStartWaitFlag{true};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::LocalMergeSource::start",
+      std::function<void(MergeSource*)>(([&](MergeSource* /*unused*/) {
+        sourceStartCallWaitFlag = false;
+        sourceStartCallWait.notifyAll();
+        sourceStartWait.await([&]() { return !sourceStartWaitFlag.load(); });
+      })));
+  std::atomic_bool getOutput{false};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Values::getOutput",
+      std::function<void(MergeSource*)>(
+          ([&](MergeSource* /*unused*/) { getOutput = true; })));
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  auto plan =
+      PlanBuilder(planNodeIdGenerator)
+          .localMerge(
+              {"c0"},
+              {
+                  PlanBuilder(planNodeIdGenerator).values({data1}).planNode(),
+                  PlanBuilder(planNodeIdGenerator).values({data2}).planNode(),
+              })
+          .planNode();
+
+  std::thread queryThread([&]() {
+    CursorParameters params;
+    params.planNode = plan;
+    params.queryCtx = core::QueryCtx::create(executor_.get());
+    assertQueryOrdered(
+        params, "VALUES (0), (1), (2), (3), (4), (5), (10)", {0});
+  });
+  sourceStartCallWait.await([&]() { return !sourceStartCallWaitFlag.load(); });
+  std::this_thread::sleep_for(std::chrono::milliseconds(1'000)); // NOLINT
+  ASSERT_FALSE(getOutput);
+  sourceStartWaitFlag = false;
+  sourceStartWait.notifyAll();
+  queryThread.join();
+  ASSERT_TRUE(getOutput);
 }
 
 /// Verifies an edge case where output batch fills up when one of the sources
