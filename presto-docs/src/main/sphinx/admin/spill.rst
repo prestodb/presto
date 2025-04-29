@@ -107,11 +107,6 @@ When spill encryption is enabled (``spill-encryption-enabled`` property in
 (per spill file) secret key. Enabling this will decrease the performance of spilling
 to disk but can protect spilled data from being recovered from the files written to disk.
 
-**Note**: Some distributions of Java ship with policy files that limit the strength
-of the cryptographic keys that can be used. Spill encryption uses
-256-bit AES keys and may require Unlimited Strength :abbr:`JCE (Java Cryptography Extension)`
-policy files to work correctly.
-
 Supported Operations
 --------------------
 
