@@ -69,6 +69,7 @@ import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunc
 import static com.facebook.presto.thrift.api.udf.ThriftUdfPage.prestoPage;
 import static com.facebook.presto.thrift.api.udf.ThriftUdfPage.thriftPage;
 import static com.google.inject.Scopes.SINGLETON;
+import static io.netty.buffer.ByteBufAllocator.DEFAULT;
 import static org.testng.Assert.assertTrue;
 
 @State(Scope.Thread)
@@ -123,7 +124,7 @@ public class BenchmarkThriftUdfPageSerDe
             server = injector.getInstance(DriftServer.class);
             ThriftCodecManager codecManager = new ThriftCodecManager();
             Closer closer = Closer.create();
-            MethodInvokerFactory<?> methodInvokerFactory = closer.register(createStaticDriftNettyMethodInvokerFactory(new DriftNettyClientConfig()));
+            MethodInvokerFactory<?> methodInvokerFactory = closer.register(createStaticDriftNettyMethodInvokerFactory(new DriftNettyClientConfig(), DEFAULT));
             DriftClientFactory clientFactory = new DriftClientFactory(
                     codecManager,
                     methodInvokerFactory,
