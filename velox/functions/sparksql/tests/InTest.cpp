@@ -178,6 +178,18 @@ TEST_F(InTest, Timestamp) {
       std::nullopt);
   EXPECT_EQ(
       in<Timestamp>(Timestamp(0, 0), {Timestamp(0, 0), Timestamp()}), true);
+
+  // The precision of Spark 'in' is microseconds.
+  EXPECT_EQ(
+      in<Timestamp>(
+          Timestamp(0, 123'456'000),
+          {Timestamp(0, 123'000'000), Timestamp(0, 123'123'000)}),
+      false);
+  EXPECT_EQ(
+      in<Timestamp>(
+          Timestamp(0, 123'456'789),
+          {Timestamp(0, 123'456'000), Timestamp(0, 123'456'123)}),
+      true);
 }
 
 TEST_F(InTest, Date) {

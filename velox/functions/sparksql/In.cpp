@@ -74,6 +74,39 @@ class Set<StringView> {
   folly::F14FastSet<std::string_view> set_;
 };
 
+// Specialization for Timestamp to store micros.
+template <>
+class Set<Timestamp> {
+ public:
+  using value_type = int64_t;
+
+  void emplace(const Timestamp& ts) {
+    const value_type micros = ts.toMicros();
+    if (!set_.contains(micros)) {
+      set_.emplace(micros);
+    }
+  }
+
+  bool contains(const Timestamp& ts) const {
+    return set_.contains(ts.toMicros());
+  }
+
+  void reserve(size_t size) {
+    set_.reserve(size);
+  }
+
+  size_t size() const {
+    return set_.size();
+  }
+
+  auto begin() const {
+    return set_.begin();
+  }
+
+ private:
+  folly::F14FastSet<value_type> set_;
+};
+
 template <typename TInput>
 struct InFunctionOuter {
   template <typename TExecCtx>
