@@ -77,10 +77,11 @@ final class NativeExecutionTypeRewrite
             SqlParser parser,
             Optional<QueryExplainer> queryExplainer,
             Statement node,
-            List<Expression> parameter,
+            List<Expression> parameters,
             Map<NodeRef<Parameter>, Expression> parameterLookup,
             AccessControl accessControl,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            String query)
     {
         if (SystemSessionProperties.isNativeExecutionEnabled(session)
                 && SystemSessionProperties.isNativeExecutionTypeRewriteEnabled(session)) {
