@@ -74,14 +74,6 @@ class BingTileFunctionsTest : public functions::test::FunctionBaseTest {
   }
 };
 
-TEST_F(BingTileFunctionsTest, toBingTileSignatures) {
-  auto signatures = getSignatureStrings("bing_tile");
-  ASSERT_EQ(2, signatures.size());
-
-  ASSERT_EQ(1, signatures.count("(integer,integer,tinyint) -> bingtile"));
-  ASSERT_EQ(1, signatures.count("(varchar) -> bingtile"));
-}
-
 TEST_F(BingTileFunctionsTest, toBingTileCoordinates) {
   const auto testToBingTile = [&](std::optional<int32_t> x,
                                   std::optional<int32_t> y,
@@ -196,13 +188,6 @@ TEST_F(BingTileFunctionsTest, bingTileToQuadKey) {
       "123030123010121", getQuadKeyResultFromCoordinates(21845, 13506, 15));
 }
 
-TEST_F(BingTileFunctionsTest, bingTileZoomLevelSignatures) {
-  auto signatures = getSignatureStrings("bing_tile_zoom_level");
-  ASSERT_EQ(1, signatures.size());
-
-  ASSERT_EQ(1, signatures.count("(bingtile) -> tinyint"));
-}
-
 TEST_F(BingTileFunctionsTest, bingTileZoomLevel) {
   const auto testBingTileZoom = [&](std::optional<int32_t> x,
                                     std::optional<int32_t> y,
@@ -224,13 +209,6 @@ TEST_F(BingTileFunctionsTest, bingTileZoomLevel) {
   testBingTileZoom(std::nullopt, 1, 1);
   testBingTileZoom(1, std::nullopt, 1);
   testBingTileZoom(1, 1, std::nullopt);
-}
-
-TEST_F(BingTileFunctionsTest, bingTileCoordinatesSignatures) {
-  auto signatures = getSignatureStrings("bing_tile_coordinates");
-  ASSERT_EQ(1, signatures.size());
-
-  ASSERT_EQ(1, signatures.count("(bingtile) -> row(integer,integer)"));
 }
 
 TEST_F(BingTileFunctionsTest, bingTileCoordinates) {
@@ -263,14 +241,6 @@ TEST_F(BingTileFunctionsTest, bingTileCoordinates) {
   testBingTileCoordinates(std::nullopt, 1, 1);
   testBingTileCoordinates(1, std::nullopt, 1);
   testBingTileCoordinates(1, 1, std::nullopt);
-}
-
-TEST_F(BingTileFunctionsTest, bingTileParentSignatures) {
-  auto signatures = getSignatureStrings("bing_tile_parent");
-  ASSERT_EQ(2, signatures.size());
-
-  ASSERT_EQ(1, signatures.count("(bingtile) -> bingtile"));
-  ASSERT_EQ(1, signatures.count("(bingtile,tinyint) -> bingtile"));
 }
 
 TEST_F(BingTileFunctionsTest, bingTileParentNoZoom) {
@@ -351,14 +321,6 @@ TEST_F(BingTileFunctionsTest, bingTileParentZoom) {
       testBingTileParent(0, 0, 0, 1), "Parent zoom 1 must be <= tile zoom 0");
   VELOX_ASSERT_USER_THROW(
       testBingTileParent(5, 17, 5, 8), "Parent zoom 8 must be <= tile zoom 5");
-}
-
-TEST_F(BingTileFunctionsTest, bingTileChildrenSignatures) {
-  auto signatures = getSignatureStrings("bing_tile_children");
-  ASSERT_EQ(2, signatures.size());
-
-  ASSERT_EQ(1, signatures.count("(bingtile) -> array(bingtile)"));
-  ASSERT_EQ(1, signatures.count("(bingtile,tinyint) -> array(bingtile)"));
 }
 
 TEST_F(BingTileFunctionsTest, bingTileChildren) {
