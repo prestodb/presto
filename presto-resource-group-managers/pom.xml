@@ -57,7 +57,7 @@
             <artifactId>stats</artifactId>
             <exclusions>
                 <exclusion>
-                    <groupId>com.facebook.drift</groupId>
+                    <groupId>com.facebook.airlift.drift</groupId>
                     <artifactId>drift-api</artifactId>
                 </exclusion>
             </exclusions>

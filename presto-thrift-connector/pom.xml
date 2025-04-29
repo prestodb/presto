@@ -23,27 +23,27 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.drift</groupId>
+            <groupId>com.facebook.airlift.drift</groupId>
             <artifactId>drift-client</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.drift</groupId>
+            <groupId>com.facebook.airlift.drift</groupId>
             <artifactId>drift-transport-spi</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.drift</groupId>
+            <groupId>com.facebook.airlift.drift</groupId>
             <artifactId>drift-codec</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.drift</groupId>
+            <groupId>com.facebook.airlift.drift</groupId>
             <artifactId>drift-protocol</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.drift</groupId>
+            <groupId>com.facebook.airlift.drift</groupId>
             <artifactId>drift-transport-netty</artifactId>
         </dependency>
 
@@ -129,7 +129,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.drift</groupId>
+            <groupId>com.facebook.airlift.drift</groupId>
             <artifactId>drift-api</artifactId>
             <scope>provided</scope>
         </dependency>
@@ -178,7 +178,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.drift</groupId>
+            <groupId>com.facebook.airlift.drift</groupId>
             <artifactId>drift-server</artifactId>
             <scope>test</scope>
         </dependency>
@@ -215,8 +215,8 @@
                 <artifactId>maven-dependency-plugin</artifactId>
                 <configuration>
                     <ignoredNonTestScopedDependencies>
-                        <ignoredNonTestScopedDependency>com.facebook.drift:drift-transport-spi</ignoredNonTestScopedDependency>
-                        <ignoredNonTestScopedDependency>com.facebook.drift:drift-codec</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>com.facebook.airlift.drift:drift-transport-spi</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>com.facebook.airlift.drift:drift-codec</ignoredNonTestScopedDependency>
                     </ignoredNonTestScopedDependencies>
                 </configuration>
             </plugin>
