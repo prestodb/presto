@@ -68,6 +68,13 @@ public class IcebergNativeMetadataFactory
 
     public ConnectorMetadata create()
     {
-        return new IcebergNativeMetadata(catalogFactory, typeManager, functionResolution, rowExpressionService, commitTaskCodec, catalogType, nodeVersion, filterStatsCalculatorService, statisticsFileCache, tableProperties);
+        return create(true);
+    }
+
+    public ConnectorMetadata create(boolean autoCommitContext)
+    {
+        return new IcebergNativeMetadata(catalogFactory, typeManager, functionResolution,
+                rowExpressionService, commitTaskCodec, catalogType, nodeVersion,
+                filterStatsCalculatorService, statisticsFileCache, tableProperties, autoCommitContext);
     }
 }

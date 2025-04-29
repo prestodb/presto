@@ -175,9 +175,11 @@ public class IcebergHiveMetadata
             IcebergHiveTableOperationsConfig hiveTableOeprationsConfig,
             StatisticsFileCache statisticsFileCache,
             ManifestFileCache manifestFileCache,
-            IcebergTableProperties tableProperties)
+            IcebergTableProperties tableProperties,
+            boolean autoCommitContext)
     {
-        super(typeManager, functionResolution, rowExpressionService, commitTaskCodec, nodeVersion, filterStatsCalculatorService, statisticsFileCache, tableProperties);
+        super(typeManager, functionResolution, rowExpressionService, commitTaskCodec, nodeVersion,
+                filterStatsCalculatorService, statisticsFileCache, tableProperties, autoCommitContext);
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.hiveTableOeprationsConfig = requireNonNull(hiveTableOeprationsConfig, "hiveTableOperationsConfig is null");
