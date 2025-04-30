@@ -24,18 +24,18 @@ namespace {
 class UnscaledValueFunctionTest : public SparkFunctionBaseTest {};
 
 TEST_F(UnscaledValueFunctionTest, unscaledValue) {
-  auto testUnscaledValue = [&](const std::vector<int64_t>& unscaledValue,
-                               const TypePtr& decimalType) {
-    auto input = makeFlatVector<int64_t>(unscaledValue, decimalType);
-    auto expected = makeFlatVector<int64_t>(unscaledValue);
-    auto result = evaluate("unscaled_value(c0)", makeRowVector({input}));
-    assertEqualVectors(expected, result);
-  };
+  auto input =
+      makeFlatVector<int64_t>({1000, 2000, -3000, -4000}, DECIMAL(18, 3));
+  auto expected = makeFlatVector<int64_t>({1000, 2000, -3000, -4000});
+  auto invalidInput = makeFlatVector<int64_t>({0, 0, 0, 0}, DECIMAL(20, 3));
 
-  testUnscaledValue({1000, 2000, -3000, -4000}, DECIMAL(18, 3));
+  testEncodings(
+      makeTypedExpr("unscaled_value(c0)", ROW({"c0"}, {input->type()})),
+      {input},
+      expected);
 
-  VELOX_ASSERT_THROW(
-      testUnscaledValue({1000, 2000, -3000, -4000}, DECIMAL(20, 3)),
+  VELOX_ASSERT_USER_THROW(
+      evaluate("unscaled_value(c0)", makeRowVector({invalidInput})),
       "Expect short decimal type, but got: DECIMAL(20, 3)");
 }
 } // namespace

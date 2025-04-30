@@ -33,15 +33,23 @@ class UnscaledValueFunction final : public exec::VectorFunction {
         args[0]->type()->isShortDecimal(),
         "Expect short decimal type, but got: {}",
         args[0]->type());
-    exec::DecodedArgs decodedArgs(rows, args, context);
-    auto decimalVector = decodedArgs.at(0);
-    context.ensureWritable(rows, BIGINT(), result);
-    result->clearNulls(rows);
-    auto flatResult =
-        result->asUnchecked<FlatVector<int64_t>>()->mutableRawValues();
-    rows.applyToSelected([&](auto row) {
-      flatResult[row] = decimalVector->valueAt<int64_t>(row);
-    });
+    VectorPtr localResult;
+    const auto& arg = args[0];
+    if (arg->isConstantEncoding()) {
+      auto value = arg->as<ConstantVector<int64_t>>()->valueAt(0);
+      localResult = std::make_shared<ConstantVector<int64_t>>(
+          context.pool(), rows.end(), false, BIGINT(), std::move(value));
+    } else {
+      auto flatInput = arg->asFlatVector<int64_t>();
+      localResult = std::make_shared<FlatVector<int64_t>>(
+          context.pool(),
+          BIGINT(),
+          nullptr,
+          rows.end(),
+          flatInput->values(),
+          std::vector<BufferPtr>());
+    }
+    context.moveOrCopyResult(localResult, rows, result);
   }
 };
 } // namespace
