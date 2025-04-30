@@ -606,4 +606,5 @@ struct CheckedDivideFunction {
     return Status::OK();
   }
 };
+
 } // namespace facebook::velox::functions::sparksql

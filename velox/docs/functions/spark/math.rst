@@ -50,7 +50,7 @@ Mathematical Functions
     Fast path is implemented for cases that should not overflow. For the others, the whole parts and fractional parts of input decimals are added separately and combined finally.
     The result type is calculated with the max precision of input precisions, the max scale of input scales, and one extra digit for possible carrier.
     Overflow results in null output. Corresponds to Spark's operator ``+``.
-    
+
     ::
 
         SELECT CAST(1.1232100 as DECIMAL(38, 7)) + CAST(1 as DECIMAL(10, 0)); -- DECIMAL(38, 6) 2.123210
@@ -64,7 +64,7 @@ Mathematical Functions
 
 .. spark:function:: ceil(x) -> [same as x]
 
-    Returns ``x`` rounded up to the nearest integer.  
+    Returns ``x`` rounded up to the nearest integer.
     Supported types are: BIGINT, DOUBLE and DECIMAL.
 
 .. function:: checked_add(x, y) -> [same as x]
@@ -140,6 +140,19 @@ Mathematical Functions
     If the argument is positive infinity, then the result is positive infinity.
     If the argument is negative infinity, then the result is -1.0.
     If the argument is zero, then the result is a zero with the same sign as the argument.
+
+.. spark:function:: factorial(x) -> bigint
+
+    Returns the factorial of integer ``x``, defined as ``x! = x * (x-1) * ... * 1``.
+    The input must be between 0 and 20 inclusive. Returns NULL for values outside this range.
+
+    ::
+
+        SELECT factorial(0); -- 1
+        SELECT factorial(5); -- 120
+        SELECT factorial(20); -- 2432902008176640000
+        SELECT factorial(21); -- NULL
+        SELECT factorial(-1); -- NULL
 
 .. spark:function:: floor(x) -> [same as x]
 
@@ -251,7 +264,7 @@ Mathematical Functions
 
 .. spark:function:: rint(x) -> double
 
-    Returns the double value that is closest in value to the argument and is 
+    Returns the double value that is closest in value to the argument and is
     equal to a mathematical integer.
     Returns ``x`` if ``x`` is a positive or negative infinity or a NaN. ::
 
@@ -259,7 +272,7 @@ Mathematical Functions
 
 .. spark:function:: round(x, d) -> [same as x]
 
-    Returns ``x`` rounded to ``d`` decimal places using HALF_UP rounding mode. 
+    Returns ``x`` rounded to ``d`` decimal places using HALF_UP rounding mode.
     In HALF_UP rounding, the digit 5 is rounded up.
     Supported types for ``x`` are integral and floating point types.
 
@@ -292,7 +305,7 @@ Mathematical Functions
 
     Returns the result of subtracting ``y`` from ``x``. Reuses the logic of add function for decimal type.
     Corresponds to Spark's operator ``-``.
-    
+
     ::
 
         SELECT CAST(1.1232100 as DECIMAL(38, 7)) - CAST(1 as DECIMAL(10, 0)); -- DECIMAL(38, 6) 0.123210
@@ -330,7 +343,7 @@ Mathematical Functions
     Otherwise, the function will return NULL.
 
     ::
-        
+
         SELECT width_bucket(-1.0, 0.0, 10.0, 5); -- 0
         SELECT width_bucket(0.1, 0.0, 10.0, 5); -- 1
         SELECT width_bucket(10.1, 0.0, 10.0, 5); -- 6
