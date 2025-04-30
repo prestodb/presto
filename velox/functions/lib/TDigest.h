@@ -112,6 +112,21 @@ class TDigest {
     return compression_;
   }
 
+  /// Returns the total weight of the digest
+  double totalWeight() const {
+    return std::accumulate(weights_.begin(), weights_.end(), 0.0);
+  }
+
+  /// Returns the minimum value added to this digest.
+  double min() const {
+    return min_;
+  }
+
+  /// Returns the maximum value added to this digest.
+  double max() const {
+    return max_;
+  }
+
   static constexpr int8_t kSerializationVersion = 1;
   static constexpr double kEpsilon = 1e-3;
   static constexpr double kRelativeErrorEpsilon = 1e-4;
@@ -465,7 +480,14 @@ void TDigest<A>::mergeDeserialized(
   int32_t numNew;
   tdigest::detail::read(input, numNew);
   if (numNew > 0) {
-    VELOX_CHECK_EQ(compression, compression_);
+    // TODO: Templatize this. Return VELOX_USER_CHECK_EQ for Fuzzer testing and
+    // VELOX_CHECK_EQ for production so stack trace isn't lost. Ideally, we
+    // would want a user error even in production that doesn't lose stack trace
+    // information.
+    VELOX_USER_CHECK_EQ(
+        compression,
+        compression_,
+        "Cannot merge TDigests with different compression parameters");
     auto numOld = weights_.size();
     weights_.resize(numOld + numNew);
     auto* weights = weights_.data() + numOld;
