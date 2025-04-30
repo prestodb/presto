@@ -30,8 +30,10 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import jakarta.servlet.http.HttpUpgradeHandler;
 import jakarta.servlet.http.Part;
+import jakarts.ws.rs.core.UriBuilder;
 
 import java.io.BufferedReader;
+import java.net.URI;
 import java.security.Principal;
 import java.util.Collection;
 import java.util.Enumeration;
@@ -50,18 +52,28 @@ public class MockHttpServletRequest
     private final ListMultimap<String, String> headers;
     private final String remoteAddress;
     private final Map<String, Object> attributes;
+    private final String requestUrl;
 
     public MockHttpServletRequest(ListMultimap<String, String> headers, String remoteAddress, Map<String, Object> attributes)
     {
         this.headers = ImmutableListMultimap.copyOf(requireNonNull(headers, "headers is null"));
         this.remoteAddress = requireNonNull(remoteAddress, "remoteAddress is null");
         this.attributes = new HashMap<>(requireNonNull(attributes, "attributes is null"));
+        this.requestUrl = null;
     }
 
     public MockHttpServletRequest(ListMultimap<String, String> headers)
     {
         // Default remoteAddress and empty attributes
         this(headers, DEFAULT_ADDRESS, ImmutableMap.of());
+    }
+
+    public MockHttpServletRequest(ListMultimap<String, String> headers, String remoteAddress, String requestUrl)
+    {
+        this.headers = ImmutableListMultimap.copyOf(requireNonNull(headers, "headers is null"));
+        this.remoteAddress = requireNonNull(remoteAddress, "remoteAddress is null");
+        this.requestUrl = requireNonNull(requestUrl, "requestUrl is null");
+        this.attributes = ImmutableMap.of();
     }
 
     @Override
@@ -145,7 +157,12 @@ public class MockHttpServletRequest
     @Override
     public String getQueryString()
     {
-        throw new UnsupportedOperationException();
+        if (this.requestUrl == null) {
+            throw new UnsupportedOperationException();
+        }
+        URI uri = UriBuilder.fromUri(this.requestUrl).build();
+
+        return uri.getQuery();
     }
 
     @Override
@@ -181,7 +198,10 @@ public class MockHttpServletRequest
     @Override
     public StringBuffer getRequestURL()
     {
-        throw new UnsupportedOperationException();
+        if (this.requestUrl == null) {
+            throw new UnsupportedOperationException();
+        }
+        return new StringBuffer(this.requestUrl);
     }
 
     @Override
@@ -337,7 +357,12 @@ public class MockHttpServletRequest
     @Override
     public String getScheme()
     {
-        throw new UnsupportedOperationException();
+        if (this.requestUrl == null) {
+            throw new UnsupportedOperationException();
+        }
+        URI uri = UriBuilder.fromUri(this.requestUrl).build();
+
+        return uri.getScheme();
     }
 
     @Override

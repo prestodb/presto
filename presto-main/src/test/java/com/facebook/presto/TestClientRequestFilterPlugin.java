@@ -16,6 +16,7 @@ package com.facebook.presto;
 import com.facebook.airlift.http.server.Authenticator;
 import com.facebook.presto.server.MockHttpServletRequest;
 import com.facebook.presto.server.security.AuthenticationFilter;
+import com.facebook.presto.server.security.DefaultWebUiAuthenticationManager;
 import com.facebook.presto.server.security.SecurityConfig;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.ClientRequestFilter;
@@ -111,7 +112,7 @@ public class TestClientRequestFilterPlugin
             List<Authenticator> authenticators = createAuthenticators();
             SecurityConfig securityConfig = createSecurityConfig();
 
-            return new AuthenticationFilter(authenticators, securityConfig, clientRequestFilterManager);
+            return new AuthenticationFilter(authenticators, securityConfig, clientRequestFilterManager, new DefaultWebUiAuthenticationManager());
         }
     }
 

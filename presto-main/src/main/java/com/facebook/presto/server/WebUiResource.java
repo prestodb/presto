@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.server.security.oauth2.OAuthWebUiCookie;
+
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.HeaderParam;
@@ -21,7 +23,10 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriInfo;
 
+import java.util.Optional;
+
 import static com.facebook.presto.server.security.RoleType.ADMIN;
+import static com.facebook.presto.server.security.oauth2.OAuth2Utils.getLastURLParameter;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static jakarta.ws.rs.core.Response.Status.MOVED_PERMANENTLY;
@@ -30,6 +35,8 @@ import static jakarta.ws.rs.core.Response.Status.MOVED_PERMANENTLY;
 @RolesAllowed(ADMIN)
 public class WebUiResource
 {
+    public static final String UI_ENDPOINT = "/";
+
     @GET
     public Response redirectIndexHtml(
             @HeaderParam(X_FORWARDED_PROTO) String proto,
@@ -38,9 +45,30 @@ public class WebUiResource
         if (isNullOrEmpty(proto)) {
             proto = uriInfo.getRequestUri().getScheme();
         }
+        Optional<String> lastURL = getLastURLParameter(uriInfo.getQueryParameters());
+        if (lastURL.isPresent()) {
+            return Response
+                    .seeOther(uriInfo.getRequestUriBuilder().scheme(proto).uri(lastURL.get()).build())
+                    .build();
+        }
 
-        return Response.status(MOVED_PERMANENTLY)
-                .location(uriInfo.getRequestUriBuilder().scheme(proto).path("/ui/").build())
+        return Response
+                .temporaryRedirect(uriInfo.getRequestUriBuilder().scheme(proto).path("/ui/").replaceQuery("").build())
+                .build();
+    }
+
+    @GET
+    @Path("/logout")
+    public Response logout(
+            @HeaderParam(X_FORWARDED_PROTO) String proto,
+            @Context UriInfo uriInfo)
+    {
+        if (isNullOrEmpty(proto)) {
+            proto = uriInfo.getRequestUri().getScheme();
+        }
+        return Response
+                .temporaryRedirect(uriInfo.getBaseUriBuilder().scheme(proto).path("/ui/logout.html").build())
+                .cookie(OAuthWebUiCookie.delete())
                 .build();
     }
 }
