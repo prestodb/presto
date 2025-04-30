@@ -1164,7 +1164,7 @@ public final class IcebergUtil
         propertiesBuilder.put(COMMIT_NUM_RETRIES, String.valueOf(commitRetries));
         switch (fileFormat) {
             case PARQUET:
-                propertiesBuilder.put(PARQUET_COMPRESSION, getCompressionCodec(session).getParquetCompressionCodec().get().toString());
+                propertiesBuilder.put(PARQUET_COMPRESSION, getCompressionCodec(session).getParquetCompressionCodec().toString());
                 break;
             case ORC:
                 propertiesBuilder.put(ORC_COMPRESSION, getCompressionCodec(session).getOrcCompressionKind().name());
