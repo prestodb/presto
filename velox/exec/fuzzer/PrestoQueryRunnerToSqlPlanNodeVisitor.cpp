@@ -88,7 +88,8 @@ void PrestoQueryRunnerToSqlPlanNodeVisitor::visit(
     visitorContext.sql = std::nullopt;
     return;
   }
-  sql << " FROM " << *source;
+
+  sql << " FROM (" << *source << ")";
 
   if (!groupingKeys.empty()) {
     sql << " GROUP BY " << folly::join(", ", groupingKeys);
@@ -388,7 +389,8 @@ void PrestoQueryRunnerToSqlPlanNodeVisitor::visit(
     visitorContext.sql = std::nullopt;
     return;
   }
-  sql << " FROM " << *source;
+
+  sql << " FROM (" << *source << ")";
 
   visitorContext.sql = sql.str();
 }

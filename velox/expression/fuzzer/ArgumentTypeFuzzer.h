@@ -15,13 +15,11 @@
  */
 #pragma once
 
-#include <random>
 #include <unordered_map>
 
 #include "velox/expression/FunctionSignature.h"
-#include "velox/expression/SignatureBinder.h"
 #include "velox/type/Type.h"
-#include "velox/vector/fuzzer/Utils.h"
+#include "velox/vector/fuzzer/VectorFuzzer.h"
 
 namespace facebook::velox::fuzzer {
 
@@ -34,14 +32,19 @@ class ArgumentTypeFuzzer {
  public:
   ArgumentTypeFuzzer(
       const exec::FunctionSignature& signature,
-      FuzzerGenerator& rng)
-      : ArgumentTypeFuzzer(signature, nullptr, rng) {}
+      FuzzerGenerator& rng,
+      const std::vector<TypePtr>& scalarTypes = velox::defaultScalarTypes())
+      : ArgumentTypeFuzzer(signature, nullptr, rng, scalarTypes) {}
 
   ArgumentTypeFuzzer(
       const exec::FunctionSignature& signature,
       const TypePtr& returnType,
-      FuzzerGenerator& rng)
-      : signature_{signature}, returnType_{returnType}, rng_{rng} {}
+      FuzzerGenerator& rng,
+      const std::vector<TypePtr>& scalarTypes = velox::defaultScalarTypes())
+      : signature_{signature},
+        returnType_{returnType},
+        rng_{rng},
+        scalarTypes_(scalarTypes) {}
 
   /// Generate random argument types. If the desired returnType has been
   /// specified, checks that it can be bound to the return type of signature_.
@@ -112,6 +115,9 @@ class ArgumentTypeFuzzer {
 
   /// RNG to generate random types for unbounded type variables when necessary.
   FuzzerGenerator& rng_;
+
+  /// The set of scalar types that can be used in random argument types.
+  const std::vector<TypePtr> scalarTypes_;
 };
 
 /// Return the kind name of type in lower case. This is expected to match the

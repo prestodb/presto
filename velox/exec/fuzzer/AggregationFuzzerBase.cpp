@@ -197,7 +197,9 @@ AggregationFuzzerBase::pickSignature() {
         signatureTemplates_[idx - signatures_.size()];
     signature.name = signatureTemplate.name;
     velox::fuzzer::ArgumentTypeFuzzer typeFuzzer(
-        *signatureTemplate.signature, rng_);
+        *signatureTemplate.signature,
+        rng_,
+        referenceQueryRunner_->supportedScalarTypes());
     VELOX_CHECK(typeFuzzer.fuzzArgumentTypes(FLAGS_max_num_varargs));
     signature.args = typeFuzzer.argumentTypes();
   }
@@ -209,17 +211,6 @@ std::vector<std::string> AggregationFuzzerBase::generateKeys(
     const std::string& prefix,
     std::vector<std::string>& names,
     std::vector<TypePtr>& types) {
-  static const std::vector<TypePtr> kNonFloatingPointTypes{
-      BOOLEAN(),
-      TINYINT(),
-      SMALLINT(),
-      INTEGER(),
-      BIGINT(),
-      VARCHAR(),
-      VARBINARY(),
-      TIMESTAMP(),
-  };
-
   auto numKeys = boost::random::uniform_int_distribution<uint32_t>(1, 5)(rng_);
   std::vector<std::string> keys;
   for (auto i = 0; i < numKeys; ++i) {
@@ -227,10 +218,9 @@ std::vector<std::string> AggregationFuzzerBase::generateKeys(
 
     // Pick random, possibly complex, type.
     if (orderableGroupKeys_) {
-      types.push_back(
-          vectorFuzzer_.randOrderableType(kNonFloatingPointTypes, 2));
+      types.push_back(vectorFuzzer_.randOrderableType(supportedKeyTypes_, 2));
     } else {
-      types.push_back(vectorFuzzer_.randType(kNonFloatingPointTypes, 2));
+      types.push_back(vectorFuzzer_.randType(supportedKeyTypes_, 2));
     }
     names.push_back(keys.back());
   }

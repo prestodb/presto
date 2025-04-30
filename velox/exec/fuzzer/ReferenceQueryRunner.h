@@ -22,6 +22,8 @@
 #include "velox/common/fuzzer/Utils.h"
 #include "velox/core/PlanNode.h"
 #include "velox/expression/FunctionSignature.h"
+#include "velox/parse/Expressions.h"
+#include "velox/parse/IExpr.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
 namespace facebook::velox::exec::test {
@@ -69,6 +71,27 @@ class ReferenceQueryRunner {
   // candidates when generating random types for fuzzers.
   virtual const std::vector<TypePtr>& supportedScalarTypes() const {
     return defaultScalarTypes();
+  }
+
+  /// Given a vector of batches, returns a pair of updated input batches and
+  /// expressions to be run as a projection. This is used to convert
+  /// intermediate only types (types not supported in the input) in input to
+  /// types allowed in the input, and the projections will handle converting
+  /// those values back into intermediate only types.
+  virtual std::pair<std::vector<RowVectorPtr>, std::vector<core::ExprPtr>>
+  inputProjections(const std::vector<RowVectorPtr>& input) const {
+    if (input.empty()) {
+      return {input, {}};
+    }
+
+    std::vector<core::ExprPtr> projections;
+
+    for (const auto& name : input[0]->type()->asRow().names()) {
+      projections.push_back(
+          std::make_shared<core::FieldAccessExpr>(name, name));
+    }
+
+    return std::make_pair(input, projections);
   }
 
   virtual const std::unordered_map<std::string, DataSpec>&

@@ -26,7 +26,6 @@
 namespace facebook::velox::exec::test {
 
 namespace {
-
 std::unordered_set<std::string> getAggregateFunctions() {
   std::string sql =
       "SELECT distinct on(function_name) function_name "

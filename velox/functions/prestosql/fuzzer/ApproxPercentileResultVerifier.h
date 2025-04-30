@@ -41,6 +41,7 @@ class ApproxPercentileResultVerifier : public ResultVerifier {
   // Compute the range of percentiles represented by each of the input values.
   void initialize(
       const std::vector<RowVectorPtr>& input,
+      const std::vector<core::ExprPtr>& projections,
       const std::vector<std::string>& groupingKeys,
       const core::AggregationNode::Aggregate& aggregate,
       const std::string& aggregateName) override {
@@ -60,13 +61,14 @@ class ApproxPercentileResultVerifier : public ResultVerifier {
     extractPercentileAndAccuracy(aggregate.call, input);
 
     // Compute percentiles for all values.
-    allRanges_ =
-        computePercentiles(input, valueField, weightField, aggregate.mask);
+    allRanges_ = computePercentiles(
+        input, projections, valueField, weightField, aggregate.mask);
     VELOX_CHECK_LE(allRanges_->size(), numInputs);
   }
 
   void initializeWindow(
       const std::vector<RowVectorPtr>& input,
+      const std::vector<core::ExprPtr>& projections,
       const std::vector<std::string>& partitionByKeys,
       const std::vector<SortingKeyAndOrder>& sortingKeysAndOrders,
       const core::WindowNode::Function& function,
@@ -85,6 +87,7 @@ class ApproxPercentileResultVerifier : public ResultVerifier {
 
     allRanges_ = computePercentilesForWindow(
         input,
+        projections,
         valueField,
         weightField,
         sortingKeysAndOrders,
@@ -238,6 +241,7 @@ class ApproxPercentileResultVerifier : public ResultVerifier {
   // followed by min_pct and max_pct columns.
   RowVectorPtr computePercentiles(
       const std::vector<RowVectorPtr>& input,
+      const std::vector<core::ExprPtr>& inputProjections,
       const std::string& valueField,
       const std::optional<std::string>& weightField,
       const core::FieldAccessTypedExprPtr& mask) {
@@ -251,7 +255,7 @@ class ApproxPercentileResultVerifier : public ResultVerifier {
         weightField.has_value() ? weightField.value() : "1::bigint"));
 
     PlanBuilder planBuilder;
-    planBuilder.values(input);
+    planBuilder.values(input).projectExpressions(inputProjections);
 
     if (mask != nullptr) {
       planBuilder.filter(mask->name());
@@ -422,6 +426,7 @@ class ApproxPercentileResultVerifier : public ResultVerifier {
   //      row_num
   RowVectorPtr computePercentilesForWindow(
       const std::vector<RowVectorPtr>& input,
+      const std::vector<core::ExprPtr>& inputProjections,
       const std::string& valueField,
       const std::optional<std::string>& weightField,
       const std::vector<SortingKeyAndOrder>& sortingKeysAndOrders,
@@ -453,7 +458,10 @@ class ApproxPercentileResultVerifier : public ResultVerifier {
     }
 
     PlanBuilder planBuilder;
-    planBuilder.values(input).project(projections).filter("w > 0");
+    planBuilder.values(input)
+        .projectExpressions(inputProjections)
+        .project(projections)
+        .filter("w > 0");
 
     auto partitionByKeysWithRowNumber =
         getPartitionByClause(append(groupingKeys_, {"row_number"}));

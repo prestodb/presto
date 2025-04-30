@@ -130,11 +130,11 @@ void ArgumentTypeFuzzer::determineUnboundedTypeVariables() {
 }
 
 TypePtr ArgumentTypeFuzzer::randType() {
-  return velox::randType(rng_, 2);
+  return velox::randType(rng_, scalarTypes_, 2);
 }
 
 TypePtr ArgumentTypeFuzzer::randOrderableType() {
-  return velox::randOrderableType(rng_, 2);
+  return velox::randOrderableType(rng_, scalarTypes_, 2);
 }
 
 bool ArgumentTypeFuzzer::fuzzArgumentTypes(uint32_t maxVariadicArgs) {

@@ -51,6 +51,7 @@ class ResultVerifier {
   /// re-use its results for multiple 'verify' calls.
   virtual void initialize(
       const std::vector<RowVectorPtr>& input,
+      const std::vector<core::ExprPtr>& projections,
       const std::vector<std::string>& groupingKeys,
       const core::AggregationNode::Aggregate& aggregate,
       const std::string& aggregateName) = 0;
@@ -61,6 +62,7 @@ class ResultVerifier {
   /// that will store the window function results.
   virtual void initializeWindow(
       const std::vector<RowVectorPtr>& /*input*/,
+      const std::vector<core::ExprPtr>& /* projections */,
       const std::vector<std::string>& /*partitionByKeys*/,
       const std::vector<SortingKeyAndOrder>& /*sortingKeysAndOrders*/,
       const core::WindowNode::Function& /*function*/,

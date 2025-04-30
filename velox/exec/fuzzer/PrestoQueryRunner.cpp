@@ -28,12 +28,14 @@
 #include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/exec/fuzzer/FuzzerUtil.h"
 #include "velox/exec/fuzzer/PrestoQueryRunner.h"
+#include "velox/exec/fuzzer/PrestoQueryRunnerIntermediateTypeTransforms.h"
 #include "velox/exec/fuzzer/PrestoQueryRunnerToSqlPlanNodeVisitor.h"
 #include "velox/exec/fuzzer/PrestoSql.h"
 #include "velox/exec/tests/utils/QueryAssertions.h"
 #include "velox/functions/prestosql/types/IPAddressType.h"
 #include "velox/functions/prestosql/types/IPPrefixType.h"
 #include "velox/functions/prestosql/types/JsonType.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/functions/prestosql/types/UuidType.h"
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/type/parser/TypeParser.h"
@@ -182,6 +184,7 @@ const std::vector<TypePtr>& PrestoQueryRunner::supportedScalarTypes() const {
       VARCHAR(),
       VARBINARY(),
       TIMESTAMP(),
+      TIMESTAMP_WITH_TIME_ZONE(),
   };
   return kScalarTypes;
 }
@@ -199,6 +202,63 @@ bool PrestoQueryRunner::isSupportedDwrfType(const TypePtr& type) {
   }
 
   return true;
+}
+
+std::pair<std::vector<RowVectorPtr>, std::vector<core::ExprPtr>>
+PrestoQueryRunner::inputProjections(
+    const std::vector<RowVectorPtr>& input) const {
+  if (input.empty()) {
+    return {input, {}};
+  }
+
+  std::vector<core::ExprPtr> projections;
+  std::vector<std::string> names = input[0]->type()->asRow().names();
+  std::vector<std::vector<VectorPtr>> children(input.size());
+  for (int childIndex = 0; childIndex < input[0]->childrenSize();
+       childIndex++) {
+    const auto& childType = input[0]->childAt(childIndex)->type();
+    // If it's an intermediate only type, transform the input and add
+    // expressions to reverse the transformation.  Otherwise the input is
+    // unchanged and the projection is just an identity mapping.
+    if (isIntermediateOnlyType(childType)) {
+      for (int batchIndex = 0; batchIndex < input.size(); batchIndex++) {
+        children[batchIndex].push_back(transformIntermediateOnlyType(
+            input[batchIndex]->childAt(childIndex)));
+      }
+      projections.push_back(getIntermediateOnlyTypeProjectionExpr(
+          childType,
+          std::make_shared<core::FieldAccessExpr>(
+              names[childIndex], names[childIndex]),
+          names[childIndex]));
+    } else {
+      for (int batchIndex = 0; batchIndex < input.size(); batchIndex++) {
+        children[batchIndex].push_back(input[batchIndex]->childAt(childIndex));
+      }
+
+      projections.push_back(std::make_shared<core::FieldAccessExpr>(
+          names[childIndex], names[childIndex]));
+    }
+  }
+
+  std::vector<TypePtr> types;
+  for (const auto& child : children[0]) {
+    types.push_back(child->type());
+  }
+
+  auto rowType = ROW(std::move(names), std::move(types));
+
+  std::vector<RowVectorPtr> output;
+  output.reserve(input.size());
+  for (int batchIndex = 0; batchIndex < input.size(); batchIndex++) {
+    output.push_back(std::make_shared<RowVector>(
+        input[batchIndex]->pool(),
+        rowType,
+        input[batchIndex]->nulls(),
+        input[batchIndex]->size(),
+        std::move(children[batchIndex])));
+  }
+
+  return std::make_pair(output, projections);
 }
 
 const std::unordered_map<std::string, DataSpec>&

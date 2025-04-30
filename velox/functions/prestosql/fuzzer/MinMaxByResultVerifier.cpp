@@ -20,6 +20,7 @@ namespace facebook::velox::exec::test {
 
 void MinMaxByResultVerifier::initialize(
     const std::vector<RowVectorPtr>& input,
+    const std::vector<core::ExprPtr>& projections,
     const std::vector<std::string>& groupingKeys,
     const core::AggregationNode::Aggregate& aggregate,
     const std::string& aggregateName) {
@@ -95,7 +96,9 @@ void MinMaxByResultVerifier::initialize(
   // GROUP BY
   //     b
   auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
-  auto plan = PlanBuilder(planNodeIdGenerator, input[0]->pool()).values(input);
+  auto plan = PlanBuilder(planNodeIdGenerator, input[0]->pool())
+                  .values(input)
+                  .projectExpressions(projections);
   // Filter out masked rows first so that groups with all rows filtered out
   // won't take a row_number during the filtering later.
   if (aggregate.mask != nullptr) {

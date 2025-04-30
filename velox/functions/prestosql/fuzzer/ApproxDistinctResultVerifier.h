@@ -47,12 +47,14 @@ class ApproxDistinctResultVerifier : public ResultVerifier {
   // Compute count(distinct x) over 'input'.
   void initialize(
       const std::vector<RowVectorPtr>& input,
+      const std::vector<core::ExprPtr>& projections,
       const std::vector<std::string>& groupingKeys,
       const core::AggregationNode::Aggregate& aggregate,
       const std::string& aggregateName) override {
     auto plan =
         PlanBuilder()
             .values(input)
+            .projectExpressions(projections)
             .singleAggregation(groupingKeys, {makeCountDistinctCall(aggregate)})
             .planNode();
 
@@ -66,6 +68,7 @@ class ApproxDistinctResultVerifier : public ResultVerifier {
   // Compute count_distinct(x) over 'input' over 'frame'.
   void initializeWindow(
       const std::vector<RowVectorPtr>& input,
+      const std::vector<core::ExprPtr>& projections,
       const std::vector<std::string>& partitionByKeys,
       const std::vector<SortingKeyAndOrder>& /*sortingKeysAndOrders*/,
       const core::WindowNode::Function& function,
@@ -73,6 +76,7 @@ class ApproxDistinctResultVerifier : public ResultVerifier {
       const std::string& windowName) override {
     auto plan = PlanBuilder()
                     .values(input)
+                    .projectExpressions(projections)
                     .window({makeCountDistinctWindowCall(function, frame)})
                     .planNode();
 

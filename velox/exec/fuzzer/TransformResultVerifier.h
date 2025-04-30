@@ -52,6 +52,7 @@ class TransformResultVerifier : public ResultVerifier {
 
   void initialize(
       const std::vector<RowVectorPtr>& /*input*/,
+      const std::vector<core::ExprPtr>& /*projections*/,
       const std::vector<std::string>& groupingKeys,
       const core::AggregationNode::Aggregate& /*aggregate*/,
       const std::string& aggregateName) override {

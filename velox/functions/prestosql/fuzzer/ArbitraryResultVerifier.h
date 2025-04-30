@@ -38,6 +38,7 @@ class ArbitraryResultVerifier : public ResultVerifier {
 
   void initialize(
       const std::vector<RowVectorPtr>& input,
+      const std::vector<core::ExprPtr>& projections,
       const std::vector<std::string>& groupingKeys,
       const core::AggregationNode::Aggregate& aggregate,
       const std::string& aggregateName) override {
@@ -58,6 +59,7 @@ class ArbitraryResultVerifier : public ResultVerifier {
     auto plan =
         PlanBuilder(planNodeIdGenerator, input[0]->pool())
             .values(input)
+            .projectExpressions(projections)
             .singleAggregation(groupingKeys, {makeArrayAggCall(aggregate)})
             .project(projectColumns)
             .planNode();
