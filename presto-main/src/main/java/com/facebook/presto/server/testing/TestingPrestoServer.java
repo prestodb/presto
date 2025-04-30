@@ -624,6 +624,11 @@ public class TestingPrestoServer
         return HostAndPort.fromParts(httpsUri.getHost(), httpsUri.getPort());
     }
 
+    public URI getHttpBaseUrl()
+    {
+        return server.getHttpServerInfo().getHttpUri();
+    }
+
     public CatalogManager getCatalogManager()
     {
         return catalogManager;

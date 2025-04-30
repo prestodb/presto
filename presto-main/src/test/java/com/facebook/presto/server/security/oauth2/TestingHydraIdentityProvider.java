@@ -28,6 +28,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import com.google.inject.Key;
+import com.nimbusds.oauth2.sdk.GrantType;
+import okhttp3.Credentials;
+import okhttp3.FormBody;
 import okhttp3.HttpUrl;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
@@ -46,6 +49,7 @@ import org.testcontainers.utility.MountableFile;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.ws.rs.core.HttpHeaders;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -56,9 +60,11 @@ import java.util.Optional;
 
 import static com.facebook.presto.client.OkHttpUtil.setupInsecureSsl;
 import static com.facebook.presto.server.security.oauth2.TokenEndpointAuthMethod.CLIENT_SECRET_BASIC;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
+import static javax.servlet.http.HttpServletResponse.SC_OK;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 
 public class TestingHydraIdentityProvider
@@ -88,6 +94,11 @@ public class TestingHydraIdentityProvider
     private final boolean exposeFixedPorts;
     private final OkHttpClient httpClient;
     private FixedHostPortGenericContainer<?> hydraContainer;
+
+    public TestingHydraIdentityProvider()
+    {
+        this(Duration.ofMinutes(30), true, false);
+    }
 
     public TestingHydraIdentityProvider(Duration ttlAccessToken, boolean useJwt, boolean exposeFixedPorts)
     {
@@ -165,6 +176,28 @@ public class TestingHydraIdentityProvider
                         "--callbacks", callbackUrl)
                 .withStartupCheckStrategy(new OneShotStartupCheckStrategy().withTimeout(Duration.ofSeconds(30)))
                 .start();
+    }
+
+    public String getToken(String clientId, String clientSecret, List<String> audiences)
+            throws IOException
+    {
+        try (Response response = httpClient
+                .newCall(
+                        new Request.Builder()
+                                .url("https://localhost:" + getAuthPort() + "/oauth2/token")
+                                .addHeader(HttpHeaders.AUTHORIZATION, Credentials.basic(clientId, clientSecret))
+                                .post(new FormBody.Builder()
+                                        .add("grant_type", GrantType.CLIENT_CREDENTIALS.getValue())
+                                        .add("audience", String.join(" ", audiences))
+                                        .build())
+                                .build())
+                .execute()) {
+            checkState(response.code() == SC_OK);
+            requireNonNull(response.body());
+            return mapper.readTree(response.body().byteStream())
+                    .get("access_token")
+                    .textValue();
+        }
     }
 
     public int getAuthPort()
