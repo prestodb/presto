@@ -228,9 +228,7 @@ import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectNam
 import static com.facebook.presto.metadata.MetadataUtil.getConnectorIdOrThrow;
 import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
 import static com.facebook.presto.spi.StandardErrorCode.DATATYPE_MISMATCH;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_COLUMN_MASK;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_ROW_FILTER;
 import static com.facebook.presto.spi.StandardWarningCode.PERFORMANCE_WARNING;
 import static com.facebook.presto.spi.StandardWarningCode.REDUNDANT_ORDER_BY;
@@ -1289,7 +1287,7 @@ class StatementAnalyzer
                     outputFields.add(Field.newUnqualified(expression.getLocation(), Optional.empty(), ((MapType) expressionType).getValueType()));
                 }
                 else {
-                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Cannot unnest type: " + expressionType);
+                    throw new PrestoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT, "Cannot unnest type: " + expressionType);
                 }
             }
             if (node.isWithOrdinality()) {
@@ -3207,7 +3205,7 @@ class StatementAnalyzer
 
                 Session viewSession = createViewSession(catalog, schema, identity);
 
-                StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, viewAccessControl, viewSession, warningCollector);
+                StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, viewAccessControl, transactionManager, viewSession, warningCollector);
                 Scope queryScope = analyzer.analyze(query, Scope.create());
                 return queryScope.getRelationType().withAlias(name.getObjectName(), null);
             }
