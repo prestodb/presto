@@ -1266,8 +1266,8 @@ class NegatedBigintValuesUsingBitmask final : public Filter {
   std::unique_ptr<Filter>
   mergeWith(int64_t min, int64_t max, const Filter* other) const;
 
-  int min_;
-  int max_;
+  int64_t min_;
+  int64_t max_;
   std::unique_ptr<BigintValuesUsingBitmask> nonNegated_;
 };
 
