@@ -20,7 +20,8 @@ velox_add_library(
   MinMaxAggregateBase.cpp
   SingleValueAccumulator.cpp
   ValueList.cpp
-  ValueSet.cpp)
+  ValueSet.cpp
+  VarianceAggregatesBase.cpp)
 
 velox_link_libraries(velox_functions_aggregates velox_exec
                      velox_presto_serializer Folly::folly)

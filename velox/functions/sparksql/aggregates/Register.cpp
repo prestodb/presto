@@ -23,6 +23,7 @@
 #include "velox/functions/sparksql/aggregates/CollectListAggregate.h"
 #include "velox/functions/sparksql/aggregates/RegrReplacementAggregate.h"
 #include "velox/functions/sparksql/aggregates/SumAggregate.h"
+#include "velox/functions/sparksql/aggregates/VarianceAggregate.h"
 
 namespace facebook::velox::functions::aggregate::sparksql {
 
@@ -64,6 +65,7 @@ void registerAggregateFunctions(
   registerCollectListAggregate(prefix, withCompanionFunctions, overwrite);
   registerRegrReplacementAggregate(prefix, withCompanionFunctions, overwrite);
   registerModeAggregate(prefix, withCompanionFunctions, overwrite);
+  registerVarianceAggregate(prefix, withCompanionFunctions, overwrite);
 }
 
 std::vector<std::string> listAggregateFunctionNames() {

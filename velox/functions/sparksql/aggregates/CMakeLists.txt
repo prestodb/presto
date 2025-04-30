@@ -25,7 +25,8 @@ velox_add_library(
   ModeAggregate.cpp
   Register.cpp
   RegrReplacementAggregate.cpp
-  SumAggregate.cpp)
+  SumAggregate.cpp
+  VarianceAggregate.cpp)
 
 velox_link_libraries(
   velox_functions_spark_aggregates
