@@ -117,7 +117,8 @@ target_link_libraries(
   velox_topn_row_number_fuzzer velox_topn_row_number_fuzzer_lib)
 
 # Join Fuzzer.
-add_executable(velox_join_fuzzer JoinFuzzerRunner.cpp JoinFuzzer.cpp)
+add_executable(velox_join_fuzzer JoinFuzzerRunner.cpp JoinFuzzer.cpp
+                                 JoinMaker.cpp)
 
 target_link_libraries(
   velox_join_fuzzer
