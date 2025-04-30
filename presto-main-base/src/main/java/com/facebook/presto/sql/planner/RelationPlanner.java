@@ -27,7 +27,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.constraints.TableConstraint;
-import com.facebook.presto.spi.function.table.NameAndPosition;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.CteReferenceNode;
@@ -314,10 +313,10 @@ class RelationPlanner
         //  - prune when empty property  (from the actualArgument)
         //  - pass through columns property (from the actualArgument)
         //  - optional Specification: ordering scheme and partitioning (from the node's argument) <- planned upon the source's RelationPlan (or combined RelationPlan from all sources)
+        // TODO add - argument name
+        // TODO add - mapping column name => Symbol // TODO mind the fields without names and duplicate field names in RelationType
         List<RelationPlan> sources = ImmutableList.of();
         List<TableFunctionNode.TableArgumentProperties> inputRelationsProperties = ImmutableList.of();
-        // TODO rewrite column references to Symbols upon the source's RelationPlan (or combined RelationPlan from all sources)
-        Map<NameAndPosition, Symbol> inputDescriptorMappings = ImmutableMap.of();
 
         Scope scope = analysis.getScope(node);
 
@@ -335,7 +334,6 @@ class RelationPlanner
                 outputVariablesBuilder.build(),
                 sources.stream().map(RelationPlan::getRoot).collect(toImmutableList()),
                 inputRelationsProperties,
-                inputDescriptorMappings,
                 new TableFunctionHandle(functionAnalysis.getConnectorId(), functionAnalysis.getConnectorTableFunctionHandle(), functionAnalysis.getTransactionHandle()));
 
         return new RelationPlan(root, scope, outputVariables);

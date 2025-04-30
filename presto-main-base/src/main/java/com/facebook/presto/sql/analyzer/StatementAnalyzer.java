@@ -1312,7 +1312,6 @@ class StatementAnalyzer
             ConnectorId connectorId = tableFunctionMetadata.getConnectorId();
 
             QualifiedObjectName functionName = new QualifiedObjectName(connectorId.getCatalogName(), function.getSchema(), function.getName());
-            //accessControl.checkCanExecuteFunction(SecurityContext.of(session), functionName);
 
             Map<String, Argument> passedArguments = analyzeArguments(node, function.getArguments(), node.getArguments());
 
@@ -1398,12 +1397,13 @@ class StatementAnalyzer
                 Map<String, ArgumentSpecification> argumentSpecificationsByName = new HashMap<>();
                 for (ArgumentSpecification argumentSpecification : argumentSpecifications) {
                     if (argumentSpecificationsByName.put(argumentSpecification.getName(), argumentSpecification) != null) {
+                        // this should never happen, because the argument names are validated at function registration time
                         throw new IllegalStateException("Duplicate argument specification for name: " + argumentSpecification.getName());
                     }
                 }
                 Set<String> uniqueArgumentNames = new HashSet<>();
                 for (TableFunctionArgument argument : arguments) {
-                    String argumentName = argument.getName().get().getCanonicalValue();
+                    String argumentName = argument.getName().orElseThrow(() -> new IllegalStateException("Missing table function argument name")).getCanonicalValue();
                     if (!uniqueArgumentNames.add(argumentName)) {
                         throw new SemanticException(INVALID_FUNCTION_ARGUMENT, argument, "Duplicate argument name: ", argumentName);
                     }
@@ -1483,34 +1483,11 @@ class StatementAnalyzer
                 }
                 Expression expression = (Expression) argument.getValue();
                 // 'descriptor' as a function name is not allowed in this context
-                if (argument.getValue() instanceof FunctionCall && ((FunctionCall) argument.getValue()).getName().hasSuffix(QualifiedName.of("decsriptor"))) { // function name is always compared case-insensitive
+                if (expression instanceof FunctionCall && ((FunctionCall) expression).getName().hasSuffix(QualifiedName.of("descriptor"))) { // function name is always compared case-insensitive
                     throw new SemanticException(INVALID_FUNCTION_ARGUMENT, argument, "'descriptor' function is not allowed as a table function argument");
                 }
-                // inline parameters
-                Expression inlined = ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
-                {
-                    @Override
-                    public Expression rewriteParameter(Parameter node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-                    {
-                        if (analysis.isDescribe()) {
-                            // We cannot handle DESCRIBE when a table function argument involves a parameter.
-                            // In DESCRIBE, the parameter values are not known. We cannot pass a dummy value for a parameter.
-                            // The value of a table function argument can affect the returned relation type. The returned
-                            // relation type can affect the assumed types for other parameters in the query.
-                            throw new SemanticException(NOT_SUPPORTED, node, "DESCRIBE is not supported if a table function uses parameters");
-                        }
-                        return analysis.getParameters().get(NodeRef.of(node));
-                    }
-                }, expression);
-                Type expectedArgumentType = ((ScalarArgumentSpecification) argumentSpecification).getType();
-                // currently, only constant arguments are supported
-                Object constantValue = ExpressionInterpreter.evaluateConstantExpression(inlined, expectedArgumentType, metadata, session, analysis.getParameters());
-                return ScalarArgument.builder()
-                        .type(expectedArgumentType)
-                        .value(constantValue)
-                        .build();
+                return analyzeScalarArgument(expression, ((ScalarArgumentSpecification) argumentSpecification).getType());
             }
-
             throw new IllegalStateException("Unexpected argument specification: " + argumentSpecification.getClass().getSimpleName());
         }
 
@@ -1535,6 +1512,32 @@ class StatementAnalyzer
             throw new IllegalStateException("Unexpected argument specification: " + argumentSpecification.getClass().getSimpleName());
         }
 
+        private Argument analyzeScalarArgument(Expression expression, Type type)
+        {
+            // inline parameters
+            Expression inlined = ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
+            {
+                @Override
+                public Expression rewriteParameter(Parameter node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+                {
+                    if (analysis.isDescribe()) {
+                        // We cannot handle DESCRIBE when a table function argument involves a parameter.
+                        // In DESCRIBE, the parameter values are not known. We cannot pass a dummy value for a parameter.
+                        // The value of a table function argument can affect the returned relation type. The returned
+                        // relation type can affect the assumed types for other parameters in the query.
+                        throw new SemanticException(NOT_SUPPORTED, node, "DESCRIBE is not supported if a table function uses parameters");
+                    }
+                    return analysis.getParameters().get(NodeRef.of(node));
+                }
+            }, expression);
+            // currently, only constant arguments are supported
+            Object constantValue = ExpressionInterpreter.evaluateConstantExpression(inlined, type, metadata, session, analysis.getParameters());
+            return ScalarArgument.builder()
+                    .type(type)
+                    .value(constantValue)
+                    .build();
+        }
+
         @Override
         protected Scope visitTable(Table table, Optional<Scope> scope)
         {
@@ -1546,6 +1549,7 @@ class StatementAnalyzer
                 if (withQuery.isPresent()) {
                     Query query = withQuery.get().getQuery();
                     analysis.registerNamedQuery(table, query, false);
+                    analysis.setRelationName(table, table.getName());
 
                     // re-alias the fields with the name assigned to the query in the WITH declaration
                     RelationType queryDescriptor = analysis.getOutputDescriptor(query);
@@ -1585,12 +1589,12 @@ class StatementAnalyzer
                                         field.isAliased()))
                                 .collect(toImmutableList());
                     }
-
                     return createAndAssignScope(table, scope, fields);
                 }
             }
 
             QualifiedObjectName name = createQualifiedObjectName(session, table, table.getName(), metadata);
+            analysis.setRelationName(table, table.getName());
             if (name.getObjectName().isEmpty()) {
                 throw new SemanticException(MISSING_TABLE, table, "Table name is empty");
             }
@@ -1963,6 +1967,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitAliasedRelation(AliasedRelation relation, Optional<Scope> scope)
         {
+            analysis.setRelationName(relation, QualifiedName.of(relation.getAlias().getValue()));
             Scope relationScope = process(relation.getRelation(), scope);
 
             // todo this check should be inside of TupleDescriptor.withAlias, but the exception needs the node object

@@ -66,6 +66,8 @@ import com.facebook.presto.sql.tree.DropRole;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
+import com.facebook.presto.sql.tree.EmptyTableTreatment;
+import com.facebook.presto.sql.tree.EmptyTableTreatment.Treatment;
 import com.facebook.presto.sql.tree.Except;
 import com.facebook.presto.sql.tree.Execute;
 import com.facebook.presto.sql.tree.ExistsPredicate;
@@ -1552,9 +1554,15 @@ class AstBuilder
             orderBy = Optional.of(new OrderBy(visit(context.sortItem(), SortItem.class)));
         }
 
-        boolean pruneWhenEmpty = context.PRUNE() != null;
+        Optional<EmptyTableTreatment> emptyTableTreatment = Optional.empty();
+        if (context.PRUNE() != null) {
+            emptyTableTreatment = Optional.of(new EmptyTableTreatment(getLocation(context.PRUNE()), Treatment.PRUNE));
+        }
+        else if (context.KEEP() != null) {
+            emptyTableTreatment = Optional.of(new EmptyTableTreatment(getLocation(context.KEEP()), Treatment.KEEP));
+        }
 
-        return new TableFunctionTableArgument(getLocation(context), table, partitionBy, orderBy, pruneWhenEmpty);
+        return new TableFunctionTableArgument(getLocation(context), table, partitionBy, orderBy, emptyTableTreatment);
     }
 
     @Override
@@ -1564,7 +1572,7 @@ class AstBuilder
 
         if (context.identifier() != null) {
             Identifier alias = (Identifier) visit(context.identifier());
-            List<Identifier> columnNames = ImmutableList.of();
+            List<Identifier> columnNames = null;
             if (context.columnAliases() != null) {
                 columnNames = visit(context.columnAliases().identifier(), Identifier.class);
             }
@@ -1581,7 +1589,7 @@ class AstBuilder
 
         if (context.identifier() != null) {
             Identifier alias = (Identifier) visit(context.identifier());
-            List<Identifier> columnNames = ImmutableList.of();
+            List<Identifier> columnNames = null;
             if (context.columnAliases() != null) {
                 columnNames = visit(context.columnAliases().identifier(), Identifier.class);
             }

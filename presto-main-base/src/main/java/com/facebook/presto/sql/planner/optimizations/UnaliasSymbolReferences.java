@@ -480,7 +480,7 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitTableFunction(TableFunctionNode node, RewriteContext<Void> context)
         {
-            // TODO rewrite sources, tableArgumentProperties, and inputDescriptorMappings when we add support for input tables
+            // TODO rewrite sources, and tableArgumentProperties when we add support for input tables
             /*
             Map<Symbol, Symbol> mapping = new HashMap<>(context.getCorrelationMapping());
             SymbolMapper mapper = symbolMapper(mapping);
@@ -496,7 +496,6 @@ public class UnaliasSymbolReferences
                     node.getOutputVariables(),
                     node.getSources(),
                     node.getTableArgumentProperties(),
-                    node.getInputDescriptorMappings(),
                     node.getHandle());
         }
 
