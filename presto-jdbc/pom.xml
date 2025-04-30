@@ -59,6 +59,11 @@
 
         <dependency>
             <groupId>com.facebook.airlift</groupId>
+            <artifactId>concurrent</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
             <artifactId>security</artifactId>
         </dependency>
 
@@ -117,6 +122,24 @@
         </dependency>
 
         <!-- for testing -->
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>configuration</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>http-server</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>jaxrs</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-testng-services</artifactId>
@@ -178,6 +201,18 @@
         </dependency>
 
         <dependency>
+            <groupId>javax.servlet</groupId>
+            <artifactId>javax.servlet-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>javax.ws.rs</groupId>
+            <artifactId>javax.ws.rs-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>
             <scope>test</scope>
@@ -198,12 +233,6 @@
         <dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>log-manager</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.airlift</groupId>
-            <artifactId>concurrent</artifactId>
             <scope>test</scope>
         </dependency>
 
