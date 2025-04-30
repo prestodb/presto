@@ -1318,7 +1318,7 @@ public class PlanPrinter
                     "name");
 
             checkArgument(
-                    node.getSources().isEmpty() && node.getTableArgumentProperties().isEmpty() && node.getInputDescriptorMappings().isEmpty(),
+                    node.getSources().isEmpty() && node.getTableArgumentProperties().isEmpty(),
                     "Table or descriptor arguments are not yet supported in PlanPrinter");
 
             // TODO: Add details here for plan printer

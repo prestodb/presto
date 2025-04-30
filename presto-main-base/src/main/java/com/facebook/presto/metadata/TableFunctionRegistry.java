@@ -147,5 +147,8 @@ public class TableFunctionRegistry
                 .filter(TableArgumentSpecification::isRowSemantics)
                 .count();
         checkArgument(tableArgumentsWithRowSemantics <= 1, "more than one table argument with row semantics");
+        // The 'keep when empty' or 'prune when empty' property must not be explicitly specified for a table argument with row semantics.
+        // Such a table argument is implicitly 'prune when empty'. The TableArgumentSpecification.Builder enforces the 'prune when empty' property
+        // for a table argument with row semantics.
     }
 }

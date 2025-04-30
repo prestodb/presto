@@ -62,6 +62,7 @@ import com.facebook.presto.sql.tree.DropRole;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
+import com.facebook.presto.sql.tree.EmptyTableTreatment;
 import com.facebook.presto.sql.tree.Execute;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Explain;
@@ -197,6 +198,7 @@ import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 import static com.facebook.presto.sql.tree.ConstraintSpecification.ConstraintType.PRIMARY_KEY;
 import static com.facebook.presto.sql.tree.ConstraintSpecification.ConstraintType.UNIQUE;
+import static com.facebook.presto.sql.tree.EmptyTableTreatment.Treatment.PRUNE;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.Determinism.DETERMINISTIC;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.Determinism.NOT_DETERMINISTIC;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.Language.SQL;
@@ -3515,7 +3517,7 @@ public class TestSqlParser
                                                                 new Identifier(new NodeLocation(1, 112), "c", false))),
                                                 Optional.of(ImmutableList.of(new Identifier(new NodeLocation(1, 196), "a", false))),
                                                 Optional.of(new OrderBy(ImmutableList.of(new SortItem(new NodeLocation(1, 360), new Identifier(new NodeLocation(1, 360), "b", false), ASCENDING, LAST)))),
-                                                true)),
+                                                Optional.of(new EmptyTableTreatment(new NodeLocation(1, 266), PRUNE)))),
                                 new TableFunctionArgument(
                                         new NodeLocation(1, 425),
                                         Optional.of(new Identifier(new NodeLocation(1, 425), "arg2", false)),
@@ -3545,6 +3547,69 @@ public class TestSqlParser
                         ImmutableList.of(ImmutableList.of(
                                 QualifiedName.of("ord"),
                                 QualifiedName.of("nation"))))));
+    }
+
+    @Test
+    public void testTableFunctionTableArgumentAliasing()
+    {
+        // no alias
+        assertStatement("SELECT * FROM TABLE(some_ptf(input => TABLE(orders)))",
+                selectAllFrom(new TableFunctionInvocation(
+                        new NodeLocation(1, 21),
+                        QualifiedName.of("some_ptf"),
+                        ImmutableList.of(new TableFunctionArgument(
+                                new NodeLocation(1, 30),
+                                Optional.of(new Identifier(new NodeLocation(1, 30), "input", false)),
+                                new TableFunctionTableArgument(
+                                        new NodeLocation(1, 39),
+                                        new Table(new NodeLocation(1, 39), QualifiedName.of("orders")),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty()))),
+                        ImmutableList.of())));
+
+        // table alias; no column aliases
+        assertStatement("SELECT * FROM TABLE(some_ptf(input => TABLE(orders) AS ord))",
+                selectAllFrom(new TableFunctionInvocation(
+                        new NodeLocation(1, 21),
+                        QualifiedName.of("some_ptf"),
+                        ImmutableList.of(new TableFunctionArgument(
+                                new NodeLocation(1, 30),
+                                Optional.of(new Identifier(new NodeLocation(1, 30), "input", false)),
+                                new TableFunctionTableArgument(
+                                        new NodeLocation(1, 39),
+                                        new AliasedRelation(
+                                                new NodeLocation(1, 39),
+                                                new Table(new NodeLocation(1, 39), QualifiedName.of("orders")),
+                                                new Identifier(new NodeLocation(1, 56), "ord", false),
+                                                null),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty()))),
+                        ImmutableList.of())));
+
+        // table alias and column aliases
+        assertStatement("SELECT * FROM TABLE(some_ptf(input => TABLE(orders) AS ord(a, b, c)))",
+                selectAllFrom(new TableFunctionInvocation(
+                        new NodeLocation(1, 21),
+                        QualifiedName.of("some_ptf"),
+                        ImmutableList.of(new TableFunctionArgument(
+                                new NodeLocation(1, 30),
+                                Optional.of(new Identifier(new NodeLocation(1, 30), "input", false)),
+                                new TableFunctionTableArgument(
+                                        new NodeLocation(1, 39),
+                                        new AliasedRelation(
+                                                new NodeLocation(1, 39),
+                                                new Table(new NodeLocation(1, 39), QualifiedName.of("orders")),
+                                                new Identifier(new NodeLocation(1, 56), "ord", false),
+                                                ImmutableList.of(
+                                                        new Identifier(new NodeLocation(1, 60), "a", false),
+                                                        new Identifier(new NodeLocation(1, 63), "b", false),
+                                                        new Identifier(new NodeLocation(1, 66), "c", false))),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty()))),
+                        ImmutableList.of())));
     }
 
     private static Query selectAllFrom(Relation relation)
