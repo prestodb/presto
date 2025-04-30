@@ -33,7 +33,6 @@ import com.facebook.presto.hive.HiveColumnConverterProvider;
 import com.facebook.presto.hive.HiveCompressionCodec;
 import com.facebook.presto.hive.HivePartition;
 import com.facebook.presto.hive.HivePartitionKey;
-import com.facebook.presto.hive.HiveStorageFormat;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.PartitionNameWithVersion;
 import com.facebook.presto.hive.metastore.Column;
@@ -879,11 +878,11 @@ public final class IcebergUtil
     /**
      * Provides the delete files that need to be applied to the given table snapshot.
      *
-     * @param table The table to provide deletes for
-     * @param snapshot The snapshot id to use
-     * @param filter Filters to apply during planning
+     * @param table                  The table to provide deletes for
+     * @param snapshot               The snapshot id to use
+     * @param filter                 Filters to apply during planning
      * @param requestedPartitionSpec If provided, only delete files for this partition spec will be provided
-     * @param requestedSchema If provided, only delete files with this schema will be provided
+     * @param requestedSchema        If provided, only delete files with this schema will be provided
      */
     public static CloseableIterable<DeleteFile> getDeleteFiles(Table table,
             long snapshot,
@@ -1168,15 +1167,9 @@ public final class IcebergUtil
         HiveCompressionCodec compressionCodec = getCompressionCodec(session);
         switch (fileFormat) {
             case PARQUET:
-                if (!compressionCodec.isSupportedStorageFormat(HiveStorageFormat.PARQUET)) {
-                    throw new PrestoException(NOT_SUPPORTED, format("Compression codec %s is not supported for Parquet format", compressionCodec));
-                }
-                propertiesBuilder.put(PARQUET_COMPRESSION, compressionCodec.getParquetCompressionCodec().get().toString());
+                propertiesBuilder.put(PARQUET_COMPRESSION, compressionCodec.getParquetCompressionCodec().name());
                 break;
             case ORC:
-                if (!compressionCodec.isSupportedStorageFormat(HiveStorageFormat.ORC)) {
-                    throw new PrestoException(NOT_SUPPORTED, format("Compression codec %s is not supported for ORC format", compressionCodec));
-                }
                 propertiesBuilder.put(ORC_COMPRESSION, compressionCodec.getOrcCompressionKind().name());
                 break;
         }
