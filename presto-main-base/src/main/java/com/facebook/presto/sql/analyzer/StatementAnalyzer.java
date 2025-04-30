@@ -31,6 +31,7 @@ import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.metadata.CatalogMetadata;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.metadata.TableFunctionMetadata;
@@ -189,7 +190,6 @@ import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.facebook.presto.sql.util.AstUtils;
-import com.facebook.presto.transaction.NoOpTransactionManager;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -635,7 +635,7 @@ class StatementAnalyzer
                     metadata,
                     sqlParser,
                     new AllowAllAccessControl(),
-                    new NoOpTransactionManager(),
+                    transactionManager,
                     session,
                     warningCollector);
 
@@ -1320,10 +1320,9 @@ class StatementAnalyzer
 
             Map<String, Argument> passedArguments = analyzeArguments(node, function.getArguments(), node.getArguments());
 
-            // a call to getRequiredCatalogHandle() is necessary so that the catalog is recorded by the TransactionManager
+            CatalogMetadata registrationCatalogMetadata = transactionManager.getOptionalCatalogMetadata(session.getRequiredTransactionId(), connectorId.getCatalogName()).orElseThrow(() -> new IllegalStateException("Missing catalog metadata"));
             ConnectorTransactionHandle transactionHandle = transactionManager.getConnectorTransaction(
-                    session.getRequiredTransactionId(),
-                    connectorId);
+                    session.getRequiredTransactionId(), registrationCatalogMetadata.getConnectorId());
             TableFunctionAnalysis functionAnalysis = function.analyze(session.toConnectorSession(connectorId), transactionHandle, passedArguments);
             analysis.setTableFunctionAnalysis(node, new Analysis.TableFunctionInvocationAnalysis(connectorId, functionName.toString(), passedArguments, functionAnalysis.getHandle(), transactionHandle));
 
@@ -1399,11 +1398,11 @@ class StatementAnalyzer
                 throw new SemanticException(INVALID_ARGUMENTS, errorLocation, "Too many arguments. Expected at most %s arguments, got %s arguments", argumentSpecifications.size(), arguments.size());
             }
 
-            if (arguments.isEmpty()) {
+            if (argumentSpecifications.isEmpty()) {
                 return ImmutableMap.of();
             }
 
-            boolean argumentsPassedByName = arguments.stream().allMatch(argument -> argument.getName().isPresent());
+            boolean argumentsPassedByName = !arguments.isEmpty() && arguments.stream().allMatch(argument -> argument.getName().isPresent());
             boolean argumentsPassedByPosition = arguments.stream().allMatch(argument -> !argument.getName().isPresent());
             if (!argumentsPassedByName && !argumentsPassedByPosition) {
                 throw new SemanticException(INVALID_ARGUMENTS, errorLocation, "All arguments must be passed by name or all must be passed positionally");

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.function.table;
 
+import com.facebook.presto.common.predicate.Primitives;
 import com.facebook.presto.common.type.Type;
 
 import static com.facebook.presto.spi.function.table.Preconditions.checkArgument;
@@ -29,7 +30,7 @@ public class ScalarArgumentSpecification
         super(name, required, defaultValue);
         this.type = requireNonNull(type, "type is null");
         if (defaultValue != null) {
-            checkArgument(type.getJavaType().equals(defaultValue.getClass()), format("default value %s does not match the declared type: %s", defaultValue, type));
+            checkArgument(Primitives.wrap(type.getJavaType()).isInstance(defaultValue), format("default value %s does not match the declared type: %s", defaultValue, type));
         }
     }
 
