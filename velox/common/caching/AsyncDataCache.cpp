@@ -358,6 +358,7 @@ void CacheShard::removeEntryLocked(AsyncDataCacheEntry* entry) {
   const auto numPages = entry->data().numPages();
   if (numPages > 0) {
     cache_->incrementCachedPages(-numPages);
+    ClockTimer t(allocClocks_);
     cache_->allocator()->freeNonContiguous(entry->data());
   }
   entry->tinyData_.clear();
