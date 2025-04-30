@@ -659,18 +659,17 @@ void RowVector::unsafeResize(vector_size_t newSize, bool setNotNull) {
 }
 
 void RowVector::resize(vector_size_t newSize, bool setNotNull) {
-  const auto oldSize = size();
   BaseVector::resize(newSize, setNotNull);
 
   // Resize all the children.
   for (auto& child : children_) {
     if (child != nullptr) {
       VELOX_CHECK(!child->isLazy(), "Resize on a lazy vector is not allowed");
-
+      const auto oldChildSize = child->size();
       // If we are just reducing the size of the vector, its safe
       // to skip uniqueness check since effectively we are just changing
       // the length.
-      if (newSize > oldSize) {
+      if (newSize > oldChildSize) {
         VELOX_CHECK_EQ(child.use_count(), 1, "Resizing shared child vector");
         child->resize(newSize, setNotNull);
       }
