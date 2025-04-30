@@ -552,6 +552,14 @@ std::shared_ptr<protocol::CallExpression> isBetween(
   return isFunctionCall(expression, kBetween);
 }
 
+// Check if input RowExpression is a 'contains' expression and returns it as
+// CallExpression. Returns nullptr if input expression is something else.
+std::shared_ptr<protocol::CallExpression> isContains(
+    const std::shared_ptr<protocol::RowExpression>& expression) {
+  static constexpr std::string_view kContains = "presto.default.contains";
+  return isFunctionCall(expression, kContains);
+}
+
 // Check if input RowExpression is an 'and' expression and returns it as
 // SpecialFormExpression. Returns nullptr if input expression is something else.
 std::shared_ptr<protocol::SpecialFormExpression> isAnd(
@@ -952,6 +960,28 @@ void VeloxQueryPlanConverterBase::parseIndexLookupCondition(
     joinConditionPtrs.push_back(
         std::make_shared<core::BetweenIndexLookupCondition>(
             keyColumnExpr, lowerExpr, upperExpr));
+    return;
+  }
+
+  if (const auto contains = isContains(filter)) {
+    VELOX_CHECK_EQ(contains->arguments.size(), 2);
+    const auto keyColumnExpr = exprConverter_.toVeloxExpr(
+        std::dynamic_pointer_cast<protocol::VariableReferenceExpression>(
+            contains->arguments[1]));
+    VELOX_CHECK_NOT_NULL(
+        keyColumnExpr, "{}", toJsonString(contains->arguments[1]));
+
+    const auto conditionColumnExpr = exprConverter_.toVeloxExpr(
+        std::dynamic_pointer_cast<protocol::VariableReferenceExpression>(
+            contains->arguments[0]));
+    VELOX_CHECK(
+        !core::TypedExprs::isConstant(conditionColumnExpr),
+        "The condition column needs to be not constant: {}",
+        toJsonString(filter));
+
+    joinConditionPtrs.push_back(
+        std::make_shared<core::InIndexLookupCondition>(
+            keyColumnExpr, conditionColumnExpr));
     return;
   }
 
