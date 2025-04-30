@@ -1219,7 +1219,8 @@ core::JoinType toJoinType(protocol::JoinType type) {
     case protocol::JoinType::FULL:
       return core::JoinType::kFull;
     case protocol::JoinType::SOURCE_OUTER:
-      return core::JoinType::kInner; // TODO: Map to proper join type.
+      // Index left join is represented as SOURCE_OUTER in Presto query plan.
+      return core::JoinType::kLeft;
   }
 
   VELOX_UNSUPPORTED("Unknown join type");
@@ -1302,39 +1303,43 @@ velox::core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       ROW(std::move(outputNames), std::move(outputTypes)));
 }
 
-
 std::shared_ptr<const velox::core::IndexLookupJoinNode>
 VeloxQueryPlanConverterBase::toVeloxQueryPlan(
-  const std::shared_ptr<const protocol::IndexJoinNode>& node,
-  const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
-  const protocol::TaskId& taskId) {
-    std::vector<core::FieldAccessTypedExprPtr> leftKeys;
-    std::vector<core::FieldAccessTypedExprPtr> rightKeys;
+    const std::shared_ptr<const protocol::IndexJoinNode>& node,
+    const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+    const protocol::TaskId& taskId) {
+  VELOX_USER_CHECK(
+      node->type == protocol::JoinType::INNER ||
+          node->type == protocol::JoinType::SOURCE_OUTER,
+      "Unsupported index lookup join type.");
 
-    leftKeys.reserve(node->criteria.size());
-    rightKeys.reserve(node->criteria.size());
-    for (const auto& clause : node->criteria) {
-      leftKeys.emplace_back(exprConverter_.toVeloxExpr(clause.left));
-      rightKeys.emplace_back(exprConverter_.toVeloxExpr(clause.right));
-    }
+  std::vector<core::FieldAccessTypedExprPtr> leftKeys;
+  std::vector<core::FieldAccessTypedExprPtr> rightKeys;
 
-    auto left = toVeloxQueryPlan(node->probeSource, tableWriteInfo, taskId);
-    auto right = toVeloxQueryPlan(node->indexSource, tableWriteInfo, taskId);
+  leftKeys.reserve(node->criteria.size());
+  rightKeys.reserve(node->criteria.size());
+  for (const auto& clause : node->criteria) {
+    leftKeys.emplace_back(exprConverter_.toVeloxExpr(clause.left));
+    rightKeys.emplace_back(exprConverter_.toVeloxExpr(clause.right));
+  }
 
-    std::vector<core::IndexLookupConditionPtr> joinConditionPtrs{};
-    if (node->filter) {
-      parseIndexLookupCondition(*node->filter, joinConditionPtrs);
-    }
+  auto left = toVeloxQueryPlan(node->probeSource, tableWriteInfo, taskId);
+  auto right = toVeloxQueryPlan(node->indexSource, tableWriteInfo, taskId);
 
-    return std::make_shared<core::IndexLookupJoinNode>(
-        node->id,
-        core::JoinType::kInner,
-        /*leftKeys=*/leftKeys,
-        /*rightKeys=*/rightKeys,
-        /*joinConditions=*/joinConditionPtrs,
-        /*left=*/left,
-        /*right=*/std::dynamic_pointer_cast<const core::TableScanNode>(right),
-        /*outputType=*/type::concatRowTypes({left->outputType(), right->outputType()}));
+  std::vector<core::IndexLookupConditionPtr> joinConditionPtrs{};
+  if (node->filter) {
+    parseIndexLookupCondition(*node->filter, joinConditionPtrs);
+  }
+
+  return std::make_shared<core::IndexLookupJoinNode>(
+      node->id,
+      toJoinType(node->type),
+      leftKeys,
+      rightKeys,
+      joinConditionPtrs,
+      left,
+      std::dynamic_pointer_cast<const core::TableScanNode>(right),
+      type::concatRowTypes({left->outputType(), right->outputType()}));
 }
 
 std::shared_ptr<const velox::core::TableScanNode>
