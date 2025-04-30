@@ -67,6 +67,7 @@ public class TableArgumentSpecification
         public Builder rowSemantics()
         {
             this.rowSemantics = true;
+            this.pruneWhenEmpty = true;
             return this;
         }
 

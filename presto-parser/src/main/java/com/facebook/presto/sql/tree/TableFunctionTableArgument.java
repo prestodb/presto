@@ -23,31 +23,36 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.sql.ExpressionFormatter.formatSortItems;
 import static java.util.Objects.requireNonNull;
 
-public class TableArgument
+public class TableFunctionTableArgument
         extends Node
 {
     private final Relation table;
     private final Optional<List<Expression>> partitionBy; // it is allowed to partition by empty list
     private final Optional<OrderBy> orderBy;
-    private final boolean pruneWhenEmpty;
+    private final Optional<EmptyTableTreatment> emptyTableTreatment;
 
-    public TableArgument(
+    public TableFunctionTableArgument(
             NodeLocation location,
             Relation table,
             Optional<List<Expression>> partitionBy,
             Optional<OrderBy> orderBy,
-            boolean pruneWhenEmpty)
+            Optional<EmptyTableTreatment> emptyTableTreatment)
     {
         super(Optional.of(location));
         this.table = requireNonNull(table, "table is null");
         this.partitionBy = requireNonNull(partitionBy, "partitionBy is null");
         this.orderBy = requireNonNull(orderBy, "orderBy is null");
-        this.pruneWhenEmpty = pruneWhenEmpty;
+        this.emptyTableTreatment = requireNonNull(emptyTableTreatment, "emptyTableTreatment is null");
     }
 
     public Relation getTable()
     {
         return table;
+    }
+
+    public Optional<EmptyTableTreatment> getEmptyTableTreatment()
+    {
+        return emptyTableTreatment;
     }
 
     public Optional<List<Expression>> getPartitionBy()
@@ -58,11 +63,6 @@ public class TableArgument
     public Optional<OrderBy> getOrderBy()
     {
         return orderBy;
-    }
-
-    public boolean isPruneWhenEmpty()
-    {
-        return pruneWhenEmpty;
     }
 
     @Override
@@ -78,6 +78,7 @@ public class TableArgument
         builder.add(table);
         partitionBy.ifPresent(builder::addAll);
         orderBy.ifPresent(builder::add);
+        emptyTableTreatment.ifPresent(builder::add);
 
         return builder.build();
     }
@@ -92,17 +93,17 @@ public class TableArgument
             return false;
         }
 
-        TableArgument other = (TableArgument) o;
+        TableFunctionTableArgument other = (TableFunctionTableArgument) o;
         return Objects.equals(table, other.table) &&
                 Objects.equals(partitionBy, other.partitionBy) &&
                 Objects.equals(orderBy, other.orderBy) &&
-                pruneWhenEmpty == other.pruneWhenEmpty;
+                Objects.equals(emptyTableTreatment, other.emptyTableTreatment);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(table, partitionBy, orderBy, pruneWhenEmpty);
+        return Objects.hash(table, partitionBy, orderBy, emptyTableTreatment);
     }
 
     @Override
