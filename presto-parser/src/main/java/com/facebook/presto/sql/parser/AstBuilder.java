@@ -170,10 +170,10 @@ import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.Table;
-import com.facebook.presto.sql.tree.TableArgument;
 import com.facebook.presto.sql.tree.TableElement;
 import com.facebook.presto.sql.tree.TableFunctionArgument;
 import com.facebook.presto.sql.tree.TableFunctionInvocation;
+import com.facebook.presto.sql.tree.TableFunctionTableArgument;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.TableVersionExpression;
 import com.facebook.presto.sql.tree.TimeLiteral;
@@ -210,8 +210,6 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.sql.tree.ConstraintSpecification.ConstraintType;
 import static com.facebook.presto.sql.tree.ConstraintSpecification.ConstraintType.PRIMARY_KEY;
 import static com.facebook.presto.sql.tree.ConstraintSpecification.ConstraintType.UNIQUE;
-import static com.facebook.presto.sql.tree.DescriptorArgument.descriptorArgument;
-import static com.facebook.presto.sql.tree.DescriptorArgument.nullDescriptorArgument;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.Determinism;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.Determinism.DETERMINISTIC;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.Determinism.NOT_DETERMINISTIC;
@@ -219,6 +217,8 @@ import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause.RETURNS_NULL_ON_NULL_INPUT;
 import static com.facebook.presto.sql.tree.SetProperties.Type.TABLE;
+import static com.facebook.presto.sql.tree.TableFunctionDescriptorArgument.descriptorArgument;
+import static com.facebook.presto.sql.tree.TableFunctionDescriptorArgument.nullDescriptorArgument;
 import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionOperator;
 import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionOperator.EQUAL;
 import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionOperator.LESS_THAN;
@@ -1554,7 +1554,7 @@ class AstBuilder
 
         boolean pruneWhenEmpty = context.PRUNE() != null;
 
-        return new TableArgument(getLocation(context), table, partitionBy, orderBy, pruneWhenEmpty);
+        return new TableFunctionTableArgument(getLocation(context), table, partitionBy, orderBy, pruneWhenEmpty);
     }
 
     @Override

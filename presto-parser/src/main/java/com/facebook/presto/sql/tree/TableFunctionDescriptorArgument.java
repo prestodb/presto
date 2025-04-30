@@ -21,23 +21,23 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class DescriptorArgument
+public class TableFunctionDescriptorArgument
         extends Node
 {
     private final Optional<Descriptor> descriptor;
 
-    public static DescriptorArgument descriptorArgument(NodeLocation location, Descriptor descriptor)
+    public static TableFunctionDescriptorArgument descriptorArgument(NodeLocation location, Descriptor descriptor)
     {
         requireNonNull(descriptor, "descriptor is null");
-        return new DescriptorArgument(location, Optional.of(descriptor));
+        return new TableFunctionDescriptorArgument(location, Optional.of(descriptor));
     }
 
-    public static DescriptorArgument nullDescriptorArgument(NodeLocation location)
+    public static TableFunctionDescriptorArgument nullDescriptorArgument(NodeLocation location)
     {
-        return new DescriptorArgument(location, Optional.empty());
+        return new TableFunctionDescriptorArgument(location, Optional.empty());
     }
 
-    private DescriptorArgument(NodeLocation location, Optional<Descriptor> descriptor)
+    private TableFunctionDescriptorArgument(NodeLocation location, Optional<Descriptor> descriptor)
     {
         super(Optional.of(location));
         this.descriptor = descriptor;
@@ -69,7 +69,7 @@ public class DescriptorArgument
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        return Objects.equals(descriptor, ((DescriptorArgument) o).descriptor);
+        return Objects.equals(descriptor, ((TableFunctionDescriptorArgument) o).descriptor);
     }
 
     @Override

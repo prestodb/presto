@@ -38,7 +38,6 @@ import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DescribeInput;
 import com.facebook.presto.sql.tree.DescribeOutput;
-import com.facebook.presto.sql.tree.DescriptorArgument;
 import com.facebook.presto.sql.tree.DropColumn;
 import com.facebook.presto.sql.tree.DropConstraint;
 import com.facebook.presto.sql.tree.DropFunction;
@@ -113,9 +112,10 @@ import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SqlParameterDeclaration;
 import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Table;
-import com.facebook.presto.sql.tree.TableArgument;
 import com.facebook.presto.sql.tree.TableFunctionArgument;
+import com.facebook.presto.sql.tree.TableFunctionDescriptorArgument;
 import com.facebook.presto.sql.tree.TableFunctionInvocation;
+import com.facebook.presto.sql.tree.TableFunctionTableArgument;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.TransactionAccessMode;
 import com.facebook.presto.sql.tree.TransactionMode;
@@ -263,7 +263,7 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitTableArgument(TableArgument node, Integer indent)
+        protected Void visitTableArgument(TableFunctionTableArgument node, Integer indent)
         {
             Relation relation = node.getTable();
             Relation unaliased = relation instanceof AliasedRelation ? ((AliasedRelation) relation).getRelation() : relation;
@@ -300,7 +300,7 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitDescriptorArgument(DescriptorArgument node, Integer indent)
+        protected Void visitDescriptorArgument(TableFunctionDescriptorArgument node, Integer indent)
         {
             if (node.getDescriptor().isPresent()) {
                 builder.append(node.getDescriptor().get().getFields().stream()

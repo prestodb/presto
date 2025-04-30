@@ -851,7 +851,6 @@ public abstract class AstVisitor<R, C>
     {
         return visitNode(node, context);
     }
-
     protected R visitReturn(Return node, C context)
     {
         return visitNode(node, context);
@@ -872,12 +871,12 @@ public abstract class AstVisitor<R, C>
         return visitNode(node, context);
     }
 
-    protected R visitTableArgument(TableArgument node, C context)
+    protected R visitTableArgument(TableFunctionTableArgument node, C context)
     {
         return visitNode(node, context);
     }
 
-    protected R visitDescriptorArgument(DescriptorArgument node, C context)
+    protected R visitDescriptorArgument(TableFunctionDescriptorArgument node, C context)
     {
         return visitNode(node, context);
     }
