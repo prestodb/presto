@@ -2700,6 +2700,24 @@
                 <artifactId>mariadb-java-client</artifactId>
                 <version>${dep.mariadb.version}</version>
             </dependency>
+
+            <dependency>
+                <groupId>com.nimbusds</groupId>
+                <artifactId>nimbus-jose-jwt</artifactId>
+                <version>9.30.2</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.nimbusds</groupId>
+                <artifactId>oauth2-oidc-sdk</artifactId>
+                <version>11.0</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.aw2</groupId>
+                        <artifactId>asm</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
