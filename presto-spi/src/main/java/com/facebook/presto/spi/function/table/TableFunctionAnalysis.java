@@ -15,8 +15,8 @@ package com.facebook.presto.spi.function.table;
 
 import java.util.Optional;
 
-import static com.facebook.presto.spi.function.table.ConnectorTableFunction.checkArgument;
 import static com.facebook.presto.spi.function.table.DescriptorMapping.EMPTY_MAPPING;
+import static com.facebook.presto.spi.function.table.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 /**

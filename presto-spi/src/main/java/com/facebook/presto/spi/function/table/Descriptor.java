@@ -23,8 +23,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.spi.function.table.ConnectorTableFunction.checkArgument;
-import static com.facebook.presto.spi.function.table.ConnectorTableFunction.checkNotNullOrEmpty;
+import static com.facebook.presto.spi.function.table.Preconditions.checkArgument;
+import static com.facebook.presto.spi.function.table.Preconditions.checkNotNullOrEmpty;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 

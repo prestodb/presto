@@ -21,7 +21,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.function.table.ConnectorTableFunction.checkNotNullOrEmpty;
+import static com.facebook.presto.spi.function.table.Preconditions.checkNotNullOrEmpty;
 import static java.util.Objects.requireNonNull;
 
 /**

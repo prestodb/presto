@@ -18,8 +18,8 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.spi.function.table.ConnectorTableFunction.checkArgument;
-import static com.facebook.presto.spi.function.table.ConnectorTableFunction.checkNotNullOrEmpty;
+import static com.facebook.presto.spi.function.table.Preconditions.checkArgument;
+import static com.facebook.presto.spi.function.table.Preconditions.checkNotNullOrEmpty;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;

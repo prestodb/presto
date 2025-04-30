@@ -15,8 +15,8 @@ package com.facebook.presto.spi.function.table;
 
 import javax.annotation.Nullable;
 
-import static com.facebook.presto.spi.function.table.ConnectorTableFunction.checkArgument;
-import static com.facebook.presto.spi.function.table.ConnectorTableFunction.checkNotNullOrEmpty;
+import static com.facebook.presto.spi.function.table.Preconditions.checkArgument;
+import static com.facebook.presto.spi.function.table.Preconditions.checkNotNullOrEmpty;
 
 /**
  * Abstract class to capture the three supported argument types for a table function:
