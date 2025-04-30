@@ -170,7 +170,7 @@ struct SortTestType {
 
 using LaunchParamsTypes =
     std::tuple<LaunchParams<256, 8>, LaunchParams<256, 16>,
-               LaunchParams<256, 24>>;
+               LaunchParams<256, 24>, LaunchParams<256, 32>>;
 
 using LaunchParamsAndItemTypes =
     CombineLaunchParamsAndTypes<LaunchParamsAndItemType, LaunchParamsTypes, int,
@@ -457,7 +457,8 @@ struct SortHistogramTestType {
 };
 
 using HistogramLaunchParamsTypes =
-    std::tuple<LaunchParams<256, 4>, LaunchParams<256, 8>>;
+    std::tuple<LaunchParams<256, 1>, LaunchParams<256, 4>,
+               LaunchParams<256, 8>>;
 
 using HistogramLaunchParamsAndItemTypes =
     CombineLaunchParamsAndTypes<LaunchParamsAndItemType,
@@ -469,7 +470,7 @@ using HistogramSortTestTypes =
                      RadixBits<8>>;
 
 using SortHistogramTestTypes = MakeTestTypes<
-    CombineTestTypes<SortHistogramTestType, HistogramSortTestTypes,
+    CombineTestTypes<SortHistogramTestType, HistogramSortTestTypes, TileSize<4>,
                      TileSize<16>, TileSize<32>>>::types;
 
 TYPED_TEST_SUITE(SortHistogramPerfTest, SortHistogramTestTypes, TestTypeNames);

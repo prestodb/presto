@@ -250,12 +250,41 @@ struct RadixBits {
   };
 };
 
-template <typename LaunchParamsAndItemTypeT, typename RadixBitsT>
-struct OrderByTestType {
-  using launch_params_and_item_type_type = LaunchParamsAndItemTypeT;
-  using item_type = typename LaunchParamsAndItemTypeT::item_type;
-  using key_type = typename item_type::type;
+template <int M, int N, int K>
+struct HistogramLaunchParams {
+  enum {
+    BLOCK_THREADS = M,
+    ITEMS_PER_THREAD = N,
+    TILE_SIZE = K,
+  };
+
+  static std::string GetName() {
+    return std::to_string(BLOCK_THREADS) + "x" +
+           std::to_string(ITEMS_PER_THREAD) + ".TileSize" +
+           std::to_string(TILE_SIZE);
+  }
+};
+
+template <typename LaunchParamsAndItemTypeT, typename HistogramLaunchParamsT>
+struct OrderByLaunchParamsAndItemType {
   using launch_params = typename LaunchParamsAndItemTypeT::launch_params;
+  using histogram_launch_params = HistogramLaunchParamsT;
+  using item_type = typename LaunchParamsAndItemTypeT::item_type;
+
+  static std::string GetName() {
+    return launch_params::GetName() + ".Histogram" +
+           histogram_launch_params::GetName() + "." + item_type::GetName();
+  }
+};
+
+template <typename OrderByLaunchParamsAndItemTypeT, typename RadixBitsT>
+struct OrderByTestType {
+  using launch_params_and_item_type_type = OrderByLaunchParamsAndItemTypeT;
+  using item_type = typename OrderByLaunchParamsAndItemTypeT::item_type;
+  using key_type = typename item_type::type;
+  using launch_params = typename OrderByLaunchParamsAndItemTypeT::launch_params;
+  using histogram_launch_params =
+      typename OrderByLaunchParamsAndItemTypeT::histogram_launch_params;
 
   enum {
     BLOCK_THREADS = launch_params::BLOCK_THREADS,
@@ -267,9 +296,11 @@ struct OrderByTestType {
     NUM_PASSES = utils::DivideAndRoundUp<END_BIT, RADIX_BITS>::VALUE,
     HISTOGRAM_SIZE = NUM_BINS * NUM_PASSES,
     BINS_PER_THREAD = utils::DivideAndRoundUp<NUM_BINS, BLOCK_THREADS>::VALUE,
-    HISTOGRAM_ITEMS_PER_THREAD = 8,
-    HISTOGRAM_TILE_SIZE = 16,
-    HISTOGRAM_BLOCK_ITEMS = BLOCK_THREADS * HISTOGRAM_ITEMS_PER_THREAD,
+    HISTOGRAM_BLOCK_THREADS = histogram_launch_params::BLOCK_THREADS,
+    HISTOGRAM_ITEMS_PER_THREAD = histogram_launch_params::ITEMS_PER_THREAD,
+    HISTOGRAM_TILE_SIZE = histogram_launch_params::TILE_SIZE,
+    HISTOGRAM_BLOCK_ITEMS =
+        HISTOGRAM_BLOCK_THREADS * HISTOGRAM_ITEMS_PER_THREAD,
     HISTOGRAM_TILE_ITEMS = HISTOGRAM_TILE_SIZE * HISTOGRAM_BLOCK_ITEMS,
   };
 
@@ -353,9 +384,10 @@ struct OrderByTestType {
         cudaFuncAttributeMaxDynamicSharedMemorySize,
         SortSharedMemorySize<ValueT>());
 
-    kernels::BuildRadixSortHistogram<BLOCK_THREADS, HISTOGRAM_ITEMS_PER_THREAD,
+    kernels::BuildRadixSortHistogram<HISTOGRAM_BLOCK_THREADS,
+                                     HISTOGRAM_ITEMS_PER_THREAD,
                                      HISTOGRAM_TILE_SIZE, RADIX_BITS>
-        <<<num_histogram_blocks, BLOCK_THREADS>>>(
+        <<<num_histogram_blocks, HISTOGRAM_BLOCK_THREADS>>>(
             keys.ptrs().data(), kv_selector.data(),
             temp_storage.data()->histogram, keys.size());
 
@@ -401,15 +433,19 @@ struct OrderByTestType {
 
 using LaunchParamsTypes =
     std::tuple<LaunchParams<256, 8>, LaunchParams<256, 16>,
-               LaunchParams<256, 24>>;
+               LaunchParams<256, 24>, LaunchParams<256, 32>>;
 
 using LaunchParamsAndItemTypes =
     CombineLaunchParamsAndTypes<LaunchParamsAndItemType, LaunchParamsTypes, int,
                                 unsigned, long long, unsigned long long>;
 
-using TestTypes =
-    MakeTestTypes<CombineTestTypes<OrderByTestType, LaunchParamsAndItemTypes,
-                                   RadixBits<8>>>::types;
+using OrderByLaunchParamsAndItemTypes =
+    CombineTestTypes<OrderByLaunchParamsAndItemType, LaunchParamsAndItemTypes,
+                     HistogramLaunchParams<256, 1, 4>,
+                     HistogramLaunchParams<256, 8, 16>>;
+
+using TestTypes = MakeTestTypes<CombineTestTypes<
+    OrderByTestType, OrderByLaunchParamsAndItemTypes, RadixBits<8>>>::types;
 
 TYPED_TEST_SUITE(OrderByPerfTest, TestTypes, TestTypeNames);
 
