@@ -15,6 +15,7 @@ package com.facebook.presto.cli;
 
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.client.ClientSession;
+import com.facebook.presto.client.auth.external.ExternalRedirectStrategy;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Splitter;
@@ -161,6 +162,12 @@ public class ClientOptions
 
     @Option(name = "--disable-redirects", title = "disable redirects", description = "Disable client following redirects from server")
     public boolean disableRedirects;
+
+    @Option(name = "--external-authentication", title = "enable external authentication", description = "Enable external authentication")
+    public boolean externalAuthentication;
+
+    @Option(name = "--external-authentication-redirect-handler", title = "external authentication redirect handler", description = "External authentication redirect handlers")
+    public List<ExternalRedirectStrategy> externalAuthenticationRedirectHandler = new ArrayList<>();
 
     public enum OutputFormat
     {
