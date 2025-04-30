@@ -1383,11 +1383,11 @@ class StatementAnalyzer
                 throw new SemanticException(INVALID_ARGUMENTS, errorLocation, "Too many arguments. Expected at most %s arguments, got %s arguments", argumentSpecifications.size(), arguments.size());
             }
 
-            if (arguments.isEmpty()) {
+            if (argumentSpecifications.isEmpty()) {
                 return ImmutableMap.of();
             }
 
-            boolean argumentsPassedByName = arguments.stream().allMatch(argument -> argument.getName().isPresent());
+            boolean argumentsPassedByName = !arguments.isEmpty() && arguments.stream().allMatch(argument -> argument.getName().isPresent());
             boolean argumentsPassedByPosition = arguments.stream().allMatch(argument -> !argument.getName().isPresent());
             if (!argumentsPassedByName && !argumentsPassedByPosition) {
                 throw new SemanticException(INVALID_ARGUMENTS, errorLocation, "All arguments must be passed by name or all must be passed positionally");
