@@ -85,8 +85,8 @@ hash_t ComputeBitmapHash(
     hash_t seed,
     int64_t bits_offset,
     int64_t num_bits) {
-  DCHECK_GE(bits_offset, 0);
-  DCHECK_GE(num_bits, 0);
+  VELOX_DCHECK_GE(bits_offset, 0);
+  VELOX_DCHECK_GE(num_bits, 0);
   return MurmurHashBitmap64(bitmap, seed, bits_offset, num_bits);
 }
 

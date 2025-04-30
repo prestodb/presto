@@ -25,7 +25,8 @@
 #include <vector>
 
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/logging.h"
+
+#include "velox/common/base/Exceptions.h"
 #include "velox/dwio/parquet/writer/arrow/ColumnWriter.h"
 #include "velox/dwio/parquet/writer/arrow/EncryptionInternal.h"
 #include "velox/dwio/parquet/writer/arrow/Exception.h"
@@ -322,10 +323,10 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
         column_writers_.size() > 0) { // when
                                       // buffered_row_group
                                       // = true
-      DCHECK(column_writers_[0] != nullptr);
+      VELOX_DCHECK_NOT_NULL(column_writers_[0]);
       int64_t current_col_rows = column_writers_[0]->rows_written();
       for (int i = 1; i < static_cast<int>(column_writers_.size()); i++) {
-        DCHECK(column_writers_[i] != nullptr);
+        VELOX_DCHECK_NOT_NULL(column_writers_[i]);
         int64_t current_col_rows_i = column_writers_[i]->rows_written();
         if (current_col_rows != current_col_rows_i) {
           ThrowRowsMisMatchError(i, current_col_rows_i, current_col_rows);

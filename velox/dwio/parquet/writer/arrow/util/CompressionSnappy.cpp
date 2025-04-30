@@ -26,8 +26,9 @@
 
 #include "arrow/result.h"
 #include "arrow/status.h"
-#include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+
+#include "velox/common/base/Exceptions.h"
 
 using std::size_t;
 
@@ -73,7 +74,7 @@ class SnappyCodec : public Codec {
   int64_t MaxCompressedLen(
       int64_t input_len,
       const uint8_t* ARROW_ARG_UNUSED(input)) override {
-    DCHECK_GE(input_len, 0);
+    VELOX_DCHECK_GE(input_len, 0);
     return snappy::MaxCompressedLength(static_cast<size_t>(input_len));
   }
 

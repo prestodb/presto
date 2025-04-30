@@ -27,8 +27,9 @@
 
 #include "arrow/result.h"
 #include "arrow/status.h"
-#include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+
+#include "velox/common/base/Exceptions.h"
 
 namespace facebook::velox::parquet::arrow::util::internal {
 namespace {
@@ -102,7 +103,7 @@ class GZipDecompressor : public Decompressor {
   }
 
   Status Init() {
-    DCHECK(!initialized_);
+    VELOX_DCHECK(!initialized_);
     memset(&stream_, 0, sizeof(stream_));
     finished_ = false;
 
@@ -117,7 +118,7 @@ class GZipDecompressor : public Decompressor {
   }
 
   Status Reset() override {
-    DCHECK(initialized_);
+    VELOX_DCHECK(initialized_);
     finished_ = false;
     int ret;
     if ((ret = inflateReset(&stream_)) != Z_OK) {
@@ -152,7 +153,7 @@ class GZipDecompressor : public Decompressor {
       // No progress was possible
       return DecompressResult{0, 0, true};
     } else {
-      ARROW_CHECK(ret == Z_OK || ret == Z_STREAM_END);
+      VELOX_DCHECK(ret == Z_OK || ret == Z_STREAM_END);
       // Some progress has been made
       return DecompressResult{
           input_len - stream_.avail_in, output_len - stream_.avail_out, false};
@@ -191,7 +192,7 @@ class GZipCompressor : public Compressor {
   }
 
   Status Init(GZipFormat format, int input_window_bits) {
-    DCHECK(!initialized_);
+    VELOX_DCHECK(!initialized_);
     memset(&stream_, 0, sizeof(stream_));
 
     int ret;
@@ -216,7 +217,7 @@ class GZipCompressor : public Compressor {
       const uint8_t* input,
       int64_t output_len,
       uint8_t* output) override {
-    DCHECK(initialized_) << "Called on non-initialized stream";
+    VELOX_DCHECK(initialized_, "Called on non-initialized stream");
 
     static constexpr auto input_limit =
         static_cast<int64_t>(std::numeric_limits<uInt>::max());
@@ -237,13 +238,13 @@ class GZipCompressor : public Compressor {
           input_len - stream_.avail_in, output_len - stream_.avail_out};
     } else {
       // No progress was possible
-      ARROW_CHECK_EQ(ret, Z_BUF_ERROR);
+      VELOX_DCHECK_EQ(ret, Z_BUF_ERROR);
       return CompressResult{0, 0};
     }
   }
 
   Result<FlushResult> Flush(int64_t output_len, uint8_t* output) override {
-    DCHECK(initialized_) << "Called on non-initialized stream";
+    VELOX_DCHECK(initialized_, "Called on non-initialized stream");
 
     static constexpr auto input_limit =
         static_cast<int64_t>(std::numeric_limits<uInt>::max());
@@ -261,7 +262,7 @@ class GZipCompressor : public Compressor {
     if (ret == Z_OK) {
       bytes_written = output_len - stream_.avail_out;
     } else {
-      ARROW_CHECK_EQ(ret, Z_BUF_ERROR);
+      VELOX_DCHECK_EQ(ret, Z_BUF_ERROR);
       bytes_written = 0;
     }
     // "If deflate returns with avail_out == 0, this function must be called
@@ -274,7 +275,7 @@ class GZipCompressor : public Compressor {
   }
 
   Result<EndResult> End(int64_t output_len, uint8_t* output) override {
-    DCHECK(initialized_) << "Called on non-initialized stream";
+    VELOX_DCHECK(initialized_, "Called on non-initialized stream");
 
     static constexpr auto input_limit =
         static_cast<int64_t>(std::numeric_limits<uInt>::max());
@@ -459,7 +460,7 @@ class GZipCodec : public Codec {
     // Must be in compression mode
     if (!compressor_initialized_) {
       Status s = InitCompressor();
-      ARROW_CHECK_OK(s);
+      VELOX_DCHECK(s.ok(), s.ToString());
     }
     int64_t max_len = deflateBound(&stream_, static_cast<uLong>(input_length));
     // ARROW-3514: return a more pessimistic estimate to account for bugs

@@ -23,13 +23,19 @@
 #include <string>
 
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/logging.h"
+
+#include "velox/common/base/Exceptions.h"
 #include "velox/dwio/parquet/writer/arrow/Exception.h"
 #include "velox/dwio/parquet/writer/arrow/Types.h"
 
 using arrow::internal::checked_cast;
 
 namespace facebook::velox::parquet::arrow {
+
+fmt::underlying_t<LogicalType::TimeUnit::unit> format_as(
+    LogicalType::TimeUnit::unit unit) {
+  return fmt::underlying(unit);
+}
 
 bool IsCodecSupported(Compression::type codec) {
   switch (codec) {
@@ -486,7 +492,7 @@ std::shared_ptr<const LogicalType> LogicalType::Date() {
 std::shared_ptr<const LogicalType> LogicalType::Time(
     bool is_adjusted_to_utc,
     LogicalType::TimeUnit::unit time_unit) {
-  DCHECK(time_unit != LogicalType::TimeUnit::UNKNOWN);
+  VELOX_DCHECK_NE(time_unit, LogicalType::TimeUnit::UNKNOWN);
   return TimeLogicalType::Make(is_adjusted_to_utc, time_unit);
 }
 
@@ -495,7 +501,7 @@ std::shared_ptr<const LogicalType> LogicalType::Timestamp(
     LogicalType::TimeUnit::unit time_unit,
     bool is_from_converted_type,
     bool force_set_converted_type) {
-  DCHECK(time_unit != LogicalType::TimeUnit::UNKNOWN);
+  VELOX_DCHECK_NE(time_unit, LogicalType::TimeUnit::UNKNOWN);
   return TimestampLogicalType::Make(
       is_adjusted_to_utc,
       time_unit,
@@ -510,7 +516,7 @@ std::shared_ptr<const LogicalType> LogicalType::Interval() {
 std::shared_ptr<const LogicalType> LogicalType::Int(
     int bit_width,
     bool is_signed) {
-  DCHECK(
+  VELOX_DCHECK(
       bit_width == 64 || bit_width == 32 || bit_width == 16 || bit_width == 8);
   return IntLogicalType::Make(bit_width, is_signed);
 }
@@ -1252,7 +1258,7 @@ LogicalType::Impl::Time::ToThrift() const {
   facebook::velox::parquet::thrift::LogicalType type;
   facebook::velox::parquet::thrift::TimeType time_type;
   facebook::velox::parquet::thrift::TimeUnit time_unit;
-  DCHECK(unit_ != LogicalType::TimeUnit::UNKNOWN);
+  VELOX_DCHECK_NE(unit_, LogicalType::TimeUnit::UNKNOWN);
   if (unit_ == LogicalType::TimeUnit::MILLIS) {
     facebook::velox::parquet::thrift::MilliSeconds millis;
     time_unit.__set_MILLIS(millis);
@@ -1420,7 +1426,7 @@ LogicalType::Impl::Timestamp::ToThrift() const {
   facebook::velox::parquet::thrift::LogicalType type;
   facebook::velox::parquet::thrift::TimestampType timestamp_type;
   facebook::velox::parquet::thrift::TimeUnit time_unit;
-  DCHECK(unit_ != LogicalType::TimeUnit::UNKNOWN);
+  VELOX_DCHECK_NE(unit_, LogicalType::TimeUnit::UNKNOWN);
   if (unit_ == LogicalType::TimeUnit::MILLIS) {
     facebook::velox::parquet::thrift::MilliSeconds millis;
     time_unit.__set_MILLIS(millis);
@@ -1628,7 +1634,7 @@ facebook::velox::parquet::thrift::LogicalType LogicalType::Impl::Int::ToThrift()
     const {
   facebook::velox::parquet::thrift::LogicalType type;
   facebook::velox::parquet::thrift::IntType int_type;
-  DCHECK(width_ == 64 || width_ == 32 || width_ == 16 || width_ == 8);
+  VELOX_DCHECK(width_ == 64 || width_ == 32 || width_ == 16 || width_ == 8);
   int_type.__set_bitWidth(static_cast<int8_t>(width_));
   int_type.__set_isSigned(signed_);
   type.__set_INTEGER(int_type);

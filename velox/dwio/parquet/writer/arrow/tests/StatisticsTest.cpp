@@ -460,7 +460,7 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
     for (int i = 0; i < 2; i++) {
       int64_t batchNumValues = i ? numValues - numValues / 2 : numValues / 2;
       int64_t batchNullCount = i ? nullCount : 0;
-      DCHECK(nullCount <= numValues); // avoid too much headache
+      VELOX_DCHECK(nullCount <= numValues); // avoid too much headache
       std::vector<int16_t> definitionLevels(batchNullCount, 0);
       definitionLevels.insert(
           definitionLevels.end(), batchNumValues - batchNullCount, 1);

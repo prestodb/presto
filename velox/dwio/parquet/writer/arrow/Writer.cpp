@@ -35,9 +35,9 @@
 #include "arrow/util/base64.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/logging.h"
 #include "arrow/util/parallel.h"
 
+#include "velox/common/base/Exceptions.h"
 #include "velox/dwio/parquet/writer/arrow/ArrowSchema.h"
 #include "velox/dwio/parquet/writer/arrow/ColumnWriter.h"
 #include "velox/dwio/parquet/writer/arrow/Exception.h"
@@ -96,7 +96,7 @@ int CalculateLeafCount(const DataType* type) {
 bool HasNullableRoot(
     const SchemaManifest& schema_manifest,
     const SchemaField* schema_field) {
-  DCHECK(schema_field != nullptr);
+  VELOX_DCHECK_NOT_NULL(schema_field);
   const SchemaField* current_field = schema_field;
   bool nullable = schema_field->field->nullable();
   while (current_field != nullptr) {
@@ -144,7 +144,7 @@ class ArrowColumnWriterV2 {
             leaf_idx, ctx, [&](const MultipathLevelBuilderResult& result) {
               size_t visited_component_size =
                   result.post_list_visited_elements.size();
-              DCHECK_GT(visited_component_size, 0);
+              VELOX_DCHECK_GT(visited_component_size, 0);
               if (visited_component_size != 1) {
                 return Status::NotImplemented(
                     "Lists with non-zero length null components are not supported");
@@ -479,7 +479,7 @@ class FileWriterImpl : public FileWriter {
       }
 
       if (arrow_properties_->use_threads()) {
-        DCHECK_EQ(parallel_column_write_contexts_.size(), writers.size());
+        VELOX_DCHECK_EQ(parallel_column_write_contexts_.size(), writers.size());
         RETURN_NOT_OK(::arrow::internal::ParallelFor(
             static_cast<int>(writers.size()),
             [&](int i) {

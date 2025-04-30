@@ -38,9 +38,9 @@
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/endian.h"
-#include "arrow/util/logging.h"
 #include "arrow/util/type_traits.h"
 
+#include "velox/common/base/Exceptions.h"
 #include "velox/dwio/parquet/common/LevelConversion.h"
 #include "velox/dwio/parquet/writer/arrow/ColumnPage.h"
 #include "velox/dwio/parquet/writer/arrow/Encoding.h"
@@ -67,6 +67,12 @@ using arrow::Result;
 using arrow::Status;
 using arrow::internal::checked_cast;
 using arrow::internal::checked_pointer_cast;
+
+namespace arrow {
+fmt::underlying_t<Type::type> format_as(Type::type type) {
+  return fmt::underlying(type);
+}
+}; // namespace arrow
 
 namespace facebook::velox::parquet::arrow {
 using util::CodecOptions;
@@ -404,7 +410,7 @@ class SerializedPageWriter : public PageWriter {
    */
   void Compress(const Buffer& src_buffer, ResizableBuffer* dest_buffer)
       override {
-    DCHECK(compressor_ != nullptr);
+    VELOX_DCHECK_NOT_NULL(compressor_);
 
     // Compress the data
     int64_t max_compressed_size =
@@ -966,14 +972,14 @@ class ColumnWriterImpl {
 
   // Write multiple definition levels
   void WriteDefinitionLevels(int64_t num_levels, const int16_t* levels) {
-    DCHECK(!closed_);
+    VELOX_DCHECK(!closed_);
     PARQUET_THROW_NOT_OK(
         definition_levels_sink_.Append(levels, sizeof(int16_t) * num_levels));
   }
 
   // Write multiple repetition levels
   void WriteRepetitionLevels(int64_t num_levels, const int16_t* levels) {
-    DCHECK(!closed_);
+    VELOX_DCHECK(!closed_);
     PARQUET_THROW_NOT_OK(
         repetition_levels_sink_.Append(levels, sizeof(int16_t) * num_levels));
   }
@@ -1097,10 +1103,10 @@ int64_t ColumnWriterImpl::RleEncodeLevels(
       static_cast<int>(num_buffered_values_),
       dest_buffer->mutable_data() + prefix_size,
       static_cast<int>(dest_buffer->size() - prefix_size));
-  int encoded = level_encoder_.Encode(
+  VELOX_DEBUG_ONLY int encoded = level_encoder_.Encode(
       static_cast<int>(num_buffered_values_),
       reinterpret_cast<const int16_t*>(src_buffer));
-  DCHECK_EQ(encoded, num_buffered_values_);
+  VELOX_DCHECK_EQ(encoded, num_buffered_values_);
 
   if (include_length_prefix) {
     reinterpret_cast<int32_t*>(dest_buffer->mutable_data())[0] =
@@ -1270,7 +1276,8 @@ void ColumnWriterImpl::BuildDataPageV2(
 
   // page_stats.null_count is not set when page_statistics_ is nullptr. It is
   // only used here for safety check.
-  DCHECK(!page_stats.has_null_count || page_stats.null_count == null_count);
+  VELOX_DCHECK(
+      !page_stats.has_null_count || page_stats.null_count == null_count);
 
   // Write the page to OutputStream eagerly if there is no dictionary or
   // if dictionary encoding has fallen back to PLAIN
@@ -1390,7 +1397,7 @@ inline void DoInBatches(
       // boundary. It is a good chance to check the page size.
       action(offset, end_offset - offset, /*check_page_size=*/true);
     } else {
-      DCHECK_EQ(end_offset, num_levels);
+      VELOX_DCHECK_EQ(end_offset, num_levels);
       // This is the last chunk of batch, and we do not know whether end_offset
       // is a record boundary. Find the offset to beginning of last record in
       // this chunk, so we can check page size.
@@ -1418,7 +1425,7 @@ inline void DoInBatches(
 }
 
 bool DictionaryDirectWriteSupported(const ::arrow::Array& array) {
-  DCHECK_EQ(array.type_id(), ::arrow::Type::DICTIONARY);
+  VELOX_DCHECK_EQ(array.type_id(), ::arrow::Type::DICTIONARY);
   const ::arrow::DictionaryType& dict_type =
       static_cast<const ::arrow::DictionaryType&>(*array.type());
   return ::arrow::is_base_binary_like(dict_type.value_type()->id());
@@ -1515,7 +1522,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
 
       // PARQUET-780
       if (values_to_write > 0) {
-        DCHECK_NE(nullptr, values);
+        VELOX_DCHECK_NOT_NULL(values);
       }
       const int64_t num_nulls = batch_size - values_to_write;
       WriteValues(
@@ -1671,7 +1678,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
       bool maybe_parent_nulls);
 
   void WriteDictionaryPage() override {
-    DCHECK(current_dict_encoder_);
+    VELOX_DCHECK(current_dict_encoder_);
     std::shared_ptr<ResizableBuffer> buffer = AllocateBuffer(
         properties_->memory_pool(), current_dict_encoder_->dict_encoded_size());
     current_dict_encoder_->WriteDict(buffer->mutable_data());
@@ -1811,7 +1818,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
         // need to output counts which will always be equal to
         // the batch size passed in (max def_level == 0 indicates
         // there cannot be repeated or null fields).
-        DCHECK_EQ(def_levels, nullptr);
+        VELOX_DCHECK_NULL(def_levels);
         *out_values_to_write = batch_size;
         *out_spaced_values_to_write = batch_size;
         *null_count = 0;
@@ -1855,7 +1862,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
     }
     buffers[0] = bits_buffer_;
     // Should be a leaf array.
-    DCHECK_GT(buffers.size(), 1);
+    VELOX_DCHECK_GT(buffers.size(), 1);
     ValueBufferSlicer slicer{memory_pool};
     if (array->data()->offset > 0) {
       RETURN_NOT_OK(util::VisitArrayInline(*array, &slicer, &buffers[1]));
@@ -2227,7 +2234,7 @@ Status WriteArrowZeroCopy(
   if (data.values() != nullptr) {
     values = reinterpret_cast<const T*>(data.values()->data()) + data.offset();
   } else {
-    DCHECK_EQ(data.length(), 0);
+    VELOX_DCHECK_EQ(data.length(), 0);
   }
   bool no_nulls = writer->descr()->schema_node()->is_required() ||
       (array.null_count() == 0);
@@ -2522,7 +2529,7 @@ struct SerializeFunctor<Int64Type, ::arrow::TimestampType> {
                                  [static_cast<int>(target_unit)];
 
     // .first -> coercion operation; .second -> scale factor
-    DCHECK_NE(coercion.first, COERCE_INVALID);
+    VELOX_DCHECK_NE(coercion.first, COERCE_INVALID);
     return coercion.first == COERCE_DIVIDE ? DivideBy(coercion.second)
                                            : MultiplyBy(coercion.second);
   }

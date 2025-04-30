@@ -27,9 +27,10 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/endian.h"
-#include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/ubsan.h"
+
+#include "velox/common/base/Exceptions.h"
 
 using std::size_t;
 
@@ -83,7 +84,7 @@ class LZ4Decompressor : public Decompressor {
   Status Reset() override {
 #if defined(LZ4_VERSION_NUMBER) && LZ4_VERSION_NUMBER >= 10800
     // LZ4F_resetDecompressionContext appeared in 1.8.0
-    DCHECK_NE(ctx_, nullptr);
+    VELOX_DCHECK_NOT_NULL(ctx_);
     LZ4F_resetDecompressionContext(ctx_);
     finished_ = false;
     return Status::OK();
@@ -194,7 +195,7 @@ class LZ4Compressor : public Compressor {
       return LZ4Error(ret, "LZ4 compress update failed: ");
     }
     bytes_written += static_cast<int64_t>(ret);
-    DCHECK_LE(bytes_written, output_len);
+    VELOX_DCHECK_LE(bytes_written, output_len);
     return CompressResult{input_len, bytes_written};
   }
 
@@ -216,7 +217,7 @@ class LZ4Compressor : public Compressor {
       return LZ4Error(ret, "LZ4 flush failed: ");
     }
     bytes_written += static_cast<int64_t>(ret);
-    DCHECK_LE(bytes_written, output_len);
+    VELOX_DCHECK_LE(bytes_written, output_len);
     return FlushResult{bytes_written, false};
   }
 
@@ -238,7 +239,7 @@ class LZ4Compressor : public Compressor {
       return LZ4Error(ret, "LZ4 end failed: ");
     }
     bytes_written += static_cast<int64_t>(ret);
-    DCHECK_LE(bytes_written, output_len);
+    VELOX_DCHECK_LE(bytes_written, output_len);
     return EndResult{bytes_written, false};
   }
 

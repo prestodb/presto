@@ -34,8 +34,7 @@
 #include <thrift/protocol/TCompactProtocol.h>
 #include <thrift/transport/TBufferTransports.h>
 
-#include "arrow/util/logging.h"
-
+#include "velox/common/base/Exceptions.h"
 #include "velox/dwio/parquet/writer/arrow/Exception.h"
 #include "velox/dwio/parquet/writer/arrow/FileDecryptorInternal.h"
 #include "velox/dwio/parquet/writer/arrow/FileEncryptorInternal.h"
@@ -98,7 +97,7 @@ static inline Compression::type FromThriftUnsafe(
     case facebook::velox::parquet::thrift::CompressionCodec::ZSTD:
       return Compression::ZSTD;
     default:
-      DCHECK(false) << "Cannot reach here";
+      VELOX_DCHECK(false, "Cannot reach here");
       return Compression::UNCOMPRESSED;
   }
 }
@@ -284,13 +283,18 @@ static inline facebook::velox::parquet::thrift::Type::type ToThrift(
   return static_cast<facebook::velox::parquet::thrift::Type::type>(type);
 }
 
+static fmt::underlying_t<ConvertedType::type> format_as(
+    ConvertedType::type type) {
+  return fmt::underlying(type);
+}
+
 static inline facebook::velox::parquet::thrift::ConvertedType::type ToThrift(
     ConvertedType::type type) {
   // item 0 is NONE
-  DCHECK_NE(type, ConvertedType::NONE);
+  VELOX_DCHECK_NE(type, ConvertedType::NONE);
   // it is forbidden to emit "NA" (PARQUET-1990)
-  DCHECK_NE(type, ConvertedType::NA);
-  DCHECK_NE(type, ConvertedType::UNDEFINED);
+  VELOX_DCHECK_NE(type, ConvertedType::NA);
+  VELOX_DCHECK_NE(type, ConvertedType::UNDEFINED);
   return static_cast<facebook::velox::parquet::thrift::ConvertedType::type>(
       static_cast<int>(type) - 1);
 }
@@ -327,7 +331,7 @@ static inline facebook::velox::parquet::thrift::CompressionCodec::type ToThrift(
     case Compression::ZSTD:
       return facebook::velox::parquet::thrift::CompressionCodec::ZSTD;
     default:
-      DCHECK(false) << "Cannot reach here";
+      VELOX_DCHECK(false, "Cannot reach here");
       return facebook::velox::parquet::thrift::CompressionCodec::UNCOMPRESSED;
   }
 }
@@ -341,7 +345,7 @@ static inline facebook::velox::parquet::thrift::BoundaryOrder::type ToThrift(
       return static_cast<facebook::velox::parquet::thrift::BoundaryOrder::type>(
           type);
     default:
-      DCHECK(false) << "Cannot reach here";
+      VELOX_DCHECK(false, "Cannot reach here");
       return facebook::velox::parquet::thrift::BoundaryOrder::UNORDERED;
   }
 }

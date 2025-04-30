@@ -110,10 +110,10 @@
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_visit.h"
-#include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/visit_array_inline.h"
 
+#include "velox/common/base/Exceptions.h"
 #include "velox/dwio/parquet/writer/arrow/Properties.h"
 
 namespace facebook::velox::parquet::arrow::arrow {
@@ -306,7 +306,7 @@ struct NullableTerminalNode {
     int64_t elements = range.Size();
     RETURN_IF_ERROR(context->ReserveDefLevels(elements));
 
-    DCHECK_GT(elements, 0);
+    VELOX_DCHECK_GT(elements, 0);
 
     auto bit_visitor = [&](bool is_set) {
       context->UnsafeAppendDefLevel(
@@ -448,8 +448,7 @@ class ListPathNode {
       RETURN_IF_ERROR(context->AppendRepLevel(prev_rep_level_));
       RETURN_IF_ERROR(
           context->AppendRepLevels(size_check.Size() - 1, rep_level_));
-      DCHECK_EQ(size_check.start, child_range->end)
-          << size_check.start << " != " << child_range->end;
+      VELOX_DCHECK_EQ(size_check.start, child_range->end);
       child_range->end = size_check.end;
       ++range->start;
     }
@@ -535,7 +534,7 @@ class NullableNode {
     child_range->end = child_range->start = range->start;
     child_range->end += run.length;
 
-    DCHECK(!child_range->Empty());
+    VELOX_DCHECK(!child_range->Empty());
     range->start += child_range->Size();
     new_range_ = false;
     return kNext;
@@ -656,7 +655,7 @@ Status WritePath(
     IterationResult result = std::visit(visitor, node);
 
     if (ARROW_PREDICT_FALSE(result == kError)) {
-      DCHECK(!context.last_status.ok());
+      VELOX_DCHECK(!context.last_status.ok());
       return context.last_status;
     }
     stack_position += static_cast<int>(result);

@@ -23,8 +23,9 @@
 #include <map>
 #include <utility>
 
-#include "arrow/util/logging.h"
 #include "arrow/util/utf8.h"
+
+#include "velox/common/base/Exceptions.h"
 #include "velox/dwio/parquet/writer/arrow/EncryptionInternal.h"
 
 namespace facebook::velox::parquet::arrow {
@@ -57,7 +58,7 @@ ColumnEncryptionProperties::Builder* ColumnEncryptionProperties::Builder::key(
   if (column_key.empty())
     return this;
 
-  DCHECK(key_.empty());
+  VELOX_DCHECK(key_.empty());
   key_ = column_key;
   return this;
 }
@@ -65,8 +66,8 @@ ColumnEncryptionProperties::Builder* ColumnEncryptionProperties::Builder::key(
 ColumnEncryptionProperties::Builder*
 ColumnEncryptionProperties::Builder::key_metadata(
     const std::string& key_metadata) {
-  DCHECK(!key_metadata.empty());
-  DCHECK(key_metadata_.empty());
+  VELOX_DCHECK(!key_metadata.empty());
+  VELOX_DCHECK(key_metadata_.empty());
   key_metadata_ = key_metadata;
   return this;
 }
@@ -80,7 +81,7 @@ ColumnEncryptionProperties::Builder::key_id(const std::string& key_id) {
     throw ParquetException("key id should be in UTF8 encoding");
   }
 
-  DCHECK(!key_id.empty());
+  VELOX_DCHECK(!key_id.empty());
   this->key_metadata(key_id);
   return this;
 }
@@ -148,7 +149,7 @@ FileDecryptionProperties::Builder::footer_key(const std::string footer_key) {
   if (footer_key.empty()) {
     return this;
   }
-  DCHECK(footer_key_.empty());
+  VELOX_DCHECK(footer_key_.empty());
   footer_key_ = footer_key;
   return this;
 }
@@ -159,7 +160,7 @@ FileDecryptionProperties::Builder::key_retriever(
   if (key_retriever == nullptr)
     return this;
 
-  DCHECK(key_retriever_ == nullptr);
+  VELOX_DCHECK_NULL(key_retriever_);
   key_retriever_ = key_retriever;
   return this;
 }
@@ -169,7 +170,7 @@ FileDecryptionProperties::Builder::aad_prefix(const std::string& aad_prefix) {
   if (aad_prefix.empty()) {
     return this;
   }
-  DCHECK(aad_prefix_.empty());
+  VELOX_DCHECK(aad_prefix_.empty());
   aad_prefix_ = aad_prefix;
   return this;
 }
@@ -180,7 +181,7 @@ FileDecryptionProperties::Builder::aad_prefix_verifier(
   if (aad_prefix_verifier == nullptr)
     return this;
 
-  DCHECK(aad_prefix_verifier_ == nullptr);
+  VELOX_DCHECK_NULL(aad_prefix_verifier_);
   aad_prefix_verifier_ = std::move(aad_prefix_verifier);
   return this;
 }
@@ -190,7 +191,7 @@ ColumnDecryptionProperties::Builder* ColumnDecryptionProperties::Builder::key(
   if (key.empty())
     return this;
 
-  DCHECK(!key.empty());
+  VELOX_DCHECK(!key.empty());
   key_ = key;
   return this;
 }
@@ -218,7 +219,7 @@ FileEncryptionProperties::Builder::footer_key_metadata(
   if (footer_key_metadata.empty())
     return this;
 
-  DCHECK(footer_key_metadata_.empty());
+  VELOX_DCHECK(footer_key_metadata_.empty());
   footer_key_metadata_ = footer_key_metadata;
   return this;
 }
@@ -276,7 +277,7 @@ FileEncryptionProperties::Builder::aad_prefix(const std::string& aad_prefix) {
   if (aad_prefix.empty())
     return this;
 
-  DCHECK(aad_prefix_.empty());
+  VELOX_DCHECK(aad_prefix_.empty());
   aad_prefix_ = aad_prefix;
   store_aad_prefix_in_file_ = true;
   return this;
@@ -284,7 +285,7 @@ FileEncryptionProperties::Builder::aad_prefix(const std::string& aad_prefix) {
 
 FileEncryptionProperties::Builder*
 FileEncryptionProperties::Builder::disable_aad_prefix_storage() {
-  DCHECK(!aad_prefix_.empty());
+  VELOX_DCHECK(!aad_prefix_.empty());
 
   store_aad_prefix_in_file_ = false;
   return this;
@@ -301,18 +302,19 @@ ColumnEncryptionProperties::ColumnEncryptionProperties(
   // in the properties will be wiped out (set to 0 in memory).
   utilized_ = false;
 
-  DCHECK(!column_path.empty());
+  VELOX_DCHECK(!column_path.empty());
   if (!encrypted) {
-    DCHECK(key.empty() && key_metadata.empty());
+    VELOX_DCHECK(key.empty() && key_metadata.empty());
   }
 
   if (!key.empty()) {
-    DCHECK(key.length() == 16 || key.length() == 24 || key.length() == 32);
+    VELOX_DCHECK(
+        key.length() == 16 || key.length() == 24 || key.length() == 32);
   }
 
   encrypted_with_footer_key_ = (encrypted && key.empty());
   if (encrypted_with_footer_key_) {
-    DCHECK(key_metadata.empty());
+    VELOX_DCHECK(key_metadata.empty());
   }
 
   encrypted_ = encrypted;
@@ -325,10 +327,11 @@ ColumnDecryptionProperties::ColumnDecryptionProperties(
     const std::string& key)
     : column_path_(column_path) {
   utilized_ = false;
-  DCHECK(!column_path.empty());
+  VELOX_DCHECK(!column_path.empty());
 
   if (!key.empty()) {
-    DCHECK(key.length() == 16 || key.length() == 24 || key.length() == 32);
+    VELOX_DCHECK(
+        key.length() == 16 || key.length() == 24 || key.length() == 32);
   }
 
   key_ = key;
@@ -354,17 +357,17 @@ FileDecryptionProperties::FileDecryptionProperties(
     std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier,
     const ColumnPathToDecryptionPropertiesMap& column_decryption_properties,
     bool plaintext_files_allowed) {
-  DCHECK(
+  VELOX_DCHECK(
       !footer_key.empty() || nullptr != key_retriever ||
       0 != column_decryption_properties.size());
 
   if (!footer_key.empty()) {
-    DCHECK(
+    VELOX_DCHECK(
         footer_key.length() == 16 || footer_key.length() == 24 ||
         footer_key.length() == 32);
   }
   if (footer_key.empty() && check_plaintext_footer_integrity) {
-    DCHECK(nullptr != key_retriever);
+    VELOX_DCHECK_NOT_NULL(key_retriever);
   }
   aad_prefix_verifier_ = std::move(aad_prefix_verifier);
   footer_key_ = footer_key;
@@ -426,9 +429,9 @@ FileEncryptionProperties::FileEncryptionProperties(
   // be wiped out (set to 0 in memory).
   utilized_ = false;
 
-  DCHECK(!footer_key.empty());
+  VELOX_DCHECK(!footer_key.empty());
   // footer_key must be either 16, 24 or 32 bytes.
-  DCHECK(
+  VELOX_DCHECK(
       footer_key.length() == 16 || footer_key.length() == 24 ||
       footer_key.length() == 32);
 

@@ -28,7 +28,8 @@
 
 #include "arrow/io/memory.h"
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/logging.h"
+
+#include "velox/common/base/Exceptions.h"
 #include "velox/dwio/parquet/writer/arrow/EncryptionInternal.h"
 #include "velox/dwio/parquet/writer/arrow/Exception.h"
 #include "velox/dwio/parquet/writer/arrow/FileDecryptorInternal.h"
@@ -295,7 +296,7 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   // 1) Must be set in the metadata
   // 2) Statistics must not be corrupted
   inline bool is_stats_set() const {
-    DCHECK(writer_version_ != nullptr);
+    VELOX_DCHECK_NOT_NULL(writer_version_);
     // If the column statistics don't exist or column sort order is unknown
     // we cannot use the column stats
     if (!column_metadata_->__isset.statistics ||
@@ -1608,12 +1609,12 @@ bool ApplicationVersion::VersionLt(
     return true;
   if (version.major > other_version.version.major)
     return false;
-  DCHECK_EQ(version.major, other_version.version.major);
+  VELOX_DCHECK_EQ(version.major, other_version.version.major);
   if (version.minor < other_version.version.minor)
     return true;
   if (version.minor > other_version.version.minor)
     return false;
-  DCHECK_EQ(version.minor, other_version.version.minor);
+  VELOX_DCHECK_EQ(version.minor, other_version.version.minor);
   return version.patch < other_version.version.patch;
 }
 

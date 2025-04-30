@@ -31,9 +31,10 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/visit_data_inline.h"
+
+#include "velox/common/base/Exceptions.h"
 #include "velox/dwio/parquet/writer/arrow/Encoding.h"
 #include "velox/dwio/parquet/writer/arrow/Exception.h"
 #include "velox/dwio/parquet/writer/arrow/Platform.h"
@@ -266,7 +267,7 @@ struct BinaryLikeComparer<T, /*is_signed=*/true> {
         lead_end = a.ptr + lead_length;
         a_start += lead_length;
       } else {
-        DCHECK_LT(a_length, b_length);
+        VELOX_DCHECK_LT(a_length, b_length);
         int lead_length = b_length - a_length;
         lead_start = b.ptr;
         lead_end = b.ptr + lead_length;
@@ -425,7 +426,7 @@ class TypedComparatorImpl : virtual public TypedComparator<DType> {
   }
 
   std::pair<T, T> GetMinMax(const T* values, int64_t length) override {
-    DCHECK_GT(length, 0);
+    VELOX_DCHECK_GT(length, 0);
 
     T min = Helper::DefaultMin();
     T max = Helper::DefaultMax();
@@ -446,7 +447,7 @@ class TypedComparatorImpl : virtual public TypedComparator<DType> {
       int64_t length,
       const uint8_t* valid_bits,
       int64_t valid_bits_offset) override {
-    DCHECK_GT(length, 0);
+    VELOX_DCHECK_GT(length, 0);
 
     T min = Helper::DefaultMin();
     T max = Helper::DefaultMax();
@@ -482,7 +483,7 @@ std::pair<int32_t, int32_t>
 TypedComparatorImpl</*is_signed=*/false, Int32Type>::GetMinMax(
     const int32_t* values,
     int64_t length) {
-  DCHECK_GT(length, 0);
+  VELOX_DCHECK_GT(length, 0);
 
   const uint32_t* unsigned_values = reinterpret_cast<const uint32_t*>(values);
   uint32_t min = std::numeric_limits<uint32_t>::max();
@@ -524,7 +525,7 @@ std::pair<ByteArray, ByteArray> GetMinMaxBinaryHelper(
     ::arrow::VisitArraySpanInline<::arrow::BinaryType>(
         *values.data(), std::move(valid_func), std::move(null_func));
   } else {
-    DCHECK(::arrow::is_large_binary_like(values.type_id()));
+    VELOX_DCHECK(::arrow::is_large_binary_like(values.type_id()));
     ::arrow::VisitArraySpanInline<::arrow::LargeBinaryType>(
         *values.data(), std::move(valid_func), std::move(null_func));
   }
@@ -886,8 +887,8 @@ void TypedStatisticsImpl<DType>::Update(
     const T* values,
     int64_t num_values,
     int64_t null_count) {
-  DCHECK_GE(num_values, 0);
-  DCHECK_GE(null_count, 0);
+  VELOX_DCHECK_GE(num_values, 0);
+  VELOX_DCHECK_GE(null_count, 0);
 
   IncrementNullCount(null_count);
   IncrementNumValues(num_values);
@@ -905,8 +906,8 @@ void TypedStatisticsImpl<DType>::UpdateSpaced(
     int64_t num_spaced_values,
     int64_t num_values,
     int64_t null_count) {
-  DCHECK_GE(num_values, 0);
-  DCHECK_GE(null_count, 0);
+  VELOX_DCHECK_GE(num_values, 0);
+  VELOX_DCHECK_GE(null_count, 0);
 
   IncrementNullCount(null_count);
   IncrementNumValues(num_values);
@@ -1062,7 +1063,7 @@ std::shared_ptr<Statistics> Statistics::Make(
       break;
   }
 #undef MAKE_STATS
-  DCHECK(false) << "Cannot reach here";
+  VELOX_DCHECK(false, "Cannot reach here");
   return nullptr;
 }
 
@@ -1071,7 +1072,7 @@ std::shared_ptr<Statistics> Statistics::Make(
     const EncodedStatistics* encoded_stats,
     int64_t num_values,
     ::arrow::MemoryPool* pool) {
-  DCHECK(encoded_stats != nullptr);
+  VELOX_DCHECK(encoded_stats != nullptr);
   return Make(
       descr,
       encoded_stats->min(),
@@ -1122,7 +1123,7 @@ std::shared_ptr<Statistics> Statistics::Make(
       break;
   }
 #undef MAKE_STATS
-  DCHECK(false) << "Cannot reach here";
+  VELOX_DCHECK(false, "Cannot reach here");
   return nullptr;
 }
 

@@ -26,8 +26,9 @@
 
 #include "arrow/result.h"
 #include "arrow/status.h"
-#include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+
+#include "velox/common/base/Exceptions.h"
 
 using std::size_t;
 
@@ -201,7 +202,7 @@ class ZSTDCodec : public Codec {
       // We may pass a NULL 0-byte output buffer but some zstd versions demand
       // a valid pointer: https://github.com/facebook/zstd/issues/1385
       static uint8_t empty_buffer;
-      DCHECK_EQ(output_buffer_len, 0);
+      VELOX_DCHECK_EQ(output_buffer_len, 0);
       output_buffer = &empty_buffer;
     }
 
@@ -222,7 +223,7 @@ class ZSTDCodec : public Codec {
   int64_t MaxCompressedLen(
       int64_t input_len,
       const uint8_t* ARROW_ARG_UNUSED(input)) override {
-    DCHECK_GE(input_len, 0);
+    VELOX_DCHECK_GE(input_len, 0);
     return ZSTD_compressBound(static_cast<size_t>(input_len));
   }
 

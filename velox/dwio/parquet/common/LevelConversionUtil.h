@@ -269,7 +269,7 @@ int64_t DefLevelsBatchToBitmap(
     int64_t upperBoundRemaining,
     LevelInfo levelInfo,
     ::arrow::internal::FirstTimeBitmapWriter* writer) {
-  DCHECK_LE(batchSize, kExtractBitsSize);
+  VELOX_DCHECK_LE(batchSize, kExtractBitsSize);
 
   // Greater than levelInfo.defLevel - 1 implies >= the defLevel
   auto definedBitmap = static_cast<extractBitmapT>(

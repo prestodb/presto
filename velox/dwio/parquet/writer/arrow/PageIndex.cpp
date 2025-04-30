@@ -126,7 +126,7 @@ class TypedColumnIndexImpl : public TypedColumnIndex<DType> {
         [](int32_t num_non_null_pages, bool null_page) {
           return num_non_null_pages + (null_page ? 0 : 1);
         }));
-    DCHECK_LE(num_non_null_pages, num_pages);
+    VELOX_DCHECK_LE(num_non_null_pages, num_pages);
 
     // Allocate slots for decoded values.
     min_values_.resize(num_pages);
@@ -146,7 +146,7 @@ class TypedColumnIndexImpl : public TypedColumnIndex<DType> {
             plain_decoder, column_index_.max_values[i], &max_values_, i);
       }
     }
-    DCHECK_EQ(num_non_null_pages, non_null_page_indices_.size());
+    VELOX_DCHECK_EQ(num_non_null_pages, non_null_page_indices_.size());
   }
 
   const std::vector<bool>& null_pages() const override {
@@ -613,7 +613,7 @@ class ColumnIndexBuilderImpl final : public ColumnIndexBuilder {
   BoundaryOrder::type DetermineBoundaryOrder(
       const std::vector<T>& min_values,
       const std::vector<T>& max_values) const {
-    DCHECK_EQ(min_values.size(), max_values.size());
+    VELOX_DCHECK_EQ(min_values.size(), max_values.size());
     if (min_values.empty()) {
       return BoundaryOrder::Unordered;
     }
@@ -745,9 +745,10 @@ class PageIndexBuilderImpl final : public PageIndexBuilder {
     column_index_builders_.back().resize(num_columns);
     offset_index_builders_.back().resize(num_columns);
 
-    DCHECK_EQ(column_index_builders_.size(), offset_index_builders_.size());
-    DCHECK_EQ(column_index_builders_.back().size(), num_columns);
-    DCHECK_EQ(offset_index_builders_.back().size(), num_columns);
+    VELOX_DCHECK_EQ(
+        column_index_builders_.size(), offset_index_builders_.size());
+    VELOX_DCHECK_EQ(column_index_builders_.back().size(), num_columns);
+    VELOX_DCHECK_EQ(offset_index_builders_.back().size(), num_columns);
   }
 
   ColumnIndexBuilder* GetColumnIndexBuilder(int32_t i) override {
@@ -824,7 +825,7 @@ class PageIndexBuilderImpl final : public PageIndexBuilder {
          ++row_group) {
       const auto& row_group_page_index_builders =
           page_index_builders[row_group];
-      DCHECK_EQ(row_group_page_index_builders.size(), num_columns);
+      VELOX_DCHECK_EQ(row_group_page_index_builders.size(), num_columns);
 
       bool has_valid_index = false;
       std::vector<std::optional<IndexLocation>> locations(
