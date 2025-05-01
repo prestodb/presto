@@ -15,15 +15,22 @@ package com.facebook.presto.nativeworker;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.execution.QueryInfo;
+import com.facebook.presto.execution.StageInfo;
+import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.plan.SortNode;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
@@ -36,10 +43,12 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
+import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_SORT;
 import static com.facebook.presto.SystemSessionProperties.INLINE_SQL_FUNCTIONS;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.NATIVE_MIN_COLUMNAR_ENCODING_CHANNELS_TO_PREFER_ROW_WISE_ENCODING;
+import static com.facebook.presto.SystemSessionProperties.SINGLE_NODE_EXECUTION_ENABLED;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
@@ -81,6 +90,7 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STR
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -1993,5 +2003,48 @@ public abstract class AbstractTestNativeGeneralQueries
         return inputRows.stream()
                 .filter(row -> Pattern.matches(sessionPropertyName, row.getFields().get(4).toString()))
                 .collect(toList());
+    }
+
+    @Test
+    public void testDistributedSortSingleNode()
+    {
+        assertDistributedSortSingleNode("SELECT orderkey FROM orders ORDER BY orderkey");
+        assertDistributedSortSingleNode("SELECT DISTINCT orderkey FROM orders ORDER BY 1");
+        assertDistributedSortSingleNode("SELECT orderstatus, SUM(totalprice) FROM orders GROUP BY orderstatus ORDER BY 2 DESC");
+    }
+
+    private void assertDistributedSortSingleNode(String query)
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(DISTRIBUTED_SORT, "true")
+                .setSystemProperty(SINGLE_NODE_EXECUTION_ENABLED, "true")
+                .build();
+        assertQuery(session, query, plan -> {
+            SortNode sortNode = searchFrom(plan.getRoot())
+                    .where(node -> node instanceof SortNode)
+                    .findOnlyElement();
+            assertTrue(sortNode.isPartial());
+        });
+        DistributedQueryRunner runner = getDistributedQueryRunner();
+        QueryId queryId = runner.executeWithQueryId(session, query).getQueryId();
+        QueryInfo queryInfo = runner.getQueryInfo(queryId);
+        OperatorStats sortStats = findSortStats(queryInfo);
+        assertThat(sortStats.getTotalDrivers())
+                .isGreaterThan(1);
+    }
+
+    private OperatorStats findSortStats(QueryInfo queryInfo)
+    {
+        // exactly one stage is expected
+        StageInfo stageInfo = getOnlyElement(queryInfo.getOutputStage()
+                .orElseThrow(() -> new AssertionError("stage info is expected to be set"))
+                .getAllStages());
+        // exactly one task is expected
+        TaskInfo taskInfo = getOnlyElement(stageInfo.getLatestAttemptExecutionInfo().getTasks());
+        // exactly one sort operator is expected
+        return getOnlyElement(taskInfo.getStats().getPipelines().stream()
+                .flatMap(pipelineStats -> pipelineStats.getOperatorSummaries().stream())
+                .filter(operatorStats -> operatorStats.getOperatorType().contains("OrderBy"))
+                .collect(toList()));
     }
 }
