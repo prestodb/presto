@@ -585,6 +585,8 @@ public class PlanPrinter
                     "IndexSource",
                     format("[%s, lookup = %s]", node.getIndexHandle(), node.getLookupVariables()));
 
+            nodeOutput.appendDetailsLine("TableHandle: %s", node.getTableHandle().getConnectorHandle().toString());
+
             for (Map.Entry<VariableReferenceExpression, ColumnHandle> entry : node.getAssignments().entrySet()) {
                 if (node.getOutputVariables().contains(entry.getKey())) {
                     nodeOutput.appendDetailsLine("%s := %s%s", entry.getKey(), entry.getValue(), formatSourceLocation(entry.getKey().getSourceLocation()));
