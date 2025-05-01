@@ -107,6 +107,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -238,11 +239,18 @@ public class AddLocalExchanges
                 PlanWithProperties sortPlan = planAndEnforceChildren(node, fixedParallelism(), fixedParallelism());
 
                 if (!sortPlan.getProperties().isSingleStream()) {
+                    SortNode sortNode = (SortNode) sortPlan.getNode();
                     return deriveProperties(
                             mergingExchange(
                                     idAllocator.getNextId(),
                                     LOCAL,
-                                    sortPlan.getNode(),
+                                    new SortNode(
+                                            sortNode.getSourceLocation(),
+                                            sortNode.getId(),
+                                            getOnlyElement(sortNode.getSources()),
+                                            sortNode.getOrderingScheme(),
+                                            true,
+                                            sortNode.getPartitionBy()),
                                     node.getOrderingScheme()),
                             sortPlan.getProperties());
                 }
