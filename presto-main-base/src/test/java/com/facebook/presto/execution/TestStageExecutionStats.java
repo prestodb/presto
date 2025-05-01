@@ -16,11 +16,11 @@ package com.facebook.presto.execution;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.stats.Distribution;
 import com.facebook.airlift.stats.Distribution.DistributionSnapshot;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.spi.eventlistener.StageGcStatistics;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import static java.util.concurrent.TimeUnit.NANOSECONDS;

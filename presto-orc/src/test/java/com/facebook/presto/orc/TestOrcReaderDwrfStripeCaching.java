@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.orc.StripeReader.StripeId;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.orc.metadata.DwrfStripeCache;
 import com.facebook.presto.orc.proto.DwrfProto;
 import io.airlift.slice.Slice;
-import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -28,10 +28,10 @@ import java.io.RandomAccessFile;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.toIntExact;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;

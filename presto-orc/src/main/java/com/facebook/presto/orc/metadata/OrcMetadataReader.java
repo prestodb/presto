@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.metadata;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.RuntimeUnit;
 import com.facebook.presto.orc.DwrfEncryptionProvider;
@@ -44,7 +45,6 @@ import com.google.common.collect.ImmutableMap;
 import com.sun.management.ThreadMXBean;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.airlift.units.DataSize;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -57,6 +57,7 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.stream.IntStream;
 
+import static com.facebook.airlift.units.DataSize.Unit.GIGABYTE;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.DEFAULT_SEQUENCE_ID;
 import static com.facebook.presto.orc.metadata.CompressionKind.LZ4;
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
@@ -72,7 +73,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
 import static io.airlift.slice.SliceUtf8.tryGetCodePointAt;
-import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static java.lang.Character.MIN_SUPPLEMENTARY_CODE_POINT;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;

@@ -15,8 +15,7 @@ package com.facebook.presto.spiller;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.operator.SpillContext;
-
-import javax.annotation.concurrent.ThreadSafe;
+import com.google.errorprone.annotations.ThreadSafe;
 
 import static com.google.common.base.Preconditions.checkState;
 

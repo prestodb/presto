@@ -24,8 +24,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.google.common.collect.Maps;
 import com.google.common.primitives.Primitives;
-
-import javax.annotation.concurrent.ThreadSafe;
+import com.google.errorprone.annotations.ThreadSafe;
 
 import java.util.Collection;
 import java.util.List;

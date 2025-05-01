@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.DataSize.Unit;
 import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.operator.OrderByOperator.OrderByOperatorFactory;
@@ -21,8 +23,6 @@ import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.TestingTaskContext;
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
@@ -35,6 +35,7 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.testing.Assertions.assertGreaterThan;
+import static com.facebook.airlift.units.DataSize.succinctBytes;
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_LAST;
@@ -47,7 +48,6 @@ import static com.facebook.presto.operator.OperatorAssertion.toMaterializedResul
 import static com.facebook.presto.operator.OperatorAssertion.toPages;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
-import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;

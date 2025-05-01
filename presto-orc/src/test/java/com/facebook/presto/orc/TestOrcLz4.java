@@ -13,17 +13,18 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.DataSize;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
+import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
@@ -33,7 +34,6 @@ import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.facebook.presto.orc.metadata.CompressionKind.LZ4;
 import static com.google.common.io.Resources.getResource;
 import static com.google.common.io.Resources.toByteArray;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.toIntExact;
 import static org.testng.Assert.assertEquals;
 

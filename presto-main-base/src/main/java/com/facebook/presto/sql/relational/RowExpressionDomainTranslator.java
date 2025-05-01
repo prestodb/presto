@@ -50,9 +50,8 @@ import com.facebook.presto.sql.planner.RowExpressionInterpreter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.PeekingIterator;
-
-import javax.annotation.Nullable;
-import javax.inject.Inject;
+import jakarta.annotation.Nullable;
+import jakarta.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.List;

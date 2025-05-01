@@ -14,12 +14,11 @@
 package com.facebook.presto.kafka;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.units.Duration;
+import com.facebook.airlift.units.MinDuration;
 import com.facebook.presto.kafka.schema.file.FileTableDescriptionSupplier;
 import com.facebook.presto.kafka.server.file.FileKafkaClusterMetadataSupplier;
-import io.airlift.units.Duration;
-import io.airlift.units.MinDuration;
-
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 public class KafkaConnectorConfig
 {

@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
@@ -24,8 +26,6 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 
 import java.net.URI;
 import java.util.ArrayList;
@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalDouble;
 
+import static com.facebook.airlift.units.DataSize.Unit.BYTE;
 import static com.facebook.presto.SystemSessionProperties.QUERY_PRIORITY;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.FINISHED;
@@ -40,7 +41,6 @@ import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.execution.QueryState.WAITING_FOR_PREREQUISITES;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 

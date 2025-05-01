@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.transaction;
 
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.connector.informationSchema.InformationSchemaConnector;
 import com.facebook.presto.connector.system.SystemConnector;
@@ -30,7 +31,6 @@ import com.facebook.presto.testing.TestingConnectorContext;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.Duration;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 

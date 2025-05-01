@@ -14,6 +14,7 @@
 package com.facebook.presto.spark.testing;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.hive.HiveHadoop2Plugin;
@@ -27,7 +28,6 @@ import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.Hashing;
-import io.airlift.units.Duration;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
@@ -300,8 +300,8 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
                 "-v", format("%s:/presto/etc/session-property-config.properties", sessionPropertyConfig.getAbsolutePath()),
                 "-v", format("%s:/presto/etc/session-property-config.json", sessionPropertyConfigJsonFile.getAbsolutePath()),
                 "spark-submit",
-                "/spark/bin/spark-submit",
-                "--executor-memory", "512m",
+                "/opt/spark/bin/spark-submit",
+                "--executor-memory", "1g",
                 "--executor-cores", "4",
                 "--conf", "spark.task.cpus=4",
                 "--master", "spark://spark-master:7077",

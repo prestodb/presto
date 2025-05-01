@@ -13,8 +13,8 @@
  */
 package com.facebook.presto;
 
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.spi.PrestoException;
-import io.airlift.units.Duration;
 
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_CPU_LIMIT;
 import static java.lang.String.format;

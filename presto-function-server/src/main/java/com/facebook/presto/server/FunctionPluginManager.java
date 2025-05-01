@@ -20,12 +20,11 @@ import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
+import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.resolver.ArtifactResolver;
 import io.airlift.resolver.DefaultArtifact;
+import jakarta.inject.Inject;
 import org.sonatype.aether.artifact.Artifact;
-
-import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;
@@ -61,7 +60,7 @@ public class FunctionPluginManager
             .add("com.fasterxml.jackson.annotation.")
             .add("com.fasterxml.jackson.module.afterburner.")
             .add("io.airlift.slice.")
-            .add("io.airlift.units.")
+            .add("com.facebook.airlift.units.")
             .add("org.openjdk.jol.")
             .add("com.facebook.presto.common")
             .add("com.facebook.drift.annotations.")

@@ -15,8 +15,7 @@ package com.facebook.presto.kafka.server.file;
 
 import com.facebook.presto.kafka.server.KafkaClusterMetadataSupplier;
 import com.facebook.presto.spi.HostAddress;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.List;
 

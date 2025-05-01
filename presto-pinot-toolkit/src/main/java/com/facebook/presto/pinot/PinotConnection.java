@@ -17,9 +17,8 @@ import com.facebook.presto.pinot.PinotClusterInfoFetcher.TimeBoundary;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import jakarta.inject.Inject;
 import org.apache.pinot.spi.data.Schema;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;

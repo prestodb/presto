@@ -15,8 +15,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ConnectorId;
 import com.google.common.collect.ImmutableList;
-
-import javax.annotation.concurrent.ThreadSafe;
+import com.google.errorprone.annotations.ThreadSafe;
 
 import java.util.List;
 import java.util.Optional;

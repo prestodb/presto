@@ -13,19 +13,18 @@
  */
 package com.facebook.presto.benchmark;
 
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
-
-import javax.annotation.Nullable;
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
+import jakarta.annotation.Nullable;
 
 import java.util.Map;
 
+import static com.facebook.airlift.units.DataSize.Unit.BYTE;
 import static com.facebook.presto.benchmark.FormatUtils.formatCount;
 import static com.facebook.presto.benchmark.FormatUtils.formatCountRate;
 import static com.facebook.presto.benchmark.FormatUtils.formatDataRate;
 import static com.facebook.presto.benchmark.FormatUtils.formatDataSize;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.cli;
 
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.client.StatementClient;
-import io.airlift.units.Duration;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -22,7 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static io.airlift.units.Duration.nanosSince;
+import static com.facebook.airlift.units.Duration.nanosSince;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;

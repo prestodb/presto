@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.cost.StatsAndCosts;
@@ -26,8 +28,6 @@ import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 

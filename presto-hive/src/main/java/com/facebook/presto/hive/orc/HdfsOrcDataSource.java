@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.hive.orc;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.orc.AbstractOrcDataSource;
 import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.spi.PrestoException;
-import io.airlift.units.DataSize;
 import org.apache.hadoop.fs.FSDataInputStream;
 
 import java.io.IOException;

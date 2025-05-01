@@ -14,6 +14,7 @@
 package com.facebook.presto.client;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.units.Duration;
 import com.facebook.drift.codec.ThriftCodec;
 import com.facebook.drift.codec.ThriftCodecManager;
 import com.facebook.drift.codec.internal.compiler.CompilerThriftCodecFactory;
@@ -26,7 +27,6 @@ import com.facebook.drift.protocol.TFacebookCompactProtocol;
 import com.facebook.drift.protocol.TMemoryBuffer;
 import com.facebook.drift.protocol.TProtocol;
 import com.facebook.drift.protocol.TTransport;
-import io.airlift.units.Duration;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 

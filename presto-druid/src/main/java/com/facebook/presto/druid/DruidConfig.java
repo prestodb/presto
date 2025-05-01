@@ -15,16 +15,15 @@ package com.facebook.presto.druid;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
+import com.facebook.airlift.units.Duration;
+import com.facebook.airlift.units.MinDuration;
 import com.google.common.base.Splitter;
 import com.google.common.base.StandardSystemProperty;
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.Duration;
-import io.airlift.units.MinDuration;
+import jakarta.annotation.Nullable;
+import jakarta.validation.constraints.NotNull;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-
-import javax.annotation.Nullable;
-import javax.validation.constraints.NotNull;
 
 import java.util.List;
 import java.util.Map;

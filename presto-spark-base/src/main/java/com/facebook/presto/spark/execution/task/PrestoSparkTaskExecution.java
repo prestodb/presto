@@ -14,6 +14,7 @@
 package com.facebook.presto.spark.execution.task;
 
 import com.facebook.airlift.concurrent.SetThreadName;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.event.SplitMonitor;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.ScheduledSplit;
@@ -42,10 +43,8 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.Duration;
-
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.GuardedBy;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
+import jakarta.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;

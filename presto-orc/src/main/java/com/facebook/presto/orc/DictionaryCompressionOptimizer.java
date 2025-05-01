@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.airlift.units.DataSize;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.primitives.Longs;
-import io.airlift.units.DataSize;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -24,10 +24,10 @@ import java.util.OptionalDouble;
 import java.util.OptionalInt;
 import java.util.Set;
 
+import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 

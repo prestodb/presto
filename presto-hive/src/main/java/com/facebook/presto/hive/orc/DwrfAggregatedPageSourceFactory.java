@@ -30,9 +30,8 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
+import jakarta.inject.Inject;
 import org.apache.hadoop.conf.Configuration;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;

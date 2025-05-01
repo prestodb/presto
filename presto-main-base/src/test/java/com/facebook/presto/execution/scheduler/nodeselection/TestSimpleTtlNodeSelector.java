@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.execution.scheduler.nodeselection;
 
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.execution.scheduler.nodeSelection.SimpleTtlNodeSelector;
 import com.facebook.presto.spi.ttl.ConfidenceBasedTtlInfo;
-import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.concurrent.TimeUnit;

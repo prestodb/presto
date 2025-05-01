@@ -27,8 +27,7 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.List;
 

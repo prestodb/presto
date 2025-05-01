@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.blackhole;
 
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
@@ -36,7 +37,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.airlift.slice.Slice;
-import io.airlift.units.Duration;
 
 import java.util.ArrayList;
 import java.util.Collection;

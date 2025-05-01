@@ -17,6 +17,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.Return;
 import com.facebook.presto.sql.tree.Statement;
+import jakarta.inject.Inject;
 import org.antlr.v4.runtime.BaseErrorListener;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonToken;
@@ -32,8 +33,6 @@ import org.antlr.v4.runtime.atn.PredictionMode;
 import org.antlr.v4.runtime.misc.Pair;
 import org.antlr.v4.runtime.misc.ParseCancellationException;
 import org.antlr.v4.runtime.tree.TerminalNode;
-
-import javax.inject.Inject;
 
 import java.util.Arrays;
 import java.util.EnumSet;

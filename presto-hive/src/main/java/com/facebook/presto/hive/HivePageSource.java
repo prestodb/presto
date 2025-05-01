@@ -27,10 +27,9 @@ import com.facebook.presto.spi.PrestoException;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slices;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
+import jakarta.annotation.Nullable;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.joda.time.DateTimeZone;
-
-import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;

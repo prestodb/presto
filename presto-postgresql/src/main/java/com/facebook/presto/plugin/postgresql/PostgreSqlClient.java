@@ -36,9 +36,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import jakarta.inject.Inject;
 import org.postgresql.Driver;
-
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.io.InputStreamReader;

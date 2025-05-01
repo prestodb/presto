@@ -19,12 +19,11 @@ import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
 import com.facebook.presto.hive.metastore.file.FileHiveMetastoreConfig;
 import com.facebook.presto.spi.PrestoException;
+import com.google.errorprone.annotations.ThreadSafe;
+import jakarta.inject.Inject;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.fs.Path;
-
-import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.util.Optional;

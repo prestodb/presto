@@ -16,9 +16,8 @@ package com.facebook.presto.connector.jmx;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
-
-import javax.annotation.PostConstruct;
-import javax.inject.Inject;
+import jakarta.annotation.PostConstruct;
+import jakarta.inject.Inject;
 
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;

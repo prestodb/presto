@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.project;
 
+import com.facebook.airlift.concurrent.NotThreadSafe;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.array.ReferenceCountMap;
 import com.facebook.presto.common.block.Block;
@@ -28,8 +29,6 @@ import com.facebook.presto.operator.WorkProcessor.ProcessState;
 import com.facebook.presto.sql.gen.ExpressionProfiler;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.SizeOf;
-
-import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.Arrays;
 import java.util.HashMap;

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.writer;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.AbstractVariableWidthType;
 import com.facebook.presto.common.type.Type;
@@ -30,20 +31,19 @@ import com.facebook.presto.orc.stream.LongOutputStream;
 import com.facebook.presto.orc.stream.PresentOutputStream;
 import com.facebook.presto.orc.stream.StreamDataOutput;
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.DataSize;
 import it.unimi.dsi.fastutil.ints.IntArrays;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY_V2;
 import static com.facebook.presto.orc.stream.LongOutputStream.createLengthOutputStream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.toIntExact;
 
 public class SliceDictionaryColumnWriter

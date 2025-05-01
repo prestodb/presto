@@ -19,10 +19,9 @@ import com.facebook.presto.hive.CacheStatsMBean;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import jakarta.annotation.Nullable;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.annotation.Nullable;
 
 import static com.facebook.presto.common.predicate.TupleDomainFilterUtils.toFilter;
 import static java.lang.System.identityHashCode;

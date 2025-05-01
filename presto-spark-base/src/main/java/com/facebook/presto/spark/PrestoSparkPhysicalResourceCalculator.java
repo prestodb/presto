@@ -14,12 +14,13 @@
 package com.facebook.presto.spark;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.prestospark.PhysicalResourceSettings;
-import io.airlift.units.DataSize;
 
+import static com.facebook.airlift.units.DataSize.Unit.BYTE;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getAverageInputDataSizePerExecutor;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getAverageInputDataSizePerPartition;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getMaxExecutorCount;
@@ -30,7 +31,6 @@ import static com.facebook.presto.spark.PrestoSparkSessionProperties.isSparkExec
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.isSparkHashPartitionCountAllocationStrategyEnabled;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.isSparkResourceAllocationStrategyEnabled;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.units.DataSize.Unit.BYTE;
 
 public class PrestoSparkPhysicalResourceCalculator
 {

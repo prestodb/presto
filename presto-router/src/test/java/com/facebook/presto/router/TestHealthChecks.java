@@ -33,11 +33,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Injector;
+import jakarta.servlet.http.HttpServletRequest;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
-
-import javax.servlet.http.HttpServletRequest;
 
 import java.io.File;
 import java.net.URI;
@@ -81,9 +80,9 @@ public class TestHealthChecks
                 .collect(toImmutableList());
 
         RouterSpec spec = new RouterSpec(ImmutableList.of(new GroupSpec("group1", serverURIs, Optional.empty(), Optional.empty())),
-                  ImmutableList.of(new SelectorRuleSpec(Optional.empty(), Optional.empty(), Optional.empty(), "group1")),
-                  Optional.of(ROUND_ROBIN),
-                  Optional.empty());
+                ImmutableList.of(new SelectorRuleSpec(Optional.empty(), Optional.empty(), Optional.empty(), "group1")),
+                Optional.of(ROUND_ROBIN),
+                Optional.empty());
         JsonCodec<RouterSpec> jsonCodec = JsonCodec.jsonCodec(RouterSpec.class);
         Files.write(configFile.toPath(), jsonCodec.toBytes(spec));
 

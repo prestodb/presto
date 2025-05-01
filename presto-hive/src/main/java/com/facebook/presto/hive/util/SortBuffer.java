@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.util;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.Block;
@@ -21,7 +22,6 @@ import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.PageSorter;
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.DataSize;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;

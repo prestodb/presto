@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.benchmark;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.function.SqlFunctionProperties;
@@ -32,12 +33,12 @@ import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.util.DateTimeUtils;
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.DataSize;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+import static com.facebook.airlift.units.DataSize.Unit.BYTE;
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DateType.DATE;
@@ -46,7 +47,6 @@ import static com.facebook.presto.operator.aggregation.GenericAccumulatorFactory
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.units.DataSize.Unit.BYTE;
 
 public class HandTpchQuery6
         extends AbstractSimpleOperatorBenchmark

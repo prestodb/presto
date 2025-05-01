@@ -13,20 +13,20 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.array.AdaptiveLongBigArray;
-import io.airlift.units.DataSize;
 import it.unimi.dsi.fastutil.HashCommon;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 
+import static com.facebook.airlift.units.DataSize.Unit.KILOBYTE;
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.facebook.presto.util.HashCollisionsEstimator.estimateNumberOfHashCollisions;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 

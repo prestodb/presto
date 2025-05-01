@@ -15,18 +15,17 @@ package com.facebook.presto.operator;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
+import com.facebook.airlift.units.MinDataSize;
+import com.facebook.airlift.units.MinDuration;
 import com.facebook.presto.CompressionCodec;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
-import io.airlift.units.MinDataSize;
-import io.airlift.units.MinDuration;
-
-import javax.validation.constraints.Min;
+import jakarta.validation.constraints.Min;
 
 import java.net.URI;
 
-import static io.airlift.units.DataSize.Unit.GIGABYTE;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static com.facebook.airlift.units.DataSize.Unit.GIGABYTE;
+import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.TimeUnit.DAYS;
 
 public class FileFragmentResultCacheConfig

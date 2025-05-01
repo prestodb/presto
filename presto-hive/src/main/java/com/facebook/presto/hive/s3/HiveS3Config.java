@@ -16,19 +16,18 @@ package com.facebook.presto.hive.s3;
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.configuration.ConfigSecuritySensitive;
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
+import com.facebook.airlift.units.MinDataSize;
+import com.facebook.airlift.units.MinDuration;
 import com.google.common.base.StandardSystemProperty;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
-import io.airlift.units.MinDataSize;
-import io.airlift.units.MinDuration;
-
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 
 import java.io.File;
 import java.util.concurrent.TimeUnit;
 
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class HiveS3Config
 {

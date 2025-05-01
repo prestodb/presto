@@ -23,8 +23,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.Multimap;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import static java.util.Objects.requireNonNull;
 

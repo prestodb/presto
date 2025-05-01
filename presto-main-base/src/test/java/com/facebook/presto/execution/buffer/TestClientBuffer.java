@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution.buffer;
 
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.execution.Lifespan;
@@ -21,11 +22,9 @@ import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.execution.buffer.SerializedPageReference.PagesReleasedListener;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.Duration;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import org.testng.annotations.Test;
-
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;

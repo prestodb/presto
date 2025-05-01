@@ -56,7 +56,7 @@ import static com.facebook.presto.thrift.api.udf.ThriftUdfPage.thriftPage;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -184,7 +184,7 @@ public class ThriftSqlFunctionExecutor
         ThriftUdfPage page = result.getResult();
         switch (page.getPageFormat()) {
             case PRESTO_THRIFT:
-                return new SqlFunctionResult(getOnlyElement(page.getThriftPage().getThriftBlocks()).toBlock(returnType), result.getUdfStats().getTotalCpuTimeMs());
+                return new SqlFunctionResult(page.getThriftPage().getThriftBlocks().stream().collect(onlyElement()).toBlock(returnType), result.getUdfStats().getTotalCpuTimeMs());
             case PRESTO_SERIALIZED:
                 checkState(blockEncodingSerde != null, "blockEncodingSerde not set");
                 PagesSerde pagesSerde = new PagesSerde(blockEncodingSerde, Optional.empty(), Optional.empty(), Optional.empty());

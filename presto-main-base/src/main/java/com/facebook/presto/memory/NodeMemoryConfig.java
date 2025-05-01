@@ -15,11 +15,10 @@ package com.facebook.presto.memory;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
-import io.airlift.units.DataSize;
+import com.facebook.airlift.units.DataSize;
+import jakarta.validation.constraints.NotNull;
 
-import javax.validation.constraints.NotNull;
-
-import static io.airlift.units.DataSize.Unit.BYTE;
+import static com.facebook.airlift.units.DataSize.Unit.BYTE;
 
 // This is separate from MemoryManagerConfig because it's difficult to test the default value of maxQueryMemoryPerNode
 public class NodeMemoryConfig

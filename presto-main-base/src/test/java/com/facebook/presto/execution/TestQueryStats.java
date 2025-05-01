@@ -16,6 +16,8 @@ package com.facebook.presto.execution;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.stats.Distribution;
 import com.facebook.airlift.testing.TestingTicker;
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.RuntimeMetric;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.operator.DynamicFilterStats;
@@ -36,8 +38,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
@@ -45,8 +45,8 @@ import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.airlift.units.DataSize.Unit.BYTE;
 import static com.facebook.presto.common.RuntimeUnit.NONE;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;

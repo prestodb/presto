@@ -15,6 +15,7 @@ package com.facebook.presto.router.cluster;
 
 import com.facebook.airlift.bootstrap.LifeCycleManager;
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.router.RouterConfig;
 import com.facebook.presto.router.scheduler.Scheduler;
 import com.facebook.presto.router.scheduler.SchedulerFactory;
@@ -28,11 +29,9 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.sun.nio.file.SensitivityWatchEventModifier;
-import io.airlift.units.Duration;
+import jakarta.annotation.PostConstruct;
+import jakarta.inject.Inject;
 import org.weakref.jmx.Managed;
-
-import javax.annotation.PostConstruct;
-import javax.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;

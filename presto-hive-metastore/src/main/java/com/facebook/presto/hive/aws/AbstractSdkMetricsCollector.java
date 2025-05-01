@@ -18,7 +18,7 @@ import com.amazonaws.Response;
 import com.amazonaws.metrics.RequestMetricCollector;
 import com.amazonaws.util.AWSRequestMetrics;
 import com.amazonaws.util.TimingInfo;
-import io.airlift.units.Duration;
+import com.facebook.airlift.units.Duration;
 
 import java.util.List;
 import java.util.function.Consumer;

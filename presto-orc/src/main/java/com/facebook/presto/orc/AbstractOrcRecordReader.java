@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.Subfield;
@@ -37,7 +38,6 @@ import com.google.common.collect.Maps;
 import com.google.common.io.Closer;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.airlift.units.DataSize;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 

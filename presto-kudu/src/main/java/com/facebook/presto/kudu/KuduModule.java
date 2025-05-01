@@ -29,9 +29,8 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
 import com.google.inject.multibindings.ProvidesIntoSet;
+import jakarta.inject.Singleton;
 import org.apache.kudu.client.KuduClient;
-
-import javax.inject.Singleton;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;

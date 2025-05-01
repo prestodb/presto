@@ -14,6 +14,7 @@
 package com.facebook.presto.tests;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.Column;
@@ -33,7 +34,6 @@ import com.facebook.presto.spi.session.ResourceEstimates;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.Duration;
 import okhttp3.OkHttpClient;
 import org.intellij.lang.annotations.Language;
 

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.resourcemanager;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.server.QueryStateInfo;
 import com.facebook.presto.server.ResourceGroupInfo;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
@@ -20,7 +21,6 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupState;
 import com.facebook.presto.spi.resourceGroups.SchedulingPolicy;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.DataSize;
 
 import java.util.HashMap;
 import java.util.List;

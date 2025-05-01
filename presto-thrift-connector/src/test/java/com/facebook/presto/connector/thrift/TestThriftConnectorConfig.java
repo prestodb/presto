@@ -14,13 +14,13 @@
 package com.facebook.presto.connector.thrift;
 
 import com.facebook.airlift.configuration.testing.ConfigAssertions;
+import com.facebook.airlift.units.DataSize;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class TestThriftConnectorConfig
 {

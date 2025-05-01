@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.server.thrift;
 
+import com.facebook.airlift.units.Duration;
 import com.facebook.drift.annotations.ThriftMethod;
 import com.facebook.drift.annotations.ThriftService;
 import com.facebook.presto.execution.TaskId;
@@ -25,9 +26,7 @@ import com.facebook.presto.execution.buffer.ThriftBufferResult;
 import com.facebook.presto.server.ForAsyncRpc;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.Duration;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.concurrent.ScheduledExecutorService;
 

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.transaction;
 
+import com.facebook.airlift.units.Duration;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
@@ -20,7 +21,6 @@ import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.Duration;
 
 import java.util.List;
 import java.util.Optional;

@@ -20,9 +20,8 @@ import io.prestodb.tempto.fulfillment.table.hive.HiveDataSource;
 import io.prestodb.tempto.hadoop.hdfs.HdfsClient;
 import io.prestodb.tempto.internal.hadoop.hdfs.HdfsDataSourceWriter;
 import io.prestodb.tempto.query.QueryResult;
+import jakarta.inject.Inject;
 import org.testng.annotations.Test;
-
-import javax.inject.Inject;
 
 import static com.facebook.presto.tests.TestGroups.HIVE_PARTITIONING;
 import static com.facebook.presto.tests.TestGroups.SMOKE;

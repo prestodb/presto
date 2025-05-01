@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sessionpropertyproviders;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.session.WorkerSessionPropertyProvider;
@@ -21,7 +22,6 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.JavaFeaturesConfig;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
-import io.airlift.units.DataSize;
 
 import java.util.List;
 

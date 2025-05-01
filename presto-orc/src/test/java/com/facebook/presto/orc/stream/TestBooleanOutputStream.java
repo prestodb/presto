@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.stream;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.orc.ColumnWriterOptions;
 import com.facebook.presto.orc.OrcOutputBuffer;
 import com.facebook.presto.orc.checkpoint.BooleanStreamCheckpoint;
@@ -20,14 +21,13 @@ import com.facebook.presto.orc.checkpoint.ByteStreamCheckpoint;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
-import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.airlift.units.DataSize.Unit.KILOBYTE;
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
-import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;

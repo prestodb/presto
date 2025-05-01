@@ -14,11 +14,11 @@
 
 package com.facebook.presto.hudi.split;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.spi.SplitWeight;
-import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static org.testng.Assert.assertEquals;
 
 public class TestSizeBasedSplitWeightProvider

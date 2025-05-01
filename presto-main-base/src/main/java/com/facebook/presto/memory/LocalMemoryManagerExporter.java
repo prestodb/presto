@@ -13,13 +13,12 @@
  */
 package com.facebook.presto.memory;
 
+import com.google.errorprone.annotations.concurrent.GuardedBy;
+import jakarta.annotation.PreDestroy;
+import jakarta.inject.Inject;
 import org.weakref.jmx.JmxException;
 import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.ObjectNames;
-
-import javax.annotation.PreDestroy;
-import javax.annotation.concurrent.GuardedBy;
-import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.List;

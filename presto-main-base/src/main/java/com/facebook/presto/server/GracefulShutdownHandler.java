@@ -15,14 +15,13 @@ package com.facebook.presto.server;
 
 import com.facebook.airlift.bootstrap.LifeCycleManager;
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
-import io.airlift.units.Duration;
-
-import javax.annotation.PreDestroy;
-import javax.annotation.concurrent.GuardedBy;
-import javax.inject.Inject;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
+import jakarta.annotation.PreDestroy;
+import jakarta.inject.Inject;
 
 import java.util.List;
 import java.util.concurrent.CountDownLatch;

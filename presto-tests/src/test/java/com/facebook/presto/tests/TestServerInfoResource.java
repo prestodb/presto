@@ -21,17 +21,16 @@ import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+import jakarta.ws.rs.core.Response;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import javax.ws.rs.core.Response;
-
 import java.util.Map;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static jakarta.ws.rs.core.Response.Status.BAD_REQUEST;
 import static java.util.concurrent.Executors.newCachedThreadPool;
-import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
 import static org.testng.Assert.assertEquals;
 
 public class TestServerInfoResource

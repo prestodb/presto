@@ -16,9 +16,8 @@ package com.facebook.presto.hive;
 import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.presto.spi.connector.ConnectorMetadataUpdater;
 import com.facebook.presto.spi.connector.ConnectorMetadataUpdaterProvider;
-
-import javax.annotation.PreDestroy;
-import javax.inject.Inject;
+import jakarta.annotation.PreDestroy;
+import jakarta.inject.Inject;
 
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.connector.thrift;
 
+import com.facebook.airlift.units.Duration;
 import com.facebook.drift.TException;
 import com.facebook.drift.client.DriftClient;
 import com.facebook.presto.common.predicate.TupleDomain;
@@ -42,9 +43,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.Duration;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.List;
 import java.util.Map;

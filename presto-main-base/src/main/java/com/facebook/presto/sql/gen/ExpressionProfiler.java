@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.airlift.units.Duration;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
-import io.airlift.units.Duration;
 
 import static com.facebook.presto.execution.executor.PrioritizedSplitRunner.SPLIT_RUN_QUANTA;
 import static com.google.common.base.Ticker.systemTicker;
