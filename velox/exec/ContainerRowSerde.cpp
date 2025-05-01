@@ -74,8 +74,8 @@ void serializeOne<TypeKind::ROW>(
   // The layout is given by the type, not the instance. This will work
   // in the case of missing elements which will come out as null in
   // deserialization.
-  auto childrenSize = type.size();
-  auto children = row->children();
+  const auto childrenSize = type.size();
+  const auto& children = row->children();
   std::vector<uint64_t> nulls(bits::nwords(childrenSize));
   for (auto i = 0; i < childrenSize; ++i) {
     if (i >= children.size() || !children[i] ||
