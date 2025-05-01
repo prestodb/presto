@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.table;
 
-//import com.facebook.presto.plugin.base.classloader.ClassLoaderSafeConnectorTableFunction;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
@@ -40,7 +39,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-//import static com.facebook.presto.metadata.GlobalFunctionCatalog.BUILTIN_SCHEMA;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.function.table.DescriptorArgument.NULL_DESCRIPTOR;
@@ -101,7 +99,7 @@ public class ExcludeColumns
             // column names in DescriptorArgument are canonical wrt SQL identifier semantics.
             // column names in TableArgument are not canonical wrt SQL identifier semantics, as they are taken from the corresponding RelationType.
             // because of that, we match the excluded columns names case-insensitive
-            // TODO apply proper identifier semantics
+            // TODO: apply proper identifier semantics
             Set<String> excludedNames = excludedColumnsDescriptor.getFields().stream()
                     .map(Descriptor.Field::getName)
                     .map(name -> name.orElseThrow(() -> new PrestoException(INVALID_ARGUMENTS, "Missing Descriptor field name")).toLowerCase(ENGLISH))

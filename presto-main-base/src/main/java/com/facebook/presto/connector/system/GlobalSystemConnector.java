@@ -15,6 +15,8 @@ package com.facebook.presto.connector.system;
 
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.transaction.TransactionId;
+import com.facebook.presto.operator.table.ExcludeColumns;
+import com.facebook.presto.operator.table.Sequence;
 import com.facebook.presto.operator.table.Sequence.SequenceFunctionHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -38,6 +40,7 @@ import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.function.table.ConnectorTableFunction;
 import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
+import com.facebook.presto.spi.function.table.TableFunctionProcessorProvider;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.facebook.presto.transaction.InternalConnector;
@@ -49,6 +52,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
 import static com.facebook.presto.operator.table.Sequence.getSequenceFunctionSplitSource;
 import static java.util.Objects.requireNonNull;
@@ -143,6 +147,29 @@ public class GlobalSystemConnector
     }
 
     @Override
+    public ConnectorSplitManager getSplitManager()
+    {
+        return new ConnectorSplitManager()
+        {
+            @Override
+            public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layout, SplitSchedulingContext splitSchedulingContext)
+            {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableFunctionHandle function)
+            {
+                if (function instanceof SequenceFunctionHandle) {
+                    SequenceFunctionHandle sequenceFunctionHandle = (SequenceFunctionHandle) function;
+                    return getSequenceFunctionSplitSource(sequenceFunctionHandle);
+                }
+                throw new UnsupportedOperationException();
+            }
+        };
+    }
+
+    @Override
     public ConnectorPageSourceProvider getPageSourceProvider()
     {
         return new ConnectorPageSourceProvider() {
@@ -173,25 +200,16 @@ public class GlobalSystemConnector
     }
 
     @Override
-    public ConnectorSplitManager getSplitManager()
+    public Function<ConnectorTableFunctionHandle, TableFunctionProcessorProvider> getTableFunctionProcessorProvider()
     {
-        return new ConnectorSplitManager()
-        {
-            @Override
-            public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layout, SplitSchedulingContext splitSchedulingContext)
-            {
-                throw new UnsupportedOperationException();
+        return connectorTableFunctionHandle -> {
+            if (connectorTableFunctionHandle instanceof ExcludeColumns.ExcludeColumnsFunctionHandle) {
+                return ExcludeColumns.getExcludeColumnsFunctionProcessorProvider();
             }
-
-            @Override
-            public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableFunctionHandle function)
-            {
-                if (function instanceof SequenceFunctionHandle) {
-                    SequenceFunctionHandle sequenceFunctionHandle = (SequenceFunctionHandle) function;
-                    return getSequenceFunctionSplitSource(sequenceFunctionHandle);
-                }
-                throw new UnsupportedOperationException();
+            else if (connectorTableFunctionHandle instanceof SequenceFunctionHandle) {
+                return Sequence.getSequenceFunctionProcessorProvider();
             }
+            return null;
         };
     }
 }

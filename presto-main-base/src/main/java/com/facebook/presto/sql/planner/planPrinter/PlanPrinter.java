@@ -215,7 +215,7 @@ public class PlanPrinter
         this.formatter = rowExpression -> rowExpressionFormatter.formatRowExpression(connectorSession, rowExpression);
 
         Visitor visitor = new Visitor(stageExecutionStrategy, types, estimatedStatsAndCosts, session, stats);
-        planRoot.accept(visitor, new Context());
+        planRoot.accept(visitor, null);
     }
 
     public String toText(boolean verbose, int level, boolean verboseOptimizerInfo)
@@ -501,7 +501,7 @@ public class PlanPrinter
     }
 
     private class Visitor
-            extends InternalPlanVisitor<Void, Context>
+            extends InternalPlanVisitor<Void, Void>
     {
         private final Optional<StageExecutionDescriptor> stageExecutionStrategy;
         private final TypeProvider types;
@@ -519,14 +519,14 @@ public class PlanPrinter
         }
 
         @Override
-        public Void visitExplainAnalyze(ExplainAnalyzeNode node, Context context)
+        public Void visitExplainAnalyze(ExplainAnalyzeNode node, Void context)
         {
-            addNode(node, "ExplainAnalyze", context.getTag());
-            return processChildren(node, new Context());
+            addNode(node, "ExplainAnalyze");
+            return processChildren(node, null);
         }
 
         @Override
-        public Void visitJoin(JoinNode node, Context context)
+        public Void visitJoin(JoinNode node, Void context)
         {
             List<String> joinExpressions = new ArrayList<>();
             for (EquiJoinClause clause : node.getCriteria()) {
@@ -537,12 +537,12 @@ public class PlanPrinter
             NodeRepresentation nodeOutput;
             if (node.isCrossJoin()) {
                 checkState(joinExpressions.isEmpty());
-                nodeOutput = addNode(node, "CrossJoin", context.getTag());
+                nodeOutput = addNode(node, "CrossJoin");
             }
             else {
                 nodeOutput = addNode(node,
                         node.getType().getJoinLabel(),
-                        format("[%s]%s", Joiner.on(" AND ").join(joinExpressions), formatHash(node.getLeftHashVariable(), node.getRightHashVariable())), context.getTag());
+                        format("[%s]%s", Joiner.on(" AND ").join(joinExpressions), formatHash(node.getLeftHashVariable(), node.getRightHashVariable())));
             }
 
             node.getDistributionType().ifPresent(distributionType -> nodeOutput.appendDetailsLine("Distribution: %s", distributionType));
@@ -552,51 +552,51 @@ public class PlanPrinter
 
             getSortExpressionContext(node, functionAndTypeManager)
                     .ifPresent(sortContext -> nodeOutput.appendDetails("SortExpression[%s]", formatter.apply(sortContext.getSortExpression())));
-            node.getLeft().accept(this, new Context());
-            node.getRight().accept(this, new Context());
+            node.getLeft().accept(this, context);
+            node.getRight().accept(this, context);
 
             return null;
         }
 
         @Override
-        public Void visitSpatialJoin(SpatialJoinNode node, Context context)
+        public Void visitSpatialJoin(SpatialJoinNode node, Void context)
         {
             NodeRepresentation nodeOutput = addNode(node,
                     node.getType().getJoinLabel(),
-                    format("[%s]", formatter.apply(node.getFilter())), context.getTag());
+                    format("[%s]", formatter.apply(node.getFilter())));
 
             nodeOutput.appendDetailsLine("Distribution: %s", node.getDistributionType());
-            node.getLeft().accept(this, new Context());
-            node.getRight().accept(this, new Context());
+            node.getLeft().accept(this, context);
+            node.getRight().accept(this, context);
 
             return null;
         }
 
         @Override
-        public Void visitSemiJoin(SemiJoinNode node, Context context)
+        public Void visitSemiJoin(SemiJoinNode node, Void context)
         {
             NodeRepresentation nodeOutput = addNode(node,
                     "SemiJoin",
                     format("[%s = %s]%s",
                             node.getSourceJoinVariable(),
                             node.getFilteringSourceJoinVariable(),
-                            formatHash(node.getSourceHashVariable(), node.getFilteringSourceHashVariable())), context.getTag());
+                            formatHash(node.getSourceHashVariable(), node.getFilteringSourceHashVariable())));
             node.getDistributionType().ifPresent(distributionType -> nodeOutput.appendDetailsLine("Distribution: %s", distributionType));
             if (!node.getDynamicFilters().isEmpty()) {
                 nodeOutput.appendDetails(getDynamicFilterAssignments(node));
             }
-            node.getSource().accept(this, new Context());
-            node.getFilteringSource().accept(this, new Context());
+            node.getSource().accept(this, context);
+            node.getFilteringSource().accept(this, context);
 
             return null;
         }
 
         @Override
-        public Void visitIndexSource(IndexSourceNode node, Context context)
+        public Void visitIndexSource(IndexSourceNode node, Void context)
         {
             NodeRepresentation nodeOutput = addNode(node,
                     "IndexSource",
-                    format("[%s, lookup = %s]", node.getIndexHandle(), node.getLookupVariables()), context.getTag());
+                    format("[%s, lookup = %s]", node.getIndexHandle(), node.getLookupVariables()));
 
             nodeOutput.appendDetailsLine("TableHandle: %s", node.getTableHandle().getConnectorHandle().toString());
 
@@ -609,7 +609,7 @@ public class PlanPrinter
         }
 
         @Override
-        public Void visitIndexJoin(IndexJoinNode node, Context context)
+        public Void visitIndexJoin(IndexJoinNode node, Void context)
         {
             List<String> joinExpressions = new ArrayList<>();
             for (IndexJoinNode.EquiJoinClause clause : node.getCriteria()) {
@@ -621,15 +621,15 @@ public class PlanPrinter
 
             addNode(node,
                     format("%sIndexJoin", node.getType().getJoinLabel()),
-                    format("[%s]%s", Joiner.on(" AND ").join(joinExpressions), formatHash(node.getProbeHashVariable(), node.getIndexHashVariable())), context.getTag());
-            node.getProbeSource().accept(this, new Context());
-            node.getIndexSource().accept(this, new Context());
+                    format("[%s]%s", Joiner.on(" AND ").join(joinExpressions), formatHash(node.getProbeHashVariable(), node.getIndexHashVariable())));
+            node.getProbeSource().accept(this, context);
+            node.getIndexSource().accept(this, context);
 
             return null;
         }
 
         @Override
-        public Void visitMergeJoin(MergeJoinNode node, Context context)
+        public Void visitMergeJoin(MergeJoinNode node, Void context)
         {
             List<String> joinExpressions = new ArrayList<>();
             for (EquiJoinClause clause : node.getCriteria()) {
@@ -639,32 +639,32 @@ public class PlanPrinter
 
             addNode(node,
                     "MergeJoin",
-                    format("[type: %s], [%s]%s", node.getType().getJoinLabel(), Joiner.on(" AND ").join(joinExpressions), formatHash(node.getLeftHashVariable(), node.getRightHashVariable())), context.getTag());
-            node.getLeft().accept(this, new Context());
-            node.getRight().accept(this, new Context());
+                    format("[type: %s], [%s]%s", node.getType().getJoinLabel(), Joiner.on(" AND ").join(joinExpressions), formatHash(node.getLeftHashVariable(), node.getRightHashVariable())));
+            node.getLeft().accept(this, context);
+            node.getRight().accept(this, context);
             return null;
         }
 
         @Override
-        public Void visitLimit(LimitNode node, Context context)
+        public Void visitLimit(LimitNode node, Void context)
         {
             addNode(node,
                     format("Limit%s", node.isPartial() ? "Partial" : ""),
-                    format("[%s]", node.getCount()), context.getTag());
-            return processChildren(node, new Context());
+                    format("[%s]", node.getCount()));
+            return processChildren(node, context);
         }
 
         @Override
-        public Void visitDistinctLimit(DistinctLimitNode node, Context context)
+        public Void visitDistinctLimit(DistinctLimitNode node, Void context)
         {
             addNode(node,
                     format("DistinctLimit%s", node.isPartial() ? "Partial" : ""),
-                    format("[%s]%s", node.getLimit(), formatHash(node.getHashVariable())), context.getTag());
-            return processChildren(node, new Context());
+                    format("[%s]%s", node.getLimit(), formatHash(node.getHashVariable())));
+            return processChildren(node, context);
         }
 
         @Override
-        public Void visitAggregation(AggregationNode node, Context context)
+        public Void visitAggregation(AggregationNode node, Void context)
         {
             String type = "";
             if (node.getStep() != AggregationNode.Step.SINGLE) {
@@ -682,13 +682,13 @@ public class PlanPrinter
             }
 
             NodeRepresentation nodeOutput = addNode(node,
-                    format("Aggregate%s%s%s", type, key, formatHash(node.getHashVariable())), context.getTag());
+                    format("Aggregate%s%s%s", type, key, formatHash(node.getHashVariable())));
 
             for (Map.Entry<VariableReferenceExpression, AggregationNode.Aggregation> entry : node.getAggregations().entrySet()) {
                 nodeOutput.appendDetailsLine("%s := %s%s", entry.getKey(), formatAggregation(entry.getValue()), formatSourceLocation(entry.getValue().getCall().getSourceLocation(), entry.getKey().getSourceLocation()));
             }
 
-            return processChildren(node, new Context());
+            return processChildren(node, context);
         }
 
         private String formatAggregation(AggregationNode.Aggregation aggregation)
@@ -715,7 +715,7 @@ public class PlanPrinter
         }
 
         @Override
-        public Void visitGroupId(GroupIdNode node, Context context)
+        public Void visitGroupId(GroupIdNode node, Void context)
         {
             // grouping sets are easier to understand in terms of inputs
             List<List<VariableReferenceExpression>> inputGroupingSetSymbols = node.getGroupingSets().stream()
@@ -724,27 +724,27 @@ public class PlanPrinter
                             .collect(Collectors.toList()))
                     .collect(Collectors.toList());
 
-            NodeRepresentation nodeOutput = addNode(node, "GroupId", format("%s", inputGroupingSetSymbols), context.getTag());
+            NodeRepresentation nodeOutput = addNode(node, "GroupId", format("%s", inputGroupingSetSymbols));
 
             for (Map.Entry<VariableReferenceExpression, VariableReferenceExpression> mapping : node.getGroupingColumns().entrySet()) {
                 nodeOutput.appendDetailsLine("%s := %s%s", mapping.getKey(), mapping.getValue(), formatSourceLocation(mapping.getValue().getSourceLocation(), mapping.getKey().getSourceLocation()));
             }
 
-            return processChildren(node, new Context());
+            return processChildren(node, context);
         }
 
         @Override
-        public Void visitMarkDistinct(MarkDistinctNode node, Context context)
+        public Void visitMarkDistinct(MarkDistinctNode node, Void context)
         {
             addNode(node,
                     "MarkDistinct",
-                    format("[distinct=%s marker=%s]%s", formatOutputs(node.getDistinctVariables()), node.getMarkerVariable(), formatHash(node.getHashVariable())), context.getTag());
+                    format("[distinct=%s marker=%s]%s", formatOutputs(node.getDistinctVariables()), node.getMarkerVariable(), formatHash(node.getHashVariable())));
 
-            return processChildren(node, new Context());
+            return processChildren(node, context);
         }
 
         @Override
-        public Void visitWindow(WindowNode node, Context context)
+        public Void visitWindow(WindowNode node, Void context)
         {
             List<String> partitionBy = Lists.transform(node.getPartitionBy(), Functions.toStringFunction());
 
@@ -784,7 +784,7 @@ public class PlanPrinter
                         .collect(Collectors.joining(", "))));
             }
 
-            NodeRepresentation nodeOutput = addNode(node, "Window", format("[%s]%s", Joiner.on(", ").join(args), formatHash(node.getHashVariable())), context.getTag());
+            NodeRepresentation nodeOutput = addNode(node, "Window", format("[%s]%s", Joiner.on(", ").join(args), formatHash(node.getHashVariable())));
 
             for (Map.Entry<VariableReferenceExpression, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
                 CallExpression call = entry.getValue().getFunctionCall();
@@ -798,11 +798,11 @@ public class PlanPrinter
                         frameInfo,
                         formatSourceLocation(entry.getValue().getFunctionCall().getSourceLocation(), entry.getKey().getSourceLocation()));
             }
-            return processChildren(node, new Context());
+            return processChildren(node, context);
         }
 
         @Override
-        public Void visitTopNRowNumber(TopNRowNumberNode node, Context context)
+        public Void visitTopNRowNumber(TopNRowNumberNode node, Void context)
         {
             List<String> partitionBy = node.getPartitionBy().stream()
                     .map(Functions.toStringFunction())
@@ -818,15 +818,15 @@ public class PlanPrinter
 
             NodeRepresentation nodeOutput = addNode(node,
                     format("TopNRowNumber%s", node.isPartial() ? "Partial" : ""),
-                    format("[%s limit %s]%s", Joiner.on(", ").join(args), node.getMaxRowCountPerPartition(), formatHash(node.getHashVariable())), context.getTag());
+                    format("[%s limit %s]%s", Joiner.on(", ").join(args), node.getMaxRowCountPerPartition(), formatHash(node.getHashVariable())));
 
             nodeOutput.appendDetailsLine("%s := %s%s", node.getRowNumberVariable(), "row_number()", formatSourceLocation(node.getRowNumberVariable().getSourceLocation()));
 
-            return processChildren(node, new Context());
+            return processChildren(node, context);
         }
 
         @Override
-        public Void visitRowNumber(RowNumberNode node, Context context)
+        public Void visitRowNumber(RowNumberNode node, Void context)
         {
             List<String> partitionBy = Lists.transform(node.getPartitionBy(), Functions.toStringFunction());
             List<String> args = new ArrayList<>();
@@ -840,24 +840,24 @@ public class PlanPrinter
 
             NodeRepresentation nodeOutput = addNode(node,
                     format("RowNumber%s", node.isPartial() ? "Partial" : ""),
-                    format("[%s]%s", Joiner.on(", ").join(args), formatHash(node.getHashVariable())), context.getTag());
+                    format("[%s]%s", Joiner.on(", ").join(args), formatHash(node.getHashVariable())));
             nodeOutput.appendDetailsLine("%s := %s%s", node.getRowNumberVariable(), "row_number()", formatSourceLocation(node.getRowNumberVariable().getSourceLocation()));
 
-            return processChildren(node, new Context());
+            return processChildren(node, context);
         }
 
         @Override
-        public Void visitTableScan(TableScanNode node, Context context)
+        public Void visitTableScan(TableScanNode node, Void context)
         {
             TableHandle table = node.getTable();
             NodeRepresentation nodeOutput;
             if (stageExecutionStrategy.isPresent()) {
                 nodeOutput = addNode(node,
                         "TableScan",
-                        format("[%s, grouped = %s]", table, stageExecutionStrategy.get().isScanGroupedExecution(node.getId())), context.getTag());
+                        format("[%s, grouped = %s]", table, stageExecutionStrategy.get().isScanGroupedExecution(node.getId())));
             }
             else {
-                nodeOutput = addNode(node, "TableScan", format("[%s]", table), context.getTag());
+                nodeOutput = addNode(node, "TableScan", format("[%s]", table));
             }
             PlanNodeStats nodeStats = stats.map(s -> s.get(node.getId())).orElse(null);
             printTableScanInfo(nodeOutput, node, nodeStats);
@@ -865,49 +865,49 @@ public class PlanPrinter
         }
 
         @Override
-        public Void visitSequence(SequenceNode node, Context context)
+        public Void visitSequence(SequenceNode node, Void context)
         {
             NodeRepresentation nodeOutput;
-            nodeOutput = addNode(node, "Sequence", context.getTag());
+            nodeOutput = addNode(node, "Sequence");
             nodeOutput.appendDetails(getCteExecutionOrder(node));
 
-            return processChildren(node, new Context());
+            return processChildren(node, context);
         }
 
         @Override
-        public Void visitCteConsumer(CteConsumerNode node, Context context)
+        public Void visitCteConsumer(CteConsumerNode node, Void context)
         {
             NodeRepresentation nodeOutput;
-            nodeOutput = addNode(node, "CteConsumer", context.getTag());
+            nodeOutput = addNode(node, "CteConsumer");
             nodeOutput.appendDetailsLine("CTE_NAME: %s", node.getCteId());
-            return processChildren(node, new Context());
+            return processChildren(node, context);
         }
 
         @Override
-        public Void visitCteProducer(CteProducerNode node, Context context)
+        public Void visitCteProducer(CteProducerNode node, Void context)
         {
             NodeRepresentation nodeOutput;
-            nodeOutput = addNode(node, "CteProducer", context.getTag());
+            nodeOutput = addNode(node, "CteProducer");
             nodeOutput.appendDetailsLine("CTE_NAME: %s", node.getCteId());
-            return processChildren(node, new Context());
+            return processChildren(node, context);
         }
 
         @Override
-        public Void visitCteReference(CteReferenceNode node, Context context)
+        public Void visitCteReference(CteReferenceNode node, Void context)
         {
-            addNode(node, "CteReference", context.getTag());
-            return processChildren(node, new Context());
+            addNode(node, "CteReference");
+            return processChildren(node, context);
         }
 
         @Override
-        public Void visitValues(ValuesNode node, Context context)
+        public Void visitValues(ValuesNode node, Void context)
         {
             NodeRepresentation nodeOutput;
             if (node.getValuesNodeLabel().isPresent()) {
-                nodeOutput = addNode(node, format("Values converted from TableScan[%s]", node.getValuesNodeLabel().get()), context.getTag());
+                nodeOutput = addNode(node, format("Values converted from TableScan[%s]", node.getValuesNodeLabel().get()));
             }
             else {
-                nodeOutput = addNode(node, "Values", context.getTag());
+                nodeOutput = addNode(node, "Values");
             }
             for (List<RowExpression> row : node.getRows()) {
                 nodeOutput.appendDetailsLine("(" + row.stream().map(formatter::apply).collect(Collectors.joining(", ")) + ")");
@@ -916,13 +916,13 @@ public class PlanPrinter
         }
 
         @Override
-        public Void visitFilter(FilterNode node, Context context)
+        public Void visitFilter(FilterNode node, Void context)
         {
             return visitScanFilterAndProjectInfo(node, Optional.of(node), Optional.empty(), context);
         }
 
         @Override
-        public Void visitProject(ProjectNode node, Context context)
+        public Void visitProject(ProjectNode node, Void context)
         {
             if (node.getSource() instanceof FilterNode) {
                 return visitScanFilterAndProjectInfo(node, Optional.of((FilterNode) node.getSource()), Optional.of(node), context);
@@ -935,7 +935,7 @@ public class PlanPrinter
                 PlanNode node,
                 Optional<FilterNode> filterNode,
                 Optional<ProjectNode> projectNode,
-                Context context)
+                Void context)
         {
             checkState(projectNode.isPresent() || filterNode.isPresent());
 
@@ -1009,8 +1009,7 @@ public class PlanPrinter
                     format(formatString, arguments.toArray(new Object[0])),
                     allNodes,
                     ImmutableList.of(sourceNode),
-                    ImmutableList.of(),
-                    context.getTag());
+                    ImmutableList.of());
 
             if (projectNode.isPresent()) {
                 printAssignments(nodeOutput, projectNode.get().getAssignments());
@@ -1022,7 +1021,7 @@ public class PlanPrinter
                 return null;
             }
 
-            sourceNode.accept(this, new Context());
+            sourceNode.accept(this, context);
             return null;
         }
 
@@ -1090,18 +1089,18 @@ public class PlanPrinter
         }
 
         @Override
-        public Void visitUnnest(UnnestNode node, Context context)
+        public Void visitUnnest(UnnestNode node, Void context)
         {
             addNode(node,
                     "Unnest",
-                    format("[replicate=%s, unnest=%s]", formatOutputs(node.getReplicateVariables()), formatOutputs(node.getUnnestVariables().keySet())), context.getTag());
-            return processChildren(node, new Context());
+                    format("[replicate=%s, unnest=%s]", formatOutputs(node.getReplicateVariables()), formatOutputs(node.getUnnestVariables().keySet())));
+            return processChildren(node, context);
         }
 
         @Override
-        public Void visitOutput(OutputNode node, Context context)
+        public Void visitOutput(OutputNode node, Void context)
         {
-            NodeRepresentation nodeOutput = addNode(node, "Output", format("[%s]", Joiner.on(", ").join(node.getColumnNames())), context.getTag());
+            NodeRepresentation nodeOutput = addNode(node, "Output", format("[%s]", Joiner.on(", ").join(node.getColumnNames())));
             for (int i = 0; i < node.getColumnNames().size(); i++) {
                 String name = node.getColumnNames().get(i);
                 VariableReferenceExpression variable = node.getOutputVariables().get(i);
@@ -1109,22 +1108,22 @@ public class PlanPrinter
                     nodeOutput.appendDetailsLine("%s := %s%s", name, variable, formatSourceLocation(variable.getSourceLocation()));
                 }
             }
-            return processChildren(node, new Context());
+            return processChildren(node, context);
         }
 
         @Override
-        public Void visitTopN(TopNNode node, Context context)
+        public Void visitTopN(TopNNode node, Void context)
         {
             Iterable<String> keys = Iterables.transform(node.getOrderingScheme().getOrderByVariables(), input -> input + " " + node.getOrderingScheme().getOrdering(input));
 
             addNode(node,
                     format("TopN%s", node.getStep() == TopNNode.Step.PARTIAL ? "Partial" : ""),
-                    format("[%s by (%s)]", node.getCount(), Joiner.on(", ").join(keys)), context.getTag());
-            return processChildren(node, new Context());
+                    format("[%s by (%s)]", node.getCount(), Joiner.on(", ").join(keys)));
+            return processChildren(node, context);
         }
 
         @Override
-        public Void visitSort(SortNode node, Context context)
+        public Void visitSort(SortNode node, Void context)
         {
             Iterable<String> keys = Iterables.transform(node.getOrderingScheme().getOrderByVariables(), input -> input + " " + node.getOrderingScheme().getOrdering(input));
 
@@ -1132,53 +1131,52 @@ public class PlanPrinter
             if (!node.getPartitionBy().isEmpty()) {
                 detail = format("%s[Partition by %s]", detail, Joiner.on(", ").join(node.getPartitionBy()));
             }
-            addNode(node, format("%sSort", node.isPartial() ? "Partial" : ""), detail, context.getTag());
+            addNode(node, format("%sSort", node.isPartial() ? "Partial" : ""), detail);
 
-            return processChildren(node, new Context());
+            return processChildren(node, context);
         }
 
         @Override
-        public Void visitRemoteSource(RemoteSourceNode node, Context context)
+        public Void visitRemoteSource(RemoteSourceNode node, Void context)
         {
             addNode(node,
                     format("Remote%s", node.getOrderingScheme().isPresent() ? "Merge" : "Source"),
                     format("[%s]", Joiner.on(',').join(node.getSourceFragmentIds())),
                     ImmutableList.of(),
                     ImmutableList.of(),
-                    node.getSourceFragmentIds(),
-                    context.getTag());
+                    node.getSourceFragmentIds());
 
             return null;
         }
 
         @Override
-        public Void visitUnion(UnionNode node, Context context)
+        public Void visitUnion(UnionNode node, Void context)
         {
-            addNode(node, "Union", context.getTag());
+            addNode(node, "Union");
 
-            return processChildren(node, new Context());
+            return processChildren(node, context);
         }
 
         @Override
-        public Void visitIntersect(IntersectNode node, Context context)
+        public Void visitIntersect(IntersectNode node, Void context)
         {
-            addNode(node, "Intersect", context.getTag());
+            addNode(node, "Intersect");
 
-            return processChildren(node, new Context());
+            return processChildren(node, context);
         }
 
         @Override
-        public Void visitExcept(ExceptNode node, Context context)
+        public Void visitExcept(ExceptNode node, Void context)
         {
-            addNode(node, "Except", context.getTag());
+            addNode(node, "Except");
 
-            return processChildren(node, new Context());
+            return processChildren(node, context);
         }
 
         @Override
-        public Void visitTableWriter(TableWriterNode node, Context context)
+        public Void visitTableWriter(TableWriterNode node, Void context)
         {
-            NodeRepresentation nodeOutput = addNode(node, "TableWriter", context.getTag());
+            NodeRepresentation nodeOutput = addNode(node, "TableWriter");
             for (int i = 0; i < node.getColumnNames().size(); i++) {
                 String name = node.getColumnNames().get(i);
                 VariableReferenceExpression variable = node.getColumns().get(i);
@@ -1191,40 +1189,40 @@ public class PlanPrinter
                     .orElse(0);
             nodeOutput.appendDetailsLine("Statistics collected: %s", statisticsCollected);
 
-            return processChildren(node, new Context());
+            return processChildren(node, context);
         }
 
         @Override
-        public Void visitTableWriteMerge(TableWriterMergeNode node, Context context)
+        public Void visitTableWriteMerge(TableWriterMergeNode node, Void context)
         {
-            addNode(node, "TableWriterMerge", context.getTag());
-            return processChildren(node, new Context());
+            addNode(node, "TableWriterMerge");
+            return processChildren(node, context);
         }
 
         @Override
-        public Void visitStatisticsWriterNode(StatisticsWriterNode node, Context context)
+        public Void visitStatisticsWriterNode(StatisticsWriterNode node, Void context)
         {
-            addNode(node, "StatisticsWriter", format("[%s]", node.getTableHandle()), context.getTag());
-            return processChildren(node, new Context());
+            addNode(node, "StatisticsWriter", format("[%s]", node.getTableHandle()));
+            return processChildren(node, context);
         }
 
         @Override
-        public Void visitTableFinish(TableFinishNode node, Context context)
+        public Void visitTableFinish(TableFinishNode node, Void context)
         {
-            addNode(node, "TableCommit", format("[%s]", node.getTarget()), context.getTag());
-            return processChildren(node, new Context());
+            addNode(node, "TableCommit", format("[%s]", node.getTarget()));
+            return processChildren(node, context);
         }
 
         @Override
-        public Void visitSample(SampleNode node, Context context)
+        public Void visitSample(SampleNode node, Void context)
         {
-            addNode(node, "Sample", format("[%s: %s]", node.getSampleType(), node.getSampleRatio()), context.getTag());
+            addNode(node, "Sample", format("[%s: %s]", node.getSampleType(), node.getSampleRatio()));
 
-            return processChildren(node, new Context());
+            return processChildren(node, context);
         }
 
         @Override
-        public Void visitExchange(ExchangeNode node, Context context)
+        public Void visitExchange(ExchangeNode node, Void context)
         {
             if (node.getOrderingScheme().isPresent()) {
                 OrderingScheme orderingScheme = node.getOrderingScheme().get();
@@ -1235,7 +1233,7 @@ public class PlanPrinter
 
                 addNode(node,
                         format("%sMerge", UPPER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, node.getScope().toString())),
-                        format("[%s]", Joiner.on(", ").join(orderBy)), context.getTag());
+                        format("[%s]", Joiner.on(", ").join(orderBy)));
             }
             else if (node.getScope().isLocal()) {
                 addNode(node,
@@ -1244,7 +1242,7 @@ public class PlanPrinter
                                 node.getPartitioningScheme().getPartitioning().getHandle(),
                                 node.getPartitioningScheme().isReplicateNullsAndAny() ? " - REPLICATE NULLS AND ANY" : "",
                                 formatHash(node.getPartitioningScheme().getHashColumn()),
-                                Joiner.on(", ").join(node.getPartitioningScheme().getPartitioning().getArguments())), context.getTag());
+                                Joiner.on(", ").join(node.getPartitioningScheme().getPartitioning().getArguments())));
             }
             else {
                 addNode(node,
@@ -1253,84 +1251,83 @@ public class PlanPrinter
                                 node.getType(),
                                 node.getPartitioningScheme().getEncoding(),
                                 node.getPartitioningScheme().isReplicateNullsAndAny() ? " - REPLICATE NULLS AND ANY" : "",
-                                formatHash(node.getPartitioningScheme().getHashColumn())), context.getTag());
+                                formatHash(node.getPartitioningScheme().getHashColumn())));
             }
-            return processChildren(node, new Context());
+            return processChildren(node, context);
         }
 
         @Override
-        public Void visitDelete(DeleteNode node, Context context)
+        public Void visitDelete(DeleteNode node, Void context)
         {
-            addNode(node, "Delete", context.getTag());
+            addNode(node, "Delete");
 
-            return processChildren(node, new Context());
+            return processChildren(node, context);
         }
 
         @Override
-        public Void visitUpdate(UpdateNode node, Context context)
+        public Void visitUpdate(UpdateNode node, Void context)
         {
-            addNode(node, "Update", context.getTag());
+            addNode(node, "Update");
 
-            return processChildren(node, new Context());
+            return processChildren(node, context);
         }
 
         @Override
-        public Void visitMetadataDelete(MetadataDeleteNode node, Context context)
+        public Void visitMetadataDelete(MetadataDeleteNode node, Void context)
         {
-            addNode(node, "MetadataDelete", format("[%s]", node.getTableHandle()), context.getTag());
+            addNode(node, "MetadataDelete", format("[%s]", node.getTableHandle()));
 
-            return processChildren(node, new Context());
+            return processChildren(node, context);
         }
 
         @Override
-        public Void visitEnforceSingleRow(EnforceSingleRowNode node, Context context)
+        public Void visitEnforceSingleRow(EnforceSingleRowNode node, Void context)
         {
-            addNode(node, "EnforceSingleRow", context.getTag());
+            addNode(node, "EnforceSingleRow");
 
-            return processChildren(node, new Context());
+            return processChildren(node, context);
         }
 
         @Override
-        public Void visitAssignUniqueId(AssignUniqueId node, Context context)
+        public Void visitAssignUniqueId(AssignUniqueId node, Void context)
         {
-            addNode(node, "AssignUniqueId", context.getTag());
+            addNode(node, "AssignUniqueId");
 
-            return processChildren(node, new Context());
+            return processChildren(node, context);
         }
 
         @Override
-        public Void visitGroupReference(GroupReference node, Context context)
+        public Void visitGroupReference(GroupReference node, Void context)
         {
-            addNode(node, "GroupReference", format("[%s]", node.getGroupId()), ImmutableList.of(), context.getTag());
+            addNode(node, "GroupReference", format("[%s]", node.getGroupId()), ImmutableList.of());
 
             return null;
         }
 
         @Override
-        public Void visitApply(ApplyNode node, Context context)
+        public Void visitApply(ApplyNode node, Void context)
         {
-            NodeRepresentation nodeOutput = addNode(node, "Apply", format("[%s]", node.getCorrelation()), context.getTag());
+            NodeRepresentation nodeOutput = addNode(node, "Apply", format("[%s]", node.getCorrelation()));
             printAssignments(nodeOutput, node.getSubqueryAssignments());
 
-            return processChildren(node, new Context());
+            return processChildren(node, context);
         }
 
         @Override
-        public Void visitLateralJoin(LateralJoinNode node, Context context)
+        public Void visitLateralJoin(LateralJoinNode node, Void context)
         {
-            addNode(node, "Lateral", format("[%s]", node.getCorrelation()), context.getTag());
+            addNode(node, "Lateral", format("[%s]", node.getCorrelation()));
 
-            return processChildren(node, new Context());
+            return processChildren(node, context);
         }
 
         @Override
-        public Void visitTableFunction(TableFunctionNode node, Context context)
+        public Void visitTableFunction(TableFunctionNode node, Void context)
         {
             NodeRepresentation nodeOutput = addNode(
                     node,
                     "TableFunction",
-                    node.getName(),
-                    context.getTag());
+                    node.getName());
 
             if (!node.getArguments().isEmpty()) {
                 nodeOutput.appendDetails("Arguments:");
@@ -1348,9 +1345,7 @@ public class PlanPrinter
                 }
             }
 
-            for (int i = 0; i < node.getSources().size(); i++) {
-                node.getSources().get(i).accept(this, new Context(node.getTableArgumentProperties().get(i).getArgumentName()));
-            }
+            processChildren(node, context);
 
             return null;
         }
@@ -1430,7 +1425,7 @@ public class PlanPrinter
         }
 
         @Override
-        public Void visitTableFunctionProcessor(TableFunctionProcessorNode node, Context context)
+        public Void visitTableFunctionProcessor(TableFunctionProcessorNode node, Void context)
         {
             ImmutableMap.Builder<String, String> descriptor = ImmutableMap.builder();
 
@@ -1465,9 +1460,9 @@ public class PlanPrinter
                 specification.getOrderingScheme().ifPresent(orderingScheme -> descriptor.put("orderBy", formatOrderingScheme(orderingScheme, node.getPreSorted())));
             });
 
-            addNode(node, "TableFunctionProcessorNode" + descriptor.build(), context.getTag());
+            addNode(node, "TableFunctionProcessorNode" + descriptor.build());
 
-            return processChildren(node, new Context());
+            return processChildren(node, context);
         }
 
         private String formatOrderingScheme(OrderingScheme orderingScheme)
@@ -1496,12 +1491,12 @@ public class PlanPrinter
         }
 
         @Override
-        public Void visitPlan(PlanNode node, Context context)
+        public Void visitPlan(PlanNode node, Void context)
         {
             throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
         }
 
-        private Void processChildren(PlanNode node, Context context)
+        private Void processChildren(PlanNode node, Void context)
         {
             for (PlanNode child : node.getSources()) {
                 child.accept(this, context);
@@ -1560,27 +1555,27 @@ public class PlanPrinter
             return "[" + Joiner.on(", ").join(parts.build()) + "]";
         }
 
-        public NodeRepresentation addNode(PlanNode node, String name, Optional<String> tag)
+        public NodeRepresentation addNode(PlanNode node, String name)
         {
-            return addNode(node, name, "", tag);
+            return addNode(node, name, "");
         }
 
-        public NodeRepresentation addNode(PlanNode node, String name, String identifier, Optional<String> tag)
+        public NodeRepresentation addNode(PlanNode node, String name, String identifier)
         {
-            return addNode(node, name, identifier, node.getSources(), tag);
+            return addNode(node, name, identifier, node.getSources());
         }
 
-        public NodeRepresentation addNode(PlanNode node, String name, String identifier, List<PlanNode> children, Optional<String> tag)
+        public NodeRepresentation addNode(PlanNode node, String name, String identifier, List<PlanNode> children)
         {
-            return addNode(node, name, identifier, ImmutableList.of(node.getId()), children, ImmutableList.of(), tag);
+            return addNode(node, name, identifier, ImmutableList.of(node.getId()), children, ImmutableList.of());
         }
 
-        public NodeRepresentation addNode(PlanNode node, String name, List<PlanNode> children, Optional<String> tag)
+        public NodeRepresentation addNode(PlanNode node, String name, List<PlanNode> children)
         {
-            return addNode(node, name, "", ImmutableList.of(node.getId()), children, ImmutableList.of(), tag);
+            return addNode(node, name, "", ImmutableList.of(node.getId()), children, ImmutableList.of());
         }
 
-        public NodeRepresentation addNode(PlanNode rootNode, String name, String identifier, List<PlanNodeId> allNodes, List<PlanNode> children, List<PlanFragmentId> remoteSources, Optional<String> tag)
+        public NodeRepresentation addNode(PlanNode rootNode, String name, String identifier, List<PlanNodeId> allNodes, List<PlanNode> children, List<PlanFragmentId> remoteSources)
         {
             List<PlanNodeId> childrenIds = children.stream().map(PlanNode::getId).collect(toImmutableList());
             List<PlanNodeStatsEstimate> estimatedStats = allNodes.stream()
@@ -1589,9 +1584,6 @@ public class PlanPrinter
             List<PlanCostEstimate> estimatedCosts = allNodes.stream()
                     .map(nodeId -> estimatedStatsAndCosts.getCosts().getOrDefault(nodeId, PlanCostEstimate.unknown()))
                     .collect(toList());
-            name = tag
-                    .map(tagName -> format("[%s] ", tagName))
-                    .orElse("") + name;
 
             NodeRepresentation nodeOutput = new NodeRepresentation(
                     Optional.empty(),
@@ -1687,30 +1679,5 @@ public class PlanPrinter
         return Streams.stream(outputs)
                 .map(input -> input + ":" + input.getType().getDisplayName())
                 .collect(Collectors.joining(", "));
-    }
-
-    public class Context
-    {
-        private final Optional<String> tag;
-
-        public Context()
-        {
-            this(Optional.empty());
-        }
-
-        public Context(String tag)
-        {
-            this(Optional.of(tag));
-        }
-
-        public Context(Optional<String> tag)
-        {
-            this.tag = requireNonNull(tag, "tag is null");
-        }
-
-        public Optional<String> getTag()
-        {
-            return tag;
-        }
     }
 }

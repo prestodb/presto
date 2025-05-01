@@ -117,15 +117,6 @@ public final class ValidateDependenciesChecker
         @Override
         public Void visitPlan(PlanNode node, Set<VariableReferenceExpression> boundVariables)
         {
-            // TODO: Michael: Is this okay? Trino's TypeValidator's Visitor extends off of
-            // SimplePlanVisitor. This is what is in SimplePlanVisitor's visitPlan. May need
-            // to change this later.
-            /*
-            for (PlanNode source : node.getSources()) {
-                source.accept(this, boundVariables);
-            }
-            return null;
-             */
             throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
         }
 

@@ -65,6 +65,7 @@ import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
+import com.facebook.presto.sql.planner.plan.TableFunctionNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
@@ -655,6 +656,17 @@ public final class GraphvizPrinter
         public Void visitTableFunctionProcessor(TableFunctionProcessorNode node, Void context)
         {
             printNode(node, "Table Function Processor", NODE_COLORS.get(NodeType.TABLE_FUNCTION));
+            if (node.getSource().isPresent()) {
+                node.getSource().get().accept(this, context);
+            }
+            return null;
+        }
+
+        @Override
+        public Void visitTableFunction(TableFunctionNode node, Void context)
+        {
+            printNode(node, "Table Function Node", NODE_COLORS.get(NodeType.TABLE_FUNCTION));
+            node.getSources().stream().map(source -> source.accept(this, context));
             return null;
         }
 

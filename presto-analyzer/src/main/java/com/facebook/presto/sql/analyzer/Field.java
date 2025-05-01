@@ -86,14 +86,6 @@ public class Field
         this.aliased = aliased;
     }
 
-    public static Field newUnqualified(Optional<String> name, Type type)
-    {
-        requireNonNull(name, "name is null");
-        requireNonNull(type, "type is null");
-
-        return new Field(Optional.empty(), Optional.empty(), name, type, false, Optional.empty(), Optional.empty(), false);
-    }
-
     public Optional<NodeLocation> getNodeLocation()
     {
         return nodeLocation;

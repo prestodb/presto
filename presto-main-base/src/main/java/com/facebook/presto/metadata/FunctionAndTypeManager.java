@@ -32,11 +32,8 @@ import com.facebook.presto.common.type.TypeSignatureBase;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.UserDefinedType;
-import com.facebook.presto.operator.table.ExcludeColumns;
-import com.facebook.presto.operator.table.ExcludeColumns.ExcludeColumnsFunctionHandle;
-import com.facebook.presto.operator.table.Sequence;
-import com.facebook.presto.operator.table.Sequence.SequenceFunctionHandle;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.AggregationFunctionImplementation;
@@ -103,6 +100,7 @@ import static com.facebook.presto.metadata.CastType.toOperatorType;
 import static com.facebook.presto.metadata.FunctionSignatureMatcher.constructFunctionNotFoundErrorMessage;
 import static com.facebook.presto.metadata.SessionFunctionHandle.SESSION_NAMESPACE;
 import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
+import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
@@ -153,7 +151,7 @@ public class FunctionAndTypeManager
     private final CatalogSchemaName defaultNamespace;
     private final AtomicReference<TypeManager> servingTypeManager;
     private final AtomicReference<Supplier<Map<String, ParametricType>>> servingTypeManagerParametricTypesSupplier;
-    private Function<ConnectorTableFunctionHandle, TableFunctionProcessorProvider> tableFunctionProcessorProvider;
+    private final ConcurrentHashMap<ConnectorId, Function<ConnectorTableFunctionHandle, TableFunctionProcessorProvider>> tableFunctionProcessorProviderMap = new ConcurrentHashMap<>();
 
     @Inject
     public FunctionAndTypeManager(
@@ -187,7 +185,6 @@ public class FunctionAndTypeManager
         this.defaultNamespace = configureDefaultNamespace(functionsConfig.getDefaultNamespacePrefix());
         this.servingTypeManager = new AtomicReference<>(builtInTypeAndFunctionNamespaceManager);
         this.servingTypeManagerParametricTypesSupplier = new AtomicReference<>(this::getServingTypeManagerParametricTypes);
-        this.tableFunctionProcessorProvider = defaultTableFunctionProcessorProvider();
     }
 
     public static FunctionAndTypeManager createTestFunctionAndTypeManager()
@@ -623,27 +620,22 @@ public class FunctionAndTypeManager
         return functionNamespaceManager.get().getScalarFunctionImplementation(functionHandle);
     }
 
-    public TableFunctionProcessorProvider getTableFunctionProcessorProvider(ConnectorTableFunctionHandle connectorTableFunctionHandle)
+    public TableFunctionProcessorProvider getTableFunctionProcessorProvider(TableFunctionHandle tableFunctionHandle)
     {
-        return tableFunctionProcessorProvider.apply(connectorTableFunctionHandle);
+        return tableFunctionProcessorProviderMap.get(tableFunctionHandle.getConnectorId()).apply(tableFunctionHandle.getFunctionHandle());
     }
 
-    public Function<ConnectorTableFunctionHandle, TableFunctionProcessorProvider> defaultTableFunctionProcessorProvider()
+    public void addTableFunctionProcessorProvider(ConnectorId connectorId, Function<ConnectorTableFunctionHandle, TableFunctionProcessorProvider> tableFunctionProcessorProvider)
     {
-        return connectorTableFunctionHandle -> {
-            if (connectorTableFunctionHandle instanceof ExcludeColumnsFunctionHandle) {
-                return ExcludeColumns.getExcludeColumnsFunctionProcessorProvider();
-            }
-            else if (connectorTableFunctionHandle instanceof SequenceFunctionHandle) {
-                return Sequence.getSequenceFunctionProcessorProvider();
-            }
-            return null;
-        };
+        if (tableFunctionProcessorProviderMap.putIfAbsent(connectorId, tableFunctionProcessorProvider) != null) {
+            throw new PrestoException(ALREADY_EXISTS,
+                    format("TableFuncitonProcessorProvider already exists for connectorId %s. Overwriting is not supported.", connectorId.getCatalogName()));
+        }
     }
 
-    public void setTableFunctionProcessorProvider(Function<ConnectorTableFunctionHandle, TableFunctionProcessorProvider> tableFunctionProcessorProvider)
+    public void removeTableFunctionProcessorProvider(ConnectorId connectorId)
     {
-        this.tableFunctionProcessorProvider = tableFunctionProcessorProvider;
+        tableFunctionProcessorProviderMap.remove(connectorId);
     }
 
     public AggregationFunctionImplementation getAggregateFunctionImplementation(FunctionHandle functionHandle)

@@ -115,9 +115,9 @@ public class SymbolMapper
         return new VariableReferenceExpression(variable.getSourceLocation(), canonical, types.get(new SymbolReference(getNodeLocation(variable.getSourceLocation()), canonical)));
     }
 
-    public List<VariableReferenceExpression> map(List<VariableReferenceExpression> symbols)
+    public List<VariableReferenceExpression> map(List<VariableReferenceExpression> variables)
     {
-        return symbols.stream()
+        return variables.stream()
                 .map(this::map)
                 .collect(toImmutableList());
     }

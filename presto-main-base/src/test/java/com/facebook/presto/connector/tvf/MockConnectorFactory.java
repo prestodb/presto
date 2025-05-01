@@ -189,7 +189,7 @@ public class MockConnectorFactory
         private final Supplier<TableStatistics> getTableStatistics;
         private final ApplyTableFunction applyTableFunction;
         private final Set<ConnectorTableFunction> tableFunctions;
-        private final Function<ConnectorTableFunctionHandle, TableFunctionProcessorProvider> getTableFunctionProcessorProvider;
+        private final Function<ConnectorTableFunctionHandle, TableFunctionProcessorProvider> tableFunctionProcessorProvider;
         private final Function<ConnectorTableFunctionHandle, ConnectorSplitSource> tableFunctionSplitsSources;
 
         public MockConnector(
@@ -212,7 +212,7 @@ public class MockConnectorFactory
             this.getTableStatistics = requireNonNull(getTableStatistics, "getTableStatistics is null");
             this.applyTableFunction = requireNonNull(applyTableFunction, "applyTableFunction is null");
             this.tableFunctions = requireNonNull(tableFunctions, "tableFunctions is null");
-            this.getTableFunctionProcessorProvider = requireNonNull(getTableFunctionProcessorProvider, "tableFunctionProcessorProvider is null");
+            this.tableFunctionProcessorProvider = requireNonNull(getTableFunctionProcessorProvider, "tableFunctionProcessorProvider is null");
             this.tableFunctionSplitsSources = requireNonNull(tableFunctionSplitsSources, "tableFunctionSplitsSources is null");
         }
 
@@ -291,9 +291,10 @@ public class MockConnectorFactory
             return tableFunctions;
         }
 
-        public Function<ConnectorTableFunctionHandle, TableFunctionProcessorProvider> getGetTableFunctionProcessorProvider()
+        @Override
+        public Function<ConnectorTableFunctionHandle, TableFunctionProcessorProvider> getTableFunctionProcessorProvider()
         {
-            return getTableFunctionProcessorProvider;
+            return tableFunctionProcessorProvider;
         }
 
         private class MockConnectorMetadata
