@@ -163,7 +163,7 @@ class Task : public std::enable_shared_from_this<Task> {
   }
 
   /// Returns query trace config if specified.
-  const std::optional<trace::TraceConfig>& traceConfig() const {
+  const std::optional<TraceConfig>& traceConfig() const {
     return traceConfig_;
   }
 
@@ -1036,7 +1036,7 @@ class Task : public std::enable_shared_from_this<Task> {
       int32_t pipelineId) const;
 
   // Builds the query trace config.
-  std::optional<trace::TraceConfig> maybeMakeTraceConfig() const;
+  std::optional<TraceConfig> maybeMakeTraceConfig() const;
 
   // Create a 'QueryMetadtaWriter' to trace the query metadata if the query
   // trace enabled.
@@ -1071,7 +1071,7 @@ class Task : public std::enable_shared_from_this<Task> {
 
   core::PlanFragment planFragment_;
 
-  const std::optional<trace::TraceConfig> traceConfig_;
+  const std::optional<TraceConfig> traceConfig_;
 
   // Hook in the system wide task list.
   TaskListEntry taskListEntry_;

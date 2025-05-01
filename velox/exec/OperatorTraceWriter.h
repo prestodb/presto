@@ -36,7 +36,7 @@ class OperatorTraceInputWriter {
  public:
   /// 'traceOp' is the operator to trace. 'traceDir' specifies the trace
   /// directory for the operator.
-  explicit OperatorTraceInputWriter(
+  OperatorTraceInputWriter(
       Operator* traceOp,
       std::string traceDir,
       memory::MemoryPool* pool,

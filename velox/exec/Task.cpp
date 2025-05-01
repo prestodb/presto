@@ -3056,7 +3056,7 @@ std::shared_ptr<ExchangeClient> Task::getExchangeClientLocked(
   return exchangeClients_[pipelineId];
 }
 
-std::optional<trace::TraceConfig> Task::maybeMakeTraceConfig() const {
+std::optional<TraceConfig> Task::maybeMakeTraceConfig() const {
   const auto& queryConfig = queryCtx_->queryConfig();
   if (!queryConfig.queryTraceEnabled()) {
     return std::nullopt;
@@ -3110,11 +3110,11 @@ std::optional<trace::TraceConfig> Task::maybeMakeTraceConfig() const {
   LOG(INFO) << "Trace input for plan nodes " << traceNodes << " from task "
             << taskId_;
 
-  trace::UpdateAndCheckTraceLimitCB updateAndCheckTraceLimitCB =
+  UpdateAndCheckTraceLimitCB updateAndCheckTraceLimitCB =
       [this](uint64_t bytes) {
         queryCtx_->updateTracedBytesAndCheckLimit(bytes);
       };
-  return trace::TraceConfig(
+  return TraceConfig(
       std::move(traceNodeIdSet),
       traceDir,
       std::move(updateAndCheckTraceLimitCB),

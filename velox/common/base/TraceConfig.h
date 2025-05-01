@@ -21,7 +21,7 @@
 #include <string>
 #include <unordered_set>
 
-namespace facebook::velox::exec::trace {
+namespace facebook::velox {
 
 #define VELOX_TRACE_LIMIT_EXCEEDED(errorMessage)                    \
   _VELOX_THROW(                                                     \
@@ -52,4 +52,4 @@ struct TraceConfig {
       UpdateAndCheckTraceLimitCB _updateAndCheckTraceLimitCB,
       std::string _taskRegExp);
 };
-} // namespace facebook::velox::exec::trace
+} // namespace facebook::velox

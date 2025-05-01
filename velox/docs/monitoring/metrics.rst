@@ -582,10 +582,6 @@ Index Join
      - Histogram
      - The time distribution of index lookup time in range of [0, 16s] with 512
        buckets and reports P50, P90, P99, and P100.
-   * - index_lookup_wait_time_ms
-     - Histogram
-     - The time distribution of index lookup time in range of [0, 16s] with 512
-       buckets and reports P50, P90, P99, and P100.
    * - index_lookup_blocked_wait_time_ms
      - Histogram
      - The time distribution of index lookup operator blocked wait time in range
