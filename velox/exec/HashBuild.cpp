@@ -904,7 +904,26 @@ void HashBuild::addRuntimeStats() {
   uint64_t asDistinct{0};
   auto lockedStats = stats_.wlock();
 
-  lockedStats->addInputTiming.add(table_->offThreadBuildTiming());
+  for (const auto& timing : table_->parallelJoinBuildStats().partitionTimings) {
+    lockedStats->getOutputTiming.add(timing);
+    lockedStats->addRuntimeStat(
+        BaseHashTable::kParallelJoinPartitionWallNanos,
+        RuntimeCounter(timing.wallNanos, RuntimeCounter::Unit::kNanos));
+    lockedStats->addRuntimeStat(
+        BaseHashTable::kParallelJoinPartitionCpuNanos,
+        RuntimeCounter(timing.cpuNanos, RuntimeCounter::Unit::kNanos));
+  }
+
+  for (const auto& timing : table_->parallelJoinBuildStats().buildTimings) {
+    lockedStats->getOutputTiming.add(timing);
+    lockedStats->addRuntimeStat(
+        BaseHashTable::kParallelJoinBuildWallNanos,
+        RuntimeCounter(timing.wallNanos, RuntimeCounter::Unit::kNanos));
+    lockedStats->addRuntimeStat(
+        BaseHashTable::kParallelJoinBuildCpuNanos,
+        RuntimeCounter(timing.cpuNanos, RuntimeCounter::Unit::kNanos));
+  }
+
   for (auto i = 0; i < hashers.size(); i++) {
     hashers[i]->cardinality(0, asRange, asDistinct);
     if (asRange != VectorHasher::kRangeTooLarge) {

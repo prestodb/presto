@@ -838,15 +838,16 @@ template <typename Source>
 void syncWorkItems(
     std::vector<std::shared_ptr<Source>>& items,
     std::exception_ptr& error,
-    CpuWallTiming& time,
+    std::vector<CpuWallTiming>& timings,
     bool log = false) {
   // All items must be synced also in case of error because the items
   // hold references to the table and rows which could be destructed
   // if unwinding the stack did not pause to sync.
+  timings.reserve(items.size());
   for (auto& item : items) {
     try {
       if (item->move()) {
-        time.add(item->prepareTiming());
+        timings.push_back(item->prepareTiming());
       }
     } catch (const std::exception& e) {
       if (log) {
@@ -914,8 +915,10 @@ void HashTable<ignoreNullKeys>::parallelJoinBuild() {
     // This is executed on returning path, possibly in unwinding, so must not
     // throw.
     std::exception_ptr error;
-    syncWorkItems(partitionSteps, error, offThreadBuildTiming_, true);
-    syncWorkItems(buildSteps, error, offThreadBuildTiming_, true);
+    syncWorkItems(
+        partitionSteps, error, parallelJoinBuildStats_.partitionTimings, true);
+    syncWorkItems(
+        buildSteps, error, parallelJoinBuildStats_.buildTimings, true);
   });
 
   const auto getTable = [this](size_t i) INLINE_LAMBDA {
@@ -954,7 +957,8 @@ void HashTable<ignoreNullKeys>::parallelJoinBuild() {
   }
 
   std::exception_ptr error;
-  syncWorkItems(partitionSteps, error, offThreadBuildTiming_);
+  syncWorkItems(
+      partitionSteps, error, parallelJoinBuildStats_.partitionTimings);
   if (error != nullptr) {
     std::rethrow_exception(error);
   }
@@ -979,7 +983,7 @@ void HashTable<ignoreNullKeys>::parallelJoinBuild() {
       step->prepare();
     });
   }
-  syncWorkItems(buildSteps, error, offThreadBuildTiming_);
+  syncWorkItems(buildSteps, error, parallelJoinBuildStats_.buildTimings);
 
   if (error != nullptr) {
     std::rethrow_exception(error);

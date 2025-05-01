@@ -112,6 +112,11 @@ struct HashTableStats {
   int64_t numTombstones{0};
 };
 
+struct ParallelJoinBuildStats {
+  std::vector<CpuWallTiming> partitionTimings;
+  std::vector<CpuWallTiming> buildTimings;
+};
+
 class BaseHashTable {
  public:
 #if XSIMD_WITH_SSE2
@@ -139,6 +144,14 @@ class BaseHashTable {
 
   /// The same as above but only reported by the HashBuild operator.
   static inline const std::string kBuildWallNanos{"hashtable.buildWallNanos"};
+  static inline const std::string kParallelJoinPartitionWallNanos{
+      "hashtable.parallelJoinPartitionWallNanos"};
+  static inline const std::string kParallelJoinPartitionCpuNanos{
+      "hashtable.parallelJoinPartitionCpuNanos"};
+  static inline const std::string kParallelJoinBuildWallNanos{
+      "hashtable.parallelJoinBuildWallNanos"};
+  static inline const std::string kParallelJoinBuildCpuNanos{
+      "hashtable.parallelJoinBuildCpuNanos"};
 
   /// Returns the string of the given 'mode'.
   static std::string modeString(HashMode mode);
@@ -410,8 +423,8 @@ class BaseHashTable {
 #endif
   }
 
-  const CpuWallTiming& offThreadBuildTiming() const {
-    return offThreadBuildTiming_;
+  const ParallelJoinBuildStats& parallelJoinBuildStats() const {
+    return parallelJoinBuildStats_;
   }
 
   /// Copies the values at 'columnIndex' into 'result' for the 'rows.size' rows
@@ -436,8 +449,7 @@ class BaseHashTable {
   std::vector<std::unique_ptr<VectorHasher>> hashers_;
   std::unique_ptr<RowContainer> rows_;
 
-  // Time spent in build outside of the calling thread.
-  CpuWallTiming offThreadBuildTiming_;
+  ParallelJoinBuildStats parallelJoinBuildStats_;
 };
 
 FOLLY_ALWAYS_INLINE std::ostream& operator<<(
