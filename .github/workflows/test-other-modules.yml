@@ -76,6 +76,7 @@ jobs:
             !presto-docs,
             !presto-server,
             !presto-main,
+            !presto-main-base,
             !presto-mongodb,
             !presto-spark-package,
             !presto-spark-launcher,
