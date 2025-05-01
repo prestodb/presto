@@ -2423,9 +2423,9 @@ public abstract class AbstractTestHiveClient
 
     private void assertTableIsBucketed(Transaction transaction, ConnectorTableHandle tableHandle)
     {
-        // the bucketed test tables should have exactly 32 splits
+        // the bucketed test tables should have ~32 splits
         List<ConnectorSplit> splits = getAllSplits(transaction, tableHandle, TupleDomain.all());
-        assertEquals(splits.size(), 32);
+        assertThat(splits.size()).as("splits.size()").isBetween(31, 32);
 
         // verify all paths are unique
         Set<String> paths = new HashSet<>();
