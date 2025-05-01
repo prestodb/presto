@@ -76,7 +76,7 @@ public class NativeWorkerSessionPropertyProvider
     public static final String NATIVE_SCALED_WRITER_MIN_PROCESSED_BYTES_REBALANCE_THRESHOLD = "native_scaled_writer_min_processed_bytes_rebalance_threshold";
     public static final String NATIVE_TABLE_SCAN_SCALED_PROCESSING_ENABLED = "native_table_scan_scaled_processing_enabled";
     public static final String NATIVE_TABLE_SCAN_SCALE_UP_MEMORY_USAGE_RATIO = "native_table_scan_scale_up_memory_usage_ratio";
-    public static final String NATIVE_STREAMING_AGGREGATION_EAGER_FLUSH = "native_streaming_aggregation_eager_flush";
+    public static final String NATIVE_STREAMING_AGGREGATION_MIN_OUTPUT_BATCH_ROWS = "native_streaming_aggregation_min_output_batch_rows";
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
@@ -338,13 +338,12 @@ public class NativeWorkerSessionPropertyProvider
                                 "range of [0, 1].",
                         0.7,
                         !nativeExecution),
-                booleanProperty(
-                        NATIVE_STREAMING_AGGREGATION_EAGER_FLUSH,
-                        "Controls the way streaming aggregation flushes output. We put the rows in output " +
-                                " batch, as soon as the corresponding groups are fully aggregated. This is useful " +
-                                "for reducing memory consumption, if the downstream operators are not sensitive to " +
-                                "small batch size.",
-                        false,
+                integerProperty(
+                        NATIVE_STREAMING_AGGREGATION_MIN_OUTPUT_BATCH_ROWS,
+                        "In streaming aggregation, wait until we have enough number of output rows " +
+                                "to produce a batch of size specified by this. If set to 0, then " +
+                                "Operator::outputBatchRows will be used as the min output batch rows.",
+                        0,
                         !nativeExecution));
     }
 
