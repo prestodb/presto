@@ -372,6 +372,11 @@ void IterableSpillPartitionSet::reset() {
   spillPartitionIter_ = spillPartitions_.begin();
 }
 
+void IterableSpillPartitionSet::clear() {
+  spillPartitions_.clear();
+  spillPartitionIter_ = spillPartitions_.begin();
+}
+
 uint32_t FileSpillMergeStream::id() const {
   VELOX_CHECK(!closed_);
   return spillFile_->id();
@@ -651,26 +656,6 @@ SpillPartitionIdSet toSpillPartitionIdSet(
     partitionIdSet.insert(partitionEntry.first);
   }
   return partitionIdSet;
-}
-
-SpillPartitionIdSet toSpillPartitionIdSet(
-    const SpillPartitionNumSet& partitionNumSet) {
-  SpillPartitionIdSet partitionIdSet;
-  partitionIdSet.reserve(partitionNumSet.size());
-  for (const auto& partitionNum : partitionNumSet) {
-    partitionIdSet.emplace(SpillPartitionId(partitionNum));
-  }
-  return partitionIdSet;
-}
-
-SpillPartitionNumSet toPartitionNumSet(
-    const SpillPartitionIdSet& partitionIdSet) {
-  SpillPartitionNumSet partitionNumSet;
-  partitionNumSet.reserve(partitionIdSet.size());
-  for (const auto& partitionId : partitionIdSet) {
-    partitionNumSet.emplace(partitionId.partitionNumber());
-  }
-  return partitionNumSet;
 }
 
 namespace {

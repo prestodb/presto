@@ -241,6 +241,7 @@ void HashProbe::maybeSetupInputSpiller(
       *spillInputPartitionIds_.begin(),
       spillConfig()->startPartitionBit,
       spillConfig()->numPartitionBits);
+
   // If 'spillInputPartitionIds_' is not empty, then we set up a spiller to
   // spill the incoming probe inputs.
   inputSpiller_ = std::make_unique<NoRowContainerSpiller>(
@@ -249,18 +250,21 @@ void HashProbe::maybeSetupInputSpiller(
       HashBitRange(bitOffset, bitOffset + spillConfig()->numPartitionBits),
       spillConfig(),
       &spillStats_);
-  // Set the spill partitions to the corresponding ones at the build side. The
-  // hash probe operator itself won't trigger any spilling.
-  // TODO: Remove flattening of the partition id after nested spill id is fully
-  // integrated.
-  inputSpiller_->setPartitionsSpilled(
-      toSpillPartitionIdSet(toPartitionNumSet(spillInputPartitionIds_)));
 
-  spillHashFunction_ = std::make_unique<HashPartitionFunction>(
-      inputSpiller_->hashBits(), probeType_, keyChannels_);
-  spillInputIndicesBuffers_.resize(spillHashFunction_->numPartitions());
-  rawSpillInputIndicesBuffers_.resize(spillHashFunction_->numPartitions());
-  numSpillInputs_.resize(spillHashFunction_->numPartitions(), 0);
+  // Set the spill partitions to the corresponding ones at the build side. We
+  // only spill the seen partitions from the build side. For the ones not seen
+  // from the build side, we can directly produce results. The hash probe
+  // operator itself won't trigger any spilling.
+  inputSpiller_->setPartitionsSpilled(spillInputPartitionIds_);
+
+  spillPartitionFunction_ = std::make_unique<SpillPartitionFunction>(
+      SpillPartitionIdLookup(
+          spillInputPartitionIds_,
+          spillConfig()->startPartitionBit,
+          spillConfig()->numPartitionBits),
+      probeType_,
+      keyChannels_);
+
   // If we have received no more input signal from either source or restored
   // spill input, then we shall just finish the spiller and records the spilled
   // partition set accordingly.
@@ -521,25 +525,23 @@ void HashProbe::addSpillInput() {
 void HashProbe::spillInput(RowVectorPtr& input) {
   VELOX_CHECK(needToSpillInput());
 
-  const auto numInput = input->size();
+  const auto numInputRows = input->size();
   prepareInputIndicesBuffers(
-      input->size(),
-      toPartitionNumSet(inputSpiller_->state().spilledPartitionIdSet()));
-  const auto singlePartition =
-      spillHashFunction_->partition(*input, spillPartitions_);
+      input->size(), inputSpiller_->state().spilledPartitionIdSet());
+
+  spillPartitionFunction_->partition(*input, spillPartitions_);
 
   vector_size_t numNonSpillingInput = 0;
-  for (auto row = 0; row < numInput; ++row) {
-    const auto partition = singlePartition.has_value() ? singlePartition.value()
-                                                       : spillPartitions_[row];
-    if (!inputSpiller_->state().isPartitionSpilled(
-            SpillPartitionId(partition))) {
+  for (auto row = 0; row < numInputRows; ++row) {
+    const auto& partitionId = spillPartitions_[row];
+    if (!inputSpiller_->state().isPartitionSpilled(partitionId)) {
       rawNonSpillInputIndicesBuffer_[numNonSpillingInput++] = row;
       continue;
     }
-    rawSpillInputIndicesBuffers_[partition][numSpillInputs_[partition]++] = row;
+    rawSpillInputIndicesBuffers_.at(
+        partitionId)[numSpillInputs_.at(partitionId)++] = row;
   }
-  if (numNonSpillingInput == numInput) {
+  if (numNonSpillingInput == numInputRows) {
     return;
   }
 
@@ -548,16 +550,14 @@ void HashProbe::spillInput(RowVectorPtr& input) {
     input->childAt(i)->loadedVector();
   }
 
-  for (int32_t partition = 0; partition < numSpillInputs_.size(); ++partition) {
-    const auto numSpillInputs = numSpillInputs_[partition];
-    if (numSpillInputs == 0) {
+  for (const auto& [partitionId, numRows] : numSpillInputs_) {
+    if (numRows == 0) {
       continue;
     }
-    VELOX_CHECK(
-        inputSpiller_->state().isPartitionSpilled(SpillPartitionId(partition)));
+    VELOX_CHECK(inputSpiller_->state().isPartitionSpilled(partitionId));
     inputSpiller_->spill(
-        SpillPartitionId(partition),
-        wrap(numSpillInputs, spillInputIndicesBuffers_[partition], input));
+        partitionId,
+        wrap(numRows, spillInputIndicesBuffers_.at(partitionId), input));
   }
 
   if (numNonSpillingInput == 0) {
@@ -569,7 +569,7 @@ void HashProbe::spillInput(RowVectorPtr& input) {
 
 void HashProbe::prepareInputIndicesBuffers(
     vector_size_t numInput,
-    const folly::F14FastSet<uint32_t>& spillPartitions) {
+    const SpillPartitionIdSet& spillPartitionIds) {
   VELOX_DCHECK(canSpill());
   const auto maxIndicesBufferBytes = numInput * sizeof(vector_size_t);
   if (nonSpillInputIndicesBuffer_ == nullptr ||
@@ -579,15 +579,22 @@ void HashProbe::prepareInputIndicesBuffers(
     rawNonSpillInputIndicesBuffer_ =
         nonSpillInputIndicesBuffer_->asMutable<vector_size_t>();
   }
-  for (const auto& partition : spillPartitions) {
-    if (spillInputIndicesBuffers_[partition] == nullptr ||
-        spillInputIndicesBuffers_[partition]->size() < maxIndicesBufferBytes) {
-      spillInputIndicesBuffers_[partition] = allocateIndices(numInput, pool());
-      rawSpillInputIndicesBuffers_[partition] =
-          spillInputIndicesBuffers_[partition]->asMutable<vector_size_t>();
+  spillInputIndicesBuffers_.clear();
+  rawSpillInputIndicesBuffers_.clear();
+  numSpillInputs_.clear();
+  for (const auto& partitionId : spillPartitionIds) {
+    if (!spillInputIndicesBuffers_.contains(partitionId) ||
+        spillInputIndicesBuffers_.at(partitionId)->size() <
+            maxIndicesBufferBytes) {
+      spillInputIndicesBuffers_.insert_or_assign(
+          partitionId, allocateIndices(numInput, pool()));
+      rawSpillInputIndicesBuffers_.insert_or_assign(
+          partitionId,
+          spillInputIndicesBuffers_.at(partitionId)
+              ->asMutable<vector_size_t>());
     }
+    numSpillInputs_.insert_or_assign(partitionId, 0);
   }
-  std::fill(numSpillInputs_.begin(), numSpillInputs_.end(), 0);
 }
 
 BlockingReason HashProbe::isBlocked(ContinueFuture* future) {
@@ -1865,6 +1872,7 @@ void HashProbe::reclaim(
 
   // Clears memory resources held by the built hash table.
   table_->clear(true);
+
   // Sets the spilled hash table in the join bridge.
   if (!spillPartitionIdSet.empty()) {
     joinBridge_->appendSpilledHashTablePartitions(std::move(spillPartitionSet));
@@ -2037,4 +2045,5 @@ void HashProbe::clearBuffers() {
   operatorCtx_->execCtx()->vectorPool()->clear();
   filter_->clearCache();
 }
+
 } // namespace facebook::velox::exec

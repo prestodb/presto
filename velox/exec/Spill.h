@@ -490,6 +490,8 @@ class IterableSpillPartitionSet {
 
   void reset();
 
+  void clear();
+
  private:
   // Iterator on 'spillPartitions_' pointing to the next returning spill
   // partition.
@@ -638,16 +640,6 @@ uint8_t partitionBitOffset(
 /// Generate partition id set from given spill partition set.
 SpillPartitionIdSet toSpillPartitionIdSet(
     const SpillPartitionSet& partitionSet);
-
-/// TODO(jtan6): Temporary helper method. Remove after migrating all spill cases
-/// fully to SpillPartitionId
-SpillPartitionIdSet toSpillPartitionIdSet(
-    const SpillPartitionNumSet& partitionNumSet);
-
-/// TODO(jtan6): Temporary helper method. Remove after migrating all spill cases
-/// fully to SpillPartitionId
-SpillPartitionNumSet toPartitionNumSet(
-    const SpillPartitionIdSet& partitionIdSet);
 
 /// Scoped spill percentage utility that allows user to set the behavior of
 /// triggered spill.

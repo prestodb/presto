@@ -298,7 +298,7 @@ class HashProbe : public Operator {
   // Invoked to prepare indices buffers for input spill processing.
   void prepareInputIndicesBuffers(
       vector_size_t numInput,
-      const folly::F14FastSet<uint32_t>& spillPartitions);
+      const SpillPartitionIdSet& spillPartitionIds);
 
   /// Decode join key inputs and populate 'nonNullInputRows_'.
   void decodeAndDetectNonNullKeys();
@@ -689,15 +689,16 @@ class HashProbe : public Operator {
   SpillPartitionIdSet spillInputPartitionIds_;
 
   // Used to calculate the spill partition numbers of the probe inputs.
-  std::unique_ptr<HashPartitionFunction> spillHashFunction_;
+  std::unique_ptr<SpillPartitionFunction> spillPartitionFunction_;
 
   // Reusable memory for spill hash partition calculation.
-  std::vector<uint32_t> spillPartitions_;
+  std::vector<SpillPartitionId> spillPartitions_;
 
   // Reusable memory for probe input spilling processing.
-  std::vector<vector_size_t> numSpillInputs_;
-  std::vector<BufferPtr> spillInputIndicesBuffers_;
-  std::vector<vector_size_t*> rawSpillInputIndicesBuffers_;
+  folly::F14FastMap<SpillPartitionId, vector_size_t> numSpillInputs_;
+  folly::F14FastMap<SpillPartitionId, BufferPtr> spillInputIndicesBuffers_;
+  folly::F14FastMap<SpillPartitionId, vector_size_t*>
+      rawSpillInputIndicesBuffers_;
   BufferPtr nonSpillInputIndicesBuffer_;
   vector_size_t* rawNonSpillInputIndicesBuffer_;
 

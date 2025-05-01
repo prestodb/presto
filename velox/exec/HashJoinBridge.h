@@ -173,7 +173,7 @@ class HashJoinBridge : public JoinBridge {
   // information provided by the HashBuild operators if spilling is enabled.
   // This set can grow if HashBuild operator cannot load full partition in
   // memory and engages in recursive spilling.
-  SpillPartitionSet spillPartitionSets_;
+  IterableSpillPartitionSet spillPartitionSet_;
 
   // A flag indicating if any probe operator has poked 'this' join bridge to
   // attempt to get table. It is reset after probe side finish the (sub) table

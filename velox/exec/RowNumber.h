@@ -59,7 +59,7 @@ class RowNumber : public Operator {
     return spillConfig_.has_value();
   }
 
-  void setupInputSpiller(const SpillPartitionNumSet& spillPartitionSet);
+  void setupInputSpiller(const SpillPartitionIdSet& spillPartitionIdSet);
 
   void ensureInputFits(const RowVectorPtr& input);
 
@@ -69,7 +69,7 @@ class RowNumber : public Operator {
 
   void restoreNextSpillPartition();
 
-  SpillPartitionNumSet spillHashTable();
+  SpillPartitionIdSet spillHashTable();
 
   int64_t numRows(char* partition);
 
