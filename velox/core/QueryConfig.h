@@ -543,14 +543,13 @@ class QueryConfig {
   static constexpr const char* kRequestDataSizesMaxWaitSec =
       "request_data_sizes_max_wait_sec";
 
-  /// If this is false (the default), in streaming aggregation, wait until we
-  /// have enough number of output rows to produce a batch of size specified by
-  /// Operator::outputBatchRows.
-  ///
-  /// If this is true, we put the rows in output batch, as soon as the
-  /// corresponding groups are fully aggregated.  This is useful for reducing
-  /// memory consumption, if the downstream operators are not sensitive to small
-  /// batch size.
+  /// In streaming aggregation, wait until we have enough number of output rows
+  /// to produce a batch of size specified by this. If set to 0, then
+  /// Operator::outputBatchRows will be used as the min output batch rows.
+  static constexpr const char* kStreamingAggregationMinOutputBatchRows =
+      "streaming_aggregation_min_output_batch_rows";
+
+  /// TODO: Remove after dependencies are cleaned up.
   static constexpr const char* kStreamingAggregationEagerFlush =
       "streaming_aggregation_eager_flush";
 
@@ -1012,8 +1011,13 @@ class QueryConfig {
     return get<bool>(kThrowExceptionOnDuplicateMapKeys, false);
   }
 
+  /// TODO: Remove after dependencies are cleaned up.
   bool streamingAggregationEagerFlush() const {
     return get<bool>(kStreamingAggregationEagerFlush, false);
+  }
+
+  int32_t streamingAggregationMinOutputBatchRows() const {
+    return get<int32_t>(kStreamingAggregationMinOutputBatchRows, 0);
   }
 
   bool isFieldNamesInJsonCastEnabled() const {

@@ -30,12 +30,19 @@ StreamingAggregation::StreamingAggregation(
           aggregationNode->step() == core::AggregationNode::Step::kPartial
               ? "PartialAggregation"
               : "Aggregation"),
-      outputBatchSize_{outputBatchRows()},
-      aggregationNode_{aggregationNode},
-      step_{aggregationNode->step()},
-      eagerFlush_{operatorCtx_->driverCtx()
+      maxOutputBatchSize_{outputBatchRows()},
+      minOutputBatchSize_{
+          operatorCtx_->driverCtx()
                       ->queryConfig()
-                      .streamingAggregationEagerFlush()} {
+                      .streamingAggregationMinOutputBatchRows() > 0
+              ? std::min(
+                    maxOutputBatchSize_,
+                    operatorCtx_->driverCtx()
+                        ->queryConfig()
+                        .streamingAggregationMinOutputBatchRows())
+              : maxOutputBatchSize_},
+      aggregationNode_{aggregationNode},
+      step_{aggregationNode->step()} {
   if (aggregationNode_->ignoreNullKeys()) {
     VELOX_UNSUPPORTED(
         "Streaming aggregation doesn't support ignoring null keys yet");
@@ -321,10 +328,10 @@ RowVectorPtr StreamingAggregation::getOutput() {
   evaluateAggregates();
 
   RowVectorPtr output;
-  if (eagerFlush_ && numGroups_ > 1) {
-    output = createOutput(numGroups_ - 1);
-  } else if (numGroups_ > outputBatchSize_) {
-    output = createOutput(outputBatchSize_);
+
+  if (numGroups_ > minOutputBatchSize_) {
+    output = createOutput(
+        std::min(numGroups_ - 1, static_cast<size_t>(maxOutputBatchSize_)));
   }
 
   prevInput_ = input_;

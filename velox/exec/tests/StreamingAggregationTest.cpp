@@ -26,14 +26,14 @@ namespace {
 using namespace facebook::velox::exec::test;
 
 class StreamingAggregationTest : public OperatorTestBase,
-                                 public testing::WithParamInterface<bool> {
+                                 public testing::WithParamInterface<int32_t> {
  protected:
   void SetUp() override {
     OperatorTestBase::SetUp();
     registerSumNonPODAggregate("sumnonpod", 64);
   }
 
-  bool eagerFlush() {
+  int32_t flushRows() {
     return GetParam();
   }
 
@@ -45,8 +45,8 @@ class StreamingAggregationTest : public OperatorTestBase,
             core::QueryConfig::kPreferredOutputBatchRows,
             std::to_string(outputBatchSize))
         .config(
-            core::QueryConfig::kStreamingAggregationEagerFlush,
-            std::to_string(eagerFlush()));
+            core::QueryConfig::kStreamingAggregationMinOutputBatchRows,
+            std::to_string(flushRows()));
   }
 
   void testAggregation(
@@ -332,7 +332,10 @@ class StreamingAggregationTest : public OperatorTestBase,
   }
 };
 
-VELOX_INSTANTIATE_TEST_SUITE_P(, StreamingAggregationTest, testing::Bool());
+VELOX_INSTANTIATE_TEST_SUITE_P(
+    ,
+    StreamingAggregationTest,
+    testing::ValuesIn({0, 1, 64, std::numeric_limits<int32_t>::max()}));
 
 TEST_P(StreamingAggregationTest, smallInputBatches) {
   // Use grouping keys that span one or more batches.
@@ -411,8 +414,8 @@ TEST_P(StreamingAggregationTest, uniqueKeys) {
 TEST_P(StreamingAggregationTest, partialStreaming) {
   auto size = 1'024;
 
-  // Generate 2 key columns. First key is clustered / pre-grouped. Second key is
-  // not. Make one value of the clustered key last for exactly one batch,
+  // Generate 2 key columns. First key is clustered / pre-grouped. Second key
+  // is not. Make one value of the clustered key last for exactly one batch,
   // another value span two bathes.
   auto keys = {
       makeRowVector({

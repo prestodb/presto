@@ -585,13 +585,14 @@ TEST_F(ArrayAggTest, clusteredInput) {
         expected = "select c0, array_agg(c1) from tmp group by 1";
       }
       auto plan = builder.finalAggregation().planNode();
-      for (bool eagerFlush : {false, true}) {
+      for (int32_t flushRows : {0, 1}) {
         SCOPED_TRACE(fmt::format(
-            "mask={} batchRows={} eagerFlush={}", mask, batchRows, eagerFlush));
+            "mask={} batchRows={} flushRows={}", mask, batchRows, flushRows));
         AssertQueryBuilder(plan, duckDbQueryRunner_)
             .config(core::QueryConfig::kPreferredOutputBatchRows, batchRows)
             .config(
-                core::QueryConfig::kStreamingAggregationEagerFlush, eagerFlush)
+                core::QueryConfig::kStreamingAggregationMinOutputBatchRows,
+                flushRows)
             .assertResults(expected);
       }
     }
