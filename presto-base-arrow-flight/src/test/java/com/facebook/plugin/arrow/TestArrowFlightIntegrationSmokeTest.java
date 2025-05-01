@@ -26,15 +26,22 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 
 import java.io.File;
+import java.io.IOException;
 
 public class TestArrowFlightIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
     private static final Logger logger = Logger.get(TestArrowFlightIntegrationSmokeTest.class);
+    private final int serverPort;
     private RootAllocator allocator;
     private FlightServer server;
-    private Location serverLocation;
     private DistributedQueryRunner arrowFlightQueryRunner;
+
+    public TestArrowFlightIntegrationSmokeTest()
+            throws IOException
+    {
+        this.serverPort = ArrowFlightQueryRunner.findUnusedPort();
+    }
 
     @BeforeClass
     public void setup()
@@ -45,8 +52,8 @@ public class TestArrowFlightIntegrationSmokeTest
         File privateKeyFile = new File("src/test/resources/server.key");
 
         allocator = new RootAllocator(Long.MAX_VALUE);
-        serverLocation = Location.forGrpcTls("127.0.0.1", 9442);
-        server = FlightServer.builder(allocator, serverLocation, new TestingArrowProducer(allocator))
+        Location location = Location.forGrpcTls("127.0.0.1", serverPort);
+        server = FlightServer.builder(allocator, location, new TestingArrowProducer(allocator))
                 .useTls(certChainFile, privateKeyFile)
                 .build();
 
@@ -58,15 +65,15 @@ public class TestArrowFlightIntegrationSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return ArrowFlightQueryRunner.createQueryRunner(9442);
+        return ArrowFlightQueryRunner.createQueryRunner(serverPort);
     }
 
     @AfterClass(alwaysRun = true)
     public void close()
             throws InterruptedException
     {
+        arrowFlightQueryRunner.close();
         server.close();
         allocator.close();
-        arrowFlightQueryRunner.close();
     }
 }

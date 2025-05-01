@@ -303,6 +303,13 @@ class SessionProperties {
   static constexpr const char* kTableScanScaleUpMemoryUsageRatio =
       "native_table_scan_scale_up_memory_usage_ratio";
 
+  /// Controls the way streaming aggregation flushes output. We put the rows in
+  /// output batch, as soon as the corresponding groups are fully aggregated.
+  /// This is useful for reducing memory consumption, if the downstream
+  /// operators are not sensitive to small batch size.
+  static constexpr const char* kStreamingAggregationEagerFlush =
+      "native_streaming_aggregation_eager_flush";
+
   SessionProperties();
 
   const std::unordered_map<std::string, std::shared_ptr<SessionProperty>>&

@@ -188,8 +188,6 @@ public class TestWindowQueries
 
     /// The first query in this test fails because the Window's ORDER BY column type differs from the frame bound type.
     /// See issue: https://github.com/prestodb/presto/issues/23269.
-    /// The last query in this test fails because `plus` arithmetic function is currently unsupported for INTERVAL YEAR
-    /// MONTH type in Velox. See PR: https://github.com/facebookincubator/velox/pull/11612.
     @Override
     @Test
     public void testTypes()
@@ -222,11 +220,14 @@ public class TestWindowQueries
                         "(DATE '2001-03-01', ARRAY[DATE '2001-03-01'])");
 
         // H2 and Presto has some type conversion problem for Interval type, hence use the same query runner for this query
-        assertQueryFails("SELECT x, array_agg(x) OVER(ORDER BY x RANGE BETWEEN interval '1' year PRECEDING AND interval '1' month FOLLOWING) " +
+        assertQueryWithSameQueryRunner("SELECT x, array_agg(x) OVER(ORDER BY x RANGE BETWEEN interval '1' year PRECEDING AND interval '1' month FOLLOWING) " +
                         "FROM (VALUES " +
                         "INTERVAL '1' month, " +
                         "INTERVAL '2' month, " +
                         "INTERVAL '5' year) T(x)",
-                ".*Scalar function presto.default.plus not registered with arguments.*", true);
+                "VALUES " +
+                        "(INTERVAL '1' month, ARRAY[INTERVAL '1' month, INTERVAL '2' month]), " +
+                        "(INTERVAL '2' month, ARRAY[INTERVAL '1' month, INTERVAL '2' month]), " +
+                        "(INTERVAL '5' year, ARRAY[INTERVAL '5' year])");
     }
 }

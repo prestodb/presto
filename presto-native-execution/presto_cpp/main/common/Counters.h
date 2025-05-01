@@ -108,6 +108,13 @@ constexpr folly::StringPiece kCounterNumBlockedYieldDrivers{
 constexpr folly::StringPiece kCounterNumStuckDrivers{
     "presto_cpp.num_stuck_drivers"};
 
+/// Worker exports 0 or 100 for this counter. 0 meaning not memory overloaded
+/// and 100 meaning memory overloaded.
+constexpr folly::StringPiece kCounterOverloadedMem{"presto_cpp.overloaded_mem"};
+/// Worker exports 0 or 100 for this counter. 0 meaning not CPU overloaded
+/// and 100 meaning CPU overloaded.
+constexpr folly::StringPiece kCounterOverloadedCpu{"presto_cpp.overloaded_cpu"};
+
 /// Number of total OutputBuffer managed by all
 /// OutputBufferManager
 constexpr folly::StringPiece kCounterTotalPartitionedOutputBuffer{

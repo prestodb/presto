@@ -30,6 +30,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 import static com.facebook.presto.common.predicate.TupleDomain.withColumnDomains;
+import static com.facebook.presto.hive.MetadataUtils.isEntireColumn;
 
 public final class FilterPushdownUtils
 {
@@ -66,11 +67,6 @@ public final class FilterPushdownUtils
                 .forEach(predicateColumnNames::add);
 
         return predicateColumnNames;
-    }
-
-    public static boolean isEntireColumn(Subfield subfield)
-    {
-        return subfield.getPath().isEmpty();
     }
 
     private static Set<VariableReferenceExpression> extractVariableExpressions(RowExpression expression)

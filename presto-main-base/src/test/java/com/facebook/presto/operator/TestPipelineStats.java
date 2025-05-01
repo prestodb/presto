@@ -74,7 +74,7 @@ public class TestPipelineStats
 
             20,
 
-            ImmutableList.of(TestOperatorStats.EXPECTED),
+            ImmutableList.of(TestOperatorStats.NON_MERGEABLE),
             ImmutableList.of(TestDriverStats.EXPECTED));
 
     @Test

@@ -19,4 +19,5 @@ public enum SchedulerType
     ROUND_ROBIN,
     USER_HASH,
     WEIGHTED_RANDOM_CHOICE,
+    WEIGHTED_ROUND_ROBIN
 }

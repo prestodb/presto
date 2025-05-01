@@ -30,6 +30,8 @@ import java.util.Optional;
 import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 
 public class TestOperatorStats
@@ -39,12 +41,12 @@ public class TestOperatorStats
     private static final String TEST_METRIC_NAME = "test_metric";
     private static final RuntimeMetric TEST_RUNTIME_METRIC_1 = new RuntimeMetric(TEST_METRIC_NAME, NONE, 10, 2, 9, 1);
     private static final RuntimeMetric TEST_RUNTIME_METRIC_2 = new RuntimeMetric(TEST_METRIC_NAME, NONE, 5, 2, 3, 2);
-    private static final DynamicFilterStats TEST_DYNAMIC_FILTER_STATS_1 = new DynamicFilterStats(new HashSet<>(Arrays.asList(new PlanNodeId[] {new PlanNodeId("1"),
-            new PlanNodeId("2")})));
-    private static final DynamicFilterStats TEST_DYNAMIC_FILTER_STATS_2 = new DynamicFilterStats(new HashSet<>(Arrays.asList(new PlanNodeId[] {new PlanNodeId("2"),
-            new PlanNodeId("3")})));
+    private static final DynamicFilterStats TEST_DYNAMIC_FILTER_STATS_1 = new DynamicFilterStats(new HashSet<>(Arrays.asList(new PlanNodeId("1"),
+            new PlanNodeId("2"))));
+    private static final DynamicFilterStats TEST_DYNAMIC_FILTER_STATS_2 = new DynamicFilterStats(new HashSet<>(Arrays.asList(new PlanNodeId("2"),
+            new PlanNodeId("3"))));
 
-    public static final OperatorStats EXPECTED = new OperatorStats(
+    public static final OperatorStats NON_MERGEABLE = new OperatorStats(
             0,
             10,
             1,
@@ -165,7 +167,7 @@ public class TestOperatorStats
     {
         JsonCodec<OperatorStats> codec = JsonCodec.jsonCodec(OperatorStats.class);
 
-        String json = codec.toJson(EXPECTED);
+        String json = codec.toJson(NON_MERGEABLE);
         OperatorStats actual = codec.fromJson(json);
 
         assertExpectedOperatorStats(actual);
@@ -227,9 +229,115 @@ public class TestOperatorStats
     }
 
     @Test
-    public void testAdd()
+    public void testAddMixedStartingWithMergeable()
     {
-        OperatorStats actual = EXPECTED.add(ImmutableList.of(EXPECTED, EXPECTED));
+        OperatorStats actual = OperatorStats.merge(ImmutableList.of(MERGEABLE, NON_MERGEABLE, NON_MERGEABLE)).get();
+
+        assertEquals(actual.getStageId(), 0);
+        assertEquals(actual.getStageExecutionId(), 10);
+        assertEquals(actual.getOperatorId(), 41);
+        assertEquals(actual.getOperatorType(), "test");
+
+        assertEquals(actual.getTotalDrivers(), 3 * 1);
+        assertEquals(actual.getAddInputCalls(), 3 * 2);
+        assertEquals(actual.getAddInputWall(), new Duration(3 * 3, NANOSECONDS));
+        assertEquals(actual.getAddInputCpu(), new Duration(3 * 4, NANOSECONDS));
+        assertEquals(actual.getAddInputAllocationInBytes(), 3 * 123);
+        assertEquals(actual.getRawInputDataSizeInBytes(), 3 * 5);
+        assertEquals(actual.getInputDataSizeInBytes(), 3 * 6);
+        assertEquals(actual.getInputPositions(), 3 * 7);
+        assertEquals(actual.getSumSquaredInputPositions(), 3 * 8.0);
+
+        assertEquals(actual.getGetOutputCalls(), 3 * 9);
+        assertEquals(actual.getGetOutputWall(), new Duration(3 * 10, NANOSECONDS));
+        assertEquals(actual.getGetOutputCpu(), new Duration(3 * 11, NANOSECONDS));
+        assertEquals(actual.getGetOutputAllocationInBytes(), 3 * 234);
+        assertEquals(actual.getOutputDataSizeInBytes(), 3 * 12);
+        assertEquals(actual.getOutputPositions(), 3 * 13);
+
+        assertEquals(actual.getPhysicalWrittenDataSizeInBytes(), 3 * 14);
+        assertEquals(actual.getAdditionalCpu(), new Duration(3 * 100, NANOSECONDS));
+        assertEquals(actual.getBlockedWall(), new Duration(3 * 15, NANOSECONDS));
+
+        assertEquals(actual.getFinishCalls(), 3 * 16);
+        assertEquals(actual.getFinishWall(), new Duration(3 * 17, NANOSECONDS));
+        assertEquals(actual.getFinishCpu(), new Duration(3 * 18, NANOSECONDS));
+        assertEquals(actual.getFinishAllocationInBytes(), 3 * 345);
+
+        assertEquals(actual.getUserMemoryReservationInBytes(), Long.MAX_VALUE);
+        assertEquals(actual.getRevocableMemoryReservationInBytes(), 3 * 20);
+        assertEquals(actual.getSystemMemoryReservationInBytes(), 3 * 21);
+        assertEquals(actual.getPeakUserMemoryReservationInBytes(), 22);
+        assertEquals(actual.getPeakSystemMemoryReservationInBytes(), 23);
+        assertEquals(actual.getPeakTotalMemoryReservationInBytes(), 24);
+        assertEquals(actual.getSpilledDataSizeInBytes(), 3 * 25);
+        assertNotNull(actual.getInfo());
+
+        RuntimeMetric expectedMetric = RuntimeMetric.merge(TEST_RUNTIME_METRIC_2, TEST_RUNTIME_METRIC_1);
+        expectedMetric.mergeWith(TEST_RUNTIME_METRIC_1);
+        assertRuntimeMetricEquals(actual.getRuntimeStats().getMetric(TEST_METRIC_NAME), expectedMetric);
+
+        DynamicFilterStats expectedDynamicFilterStats = DynamicFilterStats.copyOf(TEST_DYNAMIC_FILTER_STATS_1);
+        expectedDynamicFilterStats.mergeWith(TEST_DYNAMIC_FILTER_STATS_2);
+        assertEquals(actual.getDynamicFilterStats().getProducerNodeIds(), expectedDynamicFilterStats.getProducerNodeIds());
+    }
+
+    @Test
+    public void testSingleNonMergeable()
+    {
+        OperatorStats actual = OperatorStats.merge(ImmutableList.of(NON_MERGEABLE)).get();
+
+        assertEquals(actual.getStageId(), 0);
+        assertEquals(actual.getStageExecutionId(), 10);
+        assertEquals(actual.getOperatorId(), 41);
+        assertEquals(actual.getOperatorType(), "test");
+
+        assertEquals(actual.getTotalDrivers(), 1 * 1);
+        assertEquals(actual.getAddInputCalls(), 1 * 2);
+        assertEquals(actual.getAddInputWall(), new Duration(1 * 3, NANOSECONDS));
+        assertEquals(actual.getAddInputCpu(), new Duration(1 * 4, NANOSECONDS));
+        assertEquals(actual.getAddInputAllocationInBytes(), 1 * 123);
+        assertEquals(actual.getRawInputDataSizeInBytes(), 1 * 5);
+        assertEquals(actual.getInputDataSizeInBytes(), 1 * 6);
+        assertEquals(actual.getInputPositions(), 1 * 7);
+        assertEquals(actual.getSumSquaredInputPositions(), 1 * 8.0);
+
+        assertEquals(actual.getGetOutputCalls(), 1 * 9);
+        assertEquals(actual.getGetOutputWall(), new Duration(1 * 10, NANOSECONDS));
+        assertEquals(actual.getGetOutputCpu(), new Duration(1 * 11, NANOSECONDS));
+        assertEquals(actual.getGetOutputAllocationInBytes(), 1 * 234);
+        assertEquals(actual.getOutputDataSizeInBytes(), 1 * 12);
+        assertEquals(actual.getOutputPositions(), 1 * 13);
+
+        assertEquals(actual.getPhysicalWrittenDataSizeInBytes(), 1 * 14);
+        assertEquals(actual.getAdditionalCpu(), new Duration(1 * 100, NANOSECONDS));
+        assertEquals(actual.getBlockedWall(), new Duration(1 * 15, NANOSECONDS));
+
+        assertEquals(actual.getFinishCalls(), 1 * 16);
+        assertEquals(actual.getFinishWall(), new Duration(1 * 17, NANOSECONDS));
+        assertEquals(actual.getFinishCpu(), new Duration(1 * 18, NANOSECONDS));
+        assertEquals(actual.getFinishAllocationInBytes(), 1 * 345);
+
+        assertEquals(actual.getUserMemoryReservationInBytes(), Long.MAX_VALUE);
+        assertEquals(actual.getRevocableMemoryReservationInBytes(), 1 * 20);
+        assertEquals(actual.getSystemMemoryReservationInBytes(), 1 * 21);
+        assertEquals(actual.getPeakUserMemoryReservationInBytes(), 22);
+        assertEquals(actual.getPeakSystemMemoryReservationInBytes(), 23);
+        assertEquals(actual.getPeakTotalMemoryReservationInBytes(), 24);
+        assertEquals(actual.getSpilledDataSizeInBytes(), 1 * 25);
+        assertNotNull(actual.getInfo());
+
+        RuntimeMetric expectedMetric = TEST_RUNTIME_METRIC_1;
+        assertRuntimeMetricEquals(actual.getRuntimeStats().getMetric(TEST_METRIC_NAME), expectedMetric);
+
+        DynamicFilterStats expectedDynamicFilterStats = TEST_DYNAMIC_FILTER_STATS_1;
+        assertEquals(actual.getDynamicFilterStats().getProducerNodeIds(), TEST_DYNAMIC_FILTER_STATS_1.getProducerNodeIds());
+    }
+
+    @Test
+    public void testAddMixedStartingWithNonMergeable()
+    {
+        OperatorStats actual = OperatorStats.merge(ImmutableList.of(NON_MERGEABLE, MERGEABLE, MERGEABLE)).get();
 
         assertEquals(actual.getStageId(), 0);
         assertEquals(actual.getStageExecutionId(), 10);
@@ -270,6 +378,60 @@ public class TestOperatorStats
         assertEquals(actual.getPeakTotalMemoryReservationInBytes(), 24);
         assertEquals(actual.getSpilledDataSizeInBytes(), 3 * 25);
         assertNull(actual.getInfo());
+
+        RuntimeMetric expectedMetric = RuntimeMetric.merge(TEST_RUNTIME_METRIC_1, TEST_RUNTIME_METRIC_2);
+        expectedMetric.mergeWith(TEST_RUNTIME_METRIC_2);
+        assertRuntimeMetricEquals(actual.getRuntimeStats().getMetric(TEST_METRIC_NAME), expectedMetric);
+
+        DynamicFilterStats expectedDynamicFilterStats = DynamicFilterStats.copyOf(TEST_DYNAMIC_FILTER_STATS_1);
+        expectedDynamicFilterStats.mergeWith(TEST_DYNAMIC_FILTER_STATS_2);
+        assertEquals(actual.getDynamicFilterStats().getProducerNodeIds(), TEST_DYNAMIC_FILTER_STATS_1.getProducerNodeIds());
+    }
+
+    @Test
+    public void testAddNonMergeable()
+    {
+        OperatorStats actual = OperatorStats.merge(ImmutableList.of(NON_MERGEABLE, NON_MERGEABLE, NON_MERGEABLE)).get();
+
+        assertEquals(actual.getStageId(), 0);
+        assertEquals(actual.getStageExecutionId(), 10);
+        assertEquals(actual.getOperatorId(), 41);
+        assertEquals(actual.getOperatorType(), "test");
+
+        assertEquals(actual.getTotalDrivers(), 3);
+        assertEquals(actual.getAddInputCalls(), 3 * 2);
+        assertEquals(actual.getAddInputWall(), new Duration(3 * 3, NANOSECONDS));
+        assertEquals(actual.getAddInputCpu(), new Duration(3 * 4, NANOSECONDS));
+        assertEquals(actual.getAddInputAllocationInBytes(), 3 * 123);
+        assertEquals(actual.getRawInputDataSizeInBytes(), 3 * 5);
+        assertEquals(actual.getInputDataSizeInBytes(), 3 * 6);
+        assertEquals(actual.getInputPositions(), 3 * 7);
+        assertEquals(actual.getSumSquaredInputPositions(), 3 * 8.0);
+
+        assertEquals(actual.getGetOutputCalls(), 3 * 9);
+        assertEquals(actual.getGetOutputWall(), new Duration(3 * 10, NANOSECONDS));
+        assertEquals(actual.getGetOutputCpu(), new Duration(3 * 11, NANOSECONDS));
+        assertEquals(actual.getGetOutputAllocationInBytes(), 3 * 234);
+        assertEquals(actual.getOutputDataSizeInBytes(), 3 * 12);
+        assertEquals(actual.getOutputPositions(), 3 * 13);
+
+        assertEquals(actual.getPhysicalWrittenDataSizeInBytes(), 3 * 14);
+        assertEquals(actual.getAdditionalCpu(), new Duration(3 * 100, NANOSECONDS));
+        assertEquals(actual.getBlockedWall(), new Duration(3 * 15, NANOSECONDS));
+
+        assertEquals(actual.getFinishCalls(), 3 * 16);
+        assertEquals(actual.getFinishWall(), new Duration(3 * 17, NANOSECONDS));
+        assertEquals(actual.getFinishCpu(), new Duration(3 * 18, NANOSECONDS));
+        assertEquals(actual.getFinishAllocationInBytes(), 3 * 345);
+
+        assertEquals(actual.getUserMemoryReservationInBytes(), Long.MAX_VALUE);
+        assertEquals(actual.getRevocableMemoryReservationInBytes(), 3 * 20);
+        assertEquals(actual.getSystemMemoryReservationInBytes(), 3 * 21);
+        assertEquals(actual.getPeakUserMemoryReservationInBytes(), 22);
+        assertEquals(actual.getPeakSystemMemoryReservationInBytes(), 23);
+        assertEquals(actual.getPeakTotalMemoryReservationInBytes(), 24);
+        assertEquals(actual.getSpilledDataSizeInBytes(), 3 * 25);
+        assertNull(actual.getInfo());
         RuntimeMetric expectedMetric = RuntimeMetric.merge(TEST_RUNTIME_METRIC_1, TEST_RUNTIME_METRIC_1);
         expectedMetric.mergeWith(TEST_RUNTIME_METRIC_1);
         assertRuntimeMetricEquals(actual.getRuntimeStats().getMetric(TEST_METRIC_NAME), expectedMetric);
@@ -277,16 +439,16 @@ public class TestOperatorStats
     }
 
     @Test
-    public void testAddMergeable()
+    public void testMergeWithMergeableInfo()
     {
-        OperatorStats actual = MERGEABLE.add(ImmutableList.of(MERGEABLE, MERGEABLE));
+        OperatorStats actual = OperatorStats.merge(ImmutableList.of(MERGEABLE, MERGEABLE, MERGEABLE)).get();
 
         assertEquals(actual.getStageId(), 0);
         assertEquals(actual.getStageExecutionId(), 10);
         assertEquals(actual.getOperatorId(), 41);
         assertEquals(actual.getOperatorType(), "test");
 
-        assertEquals(actual.getTotalDrivers(), 3 * 1);
+        assertEquals(actual.getTotalDrivers(), 3);
         assertEquals(actual.getAddInputCalls(), 3 * 2);
         assertEquals(actual.getAddInputWall(), new Duration(3 * 3, NANOSECONDS));
         assertEquals(actual.getAddInputCpu(), new Duration(3 * 4, NANOSECONDS));
@@ -326,5 +488,12 @@ public class TestOperatorStats
         expectedMetric.mergeWith(TEST_RUNTIME_METRIC_2);
         assertRuntimeMetricEquals(actual.getRuntimeStats().getMetric(TEST_METRIC_NAME), expectedMetric);
         assertEquals(actual.getDynamicFilterStats().getProducerNodeIds(), TEST_DYNAMIC_FILTER_STATS_2.getProducerNodeIds());
+    }
+
+    @Test
+    public void testMergeEmptyCollection()
+    {
+        Optional<OperatorStats> merged = OperatorStats.merge(ImmutableList.of());
+        assertFalse(merged.isPresent());
     }
 }

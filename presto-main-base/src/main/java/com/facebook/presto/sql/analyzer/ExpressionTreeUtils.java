@@ -153,7 +153,7 @@ public final class ExpressionTreeUtils
                 return Optional.of((TypeWithName) baseType);
             }
         }
-        catch (UnknownTypeException e) {
+        catch (IllegalArgumentException | UnknownTypeException e) {
             return Optional.empty();
         }
         return Optional.empty();

@@ -31,7 +31,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.iceberg.IcebergAbstractMetadata.isEntireColumn;
+import static com.facebook.presto.hive.MetadataUtils.isEntireColumn;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 

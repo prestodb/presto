@@ -23,7 +23,6 @@ import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.TableHandle;
@@ -326,7 +325,6 @@ public class PlannerUtils
     private static TableScanNode cloneTableScan(TableScanNode scanNode, Session session, Metadata metadata, PlanNodeIdAllocator planNodeIdAllocator, List<VariableReferenceExpression> fieldsToKeep, Map<VariableReferenceExpression, VariableReferenceExpression> varMap)
     {
         Map<VariableReferenceExpression, ColumnHandle> assignments = scanNode.getAssignments();
-        TableLayout scanLayout = metadata.getLayout(session, scanNode.getTable());
 
         ImmutableList.Builder<VariableReferenceExpression> outputVariablesBuilder = ImmutableList.builder();
 

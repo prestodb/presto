@@ -44,7 +44,7 @@ public class StartTransactionTask
     }
 
     @Override
-    public ListenableFuture<?> execute(StartTransaction statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
+    public ListenableFuture<?> execute(StartTransaction statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters, String query)
     {
         Session session = stateMachine.getSession();
         if (!session.isClientTransactionSupport()) {

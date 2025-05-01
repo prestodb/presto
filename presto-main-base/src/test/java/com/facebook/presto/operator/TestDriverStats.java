@@ -62,7 +62,7 @@ public class TestDriverStats
 
             20L,
 
-            ImmutableList.of(TestOperatorStats.EXPECTED));
+            ImmutableList.of(TestOperatorStats.NON_MERGEABLE));
 
     @Test
     public void testJson()

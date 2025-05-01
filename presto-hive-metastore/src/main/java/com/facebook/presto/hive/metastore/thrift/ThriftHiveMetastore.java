@@ -322,6 +322,23 @@ public class ThriftHiveMetastore
     }
 
     @Override
+    public List<String> getDatabases(MetastoreContext context, String pattern)
+    {
+        try {
+            return retry()
+                    .stopOnIllegalExceptions()
+                    .run("getDatabases", stats.getGetDatabases().wrap(() ->
+                            getMetastoreClientThenCall(context, client -> client.getDatabases(pattern))));
+        }
+        catch (TException e) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            throw propagate(e);
+        }
+    }
+
+    @Override
     public List<String> getAllDatabases(MetastoreContext context)
     {
         try {
@@ -1646,15 +1663,16 @@ public class ThriftHiveMetastore
 
         if (tableConstraint instanceof PrimaryKeyConstraint) {
             for (String column : constraintColumns) {
-                primaryKeyConstraint.add(
-                        new SQLPrimaryKey(table.getDbName(),
-                                table.getTableName(),
-                                column,
-                                keySequence++,
-                                tableConstraint.getName().orElse(null),
-                                tableConstraint.isEnabled(),
-                                tableConstraint.isEnforced(),
-                                tableConstraint.isRely()));
+                SQLPrimaryKey sqlPrimaryKey = new SQLPrimaryKey(table.getDbName(),
+                        table.getTableName(),
+                        column,
+                        keySequence++,
+                        tableConstraint.getName().orElse(null),
+                        tableConstraint.isEnabled(),
+                        tableConstraint.isEnforced(),
+                        tableConstraint.isRely());
+                sqlPrimaryKey.setCatName(table.getCatName());
+                primaryKeyConstraint.add(sqlPrimaryKey);
             }
             callableName = "addPrimaryKeyConstraint";
             apiStats = stats.getAddPrimaryKeyConstraint();

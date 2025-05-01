@@ -19,10 +19,11 @@
 namespace facebook::presto::operators {
 
 /// Partitions the input row based on partition function and serializes the
-/// entire row using UnsafeRow format. The output contains 2 columns: partition
-/// number (INTEGER) and serialized row (VARBINARY). If 'replicateNullsAndAny'
-/// is true, the output includes a third boolean column which indicates whether
-/// a row needs to be replicated to all partitions.
+/// entire row using UnsafeRow format. The output contains 3 columns: partition
+/// number (INTEGER) serialized key (VARBINARY), and serialized row (VARBINARY).
+/// If 'replicateNullsAndAny' is true, the output includes a third boolean
+/// column which indicates whether a row needs to be replicated to all
+/// partitions.
 class PartitionAndSerializeNode : public velox::core::PlanNode {
  public:
   PartitionAndSerializeNode(
@@ -32,14 +33,20 @@ class PartitionAndSerializeNode : public velox::core::PlanNode {
       velox::RowTypePtr serializedRowType,
       velox::core::PlanNodePtr source,
       bool replicateNullsAndAny,
-      velox::core::PartitionFunctionSpecPtr partitionFunctionFactory)
+      velox::core::PartitionFunctionSpecPtr partitionFunctionFactory,
+      std::optional<std::vector<velox::core::SortOrder>> sortingOrders =
+          std::nullopt,
+      std::optional<std::vector<velox::core::FieldAccessTypedExprPtr>>
+          sortingKeys = std::nullopt)
       : velox::core::PlanNode(id),
         keys_(std::move(keys)),
         numPartitions_(numPartitions),
         serializedRowType_{std::move(serializedRowType)},
         sources_({std::move(source)}),
-        replicateNullsAndAny_(replicateNullsAndAny),
-        partitionFunctionSpec_(std::move(partitionFunctionFactory)) {
+        replicateNullsAndAny_(replicateNullsAndAny && numPartitions > 1),
+        partitionFunctionSpec_(std::move(partitionFunctionFactory)),
+        sortingOrders_(std::move(sortingOrders)),
+        sortingKeys_(std::move(sortingKeys)) {
     VELOX_USER_CHECK_NOT_NULL(
         partitionFunctionSpec_, "Partition function factory cannot be null.");
   }
@@ -52,11 +59,15 @@ class PartitionAndSerializeNode : public velox::core::PlanNode {
 
   const velox::RowTypePtr& outputType() const override {
     static const velox::RowTypePtr kOutputType{velox::ROW(
-        {"partition", "data"}, {velox::INTEGER(), velox::VARBINARY()})};
+        {"partition", "key", "data"},
+        {velox::INTEGER(), velox::VARBINARY(), velox::VARBINARY()})};
 
     static const velox::RowTypePtr kReplicateNullsAndAnyOutputType{velox::ROW(
-        {"partition", "data", "replicate"},
-        {velox::INTEGER(), velox::VARBINARY(), velox::BOOLEAN()})};
+        {"partition", "key", "data", "replicate"},
+        {velox::INTEGER(),
+         velox::VARBINARY(),
+         velox::VARBINARY(),
+         velox::BOOLEAN()})};
 
     return replicateNullsAndAny_ ? kReplicateNullsAndAnyOutputType
                                  : kOutputType;
@@ -95,6 +106,16 @@ class PartitionAndSerializeNode : public velox::core::PlanNode {
     return "PartitionAndSerialize";
   }
 
+  const std::optional<std::vector<velox::core::FieldAccessTypedExprPtr>>&
+  sortingKeys() const {
+    return sortingKeys_;
+  }
+
+  const std::optional<std::vector<velox::core::SortOrder>>& sortingOrders()
+      const {
+    return sortingOrders_;
+  }
+
  private:
   void addDetails(std::stringstream& stream) const override;
 
@@ -104,6 +125,9 @@ class PartitionAndSerializeNode : public velox::core::PlanNode {
   const std::vector<velox::core::PlanNodePtr> sources_;
   const bool replicateNullsAndAny_;
   const velox::core::PartitionFunctionSpecPtr partitionFunctionSpec_;
+  const std::optional<std::vector<velox::core::SortOrder>> sortingOrders_;
+  const std::optional<std::vector<velox::core::FieldAccessTypedExprPtr>>
+      sortingKeys_;
 };
 
 class PartitionAndSerializeTranslator

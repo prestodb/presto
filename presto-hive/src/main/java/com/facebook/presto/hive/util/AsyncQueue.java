@@ -115,6 +115,20 @@ public class AsyncQueue<T>
         return immediateFuture(null);
     }
 
+    private synchronized void offerAll(List<T> elementsToInsert)
+    {
+        requireNonNull(elementsToInsert);
+        if (finishing && borrowerCount == 0) {
+            return;
+        }
+        boolean wasEmpty = elements.isEmpty();
+        elements.addAll(elementsToInsert);
+        if (wasEmpty && !elements.isEmpty()) {
+            completeAsync(executor, notEmptySignal);
+            notEmptySignal = SettableFuture.create();
+        }
+    }
+
     private synchronized List<T> getBatch(int maxSize)
     {
         int oldSize = elements.size();
@@ -194,8 +208,9 @@ public class AsyncQueue<T>
                             checkArgument(borrowResult.getElementsToInsert().isEmpty(), "Function must not insert anything when no element is borrowed");
                             return borrowResult.getResult();
                         }
-                        for (T element : borrowResult.getElementsToInsert()) {
-                            offer(element);
+                        List<T> elementsToInsert = borrowResult.getElementsToInsert();
+                        if (!elementsToInsert.isEmpty()) {
+                            offerAll(elementsToInsert);
                         }
                         return borrowResult.getResult();
                     }

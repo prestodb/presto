@@ -49,7 +49,7 @@ public class SetSessionTask
     }
 
     @Override
-    public ListenableFuture<?> execute(SetSession statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
+    public ListenableFuture<?> execute(SetSession statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters, String query)
     {
         Session session = stateMachine.getSession();
         QualifiedName propertyName = statement.getName();

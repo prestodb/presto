@@ -79,7 +79,10 @@ class LocalPersistentShuffleWriter : public ShuffleWriter {
       uint64_t maxBytesPerPartition,
       velox::memory::MemoryPool* FOLLY_NONNULL pool);
 
-  void collect(int32_t partition, std::string_view data) override;
+  void collect(
+      int32_t partition,
+      std::string_view /* key */,
+      std::string_view data) override;
 
   void noMoreData(bool success) override;
 

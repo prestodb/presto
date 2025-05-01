@@ -22,14 +22,22 @@ PYTHON_VENV=${PYTHON_VENV:-"${SCRIPTDIR}/../.venv"}
 # to build DuckDB.
 BUILD_DUCKDB="${BUILD_DUCKDB:-false}"
 source "$(dirname "${BASH_SOURCE}")/../velox/scripts/setup-macos.sh"
+GPERF_VERSION="3.1"
 
 function install_proxygen {
   github_checkout facebook/proxygen "${FB_OS_VERSION}"
   cmake_install -DBUILD_TESTS=OFF
 }
 
+function install_gperf {
+  wget_and_untar https://ftpmirror.gnu.org/gperf/gperf-${GPERF_VERSION}.tar.gz gperf
+  cd ${DEPENDENCY_DIR}/gperf
+  ./configure --prefix=${INSTALL_PREFIX}
+  make install 
+}
+
 function install_presto_deps {
-  install_from_brew "gperf"
+  run_and_time install_gperf
   run_and_time install_proxygen
 }
 

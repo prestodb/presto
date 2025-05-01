@@ -54,7 +54,7 @@ public class KafkaPageSink
             List<KafkaColumnHandle> columns,
             RowEncoder keyEncoder,
             RowEncoder messageEncoder,
-            PlainTextKafkaProducerFactory producerFactory,
+            KafkaProducerFactory producerFactory,
             KafkaClusterMetadataSupplier supplier)
     {
         this.topicName = requireNonNull(topicName, "topicName is null");

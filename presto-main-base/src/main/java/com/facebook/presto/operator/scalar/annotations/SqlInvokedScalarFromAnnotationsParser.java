@@ -54,6 +54,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Arrays.stream;
+import static java.util.Collections.emptyList;
 
 public final class SqlInvokedScalarFromAnnotationsParser
 {
@@ -169,6 +170,7 @@ public final class SqlInvokedScalarFromAnnotationsParser
                         QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, name),
                         parameters,
                         typeVariableConstraints,
+                        emptyList(),
                         returnType,
                         functionDescription,
                         routineCharacteristics,

@@ -49,6 +49,8 @@ public interface TransactionManager
 
     Optional<CatalogMetadata> getOptionalCatalogMetadata(TransactionId transactionId, String catalogName);
 
+    void enableRollback(TransactionId transactionId);
+
     CatalogMetadata getCatalogMetadata(TransactionId transactionId, ConnectorId connectorId);
 
     CatalogMetadata getCatalogMetadataForWrite(TransactionId transactionId, ConnectorId connectorId);

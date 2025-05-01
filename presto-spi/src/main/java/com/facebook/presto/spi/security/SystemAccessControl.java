@@ -15,12 +15,14 @@ package com.facebook.presto.spi.security;
 
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.spi.CatalogSchemaTableName;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 
 import java.security.Principal;
 import java.security.cert.X509Certificate;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -379,5 +381,30 @@ public interface SystemAccessControl
     default void checkCanAddConstraint(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
     {
         denyAddConstraint(table.toString());
+    }
+
+    /**
+     * Get row filters associated with the given table and identity.
+     * <p>
+     * Each filter must be a scalar SQL expression of boolean type over the columns in the table.
+     *
+     * @return a list of filters, or empty list if not applicable
+     */
+    default List<ViewExpression> getRowFilters(Identity identity, AccessControlContext context, CatalogSchemaTableName tableName)
+    {
+        return Collections.emptyList();
+    }
+
+    /**
+     * Bulk method for getting column masks for a subset of columns in a table.
+     * <p>
+     * Each mask must be a scalar SQL expression of a type coercible to the type of the column being masked. The expression
+     * must be written in terms of columns in the table.
+     *
+     * @return a mapping from columns to masks, or an empty map if not applicable. The keys of the return Map are a subset of {@code columns}.
+     */
+    default Map<ColumnMetadata, ViewExpression> getColumnMasks(Identity identity, AccessControlContext context, CatalogSchemaTableName tableName, List<ColumnMetadata> columns)
+    {
+        return Collections.emptyMap();
     }
 }

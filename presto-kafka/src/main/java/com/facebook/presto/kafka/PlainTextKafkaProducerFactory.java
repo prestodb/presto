@@ -14,44 +14,46 @@
 package com.facebook.presto.kafka;
 
 import com.facebook.presto.spi.HostAddress;
-import com.google.common.collect.ImmutableMap;
-import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.common.serialization.ByteArraySerializer;
 
 import javax.inject.Inject;
 
+import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
+import static com.facebook.presto.kafka.utils.PropertiesUtils.readProperties;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static org.apache.kafka.clients.producer.ProducerConfig.ACKS_CONFIG;
 import static org.apache.kafka.clients.producer.ProducerConfig.BOOTSTRAP_SERVERS_CONFIG;
 import static org.apache.kafka.clients.producer.ProducerConfig.LINGER_MS_CONFIG;
 
 public class PlainTextKafkaProducerFactory
+        implements KafkaProducerFactory
 {
-    private final Map<String, Object> properties;
+    private final Map<String, Object> configurationProperties;
 
     @Inject
-    public PlainTextKafkaProducerFactory()
+    public PlainTextKafkaProducerFactory(KafkaConnectorConfig kafkaConnectorConfig) throws IOException
     {
-        this.properties = ImmutableMap.<String, Object>builder()
-                .put(ACKS_CONFIG, "all")
-                .put(LINGER_MS_CONFIG, 5)
-                .build();
+        requireNonNull(kafkaConnectorConfig, "kafkaConnectorConfig is null");
+        configurationProperties = new HashMap<>();
+        // Add default overrides (make them configurable if needed)
+        configurationProperties.put(ACKS_CONFIG, "all");
+        configurationProperties.put(LINGER_MS_CONFIG, 5);
+        configurationProperties.putAll(readProperties(kafkaConnectorConfig.getResourceConfigFiles()));  // File configs can override defaults if needed
     }
 
-    /**
-     * Creates a KafkaProducer with the properties set in the constructor and kafka bootstrap servers
-     */
-    public KafkaProducer<byte[], byte[]> create(List<HostAddress> bootstrapServers)
+    @Override
+    public Properties configure(List<HostAddress> bootstrapServers)
     {
-        Map<String, Object> propertiesWithBootstrapServers = ImmutableMap.<String, Object>builder()
-                .putAll(properties)
-                .put(BOOTSTRAP_SERVERS_CONFIG, bootstrapServers.stream()
+        Properties properties = new Properties();
+        properties.putAll(configurationProperties);
+        properties.put(BOOTSTRAP_SERVERS_CONFIG, bootstrapServers.stream()
                         .map(HostAddress::toString)
-                        .collect(joining(",")))
-                .build();
-        return new KafkaProducer<>(propertiesWithBootstrapServers, new ByteArraySerializer(), new ByteArraySerializer());
+                        .collect(joining(",")));
+        return properties;
     }
 }

@@ -479,7 +479,7 @@ namespace {
 bool equal(
     const std::shared_ptr<protocol::RowExpression>& actual,
     const protocol::VariableReferenceExpression& expected) {
-  if (auto variableReference =
+  if (const auto variableReference =
           std::dynamic_pointer_cast<protocol::VariableReferenceExpression>(
               actual)) {
     return (
@@ -489,12 +489,14 @@ bool equal(
   return false;
 }
 
+// Returns the cast function call if row 'expression' is the specified special
+// 'functionName'.
 std::shared_ptr<protocol::CallExpression> isFunctionCall(
     const std::shared_ptr<protocol::RowExpression>& expression,
     const std::string_view& functionName) {
   if (auto call =
           std::dynamic_pointer_cast<protocol::CallExpression>(expression)) {
-    if (auto builtin =
+    if (const auto builtin =
             std::dynamic_pointer_cast<protocol::BuiltInFunctionHandle>(
                 call->functionHandle)) {
       if (builtin->signature.kind == protocol::FunctionKind::SCALAR &&
@@ -506,8 +508,23 @@ std::shared_ptr<protocol::CallExpression> isFunctionCall(
   return nullptr;
 }
 
-/// Check if input RowExpression is a 'NOT x' expression and returns it as
-/// CallExpression. Returns nullptr if input expression is something else.
+// Returns the cast special form if row 'expression' is the specified special
+// 'form'.
+std::shared_ptr<protocol::SpecialFormExpression> isSpecialForm(
+    const std::shared_ptr<protocol::RowExpression>& expression,
+    const protocol::Form& form) {
+  if (const auto specialForm =
+          std::dynamic_pointer_cast<protocol::SpecialFormExpression>(
+              expression)) {
+    if (specialForm->form == form) {
+      return specialForm;
+    }
+  }
+  return nullptr;
+}
+
+// Check if input RowExpression is a 'NOT x' expression and returns it as
+// CallExpression. Returns nullptr if input expression is something else.
 std::shared_ptr<protocol::CallExpression> isNot(
     const std::shared_ptr<protocol::RowExpression>& expression) {
   static const std::string prestoDefaultNamespacePrefix =
@@ -517,17 +534,41 @@ std::shared_ptr<protocol::CallExpression> isNot(
   return isFunctionCall(expression, kNot);
 }
 
-/// Check if input RowExpression is an 'a > b' expression and returns it as
-/// CallExpression. Returns nullptr if input expression is something else.
+// Check if input RowExpression is an 'a > b' expression and returns it as
+// CallExpression. Returns nullptr if input expression is something else.
 std::shared_ptr<protocol::CallExpression> isGreaterThan(
     const std::shared_ptr<protocol::RowExpression>& expression) {
-  static const std::string_view kGreaterThan =
+  static constexpr std::string_view kGreaterThan =
       "presto.default.$operator$greater_than";
   return isFunctionCall(expression, kGreaterThan);
 }
 
-/// Checks if input PlanNode represents a local exchange with single source and
-/// returns it as ExchangeNode. Returns nullptr if input node is something else.
+// Check if input RowExpression is a 'between' expression and returns it as
+// CallExpression. Returns nullptr if input expression is something else.
+std::shared_ptr<protocol::CallExpression> isBetween(
+    const std::shared_ptr<protocol::RowExpression>& expression) {
+  static constexpr std::string_view kBetween =
+      "presto.default.$operator$between";
+  return isFunctionCall(expression, kBetween);
+}
+
+// Check if input RowExpression is a 'contains' expression and returns it as
+// CallExpression. Returns nullptr if input expression is something else.
+std::shared_ptr<protocol::CallExpression> isContains(
+    const std::shared_ptr<protocol::RowExpression>& expression) {
+  static constexpr std::string_view kContains = "presto.default.contains";
+  return isFunctionCall(expression, kContains);
+}
+
+// Check if input RowExpression is an 'and' expression and returns it as
+// SpecialFormExpression. Returns nullptr if input expression is something else.
+std::shared_ptr<protocol::SpecialFormExpression> isAnd(
+    const std::shared_ptr<protocol::RowExpression>& expression) {
+  return isSpecialForm(expression, protocol::Form::AND);
+}
+
+// Checks if input PlanNode represents a local exchange with single source and
+// returns it as ExchangeNode. Returns nullptr if input node is something else.
 std::shared_ptr<const protocol::ExchangeNode> isLocalSingleSourceExchange(
     const std::shared_ptr<const protocol::PlanNode>& node) {
   if (auto exchange =
@@ -541,14 +582,14 @@ std::shared_ptr<const protocol::ExchangeNode> isLocalSingleSourceExchange(
   return nullptr;
 }
 
-/// Checks if input PlanNode represents an identity projection and returns it as
-/// ProjectNode. Returns nullptr if input node is something else.
+// Checks if input PlanNode represents an identity projection and returns it as
+// ProjectNode. Returns nullptr if input node is something else.
 std::shared_ptr<const protocol::ProjectNode> isIdentityProjection(
     const std::shared_ptr<const protocol::PlanNode>& node) {
   if (auto project =
           std::dynamic_pointer_cast<const protocol::ProjectNode>(node)) {
-    for (auto entry : project->assignments.assignments) {
-      if (!equal(entry.second, entry.first)) {
+    for (const auto& [first, second] : project->assignments.assignments) {
+      if (!equal(second, first)) {
         return nullptr;
       }
     }
@@ -888,6 +929,66 @@ void VeloxQueryPlanConverterBase::toAggregations(
   }
 }
 
+void VeloxQueryPlanConverterBase::parseIndexLookupCondition(
+    const std::shared_ptr<protocol::RowExpression>& filter,
+    std::vector<core::IndexLookupConditionPtr>& joinConditionPtrs) {
+  if (const auto andForm = isAnd(filter)) {
+    VELOX_CHECK_EQ(andForm->arguments.size(), 2);
+    for (const auto& child : andForm->arguments) {
+      parseIndexLookupCondition(child, joinConditionPtrs);
+    }
+    return;
+  }
+
+  if (const auto between = isBetween(filter)) {
+    VELOX_CHECK_EQ(between->arguments.size(), 3);
+    const auto keyColumnExpr = exprConverter_.toVeloxExpr(
+        std::dynamic_pointer_cast<protocol::VariableReferenceExpression>(
+            between->arguments[0]));
+    VELOX_CHECK_NOT_NULL(
+        keyColumnExpr, "{}", toJsonString(between->arguments[0]));
+
+    const auto lowerExpr = exprConverter_.toVeloxExpr(between->arguments[1]);
+    const auto upperExpr = exprConverter_.toVeloxExpr(between->arguments[2]);
+
+    VELOX_CHECK(
+        !(core::TypedExprs::isConstant(lowerExpr) &&
+          core::TypedExprs::isConstant(upperExpr)),
+        "At least one of the between condition bounds needs to be not constant: {}",
+        toJsonString(filter));
+
+    joinConditionPtrs.push_back(
+        std::make_shared<core::BetweenIndexLookupCondition>(
+            keyColumnExpr, lowerExpr, upperExpr));
+    return;
+  }
+
+  if (const auto contains = isContains(filter)) {
+    VELOX_CHECK_EQ(contains->arguments.size(), 2);
+    const auto keyColumnExpr = exprConverter_.toVeloxExpr(
+        std::dynamic_pointer_cast<protocol::VariableReferenceExpression>(
+            contains->arguments[1]));
+    VELOX_CHECK_NOT_NULL(
+        keyColumnExpr, "{}", toJsonString(contains->arguments[1]));
+
+    const auto conditionColumnExpr = exprConverter_.toVeloxExpr(
+        std::dynamic_pointer_cast<protocol::VariableReferenceExpression>(
+            contains->arguments[0]));
+    VELOX_CHECK(
+        !core::TypedExprs::isConstant(conditionColumnExpr),
+        "The condition column needs to be not constant: {}",
+        toJsonString(filter));
+
+    joinConditionPtrs.push_back(
+        std::make_shared<core::InIndexLookupCondition>(
+            keyColumnExpr, conditionColumnExpr));
+    return;
+  }
+
+  VELOX_UNSUPPORTED(
+      "Unsupported index lookup condition: {}", toJsonString(filter));
+}
+
 std::shared_ptr<const core::ValuesNode>
 VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const std::shared_ptr<const protocol::ValuesNode>& node,
@@ -1220,12 +1321,17 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     auto left = toVeloxQueryPlan(node->probeSource, tableWriteInfo, taskId);
     auto right = toVeloxQueryPlan(node->indexSource, tableWriteInfo, taskId);
 
+    std::vector<core::IndexLookupConditionPtr> joinConditionPtrs{};
+    if (node->filter) {
+      parseIndexLookupCondition(*node->filter, joinConditionPtrs);
+    }
+
     return std::make_shared<core::IndexLookupJoinNode>(
         node->id,
         core::JoinType::kInner,
         /*leftKeys=*/leftKeys,
         /*rightKeys=*/rightKeys,
-        /*joinConditions=*/std::vector<velox::core::IndexLookupConditionPtr>{},
+        /*joinConditions=*/joinConditionPtrs,
         /*left=*/left,
         /*right=*/std::dynamic_pointer_cast<const core::TableScanNode>(right),
         /*outputType=*/type::concatRowTypes({left->outputType(), right->outputType()}));
@@ -1436,7 +1542,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   const auto outputType = toRowType(
       generateOutputVariables(node->outputVariables, nullptr),
       typeParser_);
-  
+
   const auto sourceVeloxPlan =
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId);
 

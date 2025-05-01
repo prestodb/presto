@@ -92,13 +92,13 @@ public class CreateTableTask
     }
 
     @Override
-    public ListenableFuture<?> execute(CreateTable statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
+    public ListenableFuture<?> execute(CreateTable statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector, String query)
     {
-        return internalExecute(statement, metadata, accessControl, session, parameters, warningCollector);
+        return internalExecute(statement, metadata, accessControl, session, parameters, warningCollector, query);
     }
 
     @VisibleForTesting
-    public ListenableFuture<?> internalExecute(CreateTable statement, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
+    public ListenableFuture<?> internalExecute(CreateTable statement, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector, String query)
     {
         checkArgument(!statement.getElements().isEmpty(), "no columns for table");
 
@@ -126,7 +126,7 @@ public class CreateTableTask
                 try {
                     type = metadata.getType(parseTypeSignature(column.getType()));
                 }
-                catch (UnknownTypeException e) {
+                catch (IllegalArgumentException | UnknownTypeException e) {
                     throw new SemanticException(TYPE_MISMATCH, element, "Unknown type '%s' for column '%s'", column.getType(), column.getName());
                 }
                 if (type.equals(UNKNOWN)) {
@@ -188,7 +188,7 @@ public class CreateTableTask
             }
             else if (element instanceof ConstraintSpecification) {
                 accessControl.checkCanAddConstraints(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
-                constraints.add(convertToTableConstraint(metadata, session, connectorId, (ConstraintSpecification) element, warningCollector));
+                constraints.add(convertToTableConstraint(metadata, session, connectorId, (ConstraintSpecification) element, warningCollector, query));
             }
             else {
                 throw new PrestoException(GENERIC_INTERNAL_ERROR, "Invalid TableElement: " + element.getClass().getName());

@@ -96,6 +96,13 @@ class ConnectorProtocol {
   virtual void from_json(
       const json& j,
       std::shared_ptr<ConnectorDeleteTableHandle>& p) const = 0;
+
+  virtual void to_json(
+      json& j,
+      const std::shared_ptr<ConnectorIndexHandle>& p) const = 0;
+  virtual void from_json(
+      const json& j,
+      std::shared_ptr<ConnectorIndexHandle>& p) const = 0;
 };
 
 namespace {
@@ -112,7 +119,8 @@ template <
     typename ConnectorPartitioningHandleType = NotImplemented,
     typename ConnectorTransactionHandleType = NotImplemented,
     typename ConnectorMetadataUpdateHandleType = NotImplemented,
-    typename ConnectorDeleteTableHandleType = NotImplemented>
+    typename ConnectorDeleteTableHandleType = NotImplemented,
+    typename ConnectorIndexHandleType = NotImplemented>
 class ConnectorProtocolTemplate final : public ConnectorProtocol {
  public:
   void to_json(json& j, const std::shared_ptr<ConnectorTableHandle>& p)
@@ -204,6 +212,16 @@ class ConnectorProtocolTemplate final : public ConnectorProtocol {
     from_json_template<ConnectorDeleteTableHandleType>(j, p);
   }
 
+  void to_json(json& j, const std::shared_ptr<ConnectorIndexHandle>& p)
+      const final {
+    to_json_template<ConnectorIndexHandleType>(j, p);
+  }
+  void from_json(
+      const json& j,
+      std::shared_ptr<ConnectorIndexHandle>& p) const final {
+    from_json_template<ConnectorIndexHandleType>(j, p);
+  }
+
  private:
   template <typename DERIVED, typename BASE>
   static void to_json_template(
@@ -254,6 +272,7 @@ using SystemConnectorProtocol = ConnectorProtocolTemplate<
     SystemSplit,
     SystemPartitioningHandle,
     SystemTransactionHandle,
+    NotImplemented,
     NotImplemented>;
 
 } // namespace facebook::presto::protocol

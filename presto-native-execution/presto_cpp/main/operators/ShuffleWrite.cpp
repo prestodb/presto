@@ -59,29 +59,48 @@ class ShuffleWriteOperator : public Operator {
     return !noMoreInput_;
   }
 
+  /// The input of this operator has 3 columns:
+  /// (1) partition number (INTEGER);
+  /// (2) serialized key (VARBINARY)
+  /// (3) serialized data (VARBINARY)
+  ///
+  /// When replicateNullsAndAny is true, there is an extra boolean column that
+  /// indicated whether a row should be replicated to all partitions.
   void addInput(RowVectorPtr input) override {
+    constexpr int kPartition = 0;
+    constexpr int kKey = 1;
+    constexpr int kData = 2;
+    constexpr int kReplicateNullsAndAny = 3;
+
     checkCreateShuffleWriter();
-    auto partitions = input->childAt(0)->as<SimpleVector<int32_t>>();
-    auto serializedRows = input->childAt(1)->as<SimpleVector<StringView>>();
+    auto partitions = input->childAt(kPartition)->as<SimpleVector<int32_t>>();
+    auto serializedKeys = input->childAt(kKey)->as<SimpleVector<StringView>>();
+    auto serializedData = input->childAt(kData)->as<SimpleVector<StringView>>();
     SimpleVector<bool>* replicate = nullptr;
-    if (input->type()->size() == 3) {
-      replicate = input->childAt(2)->as<SimpleVector<bool>>();
+    if (input->type()->size() == 4) {
+      replicate =
+          input->childAt(kReplicateNullsAndAny)->as<SimpleVector<bool>>();
     }
 
     for (auto i = 0; i < input->size(); ++i) {
-      auto data = serializedRows->valueAt(i);
+      auto data = serializedData->valueAt(i);
+      auto key = serializedKeys->valueAt(i);
       if (replicate && replicate->valueAt(i)) {
         for (auto partition = 0; partition < numPartitions_; ++partition) {
           CALL_SHUFFLE(
               shuffle_->collect(
-                  partition, std::string_view(data.data(), data.size())),
+                  partition,
+                  std::string_view(key.data(), key.size()),
+                  std::string_view(data.data(), data.size())),
               "collect");
         }
       } else {
         auto partition = partitions->valueAt(i);
         CALL_SHUFFLE(
             shuffle_->collect(
-                partition, std::string_view(data.data(), data.size())),
+                partition,
+                std::string_view(key.data(), key.size()),
+                std::string_view(data.data(), data.size())),
             "collect");
       }
     }

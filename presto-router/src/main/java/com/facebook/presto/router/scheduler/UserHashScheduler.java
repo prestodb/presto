@@ -42,9 +42,4 @@ public class UserHashScheduler
     {
         this.candidates = candidates;
     }
-
-    public List<URI> getCandidates()
-    {
-        return candidates;
-    }
 }

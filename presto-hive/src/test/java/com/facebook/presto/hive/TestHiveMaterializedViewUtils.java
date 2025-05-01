@@ -623,6 +623,7 @@ public class TestHiveMaterializedViewUtils
     private static Table getTable(String tableName, List<Column> partitionColumns)
     {
         return new Table(
+                Optional.of("catalogName"),
                 SCHEMA_NAME,
                 tableName,
                 USER_NAME,

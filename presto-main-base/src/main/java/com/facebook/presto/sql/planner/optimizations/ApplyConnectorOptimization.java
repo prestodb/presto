@@ -27,6 +27,7 @@ import com.facebook.presto.spi.plan.DeleteNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.ExceptNode;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.IndexSourceNode;
 import com.facebook.presto.spi.plan.IntersectNode;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.LimitNode;
@@ -76,6 +77,7 @@ public class ApplyConnectorOptimization
             DistinctLimitNode.class,
             FilterNode.class,
             TableScanNode.class,
+            IndexSourceNode.class,
             LimitNode.class,
             SortNode.class,
             TopNNode.class,
@@ -212,6 +214,9 @@ public class ApplyConnectorOptimization
             if (node instanceof TableScanNode) {
                 builder.add(((TableScanNode) node).getTable().getConnectorId());
             }
+            else if (node instanceof IndexSourceNode) {
+                builder.add(((IndexSourceNode) node).getTableHandle().getConnectorId());
+            }
             else {
                 builder.add(EMPTY_CONNECTOR_ID);
             }
@@ -235,6 +240,10 @@ public class ApplyConnectorOptimization
             if (node instanceof TableScanNode) {
                 connectorIds = ImmutableSet.of(((TableScanNode) node).getTable().getConnectorId());
                 planNodeTypes = ImmutableSet.of(TableScanNode.class);
+            }
+            else if (node instanceof IndexSourceNode) {
+                connectorIds = ImmutableSet.of(((IndexSourceNode) node).getTableHandle().getConnectorId());
+                planNodeTypes = ImmutableSet.of(IndexSourceNode.class);
             }
             else {
                 connectorIds = ImmutableSet.of(EMPTY_CONNECTOR_ID);

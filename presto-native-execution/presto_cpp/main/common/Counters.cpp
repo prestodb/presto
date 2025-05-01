@@ -84,6 +84,8 @@ void registerPrestoMetrics() {
       kCounterNumBlockedWaitForConnectorDrivers,
       facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterNumBlockedYieldDrivers, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(kCounterOverloadedMem, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(kCounterOverloadedCpu, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterNumStuckDrivers, facebook::velox::StatType::AVG);
   DEFINE_METRIC(
       kCounterTotalPartitionedOutputBuffer, facebook::velox::StatType::AVG);

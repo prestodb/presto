@@ -97,6 +97,19 @@ If set to ``true``, disables the optimization in expression evaluation to delay 
 
 This should only be used for debugging purposes.
 
+``native_execution_type_rewrite_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When set to ``true``:
+  - Custom type names are peeled in the coordinator. Only the actual base type is preserved.
+  - ``CAST(col AS EnumType<T>)`` is rewritten as ``CAST(col AS <T>)``.
+  - ``ENUM_KEY(EnumType<T>)`` is rewritten as ``ELEMENT_AT(MAP(<T>, VARCHAR))``.
+
+This property can only be enabled with native execution.
+
 ``native_selective_nimble_reader_enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -439,3 +452,14 @@ If set to ``true``, enables scaling the table scan concurrency on each worker.
 Controls the ratio of available memory that can be used for scaling up table scans.
 A higher value allows more memory to be allocated for scaling up table scans,
 while a lower value limits the amount of memory used.
+
+``native_streaming_aggregation_eager_flush``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Controls the way streaming aggregation flushes output. We put the rows in output
+batch, as soon as the corresponding groups are fully aggregated. This is useful
+for reducing memory consumption, if the downstream operators are not sensitive to
+small batch size.

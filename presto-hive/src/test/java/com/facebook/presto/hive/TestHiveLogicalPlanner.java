@@ -930,6 +930,7 @@ public class TestHiveLogicalPlanner
     private static Partition createDummyPartition(Table table, String partitionName)
     {
         return Partition.builder()
+                .setCatalogName(Optional.of("hive"))
                 .setDatabaseName(table.getDatabaseName())
                 .setTableName(table.getTableName())
                 .setColumns(table.getDataColumns())

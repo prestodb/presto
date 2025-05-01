@@ -2298,130 +2298,6 @@ void from_json(const json& j, SessionRepresentation& p) {
       "sessionFunctions");
 }
 } // namespace facebook::presto::protocol
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-namespace facebook::presto::protocol {
-void to_json(json& j, const std::shared_ptr<ConnectorTableLayoutHandle>& p) {
-  if (p == nullptr) {
-    return;
-  }
-  String type = p->_type;
-  getConnectorProtocol(type).to_json(j, p);
-}
-
-void from_json(const json& j, std::shared_ptr<ConnectorTableLayoutHandle>& p) {
-  String type;
-  try {
-    type = p->getSubclassKey(j);
-  } catch (json::parse_error& e) {
-    throw ParseError(
-        std::string(e.what()) +
-        " ConnectorTableLayoutHandle  ConnectorTableLayoutHandle");
-  }
-  getConnectorProtocol(type).from_json(j, p);
-}
-} // namespace facebook::presto::protocol
-namespace facebook::presto::protocol {
-
-void to_json(json& j, const TableHandle& p) {
-  j = json::object();
-  to_json_key(
-      j,
-      "connectorId",
-      p.connectorId,
-      "TableHandle",
-      "ConnectorId",
-      "connectorId");
-  to_json_key(
-      j,
-      "connectorHandle",
-      p.connectorHandle,
-      "TableHandle",
-      "ConnectorTableHandle",
-      "connectorHandle");
-  to_json_key(
-      j,
-      "transaction",
-      p.transaction,
-      "TableHandle",
-      "ConnectorTransactionHandle",
-      "transaction");
-  to_json_key(
-      j,
-      "connectorTableLayout",
-      p.connectorTableLayout,
-      "TableHandle",
-      "ConnectorTableLayoutHandle",
-      "connectorTableLayout");
-}
-
-void from_json(const json& j, TableHandle& p) {
-  from_json_key(
-      j,
-      "connectorId",
-      p.connectorId,
-      "TableHandle",
-      "ConnectorId",
-      "connectorId");
-  from_json_key(
-      j,
-      "connectorHandle",
-      p.connectorHandle,
-      "TableHandle",
-      "ConnectorTableHandle",
-      "connectorHandle");
-  from_json_key(
-      j,
-      "transaction",
-      p.transaction,
-      "TableHandle",
-      "ConnectorTransactionHandle",
-      "transaction");
-  from_json_key(
-      j,
-      "connectorTableLayout",
-      p.connectorTableLayout,
-      "TableHandle",
-      "ConnectorTableLayoutHandle",
-      "connectorTableLayout");
-}
-} // namespace facebook::presto::protocol
-namespace facebook::presto::protocol {
-
-void to_json(json& j, const DeleteScanInfo& p) {
-  j = json::object();
-  to_json_key(j, "id", p.id, "DeleteScanInfo", "PlanNodeId", "id");
-  to_json_key(
-      j,
-      "tableHandle",
-      p.tableHandle,
-      "DeleteScanInfo",
-      "TableHandle",
-      "tableHandle");
-}
-
-void from_json(const json& j, DeleteScanInfo& p) {
-  from_json_key(j, "id", p.id, "DeleteScanInfo", "PlanNodeId", "id");
-  from_json_key(
-      j,
-      "tableHandle",
-      p.tableHandle,
-      "DeleteScanInfo",
-      "TableHandle",
-      "tableHandle");
-}
-} // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ExecutionWriterTarget>& p) {
   if (p == nullptr) {
@@ -2505,13 +2381,6 @@ void to_json(json& j, const TableWriteInfo& p) {
       "TableWriteInfo",
       "AnalyzeTableHandle",
       "analyzeTableHandle");
-  to_json_key(
-      j,
-      "deleteScanInfo",
-      p.deleteScanInfo,
-      "TableWriteInfo",
-      "DeleteScanInfo",
-      "deleteScanInfo");
 }
 
 void from_json(const json& j, TableWriteInfo& p) {
@@ -2529,13 +2398,6 @@ void from_json(const json& j, TableWriteInfo& p) {
       "TableWriteInfo",
       "AnalyzeTableHandle",
       "analyzeTableHandle");
-  from_json_key(
-      j,
-      "deleteScanInfo",
-      p.deleteScanInfo,
-      "TableWriteInfo",
-      "DeleteScanInfo",
-      "deleteScanInfo");
 }
 } // namespace facebook::presto::protocol
 /*
@@ -5778,8 +5640,7 @@ void to_json(json& j, const std::shared_ptr<ConnectorIndexHandle>& p) {
     return;
   }
   String type = p->_type;
-
-  throw TypeError(type + " no abstract type ConnectorIndexHandle ");
+  getConnectorProtocol(type).to_json(j, p);
 }
 
 void from_json(const json& j, std::shared_ptr<ConnectorIndexHandle>& p) {
@@ -5788,10 +5649,9 @@ void from_json(const json& j, std::shared_ptr<ConnectorIndexHandle>& p) {
     type = p->getSubclassKey(j);
   } catch (json::parse_error& e) {
     throw ParseError(
-        std::string(e.what()) + " ConnectorIndexHandle  ConnectorIndexHandle");
+        std::string(e.what()) + " ConnectorIndexHandle ConnectorIndexHandle");
   }
-
-  throw TypeError(type + " no abstract type ConnectorIndexHandle ");
+  getConnectorProtocol(type).from_json(j, p);
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
@@ -5914,6 +5774,13 @@ void to_json(json& j, const IndexJoinNode& p) {
       "criteria");
   to_json_key(
       j,
+      "filter",
+      p.filter,
+      "IndexJoinNode",
+      "std::shared_ptr<RowExpression>",
+      "filter");
+  to_json_key(
+      j,
       "probeHashVariable",
       p.probeHashVariable,
       "IndexJoinNode",
@@ -5953,6 +5820,13 @@ void from_json(const json& j, IndexJoinNode& p) {
       "IndexJoinNode",
       "List<EquiJoinClause>",
       "criteria");
+  from_json_key(
+      j,
+      "filter",
+      p.filter,
+      "IndexJoinNode",
+      "std::shared_ptr<RowExpression>",
+      "filter");
   from_json_key(
       j,
       "probeHashVariable",
@@ -5999,6 +5873,105 @@ void from_json(const json& j, std::shared_ptr<ColumnHandle>& p) {
     throw ParseError(std::string(e.what()) + " ColumnHandle  ColumnHandle");
   }
   getConnectorProtocol(type).from_json(j, p);
+}
+} // namespace facebook::presto::protocol
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+namespace facebook::presto::protocol {
+void to_json(json& j, const std::shared_ptr<ConnectorTableLayoutHandle>& p) {
+  if (p == nullptr) {
+    return;
+  }
+  String type = p->_type;
+  getConnectorProtocol(type).to_json(j, p);
+}
+
+void from_json(const json& j, std::shared_ptr<ConnectorTableLayoutHandle>& p) {
+  String type;
+  try {
+    type = p->getSubclassKey(j);
+  } catch (json::parse_error& e) {
+    throw ParseError(
+        std::string(e.what()) +
+        " ConnectorTableLayoutHandle  ConnectorTableLayoutHandle");
+  }
+  getConnectorProtocol(type).from_json(j, p);
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+
+void to_json(json& j, const TableHandle& p) {
+  j = json::object();
+  to_json_key(
+      j,
+      "connectorId",
+      p.connectorId,
+      "TableHandle",
+      "ConnectorId",
+      "connectorId");
+  to_json_key(
+      j,
+      "connectorHandle",
+      p.connectorHandle,
+      "TableHandle",
+      "ConnectorTableHandle",
+      "connectorHandle");
+  to_json_key(
+      j,
+      "transaction",
+      p.transaction,
+      "TableHandle",
+      "ConnectorTransactionHandle",
+      "transaction");
+  to_json_key(
+      j,
+      "connectorTableLayout",
+      p.connectorTableLayout,
+      "TableHandle",
+      "ConnectorTableLayoutHandle",
+      "connectorTableLayout");
+}
+
+void from_json(const json& j, TableHandle& p) {
+  from_json_key(
+      j,
+      "connectorId",
+      p.connectorId,
+      "TableHandle",
+      "ConnectorId",
+      "connectorId");
+  from_json_key(
+      j,
+      "connectorHandle",
+      p.connectorHandle,
+      "TableHandle",
+      "ConnectorTableHandle",
+      "connectorHandle");
+  from_json_key(
+      j,
+      "transaction",
+      p.transaction,
+      "TableHandle",
+      "ConnectorTransactionHandle",
+      "transaction");
+  from_json_key(
+      j,
+      "connectorTableLayout",
+      p.connectorTableLayout,
+      "TableHandle",
+      "ConnectorTableLayoutHandle",
+      "connectorTableLayout");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
@@ -6524,6 +6497,13 @@ void to_json(json& j, const JsonBasedUdfFunctionMetadata& p) {
       "JsonBasedUdfFunctionMetadata",
       "List<TypeVariableConstraint>",
       "typeVariableConstraints");
+  to_json_key(
+      j,
+      "longVariableConstraints",
+      p.longVariableConstraints,
+      "JsonBasedUdfFunctionMetadata",
+      "List<LongVariableConstraint>",
+      "longVariableConstraints");
 }
 
 void from_json(const json& j, JsonBasedUdfFunctionMetadata& p) {
@@ -6604,6 +6584,13 @@ void from_json(const json& j, JsonBasedUdfFunctionMetadata& p) {
       "JsonBasedUdfFunctionMetadata",
       "List<TypeVariableConstraint>",
       "typeVariableConstraints");
+  from_json_key(
+      j,
+      "longVariableConstraints",
+      p.longVariableConstraints,
+      "JsonBasedUdfFunctionMetadata",
+      "List<LongVariableConstraint>",
+      "longVariableConstraints");
 }
 } // namespace facebook::presto::protocol
 /*

@@ -98,7 +98,7 @@ public class TestPrestoSparkTaskExecution
                 planFragment,
                 new TestingOutputBuffer(),
                 new TestingRemoteSourceFactory(),
-                new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()),
+                new TableWriteInfo(Optional.empty(), Optional.empty()),
                 new ArrayList<>());
     }
 

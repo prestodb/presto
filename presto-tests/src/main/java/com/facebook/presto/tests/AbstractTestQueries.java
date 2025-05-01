@@ -7426,10 +7426,26 @@ public abstract class AbstractTestQueries
         // null in both sides
         sql = "with t1 as (select * from (values 1, 1, 2, 2, 3, 3, null) t(k)), t2 as (select * from (values 1, 1, 2, 2, null) t(k)) select t1.* from t1 left join t2 on t1.k=t2.k where t2.k is null";
         assertQuery(enableOptimization, sql, "values 3, 3, null");
+        sql = "with t1 as (select * from (values 1, 1, 2, 2, 3, 3, null) t(k)), t2 as (select * from (values 1, 1, 2, 2, null, null, null, null) t(k)) select t1.* from t1 left join t2 on t1.k=t2.k where t2.k is null";
+        assertQuery(enableOptimization, sql, "values 3, 3, null");
+        assertNotEquals(computeActual("EXPLAIN(TYPE DISTRIBUTED) " + sql).getOnlyValue().toString().indexOf("Aggregate"), -1);
 
         // null in right side
         sql = "with t1 as (select * from (values 1, 1, 2, 2, 3, 3) t(k)), t2 as (select * from (values 1, 1, 2, 2, null) t(k)) select t1.* from t1 left join t2 on t1.k=t2.k where t2.k is null";
         assertQuery(enableOptimization, sql, "values 3, 3");
+        sql = "with t1 as (select * from (values 1, 1, 2, 2, 3, 3) t(k)), t2 as (select * from (values 1, 1, 2, 2, null, null, null, null) t(k)) select t1.* from t1 left join t2 on t1.k=t2.k where t2.k is null";
+        assertQuery(enableOptimization, sql, "values 3, 3");
+        assertNotEquals(computeActual("EXPLAIN(TYPE DISTRIBUTED) " + sql).getOnlyValue().toString().indexOf("Aggregate"), -1);
+
+        // right side already has distinct should apply no more distinct
+        sql = "with t1 as (select * from (values 1, 1, 2, 2, 3, 3) t(k)), t2 as (select distinct(k) from (values 1, 1, 2, 2, null) t(k)) select t1.* from t1 left join t2 on t1.k=t2.k where t2.k is null";
+        assertQuery(enableOptimization, sql, "values 3, 3");
+        assertNotEquals(computeActual("EXPLAIN(TYPE DISTRIBUTED) " + sql).getOnlyValue().toString().indexOf("Aggregate"), -1);
+
+        // right side has group by but not distinct
+        sql = "with t1 as (select * from (values 1, 1, 2, 2, 3, 3) t(k)), t2 as (select k from (values 1, 1, 2, 2, null) t(k) group by k having count(1) > 1) select t1.* from t1 left join t2 on t1.k=t2.k where t2.k is null";
+        assertQuery(enableOptimization, sql, "values 3, 3");
+        assertNotEquals(computeActual("EXPLAIN(TYPE DISTRIBUTED) " + sql).getOnlyValue().toString().indexOf("Aggregate"), -1);
 
         // null in left side
         sql = "with t1 as (select * from (values 1, 1, 2, 2, 3, 3, null) t(k)), t2 as (select * from (values 1, 1, 2, 2) t(k)) select t1.* from t1 left join t2 on t1.k=t2.k where t2.k is null";

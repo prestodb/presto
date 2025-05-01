@@ -47,8 +47,8 @@ public class PrestoSparkAccessControlChecker
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
-    public IPrestoSparkQueryExecution createExecution(Session session, BuiltInQueryPreparer.BuiltInPreparedQuery preparedQuery, QueryStateTimer queryStateTimer, WarningCollector warningCollector)
+    public IPrestoSparkQueryExecution createExecution(Session session, BuiltInQueryPreparer.BuiltInPreparedQuery preparedQuery, QueryStateTimer queryStateTimer, WarningCollector warningCollector, String query)
     {
-        return new PrestoSparkAccessControlCheckerExecution(session, metadata, sqlParser, accessControl, queryExplainer, preparedQuery, queryStateTimer, warningCollector);
+        return new PrestoSparkAccessControlCheckerExecution(session, metadata, sqlParser, accessControl, queryExplainer, preparedQuery, queryStateTimer, warningCollector, query);
     }
 }

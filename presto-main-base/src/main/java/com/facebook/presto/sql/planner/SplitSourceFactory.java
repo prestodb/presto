@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
-import com.facebook.presto.execution.scheduler.TableWriteInfo.DeleteScanInfo;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
@@ -67,7 +66,6 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
@@ -146,14 +144,7 @@ public class SplitSourceFactory
         public Map<PlanNodeId, SplitSource> visitTableScan(TableScanNode node, Context context)
         {
             // get dataSource for table
-            TableHandle table;
-            Optional<DeleteScanInfo> deleteScanInfo = context.getTableWriteInfo().getDeleteScanInfo();
-            if (deleteScanInfo.isPresent() && deleteScanInfo.get().getId() == node.getId()) {
-                table = deleteScanInfo.get().getTableHandle();
-            }
-            else {
-                table = node.getTable();
-            }
+            TableHandle table = node.getTable();
             Supplier<SplitSource> splitSourceSupplier = () -> splitSourceProvider.getSplits(
                     session,
                     table,

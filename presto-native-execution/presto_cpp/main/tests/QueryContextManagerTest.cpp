@@ -60,6 +60,7 @@ TEST_F(QueryContextManagerTest, nativeSessionProperties) {
           {"aggregation_spill_all", "true"},
           {"native_expression_max_array_size_in_reduce", "99999"},
           {"native_expression_max_compiled_regexes", "54321"},
+          {"request_data_sizes_max_wait_sec", "20"},
       }};
   protocol::TaskUpdateRequest updateRequest;
   updateRequest.session = session;
@@ -77,6 +78,7 @@ TEST_F(QueryContextManagerTest, nativeSessionProperties) {
   EXPECT_EQ(queryCtx->queryConfig().spillWriteBufferSize(), 1024);
   EXPECT_EQ(queryCtx->queryConfig().exprMaxArraySizeInReduce(), 99999);
   EXPECT_EQ(queryCtx->queryConfig().exprMaxCompiledRegexes(), 54321);
+  EXPECT_EQ(queryCtx->queryConfig().requestDataSizesMaxWaitSec(), 20);
 }
 
 TEST_F(QueryContextManagerTest, nativeConnectorSessionProperties) {
@@ -123,6 +125,8 @@ TEST_F(QueryContextManagerTest, defaultSessionProperties) {
       defaultQC->validateOutputFromOperators());
   EXPECT_EQ(
       queryConfig.spillWriteBufferSize(), defaultQC->spillWriteBufferSize());
+  EXPECT_EQ(
+      queryConfig.requestDataSizesMaxWaitSec(), defaultQC->requestDataSizesMaxWaitSec());
 }
 
 TEST_F(QueryContextManagerTest, overridingSessionProperties) {
@@ -155,6 +159,9 @@ TEST_F(QueryContextManagerTest, overridingSessionProperties) {
     EXPECT_EQ(
         queryCtx->queryConfig().orderBySpillEnabled(),
         systemConfig->orderBySpillEnabled());
+    EXPECT_EQ(
+        queryCtx->queryConfig().requestDataSizesMaxWaitSec(),
+        systemConfig->requestDataSizesMaxWaitSec());
   }
   {
     protocol::SessionRepresentation session{
@@ -163,7 +170,8 @@ TEST_F(QueryContextManagerTest, overridingSessionProperties) {
             {"spill_file_create_config", "encoding:replica_2"},
             {"spill_enabled", "true"},
             {"aggregation_spill_enabled", "false"},
-            {"join_spill_enabled", "true"}}};
+            {"join_spill_enabled", "true"},
+            {"request_data_sizes_max_wait_sec", "12"}}};
     protocol::TaskUpdateRequest updateRequest;
     updateRequest.session = session;
     auto queryCtx =
@@ -196,6 +204,7 @@ TEST_F(QueryContextManagerTest, overridingSessionProperties) {
     EXPECT_EQ(
         queryCtx->queryConfig().orderBySpillEnabled(),
         systemConfig->orderBySpillEnabled());
+    EXPECT_EQ(queryCtx->queryConfig().requestDataSizesMaxWaitSec(), 12);
   }
 }
 

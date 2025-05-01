@@ -562,7 +562,7 @@ The latest version of Presto is currently |version|.
     docker run --name presto prestodb:latest
 
 You'll see a series of logs as Presto starts, ending with ``SERVER STARTED`` signaling that it is ready to receive queries.
-We'll use the `Presto CLI <https://prestodb.io/docs/current/installation/cli.html>`_ to connect to Presto that we put inside the image
+We'll use the `Presto CLI <https://prestodb.io/docs/current/clients/presto-cli.html>`_ to connect to Presto that we put inside the image
 using a separate Terminal window.
 
 .. code-block:: none

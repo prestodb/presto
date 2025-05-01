@@ -58,7 +58,7 @@
         <dep.joda.version>2.12.7</dep.joda.version>
         <dep.tempto.version>1.54</dep.tempto.version>
         <dep.testng.version>7.5</dep.testng.version>
-        <dep.lucene.version>8.10.0</dep.lucene.version>
+        <dep.lucene.version>8.11.3</dep.lucene.version>
         <dep.assertj-core.version>3.8.0</dep.assertj-core.version>
         <dep.logback.version>1.2.13</dep.logback.version>
         <dep.parquet.version>1.13.1</dep.parquet.version>
@@ -218,6 +218,19 @@
 
     <dependencyManagement>
         <dependencies>
+
+            <dependency>
+                <groupId>commons-beanutils</groupId>
+                <artifactId>commons-beanutils</artifactId>
+                <version>1.9.4</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.codehaus.plexus</groupId>
+                <artifactId>plexus-utils</artifactId>
+                <version>3.6.0</version>
+            </dependency>
+
             <dependency>
                 <groupId>com.squareup.okio</groupId>
                 <artifactId>okio-jvm</artifactId>
@@ -918,6 +931,12 @@
             </dependency>
 
             <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-base-arrow-flight</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
                 <groupId>com.fasterxml.jackson.module</groupId>
                 <artifactId>jackson-module-afterburner</artifactId>
                 <version>${dep.jackson.version}</version>
@@ -1445,7 +1464,7 @@
             <dependency>
                 <groupId>com.microsoft.sqlserver</groupId>
                 <artifactId>mssql-jdbc</artifactId>
-                <version>7.0.0.jre8</version>
+                <version>12.8.1.jre8</version>
             </dependency>
 
             <dependency>

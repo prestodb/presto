@@ -15,6 +15,7 @@ package com.facebook.presto.password.file;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
+import com.facebook.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
@@ -38,6 +39,7 @@ public class FileConfig
 
     @Config("file.password-file")
     @ConfigDescription("Location of the file that provides user names and passwords")
+    @ConfigSecuritySensitive
     public FileConfig setPasswordFile(File passwordFile)
     {
         this.passwordFile = passwordFile;

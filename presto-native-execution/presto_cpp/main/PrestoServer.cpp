@@ -527,8 +527,10 @@ void PrestoServer::run() {
   addServerPeriodicTasks();
   addAdditionalPeriodicTasks();
   periodicTaskManager_->start();
-
-  addMemoryCheckerPeriodicTask();
+  createPeriodicMemoryChecker();
+  if (memoryChecker_ != nullptr) {
+    memoryChecker_->start();
+  }
 
   auto setTaskUriCb = [&](bool useHttps, int port) {
     std::string taskUri;
@@ -618,11 +620,12 @@ void PrestoServer::run() {
   }
 
   PRESTO_SHUTDOWN_LOG(INFO) << "Stopping all periodic tasks";
+
+  if (memoryChecker_ != nullptr) {
+    memoryChecker_->stop();
+  }
   periodicTaskManager_->stop();
-
   stopAdditionalPeriodicTasks();
-
-  stopMemoryCheckerPeriodicTask();
 
   // Destroy entities here to ensure we won't get any messages after Server
   // object is gone and to have nice log in case shutdown gets stuck.
@@ -1032,18 +1035,6 @@ void PrestoServer::updateAnnouncerDetails() {
   }
 }
 
-void PrestoServer::addMemoryCheckerPeriodicTask() {
-  if (folly::Singleton<PeriodicMemoryChecker>::try_get()) {
-    folly::Singleton<PeriodicMemoryChecker>::try_get()->start();
-  }
-}
-
-void PrestoServer::stopMemoryCheckerPeriodicTask() {
-  if (folly::Singleton<PeriodicMemoryChecker>::try_get()) {
-    folly::Singleton<PeriodicMemoryChecker>::try_get()->stop();
-  }
-}
-
 void PrestoServer::addServerPeriodicTasks() {
   periodicTaskManager_->addTask(
       [server = this]() { server->populateMemAndCPUInfo(); },
@@ -1107,6 +1098,12 @@ void PrestoServer::addServerPeriodicTasks() {
   }
 }
 
+void PrestoServer::createPeriodicMemoryChecker() {
+  // The call below will either produce nullptr or unique pointer to an instance
+  // of LinuxMemoryChecker.
+  memoryChecker_ = createMemoryChecker();
+}
+
 std::shared_ptr<velox::exec::TaskListener> PrestoServer::getTaskListener() {
   return nullptr;
 }
@@ -1117,7 +1114,7 @@ PrestoServer::getExprSetListener() {
 }
 
 std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>>
-PrestoServer::getHttpServerFilters() {
+PrestoServer::getHttpServerFilters() const {
   std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>> filters;
   const auto* systemConfig = SystemConfig::instance();
   if (systemConfig->enableHttpAccessLog()) {
@@ -1126,10 +1123,7 @@ PrestoServer::getHttpServerFilters() {
   }
 
   if (systemConfig->enableHttpStatsFilter()) {
-    auto additionalFilters = getAdditionalHttpServerFilters();
-    for (auto& filter : additionalFilters) {
-      filters.push_back(std::move(filter));
-    }
+    filters.push_back(std::make_unique<http::filters::StatsFilterFactory>());
   }
 
   if (systemConfig->enableHttpEndpointLatencyFilter()) {
@@ -1143,13 +1137,6 @@ PrestoServer::getHttpServerFilters() {
   // without JWT enabled.
   filters.push_back(
       std::make_unique<http::filters::InternalAuthenticationFilterFactory>());
-  return filters;
-}
-
-std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>>
-PrestoServer::getAdditionalHttpServerFilters() {
-  std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>> filters;
-  filters.emplace_back(std::make_unique<http::filters::StatsFilterFactory>());
   return filters;
 }
 
@@ -1371,6 +1358,7 @@ void PrestoServer::unregisterFileReadersAndWriters() {
 void PrestoServer::registerStatsCounters() {
   registerPrestoMetrics();
   velox::registerVeloxMetrics();
+  velox::filesystems::registerS3Metrics();
 }
 
 std::string PrestoServer::getLocalIp() const {
@@ -1438,7 +1426,54 @@ void PrestoServer::populateMemAndCPUInfo() {
   });
   RECORD_METRIC_VALUE(kCounterNumQueryContexts, numContexts);
   cpuMon_.update();
+  checkOverload();
   **memoryInfo_.wlock() = std::move(memoryInfo);
+}
+
+void PrestoServer::checkOverload() {
+  auto systemConfig = SystemConfig::instance();
+
+  const auto overloadedThresholdMemBytes =
+      systemConfig->workerOverloadedThresholdMemGb() * 1024 * 1024 * 1024;
+  if (overloadedThresholdMemBytes > 0) {
+    const auto currentUsedMemoryBytes = (memoryChecker_ != nullptr)
+        ? memoryChecker_->cachedSystemUsedMemoryBytes()
+        : 0;
+    const bool isMemOverloaded =
+        (currentUsedMemoryBytes > overloadedThresholdMemBytes);
+    if (isMemOverloaded) {
+      LOG(WARNING) << "Server memory is overloaded. Currently used: "
+                   << velox::succinctBytes(currentUsedMemoryBytes)
+                   << ", threshold: "
+                   << velox::succinctBytes(overloadedThresholdMemBytes);
+    } else if (isMemOverloaded_) {
+      LOG(INFO) << "Server memory is no longer overloaded. Currently used: "
+                << velox::succinctBytes(currentUsedMemoryBytes)
+                << ", threshold: "
+                << velox::succinctBytes(overloadedThresholdMemBytes);
+    }
+    RECORD_METRIC_VALUE(kCounterOverloadedMem, isMemOverloaded ? 100 : 0);
+    isMemOverloaded_ = isMemOverloaded;
+  }
+
+  const auto overloadedThresholdCpuPct =
+      systemConfig->workerOverloadedThresholdCpuPct();
+  if (overloadedThresholdCpuPct > 0) {
+    const auto currentUsedCpuPct = cpuMon_.getCPULoadPct();
+    const bool isCpuOverloaded =
+        (currentUsedCpuPct > overloadedThresholdCpuPct);
+    if (isCpuOverloaded) {
+      LOG(WARNING) << "Server CPU is overloaded. Currently used: "
+                   << currentUsedCpuPct
+                   << "%, threshold: " << overloadedThresholdCpuPct << "%";
+    } else if (isCpuOverloaded_) {
+      LOG(INFO) << "Server CPU is no longer overloaded. Currently used: "
+                << currentUsedCpuPct
+                << "%, threshold: " << overloadedThresholdCpuPct << "%";
+    }
+    RECORD_METRIC_VALUE(kCounterOverloadedCpu, isCpuOverloaded ? 100 : 0);
+    isCpuOverloaded_ = isCpuOverloaded;
+  }
 }
 
 static protocol::Duration getUptime(

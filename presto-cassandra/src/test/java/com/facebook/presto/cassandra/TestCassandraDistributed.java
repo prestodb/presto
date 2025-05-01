@@ -102,6 +102,12 @@ public class TestCassandraDistributed
     }
 
     @Override
+    public void testNonAutoCommitTransactionWithFailAndRollback()
+    {
+        // Ignore since Cassandra connector currently does not support create table
+    }
+
+    @Override
     public void testUpdate()
     {
         // Updates are not supported by the connector

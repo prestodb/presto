@@ -32,12 +32,16 @@ public class TestKafkaConnectorConfig
                 .setTableDescriptionSupplier(FileTableDescriptionSupplier.NAME)
                 .setHideInternalColumns(true)
                 .setMaxPartitionFetchBytes(1048576)
-                .setMaxPollRecords(500));
+                .setMaxPollRecords(500)
+                .setResourceConfigFiles(""));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
+        String tempFile1 = "/temp/path/file1";
+        String tempFile2 = "/temp/path/file2";
+
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("kafka.table-description-supplier", "test")
                 .put("kafka.cluster-metadata-supplier", "test")
@@ -46,6 +50,7 @@ public class TestKafkaConnectorConfig
                 .put("kafka.hide-internal-columns", "false")
                 .put("kafka.max-partition-fetch-bytes", "1024")
                 .put("kafka.max-poll-records", "1000")
+                .put("kafka.config.resources", tempFile1 + "," + tempFile2)
                 .build();
 
         KafkaConnectorConfig expected = new KafkaConnectorConfig()
@@ -55,7 +60,8 @@ public class TestKafkaConnectorConfig
                 .setKafkaConnectTimeout("1h")
                 .setHideInternalColumns(false)
                 .setMaxPartitionFetchBytes(1024)
-                .setMaxPollRecords(1000);
+                .setMaxPollRecords(1000)
+                .setResourceConfigFiles(tempFile1 + "," + tempFile2);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

@@ -72,7 +72,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import io.airlift.slice.Slice;
 import org.apache.hadoop.fs.Path;
+import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.BaseTable;
+import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.DeleteFiles;
 import org.apache.iceberg.FileFormat;
@@ -113,6 +115,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
@@ -123,6 +126,7 @@ import static com.facebook.presto.hive.MetadataUtils.getCombinedRemainingPredica
 import static com.facebook.presto.hive.MetadataUtils.getDiscretePredicates;
 import static com.facebook.presto.hive.MetadataUtils.getPredicate;
 import static com.facebook.presto.hive.MetadataUtils.getSubfieldPredicate;
+import static com.facebook.presto.hive.MetadataUtils.isEntireColumn;
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.DATA_SEQUENCE_NUMBER_COLUMN_HANDLE;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.DATA_SEQUENCE_NUMBER_COLUMN_METADATA;
@@ -173,7 +177,6 @@ import static com.facebook.presto.iceberg.SortFieldUtils.toSortFields;
 import static com.facebook.presto.iceberg.TableStatisticsMaker.getSupportedColumnStatistics;
 import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
-import static com.facebook.presto.iceberg.changelog.ChangelogOperation.INSERT;
 import static com.facebook.presto.iceberg.changelog.ChangelogOperation.UPDATE_AFTER;
 import static com.facebook.presto.iceberg.changelog.ChangelogOperation.UPDATE_BEFORE;
 import static com.facebook.presto.iceberg.changelog.ChangelogUtil.getRowTypeFromColumnMeta;
@@ -309,11 +312,6 @@ public abstract class IcebergAbstractMetadata
     public static Subfield toSubfield(ColumnHandle columnHandle)
     {
         return new Subfield(((IcebergColumnHandle) columnHandle).getName(), ImmutableList.of());
-    }
-
-    protected static boolean isEntireColumn(Subfield subfield)
-    {
-        return subfield.getPath().isEmpty();
     }
 
     @Override
@@ -495,7 +493,7 @@ public abstract class IcebergAbstractMetadata
     @Override
     public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
-        return finishWrite(session, (IcebergOutputTableHandle) tableHandle, fragments, INSERT);
+        return finishInsert(session, (IcebergOutputTableHandle) tableHandle, fragments);
     }
 
     protected ConnectorInsertTableHandle beginIcebergTableInsert(ConnectorSession session, IcebergTableHandle table, Table icebergTable)
@@ -542,7 +540,39 @@ public abstract class IcebergAbstractMetadata
     @Override
     public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
-        return finishWrite(session, (IcebergInsertTableHandle) insertHandle, fragments, INSERT);
+        return finishInsert(session, (IcebergInsertTableHandle) insertHandle, fragments);
+    }
+
+    private Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, IcebergWritableTableHandle writableTableHandle, Collection<Slice> fragments)
+    {
+        if (fragments.isEmpty()) {
+            transaction.commitTransaction();
+            return Optional.empty();
+        }
+
+        List<CommitTaskData> commitTasks = fragments.stream()
+                .map(slice -> commitTaskCodec.fromJson(slice.getBytes()))
+                .collect(toImmutableList());
+
+        Table icebergTable = transaction.table();
+        AppendFiles appendFiles = transaction.newAppend();
+
+        ImmutableSet.Builder<String> writtenFiles = ImmutableSet.builder();
+        commitTasks.forEach(task -> handleInsertTask(task, icebergTable, appendFiles, writtenFiles));
+
+        try {
+            appendFiles.set(PRESTO_QUERY_ID, session.getQueryId());
+            appendFiles.commit();
+            transaction.commitTransaction();
+        }
+        catch (ValidationException e) {
+            log.error(e, "ValidationException in finishWrite");
+            throw new PrestoException(ICEBERG_COMMIT_ERROR, "Failed to commit Iceberg update to table: " + writableTableHandle.getTableName(), e);
+        }
+
+        return Optional.of(new HiveWrittenPartitions(commitTasks.stream()
+                .map(CommitTaskData::getPath)
+                .collect(toImmutableList())));
     }
 
     private Optional<ConnectorOutputMetadata> finishWrite(ConnectorSession session, IcebergWritableTableHandle writableTableHandle, Collection<Slice> fragments, ChangelogOperation operationType)
@@ -592,6 +622,15 @@ public abstract class IcebergAbstractMetadata
                 .collect(toImmutableList())));
     }
 
+    private void handleInsertTask(CommitTaskData task, Table icebergTable, AppendFiles appendFiles, ImmutableSet.Builder<String> writtenFiles)
+    {
+        PartitionSpec partitionSpec = icebergTable.specs().get(task.getPartitionSpecId());
+        Type[] partitionColumnTypes = partitionSpec.fields().stream()
+                .map(field -> field.transform().getResultType(icebergTable.schema().findType(field.sourceId())))
+                .toArray(Type[]::new);
+        handleFinishData(task, icebergTable, partitionSpec, partitionColumnTypes, appendFiles::appendFile, writtenFiles);
+    }
+
     private void handleTask(CommitTaskData task, Table icebergTable, RowDelta rowDelta, ImmutableSet.Builder<String> writtenFiles, ImmutableSet.Builder<String> referencedDataFiles)
     {
         PartitionSpec partitionSpec = icebergTable.specs().get(task.getPartitionSpecId());
@@ -603,7 +642,7 @@ public abstract class IcebergAbstractMetadata
                 handleFinishPositionDeletes(task, partitionSpec, partitionColumnTypes, rowDelta, writtenFiles, referencedDataFiles);
                 break;
             case DATA:
-                handleFinishData(task, icebergTable, partitionSpec, partitionColumnTypes, rowDelta, writtenFiles, referencedDataFiles);
+                handleFinishData(task, icebergTable, partitionSpec, partitionColumnTypes, rowDelta::addRows, writtenFiles);
                 break;
             default:
                 throw new UnsupportedOperationException("Unsupported task content: " + task.getContent());
@@ -630,7 +669,7 @@ public abstract class IcebergAbstractMetadata
         task.getReferencedDataFile().ifPresent(referencedDataFiles::add);
     }
 
-    private void handleFinishData(CommitTaskData task, Table icebergTable, PartitionSpec partitionSpec, Type[] partitionColumnTypes, RowDelta rowDelta, ImmutableSet.Builder<String> writtenFiles, ImmutableSet.Builder<String> referencedDataFiles)
+    private void handleFinishData(CommitTaskData task, Table icebergTable, PartitionSpec partitionSpec, Type[] partitionColumnTypes, Consumer<DataFile> dataFileConsumer, ImmutableSet.Builder<String> writtenFiles)
     {
         DataFiles.Builder builder = DataFiles.builder(partitionSpec)
                 .withPath(task.getPath())
@@ -643,7 +682,7 @@ public abstract class IcebergAbstractMetadata
                     .orElseThrow(() -> new VerifyException("No partition data for partitioned table"));
             builder.withPartition(PartitionData.fromJson(partitionDataJson, partitionColumnTypes));
         }
-        rowDelta.addRows(builder.build());
+        dataFileConsumer.accept(builder.build());
         writtenFiles.add(task.getPath());
     }
 
