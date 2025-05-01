@@ -303,12 +303,11 @@ class SessionProperties {
   static constexpr const char* kTableScanScaleUpMemoryUsageRatio =
       "native_table_scan_scale_up_memory_usage_ratio";
 
-  /// Controls the way streaming aggregation flushes output. We put the rows in
-  /// output batch, as soon as the corresponding groups are fully aggregated.
-  /// This is useful for reducing memory consumption, if the downstream
-  /// operators are not sensitive to small batch size.
-  static constexpr const char* kStreamingAggregationEagerFlush =
-      "native_streaming_aggregation_eager_flush";
+  /// In streaming aggregation, wait until we have enough number of output rows
+  /// to produce a batch of size specified by this. If set to 0, then
+  /// Operator::outputBatchRows will be used as the min output batch rows.
+  static constexpr const char* kStreamingAggregationMinOutputBatchRows =
+      "native_streaming_aggregation_min_output_batch_rows";
 
   SessionProperties();
 

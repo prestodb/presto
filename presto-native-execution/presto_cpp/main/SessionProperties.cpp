@@ -473,15 +473,14 @@ SessionProperties::SessionProperties() {
       std::to_string(c.tableScanScaleUpMemoryUsageRatio()));
 
   addSessionProperty(
-      kStreamingAggregationEagerFlush,
-      "Controls the way streaming aggregation flushes output. We put "
-      "the rows in output batch, as soon as the corresponding groups are fully "
-      "aggregated. This is useful for reducing memory consumption, if the "
-      "downstream operators are not sensitive to small batch size.",
-      BOOLEAN(),
+      kStreamingAggregationMinOutputBatchRows,
+      "In streaming aggregation, wait until we have enough number of output rows"
+      "to produce a batch of size specified by this. If set to 0, then"
+      "Operator::outputBatchRows will be used as the min output batch rows.",
+      INTEGER(),
       false,
-      QueryConfig::kStreamingAggregationEagerFlush,
-      std::to_string(c.streamingAggregationEagerFlush()));
+      QueryConfig::kStreamingAggregationMinOutputBatchRows,
+      std::to_string(c.streamingAggregationMinOutputBatchRows()));
 }
 
 const std::unordered_map<std::string, std::shared_ptr<SessionProperty>>&
