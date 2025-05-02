@@ -40,8 +40,7 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-
-import javax.inject.Singleton;
+import jakarta.inject.Singleton;
 
 import static com.facebook.airlift.configuration.ConditionalModule.installModuleIf;
 import static com.facebook.airlift.discovery.client.DiscoveryBinder.discoveryBinder;

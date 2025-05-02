@@ -17,9 +17,8 @@ package com.facebook.presto.common.block;
 import com.facebook.presto.common.NotSupportedException;
 import com.facebook.presto.common.type.Type;
 import io.airlift.slice.SliceInput;
+import jakarta.annotation.Nullable;
 import org.openjdk.jol.info.ClassLayout;
-
-import javax.annotation.Nullable;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Arrays;
