@@ -126,6 +126,12 @@
                 <artifactId>opencensus-contrib-http-util</artifactId>
                 <version>0.31.1</version>
             </dependency>
+
+            <dependency>
+                <groupId>javax.annotation</groupId>
+                <artifactId>javax.annotation-api</artifactId>
+                <version>1.3.2</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -252,13 +258,13 @@
         </dependency>
 
         <dependency>
-            <groupId>javax.validation</groupId>
-            <artifactId>validation-api</artifactId>
+            <groupId>jakarta.validation</groupId>
+            <artifactId>jakarta.validation-api</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>javax.inject</groupId>
-            <artifactId>javax.inject</artifactId>
+            <groupId>jakarta.inject</groupId>
+            <artifactId>jakarta.inject-api</artifactId>
         </dependency>
 
         <dependency>
@@ -389,7 +395,7 @@
                         <requireUpperBoundDeps>
                             <excludes combine.children="append">
                                 <exclude>com.fasterxml.jackson.core:jackson-core</exclude>
-                                <exclude>javax.annotation:javax.annotation-api</exclude>
+                                <exclude>jakarta.annotation:jakarta.annotation-api</exclude>
                                 <exclude>com.fasterxml.jackson.core:jackson-databind</exclude>
                                 <exclude>com.google.api.grpc:proto-google-common-protos</exclude>
                             </excludes>
@@ -406,6 +412,16 @@
                         <!--Run this after uncommenting properties below-->
                         <exclude>**/TestBigQueryIntegrationSmokeTest.java</exclude>
                     </excludes>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <ignoredNonTestScopedDependencies>
+                        <ignoredNonTestScopedDependency>com.facebook.airlift:log-manager</ignoredNonTestScopedDependency>
+                    </ignoredNonTestScopedDependencies>
                 </configuration>
             </plugin>
         </plugins>
