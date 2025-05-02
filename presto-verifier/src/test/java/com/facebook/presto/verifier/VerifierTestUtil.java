@@ -38,11 +38,10 @@ import com.facebook.presto.verifier.source.VerifierDao;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
+import jakarta.inject.Provider;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
-
-import javax.inject.Provider;
 
 import java.util.HashMap;
 import java.util.Map;

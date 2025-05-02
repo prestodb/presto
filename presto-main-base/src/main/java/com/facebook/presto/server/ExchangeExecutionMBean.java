@@ -15,10 +15,9 @@ package com.facebook.presto.server;
 
 import com.facebook.airlift.concurrent.ThreadPoolExecutorMBean;
 import com.facebook.presto.operator.ForExchange;
+import jakarta.inject.Inject;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.inject.Inject;
 
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;

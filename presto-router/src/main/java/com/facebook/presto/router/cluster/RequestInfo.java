@@ -15,8 +15,7 @@ package com.facebook.presto.router.cluster;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.List;
 import java.util.Optional;
