@@ -13,14 +13,13 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.airlift.concurrent.NotThreadSafe;
 import com.facebook.presto.hive.HiveSplit.BucketConversion;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.openjdk.jol.info.ClassLayout;
-
-import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.List;
 import java.util.Map;

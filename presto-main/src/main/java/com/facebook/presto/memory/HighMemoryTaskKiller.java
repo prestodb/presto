@@ -27,10 +27,10 @@ import com.google.common.base.Ticker;
 import com.google.common.collect.ListMultimap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
+import jakarta.inject.Inject;
 
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
-import javax.inject.Inject;
 import javax.management.JMException;
 import javax.management.Notification;
 import javax.management.NotificationListener;

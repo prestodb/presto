@@ -17,12 +17,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.airlift.tpch.TpchColumn;
 import io.airlift.tpch.TpchTable;
 
+import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.net.URL;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.Optional;
 
 import static com.facebook.presto.tpch.util.Optionals.withBoth;
@@ -58,7 +60,7 @@ public class TableStatisticsDataRepository
             objectMapper
                     .writerWithDefaultPrettyPrinter()
                     .writeValue(file, tableStatisticsData);
-            try (FileWriter fileWriter = new FileWriter(file, true)) {
+            try (BufferedWriter fileWriter = Files.newBufferedWriter(file.toPath(), StandardOpenOption.CREATE, StandardOpenOption.WRITE)) {
                 fileWriter.append('\n');
             }
         }
