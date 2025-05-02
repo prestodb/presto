@@ -248,7 +248,7 @@ void validateRangeImpl(time_point<TDuration> timePoint) {
           std::chrono::seconds(std::numeric_limits<int64_t>::min() / 1000) ||
       timePoint.time_since_epoch() >
           std::chrono::seconds(std::numeric_limits<int64_t>::max() / 1000)) {
-    VELOX_FAIL_UNSUPPORTED_INPUT_UNCATCHABLE(
+    VELOX_USER_FAIL(
         "Timepoint is outside of supported timestamp seconds since epoch range: [{}, {}], got {}",
         std::chrono::seconds(std::numeric_limits<int64_t>::min() / 1000)
             .count(),
@@ -261,7 +261,7 @@ void validateRangeImpl(time_point<TDuration> timePoint) {
   if (year < kMinYear || year > kMaxYear) {
     // This is a special case where we intentionally throw
     // VeloxRuntimeError to avoid it being suppressed by TRY().
-    VELOX_FAIL_UNSUPPORTED_INPUT_UNCATCHABLE(
+    VELOX_USER_FAIL(
         "Timepoint is outside of supported year range: [{}, {}], got {}",
         static_cast<int64_t>(kMinYear),
         static_cast<int64_t>(kMaxYear),

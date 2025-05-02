@@ -1142,8 +1142,7 @@ TEST_F(CastExprTest, primitiveInvalidCornerCases) {
         "bigint",
         {"٣"},
         "Unicode characters are not supported for conversion to integer types",
-        VARCHAR(),
-        true);
+        VARCHAR());
   }
 
   // To floating-point.

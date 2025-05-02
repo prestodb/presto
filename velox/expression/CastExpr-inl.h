@@ -344,9 +344,7 @@ void CastExpr::applyCastKernel(
           ToKind == TypeKind::INTEGER || ToKind == TypeKind::BIGINT ||
           ToKind == TypeKind::HUGEINT) {
         if constexpr (TPolicy::throwOnUnicode) {
-          // This is a special case where we intentionally throw
-          // VeloxRuntimeError to avoid it being suppressed by TRY().
-          VELOX_CHECK_UNSUPPORTED_INPUT_UNCATCHABLE(
+          VELOX_USER_CHECK(
               functions::stringCore::isAscii(
                   inputRowValue.data(), inputRowValue.size()),
               "Unicode characters are not supported for conversion to integer types");
