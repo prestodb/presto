@@ -36,12 +36,11 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteStreams;
 import com.google.inject.Injector;
+import jakarta.ws.rs.core.UriBuilder;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
-
-import javax.ws.rs.core.UriBuilder;
 
 import java.io.File;
 import java.io.IOException;

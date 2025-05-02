@@ -26,10 +26,9 @@ import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
+import jakarta.inject.Inject;
 import org.apache.pinot.common.config.GrpcConfig;
 import org.apache.pinot.connector.presto.grpc.PinotStreamingQueryClient;
-
-import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.HashMap;

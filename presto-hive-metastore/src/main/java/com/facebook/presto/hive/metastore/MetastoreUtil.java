@@ -69,6 +69,7 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Longs;
 import io.airlift.slice.Slice;
+import jakarta.annotation.Nullable;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
@@ -79,8 +80,6 @@ import org.apache.hadoop.io.Text;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
-
-import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.math.BigInteger;

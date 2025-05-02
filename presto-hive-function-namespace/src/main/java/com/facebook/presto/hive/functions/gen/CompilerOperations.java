@@ -14,8 +14,7 @@
 package com.facebook.presto.hive.functions.gen;
 
 import com.facebook.presto.common.block.Block;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.Optional;
