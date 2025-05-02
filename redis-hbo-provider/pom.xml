@@ -11,6 +11,7 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <lettuce.version>6.5.1.RELEASE</lettuce.version>
+        <project.build.targetJdk>17</project.build.targetJdk>
     </properties>
 
     <artifactId>redis-hbo-provider</artifactId>
@@ -31,6 +32,11 @@
         <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-transport</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.errorprone</groupId>
+            <artifactId>error_prone_annotations</artifactId>
         </dependency>
 
         <dependency>
