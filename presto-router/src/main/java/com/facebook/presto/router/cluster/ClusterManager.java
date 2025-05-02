@@ -32,10 +32,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.sun.nio.file.SensitivityWatchEventModifier;
 import io.airlift.units.Duration;
+import jakarta.annotation.PostConstruct;
+import jakarta.inject.Inject;
 import org.weakref.jmx.Managed;
-
-import javax.annotation.PostConstruct;
-import javax.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;

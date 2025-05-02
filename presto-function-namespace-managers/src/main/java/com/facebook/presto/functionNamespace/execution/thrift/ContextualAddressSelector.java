@@ -44,6 +44,6 @@ public class ContextualAddressSelector<T extends Address>
     public Optional<T> selectAddress(Optional<String> context, Set<T> attempted)
     {
         checkArgument(context.isPresent(), "context is empty");
-        return delegates.get(context.get()).selectAddress(Optional.empty(), attempted);
+        return delegates.get(context.orElseThrow()).selectAddress(Optional.empty(), attempted);
     }
 }

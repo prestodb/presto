@@ -34,8 +34,7 @@ import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.LinkedHashMap;
 import java.util.List;

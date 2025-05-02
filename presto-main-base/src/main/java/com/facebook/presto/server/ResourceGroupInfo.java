@@ -22,8 +22,7 @@ import com.facebook.presto.spi.resourceGroups.SchedulingPolicy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.units.DataSize;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 

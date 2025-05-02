@@ -18,8 +18,7 @@ import com.google.api.gax.rpc.HeaderProvider;
 import com.google.auth.Credentials;
 import com.google.cloud.bigquery.storage.v1beta1.BigQueryStorageClient;
 import com.google.cloud.bigquery.storage.v1beta1.BigQueryStorageSettings;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;

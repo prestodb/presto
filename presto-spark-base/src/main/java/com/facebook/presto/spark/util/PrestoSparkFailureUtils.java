@@ -20,8 +20,7 @@ import com.facebook.presto.spark.classloader_interface.ExecutionStrategy;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkFailure;
 import com.facebook.presto.spi.ErrorCause;
 import com.google.common.collect.ImmutableList;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 

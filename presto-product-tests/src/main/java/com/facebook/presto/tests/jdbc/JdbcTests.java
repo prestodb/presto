@@ -23,10 +23,9 @@ import io.prestodb.tempto.Requires;
 import io.prestodb.tempto.configuration.Configuration;
 import io.prestodb.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
 import io.prestodb.tempto.query.QueryResult;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
 import org.testng.annotations.Test;
-
-import javax.inject.Inject;
-import javax.inject.Named;
 
 import java.math.BigDecimal;
 import java.sql.Connection;

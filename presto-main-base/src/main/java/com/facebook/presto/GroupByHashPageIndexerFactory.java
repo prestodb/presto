@@ -18,8 +18,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.PageIndexer;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.sql.gen.JoinCompiler;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.List;
 

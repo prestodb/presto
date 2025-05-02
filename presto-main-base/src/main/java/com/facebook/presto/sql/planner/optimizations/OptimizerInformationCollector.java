@@ -15,9 +15,8 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.spi.eventlistener.PlanOptimizerInformation;
 import com.google.common.collect.ImmutableList;
-
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 
 import java.util.HashSet;
 import java.util.List;
