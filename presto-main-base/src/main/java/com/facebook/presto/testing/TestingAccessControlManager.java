@@ -26,8 +26,7 @@ import com.facebook.presto.spi.security.ViewExpression;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.security.Principal;
 import java.util.ArrayList;

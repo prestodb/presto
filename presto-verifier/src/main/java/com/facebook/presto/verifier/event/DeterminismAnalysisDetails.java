@@ -19,8 +19,7 @@ import com.facebook.presto.verifier.framework.DeterminismAnalysis;
 import com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.google.common.collect.ImmutableList;
-
-import javax.annotation.concurrent.Immutable;
+import com.google.errorprone.annotations.Immutable;
 
 import java.util.ArrayList;
 import java.util.List;

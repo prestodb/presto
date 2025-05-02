@@ -23,9 +23,8 @@ import com.facebook.presto.spi.PrestoTransportException;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListenableFutureTask;
+import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.units.Duration;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.EOFException;
 import java.net.SocketException;

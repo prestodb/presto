@@ -26,8 +26,7 @@ import com.google.common.escape.Escaper;
 import com.google.common.net.UrlEscapers;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URI;

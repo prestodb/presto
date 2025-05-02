@@ -27,8 +27,7 @@ import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.function.Function;
 

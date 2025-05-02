@@ -25,9 +25,8 @@ import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
+import jakarta.inject.Inject;
 import org.apache.parquet.column.ParquetProperties;
-
-import javax.inject.Inject;
 
 import java.util.EnumSet;
 import java.util.List;
