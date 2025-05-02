@@ -248,11 +248,10 @@ import com.google.inject.multibindings.MapBinder;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-
-import javax.annotation.PreDestroy;
-import javax.inject.Singleton;
-import javax.servlet.Filter;
-import javax.servlet.Servlet;
+import jakarta.annotation.PreDestroy;
+import jakarta.inject.Singleton;
+import jakarta.servlet.Filter;
+import jakarta.servlet.Servlet;
 
 import java.util.List;
 import java.util.Optional;

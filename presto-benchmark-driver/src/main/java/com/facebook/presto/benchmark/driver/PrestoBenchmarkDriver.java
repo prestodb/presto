@@ -20,8 +20,7 @@ import com.facebook.presto.client.ClientSession;
 import com.google.common.collect.ImmutableList;
 import io.airlift.airline.Command;
 import io.airlift.airline.HelpOption;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;
