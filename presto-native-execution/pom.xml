@@ -15,42 +15,60 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <air.checkstyle.config-file>src/checkstyle/presto-checks.xml</air.checkstyle.config-file>
+        <project.build.targetJdk>17</project.build.targetJdk>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>javax.annotation</groupId>
+                <artifactId>javax.annotation-api</artifactId>
+                <version>1.3.2</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-tpch</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>io.airlift.tpch</groupId>
             <artifactId>tpch</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main-base</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -63,16 +81,19 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-common</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-tests</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-function-namespace-managers</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -85,12 +106,13 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-spi</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-iceberg</artifactId>
-            <scope>runtime</scope>
+            <scope>test</scope>
             <exclusions>
                 <exclusion>
                     <groupId>org.xerial.snappy</groupId>
@@ -123,6 +145,7 @@
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-iceberg</artifactId>
             <type>test-jar</type>
+            <scope>test</scope>
             <exclusions>
                 <exclusion>
                     <groupId>com.esotericsoftware</groupId>
@@ -146,12 +169,13 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-hive-metastore</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-hive</artifactId>
-            <scope>runtime</scope>
+            <scope>test</scope>
             <exclusions>
                 <exclusion>
                     <groupId>org.xerial.snappy</groupId>
@@ -171,12 +195,14 @@
         <dependency>
             <groupId>com.facebook.presto.hive</groupId>
             <artifactId>hive-apache</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-hive</artifactId>
             <type>test-jar</type>
+            <scope>test</scope>
             <exclusions>
                 <exclusion>
                     <groupId>org.xerial.snappy</groupId>
@@ -221,16 +247,19 @@
         <dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>log</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>log-manager</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>testing</artifactId>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
@@ -246,11 +275,6 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-jdbc</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.commons</groupId>
-            <artifactId>commons-lang3</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
