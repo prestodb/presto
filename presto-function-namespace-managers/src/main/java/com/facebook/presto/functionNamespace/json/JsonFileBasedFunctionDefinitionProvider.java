@@ -20,7 +20,6 @@ import com.facebook.presto.functionNamespace.UdfFunctionSignatureMap;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -61,7 +60,7 @@ public class JsonFileBasedFunctionDefinitionProvider
     private List<Path> getFilesInPath(String filePath, int maxDirectoryDepth) throws IOException
     {
         try (Stream<Path> stream = Files.find(
-                Paths.get(filePath),
+                Path.of(filePath),
                 maxDirectoryDepth,
                 (p, basicFileAttributes) -> p.getFileName().toString().toLowerCase(ENGLISH).endsWith(JSON_FILE_EXTENSION))) {
             return stream.collect(Collectors.toList());

@@ -19,9 +19,8 @@ import io.prestodb.tempto.BeforeTestWithContext;
 import io.prestodb.tempto.ProductTest;
 import io.prestodb.tempto.hadoop.hdfs.HdfsClient;
 import io.prestodb.tempto.query.QueryResult;
+import jakarta.inject.Inject;
 import org.testng.annotations.Test;
-
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.io.InputStream;

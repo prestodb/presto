@@ -119,7 +119,7 @@ public class TestPlanCheckerRouterPlugin
                                 PRESTO_SCHEMA, "tiny"),
                         "SELECT lower(comment) from region"));
         assertTrue(target.isPresent());
-        assertEquals(target.get(), planCheckerRouterConfig.getNativeRouterURI());
+        assertEquals(target.orElseThrow(), planCheckerRouterConfig.getNativeRouterURI());
     }
 
     @Test
@@ -138,7 +138,7 @@ public class TestPlanCheckerRouterPlugin
                                 PRESTO_SCHEMA, "tiny"),
                         "SELECT EXISTS(SELECT 1 WHERE l.orderkey > 0 OR l.orderkey != 3) FROM lineitem l LIMIT 1"));
         assertTrue(target.isPresent());
-        assertEquals(target.get(), planCheckerRouterConfig.getJavaRouterURI());
+        assertEquals(target.orElseThrow(), planCheckerRouterConfig.getJavaRouterURI());
     }
 
     @Test
