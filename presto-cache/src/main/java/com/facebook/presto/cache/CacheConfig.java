@@ -17,8 +17,7 @@ import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.presto.hive.CacheQuotaScope;
 import io.airlift.units.DataSize;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.net.URI;
 import java.util.Optional;
