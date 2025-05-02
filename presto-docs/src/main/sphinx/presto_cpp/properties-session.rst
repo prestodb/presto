@@ -461,4 +461,4 @@ while a lower value limits the amount of memory used.
 
 In streaming aggregation, wait until there are enough output rows 
 to produce a batch of the size specified by this property. If set to ``0``, then 
-Operator::outputBatchRows will be used as the min output batch rows.
+``Operator::outputBatchRows`` is used as the minimum number of output batch rows.
