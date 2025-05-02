@@ -15,7 +15,18 @@
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <enforcer.skip>true</enforcer.skip>
         <io.delta.delta-kernel-api.version>3.2.0</io.delta.delta-kernel-api.version>
+        <project.build.targetJdk>17</project.build.targetJdk>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>javax.annotation</groupId>
+                <artifactId>javax.annotation-api</artifactId>
+                <version>1.3.2</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <dependency>
@@ -115,13 +126,13 @@
         </dependency>
 
         <dependency>
-            <groupId>javax.validation</groupId>
-            <artifactId>validation-api</artifactId>
+            <groupId>jakarta.validation</groupId>
+            <artifactId>jakarta.validation-api</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>javax.inject</groupId>
-            <artifactId>javax.inject</artifactId>
+            <groupId>jakarta.inject</groupId>
+            <artifactId>jakarta.inject-api</artifactId>
         </dependency>
 
         <dependency>
@@ -326,8 +337,8 @@
         </dependency>
 
         <dependency>
-            <groupId>javax.servlet</groupId>
-            <artifactId>javax.servlet-api</artifactId>
+            <groupId>jakarta.servlet</groupId>
+            <artifactId>jakarta.servlet-api</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

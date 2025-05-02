@@ -15,6 +15,7 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <main-class>com.facebook.presto.connector.thrift.server.ThriftTpchServer</main-class>
+        <project.build.targetJdk>17</project.build.targetJdk>
     </properties>
 
     <dependencies>
@@ -36,12 +37,6 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.code.findbugs</groupId>
-            <artifactId>jsr305</artifactId>
-            <optional>true</optional>
         </dependency>
 
         <dependency>
@@ -70,8 +65,8 @@
         </dependency>
 
         <dependency>
-            <groupId>javax.annotation</groupId>
-            <artifactId>javax.annotation-api</artifactId>
+            <groupId>jakarta.annotation</groupId>
+            <artifactId>jakarta.annotation-api</artifactId>
         </dependency>
 
         <dependency>
@@ -114,12 +109,13 @@
             <artifactId>presto-main-base</artifactId>
         </dependency>
 
-        <!-- for testing -->
-        <!-- testng comes as a transitive compile-time dependency from presto-tests even though we only only need tpch index part -->
         <dependency>
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>
         </dependency>
+
+        <!-- for testing -->
+        <!-- testng comes as a transitive compile-time dependency from presto-tests even though we only only need tpch index part -->
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
@@ -127,4 +123,18 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <ignoredNonTestScopedDependencies>
+                        <ignoredNonTestScopedDependency>org.testng:testng</ignoredNonTestScopedDependency>
+                    </ignoredNonTestScopedDependencies>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>
