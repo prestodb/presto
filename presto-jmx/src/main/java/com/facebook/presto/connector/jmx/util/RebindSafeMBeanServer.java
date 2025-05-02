@@ -14,8 +14,8 @@
 package com.facebook.presto.connector.jmx.util;
 
 import com.facebook.airlift.log.Logger;
+import com.google.errorprone.annotations.ThreadSafe;
 
-import javax.annotation.concurrent.ThreadSafe;
 import javax.management.Attribute;
 import javax.management.AttributeList;
 import javax.management.AttributeNotFoundException;

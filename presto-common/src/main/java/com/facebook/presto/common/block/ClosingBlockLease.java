@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.common.block;
 
-import javax.annotation.concurrent.NotThreadSafe;
-
 import java.util.List;
 
 import static java.util.Arrays.asList;
@@ -22,7 +20,6 @@ import static java.util.Collections.emptyList;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
-@NotThreadSafe
 public final class ClosingBlockLease
         implements BlockLease
 {

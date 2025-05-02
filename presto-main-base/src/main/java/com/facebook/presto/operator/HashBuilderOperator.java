@@ -26,9 +26,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.ListenableFuture;
-
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.ThreadSafe;
+import com.google.errorprone.annotations.ThreadSafe;
+import jakarta.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.ArrayDeque;

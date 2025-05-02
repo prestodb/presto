@@ -15,6 +15,7 @@ package com.facebook.presto.testng.services;
 
 import com.facebook.airlift.log.Logger;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.units.Duration;
 import org.testng.IClassListener;
 import org.testng.IExecutionListener;
@@ -22,8 +23,6 @@ import org.testng.IInvokedMethod;
 import org.testng.IInvokedMethodListener;
 import org.testng.ITestClass;
 import org.testng.ITestResult;
-
-import javax.annotation.concurrent.GuardedBy;
 
 import java.lang.management.ThreadInfo;
 import java.util.Arrays;

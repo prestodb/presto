@@ -28,9 +28,8 @@ import com.facebook.presto.sql.planner.iterative.rule.DetermineJoinDistributionT
 import com.facebook.presto.sql.planner.iterative.rule.ReorderJoins;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
-
-import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
+import com.google.errorprone.annotations.ThreadSafe;
+import jakarta.inject.Inject;
 
 import java.util.Objects;
 import java.util.Optional;
