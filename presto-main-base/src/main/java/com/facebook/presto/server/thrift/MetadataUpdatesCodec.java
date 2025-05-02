@@ -21,8 +21,7 @@ import com.facebook.drift.codec.metadata.ThriftType;
 import com.facebook.drift.protocol.TProtocolReader;
 import com.facebook.drift.protocol.TProtocolWriter;
 import com.facebook.presto.metadata.MetadataUpdates;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import static com.facebook.presto.server.thrift.CustomCodecUtils.createSyntheticMetadata;
 import static com.facebook.presto.server.thrift.CustomCodecUtils.readSingleJsonField;

@@ -40,8 +40,7 @@ import com.facebook.presto.spi.function.SqlFunctionHandle;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.google.common.collect.ImmutableList;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -193,11 +192,7 @@ public class RestBasedFunctionNamespaceManager
         checkCatalog(functionHandle);
 
         Optional<SqlInvokedFunction> function = getSqlInvokedFunction(functionHandle);
-        if (!function.isPresent()) {
-            throw new InvalidFunctionHandleException(functionHandle);
-        }
-
-        return sqlInvokedFunctionToMetadata(function.get());
+        return sqlInvokedFunctionToMetadata(function.orElseThrow(() -> new InvalidFunctionHandleException(functionHandle)));
     }
 
     @Override
@@ -206,11 +201,7 @@ public class RestBasedFunctionNamespaceManager
         checkCatalog(functionHandle);
 
         Optional<SqlInvokedFunction> function = getSqlInvokedFunction(functionHandle);
-        if (!function.isPresent()) {
-            throw new InvalidFunctionHandleException(functionHandle);
-        }
-
-        return sqlInvokedFunctionToImplementation(function.get());
+        return sqlInvokedFunctionToImplementation(function.orElseThrow(() -> new InvalidFunctionHandleException(functionHandle)));
     }
 
     @Override

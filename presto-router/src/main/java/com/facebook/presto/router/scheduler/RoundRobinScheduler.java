@@ -16,8 +16,7 @@ package com.facebook.presto.router.scheduler;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.spi.router.RouterRequestInfo;
 import com.facebook.presto.spi.router.Scheduler;
-
-import javax.annotation.concurrent.GuardedBy;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 
 import java.net.URI;
 import java.util.HashMap;

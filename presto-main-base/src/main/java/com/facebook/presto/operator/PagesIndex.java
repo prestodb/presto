@@ -39,9 +39,8 @@ import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import it.unimi.dsi.fastutil.Swapper;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import jakarta.inject.Inject;
 import org.openjdk.jol.info.ClassLayout;
-
-import javax.inject.Inject;
 
 import java.util.Arrays;
 import java.util.Iterator;

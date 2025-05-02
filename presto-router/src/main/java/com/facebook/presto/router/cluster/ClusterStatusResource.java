@@ -15,25 +15,24 @@ package com.facebook.presto.router.cluster;
 
 import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.client.ServerInfo;
+import com.facebook.presto.router.cluster.ClusterManager.ClusterStatusTracker;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.google.errorprone.annotations.Immutable;
 import com.google.inject.Inject;
-
-import javax.annotation.concurrent.Immutable;
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.client.NodeVersion.UNKNOWN;
-import static com.facebook.presto.router.cluster.ClusterManager.ClusterStatusTracker;
+import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
 import static java.util.Objects.requireNonNull;
-import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 
 @Path("/")
 public class ClusterStatusResource

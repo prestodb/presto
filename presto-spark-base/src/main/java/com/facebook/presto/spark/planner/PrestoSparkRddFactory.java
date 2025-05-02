@@ -53,14 +53,13 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import io.airlift.units.DataSize;
+import jakarta.inject.Inject;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.rdd.RDD;
 import org.apache.spark.util.CollectionAccumulator;
 import scala.Tuple2;
-
-import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.HashMap;

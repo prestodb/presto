@@ -16,11 +16,10 @@ package com.facebook.presto.statistic;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.airlift.stats.TimeStat;
+import com.google.errorprone.annotations.ThreadSafe;
 import io.lettuce.core.RedisException;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeoutException;
