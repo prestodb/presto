@@ -37,6 +37,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.common.RuntimeMetricName.EVENT_LOOP_METHOD_EXECUTION_CPU_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.GET_SPLITS_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.SCAN_STAGE_SCHEDULER_BLOCKED_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.SCAN_STAGE_SCHEDULER_CPU_TIME_NANOS;
@@ -411,6 +412,12 @@ public class StageExecutionStateMachine
     public void recordTaskPlanSerializedCpuTime(long nanos)
     {
         runtimeStats.addMetricValue(TASK_PLAN_SERIALIZED_CPU_TIME_NANOS, NANO, max(nanos, 0));
+    }
+
+    @Override
+    public void recordEventLoopMethodExecutionCpuTime(long nanos)
+    {
+        runtimeStats.addMetricValue(EVENT_LOOP_METHOD_EXECUTION_CPU_TIME_NANOS, NANO, max(nanos, 0));
     }
 
     @Override

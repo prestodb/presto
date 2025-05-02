@@ -232,6 +232,7 @@ public final class HttpRemoteTaskWithEventLoop
     private final SchedulerStatsTracker schedulerStatsTracker;
 
     private final SafeEventLoopGroup.SafeEventLoop taskEventLoop;
+    private final String loggingPrefix;
 
     public static HttpRemoteTaskWithEventLoop createHttpRemoteTaskWithEventLoop(
             Session session,
@@ -469,6 +470,7 @@ public final class HttpRemoteTaskWithEventLoop
                 handleResolver,
                 connectorTypeSerdeManager,
                 thriftProtocol);
+        this.loggingPrefix = format("Query: %s, Task: %s", session.getQueryId(), taskId);
     }
 
     // this is a separate method to ensure that the `this` reference is not leaked during construction
@@ -488,7 +490,7 @@ public final class HttpRemoteTaskWithEventLoop
         });
 
         updateTaskStats();
-        safeExecuteOnEventLoop(this::updateSplitQueueSpace);
+        safeExecuteOnEventLoop(this::updateSplitQueueSpace, "updateSplitQueueSpace");
     }
 
     @Override
@@ -537,7 +539,7 @@ public final class HttpRemoteTaskWithEventLoop
 
             taskStatusFetcher.start();
             taskInfoFetcher.start();
-        });
+        }, "start");
     }
 
     @Override
@@ -581,7 +583,7 @@ public final class HttpRemoteTaskWithEventLoop
                 needsUpdate = true;
                 scheduleUpdate();
             }
-        });
+        }, "addSplits");
     }
 
     @Override
@@ -595,7 +597,7 @@ public final class HttpRemoteTaskWithEventLoop
             noMoreSplits.put(sourceId, true);
             needsUpdate = true;
             scheduleUpdate();
-        });
+        }, "noMoreSplits");
     }
 
     @Override
@@ -606,7 +608,7 @@ public final class HttpRemoteTaskWithEventLoop
                 needsUpdate = true;
                 scheduleUpdate();
             }
-        });
+        }, "noMoreSplits with lifeSpan");
     }
 
     @Override
@@ -622,7 +624,7 @@ public final class HttpRemoteTaskWithEventLoop
                 needsUpdate = true;
                 scheduleUpdate();
             }
-        });
+        }, "setOutputBuffers");
     }
 
     @Override
@@ -793,7 +795,7 @@ public final class HttpRemoteTaskWithEventLoop
                 future.set(null);
             }
             whenSplitQueueHasSpace.createNewListener().addListener(() -> future.set(null), taskEventLoop);
-        });
+        }, "whenSplitQueueHasSpace");
         return future;
     }
 
@@ -1042,7 +1044,7 @@ public final class HttpRemoteTaskWithEventLoop
                     future,
                     new SimpleHttpResponseHandler<>(new UpdateResponseHandler(sources), request.getUri(), stats.getHttpResponseStats(), REMOTE_TASK_ERROR),
                     taskEventLoop);
-        });
+        }, "sendUpdate");
     }
 
     private String getExceededTaskUpdateSizeMessage(byte[] taskUpdateRequestJson)
@@ -1091,7 +1093,7 @@ public final class HttpRemoteTaskWithEventLoop
             Request request = builder.setUri(uriBuilder.build())
                     .build();
             scheduleAsyncCleanupRequest(createCleanupBackoff(), request, "cancel");
-        });
+        }, "cancel");
     }
 
     private void cleanUpTask()
@@ -1129,7 +1131,7 @@ public final class HttpRemoteTaskWithEventLoop
                     .build();
 
             scheduleAsyncCleanupRequest(createCleanupBackoff(), request, "cleanup");
-        });
+        }, "cleanUpTask");
     }
 
     @Override
@@ -1159,7 +1161,7 @@ public final class HttpRemoteTaskWithEventLoop
             Request request = builder.setUri(uriBuilder.build())
                     .build();
             scheduleAsyncCleanupRequest(createCleanupBackoff(), request, "abort");
-        });
+        }, "abort");
     }
 
     private void scheduleAsyncCleanupRequest(Backoff cleanupBackoff, Request request, String action)
@@ -1407,8 +1409,8 @@ public final class HttpRemoteTaskWithEventLoop
         }
     }
 
-    private void safeExecuteOnEventLoop(Runnable r)
+    private void safeExecuteOnEventLoop(Runnable r, String methodName)
     {
-        taskEventLoop.execute(r, this::failTask);
+        taskEventLoop.execute(r, this::failTask, schedulerStatsTracker, loggingPrefix + ", method: " + methodName);
     }
 }
