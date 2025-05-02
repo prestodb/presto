@@ -1624,6 +1624,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       unnestNames,
       node->ordinalityVariable ? std::optional{node->ordinalityVariable->name}
                                : std::nullopt,
+      this->queryCtx_->queryConfig().prestoLegacyUnnest(),
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
 }
 
