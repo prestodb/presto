@@ -56,10 +56,9 @@ import io.airlift.units.DataSize;
 import it.unimi.dsi.fastutil.ints.Int2LongMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
+import jakarta.annotation.Nullable;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
-
-import javax.annotation.Nullable;
 
 import java.io.Closeable;
 import java.io.IOException;

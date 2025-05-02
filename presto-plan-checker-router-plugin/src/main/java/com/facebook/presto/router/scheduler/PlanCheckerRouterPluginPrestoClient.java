@@ -26,12 +26,10 @@ import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.Duration;
+import jakarta.servlet.http.HttpServletRequest;
 import okhttp3.OkHttpClient;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.servlet.http.HttpServletRequest;
 
 import java.net.URI;
 import java.util.Locale;

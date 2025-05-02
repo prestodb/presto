@@ -23,32 +23,31 @@ import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.resourcemanager.ResourceManagerProxy;
 import com.facebook.presto.spi.QueryId;
 import com.google.inject.Inject;
-
-import javax.annotation.security.RolesAllowed;
-import javax.servlet.http.HttpServletRequest;
-import javax.ws.rs.DefaultValue;
-import javax.ws.rs.GET;
-import javax.ws.rs.NotFoundException;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.WebApplicationException;
-import javax.ws.rs.container.AsyncResponse;
-import javax.ws.rs.container.Suspended;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.UriBuilder;
-import javax.ws.rs.core.UriInfo;
+import jakarta.annotation.security.RolesAllowed;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.ws.rs.DefaultValue;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.NotFoundException;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.container.AsyncResponse;
+import jakarta.ws.rs.container.Suspended;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.UriBuilder;
+import jakarta.ws.rs.core.UriInfo;
 
 import java.net.URI;
 import java.net.UnknownHostException;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
+import static jakarta.ws.rs.core.Response.Status.NOT_FOUND;
 import static java.util.Objects.requireNonNull;
-import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 
 @Path("v1/taskInfo")
 @RolesAllowed("ADMIN")

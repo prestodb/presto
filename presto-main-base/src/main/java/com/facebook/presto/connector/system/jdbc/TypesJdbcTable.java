@@ -24,8 +24,7 @@ import com.facebook.presto.spi.InMemoryRecordSet.Builder;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.sql.DatabaseMetaData;
 import java.sql.Types;

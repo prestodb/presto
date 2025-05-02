@@ -40,8 +40,7 @@ import com.google.common.collect.ImmutableSet;
 import com.mysql.cj.jdbc.JdbcStatement;
 import com.mysql.jdbc.Driver;
 import io.airlift.slice.Slice;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -93,9 +92,11 @@ public class MySqlClient
     /**
      * Error code corresponding to code thrown when a table already exists.
      * The code is derived from the MySQL documentation.
+     *
      * @see <a href="https://dev.mysql.com/doc/connector-j/en/connector-j-reference-error-sqlstates.html">MySQL documentation</a>
      */
     private static final String SQL_STATE_ER_TABLE_EXISTS_ERROR = "42S01";
+
     @Inject
     public MySqlClient(JdbcConnectorId connectorId, BaseJdbcConfig config, MySqlConfig mySqlConfig)
             throws SQLException
@@ -231,7 +232,8 @@ public class MySqlClient
     }
 
     @Override
-    public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, List<JdbcColumnHandle> columnHandles) throws SQLException
+    public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, List<JdbcColumnHandle> columnHandles)
+            throws SQLException
     {
         Map<String, String> columnExpressions = columnHandles.stream()
                 .filter(handle -> handle.getJdbcTypeHandle().getJdbcTypeName().equalsIgnoreCase(GEOMETRY))
