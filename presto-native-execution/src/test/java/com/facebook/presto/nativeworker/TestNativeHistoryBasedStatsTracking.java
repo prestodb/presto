@@ -37,7 +37,10 @@ public class TestNativeHistoryBasedStatsTracking
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(true);
+        return PrestoNativeQueryRunnerUtils.builder()
+                .setAddStorageFormatToPath(true)
+                .setUseThrift(true)
+                .buildNativeHiveQueryRunner();
     }
 
     @BeforeMethod(alwaysRun = true)

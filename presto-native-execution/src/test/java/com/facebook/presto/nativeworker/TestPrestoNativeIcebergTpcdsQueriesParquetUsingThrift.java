@@ -21,20 +21,25 @@ import org.testng.annotations.Test;
 public class TestPrestoNativeIcebergTpcdsQueriesParquetUsingThrift
         extends AbstractTestNativeTpcdsQueries
 {
+    private final String storageFormat = "PARQUET";
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.storageFormat = "PARQUET";
-        return PrestoNativeQueryRunnerUtils.createNativeIcebergQueryRunner(true, "PARQUET");
+        return PrestoNativeQueryRunnerUtils.builder()
+                .setStorageFormat(storageFormat)
+                .setUseThrift(true)
+                .buildNativeIcebergQueryRunner();
     }
 
     @Override
     protected ExpectedQueryRunner createExpectedQueryRunner()
             throws Exception
     {
-        this.storageFormat = "PARQUET";
-        return PrestoNativeQueryRunnerUtils.createJavaIcebergQueryRunner("PARQUET");
+        return PrestoNativeQueryRunnerUtils.builder()
+                .setStorageFormat(storageFormat)
+                .buildJavaIcebergQueryRunner();
     }
 
     @Test
