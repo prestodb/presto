@@ -18,31 +18,22 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
-import com.facebook.presto.client.StageStats;
 import com.facebook.presto.client.StatementStats;
 import com.facebook.presto.common.type.NamedTypeSignature;
 import com.facebook.presto.common.type.ParameterKind;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
-import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryState;
-import com.facebook.presto.execution.QueryStats;
-import com.facebook.presto.execution.StageExecutionInfo;
-import com.facebook.presto.execution.StageExecutionStats;
-import com.facebook.presto.execution.StageInfo;
-import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Sets;
 import io.airlift.units.Duration;
-
-import javax.ws.rs.WebApplicationException;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.UriBuilder;
-import javax.ws.rs.core.UriInfo;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.UriBuilder;
+import jakarta.ws.rs.core.UriInfo;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
@@ -52,7 +43,6 @@ import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -82,12 +72,12 @@ import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.WAITING_FOR_PREREQUISITES;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static jakarta.ws.rs.core.MediaType.TEXT_PLAIN_TYPE;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toList;
-import static javax.ws.rs.core.MediaType.TEXT_PLAIN_TYPE;
 
 public final class QueryResourceUtil
 {
@@ -216,40 +206,6 @@ public final class QueryResourceUtil
         return backendUri;
     }
 
-    public static StatementStats toStatementStats(QueryInfo queryInfo)
-    {
-        QueryStats queryStats = queryInfo.getQueryStats();
-        StageInfo outputStage = queryInfo.getOutputStage().orElse(null);
-
-        Set<String> globalUniqueNodes = new HashSet<>();
-        StageStats rootStageStats = toStageStats(outputStage, globalUniqueNodes);
-
-        return StatementStats.builder()
-                .setState(queryInfo.getState().toString())
-                .setWaitingForPrerequisites(queryInfo.getState() == QueryState.WAITING_FOR_PREREQUISITES)
-                .setQueued(queryInfo.getState() == QueryState.QUEUED)
-                .setScheduled(queryInfo.isScheduled())
-                .setNodes(globalUniqueNodes.size())
-                .setTotalSplits(queryStats.getTotalDrivers())
-                .setQueuedSplits(queryStats.getQueuedDrivers())
-                .setRunningSplits(queryStats.getRunningDrivers() + queryStats.getBlockedDrivers())
-                .setCompletedSplits(queryStats.getCompletedDrivers())
-                .setCpuTimeMillis(queryStats.getTotalCpuTime().toMillis())
-                .setWallTimeMillis(queryStats.getTotalScheduledTime().toMillis())
-                .setWaitingForPrerequisitesTimeMillis(queryStats.getWaitingForPrerequisitesTime().toMillis())
-                .setQueuedTimeMillis(queryStats.getQueuedTime().toMillis())
-                .setElapsedTimeMillis(queryStats.getElapsedTime().toMillis())
-                .setProcessedRows(queryStats.getRawInputPositions())
-                .setProcessedBytes(queryStats.getRawInputDataSize().toBytes())
-                .setPeakMemoryBytes(queryStats.getPeakUserMemoryReservation().toBytes())
-                .setPeakTotalMemoryBytes(queryStats.getPeakTotalMemoryReservation().toBytes())
-                .setPeakTaskTotalMemoryBytes(queryStats.getPeakTaskTotalMemory().toBytes())
-                .setSpilledBytes(queryStats.getSpilledDataSize().toBytes())
-                .setRootStage(rootStageStats)
-                .setRuntimeStats(queryStats.getRuntimeStats())
-                .build();
-    }
-
     private static String urlEncode(String value)
     {
         try {
@@ -258,57 +214,6 @@ public final class QueryResourceUtil
         catch (UnsupportedEncodingException e) {
             throw new AssertionError(e);
         }
-    }
-
-    private static StageStats toStageStats(StageInfo stageInfo, Set<String> globalUniqueNodeIds)
-    {
-        if (stageInfo == null) {
-            return null;
-        }
-
-        StageExecutionInfo currentStageExecutionInfo = stageInfo.getLatestAttemptExecutionInfo();
-        StageExecutionStats stageExecutionStats = currentStageExecutionInfo.getStats();
-
-        // Store current stage details into a builder
-        StageStats.Builder builder = StageStats.builder()
-                .setStageId(String.valueOf(stageInfo.getStageId().getId()))
-                .setState(currentStageExecutionInfo.getState().toString())
-                .setDone(currentStageExecutionInfo.getState().isDone())
-                .setTotalSplits(stageExecutionStats.getTotalDrivers())
-                .setQueuedSplits(stageExecutionStats.getQueuedDrivers())
-                .setRunningSplits(stageExecutionStats.getRunningDrivers() + stageExecutionStats.getBlockedDrivers())
-                .setCompletedSplits(stageExecutionStats.getCompletedDrivers())
-                .setCpuTimeMillis(stageExecutionStats.getTotalCpuTime().toMillis())
-                .setWallTimeMillis(stageExecutionStats.getTotalScheduledTime().toMillis())
-                .setProcessedRows(stageExecutionStats.getRawInputPositions())
-                .setProcessedBytes(stageExecutionStats.getRawInputDataSizeInBytes())
-                .setNodes(countStageAndAddGlobalUniqueNodes(currentStageExecutionInfo.getTasks(), globalUniqueNodeIds));
-
-        // Recurse into child stages to create their StageStats
-        List<StageInfo> subStages = stageInfo.getSubStages();
-        if (subStages.isEmpty()) {
-            builder.setSubStages(ImmutableList.of());
-        }
-        else {
-            ImmutableList.Builder<StageStats> subStagesBuilder = ImmutableList.builderWithExpectedSize(subStages.size());
-            for (StageInfo subStage : subStages) {
-                subStagesBuilder.add(toStageStats(subStage, globalUniqueNodeIds));
-            }
-            builder.setSubStages(subStagesBuilder.build());
-        }
-
-        return builder.build();
-    }
-
-    private static int countStageAndAddGlobalUniqueNodes(List<TaskInfo> tasks, Set<String> globalUniqueNodes)
-    {
-        Set<String> stageUniqueNodes = Sets.newHashSetWithExpectedSize(tasks.size());
-        for (TaskInfo task : tasks) {
-            String nodeId = task.getNodeId();
-            stageUniqueNodes.add(nodeId);
-            globalUniqueNodes.add(nodeId);
-        }
-        return stageUniqueNodes.size();
     }
 
     /**

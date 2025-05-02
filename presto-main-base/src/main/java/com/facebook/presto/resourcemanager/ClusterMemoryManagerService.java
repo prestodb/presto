@@ -20,10 +20,9 @@ import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.memory.MemoryPoolInfo;
 import com.facebook.presto.util.PeriodicTaskExecutor;
 import com.google.common.collect.ImmutableMap;
-
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
-import javax.inject.Inject;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
+import jakarta.inject.Inject;
 
 import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;

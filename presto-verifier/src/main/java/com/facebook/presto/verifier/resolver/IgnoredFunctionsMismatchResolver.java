@@ -21,8 +21,7 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.verifier.framework.DataMatchResult;
 import com.facebook.presto.verifier.framework.QueryBundle;
 import com.google.common.base.Splitter;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.HashSet;
 import java.util.List;

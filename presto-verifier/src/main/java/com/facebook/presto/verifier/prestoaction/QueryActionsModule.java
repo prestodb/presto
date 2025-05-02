@@ -25,8 +25,7 @@ import com.google.inject.Binder;
 import com.google.inject.Inject;
 import com.google.inject.Injector;
 import com.google.inject.Key;
-
-import javax.inject.Provider;
+import jakarta.inject.Provider;
 
 import java.lang.annotation.Annotation;
 import java.util.Set;

@@ -53,11 +53,10 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import jakarta.inject.Singleton;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
-
-import javax.inject.Singleton;
 
 import java.util.List;
 import java.util.Optional;
