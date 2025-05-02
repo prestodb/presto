@@ -1,3 +1,4 @@
+
 /*
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -11,22 +12,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.tests;
+package com.facebook.presto.nativetests;
 
+import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.testing.QueryRunner;
-import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
+import com.google.common.collect.ImmutableMap;
 
 public class TestOptimizeMixedDistinctAggregations
-        extends AbstractTestAggregations
+        extends AbstractTestAggregationsNative
 {
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return TpchQueryRunnerBuilder.builder()
-                .setSingleCoordinatorProperty("optimizer.optimize-mixed-distinct-aggregations", "true")
-                .build();
+        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(System.getProperty("storageFormat"),
+                ImmutableMap.of(),
+                ImmutableMap.of("optimizer.optimize-mixed-distinct-aggregations", "true"));
     }
-
-    // TODO add dedicated test cases and remove `extends AbstractTestAggregation`
 }
