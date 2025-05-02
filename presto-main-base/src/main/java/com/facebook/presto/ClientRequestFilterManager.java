@@ -18,9 +18,8 @@ import com.facebook.presto.spi.ClientRequestFilter;
 import com.facebook.presto.spi.ClientRequestFilterFactory;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
-
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 
 import java.util.List;
 import java.util.Map;
