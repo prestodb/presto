@@ -166,9 +166,9 @@ public class BuiltInQueryPreparer
             return StatementUtils.isTransactionControlStatement(getStatement());
         }
 
-        public boolean isRollbackStatement()
+        public boolean isRollbackEnabledForStatement()
         {
-            return StatementUtils.isRollbackStatement(getStatement());
+            return StatementUtils.isRollbackEnabledForStatement(getStatement());
         }
 
         @Override
