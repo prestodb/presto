@@ -13,6 +13,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <project.build.targetJdk>8</project.build.targetJdk>
     </properties>
 
     <dependencies>
@@ -82,11 +83,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.google.code.findbugs</groupId>
-            <artifactId>jsr305</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>bootstrap</artifactId>
         </dependency>
@@ -129,6 +125,7 @@
         <dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>log-manager</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>
@@ -154,6 +151,7 @@
         <dependency>
             <groupId>com.facebook.drift</groupId>
             <artifactId>drift-server</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -164,6 +162,7 @@
         <dependency>
             <groupId>com.facebook.drift</groupId>
             <artifactId>drift-transport-spi</artifactId>
+            <scope>compile</scope>
         </dependency>
 
         <dependency>
@@ -189,6 +188,7 @@
         <dependency>
             <groupId>com.facebook.drift</groupId>
             <artifactId>drift-codec-utils</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -202,18 +202,13 @@
         </dependency>
 
         <dependency>
-            <groupId>javax.servlet</groupId>
-            <artifactId>javax.servlet-api</artifactId>
+            <groupId>com.google.errorprone</groupId>
+            <artifactId>error_prone_annotations</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>javax.annotation</groupId>
-            <artifactId>javax.annotation-api</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>javax.ws.rs</groupId>
-            <artifactId>javax.ws.rs-api</artifactId>
+            <groupId>jakarta.annotation</groupId>
+            <artifactId>jakarta.annotation-api</artifactId>
         </dependency>
 
         <dependency>
@@ -247,13 +242,13 @@
         </dependency>
 
         <dependency>
-            <groupId>javax.validation</groupId>
-            <artifactId>validation-api</artifactId>
+            <groupId>jakarta.validation</groupId>
+            <artifactId>jakarta.validation-api</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>javax.inject</groupId>
-            <artifactId>javax.inject</artifactId>
+            <groupId>jakarta.inject</groupId>
+            <artifactId>jakarta.inject-api</artifactId>
         </dependency>
 
         <dependency>
@@ -320,6 +315,7 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-function-namespace-managers-common</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -528,6 +524,8 @@
                     <ignoredDependencies>
                         <ignoredDependency>com.facebook.presto:presto-ui:jar</ignoredDependency>
                     </ignoredDependencies>
+                    <!-- Not used, but required to compile due to use of an implementation which uses the "Address" type from this dependency -->
+                    <ignoredNonTestScopedDependencies>com.facebook.drift:drift-transport-spi</ignoredNonTestScopedDependencies>
                 </configuration>
             </plugin>
         </plugins>
