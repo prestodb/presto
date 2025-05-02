@@ -27,8 +27,8 @@
         </dependency>
 
         <dependency>
-            <groupId>javax.validation</groupId>
-            <artifactId>validation-api</artifactId>
+            <groupId>jakarta.validation</groupId>
+            <artifactId>jakarta.validation-api</artifactId>
         </dependency>
 
         <dependency>
@@ -57,18 +57,18 @@
         </dependency>
 
         <dependency>
-            <groupId>javax.inject</groupId>
-            <artifactId>javax.inject</artifactId>
+            <groupId>jakarta.inject</groupId>
+            <artifactId>jakarta.inject-api</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>javax.annotation</groupId>
-            <artifactId>javax.annotation-api</artifactId>
+            <groupId>jakarta.annotation</groupId>
+            <artifactId>jakarta.annotation-api</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.google.code.findbugs</groupId>
-            <artifactId>jsr305</artifactId>
+            <groupId>com.google.errorprone</groupId>
+            <artifactId>error_prone_annotations</artifactId>
             <optional>true</optional>
         </dependency>
 
@@ -90,6 +90,18 @@
         <dependency>
             <groupId>org.alluxio</groupId>
             <artifactId>alluxio-core-common</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>jakarta.servlet</groupId>
+                    <artifactId>jakarta.servlet-api</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>io.dropwizard.metrics</groupId>
+            <artifactId>metrics-core</artifactId>
+            <version>4.1.11</version>
         </dependency>
 
         <!-- Presto SPI -->
@@ -157,10 +169,11 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-dependency-plugin</artifactId>
                     <configuration>
-                        <ignoredUsedUndeclaredDependencies>
+                        <ignoredNonTestScopedDependencies>
                             <!-- Ignore because it's picked up as false-positive from alluxio's dependencies -->
-                            <dependency>io.dropwizard.metrics:metrics-core</dependency>
-                        </ignoredUsedUndeclaredDependencies>
+                            <ignoredNonTestScopedDependency>io.dropwizard.metrics:metrics-core</ignoredNonTestScopedDependency>
+                            <ignoredNonTestScopedDependency>org.alluxio:alluxio-core-client-fs</ignoredNonTestScopedDependency>
+                        </ignoredNonTestScopedDependencies>
                     </configuration>
                 </plugin>
             </plugins>
