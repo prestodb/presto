@@ -18,6 +18,7 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.ICEBERG_DEFAULT_STORAGE_FORMAT;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
@@ -28,14 +29,20 @@ public class TestPrestoNativeIcebergGeneralQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createNativeIcebergQueryRunner(false, true);
+        return PrestoNativeQueryRunnerUtils.nativeIcebergQueryRunnerBuilder()
+                .setStorageFormat(ICEBERG_DEFAULT_STORAGE_FORMAT)
+                .setAddStorageFormatToPath(true)
+                .build();
     }
 
     @Override
     protected ExpectedQueryRunner createExpectedQueryRunner()
             throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createJavaIcebergQueryRunner(true);
+        return PrestoNativeQueryRunnerUtils.javaIcebergQueryRunnerBuilder()
+                .setStorageFormat(ICEBERG_DEFAULT_STORAGE_FORMAT)
+                .setAddStorageFormatToPath(true)
+                .build();
     }
 
     @Override

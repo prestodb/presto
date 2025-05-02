@@ -26,7 +26,10 @@ public class TestPrestoNativeIcebergTpcdsQueriesOrcUsingThrift
             throws Exception
     {
         this.storageFormat = "ORC";
-        return PrestoNativeQueryRunnerUtils.createNativeIcebergQueryRunner(true, "ORC");
+        return PrestoNativeQueryRunnerUtils.nativeIcebergQueryRunnerBuilder()
+                .setStorageFormat(this.storageFormat)
+                .setUseThrift(true)
+                .build();
     }
 
     @Override
@@ -34,7 +37,9 @@ public class TestPrestoNativeIcebergTpcdsQueriesOrcUsingThrift
             throws Exception
     {
         this.storageFormat = "ORC";
-        return PrestoNativeQueryRunnerUtils.createJavaIcebergQueryRunner("ORC");
+        return PrestoNativeQueryRunnerUtils.javaIcebergQueryRunnerBuilder()
+                .setStorageFormat(this.storageFormat)
+                .build();
     }
 
     @Test
