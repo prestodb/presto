@@ -27,6 +27,10 @@
                     <artifactId>lucene-core</artifactId>
                 </exclusion>
                 <exclusion>
+                    <groupId>org.apache.helix</groupId>
+                    <artifactId>helix-core</artifactId>
+                </exclusion>
+                <exclusion>
                     <groupId>commons-io</groupId>
                     <artifactId>commons-io</artifactId>
                 </exclusion>
@@ -649,6 +653,14 @@
             <groupId>commons-codec</groupId>
             <artifactId>commons-codec</artifactId>
         </dependency>
+
+        <dependency>
+            <groupId>org.apache.helix</groupId>
+            <artifactId>helix-core</artifactId>
+            <version>1.4.3</version>
+        </dependency>
+
+
     </dependencies>
 
     <build>
