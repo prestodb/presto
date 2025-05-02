@@ -207,6 +207,7 @@ class FlatMapStructEncodingColumnReader : public ColumnReader {
   folly::Executor* executor_;
   dwio::common::ParallelFor parallelForOnKeyNodes_;
   BufferPtr mergedNulls_;
+  std::shared_ptr<const Type> actualType_;
 };
 
 class FlatMapColumnReaderFactory {

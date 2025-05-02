@@ -244,7 +244,7 @@ TEST_F(OrcReaderTest, testOrcReadAllType) {
         "2 elements starting at 0 {foo => 1, bar => 2}");
 
     EXPECT_EQ(structCol->size(), 1);
-    EXPECT_EQ(structCol->type()->toString(), "ROW<\"\":BIGINT,\"\":DOUBLE>");
+    EXPECT_EQ(structCol->type()->toString(), "ROW<x:BIGINT,y:DOUBLE>");
     EXPECT_EQ(structCol->toString(0, 2, ",", false), "{1, 2}");
   }
 }
