@@ -56,6 +56,7 @@ import com.facebook.presto.hive.datasink.OutputStreamDataSinkFactory;
 import com.facebook.presto.hive.metastore.HivePartitionMutator;
 import com.facebook.presto.hive.metastore.hms.BridgingHiveMetastore;
 import com.facebook.presto.hive.metastore.hms.HiveCluster;
+import com.facebook.presto.hive.metastore.hms.StaticMetastoreConfig;
 import com.facebook.presto.hive.metastore.hms.TestingHiveCluster;
 import com.facebook.presto.hive.metastore.hms.ThriftHiveMetastore;
 import com.facebook.presto.hive.metastore.hms.http.HttpHiveMetastoreConfig;
@@ -141,7 +142,7 @@ public class S3SelectTestHelper
             metastoreClientConfig.setMetastoreSocksProxy(HostAndPort.fromString(proxy));
         }
 
-        HiveCluster hiveCluster = new TestingHiveCluster(metastoreClientConfig, thriftHiveMetastoreConfig, httpHiveMetastoreConfig, host, port, new HiveCommonClientConfig());
+        HiveCluster hiveCluster = new TestingHiveCluster(metastoreClientConfig, thriftHiveMetastoreConfig, httpHiveMetastoreConfig, host, port, new HiveCommonClientConfig(), new StaticMetastoreConfig());
         executor = newCachedThreadPool(daemonThreadsNamed("hive-%s"));
         HivePartitionManager hivePartitionManager = new HivePartitionManager(FUNCTION_AND_TYPE_MANAGER, config);
 

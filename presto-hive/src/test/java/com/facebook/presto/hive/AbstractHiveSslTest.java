@@ -46,7 +46,7 @@ public abstract class AbstractHiveSslTest
     protected QueryRunner createQueryRunner() throws Exception
     {
         this.bucketName = "test-hive-ssl-enable-" + randomTableSuffix();
-        this.dockerizedS3DataLake = new HiveMinIODataLake(bucketName, ImmutableMap.of(), HIVE4_IMAGE, true);
+        this.dockerizedS3DataLake = new HiveMinIODataLake(bucketName, ImmutableMap.of(), HIVE4_IMAGE, true, false);
         this.dockerizedS3DataLake.start();
         return S3HiveQueryRunner.create(
                 this.dockerizedS3DataLake.getHiveHadoop().getHiveMetastoreEndpoint(),

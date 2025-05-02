@@ -32,6 +32,7 @@ import com.facebook.presto.hive.metastore.PrincipalPrivileges;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.metastore.hms.BridgingHiveMetastore;
 import com.facebook.presto.hive.metastore.hms.HiveCluster;
+import com.facebook.presto.hive.metastore.hms.StaticMetastoreConfig;
 import com.facebook.presto.hive.metastore.hms.TestingHiveCluster;
 import com.facebook.presto.hive.metastore.hms.ThriftHiveMetastore;
 import com.facebook.presto.hive.metastore.hms.http.HttpHiveMetastoreConfig;
@@ -191,7 +192,7 @@ public abstract class AbstractTestHiveFileSystem
             metastoreClientConfig.setMetastoreSocksProxy(HostAndPort.fromString(proxy));
         }
 
-        HiveCluster hiveCluster = new TestingHiveCluster(metastoreClientConfig, thriftHiveMetastoreConfig, httpHiveMetastoreConfig, host, port, new HiveCommonClientConfig());
+        HiveCluster hiveCluster = new TestingHiveCluster(metastoreClientConfig, thriftHiveMetastoreConfig, httpHiveMetastoreConfig, host, port, new HiveCommonClientConfig(), new StaticMetastoreConfig());
         ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("hive-%s"));
         HivePartitionManager hivePartitionManager = new HivePartitionManager(FUNCTION_AND_TYPE_MANAGER, config);
 

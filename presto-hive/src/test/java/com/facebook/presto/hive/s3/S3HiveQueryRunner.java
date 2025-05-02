@@ -18,6 +18,7 @@ import com.facebook.presto.hive.HiveQueryRunner;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.metastore.HivePartitionMutator;
 import com.facebook.presto.hive.metastore.hms.BridgingHiveMetastore;
+import com.facebook.presto.hive.metastore.hms.StaticMetastoreConfig;
 import com.facebook.presto.hive.metastore.hms.TestingHiveCluster;
 import com.facebook.presto.hive.metastore.hms.ThriftHiveMetastore;
 import com.facebook.presto.hive.metastore.hms.http.HttpHiveMetastoreConfig;
@@ -50,6 +51,7 @@ public final class S3HiveQueryRunner
         MetastoreClientConfig metastoreClientConfig = new MetastoreClientConfig();
         ThriftHiveMetastoreConfig thriftHiveMetastoreConfig = new ThriftHiveMetastoreConfig();
         HttpHiveMetastoreConfig httpHiveMetastoreConfig = new HttpHiveMetastoreConfig();
+        StaticMetastoreConfig staticMetastoreConfig = new StaticMetastoreConfig();
         if (!additionalHiveClientProperties.isEmpty()) {
             if (additionalHiveClientProperties.get("hive.metastore.thrift.client.tls.enabled") != null) {
                 thriftHiveMetastoreConfig.setTlsEnabled(Boolean.parseBoolean(additionalHiveClientProperties.get("hive.metastore.thrift.client.tls.enabled")));
@@ -90,6 +92,9 @@ public final class S3HiveQueryRunner
 
             Optional.ofNullable(additionalHiveClientProperties.get("hive.metastore.http.client.bearer-token"))
                     .ifPresent(httpHiveMetastoreConfig::setHttpBearerToken);
+
+            Optional.ofNullable(additionalHiveClientProperties.get("hive.metastore.uri"))
+                    .ifPresent(staticMetastoreConfig::setMetastoreUris);
         }
         return HiveQueryRunner.createQueryRunner(ImmutableList.of(), ImmutableList.of(), ImmutableMap.of(),
                 ImmutableMap.of(), "sql-standard",
@@ -108,7 +113,7 @@ public final class S3HiveQueryRunner
                                         thriftHiveMetastoreConfig,
                                         httpHiveMetastoreConfig,
                                         hiveEndpoint.getHost(),
-                                        hiveEndpoint.getPort(), new HiveCommonClientConfig()), metastoreClientConfig,
+                                        hiveEndpoint.getPort(), new HiveCommonClientConfig(), staticMetastoreConfig), metastoreClientConfig,
                                 HDFS_ENVIRONMENT),
                         new HivePartitionMutator())),
                 ImmutableMap.of());
