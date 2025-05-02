@@ -14,7 +14,18 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <project.build.targetJdk>17</project.build.targetJdk>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>javax.annotation</groupId>
+                <artifactId>javax.annotation-api</artifactId>
+                <version>1.3.2</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <dependency>
@@ -41,6 +52,16 @@
             <groupId>com.facebook.presto.hadoop</groupId>
             <artifactId>hadoop-apache2</artifactId>
             <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>json</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-hdfs-core</artifactId>
         </dependency>
 
         <!-- Presto SPI -->
@@ -156,6 +177,27 @@
             <scope>compile</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <ignoredNonTestScopedDependencies>
+                        <ignoredNonTestScopedDependency>com.google.guava:guava</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>com.facebook.airlift:concurrent</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>com.facebook.airlift:json</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>com.facebook.airlift:stats</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>com.facebook.presto:presto-cache</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>com.facebook.presto:presto-hive-common</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>com.facebook.presto:presto-hive-metastore</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>com.facebook.presto:presto-hdfs-core</ignoredNonTestScopedDependency>
+                    </ignoredNonTestScopedDependencies>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 
     <profiles>
         <profile>

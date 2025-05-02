@@ -27,8 +27,8 @@
         </dependency>
 
         <dependency>
-            <groupId>javax.inject</groupId>
-            <artifactId>javax.inject</artifactId>
+            <groupId>jakarta.inject</groupId>
+            <artifactId>jakarta.inject-api</artifactId>
         </dependency>
 
         <dependency>
@@ -69,12 +69,12 @@
                                     <shadedPattern>${shadeBase}.io.airlift.airline</shadedPattern>
                                 </relocation>
                                 <relocation>
-                                    <pattern>javax.inject</pattern>
-                                    <shadedPattern>${shadeBase}.javax.inject</shadedPattern>
+                                    <pattern>jakarta.inject</pattern>
+                                    <shadedPattern>${shadeBase}.jakarta.inject</shadedPattern>
                                 </relocation>
                                 <relocation>
-                                    <pattern>javax.annotation</pattern>
-                                    <shadedPattern>${shadeBase}.javax.annotation</shadedPattern>
+                                    <pattern>jakarta.annotation</pattern>
+                                    <shadedPattern>${shadeBase}.jakarta.annotation</shadedPattern>
                                 </relocation>
                                 <relocation>
                                     <pattern>org.checkerframework</pattern>

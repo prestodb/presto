@@ -18,6 +18,7 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <air.test.jvm.additional-arguments>-Xms4g -Xmx4g</air.test.jvm.additional-arguments>
+        <project.build.targetJdk>17</project.build.targetJdk>
     </properties>
 
     <dependencies>
@@ -101,8 +102,8 @@
         </dependency>
 
         <dependency>
-            <groupId>javax.inject</groupId>
-            <artifactId>javax.inject</artifactId>
+            <groupId>jakarta.inject</groupId>
+            <artifactId>jakarta.inject-api</artifactId>
         </dependency>
 
         <dependency>
@@ -137,8 +138,8 @@
         </dependency>
 
         <dependency>
-            <groupId>javax.servlet</groupId>
-            <artifactId>javax.servlet-api</artifactId>
+            <groupId>jakarta.servlet</groupId>
+            <artifactId>jakarta.servlet-api</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -187,7 +188,7 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-main-base</artifactId>
+            <artifactId>presto-main</artifactId>
             <scope>test</scope>
             <type>test-jar</type>
             <version>${project.version}</version>
@@ -274,6 +275,16 @@
                     <systemPropertyVariables>
                         <PRESTO_SERVER>/root/project/build/debug/presto_cpp/main/presto_server</PRESTO_SERVER>
                     </systemPropertyVariables>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+
+                <configuration>
+                    <ignoredNonTestScopedDependencies>
+                        <ignoredNonTestScopedDependency>com.facebook.airlift:log-manager</ignoredNonTestScopedDependency>
+                    </ignoredNonTestScopedDependencies>
                 </configuration>
             </plugin>
         </plugins>
