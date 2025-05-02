@@ -23,11 +23,10 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.net.URISyntaxException;
-import java.nio.file.Paths;
 import java.util.Map;
 
 import static com.facebook.airlift.testing.Closeables.closeAllRuntimeException;
-import static com.facebook.presto.hive.containers.HiveHadoopContainer.HIVE3_IMAGE;
+import static com.facebook.presto.hive.containers.HiveHadoopContainer.HIVE4_IMAGE;
 import static com.facebook.presto.tests.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 
@@ -43,15 +42,10 @@ public class TestHiveHttpEnabledMetastore
     public TestHiveHttpEnabledMetastore() throws URISyntaxException
     {
         httpConfig = ImmutableMap.<String, String>builder()
-                // This is required when connecting to ssl and http enabled metastore
+                // This is required when connecting to http enabled metastore
                 .put("hive.metastore.uri", "http://localhost:9083/metastore")
-                .put("hive.metastore.http.client.tls.enabled", "true")
-                .put("hive.metastore.http.client.tls.keystore-path", Paths.get((TestHiveSslWithTrustStoreKeyStore.class.getResource("/hive_ssl_enable/hive-metastore.jks")).toURI()).toFile().toString())
-                .put("hive.metastore.http.client.tls.keystore-password", "123456")
-                .put("hive.metastore.http.client.tls.truststore-path", Paths.get((TestHiveSslWithTrustStoreKeyStore.class.getResource("/hive_ssl_enable/hive-metastore-truststore.jks")).toURI()).toFile().toString())
-                .put("hive.metastore.http.client.tls.truststore-password", "123456")
-                .put("hive.metastore.http.client.authentication.type", "BEARER")
-                .put("hive.metastore.http.client.bearer-token", "test_token")
+                .put("hive.metastore.http.client.tls.enabled", "false")
+                .put("hive.metastore.http.client.authentication.type", "NONE")
                 .put("hive.metastore.http.client.auth.basic.username", "temp_user")
                 .build();
     }
@@ -59,7 +53,7 @@ public class TestHiveHttpEnabledMetastore
     protected QueryRunner createQueryRunner() throws Exception
     {
         this.bucketName = "test-hive-http-enable-" + randomTableSuffix();
-        this.dockerizedS3DataLake = new HiveMinIODataLake(bucketName, ImmutableMap.of(), HIVE3_IMAGE, true);
+        this.dockerizedS3DataLake = new HiveMinIODataLake(bucketName, ImmutableMap.of(), HIVE4_IMAGE, false, true);
         this.dockerizedS3DataLake.start();
         return S3HiveQueryRunner.create(
                 this.dockerizedS3DataLake.getHiveHadoop().getHiveMetastoreEndpoint(),
@@ -69,6 +63,8 @@ public class TestHiveHttpEnabledMetastore
                 ImmutableMap.<String, String>builder()
                         // This is required when using MinIO which requires path style access
                         .put("hive.s3.path-style-access", "true")
+                        .put("hive.insert-existing-partitions-behavior", "OVERWRITE")
+                        .put("hive.non-managed-table-writes-enabled", "true")
                         .build(), httpConfig);
     }
 

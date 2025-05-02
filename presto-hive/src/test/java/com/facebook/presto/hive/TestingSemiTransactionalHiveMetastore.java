@@ -31,6 +31,7 @@ import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.metastore.hms.BridgingHiveMetastore;
 import com.facebook.presto.hive.metastore.hms.HiveCluster;
+import com.facebook.presto.hive.metastore.hms.StaticMetastoreConfig;
 import com.facebook.presto.hive.metastore.hms.TestingHiveCluster;
 import com.facebook.presto.hive.metastore.hms.ThriftHiveMetastore;
 import com.facebook.presto.hive.metastore.hms.http.HttpHiveMetastoreConfig;
@@ -83,7 +84,7 @@ public class TestingSemiTransactionalHiveMetastore
         HttpHiveMetastoreConfig httpHiveMetastoreConfig = new HttpHiveMetastoreConfig();
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(config, metastoreClientConfig), ImmutableSet.of(), config);
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
-        HiveCluster hiveCluster = new TestingHiveCluster(metastoreClientConfig, thriftHiveMetastoreConfig, httpHiveMetastoreConfig, HOST, PORT, new HiveCommonClientConfig());
+        HiveCluster hiveCluster = new TestingHiveCluster(metastoreClientConfig, thriftHiveMetastoreConfig, httpHiveMetastoreConfig, HOST, PORT, new HiveCommonClientConfig(), new StaticMetastoreConfig());
         ColumnConverterProvider columnConverterProvider = HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER;
         ExtendedHiveMetastore delegate = new BridgingHiveMetastore(new ThriftHiveMetastore(hiveCluster, metastoreClientConfig, hdfsEnvironment), new HivePartitionMutator());
         ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("hive-%s"));

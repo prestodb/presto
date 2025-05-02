@@ -23,6 +23,7 @@ import com.facebook.presto.hive.metastore.hms.thrift.ThriftHiveMetastoreConfig;
 import org.apache.thrift.TException;
 
 import java.net.URI;
+import java.util.Collections;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -38,17 +39,23 @@ public class TestingHiveCluster
     private boolean httpEnabled;
     private final HiveCommonClientConfig hiveCommonClientConfig;
 
-    public TestingHiveCluster(MetastoreClientConfig metastoreClientConfig, ThriftHiveMetastoreConfig thriftHiveMetastoreConfig, HttpHiveMetastoreConfig httpHiveMetastoreConfig, String host, int port, HiveCommonClientConfig hiveCommonClientConfig)
+    public TestingHiveCluster(MetastoreClientConfig metastoreClientConfig, ThriftHiveMetastoreConfig thriftHiveMetastoreConfig, HttpHiveMetastoreConfig httpHiveMetastoreConfig, String host, int port, HiveCommonClientConfig hiveCommonClientConfig, StaticMetastoreConfig staticMetastoreConfig)
     {
         this.metastoreClientConfig = requireNonNull(metastoreClientConfig, "metastore config is null");
         this.thriftHiveMetastoreConfig = requireNonNull(thriftHiveMetastoreConfig, "thrift metastore config is null");
         this.httpHiveMetastoreConfig = requireNonNull(httpHiveMetastoreConfig, "http metastore conf is null");
 
-        if (httpHiveMetastoreConfig.getHttpMetastoreTlsEnabled()) {
-            this.httpEnabled = true;
-        }
-        String scheme = this.httpEnabled ? "https://" : "thrift://";
-        this.uri = URI.create(scheme + requireNonNull(host, "host is null") + ":" + port);
+        this.httpEnabled = Optional.ofNullable(staticMetastoreConfig.getMetastoreUris())
+                .orElse(Collections.emptyList())
+                .stream()
+                .map(URI::getScheme)
+                .filter(Objects::nonNull)
+                .anyMatch(scheme -> "http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme));
+
+        String scheme = httpEnabled ? "http" : "thrift";
+        String path = httpEnabled ? "/metastore" : "";
+
+        this.uri = URI.create(String.format("%s://%s:%d%s", scheme, requireNonNull(host, "host is null"), port, path));
         this.hiveCommonClientConfig = hiveCommonClientConfig;
     }
 
