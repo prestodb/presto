@@ -54,11 +54,10 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.airlift.units.Duration;
 import io.netty.channel.EventLoop;
 import io.netty.util.concurrent.AbstractEventExecutorGroup;
+import jakarta.annotation.PreDestroy;
+import jakarta.inject.Inject;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.annotation.PreDestroy;
-import javax.inject.Inject;
 
 import java.util.Optional;
 import java.util.concurrent.Executor;

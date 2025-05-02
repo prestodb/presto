@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation.noisyaggregation.sketch;
 
+import com.facebook.airlift.concurrent.NotThreadSafe;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import io.airlift.slice.BasicSliceInput;
@@ -21,8 +22,6 @@ import io.airlift.slice.Murmur3Hash128;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
-
-import javax.annotation.concurrent.NotThreadSafe;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;

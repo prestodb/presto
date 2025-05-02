@@ -32,10 +32,9 @@ import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
 import org.testng.annotations.Test;
-
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
 
 import java.net.SocketTimeoutException;
 import java.net.URI;

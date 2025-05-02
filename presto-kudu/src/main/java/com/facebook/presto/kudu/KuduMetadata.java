@@ -38,11 +38,10 @@ import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
+import jakarta.inject.Inject;
 import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.Schema;
 import org.apache.kudu.client.KuduTable;
-
-import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Collection;

@@ -30,9 +30,8 @@ import com.google.common.util.concurrent.FluentFuture;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.units.DataSize;
-
-import javax.annotation.concurrent.GuardedBy;
 
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
