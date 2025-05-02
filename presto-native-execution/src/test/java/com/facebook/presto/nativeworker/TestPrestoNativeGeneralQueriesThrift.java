@@ -23,13 +23,19 @@ public class TestPrestoNativeGeneralQueriesThrift
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(true);
+        return PrestoNativeQueryRunnerUtils.builder()
+                .setAddStorageFormatToPath(true)
+                .setUseThrift(true)
+                .buildNativeHiveQueryRunner();
     }
 
     @Override
     protected ExpectedQueryRunner createExpectedQueryRunner()
             throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createJavaQueryRunner();
+        return PrestoNativeQueryRunnerUtils.builder()
+                .setSecurity("sql-standard")
+                .setAddStorageFormatToPath(true)
+                .buildJavaHiveQueryRunner();
     }
 }

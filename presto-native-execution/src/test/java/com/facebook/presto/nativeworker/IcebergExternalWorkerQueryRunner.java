@@ -18,6 +18,8 @@ import com.facebook.airlift.log.Logging;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
 
+import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.ICEBERG_DEFAULT_STORAGE_FORMAT;
+
 public class IcebergExternalWorkerQueryRunner
 {
     private IcebergExternalWorkerQueryRunner() {}
@@ -29,12 +31,17 @@ public class IcebergExternalWorkerQueryRunner
         Logging.initialize();
 
         // Create tables before launching distributed runner.
-        QueryRunner javaQueryRunner = PrestoNativeQueryRunnerUtils.createJavaIcebergQueryRunner(false);
+        QueryRunner javaQueryRunner = PrestoNativeQueryRunnerUtils.builder()
+                .setStorageFormat(ICEBERG_DEFAULT_STORAGE_FORMAT)
+                .buildJavaIcebergQueryRunner();
         NativeQueryRunnerUtils.createAllIcebergTables(javaQueryRunner);
         javaQueryRunner.close();
 
         // Launch distributed runner.
-        DistributedQueryRunner queryRunner = (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.createNativeIcebergQueryRunner(true, false);
+        DistributedQueryRunner queryRunner = (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.builder()
+                .setStorageFormat(ICEBERG_DEFAULT_STORAGE_FORMAT)
+                .setUseThrift(true)
+                .buildNativeIcebergQueryRunner();
         Thread.sleep(10);
         Logger log = Logger.get(DistributedQueryRunner.class);
         log.info("======== SERVER STARTED ========");

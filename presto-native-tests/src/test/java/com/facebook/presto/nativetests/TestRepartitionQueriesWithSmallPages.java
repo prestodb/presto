@@ -27,10 +27,14 @@ public class TestRepartitionQueriesWithSmallPages
     @Override
     protected QueryRunner createQueryRunner() throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(
-                // Use small SerializedPages to force flushing
-                ImmutableMap.of("driver.max-page-partitioning-buffer-size", "200B"),
-                System.getProperty("storageFormat"));
+        return PrestoNativeQueryRunnerUtils.builder()
+                .setStorageFormat(System.getProperty("storageFormat"))
+                .setAddStorageFormatToPath(true)
+                .setUseThrift(true)
+                .setExtraProperties(
+                        // Use small SerializedPages to force flushing
+                        ImmutableMap.of("driver.max-page-partitioning-buffer-size", "200B"))
+                .buildNativeHiveQueryRunner();
     }
 
     @Parameters("storageFormat")
@@ -39,7 +43,11 @@ public class TestRepartitionQueriesWithSmallPages
     {
         try {
             String storageFormat = System.getProperty("storageFormat");
-            QueryRunner javaQueryRunner = PrestoNativeQueryRunnerUtils.createJavaQueryRunner(storageFormat);
+            QueryRunner javaQueryRunner = PrestoNativeQueryRunnerUtils.builder()
+                    .setStorageFormat(storageFormat)
+                    .setSecurity("sql-standard")
+                    .setAddStorageFormatToPath(true)
+                    .buildJavaHiveQueryRunner();
             if (storageFormat.equals("DWRF")) {
                 NativeQueryRunnerUtils.createAllTables(javaQueryRunner, true);
             }

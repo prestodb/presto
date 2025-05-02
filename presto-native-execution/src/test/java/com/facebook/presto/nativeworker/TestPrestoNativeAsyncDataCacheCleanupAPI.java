@@ -43,13 +43,22 @@ public class TestPrestoNativeAsyncDataCacheCleanupAPI
     @Override
     protected QueryRunner createQueryRunner() throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createQueryRunner(true, false, true, true);
+        return PrestoNativeQueryRunnerUtils.builder()
+                .setCacheMaxSize(4096)
+                .setUseThrift(true)
+                .setAddStorageFormatToPath(true)
+                .setEnableRuntimeMetricsCollection(true)
+                .setEnableSsdCache(true)
+                .buildNativeHiveQueryRunner();
     }
 
     @Override
     protected ExpectedQueryRunner createExpectedQueryRunner() throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createJavaQueryRunner();
+        return PrestoNativeQueryRunnerUtils.builder()
+                .setSecurity("sql-standard")
+                .setAddStorageFormatToPath(true)
+                .buildJavaHiveQueryRunner();
     }
 
     @Override
