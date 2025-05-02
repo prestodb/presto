@@ -119,6 +119,7 @@ class PartitionAndSerializeOperator : public Operator {
     compactRow_ =
         std::make_unique<velox::row::CompactRow>(reorderInputsIfNeeded());
     calculateRowSize();
+    maybeInitializeSortKeySerializer();
 
     // Process partitionVector and replicateVector once, and reuse on subsequent
     // batch.
@@ -357,7 +358,7 @@ class PartitionAndSerializeOperator : public Operator {
   }
 
   void maybeInitializeSortKeySerializer() {
-    if (binarySortableSerializer_ != nullptr) {
+    if (!sorted_) {
       return;
     }
     VELOX_CHECK(sortingOrders_.has_value() && sortingKeys_.has_value());
@@ -372,7 +373,7 @@ class PartitionAndSerializeOperator : public Operator {
     if (!sorted_) {
       return;
     }
-    maybeInitializeSortKeySerializer();
+    VELOX_CHECK_NOT_NULL(binarySortableSerializer_);
     const vector_size_t batchSize = to - from;
 
     // Serialize keys.
