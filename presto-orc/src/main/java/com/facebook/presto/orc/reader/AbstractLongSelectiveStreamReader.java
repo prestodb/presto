@@ -20,9 +20,8 @@ import com.facebook.presto.common.block.IntArrayBlock;
 import com.facebook.presto.common.block.LongArrayBlock;
 import com.facebook.presto.common.block.ShortArrayBlock;
 import com.facebook.presto.common.type.Type;
+import jakarta.annotation.Nullable;
 import org.openjdk.jol.info.ClassLayout;
-
-import javax.annotation.Nullable;
 
 import java.util.Optional;
 

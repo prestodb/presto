@@ -14,14 +14,13 @@
 package com.facebook.presto.client;
 
 import com.facebook.airlift.json.JsonCodec;
+import jakarta.annotation.Nullable;
 import okhttp3.Headers;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
-
-import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
