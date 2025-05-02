@@ -640,6 +640,11 @@ public final class PlanMatchPattern
         return values(ImmutableList.copyOf(aliases));
     }
 
+    public static PlanMatchPattern values(int rowCount)
+    {
+        return values(ImmutableList.of(), nCopies(rowCount, ImmutableList.of()));
+    }
+
     public static PlanMatchPattern values(List<String> aliases, List<List<Expression>> expectedRows)
     {
         return values(aliases, Optional.of(expectedRows));
@@ -678,6 +683,13 @@ public final class PlanMatchPattern
     public static PlanMatchPattern remoteSource(List<PlanFragmentId> sourceFragmentIds, Map<String, Integer> outputSymbolAliases)
     {
         return node(RemoteSourceNode.class).with(new RemoteSourceMatcher(sourceFragmentIds, outputSymbolAliases));
+    }
+
+    public static PlanMatchPattern tableFunction(Consumer<TableFunctionMatcher.Builder> handler, PlanMatchPattern... sources)
+    {
+        TableFunctionMatcher.Builder builder = new TableFunctionMatcher.Builder(sources);
+        handler.accept(builder);
+        return builder.build();
     }
 
     public PlanMatchPattern(List<PlanMatchPattern> sourcePatterns)
