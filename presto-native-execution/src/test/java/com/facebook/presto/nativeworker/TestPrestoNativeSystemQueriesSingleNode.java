@@ -16,30 +16,30 @@ package com.facebook.presto.nativeworker;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 
-import java.util.Optional;
-
 public class TestPrestoNativeSystemQueriesSingleNode
         extends AbstractTestNativeSystemQueries
 {
+    private final String storageFormat = "DWRF";
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(
-                true,
-                "DWRF",
-                Optional.empty(),
-                false,
-                false,
-                true,
-                false,
-                false);
+        return PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder()
+                .setStorageFormat(storageFormat)
+                .setAddStorageFormatToPath(true)
+                .setUseThrift(true)
+                .setSingleNodeExecutionEnabled(true)
+                .build();
     }
 
     @Override
     protected ExpectedQueryRunner createExpectedQueryRunner()
             throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createJavaQueryRunner();
+        return PrestoNativeQueryRunnerUtils.javaHiveQueryRunnerBuilder()
+                .setStorageFormat(storageFormat)
+                .setAddStorageFormatToPath(true)
+                .build();
     }
 }

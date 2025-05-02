@@ -15,6 +15,7 @@ package com.facebook.presto.nativeworker;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.testing.QueryRunner;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SystemSessionProperties.CTE_FILTER_AND_PROJECTION_PUSHDOWN_ENABLED;
@@ -27,18 +28,33 @@ import static com.facebook.presto.SystemSessionProperties.VERBOSE_OPTIMIZER_INFO
 public class TestPrestoNativeCteExecutionParquet
         extends AbstractTestNativeCteExecution
 {
+    private final String storageFormat = "PARQUET";
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createNativeCteQueryRunner(true, "PARQUET");
+        return PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder()
+                .setStorageFormat(this.storageFormat)
+                .setAddStorageFormatToPath(true)
+                .setUseThrift(true)
+                .setExtraProperties(ImmutableMap.of("query.cte-partitioning-provider-catalog", "hive"))
+                .setHiveProperties(ImmutableMap.<String, String>builder()
+                        .put("hive.enable-parquet-dereference-pushdown", "true")
+                        .put("hive.temporary-table-compression-codec", "NONE")
+                        .put("hive.temporary-table-storage-format", this.storageFormat)
+                        .build())
+                .build();
     }
 
     @Override
     protected QueryRunner createExpectedQueryRunner()
             throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createJavaQueryRunner("PARQUET");
+        return PrestoNativeQueryRunnerUtils.javaHiveQueryRunnerBuilder()
+                .setStorageFormat(this.storageFormat)
+                .setAddStorageFormatToPath(true)
+                .build();
     }
 
     @Override

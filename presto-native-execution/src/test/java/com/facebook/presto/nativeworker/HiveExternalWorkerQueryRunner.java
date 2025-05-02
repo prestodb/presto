@@ -29,12 +29,12 @@ public class HiveExternalWorkerQueryRunner
         Logging.initialize();
 
         // Create tables before launching distributed runner.
-        QueryRunner javaQueryRunner = PrestoNativeQueryRunnerUtils.createJavaQueryRunner(false);
+        QueryRunner javaQueryRunner = PrestoNativeQueryRunnerUtils.javaHiveQueryRunnerBuilder().build();
         NativeQueryRunnerUtils.createAllTables(javaQueryRunner);
         javaQueryRunner.close();
 
         // Launch distributed runner.
-        DistributedQueryRunner queryRunner = (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.createQueryRunner(false, false, false, false);
+        DistributedQueryRunner queryRunner = (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder().build();
         Thread.sleep(10);
         Logger log = Logger.get(DistributedQueryRunner.class);
         log.info("======== SERVER STARTED ========");

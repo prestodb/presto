@@ -25,7 +25,11 @@ public class TestPrestoNativeTpcdsQueriesOrcUsingThrift
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(true, "ORC");
+        return PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder()
+                .setStorageFormat("ORC")
+                .setAddStorageFormatToPath(true)
+                .setUseThrift(true)
+                .build();
     }
 
     @Override
@@ -33,6 +37,9 @@ public class TestPrestoNativeTpcdsQueriesOrcUsingThrift
             throws Exception
     {
         this.storageFormat = "ORC";
-        return PrestoNativeQueryRunnerUtils.createJavaQueryRunner("ORC");
+        return PrestoNativeQueryRunnerUtils.javaHiveQueryRunnerBuilder()
+                .setStorageFormat(this.storageFormat)
+                .setAddStorageFormatToPath(true)
+                .build();
     }
 }
