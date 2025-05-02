@@ -23,8 +23,7 @@ import com.facebook.presto.operator.BlockedReason;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.util.Failures;
 import com.google.common.collect.ImmutableList;
-
-import javax.annotation.concurrent.ThreadSafe;
+import com.google.errorprone.annotations.ThreadSafe;
 
 import java.util.HashSet;
 import java.util.List;

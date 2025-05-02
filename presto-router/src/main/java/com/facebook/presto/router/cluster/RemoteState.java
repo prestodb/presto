@@ -24,11 +24,10 @@ import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
-import com.google.inject.Inject;
+import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.units.Duration;
-
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.ThreadSafe;
+import jakarta.annotation.Nullable;
+import jakarta.inject.Inject;
 
 import java.net.URI;
 import java.nio.file.Paths;

@@ -18,8 +18,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
-
-import javax.annotation.concurrent.GuardedBy;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 
 import java.io.Closeable;
 import java.util.ArrayList;
