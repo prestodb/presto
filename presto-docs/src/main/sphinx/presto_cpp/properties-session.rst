@@ -460,5 +460,5 @@ while a lower value limits the amount of memory used.
 * **Default value:** ``0``
 
 In streaming aggregation, wait until there are enough output rows 
-to produce a batch of size specified by this. If set to 0, then
+to produce a batch of the size specified by this property. If set to ``0``, then 
 Operator::outputBatchRows will be used as the min output batch rows.
