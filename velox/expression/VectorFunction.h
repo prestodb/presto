@@ -257,8 +257,8 @@ template <typename T>
 VectorFunctionFactory makeVectorFunctionFactory() {
   return [](const std::string& name,
             const std::vector<VectorFunctionArg>& inputArgs,
-            const core::QueryConfig& /*config*/) {
-    return std::make_shared<T>(name, inputArgs);
+            const core::QueryConfig& config) {
+    return std::make_shared<T>(name, inputArgs, config);
   };
 }
 
