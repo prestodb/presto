@@ -18,10 +18,9 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.iceberg.IcebergColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import io.airlift.slice.Slice;
+import jakarta.annotation.Nullable;
 import org.roaringbitmap.longlong.ImmutableLongBitmapDataProvider;
 import org.roaringbitmap.longlong.LongBitmapDataProvider;
-
-import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Optional;

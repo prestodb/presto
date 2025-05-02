@@ -19,10 +19,9 @@ import com.facebook.presto.spi.memory.MemoryAllocation;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.memory.MemoryPoolInfo;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import org.weakref.jmx.Managed;
-
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.ArrayList;
 import java.util.HashMap;

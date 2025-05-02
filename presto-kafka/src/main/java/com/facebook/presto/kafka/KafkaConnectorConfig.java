@@ -21,8 +21,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
-
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 import java.io.File;
 import java.util.List;

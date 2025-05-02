@@ -20,10 +20,9 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-
-import javax.annotation.concurrent.GuardedBy;
 
 import java.util.AbstractMap;
 import java.util.ArrayList;
