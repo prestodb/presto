@@ -24,10 +24,9 @@ import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
+import jakarta.servlet.http.HttpServletRequest;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
-
-import javax.servlet.http.HttpServletRequest;
 
 import java.net.URI;
 import java.util.Enumeration;
@@ -116,7 +115,7 @@ public class TestPlanCheckerRouterPlugin
                                 PRESTO_SCHEMA, "tiny"),
                         "SELECT lower(comment) from region"));
         assertTrue(target.isPresent());
-        assertEquals(target.get(), planCheckerRouterConfig.getNativeRouterURI());
+        assertEquals(target.orElseThrow(), planCheckerRouterConfig.getNativeRouterURI());
     }
 
     @Test
@@ -135,7 +134,7 @@ public class TestPlanCheckerRouterPlugin
                                 PRESTO_SCHEMA, "tiny"),
                         "SELECT EXISTS(SELECT 1 WHERE l.orderkey > 0 OR l.orderkey != 3) FROM lineitem l LIMIT 1"));
         assertTrue(target.isPresent());
-        assertEquals(target.get(), planCheckerRouterConfig.getJavaRouterURI());
+        assertEquals(target.orElseThrow(), planCheckerRouterConfig.getJavaRouterURI());
     }
 
     private static RouterRequestInfo getMockRouterRequestInfo(ListMultimap<String, String> headers, String query)

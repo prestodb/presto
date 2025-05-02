@@ -22,9 +22,8 @@ import com.facebook.presto.operator.PageBufferClient.PagesResponse;
 import com.facebook.presto.server.thrift.ThriftTaskClient;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.units.DataSize;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.net.URI;
 import java.util.Optional;

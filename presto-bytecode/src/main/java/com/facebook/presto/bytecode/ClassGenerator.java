@@ -39,7 +39,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.bytecode.ClassInfoLoader.createClassInfoLoader;
 import static com.facebook.presto.bytecode.ParameterizedType.typeFromJavaClassName;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.io.CharStreams.nullWriter;
 import static java.nio.file.Files.createDirectories;
 import static java.util.Objects.requireNonNull;
@@ -117,7 +117,7 @@ public class ClassGenerator
     public <T> Class<? extends T> defineClass(ClassDefinition classDefinition, Class<T> superType)
     {
         Map<String, Class<?>> classes = defineClasses(ImmutableList.of(classDefinition));
-        return getOnlyElement(classes.values()).asSubclass(superType);
+        return classes.values().stream().collect(onlyElement()).asSubclass(superType);
     }
 
     public Map<String, Class<?>> defineClasses(List<ClassDefinition> classDefinitions)

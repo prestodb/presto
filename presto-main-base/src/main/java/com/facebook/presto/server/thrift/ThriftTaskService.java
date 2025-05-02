@@ -26,8 +26,7 @@ import com.facebook.presto.server.ForAsyncRpc;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.concurrent.ScheduledExecutorService;
 

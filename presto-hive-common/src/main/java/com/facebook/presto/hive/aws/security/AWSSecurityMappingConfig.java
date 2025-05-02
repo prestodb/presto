@@ -17,9 +17,8 @@ import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
-
-import javax.annotation.Nullable;
-import javax.validation.constraints.AssertTrue;
+import jakarta.annotation.Nullable;
+import jakarta.validation.constraints.AssertTrue;
 
 import java.io.File;
 import java.util.Optional;
