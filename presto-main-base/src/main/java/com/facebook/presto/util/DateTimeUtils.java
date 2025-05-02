@@ -18,6 +18,7 @@ import com.facebook.presto.client.IntervalYearMonth;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.tree.IntervalLiteral.IntervalField;
+import jakarta.annotation.Nullable;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.DurationFieldType;
@@ -35,8 +36,6 @@ import org.joda.time.format.ISODateTimeFormat;
 import org.joda.time.format.PeriodFormatter;
 import org.joda.time.format.PeriodFormatterBuilder;
 import org.joda.time.format.PeriodParser;
-
-import javax.annotation.Nullable;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;

@@ -21,11 +21,10 @@ import com.facebook.presto.operator.BlockedReason;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.Immutable;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
-
-import javax.annotation.concurrent.Immutable;
 
 import java.util.OptionalDouble;
 import java.util.Set;

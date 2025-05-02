@@ -45,9 +45,8 @@ import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
+import jakarta.inject.Inject;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
