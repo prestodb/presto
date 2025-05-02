@@ -18,8 +18,7 @@ import com.facebook.presto.kafka.encoder.RowEncoder;
 import com.facebook.presto.kafka.encoder.RowEncoderFactory;
 import com.facebook.presto.spi.ConnectorSession;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
