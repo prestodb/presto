@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.parser;
 
-import javax.annotation.concurrent.ThreadSafe;
+import com.google.errorprone.annotations.ThreadSafe;
 
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;

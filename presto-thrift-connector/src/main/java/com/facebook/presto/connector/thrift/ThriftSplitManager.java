@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.connector.thrift;
 
+import com.facebook.airlift.concurrent.NotThreadSafe;
 import com.facebook.drift.client.DriftClient;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
@@ -34,9 +35,7 @@ import com.facebook.presto.thrift.api.connector.PrestoThriftSplitBatch;
 import com.facebook.presto.thrift.api.connector.PrestoThriftTupleDomain;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-
-import javax.annotation.concurrent.NotThreadSafe;
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
