@@ -1311,6 +1311,12 @@
             </dependency>
 
             <dependency>
+                <groupId>com.facebook.drift</groupId>
+                <artifactId>drift-idl-generator</artifactId>
+                <version>${dep.drift.version}</version>
+            </dependency>
+
+            <dependency>
                 <groupId>io.airlift.tpch</groupId>
                 <artifactId>tpch</artifactId>
                 <version>0.10</version>
