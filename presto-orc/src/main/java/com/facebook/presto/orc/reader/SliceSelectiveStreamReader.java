@@ -56,10 +56,9 @@ public class SliceSelectiveStreamReader
             Optional<Type> outputType,
             OrcAggregatedMemoryContext systemMemoryContext,
             boolean isLowMemory,
-            long maxSliceSize,
-            boolean resetAllReaders)
+            long maxSliceSize)
     {
-        this.context = new SelectiveReaderContext(streamDescriptor, outputType, filter, systemMemoryContext, isLowMemory, maxSliceSize, resetAllReaders);
+        this.context = new SelectiveReaderContext(streamDescriptor, outputType, filter, systemMemoryContext, isLowMemory, maxSliceSize);
     }
 
     public static int computeTruncatedLength(Slice slice, int offset, int length, int maxCodePointCount, boolean isCharType)
@@ -89,9 +88,8 @@ public class SliceSelectiveStreamReader
                     directReader = new SliceDirectSelectiveStreamReader(context);
                 }
                 currentReader = directReader;
-                if (dictionaryReader != null && context.isResetAllReaders()) {
+                if (dictionaryReader != null) {
                     dictionaryReader = null;
-                    System.setProperty("RESET_SLICE_READER", "RESET_SLICE_READER");
                 }
                 break;
             case DICTIONARY:
@@ -100,9 +98,8 @@ public class SliceSelectiveStreamReader
                     dictionaryReader = new SliceDictionarySelectiveReader(context);
                 }
                 currentReader = dictionaryReader;
-                if (directReader != null && context.isResetAllReaders()) {
+                if (directReader != null) {
                     directReader = null;
-                    System.setProperty("RESET_SLICE_READER", "RESET_SLICE_READER");
                 }
                 break;
             default:

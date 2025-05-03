@@ -52,10 +52,9 @@ public class LongSelectiveStreamReader
             Optional<Type> outputType,
             OrcAggregatedMemoryContext systemMemoryContext,
             boolean isLowMemory,
-            long maxSliceSize,
-            boolean resetAllReaders)
+            long maxSliceSize)
     {
-        this.context = new SelectiveReaderContext(streamDescriptor, outputType, filter, systemMemoryContext, isLowMemory, maxSliceSize, resetAllReaders);
+        this.context = new SelectiveReaderContext(streamDescriptor, outputType, filter, systemMemoryContext, isLowMemory, maxSliceSize);
     }
 
     @Override
@@ -74,9 +73,8 @@ public class LongSelectiveStreamReader
                     directReader = new LongDirectSelectiveStreamReader(context);
                 }
                 currentReader = directReader;
-                if (dictionaryReader != null && context.isResetAllReaders()) {
+                if (dictionaryReader != null) {
                     dictionaryReader = null;
-                    System.setProperty("RESET_LONG_READER", "RESET_LONG_READER");
                 }
                 break;
             case DICTIONARY:
@@ -84,9 +82,8 @@ public class LongSelectiveStreamReader
                     dictionaryReader = new LongDictionarySelectiveStreamReader(context);
                 }
                 currentReader = dictionaryReader;
-                if (directReader != null && context.isResetAllReaders()) {
+                if (directReader != null) {
                     directReader = null;
-                    System.setProperty("RESET_LONG_READER", "RESET_LONG_READER");
                 }
                 break;
             default:

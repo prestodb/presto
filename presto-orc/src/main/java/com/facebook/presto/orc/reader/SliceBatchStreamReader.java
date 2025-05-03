@@ -54,9 +54,8 @@ public class SliceBatchStreamReader
     private final SliceDirectBatchStreamReader directReader;
     private final SliceDictionaryBatchStreamReader dictionaryReader;
     private BatchStreamReader currentReader;
-    private final boolean resetAllReaders;
 
-    public SliceBatchStreamReader(Type type, StreamDescriptor streamDescriptor, OrcAggregatedMemoryContext systemMemoryContext, long maxSliceSize, boolean resetAllReaders)
+    public SliceBatchStreamReader(Type type, StreamDescriptor streamDescriptor, OrcAggregatedMemoryContext systemMemoryContext, long maxSliceSize)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
@@ -64,7 +63,6 @@ public class SliceBatchStreamReader
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         this.directReader = new SliceDirectBatchStreamReader(streamDescriptor, getMaxCodePointCount(type), isCharType(type), maxSliceSize);
         this.dictionaryReader = new SliceDictionaryBatchStreamReader(streamDescriptor, getMaxCodePointCount(type), isCharType(type), systemMemoryContext.newOrcLocalMemoryContext(SliceBatchStreamReader.class.getSimpleName()));
-        this.resetAllReaders = resetAllReaders;
     }
 
     @Override
@@ -89,16 +87,14 @@ public class SliceBatchStreamReader
                 .getColumnEncodingKind();
         if (columnEncodingKind == DIRECT || columnEncodingKind == DIRECT_V2 || columnEncodingKind == DWRF_DIRECT) {
             currentReader = directReader;
-            if (dictionaryReader != null && resetAllReaders) {
+            if (dictionaryReader != null) {
                 dictionaryReader.startStripe(stripe);
-                System.setProperty("RESET_SLICE_BATCH_READER", "RESET_SLICE_BATCH_READER");
             }
         }
         else if (columnEncodingKind == DICTIONARY || columnEncodingKind == DICTIONARY_V2) {
             currentReader = dictionaryReader;
-            if (directReader != null && resetAllReaders) {
+            if (directReader != null) {
                 directReader.startStripe(stripe);
-                System.setProperty("RESET_SLICE_BATCH_READER", "RESET_SLICE_BATCH_READER");
             }
         }
         else {
