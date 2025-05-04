@@ -712,7 +712,7 @@ uint64_t SharedArbitrator::shrinkCapacity(
                       << succinctBytes(totalReclaimedBytes) << ", spent "
                       << succinctNanos(reclaimTimeNs) << ", spill "
                       << (allowSpill ? "allowed" : "not allowed") << ", abort "
-                      << (allowSpill ? "allowed" : "not allowed");
+                      << (allowAbort ? "allowed" : "not allowed");
   updateGlobalArbitrationStats(reclaimTimeNs, totalReclaimedBytes);
   return totalReclaimedBytes;
 }
