@@ -1,0 +1,47 @@
+name: link checker
+
+on:
+  workflow_dispatch:
+  # Check links once a week on Monday
+  schedule:
+    - cron: "00 00 * * 1"
+
+jobs:
+  linkChecker:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write # required for peter-evans/create-issue-from-file
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Link Checker
+        id: lychee
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: >
+            --verbose
+            --no-progress
+            --include-fragments
+            --accept 100..=103,200..=299,429
+            --exclude 408,504
+            --exclude-loopback
+            --exclude-path 'presto-docs/src/main/sphinx/_templates/partials/toc.html'
+            --exclude 'https://www.gnu.org/software/gperf'
+            --max-concurrency 32 
+            -- .
+          fail: false
+          jobSummary: true
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+
+      - name: Get current date
+        id: date
+        run: echo "::set-output name=now::$(date +'%d-%m-%Y')"
+
+      - name: Create Issue from File
+        if: steps.lychee.outputs.exit_code != 0
+        uses: peter-evans/create-issue-from-file@v5
+        with:
+          title: Automated Links Checker Report for ${{ steps.date.outputs.now }}
+          content-filepath: ./lychee/out.md
+          labels: automated issue, docs
