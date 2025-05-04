@@ -801,7 +801,7 @@ public abstract class IcebergDistributedSmokeTestBase
                 "\"" + schemaName + "\"",
                 "test_create_table_like_copy1",
                 getCustomizedTableProperties(ImmutableMap.of(
-                                "location", "'" + getLocation(schemaName, "test_create_table_like_copy1") + "'")));
+                        "location", "'" + getLocation(schemaName, "test_create_table_like_copy1") + "'")));
         dropTable(session, "test_create_table_like_copy1");
 
         assertUpdate(session, "CREATE TABLE test_create_table_like_copy2 (LIKE test_create_table_like_original EXCLUDING PROPERTIES)");
@@ -2095,40 +2095,45 @@ public abstract class IcebergDistributedSmokeTestBase
     @Test
     public void testRuntimeMetricsReporter()
     {
-        Session session = Session.builder(getSession())
-                .setCatalog("iceberg")
-                .setSchema("tpch")
-                .build();
-
         ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner()
-                .executeWithQueryId(session, "SELECT * FROM orders WHERE orderkey < 100");
-
-        QueryId queryId = result.getQueryId();
+                .executeWithQueryId(getSession(), "SELECT * FROM orders WHERE orderkey < 100");
 
         DistributedQueryRunner distributedQueryRunner = (DistributedQueryRunner) getQueryRunner();
 
         RuntimeStats runtimestats = distributedQueryRunner.getCoordinator()
                 .getQueryManager()
-                .getFullQueryInfo(queryId)
+                .getFullQueryInfo(result.getQueryId())
                 .getQueryStats()
                 .getRuntimeStats();
 
-        assertTrue(runtimestats.getMetrics().containsKey("iceberg.tpch.orders.scan.totalPlanningDuration"));
+        assertTrue(runtimestats
+                .getMetrics()
+                .containsKey("iceberg.tpch.orders.scan.totalPlanningDuration"));
 
-        assertEquals(runtimestats
+        assertTrue(runtimestats
+                .getMetrics()
+                .get("iceberg.tpch.orders.scan.totalPlanningDuration")
+                .getSum() > 0);
+
+        assertTrue(runtimestats
                 .getMetrics()
                 .get("iceberg.tpch.orders.scan.resultDataFiles")
-                .getCount(), 1);
+                .getCount() > 1);
 
         assertEquals(runtimestats
                 .getMetrics()
                 .get("iceberg.tpch.orders.scan.totalDeleteManifests")
                 .getCount(), 1);
 
-        assertEquals(runtimestats
+        assertTrue(runtimestats
                 .getMetrics()
                 .get("iceberg.tpch.orders.scan.totalFileSizeInBytes")
-                .getCount(), 1);
+                .getCount() > 0);
+
+        assertTrue(runtimestats
+                .getMetrics()
+                .get("iceberg.tpch.orders.scan.totalFileSizeInBytes")
+                .getSum() > 0);
     }
 
     protected HdfsEnvironment getHdfsEnvironment()
@@ -2174,8 +2179,8 @@ public abstract class IcebergDistributedSmokeTestBase
     }
 
     protected void validateShowCreateTable(String table,
-                                           List<ColumnDefinition> columnDefinitions,
-                                           Map<String, String> propertyDescriptions)
+            List<ColumnDefinition> columnDefinitions,
+            Map<String, String> propertyDescriptions)
     {
         String catalog = getSession().getCatalog().get();
         String schema = getSession().getSchema().get();
@@ -2184,9 +2189,9 @@ public abstract class IcebergDistributedSmokeTestBase
     }
 
     protected void validateShowCreateTable(String catalog, String schema, String table,
-                                           List<ColumnDefinition> columnDefinitions,
-                                           String comment,
-                                           Map<String, String> propertyDescriptions)
+            List<ColumnDefinition> columnDefinitions,
+            String comment,
+            Map<String, String> propertyDescriptions)
     {
         validateShowCreateTableInner(catalog, schema, table, Optional.ofNullable(columnDefinitions),
                 Optional.ofNullable(comment), propertyDescriptions);
@@ -2198,21 +2203,23 @@ public abstract class IcebergDistributedSmokeTestBase
     }
 
     private void validateShowCreateTableInner(String catalog, String schema, String table,
-                                              Optional<List<ColumnDefinition>> columnDefinitions,
-                                              Optional<String> commentDescription,
-                                              Map<String, String> propertyDescriptions)
+            Optional<List<ColumnDefinition>> columnDefinitions,
+            Optional<String> commentDescription,
+            Map<String, String> propertyDescriptions)
     {
         MaterializedResult showCreateTable = computeActual(format("SHOW CREATE TABLE %s.%s.%s", catalog, schema, table));
         String createTableSql = (String) getOnlyElement(showCreateTable.getOnlyColumnAsSet());
 
         SqlParser parser = new SqlParser();
-        parser.createStatement(createTableSql).accept(new AstVisitor<Void, Void>() {
+        parser.createStatement(createTableSql).accept(new AstVisitor<Void, Void>()
+        {
             @Override
             protected Void visitCreateTable(CreateTable node, Void context)
             {
                 columnDefinitions.ifPresent(columnDefinitionList -> {
                     ImmutableList.Builder<ColumnDefinition> columnDefinitionsBuilder = ImmutableList.builder();
-                    node.getElements().forEach(element -> element.accept(new AstVisitor<Void, Void>() {
+                    node.getElements().forEach(element -> element.accept(new AstVisitor<Void, Void>()
+                    {
                         @Override
                         protected Void visitColumnDefinition(ColumnDefinition node, Void context)
                         {
