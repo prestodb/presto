@@ -61,12 +61,9 @@ public final class RuntimeStatsMetricsReporter
             return;
         }
 
-        // Cast report to scanReport instance
         ScanReport scanReport = (ScanReport) report;
-
         String tableName = scanReport.tableName();
 
-        // TotalPlanning Duration Metric
         if (scanReport.scanMetrics().totalPlanningDuration() != null) {
             runtimeStats.addMetricValue(
                     tableScanString(tableName, "totalPlanningDuration"),
@@ -75,7 +72,6 @@ public final class RuntimeStatsMetricsReporter
                             .totalDuration().toNanos());
         }
 
-        // resultDataFiles Metric
         if (scanReport.scanMetrics().resultDataFiles() != null) {
             runtimeStats.addMetricValue(
                     tableScanString(tableName, "resultDataFiles"),
@@ -83,7 +79,6 @@ public final class RuntimeStatsMetricsReporter
                     scanReport.scanMetrics().resultDataFiles().value());
         }
 
-        // resultDeleteFiles Metric
         if (scanReport.scanMetrics().resultDeleteFiles() != null) {
             runtimeStats.addMetricValue(
                     tableScanString(tableName, "resultDeleteFiles"),
@@ -91,7 +86,6 @@ public final class RuntimeStatsMetricsReporter
                     scanReport.scanMetrics().resultDeleteFiles().value());
         }
 
-        // totalDataManifests Metric
         if (scanReport.scanMetrics().totalDataManifests() != null) {
             runtimeStats.addMetricValue(
                     tableScanString(tableName, "totalDataManifests"),
@@ -99,7 +93,6 @@ public final class RuntimeStatsMetricsReporter
                     scanReport.scanMetrics().totalDataManifests().value());
         }
 
-        // totalDeleteManifests() Metric
         if (scanReport.scanMetrics().totalDeleteManifests() != null) {
             runtimeStats.addMetricValue(
                     tableScanString(tableName, "totalDeleteManifests"),
@@ -107,7 +100,6 @@ public final class RuntimeStatsMetricsReporter
                     scanReport.scanMetrics().totalDeleteManifests().value());
         }
 
-        // scannedDataManifests() Metric
         if (scanReport.scanMetrics().scannedDataManifests() != null) {
             runtimeStats.addMetricValue(
                     tableScanString(tableName, "scannedDataManifests"),
@@ -115,7 +107,6 @@ public final class RuntimeStatsMetricsReporter
                     scanReport.scanMetrics().scannedDataManifests().value());
         }
 
-        // skippedDataManifests() Metric
         if (scanReport.scanMetrics().skippedDataManifests() != null) {
             runtimeStats.addMetricValue(
                     tableScanString(tableName, "skippedDataManifests"),
@@ -123,7 +114,6 @@ public final class RuntimeStatsMetricsReporter
                     scanReport.scanMetrics().skippedDataManifests().value());
         }
 
-        // totalFileSizeInBytes() -> RuntimeUnit.BYTES ?
         if (scanReport.scanMetrics().totalFileSizeInBytes() != null) {
             runtimeStats.addMetricValue(
                     tableScanString(tableName, "totalFileSizeInBytes"),
@@ -132,7 +122,6 @@ public final class RuntimeStatsMetricsReporter
                             .value());
         }
 
-        // totalDeleteFileSizeInBytes() -> RuntimeUnit.BYTES ?
         if (scanReport.scanMetrics().totalDeleteFileSizeInBytes() != null) {
             runtimeStats.addMetricValue(
                     tableScanString(tableName, "totalDeleteFileSizeInBytes"),
@@ -141,7 +130,6 @@ public final class RuntimeStatsMetricsReporter
                             .value());
         }
 
-        // skippedDataFiles() Metric
         if (scanReport.scanMetrics().skippedDataFiles() != null) {
             runtimeStats.addMetricValue(
                     tableScanString(tableName, "skippedDataFiles"),
@@ -150,7 +138,6 @@ public final class RuntimeStatsMetricsReporter
                             .value());
         }
 
-        // skippedDeleteFiles() Metric
         if (scanReport.scanMetrics().skippedDeleteFiles() != null) {
             runtimeStats.addMetricValue(
                     tableScanString(tableName, "skippedDeleteFiles"),
@@ -158,7 +145,6 @@ public final class RuntimeStatsMetricsReporter
                     scanReport.scanMetrics().skippedDeleteFiles().value());
         }
 
-        // scannedDeleteManifests() Metric
         if (scanReport.scanMetrics().scannedDeleteManifests() != null) {
             runtimeStats.addMetricValue(
                     tableScanString(tableName, "scannedDeleteManifests"),
@@ -166,7 +152,6 @@ public final class RuntimeStatsMetricsReporter
                     scanReport.scanMetrics().scannedDeleteManifests().value());
         }
 
-        // skippedDeleteManifests() Metric
         if (scanReport.scanMetrics().skippedDeleteManifests() != null) {
             runtimeStats.addMetricValue(
                     tableScanString(tableName, "skippedDeleteManifests"),
@@ -174,7 +159,6 @@ public final class RuntimeStatsMetricsReporter
                     scanReport.scanMetrics().skippedDeleteManifests().value());
         }
 
-        // indexedDeleteFiles() Metric
         if (scanReport.scanMetrics().indexedDeleteFiles() != null) {
             runtimeStats.addMetricValue(
                     tableScanString(tableName, "indexedDeleteFiles"),
@@ -182,7 +166,6 @@ public final class RuntimeStatsMetricsReporter
                     scanReport.scanMetrics().indexedDeleteFiles().value());
         }
 
-        // equalityDeleteFiles() Metric
         if (scanReport.scanMetrics().equalityDeleteFiles() != null) {
             runtimeStats.addMetricValue(
                     tableScanString(tableName, "equalityDeleteFiles"),
@@ -190,7 +173,6 @@ public final class RuntimeStatsMetricsReporter
                     scanReport.scanMetrics().equalityDeleteFiles().value());
         }
 
-        // positionalDeleteFiles() Metric
         if (scanReport.scanMetrics().positionalDeleteFiles() != null) {
             runtimeStats.addMetricValue(
                     tableScanString(tableName, "positionalDeleteFiles"),
