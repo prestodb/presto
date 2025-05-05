@@ -73,12 +73,18 @@ public class LongSelectiveStreamReader
                     directReader = new LongDirectSelectiveStreamReader(context);
                 }
                 currentReader = directReader;
+                if (dictionaryReader != null) {
+                    dictionaryReader = null;
+                }
                 break;
             case DICTIONARY:
                 if (dictionaryReader == null) {
                     dictionaryReader = new LongDictionarySelectiveStreamReader(context);
                 }
                 currentReader = dictionaryReader;
+                if (directReader != null) {
+                    directReader = null;
+                }
                 break;
             default:
                 throw new IllegalArgumentException("Unsupported encoding " + kind);

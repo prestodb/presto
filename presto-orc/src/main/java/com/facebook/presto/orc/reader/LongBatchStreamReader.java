@@ -74,9 +74,15 @@ public class LongBatchStreamReader
                 .getColumnEncodingKind();
         if (kind == DIRECT || kind == DIRECT_V2 || kind == DWRF_DIRECT) {
             currentReader = directReader;
+            if (dictionaryReader != null) {
+                dictionaryReader.startStripe(stripe);
+            }
         }
         else if (kind == DICTIONARY) {
             currentReader = dictionaryReader;
+            if (directReader != null) {
+                directReader.startStripe(stripe);
+            }
         }
         else {
             throw new IllegalArgumentException("Unsupported encoding " + kind);

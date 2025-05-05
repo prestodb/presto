@@ -87,9 +87,15 @@ public class SliceBatchStreamReader
                 .getColumnEncodingKind();
         if (columnEncodingKind == DIRECT || columnEncodingKind == DIRECT_V2 || columnEncodingKind == DWRF_DIRECT) {
             currentReader = directReader;
+            if (dictionaryReader != null) {
+                dictionaryReader.startStripe(stripe);
+            }
         }
         else if (columnEncodingKind == DICTIONARY || columnEncodingKind == DICTIONARY_V2) {
             currentReader = dictionaryReader;
+            if (directReader != null) {
+                directReader.startStripe(stripe);
+            }
         }
         else {
             throw new IllegalArgumentException("Unsupported encoding " + columnEncodingKind);

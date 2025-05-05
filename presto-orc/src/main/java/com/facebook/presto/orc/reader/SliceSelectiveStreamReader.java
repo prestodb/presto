@@ -88,6 +88,9 @@ public class SliceSelectiveStreamReader
                     directReader = new SliceDirectSelectiveStreamReader(context);
                 }
                 currentReader = directReader;
+                if (dictionaryReader != null) {
+                    dictionaryReader = null;
+                }
                 break;
             case DICTIONARY:
             case DICTIONARY_V2:
@@ -95,6 +98,9 @@ public class SliceSelectiveStreamReader
                     dictionaryReader = new SliceDictionarySelectiveReader(context);
                 }
                 currentReader = dictionaryReader;
+                if (directReader != null) {
+                    directReader = null;
+                }
                 break;
             default:
                 throw new IllegalArgumentException("Unsupported encoding " + kind);
