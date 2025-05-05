@@ -290,19 +290,52 @@ TEST_P(PeeledEncodingBasicTests, dictionaryOverConstantOverNullComplex) {
 TEST_P(PeeledEncodingBasicTests, dictionaryOverConstantOverComplex) {
   LocalDecodedVector localDecodedVector(execCtx_);
   const SelectivityVector& rows = GetParam().rows;
-  // 6. A single vector with arbitrary dictionary layers over a constant
+  // 6.A. A single vector with arbitrary dictionary layers over a constant
   //    encoding layer over a Non-NULL complex vector.
   //    Input Vectors: Dict1(Const1(NonNullComplex))
   //    Peeled Vectors: Non-Null Complex vector
   //    Peel: Dict1(Const) => collapsed into one dictionary
-  auto nonNullComplexConst = BaseVector::wrapInConstant(
-      vectorSize_, 0, fuzzer->fuzzNotNull(ARRAY(INTEGER()), 1));
+  auto complexBase = fuzzer->fuzzFlatNotNull(ARRAY(INTEGER()), vectorSize_);
+  auto nonNullComplexConst =
+      BaseVector::wrapInConstant(vectorSize_, 0, complexBase);
   auto input1 = wrapInDictionaryLayers(nonNullComplexConst, {&dictWrap1});
   std::vector<VectorPtr> peeledVectors;
   auto peeledEncoding = PeeledEncoding::peel(
       {input1}, rows, localDecodedVector, true, peeledVectors);
   ASSERT_EQ(peeledVectors.size(), 1);
   ASSERT_EQ(peeledEncoding->wrapEncoding(), VectorEncoding::Simple::DICTIONARY);
+  ASSERT_EQ(peeledVectors[0].get(), peelWrappings(2, input1).get());
+  ASSERT_EQ(peeledVectors[0]->encoding(), VectorEncoding::Simple::ARRAY);
+  assertEqualVectors(
+      input1,
+      peeledEncoding->wrap(
+          nonNullComplexConst->type(),
+          pool(),
+          nonNullComplexConst->valueVector(),
+          rows),
+      rows);
+
+  // 6.B. A single vector with arbitrary dictionary layers without nulls, over a
+  //    constant encoding layer over a Non-NULL complex vector.
+  //    Input Vectors: Dict1(Const1(NonNullComplex))
+  //    Peeled Vectors: Non-Null Complex vector
+  //    Peel: Dict1(Const) => collapsed into one dictionary
+  // NOTE: This is a special case since dictionaries without nulls wrapping a
+  // constant vector cannot be created via BaseVector::wrapInDictionary() API as
+  // they get converted into a Constant. The occurs very rarely. As of writing,
+  // the only known place is in LocalPartitioned operator that re-uses
+  // dictionary vectors from previous iterations and overwrites the base vector.
+  auto dictnoNulls = DictionaryWrap{
+      .indices = dictWrap1.indices, .nulls = nullptr, .size = dictWrap1.size};
+  input1 = wrapInDictionaryLayers(complexBase, {&dictnoNulls});
+  // We use this workaround to generate this type of dictionary as
+  // BaseVector::wrapInDictionary() will instead create a constant vector.
+  input1->setValueVector(nonNullComplexConst);
+  peeledVectors.clear();
+  peeledEncoding = PeeledEncoding::peel(
+      {input1}, rows, localDecodedVector, true, peeledVectors);
+  ASSERT_EQ(peeledVectors.size(), 1);
+  ASSERT_EQ(peeledEncoding->wrapEncoding(), VectorEncoding::Simple::CONSTANT);
   ASSERT_EQ(peeledVectors[0].get(), peelWrappings(2, input1).get());
   ASSERT_EQ(peeledVectors[0]->encoding(), VectorEncoding::Simple::ARRAY);
   assertEqualVectors(
