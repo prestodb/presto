@@ -25,6 +25,7 @@ import com.facebook.presto.server.SliceDeserializer;
 import com.facebook.presto.server.SliceSerializer;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.plan.DataOrganizationSpecification;
 import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -116,7 +117,7 @@ public class TestWindowNode
                 Optional.empty());
 
         PlanNodeId id = newId();
-        WindowNode.Specification specification = new WindowNode.Specification(
+        DataOrganizationSpecification specification = new DataOrganizationSpecification(
                 ImmutableList.of(columnA),
                 Optional.of(new OrderingScheme(ImmutableList.of(new Ordering(columnB, SortOrder.ASC_NULLS_FIRST)))));
         CallExpression call = call("sum", functionHandle, BIGINT, new VariableReferenceExpression(Optional.empty(), columnC.getName(), BIGINT));

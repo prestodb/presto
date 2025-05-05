@@ -208,6 +208,7 @@ JavaClasses:
   - presto-common/src/main/java/com/facebook/presto/common/RuntimeUnit.java
   - presto-main-base/src/main/java/com/facebook/presto/metadata/AnalyzeTableHandle.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/Assignments.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/plan/DataOrganizationSpecification.java
   - presto-common/src/main/java/com/facebook/presto/common/block/Block.java
   - presto-main-base/src/main/java/com/facebook/presto/operator/BlockedReason.java
   - presto-main-base/src/main/java/com/facebook/presto/execution/buffer/BufferInfo.java

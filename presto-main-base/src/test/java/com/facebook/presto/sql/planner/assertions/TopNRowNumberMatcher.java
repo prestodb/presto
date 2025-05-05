@@ -17,8 +17,8 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.plan.DataOrganizationSpecification;
 import com.facebook.presto.spi.plan.PlanNode;
-import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
@@ -38,14 +38,14 @@ import static java.util.Objects.requireNonNull;
 public class TopNRowNumberMatcher
         implements Matcher
 {
-    private final Optional<ExpectedValueProvider<WindowNode.Specification>> specification;
+    private final Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification;
     private final Optional<SymbolAlias> rowNumberSymbol;
     private final Optional<Integer> maxRowCountPerPartition;
     private final Optional<Boolean> partial;
     private final Optional<Optional<SymbolAlias>> hashSymbol;
 
     private TopNRowNumberMatcher(
-            Optional<ExpectedValueProvider<WindowNode.Specification>> specification,
+            Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification,
             Optional<SymbolAlias> rowNumberSymbol,
             Optional<Integer> maxRowCountPerPartition,
             Optional<Boolean> partial,
@@ -125,7 +125,7 @@ public class TopNRowNumberMatcher
     public static class Builder
     {
         private final PlanMatchPattern source;
-        private Optional<ExpectedValueProvider<WindowNode.Specification>> specification = Optional.empty();
+        private Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification = Optional.empty();
         private Optional<SymbolAlias> rowNumberSymbol = Optional.empty();
         private Optional<Integer> maxRowCountPerPartition = Optional.empty();
         private Optional<Boolean> partial = Optional.empty();

@@ -29,6 +29,7 @@ import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.DataOrganizationSpecification;
 import com.facebook.presto.spi.plan.DeleteNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.LimitNode;
@@ -1069,7 +1070,7 @@ class QueryPlanner
                             subPlan.getRoot().getSourceLocation(),
                             idAllocator.getNextId(),
                             subPlan.getRoot(),
-                            new WindowNode.Specification(
+                            new DataOrganizationSpecification(
                                     partitionByVariables.build(),
                                     orderingScheme),
                             ImmutableMap.of(newVariable, function),

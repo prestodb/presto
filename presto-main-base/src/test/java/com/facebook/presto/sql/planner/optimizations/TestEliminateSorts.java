@@ -15,7 +15,7 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.block.SortOrder;
-import com.facebook.presto.spi.plan.WindowNode;
+import com.facebook.presto.spi.plan.DataOrganizationSpecification;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
@@ -53,7 +53,7 @@ public class TestEliminateSorts
     private static final String QUANTITY_ALIAS = "QUANTITY";
     private static final String TAX_ALIAS = "TAX";
 
-    private static final ExpectedValueProvider<WindowNode.Specification> windowSpec = specification(
+    private static final ExpectedValueProvider<DataOrganizationSpecification> windowSpec = specification(
             ImmutableList.of(),
             ImmutableList.of(QUANTITY_ALIAS),
             ImmutableMap.of(QUANTITY_ALIAS, SortOrder.ASC_NULLS_LAST));
