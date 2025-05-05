@@ -32,13 +32,11 @@ import com.facebook.presto.server.SessionPropertyDefaults;
 import com.facebook.presto.server.SessionSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.AnalyzerOptions;
 import com.facebook.presto.spi.analyzer.QueryPreparerProvider;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import com.facebook.presto.spi.security.AccessControl;
-import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.sql.analyzer.QueryPreparerProviderManager;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.AbstractFuture;
@@ -273,18 +271,6 @@ public class DispatchManager
 
             // decode session
             sessionBuilder = sessionSupplier.createSessionBuilder(queryId, sessionContext, warningCollectorFactory);
-
-            AccessControlContext accessControlContext = new AccessControlContext(
-                    queryId,
-                    Optional.ofNullable(sessionContext.getClientInfo()),
-                    sessionContext.getClientTags(),
-                    Optional.ofNullable(sessionContext.getSource()),
-                    WarningCollector.NOOP,
-                    sessionContext.getRuntimeStats(),
-                    Optional.empty(),
-                    Optional.ofNullable(sessionContext.getCatalog()),
-                    Optional.ofNullable(sessionContext.getSchema()));
-
             session = sessionBuilder.build();
 
             // prepare query

@@ -22,8 +22,10 @@ import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.spi.CatalogSchemaTableName;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.security.AccessControl;
@@ -182,12 +184,12 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkQueryIntegrity(Identity identity, AccessControlContext context, String query)
+    public void checkQueryIntegrity(Identity identity, AccessControlContext context, String query, Map<QualifiedObjectName, ViewDefinition> viewDefinitions, Map<QualifiedObjectName, MaterializedViewDefinition> materializedViewDefinitions)
     {
         requireNonNull(identity, "identity is null");
         requireNonNull(query, "query is null");
 
-        authenticationCheck(() -> systemAccessControl.get().checkQueryIntegrity(identity, context, query));
+        authenticationCheck(() -> systemAccessControl.get().checkQueryIntegrity(identity, context, query, viewDefinitions, materializedViewDefinitions));
     }
 
     @Override
@@ -945,7 +947,7 @@ public class AccessControlManager
             implements SystemAccessControl
     {
         @Override
-        public void checkQueryIntegrity(Identity identity, AccessControlContext context, String query)
+        public void checkQueryIntegrity(Identity identity, AccessControlContext context, String query, Map<QualifiedObjectName, ViewDefinition> viewDefinitions, Map<QualifiedObjectName, MaterializedViewDefinition> materializedViewDefinitions)
         {
             throw new PrestoException(SERVER_STARTING_UP, "Presto server is still initializing");
         }

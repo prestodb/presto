@@ -16,6 +16,7 @@ package com.facebook.presto.util;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.transaction.TransactionId;
+import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
@@ -25,6 +26,7 @@ import com.facebook.presto.spi.analyzer.AnalyzerContext;
 import com.facebook.presto.spi.analyzer.AnalyzerOptions;
 import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.analyzer.QueryAnalyzer;
+import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.security.AccessControlContext;
@@ -32,6 +34,7 @@ import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.sql.analyzer.BuiltInQueryAnalyzer;
 import com.facebook.presto.sql.parser.ParsingOptions;
 
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.getWarningHandlingLevel;
@@ -114,7 +117,10 @@ public class AnalyzerUtil
             AccessControl queryAccessControl = queryAccessControlInfo.getAccessControl();
             Identity identity = queryAccessControlInfo.getIdentity();
             AccessControlContext queryAccessControlContext = queryAccessControlInfo.getAccessControlContext();
-            queryAccessControl.checkQueryIntegrity(identity, queryAccessControlContext, query);
+            Map<QualifiedObjectName, ViewDefinition> viewDefinitionMap = accessControlReferences.getViewDefinitions();
+            Map<QualifiedObjectName, MaterializedViewDefinition> materializedViewDefinitionMap = accessControlReferences.getMaterializedViewDefinitions();
+
+            queryAccessControl.checkQueryIntegrity(identity, queryAccessControlContext, query, viewDefinitionMap, materializedViewDefinitionMap);
         }
     }
 
