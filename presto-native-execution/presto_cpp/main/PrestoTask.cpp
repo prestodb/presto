@@ -19,7 +19,6 @@
 #include "presto_cpp/main/common/Utils.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/time/Timer.h"
-#include "velox/exec/Operator.h"
 
 using namespace facebook::velox;
 
@@ -464,6 +463,7 @@ PrestoTask::PrestoTask(
                                    : util::getProcessCpuTimeNs()} {
   info.taskId = taskId;
   info.nodeId = nodeId;
+  createTimeMs = getCurrentTimeMs();
 }
 
 void PrestoTask::updateHeartbeatLocked() {
@@ -691,9 +691,9 @@ void PrestoTask::updateTimeInfoLocked(
   prestoTaskStats.totalCpuTimeInNanos = {};
   prestoTaskStats.totalBlockedTimeInNanos = {};
 
-  prestoTaskStats.createTimeInMillis = veloxTaskStats.executionStartTimeMs;
+  prestoTaskStats.createTimeInMillis = createTimeMs;
+  startTimeMs = veloxTaskStats.executionStartTimeMs;
   prestoTaskStats.firstStartTimeInMillis = veloxTaskStats.firstSplitStartTimeMs;
-  createTimeMs = veloxTaskStats.executionStartTimeMs;
   firstSplitStartTimeMs = veloxTaskStats.firstSplitStartTimeMs;
   prestoTaskStats.lastStartTimeInMillis = veloxTaskStats.lastSplitStartTimeMs;
   prestoTaskStats.lastEndTimeInMillis = veloxTaskStats.executionEndTimeMs;
@@ -857,20 +857,15 @@ void PrestoTask::updateExecutionInfoLocked(
 
 /*static*/ std::string PrestoTask::taskStatesToString(
     const std::array<size_t, 5>& taskStates) {
-  // Names of five TaskState (enum defined in exec/Task.h).
-  static constexpr std::array<folly::StringPiece, 5> taskStateNames{
-      "Running",
-      "Finished",
-      "Canceled",
-      "Aborted",
-      "Failed",
-  };
-
   std::string str;
   for (size_t i = 0; i < taskStates.size(); ++i) {
     if (taskStates[i] != 0) {
       folly::toAppend(
-          fmt::format("{}={} ", taskStateNames[i], taskStates[i]), &str);
+          fmt::format(
+              "{}={} ",
+              velox::exec::taskStateString(velox::exec::TaskState(i)),
+              taskStates[i]),
+          &str);
     }
   }
   return str;
@@ -885,6 +880,7 @@ folly::dynamic PrestoTask::toJson() const {
   obj["lastTaskStatsUpdateMs"] = lastTaskStatsUpdateMs;
   obj["lastMemoryReservation"] = lastMemoryReservation;
   obj["createTimeMs"] = createTimeMs;
+  obj["startTimeMs"] = startTimeMs;
   obj["firstSplitStartTimeMs"] = firstSplitStartTimeMs;
   obj["lastEndTimeMs"] = lastEndTimeMs;
 

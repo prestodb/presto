@@ -108,6 +108,7 @@ struct PrestoTask {
 
   uint64_t lastMemoryReservation{0};
   uint64_t createTimeMs{0};
+  uint64_t startTimeMs{0};
   uint64_t firstSplitStartTimeMs{0};
   uint64_t lastEndTimeMs{0};
   mutable std::mutex mutex;
