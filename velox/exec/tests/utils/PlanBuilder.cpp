@@ -24,7 +24,6 @@
 #include "velox/exec/RoundRobinPartitionFunction.h"
 #include "velox/exec/TableWriter.h"
 #include "velox/exec/WindowFunction.h"
-#include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/expression/Expr.h"
 #include "velox/expression/ExprToSubfieldFilter.h"
 #include "velox/expression/FunctionCallToSpecialForm.h"
@@ -83,7 +82,6 @@ PlanBuilder& PlanBuilder::tableScan(
       .subfieldFilters(subfieldFilters)
       .remainingFilter(remainingFilter)
       .dataColumns(dataColumns)
-      .assignments(assignments)
       .endTableScan();
 }
 
