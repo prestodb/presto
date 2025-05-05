@@ -39,6 +39,12 @@ void registerVeloxMetrics() {
   // sequential task execution mode.
   DEFINE_METRIC(kMetricTaskBatchProcessTimeMs, facebook::velox::StatType::AVG);
 
+  // Tracks task barrier execution time in range of [0, 30s] with 30 buckets and
+  // each bucket has time window of 1 second. We reports P50, P90, P99, and
+  // P100.
+  DEFINE_HISTOGRAM_METRIC(
+      kMetricTaskBarrierProcessTimeMs, 1'000, 0, 30'000, 50, 90, 99, 100);
+
   /// ================== Cache Counters =================
 
   // Tracks hive handle generation latency in range of [0, 100s] and reports

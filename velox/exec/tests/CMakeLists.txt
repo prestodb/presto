@@ -82,7 +82,7 @@ add_executable(
   SortBufferTest.cpp
   SpillerTest.cpp
   SpillTest.cpp
-  SplitToStringTest.cpp
+  SplitTest.cpp
   SqlTest.cpp
   StreamingAggregationTest.cpp
   TableScanTest.cpp
@@ -318,7 +318,7 @@ add_test(
 target_link_libraries(
   cpr_http_client_test cpr::cpr GTest::gtest GTest::gtest_main)
 
-add_executable(velox_driver_test OperatorReplacement.cpp Main.cpp)
+add_executable(velox_driver_test OperatorReplacementTest.cpp Main.cpp)
 add_test(
   NAME velox_driver_test
   COMMAND velox_driver_test

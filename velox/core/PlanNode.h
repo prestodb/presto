@@ -195,6 +195,14 @@ class PlanNode : public ISerializable {
     return false;
   }
 
+  /// Returns true if this plan node operator supports task barrier processing.
+  /// To support barrier processing, the operator must be able to drain its
+  /// buffered output when it receives the drain signal at split boundary. Not
+  /// all plan nodes support barrier processing. For example, Hash Join doesn't.
+  virtual bool supportsBarrier() const {
+    return false;
+  }
+
   /// Returns a set of leaf plan node IDs.
   std::unordered_set<core::PlanNodeId> leafPlanNodeIds() const;
 
@@ -602,6 +610,10 @@ class FilterNode : public PlanNode {
         filter_->type()->toString());
   }
 
+  bool supportsBarrier() const override {
+    return true;
+  }
+
   class Builder {
    public:
     Builder() = default;
@@ -819,6 +831,10 @@ class ProjectNode : public AbstractProjectNode {
       PlanNodePtr source)
       : AbstractProjectNode(id, names, projections, source) {}
 
+  bool supportsBarrier() const override {
+    return true;
+  }
+
   class Builder : public AbstractProjectNode::Builder<ProjectNode, Builder> {
    public:
     Builder() : AbstractProjectNode::Builder<ProjectNode, Builder>() {}
@@ -921,6 +937,10 @@ class TableScanNode : public PlanNode {
         std::shared_ptr<connector::ColumnHandle>>>
         assignments_;
   };
+
+  bool supportsBarrier() const override {
+    return true;
+  }
 
   const std::vector<PlanNodePtr>& sources() const override;
 
@@ -2329,6 +2349,10 @@ class LocalPartitionNode : public PlanNode {
     return scaleWriter_;
   }
 
+  bool supportsBarrier() const override {
+    return !scaleWriter_;
+  }
+
   Type type() const {
     return type_;
   }
@@ -3068,6 +3092,10 @@ class MergeJoinNode : public AbstractJoinNode {
       const override;
 
   folly::dynamic serialize() const override;
+
+  bool supportsBarrier() const override {
+    return true;
+  }
 
   /// Returns true if the merge join supports this join type, otherwise false.
   static bool isSupported(JoinType joinType);

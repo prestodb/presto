@@ -33,7 +33,7 @@ class AssignUniqueIdTest : public OperatorTestBase {
     CursorParameters params;
     params.planNode = plan;
 
-    auto result = readCursor(params, [](auto /*task*/) {});
+    auto result = readCursor(params);
     auto numColumns = result.second[0]->childrenSize();
     ASSERT_EQ(numColumns, input[0]->childrenSize() + 1);
 

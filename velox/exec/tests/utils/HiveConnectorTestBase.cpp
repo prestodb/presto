@@ -73,6 +73,15 @@ void HiveConnectorTestBase::resetHiveConnector(
   connector::registerConnector(hiveConnector);
 }
 
+void HiveConnectorTestBase::writeToFiles(
+    const std::vector<std::string>& filePaths,
+    std::vector<RowVectorPtr> vectors) {
+  VELOX_CHECK_EQ(filePaths.size(), vectors.size());
+  for (int i = 0; i < filePaths.size(); ++i) {
+    writeToFile(filePaths[i], std::vector{vectors[i]});
+  }
+}
+
 void HiveConnectorTestBase::writeToFile(
     const std::string& filePath,
     RowVectorPtr vector) {

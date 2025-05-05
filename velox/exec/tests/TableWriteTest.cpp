@@ -2515,7 +2515,13 @@ TEST_P(AllTableWriterTest, writeNoFile) {
     CursorParameters params;
     params.planNode = plan;
     params.queryCtx = queryCtx;
-    readCursor(params, [&](Task* task) { task->noMoreSplits("0"); });
+    readCursor(params, [&](TaskCursor* taskCursor) {
+      if (taskCursor->noMoreSplits()) {
+        return;
+      }
+      taskCursor->task()->noMoreSplits("0");
+      taskCursor->setNoMoreSplits();
+    });
   };
 
   execute(plan, core::QueryCtx::create(executor_.get()));
@@ -3465,7 +3471,7 @@ DEBUG_ONLY_TEST_P(
         if (++writeInputs != 3) {
           return;
         }
-        op->testingOperatorCtx()->task()->requestAbort();
+        op->operatorCtx()->task()->requestAbort();
         triggerWriterOOM = true;
       }));
   SCOPED_TESTVALUE_SET(

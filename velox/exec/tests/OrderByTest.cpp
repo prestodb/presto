@@ -635,7 +635,7 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringInputProcessing) {
 
     testWait.wait(testWaitKey);
     ASSERT_TRUE(op != nullptr);
-    auto task = op->testingOperatorCtx()->task();
+    auto task = op->operatorCtx()->task();
     auto taskPauseWait = task->requestPause();
     driverWait.notify();
     taskPauseWait.wait();
@@ -745,7 +745,7 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringReserve) {
             const bool reclaimable = op->reclaimableBytes(reclaimableBytes);
             ASSERT_TRUE(reclaimable);
             ASSERT_GT(reclaimableBytes, 0);
-            auto* driver = op->testingOperatorCtx()->driver();
+            auto* driver = op->operatorCtx()->driver();
             TestSuspendedSection suspendedSection(driver);
             testWait.notify();
             driverWait.wait(driverWaitKey);
@@ -767,7 +767,7 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringReserve) {
 
   testWait.wait(testWaitKey);
   ASSERT_TRUE(op != nullptr);
-  auto task = op->testingOperatorCtx()->task();
+  auto task = op->operatorCtx()->task();
   auto taskPauseWait = task->requestPause();
   taskPauseWait.wait();
 
@@ -865,7 +865,7 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringAllocation) {
               } else {
                 ASSERT_EQ(reclaimableBytes, 0);
               }
-              auto* driver = op->testingOperatorCtx()->driver();
+              auto* driver = op->operatorCtx()->driver();
               TestSuspendedSection suspendedSection(driver);
               testWait.notify();
               driverWait.wait(driverWaitKey);
@@ -898,7 +898,7 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringAllocation) {
 
     testWait.wait(testWaitKey);
     ASSERT_TRUE(op != nullptr);
-    auto task = op->testingOperatorCtx()->task();
+    auto task = op->operatorCtx()->task();
     auto taskPauseWait = task->requestPause();
     taskPauseWait.wait();
 
@@ -1015,7 +1015,7 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringOutputProcessing) {
 
     testWait.wait(testWaitKey);
     ASSERT_TRUE(op != nullptr);
-    auto task = op->testingOperatorCtx()->task();
+    auto task = op->operatorCtx()->task();
     auto taskPauseWait = task->requestPause();
     driverWait.notify();
     taskPauseWait.wait();
@@ -1096,7 +1096,7 @@ DEBUG_ONLY_TEST_F(OrderByTest, abortDuringOutputProcessing) {
             return;
           }
           ASSERT_GT(op->pool()->usedBytes(), 0);
-          auto* driver = op->testingOperatorCtx()->driver();
+          auto* driver = op->operatorCtx()->driver();
           ASSERT_EQ(
               driver->task()->enterSuspended(driver->state()),
               StopReason::kNone);
@@ -1162,7 +1162,7 @@ DEBUG_ONLY_TEST_F(OrderByTest, abortDuringInputgProcessing) {
           if (++numInputs != 2) {
             return;
           }
-          auto* driver = op->testingOperatorCtx()->driver();
+          auto* driver = op->operatorCtx()->driver();
           ASSERT_EQ(
               driver->task()->enterSuspended(driver->state()),
               StopReason::kNone);
@@ -1307,7 +1307,7 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimFromOrderBy) {
         if (++numInputs != 5) {
           return;
         }
-        auto* driver = op->testingOperatorCtx()->driver();
+        auto* driver = op->operatorCtx()->driver();
         TestSuspendedSection suspendedSection(driver);
         memory::testingRunArbitration();
       })));

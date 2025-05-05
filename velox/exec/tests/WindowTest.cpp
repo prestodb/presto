@@ -196,7 +196,7 @@ TEST_F(WindowTest, rowBasedStreamingWindowOOM) {
               .singleAggregation({}, {"sum(d)"})
               .planNode();
 
-      readCursor(params, [](Task*) {});
+      readCursor(params);
     } else {
       params.planNode =
           PlanBuilder(planNodeIdGenerator)
@@ -206,8 +206,7 @@ TEST_F(WindowTest, rowBasedStreamingWindowOOM) {
               .singleAggregation({}, {"sum(d)"})
               .planNode();
 
-      VELOX_ASSERT_THROW(
-          readCursor(params, [](Task*) {}), "Exceeded memory pool capacity");
+      VELOX_ASSERT_THROW(readCursor(params), "Exceeded memory pool capacity");
     }
   };
   // RowStreamingWindow will not OOM.
@@ -432,7 +431,7 @@ TEST_F(WindowTest, missingFunctionSignature) {
             })
             .planNode();
 
-    readCursor(params, [](auto*) {});
+    readCursor(params);
   };
 
   auto callExpr = std::make_shared<core::CallTypedExpr>(

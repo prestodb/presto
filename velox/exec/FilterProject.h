@@ -49,6 +49,11 @@ class FilterProject : public Operator {
     return BlockingReason::kNotBlocked;
   }
 
+  bool startDrain() override {
+    // No need to drain for project/filter operator.
+    return false;
+  }
+
   bool isFinished() override;
 
   void close() override {

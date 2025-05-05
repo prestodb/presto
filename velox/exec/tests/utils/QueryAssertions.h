@@ -176,7 +176,8 @@ bool testingMaybeTriggerAbort(exec::Task* task);
 
 std::pair<std::unique_ptr<TaskCursor>, std::vector<RowVectorPtr>> readCursor(
     const CursorParameters& params,
-    std::function<void(exec::Task*)> addSplits,
+    std::function<void(TaskCursor*)> addSplits =
+        [](TaskCursor* taskCursor) { taskCursor->setNoMoreSplits(); },
     uint64_t maxWaitMicros = 5'000'000);
 
 /// The Task can return results before the Driver is finished executing.
@@ -223,14 +224,14 @@ std::shared_ptr<Task> assertQuery(
 
 std::shared_ptr<Task> assertQuery(
     const core::PlanNodePtr& plan,
-    std::function<void(exec::Task*)> addSplits,
+    std::function<void(exec::TaskCursor*)> addSplits,
     const std::string& duckDbSql,
     DuckDbQueryRunner& duckDbQueryRunner,
     std::optional<std::vector<uint32_t>> sortingKeys = std::nullopt);
 
 std::shared_ptr<Task> assertQuery(
     const CursorParameters& params,
-    std::function<void(exec::Task*)> addSplits,
+    std::function<void(exec::TaskCursor*)> addSplits,
     const std::string& duckDbSql,
     DuckDbQueryRunner& duckDbQueryRunner,
     std::optional<std::vector<uint32_t>> sortingKeys = std::nullopt);

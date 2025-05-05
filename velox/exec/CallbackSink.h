@@ -25,59 +25,37 @@ class CallbackSink : public Operator {
   CallbackSink(
       int32_t operatorId,
       DriverCtx* driverCtx,
-      std::function<BlockingReason(RowVectorPtr, ContinueFuture*)> consumeCb,
+      Consumer consumeCb,
       std::function<BlockingReason(ContinueFuture*)> startedCb = nullptr)
       : Operator(driverCtx, nullptr, operatorId, "N/A", "CallbackSink"),
         startedCb_{std::move(startedCb)},
         consumeCb_{std::move(consumeCb)} {}
 
-  void addInput(RowVectorPtr input) override {
-    loadColumns(input, *operatorCtx_->execCtx());
-    blockingReason_ = consumeCb_(std::move(input), &future_);
-  }
+  void addInput(RowVectorPtr input) override;
 
-  RowVectorPtr getOutput() override {
-    return nullptr;
-  }
+  RowVectorPtr getOutput() override;
+
+  bool startDrain() override;
 
   bool needsInput() const override {
     return consumeCb_ != nullptr;
   }
 
-  void noMoreInput() override {
-    Operator::noMoreInput();
-    close();
-  }
+  void noMoreInput() override;
 
-  BlockingReason isBlocked(ContinueFuture* future) override {
-    if (startedCb_ != nullptr) {
-      blockingReason_ = startedCb_(&future_);
-      startedCb_ = nullptr;
-    }
-    if (blockingReason_ != BlockingReason::kNotBlocked) {
-      *future = std::move(future_);
-      blockingReason_ = BlockingReason::kNotBlocked;
-      return BlockingReason::kWaitForConsumer;
-    }
-    return BlockingReason::kNotBlocked;
-  }
+  BlockingReason isBlocked(ContinueFuture* future) override;
 
   bool isFinished() override {
     return noMoreInput_;
   }
 
  private:
-  void close() override {
-    if (consumeCb_) {
-      consumeCb_(nullptr, nullptr);
-      consumeCb_ = nullptr;
-    }
-  }
+  void close() override;
 
   ContinueFuture future_;
   BlockingReason blockingReason_{BlockingReason::kNotBlocked};
   std::function<BlockingReason(ContinueFuture*)> startedCb_;
-  std::function<BlockingReason(RowVectorPtr, ContinueFuture*)> consumeCb_;
+  Consumer consumeCb_;
 };
 
 } // namespace facebook::velox::exec

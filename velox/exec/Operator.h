@@ -238,6 +238,29 @@ class Operator : public BaseRuntimeStatWriter {
     noMoreInput_ = true;
   }
 
+  /// Invoked by the driver to start draining output on this operator. The
+  /// function returns true if this operator has buffered output to drain.
+  /// Otherwise false and the driver directly proceeds to the next operator to
+  /// drain.
+  virtual bool startDrain() {
+    VELOX_NYI();
+    return false;
+  }
+
+  /// Returns true if this operator is draining output.
+  bool isDraining() const;
+
+  /// Returns true if this operator has drained all its buffered output, and the
+  /// associated driver is still draining.
+  bool hasDrained() const;
+
+  /// Returns true if this operator needs to drop output. This is used to
+  /// drop all the input processing for a draining operator which doesn't
+  /// need any more input to quickly finish the drain operation, e.g. a draining
+  /// merge join operator decides to drop inputs from both sides when it
+  /// can't produce any more match outputs.
+  bool shouldDropOutput() const;
+
   /// Returns a RowVector with the result columns. Returns nullptr if
   /// no more output can be produced without more input or if blocked
   /// for outside causes. isBlocked distinguishes between the
@@ -481,9 +504,8 @@ class Operator : public BaseRuntimeStatWriter {
     const bool nonReclaimableSection_;
   };
 
-  /// Returns the operator context of this operator. This method is only used
-  /// for test.
-  const OperatorCtx* testingOperatorCtx() const {
+  /// Returns the operator context of this operator.
+  const OperatorCtx* operatorCtx() const {
     return operatorCtx_.get();
   }
 
@@ -579,6 +601,10 @@ class Operator : public BaseRuntimeStatWriter {
   /// Creates output vector from 'input_' and 'results_' according to
   /// 'identityProjections_' and 'resultProjections_'.
   RowVectorPtr fillOutput(vector_size_t size, const BufferPtr& mapping);
+
+  /// Invoked by the operator to notify driver that it has finished draining
+  /// output.
+  virtual void finishDrain();
 
   /// Returns the number of rows for the output batch. This uses averageRowSize
   /// to calculate how many rows fit in preferredOutputBatchBytes. It caps the

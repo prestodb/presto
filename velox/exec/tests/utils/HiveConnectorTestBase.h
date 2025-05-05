@@ -43,6 +43,10 @@ class HiveConnectorTestBase : public OperatorTestBase {
   void resetHiveConnector(
       const std::shared_ptr<const config::ConfigBase>& config);
 
+  void writeToFiles(
+      const std::vector<std::string>& filePaths,
+      std::vector<RowVectorPtr> vectors);
+
   void writeToFile(const std::string& filePath, RowVectorPtr vector);
 
   void writeToFile(

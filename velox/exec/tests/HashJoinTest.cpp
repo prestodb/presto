@@ -228,7 +228,7 @@ DEBUG_ONLY_TEST_P(
   SCOPED_TESTVALUE_SET(
       "facebook::velox::exec::HashBuild::finishHashBuild",
       std::function<void(Operator*)>([&](Operator* op) {
-        auto task = op->testingOperatorCtx()->task();
+        auto task = op->operatorCtx()->task();
         task->requestAbort();
       }));
   VELOX_ASSERT_THROW(
@@ -3255,7 +3255,7 @@ TEST_F(HashJoinTest, memory) {
                         .singleAggregation({}, {"sum(k1)", "sum(k2)"})
                         .planNode();
   params.queryCtx = core::QueryCtx::create(driverExecutor_.get());
-  auto [taskCursor, rows] = readCursor(params, [](Task*) {});
+  auto [taskCursor, rows] = readCursor(params);
   EXPECT_GT(3'500, params.queryCtx->pool()->stats().numAllocs);
   EXPECT_GT(40'000'000, params.queryCtx->pool()->stats().cumulativeBytes);
 }
@@ -5138,7 +5138,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringInputProcessing) {
 
     testWait.wait(testWaitKey);
     ASSERT_TRUE(op != nullptr);
-    auto task = op->testingOperatorCtx()->task();
+    auto task = op->operatorCtx()->task();
     auto taskPauseWait = task->requestPause();
     driverWait.notify();
     taskPauseWait.wait();
@@ -5255,7 +5255,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringReserve) {
             const bool reclaimable = op->reclaimableBytes(reclaimableBytes);
             ASSERT_TRUE(reclaimable);
             ASSERT_GT(reclaimableBytes, 0);
-            auto* driver = op->testingOperatorCtx()->driver();
+            auto* driver = op->operatorCtx()->driver();
             TestSuspendedSection suspendedSection(driver);
             testWaitFlag = false;
             testWait.notifyAll();
@@ -5285,7 +5285,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringReserve) {
 
   testWait.await([&]() { return !testWaitFlag.load(); });
   ASSERT_TRUE(op != nullptr);
-  auto task = op->testingOperatorCtx()->task();
+  auto task = op->operatorCtx()->task();
   task->requestPause().wait();
 
   uint64_t reclaimableBytes{0};
@@ -5389,7 +5389,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringAllocation) {
               } else {
                 ASSERT_EQ(reclaimableBytes, 0);
               }
-              auto* driver = op->testingOperatorCtx()->driver();
+              auto* driver = op->operatorCtx()->driver();
               TestSuspendedSection suspendedSection(driver);
               testWait.notify();
               driverWait.wait(driverWaitKey);
@@ -5417,7 +5417,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringAllocation) {
 
     testWait.wait(testWaitKey);
     ASSERT_TRUE(op != nullptr);
-    auto task = op->testingOperatorCtx()->task();
+    auto task = op->operatorCtx()->task();
     auto taskPauseWait = task->requestPause();
     taskPauseWait.wait();
 
@@ -5536,7 +5536,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringOutputProcessing) {
 
     testWait.await([&]() { return !testWaitFlag.load(); });
     ASSERT_TRUE(op != nullptr);
-    auto task = op->testingOperatorCtx()->task();
+    auto task = op->operatorCtx()->task();
     auto taskPauseWait = task->requestPause();
     driverWaitFlag = false;
     driverWait.notifyAll();
@@ -5630,7 +5630,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringWaitForProbe) {
         if (!injectSpillOnce.exchange(false)) {
           return;
         }
-        auto* driver = op->testingOperatorCtx()->driver();
+        auto* driver = op->operatorCtx()->driver();
         auto task = driver->task();
         memory::ScopedMemoryArbitrationContext ctx(op->pool());
         Operator::ReclaimableSectionGuard guard(testOp);
@@ -5655,7 +5655,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringWaitForProbe) {
         ASSERT_GT(reclaimableBytes, 0);
         testWaitFlag = false;
         testWait.notifyAll();
-        auto* driver = testOp->testingOperatorCtx()->driver();
+        auto* driver = testOp->operatorCtx()->driver();
         auto task = driver->task();
         TestSuspendedSection suspendedSection(driver);
         driverWait.await([&]() { return !driverWaitFlag.load(); });
@@ -5683,7 +5683,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringWaitForProbe) {
 
   testWait.await([&]() { return !testWaitFlag.load(); });
   ASSERT_TRUE(op != nullptr);
-  auto task = op->testingOperatorCtx()->task();
+  auto task = op->operatorCtx()->task();
   auto taskPauseWait = task->requestPause();
   taskPauseWait.wait();
 
@@ -5762,7 +5762,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, hashBuildAbortDuringOutputProcessing) {
             return;
           }
           ASSERT_GT(op->pool()->usedBytes(), 0);
-          auto* driver = op->testingOperatorCtx()->driver();
+          auto* driver = op->operatorCtx()->driver();
           ASSERT_EQ(
               driver->task()->enterSuspended(driver->state()),
               StopReason::kNone);
@@ -5838,7 +5838,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, hashBuildAbortDuringInputProcessing) {
             return;
           }
           ASSERT_GT(op->pool()->usedBytes(), 0);
-          auto* driver = op->testingOperatorCtx()->driver();
+          auto* driver = op->operatorCtx()->driver();
           ASSERT_EQ(
               driver->task()->enterSuspended(driver->state()),
               StopReason::kNone);
@@ -5992,7 +5992,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, hashProbeAbortDuringInputProcessing) {
           if (++numInputs != 2) {
             return;
           }
-          auto* driver = op->testingOperatorCtx()->driver();
+          auto* driver = op->operatorCtx()->driver();
           ASSERT_EQ(
               driver->task()->enterSuspended(driver->state()),
               StopReason::kNone);
@@ -6667,8 +6667,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, exceptionDuringFinishJoinBuild) {
         try {
           VELOX_FAIL("Simulated failure");
         } catch (VeloxException&) {
-          buildOp->testingOperatorCtx()->task()->setError(
-              std::current_exception());
+          buildOp->operatorCtx()->task()->setError(std::current_exception());
         }
       }));
 
@@ -7520,7 +7519,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, spillOutputWithRightSemiJoins) {
     SCOPED_TESTVALUE_SET(
         "facebook::velox::exec::Driver::runInternal::getOutput",
         std::function<void(Operator*)>([&](Operator* op) {
-          if (op->testingOperatorCtx()->operatorType() != "HashProbe") {
+          if (op->operatorCtx()->operatorType() != "HashProbe") {
             return;
           }
           if (!op->testingHasInput()) {
@@ -7652,7 +7651,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, spillCheckOnLeftSemiFilterWithDynamicFilters) {
   SCOPED_TESTVALUE_SET(
       "facebook::velox::exec::Driver::runInternal::getOutput",
       std::function<void(Operator*)>([&](Operator* op) {
-        if (op->testingOperatorCtx()->operatorType() != "HashProbe") {
+        if (op->operatorCtx()->operatorType() != "HashProbe") {
           return;
         }
         if (!op->testingHasInput()) {
@@ -7918,7 +7917,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, buildReclaimedMemoryReport) {
             const bool reclaimable = op->reclaimableBytes(reclaimableBytes);
             ASSERT_TRUE(reclaimable);
             ASSERT_GT(reclaimableBytes, 0);
-            auto* driver = op->testingOperatorCtx()->driver();
+            auto* driver = op->operatorCtx()->driver();
             TestSuspendedSection suspendedSection(driver);
             taskWaitFlag = false;
             taskWait.notifyAll();
@@ -7948,7 +7947,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, buildReclaimedMemoryReport) {
 
   taskWait.await([&]() { return !taskWaitFlag.load(); });
   ASSERT_TRUE(op != nullptr);
-  auto task = op->testingOperatorCtx()->task();
+  auto task = op->operatorCtx()->task();
   auto* nodePool = op->pool()->parent();
   const auto nodeMemoryUsage = nodePool->reservedBytes();
   {
@@ -8023,7 +8022,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, probeReclaimedMemoryReport) {
         if (probeInputCount++ != 1) {
           return;
         }
-        auto* driver = op->testingOperatorCtx()->driver();
+        auto* driver = op->operatorCtx()->driver();
         TestSuspendedSection suspendedSection(driver);
         taskWaitFlag = false;
         taskWait.notifyAll();
@@ -8053,7 +8052,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, probeReclaimedMemoryReport) {
 
   taskWait.await([&]() { return !taskWaitFlag.load(); });
   ASSERT_TRUE(op != nullptr);
-  auto task = op->testingOperatorCtx()->task();
+  auto task = op->operatorCtx()->task();
   auto* nodePool = op->pool()->parent();
   const auto nodeMemoryUsage = nodePool->reservedBytes();
   {

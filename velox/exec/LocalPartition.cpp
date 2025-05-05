@@ -100,13 +100,27 @@ void LocalExchangeQueue::noMoreProducers() {
   notify(consumerPromises);
 }
 
+void LocalExchangeQueue::drain() {
+  std::vector<ContinuePromise> consumerPromises;
+  queue_.withWLock([&](auto& queue) {
+    VELOX_CHECK(!closed_, "Queue is closed");
+    ++drainedProducers_;
+    VELOX_CHECK_LE(drainedProducers_, pendingProducers_);
+    if (drainedProducers_ != pendingProducers_) {
+      return;
+    }
+    consumerPromises = std::move(consumerPromises_);
+  });
+  notify(consumerPromises);
+}
+
 BlockingReason LocalExchangeQueue::enqueue(
     RowVectorPtr input,
     int64_t inputBytes,
     ContinueFuture* future) {
   std::vector<ContinuePromise> consumerPromises;
   bool blockedOnConsumer = false;
-  bool isClosed = queue_.withWLock([&](auto& queue) {
+  const bool isClosed = queue_.withWLock([&](auto& queue) {
     if (closed_) {
       return true;
     }
@@ -136,6 +150,7 @@ BlockingReason LocalExchangeQueue::enqueue(
 void LocalExchangeQueue::noMoreData() {
   std::vector<ContinuePromise> consumerPromises;
   queue_.withWLock([&](auto& queue) {
+    VELOX_CHECK_EQ(drainedProducers_, 0);
     VELOX_CHECK_GT(pendingProducers_, 0);
     --pendingProducers_;
     if (noMoreProducers_ && pendingProducers_ == 0) {
@@ -148,13 +163,19 @@ void LocalExchangeQueue::noMoreData() {
 BlockingReason LocalExchangeQueue::next(
     ContinueFuture* future,
     memory::MemoryPool* pool,
-    RowVectorPtr* data) {
-  int64_t size;
+    RowVectorPtr* data,
+    bool& drained) {
+  drained = false;
+  int64_t size{0};
   std::vector<ContinuePromise> memoryPromises;
-  auto blockingReason = queue_.withWLock([&](auto& queue) {
+  const auto blockingReason = queue_.withWLock([&](auto& queue) {
     *data = nullptr;
     if (queue.empty()) {
       if (isFinishedLocked(queue)) {
+        return BlockingReason::kNotBlocked;
+      }
+      if (testAndClearDrainedLocked()) {
+        drained = true;
         return BlockingReason::kNotBlocked;
       }
 
@@ -168,9 +189,9 @@ BlockingReason LocalExchangeQueue::next(
     queue.pop();
 
     memoryPromises = memoryManager_->decreaseMemoryUsage(size);
-
     return BlockingReason::kNotBlocked;
   });
+
   notify(memoryPromises);
   if (*data != nullptr) {
     vectorPool_->push(*data, size);
@@ -188,6 +209,16 @@ bool LocalExchangeQueue::isFinishedLocked(const Queue& queue) const {
   }
 
   return false;
+}
+
+bool LocalExchangeQueue::testAndClearDrainedLocked() {
+  VELOX_CHECK(!closed_);
+  VELOX_CHECK_GT(pendingProducers_, 0);
+  if (pendingProducers_ != drainedProducers_) {
+    return false;
+  }
+  drainedProducers_ = 0;
+  return true;
 }
 
 bool LocalExchangeQueue::isFinished() {
@@ -250,20 +281,44 @@ BlockingReason LocalExchange::isBlocked(ContinueFuture* future) {
 }
 
 RowVectorPtr LocalExchange::getOutput() {
-  RowVectorPtr data;
-  blockingReason_ = queue_->next(&future_, pool(), &data);
-  if (blockingReason_ != BlockingReason::kNotBlocked) {
+  if (hasDrained()) {
     return nullptr;
   }
+
+  RowVectorPtr data;
+  bool drained{false};
+  blockingReason_ = queue_->next(&future_, pool(), &data, drained);
+  if (blockingReason_ != BlockingReason::kNotBlocked) {
+    VELOX_CHECK(future_.valid());
+    VELOX_CHECK(!drained);
+    return nullptr;
+  }
+
   if (data != nullptr) {
+    VELOX_CHECK(!drained);
     auto lockedStats = stats_.wlock();
     lockedStats->addInputVector(data->estimateFlatSize(), data->size());
+    return data;
   }
-  return data;
+
+  if (drained) {
+    VELOX_CHECK(!isDraining());
+    operatorCtx_->driver()->drainOutput();
+  } else {
+    VELOX_CHECK(queue_->isFinished());
+  }
+  return nullptr;
 }
 
 bool LocalExchange::isFinished() {
   return queue_->isFinished();
+}
+
+void LocalExchange::close() {
+  Operator::close();
+  if (queue_) {
+    queue_->close();
+  }
 }
 
 LocalPartition::LocalPartition(
@@ -285,7 +340,6 @@ LocalPartition::LocalPartition(
                                     numPartitions_,
                                     /*localExchange=*/true)) {
   VELOX_CHECK(numPartitions_ == 1 || partitionFunction_ != nullptr);
-
   for (auto& queue : queues_) {
     queue->addProducer();
   }
@@ -423,7 +477,6 @@ BlockingReason LocalPartition::isBlocked(ContinueFuture* future) {
     blockingReasons_.clear();
     return blockingReason;
   }
-
   return BlockingReason::kNotBlocked;
 }
 
@@ -440,5 +493,16 @@ bool LocalPartition::isFinished() {
   }
 
   return true;
+}
+
+RowVectorPtr LocalPartition::getOutput() {
+  if (!isDraining()) {
+    return nullptr;
+  }
+  for (auto& queue : queues_) {
+    queue->drain();
+  }
+  finishDrain();
+  return nullptr;
 }
 } // namespace facebook::velox::exec

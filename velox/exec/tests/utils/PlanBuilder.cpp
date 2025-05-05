@@ -329,9 +329,10 @@ core::PlanNodePtr PlanBuilder::TableWriterBuilder::build(core::PlanNodeId id) {
         aggregatesAndNames.aggregates,
         false,
         upstreamNode);
+    VELOX_CHECK(!aggregationNode->supportsBarrier());
   }
 
-  return std::make_shared<core::TableWriteNode>(
+  const auto writeNode = std::make_shared<core::TableWriteNode>(
       id,
       outputType,
       outputType->names(),
@@ -341,6 +342,8 @@ core::PlanNodePtr PlanBuilder::TableWriterBuilder::build(core::PlanNodeId id) {
       TableWriteTraits::outputType(aggregationNode),
       connector::CommitStrategy::kNoCommit,
       upstreamNode);
+  VELOX_CHECK(!writeNode->supportsBarrier());
+  return writeNode;
 }
 
 PlanBuilder& PlanBuilder::values(
@@ -351,6 +354,7 @@ PlanBuilder& PlanBuilder::values(
   auto valuesCopy = values;
   planNode_ = std::make_shared<core::ValuesNode>(
       nextPlanNodeId(), std::move(valuesCopy), parallelizable, repeatTimes);
+  VELOX_CHECK(!planNode_->supportsBarrier());
   return *this;
 }
 
@@ -365,6 +369,7 @@ PlanBuilder& PlanBuilder::traceScan(
       pipelineId,
       std::move(driverIds),
       outputType);
+  VELOX_CHECK(!planNode_->supportsBarrier());
   return *this;
 }
 
@@ -374,6 +379,7 @@ PlanBuilder& PlanBuilder::exchange(
   VELOX_CHECK_NULL(planNode_, "Exchange must be the source node");
   planNode_ = std::make_shared<core::ExchangeNode>(
       nextPlanNodeId(), outputType, serdeKind);
+  VELOX_CHECK(!planNode_->supportsBarrier());
   return *this;
 }
 
@@ -416,7 +422,7 @@ PlanBuilder& PlanBuilder::mergeExchange(
 
   planNode_ = std::make_shared<core::MergeExchangeNode>(
       nextPlanNodeId(), outputType, sortingKeys, sortingOrders, serdeKind);
-
+  VELOX_CHECK(!planNode_->supportsBarrier());
   return *this;
 }
 
@@ -449,6 +455,7 @@ PlanBuilder& PlanBuilder::projectExpressions(
       std::move(projectNames),
       std::move(expressions),
       planNode_);
+  VELOX_CHECK(planNode_->supportsBarrier());
   return *this;
 }
 
@@ -470,6 +477,7 @@ PlanBuilder& PlanBuilder::projectExpressions(
       std::move(projectNames),
       std::move(expressions),
       planNode_);
+  VELOX_CHECK(planNode_->supportsBarrier());
   return *this;
 }
 
@@ -505,6 +513,7 @@ PlanBuilder& PlanBuilder::filter(const std::string& filter) {
   auto expr = parseExpr(filter, planNode_->outputType(), options_, pool_);
   planNode_ =
       std::make_shared<core::FilterNode>(nextPlanNodeId(), expr, planNode_);
+  VELOX_CHECK(planNode_->supportsBarrier());
   return *this;
 }
 
@@ -597,6 +606,7 @@ PlanBuilder& PlanBuilder::tableWriteMerge(
       TableWriteTraits::outputType(aggregationNode),
       aggregationNode,
       planNode_);
+  VELOX_CHECK(!planNode_->supportsBarrier());
   return *this;
 }
 
@@ -768,7 +778,7 @@ core::PlanNodePtr PlanBuilder::createIntermediateOrFinalAggregation(
     aggregates.emplace_back(aggregate);
   }
 
-  return std::make_shared<core::AggregationNode>(
+  auto aggregationNode = std::make_shared<core::AggregationNode>(
       nextPlanNodeId(),
       step,
       groupingKeys,
@@ -777,6 +787,8 @@ core::PlanNodePtr PlanBuilder::createIntermediateOrFinalAggregation(
       aggregates,
       partialAggNode->ignoreNullKeys(),
       planNode_);
+  VELOX_CHECK(!aggregationNode->supportsBarrier());
+  return aggregationNode;
 }
 
 namespace {
@@ -979,6 +991,7 @@ PlanBuilder& PlanBuilder::aggregation(
       groupId,
       ignoreNullKeys,
       planNode_);
+  VELOX_CHECK(!planNode_->supportsBarrier());
   return *this;
 }
 
@@ -999,6 +1012,7 @@ PlanBuilder& PlanBuilder::streamingAggregation(
       aggregatesAndNames.aggregates,
       ignoreNullKeys,
       planNode_);
+  VELOX_CHECK(!planNode_->supportsBarrier());
   return *this;
 }
 
@@ -1040,7 +1054,7 @@ PlanBuilder& PlanBuilder::groupId(
       fields(aggregationInputs),
       std::move(groupIdName),
       planNode_);
-
+  VELOX_CHECK(!planNode_->supportsBarrier());
   return *this;
 }
 
@@ -1113,7 +1127,7 @@ PlanBuilder& PlanBuilder::expand(
 
   planNode_ = std::make_shared<core::ExpandNode>(
       nextPlanNodeId(), projectExprs, std::move(aliases), planNode_);
-
+  VELOX_CHECK(!planNode_->supportsBarrier());
   return *this;
 }
 
@@ -1138,7 +1152,7 @@ PlanBuilder& PlanBuilder::orderBy(
 
   planNode_ = std::make_shared<core::OrderByNode>(
       nextPlanNodeId(), sortingKeys, sortingOrders, isPartial, planNode_);
-
+  VELOX_CHECK(!planNode_->supportsBarrier());
   return *this;
 }
 
@@ -1156,12 +1170,14 @@ PlanBuilder& PlanBuilder::topN(
       count,
       isPartial,
       planNode_);
+  VELOX_CHECK(!planNode_->supportsBarrier());
   return *this;
 }
 
 PlanBuilder& PlanBuilder::limit(int64_t offset, int64_t count, bool isPartial) {
   planNode_ = std::make_shared<core::LimitNode>(
       nextPlanNodeId(), offset, count, isPartial, planNode_);
+  VELOX_CHECK(!planNode_->supportsBarrier());
   return *this;
 }
 
@@ -1176,6 +1192,7 @@ PlanBuilder& PlanBuilder::assignUniqueId(
     const int32_t taskUniqueId) {
   planNode_ = std::make_shared<core::AssignUniqueIdNode>(
       nextPlanNodeId(), idName, taskUniqueId, planNode_);
+  VELOX_CHECK(!planNode_->supportsBarrier());
   return *this;
 }
 
@@ -1313,6 +1330,7 @@ PlanBuilder& PlanBuilder::partitionedOutput(
       outputType,
       serdeKind,
       planNode_);
+  VELOX_CHECK(!planNode_->supportsBarrier());
   return *this;
 }
 
@@ -1326,6 +1344,7 @@ PlanBuilder& PlanBuilder::partitionedOutputBroadcast(
       : extract(planNode_->outputType(), outputLayout);
   planNode_ = core::PartitionedOutputNode::broadcast(
       nextPlanNodeId(), 1, outputType, serdeKind, planNode_);
+  VELOX_CHECK(!planNode_->supportsBarrier());
   return *this;
 }
 
@@ -1339,6 +1358,7 @@ PlanBuilder& PlanBuilder::partitionedOutputArbitrary(
       : extract(planNode_->outputType(), outputLayout);
   planNode_ = core::PartitionedOutputNode::arbitrary(
       nextPlanNodeId(), outputType, serdeKind, planNode_);
+  VELOX_CHECK(!planNode_->supportsBarrier());
   return *this;
 }
 
@@ -1352,6 +1372,7 @@ PlanBuilder& PlanBuilder::localPartition(
       /*scaleWriter=*/false,
       sources,
       pool_);
+  VELOX_CHECK(planNode_->supportsBarrier());
   return *this;
 }
 
@@ -1362,6 +1383,7 @@ PlanBuilder& PlanBuilder::localPartition(const std::vector<std::string>& keys) {
       /*scaleWriter=*/false,
       {planNode_},
       pool_);
+  VELOX_CHECK(planNode_->supportsBarrier());
   return *this;
 }
 
@@ -1381,6 +1403,7 @@ PlanBuilder& PlanBuilder::scaleWriterlocalPartition(
       true,
       hivePartitionFunctionFactory,
       std::vector{planNode_});
+  VELOX_CHECK(!planNode_->supportsBarrier());
   return *this;
 }
 
@@ -1397,6 +1420,7 @@ PlanBuilder& PlanBuilder::localPartition(
       /*scaleWriter=*/false,
       std::move(hivePartitionFunctionFactory),
       std::vector<core::PlanNodePtr>{planNode_});
+  VELOX_CHECK(planNode_->supportsBarrier());
   return *this;
 }
 
@@ -1420,6 +1444,7 @@ PlanBuilder& PlanBuilder::localPartitionByBucket(
       /*scaleWriter=*/false,
       std::move(hivePartitionFunctionFactory),
       std::vector<core::PlanNodePtr>{planNode_});
+  VELOX_CHECK(planNode_->supportsBarrier());
   return *this;
 }
 
@@ -1443,18 +1468,21 @@ PlanBuilder& PlanBuilder::localPartitionRoundRobin(
       planNode_, "localPartitionRoundRobin() must be the first call");
   planNode_ = createLocalPartitionRoundRobinNode(
       nextPlanNodeId(), /*scaleWriter=*/false, sources);
+  VELOX_CHECK(planNode_->supportsBarrier());
   return *this;
 }
 
 PlanBuilder& PlanBuilder::localPartitionRoundRobin() {
   planNode_ = createLocalPartitionRoundRobinNode(
       nextPlanNodeId(), /*scaleWriter=*/false, {planNode_});
+  VELOX_CHECK(planNode_->supportsBarrier());
   return *this;
 }
 
 PlanBuilder& PlanBuilder::scaleWriterlocalPartitionRoundRobin() {
   planNode_ = createLocalPartitionRoundRobinNode(
       nextPlanNodeId(), /*scaleWriter=*/true, {planNode_});
+  VELOX_CHECK(!planNode_->supportsBarrier());
   return *this;
 }
 
@@ -1514,6 +1542,7 @@ PlanBuilder& PlanBuilder::localPartitionRoundRobinRow() {
       /*scaleWriter=*/false,
       std::make_shared<RoundRobinRowPartitionFunctionSpec>(),
       std::vector<core::PlanNodePtr>{planNode_});
+  VELOX_CHECK(planNode_->supportsBarrier());
   return *this;
 }
 
@@ -1566,6 +1595,7 @@ PlanBuilder& PlanBuilder::hashJoin(
       std::move(planNode_),
       build,
       outputType);
+  VELOX_CHECK(!planNode_->supportsBarrier());
   return *this;
 }
 
@@ -1599,6 +1629,7 @@ PlanBuilder& PlanBuilder::mergeJoin(
       std::move(planNode_),
       build,
       outputType);
+  VELOX_CHECK(planNode_->supportsBarrier());
   return *this;
 }
 
@@ -1630,6 +1661,7 @@ PlanBuilder& PlanBuilder::nestedLoopJoin(
       std::move(planNode_),
       right,
       outputType);
+  VELOX_CHECK(!planNode_->supportsBarrier());
   return *this;
 }
 
@@ -1848,6 +1880,7 @@ PlanBuilder& PlanBuilder::indexLookupJoin(
       std::move(planNode_),
       right,
       std::move(outputType));
+  VELOX_CHECK(!planNode_->supportsBarrier());
   return *this;
 }
 
@@ -1891,6 +1924,7 @@ PlanBuilder& PlanBuilder::unnest(
       unnestNames,
       ordinalColumn,
       planNode_);
+  VELOX_CHECK(!planNode_->supportsBarrier());
   return *this;
 }
 
@@ -2169,6 +2203,7 @@ PlanBuilder& PlanBuilder::window(
       windowNodeFunctions,
       inputSorted,
       planNode_);
+  VELOX_CHECK(!planNode_->supportsBarrier());
   return *this;
 }
 
@@ -2196,6 +2231,7 @@ PlanBuilder& PlanBuilder::rowNumber(
       rowNumberColumnName,
       limit,
       planNode_);
+  VELOX_CHECK(!planNode_->supportsBarrier());
   return *this;
 }
 
@@ -2219,6 +2255,7 @@ PlanBuilder& PlanBuilder::topNRowNumber(
       rowNumberColumnName,
       limit,
       planNode_);
+  VELOX_CHECK(!planNode_->supportsBarrier());
   return *this;
 }
 
@@ -2230,8 +2267,8 @@ PlanBuilder& PlanBuilder::markDistinct(
       nextPlanNodeId(),
       std::move(markerKey),
       fields(planNode_->outputType(), distinctKeys),
-
       planNode_);
+  VELOX_CHECK(!planNode_->supportsBarrier());
   return *this;
 }
 

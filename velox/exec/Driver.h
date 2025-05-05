@@ -443,6 +443,10 @@ class Driver : public std::enable_shared_from_this<Driver> {
   /// not found.
   Operator* findOperatorNoThrow(int32_t operatorId) const;
 
+  Operator* sourceOperator() const;
+
+  Operator* sinkOperator() const;
+
   /// Returns a list of all operators.
   std::vector<Operator*> operators() const;
 
@@ -469,6 +473,47 @@ class Driver : public std::enable_shared_from_this<Driver> {
   BlockingReason blockingReason() const {
     return blockingReason_;
   }
+
+  /// Invoked by the task to start the barrier processing on this driver.
+  void startBarrier();
+
+  /// Returns true if the driver is under barrier processing.
+  bool hasBarrier() const {
+    return barrier_.has_value();
+  }
+
+  /// Invoked to start draining the output of this driver pipeline from the
+  /// source operator to the sink operator in order with one operator drained
+  /// at a time. This only applies to the driver that is under barrier
+  /// processing.
+  void drainOutput();
+
+  /// Returns true if the driver is draining output.
+  bool isDraining() const;
+
+  /// Returns true if the specified operator is draining.
+  bool isDraining(int32_t operatorId) const;
+
+  /// Returns true if the specified operator has drained its output, and the
+  /// driver is still draining.
+  bool hasDrained(int32_t operatorId) const;
+
+  /// Invoked by the draining operator to indicate that it has finished drain
+  /// operation.
+  void finishDrain(int32_t operatorId);
+
+  /// Invoked to drop the input to the specified operator. This only applies
+  /// when the driver is under barrier processing.
+  ///
+  /// NOTE: this will result in needsOutput to return false for ALL upstream
+  /// operators.
+  void dropInput(int32_t operatorId);
+
+  /// Returns false if the specified operator should drop its output or output
+  /// processing. This only applies if dropInput() has called on an operator
+  /// and all its upstream operators within the same pipeline should skip
+  /// their output.
+  bool shouldDropOutput(int32_t operatorId) const;
 
   /// Returns the process-wide number of driver cpu yields.
   static std::atomic_uint64_t& yieldCount();
@@ -532,6 +577,27 @@ class Driver : public std::enable_shared_from_this<Driver> {
 
   void updateStats();
 
+  // Defines the driver barrier processing state.
+  struct BarrierState {
+    // If set, the driver has started output draining. It points to the operator
+    // that is currently draining output.
+    std::optional<int32_t> drainingOpId{std::nullopt};
+    // If set, the specified operator doesn't need any more input to finish the
+    // draining operation. All the upstream operators within the same driver
+    // should drop their output or output processing.
+    std::optional<int32_t> dropInputOpId{std::nullopt};
+  };
+
+  // Invoked to start draining on the next operator. If there is no "next"
+  // operator in this driver pipeline, then we pass the draining signal to the
+  // downstream operator. Hence "next" refers to the immediate downstream
+  // operator.
+  void drainNextOperator();
+
+  // Invoked when the last operator (sink) has finished draining, and send the
+  // draining signal to consumer driver pipeline through connected queues.
+  void finishBarrier();
+
   void close();
 
   // Push down dynamic filters produced by the operator at the specified
@@ -572,6 +638,9 @@ class Driver : public std::enable_shared_from_this<Driver> {
 
   std::atomic_bool closed_{false};
 
+  // If set, the driver is under a barrier processing.
+  std::optional<BarrierState> barrier_;
+
   OpCallStatus opCallStatus_;
 
   // Set via Task and serialized by Task's mutex.
@@ -601,7 +670,16 @@ class Driver : public std::enable_shared_from_this<Driver> {
 using OperatorSupplier = std::function<
     std::unique_ptr<Operator>(int32_t operatorId, DriverCtx* ctx)>;
 
-using Consumer = std::function<BlockingReason(RowVectorPtr, ContinueFuture*)>;
+/// The function used by CallbackSink operator to push output data or drained
+/// signal to the consumer pipeline.
+/// @param data If not null, the produced output data.
+/// @param drained If true, the producer pipeline has drained its output. If it
+/// is true, then 'data' is null, otherwise not null.
+/// @param future Returns a valid 'future' when consumer pipeline has excessive
+/// buffered data and becomes ready when the excessive data buffers get
+/// consumed.
+using Consumer = std::function<
+    BlockingReason(RowVectorPtr data, bool drained, ContinueFuture* future)>;
 using ConsumerSupplier = std::function<Consumer()>;
 
 struct DriverFactory;

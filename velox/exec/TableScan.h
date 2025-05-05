@@ -38,6 +38,10 @@ class TableScan : public SourceOperator {
     return BlockingReason::kNotBlocked;
   }
 
+  bool startDrain() override {
+    return false;
+  }
+
   bool isFinished() override;
 
   void close() override;

@@ -120,7 +120,7 @@ TEST_P(MemoryCapExceededTest, singleDriver) {
   params.queryCtx = queryCtx;
   params.maxDrivers = 1;
   try {
-    readCursor(params, [](Task*) {});
+    readCursor(params);
     FAIL() << "Expected a MEM_CAP_EXCEEDED RuntimeException.";
   } catch (const VeloxException& e) {
     const auto errorMessage = e.message();
@@ -180,7 +180,7 @@ TEST_P(MemoryCapExceededTest, multipleDrivers) {
   params.queryCtx = queryCtx;
   params.maxDrivers = numDrivers;
   try {
-    readCursor(params, [](Task*) {});
+    readCursor(params);
     FAIL() << "Expected a MEM_CAP_EXCEEDED RuntimeException.";
   } catch (const VeloxException& e) {
     const auto errorMessage = e.message();
@@ -253,7 +253,7 @@ TEST_P(MemoryCapExceededTest, allocatorCapacityExceededError) {
     params.queryCtx = queryCtx;
     params.maxDrivers = 1;
     try {
-      readCursor(params, [](Task*) {});
+      readCursor(params);
       FAIL() << "Expected a MEM_CAP_EXCEEDED RuntimeException.";
     } catch (const VeloxException& e) {
       const auto errorMessage = e.message();

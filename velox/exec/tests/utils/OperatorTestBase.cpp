@@ -191,20 +191,20 @@ core::PlanNodeId getOnlyLeafPlanNodeId(const core::PlanNodePtr& root) {
   return getOnlyLeafPlanNodeId(sources[0]);
 }
 
-std::function<void(Task* task)> makeAddSplit(
-    bool& noMoreSplits,
+std::function<void(TaskCursor* taskCursor)> makeAddSplit(
     std::unordered_map<core::PlanNodeId, std::vector<exec::Split>>&& splits) {
-  return [&](Task* task) {
-    if (noMoreSplits) {
+  return [&](TaskCursor* taskCursor) {
+    if (taskCursor->noMoreSplits()) {
       return;
     }
+    auto& task = taskCursor->task();
     for (auto& [nodeId, nodeSplits] : splits) {
       for (auto& split : nodeSplits) {
         task->addSplit(nodeId, std::move(split));
       }
       task->noMoreSplits(nodeId);
     }
-    noMoreSplits = true;
+    taskCursor->setNoMoreSplits();
   };
 }
 } // namespace
@@ -224,10 +224,9 @@ std::shared_ptr<Task> OperatorTestBase::assertQuery(
     std::unordered_map<core::PlanNodeId, std::vector<exec::Split>>&& splits,
     const std::string& duckDbSql,
     std::optional<std::vector<uint32_t>> sortingKeys) {
-  bool noMoreSplits = false;
   return test::assertQuery(
       plan,
-      makeAddSplit(noMoreSplits, std::move(splits)),
+      makeAddSplit(std::move(splits)),
       duckDbSql,
       duckDbQueryRunner_,
       sortingKeys);

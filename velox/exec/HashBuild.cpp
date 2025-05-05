@@ -659,7 +659,7 @@ bool HashBuild::finishHashBuild() {
 
   SCOPE_EXIT {
     // Realize the promises so that the other Drivers (which were not
-    // the last to finish) can continue from the barrier and finish.
+    // the last to finish) can continue and finish.
     peers.clear();
     for (auto& promise : promises) {
       promise.setValue();

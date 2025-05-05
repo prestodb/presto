@@ -61,12 +61,11 @@ class MergeJoin : public Operator {
 
   bool isFinished() override;
 
-  void close() override {
-    if (rightSource_) {
-      rightSource_->close();
-    }
-    Operator::close();
-  }
+  bool startDrain() override;
+
+  void finishDrain() override;
+
+  void close() override;
 
  private:
   // Sets up 'filter_' and related member variables.
@@ -150,6 +149,14 @@ class MergeJoin : public Operator {
         rightKeyChannels_,
         otherBatch,
         otherIndex);
+  }
+
+  bool rightHasNoInput() const {
+    return noMoreRightInput_ || rightHasDrained_;
+  }
+
+  bool leftHasNoInput() const {
+    return noMoreInput_ || leftHasDrained_;
   }
 
   // Describes a contiguous set of rows on the left or right side of the join
@@ -429,6 +436,8 @@ class MergeJoin : public Operator {
       currentRowPassed_ = false;
     }
 
+    void reset();
+
    private:
     // A subset of output rows where left side matched right side on the join
     // keys. Used in filter evaluation.
@@ -493,6 +502,8 @@ class MergeJoin : public Operator {
   // Number of join keys.
   const size_t numKeys_;
 
+  const core::PlanNodeId rightNodeId_;
+
   // The cached merge join plan node used to initialize this operator after the
   // driver has started execution. It is reset after the initialization.
   std::shared_ptr<const core::MergeJoinNode> joinNode_;
@@ -554,5 +565,8 @@ class MergeJoin : public Operator {
 
   // True if all the right side data has been received.
   bool noMoreRightInput_{false};
+
+  bool leftHasDrained_{false};
+  bool rightHasDrained_{false};
 };
 } // namespace facebook::velox::exec

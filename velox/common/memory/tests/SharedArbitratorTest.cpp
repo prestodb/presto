@@ -451,14 +451,14 @@ DEBUG_ONLY_TEST_P(
   SCOPED_TESTVALUE_SET(
       "facebook::velox::exec::Driver::runInternal::addInput",
       std::function<void(exec::Operator*)>(([&](exec::Operator* op) {
-        if (op->testingOperatorCtx()->operatorType() != "Aggregation" &&
-            op->testingOperatorCtx()->operatorType() != "PartialAggregation") {
+        if (op->operatorCtx()->operatorType() != "Aggregation" &&
+            op->operatorCtx()->operatorType() != "PartialAggregation") {
           return;
         }
         if (op->pool()->usedBytes() == 0) {
           return;
         }
-        if (op->testingOperatorCtx()->operatorType() == "PartialAggregation") {
+        if (op->operatorCtx()->operatorType() == "PartialAggregation") {
           if (blockedPartialAggregation.exchange(true)) {
             return;
           }
@@ -467,7 +467,7 @@ DEBUG_ONLY_TEST_P(
             return;
           }
         }
-        auto* driver = op->testingOperatorCtx()->driver();
+        auto* driver = op->operatorCtx()->driver();
         TestSuspendedSection suspendedSection(driver);
         arbitrationWait.await([&]() { return !arbitrationWaitFlag.load(); });
       })));
@@ -913,7 +913,7 @@ DEBUG_ONLY_TEST_P(
         if (!injectAllocationOnce.exchange(false)) {
           return;
         }
-        task = values->testingOperatorCtx()->task();
+        task = values->operatorCtx()->task();
         memory::MemoryPool* pool = values->pool();
         VELOX_ASSERT_THROW(
             pool->allocate(kMemoryCapacity * 2 / 3),

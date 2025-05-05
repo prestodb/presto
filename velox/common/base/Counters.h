@@ -386,4 +386,7 @@ constexpr folly::StringPiece kMetricTableScanBatchBytes{
 
 constexpr folly::StringPiece kMetricTaskBatchProcessTimeMs{
     "velox.task_batch_process_time_ms"};
+
+constexpr folly::StringPiece kMetricTaskBarrierProcessTimeMs{
+    "velox.task_barrier_process_time_ms"};
 } // namespace facebook::velox

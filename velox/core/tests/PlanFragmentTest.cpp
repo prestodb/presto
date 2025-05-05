@@ -334,3 +334,46 @@ TEST_F(PlanFragmentTest, executionStrategyToString) {
       executionStrategyToString(static_cast<core::ExecutionStrategy>(999)),
       "UNKNOWN: 999");
 }
+
+TEST_F(PlanFragmentTest, supportsBarrier) {
+  // Plan fragment with plan node not supporting barrier.
+  {
+    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+    const auto plan = PlanBuilder(planNodeIdGenerator)
+                          .tableScan(rowType_)
+                          .project({"c0 AS t0", "c1 AS t1", "c2 AS t2"})
+                          .hashJoin(
+                              {"t0"},
+                              {"u0"},
+                              PlanBuilder(planNodeIdGenerator)
+                                  .tableScan(rowType_)
+                                  .project({"c0 AS u0", "c1 AS u1", "c2 AS u2"})
+                                  .planNode(),
+                              "",
+                              {"t1"},
+                              core::JoinType::kAnti)
+                          .planNode();
+    const PlanFragment planFragment{plan};
+    ASSERT_FALSE(planFragment.supportsBarrier());
+  }
+  // Plan fragment with plan node supporting barrier.
+  {
+    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+    auto plan = PlanBuilder(planNodeIdGenerator)
+                    .tableScan(rowType_)
+                    .project({"c0 AS t0", "c1 AS t1", "c2 AS t2"})
+                    .mergeJoin(
+                        {"t0"},
+                        {"u0"},
+                        PlanBuilder(planNodeIdGenerator)
+                            .tableScan(rowType_)
+                            .project({"c0 AS u0", "c1 AS u1", "c2 AS u2"})
+                            .planNode(),
+                        "",
+                        {"t0", "t1", "t2", "u0", "u1", "u2"},
+                        core::JoinType::kInner)
+                    .planNode();
+    const PlanFragment planFragment{plan};
+    ASSERT_TRUE(planFragment.supportsBarrier());
+  }
+}

@@ -200,15 +200,19 @@ class Task : public std::enable_shared_from_this<Task> {
   bool supportSerialExecutionMode() const;
 
   /// Single-threaded execution API. Runs the query and returns results one
-  /// batch at a time. Returns nullptr if query evaluation is finished and no
-  /// more data will be produced. Throws an exception if query execution
-  /// failed.
+  /// batch at a time. Returns nullptr if the query is finished or has reached
+  /// to a task barrier.
   ///
-  /// This API is available for query plans that do not use
-  /// PartitionedOutputNode and LocalPartitionNode plan nodes.
+  /// If the query is finished, no more data will be produced. An exception is
+  /// thrown if query execution failed.
+  /// If a task barrier is reached, add new splits with a new barrier request
+  /// and call next() to resume processing.
   ///
-  /// The caller is required to add all the necessary splits, and signal
-  /// no-more-splits before calling 'next' for the first time.
+  /// For non-barrier mode, add all necessary splits and signal no-more-splits
+  /// before calling next() for the first time.
+  ///
+  /// For barrier mode, add a set of splits and request a task barrier before
+  /// calling next(). Repeat this process until the query is finished.
   ///
   /// If no `future` is provided, the operators in the pipeline are not allowed
   /// to block for external events, but can block waiting for data to be
@@ -382,10 +386,6 @@ class Task : public std::enable_shared_from_this<Task> {
   uint32_t numFinishedDrivers() const {
     std::lock_guard<std::timed_mutex> taskLock(mutex_);
     return numFinishedDrivers_;
-  }
-
-  const std::vector<std::weak_ptr<Driver>>& testingDriversClosedByTask() const {
-    return driversClosedByTask_;
   }
 
   /// Internal public methods. These methods are intended to be used by internal
@@ -640,6 +640,35 @@ class Task : public std::enable_shared_from_this<Task> {
     return terminateRequested_;
   }
 
+  /// Requests barrier on task execution to drain out all the buffered data
+  /// after finishing processing all the queued source splits. The returned
+  /// future is realized when the drain operation completes. This API is
+  /// supported only with single threaded execution mode and only when all plan
+  /// nodes support barrier processing.
+  ContinueFuture requestBarrier();
+
+  /// Returns true if this task is under barrier processing.
+  bool underBarrier() const {
+    return barrierRequested_;
+  }
+
+  /// Sets to drop the input for the operators instantiated from the specified
+  /// plan node. The function is called when a draining operator needs no more
+  /// input to finish the drain operation. All the upstream operators can simply
+  /// drop their output and output processing to finish the drain quickly.
+  void dropInput(const core::PlanNodeId& planNodeId);
+
+  /// Sets to drop the input for the specified operator.
+  void dropInput(Operator* op);
+
+  /// Invoked once by a driver thread to signal it has finished the barrier
+  /// processing when all its operators have drained their output and the sink
+  /// operator has propogated the drain signal to all its downstream pipelines
+  /// through the connected queues. Upon the last driver thread call, the task
+  /// finishes the current barrier processing and 'barrierFinishPromises_' are
+  /// fullfiled to resume barrier request caller.
+  void finishDriverBarrier();
+
   /// Requests the Task to stop activity.  The returned future is
   /// realized when all running threads have stopped running. Activity
   /// can be resumed with resume() after the future is realized.
@@ -708,16 +737,20 @@ class Task : public std::enable_shared_from_this<Task> {
     return cancellationSource_.getToken();
   }
 
-  void testingIncrementThreads() {
-    std::lock_guard l(mutex_);
-    ++numThreads_;
-  }
-
   /// Returns the number of running tasks from velox runtime.
   static size_t numRunningTasks();
 
   /// Returns the list of running tasks from velox runtime.
   static std::vector<std::shared_ptr<Task>> getRunningTasks();
+
+  void testingIncrementThreads() {
+    std::lock_guard l(mutex_);
+    ++numThreads_;
+  }
+
+  const std::vector<std::weak_ptr<Driver>>& testingDriversClosedByTask() const {
+    return driversClosedByTask_;
+  }
 
   /// Invoked to run provided 'callback' on each alive driver of the task.
   void testingVisitDrivers(const std::function<void(Driver*)>& callback);
@@ -726,6 +759,10 @@ class Task : public std::enable_shared_from_this<Task> {
   void testingFinish() {
     terminate(TaskState::kFinished).wait();
   }
+
+  /// The testing method returns true if any driver is blocked waiting for
+  /// split.
+  bool testingHasDriverWaitForSplit() const;
 
  private:
   // Hook of system-wide running task list.
@@ -1000,6 +1037,24 @@ class Task : public std::enable_shared_from_this<Task> {
 
   ContinueFuture makeFinishFutureLocked(const char* comment);
 
+  // Invoked to start a barrier on the task. Returns a future that is realized
+  // when the barrier processing is complete.
+  ContinueFuture startBarrier(std::string_view comment);
+
+  // Invoked when the last driver has finished the barrier processing. The
+  // function resets the task barrier processing state, and returns the list of
+  // user barrier request 'promises' to resume.
+  void endBarrierLocked(std::vector<ContinuePromise>& promises);
+
+  // Invoked to start a barrier processig on a driver.
+  void startDriverBarriersLocked();
+
+  // Set to drop input for drivers that containing the operator instantiated
+  // from the given plan node.
+  void dropInputLocked(
+      const core::PlanNodeId& planNodeId,
+      std::vector<Driver*>& drivers);
+
   bool isOutputPipeline(int pipelineId) const {
     return driverFactories_[pipelineId]->outputDriver;
   }
@@ -1070,6 +1125,11 @@ class Task : public std::enable_shared_from_this<Task> {
   std::shared_ptr<core::QueryCtx> queryCtx_;
 
   core::PlanFragment planFragment_;
+
+  // Indicates if this task supports barrier processing. It is set to true if
+  // the task is under single threaded execution mode and all its plan nodes
+  // support barrier processing.
+  const bool supportBarrier_;
 
   const std::optional<TraceConfig> traceConfig_;
 
@@ -1269,8 +1329,18 @@ class Task : public std::enable_shared_from_this<Task> {
   // sometimes tested outside 'mutex_' for a value of 0/false,
   // which is safe to access without acquiring 'mutex_'.Thread counts
   // and promises are guarded by 'mutex_'
-  std::atomic<bool> pauseRequested_{false};
-  std::atomic<bool> terminateRequested_{false};
+  std::atomic_bool pauseRequested_{false};
+  std::atomic_bool terminateRequested_{false};
+
+  // If true, indicate this task is under barrier processing.
+  std::atomic_bool barrierRequested_{false};
+  // The start time of the current processing barrier.
+  uint64_t barrierStartUs_{0};
+  // The number of drivers under barrier processing.
+  uint32_t numDriversUnderBarrier_{0};
+  // The promises for the futures returned to callers of requestBarrier().
+  std::vector<ContinuePromise> barrierFinishPromises_;
+
   std::atomic<int32_t> toYield_ = 0;
   int32_t numThreads_ = 0;
   // Microsecond real time when 'this' last went from no threads to

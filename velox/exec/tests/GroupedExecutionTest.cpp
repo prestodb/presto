@@ -397,11 +397,9 @@ DEBUG_ONLY_TEST_F(
         std::function<void(Operator*)>([&](Operator* op) {
           if (op->operatorType() == "HashProbe") {
             ASSERT_NE(op->splitGroupId(), kUngroupedGroupId);
-            const int pipelineId =
-                op->testingOperatorCtx()->driverCtx()->pipelineId;
+            const int pipelineId = op->operatorCtx()->driverCtx()->pipelineId;
             const auto peerOps =
-                op->testingOperatorCtx()->task()->findPeerOperators(
-                    pipelineId, op);
+                op->operatorCtx()->task()->findPeerOperators(pipelineId, op);
             ASSERT_LE(peerOps.size(), numDriversPerGroup);
           }
           if (op->operatorType() != "HashBuild") {
@@ -412,11 +410,9 @@ DEBUG_ONLY_TEST_F(
           } else {
             ASSERT_NE(op->splitGroupId(), kUngroupedGroupId);
           }
-          const int pipelineId =
-              op->testingOperatorCtx()->driverCtx()->pipelineId;
+          const int pipelineId = op->operatorCtx()->driverCtx()->pipelineId;
           const auto peerOps =
-              op->testingOperatorCtx()->task()->findPeerOperators(
-                  pipelineId, op);
+              op->operatorCtx()->task()->findPeerOperators(pipelineId, op);
           ASSERT_LE(peerOps.size(), numDriversPerGroup);
 
           ASSERT_EQ(op->canReclaim(), testData.expectedSpill);

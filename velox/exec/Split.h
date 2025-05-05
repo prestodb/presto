@@ -20,8 +20,13 @@
 namespace facebook::velox::exec {
 
 struct Split {
-  std::shared_ptr<velox::connector::ConnectorSplit> connectorSplit;
+  std::shared_ptr<velox::connector::ConnectorSplit> connectorSplit{nullptr};
   int32_t groupId{-1}; // Bucketed group id (-1 means 'none').
+
+  /// Indicates if this is a barrier split. A barrier split is used by task
+  /// barrier processing which adds one barrier split to each leaf source node
+  /// to signal the output drain processing.
+  bool barrier{false};
 
   Split() = default;
 
@@ -30,10 +35,21 @@ struct Split {
       int32_t groupId = -1)
       : connectorSplit(std::move(connectorSplit)), groupId(groupId) {}
 
+  /// Called by the task barrier to create a special barrier split.
+  static Split createBarrier() {
+    static Split barrierSplit;
+    barrierSplit.barrier = true;
+    return barrierSplit;
+  }
+
   Split(Split&& other) = default;
   Split(const Split& other) = default;
   Split& operator=(Split&& other) = default;
   Split& operator=(const Split& other) = default;
+
+  bool isBarrier() const {
+    return barrier;
+  }
 
   inline bool hasConnectorSplit() const {
     return connectorSplit != nullptr;
@@ -44,10 +60,14 @@ struct Split {
   }
 
   std::string toString() const {
-    return fmt::format(
-        "Split: [{}] {}",
-        hasConnectorSplit() ? connectorSplit->toString() : "NULL",
-        groupId);
+    if (barrier) {
+      return "BarrierSplit";
+    } else {
+      return fmt::format(
+          "Split: [{}] {}",
+          hasConnectorSplit() ? connectorSplit->toString() : "NULL",
+          groupId);
+    }
   }
 };
 

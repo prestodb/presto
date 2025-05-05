@@ -16,6 +16,7 @@
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
+#include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/parse/Expressions.h"
@@ -26,21 +27,34 @@ using namespace facebook::velox::exec::test;
 
 using facebook::velox::test::BatchMaker;
 
-class FilterProjectTest : public OperatorTestBase {
+class FilterProjectTest : public HiveConnectorTestBase {
  protected:
+  void SetUp() override {
+    HiveConnectorTestBase::SetUp();
+  }
+
   void assertFilter(
       const std::vector<RowVectorPtr>& vectors,
       const std::string& filter = "c1 % 10  > 0") {
-    auto plan = PlanBuilder().values(vectors).filter(filter).planNode();
+    core::PlanNodePtr filterNode;
+    auto plan = PlanBuilder()
+                    .values(vectors)
+                    .filter(filter)
+                    .capturePlanNode(filterNode)
+                    .planNode();
+    ASSERT_TRUE(filterNode->supportsBarrier());
 
     assertQuery(plan, "SELECT * FROM tmp WHERE " + filter);
   }
 
   void assertProject(const std::vector<RowVectorPtr>& vectors) {
+    core::PlanNodePtr projectNode;
     auto plan = PlanBuilder()
                     .values(vectors)
                     .project({"c0", "c1", "c0 + c1"})
+                    .capturePlanNode(projectNode)
                     .planNode();
+    ASSERT_TRUE(projectNode->supportsBarrier());
 
     auto task = assertQuery(plan, "SELECT c0, c1, c0 + c1 FROM tmp");
 
@@ -405,4 +419,42 @@ TEST_F(FilterProjectTest, statsSplitter) {
 
   EXPECT_EQ(projectStats.outputRows, 25);
   EXPECT_EQ(projectStats.outputVectors, 4);
+}
+
+TEST_F(FilterProjectTest, barrier) {
+  std::vector<RowVectorPtr> vectors;
+  std::vector<std::shared_ptr<TempFilePath>> tempFiles;
+  const int numSplits{5};
+  for (int32_t i = 0; i < 5; ++i) {
+    auto vector = std::dynamic_pointer_cast<RowVector>(
+        BatchMaker::createBatch(rowType_, 100, *pool_));
+    vectors.push_back(vector);
+    tempFiles.push_back(TempFilePath::create());
+  }
+  writeToFiles(toFilePaths(tempFiles), vectors);
+  createDuckDbTable(vectors);
+
+  auto plan = PlanBuilder()
+                  .startTableScan()
+                  .outputType(rowType_)
+                  .endTableScan()
+                  .filter("c1 % 10  > 0")
+                  .project({"c0", "c1", "c0 + c1"})
+                  .planNode();
+  for (const auto barrierExecution : {false, true}) {
+    SCOPED_TRACE(fmt::format("barrierExecution {}", barrierExecution));
+    auto task =
+        AssertQueryBuilder(plan, duckDbQueryRunner_)
+            .config(core::QueryConfig::kSparkPartitionId, "0")
+            .config(
+                core::QueryConfig::kMaxSplitPreloadPerDriver,
+                std::to_string(tempFiles.size()))
+            .splits(makeHiveConnectorSplits(tempFiles))
+            .serialExecution(true)
+            .barrierExecution(barrierExecution)
+            .assertResults("SELECT c0, c1, c0 + c1 FROM tmp WHERE c1 % 10 > 0");
+    const auto taskStats = task->taskStats();
+    ASSERT_EQ(taskStats.numBarriers, barrierExecution ? numSplits : 0);
+    ASSERT_EQ(taskStats.numFinishedSplits, numSplits);
+  }
 }

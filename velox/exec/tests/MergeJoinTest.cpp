@@ -208,6 +208,7 @@ class MergeJoinTest : public HiveConnectorTestBase {
           const std::vector<RowVectorPtr>&)>& inputTransform) {
     // Test INNER join.
     auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+    core::PlanNodePtr mergeJoinNode;
     auto plan = PlanBuilder(planNodeIdGenerator)
                     .values(inputTransform(leftInput))
                     .mergeJoin(
@@ -224,7 +225,9 @@ class MergeJoinTest : public HiveConnectorTestBase {
                         "",
                         {"c0", "c1", "u_c1", "c2", "u_c2", "c3", "u_c3"},
                         core::JoinType::kInner)
+                    .capturePlanNode(mergeJoinNode)
                     .planNode();
+    ASSERT_TRUE(mergeJoinNode->supportsBarrier());
 
     // Use very small output batch size.
     assertQuery(
@@ -902,7 +905,8 @@ TEST_F(MergeJoinTest, dictionaryOutput) {
       0,
       core::QueryCtx::create(driverExecutor_.get()),
       Task::ExecutionMode::kParallel,
-      [&](const RowVectorPtr& vector, ContinueFuture* future) {
+      [&](const RowVectorPtr& vector, bool drained, ContinueFuture* future) {
+        VELOX_CHECK(!drained);
         if (vector) {
           output = vector;
         }
@@ -1576,4 +1580,234 @@ DEBUG_ONLY_TEST_F(MergeJoinTest, failureOnRightSide) {
       "Expected");
 
   waitForAllTasksToBeDeleted();
+}
+
+TEST_F(MergeJoinTest, barrier) {
+  auto right = makeRowVector(
+      {"u0", "u1"},
+      {makeFlatVector<int32_t>(1'024, [](auto row) { return row / 3; }),
+       makeFlatVector<int32_t>(1'024, [](auto row) { return row; })});
+
+  auto left = makeRowVector(
+      {"t0", "t1"},
+      {makeFlatVector<int32_t>(1'024, [](auto row) { return row / 6; }),
+       makeFlatVector<int32_t>(1'024, [](auto row) { return row; })});
+
+  auto leftFile = TempFilePath::create();
+  HiveConnectorTestBase::writeToFile(leftFile->getPath(), left);
+  auto rightFile = TempFilePath::create();
+  HiveConnectorTestBase::writeToFile(rightFile->getPath(), right);
+
+  createDuckDbTable("t", {left});
+  createDuckDbTable("u", {right});
+
+  {
+    // Inner join.
+    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+    core::PlanNodeId leftNodeId;
+    core::PlanNodeId rightNodeId;
+    auto plan =
+        PlanBuilder(planNodeIdGenerator)
+            .startTableScan()
+            .outputType(std::static_pointer_cast<const RowType>(left->type()))
+            .endTableScan()
+            .capturePlanNodeId(leftNodeId)
+            .mergeJoin(
+                {"t0"},
+                {"u0"},
+                PlanBuilder(planNodeIdGenerator)
+                    .startTableScan()
+                    .outputType(
+                        std::static_pointer_cast<const RowType>(right->type()))
+                    .endTableScan()
+                    .capturePlanNodeId(rightNodeId)
+                    .planNode(),
+                "",
+                {"t0", "t1", "u0", "u1"},
+                core::JoinType::kInner)
+            .planNode();
+    for (const auto hasBarrier : {false, true}) {
+      SCOPED_TRACE(fmt::format("hasBarrier {}", hasBarrier));
+      AssertQueryBuilder queryBuilder(plan, duckDbQueryRunner_);
+      queryBuilder.barrierExecution(hasBarrier).serialExecution(true);
+      queryBuilder.split(
+          leftNodeId, makeHiveConnectorSplit(leftFile->getPath()));
+      queryBuilder.split(
+          rightNodeId, makeHiveConnectorSplit(rightFile->getPath()));
+      queryBuilder.config(core::QueryConfig::kMaxOutputBatchRows, "32");
+
+      const auto task = queryBuilder.assertResults(
+          "SELECT t0, t1, u0, u1 FROM t INNER JOIN u ON t.t0 = u.u0");
+      ASSERT_EQ(task->taskStats().numBarriers, hasBarrier ? 1 : 0);
+      ASSERT_EQ(task->taskStats().numFinishedSplits, hasBarrier ? 2 : 1);
+    }
+  }
+
+  {
+    // Full join.
+    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+    core::PlanNodeId leftNodeId;
+    core::PlanNodeId rightNodeId;
+    auto plan =
+        PlanBuilder(planNodeIdGenerator)
+            .startTableScan()
+            .outputType(std::static_pointer_cast<const RowType>(left->type()))
+            .endTableScan()
+            .capturePlanNodeId(leftNodeId)
+            .mergeJoin(
+                {"t0"},
+                {"u0"},
+                PlanBuilder(planNodeIdGenerator)
+                    .startTableScan()
+                    .outputType(
+                        std::static_pointer_cast<const RowType>(right->type()))
+                    .endTableScan()
+                    .capturePlanNodeId(rightNodeId)
+                    .planNode(),
+                "",
+                {"t0", "t1", "u0", "u1"},
+                core::JoinType::kFull)
+            .planNode();
+    for (const auto hasBarrier : {false, true}) {
+      SCOPED_TRACE(fmt::format("hasBarrier {}", hasBarrier));
+      AssertQueryBuilder queryBuilder(plan, duckDbQueryRunner_);
+      queryBuilder.barrierExecution(hasBarrier).serialExecution(true);
+      queryBuilder.split(
+          leftNodeId, makeHiveConnectorSplit(leftFile->getPath()));
+      queryBuilder.split(
+          rightNodeId, makeHiveConnectorSplit(rightFile->getPath()));
+      queryBuilder.config(core::QueryConfig::kMaxOutputBatchRows, "32");
+
+      const auto task = queryBuilder.assertResults(
+          "SELECT t0, t1, u0, u1 FROM t FULL OUTER JOIN u ON t.t0 = u.u0");
+      ASSERT_EQ(task->taskStats().numBarriers, hasBarrier ? 1 : 0);
+      ASSERT_EQ(task->taskStats().numFinishedSplits, 2);
+    }
+  }
+
+  {
+    // Right join.
+    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+    core::PlanNodeId leftNodeId;
+    core::PlanNodeId rightNodeId;
+    auto plan =
+        PlanBuilder(planNodeIdGenerator)
+            .startTableScan()
+            .outputType(std::static_pointer_cast<const RowType>(left->type()))
+            .endTableScan()
+            .capturePlanNodeId(leftNodeId)
+            .mergeJoin(
+                {"t0"},
+                {"u0"},
+                PlanBuilder(planNodeIdGenerator)
+                    .startTableScan()
+                    .outputType(
+                        std::static_pointer_cast<const RowType>(right->type()))
+                    .endTableScan()
+                    .capturePlanNodeId(rightNodeId)
+                    .planNode(),
+                "",
+                {"t0", "t1", "u0", "u1"},
+                core::JoinType::kRight)
+            .planNode();
+    for (const auto hasBarrier : {false, true}) {
+      SCOPED_TRACE(fmt::format("hasBarrier {}", hasBarrier));
+      AssertQueryBuilder queryBuilder(plan, duckDbQueryRunner_);
+      queryBuilder.barrierExecution(hasBarrier).serialExecution(true);
+      queryBuilder.split(
+          leftNodeId, makeHiveConnectorSplit(leftFile->getPath()));
+      queryBuilder.split(
+          rightNodeId, makeHiveConnectorSplit(rightFile->getPath()));
+      queryBuilder.config(core::QueryConfig::kMaxOutputBatchRows, "32");
+
+      const auto task = queryBuilder.assertResults(
+          "SELECT t0, t1, u0, u1 FROM t RIGHT JOIN u ON t.t0 = u.u0");
+      ASSERT_EQ(task->taskStats().numBarriers, hasBarrier ? 1 : 0);
+      ASSERT_EQ(task->taskStats().numFinishedSplits, 2);
+    }
+  }
+
+  {
+    // Left join.
+    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+    core::PlanNodeId leftNodeId;
+    core::PlanNodeId rightNodeId;
+    auto plan =
+        PlanBuilder(planNodeIdGenerator)
+            .startTableScan()
+            .outputType(std::static_pointer_cast<const RowType>(left->type()))
+            .endTableScan()
+            .capturePlanNodeId(leftNodeId)
+            .mergeJoin(
+                {"t0"},
+                {"u0"},
+                PlanBuilder(planNodeIdGenerator)
+                    .startTableScan()
+                    .outputType(
+                        std::static_pointer_cast<const RowType>(right->type()))
+                    .endTableScan()
+                    .capturePlanNodeId(rightNodeId)
+                    .planNode(),
+                "",
+                {"t0", "t1", "u0", "u1"},
+                core::JoinType::kLeft)
+            .planNode();
+    for (const auto hasBarrier : {true}) {
+      SCOPED_TRACE(fmt::format("hasBarrier {}", hasBarrier));
+      AssertQueryBuilder queryBuilder(plan, duckDbQueryRunner_);
+      queryBuilder.barrierExecution(hasBarrier).serialExecution(true);
+      queryBuilder.split(
+          leftNodeId, makeHiveConnectorSplit(leftFile->getPath()));
+      queryBuilder.split(
+          rightNodeId, makeHiveConnectorSplit(rightFile->getPath()));
+      queryBuilder.config(core::QueryConfig::kMaxOutputBatchRows, "32");
+
+      const auto task = queryBuilder.assertResults(
+          "SELECT t0, t1, u0, u1 FROM t LEFT JOIN u ON t.t0 = u.u0");
+      ASSERT_EQ(task->taskStats().numBarriers, hasBarrier ? 1 : 0);
+      ASSERT_EQ(task->taskStats().numFinishedSplits, hasBarrier ? 2 : 1);
+    }
+  }
+
+  {
+    // Anti join.
+    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+    core::PlanNodeId leftNodeId;
+    core::PlanNodeId rightNodeId;
+    auto plan =
+        PlanBuilder(planNodeIdGenerator)
+            .startTableScan()
+            .outputType(std::static_pointer_cast<const RowType>(left->type()))
+            .endTableScan()
+            .capturePlanNodeId(leftNodeId)
+            .mergeJoin(
+                {"t0"},
+                {"u0"},
+                PlanBuilder(planNodeIdGenerator)
+                    .startTableScan()
+                    .outputType(
+                        std::static_pointer_cast<const RowType>(right->type()))
+                    .endTableScan()
+                    .capturePlanNodeId(rightNodeId)
+                    .planNode(),
+                "",
+                {"t0", "t1"},
+                core::JoinType::kAnti)
+            .planNode();
+    for (const auto hasBarrier : {true}) {
+      SCOPED_TRACE(fmt::format("hasBarrier {}", hasBarrier));
+      AssertQueryBuilder queryBuilder(plan, duckDbQueryRunner_);
+      queryBuilder.barrierExecution(hasBarrier).serialExecution(true);
+      queryBuilder.split(
+          leftNodeId, makeHiveConnectorSplit(leftFile->getPath()));
+      queryBuilder.split(
+          rightNodeId, makeHiveConnectorSplit(rightFile->getPath()));
+      queryBuilder.config(core::QueryConfig::kMaxOutputBatchRows, "32");
+
+      const auto task = queryBuilder.assertResults(
+          "SELECT t0, t1 FROM t WHERE NOT exists (select u0, u1 from u where t0 = u0)");
+      ASSERT_EQ(task->taskStats().numBarriers, hasBarrier ? 1 : 0);
+      ASSERT_EQ(task->taskStats().numFinishedSplits, hasBarrier ? 2 : 1);
+    }
+  }
 }

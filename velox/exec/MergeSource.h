@@ -61,12 +61,20 @@ class MergeSource {
 /// to implement merge join.
 class MergeJoinSource {
  public:
-  /// Called by the consumer to fetch next batch of data.
-  BlockingReason next(ContinueFuture* future, RowVectorPtr* data);
+  /// Called by the consumer to fetch next batch of data. 'drained' is set to
+  /// true if the producer has drained its pipeline. The consumer should start
+  /// draining its pipeline accordingly. This only applies when the task is
+  /// under barrier processing.
+  BlockingReason
+  next(ContinueFuture* future, RowVectorPtr* data, bool& drained);
 
   /// Called by the producer to enqueue more data or signal that no more data
   /// is coming by passing nullptr for data.
   BlockingReason enqueue(RowVectorPtr data, ContinueFuture* future);
+
+  /// Called by the producer to signal that it has drained its pipeline under
+  /// barrier processing.
+  void drain();
 
   /// Called by the consumer to signal that it doesn't need any more data. For
   /// example, if the merge join ran out of data on the right side.
@@ -82,6 +90,9 @@ class MergeJoinSource {
 
   struct State {
     bool atEnd = false;
+    // Set to true when the producer has drained its pipeline. This is reset
+    // after the consumer receives the drained signal.
+    bool drained = false;
     RowVectorPtr data;
   };
 

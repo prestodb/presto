@@ -76,6 +76,8 @@ struct CursorParameters {
   /// otherwise.
   bool serialExecution = false;
 
+  bool barrierExecution = false;
+
   /// If both 'queryConfigs' and 'queryCtx' are specified, the configurations
   /// in 'queryCtx' will be overridden by 'queryConfig'.
   std::unordered_map<std::string, std::string> queryConfigs;
@@ -155,6 +157,18 @@ class TaskCursor {
   virtual RowVectorPtr& current() = 0;
 
   virtual void setError(std::exception_ptr error) = 0;
+
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
+  virtual void noMoreSplits(const core::PlanNodeId& planNodeId) = 0;
+
+  virtual void addSplit(
+      const core::PlanNodeId& planNodeId,
+      exec::Split&& split) = 0;
+#endif
+
+  virtual bool noMoreSplits() const = 0;
+
+  virtual void setNoMoreSplits() = 0;
 
   virtual const std::shared_ptr<Task>& task() = 0;
 };

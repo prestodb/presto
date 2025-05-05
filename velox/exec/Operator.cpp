@@ -636,6 +636,24 @@ void OperatorStats::clear() {
   dynamicFilterStats.clear();
 }
 
+bool Operator::isDraining() const {
+  return operatorCtx_->driver()->isDraining(operatorId());
+}
+
+bool Operator::hasDrained() const {
+  return operatorCtx_->driver()->hasDrained(operatorId());
+}
+
+void Operator::finishDrain() {
+  VELOX_CHECK(isDraining());
+  operatorCtx_->driver()->finishDrain(operatorId());
+  VELOX_CHECK(!isDraining());
+}
+
+bool Operator::shouldDropOutput() const {
+  return operatorCtx_->driver()->shouldDropOutput(operatorId());
+}
+
 std::unique_ptr<memory::MemoryReclaimer> Operator::MemoryReclaimer::create(
     DriverCtx* driverCtx,
     Operator* op) {

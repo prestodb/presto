@@ -674,19 +674,20 @@ TEST_F(ParquetTableScanTest, readAsLowerCase) {
   params.planNode = plan;
   const int numSplitsPerFile = 1;
 
-  bool noMoreSplits = false;
-  auto addSplits = [&](exec::Task* task) {
-    if (!noMoreSplits) {
-      auto const splits = HiveConnectorTestBase::makeHiveConnectorSplits(
-          {getExampleFilePath("upper.parquet")},
-          numSplitsPerFile,
-          dwio::common::FileFormat::PARQUET);
-      for (const auto& split : splits) {
-        task->addSplit("0", exec::Split(split));
-      }
-      task->noMoreSplits("0");
+  auto addSplits = [&](exec::TaskCursor* taskCursor) {
+    if (taskCursor->noMoreSplits()) {
+      return;
     }
-    noMoreSplits = true;
+    auto& task = taskCursor->task();
+    auto const splits = HiveConnectorTestBase::makeHiveConnectorSplits(
+        {getExampleFilePath("upper.parquet")},
+        numSplitsPerFile,
+        dwio::common::FileFormat::PARQUET);
+    for (const auto& split : splits) {
+      task->addSplit("0", exec::Split(split));
+    }
+    task->noMoreSplits("0");
+    taskCursor->setNoMoreSplits();
   };
   auto result = readCursor(params, addSplits);
   ASSERT_TRUE(waitForTaskCompletion(result.first->task().get()));

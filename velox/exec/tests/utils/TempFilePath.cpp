@@ -36,4 +36,14 @@ std::string TempFilePath::createTempFile(TempFilePath* tempFilePath) {
   }
   return path;
 }
+
+std::vector<std::string> toFilePaths(
+    const std::vector<std::shared_ptr<TempFilePath>>& tempFiles) {
+  std::vector<std::string> filePaths;
+  filePaths.reserve(tempFiles.size());
+  for (const auto& tempFile : tempFiles) {
+    filePaths.push_back(tempFile->getPath());
+  }
+  return filePaths;
+}
 } // namespace facebook::velox::exec::test

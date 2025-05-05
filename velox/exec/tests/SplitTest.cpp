@@ -14,16 +14,17 @@
  * limitations under the License.
  */
 
+#include "velox/exec/Split.h"
 #include <gtest/gtest.h>
 #include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/exec/Exchange.h"
-#include "velox/exec/Split.h"
 
 namespace facebook::velox::exec {
 
 TEST(SplitToStringTest, remoteSplit) {
   Split split{std::make_shared<RemoteConnectorSplit>("test")};
   ASSERT_EQ("Split: [Remote: test] -1", split.toString());
+  ASSERT_FALSE(split.isBarrier());
 
   split.groupId = 7;
   ASSERT_EQ("Split: [Remote: test] 7", split.toString());
@@ -37,8 +38,16 @@ TEST(SplitToStringTest, hiveSplit) {
       7,
       100)};
   ASSERT_EQ("Split: [Hive: path/to/file.parquet 7 - 100] -1", split.toString());
+  ASSERT_FALSE(split.isBarrier());
 
   split.groupId = 7;
   ASSERT_EQ("Split: [Hive: path/to/file.parquet 7 - 100] 7", split.toString());
+}
+
+TEST(SplitToStringTest, barrierSplit) {
+  const auto split = Split::createBarrier();
+  ASSERT_TRUE(split.isBarrier());
+
+  ASSERT_EQ(split.toString(), "BarrierSplit");
 }
 } // namespace facebook::velox::exec

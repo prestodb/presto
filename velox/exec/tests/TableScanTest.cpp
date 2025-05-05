@@ -73,7 +73,7 @@ void verifyCacheStats(
 }
 } // namespace
 
-class TableScanTest : public virtual HiveConnectorTestBase {
+class TableScanTest : public HiveConnectorTestBase {
  protected:
   void SetUp() override {
     HiveConnectorTestBase::SetUp();
@@ -147,7 +147,13 @@ class TableScanTest : public virtual HiveConnectorTestBase {
   }
 
   core::PlanNodePtr tableScanNode(const RowTypePtr& outputType) {
-    return PlanBuilder(pool_.get()).tableScan(outputType).planNode();
+    core::PlanNodePtr tableScanNode;
+    const auto plan = PlanBuilder(pool_.get())
+                          .tableScan(outputType)
+                          .capturePlanNode(tableScanNode)
+                          .planNode();
+    VELOX_CHECK(tableScanNode->supportsBarrier());
+    return plan;
   }
 
   static PlanNodeStats getTableScanStats(const std::shared_ptr<Task>& task) {
@@ -1690,19 +1696,50 @@ TEST_F(TableScanTest, waitForSplit) {
   }
   createDuckDbTable(vectors);
 
-  int32_t fileIndex = 0;
-  ::assertQuery(
-      tableScanNode(),
-      [&](Task* task) {
-        if (fileIndex < filePaths.size()) {
-          task->addSplit("0", makeHiveSplit(filePaths[fileIndex++]->getPath()));
-        }
-        if (fileIndex == filePaths.size()) {
-          task->noMoreSplits("0");
-        }
-      },
-      "SELECT * FROM tmp",
-      duckDbQueryRunner_);
+  std::atomic_bool addSplitWaitFlag{true};
+  folly::EventCount addSplitWait;
+  TaskCursor* cursor{nullptr};
+
+  auto plan = tableScanNode();
+  const auto scanNodeId = plan->id();
+  std::atomic_int32_t fileIndex = 0;
+  std::thread queryThread([&]() {
+    ::assertQuery(
+        plan,
+        [&](TaskCursor* taskCursor) {
+          if (taskCursor->noMoreSplits()) {
+            return;
+          }
+          if (fileIndex != 0) {
+            return;
+          }
+          auto& task = taskCursor->task();
+          task->addSplit(
+              scanNodeId, makeHiveSplit(filePaths[fileIndex++]->getPath()));
+
+          cursor = taskCursor;
+          addSplitWaitFlag = false;
+          addSplitWait.notifyAll();
+        },
+        "SELECT * FROM tmp",
+        duckDbQueryRunner_);
+  });
+
+  addSplitWait.await([&] { return !addSplitWaitFlag.load(); });
+  ASSERT_NE(cursor, nullptr);
+  ASSERT_EQ(fileIndex, 1);
+  while (fileIndex < filePaths.size()) {
+    while (!cursor->task()->testingHasDriverWaitForSplit()) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+    cursor->task()->addSplit(
+        scanNodeId, makeHiveSplit(filePaths[fileIndex++]->getPath()));
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  }
+  ASSERT_EQ(fileIndex, filePaths.size());
+  cursor->task()->noMoreSplits("0");
+  cursor->setNoMoreSplits();
+  queryThread.join();
 }
 
 DEBUG_ONLY_TEST_F(TableScanTest, tableScanSplitsAndWeights) {
@@ -5462,9 +5499,8 @@ DEBUG_ONLY_TEST_F(TableScanTest, cancellationToken) {
   std::atomic<Task*> task{nullptr};
   SCOPED_TESTVALUE_SET(
       "facebook::velox::exec::TableScan::getSplit",
-      std::function<void(Operator*)>([&](Operator* op) {
-        task = op->testingOperatorCtx()->task().get();
-      }));
+      std::function<void(Operator*)>(
+          [&](Operator* op) { task = op->operatorCtx()->task().get(); }));
 
   std::thread queryThread([&]() {
     auto split = makeHiveConnectorSplit(

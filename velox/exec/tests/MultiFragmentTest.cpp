@@ -90,7 +90,7 @@ class MultiFragmentTest : public HiveConnectorTestBase,
   }
 
   static exec::Consumer noopConsumer() {
-    return [](RowVectorPtr, ContinueFuture*) {
+    return [](RowVectorPtr, bool, ContinueFuture*) {
       return BlockingReason::kNotBlocked;
     };
   }
@@ -2023,8 +2023,12 @@ DEBUG_ONLY_TEST_P(
       kRootTaskId,
       rootPlan,
       0,
-      [](RowVectorPtr /*unused*/, ContinueFuture* /*unused*/)
-          -> BlockingReason { return BlockingReason::kNotBlocked; },
+      [](RowVectorPtr /*unused*/,
+         bool drained,
+         ContinueFuture* /*unused*/) -> BlockingReason {
+        VELOX_CHECK(!drained);
+        return BlockingReason::kNotBlocked;
+      },
       kRootMemoryLimit);
   rootTask->start(1);
   rootTask->addSplit("0", remoteSplit(leafTaskId));
@@ -2216,7 +2220,7 @@ DEBUG_ONLY_TEST_P(MultiFragmentTest, mergeWithEarlyTermination) {
         }
         mergeIsBlockedWait.await([&]() { return mergeIsBlockedReady.load(); });
         // Trigger early termination.
-        op->testingOperatorCtx()->task()->requestAbort();
+        op->operatorCtx()->task()->requestAbort();
       }));
 
   auto finalSortTaskId = makeTaskId("orderby", 1);

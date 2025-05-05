@@ -23,6 +23,7 @@ velox_add_library(
   AggregateWindow.cpp
   ArrowStream.cpp
   AssignUniqueId.cpp
+  CallbackSink.cpp
   ContainerRowSerde.cpp
   DistinctAggregations.cpp
   Driver.cpp

@@ -15,6 +15,7 @@
  */
 
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
+#include "velox/exec/Cursor.h"
 
 namespace facebook::velox::exec::test {
 
@@ -76,6 +77,12 @@ AssertQueryBuilder& AssertQueryBuilder::serialExecution(bool serial) {
   }
   params_.serialExecution = false;
   executor_ = newExecutor();
+  return *this;
+}
+
+AssertQueryBuilder& AssertQueryBuilder::barrierExecution(bool barrier) {
+  VELOX_CHECK(!params_.barrierExecution);
+  params_.barrierExecution = barrier;
   return *this;
 }
 
@@ -297,19 +304,41 @@ AssertQueryBuilder::readCursor() {
     }
   }
 
-  bool noMoreSplits = false;
-  return test::readCursor(params_, [&](Task* task) {
-    if (noMoreSplits) {
+  return test::readCursor(params_, [&](exec::TaskCursor* taskCursor) {
+    if (taskCursor->noMoreSplits()) {
       return;
     }
-    for (auto& [nodeId, nodeSplits] : splits_) {
-      for (auto& split : nodeSplits) {
-        task->addSplit(nodeId, std::move(split));
+    auto& task = taskCursor->task();
+    VELOX_CHECK(!params_.barrierExecution || params_.serialExecution);
+    if (params_.barrierExecution) {
+      int numSplits{0};
+      for (auto& [nodeId, nodeSplits] : splits_) {
+        if (nodeSplits.empty()) {
+          task->noMoreSplits(nodeId);
+          continue;
+        }
+        ++numSplits;
+        task->addSplit(nodeId, std::move(nodeSplits[0]));
+        nodeSplits.erase(nodeSplits.begin());
       }
-      task->noMoreSplits(nodeId);
+      if (numSplits > 0) {
+        VELOX_CHECK_EQ(
+            numSplits,
+            splits_.size(),
+            "Barrier task execution mode requires all the sources have the same number of splits");
+        task->requestBarrier();
+      } else {
+        taskCursor->setNoMoreSplits();
+      }
+    } else {
+      for (auto& [nodeId, nodeSplits] : splits_) {
+        for (auto& split : nodeSplits) {
+          task->addSplit(nodeId, std::move(split));
+        }
+        task->noMoreSplits(nodeId);
+      }
+      taskCursor->setNoMoreSplits();
     }
-    noMoreSplits = true;
   });
 }
-
 } // namespace facebook::velox::exec::test

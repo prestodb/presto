@@ -14,11 +14,14 @@
  * limitations under the License.
  */
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/functions/prestosql/window/WindowFunctionsRegistration.h"
+
+using facebook::velox::test::BatchMaker;
 
 namespace facebook::velox::exec::test {
 namespace {
@@ -951,5 +954,62 @@ TEST_F(LocalPartitionTest, vectorPool) {
   ASSERT_FALSE(vectorPool.pop());
 }
 
+TEST_F(LocalPartitionTest, barrier) {
+  const auto rowType = ROW({"c0"}, {BIGINT()});
+  std::vector<RowVectorPtr> vectors;
+  const int numSources{3};
+  std::vector<std::vector<std::shared_ptr<TempFilePath>>> tempFiles(numSources);
+  const int numSplits{5};
+  for (int i = 0; i < numSources; ++i) {
+    std::vector<RowVectorPtr> sourceVectors;
+    for (int32_t j = 0; j < numSplits; ++j) {
+      auto vector = std::dynamic_pointer_cast<RowVector>(
+          BatchMaker::createBatch(rowType, 100, *pool_));
+      sourceVectors.push_back(vector);
+      tempFiles[i].push_back(TempFilePath::create());
+    }
+    HiveConnectorTestBase::writeToFiles(
+        toFilePaths(tempFiles[i]), sourceVectors);
+    std::copy(
+        sourceVectors.begin(),
+        sourceVectors.end(),
+        std::back_inserter(vectors));
+  }
+  createDuckDbTable(vectors);
+
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+
+  std::vector<core::PlanNodeId> scanNodeIds;
+  auto tableScanNode = [&]() {
+    auto node = PlanBuilder(planNodeIdGenerator).tableScan(rowType).planNode();
+    scanNodeIds.push_back(node->id());
+    return node;
+  };
+
+  auto plan = PlanBuilder(planNodeIdGenerator)
+                  .localPartition(
+                      {},
+                      {
+                          tableScanNode(),
+                          tableScanNode(),
+                          tableScanNode(),
+                      })
+                  .planNode();
+
+  for (const auto hasBarrier : {false, true}) {
+    SCOPED_TRACE(fmt::format("hasBarrier {}", hasBarrier));
+    AssertQueryBuilder queryBuilder(plan, duckDbQueryRunner_);
+    queryBuilder.barrierExecution(hasBarrier).serialExecution(true);
+    for (auto i = 0; i < numSources; ++i) {
+      for (auto j = 0; j < numSplits; ++j) {
+        queryBuilder.split(
+            scanNodeIds[i], makeHiveConnectorSplit(tempFiles[i][j]->getPath()));
+      }
+    }
+
+    const auto task = queryBuilder.assertResults("SELECT * FROM tmp");
+    ASSERT_EQ(task->taskStats().numBarriers, hasBarrier ? numSplits : 0);
+  }
+}
 } // namespace
 } // namespace facebook::velox::exec::test

@@ -28,8 +28,8 @@ class EnforceSingleRowTest : public OperatorTestBase {
     CursorParameters params;
     params.planNode = plan;
     try {
-      readCursor(params, [](auto /*task*/) {});
-      FAIL() << "Expected query to fail, but it succeeded";
+      readCursor(params);
+      VELOX_FAIL("Expected query to fail, but it succeeded");
     } catch (const VeloxException& e) {
       ASSERT_TRUE(e.message().find(errorMessage) != std::string::npos)
           << "Expected query to fail with error message: " << errorMessage

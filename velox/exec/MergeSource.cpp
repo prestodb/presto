@@ -57,9 +57,9 @@ class ScopedPromiseNotification {
 
 void deferNotify(
     std::optional<ContinuePromise>& deferPromise,
-    ScopedPromiseNotification& promiseNotifier) {
+    ScopedPromiseNotification& notification) {
   if (deferPromise.has_value()) {
-    promiseNotifier.add(std::move(deferPromise.value()));
+    notification.add(std::move(deferPromise.value()));
     deferPromise.reset();
   }
 }
@@ -311,20 +311,30 @@ std::shared_ptr<MergeSource> MergeSource::createMergeExchangeSource(
 
 BlockingReason MergeJoinSource::next(
     ContinueFuture* future,
-    RowVectorPtr* data) {
+    RowVectorPtr* data,
+    bool& drained) {
+  drained = false;
   common::testutil::TestValue::adjust(
       "facebook::velox::exec::MergeJoinSource::next", this);
-  ScopedPromiseNotification notifier(1);
+  ScopedPromiseNotification notification(1);
   return state_.withWLock([&](auto& state) {
+    VELOX_CHECK_LE(!!state.atEnd + !!state.drained, 1);
     if (state.data != nullptr) {
       *data = std::move(state.data);
 
-      deferNotify(producerPromise_, notifier);
+      deferNotify(producerPromise_, notification);
       return BlockingReason::kNotBlocked;
     }
 
     if (state.atEnd) {
       data = nullptr;
+      return BlockingReason::kNotBlocked;
+    }
+
+    if (state.drained) {
+      drained = true;
+      state.drained = false;
+      deferNotify(producerPromise_, notification);
       return BlockingReason::kNotBlocked;
     }
 
@@ -339,7 +349,7 @@ BlockingReason MergeJoinSource::enqueue(
     ContinueFuture* future) {
   common::testutil::TestValue::adjust(
       "facebook::velox::exec::MergeJoinSource::enqueue", this);
-  ScopedPromiseNotification notifier(1);
+  ScopedPromiseNotification notification(1);
   return state_.withWLock([&](auto& state) {
     if (state.atEnd) {
       // This can happen if consumer called close() because it doesn't need any
@@ -349,30 +359,40 @@ BlockingReason MergeJoinSource::enqueue(
 
       // Notify consumerPromise_ so the consumer doesn't hang indefinitely if
       // this is because the Driver is closing operators.
-      deferNotify(consumerPromise_, notifier);
+      deferNotify(consumerPromise_, notification);
       return BlockingReason::kNotBlocked;
     }
 
     if (data == nullptr) {
       state.atEnd = true;
-      deferNotify(consumerPromise_, notifier);
+      deferNotify(consumerPromise_, notification);
       return BlockingReason::kNotBlocked;
     }
 
     VELOX_CHECK_NULL(state.data);
     state.data = std::move(data);
-    deferNotify(consumerPromise_, notifier);
+    deferNotify(consumerPromise_, notification);
     return waitForConsumer(future);
   });
 }
 
+void MergeJoinSource::drain() {
+  ScopedPromiseNotification notification(1);
+  state_.withWLock([&](auto& state) {
+    VELOX_CHECK(!state.atEnd);
+    VELOX_CHECK(!state.drained);
+    state.drained = true;
+    deferNotify(consumerPromise_, notification);
+  });
+}
+
 void MergeJoinSource::close() {
-  ScopedPromiseNotification notifer(2);
+  ScopedPromiseNotification notification(2);
   state_.withWLock([&](auto& state) {
     state.data = nullptr;
     state.atEnd = true;
-    deferNotify(producerPromise_, notifer);
-    deferNotify(consumerPromise_, notifer);
+    deferNotify(producerPromise_, notification);
+    deferNotify(consumerPromise_, notification);
   });
 }
 } // namespace facebook::velox::exec

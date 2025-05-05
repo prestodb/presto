@@ -484,18 +484,18 @@ TEST_F(AggregationTest, missingFunctionOrSignature) {
   CursorParameters params;
   params.planNode = makePlan(missingFunc);
   VELOX_ASSERT_THROW(
-      readCursor(params, [](Task*) {}),
+      readCursor(params),
       "Aggregate function not registered: missing-function");
 
   params.planNode = makePlan(wrongInputTypes);
   VELOX_ASSERT_THROW(
-      readCursor(params, [](Task*) {}),
+      readCursor(params),
       "Aggregate function signature is not supported: test_aggregate(BIGINT, BOOLEAN). "
       "Supported signatures: (smallint,varchar) -> tinyint -> bigint.");
 
   params.planNode = makePlan(missingInputs);
   VELOX_ASSERT_THROW(
-      readCursor(params, [](Task*) {}),
+      readCursor(params),
       "Aggregate function signature is not supported: test_aggregate(). "
       "Supported signatures: (smallint,varchar) -> tinyint -> bigint.");
 }
@@ -546,8 +546,7 @@ TEST_F(AggregationTest, missingLambdaFunction) {
   CursorParameters params;
   params.planNode = plan;
   VELOX_ASSERT_THROW(
-      readCursor(params, [](Task*) {}),
-      "Aggregate function not registered: missing-lambda");
+      readCursor(params), "Aggregate function not registered: missing-lambda");
 }
 
 TEST_F(AggregationTest, global) {
@@ -1423,11 +1422,11 @@ TEST_F(AggregationTest, groupingSetsOutput) {
 
   CursorParameters orderParams;
   orderParams.planNode = orderPlan;
-  auto orderResult = readCursor(orderParams, [](Task*) {});
+  auto orderResult = readCursor(orderParams);
 
   CursorParameters reversedOrderParams;
   reversedOrderParams.planNode = reversedOrderPlan;
-  auto reversedOrderResult = readCursor(reversedOrderParams, [](Task*) {});
+  auto reversedOrderResult = readCursor(reversedOrderParams);
 
   assertEqualResults(orderResult.second, reversedOrderResult.second);
 }
@@ -2488,7 +2487,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringInputProcessing) {
 
     testWait.await([&]() { return !testWaitFlag.load(); });
     ASSERT_TRUE(op != nullptr);
-    auto task = op->testingOperatorCtx()->task();
+    auto task = op->operatorCtx()->task();
     auto taskPauseWait = task->requestPause();
 
     driverWaitFlag = false;
@@ -2604,7 +2603,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringReserve) {
             const bool reclaimable = op->reclaimableBytes(reclaimableBytes);
             ASSERT_TRUE(reclaimable);
             ASSERT_GT(reclaimableBytes, 0);
-            auto* driver = op->testingOperatorCtx()->driver();
+            auto* driver = op->operatorCtx()->driver();
             TestSuspendedSection suspendedSection(driver);
             testWait.notify();
             driverWait.wait(driverWaitKey);
@@ -2625,7 +2624,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringReserve) {
 
   testWait.wait(testWaitKey);
   ASSERT_TRUE(op != nullptr);
-  auto task = op->testingOperatorCtx()->task();
+  auto task = op->operatorCtx()->task();
   auto taskPauseWait = task->requestPause();
   taskPauseWait.wait();
 
@@ -2721,7 +2720,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringAllocation) {
               } else {
                 ASSERT_EQ(reclaimableBytes, 0);
               }
-              auto* driver = op->testingOperatorCtx()->driver();
+              auto* driver = op->operatorCtx()->driver();
               TestSuspendedSection suspendedSection(driver);
               testWait.notify();
               driverWait.wait(driverWaitKey);
@@ -2754,7 +2753,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringAllocation) {
 
     testWait.wait(testWaitKey);
     ASSERT_TRUE(op != nullptr);
-    auto task = op->testingOperatorCtx()->task();
+    auto task = op->operatorCtx()->task();
     auto taskPauseWait = task->requestPause();
     taskPauseWait.wait();
 
@@ -2869,7 +2868,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringOutputProcessing) {
     testWait.await([&]() { return !testWaitFlag.load(); });
     ASSERT_TRUE(op != nullptr);
 
-    auto task = op->testingOperatorCtx()->task();
+    auto task = op->operatorCtx()->task();
     auto taskPauseWait = task->requestPause();
     driverWaitFlag = false;
     driverWait.notifyAll();
@@ -3160,7 +3159,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimWithEmptyAggregationTable) {
 
     testWait.wait(testWaitKey);
     ASSERT_TRUE(op != nullptr);
-    auto task = op->testingOperatorCtx()->task();
+    auto task = op->operatorCtx()->task();
     auto taskPauseWait = task->requestPause();
     driverWait.notify();
     taskPauseWait.wait();
@@ -3246,7 +3245,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, abortDuringOutputProcessing) {
           if (!injectOnce.exchange(false)) {
             return;
           }
-          auto* driver = op->testingOperatorCtx()->driver();
+          auto* driver = op->operatorCtx()->driver();
           ASSERT_EQ(
               driver->task()->enterSuspended(driver->state()),
               StopReason::kNone);
@@ -3310,7 +3309,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, abortDuringInputgProcessing) {
           if (++numInputs != 2) {
             return;
           }
-          auto* driver = op->testingOperatorCtx()->driver();
+          auto* driver = op->operatorCtx()->driver();
           ASSERT_EQ(
               driver->task()->enterSuspended(driver->state()),
               StopReason::kNone);
@@ -3439,8 +3438,8 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimEmptyInput) {
         if (!injectReclaimOnce.exchange(false)) {
           return;
         }
-        auto* driver = values->testingOperatorCtx()->driver();
-        auto task = values->testingOperatorCtx()->task();
+        auto* driver = values->operatorCtx()->driver();
+        auto task = values->operatorCtx()->task();
         // Shrink all the capacity before reclaim.
         memory::memoryManager()->arbitrator()->shrinkCapacity(
             task->pool()->root(), 0);
@@ -3509,8 +3508,8 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimEmptyOutput) {
         if (++numGetOutput != 2) {
           return;
         }
-        auto* driver = op->testingOperatorCtx()->driver();
-        auto task = op->testingOperatorCtx()->task();
+        auto* driver = op->operatorCtx()->driver();
+        auto task = op->operatorCtx()->task();
         // Shrink all the capacity before reclaim.
         memory::memoryManager()->arbitrator()->shrinkCapacity(
             task->pool()->root(), 0);
@@ -3613,7 +3612,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimFromAggregation) {
     SCOPED_TESTVALUE_SET(
         "facebook::velox::exec::Driver::runInternal::addInput",
         std::function<void(exec::Operator*)>(([&](exec::Operator* op) {
-          if (op->testingOperatorCtx()->operatorType() != "Aggregation") {
+          if (op->operatorCtx()->operatorType() != "Aggregation") {
             return;
           }
           // Inject spill in the middle of aggregation input processing.
@@ -3667,7 +3666,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimFromDistinctAggregation) {
     SCOPED_TESTVALUE_SET(
         "facebook::velox::exec::Driver::runInternal::addInput",
         std::function<void(exec::Operator*)>(([&](exec::Operator* op) {
-          if (op->testingOperatorCtx()->operatorType() != "Aggregation") {
+          if (op->operatorCtx()->operatorType() != "Aggregation") {
             return;
           }
           // Inject spill at the end of aggregation input processing.

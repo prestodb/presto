@@ -101,6 +101,10 @@ class LocalExchangeQueue {
   BlockingReason
   enqueue(RowVectorPtr input, int64_t inputBytes, ContinueFuture* future);
 
+  /// Called by a producer to indicate the producer pipeline has been drained
+  /// under barrier processing.
+  void drain();
+
   /// Called by a producer to indicate that no more data will be added.
   void noMoreData();
 
@@ -111,8 +115,13 @@ class LocalExchangeQueue {
   /// once there is data to fetch or if all producers report completion.
   ///
   /// @param pool Memory pool used to copy the data before returning.
-  BlockingReason
-  next(ContinueFuture* future, memory::MemoryPool* pool, RowVectorPtr* data);
+  /// @param drained Set to true if all the producers of this queue have been
+  /// drained under barrier processing.
+  BlockingReason next(
+      ContinueFuture* future,
+      memory::MemoryPool* pool,
+      RowVectorPtr* data,
+      bool& drained);
 
   bool isFinished();
 
@@ -134,6 +143,8 @@ class LocalExchangeQueue {
 
   bool isFinishedLocked(const Queue& queue) const;
 
+  bool testAndClearDrainedLocked();
+
   const std::shared_ptr<LocalExchangeMemoryManager> memoryManager_;
   const std::shared_ptr<LocalExchangeVectorPool> vectorPool_;
   const int partition_;
@@ -145,6 +156,11 @@ class LocalExchangeQueue {
   std::vector<ContinuePromise> consumerPromises_;
   int pendingProducers_{0};
   bool noMoreProducers_{false};
+  // The number of drained producers when the task is under barrier processing.
+  // If it equals to 'pendingProducers_', then the queue is drained. The
+  // consumer receives the drained signal on the next call to 'next', and
+  // 'drainedProducers_' is reset to zero.
+  int drainedProducers_{0};
   bool closed_{false};
 };
 
@@ -163,6 +179,10 @@ class LocalExchange : public SourceOperator {
     return fmt::format("LocalExchange({})", partition_);
   }
 
+  bool startDrain() override {
+    return false;
+  }
+
   BlockingReason isBlocked(ContinueFuture* future) override;
 
   RowVectorPtr getOutput() override;
@@ -171,12 +191,7 @@ class LocalExchange : public SourceOperator {
 
   /// Close exchange queue. If called before all data has been processed,
   /// notifies the producer that no more data is needed.
-  void close() override {
-    Operator::close();
-    if (queue_) {
-      queue_->close();
-    }
-  }
+  void close() override;
 
  private:
   const int partition_;
@@ -200,13 +215,16 @@ class LocalPartition : public Operator {
 
   void addInput(RowVectorPtr input) override;
 
-  RowVectorPtr getOutput() override {
-    return nullptr;
-  }
+  RowVectorPtr getOutput() override;
 
   /// Always true but the caller will check isBlocked before adding input, hence
   /// the blocked state does not accumulate input.
   bool needsInput() const override {
+    return true;
+  }
+
+  bool startDrain() override {
+    VELOX_CHECK(isDraining());
     return true;
   }
 

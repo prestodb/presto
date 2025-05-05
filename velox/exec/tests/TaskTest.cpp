@@ -1426,13 +1426,12 @@ DEBUG_ONLY_TEST_F(TaskTest, findPeerOperators) {
           if (testOp->operatorType() != "HashBuild") {
             return;
           }
-          const int pipelineId =
-              testOp->testingOperatorCtx()->driverCtx()->pipelineId;
+          const int pipelineId = testOp->operatorCtx()->driverCtx()->pipelineId;
           auto ops = task->findPeerOperators(pipelineId, testOp);
           ASSERT_EQ(ops.size(), numDriver);
           bool foundSelf{false};
           for (auto* op : ops) {
-            auto* opCtx = op->testingOperatorCtx();
+            auto* opCtx = op->operatorCtx();
             ASSERT_EQ(op->operatorType(), "HashBuild");
             if (op == testOp) {
               foundSelf = true;
@@ -2462,5 +2461,487 @@ TEST_F(TaskTest, finishTiming) {
   // that of the Project operator.
   ASSERT_GT(
       orderByStats.finishTiming.wallNanos, projectStats.finishTiming.wallNanos);
+}
+
+TEST_F(TaskTest, invalidPlanNodeForBarrier) {
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>(1'000, [](auto row) { return row; }),
+  });
+
+  // Filter + Project.
+  const auto plan = PlanBuilder()
+                        .values({data, data})
+                        .filter("c0 < 100")
+                        .project({"c0 + 5"})
+                        .planFragment();
+  ASSERT_FALSE(plan.supportsBarrier());
+
+  const auto task = Task::create(
+      "invalidPlanNodeForBarrier",
+      plan,
+      0,
+      core::QueryCtx::create(),
+      Task::ExecutionMode::kSerial);
+  ASSERT_TRUE(!task->underBarrier());
+  VELOX_ASSERT_THROW(task->requestBarrier(), "Task doesn't support barrier");
+}
+
+TEST_F(TaskTest, barrierAfterNoMoreSplits) {
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>(1'000, [](auto row) { return row; }),
+  });
+
+  auto filePath = TempFilePath::create();
+  writeToFile(filePath->getPath(), {data, data});
+
+  core::PlanNodeId scanId;
+  const auto plan = PlanBuilder()
+                        .tableScan(asRowType(data->type()))
+                        .capturePlanNodeId(scanId)
+                        .filter("c0 < 100")
+                        .project({"c0 + 5"})
+                        .planFragment();
+
+  const auto task = Task::create(
+      "barrierAfterNoMoreSplits",
+      plan,
+      0,
+      core::QueryCtx::create(),
+      Task::ExecutionMode::kSerial);
+  ASSERT_TRUE(!task->underBarrier());
+
+  task->addSplit(
+      scanId, exec::Split(makeHiveConnectorSplit(filePath->getPath())));
+  task->noMoreSplits(scanId);
+  ASSERT_TRUE(!task->underBarrier());
+
+  VELOX_ASSERT_THROW(
+      task->requestBarrier(),
+      "Can't start barrier on task which has already received no more splits");
+}
+
+TEST_F(TaskTest, invalidTaskModeForBarrier) {
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>(1'000, [](auto row) { return row; }),
+  });
+
+  // Filter + Project.
+  core::PlanNodeId scanId;
+  const auto plan = PlanBuilder()
+                        .tableScan(asRowType(data->type()))
+                        .capturePlanNodeId(scanId)
+                        .filter("c0 < 100")
+                        .project({"c0 + 5"})
+                        .planFragment();
+  ASSERT_TRUE(plan.supportsBarrier());
+
+  const auto task = Task::create(
+      "invalidTaskModeForBarrier",
+      plan,
+      0,
+      core::QueryCtx::create(),
+      Task::ExecutionMode::kParallel);
+  ASSERT_TRUE(!task->underBarrier());
+  VELOX_ASSERT_THROW(task->requestBarrier(), "Task doesn't support barrier");
+}
+
+TEST_F(TaskTest, addSplitAfterBarrier) {
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>(1'000, [](auto row) { return row; }),
+  });
+
+  auto filePath = TempFilePath::create();
+  writeToFile(filePath->getPath(), {data, data});
+
+  core::PlanNodeId scanId;
+  const auto plan = PlanBuilder()
+                        .tableScan(asRowType(data->type()))
+                        .capturePlanNodeId(scanId)
+                        .filter("c0 < 100")
+                        .project({"c0 + 5"})
+                        .planFragment();
+  ASSERT_TRUE(plan.supportsBarrier());
+
+  const auto task = Task::create(
+      "barrierAfterNoMoreSplits",
+      plan,
+      0,
+      core::QueryCtx::create(),
+      Task::ExecutionMode::kSerial);
+  ASSERT_TRUE(!task->underBarrier());
+
+  task->addSplit(
+      scanId, exec::Split(makeHiveConnectorSplit(filePath->getPath())));
+  auto future = task->requestBarrier();
+  ASSERT_TRUE(task->underBarrier());
+  VELOX_ASSERT_THROW(
+      task->addSplit(
+          scanId, exec::Split(makeHiveConnectorSplit(filePath->getPath()))),
+      "Can't add new split under barrier processing");
+  std::this_thread::sleep_for(std::chrono::seconds(1)); // NOLINT
+  ASSERT_TRUE(task->isRunning());
+  ASSERT_FALSE(future.isReady());
+  task->requestAbort().wait();
+  ASSERT_TRUE(!task->isRunning());
+  ASSERT_TRUE(future.isReady());
+  future.wait();
+}
+
+TEST_F(TaskTest, testTerminateDuringBarrier) {
+  const int numRows{100};
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>(numRows, [](auto row) { return row; }),
+  });
+  auto filePath = TempFilePath::create();
+  writeToFile(filePath->getPath(), {data});
+
+  core::PlanNodeId scanId;
+  auto plan = PlanBuilder()
+                  .tableScan(asRowType(data->type()))
+                  .capturePlanNodeId(scanId)
+                  .project({"c0"})
+                  .planFragment();
+
+  auto queryCtx = core::QueryCtx::create();
+  queryCtx->testingOverrideConfigUnsafe(
+      {{core::QueryConfig::kMaxOutputBatchRows, "1"}});
+  const auto task = Task::create(
+      "testTerminateDuringBarrier",
+      plan,
+      0,
+      std::move(queryCtx),
+      Task::ExecutionMode::kSerial);
+  ASSERT_TRUE(!task->underBarrier());
+  task->addSplit(
+      scanId, exec::Split(makeHiveConnectorSplit(filePath->getPath())));
+  auto barrierFuture = task->requestBarrier();
+  ASSERT_TRUE(task->underBarrier());
+  for (int i = 0; i < numRows / 2; ++i) {
+    ContinueFuture future{ContinueFuture::makeEmpty()};
+    auto result = task->next(&future);
+    ASSERT_TRUE(result != nullptr);
+    ASSERT_FALSE(future.valid());
+  }
+  task->requestAbort();
+  ASSERT_FALSE(task->isRunning());
+  VELOX_ASSERT_THROW(
+      task->next(nullptr), "Task has already finished processing");
+  ASSERT_TRUE(barrierFuture.isReady());
+  barrierFuture.wait();
+  const auto taskStats = task->taskStats();
+  ASSERT_EQ(taskStats.numFinishedSplits, 0);
+  ASSERT_EQ(taskStats.numBarriers, 1);
+}
+
+namespace {
+using OpOutputInjectCallback = std::function<void(size_t, bool, Operator*)>;
+
+// A test barrier node.
+class TestBarrierNode : public core::PlanNode {
+ public:
+  TestBarrierNode(
+      const core::PlanNodeId& id,
+      core::PlanNodePtr source,
+      OpOutputInjectCallback outputCallback)
+      : PlanNode(id),
+        outputCallback_(std::move(outputCallback)),
+        sources_{std::move(source)} {}
+
+  bool supportsBarrier() const override {
+    return true;
+  }
+
+  const RowTypePtr& outputType() const override {
+    return sources_[0]->outputType();
+  }
+
+  const std::vector<core::PlanNodePtr>& sources() const override {
+    return sources_;
+  }
+
+  std::string_view name() const override {
+    return "test barrier";
+  }
+
+  const OpOutputInjectCallback& outputCallback() const {
+    return outputCallback_;
+  }
+
+ private:
+  void addDetails(std::stringstream& /* stream */) const override {}
+
+  const OpOutputInjectCallback outputCallback_;
+  std::vector<core::PlanNodePtr> sources_;
+};
+
+// A dummy test barrier operator
+class TestBarrierOperator : public exec::Operator {
+ public:
+  TestBarrierOperator(
+      int32_t operatorId,
+      exec::DriverCtx* driverCtx,
+      std::shared_ptr<const TestBarrierNode> barrierNode)
+      : Operator(
+            driverCtx,
+            nullptr,
+            operatorId,
+            barrierNode->id(),
+            "TestBarrier"),
+        outputCallback_(barrierNode->outputCallback()) {}
+
+  bool needsInput() const override {
+    return !finished_;
+  }
+
+  void addInput(RowVectorPtr input) override {
+    inputs_.push_back(std::move(input));
+  }
+
+  RowVectorPtr getOutput() override {
+    if (outputCallback_ != nullptr) {
+      outputCallback_(inputs_.size(), isDraining(), this);
+    }
+    if (!noMoreInput_ && !isDraining()) {
+      return nullptr;
+    }
+    if (inputs_.empty()) {
+      if (isDraining()) {
+        finishDrain();
+      }
+      return nullptr;
+    }
+    auto output = inputs_.front();
+    inputs_.erase(inputs_.begin());
+    return output;
+  }
+
+  bool startDrain() override {
+    return true;
+  }
+
+  exec::BlockingReason isBlocked(ContinueFuture* future) override {
+    return exec::BlockingReason::kNotBlocked;
+  }
+
+  bool isFinished() override {
+    return inputs_.empty() && noMoreInput_;
+  }
+
+ private:
+  const OpOutputInjectCallback outputCallback_;
+  std::vector<RowVectorPtr> inputs_;
+  bool finished_{false};
+};
+
+class TestBarrierOperatorTranslator
+    : public exec::Operator::PlanNodeTranslator {
+  std::unique_ptr<exec::Operator> toOperator(
+      exec::DriverCtx* ctx,
+      int32_t id,
+      const core::PlanNodePtr& node) override {
+    if (auto barrierNode =
+            std::dynamic_pointer_cast<const TestBarrierNode>(node)) {
+      return std::make_unique<TestBarrierOperator>(id, ctx, barrierNode);
+    }
+    return nullptr;
+  }
+
+  exec::OperatorSupplier toOperatorSupplier(
+      const core::PlanNodePtr& node) override {
+    if (auto barrierNode =
+            std::dynamic_pointer_cast<const TestBarrierNode>(node)) {
+      return [barrierNode](int32_t operatorId, exec::DriverCtx* ctx) {
+        return std::make_unique<TestBarrierOperator>(
+            operatorId, ctx, barrierNode);
+      };
+    }
+    return nullptr;
+  }
+};
+} // namespace
+
+TEST_F(TaskTest, operatorErrorDuringBarrier) {
+  exec::Operator::registerOperator(
+      std::make_unique<TestBarrierOperatorTranslator>());
+  const int numRows{10};
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>(numRows, [](auto row) { return row; }),
+  });
+  auto filePath = TempFilePath::create();
+  writeToFile(filePath->getPath(), {data});
+
+  std::string errMsg{"injectedError"};
+  auto injectionCallback =
+      [&](size_t numInputs, bool draining, Operator* /*unused*/) {
+        if (!draining) {
+          return;
+        }
+        if (numInputs == numRows / 2) {
+          VELOX_FAIL(errMsg);
+        }
+      };
+
+  core::PlanNodeId scanId;
+  auto plan = PlanBuilder()
+                  .tableScan(asRowType(data->type()))
+                  .capturePlanNodeId(scanId)
+                  .addNode([&](std::string id, core::PlanNodePtr source) {
+                    return std::make_shared<TestBarrierNode>(
+                        id, std::move(source), injectionCallback);
+                  })
+                  .project({"c0"})
+                  .planFragment();
+
+  auto queryCtx = core::QueryCtx::create();
+  queryCtx->testingOverrideConfigUnsafe(
+      {{core::QueryConfig::kMaxOutputBatchRows, "1"}});
+  const auto task = Task::create(
+      "operatorErrorDuringBarrier",
+      plan,
+      0,
+      std::move(queryCtx),
+      Task::ExecutionMode::kSerial);
+  ASSERT_TRUE(!task->underBarrier());
+  task->addSplit(
+      scanId, exec::Split(makeHiveConnectorSplit(filePath->getPath())));
+  auto barrierFuture = task->requestBarrier();
+  ASSERT_TRUE(task->underBarrier());
+  for (int i = 0; i < numRows / 2; ++i) {
+    ContinueFuture dummyFuture{ContinueFuture::makeEmpty()};
+    const auto result = task->next(&dummyFuture);
+    ASSERT_TRUE(result != nullptr);
+    ASSERT_FALSE(dummyFuture.valid());
+  }
+  VELOX_ASSERT_THROW(task->next(nullptr), errMsg);
+  ASSERT_EQ(task->taskStats().numBarriers, 1);
+  ASSERT_EQ(task->taskStats().numFinishedSplits, 1);
+  ASSERT_TRUE(barrierFuture.isReady());
+  barrierFuture.wait();
+}
+
+TEST_F(TaskTest, dropOutputDuringBarrier) {
+  exec::Operator::registerOperator(
+      std::make_unique<TestBarrierOperatorTranslator>());
+  const int numRows{10};
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>(numRows, [](auto row) { return row; }),
+  });
+  auto filePath = TempFilePath::create();
+  writeToFile(filePath->getPath(), {data});
+
+  auto injectionCallback = [&](size_t numInputs, bool draining, Operator* op) {
+    if (!draining) {
+      return;
+    }
+    if (numInputs == numRows / 2) {
+      op->operatorCtx()->task()->dropInput(op);
+    }
+  };
+
+  core::PlanNodeId scanId;
+  auto plan = PlanBuilder()
+                  .tableScan(asRowType(data->type()))
+                  .capturePlanNodeId(scanId)
+                  .addNode([&](std::string id, core::PlanNodePtr source) {
+                    return std::make_shared<TestBarrierNode>(
+                        id, std::move(source), injectionCallback);
+                  })
+                  .project({"c0"})
+                  .planFragment();
+
+  auto queryCtx = core::QueryCtx::create();
+  queryCtx->testingOverrideConfigUnsafe(
+      {{core::QueryConfig::kMaxOutputBatchRows, "1"}});
+  const auto task = Task::create(
+      "dropOutputDuringBarrier",
+      plan,
+      0,
+      std::move(queryCtx),
+      Task::ExecutionMode::kSerial);
+  ASSERT_TRUE(!task->underBarrier());
+  task->addSplit(
+      scanId, exec::Split(makeHiveConnectorSplit(filePath->getPath())));
+  auto barrierFuture = task->requestBarrier();
+  ASSERT_TRUE(task->underBarrier());
+  for (int i = 0; i < numRows; ++i) {
+    ContinueFuture dummyFuture{ContinueFuture::makeEmpty()};
+    const auto result = task->next(&dummyFuture);
+    ASSERT_TRUE(result != nullptr);
+    ASSERT_FALSE(dummyFuture.valid());
+  }
+  ContinueFuture lastFuture{ContinueFuture::makeEmpty()};
+  ASSERT_EQ(task->next(&lastFuture), nullptr);
+  ASSERT_FALSE(lastFuture.valid());
+  ASSERT_EQ(task->taskStats().numBarriers, 1);
+  ASSERT_EQ(task->taskStats().numFinishedSplits, 1);
+  ASSERT_TRUE(barrierFuture.isReady());
+  barrierFuture.wait();
+  VELOX_ASSERT_THROW(
+      task->next(),
+      "Serial execution mode requires all splits to be added or a barrier is requested before calling Task::next().");
+  task->noMoreSplits(scanId);
+  ASSERT_EQ(task->next(), nullptr);
+  VELOX_ASSERT_THROW(
+      task->next(),
+      "(Finished vs. Running) Task has already finished processing.");
+}
+
+TEST_F(TaskTest, testTerminateDuringBarrierWithUnion) {
+  const auto rowType = ROW({"c0"}, {BIGINT()});
+  const int numRows{10};
+  auto vector = makeRowVector({
+      makeFlatVector<int64_t>(numRows, [](auto row) { return row; }),
+  });
+  auto filePath = TempFilePath::create();
+  writeToFile(filePath->getPath(), {vector});
+
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  std::vector<core::PlanNodeId> scanNodeIds;
+  auto tableScanNode = [&]() {
+    auto node = PlanBuilder(planNodeIdGenerator).tableScan(rowType).planNode();
+    scanNodeIds.push_back(node->id());
+    return node;
+  };
+
+  auto plan = PlanBuilder(planNodeIdGenerator)
+                  .localPartition(
+                      {},
+                      {
+                          tableScanNode(),
+                          tableScanNode(),
+                          tableScanNode(),
+                      })
+                  .project({"c0"})
+                  .planFragment();
+
+  auto queryCtx = core::QueryCtx::create();
+  queryCtx->testingOverrideConfigUnsafe(
+      {{core::QueryConfig::kMaxOutputBatchRows, "1"}});
+  const auto task = Task::create(
+      "barrierAfterNoMoreSplits",
+      plan,
+      0,
+      std::move(queryCtx),
+      Task::ExecutionMode::kSerial);
+  ASSERT_TRUE(!task->underBarrier());
+  for (const auto& scanId : scanNodeIds) {
+    task->addSplit(
+        scanId, exec::Split(makeHiveConnectorSplit(filePath->getPath())));
+  }
+  auto barrierFuture = task->requestBarrier();
+  ASSERT_TRUE(task->underBarrier());
+  for (int i = 0; i < numRows + numRows / 2; ++i) {
+    auto result = task->next();
+    ASSERT_TRUE(result != nullptr);
+  }
+  task->requestAbort();
+  ASSERT_FALSE(task->isRunning());
+  VELOX_ASSERT_THROW(
+      task->next(nullptr),
+      "(Aborted vs. Running) Task has already finished processing.");
+  ASSERT_TRUE(barrierFuture.isReady());
+  barrierFuture.wait();
+  ASSERT_EQ(task->taskStats().numBarriers, 1);
+  ASSERT_EQ(task->taskStats().numFinishedSplits, 3);
 }
 } // namespace facebook::velox::exec::test

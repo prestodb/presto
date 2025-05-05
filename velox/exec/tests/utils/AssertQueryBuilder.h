@@ -46,6 +46,10 @@ class AssertQueryBuilder {
   /// Default is false.
   AssertQueryBuilder& serialExecution(bool serial);
 
+  /// Use barrier task execution mode to execute the Velox plan.
+  /// Default is false.
+  AssertQueryBuilder& barrierExecution(bool barrier);
+
   /// Set configuration property. May be called multiple times to set multiple
   /// properties.
   AssertQueryBuilder& config(const std::string& key, const std::string& value);

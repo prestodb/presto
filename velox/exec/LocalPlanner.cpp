@@ -111,10 +111,12 @@ OperatorSupplier makeConsumerSupplier(
     return [localMerge](int32_t operatorId, DriverCtx* ctx) {
       auto mergeSource = ctx->task->addLocalMergeSource(
           ctx->splitGroupId, localMerge->id(), localMerge->outputType());
-      auto consumerCb = [mergeSource](
-                            RowVectorPtr input, ContinueFuture* future) {
-        return mergeSource->enqueue(std::move(input), future);
-      };
+      auto consumerCb =
+          [mergeSource](
+              RowVectorPtr input, bool drained, ContinueFuture* future) {
+            VELOX_CHECK(!drained);
+            return mergeSource->enqueue(std::move(input), future);
+          };
       auto startCb = [mergeSource](ContinueFuture* future) {
         return mergeSource->started(future);
       };
@@ -157,9 +159,17 @@ OperatorSupplier makeConsumerSupplier(
     return [planNodeId](int32_t operatorId, DriverCtx* ctx) {
       auto source =
           ctx->task->getMergeJoinSource(ctx->splitGroupId, planNodeId);
-      auto consumer = [source](RowVectorPtr input, ContinueFuture* future) {
-        return source->enqueue(std::move(input), future);
-      };
+      auto consumer =
+          [source](RowVectorPtr input, bool drained, ContinueFuture* future) {
+            if (drained) {
+              VELOX_CHECK_NULL(input);
+              source->drain();
+              return BlockingReason::kNotBlocked;
+            } else {
+              VELOX_CHECK(!drained);
+              return source->enqueue(std::move(input), future);
+            }
+          };
       return std::make_unique<CallbackSink>(operatorId, ctx, consumer);
     };
   }

@@ -90,4 +90,7 @@ class TempFilePath {
   int fd_;
 };
 
+std::vector<std::string> toFilePaths(
+    const std::vector<std::shared_ptr<TempFilePath>>& tempFiles);
+
 } // namespace facebook::velox::exec::test

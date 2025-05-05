@@ -387,7 +387,7 @@ DEBUG_ONLY_TEST_F(TopNRowNumberTest, memoryUsageCheckAfterReclaim) {
   SCOPED_TESTVALUE_SET(
       "facebook::velox::exec::Driver::runInternal::addInput",
       std::function<void(exec::Operator*)>(([&](exec::Operator* op) {
-        if (op->testingOperatorCtx()->operatorType() != "TopNRowNumber") {
+        if (op->operatorCtx()->operatorType() != "TopNRowNumber") {
           return;
         }
         // Inject spill in the middle of aggregation input processing.
