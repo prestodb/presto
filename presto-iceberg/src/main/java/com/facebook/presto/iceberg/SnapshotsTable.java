@@ -101,7 +101,7 @@ public class SnapshotsTable
     private static List<Page> buildPages(ConnectorTableMetadata tableMetadata, ConnectorSession session, Table icebergTable)
     {
         PageListBuilder pagesBuilder = PageListBuilder.forTable(tableMetadata);
-        TableScan tableScan = buildTableScan(icebergTable, SNAPSHOTS);
+        TableScan tableScan = buildTableScan(icebergTable, SNAPSHOTS, session);
         TimeZoneKey timeZoneKey = session.getTimeZoneKey();
 
         Map<String, Integer> columnNameToPosition = columnNameToPositionInSchema(tableScan.schema());
