@@ -424,10 +424,10 @@ public final class IcebergUtil
         return '"' + name.replace("\"", "\"\"") + '"';
     }
 
-    public static TableScan getTableScan(TupleDomain<IcebergColumnHandle> predicates, Optional<Long> snapshotId, Table icebergTable)
+    public static TableScan getTableScan(TupleDomain<IcebergColumnHandle> predicates, Optional<Long> snapshotId, Table icebergTable, ConnectorSession session)
     {
         Expression expression = ExpressionConverter.toIcebergExpression(predicates);
-        TableScan tableScan = icebergTable.newScan().filter(expression);
+        TableScan tableScan = icebergTable.newScan().metricsReporter(new RuntimeStatsMetricsReporter(session.getRuntimeStats())).filter(expression);
         return snapshotId
                 .map(id -> isSnapshot(icebergTable, id) ? tableScan.useSnapshot(id) : tableScan.asOfTime(id))
                 .orElse(tableScan);
@@ -448,9 +448,9 @@ public final class IcebergUtil
         return locationsFor(tableLocation, storageProperties);
     }
 
-    public static TableScan buildTableScan(Table icebergTable, MetadataTableType metadataTableType)
+    public static TableScan buildTableScan(Table icebergTable, MetadataTableType metadataTableType, ConnectorSession session)
     {
-        return createMetadataTableInstance(icebergTable, metadataTableType).newScan();
+        return createMetadataTableInstance(icebergTable, metadataTableType).newScan().metricsReporter(new RuntimeStatsMetricsReporter(session.getRuntimeStats()));
     }
 
     public static Map<String, Integer> columnNameToPositionInSchema(Schema schema)
@@ -607,7 +607,8 @@ public final class IcebergUtil
             ConnectorTableHandle tableHandle,
             Table icebergTable,
             Constraint<ColumnHandle> constraint,
-            List<IcebergColumnHandle> partitionColumns)
+            List<IcebergColumnHandle> partitionColumns,
+            ConnectorSession session)
     {
         IcebergTableName name = ((IcebergTableHandle) tableHandle).getIcebergTableName();
         FileFormat fileFormat = getFileFormat(icebergTable);
@@ -618,6 +619,7 @@ public final class IcebergUtil
         }
 
         TableScan tableScan = icebergTable.newScan()
+                .metricsReporter(new RuntimeStatsMetricsReporter(session.getRuntimeStats()))
                 .filter(toIcebergExpression(getNonMetadataColumnConstraints(constraint
                         .getSummary()
                         .simplify())))
@@ -882,20 +884,21 @@ public final class IcebergUtil
     /**
      * Provides the delete files that need to be applied to the given table snapshot.
      *
-     * @param table The table to provide deletes for
-     * @param snapshot The snapshot id to use
-     * @param filter Filters to apply during planning
+     * @param table                  The table to provide deletes for
+     * @param snapshot               The snapshot id to use
+     * @param filter                 Filters to apply during planning
      * @param requestedPartitionSpec If provided, only delete files for this partition spec will be provided
-     * @param requestedSchema If provided, only delete files with this schema will be provided
+     * @param requestedSchema        If provided, only delete files with this schema will be provided
      */
     public static CloseableIterable<DeleteFile> getDeleteFiles(Table table,
             long snapshot,
             TupleDomain<IcebergColumnHandle> filter,
             Optional<Set<Integer>> requestedPartitionSpec,
-            Optional<Set<Integer>> requestedSchema)
+            Optional<Set<Integer>> requestedSchema,
+            ConnectorSession session)
     {
         Expression filterExpression = toIcebergExpression(filter);
-        CloseableIterable<FileScanTask> fileTasks = table.newScan().useSnapshot(snapshot).filter(filterExpression).planFiles();
+        CloseableIterable<FileScanTask> fileTasks = table.newScan().metricsReporter(new RuntimeStatsMetricsReporter(session.getRuntimeStats())).useSnapshot(snapshot).filter(filterExpression).planFiles();
 
         return new CloseableIterable<DeleteFile>()
         {

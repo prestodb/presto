@@ -100,7 +100,8 @@ public class IcebergSplitManager
                     table.getIcebergTableName().getSnapshotId().get(),
                     predicate,
                     table.getPartitionSpecId(),
-                    table.getEqualityFieldIds());
+                    table.getEqualityFieldIds(),
+                    session);
 
             return new EqualityDeletesSplitSource(session, icebergTable, deleteFiles);
         }

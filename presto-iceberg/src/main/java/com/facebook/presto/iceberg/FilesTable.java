@@ -117,13 +117,13 @@ public class FilesTable
     @Override
     public ConnectorPageSource pageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
-        return new FixedPageSource(buildPages(tableMetadata, icebergTable, snapshotId));
+        return new FixedPageSource(buildPages(tableMetadata, icebergTable, snapshotId, session));
     }
 
-    private static List<Page> buildPages(ConnectorTableMetadata tableMetadata, Table icebergTable, Optional<Long> snapshotId)
+    private static List<Page> buildPages(ConnectorTableMetadata tableMetadata, Table icebergTable, Optional<Long> snapshotId, ConnectorSession session)
     {
         PageListBuilder pagesBuilder = forTable(tableMetadata);
-        TableScan tableScan = getTableScan(TupleDomain.all(), snapshotId, icebergTable).includeColumnStats();
+        TableScan tableScan = getTableScan(TupleDomain.all(), snapshotId, icebergTable, session).includeColumnStats();
         Map<Integer, Type> idToTypeMap = getIdToTypeMap(icebergTable.schema());
 
         try (CloseableIterable<FileScanTask> fileScanTasks = tableScan.planFiles()) {
