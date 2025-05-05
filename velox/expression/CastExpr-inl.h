@@ -344,10 +344,11 @@ void CastExpr::applyCastKernel(
           ToKind == TypeKind::INTEGER || ToKind == TypeKind::BIGINT ||
           ToKind == TypeKind::HUGEINT) {
         if constexpr (TPolicy::throwOnUnicode) {
-          VELOX_USER_CHECK(
-              functions::stringCore::isAscii(
-                  inputRowValue.data(), inputRowValue.size()),
-              "Unicode characters are not supported for conversion to integer types");
+          if (!functions::stringCore::isAscii(
+                  inputRowValue.data(), inputRowValue.size())) {
+            VELOX_USER_FAIL(
+                "Unicode characters are not supported for conversion to integer types");
+          }
         }
       }
     }
