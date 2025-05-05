@@ -167,6 +167,11 @@
             <artifactId>stats</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-main-base</artifactId>
+        </dependency>
+
         <!-- test dependencies-->
         <dependency>
             <groupId>com.facebook.presto</groupId>
@@ -178,6 +183,7 @@
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main-base</artifactId>
             <scope>test</scope>
+            <type>test-jar</type>
         </dependency>
 
         <dependency>
@@ -204,20 +210,4 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
-   <build>
-       <plugins>
-           <plugin>
-               <groupId>org.gaul</groupId>
-               <artifactId>modernizer-maven-plugin</artifactId>
-               <configuration>
-                   <ignorePackages>
-                       <ignorePackage>com.facebook.presto.testing.assertions</ignorePackage>
-                   </ignorePackages>
-                   <ignoreClassNamePatterns>
-                       <ignoreClassNamePattern>com.facebook.presto.router.MockRouterHttpServletRequest</ignoreClassNamePattern>
-                   </ignoreClassNamePatterns>
-               </configuration>
-           </plugin>
-       </plugins>
-   </build>
 </project>
