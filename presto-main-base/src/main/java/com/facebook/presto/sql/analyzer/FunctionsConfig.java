@@ -42,7 +42,7 @@ public class FunctionsConfig
     private ArrayAggGroupImplementation arrayAggGroupImplementation = ArrayAggGroupImplementation.NEW;
     private MultimapAggGroupImplementation multimapAggGroupImplementation = MultimapAggGroupImplementation.NEW;
     private boolean legacyRowFieldOrdinalAccess;
-    private boolean legacyTimestamp;
+    private boolean legacyTimestamp = true;
     private boolean parseDecimalLiteralsAsDouble;
     private boolean fieldNamesInJsonCastEnabled;
     private boolean warnOnPossibleNans;
