@@ -222,6 +222,6 @@ TEST_F(PeriodicMemoryCheckerTest, pushbackMemory) {
   // Shutdown global memory setups
   asyncDataCache->shutdown();
   cache::AsyncDataCache::setInstance(nullptr);
-  memory::MemoryManager::testingSetInstance({});
+  memory::MemoryManager::testingSetInstance(memory::MemoryManagerOptions{});
 }
 } // namespace facebook::presto

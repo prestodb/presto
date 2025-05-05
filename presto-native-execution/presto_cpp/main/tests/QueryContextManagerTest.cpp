@@ -22,7 +22,7 @@ namespace facebook::presto {
 class QueryContextManagerTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
-    velox::memory::MemoryManager::testingSetInstance({});
+    velox::memory::MemoryManager::testingSetInstance(velox::memory::MemoryManagerOptions{});
   }
 
   void SetUp() override {

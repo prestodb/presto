@@ -27,7 +27,7 @@ using namespace facebook::velox::core;
 class RowExpressionTest : public ::testing::Test {
  public:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManagerOptions{});
   }
 
   void SetUp() override {
