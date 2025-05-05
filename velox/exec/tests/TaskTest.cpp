@@ -656,6 +656,121 @@ TEST_F(TaskTest, duplicatePlanNodeIds) {
       "Plan node IDs must be unique. Found duplicate ID: 0.")
 }
 
+TEST_F(TaskTest, concurrentSplitGroups) {
+  const std::vector<uint32_t> expectedGroupsList = {1, 2, 4, 8};
+
+  for (const auto& expectedGroups : expectedGroupsList) {
+    auto task = Task::create(
+        "task-1",
+        PlanBuilder()
+            .tableScan(ROW({"a", "b"}, {INTEGER(), DOUBLE()}))
+            .project({"a * a", "b + b"})
+            .planFragment(),
+        0,
+        core::QueryCtx::create(driverExecutor_.get()),
+        Task::ExecutionMode::kParallel);
+
+    task->start(1, expectedGroups);
+    ASSERT_EQ(task->concurrentSplitGroups(), expectedGroups);
+
+    task->requestCancel();
+    waitForTaskCompletion(task.get());
+  }
+}
+
+TEST_F(TaskTest, allSplitsConsumedMultipleSources) {
+  // Create data for all sources
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>(100, [](auto row) { return row; }),
+  });
+
+  // Create temp files for each data source
+  auto filePath1 = TempFilePath::create();
+  auto filePath2 = TempFilePath::create();
+  auto filePath3 = TempFilePath::create();
+
+  writeToFile(filePath1->getPath(), {data});
+  writeToFile(filePath2->getPath(), {data});
+  writeToFile(filePath3->getPath(), {data});
+
+  // Create a plan with two joins and three source nodes
+  core::PlanNodeId scanNodeId1;
+  core::PlanNodeId scanNodeId2;
+  core::PlanNodeId scanNodeId3;
+
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+
+  auto plan = PlanBuilder(planNodeIdGenerator)
+                  .tableScan(asRowType(data->type()))
+                  .capturePlanNodeId(scanNodeId1)
+                  .project({"c0 as t0"})
+                  .hashJoin(
+                      {"t0"},
+                      {"c0"},
+                      PlanBuilder(planNodeIdGenerator)
+                          .tableScan(asRowType(data->type()))
+                          .capturePlanNodeId(scanNodeId2)
+                          .planNode(),
+                      "",
+                      {"c0"})
+                  .project({"c0 as u0"})
+                  .hashJoin(
+                      {"u0"},
+                      {"c0"},
+                      PlanBuilder(planNodeIdGenerator)
+                          .tableScan(asRowType(data->type()))
+                          .capturePlanNodeId(scanNodeId3)
+                          .planNode(),
+                      "",
+                      {"c0"})
+                  .planFragment();
+
+  auto consumer = [](RowVectorPtr /* unused */,
+                     bool /* unused */,
+                     ContinueFuture* /* unused */) {
+    return BlockingReason::kNotBlocked;
+  };
+
+  auto task = Task::create(
+      "task-splits-multiple",
+      std::move(plan),
+      0,
+      core::QueryCtx::create(driverExecutor_.get()),
+      Task::ExecutionMode::kParallel,
+      consumer);
+
+  task->start(1);
+
+  ASSERT_FALSE(task->allSplitsConsumed(task->planFragment().planNode.get()));
+
+  auto split1 = exec::Split(makeHiveConnectorSplit(filePath1->getPath()));
+  auto split2 = exec::Split(makeHiveConnectorSplit(filePath2->getPath()));
+  auto split3 = exec::Split(makeHiveConnectorSplit(filePath3->getPath()));
+
+  task->addSplit(scanNodeId1, std::move(split1));
+  ASSERT_FALSE(task->allSplitsConsumed(task->planFragment().planNode.get()));
+
+  task->addSplit(scanNodeId2, std::move(split2));
+  ASSERT_FALSE(task->allSplitsConsumed(task->planFragment().planNode.get()));
+
+  task->addSplit(scanNodeId3, std::move(split3));
+  ASSERT_FALSE(task->allSplitsConsumed(task->planFragment().planNode.get()));
+
+  task->noMoreSplits(scanNodeId1);
+  ASSERT_FALSE(task->allSplitsConsumed(task->planFragment().planNode.get()));
+
+  task->noMoreSplits(scanNodeId2);
+  ASSERT_FALSE(task->allSplitsConsumed(task->planFragment().planNode.get()));
+
+  task->noMoreSplits(scanNodeId3);
+  waitForTaskCompletion(task.get());
+
+  ASSERT_TRUE(task->allSplitsConsumed(task->planFragment().planNode.get()));
+
+  auto projectNode = task->planFragment().planNode->sources()[0];
+  ASSERT_TRUE(task->allSplitsConsumed(projectNode.get()));
+}
+
 // This test simulates the following execution sequence that potentially can
 // cause a deadlock:
 // 1. A join task comes in to execution.

@@ -249,7 +249,8 @@ TEST_P(HashJoinBridgeTest, withoutSpill) {
     ASSERT_TRUE(futures[0].valid());
 
     // Probe side completion.
-    ASSERT_FALSE(joinBridge->probeFinished());
+    joinBridge->probeFinished();
+    ASSERT_FALSE(joinBridge->testingHasMoreSpilledPartitions());
     ASSERT_FALSE(helper.buildResult().has_value());
 
     futures[0].wait();
@@ -365,7 +366,8 @@ TEST_P(HashJoinBridgeTest, withSpill) {
       }
 
       // Probe table.
-      ASSERT_EQ(hasMoreSpill, joinBridge->probeFinished());
+      joinBridge->probeFinished();
+      ASSERT_EQ(hasMoreSpill, joinBridge->testingHasMoreSpilledPartitions());
       // Probe can't set spilled table partitions after it finishes probe.
       VELOX_ASSERT_THROW(
           joinBridge->appendSpilledHashTablePartitions({}),
@@ -541,8 +543,10 @@ TEST_P(HashJoinBridgeTest, multiThreading) {
             probeFuture.wait();
           } else {
             proberBarrier.reset(new BarrierState());
+            joinBridge->probeFinished();
             ASSERT_EQ(
-                joinBridge->probeFinished(), !spillPartitionIdSet.empty());
+                joinBridge->testingHasMoreSpilledPartitions(),
+                !spillPartitionIdSet.empty());
             for (auto& promise : promises) {
               promise.setValue();
             }

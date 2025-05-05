@@ -1052,7 +1052,8 @@ std::string HashBuild::stateName(State state) {
 
 bool HashBuild::canSpill() const {
   return Operator::canSpill() &&
-      !operatorCtx_->task()->hasMixedExecutionGroup();
+      !(operatorCtx_->task()->hasMixedExecutionGroup() &&
+        operatorCtx_->task()->concurrentSplitGroups() != 1);
 }
 
 bool HashBuild::canReclaim() const {

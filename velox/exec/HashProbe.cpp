@@ -939,7 +939,8 @@ bool HashProbe::skipProbeOnEmptyBuild() const {
 
 bool HashProbe::canSpill() const {
   return Operator::canSpill() &&
-      !operatorCtx_->task()->hasMixedExecutionGroup();
+      !(operatorCtx_->task()->hasMixedExecutionGroup() &&
+        operatorCtx_->task()->concurrentSplitGroups() != 1);
 }
 
 bool HashProbe::hasMoreSpillData() const {
@@ -1040,7 +1041,11 @@ RowVectorPtr HashProbe::getOutputInternal(bool toSpillOutput) {
       asyncWaitForHashTable();
     } else {
       if (lastProber_ && canSpill()) {
-        joinBridge_->probeFinished();
+        if (operatorCtx_->task()->hasMixedExecutionGroup()) {
+          joinBridge_->probeFinished(!allProbeGroupFinished());
+        } else {
+          joinBridge_->probeFinished();
+        }
         wakeupPeerOperators();
       }
       setState(ProbeOperatorState::kFinish);
@@ -1710,6 +1715,12 @@ bool HashProbe::isRunning() const {
 
 bool HashProbe::isWaitingForPeers() const {
   return state_ == ProbeOperatorState::kWaitForPeers;
+}
+
+bool HashProbe::allProbeGroupFinished() const {
+  VELOX_CHECK(operatorCtx_->task()->hasMixedExecutionGroup());
+  VELOX_CHECK_EQ(operatorCtx_->task()->concurrentSplitGroups(), 1);
+  return operatorCtx_->task()->allSplitsConsumed(joinNode_.get());
 }
 
 void HashProbe::checkRunning() const {

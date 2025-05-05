@@ -117,9 +117,10 @@ class HashJoinBridge : public JoinBridge {
   /// Invoked by HashProbe operator after finishes probing the built table to
   /// set one of the previously spilled partition to restore. The HashBuild
   /// operators will then build the next hash table from the selected spilled
-  /// one. The function returns true if there is spill data to be restored by
-  /// HashBuild operators next.
-  bool probeFinished();
+  /// one.  If 'restart' is true, join bridge will reset the state to prepare
+  /// for a new probing process. This is used in mixed grouped execution mode of
+  /// a hash join (grouped probe, ungrouped build).
+  void probeFinished(bool restart = false);
 
   /// Contains the spill input for one HashBuild operator: a shard of previously
   /// spilled partition data. 'spillPartition' is null if there is no more spill
@@ -139,6 +140,8 @@ class HashJoinBridge : public JoinBridge {
   /// asynchronously. If there is no more spill data to restore, then
   /// 'spillPartition' will be set to null in the returned SpillInput.
   std::optional<SpillInput> spillInputOrFuture(ContinueFuture* future);
+
+  bool testingHasMoreSpilledPartitions();
 
  private:
   void appendSpilledHashTablePartitionsLocked(

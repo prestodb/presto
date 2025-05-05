@@ -120,6 +120,12 @@ class HashProbe : public Operator {
   bool isRunning() const;
   bool isWaitingForPeers() const;
 
+  // Returns true if all probe groups finished execution. If false, the join
+  // bridge will prepare reprocessing for the next execution group from the
+  // probe side. This is not a reliable signal, but rather a best effort signal.
+  // Applies only for mixed grouped execution mode.
+  bool allProbeGroupFinished() const;
+
   // Invoked to wait for the hash table to be built by the hash build operators
   // asynchronously. The function also sets up the internal state for
   // potentially spilling input or reading spilled input or recursively spill

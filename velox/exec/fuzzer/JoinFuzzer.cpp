@@ -19,6 +19,7 @@
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/dwio/dwrf/RegisterDwrfReader.h"
 #include "velox/dwio/dwrf/RegisterDwrfWriter.h"
+#include "velox/exec/HashJoinBridge.h"
 #include "velox/exec/Spill.h"
 #include "velox/exec/fuzzer/FuzzerUtil.h"
 #include "velox/exec/fuzzer/JoinMaker.h"
@@ -361,7 +362,13 @@ RowVectorPtr JoinFuzzer::execute(
     const JoinMaker::PlanWithSplits& plan,
     bool injectSpill) {
   LOG(INFO) << "Executing query plan with "
-            << executionStrategyToString(plan.executionStrategy) << " strategy["
+            << executionStrategyToString(plan.executionStrategy)
+            << (plan.executionStrategy == core::ExecutionStrategy::kGrouped
+                    ? fmt::format(
+                          "({})",
+                          plan.mixedGroupedExecution ? "mixed" : "unmixed")
+                    : "")
+            << " strategy["
             << (plan.executionStrategy == core::ExecutionStrategy::kGrouped
                     ? plan.numGroups
                     : 0)
@@ -376,7 +383,11 @@ RowVectorPtr JoinFuzzer::execute(
 
   if (plan.executionStrategy == core::ExecutionStrategy::kGrouped) {
     builder.executionStrategy(core::ExecutionStrategy::kGrouped);
-    builder.groupedExecutionLeafNodeIds({plan.probeScanId, plan.buildScanId});
+    if (plan.mixedGroupedExecution) {
+      builder.groupedExecutionLeafNodeIds({plan.probeScanId});
+    } else {
+      builder.groupedExecutionLeafNodeIds({plan.probeScanId, plan.buildScanId});
+    }
     builder.numSplitGroups(plan.numGroups);
     builder.numConcurrentSplitGroups(randInt(1, plan.numGroups));
   }
@@ -746,18 +757,36 @@ void JoinFuzzer::verify(core::JoinType joinType) {
 
     // Use ungrouped execution.
     altPlans.push_back(joinMaker.makeHashJoinWithTableScan(
-        std::nullopt, JoinMaker::JoinOrder::NATURAL));
-    // Use grouped execution.
+        std::nullopt, false, JoinMaker::JoinOrder::NATURAL));
+
+    // Use unmixed mode grouped execution.
     altPlans.push_back(joinMaker.makeHashJoinWithTableScan(
-        numGroups, JoinMaker::JoinOrder::NATURAL));
+        numGroups, false, JoinMaker::JoinOrder::NATURAL));
+
+    // Use mixed mode grouped execution.
+    if (!needRightSideJoin(joinType)) {
+      // Mixed grouped mode join does not support types that needs right side
+      // join.
+      altPlans.push_back(joinMaker.makeHashJoinWithTableScan(
+          numGroups, true, JoinMaker::JoinOrder::NATURAL));
+    }
 
     if (joinMaker.supportsFlippingHashJoin()) {
       // Use ungrouped execution.
       altPlans.push_back(joinMaker.makeHashJoinWithTableScan(
-          std::nullopt, JoinMaker::JoinOrder::FLIPPED));
-      // Use grouped execution.
+          std::nullopt, false, JoinMaker::JoinOrder::FLIPPED));
+
+      // Use unmixed mode grouped execution.
       altPlans.push_back(joinMaker.makeHashJoinWithTableScan(
-          numGroups, JoinMaker::JoinOrder::FLIPPED));
+          numGroups, false, JoinMaker::JoinOrder::FLIPPED));
+
+      // Use mixed mode grouped execution.
+      if (!needRightSideJoin(flipJoinType(joinType))) {
+        // Mixed grouped mode join does not support types that needs right side
+        // join.
+        altPlans.push_back(joinMaker.makeHashJoinWithTableScan(
+            numGroups, true, JoinMaker::JoinOrder::FLIPPED));
+      }
     }
 
     if (joinMaker.supportsMergeJoin()) {

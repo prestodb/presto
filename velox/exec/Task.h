@@ -183,6 +183,12 @@ class Task : public std::enable_shared_from_this<Task> {
   /// ungrouped drivers is set during task startup.
   bool hasMixedExecutionGroup() const;
 
+  /// If 'planNode' is a source node, returns true if all splits for 'planNode'
+  /// are consumed and no more splits are expected. Otherwise, returns true if
+  /// all upstream source nodes' splits of this 'planNode' are consumed, and no
+  /// more splits are expected.
+  bool allSplitsConsumed(const core::PlanNode* planNode) const;
+
   /// Starts executing the plan fragment specified in the constructor. If leaf
   /// nodes require splits (e.g. TableScan, Exchange, etc.), these splits can be
   /// added before or after calling start().
@@ -730,6 +736,10 @@ class Task : public std::enable_shared_from_this<Task> {
     return numDriversInPartitionedOutput_ > 0;
   }
 
+  uint32_t concurrentSplitGroups() const {
+    return concurrentSplitGroups_;
+  }
+
   /// Returns the cancellation token to check if this task has been terminated
   /// or not. This helps the Velox integration with query system using folly
   /// cancellation mechanism.
@@ -826,6 +836,9 @@ class Task : public std::enable_shared_from_this<Task> {
   // Returns true if all nodes expecting splits have received 'no more splits'
   // message.
   bool allNodesReceivedNoMoreSplitsMessageLocked() const;
+
+  // Recursive helper for 'allSpilitsConsumed()' method.
+  bool allSplitsConsumedHelper(const core::PlanNode* planNode) const;
 
   // Remove the spill directory, if the Task was creating it for potential
   // spilling.

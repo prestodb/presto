@@ -152,6 +152,7 @@ class JoinMaker {
         splits;
     core::ExecutionStrategy executionStrategy{
         core::ExecutionStrategy::kUngrouped};
+    bool mixedGroupedExecution;
     int32_t numGroups;
 
     explicit PlanWithSplits(
@@ -163,12 +164,14 @@ class JoinMaker {
             std::vector<velox::exec::Split>>& _splits = {},
         core::ExecutionStrategy _executionStrategy =
             core::ExecutionStrategy::kUngrouped,
-        int32_t _numGroups = 0)
+        int32_t _numGroups = 0,
+        bool _mixedGroupedExecution = false)
         : plan(_plan),
           probeScanId(_probeScanId),
           buildScanId(_buildScanId),
           splits(_splits),
           executionStrategy(_executionStrategy),
+          mixedGroupedExecution(_mixedGroupedExecution),
           numGroups(_numGroups) {}
   };
 
@@ -178,8 +181,9 @@ class JoinMaker {
       const JoinOrder joinOrder) const;
 
   PlanWithSplits makeHashJoinWithTableScan(
-      const std::optional<int32_t> numGroups,
-      const JoinOrder joinOrder) const;
+      std::optional<int32_t> numGroups,
+      bool mixedGroupedExecution,
+      JoinOrder joinOrder) const;
 
   PlanWithSplits makeMergeJoin(
       const InputType inputType,
@@ -258,4 +262,9 @@ class JoinMaker {
   const std::vector<std::string> outputColumns_;
   const std::string filter_;
 };
+
+// Returns the reversed JoinType if the JoinType can be reversed, otherwise
+// throws an exception.
+core::JoinType flipJoinType(core::JoinType joinType);
+
 } // namespace facebook::velox::exec

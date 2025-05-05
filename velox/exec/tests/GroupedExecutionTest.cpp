@@ -343,7 +343,7 @@ DEBUG_ONLY_TEST_F(
       {false, false, 1, 12, false},
       {false, true, 1, 9, false},
       {true, false, 1, 12, true},
-      {true, true, 1, 9, false},
+      {true, true, 1, 9, true},
       {false, false, 2, 12, false},
       {false, true, 2, 9, false},
       {true, false, 2, 12, true},
@@ -458,10 +458,12 @@ DEBUG_ONLY_TEST_F(
     } else {
       task->noMoreSplitsForGroup(buildScanNodeId, 0);
       task->noMoreSplitsForGroup(buildScanNodeId, 1);
+      task->noMoreSplits(buildScanNodeId);
     }
     // Finalize probe split groups.
     task->noMoreSplitsForGroup(probeScanNodeId, 0);
     task->noMoreSplitsForGroup(probeScanNodeId, 1);
+    task->noMoreSplits(probeScanNodeId);
 
     waitForFinishedDrivers(task, testData.expectedNumDrivers);
 
@@ -481,6 +483,130 @@ DEBUG_ONLY_TEST_F(
       ASSERT_EQ(planStats.spilledBytes, 0);
     }
   }
+}
+
+DEBUG_ONLY_TEST_F(
+    GroupedExecutionTest,
+    mixedGroupedExecutionHashJoinSpillDelayedTermination) {
+  // Create source file to read as split input.
+  auto vectors = makeVectors(24, 20);
+  auto filePath = TempFilePath::create();
+  writeToFile(filePath->getPath(), vectors);
+
+  const uint32_t numDriversPerGroup{3};
+  const uint32_t numGroups{2};
+
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  core::PlanNodeId probeScanNodeId;
+  core::PlanNodeId buildScanNodeId;
+
+  PlanBuilder planBuilder(planNodeIdGenerator, pool_.get());
+  planBuilder.tableScan(rowType_)
+      .capturePlanNodeId(probeScanNodeId)
+      .project({"c0 as x"});
+
+  // Hash join.
+  core::PlanNodeId joinNodeId;
+  auto planFragment = planBuilder
+                          .hashJoin(
+                              {"x"},
+                              {"y"},
+                              PlanBuilder(planNodeIdGenerator, pool_.get())
+                                  .tableScan(rowType_, {"c0 > 0"})
+                                  .capturePlanNodeId(buildScanNodeId)
+                                  .project({"c0 as y"})
+                                  .planNode(),
+                              "",
+                              {"x", "y"})
+                          .capturePlanNodeId(joinNodeId)
+                          .partitionedOutput({}, 1, {"x", "y"})
+                          .planFragment();
+
+  planFragment.executionStrategy = core::ExecutionStrategy::kGrouped;
+  planFragment.groupedExecutionLeafNodeIds.emplace(probeScanNodeId);
+  planFragment.numSplitGroups = numGroups;
+
+  auto queryCtx = core::QueryCtx::create(executor_.get());
+
+  std::unordered_map<std::string, std::string> configs;
+  configs.emplace(core::QueryConfig::kSpillEnabled, "true");
+  configs.emplace(core::QueryConfig::kJoinSpillEnabled, "true");
+  queryCtx->testingOverrideConfigUnsafe(std::move(configs));
+
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Driver::runInternal::noMoreInput",
+      std::function<void(Operator*)>([&](Operator* op) {
+        if (op->operatorType() == "HashProbe") {
+          ASSERT_NE(op->splitGroupId(), kUngroupedGroupId);
+          const int pipelineId = op->operatorCtx()->driverCtx()->pipelineId;
+          const auto peerOps =
+              op->operatorCtx()->task()->findPeerOperators(pipelineId, op);
+          ASSERT_LE(peerOps.size(), numDriversPerGroup);
+        }
+        if (op->operatorType() != "HashBuild") {
+          return;
+        }
+
+        ASSERT_EQ(op->splitGroupId(), kUngroupedGroupId);
+        const int pipelineId = op->operatorCtx()->driverCtx()->pipelineId;
+        const auto peerOps =
+            op->operatorCtx()->task()->findPeerOperators(pipelineId, op);
+        ASSERT_LE(peerOps.size(), numDriversPerGroup);
+
+        ASSERT_EQ(op->canReclaim(), true);
+
+        memory::testingRunArbitration(op->pool());
+      }));
+
+  auto task = exec::Task::create(
+      "0",
+      std::move(planFragment),
+      0,
+      std::move(queryCtx),
+      Task::ExecutionMode::kParallel);
+  const auto spillDirectory = exec::test::TempDirectoryPath::create();
+
+  task->setSpillDirectory(spillDirectory->getPath());
+
+  // 'numDriversPerGroup' drivers max to execute one group at a time.
+  task->start(numDriversPerGroup, 1);
+  ASSERT_EQ(task->hasMixedExecutionGroup(), true);
+
+  // Add split to both build and probe scans.
+  task->addSplit(buildScanNodeId, makeHiveSplit(filePath->getPath()));
+  for (auto i = 0; i < numGroups; ++i) {
+    task->addSplit(
+        probeScanNodeId, makeHiveSplitWithGroup(filePath->getPath(), i));
+  }
+
+  // Finalize all groups except for the last probe group.
+  task->noMoreSplits(buildScanNodeId);
+  for (auto i = 0; i < numGroups - 1; ++i) {
+    task->noMoreSplitsForGroup(probeScanNodeId, i);
+  }
+
+  // Total drivers should be numDriversPerGroup * (numGroups + 1), but since
+  // probe does not receive termination signal, it cannot signal the build side
+  // to finish. we expect only build's numDriversPerGroup finished.
+  waitForFinishedDrivers(task, numDriversPerGroup);
+
+  // 'Delete results' from output buffer triggers 'set all output consumed',
+  // which should finish the task.
+  auto outputBufferManager = exec::OutputBufferManager::getInstanceRef();
+  outputBufferManager->deleteResults(task->taskId(), 0);
+
+  // Task is at running state because the build side is lingering.
+  ASSERT_EQ(task->state(), exec::TaskState::kRunning);
+
+  auto taskStats = exec::toPlanStats(task->taskStats());
+  auto& planStats = taskStats.at(joinNodeId);
+  ASSERT_GT(planStats.spilledBytes, 0);
+
+  // Finalize the last probe split.
+  task->noMoreSplitsForGroup(probeScanNodeId, numGroups - 1);
+  task->noMoreSplits(probeScanNodeId);
+
+  waitForFinishedDrivers(task, numDriversPerGroup * (numGroups + 1));
 }
 
 // Here we test various aspects of grouped/bucketed execution involving

@@ -136,18 +136,6 @@ std::optional<core::JoinType> tryFlipJoinType(core::JoinType joinType) {
   }
 }
 
-// Returns the reversed JoinType if the JoinType can be reversed, otherwise
-// throws an exception.
-core::JoinType flipJoinType(core::JoinType joinType) {
-  auto flippedJoinType = tryFlipJoinType(joinType);
-
-  if (!flippedJoinType.has_value()) {
-    VELOX_UNSUPPORTED(fmt::format("Unable to flip join type: {}", joinType));
-  }
-
-  return *flippedJoinType;
-}
-
 // Returns an equality join filter between probeKeys and buildKeys.
 std::string makeJoinFilter(
     const std::vector<std::string>& probeKeys,
@@ -412,8 +400,9 @@ JoinMaker::PlanWithSplits JoinMaker::makeHashJoin(
 }
 
 JoinMaker::PlanWithSplits JoinMaker::makeHashJoinWithTableScan(
-    const std::optional<int32_t> numGroups,
-    const JoinOrder joinOrder) const {
+    std::optional<int32_t> numGroups,
+    bool mixedGroupedExecution,
+    JoinOrder joinOrder) const {
   auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
 
   auto joinSources = getJoinSources(joinOrder);
@@ -435,6 +424,18 @@ JoinMaker::PlanWithSplits JoinMaker::makeHashJoinWithTableScan(
       probeSource,
       buildSource,
       getJoinType(joinOrder));
+
+  if (mixedGroupedExecution) {
+    return PlanWithSplits(
+        plan,
+        probeTableScanId,
+        buildTableScanId,
+        {{probeTableScanId, probeSource->groupedSplits(*numGroups)},
+         {buildTableScanId, buildSource->splits()}},
+        core::ExecutionStrategy::kGrouped,
+        *numGroups,
+        mixedGroupedExecution);
+  }
 
   if (!numGroups.has_value()) {
     return PlanWithSplits(
@@ -603,5 +604,15 @@ bool JoinMaker::supportsTableScan() const {
   }
 
   return true;
+}
+
+core::JoinType flipJoinType(core::JoinType joinType) {
+  auto flippedJoinType = tryFlipJoinType(joinType);
+
+  if (!flippedJoinType.has_value()) {
+    VELOX_UNSUPPORTED(fmt::format("Unable to flip join type: {}", joinType));
+  }
+
+  return *flippedJoinType;
 }
 } // namespace facebook::velox::exec

@@ -1944,6 +1944,31 @@ bool Task::hasMixedExecutionGroup() const {
   return numDriversUngrouped_ > 0;
 }
 
+bool Task::allSplitsConsumedHelper(const core::PlanNode* planNode) const {
+  if (planNode->sources().empty()) {
+    const auto& planNodeId = planNode->id();
+    VELOX_CHECK_NE(splitsStates_.count(planNodeId), 0);
+    for (const auto& [_, splitsStore] :
+         splitsStates_.at(planNodeId).groupSplitsStores) {
+      if (!splitsStore.splits.empty()) {
+        return false;
+      }
+    }
+    return splitsStates_.at(planNodeId).noMoreSplits;
+  }
+  for (const auto& upstreamNode : planNode->sources()) {
+    if (!allSplitsConsumedHelper(upstreamNode.get())) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool Task::allSplitsConsumed(const core::PlanNode* planNode) const {
+  std::lock_guard<std::timed_mutex> l(mutex_);
+  return allSplitsConsumedHelper(planNode);
+}
+
 bool Task::isRunning() const {
   std::lock_guard<std::timed_mutex> l(mutex_);
   return isRunningLocked();
