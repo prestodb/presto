@@ -292,11 +292,11 @@ uint64_t ArbitrationParticipant::reclaim(
   if (targetBytes == 0) {
     return 0;
   }
-  ArbitrationTimedLock l(reclaimMutex_, maxWaitTimeNs);
-  TestValue::adjust(
-      "facebook::velox::memory::ArbitrationParticipant::reclaim", this);
   uint64_t reclaimedCapacity{0};
   try {
+    ArbitrationTimedLock l(reclaimMutex_, maxWaitTimeNs);
+    TestValue::adjust(
+        "facebook::velox::memory::ArbitrationParticipant::reclaim", this);
     ++numReclaims_;
     VELOX_MEM_LOG(INFO) << "Reclaiming from memory pool " << pool_->name()
                         << " with target " << succinctBytes(targetBytes);
