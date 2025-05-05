@@ -283,7 +283,8 @@ public class DispatchManager
                     sessionContext.getRuntimeStats(),
                     Optional.empty(),
                     Optional.ofNullable(sessionContext.getCatalog()),
-                    Optional.ofNullable(sessionContext.getSchema()));
+                    Optional.ofNullable(sessionContext.getSchema()),
+                    sessionContext.getAccessControlResults());
 
             session = sessionBuilder.build();
 

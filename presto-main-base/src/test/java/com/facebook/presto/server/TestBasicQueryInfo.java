@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.common.AccessControlResults;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.cost.StatsAndCosts;
@@ -152,7 +153,8 @@ public class TestBasicQueryInfo
                         ImmutableSet.of(),
                         ImmutableList.of(),
                         ImmutableMap.of(),
-                        Optional.empty()));
+                        Optional.empty(),
+                        new AccessControlResults()));
 
         assertEquals(basicInfo.getQueryId().getId(), "0");
         assertEquals(basicInfo.getState(), RUNNING);

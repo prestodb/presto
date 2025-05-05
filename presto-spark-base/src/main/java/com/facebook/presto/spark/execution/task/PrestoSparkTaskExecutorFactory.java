@@ -19,6 +19,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.TestingGcMonitor;
 import com.facebook.presto.Session;
 import com.facebook.presto.SessionRepresentation;
+import com.facebook.presto.common.AccessControlResults;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.io.DataOutput;
@@ -687,7 +688,8 @@ public class PrestoSparkTaskExecutorFactory
                 // we use NOOP to create a session from the representation as worker does not require warning collectors
                 WarningCollector.NOOP,
                 new RuntimeStats(),
-                Optional.empty());
+                Optional.empty(),
+                new AccessControlResults());
     }
 
     public boolean isMemoryRevokePending(TaskContext taskContext)
