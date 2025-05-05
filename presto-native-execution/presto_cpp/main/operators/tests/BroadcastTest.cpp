@@ -115,23 +115,25 @@ class BroadcastTest : public exec::test::OperatorTestBase {
           fmt::format(kBroadcastFileInfoFormat, broadcastFilePath));
     }
 
-    uint8_t splitIndex = 0;
     // Read back result using BroadcastExchangeSource.
-    return exec::test::readCursor(broadcastReadParams, [&](auto* task) {
-      if (splitIndex >= broadcastFilePaths.size()) {
-        task->noMoreSplits("0");
-        return;
-      }
-
-      auto split = exec::Split(
-          std::make_shared<exec::RemoteConnectorSplit>(fmt::format(
-              "batch://task?broadcastInfo={}",
-              fmt::format(
-                  kBroadcastFileInfoFormat, broadcastFilePaths[splitIndex]))),
-          -1);
-      task->addSplit("0", std::move(split));
-      ++splitIndex;
-    });
+    return exec::test::readCursor(
+        broadcastReadParams, [&](exec::TaskCursor* taskCursor) {
+          if (taskCursor->noMoreSplits()) {
+            return;
+          }
+          for (int splitIndex = 0; splitIndex < broadcastFilePaths.size();
+               ++splitIndex) {
+            auto split = exec::Split(
+                std::make_shared<exec::RemoteConnectorSplit>(fmt::format(
+                    "batch://task?broadcastInfo={}",
+                    fmt::format(
+                        kBroadcastFileInfoFormat,
+                        broadcastFilePaths[splitIndex]))),
+                -1);
+            taskCursor->task()->addSplit("0", std::move(split));
+          }
+          taskCursor->setNoMoreSplits();
+        });
   }
 
   std::vector<RowVectorPtr> reorderColumns(
@@ -368,7 +370,10 @@ TEST_F(BroadcastTest, malformedBroadcastInfoJson) {
   VELOX_ASSERT_THROW(
       exec::test::readCursor(
           broadcastReadParams,
-          [&](auto* task) {
+          [&](exec::TaskCursor* taskCursor) {
+            if (taskCursor->noMoreSplits()) {
+              return;
+            }
             auto fileInfos =
                 fmt::format(kBroadcastFileInfoFormat, invalidBroadcastFilePath);
             auto split = exec::Split(
@@ -379,8 +384,10 @@ TEST_F(BroadcastTest, malformedBroadcastInfoJson) {
                     basePath,
                     fileInfos)),
                 -1);
+            auto& task = taskCursor->task();
             task->addSplit("0", std::move(split));
             task->noMoreSplits("0");
+            taskCursor->setNoMoreSplits();
           }),
       "BroadcastInfo deserialization failed");
 }
