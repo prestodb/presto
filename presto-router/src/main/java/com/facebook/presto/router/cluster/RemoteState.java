@@ -28,7 +28,6 @@ import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
 import java.net.URI;
-import java.time.Instant;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -57,7 +56,7 @@ public abstract class RemoteState
     private final Duration clusterUnhealthyTimeout;
 
     private AtomicBoolean isHealthy;
-    private volatile Instant lastHealthyResponseTime = Instant.now();
+    private volatile long lastHealthyResponseTimeNanos = System.nanoTime();
 
     @Inject
     public RemoteState(HttpClient httpClient, URI remoteUri, RemoteStateConfig remoteStateConfig)
@@ -83,7 +82,7 @@ public abstract class RemoteState
             lastWarningLogged.set(System.nanoTime());
         }
 
-        if (nanosSince(lastHealthyResponseTime.toEpochMilli()).toMillis() > clusterUnhealthyTimeout.toMillis() && isHealthy.get()) {
+        if (nanosSince(lastHealthyResponseTimeNanos).compareTo(clusterUnhealthyTimeout) > 0 && isHealthy.get()) {
             isHealthy.set(false);
             log.warn("%s:%d marked as unhealthy", remoteUri.getHost(), remoteUri.getPort());
         }
@@ -115,7 +114,7 @@ public abstract class RemoteState
                                 log.debug("%s:%d was unhealthy, and is now healthy", remoteUri.getHost(), remoteUri.getPort());
                                 isHealthy.set(true);
                             }
-                            lastHealthyResponseTime = Instant.now();
+                            lastHealthyResponseTimeNanos = System.nanoTime();
                         }
                     }
                     else {
