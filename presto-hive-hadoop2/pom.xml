@@ -43,7 +43,7 @@
 <!--            <scope>runtime</scope>-->
 <!--        </dependency>-->
         <dependency>
-            <groupId>com.github.nishithakbhaskaran</groupId>
+            <groupId>com.github.imjalpreet</groupId>
             <artifactId>presto-hadoop-apache2</artifactId>
             <scope>runtime</scope>
         </dependency>

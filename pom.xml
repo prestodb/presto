@@ -248,9 +248,9 @@
             </dependency>
 
             <dependency>
-                <groupId>com.github.nishithakbhaskaran</groupId>
+                <groupId>com.github.imjalpreet</groupId>
                 <artifactId>presto-hadoop-apache2</artifactId>
-                <version>upgrade_3.4.1_13</version>
+                <version>upgrade_3.4.1_15</version>
             </dependency>
 
             <dependency>
