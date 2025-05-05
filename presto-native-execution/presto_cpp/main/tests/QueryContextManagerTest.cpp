@@ -139,7 +139,7 @@ TEST_F(QueryContextManagerTest, overridingSessionProperties) {
     auto queryCtx =
         taskManager_->getQueryContextManager()->findOrCreateQueryCtx(
             taskId, updateRequest);
-    // When session properties are not explicitly set, they should be set to 
+    // When session properties are not explicitly set, they should be set to
     // system config values.
     EXPECT_EQ(
         queryCtx->queryConfig().queryMaxMemoryPerNode(),
