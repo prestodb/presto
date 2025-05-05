@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.DataOrganizationSpecification;
 import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.WindowNode;
@@ -71,7 +72,7 @@ public class TestPruneUnreferencedOutputs
                         p.output(ImmutableList.of("user_uuid"), ImmutableList.of(p.variable("user_uuid", VARCHAR)),
                                 p.project(Assignments.of(p.variable("user_uuid", VARCHAR), p.variable("user_uuid", VARCHAR)),
                                         p.window(
-                                                new WindowNode.Specification(
+                                                new DataOrganizationSpecification(
                                                         ImmutableList.of(p.variable("user_uuid", VARCHAR)),
                                                         Optional.of(new OrderingScheme(
                                                                 ImmutableList.of(

@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.plan.DataOrganizationSpecification;
 import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -280,7 +281,7 @@ public class TestPruneWindowColumns
                                 .filter(projectionFilter)
                                 .collect(toImmutableList())),
                 p.window(
-                        new WindowNode.Specification(
+                        new DataOrganizationSpecification(
                                 ImmutableList.of(partitionKey),
                                 Optional.of(new OrderingScheme(
                                         ImmutableList.of(new Ordering(orderKey, SortOrder.ASC_NULLS_FIRST))))),
