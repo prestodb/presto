@@ -106,9 +106,19 @@ public class QueryAssertions
 
     public void assertQuery(@Language("SQL") String actual, @Language("SQL") String expected, boolean ensureOrdering)
     {
+        assertQuery(runner.getDefaultSession(), actual, expected, ensureOrdering);
+    }
+
+    public void assertQuery(Session session, @Language("SQL") String actual, @Language("SQL") String expected)
+    {
+        assertQuery(session, actual, expected, false);
+    }
+
+    public void assertQuery(Session session, @Language("SQL") String actual, @Language("SQL") String expected, boolean ensureOrdering)
+    {
         MaterializedResult actualResults = null;
         try {
-            actualResults = runner.execute(runner.getDefaultSession(), actual).toTestTypes();
+            actualResults = runner.execute(session, actual).toTestTypes();
         }
         catch (RuntimeException ex) {
             fail("Execution of 'actual' query failed: " + actual, ex);
@@ -116,7 +126,7 @@ public class QueryAssertions
 
         MaterializedResult expectedResults = null;
         try {
-            expectedResults = runner.execute(runner.getDefaultSession(), expected).toTestTypes();
+            expectedResults = runner.execute(session, expected).toTestTypes();
         }
         catch (RuntimeException ex) {
             fail("Execution of 'expected' query failed: " + expected, ex);
