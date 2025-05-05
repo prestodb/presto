@@ -30,6 +30,7 @@ import com.facebook.presto.common.type.Type;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slices;
 import org.apache.hadoop.hive.common.type.HiveChar;
+import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.hadoop.hive.serde2.io.DateWritableV2;
 import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
 import org.apache.hadoop.hive.serde2.io.TimestampWritableV2;
@@ -56,7 +57,6 @@ import org.apache.hadoop.hive.serde2.objectinspector.primitive.StringObjectInspe
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.TimestampObjectInspector;
 import org.joda.time.DateTimeZone;
 
-import java.sql.Timestamp;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -294,7 +294,7 @@ public final class SerDeUtils
     private static long formatTimestampAsLong(Object object, TimestampObjectInspector inspector, DateTimeZone hiveStorageTimeZone)
     {
         Timestamp timestamp = getTimestamp(object, inspector);
-        long parsedJvmMillis = timestamp.getTime();
+        long parsedJvmMillis = timestamp.toSqlTimestamp().getTime();
 
         // remove the JVM time zone correction from the timestamp
         long hiveMillis = JVM_TIME_ZONE.convertUTCToLocal(parsedJvmMillis);
@@ -307,8 +307,8 @@ public final class SerDeUtils
     {
         // handle broken ObjectInspectors
         if (object instanceof TimestampWritableV2) {
-            return ((TimestampWritableV2) object).getTimestamp().toSqlTimestamp();
+            return ((TimestampWritableV2) object).getTimestamp();
         }
-        return inspector.getPrimitiveJavaObject(object).toSqlTimestamp();
+        return inspector.getPrimitiveJavaObject(object);
     }
 }
