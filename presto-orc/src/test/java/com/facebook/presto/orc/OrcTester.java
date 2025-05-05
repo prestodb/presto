@@ -1605,7 +1605,10 @@ public class OrcTester
                 .boxed()
                 .collect(toImmutableMap(Functions.identity(), types::get));
 
-        return orcReader.createBatchRecordReader(columnTypes, predicate, HIVE_STORAGE_TIME_ZONE, new TestingHiveOrcAggregatedMemoryContext(), initialBatchSize);
+        if (SESSION.getSqlFunctionProperties().isLegacyTimestamp()) {
+            return orcReader.createBatchRecordReader(columnTypes, predicate, HIVE_STORAGE_TIME_ZONE, new TestingHiveOrcAggregatedMemoryContext(), initialBatchSize);
+        }
+        return orcReader.createBatchRecordReader(columnTypes, predicate, DateTimeZone.UTC, new TestingHiveOrcAggregatedMemoryContext(), initialBatchSize);
     }
 
     static OrcReader createCustomOrcReader(
@@ -1743,7 +1746,7 @@ public class OrcTester
                 new DwrfEncryptionProvider(new UnsupportedEncryptionLibrary(), new TestingEncryptionLibrary()),
                 writerOptions,
                 ImmutableMap.of(),
-                HIVE_STORAGE_TIME_ZONE,
+                SESSION.getSqlFunctionProperties().isLegacyTimestamp() ? HIVE_STORAGE_TIME_ZONE : DateTimeZone.UTC,
                 true,
                 BOTH,
                 stats);
@@ -1888,7 +1891,13 @@ public class OrcTester
                 type.writeLong(blockBuilder, days);
             }
             else if (TIMESTAMP.equals(type)) {
-                long millis = ((SqlTimestamp) value).getMillisUtc();
+                long millis;
+                if (SESSION.getSqlFunctionProperties().isLegacyTimestamp()) {
+                    millis = ((SqlTimestamp) value).getMillisUtc();
+                }
+                else {
+                    millis = ((SqlTimestamp) value).getMillis();
+                }
                 type.writeLong(blockBuilder, millis);
             }
             else if (TIMESTAMP_MICROSECONDS.equals(type)) {
@@ -2312,7 +2321,13 @@ public class OrcTester
             return date;
         }
         else if (type.equals(TIMESTAMP)) {
-            long millisUtc = (int) ((SqlTimestamp) value).getMillisUtc();
+            long millisUtc;
+            if (SESSION.getSqlFunctionProperties().isLegacyTimestamp()) {
+                millisUtc = (int) ((SqlTimestamp) value).getMillisUtc();
+            }
+            else {
+                millisUtc = (int) ((SqlTimestamp) value).getMillis();
+            }
             return Timestamp.ofEpochMilli(millisUtc);
         }
         else if (type instanceof DecimalType) {

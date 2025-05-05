@@ -51,6 +51,7 @@ import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.orc.OrcTester.Format.DWRF;
+import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.notNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -98,7 +99,10 @@ public final class TestingOrcPredicate
             return new LongOrcPredicate(false,
                     columnIndex,
                     expectedValues.stream()
-                            .map(value -> value == null ? null : ((SqlTimestamp) value).getMillisUtc())
+                            .map(value -> value == null ? null :
+                                    SESSION.getSqlFunctionProperties().isLegacyTimestamp() ?
+                                            ((SqlTimestamp) value).getMillisUtc() :
+                                            ((SqlTimestamp) value).getMillis())
                             .collect(toList()),
                     false);
         }
