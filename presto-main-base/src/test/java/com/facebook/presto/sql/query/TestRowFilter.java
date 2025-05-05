@@ -13,13 +13,20 @@
  */
 package com.facebook.presto.sql.query;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.connector.MockConnectorFactory;
+import com.facebook.presto.spi.ConnectorViewDefinition;
+import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.ViewExpression;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.TestingAccessControlManager;
 import com.facebook.presto.tpch.TpchConnectorFactory;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -27,14 +34,23 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 
 public class TestRowFilter
 {
+    private static final JsonCodec<ViewDefinition> VIEW_DEFINITION_JSON_CODEC = JsonCodec.jsonCodec(ViewDefinition.class);
     private static final String CATALOG = "local";
+    private static final String MOCK_CATALOG = "mock";
     private static final String USER = "user";
     private static final String RUN_AS_USER = "run-as-user";
+    private static final String VIEW_OWNER = "view-owner";
+
+    private static final Session SESSION = testSessionBuilder()
+            .setCatalog(CATALOG)
+            .setSchema(TINY_SCHEMA_NAME)
+            .setIdentity(new Identity(USER, Optional.empty())).build();
 
     private QueryAssertions assertions;
     private TestingAccessControlManager accessControl;
@@ -42,14 +58,32 @@ public class TestRowFilter
     @BeforeClass
     public void init()
     {
-        Session session = testSessionBuilder()
-                .setCatalog(CATALOG)
-                .setSchema(TINY_SCHEMA_NAME)
-                .setIdentity(new Identity(USER, Optional.empty())).build();
-
-        LocalQueryRunner runner = new LocalQueryRunner(session);
+        LocalQueryRunner runner = new LocalQueryRunner(SESSION);
 
         runner.createCatalog(CATALOG, new TpchConnectorFactory(1), ImmutableMap.of());
+
+        SchemaTableName viewSchemaTableName = new SchemaTableName("default", "nation_view");
+        ViewDefinition viewDefinition = new ViewDefinition(
+                "SELECT nationkey, name FROM local.tiny.nation",
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableList.of(new ViewDefinition.ViewColumn("nationkey", BIGINT), new ViewDefinition.ViewColumn("name", VarcharType.createVarcharType(25))),
+                Optional.of(VIEW_OWNER),
+                false);
+        String viewJson = VIEW_DEFINITION_JSON_CODEC.toJson(viewDefinition);
+
+        ConnectorViewDefinition view = new ConnectorViewDefinition(
+                viewSchemaTableName,
+                Optional.of(VIEW_OWNER),
+                viewJson);
+
+        MockConnectorFactory mock = MockConnectorFactory.builder()
+                .withGetViews((s, prefix) -> ImmutableMap.<SchemaTableName, ConnectorViewDefinition>builder()
+                        .put(viewSchemaTableName, view)
+                        .build())
+                .build();
+
+        runner.createCatalog(MOCK_CATALOG, mock, ImmutableMap.of());
 
         assertions = new QueryAssertions(runner);
         accessControl = assertions.getQueryRunner().getAccessControl();
@@ -329,6 +363,55 @@ public class TestRowFilter
                     new ViewExpression(USER, Optional.of(CATALOG), Optional.of("tiny"), "orderkey < 10"));
 
             assertions.assertFails("DELETE FROM orders", "\\Qline 1:1: Delete from table with row filter is not supported\\E");
+        });
+    }
+
+    @Test
+    public void testView()
+    {
+        // filter on the underlying table for view owner when running query as different user
+        assertions.executeExclusively(() -> {
+            accessControl.reset();
+            accessControl.rowFilter(
+                    new QualifiedObjectName(CATALOG, "tiny", "nation"),
+                    VIEW_OWNER,
+                    new ViewExpression(VIEW_OWNER, Optional.empty(), Optional.empty(), "nationkey = 1"));
+
+            Session session = Session.builder(SESSION)
+                    .setIdentity(new Identity(RUN_AS_USER, Optional.empty()))
+                    .build();
+
+            assertions.assertQuery(session, "SELECT name FROM mock.default.nation_view", "VALUES CAST('ARGENTINA' AS VARCHAR(25))");
+        });
+
+        // filter on the underlying table for view owner when running as themselves
+        assertions.executeExclusively(() -> {
+            accessControl.reset();
+            accessControl.rowFilter(
+                    new QualifiedObjectName(CATALOG, "tiny", "nation"),
+                    VIEW_OWNER,
+                    new ViewExpression(VIEW_OWNER, Optional.of(CATALOG), Optional.of("tiny"), "nationkey = 1"));
+
+            Session session = Session.builder(SESSION)
+                    .setIdentity(new Identity(VIEW_OWNER, Optional.empty()))
+                    .build();
+
+            assertions.assertQuery(session, "SELECT name FROM mock.default.nation_view", "VALUES CAST('ARGENTINA' AS VARCHAR(25))");
+        });
+
+        // filter on the underlying table for user running the query (different from view owner) should not be applied
+        assertions.executeExclusively(() -> {
+            accessControl.reset();
+            accessControl.rowFilter(
+                    new QualifiedObjectName(CATALOG, "tiny", "nation"),
+                    RUN_AS_USER,
+                    new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "nationkey = 1"));
+
+            Session session = Session.builder(SESSION)
+                    .setIdentity(new Identity(RUN_AS_USER, Optional.empty()))
+                    .build();
+
+            assertions.assertQuery(session, "SELECT count(*) FROM mock.default.nation_view", "VALUES BIGINT '25'");
         });
     }
 }
