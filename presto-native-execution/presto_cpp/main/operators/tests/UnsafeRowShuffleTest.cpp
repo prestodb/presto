@@ -144,7 +144,7 @@ class TestShuffleWriter : public ShuffleWriter {
     inProgressSizes_[partition] += size;
 
     if (!key.empty()) {
-            serializedSortKeys_->at(partition).emplace_back(key);
+      serializedSortKeys_->at(partition).emplace_back(key);
     }
   }
 
@@ -450,8 +450,7 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
       const RowVectorPtr& expected,
       const exec::CursorParameters params,
       const std::optional<uint32_t> expectedOutputCount = std::nullopt) {
-    auto [taskCursor, serializedResults] =
-        exec::test::readCursor(params, [](auto /*task*/) {});
+    auto [taskCursor, serializedResults] = exec::test::readCursor(params);
 
     RowVectorPtr result =
         BaseVector::create<RowVector>(expected->type(), 0, pool());
@@ -483,18 +482,17 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
   runShuffleReadTask(
       const exec::CursorParameters& params,
       const std::string& shuffleInfo) {
-    bool noMoreSplits = false;
-    return exec::test::readCursor(params, [&](auto* task) {
-      if (noMoreSplits) {
+    return exec::test::readCursor(params, [&](exec::TaskCursor* taskCursor) {
+      if (taskCursor->noMoreSplits()) {
         return;
       }
 
+      auto& task = taskCursor->task();
       auto remoteSplit = std::make_shared<exec::RemoteConnectorSplit>(
           makeTaskId("read", 0, shuffleInfo));
-
       task->addSplit("0", exec::Split{remoteSplit});
       task->noMoreSplits("0");
-      noMoreSplits = true;
+      taskCursor->setNoMoreSplits();
     });
   }
 
@@ -838,8 +836,7 @@ TEST_F(UnsafeRowShuffleTest, operators) {
   params.planNode = plan;
   params.maxDrivers = 2;
 
-  auto [taskCursor, serializedResults] =
-      exec::test::readCursor(params, [](auto /*task*/) {});
+  auto [taskCursor, serializedResults] = exec::test::readCursor(params);
   ASSERT_EQ(serializedResults.size(), 0);
   TestShuffleWriter::reset();
 }
@@ -870,8 +867,7 @@ DEBUG_ONLY_TEST_F(UnsafeRowShuffleTest, shuffleWriterExceptions) {
           .planNode();
 
   VELOX_ASSERT_THROW(
-      exec::test::readCursor(params, [](auto /*task*/) {}),
-      "ShuffleWriter::collect failed");
+      exec::test::readCursor(params), "ShuffleWriter::collect failed");
 
   TestShuffleWriter::reset();
   exec::test::waitForAllTasksToBeDeleted();
@@ -895,7 +891,7 @@ DEBUG_ONLY_TEST_F(UnsafeRowShuffleTest, shuffleReaderExceptions) {
               2, std::string(TestShuffleFactory::kShuffleName), info))
           .planNode();
 
-  ASSERT_NO_THROW(exec::test::readCursor(params, [](auto /*task*/) {}));
+  ASSERT_NO_THROW(exec::test::readCursor(params));
 
   std::function<void(TestShuffleReader*)> injectFailure =
       [&](TestShuffleReader* /*reader*/) {
@@ -959,13 +955,13 @@ TEST_F(UnsafeRowShuffleTest, endToEndWithSortedShuffle) {
   });
 
   auto batch2 = makeRowVector({
-    makeFlatVector<int32_t>({0, 0, 1}), // partition key
-    makeFlatVector<int64_t>({70, 80, 90}), // sorting column
-});
+      makeFlatVector<int32_t>({0, 0, 1}), // partition key
+      makeFlatVector<int64_t>({70, 80, 90}), // sorting column
+  });
 
   auto expectedSortingOrder = {
       std::vector<int>{1, 0, 2, 3}, // partition key 0
-      std::vector<int>{0, 2, 1, 3, 4 }, // partition key 1
+      std::vector<int>{0, 2, 1, 3, 4}, // partition key 1
   };
 
   auto ordering = {velox::core::SortOrder(velox::core::kAscNullsFirst)};
