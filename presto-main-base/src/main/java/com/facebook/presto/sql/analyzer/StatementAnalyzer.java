@@ -1398,15 +1398,7 @@ class StatementAnalyzer
             Scope accessControlScope = Scope.builder()
                     .withRelationType(RelationId.anonymous(), new RelationType(outputFields))
                     .build();
-
-            Map<ColumnMetadata, ViewExpression> masks = accessControl.getColumnMasks(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), name, columnsMetadata);
-
-            for (Map.Entry<ColumnMetadata, ViewExpression> maskEntry : masks.entrySet()) {
-                analyzeColumnMask(session.getIdentity().getUser(), table, name, maskEntry.getKey(), accessControlScope, maskEntry.getValue());
-            }
-
-            accessControl.getRowFilters(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), name)
-                    .forEach(filter -> analyzeRowFilter(session.getIdentity().getUser(), table, name, accessControlScope, filter));
+            analyzeFiltersAndMasks(table, name, accessControlScope, columnsMetadata);
 
             analysis.registerTable(table, tableHandle.get());
 
@@ -1559,6 +1551,11 @@ class StatementAnalyzer
 
             analysis.addRelationCoercion(table, outputFields.stream().map(Field::getType).toArray(Type[]::new));
 
+            Scope accessControlScope = Scope.builder()
+                    .withRelationType(RelationId.anonymous(), new RelationType(outputFields))
+                    .build();
+            analyzeFiltersAndMasks(table, name, accessControlScope, outputFields);
+
             return createAndAssignScope(table, scope, outputFields);
         }
 
@@ -1581,6 +1578,11 @@ class StatementAnalyzer
             Scope queryScope = process(query, scope);
             RelationType relationType = queryScope.getRelationType().withAlias(materializedViewName.getObjectName(), null);
             analysis.unregisterMaterializedViewForAnalysis(materializedView);
+
+            Scope accessControlScope = Scope.builder()
+                    .withRelationType(RelationId.anonymous(), relationType)
+                    .build();
+            analyzeFiltersAndMasks(materializedView, materializedViewName, accessControlScope, relationType.getAllFields());
 
             return createAndAssignScope(materializedView, scope, relationType);
         }
@@ -2993,6 +2995,29 @@ class StatementAnalyzer
                     analysis,
                     expression,
                     warningCollector);
+        }
+
+        private void analyzeFiltersAndMasks(Table table, QualifiedObjectName name, Scope accessControlScope, Collection<Field> fields)
+        {
+            List<ColumnMetadata> columnsMetadata = new ArrayList<>();
+            for (Field field : fields) {
+                if (field.getName().isPresent()) {
+                    columnsMetadata.add(ColumnMetadata.builder().setName(field.getName().get()).setType(field.getType()).build());
+                }
+            }
+            analyzeFiltersAndMasks(table, name, accessControlScope, columnsMetadata);
+        }
+
+        private void analyzeFiltersAndMasks(Table table, QualifiedObjectName name, Scope accessControlScope, List<ColumnMetadata> columnsMetadata)
+        {
+            Map<ColumnMetadata, ViewExpression> masks = accessControl.getColumnMasks(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), name, columnsMetadata);
+
+            for (Map.Entry<ColumnMetadata, ViewExpression> maskEntry : masks.entrySet()) {
+                analyzeColumnMask(session.getIdentity().getUser(), table, name, maskEntry.getKey(), accessControlScope, maskEntry.getValue());
+            }
+
+            accessControl.getRowFilters(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), name)
+                    .forEach(filter -> analyzeRowFilter(session.getIdentity().getUser(), table, name, accessControlScope, filter));
         }
 
         private void analyzeRowFilter(String currentIdentity, Table table, QualifiedObjectName name, Scope scope, ViewExpression filter)

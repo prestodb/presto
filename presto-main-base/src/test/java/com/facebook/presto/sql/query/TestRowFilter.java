@@ -413,5 +413,15 @@ public class TestRowFilter
 
             assertions.assertQuery(session, "SELECT count(*) FROM mock.default.nation_view", "VALUES BIGINT '25'");
         });
+
+        // filter on the view
+        assertions.executeExclusively(() -> {
+            accessControl.reset();
+            accessControl.rowFilter(
+                    new QualifiedObjectName(MOCK_CATALOG, "default", "nation_view"),
+                    USER,
+                    new ViewExpression(USER, Optional.of(CATALOG), Optional.of("tiny"), "nationkey = 1"));
+            assertions.assertQuery("SELECT name FROM mock.default.nation_view", "VALUES CAST('ARGENTINA' AS VARCHAR(25))");
+        });
     }
 }

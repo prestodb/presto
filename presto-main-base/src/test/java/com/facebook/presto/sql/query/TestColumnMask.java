@@ -464,5 +464,17 @@ public class TestColumnMask
 
             assertions.assertQuery(session, "SELECT name FROM mock.default.nation_view WHERE nationkey = 1", "VALUES CAST('ARGENTINA' AS VARCHAR(25))");
         });
+
+        // mask on the view
+        assertions.executeExclusively(() -> {
+            accessControl.reset();
+            accessControl.columnMask(
+                    new QualifiedObjectName(MOCK_CATALOG, "default", "nation_view"),
+                    "name",
+                    USER,
+                    new ViewExpression(USER, Optional.of(CATALOG), Optional.of("tiny"), "reverse(name)"));
+
+            assertions.assertQuery("SELECT name FROM mock.default.nation_view WHERE nationkey = 1", "VALUES CAST('ANITNEGRA' AS VARCHAR(25))");
+        });
     }
 }
