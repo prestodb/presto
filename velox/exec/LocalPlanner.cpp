@@ -142,6 +142,13 @@ OperatorSupplier makeConsumerSupplier(
   if (auto join =
           std::dynamic_pointer_cast<const core::HashJoinNode>(planNode)) {
     return [join](int32_t operatorId, DriverCtx* ctx) {
+      if (ctx->task->hasMixedExecutionGroup() &&
+          needRightSideJoin(join->joinType())) {
+        VELOX_UNSUPPORTED(
+            "Hash join currently does not support mixed grouped execution for join "
+            "type {}",
+            core::joinTypeName(join->joinType()));
+      }
       return std::make_unique<HashBuild>(operatorId, ctx, join);
     };
   }

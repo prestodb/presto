@@ -312,6 +312,194 @@ TEST_F(GroupedExecutionTest, groupedExecutionWithOutputBuffer) {
   EXPECT_EQ(18, taskStats.pipelineStats[1].operatorStats[1].inputVectors);
 }
 
+TEST_F(GroupedExecutionTest, hashJoinWithMixedGroupedExecution) {
+  // Create source file for probe and build sides
+  auto vectors = makeVectors(4, 20);
+  auto filePath = TempFilePath::create();
+  writeToFile(filePath->getPath(), vectors);
+
+  struct TestData {
+    enum class Mode { kGroupedMixed = 0, kGroupedUnmixed = 1, kUngrouped = 2 };
+    Mode mode;
+    core::JoinType joinType;
+    bool supported;
+
+    std::string modeToString(Mode mode) const {
+      switch (mode) {
+        case Mode::kGroupedMixed:
+          return "GroupedMixed";
+        case Mode::kGroupedUnmixed:
+          return "GroupedUnmixed";
+        case Mode::kUngrouped:
+          return "Ungrouped";
+      }
+      return "Unknown";
+    }
+
+    std::string debugString() const {
+      return fmt::format(
+          "mode {}, joinType {}, supported {}",
+          modeToString(mode),
+          core::joinTypeName(joinType),
+          supported);
+    }
+  };
+
+  std::vector<TestData> testSettings = {
+      {TestData::Mode::kGroupedMixed, core::JoinType::kRight, false},
+      {TestData::Mode::kGroupedMixed, core::JoinType::kFull, false},
+      {TestData::Mode::kGroupedMixed, core::JoinType::kRightSemiFilter, false},
+      {TestData::Mode::kGroupedMixed, core::JoinType::kRightSemiProject, false},
+      {TestData::Mode::kGroupedMixed, core::JoinType::kInner, true},
+      {TestData::Mode::kGroupedMixed, core::JoinType::kLeft, true},
+      {TestData::Mode::kGroupedMixed, core::JoinType::kLeftSemiFilter, true},
+      {TestData::Mode::kGroupedMixed, core::JoinType::kLeftSemiProject, true},
+      {TestData::Mode::kGroupedMixed, core::JoinType::kAnti, true},
+
+      {TestData::Mode::kGroupedUnmixed, core::JoinType::kRight, true},
+      {TestData::Mode::kGroupedUnmixed, core::JoinType::kFull, true},
+      {TestData::Mode::kGroupedUnmixed, core::JoinType::kRightSemiFilter, true},
+      {TestData::Mode::kGroupedUnmixed,
+       core::JoinType::kRightSemiProject,
+       true},
+      {TestData::Mode::kGroupedUnmixed, core::JoinType::kInner, true},
+      {TestData::Mode::kGroupedUnmixed, core::JoinType::kLeft, true},
+      {TestData::Mode::kGroupedUnmixed, core::JoinType::kLeftSemiFilter, true},
+      {TestData::Mode::kGroupedUnmixed, core::JoinType::kLeftSemiProject, true},
+      {TestData::Mode::kGroupedUnmixed, core::JoinType::kAnti, true},
+
+      {TestData::Mode::kUngrouped, core::JoinType::kRight, true},
+      {TestData::Mode::kUngrouped, core::JoinType::kFull, true},
+      {TestData::Mode::kUngrouped, core::JoinType::kRightSemiFilter, true},
+      {TestData::Mode::kUngrouped, core::JoinType::kRightSemiProject, true},
+      {TestData::Mode::kUngrouped, core::JoinType::kInner, true},
+      {TestData::Mode::kUngrouped, core::JoinType::kLeft, true},
+      {TestData::Mode::kUngrouped, core::JoinType::kLeftSemiFilter, true},
+      {TestData::Mode::kUngrouped, core::JoinType::kLeftSemiProject, true},
+      {TestData::Mode::kUngrouped, core::JoinType::kAnti, true},
+  };
+
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+    core::PlanNodeId probeScanNodeId;
+    core::PlanNodeId buildScanNodeId;
+
+    std::vector<std::string> outputProjection;
+    if (testData.joinType == core::JoinType::kRightSemiProject) {
+      outputProjection = {"u1", "match"};
+    } else if (testData.joinType == core::JoinType::kRightSemiFilter) {
+      outputProjection = {"u1"};
+    } else if (testData.joinType == core::JoinType::kLeftSemiProject) {
+      outputProjection = {"t1", "match"};
+    } else if (
+        testData.joinType == core::JoinType::kLeftSemiFilter ||
+        testData.joinType == core::JoinType::kAnti) {
+      outputProjection = {"t1"};
+    } else {
+      outputProjection = {"t1", "u1"};
+    }
+
+    PlanBuilder planBuilder(planNodeIdGenerator, pool_.get());
+    planBuilder.tableScan(rowType_)
+        .capturePlanNodeId(probeScanNodeId)
+        .project({"c0 as t0", "c1 as t1"});
+
+    // Create a plan with hash join where probe side is grouped but build side
+    // is ungrouped
+    auto planFragment = planBuilder
+                            .hashJoin(
+                                {"t0"},
+                                {"u0"},
+                                PlanBuilder(planNodeIdGenerator, pool_.get())
+                                    .tableScan(rowType_)
+                                    .capturePlanNodeId(buildScanNodeId)
+                                    .project({"c0 as u0", "c1 as u1"})
+                                    .planNode(),
+                                "",
+                                outputProjection,
+                                testData.joinType)
+                            .partitionedOutput({}, 1, outputProjection)
+                            .planFragment();
+
+    // Set up grouped execution but only for probe side
+    if (testData.mode == TestData::Mode::kGroupedMixed) {
+      planFragment.executionStrategy = core::ExecutionStrategy::kGrouped;
+      planFragment.groupedExecutionLeafNodeIds.emplace(probeScanNodeId);
+      planFragment.numSplitGroups = 2;
+    } else if (testData.mode == TestData::Mode::kGroupedUnmixed) {
+      planFragment.executionStrategy = core::ExecutionStrategy::kGrouped;
+      planFragment.groupedExecutionLeafNodeIds.emplace(probeScanNodeId);
+      planFragment.groupedExecutionLeafNodeIds.emplace(buildScanNodeId);
+      planFragment.numSplitGroups = 2;
+    }
+
+    auto queryCtx = core::QueryCtx::create(executor_.get());
+    {
+      auto task = exec::Task::create(
+          "0",
+          std::move(planFragment),
+          0,
+          std::move(queryCtx),
+          Task::ExecutionMode::kParallel);
+
+      if (!testData.supported) {
+        VELOX_ASSERT_THROW(
+            task->start(3, 1),
+            fmt::format(
+                "Hash join currently does not support mixed grouped execution for join type {}",
+                core::joinTypeName(testData.joinType)));
+        continue;
+      }
+
+      task->start(3, 1);
+      if (testData.mode == TestData::Mode::kGroupedMixed) {
+        task->addSplit(buildScanNodeId, makeHiveSplit(filePath->getPath()));
+        task->addSplit(
+            probeScanNodeId, makeHiveSplitWithGroup(filePath->getPath(), 0));
+        task->addSplit(
+            probeScanNodeId, makeHiveSplitWithGroup(filePath->getPath(), 1));
+
+        // Signal no more splits for both sources
+        task->noMoreSplits(buildScanNodeId);
+        task->noMoreSplitsForGroup(probeScanNodeId, 0);
+        task->noMoreSplitsForGroup(probeScanNodeId, 1);
+        task->noMoreSplits(probeScanNodeId);
+      } else if (testData.mode == TestData::Mode::kGroupedUnmixed) {
+        task->addSplit(
+            buildScanNodeId, makeHiveSplitWithGroup(filePath->getPath(), 0));
+        task->addSplit(
+            buildScanNodeId, makeHiveSplitWithGroup(filePath->getPath(), 1));
+        task->addSplit(
+            probeScanNodeId, makeHiveSplitWithGroup(filePath->getPath(), 0));
+        task->addSplit(
+            probeScanNodeId, makeHiveSplitWithGroup(filePath->getPath(), 1));
+
+        // Signal no more splits for both sources
+        task->noMoreSplitsForGroup(buildScanNodeId, 0);
+        task->noMoreSplitsForGroup(buildScanNodeId, 1);
+        task->noMoreSplits(buildScanNodeId);
+        task->noMoreSplitsForGroup(probeScanNodeId, 0);
+        task->noMoreSplitsForGroup(probeScanNodeId, 1);
+        task->noMoreSplits(probeScanNodeId);
+      } else {
+        task->addSplit(buildScanNodeId, makeHiveSplit(filePath->getPath()));
+        task->addSplit(probeScanNodeId, makeHiveSplit(filePath->getPath()));
+        task->noMoreSplits(buildScanNodeId);
+        task->noMoreSplits(probeScanNodeId);
+      }
+
+      auto outputBufferManager = exec::OutputBufferManager::getInstanceRef();
+      outputBufferManager->deleteResults(task->taskId(), 0);
+
+      waitForTaskCompletion(task.get());
+      // Task must be finished at this stage.
+      ASSERT_EQ(task->state(), exec::TaskState::kFinished);
+    }
+    waitForAllTasksToBeDeleted();
+  }
+}
+
 DEBUG_ONLY_TEST_F(
     GroupedExecutionTest,
     groupedExecutionWithHashJoinSpillCheck) {
@@ -720,7 +908,8 @@ TEST_F(GroupedExecutionTest, groupedExecutionWithHashAndNestedLoopJoin) {
     // Finalize one split group (8) and wait until 3 drivers are finished.
     task->noMoreSplitsForGroup(probeScanNodeId, 8);
     waitForFinishedDrivers(task, 3 + 9);
-    // As one split group is finished, another one should kick in, so 9 drivers.
+    // As one split group is finished, another one should kick in, so 9
+    // drivers.
     EXPECT_EQ(9, task->numRunningDrivers());
     EXPECT_EQ(std::unordered_set<int32_t>({8}), getCompletedSplitGroups(task));
 
@@ -729,7 +918,8 @@ TEST_F(GroupedExecutionTest, groupedExecutionWithHashAndNestedLoopJoin) {
     task->noMoreSplitsForGroup(probeScanNodeId, 1);
     waitForFinishedDrivers(task, 3 + 18);
 
-    // As one split group is finished, another one should kick in, so 9 drivers.
+    // As one split group is finished, another one should kick in, so 9
+    // drivers.
     EXPECT_EQ(9, task->numRunningDrivers());
     EXPECT_EQ(
         std::unordered_set<int32_t>({1, 8}), getCompletedSplitGroups(task));
@@ -836,7 +1026,8 @@ TEST_F(GroupedExecutionTest, groupedExecution) {
   EXPECT_EQ(4, task->numRunningDrivers());
   EXPECT_EQ(std::unordered_set<int32_t>({8}), getCompletedSplitGroups(task));
 
-  // Finalize the second split group (5) and wait until 4 drivers are finished.
+  // Finalize the second split group (5) and wait until 4 drivers are
+  // finished.
   task->noMoreSplitsForGroup("0", 5);
   waitForFinishedDrivers(task, 4);
 
