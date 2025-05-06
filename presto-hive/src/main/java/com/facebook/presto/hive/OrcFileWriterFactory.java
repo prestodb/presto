@@ -102,6 +102,7 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMNS;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMN_TYPES;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_NAME;
+import static org.joda.time.DateTimeZone.UTC;
 
 public class OrcFileWriterFactory
         implements HiveFileWriterFactory
@@ -284,7 +285,7 @@ public class OrcFileWriterFactory
                     orcWriterOptions,
                     fileInputColumnIndexes,
                     metadata.build(),
-                    hiveStorageTimeZone,
+                    session.getSqlFunctionProperties().isLegacyTimestamp() ? hiveStorageTimeZone : UTC,
                     validationInputFactory,
                     getOrcOptimizedWriterValidateMode(session),
                     stats,

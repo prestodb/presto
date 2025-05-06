@@ -363,7 +363,7 @@ public class TestStringStatisticsBuilder
                 null,
                 null,
                 null,
-                new StringStatistics(minimum, maximum, 100));
+                new StringStatistics(minimum, maximum, false, false, 100));
     }
 
     private void assertStringStatistics(ColumnStatistics columnStatistics, int expectedNumberOfValues, long expectedSum)

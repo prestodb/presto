@@ -196,6 +196,7 @@ public final class AccumuloQueryRunner
         MiniAccumuloCluster accumulo = new MiniAccumuloCluster(macDir, MAC_PASSWORD);
         accumulo.getConfig().setDefaultMemory(512, MEGABYTE);
         setConfigClassPath(accumulo.getConfig());
+
         accumulo.start();
 
         // Add shutdown hook to stop MAC and cleanup temporary files
