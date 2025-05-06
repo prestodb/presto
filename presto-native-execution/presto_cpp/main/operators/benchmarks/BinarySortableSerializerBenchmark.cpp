@@ -163,7 +163,8 @@ BENCHMARK(structsSerialize) {
 
 int main(int argc, char** argv) {
   folly::Init init{&argc, &argv};
-  facebook::velox::memory::MemoryManager::initialize({});
+  facebook::velox::memory::MemoryManager::initialize(
+      facebook::velox::memory::MemoryManagerOptions{});
   folly::runBenchmarks();
   return 0;
 }

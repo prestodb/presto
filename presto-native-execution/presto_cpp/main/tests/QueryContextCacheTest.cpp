@@ -37,7 +37,7 @@ void verifyQueryCtxCache(
 class QueryContextCacheTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManagerOptions{});
   }
 
   void SetUp() override {
