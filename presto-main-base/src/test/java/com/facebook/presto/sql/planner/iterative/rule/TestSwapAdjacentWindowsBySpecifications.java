@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.plan.DataOrganizationSpecification;
 import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.WindowNode;
@@ -79,7 +80,7 @@ public class TestSwapAdjacentWindowsBySpecifications
     public void doesNotFireOnPlanWithSingleWindowNode()
     {
         tester().assertThat(new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(0))
-                .on(p -> p.window(new WindowNode.Specification(
+                .on(p -> p.window(new DataOrganizationSpecification(
                                 ImmutableList.of(p.variable("a")),
                                 Optional.empty()),
                         ImmutableMap.of(p.variable("avg_1"),
@@ -94,16 +95,16 @@ public class TestSwapAdjacentWindowsBySpecifications
         String columnAAlias = "ALIAS_A";
         String columnBAlias = "ALIAS_B";
 
-        ExpectedValueProvider<WindowNode.Specification> specificationA = specification(ImmutableList.of(columnAAlias), ImmutableList.of(), ImmutableMap.of());
-        ExpectedValueProvider<WindowNode.Specification> specificationAB = specification(ImmutableList.of(columnAAlias, columnBAlias), ImmutableList.of(), ImmutableMap.of());
+        ExpectedValueProvider<DataOrganizationSpecification> specificationA = specification(ImmutableList.of(columnAAlias), ImmutableList.of(), ImmutableMap.of());
+        ExpectedValueProvider<DataOrganizationSpecification> specificationAB = specification(ImmutableList.of(columnAAlias, columnBAlias), ImmutableList.of(), ImmutableMap.of());
 
         tester().assertThat(new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(0))
                 .on(p ->
-                        p.window(new WindowNode.Specification(
+                        p.window(new DataOrganizationSpecification(
                                         ImmutableList.of(p.variable("a")),
                                         Optional.empty()),
                                 ImmutableMap.of(p.variable("avg_1", DOUBLE), newWindowNodeFunction(ImmutableList.of(new Symbol("a")))),
-                                p.window(new WindowNode.Specification(
+                                p.window(new DataOrganizationSpecification(
                                                 ImmutableList.of(p.variable("a"), p.variable("b")),
                                                 Optional.empty()),
                                         ImmutableMap.of(p.variable("avg_2", DOUBLE), newWindowNodeFunction(ImmutableList.of(new Symbol("b")))),
@@ -123,11 +124,11 @@ public class TestSwapAdjacentWindowsBySpecifications
     {
         tester().assertThat(new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(0))
                 .on(p ->
-                        p.window(new WindowNode.Specification(
+                        p.window(new DataOrganizationSpecification(
                                         ImmutableList.of(p.variable("a")),
                                         Optional.empty()),
                                 ImmutableMap.of(p.variable("avg_1"), newWindowNodeFunction(ImmutableList.of(new Symbol("avg_2")))),
-                                p.window(new WindowNode.Specification(
+                                p.window(new DataOrganizationSpecification(
                                                 ImmutableList.of(p.variable("a"), p.variable("b")),
                                                 Optional.empty()),
                                         ImmutableMap.of(p.variable("avg_2"), newWindowNodeFunction(ImmutableList.of(new Symbol("a")))),
@@ -168,11 +169,11 @@ public class TestSwapAdjacentWindowsBySpecifications
 
         tester().assertThat(new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(0))
                 .on(p ->
-                        p.window(new WindowNode.Specification(
+                        p.window(new DataOrganizationSpecification(
                                         ImmutableList.of(p.variable("a")),
                                         Optional.of(new OrderingScheme(ImmutableList.of(new Ordering(p.variable("sortkey", BIGINT), SortOrder.ASC_NULLS_FIRST))))),
                                 ImmutableMap.of(p.variable("avg_1"), functionWithOffset),
-                                p.window(new WindowNode.Specification(
+                                p.window(new DataOrganizationSpecification(
                                                 ImmutableList.of(p.variable("a"), p.variable("b")),
                                                 Optional.of(new OrderingScheme(ImmutableList.of(new Ordering(p.variable("sortkey", BIGINT), SortOrder.ASC_NULLS_FIRST))))),
                                         ImmutableMap.of(p.variable("startValue"), windowFunction),
@@ -213,11 +214,11 @@ public class TestSwapAdjacentWindowsBySpecifications
 
         tester().assertThat(new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(0))
                 .on(p ->
-                        p.window(new WindowNode.Specification(
+                        p.window(new DataOrganizationSpecification(
                                         ImmutableList.of(p.variable("a")),
                                         Optional.of(new OrderingScheme(ImmutableList.of(new Ordering(p.variable("sortkey", BIGINT), SortOrder.ASC_NULLS_FIRST))))),
                                 ImmutableMap.of(p.variable("avg_1"), functionWithOffset),
-                                p.window(new WindowNode.Specification(
+                                p.window(new DataOrganizationSpecification(
                                                 ImmutableList.of(p.variable("a"), p.variable("b")),
                                                 Optional.of(new OrderingScheme(ImmutableList.of(new Ordering(p.variable("sortkey", BIGINT), SortOrder.ASC_NULLS_FIRST))))),
                                         ImmutableMap.of(p.variable("startValue"), windowFunction),

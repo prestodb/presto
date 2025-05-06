@@ -27,6 +27,7 @@ import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.CteConsumerNode;
 import com.facebook.presto.spi.plan.CteProducerNode;
 import com.facebook.presto.spi.plan.CteReferenceNode;
+import com.facebook.presto.spi.plan.DataOrganizationSpecification;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.FilterNode;
@@ -480,7 +481,7 @@ public class CanonicalPlanGenerator
                 .sorted(comparing(this::writeValueAsString))
                 .collect(toImmutableSet());
 
-        WindowNode.Specification specification = new WindowNode.Specification(
+        DataOrganizationSpecification specification = new DataOrganizationSpecification(
                 node.getSpecification().getPartitionBy().stream()
                         .map(variable -> inlineAndCanonicalize(context.getExpressions(), variable))
                         .sorted(comparing(this::writeValueAsString))
@@ -694,7 +695,7 @@ public class CanonicalPlanGenerator
                 Optional.empty(),
                 planNodeidAllocator.getNextId(),
                 source.get(),
-                new WindowNode.Specification(
+                new DataOrganizationSpecification(
                         partitionBy,
                         node.getSpecification().getOrderingScheme().map(scheme -> getCanonicalOrderingScheme(scheme, context.getExpressions()))),
                 rowNumberVariable,

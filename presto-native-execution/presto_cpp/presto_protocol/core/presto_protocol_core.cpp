@@ -3146,6 +3146,43 @@ void from_json(const json& j, CreateHandle& p) {
       "schemaTableName");
 }
 } // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+
+void to_json(json& j, const DataOrganizationSpecification& p) {
+  j = json::object();
+  to_json_key(
+      j,
+      "partitionBy",
+      p.partitionBy,
+      "DataOrganizationSpecification",
+      "List<VariableReferenceExpression>",
+      "partitionBy");
+  to_json_key(
+      j,
+      "orderingScheme",
+      p.orderingScheme,
+      "DataOrganizationSpecification",
+      "OrderingScheme",
+      "orderingScheme");
+}
+
+void from_json(const json& j, DataOrganizationSpecification& p) {
+  from_json_key(
+      j,
+      "partitionBy",
+      p.partitionBy,
+      "DataOrganizationSpecification",
+      "List<VariableReferenceExpression>",
+      "partitionBy");
+  from_json_key(
+      j,
+      "orderingScheme",
+      p.orderingScheme,
+      "DataOrganizationSpecification",
+      "OrderingScheme",
+      "orderingScheme");
+}
+} // namespace facebook::presto::protocol
 /*
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -5634,6 +5671,19 @@ void from_json(const json& j, GroupIdNode& p) {
       "groupIdVariable");
 }
 } // namespace facebook::presto::protocol
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ConnectorIndexHandle>& p) {
   if (p == nullptr) {
@@ -9532,43 +9582,6 @@ void from_json(const json& j, SpecialFormExpression& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-
-void to_json(json& j, const Specification& p) {
-  j = json::object();
-  to_json_key(
-      j,
-      "partitionBy",
-      p.partitionBy,
-      "Specification",
-      "List<VariableReferenceExpression>",
-      "partitionBy");
-  to_json_key(
-      j,
-      "orderingScheme",
-      p.orderingScheme,
-      "Specification",
-      "OrderingScheme",
-      "orderingScheme");
-}
-
-void from_json(const json& j, Specification& p) {
-  from_json_key(
-      j,
-      "partitionBy",
-      p.partitionBy,
-      "Specification",
-      "List<VariableReferenceExpression>",
-      "partitionBy");
-  from_json_key(
-      j,
-      "orderingScheme",
-      p.orderingScheme,
-      "Specification",
-      "OrderingScheme",
-      "orderingScheme");
-}
-} // namespace facebook::presto::protocol
-namespace facebook::presto::protocol {
 SqlFunctionHandle::SqlFunctionHandle() noexcept {
   _type = "json_file";
 }
@@ -11328,7 +11341,7 @@ void to_json(json& j, const TopNRowNumberNode& p) {
       "specification",
       p.specification,
       "TopNRowNumberNode",
-      "Specification",
+      "DataOrganizationSpecification",
       "specification");
   to_json_key(
       j,
@@ -11364,7 +11377,7 @@ void from_json(const json& j, TopNRowNumberNode& p) {
       "specification",
       p.specification,
       "TopNRowNumberNode",
-      "Specification",
+      "DataOrganizationSpecification",
       "specification");
   from_json_key(
       j,
@@ -11560,7 +11573,7 @@ void to_json(json& j, const WindowNode& p) {
       "specification",
       p.specification,
       "WindowNode",
-      "Specification",
+      "DataOrganizationSpecification",
       "specification");
   to_json_key(
       j,
@@ -11608,7 +11621,7 @@ void from_json(const json& j, WindowNode& p) {
       "specification",
       p.specification,
       "WindowNode",
-      "Specification",
+      "DataOrganizationSpecification",
       "specification");
   from_json_key(
       j,

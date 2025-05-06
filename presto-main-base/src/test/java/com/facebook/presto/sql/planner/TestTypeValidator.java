@@ -26,6 +26,7 @@ import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.DataOrganizationSpecification;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.ProjectNode;
@@ -175,7 +176,7 @@ public class TestTypeValidator
 
         WindowNode.Function function = new WindowNode.Function(call("sum", functionHandle, DOUBLE, variableC), frame, false);
 
-        WindowNode.Specification specification = new WindowNode.Specification(ImmutableList.of(), Optional.empty());
+        DataOrganizationSpecification specification = new DataOrganizationSpecification(ImmutableList.of(), Optional.empty());
 
         PlanNode node = new WindowNode(
                 Optional.empty(),
@@ -437,7 +438,7 @@ public class TestTypeValidator
 
         WindowNode.Function function = new WindowNode.Function(call("sum", functionHandle, BIGINT, variableA), frame, false);
 
-        WindowNode.Specification specification = new WindowNode.Specification(ImmutableList.of(), Optional.empty());
+        DataOrganizationSpecification specification = new DataOrganizationSpecification(ImmutableList.of(), Optional.empty());
 
         PlanNode node = new WindowNode(
                 Optional.empty(),
@@ -471,7 +472,7 @@ public class TestTypeValidator
 
         WindowNode.Function function = new WindowNode.Function(call("sum", functionHandle, BIGINT, variableC), frame, false);
 
-        WindowNode.Specification specification = new WindowNode.Specification(ImmutableList.of(), Optional.empty());
+        DataOrganizationSpecification specification = new DataOrganizationSpecification(ImmutableList.of(), Optional.empty());
 
         PlanNode node = new WindowNode(
                 Optional.empty(),

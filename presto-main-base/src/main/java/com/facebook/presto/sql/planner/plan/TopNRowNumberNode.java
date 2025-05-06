@@ -14,10 +14,10 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.spi.SourceLocation;
+import com.facebook.presto.spi.plan.DataOrganizationSpecification;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.spi.plan.WindowNode.Specification;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -37,7 +37,7 @@ public final class TopNRowNumberNode
         extends InternalPlanNode
 {
     private final PlanNode source;
-    private final Specification specification;
+    private final DataOrganizationSpecification specification;
     private final VariableReferenceExpression rowNumberVariable;
     private final int maxRowCountPerPartition;
     private final boolean partial;
@@ -48,7 +48,7 @@ public final class TopNRowNumberNode
             Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
-            @JsonProperty("specification") Specification specification,
+            @JsonProperty("specification") DataOrganizationSpecification specification,
             @JsonProperty("rowNumberVariable") VariableReferenceExpression rowNumberVariable,
             @JsonProperty("maxRowCountPerPartition") int maxRowCountPerPartition,
             @JsonProperty("partial") boolean partial,
@@ -62,7 +62,7 @@ public final class TopNRowNumberNode
             PlanNodeId id,
             Optional<PlanNode> statsEquivalentPlanNode,
             PlanNode source,
-            Specification specification,
+            DataOrganizationSpecification specification,
             VariableReferenceExpression rowNumberVariable,
             int maxRowCountPerPartition,
             boolean partial,
@@ -109,7 +109,7 @@ public final class TopNRowNumberNode
     }
 
     @JsonProperty
-    public Specification getSpecification()
+    public DataOrganizationSpecification getSpecification()
     {
         return specification;
     }

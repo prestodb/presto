@@ -18,6 +18,7 @@ import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.plan.DataOrganizationSpecification;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -46,13 +47,13 @@ public final class WindowMatcher
         implements Matcher
 {
     private final Optional<Set<SymbolAlias>> prePartitionedInputs;
-    private final Optional<ExpectedValueProvider<WindowNode.Specification>> specification;
+    private final Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification;
     private final Optional<Integer> preSortedOrderPrefix;
     private final Optional<Optional<SymbolAlias>> hashSymbol;
 
     private WindowMatcher(
             Optional<Set<SymbolAlias>> prePartitionedInputs,
-            Optional<ExpectedValueProvider<WindowNode.Specification>> specification,
+            Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification,
             Optional<Integer> preSortedOrderPrefix,
             Optional<Optional<SymbolAlias>> hashSymbol)
     {
@@ -136,7 +137,7 @@ public final class WindowMatcher
     {
         private final PlanMatchPattern source;
         private Optional<Set<SymbolAlias>> prePartitionedInputs = Optional.empty();
-        private Optional<ExpectedValueProvider<WindowNode.Specification>> specification = Optional.empty();
+        private Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification = Optional.empty();
         private Optional<Integer> preSortedOrderPrefix = Optional.empty();
         private List<AliasMatcher> windowFunctionMatchers = new LinkedList<>();
         private Optional<Optional<SymbolAlias>> hashSymbol = Optional.empty();
@@ -164,7 +165,7 @@ public final class WindowMatcher
             return specification(PlanMatchPattern.specification(partitionBy, orderBy, orderings));
         }
 
-        public Builder specification(ExpectedValueProvider<WindowNode.Specification> specification)
+        public Builder specification(ExpectedValueProvider<DataOrganizationSpecification> specification)
         {
             requireNonNull(specification, "specification is null");
             this.specification = Optional.of(specification);

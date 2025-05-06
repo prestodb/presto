@@ -1018,6 +1018,14 @@ void to_json(json& j, const CreateHandle& p);
 void from_json(const json& j, CreateHandle& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+struct DataOrganizationSpecification {
+  List<VariableReferenceExpression> partitionBy = {};
+  std::shared_ptr<OrderingScheme> orderingScheme = {};
+};
+void to_json(json& j, const DataOrganizationSpecification& p);
+void from_json(const json& j, DataOrganizationSpecification& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 struct DeleteTableHandle {
   ConnectorId connectorId = {};
   std::shared_ptr<ConnectorTransactionHandle> transactionHandle = {};
@@ -2305,14 +2313,6 @@ void to_json(json& j, const SpecialFormExpression& p);
 void from_json(const json& j, SpecialFormExpression& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-struct Specification {
-  List<VariableReferenceExpression> partitionBy = {};
-  std::shared_ptr<OrderingScheme> orderingScheme = {};
-};
-void to_json(json& j, const Specification& p);
-void from_json(const json& j, Specification& p);
-} // namespace facebook::presto::protocol
-namespace facebook::presto::protocol {
 struct SqlFunctionHandle : public FunctionHandle {
   SqlFunctionId functionId = {};
   String version = {};
@@ -2591,7 +2591,7 @@ void from_json(const json& j, TopNNode& p);
 namespace facebook::presto::protocol {
 struct TopNRowNumberNode : public PlanNode {
   std::shared_ptr<PlanNode> source = {};
-  Specification specification = {};
+  DataOrganizationSpecification specification = {};
   VariableReferenceExpression rowNumberVariable = {};
   int maxRowCountPerPartition = {};
   bool partial = {};
@@ -2641,7 +2641,7 @@ struct WindowNode : public PlanNode {
   std::shared_ptr<SourceLocation> sourceLocation = {};
 
   std::shared_ptr<PlanNode> source = {};
-  Specification specification = {};
+  DataOrganizationSpecification specification = {};
   Map<VariableReferenceExpression, Function> windowFunctions = {};
   std::shared_ptr<VariableReferenceExpression> hashVariable = {};
   List<VariableReferenceExpression> prePartitionedInputs = {};

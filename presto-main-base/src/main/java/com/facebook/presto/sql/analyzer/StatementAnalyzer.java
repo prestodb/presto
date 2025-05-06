@@ -1530,6 +1530,8 @@ class StatementAnalyzer
             }
             ViewDefinition view = optionalView.get();
 
+            analysis.getAccessControlReferences().addViewDefinitionReference(name, view);
+
             Query query = parseView(view.getOriginalSql(), name, table);
 
             analysis.registerNamedQuery(table, query, true);
@@ -1567,6 +1569,8 @@ class StatementAnalyzer
                 MaterializedViewDefinition materializedViewDefinition)
         {
             MaterializedViewPlanValidator.validate((Query) sqlParser.createStatement(materializedViewDefinition.getOriginalSql(), createParsingOptions(session, warningCollector)));
+
+            analysis.getAccessControlReferences().addMaterializedViewDefinitionReference(materializedViewName, materializedViewDefinition);
 
             analysis.registerMaterializedViewForAnalysis(materializedViewName, materializedView, materializedViewDefinition.getOriginalSql());
             String newSql = getMaterializedViewSQL(materializedView, materializedViewName, materializedViewDefinition, scope);

@@ -18,6 +18,7 @@ import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.DataOrganizationSpecification;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.Ordering;
@@ -27,7 +28,6 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TopNNode;
-import com.facebook.presto.spi.plan.WindowNode.Specification;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -307,7 +307,7 @@ public class PlanNodeDecorrelator
                                 decorrelatedChildNode.getSourceLocation(),
                                 node.getId(),
                                 decorrelatedChildNode,
-                                new Specification(
+                                new DataOrganizationSpecification(
                                         ImmutableList.copyOf(childDecorrelationResult.variablesToPropagate),
                                         Optional.of(orderingScheme)),
                                 variableAllocator.newVariable("row_number", BIGINT),
