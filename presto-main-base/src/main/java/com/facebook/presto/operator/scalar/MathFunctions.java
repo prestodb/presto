@@ -1602,11 +1602,11 @@ public final class MathFunctions
         return lower;
     }
 
-    @Description("cosine similarity between the given sparse vectors")
-    @ScalarFunction
+    @Description("cosine similarity between the given sparse vectors represented as maps")
+    @ScalarFunction("cosine_similarity")
     @SqlNullable
     @SqlType(StandardTypes.DOUBLE)
-    public static Double cosineSimilarity(@SqlType("map(varchar,double)") Block leftMap, @SqlType("map(varchar,double)") Block rightMap)
+    public static Double mapCosineSimilarity(@SqlType("map(varchar,double)") Block leftMap, @SqlType("map(varchar,double)") Block rightMap)
     {
         Double normLeftMap = mapL2Norm(leftMap);
         Double normRightMap = mapL2Norm(rightMap);
@@ -1618,6 +1618,29 @@ public final class MathFunctions
         double dotProduct = mapDotProduct(leftMap, rightMap);
 
         return dotProduct / (normLeftMap * normRightMap);
+    }
+
+    @Description("cosine similarity between the given identical sized vectors represented as arrays")
+    @ScalarFunction("cosine_similarity")
+    @SqlNullable
+    @SqlType(StandardTypes.DOUBLE)
+    public static Double arrayCosineSimilarity(@SqlType("array(double)") Block leftArray, @SqlType("array(double)") Block rightArray)
+    {
+        checkCondition(
+                leftArray.getPositionCount() == rightArray.getPositionCount(),
+                INVALID_FUNCTION_ARGUMENT,
+                "Both array arguments need to have identical size");
+
+        Double normLeftArray = array2Norm(leftArray);
+        Double normRightArray = array2Norm(rightArray);
+
+        if (normLeftArray == null || normRightArray == null) {
+            return null;
+        }
+
+        double dotProduct = arrayDotProduct(leftArray, rightArray);
+
+        return dotProduct / (normLeftArray * normRightArray);
     }
 
     private static double mapDotProduct(Block leftMap, Block rightMap)
@@ -1642,6 +1665,17 @@ public final class MathFunctions
         return result;
     }
 
+    private static double arrayDotProduct(Block leftArray, Block rightArray)
+    {
+        double result = 0.0;
+
+        for (int i = 0; i < leftArray.getPositionCount(); i++) {
+            result += DOUBLE.getDouble(leftArray, i) * DOUBLE.getDouble(rightArray, i);
+        }
+
+        return result;
+    }
+
     private static Double mapL2Norm(Block map)
     {
         double norm = 0.0;
@@ -1651,6 +1685,19 @@ public final class MathFunctions
                 return null;
             }
             norm += DOUBLE.getDouble(map, i) * DOUBLE.getDouble(map, i);
+        }
+
+        return Math.sqrt(norm);
+    }
+
+    private static Double array2Norm(Block array)
+    {
+        double norm = 0.0;
+        for (int i = 0; i < array.getPositionCount(); i++) {
+            if (array.isNull(i)) {
+                return null;
+            }
+            norm += DOUBLE.getDouble(array, i) * DOUBLE.getDouble(array, i);
         }
 
         return Math.sqrt(norm);

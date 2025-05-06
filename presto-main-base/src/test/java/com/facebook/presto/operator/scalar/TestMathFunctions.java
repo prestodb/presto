@@ -1338,7 +1338,7 @@ public class TestMathFunctions
     }
 
     @Test
-    public void testCosineSimilarity()
+    public void testMapCosineSimilarity()
     {
         assertFunction("cosine_similarity(map(array ['a', 'b'], array [1.0E0, 2.0E0]), map(array ['c', 'b'], array [1.0E0, 3.0E0]))",
                 DOUBLE,
@@ -1357,6 +1357,52 @@ public class TestMathFunctions
                 null);
 
         assertFunction("cosine_similarity(map(array ['a', 'b'], array [1.0E0, null]), map(array ['c', 'b'], array [1.0E0, 3.0E0]))",
+                DOUBLE,
+                null);
+
+        assertFunction("cosine_similarity(map(), map(array ['c', 'b'], array [1.0E0, 3.0E0]))",
+                DOUBLE,
+                Double.NaN);
+
+        assertFunction("cosine_similarity(map(), map())",
+                DOUBLE,
+                Double.NaN);
+
+        assertFunction("cosine_similarity(map(), null)",
+                DOUBLE,
+                null);
+    }
+
+    @Test
+    public void testArrayCosineSimilarity()
+    {
+        assertFunction("cosine_similarity(array [1.0E0, 2.0E0], array [1.0E0, 3.0E0])",
+                DOUBLE,
+                (1 * 1 + 2 * 3) / (Math.sqrt(5) * Math.sqrt(10)));
+
+        assertFunction("cosine_similarity(array [1.0E0, 2.0E0, -1.0E0], array [1.0E0, 3.0E0, 5.0E0])",
+                DOUBLE,
+                (1 * 1 + 2 * 3 + (-1) * 5) / (Math.sqrt(1 + 4 + 1) * Math.sqrt(1 + 9 + 25)));
+
+        assertFunction("cosine_similarity(null, array [1.0E0, 3.0E0])",
+                DOUBLE,
+                null);
+
+        assertFunction("cosine_similarity(null, null)",
+                DOUBLE,
+                null);
+
+        assertFunction("cosine_similarity(array [1.0E0, null], array [1.0E0, 3.0E0])",
+                DOUBLE,
+                null);
+
+        assertInvalidFunction("cosine_similarity(array [], array [1.0E0, 3.0E0])", "Both array arguments need to have identical size");
+
+        assertFunction("cosine_similarity(array [], array [])",
+                DOUBLE,
+                Double.NaN);
+
+        assertFunction("cosine_similarity(array [], null)",
                 DOUBLE,
                 null);
     }
