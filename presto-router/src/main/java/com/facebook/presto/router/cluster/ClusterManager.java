@@ -56,7 +56,9 @@ import java.util.stream.Collectors;
 
 import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.presto.router.RouterUtil.parseRouterConfig;
+import static com.facebook.presto.router.scheduler.SchedulerType.ROUND_ROBIN;
 import static com.facebook.presto.router.scheduler.SchedulerType.WEIGHTED_RANDOM_CHOICE;
+import static com.facebook.presto.router.scheduler.SchedulerType.WEIGHTED_ROUND_ROBIN;
 import static com.facebook.presto.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -79,6 +81,7 @@ public class ClusterManager
     private final AtomicBoolean isWatchServiceStarted = new AtomicBoolean();
     private final RemoteInfoFactory remoteInfoFactory;
     private final LifeCycleManager lifeCycleManager;
+    private final HashMap<String, HashMap<URI, Integer>> serverWeights = new HashMap<>();
 
     @Inject
     public ClusterManager(RouterConfig config, RemoteInfoFactory remoteInfoFactory, LifeCycleManager lifeCycleManager)
@@ -87,6 +90,7 @@ public class ClusterManager
         this.remoteInfoFactory = requireNonNull(remoteInfoFactory, "remoteInfoFactory is null");
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifecycleManager is null");
         onConfigChangeDetection();
+        this.initializeServerWeights();
     }
 
     protected void onConfigChangeDetection()
@@ -200,9 +204,14 @@ public class ClusterManager
         log.debug("Available clusters: %s", healthyClusterURIs);
 
         config.getScheduler().setCandidates(healthyClusterURIs);
-        if (config.getSchedulerType() == WEIGHTED_RANDOM_CHOICE) {
+        if (config.getSchedulerType() == WEIGHTED_RANDOM_CHOICE || config.getSchedulerType() == WEIGHTED_ROUND_ROBIN) {
             config.getScheduler().setWeights(config.getServerWeights().get(groupSpec.getName()));
         }
+
+        if (config.getSchedulerType() == ROUND_ROBIN || config.getSchedulerType() == WEIGHTED_ROUND_ROBIN) {
+            config.getScheduler().setCandidateGroupName(target.get());
+        }
+
         return config.getScheduler().getDestination(requestInfo.getUser());
     }
 
@@ -213,6 +222,18 @@ public class ClusterManager
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .findFirst();
+    }
+
+    private void initializeServerWeights()
+    {
+        currentConfig.get().getGroups().forEach((name, groupSpec) -> {
+            List<URI> members = groupSpec.getMembers();
+            List<Integer> weights = groupSpec.getWeights();
+            serverWeights.put(name, new HashMap<>());
+            for (int i = 0; i < members.size(); i++) {
+                serverWeights.get(name).put(members.get(i), weights.get(i));
+            }
+        });
     }
 
     private void initializeMembersDiscoveryURI(Map<URI, URI> discoveryURIs, Map<String, GroupSpec> groups)

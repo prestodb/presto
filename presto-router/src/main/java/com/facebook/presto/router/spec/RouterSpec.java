@@ -68,13 +68,13 @@ public class RouterSpec
         return selectors;
     }
 
-    @JsonProperty
+    @JsonProperty("scheduler")
     public SchedulerType getSchedulerType()
     {
         return schedulerType.orElse(RANDOM_CHOICE);
     }
 
-    @JsonProperty
+    @JsonProperty("predictor")
     public Optional<URI> getPredictorUri()
     {
         try {

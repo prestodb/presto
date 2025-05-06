@@ -26,6 +26,7 @@ import com.facebook.presto.router.cluster.RequestInfo;
 import com.facebook.presto.router.spec.GroupSpec;
 import com.facebook.presto.router.spec.RouterSpec;
 import com.facebook.presto.router.spec.SelectorRuleSpec;
+import com.facebook.presto.server.MockHttpServletRequest;
 import com.facebook.presto.server.security.ServerSecurityModule;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.tpch.TpchPlugin;
@@ -163,7 +164,7 @@ public class TestHealthChecks
 
     private Optional<URI> getDestinationWrapper()
     {
-        HttpServletRequest request = new MockRouterHttpServletRequest(
+        HttpServletRequest request = new MockHttpServletRequest(
                 ImmutableListMultimap.of(),
                 "testRemote",
                 ImmutableMap.of());
