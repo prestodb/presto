@@ -15,6 +15,7 @@
  */
 
 #include "velox/exec/tests/utils/PlanBuilder.h"
+#include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/parse/TypeResolver.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
@@ -147,6 +148,47 @@ TEST_F(PlanNodeToSummaryStringTest, expressions) {
       "        table: hive_table\n",
       plan->toSummaryString(
           {.project = {.maxProjections = 3, .maxDereferences = 2}}));
+}
+
+TEST_F(PlanNodeToSummaryStringTest, aggregation) {
+  aggregate::prestosql::registerAllAggregateFunctions();
+  auto rowType =
+      ROW({"a", "b", "c"},
+          {
+              INTEGER(),
+              INTEGER(),
+              INTEGER(),
+          });
+
+  auto plan = PlanBuilder()
+                  .tableScan(rowType)
+                  .streamingAggregation(
+                      {"a"},
+                      {
+                          "sum(b)",
+                          "avg(b + a)",
+                          "count(DISTINCT c)",
+                          "max(b)",
+                          "max(c)",
+                      },
+                      {}, /* masks */
+                      core::AggregationNode::Step::kSingle,
+                      false)
+                  .planNode();
+
+  ASSERT_EQ(
+      "-- Aggregation[1]: 6 fields: a INTEGER, a0 BIGINT, a1 DOUBLE, a2 BIGINT, a3"
+      " INTEGER, ...\n"
+      "      expressions: call: 6, field: 6\n"
+      "      functions: avg: 1, count: 1, max: 2, plus: 1, sum: 1\n"
+      "      aggregations: 5\n"
+      "         0: sum(ROW[\"b\"])\n"
+      "         1: avg(plus(ROW[\"b\"],ROW[\"a\"]))\n"
+      "         2: DISTINCTcount(ROW[\"c\"])\n"
+      "         ... 2 more\n"
+      "  -- TableScan[0]: 3 fields: a INTEGER, b INTEGER, c INTEGER\n"
+      "        table: hive_table\n",
+      plan->toSummaryString({.aggregate = {.maxAggregations = 3}}));
 }
 
 } // namespace

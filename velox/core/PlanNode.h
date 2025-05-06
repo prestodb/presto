@@ -139,6 +139,16 @@ struct PlanSummaryOptions {
   /// well as up to 2 fields of a struct: ARRAY(REAL), MAP(INTEGER, ARRAY),
   /// ROW(VARCHAR, ARRAY,...).
   size_t maxChildTypes = 0;
+
+  /// Options that apply specifically to AGGREGATION nodes.
+  struct AggregateOptions {
+    /// For a given AGGREGATION node, maximum number of aggregate expressions
+    /// to include in the summary. By default, no aggregate expression is
+    /// included.
+    size_t maxAggregations = 0;
+  };
+
+  AggregateOptions aggregate = {};
 };
 
 class PlanNode : public ISerializable {
@@ -1256,6 +1266,11 @@ class AggregationNode : public PlanNode {
   static const std::optional<FieldAccessTypedExprPtr> kDefaultGroupId;
 
   void addDetails(std::stringstream& stream) const override;
+
+  void addSummaryDetails(
+      const std::string& indentation,
+      const PlanSummaryOptions& options,
+      std::stringstream& stream) const override;
 
   const Step step_;
   const std::vector<FieldAccessTypedExprPtr> groupingKeys_;

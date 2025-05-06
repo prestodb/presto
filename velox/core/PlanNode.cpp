@@ -932,6 +932,28 @@ void appendProjections(
   }
 }
 
+void appendAggregations(
+    const std::string& indentation,
+    const AggregationNode& op,
+    size_t cnt,
+    std::stringstream& stream) {
+  if (cnt == 0) {
+    return;
+  }
+
+  for (auto i = 0; i < cnt; ++i) {
+    const auto& expr = op.aggregates().at(i).call;
+    stream << indentation << i << ": "
+           << (op.aggregates().at(i).distinct ? "DISTINCT" : "")
+           << truncate(expr->toString()) << std::endl;
+  }
+
+  if (cnt < op.aggregates().size()) {
+    stream << indentation << "... " << (op.aggregates().size() - cnt) << " more"
+           << std::endl;
+  }
+}
+
 void appendExprSummary(
     const std::string& indentation,
     const PlanSummaryOptions& options,
@@ -3074,6 +3096,28 @@ void FilterNode::accept(
     const PlanNodeVisitor& visitor,
     PlanNodeVisitorContext& context) const {
   visitor.visit(*this, context);
+}
+
+void AggregationNode::addSummaryDetails(
+    const std::string& indentation,
+    const PlanSummaryOptions& options,
+    std::stringstream& stream) const {
+  std::stringstream out;
+  SummarizeExprVisitor::Context exprCtx;
+  SummarizeExprVisitor visitor;
+  for (const auto& aggregate : aggregates()) {
+    aggregate.call->accept(visitor, exprCtx);
+  }
+
+  appendExprSummary(indentation, options, exprCtx, stream);
+
+  stream << indentation << "aggregations: " << aggregates().size() << std::endl;
+
+  {
+    const auto cnt =
+        std::min(options.aggregate.maxAggregations, aggregates().size());
+    appendAggregations(indentation + "   ", *this, cnt, stream);
+  }
 }
 
 // static
