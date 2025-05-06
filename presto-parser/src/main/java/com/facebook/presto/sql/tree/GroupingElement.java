@@ -13,8 +13,12 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.spi.PrestoException;
+
 import java.util.List;
 import java.util.Optional;
+
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 
 public abstract class GroupingElement
         extends Node
@@ -39,7 +43,7 @@ public abstract class GroupingElement
             @Override
             public Expression rewriteLambdaExpression(LambdaExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                throw new UnsupportedOperationException("GROUP BY does not support lambda expressions, please use GROUP BY # instead");
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "GROUP BY does not support lambda expressions, please use GROUP BY # instead");
             }
         }, expression, null));
     }
