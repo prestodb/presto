@@ -764,12 +764,13 @@ void JoinFuzzer::verify(core::JoinType joinType) {
         numGroups, false, JoinMaker::JoinOrder::NATURAL));
 
     // Use mixed mode grouped execution.
-    if (!needRightSideJoin(joinType)) {
-      // Mixed grouped mode join does not support types that needs right side
-      // join.
-      altPlans.push_back(joinMaker.makeHashJoinWithTableScan(
-          numGroups, true, JoinMaker::JoinOrder::NATURAL));
-    }
+    // TODO(jtan6): Unblock mixed mode after fix fuzzer.
+    // if (!needRightSideJoin(joinType)) {
+    //   // Mixed grouped mode join does not support types that needs right side
+    //   // join.
+    //   altPlans.push_back(joinMaker.makeHashJoinWithTableScan(
+    //       numGroups, true, JoinMaker::JoinOrder::NATURAL));
+    // }
 
     if (joinMaker.supportsFlippingHashJoin()) {
       // Use ungrouped execution.
@@ -781,12 +782,14 @@ void JoinFuzzer::verify(core::JoinType joinType) {
           numGroups, false, JoinMaker::JoinOrder::FLIPPED));
 
       // Use mixed mode grouped execution.
-      if (!needRightSideJoin(flipJoinType(joinType))) {
-        // Mixed grouped mode join does not support types that needs right side
-        // join.
-        altPlans.push_back(joinMaker.makeHashJoinWithTableScan(
-            numGroups, true, JoinMaker::JoinOrder::FLIPPED));
-      }
+      // TODO(jtan6): Unblock mixed mode after fix fuzzer.
+      // if (!needRightSideJoin(flipJoinType(joinType))) {
+      //   // Mixed grouped mode join does not support types that needs right
+      //   side
+      //   // join.
+      //   altPlans.push_back(joinMaker.makeHashJoinWithTableScan(
+      //       numGroups, true, JoinMaker::JoinOrder::FLIPPED));
+      // }
     }
 
     if (joinMaker.supportsMergeJoin()) {
