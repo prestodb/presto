@@ -29,6 +29,7 @@ import static com.facebook.airlift.configuration.testing.ConfigAssertions.record
 import static com.facebook.presto.execution.TaskManagerConfig.TaskPriorityTracking.QUERY_FAIR;
 import static com.facebook.presto.execution.TaskManagerConfig.TaskPriorityTracking.TASK_FAIR;
 import static io.airlift.units.DataSize.Unit;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestTaskManagerConfig
@@ -79,7 +80,7 @@ public class TestTaskManagerConfig
                 .setHighMemoryTaskKillerFrequentFullGCDurationThreshold(new Duration(1, SECONDS))
                 .setHighMemoryTaskKillerHeapMemoryThreshold(0.9)
                 .setTaskUpdateSizeTrackingEnabled(true)
-                .setSlowMethodThresholdOnEventLoop(new Duration(10, SECONDS))
+                .setSlowMethodThresholdOnEventLoop(new Duration(0, SECONDS))
                 .setEventLoopEnabled(false));
     }
 
@@ -130,7 +131,7 @@ public class TestTaskManagerConfig
                 .put("experimental.task.high-memory-task-killer-heap-memory-threshold", "0.8")
                 .put("task.update-size-tracking-enabled", "false")
                 .put("task.enable-event-loop", "true")
-                .put("task.event-loop-slow-method-threshold", "1s")
+                .put("task.event-loop-slow-method-threshold", "10m")
                 .build();
 
         TaskManagerConfig expected = new TaskManagerConfig()
@@ -177,7 +178,7 @@ public class TestTaskManagerConfig
                 .setHighMemoryTaskKillerHeapMemoryThreshold(0.8)
                 .setTaskUpdateSizeTrackingEnabled(false)
                 .setEventLoopEnabled(true)
-                .setSlowMethodThresholdOnEventLoop(new Duration(1, SECONDS));
+                .setSlowMethodThresholdOnEventLoop(new Duration(10, MINUTES));
 
         assertFullMapping(properties, expected);
     }
