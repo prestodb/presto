@@ -16,53 +16,30 @@ package com.facebook.presto.plugin.clp;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.NodeProvider;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nullable;
-
 import java.util.List;
-import java.util.Optional;
 
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 
 public class ClpSplit
         implements ConnectorSplit
 {
-    private final SchemaTableName schemaTableName;
-    private final String archivePath;
-    private final Optional<String> kqlQuery;
+    private final String path;
 
     @JsonCreator
-    public ClpSplit(@JsonProperty("schemaTableName") @Nullable SchemaTableName schemaTableName,
-                    @JsonProperty("archivePath") @Nullable String archivePath,
-                    @JsonProperty("kqlQuery") Optional<String> kqlQuery)
+    public ClpSplit(@JsonProperty("path") String path)
     {
-        this.schemaTableName = schemaTableName;
-        this.archivePath = archivePath;
-        this.kqlQuery = kqlQuery;
+        this.path = path;
     }
 
     @JsonProperty
-    @Nullable
-    public SchemaTableName getSchemaTableName()
+    public String getPath()
     {
-        return schemaTableName;
-    }
-
-    @JsonProperty
-    public String getArchivePath()
-    {
-        return archivePath;
-    }
-
-    @JsonProperty
-    public Optional<String> getKqlQuery()
-    {
-        return kqlQuery;
+        return path;
     }
 
     @Override
