@@ -193,21 +193,21 @@ TEST_F(ArrayJoinTest, jsonTest) {
 
   // JSON strings with special characters
   input = {
-      R"({"key": "value\with\backslash"})",
+      R"({"key": "value\with\slash"})",
       std::nullopt,
-      R"('value\with\backslash')",
+      R"("value\with\slash")",
   };
   testArrayJoinNoReplacement<StringView>(
       input,
       ", ",
-      R"({"key": "value\with\backslash"}, 'value\with\backslash')",
+      "{\"key\": \"value\\with\\slash\"}, value\\with\\slash"_sv,
       false,
       true);
   testArrayJoinReplacement<StringView>(
       input,
       ", ",
       "0",
-      R"({"key": "value\with\backslash"}, 0, 'value\with\backslash')",
+      "{\"key\": \"value\\with\\slash\"}, 0, value\\with\\slash"_sv,
       false,
       true);
 
@@ -219,14 +219,33 @@ TEST_F(ArrayJoinTest, jsonTest) {
   testArrayJoinNoReplacement<StringView>(
       input,
       ", ",
-      R"({"key": "value\nwith\nnewline"}, value\nwith\nnewline)",
+      "{\"key\": \"value\nwith\nnewline\"}, value\nwith\nnewline"_sv,
       false,
       true);
   testArrayJoinReplacement<StringView>(
       input,
       ", ",
       "0",
-      R"({"key": "value\nwith\nnewline"}, 0, value\nwith\nnewline)",
+      "{\"key\": \"value\nwith\nnewline\"}, 0, value\nwith\nnewline"_sv,
+      false,
+      true);
+
+  input = {
+      R"("tab\t")",
+      R"("backslash\/new line\ntab\tcarriage return\rbackspace\bform feed\fdouble quote\"Unicode code point\u00A9")",
+      std::nullopt,
+  };
+  testArrayJoinNoReplacement<StringView>(
+      input,
+      ", ",
+      "tab\t, backslash/new line\ntab\tcarriage return\rbackspace\bform feed\fdouble quote\"Unicode code point\u00A9"_sv,
+      false,
+      true);
+  testArrayJoinReplacement<StringView>(
+      input,
+      ", ",
+      "0",
+      "tab\t, backslash/new line\ntab\tcarriage return\rbackspace\bform feed\fdouble quote\"Unicode code point\u00A9, 0"_sv,
       false,
       true);
 
@@ -238,14 +257,14 @@ TEST_F(ArrayJoinTest, jsonTest) {
   testArrayJoinNoReplacement<StringView>(
       input,
       ", ",
-      R"({"key": "value with \u00A9 and \u20AC"}, value with \u00A9 and \u20AC)",
+      "{\"key\": \"value with \u00A9 and \u20AC\"}, value with \u00A9 and \u20AC"_sv,
       false,
       true);
   testArrayJoinReplacement<StringView>(
       input,
       ", ",
       "0",
-      R"({"key": "value with \u00A9 and \u20AC"}, 0, value with \u00A9 and \u20AC)",
+      "{\"key\": \"value with \u00A9 and \u20AC\"}, 0, value with \u00A9 and \u20AC"_sv,
       false,
       true);
 

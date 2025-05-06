@@ -88,6 +88,22 @@ inline bool needNormalizeForJsonParse(const char* input, size_t length) {
   return false;
 }
 
+/// Unescape for JSON functions.
+/// @param input: Input string to unescape.
+/// @param length: Length of the input string.
+/// @param output: Output string to write the unescaped input to.
+/// @param fully: If true, unescape all characters. If false, unescape only
+/// unicode and forward slash. The false case is used for json cast.
+void unescapeForJsonFunctions(
+    const char* input,
+    size_t length,
+    char* output,
+    bool fully);
+
+/// Size of output buffer required when unescaping for json functions.
+size_t
+unescapeSizeForJsonFunctions(const char* input, size_t length, bool fully);
+
 /// Unescape for JSON casting. This is used when going from
 /// JSON  -> ARRAY(JSON) or JSON -> MAP(_, JSON) etc.
 /// In these cases Presto unescapes the string, replacing \\ with \, \n with

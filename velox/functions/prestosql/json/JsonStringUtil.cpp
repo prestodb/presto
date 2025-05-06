@@ -498,7 +498,8 @@ size_t normalizedSizeForJsonParse(const char* input, size_t length) {
   return outSize;
 }
 
-size_t unescapeSizeForJsonCast(const char* input, size_t length) {
+size_t
+unescapeSizeForJsonFunctions(const char* input, size_t length, bool fully) {
   auto* start = input;
   auto* end = input + length;
   size_t outSize = 0;
@@ -541,6 +542,19 @@ size_t unescapeSizeForJsonCast(const char* input, size_t length) {
           start += 6;
           continue;
         }
+        case 'b':
+        case 'n':
+        case 'f':
+        case 'r':
+        case 't':
+        case '"': {
+          if (fully) {
+            ++outSize;
+            start += 2;
+            continue;
+          }
+        }
+          [[fallthrough]];
         default:
           outSize += 2;
           start += 2;
@@ -575,7 +589,15 @@ size_t unescapeSizeForJsonCast(const char* input, size_t length) {
   return outSize;
 }
 
-void unescapeForJsonCast(const char* input, size_t length, char* output) {
+size_t unescapeSizeForJsonCast(const char* input, size_t length) {
+  return unescapeSizeForJsonFunctions(input, length, false);
+}
+
+void unescapeForJsonFunctions(
+    const char* input,
+    size_t length,
+    char* output,
+    bool fully) {
   char* pos = output;
   auto* start = input;
   auto* end = input + length;
@@ -631,6 +653,20 @@ void unescapeForJsonCast(const char* input, size_t length, char* output) {
           start += 6;
           continue;
         }
+        case 'b':
+        case 'n':
+        case 'f':
+        case 'r':
+        case 't':
+        case '"': {
+          if (fully) {
+            size_t index = 0;
+            *pos++ = getEscapedChar(std::string_view(start, 2), index);
+            start += 2;
+            continue;
+          }
+        }
+          [[fallthrough]];
         default:
           *pos++ = *start;
           *pos++ = *(start + 1);
@@ -665,6 +701,9 @@ void unescapeForJsonCast(const char* input, size_t length, char* output) {
       }
     }
   }
+}
+void unescapeForJsonCast(const char* input, size_t length, char* output) {
+  unescapeForJsonFunctions(input, length, output, false);
 }
 
 } // namespace facebook::velox

@@ -22,6 +22,7 @@
 #include "velox/functions/Udf.h"
 #include "velox/functions/lib/CheckedArithmetic.h"
 #include "velox/functions/lib/ComparatorUtil.h"
+#include "velox/functions/prestosql/json/JsonStringUtil.h"
 #include "velox/functions/prestosql/json/SIMDJsonUtil.h"
 #include "velox/functions/prestosql/types/JsonType.h"
 #include "velox/type/Conversions.h"
@@ -197,13 +198,19 @@ struct ArrayJoinFunction {
   void writeValue(out_type<velox::Varchar>& result, const StringView& value) {
     // To VARCHAR converter never throws.
     if (isJsonType(arrayElementType_)) {
-      if (value.size() >= 2 && *value.begin() == '"' &&
-          *(value.end() - 1) == '"') {
-        result += util::Converter<TypeKind::VARCHAR>::tryCast(
-                      std::string_view(value.data() + 1, value.size() - 2))
-                      .value();
-        return;
+      std::string unescapedStr;
+      auto size =
+          unescapeSizeForJsonFunctions(value.data(), value.size(), true);
+      unescapedStr.resize(size);
+      unescapeForJsonFunctions(
+          value.data(), value.size(), unescapedStr.data(), true);
+      if (unescapedStr.size() >= 2 && *unescapedStr.begin() == '"' &&
+          *(unescapedStr.end() - 1) == '"') {
+        unescapedStr =
+            std::string_view(unescapedStr.data() + 1, unescapedStr.size() - 2);
       }
+      result += unescapedStr;
+      return;
     }
     result += util::Converter<TypeKind::VARCHAR>::tryCast(value).value();
   }
