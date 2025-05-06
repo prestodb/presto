@@ -27,7 +27,6 @@
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/time/Timer.h"
-#include "velox/exec/Exchange.h"
 
 using namespace facebook::velox;
 
@@ -566,33 +565,8 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
   std::lock_guard<std::mutex> l(prestoTask->mutex);
 
   if (startTask) {
-    const uint32_t maxDrivers =
-        execTask->queryCtx()->queryConfig().get<int32_t>(
-            kMaxDriversPerTask.data(),
-            SystemConfig::instance()->maxDriversPerTask());
-    uint32_t concurrentLifespans =
-        execTask->queryCtx()->queryConfig().get<int32_t>(
-            kConcurrentLifespansPerTask.data(),
-            SystemConfig::instance()->concurrentLifespansPerTask());
-    // Zero concurrent lifespans means 'unlimited', but we still limit the
-    // number to some reasonable one.
-    if (concurrentLifespans == 0) {
-      concurrentLifespans = kMaxConcurrentLifespans;
-    }
+    startTaskLocked(prestoTask);
 
-    if (execTask->isGroupedExecution()) {
-      LOG(INFO) << "Starting task " << taskId << " with " << maxDrivers
-                << " max drivers and " << concurrentLifespans
-                << " concurrent lifespans (grouped execution).";
-    } else {
-      LOG(INFO) << "Starting task " << taskId << " with " << maxDrivers
-                << " max drivers.";
-    }
-    execTask->start(maxDrivers, concurrentLifespans);
-
-    prestoTask->taskStarted = true;
-    prestoTask->info.stats.queuedTimeInNanos =
-        velox::getCurrentTimeMs() - prestoTask->createTimeMs;
     resultRequests = std::move(prestoTask->resultRequests);
     statusRequest = prestoTask->statusRequest;
     infoRequest = prestoTask->infoRequest;
@@ -651,6 +625,39 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
         std::make_unique<protocol::TaskStatus>(info.taskStatus));
   }
   return std::make_unique<TaskInfo>(info);
+}
+
+void TaskManager::startTaskLocked(std::shared_ptr<PrestoTask>& prestoTask) {
+  auto execTask = prestoTask->task;
+  if (execTask == nullptr) {
+    return;
+  }
+
+  const uint32_t maxDrivers = execTask->queryCtx()->queryConfig().get<int32_t>(
+      kMaxDriversPerTask.data(), SystemConfig::instance()->maxDriversPerTask());
+  uint32_t concurrentLifespans =
+      execTask->queryCtx()->queryConfig().get<int32_t>(
+          kConcurrentLifespansPerTask.data(),
+          SystemConfig::instance()->concurrentLifespansPerTask());
+  // Zero concurrent lifespans means 'unlimited', but we still limit the
+  // number to some reasonable one.
+  if (concurrentLifespans == 0) {
+    concurrentLifespans = kMaxConcurrentLifespans;
+  }
+
+  if (execTask->isGroupedExecution()) {
+    LOG(INFO) << "Starting task " << prestoTask->info.taskId << " with "
+              << maxDrivers << " max drivers and " << concurrentLifespans
+              << " concurrent lifespans (grouped execution).";
+  } else {
+    LOG(INFO) << "Starting task " << prestoTask->info.taskId << " with "
+              << maxDrivers << " max drivers.";
+  }
+  execTask->start(maxDrivers, concurrentLifespans);
+
+  prestoTask->taskStarted = true;
+  prestoTask->info.stats.queuedTimeInNanos =
+      (velox::getCurrentTimeMs() - prestoTask->createTimeMs) * 1'000'000;
 }
 
 std::unique_ptr<TaskInfo>

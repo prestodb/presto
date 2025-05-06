@@ -192,6 +192,9 @@ class TaskManager {
       const protocol::TaskId& taskId,
       long startProcessCpuTime = 0);
 
+  // Starting the task with task mutex already locked.
+  void startTaskLocked(std::shared_ptr<PrestoTask>& prestoTask);
+
   std::string baseUri_;
   std::string nodeId_;
   folly::Synchronized<std::string> baseSpillDir_;
