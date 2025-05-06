@@ -224,7 +224,8 @@ target_link_libraries(
   velox_memory_arbitration_fuzzer_test velox_memory_arbitration_fuzzer
   GTest::gtest GTest::gtest_main)
 
-add_executable(velox_table_evolution_fuzzer_test TableEvolutionFuzzerTest.cpp)
+add_executable(velox_table_evolution_fuzzer_test TableEvolutionFuzzerTest.cpp
+                                                 TableEvolutionFuzzer.cpp)
 
 target_link_libraries(
   velox_table_evolution_fuzzer_test
