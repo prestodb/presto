@@ -14,6 +14,7 @@
 package com.facebook.presto.spi;
 
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import java.util.List;
 import java.util.Map;
@@ -43,6 +44,7 @@ public interface ConnectorSplit
      * <p> Instead use {@link #getInfoMap()} method which returns a <pre>{@code Map<String, String>}</pre>
      */
     @Deprecated
+    @JsonIgnore
     Object getInfo();
 
     default Map<String, String> getInfoMap()

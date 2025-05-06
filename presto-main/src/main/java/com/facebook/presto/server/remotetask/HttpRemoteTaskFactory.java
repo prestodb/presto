@@ -84,6 +84,7 @@ public class HttpRemoteTaskFactory
     //Json codec required for TaskUpdateRequest endpoint which uses JSON and returns a TaskInfo
     private final Codec<TaskInfo> taskInfoJsonCodec;
     private final Codec<TaskUpdateRequest> taskUpdateRequestCodec;
+    private final Codec<TaskInfo> taskInfoResponseCodec;
     private final Codec<PlanFragment> planFragmentCodec;
     private final Codec<MetadataUpdates> metadataUpdatesCodec;
     private final Duration maxErrorDuration;
@@ -102,6 +103,8 @@ public class HttpRemoteTaskFactory
     private final boolean binaryTransportEnabled;
     private final boolean thriftTransportEnabled;
     private final boolean taskInfoThriftTransportEnabled;
+    private final boolean taskUpdateRequestThriftSerdeEnabled;
+    private final boolean taskInfoResponseThriftSerdeEnabled;
     private final Protocol thriftProtocol;
     private final int maxTaskUpdateSizeInBytes;
     private final MetadataManager metadataManager;
@@ -125,6 +128,7 @@ public class HttpRemoteTaskFactory
             ThriftCodec<TaskInfo> taskInfoThriftCodec,
             JsonCodec<TaskUpdateRequest> taskUpdateRequestJsonCodec,
             SmileCodec<TaskUpdateRequest> taskUpdateRequestSmileCodec,
+            ThriftCodec<TaskUpdateRequest> taskUpdateRequestThriftCodec,
             JsonCodec<PlanFragment> planFragmentJsonCodec,
             SmileCodec<PlanFragment> planFragmentSmileCodec,
             JsonCodec<MetadataUpdates> metadataUpdatesJsonCodec,
@@ -153,6 +157,9 @@ public class HttpRemoteTaskFactory
         binaryTransportEnabled = communicationConfig.isBinaryTransportEnabled();
         thriftTransportEnabled = communicationConfig.isThriftTransportEnabled();
         taskInfoThriftTransportEnabled = communicationConfig.isTaskInfoThriftTransportEnabled();
+        taskUpdateRequestThriftSerdeEnabled = communicationConfig.isTaskUpdateRequestThriftSerdeEnabled();
+        taskInfoResponseThriftSerdeEnabled = communicationConfig.isTaskInfoResponseThriftSerdeEnabled();
+
         thriftProtocol = communicationConfig.getThriftProtocol();
         this.maxTaskUpdateSizeInBytes = toIntExact(requireNonNull(communicationConfig, "communicationConfig is null").getMaxTaskUpdateSize().toBytes());
 
@@ -176,13 +183,31 @@ public class HttpRemoteTaskFactory
             this.taskInfoCodec = taskInfoJsonCodec;
         }
 
-        this.taskInfoJsonCodec = taskInfoJsonCodec;
-        if (binaryTransportEnabled) {
+        if (taskUpdateRequestThriftSerdeEnabled) {
+            this.taskUpdateRequestCodec = wrapThriftCodec(taskUpdateRequestThriftCodec);
+        }
+        else if (binaryTransportEnabled) {
             this.taskUpdateRequestCodec = taskUpdateRequestSmileCodec;
-            this.metadataUpdatesCodec = metadataUpdatesSmileCodec;
         }
         else {
             this.taskUpdateRequestCodec = taskUpdateRequestJsonCodec;
+        }
+
+        if (taskInfoResponseThriftSerdeEnabled) {
+            this.taskInfoResponseCodec = wrapThriftCodec(taskInfoThriftCodec);
+        }
+        else if (binaryTransportEnabled) {
+            this.taskInfoResponseCodec = taskInfoSmileCodec;
+        }
+        else {
+            this.taskInfoResponseCodec = taskInfoJsonCodec;
+        }
+
+        this.taskInfoJsonCodec = taskInfoJsonCodec;
+        if (binaryTransportEnabled) {
+            this.metadataUpdatesCodec = metadataUpdatesSmileCodec;
+        }
+        else {
             this.metadataUpdatesCodec = metadataUpdatesJsonCodec;
         }
         this.planFragmentCodec = planFragmentJsonCodec;
@@ -264,6 +289,7 @@ public class HttpRemoteTaskFactory
                     taskInfoCodec,
                     taskInfoJsonCodec,
                     taskUpdateRequestCodec,
+                    taskInfoResponseCodec,
                     planFragmentCodec,
                     metadataUpdatesCodec,
                     nodeStatsTracker,
@@ -271,6 +297,8 @@ public class HttpRemoteTaskFactory
                     binaryTransportEnabled,
                     thriftTransportEnabled,
                     taskInfoThriftTransportEnabled,
+                    taskUpdateRequestThriftSerdeEnabled,
+                    taskInfoResponseThriftSerdeEnabled,
                     thriftProtocol,
                     tableWriteInfo,
                     maxTaskUpdateSizeInBytes,
@@ -306,6 +334,7 @@ public class HttpRemoteTaskFactory
                 taskInfoCodec,
                 taskInfoJsonCodec,
                 taskUpdateRequestCodec,
+                taskInfoResponseCodec,
                 planFragmentCodec,
                 metadataUpdatesCodec,
                 nodeStatsTracker,
@@ -313,6 +342,8 @@ public class HttpRemoteTaskFactory
                 binaryTransportEnabled,
                 thriftTransportEnabled,
                 taskInfoThriftTransportEnabled,
+                taskUpdateRequestThriftSerdeEnabled,
+                taskInfoResponseThriftSerdeEnabled,
                 thriftProtocol,
                 tableWriteInfo,
                 maxTaskUpdateSizeInBytes,

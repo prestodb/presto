@@ -40,19 +40,22 @@ public class SqlFunctionId
     private final List<TypeSignature> argumentTypes;
 
     @ThriftConstructor
+    public SqlFunctionId(String signature)
+    {
+        this(parseSqlFunctionId(signature).getFunctionName(), parseSqlFunctionId(signature).getArgumentTypes());
+    }
+
     public SqlFunctionId(QualifiedObjectName functionName, List<TypeSignature> argumentTypes)
     {
         this.functionName = requireNonNull(functionName, "functionName is null");
         this.argumentTypes = requireNonNull(argumentTypes, "argumentTypes is null");
     }
 
-    @ThriftField(1)
     public QualifiedObjectName getFunctionName()
     {
         return functionName;
     }
 
-    @ThriftField(2)
     public List<TypeSignature> getArgumentTypes()
     {
         return argumentTypes;
@@ -93,6 +96,7 @@ public class SqlFunctionId
     }
 
     @JsonValue
+    @ThriftField(value = 1, name = "signature")
     public String toJsonString()
     {
         return format("%s;%s", functionName.toString(), argumentTypes.stream().map(TypeSignature::toString).collect(joining(";")));
