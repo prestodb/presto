@@ -102,9 +102,8 @@ public class TaskManagerConfig
     private Duration highMemoryTaskKillerFrequentFullGCDurationThreshold = new Duration(1, SECONDS);
     private double highMemoryTaskKillerHeapMemoryThreshold = 0.9;
     private boolean enableEventLoop;
-    private Duration slowMethodThresholdOnEventLoop = new Duration(10, SECONDS);
+    private Duration slowMethodThresholdOnEventLoop = new Duration(0, SECONDS);
 
-    @Min(50_000_000L)
     public long getSlowMethodThresholdOnEventLoop()
     {
         return slowMethodThresholdOnEventLoop.roundTo(NANOSECONDS);
