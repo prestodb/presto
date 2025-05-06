@@ -112,6 +112,7 @@ public class TestingPrestoClient
 
         private final AtomicReference<Optional<String>> updateType = new AtomicReference<>(Optional.empty());
         private final AtomicReference<OptionalLong> updateCount = new AtomicReference<>(OptionalLong.empty());
+        private final AtomicReference<Boolean> isClearTransactionId = new AtomicReference<>(false);
         private final AtomicReference<List<PrestoWarning>> warnings = new AtomicReference<>(ImmutableList.of());
 
         @Override
@@ -124,6 +125,12 @@ public class TestingPrestoClient
         public void setUpdateCount(long count)
         {
             updateCount.set(OptionalLong.of(count));
+        }
+
+        @Override
+        public void setClearTransactionId(boolean clearTransactionId)
+        {
+            isClearTransactionId.set(clearTransactionId);
         }
 
         @Override
@@ -156,6 +163,7 @@ public class TestingPrestoClient
                     resetSessionProperties,
                     updateType.get(),
                     updateCount.get(),
+                    isClearTransactionId.get(),
                     warnings.get());
         }
     }

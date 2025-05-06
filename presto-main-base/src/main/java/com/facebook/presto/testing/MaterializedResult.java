@@ -99,11 +99,12 @@ public class MaterializedResult
     private final Set<String> resetSessionProperties;
     private final Optional<String> updateType;
     private final OptionalLong updateCount;
+    private final boolean clearTransactionId;
     private final List<PrestoWarning> warnings;
 
     public MaterializedResult(List<MaterializedRow> rows, List<? extends Type> types)
     {
-        this(rows, types, ImmutableMap.of(), ImmutableSet.of(), Optional.empty(), OptionalLong.empty(), ImmutableList.of());
+        this(rows, types, ImmutableMap.of(), ImmutableSet.of(), Optional.empty(), OptionalLong.empty(), false, ImmutableList.of());
     }
 
     public MaterializedResult(
@@ -113,6 +114,7 @@ public class MaterializedResult
             Set<String> resetSessionProperties,
             Optional<String> updateType,
             OptionalLong updateCount,
+            boolean clearTransactionId,
             List<PrestoWarning> warnings)
     {
         this.rows = ImmutableList.copyOf(requireNonNull(rows, "rows is null"));
@@ -121,6 +123,7 @@ public class MaterializedResult
         this.resetSessionProperties = ImmutableSet.copyOf(requireNonNull(resetSessionProperties, "resetSessionProperties is null"));
         this.updateType = requireNonNull(updateType, "updateType is null");
         this.updateCount = requireNonNull(updateCount, "updateCount is null");
+        this.clearTransactionId = clearTransactionId;
         this.warnings = requireNonNull(warnings, "warnings is null");
     }
 
@@ -165,6 +168,11 @@ public class MaterializedResult
         return updateCount;
     }
 
+    public boolean isClearTransactionId()
+    {
+        return clearTransactionId;
+    }
+
     public List<PrestoWarning> getWarnings()
     {
         return warnings;
@@ -185,13 +193,14 @@ public class MaterializedResult
                 Objects.equals(setSessionProperties, o.setSessionProperties) &&
                 Objects.equals(resetSessionProperties, o.resetSessionProperties) &&
                 Objects.equals(updateType, o.updateType) &&
-                Objects.equals(updateCount, o.updateCount);
+                Objects.equals(updateCount, o.updateCount) &&
+                Objects.equals(clearTransactionId, o.clearTransactionId);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(rows, types, setSessionProperties, resetSessionProperties, updateType, updateCount);
+        return Objects.hash(rows, types, setSessionProperties, resetSessionProperties, updateType, updateCount, clearTransactionId);
     }
 
     @Override
@@ -204,6 +213,7 @@ public class MaterializedResult
                 .add("resetSessionProperties", resetSessionProperties)
                 .add("updateType", updateType.orElse(null))
                 .add("updateCount", updateCount.isPresent() ? updateCount.getAsLong() : null)
+                .add("clearTransactionId", clearTransactionId)
                 .omitNullValues()
                 .toString();
     }
@@ -360,6 +370,7 @@ public class MaterializedResult
                 resetSessionProperties,
                 updateType,
                 updateCount,
+                clearTransactionId,
                 warnings);
     }
 

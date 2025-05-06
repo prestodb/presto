@@ -39,4 +39,6 @@ public interface QueryStatusInfo
     String getUpdateType();
 
     Long getUpdateCount();
+
+    Boolean isClearTransactionId();
 }
