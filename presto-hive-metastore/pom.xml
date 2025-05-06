@@ -157,6 +157,11 @@
         </dependency>
 
         <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>http-client</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.facebook.presto.hadoop</groupId>
             <artifactId>hadoop-apache2</artifactId>
             <scope>provided</scope>
@@ -235,6 +240,7 @@
             <artifactId>assertj-core</artifactId>
             <scope>test</scope>
         </dependency>
+
     </dependencies>
 
     <profiles>
