@@ -42,6 +42,8 @@ public class InternalCommunicationConfig
     private boolean binaryTransportEnabled;
     private boolean thriftTransportEnabled;
     private boolean taskInfoThriftTransportEnabled;
+    private boolean taskUpdateRequestThriftTransportEnabled;
+    private boolean taskInfoResponseThriftTransportEnabled;
     private Protocol thriftProtocol = Protocol.BINARY;
     private DataSize maxTaskUpdateSize = new DataSize(16, MEGABYTE);
     private CommunicationProtocol taskCommunicationProtocol = CommunicationProtocol.HTTP;
@@ -184,6 +186,32 @@ public class InternalCommunicationConfig
     public InternalCommunicationConfig setThriftTransportEnabled(boolean thriftTransportEnabled)
     {
         this.thriftTransportEnabled = thriftTransportEnabled;
+        return this;
+    }
+
+    public boolean isTaskUpdateRequestThriftTransportEnabled()
+    {
+        return taskUpdateRequestThriftTransportEnabled;
+    }
+
+    @Config("experimental.internal-communication.task-update-request-thrift-transport-enabled")
+    @ConfigDescription("Enables thrift encoding support for Task Update Request")
+    public InternalCommunicationConfig setTaskUpdateRequestThriftTransportEnabled(boolean taskUpdateRequestThriftTransportEnabled)
+    {
+        this.taskUpdateRequestThriftTransportEnabled = taskUpdateRequestThriftTransportEnabled;
+        return this;
+    }
+
+    public boolean isTaskInfoResponseThriftTransportEnabled()
+    {
+        return taskInfoResponseThriftTransportEnabled;
+    }
+
+    @Config("experimental.internal-communication.task-info-response-thrift-transport-enabled")
+    @ConfigDescription("Enables thrift encoding support for Task Info Response")
+    public InternalCommunicationConfig setTaskInfoResponseThriftTransportEnabled(boolean taskInfoResponseThriftTransportEnabled)
+    {
+        this.taskInfoResponseThriftTransportEnabled = taskInfoResponseThriftTransportEnabled;
         return this;
     }
 
