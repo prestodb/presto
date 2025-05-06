@@ -15,7 +15,6 @@ package com.facebook.presto.spi.connector;
 
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
 
-import java.util.Collections;
 import java.util.Set;
 
 public interface ConnectorPlanOptimizerProvider
@@ -30,12 +29,4 @@ public interface ConnectorPlanOptimizerProvider
      * The plan will be only executed on a single node.
      */
     Set<ConnectorPlanOptimizer> getPhysicalPlanOptimizers();
-
-    /**
-     * The optimizers that ensure the plan is structured for execution.
-     */
-    default Set<ConnectorPlanOptimizer> getStructuralPlanOptimizers()
-    {
-        return Collections.emptySet();
-    }
 }

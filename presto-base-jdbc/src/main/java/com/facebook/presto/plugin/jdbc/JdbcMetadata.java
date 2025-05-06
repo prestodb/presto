@@ -288,7 +288,6 @@ public class JdbcMetadata
             Map<VariableReferenceExpression, ColumnHandle> symbolToColumnHandleMap)
     {
         if (tableHandle instanceof JoinTableSet) {
-            // We now have all relevant pieces to build a JdbcJoinPredicateToSqlTranslator to test if the passed in filter will translate to SQL
             JdbcJoinPredicateToSqlTranslator jdbcJoinPredicateToSqlTranslator = new JdbcJoinPredicateToSqlTranslator(
                     functionMetadataManager,
                     buildFunctionTranslator(ImmutableSet.of(JoinOperatorTranslators.class)), "");

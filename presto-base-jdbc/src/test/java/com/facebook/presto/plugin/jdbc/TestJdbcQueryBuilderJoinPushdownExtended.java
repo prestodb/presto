@@ -35,6 +35,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -133,10 +134,10 @@ public class TestJdbcQueryBuilderJoinPushdownExtended
         ConnectorId connectorId = new ConnectorId("test_catalog");
 
         SchemaTableName schemaTableName1 = new SchemaTableName("test_schema", "test_table_1");
-        JdbcTableHandle connectorHandle1 = new JdbcTableHandle(connectorId.toString(), schemaTableName1, "test_catalog", "test_schema", "test_table_1", Optional.empty(), Optional.of("table_alias_1"));
+        JdbcTableHandle connectorHandle1 = new JdbcTableHandle(connectorId.toString(), schemaTableName1, "test_catalog", "test_schema", "test_table_1", Collections.emptyList(), Optional.of("table_alias_1"));
 
         SchemaTableName schemaTableName2 = new SchemaTableName("test_schema", "test_table_2");
-        JdbcTableHandle connectorHandle2 = new JdbcTableHandle(connectorId.toString(), schemaTableName2, "test_catalog", "test_schema", "test_table_2", Optional.empty(), Optional.of("table_alias_2"));
+        JdbcTableHandle connectorHandle2 = new JdbcTableHandle(connectorId.toString(), schemaTableName2, "test_catalog", "test_schema", "test_table_2", Collections.emptyList(), Optional.of("table_alias_2"));
 
         // outputVariables1 will be integer_col_1
         // outputVariables2 will be integer_col_2
@@ -177,8 +178,6 @@ public class TestJdbcQueryBuilderJoinPushdownExtended
         joinTablesList.add(connectorHandle1);
         joinTablesList.add(connectorHandle2);
 
-        Optional<List<ConnectorTableHandle>> joinPushdownTables = Optional.of(joinTablesList);
-
         List<JdbcColumnHandle> selectColumns = ImmutableList.of(
                 new JdbcColumnHandle(connectorId.toString(), "integer_col_1", JDBC_INTEGER, INTEGER, true, Optional.empty(), Optional.of("table_alias_1")),
                 new JdbcColumnHandle(connectorId.toString(), "integer_col_2", JDBC_INTEGER, INTEGER, true, Optional.empty(), Optional.of("table_alias_2")));
@@ -192,7 +191,7 @@ public class TestJdbcQueryBuilderJoinPushdownExtended
         JdbcExpression predicateAsExpression = new JdbcExpression(predicateAsString.toString());
         Optional<JdbcExpression> additionalPredicate = Optional.of(predicateAsExpression);
 
-        PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, session, connection, "test_catalog", "test_schema", "test_table_1", joinPushdownTables, selectColumns, ImmutableMap.of(), tupleDomain, additionalPredicate);
+        PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, session, connection, "test_catalog", "test_schema", "test_table_1", joinTablesList, selectColumns, tupleDomain, additionalPredicate);
 
         String expectedPreparedStatement = "SELECT \"table_alias_1\".\"integer_col_1\", \"table_alias_2\".\"integer_col_2\" " +
                 "FROM \"test_schema\".\"test_table_2\" \"table_alias_2\", \"test_schema\".\"test_table_1\" \"table_alias_1\" " +
@@ -224,13 +223,13 @@ public class TestJdbcQueryBuilderJoinPushdownExtended
         ConnectorId connectorId = new ConnectorId("test_catalog");
 
         SchemaTableName schemaTableName1 = new SchemaTableName("test_schema", "test_table_1");
-        JdbcTableHandle connectorHandle1 = new JdbcTableHandle(connectorId.toString(), schemaTableName1, "test_catalog", "test_schema", "test_table_1", Optional.empty(), Optional.of("table_alias_1"));
+        JdbcTableHandle connectorHandle1 = new JdbcTableHandle(connectorId.toString(), schemaTableName1, "test_catalog", "test_schema", "test_table_1", Collections.emptyList(), Optional.of("table_alias_1"));
 
         SchemaTableName schemaTableName2 = new SchemaTableName("test_schema", "test_table_2");
-        JdbcTableHandle connectorHandle2 = new JdbcTableHandle(connectorId.toString(), schemaTableName2, "test_catalog", "test_schema", "test_table_2", Optional.empty(), Optional.of("table_alias_2"));
+        JdbcTableHandle connectorHandle2 = new JdbcTableHandle(connectorId.toString(), schemaTableName2, "test_catalog", "test_schema", "test_table_2", Collections.emptyList(), Optional.of("table_alias_2"));
 
         SchemaTableName schemaTableName3 = new SchemaTableName("test_schema", "test_table_3");
-        JdbcTableHandle connectorHandle3 = new JdbcTableHandle(connectorId.toString(), schemaTableName3, "test_catalog", "test_schema", "test_table_3", Optional.empty(), Optional.of("table_alias_3"));
+        JdbcTableHandle connectorHandle3 = new JdbcTableHandle(connectorId.toString(), schemaTableName3, "test_catalog", "test_schema", "test_table_3", Collections.emptyList(), Optional.of("table_alias_3"));
 
         // outputVariables1 will be integer_col_1
         // outputVariables2 will be integer_col_2
@@ -291,8 +290,6 @@ public class TestJdbcQueryBuilderJoinPushdownExtended
         joinTablesList.add(connectorHandle2);
         joinTablesList.add(connectorHandle3);
 
-        Optional<List<ConnectorTableHandle>> joinPushdownTables = Optional.of(joinTablesList);
-
         List<JdbcColumnHandle> selectColumns = ImmutableList.of(
                 new JdbcColumnHandle(connectorId.toString(), "integer_col_1", JDBC_INTEGER, INTEGER, true, Optional.empty(), Optional.of("table_alias_1")),
                 new JdbcColumnHandle(connectorId.toString(), "integer_col_2", JDBC_INTEGER, INTEGER, true, Optional.empty(), Optional.of("table_alias_2")),
@@ -311,7 +308,7 @@ public class TestJdbcQueryBuilderJoinPushdownExtended
         JdbcExpression predicateAsExpression = new JdbcExpression(predicateAsString.toString());
         Optional<JdbcExpression> additionalPredicate = Optional.of(predicateAsExpression);
 
-        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, session, connection, "test_catalog", "test_schema", "test_table_1", joinPushdownTables, selectColumns, ImmutableMap.of(), tupleDomain, additionalPredicate);
+        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, session, connection, "test_catalog", "test_schema", "test_table_1", joinTablesList, selectColumns, tupleDomain, additionalPredicate);
                 ResultSet resultSet = preparedStatement.executeQuery()) {
             ImmutableSet.Builder<Integer> integerCol1Values = ImmutableSet.builder();
             ImmutableSet.Builder<Integer> integerCol2Values = ImmutableSet.builder();
@@ -363,16 +360,16 @@ public class TestJdbcQueryBuilderJoinPushdownExtended
         ConnectorId connectorId = new ConnectorId("test_catalog");
 
         SchemaTableName schemaTableName1 = new SchemaTableName("test_schema", "test_table_1");
-        JdbcTableHandle connectorHandle1 = new JdbcTableHandle(connectorId.toString(), schemaTableName1, "test_catalog", "test_schema", "test_table_1", Optional.empty(), Optional.of("table_alias_1"));
+        JdbcTableHandle connectorHandle1 = new JdbcTableHandle(connectorId.toString(), schemaTableName1, "test_catalog", "test_schema", "test_table_1", Collections.emptyList(), Optional.of("table_alias_1"));
 
         SchemaTableName schemaTableName2 = new SchemaTableName("test_schema", "test_table_2");
-        JdbcTableHandle connectorHandle2 = new JdbcTableHandle(connectorId.toString(), schemaTableName2, "test_catalog", "test_schema", "test_table_2", Optional.empty(), Optional.of("table_alias_2"));
+        JdbcTableHandle connectorHandle2 = new JdbcTableHandle(connectorId.toString(), schemaTableName2, "test_catalog", "test_schema", "test_table_2", Collections.emptyList(), Optional.of("table_alias_2"));
 
         SchemaTableName schemaTableName3 = new SchemaTableName("test_schema", "test_table_3");
-        JdbcTableHandle connectorHandle3 = new JdbcTableHandle(connectorId.toString(), schemaTableName3, "test_catalog", "test_schema", "test_table_3", Optional.empty(), Optional.of("table_alias_3"));
+        JdbcTableHandle connectorHandle3 = new JdbcTableHandle(connectorId.toString(), schemaTableName3, "test_catalog", "test_schema", "test_table_3", Collections.emptyList(), Optional.of("table_alias_3"));
 
         SchemaTableName schemaTableName4 = new SchemaTableName("test_schema", "test_table_4");
-        JdbcTableHandle connectorHandle4 = new JdbcTableHandle(connectorId.toString(), schemaTableName4, "test_catalog", "test_schema", "test_table_4", Optional.empty(), Optional.of("table_alias_4"));
+        JdbcTableHandle connectorHandle4 = new JdbcTableHandle(connectorId.toString(), schemaTableName4, "test_catalog", "test_schema", "test_table_4", Collections.emptyList(), Optional.of("table_alias_4"));
 
         // Create a list to hold JoinTables instances
         List<ConnectorTableHandle> joinTablesList = new ArrayList<>();
@@ -381,8 +378,6 @@ public class TestJdbcQueryBuilderJoinPushdownExtended
         joinTablesList.add(connectorHandle2);
         joinTablesList.add(connectorHandle3);
         joinTablesList.add(connectorHandle4);
-
-        Optional<List<ConnectorTableHandle>> joinPushdownTables = Optional.of(joinTablesList);
 
         List<JdbcColumnHandle> selectColumns = ImmutableList.of(
                 new JdbcColumnHandle(connectorId.toString(), "integer_col_1", JDBC_INTEGER, INTEGER, true, Optional.empty(), Optional.of("table_alias_1")),
@@ -410,7 +405,7 @@ public class TestJdbcQueryBuilderJoinPushdownExtended
         JdbcExpression predicateAsExpression = new JdbcExpression(predicateAsString.toString());
         Optional<JdbcExpression> additionalPredicate = Optional.of(predicateAsExpression);
 
-        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, session, connection, "test_catalog", "test_schema", "test_table_1", joinPushdownTables, selectColumns, ImmutableMap.of(), tupleDomain, additionalPredicate);
+        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, session, connection, "test_catalog", "test_schema", "test_table_1", joinTablesList, selectColumns, tupleDomain, additionalPredicate);
                 ResultSet resultSet = preparedStatement.executeQuery()) {
             ImmutableSet.Builder<Integer> integerCol1Values = ImmutableSet.builder();
             ImmutableSet.Builder<Integer> integerCol2Values = ImmutableSet.builder();
@@ -454,16 +449,14 @@ public class TestJdbcQueryBuilderJoinPushdownExtended
         ConnectorId connectorId = new ConnectorId("test_catalog");
 
         SchemaTableName schemaTableName1 = new SchemaTableName("test_schema", "test_table_1");
-        JdbcTableHandle connectorHandle1 = new JdbcTableHandle(connectorId.toString(), schemaTableName1, "test_catalog", "test_schema", "test_table_1", Optional.empty(), Optional.of("table_alias_1"));
+        JdbcTableHandle connectorHandle1 = new JdbcTableHandle(connectorId.toString(), schemaTableName1, "test_catalog", "test_schema", "test_table_1", Collections.emptyList(), Optional.of("table_alias_1"));
 
         SchemaTableName schemaTableName2 = new SchemaTableName("test_schema", "test_table_2");
-        JdbcTableHandle connectorHandle2 = new JdbcTableHandle(connectorId.toString(), schemaTableName2, "test_catalog", "test_schema", "test_table_2", Optional.empty(), Optional.of("table_alias_2"));
+        JdbcTableHandle connectorHandle2 = new JdbcTableHandle(connectorId.toString(), schemaTableName2, "test_catalog", "test_schema", "test_table_2", Collections.emptyList(), Optional.of("table_alias_2"));
 
         List<ConnectorTableHandle> joinTablesList = new ArrayList<>();
         joinTablesList.add(connectorHandle1);
         joinTablesList.add(connectorHandle2);
-
-        Optional<List<ConnectorTableHandle>> joinPushdownTables = Optional.of(joinTablesList);
 
         List<JdbcColumnHandle> selectColumns = ImmutableList.of(
                 new JdbcColumnHandle(connectorId.toString(), "integer_col_1", JDBC_INTEGER, INTEGER, true, Optional.empty(), Optional.of("table_alias_1")),
@@ -478,7 +471,7 @@ public class TestJdbcQueryBuilderJoinPushdownExtended
         JdbcExpression predicateAsExpression = new JdbcExpression(predicateAsString.toString());
         Optional<JdbcExpression> additionalPredicate = Optional.of(predicateAsExpression);
 
-        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, session, connection, "test_catalog", "test_schema", "test_table_1", joinPushdownTables, selectColumns, ImmutableMap.of(), tupleDomain, additionalPredicate);
+        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, session, connection, "test_catalog", "test_schema", "test_table_1", joinTablesList, selectColumns, tupleDomain, additionalPredicate);
                 ResultSet resultSet = preparedStatement.executeQuery()) {
             ImmutableSet.Builder<Integer> integerCol1Values = ImmutableSet.builder();
             ImmutableSet.Builder<Integer> integerCol2Values = ImmutableSet.builder();
@@ -507,17 +500,15 @@ public class TestJdbcQueryBuilderJoinPushdownExtended
         ConnectorId connectorId = new ConnectorId("test_catalog");
 
         SchemaTableName schemaTableName1 = new SchemaTableName("test_schema", "test_table_1");
-        JdbcTableHandle connectorHandle1 = new JdbcTableHandle(connectorId.toString(), schemaTableName1, "test_catalog", "test_schema", "test_table_1", Optional.empty(), Optional.of("table_alias_1"));
+        JdbcTableHandle connectorHandle1 = new JdbcTableHandle(connectorId.toString(), schemaTableName1, "test_catalog", "test_schema", "test_table_1", Collections.emptyList(), Optional.of("table_alias_1"));
 
         // Giving wrong table name here
         SchemaTableName schemaTableName2 = new SchemaTableName("test_schema", "test_table_3");
-        JdbcTableHandle connectorHandle2 = new JdbcTableHandle(connectorId.toString(), schemaTableName2, "test_catalog", "test_schema", "test_table_3", Optional.empty(), Optional.of("table_alias_2"));
+        JdbcTableHandle connectorHandle2 = new JdbcTableHandle(connectorId.toString(), schemaTableName2, "test_catalog", "test_schema", "test_table_3", Collections.emptyList(), Optional.of("table_alias_2"));
 
         List<ConnectorTableHandle> joinTablesList = new ArrayList<>();
         joinTablesList.add(connectorHandle1);
         joinTablesList.add(connectorHandle2);
-
-        Optional<List<ConnectorTableHandle>> joinPushdownTables = Optional.of(joinTablesList);
 
         List<JdbcColumnHandle> selectColumns = ImmutableList.of(
                 new JdbcColumnHandle(connectorId.toString(), "integer_col_1", JDBC_INTEGER, INTEGER, true, Optional.empty(), Optional.of("table_alias_1")),
@@ -532,7 +523,7 @@ public class TestJdbcQueryBuilderJoinPushdownExtended
         JdbcExpression predicateAsExpression = new JdbcExpression(predicateAsString.toString());
         Optional<JdbcExpression> additionalPredicate = Optional.of(predicateAsExpression);
 
-        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, session, connection, "test_catalog", "test_schema", "test_table_1", joinPushdownTables, selectColumns, ImmutableMap.of(), tupleDomain, additionalPredicate);
+        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, session, connection, "test_catalog", "test_schema", "test_table_1", joinTablesList, selectColumns, tupleDomain, additionalPredicate);
                 ResultSet resultSet = preparedStatement.executeQuery()) {
             ImmutableSet.Builder<Integer> integerCol1Values = ImmutableSet.builder();
             ImmutableSet.Builder<Integer> integerCol2Values = ImmutableSet.builder();

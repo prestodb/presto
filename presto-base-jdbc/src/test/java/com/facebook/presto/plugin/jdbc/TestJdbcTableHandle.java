@@ -17,6 +17,7 @@ import com.facebook.airlift.testing.EquivalenceTester;
 import com.facebook.presto.spi.SchemaTableName;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.plugin.jdbc.MetadataUtil.TABLE_CODEC;
@@ -27,7 +28,7 @@ public class TestJdbcTableHandle
     @Test
     public void testJsonRoundTrip()
     {
-        assertJsonRoundTrip(TABLE_CODEC, new JdbcTableHandle("connectorId", new SchemaTableName("schema", "table"), "jdbcCatalog", "jdbcSchema", "jdbcTable", Optional.empty(), Optional.empty()));
+        assertJsonRoundTrip(TABLE_CODEC, new JdbcTableHandle("connectorId", new SchemaTableName("schema", "table"), "jdbcCatalog", "jdbcSchema", "jdbcTable", Collections.emptyList(), Optional.empty()));
     }
 
     @Test
@@ -35,20 +36,20 @@ public class TestJdbcTableHandle
     {
         EquivalenceTester.equivalenceTester()
                 .addEquivalentGroup(
-                        new JdbcTableHandle("connectorId", new SchemaTableName("schema", "table"), "jdbcCatalog", "jdbcSchema", "jdbcTable", Optional.empty(), Optional.empty()),
-                        new JdbcTableHandle("connectorId", new SchemaTableName("schema", "table"), "jdbcCatalogX", "jdbcSchema", "jdbcTable", Optional.empty(), Optional.empty()),
-                        new JdbcTableHandle("connectorId", new SchemaTableName("schema", "table"), "jdbcCatalog", "jdbcSchemaX", "jdbcTable", Optional.empty(), Optional.empty()),
-                        new JdbcTableHandle("connectorId", new SchemaTableName("schema", "table"), "jdbcCatalog", "jdbcSchema", "jdbcTableX", Optional.empty(), Optional.empty()))
+                        new JdbcTableHandle("connectorId", new SchemaTableName("schema", "table"), "jdbcCatalog", "jdbcSchema", "jdbcTable", Collections.emptyList(), Optional.empty()),
+                        new JdbcTableHandle("connectorId", new SchemaTableName("schema", "table"), "jdbcCatalogX", "jdbcSchema", "jdbcTable", Collections.emptyList(), Optional.empty()),
+                        new JdbcTableHandle("connectorId", new SchemaTableName("schema", "table"), "jdbcCatalog", "jdbcSchemaX", "jdbcTable", Collections.emptyList(), Optional.empty()),
+                        new JdbcTableHandle("connectorId", new SchemaTableName("schema", "table"), "jdbcCatalog", "jdbcSchema", "jdbcTableX", Collections.emptyList(), Optional.empty()))
                 .addEquivalentGroup(
-                        new JdbcTableHandle("connectorIdX", new SchemaTableName("schema", "table"), "jdbcCatalog", "jdbcSchema", "jdbcTable", Optional.empty(), Optional.empty()),
-                        new JdbcTableHandle("connectorIdX", new SchemaTableName("schema", "table"), "jdbcCatalogX", "jdbcSchema", "jdbcTable", Optional.empty(), Optional.empty()),
-                        new JdbcTableHandle("connectorIdX", new SchemaTableName("schema", "table"), "jdbcCatalog", "jdbcSchemaX", "jdbcTable", Optional.empty(), Optional.empty()),
-                        new JdbcTableHandle("connectorIdX", new SchemaTableName("schema", "table"), "jdbcCatalog", "jdbcSchema", "jdbcTableX", Optional.empty(), Optional.empty()))
+                        new JdbcTableHandle("connectorIdX", new SchemaTableName("schema", "table"), "jdbcCatalog", "jdbcSchema", "jdbcTable", Collections.emptyList(), Optional.empty()),
+                        new JdbcTableHandle("connectorIdX", new SchemaTableName("schema", "table"), "jdbcCatalogX", "jdbcSchema", "jdbcTable", Collections.emptyList(), Optional.empty()),
+                        new JdbcTableHandle("connectorIdX", new SchemaTableName("schema", "table"), "jdbcCatalog", "jdbcSchemaX", "jdbcTable", Collections.emptyList(), Optional.empty()),
+                        new JdbcTableHandle("connectorIdX", new SchemaTableName("schema", "table"), "jdbcCatalog", "jdbcSchema", "jdbcTableX", Collections.emptyList(), Optional.empty()))
                 .addEquivalentGroup(
-                        new JdbcTableHandle("connectorId", new SchemaTableName("schemaX", "table"), "jdbcCatalog", "jdbcSchema", "jdbcTable", Optional.empty(), Optional.empty()),
-                        new JdbcTableHandle("connectorId", new SchemaTableName("schemaX", "table"), "jdbcCatalogX", "jdbcSchema", "jdbcTable", Optional.empty(), Optional.empty()),
-                        new JdbcTableHandle("connectorId", new SchemaTableName("schemaX", "table"), "jdbcCatalog", "jdbcSchemaX", "jdbcTable", Optional.empty(), Optional.empty()),
-                        new JdbcTableHandle("connectorId", new SchemaTableName("schemaX", "table"), "jdbcCatalog", "jdbcSchema", "jdbcTableX", Optional.empty(), Optional.empty()))
+                        new JdbcTableHandle("connectorId", new SchemaTableName("schemaX", "table"), "jdbcCatalog", "jdbcSchema", "jdbcTable", Collections.emptyList(), Optional.empty()),
+                        new JdbcTableHandle("connectorId", new SchemaTableName("schemaX", "table"), "jdbcCatalogX", "jdbcSchema", "jdbcTable", Collections.emptyList(), Optional.empty()),
+                        new JdbcTableHandle("connectorId", new SchemaTableName("schemaX", "table"), "jdbcCatalog", "jdbcSchemaX", "jdbcTable", Collections.emptyList(), Optional.empty()),
+                        new JdbcTableHandle("connectorId", new SchemaTableName("schemaX", "table"), "jdbcCatalog", "jdbcSchema", "jdbcTableX", Collections.emptyList(), Optional.empty()))
                 .check();
     }
 }

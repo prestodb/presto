@@ -41,6 +41,7 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -181,22 +182,6 @@ public class TestJdbcQueryBuilderJoinPushdown
             throws Exception
     {
         database.close();
-    }
-
-    // Test what happens when you pass joinPushdownTables as empty
-    @Test
-    public void testEmptyBuildSql()
-            throws SQLException
-    {
-        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
-                columns1.get(0), Domain.all(BIGINT),
-                columns1.get(1), Domain.onlyNull(DOUBLE)));
-
-        Connection connection = database.getConnection();
-        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, session, connection, "", "test_schema", "test_table_1", Optional.empty(), columns1, ImmutableMap.of(), tupleDomain, Optional.empty());
-                ResultSet resultSet = preparedStatement.executeQuery()) {
-            assertEquals(resultSet.next(), false);
-        }
     }
 
     @DataProvider
@@ -388,14 +373,13 @@ public class TestJdbcQueryBuilderJoinPushdown
         ConnectorId connectorId = new ConnectorId(connectorIdStr);
 
         SchemaTableName schemaTableName1 = new SchemaTableName(schemaName1, tableName1);
-        JdbcTableHandle connectorHandle1 = new JdbcTableHandle(connectorId.toString(), schemaTableName1, catalogName, schemaName1, tableName1, Optional.empty(), Optional.of(tableAlias1));
+        JdbcTableHandle connectorHandle1 = new JdbcTableHandle(connectorId.toString(), schemaTableName1, catalogName, schemaName1, tableName1, Collections.emptyList(), Optional.of(tableAlias1));
         SchemaTableName schemaTableName2 = new SchemaTableName(schemaName2, tableName2);
-        JdbcTableHandle connectorHandle2 = new JdbcTableHandle(connectorId.toString(), schemaTableName2, catalogName, schemaName2, tableName2, Optional.empty(), Optional.of(tableAlias2));
+        JdbcTableHandle connectorHandle2 = new JdbcTableHandle(connectorId.toString(), schemaTableName2, catalogName, schemaName2, tableName2, Collections.emptyList(), Optional.of(tableAlias2));
 
         List<ConnectorTableHandle> joinTablesList = new ArrayList<>();
         joinTablesList.add(connectorHandle1);
         joinTablesList.add(connectorHandle2);
-        Optional<List<ConnectorTableHandle>> joinPushdownTables = Optional.of(joinTablesList);
 
         List<JdbcColumnHandle> selectColumns = ImmutableList.of(
                 new JdbcColumnHandle(connectorId.toString(), column1, jdbcTypeHandle, valueType, true, Optional.empty(), Optional.of(tableAlias1)),
@@ -416,7 +400,7 @@ public class TestJdbcQueryBuilderJoinPushdown
             throw new IllegalArgumentException("Unsupported value type: " + valueType);
         }
 
-        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, session, connection, catalogName, schemaName1, tableName1, joinPushdownTables, selectColumns, ImmutableMap.of(), tupleDomain, additionalPredicate);
+        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, session, connection, catalogName, schemaName1, tableName1, joinTablesList, selectColumns, tupleDomain, additionalPredicate);
                 ResultSet resultSet = preparedStatement.executeQuery()) {
             ImmutableSet.Builder<Object> col1Values = ImmutableSet.builder();
             ImmutableSet.Builder<Object> col2Values = ImmutableSet.builder();

@@ -41,7 +41,7 @@ public final class JdbcTableHandle
 //    joinTables holds all the table handles for the same connector which are participating for the join push down
 //    this is used later in query builder to rebuild the join query
 
-    private Optional<List<ConnectorTableHandle>> joinTables;
+    private List<ConnectorTableHandle> joinTables;
     private Optional<String> tableAlias;
 
     @JsonCreator
@@ -51,7 +51,7 @@ public final class JdbcTableHandle
             @JsonProperty("catalogName") @Nullable String catalogName,
             @JsonProperty("schemaName") @Nullable String schemaName,
             @JsonProperty("tableName") String tableName,
-            @JsonProperty("joinTables") Optional<List<ConnectorTableHandle>> joinTables,
+            @JsonProperty("joinTables") List<ConnectorTableHandle> joinTables,
             @JsonProperty("tableAlias") Optional<String> tableAlias)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
@@ -96,7 +96,7 @@ public final class JdbcTableHandle
     }
 
     @JsonProperty
-    public Optional<List<ConnectorTableHandle>> getJoinTables()
+    public List<ConnectorTableHandle> getJoinTables()
     {
         return joinTables;
     }
@@ -144,7 +144,6 @@ public final class JdbcTableHandle
 
     public boolean hasJoinTables()
     {
-        return this.getJoinTables().isPresent() &&
-                this.getJoinTables().get().size() > 0;
+        return !this.getJoinTables().isEmpty();
     }
 }

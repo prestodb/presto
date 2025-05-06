@@ -43,7 +43,8 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * JdbcJoinPushdown Optimizer:
- * This Optimizer converts ConnectorHandleSet with various TableHandles to JdbcTableHandle which has list of all the JdbcTableHandles that can be pushed down.
+ * This Optimizer converts a {@link JoinTableSet} to a {@link JdbcTableHandle} with its {@code joinTables} set to
+ * those from {@code innerJoinTableInfos} in {@link JoinTableSet}.
  * This results in Jdbc Join Pushdown.
  *
  * Example:
@@ -95,17 +96,19 @@ public class JdbcJoinPushdown
 
                 List<ConnectorTableHandle> newConnectorTableHandles = new ArrayList<>();
                 Map<VariableReferenceExpression, ColumnHandle> groupAssignments = new HashMap<>();
+
+                //Generate aliases for each table being joined to avoid any ambiguous column name references.
+                // These aliases are used in QueryBuilder#buildSql
                 final String aliasPrefix = "T";
-                int tableCount = 0;
+                int aliasTableCounter = 0;
 
                 // Create new table handles and update column handles
                 for (JoinTableInfo tableMapping : newJoinTableInfos) {
                     JdbcTableHandle handle = (JdbcTableHandle) tableMapping.getTableHandle();
                     JdbcTableHandle newHandle = new JdbcTableHandle(handle.getConnectorId(), handle.getSchemaTableName(), handle.getCatalogName(),
-                            handle.getSchemaName(), handle.getTableName(), handle.getJoinTables(), Optional.of(aliasPrefix + (++tableCount)));
+                            handle.getSchemaName(), handle.getTableName(), handle.getJoinTables(), Optional.of(aliasPrefix + (++aliasTableCounter)));
                     newConnectorTableHandles.add(newHandle);
 
-                    // Update column handles using Streams
                     tableMapping.getAssignments().forEach((key, oldColumnHandle) -> {
                         JdbcColumnHandle newColumnHandle = new JdbcColumnHandle(((JdbcColumnHandle) oldColumnHandle).getConnectorId(), ((JdbcColumnHandle) oldColumnHandle).getColumnName(),
                                 ((JdbcColumnHandle) oldColumnHandle).getJdbcTypeHandle(), ((JdbcColumnHandle) oldColumnHandle).getColumnType(), ((JdbcColumnHandle) oldColumnHandle).isNullable(),
@@ -116,7 +119,7 @@ public class JdbcJoinPushdown
 
                 JdbcTableHandle jdbcTableHandle = (JdbcTableHandle) newConnectorTableHandles.get(0);
                 JdbcTableHandle newConnectorTableHandle = new JdbcTableHandle(jdbcTableHandle.getConnectorId(), jdbcTableHandle.getSchemaTableName(), jdbcTableHandle.getCatalogName(),
-                        jdbcTableHandle.getSchemaName(), jdbcTableHandle.getTableName(), Optional.of(newConnectorTableHandles), jdbcTableHandle.getTableAlias());
+                        jdbcTableHandle.getSchemaName(), jdbcTableHandle.getTableName(), newConnectorTableHandles, jdbcTableHandle.getTableAlias());
 
                 Optional<ConnectorTableLayoutHandle> optionalTableLayoutHandle = tableHandle.getLayout().map(oldTableLayoutHandle -> {
                     JdbcTableLayoutHandle oldLayout = (JdbcTableLayoutHandle) oldTableLayoutHandle;

@@ -54,6 +54,7 @@ import org.testng.annotations.Test;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -100,10 +101,10 @@ public class TestJdbcJoinPushdown
         for (int i = 1; i <= 3; i++) {
             String table = "test_table" + i;
             String schema = "test_schema" + i;
-            JdbcTableHandle tableHandle = new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName(schema, table), CATALOG_NAME, schema, table, Optional.empty(), Optional.of(aliasPrefix + i));
+            JdbcTableHandle tableHandle = new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName(schema, table), CATALOG_NAME, schema, table, Collections.emptyList(), Optional.of(aliasPrefix + i));
             tableHandles.add(tableHandle);
         }
-        JdbcTableHandle jdbcTableHandle = new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName("test_schema1", "test_table1"), CATALOG_NAME, "test_schema1", "test_table1", Optional.of(tableHandles), Optional.of("T1"));
+        JdbcTableHandle jdbcTableHandle = new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName("test_schema1", "test_table1"), CATALOG_NAME, "test_schema1", "test_table1", tableHandles, Optional.of("T1"));
         JdbcTableLayoutHandle jdbcTableLayoutHandle = new JdbcTableLayoutHandle(session.getSqlFunctionProperties(), jdbcTableHandle, TupleDomain.none(), Optional.of(new JdbcExpression("(('c1' + 'c2') - 'c2')")));
         Set<ColumnHandle> columns = Stream.of("c1", "c2").map(TestJdbcJoinPushdown::integerJdbcColumnHandle).collect(Collectors.toSet());
         assertPlanMatch(
@@ -120,7 +121,7 @@ public class TestJdbcJoinPushdown
         ConnectorSession session = new TestingConnectorSession(ImmutableList.of());
         PlanNode actual = jdbcJoinPushdown.optimize(original, session, null, ID_ALLOCATOR);
 
-        JdbcTableHandle jdbcTableHandle = new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName(schema, table), CATALOG_NAME, schema, table, Optional.empty(), Optional.empty());
+        JdbcTableHandle jdbcTableHandle = new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName(schema, table), CATALOG_NAME, schema, table, Collections.emptyList(), Optional.empty());
         JdbcTableLayoutHandle jdbcTableLayoutHandle = new JdbcTableLayoutHandle(session.getSqlFunctionProperties(), jdbcTableHandle, TupleDomain.none(), Optional.of(new JdbcExpression("(('c1' + 'c2') - 'c2')")));
         Set<ColumnHandle> columns = Stream.of("c1", "c2").map(TestJdbcJoinPushdown::integerJdbcColumnHandle).collect(Collectors.toSet());
         assertPlanMatch(
@@ -155,7 +156,7 @@ public class TestJdbcJoinPushdown
         for (int i = 1; i <= 3; i++) {
             String table = "test_table" + i;
             String schema = "test_schema" + i;
-            JdbcTableHandle tableHandle = new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName(schema, table), CATALOG_NAME, schema, table, Optional.empty(), Optional.of(aliasPrefix + i));
+            JdbcTableHandle tableHandle = new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName(schema, table), CATALOG_NAME, schema, table, Collections.emptyList(), Optional.of(aliasPrefix + i));
             tableHandles.add(tableHandle);
         }
         JdbcTableHandle jdbcTableHandle = (JdbcTableHandle) tableHandles.iterator().next();
@@ -192,14 +193,14 @@ public class TestJdbcJoinPushdown
                 joinTableInfos.add(new JoinTableInfo(tableHandle, assignments, outputVariables));
             });
             for (int i = 0; i < 3; i++) {
-                connectorTableHandle = new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName(schema, table), CATALOG_NAME, schema, table, Optional.empty(), Optional.empty());
+                connectorTableHandle = new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName(schema, table), CATALOG_NAME, schema, table, Collections.emptyList(), Optional.empty());
                 tableHandles.add(connectorTableHandle);
             }
             jdbcTableHandle = (JdbcTableHandle) tableHandles.get(0);
             connectorTableHandle = new JoinTableSet(ImmutableSet.copyOf(joinTableInfos));
         }
         else {
-            jdbcTableHandle = new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName(schema, table), CATALOG_NAME, schema, table, Optional.empty(), Optional.empty());
+            jdbcTableHandle = new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName(schema, table), CATALOG_NAME, schema, table, Collections.emptyList(), Optional.empty());
             connectorTableHandle = jdbcTableHandle;
         }
 
