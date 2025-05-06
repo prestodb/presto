@@ -86,8 +86,10 @@ public class SafeEventLoopGroup
         public void execute(Runnable task, Consumer<Throwable> failureHandler, SchedulerStatsTracker statsTracker, String methodSignature)
         {
             requireNonNull(task, "task is null");
+
             long initialGCTime = getTotalGCTime();
             long start = THREAD_MX_BEAN.getCurrentThreadCpuTime();
+
             this.execute(() -> {
                 try {
                     task.run();
@@ -103,7 +105,7 @@ public class SafeEventLoopGroup
                     long cpuTimeInNanos = THREAD_MX_BEAN.getCurrentThreadCpuTime() - start - (currentGCTime - initialGCTime);
 
                     statsTracker.recordEventLoopMethodExecutionCpuTime(cpuTimeInNanos);
-                    if (cpuTimeInNanos > slowMethodThresholdOnEventLoopInNanos) {
+                    if (slowMethodThresholdOnEventLoopInNanos > 0 && cpuTimeInNanos > slowMethodThresholdOnEventLoopInNanos) {
                         log.warn("Slow method execution on event loop: %s took %s milliseconds", methodSignature, NANOSECONDS.toMillis(cpuTimeInNanos));
                     }
                 }
