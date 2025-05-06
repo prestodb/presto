@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -22,6 +25,7 @@ import com.google.common.primitives.Longs;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public class ScheduledSplit
 {
     private final long sequenceId;
@@ -29,6 +33,7 @@ public class ScheduledSplit
     private final Split split;
 
     @JsonCreator
+    @ThriftConstructor
     public ScheduledSplit(
             @JsonProperty("sequenceId") long sequenceId,
             @JsonProperty("planNodeId") PlanNodeId planNodeId,
@@ -40,18 +45,21 @@ public class ScheduledSplit
     }
 
     @JsonProperty
+    @ThriftField(1)
     public long getSequenceId()
     {
         return sequenceId;
     }
 
     @JsonProperty
+    @ThriftField(2)
     public PlanNodeId getPlanNodeId()
     {
         return planNodeId;
     }
 
     @JsonProperty
+    @ThriftField(3)
     public Split getSplit()
     {
         return split;

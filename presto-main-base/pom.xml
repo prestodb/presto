@@ -302,7 +302,6 @@
             <artifactId>jts-core</artifactId>
         </dependency>
 
-
         <dependency>
             <groupId>org.apache.datasketches</groupId>
             <artifactId>datasketches-memory</artifactId>
@@ -455,6 +454,11 @@
         <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-transport</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>http-client</artifactId>
         </dependency>
     </dependencies>
 

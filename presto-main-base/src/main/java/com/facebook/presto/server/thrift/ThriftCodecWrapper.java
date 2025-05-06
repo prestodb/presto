@@ -13,12 +13,20 @@
  */
 package com.facebook.presto.server.thrift;
 
+import com.facebook.airlift.http.client.thrift.ThriftProtocolException;
+import com.facebook.airlift.http.client.thrift.ThriftProtocolUtils;
 import com.facebook.airlift.json.Codec;
 import com.facebook.drift.codec.ThriftCodec;
+import com.facebook.drift.transport.netty.codec.Protocol;
+import com.facebook.presto.spi.PrestoException;
+import io.airlift.slice.DynamicSliceOutput;
+import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
 
 import java.io.InputStream;
 import java.io.OutputStream;
 
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
@@ -46,13 +54,25 @@ public class ThriftCodecWrapper<T>
     @Override
     public byte[] toBytes(T instance)
     {
-        throw new UnsupportedOperationException("Operation not supported");
+        try {
+            SliceOutput sliceOutput = new DynamicSliceOutput(1024);
+            ThriftProtocolUtils.write(instance, thriftCodec, Protocol.BINARY, sliceOutput);
+            return sliceOutput.slice().getBytes();
+        }
+        catch (ThriftProtocolException e) {
+            throw new PrestoException(NOT_SUPPORTED, "Can not serialize instance to bytes", e);
+        }
     }
 
     @Override
     public T fromBytes(byte[] bytes)
     {
-        throw new UnsupportedOperationException("Operation not supported");
+        try {
+            return ThriftProtocolUtils.read(thriftCodec, Protocol.BINARY, Slices.wrappedBuffer(bytes).getInput());
+        }
+        catch (ThriftProtocolException e) {
+            throw new PrestoException(NOT_SUPPORTED, "Can not deserialize instance from bytes", e);
+        }
     }
 
     @Override
