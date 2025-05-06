@@ -243,6 +243,75 @@ TEST_F(TopNRowNumberTest, manyPartitions) {
   testLimit(1, 1);
 }
 
+TEST_F(TopNRowNumberTest, fewPartitions) {
+  const vector_size_t size = 10'000;
+  auto data = split(
+      makeRowVector(
+          {"d", "s", "p"},
+          {
+              // Data. Make it a constant to avoid ordering issues.
+              makeConstant((int64_t)123'456, size),
+              // Sorting key. Ensure enough repetition and that the
+              // sorting keys flip between the top row number value
+              // and lower ones. This variation becomes important for rank
+              // and dense_rank functions as that zig-zag pattern affects
+              // the highest rank value computation.
+              makeFlatVector<int64_t>(
+                  size,
+                  [](auto row) { return (row % 10) * 10; },
+                  [](auto row) { return (row % 50) == 0; }),
+              // Partitioning key. Each partition has 2000 rows.
+              makeFlatVector<int64_t>(size, [](auto row) { return row % 5; }),
+          }),
+      10);
+
+  createDuckDbTable(data);
+
+  auto spillDirectory = exec::test::TempDirectoryPath::create();
+
+  auto testLimit = [&](auto limit, size_t outputBatchBytes = 1024) {
+    SCOPED_TRACE(fmt::format("Limit: {}", limit));
+    core::PlanNodeId topNRowNumberId;
+    auto plan = PlanBuilder()
+                    .values(data)
+                    .topNRowNumber({"p"}, {"s"}, limit, true)
+                    .capturePlanNodeId(topNRowNumberId)
+                    .planNode();
+
+    auto sql = fmt::format(
+        "SELECT * FROM (SELECT *, row_number() over (partition by p order by s) as rn FROM tmp) "
+        " WHERE rn <= {}",
+        limit);
+    assertQuery(plan, sql);
+
+    // Spilling.
+    {
+      TestScopedSpillInjection scopedSpillInjection(100);
+      auto task =
+          AssertQueryBuilder(plan, duckDbQueryRunner_)
+              .config(
+                  core::QueryConfig::kPreferredOutputBatchBytes,
+                  fmt::format("{}", outputBatchBytes))
+              .config(core::QueryConfig::kSpillEnabled, "true")
+              .config(core::QueryConfig::kTopNRowNumberSpillEnabled, "true")
+              .spillDirectory(spillDirectory->getPath())
+              .assertResults(sql);
+
+      auto taskStats = exec::toPlanStats(task->taskStats());
+      const auto& stats = taskStats.at(topNRowNumberId);
+
+      ASSERT_GT(stats.spilledBytes, 0);
+      ASSERT_GT(stats.spilledRows, 0);
+      ASSERT_GT(stats.spilledFiles, 0);
+      ASSERT_GT(stats.spilledPartitions, 0);
+    }
+  };
+
+  testLimit(10);
+  testLimit(20);
+  testLimit(100);
+}
+
 TEST_F(TopNRowNumberTest, abandonPartialEarly) {
   auto data = makeRowVector(
       {"p", "s"},
