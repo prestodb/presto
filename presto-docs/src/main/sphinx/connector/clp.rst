@@ -24,7 +24,6 @@ replacing the properties as appropriate:
 .. code-block:: none
 
     connector.name=clp
-    clp.archive-source=local
     clp.metadata-provider-type=mysql
     clp.metadata-db-url=jdbc:mysql://localhost:3306
     clp.metadata-db-name=clp_db
@@ -42,8 +41,6 @@ The following configuration properties are available:
 ================================== ======================================================================== =========
 Property Name                      Description                                                              Default
 ================================== ======================================================================== =========
-``clp.archive-source``             Specifies the source of the CLP archive. Supported values include        ``local``
-                                   ``local`` (local storage) and ``s3`` (Amazon S3).
 ``clp.metadata-expire-interval``   Defines how long metadata entries remain valid before being considered   600
                                    expired, in seconds.
 ``clp.metadata-refresh-interval``  Specifies how frequently metadata is refreshed from the source, in       60
@@ -67,18 +64,18 @@ Property Name                      Description                                  
                                    metadata. Additional providers can be supported by implementing the
                                    ``ClpMetadataProvider`` interface.
 ``clp.metadata-db-url``            The JDBC URL used to connect to the metadata database. This property is
-                                   required if ``clp.metadata-source`` is set to ``mysql``.
+                                   required if ``clp.metadata-provider-type`` is set to ``mysql``.
 ``clp.metadata-db-name``           The name of the metadata database. This option is required if
-                                   ``clp.metadata-source`` is set to ``mysql`` and the database name is not
-                                   specified in the URL.
+                                   ``clp.metadata-provider-type`` is set to ``mysql`` and the database name
+                                   is not specified in the URL.
 ``clp.metadata-db-user``           The database user with access to the metadata database.This option is
-                                   required if ``clp.metadata-source`` is set to ``mysql`` and the database
-                                   name is not specified in the URL.
+                                   required if ``clp.metadata-provider-type`` is set to ``mysql`` and the
+                                   database name is not specified in the URL.
 ``clp.metadata-db-password``       The password for the metadata database user. This option is required if
-                                   ``clp.metadata-source`` is set to ``mysql``.
+                                   ``clp.metadata-provider-type`` is set to ``mysql``.
 ``clp.metadata-table-prefix``      A string prefix prepended to all metadata table names when querying the
                                    database. Useful for namespacing or avoiding collisions. This option is
-                                   required if ``clp.metadata-source`` is set to ``mysql``.
+                                   required if ``clp.metadata-provider-type`` is set to ``mysql``.
 ``clp.split-provider-type``        Specifies the split provider type. By default, it uses the same type as  ``mysql``
                                    the metadata provider with the same connection parameters. Additional
                                    types can be supported by implementing the ``ClpSplitProvider``

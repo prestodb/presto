@@ -31,6 +31,6 @@ public class ClpRecordSetProvider
                                   ConnectorSplit split,
                                   List<? extends ColumnHandle> columns)
     {
-        return null;
+        throw new UnsupportedOperationException("getRecordSet is not supported");
     }
 }

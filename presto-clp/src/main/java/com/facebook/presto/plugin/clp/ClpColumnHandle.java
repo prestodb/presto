@@ -85,7 +85,7 @@ public class ClpColumnHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(columnName, columnType);
+        return Objects.hash(columnName, originalColumnName, columnType, nullable);
     }
 
     @Override
@@ -99,7 +99,9 @@ public class ClpColumnHandle
         }
         ClpColumnHandle other = (ClpColumnHandle) obj;
         return Objects.equals(this.columnName, other.columnName) &&
-                Objects.equals(this.columnType, other.columnType);
+                Objects.equals(this.originalColumnName, other.originalColumnName) &&
+                Objects.equals(this.columnType, other.columnType) &&
+                Objects.equals(this.nullable, other.nullable);
     }
 
     @Override
@@ -107,6 +109,7 @@ public class ClpColumnHandle
     {
         return toStringHelper(this)
                 .add("columnName", columnName)
+                .add("originalColumnName", originalColumnName)
                 .add("columnType", columnType)
                 .add("nullable", nullable)
                 .toString();

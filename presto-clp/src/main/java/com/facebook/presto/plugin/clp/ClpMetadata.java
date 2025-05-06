@@ -49,7 +49,7 @@ public class ClpMetadata
     private static final String DEFAULT_SCHEMA_NAME = "default";
     private final ClpMetadataProvider clpMetadataProvider;
     private final LoadingCache<SchemaTableName, List<ClpColumnHandle>> columnHandleCache;
-    private final LoadingCache<String, List<String>> tableNameCache;
+    private final LoadingCache<String, List<ClpTableHandle>> tableHandleCache;
 
     @Inject
     public ClpMetadata(ClpConfig clpConfig, ClpMetadataProvider clpMetadataProvider)
@@ -58,10 +58,10 @@ public class ClpMetadata
                 .expireAfterWrite(clpConfig.getMetadataExpireInterval(), SECONDS)
                 .refreshAfterWrite(clpConfig.getMetadataRefreshInterval(), SECONDS)
                 .build(CacheLoader.from(this::loadColumnHandles));
-        this.tableNameCache = CacheBuilder.newBuilder()
+        this.tableHandleCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(clpConfig.getMetadataExpireInterval(), SECONDS)
                 .refreshAfterWrite(clpConfig.getMetadataRefreshInterval(), SECONDS)
-                .build(CacheLoader.from(this::loadTableNames));
+                .build(CacheLoader.from(this::loadTableHandles));
 
         this.clpMetadataProvider = clpMetadataProvider;
     }
@@ -71,14 +71,14 @@ public class ClpMetadata
         return clpMetadataProvider.listColumnHandles(schemaTableName);
     }
 
-    private List<String> loadTableNames(String schemaName)
+    private List<ClpTableHandle> loadTableHandles(String schemaName)
     {
-        return clpMetadataProvider.listTableNames(schemaName);
+        return clpMetadataProvider.listTableHandles(schemaName);
     }
 
-    private List<String> listTables(String schemaName)
+    private List<ClpTableHandle> listTables(String schemaName)
     {
-        return tableNameCache.getUnchecked(schemaName);
+        return tableHandleCache.getUnchecked(schemaName);
     }
 
     private List<ClpColumnHandle> listColumns(SchemaTableName schemaTableName)
@@ -101,7 +101,7 @@ public class ClpMetadata
         }
 
         return listTables(schemaNameValue).stream()
-                .map(tableName -> new SchemaTableName(schemaNameValue, tableName))
+                .map(tableHandle -> new SchemaTableName(schemaNameValue, tableHandle.getSchemaTableName().getTableName()))
                 .collect(ImmutableList.toImmutableList());
     }
 
@@ -113,11 +113,10 @@ public class ClpMetadata
             return null;
         }
 
-        if (!listTables(schemaName).contains(tableName.getTableName())) {
-            return null;
-        }
-
-        return new ClpTableHandle(tableName);
+        return listTables(schemaName).stream()
+                .filter(tableHandle -> tableHandle.getSchemaTableName().equals(tableName))
+                .findFirst()
+                .orElse(null);
     }
 
     @Override
@@ -155,13 +154,13 @@ public class ClpMetadata
     {
         requireNonNull(prefix, "prefix is null");
         String schemaName = prefix.getSchemaName();
-        if (schemaName != null && !schemaName.equals(DEFAULT_SCHEMA_NAME)) {
+        if (schemaName != null && !listSchemaNames(session).contains(schemaName)) {
             return ImmutableMap.of();
         }
 
         List<SchemaTableName> schemaTableNames;
         if (prefix.getTableName() == null) {
-            schemaTableNames = listTables(session, Optional.of(prefix.getSchemaName()));
+            schemaTableNames = listTables(session, Optional.ofNullable(prefix.getSchemaName()));
         }
         else {
             schemaTableNames = ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));

@@ -16,9 +16,8 @@ package com.facebook.presto.plugin.clp.split;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.plugin.clp.ClpConfig;
 import com.facebook.presto.plugin.clp.ClpSplit;
+import com.facebook.presto.plugin.clp.ClpTableHandle;
 import com.facebook.presto.plugin.clp.ClpTableLayoutHandle;
-import com.facebook.presto.spi.SchemaTableName;
-import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
 
@@ -34,13 +33,17 @@ public class ClpMySqlSplitProvider
         implements ClpSplitProvider
 {
     private static final Logger log = Logger.get(ClpMySqlSplitProvider.class);
-
-    private static final String ARCHIVE_TABLE_SUFFIX = "_archives";
-    private static final String TABLE_METADATA_TABLE_SUFFIX = "table_metadata";
-    private static final String QUERY_SELECT_ARCHIVE_IDS = "SELECT archive_id FROM %s%s" + ARCHIVE_TABLE_SUFFIX;
-    private static final String QUERY_SELECT_TABLE_METADATA = "SELECT table_path FROM %s" + TABLE_METADATA_TABLE_SUFFIX + " WHERE table_name = '%s'";
-
     private final ClpConfig config;
+
+    // Column names
+    private static final String ARCHIVES_TABLE_COLUMN_ID = "id";
+
+    // Table suffixes
+    private static final String ARCHIVE_TABLE_SUFFIX = "_archives";
+
+    // SQL templates
+    private static final String SQL_SELECT_ARCHIVES_TEMPLATE =
+            String.format("SELECT `%s` FROM `%%s%%s%s`", ARCHIVES_TABLE_COLUMN_ID, ARCHIVE_TABLE_SUFFIX);
 
     @Inject
     public ClpMySqlSplitProvider(ClpConfig config)
@@ -60,7 +63,7 @@ public class ClpMySqlSplitProvider
         Connection connection = DriverManager.getConnection(config.getMetadataDbUrl(), config.getMetadataDbUser(), config.getMetadataDbPassword());
         String dbName = config.getMetadataDbName();
         if (dbName != null && !dbName.isEmpty()) {
-            connection.createStatement().execute("USE " + dbName);
+            connection.createStatement().execute(String.format("USE `%s`", dbName));
         }
         return connection;
     }
@@ -69,41 +72,24 @@ public class ClpMySqlSplitProvider
     public List<ClpSplit> listSplits(ClpTableLayoutHandle clpTableLayoutHandle)
     {
         List<ClpSplit> splits = new ArrayList<>();
-        SchemaTableName tableSchemaName = clpTableLayoutHandle.getTable().getSchemaTableName();
-        String tableName = tableSchemaName.getTableName();
-
-        String tablePathQuery = String.format(QUERY_SELECT_TABLE_METADATA, config.getMetadataTablePrefix(), tableName);
-        String archivePathQuery = String.format(QUERY_SELECT_ARCHIVE_IDS, config.getMetadataTablePrefix(), tableName);
+        ClpTableHandle clpTableHandle = clpTableLayoutHandle.getTable();
+        String tablePath = clpTableHandle.getTablePath();
+        String tableName = clpTableHandle.getSchemaTableName().getTableName();
+        String archivePathQuery = String.format(SQL_SELECT_ARCHIVES_TEMPLATE, config.getMetadataTablePrefix(), tableName);
 
         try (Connection connection = getConnection()) {
-            // Fetch table path
-            String tablePath;
-            try (PreparedStatement statement = connection.prepareStatement(tablePathQuery);
-                    ResultSet resultSet = statement.executeQuery()) {
-                if (!resultSet.next()) {
-                    log.error("Table metadata not found for table: %s", tableName);
-                    return ImmutableList.of();
-                }
-                tablePath = resultSet.getString("table_path");
-            }
-
-            if (tablePath == null || tablePath.isEmpty()) {
-                log.error("Table path is null for table: %s", tableName);
-                return ImmutableList.of();
-            }
-
             // Fetch archive IDs and create splits
             try (PreparedStatement statement = connection.prepareStatement(archivePathQuery);
                     ResultSet resultSet = statement.executeQuery()) {
                 while (resultSet.next()) {
-                    final String archiveId = resultSet.getString("archive_id");
+                    final String archiveId = resultSet.getString(ARCHIVES_TABLE_COLUMN_ID);
                     final String archivePath = tablePath + "/" + archiveId;
-                    splits.add(new ClpSplit(tableSchemaName, archivePath, clpTableLayoutHandle.getKqlQuery()));
+                    splits.add(new ClpSplit(archivePath));
                 }
             }
         }
         catch (SQLException e) {
-            log.error("Database error while processing splits for %s: %s", tableName, e);
+            log.warn("Database error while processing splits for %s: %s", tableName, e);
         }
 
         return splits;

@@ -61,8 +61,8 @@ public class TestClpMetadata
         final String metadataDbUser = "sa";
         final String metadataDbPassword = "";
         final String metadataDbTablePrefix = "clp_";
-        final String columnMetadataTablePrefix = "column_metadata_";
-        final String tableMetadataSuffix = "table_metadata";
+        final String columnMetadataTableSuffix = "_column_metadata";
+        final String datasetsTableSuffix = "datasets";
 
         ClpConfig config = new ClpConfig().setPolymorphicTypeEnabled(true)
                 .setMetadataDbUrl(metadataDbUrl)
@@ -72,13 +72,14 @@ public class TestClpMetadata
         ClpMetadataProvider metadataProvider = new ClpMySqlMetadataProvider(config);
         metadata = new ClpMetadata(config, metadataProvider);
 
-        final String tableMetadataTableName = metadataDbTablePrefix + tableMetadataSuffix;
-        final String columnMetadataTableName = metadataDbTablePrefix + columnMetadataTablePrefix + TABLE_NAME;
+        final String datasetsTableName = metadataDbTablePrefix + datasetsTableSuffix;
+        final String columnMetadataTableName = metadataDbTablePrefix + TABLE_NAME + columnMetadataTableSuffix;
 
         final String createTableMetadataSQL = String.format(
                 "CREATE TABLE IF NOT EXISTS %s (" +
-                        " table_name VARCHAR(512) PRIMARY KEY," +
-                        " table_path VARCHAR(1024) NOT NULL)", tableMetadataTableName);
+                        " name VARCHAR(255) PRIMARY KEY," +
+                        " archive_storage_type VARCHAR(4096) NOT NULL," +
+                        " archive_storage_directory VARCHAR(4096) NOT NULL)", datasetsTableName);
 
         final String createColumnMetadataSQL = String.format(
                 "CREATE TABLE IF NOT EXISTS %s (" +
@@ -87,7 +88,7 @@ public class TestClpMetadata
                         " PRIMARY KEY (name, type))", columnMetadataTableName);
 
         final String insertTableMetadataSQL = String.format(
-                "INSERT INTO %s (table_name, table_path) VALUES (?, ?)", tableMetadataTableName);
+                "INSERT INTO %s (name, archive_storage_type, archive_storage_directory) VALUES (?, ?, ?)", datasetsTableName);
 
         final String insertColumnMetadataSQL = String.format(
                 "INSERT INTO %s (name, type) VALUES (?, ?)", columnMetadataTableName);
@@ -100,7 +101,8 @@ public class TestClpMetadata
             // Insert table metadata
             try (PreparedStatement pstmt = conn.prepareStatement(insertTableMetadataSQL)) {
                 pstmt.setString(1, TABLE_NAME);
-                pstmt.setString(2, "/tmp/archives/" + TABLE_NAME);
+                pstmt.setString(2, "fs");
+                pstmt.setString(3, "/tmp/archives/" + TABLE_NAME);
                 pstmt.executeUpdate();
             }
 

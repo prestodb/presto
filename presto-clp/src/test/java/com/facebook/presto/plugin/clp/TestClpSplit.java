@@ -51,7 +51,7 @@ public class TestClpSplit
         final String metadataDbUser = "sa";
         final String metadataDbPassword = "";
         final String metadataDbTablePrefix = "clp_";
-        final String tableMetadataSuffix = "table_metadata";
+        final String datasetsTableSuffix = "datasets";
         final String archiveTableSuffix = "_archives";
 
         this.config = new ClpConfig().setPolymorphicTypeEnabled(true)
@@ -60,24 +60,27 @@ public class TestClpSplit
                 .setMetadataDbPassword("")
                 .setMetadataTablePrefix(metadataDbTablePrefix);
 
-        final String tableMetadataTableName = metadataDbTablePrefix + tableMetadataSuffix;
+        final String datasetsTableName = metadataDbTablePrefix + datasetsTableSuffix;
         final String archiveTableFormat = metadataDbTablePrefix + "%s" + archiveTableSuffix;
 
         final String createTableMetadataSQL = String.format(
                 "CREATE TABLE IF NOT EXISTS %s (" +
-                        " table_name VARCHAR(512) PRIMARY KEY," +
-                        " table_path VARCHAR(1024) NOT NULL)", tableMetadataTableName);
+                        " name VARCHAR(255) PRIMARY KEY," +
+                        " archive_storage_type VARCHAR(4096) NOT NULL," +
+                        " archive_storage_directory VARCHAR(4096) NOT NULL)", datasetsTableName);
 
         try (Connection conn = DriverManager.getConnection(metadataDbUrl, metadataDbUser, metadataDbPassword);
                 Statement stmt = conn.createStatement()) {
             stmt.execute(createTableMetadataSQL);
 
             // Insert table metadata in batch
-            String insertTableMetadataSQL = String.format("INSERT INTO %s (table_name, table_path) VALUES (?, ?)", tableMetadataTableName);
+            String insertTableMetadataSQL = String.format(
+                    "INSERT INTO %s (name, archive_storage_type, archive_storage_directory) VALUES (?, ?, ?)", datasetsTableName);
             try (PreparedStatement pstmt = conn.prepareStatement(insertTableMetadataSQL)) {
                 for (String tableName : TABLE_NAME_LIST) {
                     pstmt.setString(1, tableName);
-                    pstmt.setString(2, "/tmp/archives/" + tableName);
+                    pstmt.setString(2, "fs");
+                    pstmt.setString(3, "/tmp/archives/" + tableName);
                     pstmt.addBatch();
                 }
                 pstmt.executeBatch();
@@ -88,13 +91,13 @@ public class TestClpSplit
                 String archiveTableName = String.format(archiveTableFormat, tableName);
                 String createArchiveTableSQL = String.format(
                         "CREATE TABLE IF NOT EXISTS %s (" +
-                                "id BIGINT AUTO_INCREMENT PRIMARY KEY, " +
-                                "archive_id VARCHAR(128) NOT NULL" +
+                                "pagination_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, " +
+                                "id VARCHAR(64) NOT NULL" +
                                 ")",
                         archiveTableName);
                 stmt.execute(createArchiveTableSQL);
 
-                String insertArchiveTableSQL = String.format("INSERT INTO %s (archive_id) VALUES (?)", archiveTableName);
+                String insertArchiveTableSQL = String.format("INSERT INTO %s (id) VALUES (?)", archiveTableName);
                 try (PreparedStatement pstmt = conn.prepareStatement(insertArchiveTableSQL)) {
                     for (int i = 0; i < NUM_SPLITS; i++) {
                         pstmt.setString(1, "id_" + i);
@@ -128,12 +131,15 @@ public class TestClpSplit
     {
         ClpSplitProvider splitProvider = new ClpMySqlSplitProvider(config);
         for (String tableName : TABLE_NAME_LIST) {
-            ClpTableLayoutHandle layoutHandle = new ClpTableLayoutHandle(new ClpTableHandle(new SchemaTableName(TABLE_SCHEMA, tableName)), Optional.empty());
+            ClpTableLayoutHandle layoutHandle = new ClpTableLayoutHandle(
+                    new ClpTableHandle(new SchemaTableName(TABLE_SCHEMA, tableName),
+                            "/tmp/archives/" + tableName,
+                            ClpTableHandle.StorageType.FS),
+                    Optional.empty());
             List<ClpSplit> splits = splitProvider.listSplits(layoutHandle);
             assertEquals(splits.size(), NUM_SPLITS);
             for (int i = 0; i < NUM_SPLITS; i++) {
-                assertEquals(splits.get(i).getArchivePath(), "/tmp/archives/" + tableName + "/id_" + i);
-                assertEquals(splits.get(i).getKqlQuery(), Optional.empty());
+                assertEquals(splits.get(i).getPath(), "/tmp/archives/" + tableName + "/id_" + i);
             }
         }
     }

@@ -14,6 +14,7 @@
 package com.facebook.presto.plugin.clp.metadata;
 
 import com.facebook.presto.plugin.clp.ClpColumnHandle;
+import com.facebook.presto.plugin.clp.ClpTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 
 import java.util.List;
@@ -23,10 +24,10 @@ public interface ClpMetadataProvider
     /**
      * Returns the list of column handles for the given table.
      */
-    public List<ClpColumnHandle> listColumnHandles(SchemaTableName schemaTableName);
+    List<ClpColumnHandle> listColumnHandles(SchemaTableName schemaTableName);
 
     /**
-     * Returns the list of table names in the given schema.
+     * Returns the list of table handles in the given schema.
      */
-    public List<String> listTableNames(String schema);
+    List<ClpTableHandle> listTableHandles(String schema);
 }
