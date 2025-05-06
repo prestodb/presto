@@ -115,6 +115,12 @@ public abstract class TestIcebergDistributedQueries
         assertEqualsIgnoreOrder(actual, expected);
     }
 
+    @Override
+    public void testClearTransactionId()
+    {
+        // Catalog iceberg only supports writes using autocommit
+    }
+
     /**
      * Increased the optimizer timeout from 15000ms to 25000ms
      */

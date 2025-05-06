@@ -99,7 +99,8 @@ public class TestProgressMonitor
                 null,
                 ImmutableList.of(),
                 null,
-                null);
+                null,
+                false);
 
         return QUERY_RESULTS_CODEC.toJson(queryResults);
     }

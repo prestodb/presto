@@ -33,6 +33,11 @@ public interface ResultsSession<T>
         throw new UnsupportedOperationException();
     }
 
+    default void setClearTransactionId(boolean clearTransactionId)
+    {
+        throw new UnsupportedOperationException();
+    }
+
     default void setWarnings(List<PrestoWarning> warnings)
     {
         throw new UnsupportedOperationException();
