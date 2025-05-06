@@ -41,6 +41,17 @@ public class ClpSchemaTree
         Map<String, ClpNode> children = new HashMap<>();
         Set<String> conflictingBaseNames = new HashSet<>();
 
+        ClpNode(String originalName)
+        {
+            this.originalName = originalName;
+        }
+
+        ClpNode(String originalName, Type type)
+        {
+            this.originalName = originalName;
+            this.type = type;
+        }
+
         boolean isLeaf()
         {
             return children.isEmpty();
@@ -52,7 +63,7 @@ public class ClpSchemaTree
     ClpSchemaTree(boolean polymorphicTypeEnabled)
     {
         this.polymorphicTypeEnabled = polymorphicTypeEnabled;
-        this.root = new ClpNode();
+        this.root = new ClpNode(""); // Root doesn't have an original name
     }
 
     private Type mapColumnType(byte type)
@@ -92,43 +103,23 @@ public class ClpSchemaTree
 
         for (int i = 0; i < path.length - 1; i++) {
             String segment = path[i];
-            current.children.putIfAbsent(segment, new ClpNode());
-            current = current.children.get(segment);
+            ClpNode existingNode = current.children.get(segment);
+
+            if (polymorphicTypeEnabled && existingNode != null && existingNode.type != null) {
+                // Conflict: An intermediate segment already exists as a leaf node. Rename it.
+                String existingSuffix = getTypeSuffix(existingNode.type);
+                String renamedExisting = segment + "_" + existingSuffix;
+                current.children.remove(segment);
+                current.children.put(renamedExisting, existingNode);
+            }
+            current = current.children.computeIfAbsent(segment, ClpNode::new);
+            current.type = null;
         }
 
         String leafName = path[path.length - 1];
-        String finalLeafName = leafName;
+        String finalLeafName = resolvePolymorphicConflicts(current, leafName, prestoType);
 
-        if (polymorphicTypeEnabled) {
-            boolean conflictDetected = false;
-
-            if (current.children.containsKey(leafName)) {
-                ClpNode existing = current.children.get(leafName);
-
-                if (existing.type != null && !existing.type.equals(prestoType)) {
-                    String existingSuffix = existing.type.getDisplayName();
-                    String renamedExisting = leafName + "_" + existingSuffix;
-
-                    current.children.remove(leafName);
-                    current.children.put(renamedExisting, existing);
-
-                    current.conflictingBaseNames.add(leafName);
-                    conflictDetected = true;
-                }
-            }
-            else if (current.conflictingBaseNames.contains(leafName)) {
-                conflictDetected = true;
-            }
-
-            if (conflictDetected) {
-                String newSuffix = prestoType.getDisplayName();
-                finalLeafName = leafName + "_" + newSuffix;
-            }
-        }
-
-        ClpNode leaf = new ClpNode();
-        leaf.type = prestoType;
-        leaf.originalName = leafName;
+        ClpNode leaf = new ClpNode(leafName, prestoType);
         current.children.put(finalLeafName, leaf);
     }
 
@@ -154,6 +145,44 @@ public class ClpSchemaTree
             }
         }
         return columns;
+    }
+
+    private String resolvePolymorphicConflicts(ClpNode parent, String baseName, Type newType)
+    {
+        if (!polymorphicTypeEnabled) {
+            return baseName;
+        }
+
+        boolean conflictDetected = false;
+        if (parent.children.containsKey(baseName)) {
+            ClpNode existing = parent.children.get(baseName);
+            if (existing.type == null) {
+                conflictDetected = true;
+            }
+            else if (!existing.type.equals(newType)) {
+                String existingSuffix = getTypeSuffix(existing.type);
+                String renamedExisting = baseName + "_" + existingSuffix;
+                parent.children.remove(baseName);
+                parent.children.put(renamedExisting, existing);
+                parent.conflictingBaseNames.add(baseName);
+                conflictDetected = true;
+            }
+        }
+        else if (parent.conflictingBaseNames.contains(baseName)) {
+            conflictDetected = true;
+        }
+
+        if (conflictDetected) {
+            String newSuffix = getTypeSuffix(newType);
+            return baseName + "_" + newSuffix;
+        }
+
+        return baseName;
+    }
+
+    private String getTypeSuffix(Type type)
+    {
+        return (type instanceof ArrayType) ? "array" : type.getDisplayName();
     }
 
     private Type buildRowType(ClpNode node)

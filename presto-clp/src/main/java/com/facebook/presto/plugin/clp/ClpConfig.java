@@ -20,12 +20,6 @@ import java.util.regex.Pattern;
 
 public class ClpConfig
 {
-    public enum ArchiveSource
-    {
-        LOCAL,
-        S3
-    }
-
     public enum MetadataProviderType
     {
         MYSQL
@@ -45,7 +39,6 @@ public class ClpConfig
     private String metadataTablePrefix;
     private long metadataRefreshInterval = 60;
     private long metadataExpireInterval = 600;
-    private ArchiveSource archiveSource = ArchiveSource.LOCAL;
     private SplitProviderType splitProviderType = SplitProviderType.MYSQL;
 
     public static final Pattern SAFE_SQL_IDENTIFIER = Pattern.compile("^[a-zA-Z0-9_]+$");
@@ -160,18 +153,6 @@ public class ClpConfig
     public ClpConfig setMetadataExpireInterval(long metadataExpireInterval)
     {
         this.metadataExpireInterval = metadataExpireInterval;
-        return this;
-    }
-
-    public ArchiveSource getArchiveSource()
-    {
-        return archiveSource;
-    }
-
-    @Config("clp.archive-source")
-    public ClpConfig setArchiveSource(ArchiveSource archiveSource)
-    {
-        this.archiveSource = archiveSource;
         return this;
     }
 

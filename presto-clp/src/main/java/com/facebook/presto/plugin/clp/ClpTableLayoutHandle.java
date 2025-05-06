@@ -20,6 +20,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
+
 public class ClpTableLayoutHandle
         implements ConnectorTableLayoutHandle
 {
@@ -28,7 +30,7 @@ public class ClpTableLayoutHandle
 
     @JsonCreator
     public ClpTableLayoutHandle(@JsonProperty("table") ClpTableHandle table,
-                                @JsonProperty("query") Optional<String> kqlQuery)
+                                @JsonProperty("kqlQuery") Optional<String> kqlQuery)
     {
         this.table = table;
         this.kqlQuery = kqlQuery;
@@ -56,18 +58,22 @@ public class ClpTableLayoutHandle
             return false;
         }
         ClpTableLayoutHandle that = (ClpTableLayoutHandle) o;
-        return Objects.equals(table, that.table);
+        return Objects.equals(table, that.table) &&
+                Objects.equals(kqlQuery, that.kqlQuery);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(table);
+        return Objects.hash(table, kqlQuery);
     }
 
     @Override
     public String toString()
     {
-        return table.toString();
+        return toStringHelper(this)
+                .add("table", table)
+                .add("kqlQuery", kqlQuery)
+                .toString();
     }
 }
