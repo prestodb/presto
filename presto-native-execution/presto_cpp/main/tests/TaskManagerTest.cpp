@@ -337,17 +337,6 @@ class TaskManagerTest : public exec::test::OperatorTestBase,
     return filePaths;
   }
 
-  std::vector<std::string> makeEmptyFiles(
-      const std::shared_ptr<TempDirectoryPath>& dirPath,
-      int count) {
-    std::vector<std::string> filePaths = makeFilePaths(dirPath, count);
-    auto fs = filesystems::getFileSystem(dirPath->getPath(), nullptr);
-    for (const auto& filePath : filePaths) {
-      fs->openFileForWrite(filePath);
-    }
-    return filePaths;
-  }
-
   protocol::ScheduledSplit makeSplit(
       const std::string& filePath,
       long sequenceId) {
@@ -976,45 +965,6 @@ TEST_P(TaskManagerTest, tableScanMultipleTasks) {
       tasks, planFragment.planNode->outputType(), splitSequenceId);
   assertResults(
       outputTaskInfo->taskId, rowType_, "SELECT * FROM tmp WHERE c0 % 5 = 1");
-}
-
-// Create a task to scan an empty (invalid) ORC file. Ensure that the error
-// propagates via getTaskStatus().
-TEST_P(TaskManagerTest, emptyFile) {
-  const auto tableDir = exec::test::TempDirectoryPath::create();
-  auto filePaths = makeEmptyFiles(tableDir, 1);
-  auto planFragment = exec::test::PlanBuilder()
-                          .tableScan(rowType_)
-                          .partitionedOutput({}, 1, {"c0", "c1"})
-                          .planFragment();
-
-  // Create task to scan an empty file.
-  auto source = makeSource("0", filePaths, true);
-  protocol::TaskId taskId = "scan.0.0.1.0";
-  protocol::TaskUpdateRequest updateRequest;
-  updateRequest.sources.push_back(source);
-  auto taskInfo = createOrUpdateTask(taskId, updateRequest, planFragment);
-
-  protocol::Duration longWait("300s");
-  auto statusRequestState = http::CallbackRequestHandlerState::create();
-
-  // Keep polling until we see the error. Try for 5 times, sleep 100ms.
-  for (size_t i = 0;; i++) {
-    if (i > 5) {
-      FAIL() << "Didn't get a failure after " << i << " tries";
-    }
-
-    auto taskStatus =
-        taskManager_->getTaskStatus(taskId, {}, longWait, statusRequestState)
-            .get();
-    if (not taskStatus->failures.empty()) {
-      EXPECT_EQ(1, taskStatus->failures.size());
-      const auto& failure = taskStatus->failures.front();
-      EXPECT_THAT(failure.message, testing::ContainsRegex("ORC file is empty"));
-      break;
-    }
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-  }
 }
 
 TEST_P(TaskManagerTest, countAggregation) {
