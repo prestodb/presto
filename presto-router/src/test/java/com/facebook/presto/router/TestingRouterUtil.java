@@ -18,18 +18,23 @@ import com.facebook.presto.router.spec.GroupSpec;
 import com.facebook.presto.router.spec.RouterSpec;
 import com.facebook.presto.router.spec.SelectorRuleSpec;
 import com.facebook.presto.server.testing.TestingPrestoServer;
+import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.router.scheduler.SchedulerType.ROUND_ROBIN;
+import static java.lang.String.format;
+import static java.sql.DriverManager.getConnection;
 
 public class TestingRouterUtil
 {
@@ -46,9 +51,28 @@ public class TestingRouterUtil
         RouterSpec spec = new RouterSpec(ImmutableList.of(new GroupSpec("all", serverURIs, Optional.empty(), Optional.empty())),
                     ImmutableList.of(new SelectorRuleSpec(Optional.empty(), Optional.empty(), Optional.empty(), "all")),
                     Optional.of(ROUND_ROBIN),
+                    Optional.empty(),
                     Optional.empty());
         JsonCodec<RouterSpec> codec = jsonCodec(RouterSpec.class);
         Files.write(tempFile.toPath(), codec.toBytes(spec));
         return tempFile;
+    }
+
+    public static TestingPrestoServer createPrestoServer()
+            throws Exception
+    {
+        TestingPrestoServer server = new TestingPrestoServer();
+        server.installPlugin(new TpchPlugin());
+        server.createCatalog("tpch", "tpch");
+        server.refreshNodes();
+
+        return server;
+    }
+
+    public static Connection createConnection(URI uri)
+            throws SQLException
+    {
+        String url = format("jdbc:presto://%s:%s", uri.getHost(), uri.getPort());
+        return getConnection(url, "test", null);
     }
 }
