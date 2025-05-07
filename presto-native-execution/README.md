@@ -108,7 +108,12 @@ follow these steps:
 
 *CMake flags:* `PRESTO_STATS_REPORTER_TYPE=PROMETHEUS`
 
-*Runtime configuration:* `runtime-metrics-collection-enabled=true`
+*Runtime configuration:* 
+
+```
+runtime-metrics-collection-enabled=true
+prometheus-histogram-metrics-collection-enabled=true
+```
 
 * After installing the above dependencies, from the
 `presto/presto-native-execution` directory, run `make`

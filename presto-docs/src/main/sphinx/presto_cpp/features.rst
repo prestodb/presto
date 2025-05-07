@@ -256,3 +256,11 @@ Users can enable collection of worker level metrics by setting the property:
 
   When enabled and Presto C++ workers interact with the S3 filesystem, additional runtime metrics are collected.
   For a detailed list of these metrics, see `S3 FileSystem <https://facebookincubator.github.io/velox/monitoring/metrics.html#s3-filesystem>`_.
+
+``prometheus-histogram-metrics-collection-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+  Enable Prometheus-based histogram metrics collection. This property takes effect only when Prometheus-based metrics collection is enabled.
+  Note that enabling this property can have a noticeable impact on performance.

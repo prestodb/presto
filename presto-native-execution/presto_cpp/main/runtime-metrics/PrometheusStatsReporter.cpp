@@ -13,6 +13,7 @@
  */
 
 #include "presto_cpp/main/runtime-metrics/PrometheusStatsReporter.h"
+#include "presto_cpp/main/runtime-metrics/PrometheusConfig.h"
 
 #include <prometheus/collectable.h>
 #include <prometheus/counter.h>
@@ -27,12 +28,18 @@ namespace facebook::presto::prometheus {
 // Initialize singleton for the reporter
 folly::Singleton<facebook::velox::BaseStatsReporter> reporter(
     []() -> facebook::velox::BaseStatsReporter* {
+      auto prometheusConfig = PrometheusConfig::instance();
+      prometheusConfig->initialize(SystemConfig::instance()->file_path());
+      PrometheusStatsReporter::enablePrometheusHistogramMetricCollection =
+          prometheusConfig->enablePrometheusHistogramMetricsCollection();
       return facebook::presto::prometheus::PrometheusStatsReporter::
           createPrometheusReporter()
               .release();
     });
 
 static constexpr std::string_view kSummarySuffix("_summary");
+
+bool PrometheusStatsReporter::enablePrometheusHistogramMetricCollection = false;
 
 struct PrometheusStatsReporter::PrometheusImpl {
   explicit PrometheusImpl(const ::prometheus::Labels& labels) {
@@ -99,6 +106,10 @@ void PrometheusStatsReporter::registerHistogramMetricExportType(
     int64_t min,
     int64_t max,
     const std::vector<int32_t>& pcts) const {
+  if (!enablePrometheusHistogramMetricCollection) {
+    VLOG(1) << "Prometheus histogram metrics collection is disabled";
+    return;
+  }
   if (registeredMetricsMap_.count(key)) {
     // Already registered;
     VLOG(1) << "Trying to register already registered metric " << key;
@@ -208,6 +219,9 @@ void PrometheusStatsReporter::addHistogramMetricValue(
 void PrometheusStatsReporter::addHistogramMetricValue(
     const char* key,
     size_t value) const {
+  if (!enablePrometheusHistogramMetricCollection) {
+    return;
+  }
   auto metricIterator = registeredMetricsMap_.find(key);
   if (metricIterator == registeredMetricsMap_.end()) {
     VLOG(1) << "addMetricValue for unregistered metric " << key;
