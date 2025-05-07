@@ -39,13 +39,19 @@ namespace {
 struct TestParam {
   bool asyncLookup;
   int32_t numPrefetches;
+  bool serialExecution;
 
-  TestParam(bool _asyncLookup, int32_t _numPrefetches)
-      : asyncLookup(_asyncLookup), numPrefetches(_numPrefetches) {}
+  TestParam(bool _asyncLookup, int32_t _numPrefetches, bool _serialExecution)
+      : asyncLookup(_asyncLookup),
+        numPrefetches(_numPrefetches),
+        serialExecution(_serialExecution) {}
 
   std::string toString() const {
     return fmt::format(
-        "asyncLookup={}, numPrefetches={}", asyncLookup, numPrefetches);
+        "asyncLookup={}, numPrefetches={}, serialExecution={}",
+        asyncLookup,
+        numPrefetches,
+        serialExecution);
   }
 };
 
@@ -54,10 +60,14 @@ class IndexLookupJoinTest : public IndexLookupJoinTestBase,
  public:
   static std::vector<TestParam> getTestParams() {
     std::vector<TestParam> testParams;
-    testParams.emplace_back(true, 0);
-    testParams.emplace_back(false, 0);
-    testParams.emplace_back(true, 3);
-    testParams.emplace_back(false, 3);
+    testParams.emplace_back(true, 0, true);
+    testParams.emplace_back(true, 0, false);
+    testParams.emplace_back(false, 0, true);
+    testParams.emplace_back(false, 0, false);
+    testParams.emplace_back(true, 3, true);
+    testParams.emplace_back(true, 3, false);
+    testParams.emplace_back(false, 3, true);
+    testParams.emplace_back(false, 3, false);
     return testParams;
   }
 
@@ -780,6 +790,8 @@ TEST_P(IndexLookupJoinTest, equalJoin) {
         {},
         {},
         testData.matchPct);
+    std::vector<std::shared_ptr<TempFilePath>> probeFiles =
+        createProbeFiles(probeVectors);
 
     createDuckDbTable("t", probeVectors);
     createDuckDbTable("u", {tableData.tableData});
@@ -800,17 +812,26 @@ TEST_P(IndexLookupJoinTest, equalJoin) {
         columnHandles);
 
     core::PlanNodeId joinNodeId;
+    core::PlanNodeId probeScanNodeId;
     auto plan = makeLookupPlan(
         planNodeIdGenerator,
         indexScanNode,
-        probeVectors,
         {"t0", "t1", "t2"},
         {"u0", "u1", "u2"},
         {},
         testData.joinType,
         testData.outputColumns,
-        joinNodeId);
-    runLookupQuery(plan, GetParam().numPrefetches, testData.duckDbVerifySql);
+        joinNodeId,
+        probeScanNodeId);
+    runLookupQuery(
+        plan,
+        probeScanNodeId,
+        probeFiles,
+        GetParam().serialExecution,
+        GetParam().serialExecution,
+        32,
+        GetParam().numPrefetches,
+        testData.duckDbVerifySql);
   }
 }
 
@@ -1231,6 +1252,8 @@ TEST_P(IndexLookupJoinTest, betweenJoinCondition) {
         /*eqaulityMatchPct=*/80,
         /*inColumns=*/std::nullopt,
         testData.betweenMatchPct);
+    std::vector<std::shared_ptr<TempFilePath>> probeFiles =
+        createProbeFiles(probeVectors);
 
     createDuckDbTable("t", probeVectors);
     createDuckDbTable("u", {tableData.tableData});
@@ -1251,17 +1274,26 @@ TEST_P(IndexLookupJoinTest, betweenJoinCondition) {
         columnHandles);
 
     core::PlanNodeId joinNodeId;
+    core::PlanNodeId probeScanNodeId;
     auto plan = makeLookupPlan(
         planNodeIdGenerator,
         indexScanNode,
-        probeVectors,
         {"t0", "t1"},
         {"u0", "u1"},
         {testData.betweenCondition},
         testData.joinType,
         testData.outputColumns,
-        joinNodeId);
-    runLookupQuery(plan, GetParam().numPrefetches, testData.duckDbVerifySql);
+        joinNodeId,
+        probeScanNodeId);
+    runLookupQuery(
+        plan,
+        probeScanNodeId,
+        probeFiles,
+        GetParam().serialExecution,
+        GetParam().serialExecution,
+        32,
+        GetParam().numPrefetches,
+        testData.duckDbVerifySql);
   }
 }
 
@@ -1548,6 +1580,8 @@ TEST_P(IndexLookupJoinTest, inJoinCondition) {
         {},
         /*eqaulityMatchPct=*/80,
         testData.inMatchPct);
+    std::vector<std::shared_ptr<TempFilePath>> probeFiles =
+        createProbeFiles(probeVectors);
 
     createDuckDbTable("t", probeVectors);
     createDuckDbTable("u", {tableData.tableData});
@@ -1568,17 +1602,26 @@ TEST_P(IndexLookupJoinTest, inJoinCondition) {
         columnHandles);
 
     core::PlanNodeId joinNodeId;
+    core::PlanNodeId probeScanNodeId;
     auto plan = makeLookupPlan(
         planNodeIdGenerator,
         indexScanNode,
-        probeVectors,
         {"t0", "t1"},
         {"u0", "u1"},
         {testData.inCondition},
         testData.joinType,
         testData.outputColumns,
-        joinNodeId);
-    runLookupQuery(plan, GetParam().numPrefetches, testData.duckDbVerifySql);
+        joinNodeId,
+        probeScanNodeId);
+    runLookupQuery(
+        plan,
+        probeScanNodeId,
+        probeFiles,
+        GetParam().serialExecution,
+        GetParam().serialExecution,
+        32,
+        GetParam().numPrefetches,
+        testData.duckDbVerifySql);
   }
 }
 
@@ -1587,6 +1630,8 @@ DEBUG_ONLY_TEST_P(IndexLookupJoinTest, connectorError) {
   generateIndexTableData({100, 1, 1}, tableData, pool_);
   const std::vector<RowVectorPtr> probeVectors = generateProbeInput(
       20, 100, 1, tableData, pool_, {"t0", "t1", "t2"}, {}, {}, 100);
+  std::vector<std::shared_ptr<TempFilePath>> probeFiles =
+      createProbeFiles(probeVectors);
 
   const std::string errorMsg{"injectedError"};
   std::atomic_int lookupCount{0};
@@ -1615,22 +1660,32 @@ DEBUG_ONLY_TEST_P(IndexLookupJoinTest, connectorError) {
       columnHandles);
 
   core::PlanNodeId joinNodeId;
+  core::PlanNodeId probeScanNodeId;
   auto plan = makeLookupPlan(
       planNodeIdGenerator,
       indexScanNode,
-      probeVectors,
       {"t0", "t1", "t2"},
       {"u0", "u1", "u2"},
       {},
       core::JoinType::kInner,
       {"u0", "u1", "u2", "t5"},
-      joinNodeId);
+      joinNodeId,
+      probeScanNodeId);
   VELOX_ASSERT_THROW(
-      AssertQueryBuilder(plan).copyResults(pool_.get()), errorMsg);
+      runLookupQuery(
+          plan,
+          probeScanNodeId,
+          probeFiles,
+          GetParam().serialExecution,
+          GetParam().serialExecution,
+          100,
+          GetParam().numPrefetches,
+          "SELECT u.c0, u.c1, t.c2, t.c5 FROM t, u WHERE t.c0 = u.c0 AND t.c1 = u.c1 AND t.c2 = u.c2"),
+      errorMsg);
 }
 
 DEBUG_ONLY_TEST_P(IndexLookupJoinTest, prefetch) {
-  if (!GetParam().asyncLookup) {
+  if (!GetParam().asyncLookup || GetParam().serialExecution) {
     // This test only works for async lookup.
     return;
   }
@@ -1648,6 +1703,8 @@ DEBUG_ONLY_TEST_P(IndexLookupJoinTest, prefetch) {
       {},
       {},
       100);
+  std::vector<std::shared_ptr<TempFilePath>> probeFiles =
+      createProbeFiles(probeVectors);
   createDuckDbTable("t", probeVectors);
   createDuckDbTable("u", {tableData.tableData});
 
@@ -1657,7 +1714,6 @@ DEBUG_ONLY_TEST_P(IndexLookupJoinTest, prefetch) {
   SCOPED_TESTVALUE_SET(
       "facebook::velox::exec::test::TestIndexSource::ResultIterator::asyncLookup",
       std::function<void(void*)>([&](void*) {
-        // Triggers error in the middle.
         if (++lookupCount > 1 + GetParam().numPrefetches) {
           return;
         }
@@ -1680,19 +1736,25 @@ DEBUG_ONLY_TEST_P(IndexLookupJoinTest, prefetch) {
       columnHandles);
 
   core::PlanNodeId joinNodeId;
+  core::PlanNodeId probeScanNodeId;
   auto plan = makeLookupPlan(
       planNodeIdGenerator,
       indexScanNode,
-      probeVectors,
       {"t0", "t1", "t2"},
       {"u0", "u1", "u2"},
       {},
       core::JoinType::kInner,
       {"u3", "t5"},
-      joinNodeId);
+      joinNodeId,
+      probeScanNodeId);
   std::thread queryThread([&] {
     runLookupQuery(
         plan,
+        probeScanNodeId,
+        probeFiles,
+        GetParam().serialExecution,
+        GetParam().serialExecution,
+        100,
         GetParam().numPrefetches,
         "SELECT u.c3, t.c5 FROM t, u WHERE t.c0 = u.c0 AND t.c1 = u.c1 AND t.c2 = u.c2");
   });
@@ -1748,6 +1810,8 @@ TEST_P(IndexLookupJoinTest, outputBatchSize) {
         {},
         {},
         /*equalMatchPct=*/100);
+    std::vector<std::shared_ptr<TempFilePath>> probeFiles =
+        createProbeFiles(probeVectors);
 
     createDuckDbTable("t", probeVectors);
     createDuckDbTable("u", {tableData.tableData});
@@ -1768,16 +1832,17 @@ TEST_P(IndexLookupJoinTest, outputBatchSize) {
         columnHandles);
 
     core::PlanNodeId joinNodeId;
+    core::PlanNodeId probeScanNodeId;
     auto plan = makeLookupPlan(
         planNodeIdGenerator,
         indexScanNode,
-        probeVectors,
         {"t0", "t1", "t2"},
         {"u0", "u1", "u2"},
         {},
         core::JoinType::kInner,
         {"t4", "u5"},
-        joinNodeId);
+        joinNodeId,
+        probeScanNodeId);
     const auto task =
         AssertQueryBuilder(duckDbQueryRunner_)
             .plan(plan)
@@ -1790,6 +1855,9 @@ TEST_P(IndexLookupJoinTest, outputBatchSize) {
             .config(
                 core::QueryConfig::kPreferredOutputBatchBytes,
                 std::to_string(1ULL << 30))
+            .splits(probeScanNodeId, makeHiveConnectorSplits(probeFiles))
+            .serialExecution(GetParam().serialExecution)
+            .barrierExecution(GetParam().serialExecution)
             .assertResults(
                 "SELECT t.c4, u.c5 FROM t, u WHERE t.c0 = u.c0 AND t.c1 = u.c1 AND t.c2 = u.c2");
     ASSERT_EQ(
@@ -1812,6 +1880,8 @@ DEBUG_ONLY_TEST_P(IndexLookupJoinTest, runtimeStats) {
       {},
       {},
       100);
+  std::vector<std::shared_ptr<TempFilePath>> probeFiles =
+      createProbeFiles(probeVectors);
   createDuckDbTable("t", probeVectors);
   createDuckDbTable("u", {tableData.tableData});
 
@@ -1837,18 +1907,24 @@ DEBUG_ONLY_TEST_P(IndexLookupJoinTest, runtimeStats) {
       columnHandles);
 
   core::PlanNodeId joinNodeId;
+  core::PlanNodeId probeScanNodeId;
   auto plan = makeLookupPlan(
       planNodeIdGenerator,
       indexScanNode,
-      probeVectors,
       {"t0", "t1", "t2"},
       {"u0", "u1", "u2"},
       {},
       core::JoinType::kInner,
       {"u3", "t5"},
-      joinNodeId);
+      joinNodeId,
+      probeScanNodeId);
   auto task = runLookupQuery(
       plan,
+      probeScanNodeId,
+      probeFiles,
+      GetParam().serialExecution,
+      GetParam().serialExecution,
+      100,
       0,
       "SELECT u.c3, t.c5 FROM t, u WHERE t.c0 = u.c0 AND t.c1 = u.c1 AND t.c2 = u.c2");
 
@@ -1877,8 +1953,103 @@ DEBUG_ONLY_TEST_P(IndexLookupJoinTest, runtimeStats) {
   ASSERT_EQ(runtimeStats.count(IndexLookupJoin::kClientLookupResultRawSize), 0);
   ASSERT_THAT(
       operatorStats.toString(true, true),
+      testing::MatchesRegex(".*Runtime stats.*connectorLookupWallNanos:.*"));
+  ASSERT_THAT(
+      operatorStats.toString(true, true),
+      testing::MatchesRegex(".*Runtime stats.*clientlookupWaitWallNanos.*"));
+  ASSERT_THAT(
+      operatorStats.toString(true, true),
       testing::MatchesRegex(
-          ".*Runtime stats.*connectorLookupWallNanos:.*clientlookupWaitWallNanos.*connectorResultPrepareCpuNanos.*"));
+          ".*Runtime stats.*connectorResultPrepareCpuNanos.*"));
+}
+
+TEST_P(IndexLookupJoinTest, barrier) {
+  if (!GetParam().serialExecution || GetParam().numPrefetches > 0) {
+    GTEST_SKIP();
+  }
+  SequenceTableData tableData;
+  generateIndexTableData({100, 1, 1}, tableData, pool_);
+  const int numProbeSplits{5};
+  const auto probeVectors = generateProbeInput(
+      numProbeSplits,
+      256,
+      1,
+      tableData,
+      pool_,
+      {"t0", "t1", "t2"},
+      {},
+      {},
+      100);
+  std::vector<std::shared_ptr<TempFilePath>> probeFiles =
+      createProbeFiles(probeVectors);
+  createDuckDbTable("t", probeVectors);
+  createDuckDbTable("u", {tableData.tableData});
+
+  const auto indexTable = createIndexTable(
+      /*numEqualJoinKeys=*/3, tableData.keyData, tableData.valueData);
+  const auto indexTableHandle =
+      makeIndexTableHandle(indexTable, GetParam().asyncLookup);
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  core::PlanNodeId indexScanNodeId;
+  std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
+      columnHandles;
+  const auto indexScanNode = makeIndexScanNode(
+      planNodeIdGenerator,
+      indexTableHandle,
+      makeScanOutputType({"u0", "u1", "u2", "u3", "u5"}),
+      indexScanNodeId,
+      columnHandles);
+
+  core::PlanNodeId joinNodeId;
+  core::PlanNodeId probeScanNodeId;
+  auto plan = makeLookupPlan(
+      planNodeIdGenerator,
+      indexScanNode,
+      {"t0", "t1", "t2"},
+      {"u0", "u1", "u2"},
+      {},
+      core::JoinType::kInner,
+      {"u3", "t5"},
+      joinNodeId,
+      probeScanNodeId);
+
+  struct {
+    int numPrefetches;
+    bool barrierExecution;
+
+    std::string debugString() const {
+      return fmt::format(
+          "numPrefetches {}, barrierExecution {}",
+          numPrefetches,
+          barrierExecution);
+    }
+  } testSettings[] = {
+      {0, true},
+      {0, false},
+      {1, true},
+      {1, false},
+      {4, true},
+      {4, false},
+      {256, true},
+      {256, false}};
+
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+    auto task = runLookupQuery(
+        plan,
+        probeScanNodeId,
+        probeFiles,
+        true,
+        testData.barrierExecution,
+        32,
+        testData.numPrefetches,
+        "SELECT u.c3, t.c5 FROM t, u WHERE t.c0 = u.c0 AND t.c1 = u.c1 AND t.c2 = u.c2");
+
+    const auto taskStats = task->taskStats();
+    ASSERT_EQ(
+        taskStats.numBarriers, testData.barrierExecution ? numProbeSplits : 0);
+    ASSERT_EQ(taskStats.numFinishedSplits, numProbeSplits);
+  }
 }
 
 TEST_P(IndexLookupJoinTest, joinFuzzer) {
@@ -1886,6 +2057,8 @@ TEST_P(IndexLookupJoinTest, joinFuzzer) {
   generateIndexTableData({1024, 1, 1}, tableData, pool_);
   const auto probeVectors =
       generateProbeInput(50, 256, 1, tableData, pool_, {"t0", "t1", "t2"});
+  std::vector<std::shared_ptr<TempFilePath>> probeFiles =
+      createProbeFiles(probeVectors);
 
   createDuckDbTable("t", probeVectors);
   createDuckDbTable("u", {tableData.tableData});
@@ -1910,18 +2083,24 @@ TEST_P(IndexLookupJoinTest, joinFuzzer) {
       columnHandles);
 
   core::PlanNodeId joinNodeId;
+  core::PlanNodeId probeScanNodeId;
   auto plan = makeLookupPlan(
       planNodeIdGenerator,
       indexScanNode,
-      probeVectors,
       {"t0"},
       {"u0"},
       {"contains(t4, u1)", "u2 between t1 and t2"},
       core::JoinType::kInner,
       {"u0", "u4", "t0", "t1", "t4"},
-      joinNodeId);
+      joinNodeId,
+      probeScanNodeId);
   runLookupQuery(
       plan,
+      probeScanNodeId,
+      probeFiles,
+      GetParam().serialExecution,
+      GetParam().serialExecution,
+      32,
       GetParam().numPrefetches,
       "SELECT u.c0, u.c1, u.c2, u.c3, u.c4, u.c5, t.c0, t.c1, t.c2, t.c3, t.c4, t.c5 FROM t, u WHERE t.c0 = u.c0 AND array_contains(t.c4, u.c1) AND u.c2 BETWEEN t.c1 AND t.c2");
 }
@@ -1933,8 +2112,9 @@ VELOX_INSTANTIATE_TEST_SUITE_P(
     testing::ValuesIn(IndexLookupJoinTest::getTestParams()),
     [](const testing::TestParamInfo<TestParam>& info) {
       return fmt::format(
-          "{}_{}prefetches",
+          "{}_{}prefetches_{}",
           info.param.asyncLookup ? "async" : "sync",
-          info.param.numPrefetches);
+          info.param.numPrefetches,
+          info.param.serialExecution ? "serial" : "parallel");
     });
 } // namespace fecebook::velox::exec::test

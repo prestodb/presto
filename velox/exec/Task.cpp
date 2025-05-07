@@ -119,7 +119,7 @@ void buildSplitStates(
     const core::PlanNode* planNode,
     std::unordered_set<core::PlanNodeId>& allIds,
     std::unordered_map<core::PlanNodeId, SplitsState>& splitStateMap) {
-  bool ok = allIds.insert(planNode->id()).second;
+  const bool ok = allIds.insert(planNode->id()).second;
   VELOX_USER_CHECK(
       ok,
       "Plan node IDs must be unique. Found duplicate ID: {}.",
@@ -137,8 +137,10 @@ void buildSplitStates(
     return;
   }
 
-  for (const auto& child : planNode->sources()) {
-    buildSplitStates(child.get(), allIds, splitStateMap);
+  const auto& sources = planNode->sources();
+  const auto numSources = isIndexLookupJoin(planNode) ? 1 : sources.size();
+  for (auto i = 0; i < numSources; ++i) {
+    buildSplitStates(sources[i].get(), allIds, splitStateMap);
   }
 }
 

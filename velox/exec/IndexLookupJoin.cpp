@@ -192,9 +192,6 @@ void IndexLookupJoin::initialize() {
 
 void IndexLookupJoin::ensureInputLoaded(const InputBatchState& batch) {
   VELOX_CHECK_GT(numInputBatches(), 0);
-  if (!lookupPrefetchEnabled()) {
-    return;
-  }
   // Ensure each input vector are lazy loaded before process next batch. This is
   // to ensure the ordered lazy materialization in the source readers.
   auto& input = batch.input;
@@ -357,8 +354,12 @@ void IndexLookupJoin::initOutputProjections() {
       outputType_->size());
 }
 
+bool IndexLookupJoin::startDrain() {
+  return numInputBatches() != 0;
+}
+
 bool IndexLookupJoin::needsInput() const {
-  if (noMoreInput_) {
+  if (noMoreInput_ || isDraining()) {
     return false;
   }
   if (numInputBatches() >= maxNumInputBatches_) {
@@ -420,6 +421,12 @@ void IndexLookupJoin::addInput(RowVectorPtr input) {
 }
 
 RowVectorPtr IndexLookupJoin::getOutput() {
+  SCOPE_EXIT {
+    if (numInputBatches() == 0 && isDraining()) {
+      finishDrain();
+    }
+  };
+
   auto& batch = currentInputBatch();
   if (batch.empty()) {
     return nullptr;

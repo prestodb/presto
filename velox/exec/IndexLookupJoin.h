@@ -29,6 +29,8 @@ class IndexLookupJoin : public Operator {
 
   BlockingReason isBlocked(ContinueFuture* future) override;
 
+  bool startDrain() override;
+
   bool needsInput() const override;
 
   void addInput(RowVectorPtr input) override;

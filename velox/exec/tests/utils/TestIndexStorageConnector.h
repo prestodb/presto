@@ -40,7 +40,7 @@ struct TestIndexTable {
         table(std::move(_table)) {}
 };
 
-/// The index table handle which provides the index table for index lookup.
+// The index table handle which provides the index table for index lookup.
 class TestIndexTableHandle : public connector::ConnectorTableHandle {
  public:
   explicit TestIndexTableHandle(

@@ -3328,6 +3328,10 @@ class IndexLookupJoinNode : public AbstractJoinNode {
     std::optional<std::vector<IndexLookupConditionPtr>> joinConditions_;
   };
 
+  bool supportsBarrier() const override {
+    return true;
+  }
+
   const TableScanNodePtr& lookupSource() const {
     return lookupSourceNode_;
   }
@@ -3357,6 +3361,9 @@ class IndexLookupJoinNode : public AbstractJoinNode {
 
   const std::vector<IndexLookupConditionPtr> joinConditions_;
 };
+
+/// Returns true if 'planNode' is index lookup join node.
+bool isIndexLookupJoin(const core::PlanNode* planNode);
 
 /// Represents inner/outer nested loop joins. Translates to an
 /// exec::NestedLoopJoinProbe and exec::NestedLoopJoinBuild. A separate

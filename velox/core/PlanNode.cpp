@@ -1596,6 +1596,12 @@ bool IndexLookupJoinNode::isSupported(core::JoinType joinType) {
   }
 }
 
+bool isIndexLookupJoin(const core::PlanNode* planNode) {
+  const auto* indexLookupJoin =
+      dynamic_cast<const core::IndexLookupJoinNode*>(planNode);
+  return indexLookupJoin != nullptr;
+}
+
 // static
 const JoinType NestedLoopJoinNode::kDefaultJoinType = JoinType::kInner;
 // static
@@ -2989,8 +2995,10 @@ void collectLeafPlanNodeIds(
     return;
   }
 
-  for (const auto& child : planNode.sources()) {
-    collectLeafPlanNodeIds(*child, leafIds);
+  const auto& sources = planNode.sources();
+  const auto numSources = isIndexLookupJoin(&planNode) ? 1 : sources.size();
+  for (int i = 0; i < numSources; ++i) {
+    collectLeafPlanNodeIds(*sources[i], leafIds);
   }
 }
 } // namespace
