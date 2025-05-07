@@ -1,9 +1,10 @@
 name: arrow flight tests
 
 on:
-  pull_request:
-    paths-ignore:
-      - 'presto-docs/**'
+  workflow_dispatch:
+#  pull_request:
+#    paths-ignore:
+#      - 'presto-docs/**'
 
 env:
   CONTINUOUS_INTEGRATION: true
