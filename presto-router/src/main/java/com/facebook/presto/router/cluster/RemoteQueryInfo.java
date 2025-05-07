@@ -15,6 +15,7 @@ package com.facebook.presto.router.cluster;
 
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.router.RouterConfig;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -37,9 +38,9 @@ public class RemoteQueryInfo
 
     private final AtomicReference<Optional<List<JsonNode>>> queryList = new AtomicReference<>(Optional.empty());
 
-    public RemoteQueryInfo(HttpClient httpClient, URI remoteUri, RemoteStateConfig remoteStateConfig)
+    public RemoteQueryInfo(HttpClient httpClient, URI remoteUri, RemoteStateConfig remoteStateConfig, RouterConfig routerConfig)
     {
-        super(httpClient, remoteUri, remoteStateConfig);
+        super(httpClient, remoteUri, remoteStateConfig, routerConfig);
     }
 
     public Optional<List<JsonNode>> getQueryList()

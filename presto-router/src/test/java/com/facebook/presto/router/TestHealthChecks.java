@@ -16,16 +16,12 @@ package com.facebook.presto.router;
 import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.http.server.testing.TestingHttpServerModule;
 import com.facebook.airlift.jaxrs.JaxrsModule;
-import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonModule;
 import com.facebook.airlift.log.Logging;
 import com.facebook.airlift.node.testing.TestingNodeModule;
 import com.facebook.presto.ClientRequestFilterModule;
 import com.facebook.presto.router.cluster.ClusterManager;
 import com.facebook.presto.router.cluster.RequestInfo;
-import com.facebook.presto.router.spec.GroupSpec;
-import com.facebook.presto.router.spec.RouterSpec;
-import com.facebook.presto.router.spec.SelectorRuleSpec;
 import com.facebook.presto.server.MockHttpServletRequest;
 import com.facebook.presto.server.security.ServerSecurityModule;
 import com.facebook.presto.server.testing.TestingPrestoServer;
@@ -42,13 +38,11 @@ import javax.servlet.http.HttpServletRequest;
 
 import java.io.File;
 import java.net.URI;
-import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.router.scheduler.SchedulerType.ROUND_ROBIN;
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.facebook.presto.router.TestingRouterUtil.getConfigFile;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -62,7 +56,7 @@ public class TestHealthChecks
     public void setup()
             throws Exception
     {
-        File configFile = File.createTempFile("router", ".json");
+        File tempFile = File.createTempFile("router", ".json");
 
         Logging.initialize();
 
@@ -77,16 +71,7 @@ public class TestHealthChecks
         }
 
         prestoServers = builder.build();
-        List<URI> serverURIs = prestoServers.stream()
-                .map(TestingPrestoServer::getBaseUrl)
-                .collect(toImmutableList());
-
-        RouterSpec spec = new RouterSpec(ImmutableList.of(new GroupSpec("group1", serverURIs, Optional.empty(), Optional.empty())),
-                  ImmutableList.of(new SelectorRuleSpec(Optional.empty(), Optional.empty(), Optional.empty(), "group1")),
-                  Optional.of(ROUND_ROBIN),
-                  Optional.empty());
-        JsonCodec<RouterSpec> jsonCodec = JsonCodec.jsonCodec(RouterSpec.class);
-        Files.write(configFile.toPath(), jsonCodec.toBytes(spec));
+        getConfigFile(prestoServers, tempFile);
 
         Bootstrap app = new Bootstrap(
                 new TestingNodeModule("test"),
@@ -97,7 +82,8 @@ public class TestHealthChecks
                 new RouterModule());
 
         Injector injector = app.doNotInitializeLogging()
-                .setRequiredConfigurationProperty("router.config-file", configFile.getAbsolutePath())
+                .setRequiredConfigurationProperty("router.config-file", tempFile.getAbsolutePath())
+                .setOptionalConfigurationProperty("presto.version", "test")
                 .setOptionalConfigurationProperty("router.remote-state.cluster-unhealthy-timeout", "4s")
                 .setOptionalConfigurationProperty("router.remote-state.polling-interval", "0.5s")
                 .initialize();
