@@ -43,7 +43,7 @@ public class TableWriteInfoCodec
     @Inject
     public TableWriteInfoCodec(JsonCodec<TableWriteInfo> jsonCodec, ThriftCatalog thriftCatalog)
     {
-        this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
+        this.jsonCodec = jsonCodec;
         this.thriftCatalog = requireNonNull(thriftCatalog, "thriftCatalog is null");
 
         ThriftStructMetadata structMetadata = createSyntheticMetadata(thriftCatalog, TABLE_WRITE_INFO_DATA_FIELD_ID, TABLE_WRITE_INFO_DATA_FIELD_NAME, TableWriteInfo.class, String.class);

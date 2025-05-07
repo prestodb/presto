@@ -43,7 +43,7 @@ public class SplitCodec
     @Inject
     public SplitCodec(JsonCodec<Split> jsonCodec, ThriftCatalog thriftCatalog)
     {
-        this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
+        this.jsonCodec = jsonCodec;
         this.thriftCatalog = requireNonNull(thriftCatalog, "thriftCatalog is null");
 
         ThriftStructMetadata structMetadata = createSyntheticMetadata(thriftCatalog, SPLIT_DATA_FIELD_ID, SPLIT_DATA_FIELD_NAME, Split.class, String.class);

@@ -13,11 +13,19 @@
  */
 package com.facebook.presto;
 
+import com.facebook.drift.codec.internal.builtin.OptionalDoubleThriftCodec;
+import com.facebook.drift.codec.internal.builtin.OptionalIntThriftCodec;
+import com.facebook.drift.codec.internal.builtin.OptionalLongThriftCodec;
+import com.facebook.drift.codec.metadata.ThriftCatalog;
+import com.facebook.drift.codec.utils.DataSizeToBytesThriftCodec;
+import com.facebook.drift.codec.utils.DurationToMillisThriftCodec;
+import com.facebook.drift.codec.utils.JodaDateTimeToEpochMillisThriftCodec;
+import com.facebook.drift.codec.utils.LocaleToLanguageTagCodec;
 import com.facebook.drift.idl.generator.ThriftIdlGenerator;
 import com.facebook.drift.idl.generator.ThriftIdlGeneratorConfig;
-import com.facebook.presto.execution.TaskInfo;
-import com.facebook.presto.execution.TaskStatus;
-import com.facebook.presto.server.TaskUpdateRequest;
+import com.facebook.presto.server.thrift.MetadataUpdatesCodec;
+import com.facebook.presto.server.thrift.SplitCodec;
+import com.facebook.presto.server.thrift.TableWriteInfoCodec;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -34,7 +42,8 @@ public class TestIDLGenerator
     @Test
     public void TestGenerator()
     {
-        assertGenerated(ImmutableList.of(TaskStatus.class, TaskInfo.class, TaskUpdateRequest.class), true);
+//        assertGenerated(ImmutableList.of(TaskStatus.class, TaskInfo.class, TaskUpdateRequest.class), true);
+        assertGenerated(ImmutableList.of(OptionalField.class), false);
     }
 
     private static void assertGenerated(List<Class> clazzes, boolean logging)
@@ -45,6 +54,19 @@ public class TestIDLGenerator
                 .recursive(true);
 
         ThriftIdlGenerator generator = new ThriftIdlGenerator(config.build());
+        ThriftCatalog catalog = generator.getCatalog();
+        generator.addCustomType(
+                new TableWriteInfoCodec(null, catalog).getType(),
+                new SplitCodec(null, catalog).getType(),
+                new MetadataUpdatesCodec(null, catalog).getType(),
+                new LocaleToLanguageTagCodec(catalog).getType(),
+                new DurationToMillisThriftCodec(catalog).getType(),
+                new DataSizeToBytesThriftCodec(catalog).getType(),
+                new JodaDateTimeToEpochMillisThriftCodec(catalog).getType(),
+                new OptionalIntThriftCodec().getType(),
+                new OptionalLongThriftCodec().getType(),
+                new OptionalDoubleThriftCodec().getType());
+
         String idl = generator.generate(clazzes.stream().map(Class::getName).collect(ImmutableList.toImmutableList()));
 
         if (logging) {

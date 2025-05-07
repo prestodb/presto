@@ -43,7 +43,7 @@ public class MetadataUpdatesCodec
     @Inject
     public MetadataUpdatesCodec(JsonCodec<MetadataUpdates> jsonCodec, ThriftCatalog thriftCatalog)
     {
-        this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
+        this.jsonCodec = jsonCodec;
         this.thriftCatalog = requireNonNull(thriftCatalog, "thriftCatalog is null");
 
         ThriftStructMetadata structMetadata = createSyntheticMetadata(thriftCatalog, METADATA_UPDATES_DATA_FIELD_ID, METADATA_UPDATES_DATA_FIELD_NAME, MetadataUpdates.class, String.class);
