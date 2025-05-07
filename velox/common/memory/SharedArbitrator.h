@@ -474,10 +474,13 @@ class SharedArbitrator : public memory::MemoryArbitrator {
 
   // Invoked to reclaim the used memory capacity to abort the participant with
   // the largest capacity to free up memory. The function returns the actually
-  // reclaimed capacity in bytes. The function returns zero if there is no
-  // eligible participant to abort. If 'force' is true, it picks up the youngest
-  // participant which has largest participant id to abort if there is no
-  // eligible one.
+  // reclaimed capacity in bytes.
+  //
+  // The function returns the total of released and to be released capacity,
+  // including the soon to be released capacity from the victim query. Returns
+  // zero if there is no eligible participant to abort. If 'force' is true,
+  // it picks up the youngest participant which has largest participant id to
+  // abort if there is no eligible one.
   uint64_t reclaimUsedMemoryByAbort(bool force);
 
   // Finds the participant victim to abort to free used memory based on the

@@ -348,7 +348,15 @@ class MockMemoryOperator {
     return bytesReclaimed;
   }
 
+  void setAbortHook(const std::function<bool(MockMemoryOperator*)>& hook) {
+    abortHook_ = hook;
+  }
+
   void abort(MemoryPool* pool) {
+    if (abortHook_ != nullptr && abortHook_(this)) {
+      return;
+    }
+
     std::unordered_map<void*, size_t> allocationsToFree;
     {
       std::lock_guard<std::mutex> l(mu_);
@@ -386,6 +394,8 @@ class MockMemoryOperator {
   MemoryPool* pool_{nullptr};
   uint64_t totalBytes_{0};
   std::unordered_map<void*, size_t> allocations_;
+
+  std::function<bool(MockMemoryOperator*)> abortHook_{nullptr};
 };
 
 MockMemoryOperator::MemoryReclaimer* MockMemoryOperator::reclaimer() const {
@@ -1296,6 +1306,47 @@ TEST_F(MockSharedArbitrationTest, shrinkPools) {
           taskContainer.testTask.expectedUsagedAfterShrink);
     }
   }
+}
+
+TEST_F(MockSharedArbitrationTest, shrinkPoolsDelayedAbort) {
+  const int64_t memoryCapacity = 256 * MB;
+  setupMemory(memoryCapacity);
+
+  // Create first task using half the memory
+  auto task1 = addTask(memoryCapacity / 2);
+  auto* op1 = task1->addMemoryOp(false); // non-reclaimable
+  op1->setAbortHook([&](MockMemoryOperator* /*unused*/) { return true; });
+  auto* buf = op1->allocate(memoryCapacity / 2);
+  op1->free(buf);
+  op1->allocate(memoryCapacity / 4);
+  ASSERT_EQ(task1->capacity(), memoryCapacity / 2);
+
+  // Create second task using the other half of memory
+  auto task2 = addTask(memoryCapacity / 2);
+  auto* op2 = task2->addMemoryOp(false); // non-reclaimable
+  op2->setAbortHook([&](MockMemoryOperator* /*unused*/) { return true; });
+  buf = op2->allocate(memoryCapacity / 2);
+  op2->free(buf);
+  op2->allocate(memoryCapacity / 4);
+  ASSERT_EQ(task2->capacity(), memoryCapacity / 2);
+
+  // Now try to shrink pools to reclaim half the memory
+  // This should abort one of the tasks (the younger one)
+  uint64_t reclaimedBytes =
+      manager_->shrinkPools(memoryCapacity / 2, false, true);
+
+  // Verify the amount reclaimed matches what we expected
+  ASSERT_EQ(reclaimedBytes, memoryCapacity / 2);
+
+  // Verify that one task was aborted (should be task2 as it's younger)
+  ASSERT_FALSE(task1->pool()->aborted());
+  ASSERT_TRUE(task2->pool()->aborted());
+  ASSERT_NE(task2->error(), nullptr);
+
+  // Verify the arbitrator stats
+  auto stats = arbitrator_->stats();
+  ASSERT_EQ(stats.reclaimedUsedBytes, memoryCapacity / 4);
+  ASSERT_EQ(stats.numAborted, 1);
 }
 
 // This test verifies arbitration operations from the same query has to wait for
