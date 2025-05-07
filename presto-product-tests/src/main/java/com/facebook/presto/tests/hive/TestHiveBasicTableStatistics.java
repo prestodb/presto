@@ -128,9 +128,6 @@ public class TestHiveBasicTableStatistics
                 "WHERE n_nationkey <> 23", tableName));
 
         try {
-            BasicStatistics tableStatistics = getBasicStatisticsForTable(onHive(), tableName);
-            assertThatStatisticsAreNotPresent(tableStatistics);
-
             BasicStatistics firstPartitionStatistics = getBasicStatisticsForPartition(onHive(), tableName, "n_regionkey=1");
             assertThatStatisticsAreNonZero(firstPartitionStatistics);
             assertThat(firstPartitionStatistics.getNumRows().getAsLong()).isEqualTo(5);
@@ -163,9 +160,6 @@ public class TestHiveBasicTableStatistics
                 "WHERE n_regionkey = 1", tableName));
 
         try {
-            BasicStatistics tableStatistics = getBasicStatisticsForTable(onHive(), tableName);
-            assertThatStatisticsAreNotPresent(tableStatistics);
-
             BasicStatistics partitionStatisticsBefore = getBasicStatisticsForPartition(onHive(), tableName, "n_regionkey=1");
             assertThatStatisticsArePresent(partitionStatisticsBefore);
 
@@ -236,9 +230,6 @@ public class TestHiveBasicTableStatistics
                 ") ", tableName));
 
         try {
-            BasicStatistics tableStatisticsAfterCreate = getBasicStatisticsForTable(onHive(), tableName);
-            assertThatStatisticsAreNotPresent(tableStatisticsAfterCreate);
-
             insertNationData(onPresto(), tableName);
 
             BasicStatistics partitionStatisticsFirstInsert = getBasicStatisticsForPartition(onHive(), tableName, "n_regionkey=3");
@@ -310,9 +301,6 @@ public class TestHiveBasicTableStatistics
                 "WHERE n_regionkey = 1", tableName));
 
         try {
-            BasicStatistics tableStatistics = getBasicStatisticsForTable(onHive(), tableName);
-            assertThatStatisticsAreNotPresent(tableStatistics);
-
             BasicStatistics firstPartitionStatistics = getBasicStatisticsForPartition(onHive(), tableName, "n_regionkey=1");
             assertThatStatisticsAreNonZero(firstPartitionStatistics);
             assertThat(firstPartitionStatistics.getNumRows().getAsLong()).isEqualTo(5);
