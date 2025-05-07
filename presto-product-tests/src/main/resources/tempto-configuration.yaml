@@ -124,7 +124,7 @@ databases:
 
 tests:
   hdfs:
-    path: /product-test
+    path: /tmp/product-test
   assert:
     float_tolerance: 0.000001
 
