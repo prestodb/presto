@@ -249,6 +249,7 @@ public class TestIcebergSystemTables
 
             // Query should fail because of the conflicts between session property and table property in table mode validation
             assertQueryFails(txnSession, "select * from test_schema.test_session_properties_table", "merge-on-read table mode not supported yet");
+            transactionManager.asyncAbort(txnId);
         }
         finally {
             assertUpdate("drop table if exists test_schema.test_session_properties_table");

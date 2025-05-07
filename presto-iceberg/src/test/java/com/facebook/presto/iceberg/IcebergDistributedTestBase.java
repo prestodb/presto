@@ -1076,12 +1076,15 @@ public abstract class IcebergDistributedTestBase
         String tableName = snapshot.map(snap -> format("%s@%d", name, snap)).orElse(name);
         String qualifiedName = format("%s.%s.%s", getSession().getCatalog().get(), getSession().getSchema().get(), tableName);
         TableHandle handle = resolver.getTableHandle(QualifiedObjectName.valueOf(qualifiedName)).get();
-        return metadata.getTableStatistics(metadataSession,
+        TableStatistics tableStatistics = metadata.getTableStatistics(metadataSession,
                 handle,
                 new ArrayList<>(columns
                         .map(columnSet -> Maps.filterKeys(resolver.getColumnHandles(handle), columnSet::contains))
                         .orElseGet(() -> resolver.getColumnHandles(handle)).values()),
                 Constraint.alwaysTrue());
+
+        getQueryRunner().getTransactionManager().asyncAbort(transactionId);
+        return tableStatistics;
     }
 
     private static ColumnStatistics columnStatsFor(TableStatistics statistics, String name)
@@ -2047,8 +2050,10 @@ public abstract class IcebergDistributedTestBase
         assertQuerySucceeds("CREATE TABLE test_statistics_file_cache(i int)");
         assertUpdate("INSERT INTO test_statistics_file_cache VALUES 1, 2, 3, 4, 5", 5);
         assertQuerySucceeds("ANALYZE test_statistics_file_cache");
+
+        TransactionId transactionId = getQueryRunner().getTransactionManager().beginTransaction(false);
         Session session = Session.builder(getSession())
-                .setTransactionId(getQueryRunner().getTransactionManager().beginTransaction(false))
+                .setTransactionId(transactionId)
                 .build();
         Optional<TableHandle> handle = MetadataUtil.getOptionalTableHandle(session,
                 getQueryRunner().getTransactionManager(),
@@ -2068,6 +2073,8 @@ public abstract class IcebergDistributedTestBase
         getTableStats("test_statistics_file_cache", Optional.empty(), getSession(), Optional.of(ImmutableList.of("i")));
         assertEquals(metadata.statisticsFileCache.stats().minus(initial).missCount(), 1);
         assertEquals(metadata.statisticsFileCache.stats().minus(initial).hitCount(), 1);
+
+        getQueryRunner().getTransactionManager().asyncAbort(transactionId);
         getQueryRunner().execute("DROP TABLE test_statistics_file_cache");
     }
 

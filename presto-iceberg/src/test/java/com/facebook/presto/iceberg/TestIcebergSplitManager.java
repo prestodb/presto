@@ -271,6 +271,9 @@ public class TestIcebergSplitManager
         catch (ExecutionException | InterruptedException e) {
             throw new RuntimeException(e);
         }
+        finally {
+            transactionManager.asyncAbort(transactionId);
+        }
     }
 
     private void validateSplitsPlannedForSql(SplitManager splitManager,
@@ -302,12 +305,7 @@ public class TestIcebergSplitManager
             fail("Should not throw exception when getting split source: " + e.getMessage());
         }
         finally {
-            try {
-                transactionManager.asyncAbort(transactionId).get();
-            }
-            catch (Exception e) {
-                // do nothing
-            }
+            transactionManager.asyncAbort(transactionId);
         }
     }
 
