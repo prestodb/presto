@@ -36,6 +36,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import org.joda.time.DateTimeZone;
 
@@ -47,6 +48,7 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.DateTimeEncoding.unpackMillisUtc;
@@ -74,10 +76,13 @@ public class QueryBuilder
         private final Type type;
         private final Object value;
 
-        public TypeAndValue(Type type, Object value)
+        private final JdbcTypeHandle typeHandle;
+
+        public TypeAndValue(Type type, Object value, JdbcTypeHandle typeHandle)
         {
             this.type = requireNonNull(type, "type is null");
             this.value = requireNonNull(value, "value is null");
+            this.typeHandle = typeHandle;
         }
 
         public Type getType()
@@ -88,6 +93,11 @@ public class QueryBuilder
         public Object getValue()
         {
             return value;
+        }
+
+        public JdbcTypeHandle getTypeHandle()
+        {
+            return typeHandle;
         }
     }
 
@@ -104,6 +114,22 @@ public class QueryBuilder
             String schema,
             String table,
             List<JdbcColumnHandle> columns,
+            TupleDomain<ColumnHandle> tupleDomain,
+            Optional<JdbcExpression> additionalPredicate)
+            throws SQLException
+    {
+        return buildSql(client, session, connection, catalog, schema, table, columns, ImmutableMap.of(), tupleDomain, additionalPredicate);
+    }
+
+    public PreparedStatement buildSql(
+            JdbcClient client,
+            ConnectorSession session,
+            Connection connection,
+            String catalog,
+            String schema,
+            String table,
+            List<JdbcColumnHandle> columns,
+            Map<String, String> columnExpressions,
             TupleDomain<ColumnHandle> tupleDomain,
             Optional<JdbcExpression> additionalPredicate)
             throws SQLException
@@ -139,7 +165,7 @@ public class QueryBuilder
                     .add(additionalPredicate.get().getExpression())
                     .build();
             accumulator.addAll(additionalPredicate.get().getBoundConstantValues().stream()
-                    .map(constantExpression -> new TypeAndValue(constantExpression.getType(), constantExpression.getValue()))
+                    .map(constantExpression -> new TypeAndValue(constantExpression.getType(), constantExpression.getValue(), null))
                     .collect(ImmutableList.toImmutableList()));
         }
         if (!clauses.isEmpty()) {
@@ -202,7 +228,7 @@ public class QueryBuilder
         return statement;
     }
 
-    private static boolean isAcceptedType(Type type)
+    private boolean isAcceptedType(Type type)
     {
         Type validType = requireNonNull(type, "type is null");
         return validType.equals(BigintType.BIGINT) ||
@@ -229,14 +255,14 @@ public class QueryBuilder
             if (isAcceptedType(type)) {
                 Domain domain = tupleDomain.getDomains().get().get(column);
                 if (domain != null) {
-                    builder.add(toPredicate(column.getColumnName(), domain, type, accumulator));
+                    builder.add(toPredicate(column.getColumnName(), domain, column, accumulator));
                 }
             }
         }
         return builder.build();
     }
 
-    private String toPredicate(String columnName, Domain domain, Type type, List<TypeAndValue> accumulator)
+    private String toPredicate(String columnName, Domain domain, JdbcColumnHandle columnHandle, List<TypeAndValue> accumulator)
     {
         checkArgument(domain.getType().isOrderable(), "Domain type must be orderable");
 
@@ -258,10 +284,10 @@ public class QueryBuilder
             else {
                 List<String> rangeConjuncts = new ArrayList<>();
                 if (!range.isLowUnbounded()) {
-                    rangeConjuncts.add(toPredicate(columnName, range.isLowInclusive() ? ">=" : ">", range.getLowBoundedValue(), type, accumulator));
+                    rangeConjuncts.add(toPredicate(columnName, range.isLowInclusive() ? ">=" : ">", range.getLowBoundedValue(), columnHandle, accumulator));
                 }
                 if (!range.isHighUnbounded()) {
-                    rangeConjuncts.add(toPredicate(columnName, range.isHighInclusive() ? "<=" : "<", range.getHighBoundedValue(), type, accumulator));
+                    rangeConjuncts.add(toPredicate(columnName, range.isHighInclusive() ? "<=" : "<", range.getHighBoundedValue(), columnHandle, accumulator));
                 }
                 // If rangeConjuncts is null, then the range was ALL, which should already have been checked for
                 checkState(!rangeConjuncts.isEmpty());
@@ -271,11 +297,11 @@ public class QueryBuilder
 
         // Add back all of the possible single values either as an equality or an IN predicate
         if (singleValues.size() == 1) {
-            disjuncts.add(toPredicate(columnName, "=", getOnlyElement(singleValues), type, accumulator));
+            disjuncts.add(toPredicate(columnName, "=", getOnlyElement(singleValues), columnHandle, accumulator));
         }
         else if (singleValues.size() > 1) {
             for (Object value : singleValues) {
-                bindValue(value, type, accumulator);
+                bindValue(value, columnHandle, accumulator);
             }
             String values = Joiner.on(",").join(nCopies(singleValues.size(), "?"));
             disjuncts.add(quote(columnName) + " IN (" + values + ")");
@@ -290,9 +316,9 @@ public class QueryBuilder
         return "(" + Joiner.on(" OR ").join(disjuncts) + ")";
     }
 
-    private String toPredicate(String columnName, String operator, Object value, Type type, List<TypeAndValue> accumulator)
+    private String toPredicate(String columnName, String operator, Object value, JdbcColumnHandle columnHandle, List<TypeAndValue> accumulator)
     {
-        bindValue(value, type, accumulator);
+        bindValue(value, columnHandle, accumulator);
         return quote(columnName) + " " + operator + " ?";
     }
 
@@ -302,9 +328,9 @@ public class QueryBuilder
         return quote + name + quote;
     }
 
-    private static void bindValue(Object value, Type type, List<TypeAndValue> accumulator)
+    private static void bindValue(Object value, JdbcColumnHandle columnHandle, List<TypeAndValue> accumulator)
     {
-        checkArgument(isAcceptedType(type), "Can't handle type: %s", type);
-        accumulator.add(new TypeAndValue(type, value));
+        Type type = columnHandle.getColumnType();
+        accumulator.add(new TypeAndValue(type, value, columnHandle.getJdbcTypeHandle()));
     }
 }
