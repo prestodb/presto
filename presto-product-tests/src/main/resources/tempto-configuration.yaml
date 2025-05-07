@@ -1,5 +1,5 @@
 hdfs:
-  username: hdfs
+  username: hive
   webhdfs:
     host: ${databases.hive.host}
     port: 9870
@@ -12,7 +12,7 @@ databases:
     host: hadoop-master
     jdbc_driver_class: org.apache.hive.jdbc.HiveDriver
     jdbc_url: jdbc:hive2://${databases.hive.host}:10000
-    jdbc_user: hdfs
+    jdbc_user: hive
     jdbc_password: na
     jdbc_pooling: false
     schema: default
@@ -32,7 +32,7 @@ databases:
     server_address: http://${databases.presto.host}:${databases.presto.port}
     jdbc_driver_class: ${PRESTO_JDBC_DRIVER_CLASS:-com.facebook.presto.jdbc.PrestoDriver}
     jdbc_url: jdbc:presto://${databases.presto.host}:${databases.presto.port}/hive/${databases.hive.schema}
-    jdbc_user: hdfs
+    jdbc_user: hive
     jdbc_password: "***empty***"
     jdbc_pooling: false
 
@@ -40,7 +40,7 @@ databases:
     host: localhost
     jdbc_driver_class: ${databases.presto.jdbc_driver_class}
     jdbc_url: jdbc:presto://${databases.presto.host}:${databases.presto.port}/hive/tpcds
-    jdbc_user: hdfs
+    jdbc_user: hive
     jdbc_password: "***empty***"
     jdbc_pooling: false
 
@@ -124,7 +124,7 @@ databases:
 
 tests:
   hdfs:
-    path: /product-test
+    path: /tmp/product-test
   assert:
     float_tolerance: 0.000001
 
