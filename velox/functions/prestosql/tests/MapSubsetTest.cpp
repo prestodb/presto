@@ -194,6 +194,24 @@ TEST_F(MapSubsetTest, arrayKey) {
   assertEqualVectors(expected, result);
 }
 
+TEST_F(MapSubsetTest, compareNullElementsThrowsException) {
+  auto data = makeRowVector({
+      makeMapVector(
+          {0},
+          makeArrayVectorFromJson<int32_t>({
+              "[1, 2]",
+          }),
+          makeFlatVector<int32_t>(1)),
+      makeNestedArrayVectorFromJson<int32_t>({
+          "[[1, null], [1, null]]",
+      }),
+  });
+
+  VELOX_ASSERT_THROW(
+      evaluate("map_subset(c0, c1)", data),
+      "Comparison on null elements is not supported");
+}
+
 TEST_F(MapSubsetTest, floatNaNs) {
   testFloatNaNs<float>();
   testFloatNaNs<double>();

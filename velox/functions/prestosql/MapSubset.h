@@ -161,6 +161,21 @@ struct MapSubsetVarcharFunction {
   std::vector<std::string> searchKeyStrings_;
 };
 
+struct MapSubsetFunctionEqualComparator {
+  bool operator()(const exec::GenericView& lhs, const exec::GenericView& rhs)
+      const {
+    static constexpr auto kEqualValueAtFlags = CompareFlags::equality(
+        CompareFlags::NullHandlingMode::kNullAsIndeterminate);
+
+    auto result = lhs.compare(rhs, kEqualValueAtFlags);
+
+    VELOX_USER_CHECK(
+        result.has_value(), "Comparison on null elements is not supported");
+
+    return result.value() == 0;
+  }
+};
+
 /// Generic implementation. Doesn't provide an optimization for constant search
 /// keys.
 template <typename TExec>
@@ -212,7 +227,11 @@ struct MapSubsetFunction {
   }
 
  private:
-  folly::F14FastSet<exec::GenericView> searchKeys_;
+  folly::F14FastSet<
+      exec::GenericView,
+      std::hash<exec::GenericView>,
+      MapSubsetFunctionEqualComparator>
+      searchKeys_;
 };
 
 } // namespace facebook::velox::functions
