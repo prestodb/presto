@@ -81,7 +81,7 @@ THRIFT_VERSION="v0.16.0"
 ARROW_VERSION="15.0.0"
 STEMMER_VERSION="2.2.0"
 DUCKDB_VERSION="v0.8.1"
-GEOS_VERSION="3.13.0"
+GEOS_VERSION="3.10.2"
 
 # Install packages required for build.
 function install_build_prerequisites {

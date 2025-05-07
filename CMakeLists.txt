@@ -13,6 +13,10 @@
 # limitations under the License.
 cmake_minimum_required(VERSION 3.28)
 message(STATUS "Building using CMake version: ${CMAKE_VERSION}")
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
+set(CMAKE_CXX_EXTENSIONS ON) # Big Int is an extension
+message(STATUS "CXX standard: ${CMAKE_CXX_STANDARD}")
 
 # The policy allows us to change options without caching.
 cmake_policy(SET CMP0077 NEW)
@@ -140,7 +144,7 @@ option(VELOX_ENABLE_ABFS "Build Abfs Connector" OFF)
 option(VELOX_ENABLE_HDFS "Build Hdfs Connector" OFF)
 option(VELOX_ENABLE_PARQUET "Enable Parquet support" ON)
 option(VELOX_ENABLE_ARROW "Enable Arrow support" OFF)
-option(VELOX_ENABLE_GEO "Enable Geospatial support" OFF)
+option(VELOX_ENABLE_GEO "Enable Geospatial support" ON)
 option(VELOX_ENABLE_REMOTE_FUNCTIONS "Enable remote function support" OFF)
 option(VELOX_ENABLE_CCACHE "Use ccache if installed." ON)
 option(VELOX_ENABLE_COMPRESSION_LZ4 "Enable Lz4 compression support." OFF)
@@ -304,7 +308,7 @@ endif()
 
 # MacOSX enables two-level namespace by default:
 # http://mirror.informatimago.com/next/developer.apple.com/releasenotes/DeveloperTools/TwoLevelNamespaces.html
-# Enables -flat_namespace so type_info can be deudplicated across .so boundaries
+# Enables -flat_namespace so type_info can be deduplicated across .so boundaries
 if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
   add_link_options("-Wl,-flat_namespace")
 endif()
@@ -316,10 +320,6 @@ endif()
 
 # Required so velox code can be used in a dynamic library
 set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
-
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
-set(CMAKE_CXX_EXTENSIONS ON) # Big Int is an extension
 
 execute_process(
   COMMAND

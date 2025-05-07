@@ -1,0 +1,46 @@
+--- a/capi/geos_ts_c.cpp
++++ b/capi/geos_ts_c.cpp
+@@ -2168,7 +2168,7 @@ extern "C" {
+     const char* GEOSversion()
+     {
+         static char version[256];
+-        sprintf(version, "%s", GEOS_CAPI_VERSION);
++        snprintf(version, sizeof(version), "%s", GEOS_CAPI_VERSION);
+         return version;
+     }
+
+--- a/include/geos/io/ByteOrderDataInStream.h
++++ b/include/geos/io/ByteOrderDataInStream.h
+@@ -22,6 +22,7 @@
+
+ #include <geos/export.h>
+ #include <cstdint>
++#include <cstddef>
+
+ //#include <geos/io/ParseException.h>
+ //#include <geos/io/ByteOrderValues.h>
+--- a/tests/unit/math/DDTest.cpp
++++ b/tests/unit/math/DDTest.cpp
+@@ -160,11 +160,9 @@ struct test_dd_data {
+         DD t2 = t*t;
+         DD at(0.0);
+         DD two(2.0);
+-        int k = 0;
+         DD d(1.0);
+         int sign = 1;
+         while (t.doubleValue() > eps) {
+-            k++;
+             if (sign < 0)
+                 at = at - (t / d);
+             else
+@@ -187,10 +185,8 @@ struct test_dd_data {
+         DD s(2.0);
+         DD t(1.0);
+         double n = 1.0;
+-        int i = 0;
+         while(t.doubleValue() > eps)
+         {
+-            i++;
+             n += 1.0;
+             t = t / DD(n);
+             s = s + t;

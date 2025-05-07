@@ -1,0 +1,22 @@
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -437,19 +437,5 @@ if(NOT _is_multi_config_generator)
+   message(STATUS "GEOS: Configured 'dist' target")
+ endif()
+ 
+-#-----------------------------------------------------------------------------
+-# "make check" workalike
+-#-----------------------------------------------------------------------------
+-
+-add_custom_target(check COMMAND ${CMAKE_BUILD_TOOL} test)
+-
+-#-----------------------------------------------------------------------------
+-# "make distcheck" workalike
+-#-----------------------------------------------------------------------------
+-if(NOT _is_multi_config_generator)
+-  find_package(MakeDistCheck)
+-  AddMakeDistCheck()
+-  message(STATUS "GEOS: Configured 'distcheck' target")
+-endif()
+ 
+ unset(_is_multi_config_generator)

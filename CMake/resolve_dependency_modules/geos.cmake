@@ -12,11 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 include_guard(GLOBAL)
-
 # GEOS Configuration
-set(VELOX_GEOS_BUILD_VERSION 3.13.0)
+set(VELOX_GEOS_BUILD_VERSION 3.10.2)
 set(VELOX_GEOS_BUILD_SHA256_CHECKSUM
-    47ec83ff334d672b9e4426695f15da6e6368244214971fabf386ff8ef6df39e4)
+    50bbc599ac386b4c2b3962dcc411f0040a61f204aaef4eba7225ecdd0cf45715)
 string(CONCAT VELOX_GEOS_SOURCE_URL "https://download.osgeo.org/geos/"
               "geos-${VELOX_GEOS_BUILD_VERSION}.tar.bz2")
 
@@ -25,7 +24,23 @@ velox_resolve_dependency_url(GEOS)
 FetchContent_Declare(
   geos
   URL ${VELOX_GEOS_SOURCE_URL}
-  URL_HASH ${VELOX_GEOS_BUILD_SHA256_CHECKSUM})
+  URL_HASH ${VELOX_GEOS_BUILD_SHA256_CHECKSUM}
+  PATCH_COMMAND
+    git apply "${CMAKE_CURRENT_LIST_DIR}/geos/geos-cmakelists.patch" && git
+    apply "${CMAKE_CURRENT_LIST_DIR}/geos/geos-build.patch")
+
+list(APPEND CMAKE_MODULE_PATH "${geos_SOURCE_DIR}/cmake")
 set(BUILD_SHARED_LIBS ${VELOX_BUILD_SHARED})
+set(CMAKE_BUILD_TYPE Release)
+set(PREVIOUS_CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -Wno-nonnull ")
+
+if("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -Wno-dangling-pointer")
+endif()
+
 FetchContent_MakeAvailable(geos)
+
 unset(BUILD_SHARED_LIBS)
+set(CMAKE_CXX_FLAGS ${PREVIOUS_CMAKE_CXX_FLAGS})
+set(CMAKE_BUILD_TYPE ${PREVIOUS_BUILD_TYPE})

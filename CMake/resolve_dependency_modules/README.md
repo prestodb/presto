@@ -41,7 +41,7 @@ by Velox. See details on bundling below.
 | DuckDB (testing)  | 0.8.1           | Yes      |
 | cpr (testing)     | 1.10.15         | Yes      |
 | arrow             | 15.0.0          | Yes      |
-| geos              | 3.13.0          | Yes      |
+| geos              | 3.10.2          | Yes      |
 
 # Bundled Dependency Management
 This module provides a dependency management system that allows us to automatically fetch and build dependencies from source if needed.
