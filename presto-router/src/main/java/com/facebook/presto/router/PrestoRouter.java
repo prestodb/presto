@@ -24,7 +24,13 @@ import com.facebook.airlift.log.LogJmxModule;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.node.NodeModule;
 import com.facebook.airlift.tracetoken.TraceTokenModule;
+import com.facebook.presto.ClientRequestFilterManager;
+import com.facebook.presto.ClientRequestFilterModule;
+import com.facebook.presto.router.security.RouterSecurityModule;
+import com.facebook.presto.server.security.PasswordAuthenticatorManager;
+import com.facebook.presto.server.security.PrestoAuthenticatorManager;
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Injector;
 import com.google.inject.Module;
 import org.weakref.jmx.guice.MBeanModule;
 
@@ -39,6 +45,7 @@ public class PrestoRouter
         Bootstrap app = new Bootstrap(ImmutableList.<Module>builder()
                 .add(new NodeModule())
                 .add(new HttpServerModule())
+                .add(new ClientRequestFilterModule())
                 .add(new JsonModule())
                 .add(new JaxrsModule(true))
                 .add(new MBeanModule())
@@ -47,13 +54,18 @@ public class PrestoRouter
                 .add(new LogJmxModule())
                 .add(new TraceTokenModule())
                 .add(new EventModule())
+                .add(new RouterSecurityModule())
                 .add(new RouterModule())
                 .add(extraModules)
                 .build());
 
         Logger log = Logger.get(RouterModule.class);
         try {
-            app.initialize();
+            Injector injector = app.initialize();
+            injector.getInstance(RouterPluginManager.class).loadPlugins();
+            injector.getInstance(ClientRequestFilterManager.class).loadClientRequestFilters();
+            injector.getInstance(PasswordAuthenticatorManager.class).loadPasswordAuthenticator();
+            injector.getInstance(PrestoAuthenticatorManager.class).loadPrestoAuthenticator();
             log.info("======== SERVER STARTED ========");
         }
         catch (Throwable t) {

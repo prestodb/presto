@@ -31,10 +31,11 @@ import static java.util.Objects.requireNonNull;
 
 public class RouterSpec
 {
-    private List<GroupSpec> groups;
-    private List<SelectorRuleSpec> selectors;
-    private Optional<SchedulerType> schedulerType;
-    private Optional<URI> predictorUri;
+    private final List<GroupSpec> groups;
+    private final List<SelectorRuleSpec> selectors;
+    private final Optional<SchedulerType> schedulerType;
+    private final Optional<URI> predictorUri;
+    private final Optional<String> userCredentials;
 
     private static final Logger log = Logger.get(RouterSpec.class);
 
@@ -43,12 +44,14 @@ public class RouterSpec
             @JsonProperty("groups") List<GroupSpec> groups,
             @JsonProperty("selectors") List<SelectorRuleSpec> selectors,
             @JsonProperty("scheduler") Optional<SchedulerType> schedulerType,
-            @JsonProperty("predictor") Optional<URI> predictorUri)
+            @JsonProperty("predictor") Optional<URI> predictorUri,
+            @JsonProperty("user-credentials") Optional<String> userCredentials)
     {
         this.groups = ImmutableList.copyOf(requireNonNull(groups, "groups is null"));
         this.selectors = ImmutableList.copyOf(requireNonNull(selectors, "selectors is null"));
         this.schedulerType = requireNonNull(schedulerType, "scheduleType is null");
         this.predictorUri = requireNonNull(predictorUri, "predictorUri is null");
+        this.userCredentials = requireNonNull(userCredentials, "userCredentials are null");
 
         // make sure no duplicate names in group definition
         checkArgument(groups.stream()
@@ -84,5 +87,11 @@ public class RouterSpec
             log.error("Error in getting the predictor's URI");
         }
         return Optional.empty();
+    }
+
+    @JsonProperty
+    public Optional<String> getUserCredentials()
+    {
+        return userCredentials;
     }
 }
