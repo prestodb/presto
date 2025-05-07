@@ -265,7 +265,7 @@ public class QueryBuilder
                 .collect(joining(", "));
     }
 
-    private static boolean isAcceptedType(Type type)
+    protected boolean isAcceptedType(Type type)
     {
         Type validType = requireNonNull(type, "type is null");
         return validType.equals(BigintType.BIGINT) ||
@@ -375,7 +375,7 @@ public class QueryBuilder
         return identifierQuote + name + identifierQuote;
     }
 
-    private static void bindValue(Object value, JdbcColumnHandle columnHandle, ImmutableList.Builder<TypeAndValue> accumulatorBuilder)
+    private void bindValue(Object value, JdbcColumnHandle columnHandle, ImmutableList.Builder<TypeAndValue> accumulatorBuilder)
     {
         Type type = columnHandle.getColumnType();
         checkArgument(isAcceptedType(type), "Can't handle type: %s", type);
