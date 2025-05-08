@@ -136,7 +136,7 @@ jobs:
   upload:
     runs-on: ubuntu-latest
     needs: benchmark
-    if: github.event_name == 'push'
+    if: false && github.event_name == 'push'
     permissions:
       actions: read
       statuses: write
