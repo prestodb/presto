@@ -180,7 +180,7 @@ public final class DeltaExpressionUtils
                         return Streams.stream(prev);
                     })
                     // if there is a filter to be applied, it applies it
-                    .filter(row -> !rowFilter.isPresent() || rowFilter.get().test(row))
+                    .filter(row -> rowFilter.map(predicate -> predicate.test(row)).orElse(true))
                     .iterator();
         }
 
