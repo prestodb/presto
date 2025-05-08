@@ -109,6 +109,7 @@ The following provides an example of ``etc/router-config.json``.
       ],
       "scheduler": "RANDOM_CHOICE",
       "predictor": "http://127.0.0.1:8000/v1"
+      "user-credentials": "username:passwordhash"
     }
 
 These properties requires some explanation:
@@ -132,6 +133,18 @@ These properties requires some explanation:
   An optional URI for the query predictor. The router uses the URI to fetch
   query resource usage information from the predictor for scheduling.
   The default is *http://127.0.0.1:8000/v1*.
+
+* ``user-credentials``:
+  An optional parameter to specify to the router which credentials to use when communicating
+  with Presto coordinator endpoints.
+
+.. _authentication:
+
+Authentication
+------------------
+The router supports password file based authentication. This can be configured in the same
+way that it is with the regular Presto coordinator but within the router module (the ``etc`` folder
+within presto-router). See :ref:`Password File Authentication <password_file_auth>`.
 
 .. _running_router:
 
