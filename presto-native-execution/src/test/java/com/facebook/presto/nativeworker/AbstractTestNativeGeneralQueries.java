@@ -25,6 +25,8 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.plan.SortNode;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
@@ -33,6 +35,7 @@ import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -71,10 +74,13 @@ import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPres
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createRegion;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createSupplier;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createTableToTestHiddenColumns;
-import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
+import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
+import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.spi.plan.ExchangeEncoding.COLUMNAR;
 import static com.facebook.presto.spi.plan.ExchangeEncoding.ROW_WISE;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.GroupingSetDescriptor;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anySymbol;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
@@ -1520,66 +1526,72 @@ public abstract class AbstractTestNativeGeneralQueries
                     "AS " +
                     "SELECT nationkey, name, comment, regionkey FROM nation", tableName));
 
-            String filter = format("SELECT regionkey FROM \"%s\" WHERE regionkey %% 3 = 1", partitionsTableName);
+            String groupingSet = format("SELECT count(*) FROM \"%s\" GROUP BY GROUPING SETS ((regionkey), ())", partitionsTableName);
             assertPlan(
-                    filter,
-                    anyTree(
-                            exchange(REMOTE_STREAMING, GATHER,
-                                    filter(
-                                            "REGION_KEY % 3 = 1",
-                                            tableScan(partitionsTableName, ImmutableMap.of("REGION_KEY", "regionkey"))))));
-            assertQuery(filter);
-
-            String project = format("SELECT regionkey + 1 FROM \"%s\"", partitionsTableName);
-            assertPlan(
-                    project,
-                    anyTree(
-                            exchange(REMOTE_STREAMING, GATHER,
-                                    project(
-                                            ImmutableMap.of("EXPRESSION", expression("REGION_KEY + CAST(1 AS bigint)")),
-                                            tableScan(partitionsTableName, ImmutableMap.of("REGION_KEY", "regionkey"))))));
-            assertQuery(project);
-
-            String filterProject = format("SELECT regionkey + 1 FROM \"%s\" WHERE regionkey %% 3 = 1", partitionsTableName);
-            assertPlan(
-                    filterProject,
-                    anyTree(
-                            exchange(REMOTE_STREAMING, GATHER,
-                                    project(
-                                            ImmutableMap.of("EXPRESSION", expression("REGION_KEY + CAST(1 AS bigint)")),
-                                            filter(
-                                                    "REGION_KEY % 3 = 1",
-                                                    tableScan(partitionsTableName, ImmutableMap.of("REGION_KEY", "regionkey")))))));
-            assertQuery(filterProject);
+                    groupingSet,
+                    PlanMatchPattern.output(project(
+                            aggregation(
+                                    new PlanMatchPattern.GroupingSetDescriptor(ImmutableList.of("regionkey$gid", "groupid"), 2, ImmutableSet.of(1)),
+                                    ImmutableMap.of(Optional.empty(), functionCall("count", false, ImmutableList.of(anySymbol()))),
+                                    ImmutableMap.of(),
+                                    Optional.of(new Symbol("groupid")),
+                                    FINAL,
+                                    exchange(LOCAL, REPARTITION,
+                                            aggregation(
+                                                    new GroupingSetDescriptor(ImmutableList.of("regionkey$gid", "groupid"), 2, ImmutableSet.of(1)),
+                                                    ImmutableMap.of(Optional.empty(), functionCall("count", false, ImmutableList.of())),
+                                                    ImmutableList.of(),
+                                                    ImmutableMap.of(),
+                                                    Optional.of(new Symbol("groupid")),
+                                                    PARTIAL,
+                                                    PlanMatchPattern.groupingSet(
+                                                            ImmutableList.of(ImmutableList.of("REGION_KEY"), ImmutableList.of()),
+                                                            ImmutableMap.of(),
+                                                            "groupid",
+                                                            ImmutableMap.of("regionkey$gid", expression("REGION_KEY")),
+                                                            exchange(REMOTE_STREAMING, GATHER,
+                                                                    tableScan(partitionsTableName, ImmutableMap.of("REGION_KEY", "regionkey"))))))))));
 
             String aggregation = format("SELECT count(*), sum(regionkey) FROM \"%s\"", partitionsTableName);
             assertPlan(
                     aggregation,
-                    anyTree(
+                    PlanMatchPattern.output(
                             aggregation(
                                     ImmutableMap.of(
-                                            "FINAL_COUNT", functionCall("count", ImmutableList.of()),
-                                            "FINAL_SUM", functionCall("sum", ImmutableList.of("REGION_KEY"))),
-                                    SINGLE,
+                                            "FINAL_COUNT", functionCall("count", false, ImmutableList.of(anySymbol())),
+                                            "FINAL_SUM", functionCall("sum", false, ImmutableList.of(anySymbol()))),
+                                    FINAL,
                                     exchange(LOCAL, GATHER,
-                                            exchange(REMOTE_STREAMING, GATHER,
-                                                    tableScan(partitionsTableName, ImmutableMap.of("REGION_KEY", "regionkey")))))));
+                                            aggregation(
+                                                    ImmutableMap.of(
+                                                            "PARTIAL_COUNT", functionCall("count", false, ImmutableList.of()),
+                                                            "PARTIAL_SUM", functionCall("sum", false, ImmutableList.of(anySymbol()))),
+                                                    PARTIAL,
+                                                    exchange(REMOTE_STREAMING, GATHER,
+                                                            tableScan(partitionsTableName, ImmutableMap.of("REGION_KEY", "regionkey"))))))));
             assertQuery(aggregation);
 
             String groupBy = format("SELECT regionkey, count(*) FROM \"%s\" GROUP BY regionkey", partitionsTableName);
             assertPlan(
                     groupBy,
-                    anyTree(
+                    PlanMatchPattern.output(
                             aggregation(
                                     singleGroupingSet("REGION_KEY"),
                                     ImmutableMap.of(
-                                            Optional.of("FINAL_COUNT"), functionCall("count", ImmutableList.of())),
+                                            Optional.of("FINAL_COUNT"), functionCall("count", false, ImmutableList.of(anySymbol()))),
                                     ImmutableMap.of(),
                                     Optional.empty(),
-                                    SINGLE,
+                                    FINAL,
                                     exchange(LOCAL, REPARTITION,
-                                            exchange(REMOTE_STREAMING, GATHER,
-                                                    tableScan(partitionsTableName, ImmutableMap.of("REGION_KEY", "regionkey")))))));
+                                            aggregation(
+                                                    singleGroupingSet("REGION_KEY"),
+                                                    ImmutableMap.of(
+                                                            Optional.of("PARTIAL_COUNT"), functionCall("count", false, ImmutableList.of())),
+                                                    ImmutableMap.of(),
+                                                    Optional.empty(),
+                                                    PARTIAL,
+                                                    exchange(REMOTE_STREAMING, GATHER,
+                                                            tableScan(partitionsTableName, ImmutableMap.of("REGION_KEY", "regionkey"))))))));
             assertQuery(groupBy);
 
             String join = format("SELECT * " +
