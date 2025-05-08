@@ -25,6 +25,9 @@ import com.facebook.drift.idl.generator.ThriftIdlGenerator;
 import com.facebook.drift.idl.generator.ThriftIdlGeneratorConfig;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskStatus;
+import com.facebook.presto.execution.scheduler.TableWriteInfo;
+import com.facebook.presto.metadata.MetadataUpdates;
+import com.facebook.presto.metadata.Split;
 import com.facebook.presto.server.TaskUpdateRequest;
 import com.facebook.presto.server.thrift.MetadataUpdatesCodec;
 import com.facebook.presto.server.thrift.SplitCodec;
@@ -45,7 +48,7 @@ public class TestIDLGenerator
     @Test
     public void TestGenerator()
     {
-        assertGenerated(ImmutableList.of(TaskStatus.class, TaskInfo.class, TaskUpdateRequest.class), true);
+        assertGenerated(ImmutableList.of(Split.class, TableWriteInfo.class, MetadataUpdates.class, TaskStatus.class, TaskInfo.class, TaskUpdateRequest.class), true);
 //        assertGenerated(ImmutableList.of(OptionalField.class), false);
     }
 
