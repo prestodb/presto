@@ -33,6 +33,7 @@ import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrategy;
+import com.facebook.presto.sql.planner.PlannerUtils;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.optimizations.SymbolMapper;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -60,7 +61,6 @@ import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel;
 import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel.LOW;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrategy.AUTOMATIC;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrategy.NEVER;
-import static com.facebook.presto.sql.planner.PlannerUtils.containsSystemTableScan;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
@@ -166,8 +166,13 @@ public class PushPartialAggregationThroughExchange
             return Result.empty();
         }
 
-        // System table scan must be run in Java on coordinator and partial aggregation output may not be compatible with Velox
-        if (nativeExecution && containsSystemTableScan(exchangeNode, context.getLookup())) {
+        // For native execution:
+        // Partial aggregation result from Java coordinator task is not compatible with native worker.
+        // System table scan must be run in on coordinator and addExchange would always add a GatherExchange on top of it.
+        // We should never push partial aggregation past the GatherExchange.
+        if (nativeExecution
+                && exchangeNode.getType() == GATHER
+                && PlannerUtils.directlyOnSystemTableScan(exchangeNode, context.getLookup())) {
             return Result.empty();
         }
 
