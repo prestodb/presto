@@ -20,6 +20,7 @@
 #include "velox/exec/Cursor.h"
 #include "velox/exec/OutputBufferManager.h"
 #include "velox/exec/PlanNodeStats.h"
+#include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
@@ -497,6 +498,69 @@ TEST_F(GroupedExecutionTest, hashJoinWithMixedGroupedExecution) {
       ASSERT_EQ(task->state(), exec::TaskState::kFinished);
     }
     waitForAllTasksToBeDeleted();
+  }
+}
+
+TEST_F(GroupedExecutionTest, hashJoinWithMixedGroupedExecutionWithSpill) {
+  const uint64_t numGroups = 3;
+  auto probeVectors = makeVectors(12, 20);
+  auto probePath = TempFilePath::create();
+  writeToFile(probePath->getPath(), probeVectors);
+
+  auto buildVectors = makeVectors(4, 20);
+  auto buildPath = TempFilePath::create();
+  writeToFile(buildPath->getPath(), buildVectors);
+
+  std::vector<RowVectorPtr> totalProbeVectors;
+  for (int i = 0; i < numGroups; ++i) {
+    totalProbeVectors.insert(
+        totalProbeVectors.end(), probeVectors.begin(), probeVectors.end());
+  }
+  createDuckDbTable("t", totalProbeVectors);
+  createDuckDbTable("u", buildVectors);
+
+  for (const bool triggerSpill : {false, true}) {
+    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+    core::PlanNodeId probeScanNodeId;
+    core::PlanNodeId buildScanNodeId;
+
+    auto plan = PlanBuilder(planNodeIdGenerator)
+                    .tableScan(rowType_)
+                    .capturePlanNodeId(probeScanNodeId)
+                    .project({"c0 as t0", "c1 as t1"})
+                    .hashJoin(
+                        {"t0"},
+                        {"u0"},
+                        PlanBuilder(planNodeIdGenerator)
+                            .tableScan(rowType_)
+                            .capturePlanNodeId(buildScanNodeId)
+                            .project({"c0 as u0", "c1 as u1"})
+                            .planNode(),
+                        "",
+                        {"t1", "u1"},
+                        core::JoinType::kInner)
+                    .planNode();
+
+    std::vector<Split> probeSplits;
+    for (int i = 0; i < numGroups; ++i) {
+      probeSplits.push_back(makeHiveSplitWithGroup(probePath->getPath(), i));
+    }
+
+    TestScopedSpillInjection scopedSpillInjection(triggerSpill ? 100 : 0);
+    const auto spillDirectory = exec::test::TempDirectoryPath::create();
+    AssertQueryBuilder queryBuilder(duckDbQueryRunner_);
+    queryBuilder.plan(plan)
+        .spillDirectory(spillDirectory->getPath())
+        .config(core::QueryConfig::kSpillEnabled, true)
+        .config(core::QueryConfig::kJoinSpillEnabled, true)
+        .config(core::QueryConfig::kMixedGroupedModeHashJoinSpillEnabled, true)
+        .splits(probeScanNodeId, std::move(probeSplits))
+        .splits(buildScanNodeId, {makeHiveSplit(buildPath->getPath())})
+        .executionStrategy(core::ExecutionStrategy::kGrouped)
+        .groupedExecutionLeafNodeIds({probeScanNodeId})
+        .numSplitGroups(numGroups)
+        .numConcurrentSplitGroups(1)
+        .assertResults("SELECT t.c1, u.c1 FROM t, u WHERE t.c0 = u.c0");
   }
 }
 

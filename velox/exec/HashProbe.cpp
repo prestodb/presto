@@ -1049,7 +1049,19 @@ RowVectorPtr HashProbe::getOutputInternal(bool toSpillOutput) {
     } else {
       if (lastProber_ && canSpill()) {
         if (operatorCtx_->task()->hasMixedExecutionGroup()) {
-          joinBridge_->probeFinished(!allProbeGroupFinished());
+          const bool isLastGroup = allProbeGroupFinished();
+          if (isSpillInput()) {
+            // Mixed group mode has triggered spilling, based on if current
+            // group is the last group or not, resetting spill partitions in
+            // join bridge.
+            joinBridge_->probeFinished(!isLastGroup);
+          } else if (isLastGroup) {
+            // Mixed group mode has NOT triggered spilling, and current group is
+            // the last group (unreliable best effort signal), finish probe to
+            // notify build to finish. If last group signal is not present, rely
+            // on task cleanup.
+            joinBridge_->probeFinished();
+          }
         } else {
           joinBridge_->probeFinished();
           if (table_ != nullptr) {
