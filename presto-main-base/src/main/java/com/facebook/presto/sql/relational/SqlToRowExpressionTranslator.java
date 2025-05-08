@@ -417,6 +417,9 @@ public final class SqlToRowExpressionTranslator
                 else if (SMALLINT.equals(type)) {
                     return constant((long) Short.parseShort(node.getValue()), SMALLINT);
                 }
+                else if (INTEGER.equals(type)) {
+                    return constant((long) Integer.parseInt(node.getValue()), INTEGER);
+                }
                 else if (BIGINT.equals(type)) {
                     return constant(Long.parseLong(node.getValue()), BIGINT);
                 }
