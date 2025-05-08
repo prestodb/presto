@@ -577,6 +577,8 @@ DEBUG_ONLY_TEST_F(
       std::unordered_map<std::string, std::string> configs;
       configs.emplace(core::QueryConfig::kSpillEnabled, "true");
       configs.emplace(core::QueryConfig::kJoinSpillEnabled, "true");
+      configs.emplace(
+          core::QueryConfig::kMixedGroupedModeHashJoinSpillEnabled, "true");
       queryCtx->testingOverrideConfigUnsafe(std::move(configs));
     }
 
@@ -719,6 +721,8 @@ DEBUG_ONLY_TEST_F(
   std::unordered_map<std::string, std::string> configs;
   configs.emplace(core::QueryConfig::kSpillEnabled, "true");
   configs.emplace(core::QueryConfig::kJoinSpillEnabled, "true");
+  configs.emplace(
+      core::QueryConfig::kMixedGroupedModeHashJoinSpillEnabled, "true");
   queryCtx->testingOverrideConfigUnsafe(std::move(configs));
 
   SCOPED_TESTVALUE_SET(

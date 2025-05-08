@@ -398,6 +398,7 @@ RowVectorPtr JoinFuzzer::execute(
     spillDirectory = exec::test::TempDirectoryPath::create();
     builder.config(core::QueryConfig::kSpillEnabled, true)
         .config(core::QueryConfig::kJoinSpillEnabled, true)
+        .config(core::QueryConfig::kMixedGroupedModeHashJoinSpillEnabled, true)
         .spillDirectory(spillDirectory->getPath());
     spillPct = 10;
   }

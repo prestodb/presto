@@ -1051,9 +1051,16 @@ std::string HashBuild::stateName(State state) {
 }
 
 bool HashBuild::canSpill() const {
-  return Operator::canSpill() &&
-      !(operatorCtx_->task()->hasMixedExecutionGroup() &&
-        operatorCtx_->task()->concurrentSplitGroups() != 1);
+  if (!Operator::canSpill()) {
+    return false;
+  }
+  if (operatorCtx_->task()->hasMixedExecutionGroup()) {
+    return operatorCtx_->driverCtx()
+               ->queryConfig()
+               .mixedGroupedModeHashJoinSpillEnabled() &&
+        operatorCtx_->task()->concurrentSplitGroups() == 1;
+  }
+  return true;
 }
 
 bool HashBuild::canReclaim() const {

@@ -938,9 +938,16 @@ bool HashProbe::skipProbeOnEmptyBuild() const {
 }
 
 bool HashProbe::canSpill() const {
-  return Operator::canSpill() &&
-      !(operatorCtx_->task()->hasMixedExecutionGroup() &&
-        operatorCtx_->task()->concurrentSplitGroups() != 1);
+  if (!Operator::canSpill()) {
+    return false;
+  }
+  if (operatorCtx_->task()->hasMixedExecutionGroup()) {
+    return operatorCtx_->driverCtx()
+               ->queryConfig()
+               .mixedGroupedModeHashJoinSpillEnabled() &&
+        operatorCtx_->task()->concurrentSplitGroups() == 1;
+  }
+  return true;
 }
 
 bool HashProbe::hasMoreSpillData() const {

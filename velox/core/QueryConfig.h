@@ -204,6 +204,10 @@ class QueryConfig {
   /// Join spilling flag, only applies if "spill_enabled" flag is set.
   static constexpr const char* kJoinSpillEnabled = "join_spill_enabled";
 
+  /// Config to enable hash join spill for mixed grouped execution mode.
+  static constexpr const char* kMixedGroupedModeHashJoinSpillEnabled =
+      "mixed_grouped_mode_hash_join_spill_enabled";
+
   /// OrderBy spilling flag, only applies if "spill_enabled" flag is set.
   static constexpr const char* kOrderBySpillEnabled = "order_by_spill_enabled";
 
@@ -751,6 +755,10 @@ class QueryConfig {
 
   bool joinSpillEnabled() const {
     return get<bool>(kJoinSpillEnabled, true);
+  }
+
+  bool mixedGroupedModeHashJoinSpillEnabled() const {
+    return get<bool>(kMixedGroupedModeHashJoinSpillEnabled, false);
   }
 
   bool orderBySpillEnabled() const {
