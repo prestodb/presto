@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryData;
 import com.facebook.presto.client.QueryStatusInfo;
+import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.PrestoWarning;
@@ -31,6 +32,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -77,6 +79,9 @@ public class ElasticsearchLoader
         private final AtomicReference<List<Type>> types = new AtomicReference<>();
 
         private ElasticsearchLoadingSession() {}
+
+        @Override
+        public void setStartedTransactionId(Optional<TransactionId> startedTransactionId) {}
 
         @Override
         public void setClearTransactionId(boolean clearTransactionId) {}

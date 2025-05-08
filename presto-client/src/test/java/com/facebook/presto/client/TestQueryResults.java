@@ -14,7 +14,11 @@
 package com.facebook.presto.client;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.common.transaction.TransactionId;
 import org.testng.annotations.Test;
+
+import java.util.Optional;
+import java.util.UUID;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static org.testng.Assert.assertEquals;
@@ -62,5 +66,15 @@ public class TestQueryResults
 
         QueryResults results = QUERY_RESULTS_CODEC.fromJson(goldenValue);
         assertEquals(results.getId(), "20160128_214710_00012_rk68b");
+
+        QueryResults newQueryResults = new QueryResults(results.getId(), results.getInfoUri(), results.getPartialCancelUri(),
+                results.getNextUri(), results.getColumns(), results.getData(), results.getBinaryData(), results.getStats(),
+                results.getError(), results.getWarnings(), results.getUpdateType(), results.getUpdateCount(),
+                Optional.of(new TransactionId(UUID.randomUUID())), results.isClearTransactionId());
+
+        byte[] bs = QUERY_RESULTS_CODEC.toBytes(newQueryResults);
+        QueryResults qr = QUERY_RESULTS_CODEC.fromBytes(bs);
+
+        assertEquals(newQueryResults.getStartedTransactionId(), qr.getStartedTransactionId());
     }
 }

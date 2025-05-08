@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.client;
 
+import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.spi.PrestoWarning;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -23,6 +24,7 @@ import javax.annotation.concurrent.Immutable;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.client.FixJsonDataUtils.fixData;
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -47,6 +49,7 @@ public class QueryResults
     private final List<PrestoWarning> warnings;
     private final String updateType;
     private final Long updateCount;
+    private final Optional<TransactionId> startedTransactionId;
     private final boolean clearTransactionId;
 
     @JsonCreator
@@ -63,6 +66,7 @@ public class QueryResults
             @JsonProperty("warnings") List<PrestoWarning> warnings,
             @JsonProperty("updateType") String updateType,
             @JsonProperty("updateCount") Long updateCount,
+            @JsonProperty("startedTransactionId") Optional<TransactionId> startedTransactionId,
             @JsonProperty("clearTransactionId") Boolean clearTransactionId)
     {
         this(
@@ -78,6 +82,7 @@ public class QueryResults
                 firstNonNull(warnings, ImmutableList.of()),
                 updateType,
                 updateCount,
+                startedTransactionId,
                 clearTransactionId);
     }
 
@@ -94,6 +99,7 @@ public class QueryResults
             List<PrestoWarning> warnings,
             String updateType,
             Long updateCount,
+            Optional<TransactionId> startedTransactionId,
             Boolean clearTransactionId)
     {
         this.id = requireNonNull(id, "id is null");
@@ -109,6 +115,7 @@ public class QueryResults
         this.warnings = ImmutableList.copyOf(requireNonNull(warnings, "warnings is null"));
         this.updateType = updateType;
         this.updateCount = updateCount;
+        this.startedTransactionId = startedTransactionId;
         this.clearTransactionId = clearTransactionId;
     }
 
@@ -245,6 +252,13 @@ public class QueryResults
     public Long getUpdateCount()
     {
         return updateCount;
+    }
+
+    @JsonProperty
+    @Override
+    public Optional<TransactionId> getStartedTransactionId()
+    {
+        return startedTransactionId;
     }
 
     @JsonProperty
