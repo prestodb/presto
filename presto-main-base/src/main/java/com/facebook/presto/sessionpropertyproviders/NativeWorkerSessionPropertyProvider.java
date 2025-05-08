@@ -345,6 +345,7 @@ public class NativeWorkerSessionPropertyProvider
                                 "to produce a batch of size specified by this. If set to 0, then " +
                                 "Operator::outputBatchRows will be used as the min output batch rows.",
                         0,
+                        !nativeExecution),
                 integerProperty(
                         NATIVE_REQUEST_DATA_SIZES_MAX_WAIT_SEC,
                         "Maximum wait time for exchange long poll requests in seconds.",
