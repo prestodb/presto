@@ -940,16 +940,25 @@ void AggregationFuzzer::verifyAggregation(
     }
   }
 
+  // Search for the source node starting from the AggregationNode
+  core::PlanNodePtr source = plan;
+
+  while (!dynamic_cast<const core::ValuesNode*>(source.get())) {
+    // The AggregationNode and any of it's preceding nodes can only have a
+    // single source. This will fail if a node with multiple sources is found
+    // (which would require updating the logic to handle), or if no ValuesNode
+    // is found.
+    VELOX_CHECK_EQ(source->sources().size(), 1);
+    source = source->sources()[0];
+  }
+
   // Get inputs.
   std::vector<RowVectorPtr> input;
-  input.reserve(node->sources().size());
 
-  for (auto source : node->sources()) {
-    auto valueNode = dynamic_cast<const core::ValuesNode*>(source.get());
-    VELOX_CHECK_NOT_NULL(valueNode);
-    auto values = valueNode->values();
-    input.insert(input.end(), values.begin(), values.end());
-  }
+  auto valueNode = dynamic_cast<const core::ValuesNode*>(source.get());
+  VELOX_CHECK_NOT_NULL(valueNode);
+  auto values = valueNode->values();
+  input.insert(input.end(), values.begin(), values.end());
 
   auto resultOrError = execute(plan);
   if (resultOrError.exceptionPtr) {
