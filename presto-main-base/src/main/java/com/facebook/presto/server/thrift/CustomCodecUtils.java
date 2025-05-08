@@ -34,6 +34,7 @@ import com.google.common.collect.ImmutableMap;
 import java.util.Optional;
 
 import static com.facebook.drift.annotations.ThriftField.Requiredness.REQUIRED;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
 
 /***
@@ -45,11 +46,14 @@ public class CustomCodecUtils
 
     public static ThriftStructMetadata createSyntheticMetadata(ThriftCatalog thriftCatalog, short fieldId, String fieldName, Class<?> originalType, Class<?> referencedType)
     {
-        ThriftType stringThriftType = thriftCatalog.getThriftType(referencedType);
+        checkNotNull(thriftCatalog.getThriftType(referencedType), "Can not find corresponding thrift type for type %s", referencedType);
+
+        ThriftType thriftType = thriftCatalog.getThriftType(referencedType);
+
         ThriftFieldMetadata fieldMetaData = new ThriftFieldMetadata(
                 fieldId,
                 false, false, REQUIRED, ImmutableMap.of(),
-                new DefaultThriftTypeReference(stringThriftType),
+                new DefaultThriftTypeReference(thriftType),
                 fieldName,
                 FieldKind.THRIFT_FIELD,
                 ImmutableList.of(),
@@ -63,7 +67,7 @@ public class CustomCodecUtils
                         referencedType)),
                 Optional.empty());
         return new ThriftStructMetadata(
-                originalType.getName() + "$SyntheticStructWrapper",
+                originalType.getSimpleName() + "Wrapper",
                 ImmutableMap.of(),
                 originalType, null,
                 ThriftStructMetadata.MetadataType.STRUCT,
