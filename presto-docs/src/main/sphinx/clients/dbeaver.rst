@@ -4,8 +4,8 @@ DBeaver
 
 `DBeaver <https://dbeaver.io/>`_ is a multiplatform open source database tool. Follow these steps to configure DBeaver to query Presto.
 
-Install and Run DBeaver
-=======================
+Installing and Running DBeaver
+==============================
 
 Download and install DBeaver from `DBeaver Download <https://dbeaver.io/download/>`_, then launch DBeaver.
 
