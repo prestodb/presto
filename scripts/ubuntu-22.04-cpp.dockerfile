@@ -21,9 +21,9 @@ RUN apt update && \
             lsb-release \
             pip \
             python3
-            
 
-ADD scripts /velox/scripts/
+
+COPY scripts /velox/scripts/
 
 # TZ and DEBIAN_FRONTEND="noninteractive"
 # are required to avoid tzdata installation

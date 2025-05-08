@@ -13,11 +13,11 @@
 # limitations under the License.
 # Build the test and build container for presto_cpp
 #
-FROM ghcr.io/facebookincubator/velox-dev:centos9 
+FROM ghcr.io/facebookincubator/velox-dev:centos9
 
 ARG SPARK_VERSION=3.5.1
 
-ADD scripts /velox/scripts/
+COPY scripts /velox/scripts/
 RUN wget https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop3.tgz
 RUN wget https://repo1.maven.org/maven2/org/apache/spark/spark-connect_2.12/${SPARK_VERSION}/spark-connect_2.12-${SPARK_VERSION}.jar
 
