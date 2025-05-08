@@ -161,7 +161,9 @@ function install_duckdb {
   if [[ "$BUILD_DUCKDB" == "true" ]]; then
     echo 'Building DuckDB'
     wget_and_untar https://github.com/duckdb/duckdb/archive/refs/tags/${DUCKDB_VERSION}.tar.gz duckdb
-    cmake_install_dir duckdb -DBUILD_UNITTESTS=OFF -DENABLE_SANITIZER=OFF -DENABLE_UBSAN=OFF -DBUILD_SHELL=OFF -DEXPORT_DLL_SYMBOLS=OFF -DCMAKE_BUILD_TYPE=Release
+    # The warning -Wno-missing-template-arg-list-after-template-kw can likely be removed when upgrading to
+    # the latest duckDB version. This code has changed quite significantly and likely isn't a problem anymore.
+    cmake_install_dir duckdb -DBUILD_UNITTESTS=OFF -DENABLE_SANITIZER=OFF -DENABLE_UBSAN=OFF -DBUILD_SHELL=OFF -DEXPORT_DLL_SYMBOLS=OFF -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-Wno-missing-template-arg-list-after-template-kw"
   fi
 }
 
