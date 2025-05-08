@@ -26,7 +26,7 @@ import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LITERAL;
 import static java.lang.String.format;
 
 public class TestIntegerOperators
@@ -37,7 +37,7 @@ public class TestIntegerOperators
     {
         assertFunction("INTEGER'37'", INTEGER, 37);
         assertFunction("INTEGER'17'", INTEGER, 17);
-        assertInvalidCast("INTEGER'" + ((long) Integer.MAX_VALUE + 1L) + "'");
+        assertInvalidFunction("INTEGER'" + ((long) Integer.MAX_VALUE + 1L) + "'", INVALID_LITERAL);
     }
 
     @Test
@@ -52,7 +52,7 @@ public class TestIntegerOperators
     {
         assertFunction("INTEGER'-37'", INTEGER, -37);
         assertFunction("INTEGER'-17'", INTEGER, -17);
-        assertInvalidFunction("INTEGER'-" + Integer.MIN_VALUE + "'", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("INTEGER'-" + Integer.MIN_VALUE + "'", INVALID_LITERAL);
     }
 
     @Test
