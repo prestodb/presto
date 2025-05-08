@@ -46,7 +46,9 @@ jobs:
             ' --jq '.data.repository.pullRequest.bodyText' >> $GITHUB_OUTPUT
           echo 'EOF' >> $GITHUB_OUTPUT
       - name: Echo PR Text
-        run: echo "${{ steps.graphql_query.outputs.pr_bodytext }}"
+        env:
+          PR_BODY: ${{ steps.graphql_query.outputs.pr_bodytext }}
+        run: echo "${PR_BODY}"
       - name: Set presto-release-tools as executable
         run: chmod +x ~/.m2/repository/com/facebook/presto/presto-release-tools/${RELEASE_TOOLS_VERSION}/presto-release-tools-${RELEASE_TOOLS_VERSION}-executable.jar
       - name: Check release notes
