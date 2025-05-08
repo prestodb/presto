@@ -68,18 +68,6 @@ class HashProbe : public Operator {
 
   bool canReclaim() const override;
 
-  bool testingHasInputSpiller() const {
-    return inputSpiller_ != nullptr;
-  }
-
-  bool testingExceededMaxSpillLevelLimit() const {
-    return exceededMaxSpillLevelLimit_;
-  }
-
-  bool testingHasPendingInput() const {
-    return input_ != nullptr;
-  }
-
   const std::vector<IdentityProjection>& tableOutputProjections() const {
     return tableOutputProjections_;
   }
@@ -96,12 +84,28 @@ class HashProbe : public Operator {
       const std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>&
           keys);
 
-  ProbeOperatorState testingState() const {
-    return state_;
-  }
-
   const std::shared_ptr<HashJoinBridge>& joinBridge() const {
     return joinBridge_;
+  }
+
+  bool testingHasInputSpiller() const {
+    return inputSpiller_ != nullptr;
+  }
+
+  bool testingExceededMaxSpillLevelLimit() const {
+    return exceededMaxSpillLevelLimit_;
+  }
+
+  bool testingHasPendingInput() const {
+    return input_ != nullptr;
+  }
+
+  std::shared_ptr<BaseHashTable> testingTable() const {
+    return table_;
+  }
+
+  ProbeOperatorState testingState() const {
+    return state_;
   }
 
  private:
