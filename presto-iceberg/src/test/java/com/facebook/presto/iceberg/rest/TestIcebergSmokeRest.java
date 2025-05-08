@@ -15,6 +15,8 @@ package com.facebook.presto.iceberg.rest;
 
 import com.facebook.airlift.http.server.testing.TestingHttpServer;
 import com.facebook.presto.hive.NodeVersion;
+import com.facebook.presto.hive.azure.HiveAzureConfig;
+import com.facebook.presto.hive.azure.HiveAzureConfigurationInitializer;
 import com.facebook.presto.hive.gcs.HiveGcsConfig;
 import com.facebook.presto.hive.gcs.HiveGcsConfigurationInitializer;
 import com.facebook.presto.hive.s3.HiveS3Config;
@@ -116,6 +118,7 @@ public class TestIcebergSmokeRest
                 new IcebergCatalogName(ICEBERG_CATALOG),
                 new PrestoS3ConfigurationUpdater(new HiveS3Config()),
                 new HiveGcsConfigurationInitializer(new HiveGcsConfig()),
+                new HiveAzureConfigurationInitializer(new HiveAzureConfig()),
                 new NodeVersion("test_version"));
     }
 
