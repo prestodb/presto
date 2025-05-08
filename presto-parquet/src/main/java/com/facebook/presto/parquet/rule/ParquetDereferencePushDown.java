@@ -182,7 +182,7 @@ public abstract class ParquetDereferencePushDown
                 RowExpression indexExpression = expressionOptimizer.optimize(
                         dereferenceExpression.getArguments().get(1),
                         ExpressionOptimizer.Level.OPTIMIZED,
-                        session);
+                        session, false);
 
                 if (indexExpression instanceof ConstantExpression) {
                     Object index = ((ConstantExpression) indexExpression).getValue();
@@ -245,7 +245,7 @@ public abstract class ParquetDereferencePushDown
                     RowExpression indexExpression = expressionOptimizer.optimize(
                             dereferenceExpression.getArguments().get(1),
                             ExpressionOptimizer.Level.OPTIMIZED,
-                            connectorSession);
+                            connectorSession, false);
 
                     if (indexExpression instanceof ConstantExpression) {
                         Object index = ((ConstantExpression) indexExpression).getValue();

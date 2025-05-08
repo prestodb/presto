@@ -122,7 +122,7 @@ public final class SubfieldExtractor
                 RowExpression indexExpression = expressionOptimizer.optimize(
                         dereferenceExpression.getArguments().get(1),
                         ExpressionOptimizer.Level.OPTIMIZED,
-                        connectorSession);
+                        connectorSession, false);
 
                 if (indexExpression instanceof ConstantExpression) {
                     Object index = ((ConstantExpression) indexExpression).getValue();
@@ -143,7 +143,7 @@ public final class SubfieldExtractor
                 RowExpression indexExpression = expressionOptimizer.optimize(
                         arguments.get(1),
                         ExpressionOptimizer.Level.OPTIMIZED,
-                        connectorSession);
+                        connectorSession, false);
 
                 if (indexExpression instanceof ConstantExpression) {
                     Object index = ((ConstantExpression) indexExpression).getValue();

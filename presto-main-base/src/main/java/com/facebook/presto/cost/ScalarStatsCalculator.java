@@ -134,7 +134,7 @@ public class ScalarStatsCalculator
                 return computeArithmeticBinaryStatistics(call, context);
             }
 
-            RowExpression value = expressionOptimizerProvider.getExpressionOptimizer(session).optimize(call, OPTIMIZED, session);
+            RowExpression value = expressionOptimizerProvider.getExpressionOptimizer(session).optimize(call, OPTIMIZED, session, false);
 
             if (isNull(value)) {
                 return nullStatsEstimate();

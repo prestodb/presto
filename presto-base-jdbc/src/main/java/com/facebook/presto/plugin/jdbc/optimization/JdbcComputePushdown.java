@@ -106,7 +106,7 @@ public class JdbcComputePushdown
             TableHandle oldTableHandle = oldTableScanNode.getTable();
             JdbcTableHandle oldConnectorTable = (JdbcTableHandle) oldTableHandle.getConnectorHandle();
 
-            RowExpression predicate = expressionOptimizerProvider.getExpressionOptimizer(session).optimize(node.getPredicate(), OPTIMIZED, session);
+            RowExpression predicate = expressionOptimizerProvider.getExpressionOptimizer(session).optimize(node.getPredicate(), OPTIMIZED, session, false);
             predicate = logicalRowExpressions.convertToConjunctiveNormalForm(predicate);
             TranslatedExpression<JdbcExpression> jdbcExpression = translateWith(
                     predicate,

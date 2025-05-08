@@ -141,6 +141,6 @@ public class TestRowExpressionOptimizer
 
     private RowExpression optimize(RowExpression expression)
     {
-        return optimizer.optimize(expression, OPTIMIZED, SESSION);
+        return optimizer.optimize(expression, OPTIMIZED, SESSION, false);
     }
 }

@@ -137,7 +137,7 @@ public class BenchmarkJsonExtract
         Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(TEST_SESSION, METADATA, SQL_PARSER, TypeProvider.copyOf(symbolTypes), expression, emptyMap(), WarningCollector.NOOP);
         RowExpression rowExpression = SqlToRowExpressionTranslator.translate(expression, expressionTypes, sourceLayout, METADATA.getFunctionAndTypeManager(), TEST_SESSION);
         RowExpressionOptimizer optimizer = new RowExpressionOptimizer(METADATA);
-        return optimizer.optimize(rowExpression, OPTIMIZED, TEST_SESSION.toConnectorSession());
+        return optimizer.optimize(rowExpression, OPTIMIZED, TEST_SESSION.toConnectorSession(), false);
     }
 
     private static Block createChannel()

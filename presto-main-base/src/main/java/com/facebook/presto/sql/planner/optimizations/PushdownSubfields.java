@@ -591,7 +591,7 @@ public class PushdownSubfields
                     RowExpression indexExpression = expressionOptimizer.optimize(
                             dereference.getArguments().get(1),
                             ExpressionOptimizer.Level.OPTIMIZED,
-                            connectorSession);
+                            connectorSession, false);
 
                     if (indexExpression instanceof ConstantExpression) {
                         Object index = ((ConstantExpression) indexExpression).getValue();
@@ -613,7 +613,7 @@ public class PushdownSubfields
                     RowExpression indexExpression = expressionOptimizer.optimize(
                             arguments.get(1),
                             ExpressionOptimizer.Level.OPTIMIZED,
-                            connectorSession);
+                            connectorSession, false);
 
                     if (indexExpression instanceof ConstantExpression) {
                         Object index = ((ConstantExpression) indexExpression).getValue();

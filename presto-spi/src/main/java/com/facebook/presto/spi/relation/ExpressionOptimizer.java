@@ -22,7 +22,7 @@ public interface ExpressionOptimizer
     /**
      * Optimize a RowExpression to its simplest equivalent form.
      */
-    default RowExpression optimize(RowExpression rowExpression, Level level, ConnectorSession session)
+    default RowExpression optimize(RowExpression rowExpression, Level level, ConnectorSession session, boolean useBuiltInFunctions)
     {
         return optimize(rowExpression, level, session, variable -> variable);
     }

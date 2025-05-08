@@ -271,7 +271,7 @@ public class TestRowExpressionSerde
         RowExpression rowExpression = SqlToRowExpressionTranslator.translate(expression, getExpressionTypes(expression), ImmutableMap.of(), metadata.getFunctionAndTypeManager(), TEST_SESSION);
         if (optimize) {
             RowExpressionOptimizer optimizer = new RowExpressionOptimizer(metadata);
-            return optimizer.optimize(rowExpression, OPTIMIZED, TEST_SESSION.toConnectorSession());
+            return optimizer.optimize(rowExpression, OPTIMIZED, TEST_SESSION.toConnectorSession(), false);
         }
         return rowExpression;
     }

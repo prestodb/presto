@@ -127,7 +127,7 @@ public class TestExpressionOptimizerManager
         Session.SessionBuilder sessionBuilder = testSessionBuilder();
         systemProperties.forEach(sessionBuilder::setSystemProperty);
         Session session = sessionBuilder.build();
-        assertEquals(manager.getExpressionOptimizer(session.toConnectorSession()).optimize(expression(originalExpression), OPTIMIZED, session.toConnectorSession()),
+        assertEquals(manager.getExpressionOptimizer(session.toConnectorSession()).optimize(expression(originalExpression), OPTIMIZED, session.toConnectorSession(), false),
                 expression(optimizedExpression));
     }
 

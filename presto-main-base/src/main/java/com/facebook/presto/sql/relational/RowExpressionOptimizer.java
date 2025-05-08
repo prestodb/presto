@@ -43,12 +43,12 @@ public final class RowExpressionOptimizer
     }
 
     @Override
-    public RowExpression optimize(RowExpression rowExpression, Level level, ConnectorSession session)
+    public RowExpression optimize(RowExpression rowExpression, Level level, ConnectorSession session, boolean useBuiltInFunctions)
     {
         if (level.ordinal() <= OPTIMIZED.ordinal()) {
             return toRowExpression(rowExpression.getSourceLocation(), new RowExpressionInterpreter(rowExpression, functionAndTypeManager, session, level).optimize(), rowExpression.getType());
         }
-        throw new IllegalArgumentException("Not supported optimization level: " + level);
+        return toRowExpression(rowExpression.getSourceLocation(), new RowExpressionInterpreter(rowExpression, functionAndTypeManager, session, level, useBuiltInFunctions).evaluate(), rowExpression.getType());
     }
 
     @Override

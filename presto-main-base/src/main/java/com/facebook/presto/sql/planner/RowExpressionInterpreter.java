@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.client.FailureInfo;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.RowBlockBuilder;
 import com.facebook.presto.common.function.OperatorType;
@@ -71,6 +72,7 @@ import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.expressions.DynamicFilters.isDynamicFilter;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.metadata.CastType.JSON_TO_ARRAY_CAST;
 import static com.facebook.presto.metadata.CastType.JSON_TO_MAP_CAST;
@@ -93,6 +95,7 @@ import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.ROW_CONSTRUCTOR;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.SWITCH;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.WHEN;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.gen.VarArgsToMapAdapterGenerator.generateVarArgsToMapAdapter;
 import static com.facebook.presto.sql.planner.Interpreters.interpretDereference;
@@ -129,7 +132,7 @@ public class RowExpressionInterpreter
     private final FunctionAndTypeManager functionAndTypeManager;
     private final FunctionResolution resolution;
 
-    private final Visitor visitor;
+    private Visitor visitor;
 
     public static Object evaluateConstantRowExpression(RowExpression expression, FunctionAndTypeManager functionAndTypeManager, ConnectorSession session)
     {
@@ -142,6 +145,12 @@ public class RowExpressionInterpreter
     public static RowExpressionInterpreter rowExpressionInterpreter(RowExpression expression, FunctionAndTypeManager functionAndTypeManager, ConnectorSession session)
     {
         return new RowExpressionInterpreter(expression, functionAndTypeManager, session, EVALUATED);
+    }
+
+    public RowExpressionInterpreter(RowExpression expression, FunctionAndTypeManager functionAndTypeManager, ConnectorSession session, Level optimizationLevel, boolean useBuiltInFunction)
+    {
+        this(expression, functionAndTypeManager, session, optimizationLevel);
+        this.visitor = new Visitor(useBuiltInFunction);
     }
 
     public RowExpressionInterpreter(RowExpression expression, Metadata metadata, ConnectorSession session, Level optimizationLevel)
@@ -160,7 +169,7 @@ public class RowExpressionInterpreter
         this.resolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
         this.functionAndTypeManager = functionAndTypeManager;
 
-        this.visitor = new Visitor();
+        this.visitor = new Visitor(false);
     }
 
     public Type getType()
@@ -192,6 +201,13 @@ public class RowExpressionInterpreter
     private class Visitor
             implements RowExpressionVisitor<Object, Object>
     {
+        private final boolean useBuiltInFunctions;
+
+        private Visitor(boolean useBuiltInFunctions)
+        {
+            this.useBuiltInFunctions = useBuiltInFunctions;
+        }
+
         @Override
         public Object visitInputReference(InputReferenceExpression node, Object context)
         {
@@ -224,8 +240,19 @@ public class RowExpressionInterpreter
                 argumentTypes.add(expression.getType());
             }
 
-            FunctionHandle functionHandle = node.getFunctionHandle();
-            FunctionMetadata functionMetadata = functionAndTypeManager.getFunctionMetadata(node.getFunctionHandle());
+            FunctionMetadata functionMetadata = null;
+            FunctionHandle functionHandle = null;
+            if (useBuiltInFunctions) {
+                functionHandle = functionAndTypeManager.lookupFunction(
+                        QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, node.getDisplayName()),
+                        fromTypeSignatures(node.getFunctionHandle().getArgumentTypes()));
+                functionMetadata = functionAndTypeManager.getFunctionAndTypeResolver().getFunctionMetadata(functionHandle);
+            }
+            else {
+                functionHandle = node.getFunctionHandle();
+                functionMetadata = functionAndTypeManager.getFunctionMetadata(functionHandle);
+            }
+
             if (!functionMetadata.isCalledOnNullInput()) {
                 for (Object value : argumentValues) {
                     if (value == null) {

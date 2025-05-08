@@ -74,7 +74,7 @@ public class TestSubfieldExtractor
     private static final ExpressionOptimizer TEST_EXPRESSION_OPTIMIZER = new ExpressionOptimizer()
     {
         @Override
-        public RowExpression optimize(RowExpression rowExpression, Level level, ConnectorSession session)
+        public RowExpression optimize(RowExpression rowExpression, Level level, ConnectorSession session, boolean useBuiltInFunctions)
         {
             return rowExpression;
         }

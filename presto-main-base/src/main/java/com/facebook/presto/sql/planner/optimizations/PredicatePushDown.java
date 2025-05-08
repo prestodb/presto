@@ -1439,7 +1439,7 @@ public class PredicatePushDown
         // Temporary implementation for joins because the SimplifyExpressions optimizers can not run properly on join clauses
         private RowExpression simplifyExpression(RowExpression expression)
         {
-            return expressionOptimizerProvider.getExpressionOptimizer(session.toConnectorSession()).optimize(expression, ExpressionOptimizer.Level.SERIALIZABLE, session.toConnectorSession());
+            return expressionOptimizerProvider.getExpressionOptimizer(session.toConnectorSession()).optimize(expression, ExpressionOptimizer.Level.SERIALIZABLE, session.toConnectorSession(), false);
         }
 
         private boolean areExpressionsEquivalent(RowExpression leftExpression, RowExpression rightExpression)
@@ -1454,7 +1454,7 @@ public class PredicatePushDown
         {
             expression = RowExpressionNodeInliner.replaceExpression(expression, nullSymbols.stream()
                     .collect(Collectors.toMap(identity(), variable -> constantNull(variable.getSourceLocation(), variable.getType()))));
-            return expressionOptimizerProvider.getExpressionOptimizer(session.toConnectorSession()).optimize(expression, ExpressionOptimizer.Level.OPTIMIZED, session.toConnectorSession());
+            return expressionOptimizerProvider.getExpressionOptimizer(session.toConnectorSession()).optimize(expression, ExpressionOptimizer.Level.OPTIMIZED, session.toConnectorSession(), false);
         }
 
         private Predicate<RowExpression> joinEqualityExpression(final Collection<VariableReferenceExpression> leftVariables)

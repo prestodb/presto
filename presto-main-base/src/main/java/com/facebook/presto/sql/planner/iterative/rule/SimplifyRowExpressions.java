@@ -69,7 +69,7 @@ public class SimplifyRowExpressions
             // Rewrite RowExpression first to reduce depth of RowExpression tree by balancing AND/OR predicates.
             // It doesn't matter whether we rewrite/optimize first because this will be called by IterativeOptimizer.
             RowExpression rewritten = RowExpressionTreeRewriter.rewriteWith(logicalExpressionRewriter, expression, true);
-            return expressionOptimizerManager.getExpressionOptimizer(session.toConnectorSession()).optimize(rewritten, SERIALIZABLE, session.toConnectorSession());
+            return expressionOptimizerManager.getExpressionOptimizer(session.toConnectorSession()).optimize(rewritten, SERIALIZABLE, session.toConnectorSession(), false);
         }
     }
 

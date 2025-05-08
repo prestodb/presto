@@ -257,7 +257,7 @@ public class ClickHouseComputePushdown
             TableHandle oldTableHandle = oldTableScanNode.getTable();
             ClickHouseTableHandle oldConnectorTable = (ClickHouseTableHandle) oldTableHandle.getConnectorHandle();
 
-            RowExpression predicate = rowExpressionService.getExpressionOptimizer(session).optimize(node.getPredicate(), OPTIMIZED, session);
+            RowExpression predicate = rowExpressionService.getExpressionOptimizer(session).optimize(node.getPredicate(), OPTIMIZED, session, false);
             predicate = logicalRowExpressions.convertToConjunctiveNormalForm(predicate);
             TranslatedExpression<ClickHouseExpression> clickHouseExpression = translateWith(
                     predicate,

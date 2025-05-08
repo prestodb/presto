@@ -233,7 +233,7 @@ public abstract class BaseSubfieldExtractionRewriter
         }
 
         RowExpression optimizedRemainingExpression = rowExpressionService.getExpressionOptimizer(session)
-                .optimize(decomposedFilter.getRemainingExpression(), OPTIMIZED, session);
+                .optimize(decomposedFilter.getRemainingExpression(), OPTIMIZED, session, false);
         if (optimizedRemainingExpression instanceof ConstantExpression) {
             ConstantExpression constantExpression = (ConstantExpression) optimizedRemainingExpression;
             if (FALSE_CONSTANT.equals(constantExpression) || constantExpression.getValue() == null) {

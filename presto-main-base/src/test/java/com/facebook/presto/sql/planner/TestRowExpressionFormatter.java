@@ -263,7 +263,7 @@ public class TestRowExpressionFormatter
                         constant(utf8Slice("prefix%"), VARCHAR)));
         assertEquals(format(callExpression), "c_varchar LIKE VARCHAR'prefix%'");
 
-        callExpression = OPTIMIZER.optimize(callExpression, OPTIMIZED, SESSION);
+        callExpression = OPTIMIZER.optimize(callExpression, OPTIMIZED, SESSION, false);
         assertTrue(format(callExpression).startsWith("c_varchar LIKE LIKEPATTERN'io.airlift.joni.Regex@"));
 
         // like escape
@@ -280,7 +280,7 @@ public class TestRowExpressionFormatter
                         constant(utf8Slice("$"), VARCHAR)));
         assertEquals(format(callExpression), "c_varchar LIKE VARCHAR'%escaped$_' ESCAPE VARCHAR'$'");
 
-        callExpression = OPTIMIZER.optimize(callExpression, OPTIMIZED, SESSION);
+        callExpression = OPTIMIZER.optimize(callExpression, OPTIMIZED, SESSION, false);
         assertTrue(format(callExpression).startsWith("c_varchar LIKE LIKEPATTERN'io.airlift.joni.Regex@"));
     }
 

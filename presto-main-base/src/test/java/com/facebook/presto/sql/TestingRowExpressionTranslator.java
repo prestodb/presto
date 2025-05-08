@@ -82,7 +82,7 @@ public class TestingRowExpressionTranslator
     {
         RowExpression rowExpression = SqlToRowExpressionTranslator.translate(expression, types, ImmutableMap.of(), metadata.getFunctionAndTypeManager(), TEST_SESSION);
         RowExpressionOptimizer optimizer = new RowExpressionOptimizer(metadata);
-        return optimizer.optimize(rowExpression, OPTIMIZED, TEST_SESSION.toConnectorSession());
+        return optimizer.optimize(rowExpression, OPTIMIZED, TEST_SESSION.toConnectorSession(), false);
     }
 
     Expression simplifyExpression(Expression expression)
