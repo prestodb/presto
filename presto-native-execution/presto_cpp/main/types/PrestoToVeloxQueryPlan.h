@@ -227,10 +227,6 @@ class VeloxQueryPlanConverterBase {
       std::vector<velox::core::AggregationNode::Aggregate>& aggregates,
       std::vector<std::string>& aggregateNames);
 
-  void parseIndexLookupCondition(
-      const std::shared_ptr<protocol::RowExpression>& filter,
-      std::vector<velox::core::IndexLookupConditionPtr>& joinConditionPtrs);
-
   velox::memory::MemoryPool* const pool_;
   velox::core::QueryCtx* const queryCtx_;
   VeloxExprConverter exprConverter_;
@@ -295,4 +291,9 @@ void parseSqlFunctionHandle(
     const std::shared_ptr<protocol::SqlFunctionHandle>& sqlFunction,
     std::vector<velox::TypePtr>& rawInputTypes,
     TypeParser& typeParser);
+
+void parseIndexLookupCondition(
+    const std::shared_ptr<protocol::RowExpression>& filter,
+    const VeloxExprConverter& exprConverter,
+    std::vector<velox::core::IndexLookupConditionPtr>& joinConditionPtrs);
 } // namespace facebook::presto

@@ -932,66 +932,6 @@ void VeloxQueryPlanConverterBase::toAggregations(
   }
 }
 
-void VeloxQueryPlanConverterBase::parseIndexLookupCondition(
-    const std::shared_ptr<protocol::RowExpression>& filter,
-    std::vector<core::IndexLookupConditionPtr>& joinConditionPtrs) {
-  if (const auto andForm = isAnd(filter)) {
-    VELOX_CHECK_EQ(andForm->arguments.size(), 2);
-    for (const auto& child : andForm->arguments) {
-      parseIndexLookupCondition(child, joinConditionPtrs);
-    }
-    return;
-  }
-
-  if (const auto between = isBetween(filter)) {
-    VELOX_CHECK_EQ(between->arguments.size(), 3);
-    const auto keyColumnExpr = exprConverter_.toVeloxExpr(
-        std::dynamic_pointer_cast<protocol::VariableReferenceExpression>(
-            between->arguments[0]));
-    VELOX_CHECK_NOT_NULL(
-        keyColumnExpr, "{}", toJsonString(between->arguments[0]));
-
-    const auto lowerExpr = exprConverter_.toVeloxExpr(between->arguments[1]);
-    const auto upperExpr = exprConverter_.toVeloxExpr(between->arguments[2]);
-
-    VELOX_CHECK(
-        !(core::TypedExprs::isConstant(lowerExpr) &&
-          core::TypedExprs::isConstant(upperExpr)),
-        "At least one of the between condition bounds needs to be not constant: {}",
-        toJsonString(filter));
-
-    joinConditionPtrs.push_back(
-        std::make_shared<core::BetweenIndexLookupCondition>(
-            keyColumnExpr, lowerExpr, upperExpr));
-    return;
-  }
-
-  if (const auto contains = isContains(filter)) {
-    VELOX_CHECK_EQ(contains->arguments.size(), 2);
-    const auto keyColumnExpr = exprConverter_.toVeloxExpr(
-        std::dynamic_pointer_cast<protocol::VariableReferenceExpression>(
-            contains->arguments[1]));
-    VELOX_CHECK_NOT_NULL(
-        keyColumnExpr, "{}", toJsonString(contains->arguments[1]));
-
-    const auto conditionColumnExpr = exprConverter_.toVeloxExpr(
-        std::dynamic_pointer_cast<protocol::VariableReferenceExpression>(
-            contains->arguments[0]));
-    VELOX_CHECK(
-        !core::TypedExprs::isConstant(conditionColumnExpr),
-        "The condition column needs to be not constant: {}",
-        toJsonString(filter));
-
-    joinConditionPtrs.push_back(
-        std::make_shared<core::InIndexLookupCondition>(
-            keyColumnExpr, conditionColumnExpr));
-    return;
-  }
-
-  VELOX_UNSUPPORTED(
-      "Unsupported index lookup condition: {}", toJsonString(filter));
-}
-
 std::shared_ptr<const core::ValuesNode>
 VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const std::shared_ptr<const protocol::ValuesNode>& node,
@@ -1330,7 +1270,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
 
   std::vector<core::IndexLookupConditionPtr> joinConditionPtrs{};
   if (node->filter) {
-    parseIndexLookupCondition(*node->filter, joinConditionPtrs);
+    parseIndexLookupCondition(*node->filter, exprConverter_, joinConditionPtrs);
   }
 
   return std::make_shared<core::IndexLookupJoinNode>(
@@ -2348,5 +2288,66 @@ void parseSqlFunctionHandle(
       start = pos;
     }
   }
+}
+
+void parseIndexLookupCondition(
+    const std::shared_ptr<protocol::RowExpression>& filter,
+    const VeloxExprConverter& exprConverter,
+    std::vector<core::IndexLookupConditionPtr>& joinConditionPtrs) {
+  if (const auto andForm = isAnd(filter)) {
+    VELOX_CHECK_EQ(andForm->arguments.size(), 2);
+    for (const auto& child : andForm->arguments) {
+      parseIndexLookupCondition(child, exprConverter, joinConditionPtrs);
+    }
+    return;
+  }
+
+  if (const auto between = isBetween(filter)) {
+    VELOX_CHECK_EQ(between->arguments.size(), 3);
+    const auto keyColumnExpr = exprConverter.toVeloxExpr(
+        std::dynamic_pointer_cast<protocol::VariableReferenceExpression>(
+            between->arguments[0]));
+    VELOX_CHECK_NOT_NULL(
+        keyColumnExpr, "{}", toJsonString(between->arguments[0]));
+
+    const auto lowerExpr = exprConverter.toVeloxExpr(between->arguments[1]);
+    const auto upperExpr = exprConverter.toVeloxExpr(between->arguments[2]);
+
+    VELOX_CHECK(
+        !(core::TypedExprs::isConstant(lowerExpr) &&
+          core::TypedExprs::isConstant(upperExpr)),
+        "At least one of the between condition bounds needs to be not constant: {}",
+        toJsonString(filter));
+
+    joinConditionPtrs.push_back(
+        std::make_shared<core::BetweenIndexLookupCondition>(
+            keyColumnExpr, lowerExpr, upperExpr));
+    return;
+  }
+
+  if (const auto contains = isContains(filter)) {
+    VELOX_CHECK_EQ(contains->arguments.size(), 2);
+    const auto keyColumnExpr = exprConverter.toVeloxExpr(
+        std::dynamic_pointer_cast<protocol::VariableReferenceExpression>(
+            contains->arguments[1]));
+    VELOX_CHECK_NOT_NULL(
+        keyColumnExpr, "{}", toJsonString(contains->arguments[1]));
+
+    const auto conditionColumnExpr = exprConverter.toVeloxExpr(
+        std::dynamic_pointer_cast<protocol::VariableReferenceExpression>(
+            contains->arguments[0]));
+    VELOX_CHECK(
+        !core::TypedExprs::isConstant(conditionColumnExpr),
+        "The condition column needs to be not constant: {}",
+        toJsonString(filter));
+
+    joinConditionPtrs.push_back(
+        std::make_shared<core::InIndexLookupCondition>(
+            keyColumnExpr, conditionColumnExpr));
+    return;
+  }
+
+  VELOX_UNSUPPORTED(
+      "Unsupported index lookup condition: {}", toJsonString(filter));
 }
 } // namespace facebook::presto
