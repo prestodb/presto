@@ -60,7 +60,7 @@ maintainers of that component.
 
 ### Spark Functions
 
-* Rui Mo - [rui-mo](https://github.com/rui-mo) / rui.mo@intel.com
+* Rui Mo - [rui-mo](https://github.com/rui-mo) / rui.mo@ibm.com
 
 ### Memory Management
 
