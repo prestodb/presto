@@ -180,6 +180,7 @@ public final class QueryResourceUtil
                 queryResults.getWarnings(),
                 queryResults.getUpdateType(),
                 queryResults.getUpdateCount(),
+                queryResults.getStartedTransactionId(),
                 queryResults.isClearTransactionId());
 
         return toResponse(query, resultsClone, compressionEnabled);
@@ -446,6 +447,7 @@ public final class QueryResourceUtil
                 ImmutableList.of(),
                 null,
                 null,
+                Optional.empty(),
                 false);
     }
 }
