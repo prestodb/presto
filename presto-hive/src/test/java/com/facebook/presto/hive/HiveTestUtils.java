@@ -33,6 +33,8 @@ import com.facebook.presto.cost.FilterStatsCalculator;
 import com.facebook.presto.cost.ScalarStatsCalculator;
 import com.facebook.presto.cost.StatsNormalizer;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
+import com.facebook.presto.hive.azure.HiveAzureConfig;
+import com.facebook.presto.hive.azure.HiveAzureConfigurationInitializer;
 import com.facebook.presto.hive.datasink.OutputStreamDataSinkFactory;
 import com.facebook.presto.hive.gcs.HiveGcsConfig;
 import com.facebook.presto.hive.gcs.HiveGcsConfigurationInitializer;
@@ -266,7 +268,8 @@ public final class HiveTestUtils
                         config,
                         metastoreClientConfig,
                         new PrestoS3ConfigurationUpdater(new HiveS3Config()),
-                        new HiveGcsConfigurationInitializer(new HiveGcsConfig())),
+                        new HiveGcsConfigurationInitializer(new HiveGcsConfig()),
+                        new HiveAzureConfigurationInitializer(new HiveAzureConfig())),
                 ImmutableSet.of(),
                 config);
         return new HdfsEnvironment(hdfsConfig, metastoreClientConfig, new NoHdfsAuthentication());
