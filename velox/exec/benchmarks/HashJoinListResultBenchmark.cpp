@@ -480,7 +480,6 @@ class HashTableListJoinResultBenchmark : public VectorTestBase {
     auto lookup =
         std::make_unique<HashLookup>(topTable_->hashers(), pool_.get());
     auto batchSize = 10000;
-    auto mode = topTable_->hashMode();
     BufferPtr outputRowMapping;
     auto outputBatchSize = topTable_->rows()->numRows() + 2;
     std::vector<char*> outputTableRows;
