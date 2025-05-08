@@ -270,6 +270,18 @@ int RowGroupMetaDataPtr::numColumns() const {
   return thriftRowGroupPtr(ptr_)->columns.size();
 }
 
+int32_t RowGroupMetaDataPtr::sortingColumnIdx(int i) const {
+  return thriftRowGroupPtr(ptr_)->sorting_columns[i].column_idx;
+}
+
+bool RowGroupMetaDataPtr::sortingColumnDescending(int i) const {
+  return thriftRowGroupPtr(ptr_)->sorting_columns[i].descending;
+}
+
+bool RowGroupMetaDataPtr::sortingColumnNullsFirst(int i) const {
+  return thriftRowGroupPtr(ptr_)->sorting_columns[i].nulls_first;
+}
+
 int64_t RowGroupMetaDataPtr::numRows() const {
   return thriftRowGroupPtr(ptr_)->num_rows;
 }
@@ -319,6 +331,32 @@ int64_t FileMetaDataPtr::numRows() const {
 
 int FileMetaDataPtr::numRowGroups() const {
   return thriftFileMetaDataPtr(ptr_)->row_groups.size();
+}
+
+int64_t FileMetaDataPtr::keyValueMetadataSize() const {
+  return thriftFileMetaDataPtr(ptr_)->key_value_metadata.size();
+}
+
+bool FileMetaDataPtr::keyValueMetadataContains(
+    const std::string_view key) const {
+  auto thriftKeyValueMeta = thriftFileMetaDataPtr(ptr_)->key_value_metadata;
+  for (const auto& kv : thriftKeyValueMeta) {
+    if (kv.key == key) {
+      return true;
+    }
+  }
+  return false;
+}
+
+std::string FileMetaDataPtr::keyValueMetadataValue(
+    const std::string_view key) const {
+  int thriftKeyValueMetaSize = keyValueMetadataSize();
+  for (size_t i = 0; i < thriftKeyValueMetaSize; i++) {
+    if (key == thriftFileMetaDataPtr(ptr_)->key_value_metadata[i].key) {
+      return thriftFileMetaDataPtr(ptr_)->key_value_metadata[i].value;
+    }
+  }
+  VELOX_FAIL(fmt::format("Input key {} is not in the key value metadata", key));
 }
 
 } // namespace facebook::velox::parquet

@@ -21,16 +21,25 @@
 #include <gtest/gtest.h>
 
 #include "arrow/util/key_value_metadata.h"
+#include "velox/dwio/parquet/reader/ParquetReader.h"
 #include "velox/dwio/parquet/writer/arrow/FileWriter.h"
-#include "velox/dwio/parquet/writer/arrow/Schema.h"
-#include "velox/dwio/parquet/writer/arrow/Statistics.h"
-#include "velox/dwio/parquet/writer/arrow/ThriftInternal.h"
-#include "velox/dwio/parquet/writer/arrow/Types.h"
-#include "velox/dwio/parquet/writer/arrow/tests/FileReader.h"
 #include "velox/dwio/parquet/writer/arrow/tests/TestUtil.h"
+#include "velox/exec/tests/utils/TempFilePath.h"
 
 namespace facebook::velox::parquet::arrow {
 namespace metadata {
+namespace {
+void writeToFile(
+    std::shared_ptr<exec::test::TempFilePath> filePath,
+    std::shared_ptr<arrow::Buffer> buffer) {
+  auto localWriteFile =
+      std::make_unique<LocalWriteFile>(filePath->getPath(), false, false);
+  auto bufferReader = std::make_shared<::arrow::io::BufferReader>(buffer);
+  auto bufferToString = bufferReader->buffer()->ToString();
+  localWriteFile->append(bufferToString);
+  localWriteFile->close();
+}
+} // namespace
 
 // Helper function for generating table metadata
 std::unique_ptr<FileMetaData> GenerateTableMetaData(
@@ -394,21 +403,31 @@ TEST(Metadata, TestAddKeyValueMetadata) {
       file_writer->AddKeyValueMetadata(kv_meta_ignored), ParquetException);
 
   PARQUET_ASSIGN_OR_THROW(auto buffer, sink->Finish());
-  auto source = std::make_shared<::arrow::io::BufferReader>(buffer);
-  auto file_reader = ParquetFileReader::Open(source);
 
-  ASSERT_NE(nullptr, file_reader->metadata());
-  ASSERT_NE(nullptr, file_reader->metadata()->key_value_metadata());
-  auto read_kv_meta = file_reader->metadata()->key_value_metadata();
-
+  // Write the buffer to a temp file path
+  auto filePath = exec::test::TempFilePath::create();
+  writeToFile(filePath, buffer);
+  memory::MemoryManager::testingSetInstance({});
+  std::shared_ptr<facebook::velox::memory::MemoryPool> rootPool =
+      memory::memoryManager()->addRootPool("MetadataTest");
+  std::shared_ptr<facebook::velox::memory::MemoryPool> leafPool =
+      rootPool->addLeafChild("MetadataTest");
+  dwio::common::ReaderOptions readerOptions{leafPool.get()};
+  auto input = std::make_unique<dwio::common::BufferedInput>(
+      std::make_shared<LocalReadFile>(filePath->getPath()),
+      readerOptions.memoryPool());
+  auto reader =
+      std::make_unique<ParquetReader>(std::move(input), readerOptions);
+  ASSERT_EQ(3, reader->fileMetaData().keyValueMetadataSize());
   // Verify keys that were added before file writer was closed are present.
   for (int i = 1; i <= 3; ++i) {
     auto index = std::to_string(i);
-    PARQUET_ASSIGN_OR_THROW(auto value, read_kv_meta->Get("test_key_" + index));
+    auto value =
+        reader->fileMetaData().keyValueMetadataValue("test_key_" + index);
     EXPECT_EQ("test_value_" + index, value);
   }
   // Verify keys that were added after file writer was closed are not present.
-  EXPECT_FALSE(read_kv_meta->Contains("test_key_4"));
+  EXPECT_FALSE(reader->fileMetaData().keyValueMetadataContains("test_key_4"));
 }
 
 // TODO: disabled as they require Arrow parquet data dir.
@@ -474,39 +493,50 @@ TEST(Metadata, TestSortingColumns) {
   auto schema = std::static_pointer_cast<schema::GroupNode>(
       schema::GroupNode::Make("schema", Repetition::REQUIRED, fields));
 
-  std::vector<SortingColumn> sorting_columns;
+  std::vector<SortingColumn> sortingColumns;
   {
-    SortingColumn sorting_column;
-    sorting_column.column_idx = 0;
-    sorting_column.descending = false;
-    sorting_column.nulls_first = false;
-    sorting_columns.push_back(sorting_column);
+    SortingColumn sortingColumn;
+    sortingColumn.column_idx = 0;
+    sortingColumn.descending = false;
+    sortingColumn.nulls_first = false;
+    sortingColumns.push_back(sortingColumn);
   }
 
   auto sink = CreateOutputStream();
-  auto writer_props = WriterProperties::Builder()
-                          .disable_dictionary()
-                          ->set_sorting_columns(sorting_columns)
-                          ->build();
+  auto writerProps = WriterProperties::Builder()
+                         .disable_dictionary()
+                         ->set_sorting_columns(sortingColumns)
+                         ->build();
 
-  EXPECT_EQ(sorting_columns, writer_props->sorting_columns());
+  EXPECT_EQ(sortingColumns, writerProps->sorting_columns());
 
-  auto file_writer = ParquetFileWriter::Open(sink, schema, writer_props);
+  auto fileWriter = ParquetFileWriter::Open(sink, schema, writerProps);
 
-  auto row_group_writer = file_writer->AppendBufferedRowGroup();
-  row_group_writer->Close();
-  file_writer->Close();
+  auto rowGroupWriter = fileWriter->AppendBufferedRowGroup();
+  rowGroupWriter->Close();
+  fileWriter->Close();
 
   PARQUET_ASSIGN_OR_THROW(auto buffer, sink->Finish());
-  auto source = std::make_shared<::arrow::io::BufferReader>(buffer);
-  auto file_reader = ParquetFileReader::Open(source);
 
-  ASSERT_NE(nullptr, file_reader->metadata());
-  ASSERT_EQ(1, file_reader->metadata()->num_row_groups());
-  auto row_group_reader = file_reader->RowGroup(0);
-  auto* row_group_read_metadata = row_group_reader->metadata();
-  ASSERT_NE(nullptr, row_group_read_metadata);
-  EXPECT_EQ(sorting_columns, row_group_read_metadata->sorting_columns());
+  // Write the buffer to a temp file path
+  auto filePath = exec::test::TempFilePath::create();
+  writeToFile(filePath, buffer);
+  memory::MemoryManager::testingSetInstance({});
+  std::shared_ptr<facebook::velox::memory::MemoryPool> rootPool =
+      memory::memoryManager()->addRootPool("MetadataTest");
+  std::shared_ptr<facebook::velox::memory::MemoryPool> leafPool =
+      rootPool->addLeafChild("MetadataTest");
+  dwio::common::ReaderOptions readerOptions{leafPool.get()};
+  auto input = std::make_unique<dwio::common::BufferedInput>(
+      std::make_shared<LocalReadFile>(filePath->getPath()),
+      readerOptions.memoryPool());
+  auto reader =
+      std::make_unique<ParquetReader>(std::move(input), readerOptions);
+  ASSERT_EQ(1, reader->fileMetaData().numRowGroups());
+  auto rowGroup = reader->fileMetaData().rowGroup(0);
+  EXPECT_EQ(sortingColumns[0].column_idx, rowGroup.sortingColumnIdx(0));
+  EXPECT_EQ(sortingColumns[0].descending, rowGroup.sortingColumnDescending(0));
+  EXPECT_EQ(sortingColumns[0].nulls_first, rowGroup.sortingColumnNullsFirst(0));
 }
 
 TEST(ApplicationVersion, Basics) {
