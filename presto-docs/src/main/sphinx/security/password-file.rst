@@ -1,3 +1,5 @@
+.. _password_file_auth:
+
 ============================
 Password File Authentication
 ============================
