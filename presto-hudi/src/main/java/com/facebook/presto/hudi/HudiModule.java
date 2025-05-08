@@ -105,7 +105,9 @@ public class HudiModule
         configBinder(binder).bindConfig(MetastoreClientConfig.class);
         configBinder(binder).bindConfig(ThriftHiveMetastoreConfig.class);
         configBinder(binder).bindConfig(HiveGcsConfig.class);
+//        configBinder(binder).bindConfig(HiveAzureConfig.class);
         binder.bind(GcsConfigurationInitializer.class).to(HiveGcsConfigurationInitializer.class).in(Scopes.SINGLETON);
+//        binder.bind(AzureConfigurationInitializer.class).to(HiveAzureConfigurationInitializer.class).in(Scopes.SINGLETON);
         binder.bind(HdfsConfiguration.class).annotatedWith(ForMetastoreHdfsEnvironment.class).to(HiveCachingHdfsConfiguration.class).in(Scopes.SINGLETON);
         binder.bind(HdfsConfiguration.class).annotatedWith(ForCachingFileSystem.class).to(HiveHdfsConfiguration.class).in(Scopes.SINGLETON);
         binder.bind(PartitionMutator.class).to(HivePartitionMutator.class).in(Scopes.SINGLETON);
