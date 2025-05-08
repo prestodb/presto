@@ -25,6 +25,7 @@ import static com.facebook.presto.SystemSessionProperties.CTE_FILTER_AND_PROJECT
 import static com.facebook.presto.SystemSessionProperties.CTE_MATERIALIZATION_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.PARTITIONING_PROVIDER_CATALOG;
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION;
 import static com.facebook.presto.SystemSessionProperties.VERBOSE_OPTIMIZER_INFO_ENABLED;
 import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
 
@@ -54,6 +55,7 @@ public class TestNativeCteExecutionWithSidecarEnabled
         return Session.builder(super.getSession())
                 .setSystemProperty(PUSHDOWN_SUBFIELDS_ENABLED, "true")
                 .setSystemProperty(CTE_MATERIALIZATION_STRATEGY, "NONE")
+                .setSystemProperty(REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION, "false")
                 .build();
     }
 
@@ -66,24 +68,7 @@ public class TestNativeCteExecutionWithSidecarEnabled
                 .setSystemProperty(PARTITIONING_PROVIDER_CATALOG, "hive")
                 .setSystemProperty(CTE_MATERIALIZATION_STRATEGY, "ALL")
                 .setSystemProperty(CTE_FILTER_AND_PROJECTION_PUSHDOWN_ENABLED, "true")
+                .setSystemProperty(REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION, "false")
                 .build();
-    }
-
-    @Override
-    @Test(enabled = false)
-    public void testComplexPersistentCteForCtasQueries()
-    {
-    }
-
-    @Override
-    @Test(enabled = false)
-    public void testPersistentCteForVarbinaryType()
-    {
-    }
-
-    @Override
-    @Test(enabled = false)
-    public void testPersistentCteWithVarbinary()
-    {
     }
 }
