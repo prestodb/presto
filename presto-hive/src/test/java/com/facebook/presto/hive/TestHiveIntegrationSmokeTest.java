@@ -2781,6 +2781,24 @@ public class TestHiveIntegrationSmokeTest
         actualResult = computeActual("SHOW CREATE TABLE \"test_show_create_table'2\"");
         assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
     }
+    @Test
+    public void testShowCreateSchema()
+    {
+        String createSchemaSql = "CREATE SCHEMA show_create_hive_schema";
+        assertUpdate(createSchemaSql);
+        String expectedShowCreateSchema = "CREATE SCHEMA show_create_hive_schema\n" +
+                "WITH (\n" +
+                "   location = '.*show_create_hive_schema'\n" +
+                ")";
+
+        MaterializedResult actualResult = computeActual("SHOW CREATE SCHEMA show_create_hive_schema");
+        assertThat(getOnlyElement(actualResult.getOnlyColumnAsSet()).toString().matches(expectedShowCreateSchema));
+
+        assertQueryFails(format("SHOW CREATE SCHEMA %s.%s", getSession().getCatalog().get(), ""), ".*mismatched input '.'. Expecting: <EOF>");
+        assertQueryFails(format("SHOW CREATE SCHEMA %s.%s.%s", getSession().getCatalog().get(), "show_create_hive_schema", "tabletest"), ".*Too many parts in schema name: hive.show_create_hive_schema.tabletest");
+        assertQueryFails(format("SHOW CREATE SCHEMA %s", "schema_not_exist"), ".*Schema 'hive.schema_not_exist' does not exist");
+        assertUpdate("DROP SCHEMA show_create_hive_schema");
+    }
 
     @Test
     public void testTextfileAmbiguousTimestamp()
