@@ -87,7 +87,8 @@ struct FromUnixtimeFunction {
       const arg_type<int64_t>* hours,
       const arg_type<int64_t>* minutes) {
     if (hours != nullptr && minutes != nullptr) {
-      tzID_ = tz::getTimeZoneID(*hours * 60 + *minutes);
+      tzID_ = tz::getTimeZoneID(
+          checkedPlus(checkedMultiply<int64_t>(*hours, 60), *minutes));
     }
   }
 
@@ -96,8 +97,8 @@ struct FromUnixtimeFunction {
       const arg_type<double>& unixtime,
       const arg_type<int64_t>& hours,
       const arg_type<int64_t>& minutes) {
-    int16_t timezoneId =
-        tzID_.value_or(tz::getTimeZoneID(hours * 60 + minutes));
+    int16_t timezoneId = tzID_.value_or(tz::getTimeZoneID(
+        checkedPlus(checkedMultiply<int64_t>(hours, 60), minutes)));
     result = pack(fromUnixtime(unixtime).toMillis(), timezoneId);
   }
 

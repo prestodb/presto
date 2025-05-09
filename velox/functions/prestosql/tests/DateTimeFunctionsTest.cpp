@@ -351,6 +351,13 @@ TEST_F(DateTimeFunctionsTest, fromUnixtimeTzOffset) {
       TimestampWithTimezone(123'450, "+05:30"), fromOffset(123.45, 5, 30));
   EXPECT_EQ(
       TimestampWithTimezone(123'450, "-08:00"), fromOffset(123.45, -8, 0));
+
+  EXPECT_THROW(
+      fromOffset(
+          123.45,
+          std::numeric_limits<int64_t>::max(),
+          std::numeric_limits<int64_t>::max()),
+      VeloxUserError);
 }
 
 TEST_F(DateTimeFunctionsTest, fromUnixtime) {
