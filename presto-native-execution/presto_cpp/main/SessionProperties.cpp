@@ -481,6 +481,14 @@ SessionProperties::SessionProperties() {
       false,
       QueryConfig::kStreamingAggregationMinOutputBatchRows,
       std::to_string(c.streamingAggregationMinOutputBatchRows()));
+
+  addSessionProperty(
+      kRequestDataSizesMaxWaitSec,
+      "Maximum wait time for exchange long poll requests in seconds.",
+      INTEGER(),
+      10,
+      QueryConfig::kRequestDataSizesMaxWaitSec,
+      std::to_string(c.requestDataSizesMaxWaitSec()));
 }
 
 const std::unordered_map<std::string, std::shared_ptr<SessionProperty>>&
