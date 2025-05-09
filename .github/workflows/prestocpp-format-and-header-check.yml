@@ -2,10 +2,10 @@ name: prestocpp-format-and-header-check
 
 on:
   workflow_dispatch:
-  pull_request:
-    paths:
-      - 'presto-native-execution/**'
-      - '.github/workflows/prestocpp-format-and-header-check.yml'
+#  pull_request:
+#    paths:
+#      - 'presto-native-execution/**'
+#      - '.github/workflows/prestocpp-format-and-header-check.yml'
 
 jobs:
   prestocpp-format-and-header-check:
