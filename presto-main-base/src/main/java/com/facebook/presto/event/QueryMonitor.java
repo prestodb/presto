@@ -22,6 +22,7 @@ import com.facebook.presto.SessionRepresentation;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
+import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.cost.HistoryBasedPlanStatisticsManager;
 import com.facebook.presto.cost.HistoryBasedPlanStatisticsTracker;
@@ -153,7 +154,7 @@ public class QueryMonitor
         eventListenerManager.queryCreated(
                 new QueryCreatedEvent(
                         queryInfo.getQueryStats().getCreateTime().toDate().toInstant(),
-                        createQueryContext(queryInfo.getSession(), queryInfo.getResourceGroupId()),
+                        createQueryContext(queryInfo.getSession(), queryInfo.getResourceGroupId(), queryInfo.getQueryType()),
                         new QueryMetadata(
                                 queryInfo.getQueryId().toString(),
                                 queryInfo.getSession().getTransactionId().map(TransactionId::toString),
@@ -196,7 +197,7 @@ public class QueryMonitor
                         queryInfo.getSession().getTraceToken(),
                         Optional.empty()),
                 createQueryStatistics(queryInfo),
-                createQueryContext(queryInfo.getSession(), queryInfo.getResourceGroupId()),
+                createQueryContext(queryInfo.getSession(), queryInfo.getResourceGroupId(), queryInfo.getQueryType()),
                 queryInfo.getQueryType(),
                 ofEpochMilli(queryInfo.getQueryStats().getCreateTime().getMillis())));
     }
@@ -253,7 +254,7 @@ public class QueryMonitor
                         0,
                         true,
                         new RuntimeStats()),
-                createQueryContext(queryInfo.getSession(), queryInfo.getResourceGroupId()),
+                createQueryContext(queryInfo.getSession(), queryInfo.getResourceGroupId(), queryInfo.getQueryType()),
                 new QueryIOMetadata(ImmutableList.of(), Optional.empty()),
                 createQueryFailureInfo(failure, Optional.empty()),
                 ImmutableList.of(),
@@ -294,7 +295,7 @@ public class QueryMonitor
                 new QueryCompletedEvent(
                         createQueryMetadata(queryInfo),
                         createQueryStatistics(queryInfo),
-                        createQueryContext(queryInfo.getSession(), queryInfo.getResourceGroupId()),
+                        createQueryContext(queryInfo.getSession(), queryInfo.getResourceGroupId(), queryInfo.getQueryType()),
                         getQueryIOMetadata(queryInfo),
                         createQueryFailureInfo(queryInfo.getFailureInfo(), queryInfo.getOutputStage()),
                         queryInfo.getWarnings(),
@@ -503,7 +504,7 @@ public class QueryMonitor
                 new RuntimeStats());
     }
 
-    private QueryContext createQueryContext(SessionRepresentation session, Optional<ResourceGroupId> resourceGroup)
+    private QueryContext createQueryContext(SessionRepresentation session, Optional<ResourceGroupId> resourceGroup, Optional<QueryType> queryType)
     {
         return new QueryContext(
                 session.getUser(),
@@ -521,7 +522,8 @@ public class QueryMonitor
                 serverAddress,
                 serverVersion,
                 environment,
-                workerType);
+                workerType,
+                queryType);
     }
 
     private Optional<String> createTextQueryPlan(QueryInfo queryInfo)

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.eventlistener;
 
+import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.session.ResourceEstimates;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -35,6 +36,7 @@ public class QueryContext
 
     private final Optional<String> catalog;
     private final Optional<String> schema;
+    private final Optional<QueryType> queryType;
 
     private final Optional<ResourceGroupId> resourceGroupId;
 
@@ -62,7 +64,8 @@ public class QueryContext
             String serverAddress,
             String serverVersion,
             String environment,
-            String workerType)
+            String workerType,
+            Optional<QueryType> queryType)
     {
         this.user = requireNonNull(user, "user is null");
         this.principal = requireNonNull(principal, "principal is null");
@@ -80,6 +83,7 @@ public class QueryContext
         this.serverVersion = requireNonNull(serverVersion, "serverVersion is null");
         this.environment = requireNonNull(environment, "environment is null");
         this.workerType = requireNonNull(workerType, "workerType is null");
+        this.queryType = requireNonNull(queryType, "queryType is null");
     }
 
     @JsonProperty
@@ -176,5 +180,11 @@ public class QueryContext
     public String getWorkerType()
     {
         return workerType;
+    }
+
+    @JsonProperty
+    public Optional<QueryType> getQueryType()
+    {
+        return queryType;
     }
 }
