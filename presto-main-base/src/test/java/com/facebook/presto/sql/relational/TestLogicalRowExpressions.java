@@ -20,6 +20,7 @@ import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.analyzer.FunctionAndTypeResolver;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -55,6 +56,7 @@ import static org.testng.Assert.assertEquals;
 public class TestLogicalRowExpressions
 {
     private FunctionAndTypeManager functionAndTypeManager;
+    private FunctionAndTypeResolver functionAndTypeResolver;
     private LogicalRowExpressions logicalRowExpressions;
     private static final RowExpression a = name("a");
     private static final RowExpression b = name("b");
@@ -72,7 +74,8 @@ public class TestLogicalRowExpressions
     public void setup()
     {
         functionAndTypeManager = createTestFunctionAndTypeManager();
-        logicalRowExpressions = new LogicalRowExpressions(new RowExpressionDeterminismEvaluator(functionAndTypeManager), new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver()), functionAndTypeManager);
+        functionAndTypeResolver = functionAndTypeManager.getFunctionAndTypeResolver();
+        logicalRowExpressions = new LogicalRowExpressions(new RowExpressionDeterminismEvaluator(functionAndTypeManager), new FunctionResolution(functionAndTypeResolver), functionAndTypeResolver);
     }
 
     @Test
@@ -203,7 +206,7 @@ public class TestLogicalRowExpressions
     public void testDuplicateIsNullExpressions()
     {
         SpecialFormExpression isNullExpression = new SpecialFormExpression(IS_NULL, BOOLEAN, a);
-        List<RowExpression> arguments = Arrays.asList(new SpecialFormExpression[]{isNullExpression, isNullExpression});
+        List<RowExpression> arguments = Arrays.asList(new SpecialFormExpression[] {isNullExpression, isNullExpression});
         SpecialFormExpression duplicateIsNullExpression = new SpecialFormExpression(OR, BOOLEAN, arguments);
         logicalRowExpressions.minimalNormalForm(duplicateIsNullExpression);
     }
@@ -401,7 +404,7 @@ public class TestLogicalRowExpressions
         // a || b || c || d || (d && e) || (e && f) ==> (a || b || c || d || e) && (a || b || c || d || f)
         assertEquals(
                 logicalRowExpressions.convertToConjunctiveNormalForm(
-                or(a, or(b, or(c, or(d, or(and(d, e), and(e, f))))))),
+                        or(a, or(b, or(c, or(d, or(and(d, e), and(e, f))))))),
                 and(or(or(or(a, b), or(c, d)), e), or(or(or(a, b), or(c, d)), f)));
 
         // (a && b && c) || (d && e) can increase size significantly so do not expand.
@@ -539,7 +542,7 @@ public class TestLogicalRowExpressions
     {
         return call(
                 operator.getOperator(),
-                new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver()).comparisonFunction(operator, left.getType(), right.getType()),
+                new FunctionResolution(functionAndTypeResolver).comparisonFunction(operator, left.getType(), right.getType()),
                 BOOLEAN,
                 left,
                 right);
@@ -562,6 +565,6 @@ public class TestLogicalRowExpressions
 
     private RowExpression not(RowExpression expression)
     {
-        return new CallExpression("not", new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver()).notFunction(), BOOLEAN, ImmutableList.of(expression));
+        return new CallExpression("not", new FunctionResolution(functionAndTypeResolver).notFunction(), BOOLEAN, ImmutableList.of(expression));
     }
 }

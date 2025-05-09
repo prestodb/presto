@@ -161,7 +161,7 @@ public class TestWindowNode
             binder.install(new JsonModule());
             binder.install(new HandleJsonModule());
             binder.bind(SqlParser.class).toInstance(sqlParser);
-            binder.bind(TypeManager.class).toInstance(functionAndTypeManager);
+            binder.bind(TypeManager.class).toInstance(functionAndTypeManager.getFunctionAndTypeResolver());
             configBinder(binder).bindConfig(FeaturesConfig.class);
             newSetBinder(binder, Type.class);
             jsonBinder(binder).addSerializerBinding(Slice.class).to(SliceSerializer.class);

@@ -83,7 +83,7 @@ import static com.facebook.presto.hive.HiveFileSystemTestUtils.filterTable;
 import static com.facebook.presto.hive.HiveFileSystemTestUtils.getSplitsCount;
 import static com.facebook.presto.hive.HiveTestUtils.DO_NOTHING_DIRECTORY_LISTER;
 import static com.facebook.presto.hive.HiveTestUtils.FILTER_STATS_CALCULATOR_SERVICE;
-import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_MANAGER;
+import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_RESOLVER;
 import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_RESOLUTION;
 import static com.facebook.presto.hive.HiveTestUtils.ROW_EXPRESSION_SERVICE;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveAggregatedPageSourceFactories;
@@ -140,7 +140,7 @@ public class S3SelectTestHelper
 
         HiveCluster hiveCluster = new TestingHiveCluster(metastoreClientConfig, thriftHiveMetastoreConfig, host, port, new HiveCommonClientConfig());
         executor = newCachedThreadPool(daemonThreadsNamed("hive-%s"));
-        HivePartitionManager hivePartitionManager = new HivePartitionManager(FUNCTION_AND_TYPE_MANAGER, config);
+        HivePartitionManager hivePartitionManager = new HivePartitionManager(FUNCTION_AND_TYPE_RESOLVER, config);
 
         S3ConfigurationUpdater s3Config = new PrestoS3ConfigurationUpdater(new HiveS3Config()
                 .setS3AwsAccessKey(awsAccessKey)
@@ -163,7 +163,7 @@ public class S3SelectTestHelper
                 hdfsEnvironment,
                 hivePartitionManager,
                 newDirectExecutorService(),
-                FUNCTION_AND_TYPE_MANAGER,
+                FUNCTION_AND_TYPE_RESOLVER,
                 locationService,
                 FUNCTION_RESOLUTION,
                 ROW_EXPRESSION_SERVICE,
@@ -189,7 +189,7 @@ public class S3SelectTestHelper
                 hdfsEnvironment,
                 new CachingDirectoryLister(new HadoopDirectoryLister(), new HiveClientConfig()),
                 new BoundedExecutor(executor, config.getMaxSplitIteratorThreads()),
-                new HiveCoercionPolicy(FUNCTION_AND_TYPE_MANAGER),
+                new HiveCoercionPolicy(FUNCTION_AND_TYPE_RESOLVER),
                 new CounterStat(),
                 config.getMaxOutstandingSplits(),
                 config.getMaxOutstandingSplitsSize(),
@@ -207,7 +207,7 @@ public class S3SelectTestHelper
                 getDefaultHiveBatchPageSourceFactories(config, metastoreClientConfig),
                 getDefaultHiveSelectivePageSourceFactories(config, metastoreClientConfig),
                 getDefaultHiveAggregatedPageSourceFactories(config, metastoreClientConfig),
-                FUNCTION_AND_TYPE_MANAGER,
+                FUNCTION_AND_TYPE_RESOLVER,
                 ROW_EXPRESSION_SERVICE);
     }
 
