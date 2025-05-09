@@ -23,6 +23,9 @@ import com.facebook.presto.spi.plan.PlanCheckerProviderFactory;
 import com.facebook.presto.spi.session.WorkerSessionPropertyProviderFactory;
 import com.facebook.presto.spi.type.TypeManagerFactory;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+
+import java.util.Map;
 
 public class NativeSidecarPlugin
         implements CoordinatorPlugin
@@ -49,6 +52,12 @@ public class NativeSidecarPlugin
     public Iterable<FunctionNamespaceManagerFactory> getFunctionNamespaceManagerFactories()
     {
         return ImmutableList.of(new NativeFunctionNamespaceManagerFactory());
+    }
+
+    @Override
+    public Map<String, String> getRequiredConfigs()
+    {
+        return ImmutableMap.of("coordinator-sidecar-enabled", "true");
     }
 
     private static ClassLoader getClassLoader()

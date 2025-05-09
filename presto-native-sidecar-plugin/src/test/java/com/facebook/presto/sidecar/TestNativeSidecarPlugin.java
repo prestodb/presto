@@ -69,7 +69,11 @@ public class TestNativeSidecarPlugin
     protected QueryRunner createExpectedQueryRunner()
             throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createJavaQueryRunner();
+        DistributedQueryRunner queryRunner = (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.createJavaQueryRunner();
+        // Installing the native sidecar plugin on a Java cluster, does not load the plugin functionalities because
+        // coordinator-sidecar-enabled is set to false on Java clusters.
+        queryRunner.installCoordinatorPlugin(new NativeSidecarPlugin());
+        return queryRunner;
     }
 
     @Test

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.airlift.configuration.ConfigurationFactory;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.ClientRequestFilterManager;
@@ -80,6 +81,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -145,6 +147,7 @@ public class PluginManager
     private final ClientRequestFilterManager clientRequestFilterManager;
     private final PlanCheckerProviderManager planCheckerProviderManager;
     private final ExpressionOptimizerManager expressionOptimizerManager;
+    private final Map<String, String> properties;
 
     @Inject
     public PluginManager(
@@ -170,7 +173,8 @@ public class PluginManager
             NodeStatusNotificationManager nodeStatusNotificationManager,
             ClientRequestFilterManager clientRequestFilterManager,
             PlanCheckerProviderManager planCheckerProviderManager,
-            ExpressionOptimizerManager expressionOptimizerManager)
+            ExpressionOptimizerManager expressionOptimizerManager,
+            ConfigurationFactory configurationFactory)
     {
         requireNonNull(nodeInfo, "nodeInfo is null");
         requireNonNull(config, "config is null");
@@ -206,6 +210,7 @@ public class PluginManager
         this.clientRequestFilterManager = requireNonNull(clientRequestFilterManager, "clientRequestFilterManager is null");
         this.planCheckerProviderManager = requireNonNull(planCheckerProviderManager, "planCheckerProviderManager is null");
         this.expressionOptimizerManager = requireNonNull(expressionOptimizerManager, "expressionManager is null");
+        this.properties = requireNonNull(configurationFactory.getProperties(), "configurationFactory is null");
     }
 
     public void loadPlugins()
@@ -267,6 +272,11 @@ public class PluginManager
 
     public void installPlugin(Plugin plugin)
     {
+        if (!loadPluginIfConfigured(plugin.getRequiredConfigs())) {
+            log.info("Skipped loading %s because some conditions weren't satisfied", plugin.getClass().getName());
+            return;
+        }
+
         for (BlockEncoding blockEncoding : plugin.getBlockEncodings()) {
             log.info("Registering block encoding %s", blockEncoding.getName());
             blockEncodingManager.addBlockEncoding(blockEncoding);
@@ -384,6 +394,11 @@ public class PluginManager
 
     public void installCoordinatorPlugin(CoordinatorPlugin plugin)
     {
+        if (!loadPluginIfConfigured(plugin.getRequiredConfigs())) {
+            log.info("Skipped loading %s because some conditions weren't satisfied", plugin.getClass().getName());
+            return;
+        }
+
         for (FunctionNamespaceManagerFactory functionNamespaceManagerFactory : plugin.getFunctionNamespaceManagerFactories()) {
             log.info("Registering function namespace manager %s", functionNamespaceManagerFactory.getName());
             metadata.getFunctionAndTypeManager().addFunctionNamespaceFactory(functionNamespaceManagerFactory);
@@ -505,5 +520,21 @@ public class PluginManager
         if (!plugins.isEmpty()) {
             writePluginServices(plugins, artifact.getFile(), servicesFile);
         }
+    }
+
+    private boolean loadPluginIfConfigured(Map<String, String> expectedProperties)
+    {
+        for (Map.Entry<String, String> entry : expectedProperties.entrySet()) {
+            String key = entry.getKey();
+            if (!properties.containsKey(key)) {
+                return false;
+            }
+            String expectedValue = entry.getValue();
+            String actualValue = properties.get(key);
+            if (!expectedValue.equalsIgnoreCase(actualValue)) {
+                return false;
+            }
+        }
+        return true;
     }
 }

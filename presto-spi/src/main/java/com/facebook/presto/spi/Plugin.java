@@ -34,9 +34,11 @@ import com.facebook.presto.spi.tracing.TracerProvider;
 import com.facebook.presto.spi.ttl.ClusterTtlProviderFactory;
 import com.facebook.presto.spi.ttl.NodeTtlFetcherFactory;
 
+import java.util.Map;
 import java.util.Set;
 
 import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
 import static java.util.Collections.emptySet;
 
 public interface Plugin
@@ -152,5 +154,10 @@ public interface Plugin
     default Iterable<ClientRequestFilterFactory> getClientRequestFilterFactories()
     {
         return emptyList();
+    }
+
+    default Map<String, String> getRequiredConfigs()
+    {
+        return emptyMap();
     }
 }

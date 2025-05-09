@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.testing;
 
+import com.facebook.airlift.configuration.ConfigurationFactory;
 import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.ClientRequestFilterManager;
 import com.facebook.presto.GroupByHashPageIndexerFactory;
@@ -555,7 +556,8 @@ public class LocalQueryRunner
                 new NodeStatusNotificationManager(),
                 new ClientRequestFilterManager(),
                 planCheckerProviderManager,
-                expressionOptimizerManager);
+                expressionOptimizerManager,
+                new ConfigurationFactory(ImmutableMap.of()));
 
         connectorManager.addConnectorFactory(globalSystemConnectorFactory);
         connectorManager.createConnection(GlobalSystemConnector.NAME, GlobalSystemConnector.NAME, ImmutableMap.of());
