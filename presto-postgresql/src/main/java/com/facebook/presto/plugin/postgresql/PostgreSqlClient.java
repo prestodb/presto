@@ -62,6 +62,7 @@ import static io.airlift.slice.Slices.wrappedLongArray;
 import static java.lang.Long.reverseBytes;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Locale.ENGLISH;
 
 public class PostgreSqlClient
         extends BaseJdbcClient
@@ -200,5 +201,11 @@ public class PostgreSqlClient
         return wrappedLongArray(
                 reverseBytes(uuid.getMostSignificantBits()),
                 reverseBytes(uuid.getLeastSignificantBits()));
+    }
+
+    @Override
+    public String normalizeIdentifier(ConnectorSession session, String identifier)
+    {
+        return caseSensitiveNameMatchingEnabled ? identifier : identifier.toLowerCase(ENGLISH);
     }
 }
