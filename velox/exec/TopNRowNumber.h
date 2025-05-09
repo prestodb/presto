@@ -104,15 +104,13 @@ class TopNRowNumber : public Operator {
   // partitions left.
   TopRows* nextPartition();
 
-  // Returns partition that was partially added to the previous output batch.
-  TopRows& currentPartition();
-
-  // Appends partition rows to outputRows_ and optionally populates row
-  // numbers.
+  // Appends numRows of the output partition the output. Note: The rows are
+  // popped in reverse order of the row_number.
+  // NOTE: This function erases the yielded output rows from the partition
+  // and the next call starts with the remaining rows.
   void appendPartitionRows(
       TopRows& partition,
-      vector_size_t start,
-      vector_size_t size,
+      vector_size_t numRows,
       vector_size_t outputOffset,
       FlatVector<int64_t>* rowNumbers);
 
@@ -220,29 +218,33 @@ class TopNRowNumber : public Operator {
   // Maximum number of rows in the output batch.
   vector_size_t outputBatchSize_;
 
+  // The below variables are used when outputting from memory.
+  // Vector of pointers to individual rows in the RowContainer for the current
+  // output block.
   std::vector<char*> outputRows_;
-
   // Number of partitions to fetch from a HashTable in a single listAllRows
   // call.
   static const size_t kPartitionBatchSize = 100;
 
   BaseHashTable::RowsIterator partitionIt_;
-
   std::vector<char*> partitions_{kPartitionBatchSize};
-
   size_t numPartitions_{0};
 
-  std::optional<int32_t> currentPartition_;
+  // This is the index of the current partition within partitions_ which is
+  // obtained from the HashTable iterator.
+  std::optional<int32_t> outputPartitionNumber_;
+  // This is the currentPartition being output. It is possible that the
+  // partition is output across multiple output blocks.
+  TopNRowNumber::TopRows* outputPartition_{nullptr};
 
-  vector_size_t remainingRowsInPartition_{0};
-
+  // The below variables are used when outputting from the spiller.
   // Spiller for contents of the 'data_'.
   std::unique_ptr<SortInputSpiller> spiller_;
 
   // Used to sort-merge spilled data.
   std::unique_ptr<TreeOfLosers<SpillMergeStream>> merge_;
 
-  // Row number for the first row in the next output batch.
+  // Row number for the first row in the next output batch from the spiller.
   int32_t nextRowNumber_{0};
 };
 } // namespace facebook::velox::exec
