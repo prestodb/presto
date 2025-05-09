@@ -14,7 +14,6 @@
 package com.facebook.presto.delta;
 
 import com.facebook.airlift.log.Logger;
-import com.facebook.presto.common.GenericInternalException;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.ValueSet;
@@ -25,6 +24,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Streams;
 import io.airlift.slice.Slice;
 import io.delta.kernel.data.FilteredColumnarBatch;
 import io.delta.kernel.data.Row;
@@ -34,10 +34,12 @@ import io.delta.kernel.utils.CloseableIterator;
 import java.io.IOException;
 import java.sql.Date;
 import java.sql.Timestamp;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.function.Predicate;
 
 import static com.facebook.presto.delta.DeltaColumnHandle.ColumnType.PARTITION;
 import static com.facebook.presto.delta.DeltaErrorCode.DELTA_INVALID_PARTITION_VALUE;
@@ -123,69 +125,6 @@ public final class DeltaExpressionUtils
                 });
     }
 
-    private static class AllFilesIterator
-            implements CloseableIterator<Row>
-    {
-        private final CloseableIterator<FilteredColumnarBatch> inputIterator;
-        private Row nextItem;
-        private boolean rowsRemaining;
-        private CloseableIterator<Row> row;
-
-        public AllFilesIterator(CloseableIterator<FilteredColumnarBatch> inputIterator)
-        {
-            this.inputIterator = inputIterator;
-        }
-        @Override
-        public boolean hasNext()
-        {
-            if (nextItem != null) {
-                return true;
-            }
-
-            if (!rowsRemaining) {
-                if (!inputIterator.hasNext()) {
-                    return false;
-                }
-                FilteredColumnarBatch nextFile = inputIterator.next();
-                row = nextFile.getRows();
-            }
-            Row nextRow;
-            rowsRemaining = false;
-            if (row.hasNext()) {
-                nextRow = row.next();
-                nextItem = nextRow;
-                rowsRemaining = true;
-            }
-            if (!rowsRemaining) {
-                try {
-                    row.close();
-                }
-                catch (IOException e) {
-                    throw new GenericInternalException("Could not close row batch", e);
-                }
-            }
-            return nextItem != null;
-        }
-
-        @Override
-        public Row next()
-        {
-            if (!hasNext()) {
-                throw new NoSuchElementException("There are no more files");
-            }
-            Row toReturn = nextItem;
-            nextItem = null;
-            return toReturn;
-        }
-
-        @Override
-        public void close()
-                throws IOException
-        {
-            inputIterator.close();
-        }
-    }
-
     private static class NoneFilesIterator
             implements CloseableIterator<Row>
     {
@@ -216,79 +155,78 @@ public final class DeltaExpressionUtils
         }
     }
 
-    private static class FilteredByPredicateIterator
+    private static class BatchRowIterator
             implements CloseableIterator<Row>
     {
         private final CloseableIterator<FilteredColumnarBatch> inputIterator;
-        private final TupleDomain<String> partitionPredicate;
-        private final List<DeltaColumnHandle> partitionColumns;
-        private final TypeManager typeManager;
-        private Row nextItem;
-        private boolean rowsRemaining;
-        private CloseableIterator<Row> row;
+        private final Iterator<Row> rows;
+        private CloseableIterator<Row> prev;
 
-        public FilteredByPredicateIterator(CloseableIterator<FilteredColumnarBatch> inputIterator,
-                                           TupleDomain<String> partitionPredicate,
-                                           List<DeltaColumnHandle> partitionColumns, TypeManager typeManager)
+        public BatchRowIterator(CloseableIterator<FilteredColumnarBatch> inputIterator,
+                Optional<Predicate<Row>> rowFilter)
         {
             this.inputIterator = inputIterator;
-            this.partitionPredicate = partitionPredicate;
-            this.partitionColumns = partitionColumns;
-            this.typeManager = typeManager;
+            this.rows = Streams.stream(inputIterator)
+                    .flatMap(batch -> {
+                        if (prev != null) {
+                            try {
+                                prev.close();
+                            }
+                            catch (IOException e) {
+                                throw new RuntimeException("Failed to close previous row batch", e);
+                            }
+                        }
+                        prev = batch.getRows();
+                        return Streams.stream(prev);
+                    })
+                    // if there is a filter to be applied, it applies it
+                    .filter(row -> rowFilter.map(predicate -> predicate.test(row)).orElse(true))
+                    .iterator();
         }
 
         @Override
         public boolean hasNext()
         {
-            if (nextItem != null) {
-                return true;
-            }
-
-            if (!rowsRemaining) {
-                if (!inputIterator.hasNext()) {
-                    return false;
-                }
-                FilteredColumnarBatch nextFile = inputIterator.next();
-                row = nextFile.getRows();
-            }
-            Row nextRow;
-            rowsRemaining = false;
-            while (row.hasNext()) {
-                nextRow = row.next();
-                if (evaluatePartitionPredicate(partitionPredicate, partitionColumns, typeManager,
-                        nextRow)) {
-                    nextItem = nextRow;
-                    rowsRemaining = true;
-                    break;
-                }
-            }
-            if (!rowsRemaining) {
-                try {
-                    row.close();
-                }
-                catch (IOException e) {
-                    throw new GenericInternalException("Cloud not close row batch", e);
-                }
-            }
-            return nextItem != null;
+            return rows.hasNext();
         }
 
         @Override
         public Row next()
         {
-            if (!hasNext()) {
-                throw new NoSuchElementException("There are no more files");
-            }
-            Row toReturn = nextItem;
-            nextItem = null;
-            return toReturn;
+            return rows.next();
         }
 
         @Override
-        public void close()
-                throws IOException
+        public void close() throws IOException
         {
-            inputIterator.close();
+            if (prev != null) {
+                prev.close();
+            }
+            if (inputIterator != null) {
+                inputIterator.close();
+            }
+        }
+    }
+
+    private static class AllFilesIterator
+            extends BatchRowIterator
+    {
+        public AllFilesIterator(CloseableIterator<FilteredColumnarBatch> inputIterator)
+        {
+            super(inputIterator, Optional.empty());
+        }
+    }
+
+    private static class FilteredByPredicateIterator
+            extends BatchRowIterator
+    {
+        public FilteredByPredicateIterator(CloseableIterator<FilteredColumnarBatch> inputIterator,
+                TupleDomain<String> partitionPredicate,
+                List<DeltaColumnHandle> partitionColumns,
+                TypeManager typeManager)
+        {
+            super(inputIterator,
+                    Optional.of(row -> evaluatePartitionPredicate(partitionPredicate, partitionColumns, typeManager, row)));
         }
 
         private static boolean evaluatePartitionPredicate(
