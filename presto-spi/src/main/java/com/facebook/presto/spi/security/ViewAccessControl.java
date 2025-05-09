@@ -16,8 +16,11 @@ package com.facebook.presto.spi.security;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.transaction.TransactionId;
+import com.facebook.presto.spi.ColumnMetadata;
 
 import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
@@ -44,5 +47,17 @@ public class ViewAccessControl
     public void checkCanCreateViewWithSelectFromColumns(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, Set<String> columnNames)
     {
         delegate.checkCanCreateViewWithSelectFromColumns(transactionId, identity, context, tableName, columnNames);
+    }
+
+    @Override
+    public List<ViewExpression> getRowFilters(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
+    {
+        return delegate.getRowFilters(transactionId, identity, context, tableName);
+    }
+
+    @Override
+    public Map<ColumnMetadata, ViewExpression> getColumnMasks(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, List<ColumnMetadata> columns)
+    {
+        return delegate.getColumnMasks(transactionId, identity, context, tableName, columns);
     }
 }
