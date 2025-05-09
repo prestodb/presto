@@ -21,7 +21,6 @@ import com.facebook.presto.common.type.VarcharEnumType.VarcharEnumMap;
 
 import java.util.Objects;
 
-import static com.facebook.drift.annotations.ThriftField.Requiredness.OPTIONAL;
 import static com.facebook.presto.common.type.BigintEnumType.LongEnumMap;
 import static com.facebook.presto.common.type.ParameterKind.DISTINCT_TYPE;
 import static com.facebook.presto.common.type.ParameterKind.LONG;
@@ -50,7 +49,7 @@ public class TypeSignatureParameterUnion
         this.id = (short) TYPE.getValue();
     }
 
-    @ThriftField(value = 1, requiredness = OPTIONAL)
+    @ThriftField(1)
     public TypeSignature getTypeSignature()
     {
         return typeSignature;
@@ -63,11 +62,12 @@ public class TypeSignatureParameterUnion
         this.id = (short) NAMED_TYPE.getValue();
     }
 
-    @ThriftField(value = 2, requiredness = OPTIONAL)
+    @ThriftField(2)
     public NamedTypeSignature getNamedTypeSignature()
     {
         return namedTypeSignature;
     }
+
     @ThriftConstructor
     public TypeSignatureParameterUnion(Long longLiteral)
     {
@@ -75,7 +75,7 @@ public class TypeSignatureParameterUnion
         this.id = (short) LONG.getValue();
     }
 
-    @ThriftField(value = 3, requiredness = OPTIONAL)
+    @ThriftField(3)
     public Long getLongLiteral()
     {
         return longLiteral;
@@ -88,7 +88,7 @@ public class TypeSignatureParameterUnion
         this.id = (short) VARIABLE.getValue();
     }
 
-    @ThriftField(value = 4, requiredness = OPTIONAL)
+    @ThriftField(4)
     public String getVariable()
     {
         return variable;
@@ -101,7 +101,7 @@ public class TypeSignatureParameterUnion
         this.id = (short) LONG_ENUM.getValue();
     }
 
-    @ThriftField(value = 5, requiredness = OPTIONAL)
+    @ThriftField(5)
     public LongEnumMap getLongEnumMap()
     {
         return longEnumMap;
@@ -114,7 +114,7 @@ public class TypeSignatureParameterUnion
         this.id = (short) VARCHAR_ENUM.getValue();
     }
 
-    @ThriftField(value = 6, requiredness = OPTIONAL)
+    @ThriftField(6)
     public VarcharEnumMap getVarcharEnumMap()
     {
         return varcharEnumMap;
@@ -127,7 +127,7 @@ public class TypeSignatureParameterUnion
         this.id = (short) DISTINCT_TYPE.getValue();
     }
 
-    @ThriftField(value = 7, requiredness = OPTIONAL)
+    @ThriftField(7)
     public DistinctTypeInfo getDistinctTypeInfo()
     {
         return distinctTypeInfo;

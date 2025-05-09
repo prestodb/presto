@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.SessionRepresentation;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.buffer.OutputBuffers;
@@ -30,6 +33,7 @@ import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_ABSENT;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public class TaskUpdateRequest
 {
     private final SessionRepresentation session;
@@ -40,6 +44,7 @@ public class TaskUpdateRequest
     private final OutputBuffers outputIds;
     private final Optional<TableWriteInfo> tableWriteInfo;
 
+    @ThriftConstructor
     @JsonCreator
     public TaskUpdateRequest(
             @JsonProperty("session") SessionRepresentation session,
@@ -65,12 +70,14 @@ public class TaskUpdateRequest
     }
 
     @JsonProperty
+    @ThriftField(1)
     public SessionRepresentation getSession()
     {
         return session;
     }
 
     @JsonProperty
+    @ThriftField(2)
     public Map<String, String> getExtraCredentials()
     {
         return extraCredentials;
@@ -78,24 +85,28 @@ public class TaskUpdateRequest
 
     @JsonInclude(NON_ABSENT)
     @JsonProperty
+    @ThriftField(3)
     public Optional<byte[]> getFragment()
     {
         return fragment;
     }
 
     @JsonProperty
+    @ThriftField(4)
     public List<TaskSource> getSources()
     {
         return sources;
     }
 
     @JsonProperty
+    @ThriftField(5)
     public OutputBuffers getOutputIds()
     {
         return outputIds;
     }
 
     @JsonProperty
+    @ThriftField(6)
     public Optional<TableWriteInfo> getTableWriteInfo()
     {
         return tableWriteInfo;
