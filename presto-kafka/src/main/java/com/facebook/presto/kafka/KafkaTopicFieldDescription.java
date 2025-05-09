@@ -114,10 +114,10 @@ public final class KafkaTopicFieldDescription
                 false);
     }
 
-    ColumnMetadata getColumnMetadata()
+    ColumnMetadata getColumnMetadata(String name)
     {
         return ColumnMetadata.builder()
-                .setName(getName())
+                .setName(name)
                 .setType(getType())
                 .setComment(getComment())
                 .setHidden(isHidden())

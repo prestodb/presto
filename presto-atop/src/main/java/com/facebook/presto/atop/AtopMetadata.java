@@ -121,7 +121,7 @@ public class AtopMetadata
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
         for (AtopColumn column : atopTableHandle.getTable().getColumns()) {
             columns.add(ColumnMetadata.builder()
-                    .setName(column.getName())
+                    .setName(normalizeIdentifier(session, column.getName()))
                     .setType(typeManager.getType(column.getType()))
                     .build());
         }
