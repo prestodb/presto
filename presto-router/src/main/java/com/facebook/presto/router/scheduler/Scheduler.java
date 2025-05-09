@@ -28,8 +28,7 @@ public interface Scheduler
      * Schedules a request from a user to a concrete candidate. Returns the
      * URI of this candidate.
      */
-    Optional<URI> getDestination(String user);
-
+    Optional<URI> getDestination(String user, Map<String, String> headers, String sql);
     /**
      * Sets the candidates with the list of URIs for scheduling.
      */

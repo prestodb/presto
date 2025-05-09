@@ -41,7 +41,7 @@ public class RoundRobinScheduler
     private String candidateGroupName;
 
     @Override
-    public Optional<URI> getDestination(String user)
+    public Optional<URI> getDestination(String user, Map<String, String> headers, String sql)
     {
         try {
             return Optional.of(candidates.get(candidateIndexByGroup.compute(candidateGroupName, (key, oldValue) -> {

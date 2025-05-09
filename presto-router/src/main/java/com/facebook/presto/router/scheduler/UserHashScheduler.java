@@ -17,6 +17,7 @@ import com.facebook.airlift.log.Logger;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 public class UserHashScheduler
@@ -27,7 +28,7 @@ public class UserHashScheduler
     private static final Logger log = Logger.get(UserHashScheduler.class);
 
     @Override
-    public Optional<URI> getDestination(String user)
+    public Optional<URI> getDestination(String user, Map<String, String> headers, String sql)
     {
         try {
             return Optional.of(candidates.get(user.hashCode() % candidates.size()));

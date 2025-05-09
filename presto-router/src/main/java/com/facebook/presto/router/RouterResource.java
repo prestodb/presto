@@ -33,6 +33,9 @@ import javax.ws.rs.core.Response;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.Map;
 
 import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static java.util.Objects.requireNonNull;
@@ -59,12 +62,20 @@ public class RouterResource
     @Produces(APPLICATION_JSON)
     public Response routeQuery(String statement, @Context HttpServletRequest servletRequest)
     {
-        RequestInfo requestInfo = new RequestInfo(servletRequest, statement);
-        URI coordinatorUri = clusterManager.getDestination(requestInfo).orElseThrow(() -> badRequest(BAD_GATEWAY, "No Presto cluster available"));
-        URI statementUri = uriBuilderFrom(coordinatorUri).replacePath("/v1/statement").build();
-        successRedirectRequests.update(1);
-        log.info("route query to %s", statementUri);
-        return Response.temporaryRedirect(statementUri).build();
+        try {
+            RequestInfo requestInfo = new RequestInfo(servletRequest, statement);
+            URI coordinatorUri = clusterManager.getDestination(requestInfo, extractHeaders(servletRequest), statement).orElseThrow(() -> badRequest(BAD_GATEWAY, "No Presto cluster available"));
+            URI statementUri = uriBuilderFrom(coordinatorUri).replacePath("/v1/statement").build();
+            successRedirectRequests.update(1);
+            log.info("route query to %s", statementUri);
+            return Response.temporaryRedirect(statementUri).build();
+        }
+        catch (RuntimeException e) {
+            return Response.status(Response.Status.OK)
+                    .entity(e.getMessage())
+                    .type(APPLICATION_JSON)
+                    .build();
+        }
     }
 
     @GET
@@ -74,6 +85,18 @@ public class RouterResource
     {
         log.info("redirecting to UI");
         servletResponse.sendRedirect("ui");
+    }
+
+    private Map<String, String> extractHeaders(HttpServletRequest request)
+    {
+        Map<String, String> headers = new HashMap<>();
+        Enumeration<String> headerNames = request.getHeaderNames();
+        while (headerNames.hasMoreElements()) {
+            String headerName = headerNames.nextElement();
+            String headerValue = request.getHeader(headerName);
+            headers.put(headerName, headerValue);
+        }
+        return headers;
     }
 
     private static WebApplicationException badRequest(Response.Status status, String message)

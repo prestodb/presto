@@ -36,7 +36,7 @@ public class WeightedRandomChoiceScheduler
     private static final Logger log = Logger.get(WeightedRandomChoiceScheduler.class);
 
     @Override
-    public Optional<URI> getDestination(String user)
+    public Optional<URI> getDestination(String user, Map<String, String> headers, String sql)
     {
         checkArgument(candidates.size() == weights.size());
 

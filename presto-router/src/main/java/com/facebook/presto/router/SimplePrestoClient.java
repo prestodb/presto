@@ -1,0 +1,173 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.facebook.presto.router;
+
+import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.log.Logger;
+import com.facebook.presto.client.ClientSession;
+import com.facebook.presto.client.ErrorLocation;
+import com.facebook.presto.client.FailureInfo;
+import com.facebook.presto.client.QueryError;
+import com.facebook.presto.client.QueryResults;
+import com.facebook.presto.client.QueryStatusInfo;
+import com.facebook.presto.client.StatementClient;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import io.airlift.units.Duration;
+import okhttp3.OkHttpClient;
+
+import java.net.URI;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.presto.client.StatementClientFactory.newStatementClient;
+import static com.google.common.base.Verify.verify;
+import static java.util.concurrent.TimeUnit.MINUTES;
+
+public class SimplePrestoClient
+{
+    private static final Logger log = Logger.get(RouterResource.class);
+    private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
+    private static final String ANALYZE_CALL = "EXPLAIN (TYPE DISTRIBUTED) ";
+
+    private final OkHttpClient httpClient = new OkHttpClient();
+    private final URI preonClusterURI;
+
+    public SimplePrestoClient(URI preonClusterURI)
+    {
+        this.preonClusterURI = preonClusterURI;
+    }
+
+    public Optional<URI> executeQuery(String sql, Map<String, String> headers)
+    {
+        String newSql = ANALYZE_CALL + sql;
+        ClientSession clientSession = parseHeadersToClientSession(headers);
+        boolean isNativeCompatible = true;
+        // submit initial query
+        try (StatementClient client = newStatementClient(httpClient, clientSession, newSql)) {
+            // read query output
+            while (client.isRunning()) {
+                log.info((client.currentData().toString()));
+
+                if (!client.advance()) {
+                    break;
+                }
+            }
+
+            // verify final state
+            if (client.isClientAborted()) {
+                throw new IllegalStateException("Query aborted by user");
+            }
+
+            if (client.isClientError()) {
+                throw new IllegalStateException("Query is gone (server restarted?)");
+            }
+
+            verify(client.isFinished());
+            QueryError resultsError = client.finalStatusInfo().getError();
+            if (resultsError != null) {
+                if (resultsError.getErrorType().equalsIgnoreCase("USER_ERROR")) {
+                    throw new RuntimeException(newQueryResults(client));
+                }
+                isNativeCompatible = false;
+                log.info(resultsError.getMessage());
+            }
+        }
+
+        // todo: How to do this routing?
+        if (isNativeCompatible) {
+            log.info("Native compatible, routing to C++ cluster: ");
+            return Optional.of(URI.create("http://localhost:8081"));
+        }
+        log.info("Native incompatible, routing to Java cluster: ");
+        return Optional.of(URI.create("http://localhost:8082"));
+    }
+
+    private String newQueryResults(StatementClient client)
+    {
+        QueryStatusInfo queryStatusInfo = client.finalStatusInfo();
+        QueryResults queryResults = new QueryResults(
+                queryStatusInfo.getId(),
+                queryStatusInfo.getInfoUri(),
+                queryStatusInfo.getPartialCancelUri(),
+                queryStatusInfo.getNextUri(),
+                queryStatusInfo.getColumns(),
+                null, // if error thrown no data is returned.
+                null,
+                queryStatusInfo.getStats(),
+                newQueryError(queryStatusInfo.getError()),
+                queryStatusInfo.getWarnings(),
+                queryStatusInfo.getUpdateType(),
+                queryStatusInfo.getUpdateCount());
+
+        return QUERY_RESULTS_CODEC.toJson(queryResults);
+    }
+
+    private QueryError newQueryError(QueryError error)
+    {
+        // todo: the getMessage() calls will still return the previous error location
+        ErrorLocation errorLocation = error.getErrorLocation();
+        ErrorLocation newErrorLocation = null;
+        FailureInfo failureInfo = error.getFailureInfo();
+        if (errorLocation != null) {
+            newErrorLocation = new ErrorLocation(
+                    errorLocation.getLineNumber(),
+                    errorLocation.getColumnNumber() - ANALYZE_CALL.length());
+        }
+        return new QueryError(
+                error.getMessage(),
+                error.getSqlState(),
+                error.getErrorCode(),
+                error.getErrorName(),
+                error.getErrorType(),
+                error.isRetriable(),
+                newErrorLocation,
+                new FailureInfo(
+                        failureInfo.getType(),
+                        failureInfo.getMessage(),
+                        failureInfo.getCause(),
+                        failureInfo.getSuppressed(),
+                        failureInfo.getStack(),
+                        newErrorLocation));
+    }
+
+    private ClientSession parseHeadersToClientSession(Map<String, String> headers)
+    {
+        // todo: How to parse headers into a ClientSession object?
+        return new ClientSession(
+                preonClusterURI,
+                "user",
+                "source",
+                Optional.empty(),
+                ImmutableSet.of(),
+                null,
+                null,
+                null,
+                "America/Los_Angeles",
+                Locale.ENGLISH,
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                null,
+                new Duration(2, MINUTES),
+                true,
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                false);
+    }
+}

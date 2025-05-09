@@ -46,7 +46,7 @@ public class WeightedRoundRobinScheduler
     private static final Logger log = Logger.get(WeightedRoundRobinScheduler.class);
 
     @Override
-    public Optional<URI> getDestination(String user)
+    public Optional<URI> getDestination(String user, Map<String, String> headers, String sql)
     {
         int serverIndex = 0;
 

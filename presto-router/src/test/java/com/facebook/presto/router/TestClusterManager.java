@@ -165,7 +165,8 @@ public class TestClusterManager
 
         JsonCodec<RouterSpec> jsonCodec = JsonCodec.jsonCodec(RouterSpec.class);
         RouterSpec spec = jsonCodec.fromJson(originalConfigContent);
-        RouterSpec newSpec = new RouterSpec(ImmutableList.of(), spec.getSelectors(), Optional.ofNullable(spec.getSchedulerType()), spec.getPredictorUri());
+        RouterSpec newSpec = new RouterSpec(ImmutableList.of(), spec.getSelectors(), Optional.ofNullable(spec.getSchedulerType()), spec.getPredictorUri(),
+                spec.getValidatorUris());
 
         Files.write(newConfig.toPath(), jsonCodec.toBytes(newSpec));
         barrier.await(10, SECONDS);

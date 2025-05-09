@@ -84,7 +84,8 @@ public class TestHealthChecks
         RouterSpec spec = new RouterSpec(ImmutableList.of(new GroupSpec("group1", serverURIs, Optional.empty(), Optional.empty())),
                   ImmutableList.of(new SelectorRuleSpec(Optional.empty(), Optional.empty(), Optional.empty(), "group1")),
                   Optional.of(ROUND_ROBIN),
-                  Optional.empty());
+                  Optional.empty(),
+                Optional.empty());
         JsonCodec<RouterSpec> jsonCodec = JsonCodec.jsonCodec(RouterSpec.class);
         Files.write(configFile.toPath(), jsonCodec.toBytes(spec));
 
@@ -168,6 +169,6 @@ public class TestHealthChecks
                 ImmutableListMultimap.of(),
                 "testRemote",
                 ImmutableMap.of());
-        return clusterManager.getDestination(new RequestInfo(request, ""));
+        return clusterManager.getDestination(new RequestInfo(request, ""), ImmutableMap.of(), "");
     }
 }
