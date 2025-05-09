@@ -14,8 +14,7 @@
 package com.facebook.presto.bytecode;
 
 import com.google.common.collect.ImmutableMap;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.Map;
 

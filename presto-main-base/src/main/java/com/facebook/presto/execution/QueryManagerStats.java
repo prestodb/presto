@@ -19,10 +19,9 @@ import com.facebook.airlift.stats.TimeStat;
 import com.facebook.presto.dispatcher.DispatchQuery;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.server.BasicQueryInfo;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.annotation.concurrent.GuardedBy;
 
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;

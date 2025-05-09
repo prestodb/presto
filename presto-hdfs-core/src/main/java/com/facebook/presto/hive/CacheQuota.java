@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive;
 
-import io.airlift.units.DataSize;
+import com.facebook.airlift.units.DataSize;
 
 import java.util.Objects;
 import java.util.Optional;

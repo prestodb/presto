@@ -14,6 +14,7 @@
 package com.facebook.presto.router;
 
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.router.cluster.ClusterManager;
 import com.facebook.presto.router.cluster.ClusterStatusResource;
 import com.facebook.presto.router.cluster.ForClusterInfoTracker;
@@ -27,7 +28,6 @@ import com.facebook.presto.router.predictor.PredictorManager;
 import com.facebook.presto.router.predictor.RemoteQueryFactory;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
-import io.airlift.units.Duration;
 
 import java.lang.annotation.Annotation;
 import java.util.concurrent.ScheduledExecutorService;

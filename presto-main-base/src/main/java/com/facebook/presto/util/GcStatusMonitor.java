@@ -24,10 +24,10 @@ import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spi.QueryId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ListMultimap;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
+import jakarta.inject.Inject;
 
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
-import javax.inject.Inject;
 import javax.management.JMException;
 import javax.management.Notification;
 import javax.management.NotificationListener;

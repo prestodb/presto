@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.plugin.blackhole;
 
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.airlift.units.Duration;
 
 import java.util.List;
 import java.util.Objects;

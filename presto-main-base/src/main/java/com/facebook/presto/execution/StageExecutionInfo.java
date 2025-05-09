@@ -33,6 +33,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.airlift.units.Duration.succinctDuration;
 import static com.facebook.presto.common.RuntimeMetricName.DRIVER_COUNT_PER_TASK;
 import static com.facebook.presto.common.RuntimeMetricName.TASK_BLOCKED_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.TASK_ELAPSED_TIME_NANOS;
@@ -42,7 +43,6 @@ import static com.facebook.presto.common.RuntimeUnit.NANO;
 import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.execution.StageExecutionState.FINISHED;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.units.Duration.succinctDuration;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;

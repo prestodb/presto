@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.operator.index;
 
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.LookupSourceFactory;
 import com.facebook.presto.operator.LookupSourceProvider;
@@ -27,8 +29,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 
 import java.util.List;
 import java.util.Map;

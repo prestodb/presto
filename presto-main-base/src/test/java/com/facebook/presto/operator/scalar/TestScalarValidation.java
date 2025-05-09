@@ -23,9 +23,8 @@ import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
+import jakarta.annotation.Nullable;
 import org.testng.annotations.Test;
-
-import javax.annotation.Nullable;
 
 @SuppressWarnings("UtilityClassWithoutPrivateConstructor")
 public class TestScalarValidation
