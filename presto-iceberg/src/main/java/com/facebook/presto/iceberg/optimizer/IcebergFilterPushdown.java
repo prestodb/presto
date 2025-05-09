@@ -160,7 +160,8 @@ public class IcebergFilterPushdown
                     tableHandle,
                     icebergTable,
                     constraint,
-                    partitionColumns);
+                    partitionColumns,
+                    session);
 
             return new ConnectorPushdownFilterResult(
                     metadata.getTableLayout(

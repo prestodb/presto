@@ -289,7 +289,8 @@ public abstract class IcebergAbstractMetadata
                     handle,
                     icebergTable,
                     constraint,
-                    partitionColumns);
+                    partitionColumns,
+                    session);
         }
 
         ConnectorTableLayout layout = getTableLayout(
