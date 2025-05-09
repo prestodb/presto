@@ -17,21 +17,22 @@
 #include "velox/common/testutil/OptionalEmpty.h"
 #include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
-#include "velox/exec/tests/utils/OperatorTestBase.h"
+#include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
+#include "velox/exec/tests/utils/TempFilePath.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
 using namespace facebook::velox::exec::test;
 
-class UnnestTest : public OperatorTestBase,
+class UnnestTest : public HiveConnectorTestBase,
                    public testing::WithParamInterface<vector_size_t> {
   void SetUp() override {
-    OperatorTestBase::SetUp();
+    HiveConnectorTestBase::SetUp();
   }
 
   void TearDown() override {
-    OperatorTestBase::TearDown();
+    HiveConnectorTestBase::TearDown();
   }
 
  protected:
@@ -476,7 +477,85 @@ TEST_P(UnnestTest, batchSize) {
   ASSERT_EQ(expectedNumVectors, stats.at(unnestId).outputVectors);
 }
 
+TEST_P(UnnestTest, barrier) {
+  std::vector<RowVectorPtr> vectors;
+  std::vector<std::shared_ptr<TempFilePath>> tempFiles;
+  const int numSplits{5};
+  const int numRowsPerSplit{1'000};
+  for (int32_t i = 0; i < 5; ++i) {
+    auto vector = makeRowVector({
+        makeFlatVector<int64_t>(numRowsPerSplit, [](auto row) { return row; }),
+    });
+    vectors.push_back(vector);
+    tempFiles.push_back(TempFilePath::create());
+  }
+  writeToFiles(toFilePaths(tempFiles), vectors);
+  createDuckDbTable(vectors);
+
+  // Unnest 1K rows into 3K rows.
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  core::PlanNodeId unnestPlanNodeId;
+  const auto plan = PlanBuilder(planNodeIdGenerator)
+                        .startTableScan()
+                        .outputType(std::dynamic_pointer_cast<const RowType>(
+                            vectors[0]->type()))
+                        .endTableScan()
+                        .project({"sequence(1, 3) as s"})
+                        .unnest({}, {"s"})
+                        .capturePlanNodeId(unnestPlanNodeId)
+                        .planNode();
+
+  const auto expectedResult = makeRowVector({
+      makeFlatVector<int64_t>(
+          1'000 * 3 * numSplits, [](auto row) { return 1 + row % 3; }),
+  });
+
+  struct {
+    bool barrierExecution;
+    int numOutputRows;
+
+    std::string toString() const {
+      return fmt::format(
+          "barrierExecution {}, numOutputRows {}",
+          barrierExecution,
+          numOutputRows);
+    }
+  } testSettings[] = {{true, 23}, {false, 23}, {true, 200}, {false, 200}};
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.toString());
+    const int numExpectedOutputVectors =
+        bits::divRoundUp(numRowsPerSplit * 3, testData.numOutputRows) *
+        numSplits;
+    auto task = AssertQueryBuilder(plan, duckDbQueryRunner_)
+                    .config(core::QueryConfig::kSparkPartitionId, "0")
+                    .config(
+                        core::QueryConfig::kMaxSplitPreloadPerDriver,
+                        std::to_string(tempFiles.size()))
+                    .splits(makeHiveConnectorSplits(tempFiles))
+                    .serialExecution(true)
+                    .barrierExecution(testData.barrierExecution)
+                    .config(
+                        core::QueryConfig::kPreferredOutputBatchRows,
+                        std::to_string(testData.numOutputRows))
+                    .assertResults(expectedResult);
+    const auto taskStats = task->taskStats();
+    ASSERT_EQ(taskStats.numBarriers, testData.barrierExecution ? numSplits : 0);
+    ASSERT_EQ(taskStats.numFinishedSplits, numSplits);
+    ASSERT_EQ(
+        exec::toPlanStats(taskStats).at(unnestPlanNodeId).outputRows,
+        numSplits * numRowsPerSplit * 3);
+    // NOTE: unnest operator produce the same number of output batches no matter
+    // it is under barrier execution mode or not.
+    ASSERT_EQ(
+        exec::toPlanStats(taskStats).at(unnestPlanNodeId).outputVectors,
+        numExpectedOutputVectors);
+  }
+}
+
 VELOX_INSTANTIATE_TEST_SUITE_P(
     UnnestTest,
     UnnestTest,
-    testing::ValuesIn(/*batchSize*/ {2, 17, 33, 1024}));
+    testing::ValuesIn(/*batchSize*/ {2, 17, 33, 1024}),
+    [](const testing::TestParamInfo<int32_t>& info) {
+      return fmt::format("outputBatchSize_{}", info.param);
+    });

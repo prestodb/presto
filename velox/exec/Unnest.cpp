@@ -106,8 +106,15 @@ void Unnest::addInput(RowVectorPtr input) {
   }
 }
 
+void Unnest::maybeFinishDrain() {
+  if (FOLLY_UNLIKELY(isDraining())) {
+    finishDrain();
+  }
+}
+
 RowVectorPtr Unnest::getOutput() {
   if (!input_) {
+    maybeFinishDrain();
     return nullptr;
   }
 
@@ -123,10 +130,12 @@ RowVectorPtr Unnest::getOutput() {
     // All arrays/maps are null or empty.
     input_ = nullptr;
     nextInputRow_ = 0;
+    maybeFinishDrain();
     return nullptr;
   }
 
   const auto output = generateOutput(rowRange);
+  VELOX_CHECK_NOT_NULL(output);
   if (rowRange.lastRowEnd.has_value()) {
     // The last row is not processed completely.
     firstRowStart_ = rowRange.lastRowEnd.value();
@@ -140,7 +149,6 @@ RowVectorPtr Unnest::getOutput() {
     input_ = nullptr;
     nextInputRow_ = 0;
   }
-
   return output;
 }
 

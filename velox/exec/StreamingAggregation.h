@@ -54,7 +54,7 @@ class StreamingAggregation : public Operator {
   void close() override;
 
  private:
-  void finishDrain() override;
+  void maybeFinishDrain();
 
   // Returns the rows to aggregate with masking applied if applicable.
   const SelectivityVector& getSelectivityVector(size_t aggregateIndex) const;

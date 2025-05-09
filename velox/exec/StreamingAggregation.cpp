@@ -312,7 +312,10 @@ bool StreamingAggregation::startDrain() {
   return true;
 }
 
-void StreamingAggregation::finishDrain() {
+void StreamingAggregation::maybeFinishDrain() {
+  if (FOLLY_LIKELY((numGroups_ != 0) || !isDraining())) {
+    return;
+  }
   prevInput_ = nullptr;
   Operator::finishDrain();
 }
@@ -327,9 +330,7 @@ RowVectorPtr StreamingAggregation::getOutput() {
       return createOutput(
           std::min(numGroups_, static_cast<size_t>(maxOutputBatchSize_)));
     }
-    if (isDraining() && numGroups_ == 0) {
-      finishDrain();
-    }
+    maybeFinishDrain();
     return nullptr;
   }
 

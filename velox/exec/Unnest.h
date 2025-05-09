@@ -32,6 +32,10 @@ class Unnest : public Operator {
     return input_ == nullptr;
   }
 
+  bool startDrain() override {
+    return input_ != nullptr;
+  }
+
   void addInput(RowVectorPtr input) override;
 
   RowVectorPtr getOutput() override;
@@ -39,6 +43,8 @@ class Unnest : public Operator {
   bool isFinished() override;
 
  private:
+  void maybeFinishDrain();
+
   // Represents the range of rows to process and indicates that the first and
   // last
   // rows may need to be processed partially to match the configured output

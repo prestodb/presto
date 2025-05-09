@@ -425,24 +425,39 @@ TEST_F(FilterProjectTest, barrier) {
   std::vector<RowVectorPtr> vectors;
   std::vector<std::shared_ptr<TempFilePath>> tempFiles;
   const int numSplits{5};
+  const int numRowsPerSplit{100};
   for (int32_t i = 0; i < 5; ++i) {
     auto vector = std::dynamic_pointer_cast<RowVector>(
-        BatchMaker::createBatch(rowType_, 100, *pool_));
+        BatchMaker::createBatch(rowType_, numRowsPerSplit, *pool_));
     vectors.push_back(vector);
     tempFiles.push_back(TempFilePath::create());
   }
   writeToFiles(toFilePaths(tempFiles), vectors);
   createDuckDbTable(vectors);
 
-  auto plan = PlanBuilder()
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  core::PlanNodeId projectPlanNodeId;
+  auto plan = PlanBuilder(planNodeIdGenerator)
                   .startTableScan()
                   .outputType(rowType_)
                   .endTableScan()
                   .filter("c1 % 10  > 0")
                   .project({"c0", "c1", "c0 + c1"})
+                  .capturePlanNodeId(projectPlanNodeId)
                   .planNode();
-  for (const auto barrierExecution : {false, true}) {
-    SCOPED_TRACE(fmt::format("barrierExecution {}", barrierExecution));
+  struct {
+    bool barrierExecution;
+    int numOutputRows;
+
+    std::string toString() const {
+      return fmt::format(
+          "barrierExecution {}, numOutputRows {}",
+          barrierExecution,
+          numOutputRows);
+    }
+  } testSettings[] = {{true, 23}, {false, 23}, {true, 200}, {false, 200}};
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.toString());
     auto task =
         AssertQueryBuilder(plan, duckDbQueryRunner_)
             .config(core::QueryConfig::kSparkPartitionId, "0")
@@ -451,10 +466,19 @@ TEST_F(FilterProjectTest, barrier) {
                 std::to_string(tempFiles.size()))
             .splits(makeHiveConnectorSplits(tempFiles))
             .serialExecution(true)
-            .barrierExecution(barrierExecution)
+            .barrierExecution(testData.barrierExecution)
+            .config(
+                core::QueryConfig::kPreferredOutputBatchRows,
+                std::to_string(testData.numOutputRows))
             .assertResults("SELECT c0, c1, c0 + c1 FROM tmp WHERE c1 % 10 > 0");
     const auto taskStats = task->taskStats();
-    ASSERT_EQ(taskStats.numBarriers, barrierExecution ? numSplits : 0);
+    ASSERT_EQ(taskStats.numBarriers, testData.barrierExecution ? numSplits : 0);
     ASSERT_EQ(taskStats.numFinishedSplits, numSplits);
+    // NOTE: the projector node doesn't respect output batch size as it does
+    // one-to-one mapping and expects the upstream operator respects the output
+    // batch size.
+    ASSERT_EQ(
+        exec::toPlanStats(taskStats).at(projectPlanNodeId).outputVectors,
+        numSplits);
   }
 }

@@ -1928,7 +1928,7 @@ PlanBuilder& PlanBuilder::unnest(
       unnestNames,
       ordinalColumn,
       planNode_);
-  VELOX_CHECK(!planNode_->supportsBarrier());
+  VELOX_CHECK(planNode_->supportsBarrier());
   return *this;
 }
 

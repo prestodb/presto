@@ -4002,6 +4002,10 @@ class UnnestNode : public PlanNode {
     std::optional<PlanNodePtr> source_;
   };
 
+  bool supportsBarrier() const override {
+    return true;
+  }
+
   /// The order of columns in the output is: replicated columns (in the order
   /// specified), unnested columns (in the order specified, for maps: key
   /// comes before value), optional ordinality column.

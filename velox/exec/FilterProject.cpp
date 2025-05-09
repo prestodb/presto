@@ -186,7 +186,6 @@ RowVectorPtr FilterProject::getOutput() {
     numProcessedInputRows_ = size;
     VELOX_CHECK(!isIdentityProjection_);
     auto results = project(*rows, evalCtx);
-
     return fillOutput(size, nullptr, results);
   }
 
@@ -198,8 +197,7 @@ RowVectorPtr FilterProject::getOutput() {
     return nullptr;
   }
 
-  bool allRowsSelected = (numOut == size);
-
+  const bool allRowsSelected = (numOut == size);
   // evaluate projections (if present)
   std::vector<VectorPtr> results;
   if (!isIdentityProjection_) {
