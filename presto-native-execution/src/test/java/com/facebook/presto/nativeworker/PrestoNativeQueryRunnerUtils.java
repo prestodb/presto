@@ -360,8 +360,7 @@ public class PrestoNativeQueryRunnerUtils
                 ImmutableMap.<String, String>builder()
                         .put("http-server.http.port", "8081")
                         .put("experimental.internal-communication.thrift-transport-enabled", String.valueOf(useThrift))
-                        .putAll(getNativeWorkerSystemProperties())
-                        .putAll(isCoordinatorSidecarEnabled ? getNativeSidecarProperties() : ImmutableMap.of())
+                        .putAll(isCoordinatorSidecarEnabled ? getNativeSidecarProperties() : getNativeWorkerSystemProperties())
                         .putAll(extraProperties)
                         .build(),
                 coordinatorProperties.build(),
