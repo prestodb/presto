@@ -26,7 +26,7 @@ public class TestPrestoNativeIcebergTpcdsQueriesOrcUsingThrift
             throws Exception
     {
         this.storageFormat = "ORC";
-        return PrestoNativeQueryRunnerUtils.createNativeIcebergQueryRunner(true, "ORC");
+        return PrestoNativeQueryRunnerUtils.createNativeIcebergQueryRunner(true, "ORC", false);
     }
 
     @Override
