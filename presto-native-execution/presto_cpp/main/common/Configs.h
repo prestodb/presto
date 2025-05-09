@@ -403,6 +403,9 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kEnableRuntimeMetricsCollection{
       "runtime-metrics-collection-enabled"};
 
+  static constexpr std::string_view kEnableRuntimeHistogramMetricsCollection{
+      "runtime-histogram-metrics-collection-enabled"};
+
   /// Specifies the total amount of memory in GB that the queries can use on a
   /// single worker node. It should be configured to be less than the total
   /// system memory capacity ('system-memory-gb') such that there is enough room
@@ -984,6 +987,8 @@ class SystemConfig : public ConfigBase {
   int32_t largestSizeClassPages() const;
 
   bool enableRuntimeMetricsCollection() const;
+
+  bool enableRuntimeHistogramMetricsCollection() const;
 
   bool prestoNativeSidecar() const;
   
