@@ -27,6 +27,9 @@ import io.airlift.tpch.TpchTable;
 import org.apache.hadoop.io.Text;
 import org.intellij.lang.annotations.Language;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.util.Map;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -141,10 +144,61 @@ public final class AccumuloQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createAccumuloQueryRunner(ImmutableMap.of("http-server.http.port", "8080"));
-        Thread.sleep(10);
-        Logger log = Logger.get(AccumuloQueryRunner.class);
-        log.info("======== SERVER STARTED ========");
-        log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+        if (connector != null) {
+            return connector;
+        }
+
+        try {
+            MiniAccumuloCluster accumulo = createMiniAccumuloCluster();
+            Instance instance = new ZooKeeperInstance(accumulo.getInstanceName(), accumulo.getZooKeepers());
+            connector = instance.getConnector(MAC_USER, new PasswordToken(MAC_PASSWORD));
+            LOG.info("Connection to MAC instance %s at %s established, user %s password %s", accumulo.getInstanceName(), accumulo.getZooKeepers(), MAC_USER, MAC_PASSWORD);
+            return connector;
+        }
+        catch (AccumuloException | AccumuloSecurityException | InterruptedException | IOException e) {
+            throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to get connector to Accumulo", e);
+        }
+    }
+
+    /**
+     * Creates and starts an instance of MiniAccumuloCluster, returning the new instance.
+     *
+     * @return New MiniAccumuloCluster
+     */
+    private static MiniAccumuloCluster createMiniAccumuloCluster()
+            throws IOException, InterruptedException
+    {
+        // Create MAC directory
+        File macDir = Files.createTempDirectory("mac-").toFile();
+        LOG.info("MAC is enabled, starting MiniAccumuloCluster at %s", macDir);
+
+        // Start MAC and connect to it
+        MiniAccumuloCluster accumulo = new MiniAccumuloCluster(macDir, MAC_PASSWORD);
+        accumulo.getConfig().setDefaultMemory(512, MEGABYTE);
+        setConfigClassPath(accumulo.getConfig());
+
+        accumulo.start();
+
+        // Add shutdown hook to stop MAC and cleanup temporary files
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            try {
+                LOG.info("Shutting down MAC");
+                accumulo.stop();
+            }
+            catch (IOException | InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new PrestoException(MINI_ACCUMULO, "Failed to shut down MAC instance", e);
+            }
+
+            try {
+                LOG.info("Cleaning up MAC directory");
+                FileUtils.forceDelete(macDir);
+            }
+            catch (IOException e) {
+                throw new PrestoException(MINI_ACCUMULO, "Failed to clean up MAC directory", e);
+            }
+        }));
+
+        return accumulo;
     }
 }
