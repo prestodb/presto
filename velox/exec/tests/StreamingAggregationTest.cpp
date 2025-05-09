@@ -15,21 +15,23 @@
  */
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/core/Expressions.h"
+#include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
-#include "velox/exec/tests/utils/OperatorTestBase.h"
+#include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/SumNonPODAggregate.h"
+#include "velox/exec/tests/utils/TempFilePath.h"
 
 namespace facebook::velox::exec {
 namespace {
 
 using namespace facebook::velox::exec::test;
 
-class StreamingAggregationTest : public OperatorTestBase,
+class StreamingAggregationTest : public HiveConnectorTestBase,
                                  public testing::WithParamInterface<int32_t> {
  protected:
   void SetUp() override {
-    OperatorTestBase::SetUp();
+    HiveConnectorTestBase::SetUp();
     registerSumNonPODAggregate("sumnonpod", 64);
   }
 
@@ -135,6 +137,75 @@ class StreamingAggregationTest : public OperatorTestBase,
             "SELECT c0, max(c1 order by c2), max(c1 order by c2 desc), array_agg(c1 order by c2) FROM tmp GROUP BY c0");
   }
 
+  void testSortedAggregationWithBarrier(
+      const std::vector<VectorPtr>& keys,
+      uint32_t outputBatchSize) {
+    const auto inputVectors = addPayload(keys, 2);
+    int expectedNumOuputBatchesWithBarrier{0};
+    int numInputRows{0};
+    for (const auto& inputVector : inputVectors) {
+      numInputRows += inputVector->size();
+      if (outputBatchSize > inputVector->size()) {
+        ++expectedNumOuputBatchesWithBarrier;
+      } else {
+        expectedNumOuputBatchesWithBarrier +=
+            bits::divRoundUp(inputVector->size(), outputBatchSize);
+      }
+    }
+    const int expectedNumOuputBatches =
+        bits::divRoundUp(numInputRows, outputBatchSize);
+
+    std::vector<std::shared_ptr<TempFilePath>> tempFiles;
+    const int numSplits = keys.size();
+    for (int32_t i = 0; i < numSplits; ++i) {
+      tempFiles.push_back(TempFilePath::create());
+    }
+    writeToFiles(toFilePaths(tempFiles), inputVectors);
+
+    createDuckDbTable(inputVectors);
+
+    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+    core::PlanNodeId aggregationNodeId;
+    auto plan = PlanBuilder(planNodeIdGenerator)
+                    .startTableScan()
+                    .outputType(std::dynamic_pointer_cast<const RowType>(
+                        inputVectors[0]->type()))
+                    .endTableScan()
+                    .streamingAggregation(
+                        {"c0"},
+                        {"max(c1 order by c2)",
+                         "max(c1 order by c2 desc)",
+                         "array_agg(c1 order by c2)"},
+                        {},
+                        core::AggregationNode::Step::kSingle,
+                        false)
+                    .capturePlanNodeId(aggregationNodeId)
+                    .planNode();
+
+    for (const auto barrierExecution : {false, true}) {
+      SCOPED_TRACE(fmt::format("barrierExecution {}", barrierExecution));
+      auto task =
+          AssertQueryBuilder(plan, duckDbQueryRunner_)
+              .splits(makeHiveConnectorSplits(tempFiles))
+              .serialExecution(true)
+              .barrierExecution(barrierExecution)
+              .config(
+                  core::QueryConfig::kPreferredOutputBatchRows,
+                  std::to_string(outputBatchSize))
+              .assertResults(
+                  "SELECT c0, max(c1 order by c2), max(c1 order by c2 desc), array_agg(c1 order by c2) FROM tmp GROUP BY c0");
+      const auto taskStats = task->taskStats();
+      ASSERT_EQ(taskStats.numBarriers, barrierExecution ? numSplits : 0);
+      ASSERT_EQ(taskStats.numFinishedSplits, numSplits);
+      ASSERT_EQ(
+          velox::exec::toPlanStats(taskStats)
+              .at(aggregationNodeId)
+              .outputVectors,
+          barrierExecution ? expectedNumOuputBatchesWithBarrier
+                           : expectedNumOuputBatches);
+    }
+  }
+
   void testDistinctAggregation(
       const std::vector<VectorPtr>& keys,
       uint32_t outputBatchSize) {
@@ -171,6 +242,113 @@ class StreamingAggregationTest : public OperatorTestBase,
 
       config(AssertQueryBuilder(plan, duckDbQueryRunner_), outputBatchSize)
           .assertResults("SELECT distinct c0 FROM tmp");
+    }
+  }
+
+  void testDistinctAggregationWithBarrier(
+      const std::vector<VectorPtr>& keys,
+      uint32_t outputBatchSize) {
+    const auto inputVectors = addPayload(keys, 2);
+    int expectedNumOuputBatchesWithBarrier{0};
+    int numInputRows{0};
+    for (const auto& inputVector : inputVectors) {
+      numInputRows += inputVector->size();
+      if (outputBatchSize > inputVector->size()) {
+        ++expectedNumOuputBatchesWithBarrier;
+      } else {
+        expectedNumOuputBatchesWithBarrier +=
+            bits::divRoundUp(inputVector->size(), outputBatchSize);
+      }
+    }
+    const int expectedNumOuputBatches =
+        bits::divRoundUp(numInputRows, outputBatchSize);
+
+    std::vector<std::shared_ptr<TempFilePath>> tempFiles;
+    const int numSplits = keys.size();
+    for (int32_t i = 0; i < numSplits; ++i) {
+      tempFiles.push_back(TempFilePath::create());
+    }
+    writeToFiles(toFilePaths(tempFiles), inputVectors);
+
+    createDuckDbTable(inputVectors);
+
+    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+    {
+      core::PlanNodeId aggregationNodeId;
+      auto plan = PlanBuilder(planNodeIdGenerator)
+                      .startTableScan()
+                      .outputType(std::dynamic_pointer_cast<const RowType>(
+                          inputVectors[0]->type()))
+                      .endTableScan()
+                      .streamingAggregation(
+                          {"c0"},
+                          {"array_agg(distinct c1)",
+                           "array_agg(c1 order by c2)",
+                           "count(distinct c1)",
+                           "array_agg(c2)"},
+                          {},
+                          core::AggregationNode::Step::kSingle,
+                          false)
+                      .capturePlanNodeId(aggregationNodeId)
+                      .planNode();
+      for (const auto barrierExecution : {false, true}) {
+        SCOPED_TRACE(fmt::format("barrierExecution {}", barrierExecution));
+        auto task =
+            AssertQueryBuilder(plan, duckDbQueryRunner_)
+                .splits(makeHiveConnectorSplits(tempFiles))
+                .serialExecution(true)
+                .barrierExecution(barrierExecution)
+                .config(
+                    core::QueryConfig::kPreferredOutputBatchRows,
+                    std::to_string(outputBatchSize))
+                .assertResults(
+                    "SELECT c0, array_agg(distinct c1), array_agg(c1 order by c2), "
+                    "count(distinct c1), array_agg(c2) FROM tmp GROUP BY c0");
+        const auto taskStats = task->taskStats();
+        ASSERT_EQ(taskStats.numBarriers, barrierExecution ? numSplits : 0);
+        ASSERT_EQ(taskStats.numFinishedSplits, numSplits);
+        ASSERT_EQ(
+            velox::exec::toPlanStats(taskStats)
+                .at(aggregationNodeId)
+                .outputVectors,
+            barrierExecution ? expectedNumOuputBatchesWithBarrier
+                             : expectedNumOuputBatches);
+      }
+    }
+
+    {
+      core::PlanNodeId aggregationNodeId;
+      auto plan =
+          PlanBuilder(planNodeIdGenerator)
+              .startTableScan()
+              .outputType(std::dynamic_pointer_cast<const RowType>(
+                  inputVectors[0]->type()))
+              .endTableScan()
+              .streamingAggregation(
+                  {"c0"}, {}, {}, core::AggregationNode::Step::kSingle, false)
+              .capturePlanNodeId(aggregationNodeId)
+              .planNode();
+
+      for (const auto barrierExecution : {false, true}) {
+        SCOPED_TRACE(fmt::format("barrierExecution {}", barrierExecution));
+        auto task = AssertQueryBuilder(plan, duckDbQueryRunner_)
+                        .splits(makeHiveConnectorSplits(tempFiles))
+                        .serialExecution(true)
+                        .barrierExecution(barrierExecution)
+                        .config(
+                            core::QueryConfig::kPreferredOutputBatchRows,
+                            std::to_string(outputBatchSize))
+                        .assertResults("SELECT distinct c0 FROM tmp");
+        const auto taskStats = task->taskStats();
+        ASSERT_EQ(taskStats.numBarriers, barrierExecution ? numSplits : 0);
+        ASSERT_EQ(taskStats.numFinishedSplits, numSplits);
+        ASSERT_EQ(
+            velox::exec::toPlanStats(taskStats)
+                .at(aggregationNodeId)
+                .outputVectors,
+            barrierExecution ? expectedNumOuputBatchesWithBarrier
+                             : expectedNumOuputBatches);
+      }
     }
   }
 
@@ -330,12 +508,147 @@ class StreamingAggregationTest : public OperatorTestBase,
           .assertResults(sql);
     }
   }
+
+  void testMultiKeyDistinctAggregationWithBarrier(
+      const std::vector<RowVectorPtr>& keys,
+      uint32_t outputBatchSize) {
+    const auto inputVectors = addPayload(keys);
+    int expectedNumOuputBatchesWithBarrier{0};
+    int numInputRows{0};
+    for (const auto& inputVector : inputVectors) {
+      numInputRows += inputVector->size();
+      if (outputBatchSize > inputVector->size()) {
+        ++expectedNumOuputBatchesWithBarrier;
+      } else {
+        expectedNumOuputBatchesWithBarrier +=
+            bits::divRoundUp(inputVector->size(), outputBatchSize);
+      }
+    }
+    const int expectedNumOuputBatches =
+        bits::divRoundUp(numInputRows, outputBatchSize);
+    std::vector<std::shared_ptr<TempFilePath>> tempFiles;
+    const int numSplits = keys.size();
+    for (int32_t i = 0; i < numSplits; ++i) {
+      tempFiles.push_back(TempFilePath::create());
+    }
+    writeToFiles(toFilePaths(tempFiles), inputVectors);
+
+    createDuckDbTable(inputVectors);
+
+    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+    {
+      core::PlanNodeId aggregationNodeId;
+      auto plan =
+          PlanBuilder(planNodeIdGenerator)
+              .startTableScan()
+              .outputType(std::dynamic_pointer_cast<const RowType>(
+                  inputVectors[0]->type()))
+              .endTableScan()
+              .streamingAggregation(
+                  keys[0]->type()->asRow().names(),
+                  {"count(distinct c1)", "array_agg(c1)", "sumnonpod(1)"},
+                  {},
+                  core::AggregationNode::Step::kSingle,
+                  false)
+              .capturePlanNodeId(aggregationNodeId)
+              .planNode();
+
+      // Generate a list of grouping keys to use in the query: c0, c1, c2,..
+      std::ostringstream keySql;
+      keySql << "c0";
+      for (auto i = 1; i < numKeys(keys); i++) {
+        keySql << ", c" << i;
+      }
+
+      const auto sql = fmt::format(
+          "SELECT {}, count(distinct c1), array_agg(c1), sum(1) FROM tmp GROUP BY {}",
+          keySql.str(),
+          keySql.str());
+
+      for (const auto barrierExecution : {false, true}) {
+        SCOPED_TRACE(fmt::format("barrierExecution {}", barrierExecution));
+        auto task = AssertQueryBuilder(plan, duckDbQueryRunner_)
+                        .splits(makeHiveConnectorSplits(tempFiles))
+                        .serialExecution(true)
+                        .barrierExecution(barrierExecution)
+                        .config(
+                            core::QueryConfig::kPreferredOutputBatchRows,
+                            std::to_string(outputBatchSize))
+                        .assertResults(sql);
+        const auto taskStats = task->taskStats();
+        ASSERT_EQ(taskStats.numBarriers, barrierExecution ? numSplits : 0);
+        ASSERT_EQ(taskStats.numFinishedSplits, numSplits);
+        ASSERT_EQ(
+            velox::exec::toPlanStats(taskStats)
+                .at(aggregationNodeId)
+                .outputVectors,
+            barrierExecution ? expectedNumOuputBatchesWithBarrier
+                             : expectedNumOuputBatches);
+        EXPECT_EQ(NonPODInt64::constructed, NonPODInt64::destructed);
+      }
+    }
+
+    {
+      core::PlanNodeId aggregationNodeId;
+      auto plan = PlanBuilder(planNodeIdGenerator)
+                      .startTableScan()
+                      .outputType(std::dynamic_pointer_cast<const RowType>(
+                          inputVectors[0]->type()))
+                      .endTableScan()
+                      .streamingAggregation(
+                          keys[0]->type()->asRow().names(),
+                          {},
+                          {},
+                          core::AggregationNode::Step::kSingle,
+                          false)
+                      .capturePlanNodeId(aggregationNodeId)
+                      .planNode();
+
+      // Generate a list of grouping keys to use in the query: c0, c1, c2,..
+      std::ostringstream keySql;
+      keySql << "c0";
+      for (auto i = 1; i < numKeys(keys); i++) {
+        keySql << ", c" << i;
+      }
+
+      const auto sql = fmt::format("SELECT distinct {} FROM tmp", keySql.str());
+
+      for (const auto barrierExecution : {false, true}) {
+        SCOPED_TRACE(fmt::format("barrierExecution {}", barrierExecution));
+        auto task = AssertQueryBuilder(plan, duckDbQueryRunner_)
+                        .splits(makeHiveConnectorSplits(tempFiles))
+                        .serialExecution(true)
+                        .barrierExecution(barrierExecution)
+                        .config(
+                            core::QueryConfig::kPreferredOutputBatchRows,
+                            std::to_string(outputBatchSize))
+                        .assertResults(sql);
+        const auto taskStats = task->taskStats();
+        ASSERT_EQ(taskStats.numBarriers, barrierExecution ? numSplits : 0);
+        ASSERT_EQ(taskStats.numFinishedSplits, numSplits);
+        ASSERT_EQ(
+            velox::exec::toPlanStats(taskStats)
+                .at(aggregationNodeId)
+                .outputVectors,
+            barrierExecution ? expectedNumOuputBatchesWithBarrier
+                             : expectedNumOuputBatches);
+        EXPECT_EQ(NonPODInt64::constructed, NonPODInt64::destructed);
+      }
+    }
+  }
 };
 
 VELOX_INSTANTIATE_TEST_SUITE_P(
-    ,
     StreamingAggregationTest,
-    testing::ValuesIn({0, 1, 64, std::numeric_limits<int32_t>::max()}));
+    StreamingAggregationTest,
+    testing::ValuesIn({0, 1, 64, std::numeric_limits<int32_t>::max()}),
+    [](const testing::TestParamInfo<int32_t>& info) {
+      return fmt::format(
+          "streamingMinOutputBatchSize_{}",
+          info.param == std::numeric_limits<int32_t>::max()
+              ? "inf"
+              : std::to_string(info.param));
+    });
 
 TEST_P(StreamingAggregationTest, smallInputBatches) {
   // Use grouping keys that span one or more batches.
@@ -565,5 +878,130 @@ TEST_P(StreamingAggregationTest, clusteredInput) {
   }
 }
 
+TEST_P(StreamingAggregationTest, sortedAggregationsWithBarrier) {
+  const auto size = 1024;
+  const std::vector<VectorPtr> keys = {
+      makeFlatVector<int32_t>(size, [](auto row) { return row; }),
+      makeFlatVector<int32_t>(size, [size](auto row) { return (size + row); }),
+      makeFlatVector<int32_t>(
+          size, [size](auto row) { return (2 * size + row); }),
+      makeFlatVector<int32_t>(
+          78, [size](auto row) { return (3 * size + row); }),
+  };
+
+  testSortedAggregationWithBarrier(keys, 1024);
+  testSortedAggregationWithBarrier(keys, 32);
+}
+
+TEST_P(StreamingAggregationTest, clusteredInputWithBarrier) {
+  const std::vector<VectorPtr> keys = {
+      makeNullableFlatVector<int32_t>({1, 2, std::nullopt, 3, 4}),
+      makeFlatVector<int32_t>({9, 10, 11, 12}),
+      makeFlatVector<int32_t>({17, 18, 19}),
+  };
+  auto inputVectors = addPayload(keys, 1);
+  std::vector<std::shared_ptr<TempFilePath>> tempFiles;
+  const int numSplits = keys.size();
+  for (int32_t i = 0; i < numSplits; ++i) {
+    tempFiles.push_back(TempFilePath::create());
+  }
+  writeToFiles(toFilePaths(tempFiles), inputVectors);
+
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  core::PlanNodeId streamingAggregationNodeId;
+  auto plan = PlanBuilder(planNodeIdGenerator)
+                  .startTableScan()
+                  .outputType(std::dynamic_pointer_cast<const RowType>(
+                      inputVectors[0]->type()))
+                  .endTableScan()
+                  .partialStreamingAggregation(
+                      {"c0"}, {"count(c1)", "arbitrary(c1)", "array_agg(c1)"})
+                  .capturePlanNodeId(streamingAggregationNodeId)
+                  .finalAggregation()
+                  .planNode();
+  const auto expected = makeRowVector(
+      {makeNullableFlatVector<int32_t>(
+           {1, 2, std::nullopt, 3, 4, 9, 10, 11, 12, 17, 18, 19}),
+       makeFlatVector<int64_t>({1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}),
+       makeFlatVector<int32_t>({0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}),
+       makeArrayVector<int32_t>(
+           {{0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9}, {10}, {11}})});
+  struct {
+    int batchSize;
+    bool barrierExecution;
+
+    std::string debugString() const {
+      return fmt::format(
+          "batchSize={}, barrierExecution={}", batchSize, barrierExecution);
+    }
+  } testSettings[] = {{3, true}, {3, false}, {20, true}, {20, false}};
+
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+    int expectedNumOuputBatchesWithBarrier{0};
+    int numInputRows{0};
+    for (const auto& inputVector : inputVectors) {
+      numInputRows += inputVector->size();
+      if (testData.batchSize > inputVector->size()) {
+        ++expectedNumOuputBatchesWithBarrier;
+      } else {
+        expectedNumOuputBatchesWithBarrier +=
+            bits::divRoundUp(inputVector->size(), testData.batchSize);
+      }
+    }
+    const int expectedNumOuputBatches =
+        bits::divRoundUp(numInputRows, testData.batchSize);
+
+    auto task = AssertQueryBuilder(plan, duckDbQueryRunner_)
+                    .splits(makeHiveConnectorSplits(tempFiles))
+                    .serialExecution(true)
+                    .barrierExecution(testData.barrierExecution)
+                    .config(
+                        core::QueryConfig::kPreferredOutputBatchRows,
+                        std::to_string(testData.batchSize))
+                    .assertResults(expected);
+    const auto taskStats = task->taskStats();
+    ASSERT_EQ(taskStats.numBarriers, testData.barrierExecution ? numSplits : 0);
+    ASSERT_EQ(taskStats.numFinishedSplits, numSplits);
+    ASSERT_EQ(
+        velox::exec::toPlanStats(taskStats)
+            .at(streamingAggregationNodeId)
+            .outputVectors,
+        testData.barrierExecution ? expectedNumOuputBatchesWithBarrier
+                                  : expectedNumOuputBatches);
+  }
+}
+
+TEST_P(StreamingAggregationTest, distinctAggregationsWithBarrier) {
+  const auto size = 1024;
+  const std::vector<VectorPtr> keys = {
+      makeFlatVector<int32_t>(size, [](auto row) { return row; }),
+      makeFlatVector<int32_t>(size, [size](auto row) { return (size + row); }),
+      makeFlatVector<int32_t>(
+          size, [size](auto row) { return (2 * size + row); }),
+      makeFlatVector<int32_t>(
+          78, [size](auto row) { return (3 * size + row); }),
+  };
+
+  testDistinctAggregationWithBarrier(keys, 1024);
+  testDistinctAggregationWithBarrier(keys, 32);
+
+  std::vector<RowVectorPtr> multiKeys = {
+      makeRowVector({
+          makeFlatVector<int32_t>({1, 1, 2, 2, 2}),
+          makeFlatVector<int64_t>({10, 20, 20, 30, 40}),
+      }),
+      makeRowVector({
+          makeFlatVector<int32_t>({3, 3, 3, 3, 4}),
+          makeFlatVector<int64_t>({30, 40, 50, 60, 40}),
+      }),
+      makeRowVector({
+          makeNullableFlatVector<int32_t>({5, 5, 6, 6, 6}),
+          makeNullableFlatVector<int64_t>({40, 50, 60, 70, 80}),
+      }),
+  };
+  testMultiKeyDistinctAggregationWithBarrier(multiKeys, 1024);
+  testMultiKeyDistinctAggregationWithBarrier(multiKeys, 3);
+}
 } // namespace
 } // namespace facebook::velox::exec

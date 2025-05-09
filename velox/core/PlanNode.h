@@ -1187,6 +1187,10 @@ class AggregationNode : public PlanNode {
     std::optional<PlanNodePtr> source_;
   };
 
+  bool supportsBarrier() const override {
+    return isPreGrouped();
+  }
+
   const std::vector<PlanNodePtr>& sources() const override {
     return sources_;
   }

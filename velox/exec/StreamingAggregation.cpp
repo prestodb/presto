@@ -135,7 +135,7 @@ bool equalKeys(
 
 char* StreamingAggregation::startNewGroup(vector_size_t index) {
   if (numGroups_ < groups_.size()) {
-    auto group = groups_[numGroups_++];
+    auto* group = groups_[numGroups_++];
     rows_->initializeRow(group, true);
     storeKeys(group, index);
     return group;
@@ -162,7 +162,7 @@ RowVectorPtr StreamingAggregation::createOutput(size_t numGroups) {
     rows_->extractColumn(groups_.data(), numGroups, i, output->childAt(i));
   }
 
-  auto numKeys = groupingKeys_.size();
+  const auto numKeys = groupingKeys_.size();
   for (auto i = 0; i < aggregates_.size(); ++i) {
     const auto& aggregate = aggregates_.at(i);
     if (!aggregate.sortingKeys.empty()) {
@@ -201,14 +201,15 @@ RowVectorPtr StreamingAggregation::createOutput(size_t numGroups) {
 }
 
 void StreamingAggregation::assignGroups() {
-  auto numInput = input_->size();
+  const auto numInput = input_->size();
+  VELOX_CHECK_GT(numInput, 0);
 
   inputGroups_.resize(numInput);
 
   // Look for the end of the last group.
   vector_size_t index = 0;
-  if (prevInput_) {
-    auto prevIndex = prevInput_->size() - 1;
+  if (prevInput_ != nullptr) {
+    const auto prevIndex = prevInput_->size() - 1;
     auto* prevGroup = groups_[numGroups_ - 1];
     for (; index < numInput; ++index) {
       if (equalKeys(groupingKeys_, prevInput_, prevIndex, input_, index)) {
@@ -244,7 +245,6 @@ void StreamingAggregation::assignGroups() {
       groupBoundaries_.push_back(i);
     }
   }
-  VELOX_CHECK_GT(numInput, 0);
   groupBoundaries_.push_back(numInput);
 }
 
@@ -303,40 +303,55 @@ void StreamingAggregation::evaluateAggregates() {
   }
 }
 
+bool StreamingAggregation::startDrain() {
+  VELOX_CHECK(isDraining());
+  VELOX_CHECK(!noMoreInput_);
+  if (!input_ && numGroups_ == 0) {
+    return false;
+  }
+  return true;
+}
+
+void StreamingAggregation::finishDrain() {
+  prevInput_ = nullptr;
+  Operator::finishDrain();
+}
+
 bool StreamingAggregation::isFinished() {
   return noMoreInput_ && input_ == nullptr && numGroups_ == 0;
 }
 
 RowVectorPtr StreamingAggregation::getOutput() {
   if (!input_) {
-    if (noMoreInput_ && numGroups_ > 0) {
-      return createOutput(numGroups_);
+    if ((noMoreInput_ || isDraining()) && numGroups_ > 0) {
+      return createOutput(
+          std::min(numGroups_, static_cast<size_t>(maxOutputBatchSize_)));
+    }
+    if (isDraining() && numGroups_ == 0) {
+      finishDrain();
     }
     return nullptr;
   }
 
-  auto numInput = input_->size();
+  const auto numInput = input_->size();
   inputRows_.resize(numInput);
   inputRows_.setAll();
 
   masks_->addInput(input_, inputRows_);
 
-  auto numPrevGroups = numGroups_;
+  const auto numPrevGroups = numGroups_;
 
   assignGroups();
   initializeNewGroups(numPrevGroups);
   evaluateAggregates();
 
   RowVectorPtr output;
-
   if (numGroups_ > minOutputBatchSize_) {
     output = createOutput(
         std::min(numGroups_ - 1, static_cast<size_t>(maxOutputBatchSize_)));
   }
-
   prevInput_ = input_;
   input_ = nullptr;
-
   return output;
 }
 

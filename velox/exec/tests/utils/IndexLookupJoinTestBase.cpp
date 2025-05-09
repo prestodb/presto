@@ -237,9 +237,7 @@ facebook::velox::core::PlanNodePtr IndexLookupJoinTestBase::makeLookupPlan(
     const std::vector<std::string>& rightKeys,
     const std::vector<std::string>& joinConditions,
     facebook::velox::core::JoinType joinType,
-    const std::vector<std::string>& outputColumns,
-    facebook::velox::core::PlanNodeId& joinNodeId,
-    facebook::velox::core::PlanNodeId& probeScanNodeId) {
+    const std::vector<std::string>& outputColumns) {
   VELOX_CHECK_EQ(leftKeys.size(), rightKeys.size());
   VELOX_CHECK_LE(leftKeys.size(), keyType_->size());
   return facebook::velox::exec::test::PlanBuilder(
@@ -247,7 +245,7 @@ facebook::velox::core::PlanNodePtr IndexLookupJoinTestBase::makeLookupPlan(
       .startTableScan()
       .outputType(probeType_)
       .endTableScan()
-      .captureScanNodeId(probeScanNodeId)
+      .captureScanNodeId(probeScanNodeId_)
       .indexLookupJoin(
           leftKeys,
           rightKeys,
@@ -255,7 +253,7 @@ facebook::velox::core::PlanNodePtr IndexLookupJoinTestBase::makeLookupPlan(
           joinConditions,
           outputColumns,
           joinType)
-      .capturePlanNodeId(joinNodeId)
+      .capturePlanNodeId(joinNodeId_)
       .planNode();
 }
 
@@ -285,7 +283,6 @@ IndexLookupJoinTestBase::makeIndexScanNode(
     const std::shared_ptr<facebook::velox::connector::ConnectorTableHandle>
         indexTableHandle,
     const facebook::velox::RowTypePtr& outputType,
-    facebook::velox::core::PlanNodeId& scanNodeId,
     std::unordered_map<
         std::string,
         std::shared_ptr<facebook::velox::connector::ColumnHandle>>&
@@ -300,7 +297,7 @@ IndexLookupJoinTestBase::makeIndexScanNode(
               .outputType(outputType)
               .assignments(assignments)
               .endTableScan()
-              .capturePlanNodeId(scanNodeId)
+              .capturePlanNodeId(indexScanNodeId_)
               .planNode());
   VELOX_CHECK_NOT_NULL(indexTableScan);
   return indexTableScan;
@@ -391,7 +388,6 @@ IndexLookupJoinTestBase::runLookupQuery(
 std::shared_ptr<facebook::velox::exec::Task>
 IndexLookupJoinTestBase::runLookupQuery(
     const facebook::velox::core::PlanNodePtr& plan,
-    const facebook::velox::core::PlanNodeId& probeScanNodeId,
     const std::vector<
         std::shared_ptr<facebook::velox::exec::test::TempFilePath>>& probeFiles,
     bool serialExecution,
@@ -401,7 +397,7 @@ IndexLookupJoinTestBase::runLookupQuery(
     const std::string& duckDbVefifySql) {
   return facebook::velox::exec::test::AssertQueryBuilder(duckDbQueryRunner_)
       .plan(plan)
-      .splits(probeScanNodeId, makeHiveConnectorSplits(probeFiles))
+      .splits(probeScanNodeId_, makeHiveConnectorSplits(probeFiles))
       .serialExecution(serialExecution)
       .barrierExecution(barrierExecution)
       .config(

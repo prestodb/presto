@@ -33,8 +33,7 @@ class AggregationMasks {
 
   // Return prepared selectivity vector for a given aggregation. Must be called
   // after calling addInput().
-  const SelectivityVector* FOLLY_NULLABLE
-  activeRows(int32_t aggregationIndex) const;
+  const SelectivityVector* activeRows(int32_t aggregationIndex) const;
 
  private:
   std::vector<std::optional<column_index_t>> maskChannels_;

@@ -61,14 +61,13 @@ void AggregationMasks::addInput(
   }
 }
 
-const SelectivityVector* FOLLY_NULLABLE
-AggregationMasks::activeRows(int32_t aggregationIndex) const {
-  if (maskChannels_[aggregationIndex].has_value()) {
-    auto it = maskedRows_.find(maskChannels_[aggregationIndex].value());
-    VELOX_CHECK(it != maskedRows_.end());
-    return &it->second;
+const SelectivityVector* AggregationMasks::activeRows(
+    int32_t aggregationIndex) const {
+  if (!maskChannels_[aggregationIndex].has_value()) {
+    return nullptr;
   }
-
-  return nullptr;
+  auto it = maskedRows_.find(maskChannels_[aggregationIndex].value());
+  VELOX_CHECK(it != maskedRows_.end());
+  return &it->second;
 }
 } // namespace facebook::velox::exec

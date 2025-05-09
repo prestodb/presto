@@ -801,18 +801,14 @@ TEST_P(IndexLookupJoinTest, equalJoin) {
     const auto indexTableHandle =
         makeIndexTableHandle(indexTable, GetParam().asyncLookup);
     auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
-    core::PlanNodeId indexScanNodeId;
     std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
         columnHandles;
     const auto indexScanNode = makeIndexScanNode(
         planNodeIdGenerator,
         indexTableHandle,
         makeScanOutputType(testData.scanOutputColumns),
-        indexScanNodeId,
         columnHandles);
 
-    core::PlanNodeId joinNodeId;
-    core::PlanNodeId probeScanNodeId;
     auto plan = makeLookupPlan(
         planNodeIdGenerator,
         indexScanNode,
@@ -820,12 +816,9 @@ TEST_P(IndexLookupJoinTest, equalJoin) {
         {"u0", "u1", "u2"},
         {},
         testData.joinType,
-        testData.outputColumns,
-        joinNodeId,
-        probeScanNodeId);
+        testData.outputColumns);
     runLookupQuery(
         plan,
-        probeScanNodeId,
         probeFiles,
         GetParam().serialExecution,
         GetParam().serialExecution,
@@ -1263,18 +1256,14 @@ TEST_P(IndexLookupJoinTest, betweenJoinCondition) {
     const auto indexTableHandle =
         makeIndexTableHandle(indexTable, GetParam().asyncLookup);
     auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
-    core::PlanNodeId indexScanNodeId;
     std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
         columnHandles;
     const auto indexScanNode = makeIndexScanNode(
         planNodeIdGenerator,
         indexTableHandle,
         makeScanOutputType(testData.lookupOutputColumns),
-        indexScanNodeId,
         columnHandles);
 
-    core::PlanNodeId joinNodeId;
-    core::PlanNodeId probeScanNodeId;
     auto plan = makeLookupPlan(
         planNodeIdGenerator,
         indexScanNode,
@@ -1282,12 +1271,9 @@ TEST_P(IndexLookupJoinTest, betweenJoinCondition) {
         {"u0", "u1"},
         {testData.betweenCondition},
         testData.joinType,
-        testData.outputColumns,
-        joinNodeId,
-        probeScanNodeId);
+        testData.outputColumns);
     runLookupQuery(
         plan,
-        probeScanNodeId,
         probeFiles,
         GetParam().serialExecution,
         GetParam().serialExecution,
@@ -1591,18 +1577,14 @@ TEST_P(IndexLookupJoinTest, inJoinCondition) {
     const auto indexTableHandle =
         makeIndexTableHandle(indexTable, GetParam().asyncLookup);
     auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
-    core::PlanNodeId indexScanNodeId;
     std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
         columnHandles;
     const auto indexScanNode = makeIndexScanNode(
         planNodeIdGenerator,
         indexTableHandle,
         makeScanOutputType(testData.lookupOutputColumns),
-        indexScanNodeId,
         columnHandles);
 
-    core::PlanNodeId joinNodeId;
-    core::PlanNodeId probeScanNodeId;
     auto plan = makeLookupPlan(
         planNodeIdGenerator,
         indexScanNode,
@@ -1610,12 +1592,9 @@ TEST_P(IndexLookupJoinTest, inJoinCondition) {
         {"u0", "u1"},
         {testData.inCondition},
         testData.joinType,
-        testData.outputColumns,
-        joinNodeId,
-        probeScanNodeId);
+        testData.outputColumns);
     runLookupQuery(
         plan,
-        probeScanNodeId,
         probeFiles,
         GetParam().serialExecution,
         GetParam().serialExecution,
@@ -1649,18 +1628,14 @@ DEBUG_ONLY_TEST_P(IndexLookupJoinTest, connectorError) {
   const auto indexTableHandle =
       makeIndexTableHandle(indexTable, GetParam().asyncLookup);
   auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
-  core::PlanNodeId indexScanNodeId;
   std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
       columnHandles;
   const auto indexScanNode = makeIndexScanNode(
       planNodeIdGenerator,
       indexTableHandle,
       makeScanOutputType({"u0", "u1", "u2", "u5"}),
-      indexScanNodeId,
       columnHandles);
 
-  core::PlanNodeId joinNodeId;
-  core::PlanNodeId probeScanNodeId;
   auto plan = makeLookupPlan(
       planNodeIdGenerator,
       indexScanNode,
@@ -1668,13 +1643,10 @@ DEBUG_ONLY_TEST_P(IndexLookupJoinTest, connectorError) {
       {"u0", "u1", "u2"},
       {},
       core::JoinType::kInner,
-      {"u0", "u1", "u2", "t5"},
-      joinNodeId,
-      probeScanNodeId);
+      {"u0", "u1", "u2", "t5"});
   VELOX_ASSERT_THROW(
       runLookupQuery(
           plan,
-          probeScanNodeId,
           probeFiles,
           GetParam().serialExecution,
           GetParam().serialExecution,
@@ -1725,18 +1697,14 @@ DEBUG_ONLY_TEST_P(IndexLookupJoinTest, prefetch) {
   const auto indexTableHandle =
       makeIndexTableHandle(indexTable, GetParam().asyncLookup);
   auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
-  core::PlanNodeId indexScanNodeId;
   std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
       columnHandles;
   const auto indexScanNode = makeIndexScanNode(
       planNodeIdGenerator,
       indexTableHandle,
       makeScanOutputType({"u0", "u1", "u2", "u3", "u5"}),
-      indexScanNodeId,
       columnHandles);
 
-  core::PlanNodeId joinNodeId;
-  core::PlanNodeId probeScanNodeId;
   auto plan = makeLookupPlan(
       planNodeIdGenerator,
       indexScanNode,
@@ -1744,13 +1712,10 @@ DEBUG_ONLY_TEST_P(IndexLookupJoinTest, prefetch) {
       {"u0", "u1", "u2"},
       {},
       core::JoinType::kInner,
-      {"u3", "t5"},
-      joinNodeId,
-      probeScanNodeId);
+      {"u3", "t5"});
   std::thread queryThread([&] {
     runLookupQuery(
         plan,
-        probeScanNodeId,
         probeFiles,
         GetParam().serialExecution,
         GetParam().serialExecution,
@@ -1821,18 +1786,14 @@ TEST_P(IndexLookupJoinTest, outputBatchSize) {
     const auto indexTableHandle =
         makeIndexTableHandle(indexTable, GetParam().asyncLookup);
     auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
-    core::PlanNodeId indexScanNodeId;
     std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
         columnHandles;
     const auto indexScanNode = makeIndexScanNode(
         planNodeIdGenerator,
         indexTableHandle,
         makeScanOutputType({"u0", "u1", "u2", "u5"}),
-        indexScanNodeId,
         columnHandles);
 
-    core::PlanNodeId joinNodeId;
-    core::PlanNodeId probeScanNodeId;
     auto plan = makeLookupPlan(
         planNodeIdGenerator,
         indexScanNode,
@@ -1840,9 +1801,7 @@ TEST_P(IndexLookupJoinTest, outputBatchSize) {
         {"u0", "u1", "u2"},
         {},
         core::JoinType::kInner,
-        {"t4", "u5"},
-        joinNodeId,
-        probeScanNodeId);
+        {"t4", "u5"});
     const auto task =
         AssertQueryBuilder(duckDbQueryRunner_)
             .plan(plan)
@@ -1855,13 +1814,13 @@ TEST_P(IndexLookupJoinTest, outputBatchSize) {
             .config(
                 core::QueryConfig::kPreferredOutputBatchBytes,
                 std::to_string(1ULL << 30))
-            .splits(probeScanNodeId, makeHiveConnectorSplits(probeFiles))
+            .splits(probeScanNodeId_, makeHiveConnectorSplits(probeFiles))
             .serialExecution(GetParam().serialExecution)
             .barrierExecution(GetParam().serialExecution)
             .assertResults(
                 "SELECT t.c4, u.c5 FROM t, u WHERE t.c0 = u.c0 AND t.c1 = u.c1 AND t.c2 = u.c2");
     ASSERT_EQ(
-        toPlanStats(task->taskStats()).at(joinNodeId).outputVectors,
+        toPlanStats(task->taskStats()).at(joinNodeId_).outputVectors,
         testData.numExpectedOutputBatch);
   }
 }
@@ -1896,18 +1855,14 @@ DEBUG_ONLY_TEST_P(IndexLookupJoinTest, runtimeStats) {
   const auto indexTableHandle =
       makeIndexTableHandle(indexTable, GetParam().asyncLookup);
   auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
-  core::PlanNodeId indexScanNodeId;
   std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
       columnHandles;
   const auto indexScanNode = makeIndexScanNode(
       planNodeIdGenerator,
       indexTableHandle,
       makeScanOutputType({"u0", "u1", "u2", "u3", "u5"}),
-      indexScanNodeId,
       columnHandles);
 
-  core::PlanNodeId joinNodeId;
-  core::PlanNodeId probeScanNodeId;
   auto plan = makeLookupPlan(
       planNodeIdGenerator,
       indexScanNode,
@@ -1915,12 +1870,9 @@ DEBUG_ONLY_TEST_P(IndexLookupJoinTest, runtimeStats) {
       {"u0", "u1", "u2"},
       {},
       core::JoinType::kInner,
-      {"u3", "t5"},
-      joinNodeId,
-      probeScanNodeId);
+      {"u3", "t5"});
   auto task = runLookupQuery(
       plan,
-      probeScanNodeId,
       probeFiles,
       GetParam().serialExecution,
       GetParam().serialExecution,
@@ -1929,7 +1881,7 @@ DEBUG_ONLY_TEST_P(IndexLookupJoinTest, runtimeStats) {
       "SELECT u.c3, t.c5 FROM t, u WHERE t.c0 = u.c0 AND t.c1 = u.c1 AND t.c2 = u.c2");
 
   auto taskStats = toPlanStats(task->taskStats());
-  auto& operatorStats = taskStats.at(joinNodeId);
+  auto& operatorStats = taskStats.at(joinNodeId_);
   ASSERT_EQ(operatorStats.backgroundTiming.count, numProbeBatches);
   ASSERT_GT(operatorStats.backgroundTiming.cpuNanos, 0);
   ASSERT_GT(operatorStats.backgroundTiming.wallNanos, 0);
@@ -1990,18 +1942,14 @@ TEST_P(IndexLookupJoinTest, barrier) {
   const auto indexTableHandle =
       makeIndexTableHandle(indexTable, GetParam().asyncLookup);
   auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
-  core::PlanNodeId indexScanNodeId;
   std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
       columnHandles;
   const auto indexScanNode = makeIndexScanNode(
       planNodeIdGenerator,
       indexTableHandle,
       makeScanOutputType({"u0", "u1", "u2", "u3", "u5"}),
-      indexScanNodeId,
       columnHandles);
 
-  core::PlanNodeId joinNodeId;
-  core::PlanNodeId probeScanNodeId;
   auto plan = makeLookupPlan(
       planNodeIdGenerator,
       indexScanNode,
@@ -2009,9 +1957,7 @@ TEST_P(IndexLookupJoinTest, barrier) {
       {"u0", "u1", "u2"},
       {},
       core::JoinType::kInner,
-      {"u3", "t5"},
-      joinNodeId,
-      probeScanNodeId);
+      {"u3", "t5"});
 
   struct {
     int numPrefetches;
@@ -2037,7 +1983,6 @@ TEST_P(IndexLookupJoinTest, barrier) {
     SCOPED_TRACE(testData.debugString());
     auto task = runLookupQuery(
         plan,
-        probeScanNodeId,
         probeFiles,
         true,
         testData.barrierExecution,
@@ -2068,7 +2013,6 @@ TEST_P(IndexLookupJoinTest, joinFuzzer) {
   const auto indexTableHandle =
       makeIndexTableHandle(indexTable, GetParam().asyncLookup);
   auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
-  core::PlanNodeId indexScanNodeId;
   auto scanOutput = tableType_->names();
   std::random_device rd;
   std::mt19937 g(rd());
@@ -2079,11 +2023,8 @@ TEST_P(IndexLookupJoinTest, joinFuzzer) {
       planNodeIdGenerator,
       indexTableHandle,
       makeScanOutputType(scanOutput),
-      indexScanNodeId,
       columnHandles);
 
-  core::PlanNodeId joinNodeId;
-  core::PlanNodeId probeScanNodeId;
   auto plan = makeLookupPlan(
       planNodeIdGenerator,
       indexScanNode,
@@ -2091,12 +2032,9 @@ TEST_P(IndexLookupJoinTest, joinFuzzer) {
       {"u0"},
       {"contains(t4, u1)", "u2 between t1 and t2"},
       core::JoinType::kInner,
-      {"u0", "u4", "t0", "t1", "t4"},
-      joinNodeId,
-      probeScanNodeId);
+      {"u0", "u4", "t0", "t1", "t4"});
   runLookupQuery(
       plan,
-      probeScanNodeId,
       probeFiles,
       GetParam().serialExecution,
       GetParam().serialExecution,

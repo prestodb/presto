@@ -327,7 +327,8 @@ core::PlanNodePtr PlanBuilder::TableWriterBuilder::build(core::PlanNodeId id) {
         aggregatesAndNames.aggregates,
         false,
         upstreamNode);
-    VELOX_CHECK(!aggregationNode->supportsBarrier());
+    VELOX_CHECK_EQ(
+        aggregationNode->supportsBarrier(), aggregationNode->isPreGrouped());
   }
 
   const auto writeNode = std::make_shared<core::TableWriteNode>(
@@ -785,7 +786,8 @@ core::PlanNodePtr PlanBuilder::createIntermediateOrFinalAggregation(
       aggregates,
       partialAggNode->ignoreNullKeys(),
       planNode_);
-  VELOX_CHECK(!aggregationNode->supportsBarrier());
+  VELOX_CHECK_EQ(
+      aggregationNode->supportsBarrier(), aggregationNode->isPreGrouped());
   return aggregationNode;
 }
 
@@ -978,7 +980,7 @@ PlanBuilder& PlanBuilder::aggregation(
     }
   }
 
-  planNode_ = std::make_shared<core::AggregationNode>(
+  auto aggregationNode = std::make_shared<core::AggregationNode>(
       nextPlanNodeId(),
       step,
       fields(groupingKeys),
@@ -989,7 +991,9 @@ PlanBuilder& PlanBuilder::aggregation(
       groupId,
       ignoreNullKeys,
       planNode_);
-  VELOX_CHECK(!planNode_->supportsBarrier());
+  VELOX_CHECK_EQ(
+      aggregationNode->supportsBarrier(), aggregationNode->isPreGrouped());
+  planNode_ = std::move(aggregationNode);
   return *this;
 }
 
@@ -1001,7 +1005,7 @@ PlanBuilder& PlanBuilder::streamingAggregation(
     bool ignoreNullKeys) {
   auto aggregatesAndNames =
       createAggregateExpressionsAndNames(aggregates, masks, step);
-  planNode_ = std::make_shared<core::AggregationNode>(
+  auto aggregationNode = std::make_shared<core::AggregationNode>(
       nextPlanNodeId(),
       step,
       fields(groupingKeys),
@@ -1010,7 +1014,9 @@ PlanBuilder& PlanBuilder::streamingAggregation(
       aggregatesAndNames.aggregates,
       ignoreNullKeys,
       planNode_);
-  VELOX_CHECK(!planNode_->supportsBarrier());
+  VELOX_CHECK_EQ(
+      aggregationNode->supportsBarrier(), aggregationNode->isPreGrouped());
+  planNode_ = std::move(aggregationNode);
   return *this;
 }
 

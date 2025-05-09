@@ -111,9 +111,7 @@ class IndexLookupJoinTestBase
       const std::vector<std::string>& rightKeys,
       const std::vector<std::string>& joinConditions,
       facebook::velox::core::JoinType joinType,
-      const std::vector<std::string>& outputColumns,
-      facebook::velox::core::PlanNodeId& joinNodeId,
-      facebook::velox::core::PlanNodeId& probeScanNodeId);
+      const std::vector<std::string>& outputColumns);
 
   void createDuckDbTable(
       const std::string& tableName,
@@ -121,15 +119,12 @@ class IndexLookupJoinTestBase
 
   /// Makes index table scan node with the specified index table handle.
   /// @param outputType: the output schema of the index table scan node.
-  /// @param scanNodeId: returns the plan node id of the index table scan
-  /// node.
   facebook::velox::core::TableScanNodePtr makeIndexScanNode(
       const std::shared_ptr<facebook::velox::core::PlanNodeIdGenerator>&
           planNodeIdGenerator,
       const std::shared_ptr<facebook::velox::connector::ConnectorTableHandle>
           indexTableHandle,
       const facebook::velox::RowTypePtr& outputType,
-      facebook::velox::core::PlanNodeId& scanNodeId,
       std::unordered_map<
           std::string,
           std::shared_ptr<facebook::velox::connector::ColumnHandle>>&
@@ -165,7 +160,6 @@ class IndexLookupJoinTestBase
 
   std::shared_ptr<facebook::velox::exec::Task> runLookupQuery(
       const facebook::velox::core::PlanNodePtr& plan,
-      const facebook::velox::core::PlanNodeId& probeScanId,
       const std::vector<
           std::shared_ptr<facebook::velox::exec::test::TempFilePath>>&
           probeFiles,
@@ -180,5 +174,8 @@ class IndexLookupJoinTestBase
   facebook::velox::RowTypePtr valueType_;
   facebook::velox::RowTypePtr tableType_;
   facebook::velox::RowTypePtr probeType_;
+  facebook::velox::core::PlanNodeId joinNodeId_;
+  facebook::velox::core::PlanNodeId indexScanNodeId_;
+  facebook::velox::core::PlanNodeId probeScanNodeId_;
 };
 } // namespace fecebook::velox::exec::test
