@@ -20,7 +20,6 @@
 #include <gtest/gtest.h>
 #include <cstdint>
 #include <unordered_map>
-#include <unordered_set>
 #include "velox/common/base/Counters.h"
 #include "velox/common/base/PeriodicStatsReporter.h"
 #include "velox/common/base/tests/GTestUtils.h"
@@ -464,12 +463,15 @@ TEST_F(PeriodicStatsReporterTest, basic) {
     ASSERT_EQ(counterMap.count(kMetricSsdCacheCachedRegions.str()), 1);
     ASSERT_EQ(counterMap.count(kMetricSsdCacheCachedBytes.str()), 1);
     ASSERT_EQ(counterMap.count(kMetricCacheMaxAgeSecs.str()), 1);
-    ASSERT_EQ(counterMap.count(kMetricMappedMemoryBytes.str()), 1);
-    ASSERT_EQ(counterMap.count(kMetricAllocatedMemoryBytes.str()), 1);
-    ASSERT_EQ(counterMap.count(kMetricMmapDelegatedAllocBytes.str()), 1);
-    ASSERT_EQ(counterMap.count(kMetricMmapExternalMappedBytes.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricMemoryAllocatorMappedBytes.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricMemoryAllocatorAllocatedBytes.str()), 1);
+    ASSERT_EQ(
+        counterMap.count(kMetricMmapAllocatorDelegatedAllocatedBytes.str()), 1);
+    ASSERT_EQ(
+        counterMap.count(kMetricMmapAllocatorExternalMappedBytes.str()), 1);
     ASSERT_EQ(counterMap.count(kMetricSpillMemoryBytes.str()), 1);
     ASSERT_EQ(counterMap.count(kMetricSpillPeakMemoryBytes.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricMemoryAllocatorTotalUsedBytes.str()), 1);
     // Check deltas are not reported
     ASSERT_EQ(counterMap.count(kMetricMemoryCacheNumHits.str()), 0);
     ASSERT_EQ(counterMap.count(kMetricMemoryCacheHitBytes.str()), 0);
@@ -503,7 +505,7 @@ TEST_F(PeriodicStatsReporterTest, basic) {
     ASSERT_EQ(counterMap.count(kMetricSsdCacheAgedOutRegions.str()), 0);
     ASSERT_EQ(counterMap.count(kMetricSsdCacheRecoveredEntries.str()), 0);
     ASSERT_EQ(counterMap.count(kMetricSsdCacheReadWithoutChecksum.str()), 0);
-    ASSERT_EQ(counterMap.size(), 22);
+    ASSERT_EQ(counterMap.size(), 23);
   }
 
   // Update stats
@@ -586,7 +588,7 @@ TEST_F(PeriodicStatsReporterTest, basic) {
     ASSERT_EQ(counterMap.count(kMetricSsdCacheAgedOutRegions.str()), 1);
     ASSERT_EQ(counterMap.count(kMetricSsdCacheRecoveredEntries.str()), 1);
     ASSERT_EQ(counterMap.count(kMetricSsdCacheReadWithoutChecksum.str()), 1);
-    ASSERT_EQ(counterMap.size(), 54);
+    ASSERT_EQ(counterMap.size(), 55);
   }
 }
 

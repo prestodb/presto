@@ -72,24 +72,33 @@ void registerVeloxMetrics() {
   // the bytes that are either currently being allocated or were in the past
   // allocated, not yet been returned back to the operating system, in the
   // form of 'Allocation' or 'ContiguousAllocation'.
-  DEFINE_METRIC(kMetricMappedMemoryBytes, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(
+      kMetricMemoryAllocatorMappedBytes, facebook::velox::StatType::AVG);
 
   // Number of bytes currently allocated (used) from MemoryAllocator in the form
   // of 'Allocation' or 'ContiguousAllocation'.
-  DEFINE_METRIC(kMetricAllocatedMemoryBytes, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(
+      kMetricMemoryAllocatorAllocatedBytes, facebook::velox::StatType::AVG);
+
+  // Total number of bytes currently allocated from MemoryAllocator.
+  DEFINE_METRIC(
+      kMetricMemoryAllocatorTotalUsedBytes, facebook::velox::StatType::AVG);
 
   // Number of bytes currently mapped in MmapAllocator, in the form of
   // 'ContiguousAllocation'.
   //
   // NOTE: This applies only to MmapAllocator
-  DEFINE_METRIC(kMetricMmapExternalMappedBytes, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(
+      kMetricMmapAllocatorExternalMappedBytes, facebook::velox::StatType::AVG);
 
   // Number of bytes currently allocated from MmapAllocator directly from raw
   // allocateBytes() interface, and internally allocated by malloc. Only small
   // chunks of memory are delegated to malloc.
   //
   // NOTE: This applies only to MmapAllocator
-  DEFINE_METRIC(kMetricMmapDelegatedAllocBytes, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(
+      kMetricMmapAllocatorDelegatedAllocatedBytes,
+      facebook::velox::StatType::AVG);
 
   /// ================== AsyncDataCache Counters =================
 

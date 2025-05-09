@@ -110,18 +110,21 @@ void PeriodicStatsReporter::reportAllocatorStats() {
     return;
   }
   RECORD_METRIC_VALUE(
-      kMetricMappedMemoryBytes,
+      kMetricMemoryAllocatorMappedBytes,
       (velox::memory::AllocationTraits::pageBytes(allocator_->numMapped())));
   RECORD_METRIC_VALUE(
-      kMetricAllocatedMemoryBytes,
+      kMetricMemoryAllocatorAllocatedBytes,
       (velox::memory::AllocationTraits::pageBytes(allocator_->numAllocated())));
+  RECORD_METRIC_VALUE(
+      kMetricMemoryAllocatorTotalUsedBytes, (allocator_->totalUsedBytes()));
   // TODO(jtan6): Remove condition after T150019700 is done
   if (auto* mmapAllocator =
           dynamic_cast<const velox::memory::MmapAllocator*>(allocator_)) {
     RECORD_METRIC_VALUE(
-        kMetricMmapDelegatedAllocBytes, (mmapAllocator->numMallocBytes()));
+        kMetricMmapAllocatorDelegatedAllocatedBytes,
+        (mmapAllocator->numMallocBytes()));
     RECORD_METRIC_VALUE(
-        kMetricMmapExternalMappedBytes,
+        kMetricMmapAllocatorExternalMappedBytes,
         velox::memory::AllocationTraits::pageBytes(
             (mmapAllocator->numExternalMapped())));
   }

@@ -178,17 +178,20 @@ constexpr folly::StringPiece kMetricHiveSortWriterFinishTimeMs{
 constexpr folly::StringPiece kMetricArbitratorRequestsCount{
     "velox.arbitrator_requests_count"};
 
-constexpr folly::StringPiece kMetricMappedMemoryBytes{
+constexpr folly::StringPiece kMetricMemoryAllocatorMappedBytes{
     "velox.memory_allocator_mapped_bytes"};
 
-constexpr folly::StringPiece kMetricAllocatedMemoryBytes{
-    "velox.memory_allocator_alloc_bytes"};
+constexpr folly::StringPiece kMetricMemoryAllocatorAllocatedBytes{
+    "velox.memory_allocator_allocated_bytes"};
 
-constexpr folly::StringPiece kMetricMmapExternalMappedBytes{
+constexpr folly::StringPiece kMetricMemoryAllocatorTotalUsedBytes{
+    "velox.memory_allocator_total_used_bytes"};
+
+constexpr folly::StringPiece kMetricMmapAllocatorExternalMappedBytes{
     "velox.mmap_allocator_external_mapped_bytes"};
 
-constexpr folly::StringPiece kMetricMmapDelegatedAllocBytes{
-    "velox.mmap_allocator_delegated_alloc_bytes"};
+constexpr folly::StringPiece kMetricMmapAllocatorDelegatedAllocatedBytes{
+    "velox.mmap_allocator_delegated_allocated_bytes"};
 
 constexpr folly::StringPiece kMetricCacheMaxAgeSecs{"velox.cache_max_age_secs"};
 
