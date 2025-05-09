@@ -1064,19 +1064,6 @@ void from_json(const json& j, AllOrNoneValueSet& p) {
   from_json_key(j, "all", p.all, "AllOrNoneValueSet", "bool", "all");
 }
 } // namespace facebook::presto::protocol
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ConnectorTableHandle>& p) {
   if (p == nullptr) {
@@ -1097,20 +1084,6 @@ void from_json(const json& j, std::shared_ptr<ConnectorTableHandle>& p) {
   getConnectorProtocol(type).from_json(j, p);
 }
 } // namespace facebook::presto::protocol
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 // dependency TpchTransactionHandle
 // dependency ArrowTransactionHandle
 
@@ -1388,20 +1361,6 @@ void from_json(const json& j, OutputBuffers& p) {
       "buffers");
 }
 } // namespace facebook::presto::protocol
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 namespace facebook::presto::protocol {
 
 void to_json(nlohmann::json& j, const DataSize& p) {
@@ -1417,20 +1376,6 @@ std::ostream& operator<<(std::ostream& os, const DataSize& d) {
 }
 
 } // namespace facebook::presto::protocol
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 namespace facebook::presto::protocol {
 
 void to_json(json& j, const Duration& p) {
@@ -1605,20 +1550,6 @@ void from_json(const json& j, Determinism& e) {
           ->first;
 }
 } // namespace facebook::presto::protocol
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 namespace facebook::presto::protocol {
 
 void to_json(json& j, const Language& p) {
@@ -2400,19 +2331,6 @@ void from_json(const json& j, TableWriteInfo& p) {
       "analyzeTableHandle");
 }
 } // namespace facebook::presto::protocol
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 namespace facebook::presto::protocol {
 
 void to_json(json& j, const Lifespan& p) {
@@ -2439,19 +2357,6 @@ void from_json(const json& j, Lifespan& p) {
 }
 
 } // namespace facebook::presto::protocol
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ConnectorSplit>& p) {
   if (p == nullptr) {
@@ -2963,19 +2868,6 @@ void from_json(const json& j, Column& p) {
   from_json_key(j, "type", p.type, "Column", "String", "type");
 }
 } // namespace facebook::presto::protocol
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 namespace facebook::presto::protocol {
 
 void to_json(json& j, const Block& p) {
@@ -3016,19 +2908,6 @@ void from_json(const json& j, ConstantExpression& p) {
   from_json_key(j, "type", p.type, "ConstantExpression", "Type", "type");
 }
 } // namespace facebook::presto::protocol
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ConnectorOutputTableHandle>& p) {
   if (p == nullptr) {
@@ -3183,19 +3062,6 @@ void from_json(const json& j, DataOrganizationSpecification& p) {
       "orderingScheme");
 }
 } // namespace facebook::presto::protocol
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ConnectorDeleteTableHandle>& p) {
   if (p == nullptr) {
@@ -3630,19 +3496,6 @@ void from_json(const json& j, DynamicFilterStats& p) {
       "producerNodeIds");
 }
 } // namespace facebook::presto::protocol
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 namespace facebook::presto::protocol {
 void to_json(json& j, const OperatorInfo& p) {}
 void from_json(const json& j, OperatorInfo& p) {}
@@ -4911,19 +4764,6 @@ void from_json(const json& j, ExchangeEncoding& e) {
           ->first;
 }
 } // namespace facebook::presto::protocol
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ConnectorPartitioningHandle>& p) {
   if (p == nullptr) {
@@ -5671,19 +5511,6 @@ void from_json(const json& j, GroupIdNode& p) {
       "groupIdVariable");
 }
 } // namespace facebook::presto::protocol
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ConnectorIndexHandle>& p) {
   if (p == nullptr) {
@@ -5893,19 +5720,6 @@ void from_json(const json& j, IndexJoinNode& p) {
       "indexHashVariable");
 }
 } // namespace facebook::presto::protocol
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ColumnHandle>& p) {
   if (p == nullptr) {
@@ -5925,19 +5739,6 @@ void from_json(const json& j, std::shared_ptr<ColumnHandle>& p) {
   getConnectorProtocol(type).from_json(j, p);
 }
 } // namespace facebook::presto::protocol
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ConnectorTableLayoutHandle>& p) {
   if (p == nullptr) {
@@ -6124,19 +5925,6 @@ void from_json(const json& j, IndexSourceNode& p) {
       "currentConstraint");
 }
 } // namespace facebook::presto::protocol
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ConnectorInsertTableHandle>& p) {
   if (p == nullptr) {
@@ -6643,20 +6431,6 @@ void from_json(const json& j, JsonBasedUdfFunctionMetadata& p) {
       "longVariableConstraints");
 }
 } // namespace facebook::presto::protocol
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 // dependency KeyedSubclass
 
 namespace facebook::presto::protocol {
@@ -7146,19 +6920,6 @@ void from_json(const json& j, MergeJoinNode& p) {
       "rightHashVariable");
 }
 } // namespace facebook::presto::protocol
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ConnectorMetadataUpdateHandle>& p) {
   if (p == nullptr) {
@@ -8610,20 +8371,6 @@ void from_json(const json& j, StatsAndCosts& p) {
       "costs");
 }
 } // namespace facebook::presto::protocol
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 namespace facebook::presto::protocol {
 
 void to_json(json& j, const PlanFragment& p) {
@@ -10185,19 +9932,6 @@ void from_json(const json& j, TableWriterMergeNode& p) {
       "statisticsAggregation");
 }
 } // namespace facebook::presto::protocol
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 namespace facebook::presto::protocol {
 TableWriterNode::TableWriterNode() noexcept {
   _type = "com.facebook.presto.sql.planner.plan.TableWriterNode";
