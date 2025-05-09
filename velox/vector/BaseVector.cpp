@@ -602,11 +602,11 @@ void BaseVector::ensureWritable(
     }
     return;
   }
-  const auto& resultType = result->type();
-  bool isUnknownType = resultType->containsUnknown();
   if (result->encoding() == VectorEncoding::Simple::LAZY) {
     result = BaseVector::loadedVectorShared(result);
   }
+  const auto& resultType = result->type();
+  const bool isUnknownType = resultType->containsUnknown();
   if (result.use_count() == 1 && !isUnknownType) {
     switch (result->encoding()) {
       case VectorEncoding::Simple::FLAT:
