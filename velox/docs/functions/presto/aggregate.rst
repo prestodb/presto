@@ -706,6 +706,24 @@ Statistical Aggregate Functions
 
     Returns the sample variance of all input values.
 
+Noisy Aggregate Functions
+-------------------------
+
+.. function:: noisy_count_if_gaussian(col, noise_scale) -> bigint
+
+    Counts the ``TRUE`` values in ``col`` and then adds a normally distributed random double
+    value with 0 mean and standard deviation of ``noise_scale`` to the true count.
+    The noisy count is post-processed to be non-negative and rounded to bigint.
+
+    ::
+
+        SELECT noisy_count_if_gaussian(orderkey > 10000, 20.0) FROM tpch.tiny.lineitem; -- 50180 (1 row)
+        SELECT noisy_count_if_gaussian(orderkey > 10000, 20.0) FROM tpch.tiny.lineitem WHERE false; -- NULL (1 row)
+
+    .. note::
+
+        Unlike :func:`!count_if`, this function returns ``NULL`` when the (true) count is 0.
+
 Miscellaneous
 -------------
 

@@ -44,6 +44,7 @@ velox_add_library(
   PrestoHasher.cpp
   ReduceAgg.cpp
   RegisterAggregateFunctions.cpp
+  NoisyCountIfGaussianAggregate.cpp
   SetAggregates.cpp
   SumAggregate.cpp
   SumDataSizeForStatsAggregate.cpp

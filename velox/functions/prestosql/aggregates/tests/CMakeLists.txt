@@ -42,6 +42,7 @@ add_executable(
   MinMaxByAggregationTest.cpp
   MinMaxTest.cpp
   MultiMapAggTest.cpp
+  NoisyCountIfGaussianAggregationTest.cpp
   PrestoHasherTest.cpp
   ReduceAggTest.cpp
   SetAggTest.cpp
