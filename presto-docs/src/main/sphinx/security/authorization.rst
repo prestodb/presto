@@ -24,11 +24,11 @@ roles defined in Presto:
 Enabling Authorization
 ----------------------
 
-The following steps need to be taken in order to enable authorization:
+The following steps must be taken to enable authorization:
 
- 1. :ref:`enable_authentication`
- 2. :ref:`configure_authorizer`
- 3. :ref:`configure_authorization_settings`
+1. :ref:`enable_authentication`
+2. :ref:`configure_authorizer`
+3. :ref:`configure_authorization_settings`
 
 .. _enable_authentication:
 
@@ -38,20 +38,20 @@ Enable Authentication
 Presto authorization requires authentication to get the accessor's principal,
 so make sure you have authentication enabled.
 
-   - If TLS/SSL is configured properly, we can just use the certificate to
-     identify the accessor.
+- If TLS/SSL is configured properly, use the certificate to
+  identify the accessor.
 
-     .. code-block:: none
+  .. code-block:: none
 
-         http-server.authentication.type=CERTIFICATE
+     http-server.authentication.type=CERTIFICATE
 
-   - It is also possible to specify other authentication types such as
-     ``KERBEROS``, ``PASSWORD`` and ``JWT``. Additional configuration may be
-     needed.
+- It is also possible to specify other authentication types such as
+  ``KERBEROS``, ``PASSWORD`` and ``JWT``. Additional configuration may be
+  needed.
 
-     .. code-block:: none
+  .. code-block:: none
 
-         node.internal-address=<authentication type>
+     node.internal-address=<authentication type>
 
 .. _configure_authorizer:
 
@@ -75,17 +75,17 @@ Configuration-based authorizer:
 
 1. Create a role to identity regex mapping and store it in a file.
 
-    .. code-block:: none
+   .. code-block:: none
 
-        user=.*
-        internal=coordinator
-        admin=su.*
+       user=.*
+       internal=coordinator
+       admin=su.*
 
 2. Specify the path to the mapping file in ``config.properties`` file:
 
-    .. code-block:: none
+   .. code-block:: none
 
-        configuration-based-authorizer.role-regex-map.file-path=<path to mapping file>
+       configuration-based-authorizer.role-regex-map.file-path=<path to mapping file>
 
 3. Install the Guice module
    ``com.facebook.airlift.http.server.ConfigurationBasedAuthorizerModule``.
@@ -95,7 +95,7 @@ Configuration-based authorizer:
 Configure Authorization Settings
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Authorization settings is configured in the ``config.properties`` file. The
+Authorization settings are configured in the ``config.properties`` file. The
 authorization on the worker and coordinator nodes are configured using the same
 set of properties.
 
