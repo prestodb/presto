@@ -1906,4 +1906,11 @@ public class TestLogicalPlanner
                                                         anyTree(
                                                                 tableScan("supplier", ImmutableMap.of("suppkey_4", "suppkey")))))))));
     }
+
+    @Test
+    public void testSubselectQualifiedObjectNameContainsDot()
+    {
+        String query = "SELECT min((SELECT totalprice FROM orders WHERE orderstatus = \"Outer.Table\".\"orderstatus\")) as min FROM orders AS \"Outer.Table\"";
+        assertPlanSucceeded(query, this.getQueryRunner().getDefaultSession());
+    }
 }
