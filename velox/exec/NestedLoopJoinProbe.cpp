@@ -22,7 +22,8 @@ namespace facebook::velox::exec {
 namespace {
 
 bool needsProbeMismatch(core::JoinType joinType) {
-  return isLeftJoin(joinType) || isFullJoin(joinType);
+  return isLeftJoin(joinType) || isFullJoin(joinType) ||
+      isLeftSemiProjectJoin(joinType);
 }
 
 bool needsBuildMismatch(core::JoinType joinType) {
@@ -308,6 +309,15 @@ bool NestedLoopJoinProbe::advanceProbe() {
   return false;
 }
 
+void NestedLoopJoinProbe::handleLeftSemiProjectNoCondition() {
+  rawProbeOutputIndices_[numOutputRows_++] = probeRow_;
+  output_->childAt(outputType_->size() - 1)
+      ->asFlatVector<bool>()
+      ->set(numOutputRows_ - 1, true);
+  buildIndex_ = buildVectors_.value().size();
+  buildRow_ = 0;
+}
+
 // Main join loop.
 bool NestedLoopJoinProbe::addToOutput() {
   VELOX_CHECK_NOT_NULL(input_);
@@ -345,6 +355,13 @@ bool NestedLoopJoinProbe::addToOutput() {
       return false;
     }
 
+    // Handle LeftSemiProjectJoin with no join condition before evaluating the
+    // filter
+    if (isLeftSemiProjectNoCondition()) {
+      handleLeftSemiProjectNoCondition();
+      return true;
+    }
+
     // Only re-calculate the filter if we have a new build vector.
     if (buildRow_ == 0) {
       evaluateJoinFilter(currentBuild);
@@ -359,6 +376,35 @@ bool NestedLoopJoinProbe::addToOutput() {
       addOutputRow(i);
       ++numOutputRows_;
       probeRowHasMatch_ = true;
+
+      // Left Semi Project Join within NestedLoopJoinProbe.
+      // The left join will ensure that exactly one row is
+      // produced for each probe row, along with a boolean "match" column
+      // which will indicate whether a matching build row exists on the
+      // build side.
+      //
+      // 1. At this point, the filter expressions are applied and we short
+      //    circuit the execution for a LeftSemiProject since we don't require
+      //    mismatch rows or build side projections. For each probe row, we
+      //    simply iterate through decoded filter results to determine if at
+      //    least one build side row satisfies the filter condition.
+      // 2. If match is found, the match column is marked as `true`, and
+      //    defaulted to false otherwise.
+      // 3. Ensures that only one row is produced in the output, handles
+      // mis-matched
+      //    probe side rows after evaluating the filter.
+      //
+      // Returns a `RowVectorPtr` representing the output row. For left semi
+      // project this basically contains probe row data with the match column.
+      //
+      if (isLeftSemiProjectJoin(joinType_)) {
+        output_->childAt(outputType_->size() - 1)
+            ->asFlatVector<bool>()
+            ->set(numOutputRows_ - 1, true);
+        buildIndex_ = buildVectors_.value().size();
+        buildRow_ = 0;
+        return true;
+      }
 
       // If this is a right or full join, we need to keep track of the build
       // records that got a hit (key match), so that at end we know which
@@ -394,6 +440,7 @@ void NestedLoopJoinProbe::prepareOutput() {
   if (output_ != nullptr) {
     return;
   }
+
   std::vector<VectorPtr> localColumns(outputType_->size());
 
   probeOutputIndices_ = allocateIndices(outputBatchSize_, pool());
@@ -407,11 +454,18 @@ void NestedLoopJoinProbe::prepareOutput() {
         input_->childAt(projection.inputChannel));
   }
 
-  for (const auto& projection : buildProjections_) {
-    localColumns[projection.outputChannel] = BaseVector::create(
-        outputType_->childAt(projection.outputChannel),
-        outputBatchSize_,
-        operatorCtx_->pool());
+  if (isLeftSemiProjectJoin(joinType_)) {
+    // For LeftSemiProjectJoin, only add match column
+    localColumns.back() =
+        BaseVector::create(BOOLEAN(), outputBatchSize_, pool());
+  } else {
+    // For other join types, add build side projections
+    for (const auto& projection : buildProjections_) {
+      localColumns[projection.outputChannel] = BaseVector::create(
+          outputType_->childAt(projection.outputChannel),
+          outputBatchSize_,
+          operatorCtx_->pool());
+    }
   }
 
   numOutputRows_ = 0;
@@ -581,7 +635,7 @@ void NestedLoopJoinProbe::addOutputRow(vector_size_t buildRow) {
 }
 
 void NestedLoopJoinProbe::copyBuildValues(const RowVectorPtr& buildVector) {
-  if (buildCopyRanges_.empty()) {
+  if (buildCopyRanges_.empty() || isLeftSemiProjectJoin(joinType_)) {
     return;
   }
 
@@ -596,6 +650,12 @@ void NestedLoopJoinProbe::copyBuildValues(const RowVectorPtr& buildVector) {
 void NestedLoopJoinProbe::addProbeMismatchRow() {
   // Probe side is always a dictionary; just populate the index.
   rawProbeOutputIndices_[numOutputRows_] = probeRow_;
+  if (isLeftSemiProjectJoin(joinType_)) {
+    output_->childAt(outputType_->size() - 1)
+        ->asFlatVector<bool>()
+        ->set(numOutputRows_, false);
+    return;
+  }
 
   // Null out build projections.
   for (const auto& projection : buildProjections_) {

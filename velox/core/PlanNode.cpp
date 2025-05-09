@@ -1626,7 +1626,23 @@ NestedLoopJoinNode::NestedLoopJoinNode(
 
   auto leftType = sources_[0]->outputType();
   auto rightType = sources_[1]->outputType();
-  for (const auto& name : outputType_->names()) {
+  auto numOutputColumms = outputType_->size();
+  if (core::isLeftSemiProjectJoin(joinType)) {
+    --numOutputColumms;
+    VELOX_CHECK_EQ(outputType_->childAt(numOutputColumms), BOOLEAN());
+    const auto& name = outputType_->nameOf(numOutputColumms);
+    VELOX_CHECK(
+        !leftType->containsChild(name),
+        "Match column '{}' cannot be present in left source.",
+        name);
+    VELOX_CHECK(
+        !rightType->containsChild(name),
+        "Match column '{}' cannot be present in right source.",
+        name);
+  }
+
+  for (auto i = 0; i < numOutputColumms; ++i) {
+    const auto name = outputType_->nameOf(i);
     const bool leftContains = leftType->containsChild(name);
     const bool rightContains = rightType->containsChild(name);
     VELOX_USER_CHECK(
@@ -1660,6 +1676,7 @@ bool NestedLoopJoinNode::isSupported(core::JoinType joinType) {
     case core::JoinType::kLeft:
     case core::JoinType::kRight:
     case core::JoinType::kFull:
+    case core::JoinType::kLeftSemiProject:
       return true;
 
     default:

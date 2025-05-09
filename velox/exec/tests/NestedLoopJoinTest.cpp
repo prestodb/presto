@@ -624,6 +624,66 @@ TEST_F(NestedLoopJoinTest, mergeBuildVectors) {
   ASSERT_TRUE(waitForTaskCompletion(cursor->task().get()));
 }
 
+TEST_F(NestedLoopJoinTest, leftSemiJoinProjectDataValidation) {
+  auto probeVectors = makeRowVector({"t0"}, {sequence<int32_t>(5)});
+
+  auto buildVectors = makeRowVector({"u0"}, {sequence<int32_t>(3, 2)});
+
+  auto expected = makeRowVector(
+      {"t0", "match"},
+      {makeFlatVector<int32_t>({0, 1, 2, 3, 4}),
+       makeFlatVector<bool>({false, false, true, true, true})});
+
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  auto op = PlanBuilder(planNodeIdGenerator)
+                .values({probeVectors})
+                .nestedLoopJoin(
+                    PlanBuilder(planNodeIdGenerator)
+                        .values({buildVectors})
+                        .planNode(),
+                    "t0 = u0",
+                    {"t0", "match"},
+                    core::JoinType::kLeftSemiProject)
+                .planNode();
+
+  AssertQueryBuilder builder{op};
+  auto result = builder.copyResults(pool());
+
+  assertEqualVectors(expected, result);
+}
+
+TEST_F(NestedLoopJoinTest, leftSemiJoinWithNullsAndFilter) {
+  auto probeVectors = makeRowVector(
+      {"t0"}, {makeNullableFlatVector<int32_t>({0, 1, std::nullopt, 3, 4})});
+
+  auto buildVectors = makeRowVector(
+      {"u0"}, {makeNullableFlatVector<int32_t>({3, std::nullopt, 4})});
+
+  auto expected = makeRowVector(
+      {"t0", "match"},
+      {
+          makeNullableFlatVector<int32_t>({0, 1, std::nullopt, 3, 4}),
+          makeFlatVector<bool>({false, false, false, true, true}),
+      });
+
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  auto op = PlanBuilder(planNodeIdGenerator)
+                .values({probeVectors})
+                .nestedLoopJoin(
+                    PlanBuilder(planNodeIdGenerator)
+                        .values({buildVectors})
+                        .planNode(),
+                    "t0 = u0 AND t0 > 2",
+                    {"t0", "match"},
+                    core::JoinType::kLeftSemiProject)
+                .planNode();
+
+  AssertQueryBuilder builder{op};
+  auto result = builder.copyResults(pool());
+
+  assertEqualVectors(expected, result);
+}
+
 TEST_F(NestedLoopJoinTest, mergeBuildVectorsOverflow) {
   const std::vector<RowVectorPtr> buildVectors = {
       makeRowVector({makeFlatVector<int64_t>({1, 2})})};
