@@ -1205,6 +1205,9 @@ uint64_t SharedArbitrator::reclaimUsedMemoryByAbort(bool force) {
     return 0;
   }
   const auto& victim = victimOpt.value();
+
+  // NOTE: we expect the aborted query will terminate and free up resource soon
+  // after abort operation.
   const auto currentCapacity = victim.participant->pool()->capacity();
   try {
     VELOX_MEM_POOL_ABORTED(fmt::format(
