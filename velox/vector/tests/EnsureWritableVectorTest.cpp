@@ -921,3 +921,22 @@ TEST_F(EnsureWritableVectorTest, dataDependentFlags) {
         createVector, ensureWritableStatic, SelectivityVector{1});
   }
 }
+
+TEST_F(EnsureWritableVectorTest, lazyMap) {
+  // Check that the flattened vector has the correct size.
+  {
+    const vector_size_t size = 100;
+    VectorPtr lazy = std::make_shared<LazyVector>(
+        pool(),
+        BIGINT(),
+        size,
+        std::make_unique<test::SimpleVectorLoader>([&](auto) {
+          return BaseVector::createConstant(
+              BIGINT(), variant::create<TypeKind::BIGINT>(123), size, pool());
+        }));
+    BaseVector::ensureWritable(
+        SelectivityVector::empty(), BIGINT(), pool(), lazy);
+    EXPECT_EQ(VectorEncoding::Simple::FLAT, lazy->encoding());
+    EXPECT_EQ(size, lazy->size());
+  }
+}
