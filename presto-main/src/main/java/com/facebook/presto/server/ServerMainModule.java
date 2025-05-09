@@ -104,6 +104,7 @@ import com.facebook.presto.metadata.StaticCatalogStore;
 import com.facebook.presto.metadata.StaticCatalogStoreConfig;
 import com.facebook.presto.metadata.StaticFunctionNamespaceStore;
 import com.facebook.presto.metadata.StaticFunctionNamespaceStoreConfig;
+import com.facebook.presto.metadata.TableFunctionRegistry;
 import com.facebook.presto.metadata.TablePropertyManager;
 import com.facebook.presto.nodeManager.PluginNodeManager;
 import com.facebook.presto.operator.ExchangeClientConfig;
@@ -634,6 +635,7 @@ public class ServerMainModule
         binder.bind(StaticFunctionNamespaceStore.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(StaticFunctionNamespaceStoreConfig.class);
         binder.bind(FunctionAndTypeManager.class).in(Scopes.SINGLETON);
+        binder.bind(TableFunctionRegistry.class).in(Scopes.SINGLETON);
         binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
 
         if (serverConfig.isCatalogServerEnabled() && serverConfig.isCoordinator()) {
