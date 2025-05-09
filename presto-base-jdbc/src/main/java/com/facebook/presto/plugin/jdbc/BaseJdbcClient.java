@@ -49,6 +49,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -211,7 +212,9 @@ public class BaseJdbcClient
                             schemaTableName,
                             resultSet.getString("TABLE_CAT"),
                             resultSet.getString("TABLE_SCHEM"),
-                            resultSet.getString("TABLE_NAME")));
+                            resultSet.getString("TABLE_NAME"),
+                            Collections.emptyList(),
+                            Optional.empty()));
                 }
                 if (tableHandles.isEmpty()) {
                     return null;
@@ -247,7 +250,7 @@ public class BaseJdbcClient
                         String columnName = resultSet.getString("COLUMN_NAME");
                         boolean nullable = columnNullable == resultSet.getInt("NULLABLE");
                         Optional<String> comment = Optional.ofNullable(emptyToNull(resultSet.getString("REMARKS")));
-                        columns.add(new JdbcColumnHandle(connectorId, columnName, typeHandle, columnMapping.get().getType(), nullable, comment));
+                        columns.add(new JdbcColumnHandle(connectorId, columnName, typeHandle, columnMapping.get().getType(), nullable, comment, tableHandle.getTableAlias()));
                     }
                 }
                 if (columns.isEmpty()) {
@@ -282,7 +285,8 @@ public class BaseJdbcClient
                 tableHandle.getSchemaName(),
                 tableHandle.getTableName(),
                 layoutHandle.getTupleDomain(),
-                layoutHandle.getAdditionalPredicate());
+                layoutHandle.getAdditionalPredicate(),
+                tableHandle.getJoinTables());
         return new FixedSplitSource(ImmutableList.of(jdbcSplit));
     }
 
@@ -312,6 +316,7 @@ public class BaseJdbcClient
                 split.getCatalogName(),
                 split.getSchemaName(),
                 split.getTableName(),
+                split.getJoinTables(),
                 columnHandles,
                 split.getTupleDomain(),
                 split.getAdditionalPredicate());
@@ -577,7 +582,9 @@ public class BaseJdbcClient
                 new SchemaTableName(handle.getSchemaName(), handle.getTemporaryTableName()),
                 handle.getCatalogName(),
                 handle.getSchemaName(),
-                handle.getTemporaryTableName()));
+                handle.getTemporaryTableName(),
+                Collections.emptyList(),
+                Optional.empty()));
     }
 
     @Override
