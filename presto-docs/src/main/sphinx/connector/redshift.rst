@@ -54,6 +54,8 @@ Property Name                                      Description                  
 
 ``case-insensitive-name-matching.cache-ttl``       Duration for which remote dataset and table names will be
                                                    cached. Set to ``0ms`` to disable the cache.                         ``1m``
+
+``list-schemas-ignored-schemas``                   Schemas to ignore.                                                   ``information_schema``
 ================================================== ==================================================================== ===========
 
 Querying Redshift
