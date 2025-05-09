@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "velox/expression/CastExpr.h"
 #include <limits>
 #include "velox/buffer/Buffer.h"
 #include "velox/common/base/VeloxException.h"
@@ -25,6 +26,7 @@
 #include "velox/functions/prestosql/tests/CastBaseTest.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/type/Type.h"
+#include "velox/type/tests/utils/CustomTypesForTesting.h"
 #include "velox/vector/BaseVector.h"
 #include "velox/vector/TypeAliases.h"
 
@@ -2813,5 +2815,155 @@ TEST_F(CastExprTest, intervalDayTimeToVarchar) {
       "Cast from VARCHAR to INTERVAL DAY TO SECOND is not supported");
 }
 
+class BigintTypeWithCustomComparisonCastOperator : public exec::CastOperator {
+ public:
+  static const std::shared_ptr<const CastOperator>& get() {
+    static const std::shared_ptr<const CastOperator> instance{
+        new BigintTypeWithCustomComparisonCastOperator()};
+
+    return instance;
+  }
+
+  bool isSupportedFromType(const TypePtr& other) const override {
+    return true;
+  }
+
+  bool isSupportedToType(const TypePtr& other) const override {
+    return true;
+  }
+
+  void castTo(
+      const BaseVector& input,
+      exec::EvalCtx& context,
+      const SelectivityVector& rows,
+      const TypePtr& resultType,
+      VectorPtr& result) const override {
+    VELOX_FAIL("Cast to BigintTypeWithCustomComparison should not be called");
+  }
+
+  void castFrom(
+      const BaseVector& input,
+      exec::EvalCtx& context,
+      const SelectivityVector& rows,
+      const TypePtr& resultType,
+      VectorPtr& result) const override {
+    VELOX_FAIL("Cast from BigintTypeWithCustomComparison should not be called");
+  }
+
+ private:
+  BigintTypeWithCustomComparisonCastOperator() = default;
+};
+
+class BigintTypeWithCustomComparisonTypeFactories : public CustomTypeFactories {
+ public:
+  TypePtr getType(const std::vector<TypeParameter>& parameters) const override {
+    VELOX_CHECK(parameters.empty());
+    return BIGINT_TYPE_WITH_CUSTOM_COMPARISON();
+  }
+
+  // Type casting from and to TimestampWithTimezone is not supported yet.
+  exec::CastOperatorPtr getCastOperator() const override {
+    return BigintTypeWithCustomComparisonCastOperator::get();
+  }
+
+  AbstractInputGeneratorPtr getInputGenerator(
+      const InputGeneratorConfig& config) const override {
+    return nullptr;
+  }
+};
+
+TEST_F(CastExprTest, skipUnnecessaryChildrenOfComplexTypes) {
+  // bigint type with custom comparison is registered with a custom cast
+  // operator that always throws, we use this to ensure the children of complex
+  // types are not cast if they are already the right type.
+  //
+  // We use bigint type with custom comparison so that we can leverage an
+  // existing custom type that was written for testing purposes.
+  SCOPE_EXIT {
+    unregisterCustomType(BIGINT_TYPE_WITH_CUSTOM_COMPARISON()->name());
+  };
+
+  VELOX_CHECK(
+      registerCustomType(
+          BIGINT_TYPE_WITH_CUSTOM_COMPARISON()->name(),
+          std::make_unique<
+              const BigintTypeWithCustomComparisonTypeFactories>()),
+      "Failed to register custom type 'bigint type with custom comparison'");
+
+  const auto valuesThatThrowOnCast = makeFlatVector<int64_t>(
+      10,
+      [](vector_size_t row) { return row; },
+      nullptr,
+      BIGINT_TYPE_WITH_CUSTOM_COMPARISON());
+  // We make an exact copy of the Vector, this is necessary so that if it's
+  // possible the Type pointers are different we get Vectors with different Type
+  // pointers (in practice this isn't possible for primitive types, this is just
+  // for completeness).
+  const auto castedValuesThatThrowOnCast = makeFlatVector<int64_t>(
+      10,
+      [](vector_size_t row) { return row; },
+      nullptr,
+      BIGINT_TYPE_WITH_CUSTOM_COMPARISON());
+  const auto arrayOfValuesThatThrowOnCast =
+      makeArrayVector({0, 1, 2, 3, 4, 5, 6, 7, 8, 9}, valuesThatThrowOnCast);
+  // Again make an exact copy of the Vector, in this case, because the type is
+  // complex, the Vectors actually do have different Type pointers.
+  const auto castedArrayOfValuesThatThrowOnCast =
+      makeArrayVector({0, 1, 2, 3, 4, 5, 6, 7, 8, 9}, valuesThatThrowOnCast);
+  const auto valuesToCast =
+      makeFlatVector<int32_t>(10, [](vector_size_t row) { return row; });
+  // Make an exact copy of the Vector with a different type (bigint instead of
+  // int).
+  const auto castedValuesToCast =
+      makeFlatVector<int64_t>(10, [](vector_size_t row) { return row; });
+
+  setCastMatchStructByName(true);
+  // Casting a row skips fields that don't need to change.
+  {
+    const auto rowVector = makeRowVector(
+        {valuesThatThrowOnCast, arrayOfValuesThatThrowOnCast, valuesToCast});
+    const auto expectedRowVector = makeRowVector(
+        {castedValuesThatThrowOnCast,
+         castedArrayOfValuesThatThrowOnCast,
+         castedValuesToCast});
+    testCast(rowVector, expectedRowVector);
+  }
+  // Casting a map skips primitve keys that don't need to change.
+  {
+    const auto mapVector =
+        makeMapVector({0, 2, 4, 6, 8}, valuesThatThrowOnCast, valuesToCast);
+    const auto expectedMapVector = makeMapVector(
+        {0, 2, 4, 6, 8}, castedValuesThatThrowOnCast, castedValuesToCast);
+    testCast(mapVector, expectedMapVector);
+  }
+  // Casting a map skips complex keys that don't need to change.
+  {
+    const auto mapVector = makeMapVector(
+        {0, 2, 4, 6, 8}, arrayOfValuesThatThrowOnCast, valuesToCast);
+    const auto expectedMapVector = makeMapVector(
+        {0, 2, 4, 6, 8},
+        castedArrayOfValuesThatThrowOnCast,
+        castedValuesToCast);
+    testCast(mapVector, expectedMapVector);
+  }
+  // Casting a map skips primitve values that don't need to change.
+  {
+    const auto mapVector =
+        makeMapVector({0, 2, 4, 6, 8}, valuesToCast, valuesThatThrowOnCast);
+    const auto expectedMapVector = makeMapVector(
+        {0, 2, 4, 6, 8}, castedValuesToCast, castedValuesThatThrowOnCast);
+    testCast(mapVector, expectedMapVector);
+  }
+  // Casting a map skips complex values that don't need to change.
+  {
+    const auto mapVector = makeMapVector(
+        {0, 2, 4, 6, 8}, valuesToCast, arrayOfValuesThatThrowOnCast);
+    const auto expectedMapVector = makeMapVector(
+        {0, 2, 4, 6, 8},
+        castedValuesToCast,
+        castedArrayOfValuesThatThrowOnCast);
+    testCast(mapVector, expectedMapVector);
+  }
+}
 } // namespace
 } // namespace facebook::velox::test

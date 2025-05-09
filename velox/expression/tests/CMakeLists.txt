@@ -69,6 +69,7 @@ target_link_libraries(
   velox_parse_parser
   velox_parse_expression
   velox_presto_serializer
+  velox_type_test_lib
   velox_vector_test_lib
   velox_vector_fuzzer
   GTest::gtest

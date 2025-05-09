@@ -382,7 +382,7 @@ VectorPtr CastExpr::applyMap(
 
   // Cast keys
   VectorPtr newMapKeys;
-  if (fromType.keyType() == toType.keyType()) {
+  if (*fromType.keyType() == *toType.keyType()) {
     newMapKeys = input->mapKeys();
   } else {
     {
@@ -399,7 +399,7 @@ VectorPtr CastExpr::applyMap(
 
   // Cast values
   VectorPtr newMapValues;
-  if (fromType.valueType() == toType.valueType()) {
+  if (*fromType.valueType() == *toType.valueType()) {
     newMapValues = mapValues;
   } else {
     {
@@ -582,7 +582,7 @@ VectorPtr CastExpr::applyRow(
       outputChild->addNulls(rows);
     } else {
       const auto& inputChild = input->children()[fromChildrenIndex];
-      if (toChildType == inputChild->type()) {
+      if (*toChildType == *inputChild->type()) {
         outputChild = inputChild;
       } else {
         // Apply cast for the child.
