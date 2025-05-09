@@ -21,10 +21,8 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.statistics.ColumnStatisticMetadata;
 import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.google.common.base.VerifyException;
-import com.google.common.collect.ImmutableMap;
 import org.joda.time.DateTimeZone;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -87,13 +85,6 @@ public final class HiveStatisticsUtil
             DateTimeZone timeZone)
     {
         return createPartitionStatistics(session, columnTypes, computedStatistics, computedStatistics.getColumnStatistics().keySet(), timeZone);
-    }
-
-    public static Map<ColumnStatisticMetadata, Block> getColumnStatistics(Map<List<String>, ComputedStatistics> statistics, List<String> partitionValues)
-    {
-        return Optional.ofNullable(statistics.get(partitionValues))
-                .map(ComputedStatistics::getColumnStatistics)
-                .orElse(ImmutableMap.of());
     }
 
     // TODO: Collect file count, on-disk size and in-memory size during ANALYZE
