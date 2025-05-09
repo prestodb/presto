@@ -189,6 +189,8 @@ import com.facebook.presto.sql.planner.optimizations.StatsRecordingPlanOptimizer
 import com.facebook.presto.sql.planner.optimizations.TransformQuantifiedComparisonApplyToLateralJoin;
 import com.facebook.presto.sql.planner.optimizations.UnaliasSymbolReferences;
 import com.facebook.presto.sql.planner.optimizations.WindowFilterPushDown;
+import com.facebook.presto.sql.planner.wxd.unstructured.CPGClient;
+import com.facebook.presto.sql.planner.wxd.unstructured.IcebergUnstructuredAclBasedFiltering;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -748,6 +750,10 @@ public class PlanOptimizers
                 new ApplyConnectorOptimization(() -> planOptimizerManager.getOptimizers(LOGICAL)),
                 projectionPushDown,
                 new PruneUnreferencedOutputs());
+
+        if (featuresConfig.isAclBaseFilteringEnabled()) {
+            builder.add(new IcebergUnstructuredAclBasedFiltering(metadata, new CPGClient()));
+        }
 
         // Pass after connector optimizer, as it relies on connector optimizer to identify empty input tables and convert them to empty ValuesNode
         builder.add(new SimplifyPlanWithEmptyInput(),
