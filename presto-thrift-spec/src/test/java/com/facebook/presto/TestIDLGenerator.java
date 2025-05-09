@@ -23,12 +23,7 @@ import com.facebook.drift.codec.utils.JodaDateTimeToEpochMillisThriftCodec;
 import com.facebook.drift.codec.utils.LocaleToLanguageTagCodec;
 import com.facebook.drift.idl.generator.ThriftIdlGenerator;
 import com.facebook.drift.idl.generator.ThriftIdlGeneratorConfig;
-import com.facebook.presto.execution.TaskInfo;
-import com.facebook.presto.execution.TaskStatus;
-import com.facebook.presto.execution.scheduler.TableWriteInfo;
-import com.facebook.presto.metadata.MetadataUpdates;
-import com.facebook.presto.metadata.Split;
-import com.facebook.presto.server.TaskUpdateRequest;
+import com.facebook.presto.operator.OperatorInfoUnion;
 import com.facebook.presto.server.thrift.MetadataUpdatesCodec;
 import com.facebook.presto.server.thrift.SplitCodec;
 import com.facebook.presto.server.thrift.TableWriteInfoCodec;
@@ -48,8 +43,8 @@ public class TestIDLGenerator
     @Test
     public void TestGenerator()
     {
-        assertGenerated(ImmutableList.of(Split.class, TableWriteInfo.class, MetadataUpdates.class, TaskStatus.class, TaskInfo.class, TaskUpdateRequest.class), true);
-//        assertGenerated(ImmutableList.of(OptionalField.class), false);
+//        assertGenerated(ImmutableList.of(Split.class, TableWriteInfo.class, MetadataUpdates.class, TaskStatus.class, TaskInfo.class, TaskUpdateRequest.class), true);
+        assertGenerated(ImmutableList.of(OperatorInfoUnion.class), false);
     }
 
     private static void assertGenerated(List<Class> clazzes, boolean logging)
@@ -74,6 +69,10 @@ public class TestIDLGenerator
                 new OptionalDoubleThriftCodec().getType());
 
         String idl = generator.generate(clazzes.stream().map(Class::getName).collect(ImmutableList.toImmutableList()));
+
+        System.out.println("================");
+        System.out.println(idl);
+        System.out.println("================");
 
         if (logging) {
             Path targetDir = Paths.get("target");
