@@ -77,6 +77,7 @@ public class NativeWorkerSessionPropertyProvider
     public static final String NATIVE_TABLE_SCAN_SCALED_PROCESSING_ENABLED = "native_table_scan_scaled_processing_enabled";
     public static final String NATIVE_TABLE_SCAN_SCALE_UP_MEMORY_USAGE_RATIO = "native_table_scan_scale_up_memory_usage_ratio";
     public static final String NATIVE_STREAMING_AGGREGATION_MIN_OUTPUT_BATCH_ROWS = "native_streaming_aggregation_min_output_batch_rows";
+    public static final String NATIVE_REQUEST_DATA_SIZES_MAX_WAIT_SEC = "native_request_data_sizes_max_wait_sec";
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
@@ -344,6 +345,11 @@ public class NativeWorkerSessionPropertyProvider
                                 "to produce a batch of size specified by this. If set to 0, then " +
                                 "Operator::outputBatchRows will be used as the min output batch rows.",
                         0,
+                        !nativeExecution),
+                integerProperty(
+                        NATIVE_REQUEST_DATA_SIZES_MAX_WAIT_SEC,
+                        "Maximum wait time for exchange long poll requests in seconds.",
+                        10,
                         !nativeExecution));
     }
 
