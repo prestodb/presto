@@ -66,6 +66,28 @@
         </dependency>
 
         <dependency>
+            <groupId>com.esri.geometry</groupId>
+            <artifactId>esri-geometry-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.openjdk.jol</groupId>
+            <artifactId>jol-core</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-geospatial-toolkit</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.facebook.airlift</groupId>
+                    <artifactId>json</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
             <groupId>com.facebook.drift</groupId>
             <artifactId>drift-api</artifactId>
             <scope>provided</scope>
