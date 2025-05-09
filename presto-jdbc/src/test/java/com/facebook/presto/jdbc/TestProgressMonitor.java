@@ -33,6 +33,7 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Consumer;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
@@ -99,7 +100,9 @@ public class TestProgressMonitor
                 null,
                 ImmutableList.of(),
                 null,
-                null);
+                null,
+                Optional.empty(),
+                false);
 
         return QUERY_RESULTS_CODEC.toJson(queryResults);
     }
