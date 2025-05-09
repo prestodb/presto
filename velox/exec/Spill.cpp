@@ -23,20 +23,6 @@
 using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::exec {
-namespace {
-// Returns the CompareFlags vector whose size is equal to numSortKeys. Fill in
-// with default CompareFlags() if 'compareFlags' is empty.
-const std::vector<CompareFlags> getCompareFlagsOrDefault(
-    const std::vector<CompareFlags>& compareFlags,
-    int32_t numSortKeys) {
-  VELOX_DCHECK(compareFlags.empty() || compareFlags.size() == numSortKeys);
-  if (compareFlags.size() == numSortKeys) {
-    return compareFlags;
-  }
-  return std::vector<CompareFlags>(numSortKeys);
-}
-} // namespace
-
 void SpillMergeStream::pop() {
   VELOX_CHECK(!closed_);
   if (++index_ >= size_) {
@@ -46,36 +32,20 @@ void SpillMergeStream::pop() {
 
 int32_t SpillMergeStream::compare(const MergeStream& other) const {
   VELOX_CHECK(!closed_);
-  auto& otherStream = static_cast<const SpillMergeStream&>(other);
-  auto& children = rowVector_->children();
-  auto& otherChildren = otherStream.current().children();
-  int32_t key = 0;
-  if (sortCompareFlags().empty()) {
-    do {
-      auto result = children[key]
-                        ->compare(
-                            otherChildren[key].get(),
-                            index_,
-                            otherStream.index_,
-                            CompareFlags())
-                        .value();
-      if (result != 0) {
-        return result;
-      }
-    } while (++key < numSortKeys());
-  } else {
-    do {
-      auto result = children[key]
-                        ->compare(
-                            otherChildren[key].get(),
-                            index_,
-                            otherStream.index_,
-                            sortCompareFlags()[key])
-                        .value();
-      if (result != 0) {
-        return result;
-      }
-    } while (++key < numSortKeys());
+  const auto& otherStream = static_cast<const SpillMergeStream&>(other);
+  const auto& children = rowVector_->children();
+  const auto& otherChildren = otherStream.current().children();
+  for (const auto& [key, compareFlags] : sortingKeys()) {
+    const auto result = children[key]
+                            ->compare(
+                                otherChildren[key].get(),
+                                index_,
+                                otherStream.index_,
+                                compareFlags)
+                            .value();
+    if (result != 0) {
+      return result;
+    }
   }
   return 0;
 }
@@ -94,8 +64,7 @@ SpillState::SpillState(
     const common::GetSpillDirectoryPathCB& getSpillDirPathCb,
     const common::UpdateAndCheckSpillLimitCB& updateAndCheckSpillLimitCb,
     const std::string& fileNamePrefix,
-    int32_t numSortKeys,
-    const std::vector<CompareFlags>& sortCompareFlags,
+    const std::vector<SpillSortKey>& sortingKeys,
     uint64_t targetFileSize,
     uint64_t writeBufferSize,
     common::CompressionKind compressionKind,
@@ -106,9 +75,7 @@ SpillState::SpillState(
     : getSpillDirPathCb_(getSpillDirPathCb),
       updateAndCheckSpillLimitCb_(updateAndCheckSpillLimitCb),
       fileNamePrefix_(fileNamePrefix),
-      numSortKeys_(numSortKeys),
-      sortCompareFlags_(
-          getCompareFlagsOrDefault(sortCompareFlags, numSortKeys)),
+      sortingKeys_(sortingKeys),
       targetFileSize_(targetFileSize),
       writeBufferSize_(writeBufferSize),
       compressionKind_(compressionKind),
@@ -116,6 +83,29 @@ SpillState::SpillState(
       fileCreateConfig_(fileCreateConfig),
       pool_(pool),
       stats_(stats) {}
+
+std::vector<SpillSortKey> SpillState::makeSortingKeys(
+    const std::vector<CompareFlags>& compareFlags) {
+  std::vector<SpillSortKey> sortingKeys;
+  sortingKeys.reserve(compareFlags.size());
+  for (column_index_t i = 0; i < compareFlags.size(); ++i) {
+    sortingKeys.emplace_back(i, compareFlags[i]);
+  }
+  return sortingKeys;
+}
+
+std::vector<SpillSortKey> SpillState::makeSortingKeys(
+    const std::vector<column_index_t>& indices,
+    const std::vector<CompareFlags>& compareFlags) {
+  VELOX_CHECK(!indices.empty());
+  VELOX_CHECK_EQ(indices.size(), compareFlags.size());
+  std::vector<SpillSortKey> sortingKeys;
+  sortingKeys.reserve(indices.size());
+  for (auto i = 0; i < indices.size(); i++) {
+    sortingKeys.emplace_back(indices[i], compareFlags[i]);
+  }
+  return sortingKeys;
+}
 
 void SpillState::setPartitionSpilled(const SpillPartitionId& id) {
   VELOX_DCHECK(!spilledPartitionIdSet_.contains(id));
@@ -163,8 +153,7 @@ uint64_t SpillState::appendToPartition(
           id,
           std::make_unique<SpillWriter>(
               std::static_pointer_cast<const RowType>(rows->type()),
-              numSortKeys_,
-              sortCompareFlags_,
+              sortingKeys_,
               compressionKind_,
               fmt::format(
                   "{}/{}-spill-{}", spillDir, fileNamePrefix_, id.encodedId()),

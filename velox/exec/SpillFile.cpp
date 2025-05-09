@@ -74,8 +74,7 @@ uint64_t SpillWriteFile::write(std::unique_ptr<folly::IOBuf> iobuf) {
 
 SpillWriter::SpillWriter(
     const RowTypePtr& type,
-    const uint32_t numSortKeys,
-    const std::vector<CompareFlags>& sortCompareFlags,
+    const std::vector<SpillSortKey>& sortingKeys,
     common::CompressionKind compressionKind,
     const std::string& pathPrefix,
     uint64_t targetFileSize,
@@ -85,8 +84,7 @@ SpillWriter::SpillWriter(
     memory::MemoryPool* pool,
     folly::Synchronized<common::SpillStats>* stats)
     : type_(type),
-      numSortKeys_(numSortKeys),
-      sortCompareFlags_(sortCompareFlags),
+      sortingKeys_(sortingKeys),
       compressionKind_(compressionKind),
       pathPrefix_(pathPrefix),
       targetFileSize_(targetFileSize),
@@ -95,12 +93,7 @@ SpillWriter::SpillWriter(
       updateAndCheckSpillLimitCb_(updateAndCheckSpillLimitCb),
       pool_(pool),
       serde_(getNamedVectorSerde(VectorSerde::Kind::kPresto)),
-      stats_(stats) {
-  // NOTE: if the associated spilling operator has specified the sort
-  // comparison flags, then it must match the number of sorting keys.
-  VELOX_CHECK(
-      sortCompareFlags_.empty() || sortCompareFlags_.size() == numSortKeys_);
-}
+      stats_(stats) {}
 
 SpillWriteFile* SpillWriter::ensureFile() {
   if ((currentFile_ != nullptr) && (currentFile_->size() > targetFileSize_)) {
@@ -126,8 +119,7 @@ void SpillWriter::closeFile() {
       .type = type_,
       .path = currentFile_->path(),
       .size = currentFile_->size(),
-      .numSortKeys = numSortKeys_,
-      .sortFlags = sortCompareFlags_,
+      .sortingKeys = sortingKeys_,
       .compressionKind = compressionKind_});
   currentFile_.reset();
 }
@@ -275,8 +267,7 @@ std::unique_ptr<SpillReadFile> SpillReadFile::create(
       fileInfo.size,
       bufferSize,
       fileInfo.type,
-      fileInfo.numSortKeys,
-      fileInfo.sortFlags,
+      fileInfo.sortingKeys,
       fileInfo.compressionKind,
       pool,
       stats));
@@ -288,8 +279,7 @@ SpillReadFile::SpillReadFile(
     uint64_t size,
     uint64_t bufferSize,
     const RowTypePtr& type,
-    uint32_t numSortKeys,
-    const std::vector<CompareFlags>& sortCompareFlags,
+    const std::vector<SpillSortKey>& sortingKeys,
     common::CompressionKind compressionKind,
     memory::MemoryPool* pool,
     folly::Synchronized<common::SpillStats>* stats)
@@ -297,8 +287,7 @@ SpillReadFile::SpillReadFile(
       path_(path),
       size_(size),
       type_(type),
-      numSortKeys_(numSortKeys),
-      sortCompareFlags_(sortCompareFlags),
+      sortingKeys_(sortingKeys),
       compressionKind_(compressionKind),
       readOptions_{
           kDefaultUseLosslessTimestamp,

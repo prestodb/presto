@@ -637,11 +637,14 @@ class SpillerTest : public exec::test::RowContainerTestBase {
       spiller_ = std::make_unique<NoRowContainerSpiller>(
           rowType_, std::nullopt, hashBits_, &spillConfig_, &spillStats_);
     } else if (type_ == SpillerType::SORT_INPUT) {
+      const auto sortingKeys = SpillState::makeSortingKeys(
+          compareFlags_.empty()
+              ? std::vector<CompareFlags>(rowContainer_->keyTypes().size())
+              : compareFlags_);
       spiller_ = std::make_unique<SortInputSpiller>(
           rowContainer_.get(),
           rowType_,
-          rowContainer_->keyTypes().size(),
-          compareFlags_,
+          sortingKeys,
           &spillConfig_,
           &spillStats_);
     } else if (type_ == SpillerType::SORT_OUTPUT) {
@@ -657,12 +660,15 @@ class SpillerTest : public exec::test::RowContainerTestBase {
           &spillConfig_,
           &spillStats_);
     } else if (type_ == SpillerType::AGGREGATION_INPUT) {
+      const auto sortingKeys = SpillState::makeSortingKeys(
+          compareFlags_.empty()
+              ? std::vector<CompareFlags>(rowContainer_->keyTypes().size())
+              : compareFlags_);
       spiller_ = std::make_unique<AggregationInputSpiller>(
           rowContainer_.get(),
           rowType_,
           hashBits_,
-          rowContainer_->keyTypes().size(),
-          compareFlags_,
+          sortingKeys,
           &spillConfig_,
           &spillStats_);
     } else if (type_ == SpillerType::AGGREGATION_OUTPUT) {

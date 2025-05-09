@@ -744,12 +744,11 @@ void TopNRowNumber::spill() {
 void TopNRowNumber::setupSpiller() {
   VELOX_CHECK_NULL(spiller_);
   VELOX_CHECK(spillConfig_.has_value());
-
+  const auto sortingKeys = SpillState::makeSortingKeys(spillCompareFlags_);
   spiller_ = std::make_unique<SortInputSpiller>(
       data_.get(),
       inputType_,
-      spillCompareFlags_.size(),
-      spillCompareFlags_,
+      sortingKeys,
       &spillConfig_.value(),
       &spillStats_);
 }

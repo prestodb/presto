@@ -421,8 +421,7 @@ class AggregationInputSpiller : public SpillerBase {
       RowContainer* container,
       RowTypePtr rowType,
       const HashBitRange& hashBitRange,
-      int32_t numSortingKeys,
-      const std::vector<CompareFlags>& sortCompareFlags,
+      const std::vector<SpillSortKey>& sortingKeys,
       const common::SpillConfig* spillConfig,
       folly::Synchronized<common::SpillStats>* spillStats);
 

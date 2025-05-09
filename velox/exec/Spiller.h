@@ -55,8 +55,7 @@ class SpillerBase {
       RowContainer* container,
       RowTypePtr rowType,
       HashBitRange bits,
-      int32_t numSortingKeys,
-      const std::vector<CompareFlags>& sortCompareFlags,
+      const std::vector<SpillSortKey>& sortingKeys,
       uint64_t targetFileSize,
       uint64_t maxSpillRunRows,
       std::optional<SpillPartitionId> parentId,
@@ -151,6 +150,8 @@ class SpillerBase {
 
   folly::Synchronized<common::SpillStats>* const spillStats_;
 
+  const std::vector<CompareFlags> compareFlags_;
+
   // True if all rows of spilling partitions are in 'spillRuns_', so
   // that one can start reading these back.
   bool finalized_{false};
@@ -205,6 +206,14 @@ class NoRowContainerSpiller : public SpillerBase {
       RowTypePtr rowType,
       std::optional<SpillPartitionId> parentId,
       HashBitRange bits,
+      const std::vector<SpillSortKey>& sortingKeys,
+      const common::SpillConfig* spillConfig,
+      folly::Synchronized<common::SpillStats>* spillStats);
+
+  NoRowContainerSpiller(
+      RowTypePtr rowType,
+      std::optional<SpillPartitionId> parentId,
+      HashBitRange bits,
       const common::SpillConfig* spillConfig,
       folly::Synchronized<common::SpillStats>* spillStats);
 
@@ -235,16 +244,14 @@ class SortInputSpiller : public SpillerBase {
   SortInputSpiller(
       RowContainer* container,
       RowTypePtr rowType,
-      int32_t numSortingKeys,
-      const std::vector<CompareFlags>& sortCompareFlags,
+      const std::vector<SpillSortKey>& sortingKeys,
       const common::SpillConfig* spillConfig,
       folly::Synchronized<common::SpillStats>* spillStats)
       : SpillerBase(
             container,
             std::move(rowType),
             HashBitRange{},
-            numSortingKeys,
-            sortCompareFlags,
+            sortingKeys,
             std::numeric_limits<uint64_t>::max(),
             spillConfig->maxSpillRunRows,
             std::nullopt,

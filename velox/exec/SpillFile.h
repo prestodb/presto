@@ -23,15 +23,14 @@
 #include "velox/common/compression/Compression.h"
 #include "velox/common/file/File.h"
 #include "velox/common/file/FileInputStream.h"
-#include "velox/common/file/FileSystems.h"
 #include "velox/exec/TreeOfLosers.h"
-#include "velox/exec/UnorderedStreamReader.h"
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/DecodedVector.h"
 #include "velox/vector/VectorStream.h"
 
 namespace facebook::velox::exec {
+using SpillSortKey = std::pair<column_index_t, CompareFlags>;
 
 /// Represents a spill file for writing the serialized spilled data into a disk
 /// file.
@@ -87,8 +86,7 @@ struct SpillFileInfo {
   std::string path;
   /// The file size in bytes.
   uint64_t size;
-  uint32_t numSortKeys;
-  std::vector<CompareFlags> sortFlags;
+  std::vector<SpillSortKey> sortingKeys;
   common::CompressionKind compressionKind;
 };
 
@@ -112,8 +110,7 @@ class SpillWriter {
   /// and sorting the data. write is called multiple times, followed by flush().
   SpillWriter(
       const RowTypePtr& type,
-      const uint32_t numSortKeys,
-      const std::vector<CompareFlags>& sortCompareFlags,
+      const std::vector<SpillSortKey>& sortingKeys,
       common::CompressionKind compressionKind,
       const std::string& pathPrefix,
       uint64_t targetFileSize,
@@ -179,8 +176,7 @@ class SpillWriter {
       uint64_t writeTimeUs);
 
   const RowTypePtr type_;
-  const uint32_t numSortKeys_;
-  const std::vector<CompareFlags> sortCompareFlags_;
+  const std::vector<SpillSortKey> sortingKeys_;
   const common::CompressionKind compressionKind_;
   const std::string pathPrefix_;
   const uint64_t targetFileSize_;
@@ -220,12 +216,8 @@ class SpillReadFile {
     return id_;
   }
 
-  int32_t numSortKeys() const {
-    return numSortKeys_;
-  }
-
-  const std::vector<CompareFlags>& sortCompareFlags() const {
-    return sortCompareFlags_;
+  const std::vector<SpillSortKey>& sortingKeys() const {
+    return sortingKeys_;
   }
 
   bool nextBatch(RowVectorPtr& rowVector);
@@ -246,8 +238,7 @@ class SpillReadFile {
       uint64_t size,
       uint64_t bufferSize,
       const RowTypePtr& type,
-      uint32_t numSortKeys,
-      const std::vector<CompareFlags>& sortCompareFlags,
+      const std::vector<SpillSortKey>& sortingKeys,
       common::CompressionKind compressionKind,
       memory::MemoryPool* pool,
       folly::Synchronized<common::SpillStats>* stats);
@@ -263,8 +254,7 @@ class SpillReadFile {
   const uint64_t size_;
   // The data type of spilled data.
   const RowTypePtr type_;
-  const uint32_t numSortKeys_;
-  const std::vector<CompareFlags> sortCompareFlags_;
+  const std::vector<SpillSortKey> sortingKeys_;
   const common::CompressionKind compressionKind_;
   const serializer::presto::PrestoVectorSerde::PrestoOptions readOptions_;
   memory::MemoryPool* const pool_;

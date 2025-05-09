@@ -179,14 +179,9 @@ void SortWindowBuild::ensureSortFits() {
 
 void SortWindowBuild::setupSpiller() {
   VELOX_CHECK_NULL(spiller_);
-
+  const auto sortingKeys = SpillState::makeSortingKeys(compareFlags_);
   spiller_ = std::make_unique<SortInputSpiller>(
-      data_.get(),
-      inputType_,
-      compareFlags_.size(),
-      compareFlags_,
-      spillConfig_,
-      spillStats_);
+      data_.get(), inputType_, sortingKeys, spillConfig_, spillStats_);
 }
 
 void SortWindowBuild::spill() {

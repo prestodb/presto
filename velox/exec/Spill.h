@@ -81,9 +81,7 @@ class SpillMergeStream : public MergeStream {
   }
 
  protected:
-  virtual int32_t numSortKeys() const = 0;
-
-  virtual const std::vector<CompareFlags>& sortCompareFlags() const = 0;
+  virtual const std::vector<SpillSortKey>& sortingKeys() const = 0;
 
   virtual void nextBatch() = 0;
 
@@ -157,14 +155,9 @@ class FileSpillMergeStream : public SpillMergeStream {
     VELOX_CHECK_NOT_NULL(spillFile_);
   }
 
-  int32_t numSortKeys() const override {
+  const std::vector<SpillSortKey>& sortingKeys() const override {
     VELOX_CHECK(!closed_);
-    return spillFile_->numSortKeys();
-  }
-
-  const std::vector<CompareFlags>& sortCompareFlags() const override {
-    VELOX_CHECK(!closed_);
-    return spillFile_->sortCompareFlags();
+    return spillFile_->sortingKeys();
   }
 
   void nextBatch() override;
@@ -514,8 +507,7 @@ class SpillState {
       const common::GetSpillDirectoryPathCB& getSpillDirectoryPath,
       const common::UpdateAndCheckSpillLimitCB& updateAndCheckSpillLimitCb,
       const std::string& fileNamePrefix,
-      int32_t numSortKeys,
-      const std::vector<CompareFlags>& sortCompareFlags,
+      const std::vector<SpillSortKey>& sortingKeys,
       uint64_t targetFileSize,
       uint64_t writeBufferSize,
       common::CompressionKind compressionKind,
@@ -523,6 +515,13 @@ class SpillState {
       memory::MemoryPool* pool,
       folly::Synchronized<common::SpillStats>* stats,
       const std::string& fileCreateConfig = {});
+
+  static std::vector<SpillSortKey> makeSortingKeys(
+      const std::vector<CompareFlags>& compareFlags = {});
+
+  static std::vector<SpillSortKey> makeSortingKeys(
+      const std::vector<column_index_t>& indices,
+      const std::vector<CompareFlags>& compareFlags);
 
   /// Indicates if a given 'partition' has been spilled or not.
   bool isPartitionSpilled(const SpillPartitionId& id) const {
@@ -544,8 +543,8 @@ class SpillState {
     return prefixSortConfig_;
   }
 
-  const std::vector<CompareFlags>& sortCompareFlags() const {
-    return sortCompareFlags_;
+  const std::vector<SpillSortKey>& sortingKeys() const {
+    return sortingKeys_;
   }
 
   bool isAnyPartitionSpilled() const {
@@ -612,8 +611,7 @@ class SpillState {
 
   // Prefix for spill files.
   const std::string fileNamePrefix_;
-  const int32_t numSortKeys_;
-  const std::vector<CompareFlags> sortCompareFlags_;
+  const std::vector<SpillSortKey> sortingKeys_;
   const uint64_t targetFileSize_;
   const uint64_t writeBufferSize_;
   const common::CompressionKind compressionKind_;

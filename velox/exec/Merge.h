@@ -17,6 +17,7 @@
 
 #include "velox/exec/Exchange.h"
 #include "velox/exec/MergeSource.h"
+#include "velox/exec/Spill.h"
 #include "velox/exec/TreeOfLosers.h"
 
 namespace facebook::velox::exec {
@@ -64,7 +65,7 @@ class Merge : public SourceOperator {
   /// Maximum number of rows in the output batch.
   const vector_size_t outputBatchSize_;
 
-  std::vector<std::pair<column_index_t, CompareFlags>> sortingKeys_;
+  std::vector<SpillSortKey> sortingKeys_;
 
   /// A list of cursors over batches of ordered source data. One per source.
   /// Aligned with 'sources'.
@@ -89,7 +90,7 @@ class SourceStream final : public MergeStream {
  public:
   SourceStream(
       MergeSource* source,
-      const std::vector<std::pair<column_index_t, CompareFlags>>& sortingKeys,
+      const std::vector<SpillSortKey>& sortingKeys,
       uint32_t outputBatchSize)
       : source_{source},
         sortingKeys_{sortingKeys},
@@ -141,7 +142,7 @@ class SourceStream final : public MergeStream {
 
   MergeSource* source_;
 
-  const std::vector<std::pair<column_index_t, CompareFlags>>& sortingKeys_;
+  const std::vector<SpillSortKey>& sortingKeys_;
 
   /// Ordered source rows.
   RowVectorPtr data_;

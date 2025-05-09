@@ -346,13 +346,9 @@ void SortBuffer::updateEstimatedOutputRowSize() {
 void SortBuffer::spillInput() {
   if (inputSpiller_ == nullptr) {
     VELOX_CHECK(!noMoreInput_);
+    const auto sortingKeys = SpillState::makeSortingKeys(sortCompareFlags_);
     inputSpiller_ = std::make_unique<SortInputSpiller>(
-        data_.get(),
-        spillerStoreType_,
-        data_->keyTypes().size(),
-        sortCompareFlags_,
-        spillConfig_,
-        spillStats_);
+        data_.get(), spillerStoreType_, sortingKeys, spillConfig_, spillStats_);
   }
   inputSpiller_->spill();
   data_->clear();

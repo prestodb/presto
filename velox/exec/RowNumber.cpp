@@ -549,7 +549,6 @@ RowNumberHashTableSpiller::RowNumberHashTableSpiller(
           container,
           std::move(rowType),
           bits,
-          0,
           {},
           spillConfig->maxFileSize,
           spillConfig->maxSpillRunRows,

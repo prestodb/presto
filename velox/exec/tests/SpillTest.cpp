@@ -288,12 +288,13 @@ class SpillTest : public ::testing::TestWithParam<uint32_t>,
         ? std::optional<common::PrefixSortConfig>(common::PrefixSortConfig())
         : std::nullopt;
     const int32_t numSortKeys = 1;
+    const auto sortingKeys = SpillState::makeSortingKeys(
+        compareFlags.empty() ? std::vector<CompareFlags>(1) : compareFlags);
     state_ = std::make_unique<SpillState>(
         [&]() -> const std::string& { return tempDir_->getPath(); },
         updateSpilledBytesCb_,
         fileNamePrefix_,
-        numSortKeys,
-        compareFlags,
+        sortingKeys,
         targetFileSize,
         writeBufferSize,
         compressionKind_,
@@ -305,7 +306,7 @@ class SpillTest : public ::testing::TestWithParam<uint32_t>,
     ASSERT_EQ(spillStats_.rlock()->spilledPartitions, 0);
     ASSERT_TRUE(state_->spilledPartitionIdSet().empty());
     ASSERT_EQ(compressionKind_, state_->compressionKind());
-    ASSERT_EQ(state_->sortCompareFlags().size(), numSortKeys);
+    ASSERT_EQ(state_->sortingKeys().size(), numSortKeys);
 
     for (const auto& partitionId : partitionIds) {
       ASSERT_FALSE(state_->isPartitionSpilled(partitionId));
@@ -626,8 +627,7 @@ TEST_P(SpillTest, spillTimestamp) {
       [&]() -> const std::string& { return tempDirectory->getPath(); },
       updateSpilledBytesCb_,
       "test",
-      1,
-      emptyCompareFlags,
+      SpillState::makeSortingKeys(std::vector<CompareFlags>(1)),
       1024,
       0,
       compressionKind_,
@@ -1409,8 +1409,7 @@ TEST_P(SpillTest, validatePerSpillWriteSize) {
       [&]() -> const std::string& { return tempDirectory->getPath(); },
       updateSpilledBytesCb_,
       "test",
-      1,
-      {},
+      SpillState::makeSortingKeys(std::vector<CompareFlags>(1)),
       1024,
       0,
       compressionKind_,
@@ -1441,8 +1440,7 @@ SpillFiles makeFakeSpillFiles(int32_t numFiles) {
          ROW({"k1", "k2"}, {BIGINT(), BIGINT()}),
          tempDir->getPath() + "/Spill_" + std::to_string(fileId),
          1024,
-         1,
-         std::vector<CompareFlags>({}),
+         SpillState::makeSortingKeys(std::vector<CompareFlags>(1)),
          common::CompressionKind_NONE});
   }
   return files;

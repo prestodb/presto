@@ -1015,6 +1015,8 @@ void GroupingSet::spill() {
   if (inputSpiller_ == nullptr) {
     VELOX_DCHECK(pool_.trackUsage());
     VELOX_CHECK(numDistinctSpillFilesPerPartition_.empty());
+    const auto sortingKeys = SpillState::makeSortingKeys(
+        std::vector<CompareFlags>(rows->keyTypes().size()));
     inputSpiller_ = std::make_unique<AggregationInputSpiller>(
         rows,
         makeSpillType(),
@@ -1023,8 +1025,7 @@ void GroupingSet::spill() {
             static_cast<uint8_t>(
                 spillConfig_->startPartitionBit +
                 spillConfig_->numPartitionBits)),
-        rows->keyTypes().size(),
-        std::vector<CompareFlags>(),
+        sortingKeys,
         spillConfig_,
         spillStats_);
   }
@@ -1521,16 +1522,14 @@ AggregationInputSpiller::AggregationInputSpiller(
     RowContainer* container,
     RowTypePtr rowType,
     const HashBitRange& hashBitRange,
-    int32_t numSortingKeys,
-    const std::vector<CompareFlags>& sortCompareFlags,
+    const std::vector<SpillSortKey>& sortingKeys,
     const common::SpillConfig* spillConfig,
     folly::Synchronized<common::SpillStats>* spillStats)
     : SpillerBase(
           container,
           std::move(rowType),
           hashBitRange,
-          numSortingKeys,
-          sortCompareFlags,
+          sortingKeys,
           std::numeric_limits<uint64_t>::max(),
           spillConfig->maxSpillRunRows,
           std::nullopt,
@@ -1546,7 +1545,6 @@ AggregationOutputSpiller::AggregationOutputSpiller(
           container,
           std::move(rowType),
           HashBitRange{},
-          0,
           {},
           std::numeric_limits<uint64_t>::max(),
           spillConfig->maxSpillRunRows,

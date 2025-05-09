@@ -148,6 +148,8 @@ std::unique_ptr<SpillerBase> AggregateSpillBenchmarkBase::makeSpiller() {
   spillConfig.numPartitionBits = 3;
 
   if (spillerType_ == AggregationInputSpiller::kType) {
+    const auto sortingKeys = SpillState::makeSortingKeys(
+        std::vector<CompareFlags>(rowContainer_->keyTypes().size()));
     return std::make_unique<AggregationInputSpiller>(
         rowContainer_.get(),
         rowType_,
@@ -155,8 +157,7 @@ std::unique_ptr<SpillerBase> AggregateSpillBenchmarkBase::makeSpiller() {
             spillConfig.startPartitionBit,
             static_cast<uint8_t>(
                 spillConfig.startPartitionBit + spillConfig.numPartitionBits)},
-        rowContainer_->keyTypes().size(),
-        std::vector<CompareFlags>{},
+        sortingKeys,
         &spillConfig,
         &spillStats_);
   } else {

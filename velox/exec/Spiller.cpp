@@ -32,8 +32,7 @@ SpillerBase::SpillerBase(
     RowContainer* container,
     RowTypePtr rowType,
     HashBitRange bits,
-    int32_t numSortingKeys,
-    const std::vector<CompareFlags>& sortCompareFlags,
+    const std::vector<SpillSortKey>& sortingKeys,
     uint64_t targetFileSize,
     uint64_t maxSpillRunRows,
     std::optional<SpillPartitionId> parentId,
@@ -46,12 +45,19 @@ SpillerBase::SpillerBase(
       maxSpillRunRows_(maxSpillRunRows),
       parentId_(parentId),
       spillStats_(spillStats),
+      compareFlags_([&sortingKeys]() {
+        std::vector<CompareFlags> compareFlags;
+        compareFlags.reserve(sortingKeys.size());
+        for (const auto& [_, flags] : sortingKeys) {
+          compareFlags.push_back(flags);
+        }
+        return compareFlags;
+      }()),
       state_(
           spillConfig->getSpillDirPathCb,
           spillConfig->updateAndCheckSpillLimitCb,
           spillConfig->fileNamePrefix,
-          numSortingKeys,
-          sortCompareFlags,
+          sortingKeys,
           targetFileSize,
           spillConfig->writeBufferSize,
           spillConfig->compressionKind,
@@ -228,13 +234,12 @@ void SpillerBase::ensureSorted(SpillRun& run) {
           run.rows.begin(),
           run.rows.end(),
           [&](const char* left, const char* right) {
-            return container_->compareRows(
-                       left, right, state_.sortCompareFlags()) < 0;
+            return container_->compareRows(left, right, compareFlags_) < 0;
           });
     } else {
       PrefixSort::sort(
           container_,
-          state_.sortCompareFlags(),
+          compareFlags_,
           state_.prefixSortConfig().value(),
           memory::spillMemoryPool(),
           run.rows);
@@ -381,17 +386,31 @@ NoRowContainerSpiller::NoRowContainerSpiller(
     RowTypePtr rowType,
     std::optional<SpillPartitionId> parentId,
     HashBitRange bits,
+    const std::vector<SpillSortKey>& sortingKeys,
     const common::SpillConfig* spillConfig,
     folly::Synchronized<common::SpillStats>* spillStats)
     : SpillerBase(
           nullptr,
           std::move(rowType),
           bits,
-          0,
-          {},
+          sortingKeys,
           spillConfig->maxFileSize,
           0,
           parentId,
+          spillConfig,
+          spillStats) {}
+
+NoRowContainerSpiller::NoRowContainerSpiller(
+    RowTypePtr rowType,
+    std::optional<SpillPartitionId> parentId,
+    HashBitRange bits,
+    const common::SpillConfig* spillConfig,
+    folly::Synchronized<common::SpillStats>* spillStats)
+    : NoRowContainerSpiller(
+          std::move(rowType),
+          parentId,
+          bits,
+          {},
           spillConfig,
           spillStats) {}
 
@@ -421,7 +440,6 @@ SortOutputSpiller::SortOutputSpiller(
           container,
           std::move(rowType),
           HashBitRange{},
-          0,
           {},
           std::numeric_limits<uint64_t>::max(),
           spillConfig->maxSpillRunRows,

@@ -1185,7 +1185,6 @@ HashBuildSpiller::HashBuildSpiller(
           container,
           std::move(rowType),
           bits,
-          0,
           {},
           spillConfig->maxFileSize,
           spillConfig->maxSpillRunRows,
