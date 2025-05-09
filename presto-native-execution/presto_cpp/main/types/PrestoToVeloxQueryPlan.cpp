@@ -1270,7 +1270,11 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
 
   std::vector<core::IndexLookupConditionPtr> joinConditionPtrs{};
   if (node->filter) {
-    parseIndexLookupCondition(*node->filter, exprConverter_, joinConditionPtrs);
+    parseIndexLookupCondition(
+        *node->filter,
+        exprConverter_,
+        /*acceptConstant=*/false,
+        joinConditionPtrs);
   }
 
   return std::make_shared<core::IndexLookupJoinNode>(
@@ -2293,11 +2297,13 @@ void parseSqlFunctionHandle(
 void parseIndexLookupCondition(
     const std::shared_ptr<protocol::RowExpression>& filter,
     const VeloxExprConverter& exprConverter,
+    bool acceptConstant,
     std::vector<core::IndexLookupConditionPtr>& joinConditionPtrs) {
   if (const auto andForm = isAnd(filter)) {
     VELOX_CHECK_EQ(andForm->arguments.size(), 2);
     for (const auto& child : andForm->arguments) {
-      parseIndexLookupCondition(child, exprConverter, joinConditionPtrs);
+      parseIndexLookupCondition(
+          child, exprConverter, acceptConstant, joinConditionPtrs);
     }
     return;
   }
@@ -2314,8 +2320,9 @@ void parseIndexLookupCondition(
     const auto upperExpr = exprConverter.toVeloxExpr(between->arguments[2]);
 
     VELOX_CHECK(
-        !(core::TypedExprs::isConstant(lowerExpr) &&
-          core::TypedExprs::isConstant(upperExpr)),
+        acceptConstant ||
+            !(core::TypedExprs::isConstant(lowerExpr) &&
+              core::TypedExprs::isConstant(upperExpr)),
         "At least one of the between condition bounds needs to be not constant: {}",
         toJsonString(filter));
 
@@ -2337,7 +2344,7 @@ void parseIndexLookupCondition(
         std::dynamic_pointer_cast<protocol::VariableReferenceExpression>(
             contains->arguments[0]));
     VELOX_CHECK(
-        !core::TypedExprs::isConstant(conditionColumnExpr),
+        acceptConstant || !core::TypedExprs::isConstant(conditionColumnExpr),
         "The condition column needs to be not constant: {}",
         toJsonString(filter));
 

@@ -295,5 +295,6 @@ void parseSqlFunctionHandle(
 void parseIndexLookupCondition(
     const std::shared_ptr<protocol::RowExpression>& filter,
     const VeloxExprConverter& exprConverter,
+    bool acceptConstant,
     std::vector<velox::core::IndexLookupConditionPtr>& joinConditionPtrs);
 } // namespace facebook::presto
