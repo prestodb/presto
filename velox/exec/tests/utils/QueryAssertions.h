@@ -177,7 +177,12 @@ bool testingMaybeTriggerAbort(exec::Task* task);
 std::pair<std::unique_ptr<TaskCursor>, std::vector<RowVectorPtr>> readCursor(
     const CursorParameters& params,
     std::function<void(TaskCursor*)> addSplits =
-        [](TaskCursor* taskCursor) { taskCursor->setNoMoreSplits(); },
+        [](TaskCursor* taskCursor) {
+          if (taskCursor->noMoreSplits()) {
+            return;
+          }
+          taskCursor->setNoMoreSplits();
+        },
     uint64_t maxWaitMicros = 5'000'000);
 
 /// The Task can return results before the Driver is finished executing.

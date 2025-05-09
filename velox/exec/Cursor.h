@@ -158,14 +158,6 @@ class TaskCursor {
 
   virtual void setError(std::exception_ptr error) = 0;
 
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  virtual void noMoreSplits(const core::PlanNodeId& planNodeId) = 0;
-
-  virtual void addSplit(
-      const core::PlanNodeId& planNodeId,
-      exec::Split&& split) = 0;
-#endif
-
   virtual bool noMoreSplits() const = 0;
 
   virtual void setNoMoreSplits() = 0;

@@ -311,18 +311,6 @@ class MultiThreadedTaskCursor : public TaskCursorBase {
     noMoreSplits_ = true;
   }
 
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  void noMoreSplits(const core::PlanNodeId& planNodeId) override {
-    VELOX_CHECK(!noMoreSplits_);
-    task_->noMoreSplits(planNodeId);
-  }
-
-  void addSplit(const core::PlanNodeId& planNodeId, exec::Split&& split)
-      override {
-    task_->addSplit(planNodeId, std::move(split));
-  }
-#endif
-
   bool noMoreSplits() const override {
     return noMoreSplits_;
   }
@@ -415,18 +403,6 @@ class SingleThreadedTaskCursor : public TaskCursorBase {
     VELOX_CHECK(!noMoreSplits_);
     noMoreSplits_ = true;
   }
-
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  void noMoreSplits(const core::PlanNodeId& planNodeId) override {
-    VELOX_CHECK(!noMoreSplits_);
-    task_->noMoreSplits(planNodeId);
-  }
-
-  void addSplit(const core::PlanNodeId& planNodeId, exec::Split&& split)
-      override {
-    task_->addSplit(planNodeId, std::move(split));
-  }
-#endif
 
   bool noMoreSplits() const override {
     return noMoreSplits_;
