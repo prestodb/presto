@@ -17,6 +17,7 @@ import com.facebook.airlift.log.Logger;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 
@@ -29,7 +30,7 @@ public class RandomChoiceScheduler
     private static final Logger log = Logger.get(RandomChoiceScheduler.class);
 
     @Override
-    public Optional<URI> getDestination(String user)
+    public Optional<URI> getDestination(String user, Map<String, String> headers, String sql)
     {
         try {
             return Optional.of(candidates.get(RANDOM.nextInt(candidates.size())));
