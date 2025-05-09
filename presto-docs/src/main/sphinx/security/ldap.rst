@@ -51,8 +51,8 @@ Presto Coordinator Node Configuration
 You must make the following changes to the environment prior to configuring the
 Presto coordinator to use LDAP authentication and HTTPS.
 
- * :ref:`ldap_server`
- * :ref:`server_java_keystore`
+* :ref:`ldap_server`
+* :ref:`server_java_keystore`
 
 You also need to make changes to the Presto configuration files.
 LDAP authentication is configured on the coordinator in two parts.
