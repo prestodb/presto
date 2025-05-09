@@ -28,6 +28,7 @@ import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_MAX_OUTPUT_BUFFER
 import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_MAX_STRING_STATISTICS_LIMIT;
 import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_MIN_OUTPUT_BUFFER_CHUNK_SIZE;
 import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_PRESERVE_DIRECT_ENCODING_STRIPE_COUNT;
+import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_RESET_OUTPUT_BUFFER;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.Math.toIntExact;
@@ -50,6 +51,7 @@ public class ColumnWriterOptions
     private final Set<Integer> flattenedNodes;
     private final boolean mapStatisticsEnabled;
     private final int maxFlattenedMapKeyCount;
+    private final boolean resetOutputBuffer;
 
     public ColumnWriterOptions(
             CompressionKind compressionKind,
@@ -66,7 +68,8 @@ public class ColumnWriterOptions
             CompressionBufferPool compressionBufferPool,
             Set<Integer> flattenedNodes,
             boolean mapStatisticsEnabled,
-            int maxFlattenedMapKeyCount)
+            int maxFlattenedMapKeyCount,
+            boolean resetOutputBuffer)
     {
         checkArgument(maxFlattenedMapKeyCount > 0, "maxFlattenedMapKeyCount must be positive: %s", maxFlattenedMapKeyCount);
         requireNonNull(compressionMaxBufferSize, "compressionMaxBufferSize is null");
@@ -86,6 +89,7 @@ public class ColumnWriterOptions
         this.flattenedNodes = requireNonNull(flattenedNodes, "flattenedNodes is null");
         this.mapStatisticsEnabled = mapStatisticsEnabled;
         this.maxFlattenedMapKeyCount = maxFlattenedMapKeyCount;
+        this.resetOutputBuffer = resetOutputBuffer;
     }
 
     public CompressionKind getCompressionKind()
@@ -163,6 +167,10 @@ public class ColumnWriterOptions
         return maxFlattenedMapKeyCount;
     }
 
+    public boolean isResetOutputBuffer()
+    {
+        return resetOutputBuffer;
+    }
     /**
      * Create a copy of this ColumnWriterOptions, but disable string and integer dictionary encodings.
      */
@@ -191,7 +199,8 @@ public class ColumnWriterOptions
                 .setCompressionBufferPool(getCompressionBufferPool())
                 .setFlattenedNodes(getFlattenedNodes())
                 .setMapStatisticsEnabled(isMapStatisticsEnabled())
-                .setMaxFlattenedMapKeyCount(getMaxFlattenedMapKeyCount());
+                .setMaxFlattenedMapKeyCount(getMaxFlattenedMapKeyCount())
+                .setResetOutputBuffer(resetOutputBuffer);
     }
 
     public static Builder builder()
@@ -216,6 +225,7 @@ public class ColumnWriterOptions
         private Set<Integer> flattenedNodes = ImmutableSet.of();
         private boolean mapStatisticsEnabled;
         private int maxFlattenedMapKeyCount = DEFAULT_MAX_FLATTENED_MAP_KEY_COUNT;
+        private boolean resetOutputBuffer = DEFAULT_RESET_OUTPUT_BUFFER;
 
         private Builder() {}
 
@@ -309,6 +319,12 @@ public class ColumnWriterOptions
             return this;
         }
 
+        public Builder setResetOutputBuffer(boolean resetOutputBuffer)
+        {
+            this.resetOutputBuffer = resetOutputBuffer;
+            return this;
+        }
+
         public ColumnWriterOptions build()
         {
             return new ColumnWriterOptions(
@@ -326,7 +342,8 @@ public class ColumnWriterOptions
                     compressionBufferPool,
                     flattenedNodes,
                     mapStatisticsEnabled,
-                    maxFlattenedMapKeyCount);
+                    maxFlattenedMapKeyCount,
+                    resetOutputBuffer);
         }
     }
 }

@@ -160,6 +160,7 @@ public class TestOrcWriterOptions
         int preserveDirectEncodingStripeCount = 0;
         boolean mapStatisticsEnabled = true;
         int maxFlattenedMapKeyCount = 27;
+        boolean resetOutputBuffer = false;
 
         OrcWriterOptions writerOptions = OrcWriterOptions.builder()
                 .withFlushPolicy(DefaultOrcWriterFlushPolicy.builder()
@@ -185,6 +186,7 @@ public class TestOrcWriterOptions
                 .withFlattenedColumns(ImmutableSet.of(4))
                 .withMapStatisticsEnabled(mapStatisticsEnabled)
                 .withMaxFlattenedMapKeyCount(maxFlattenedMapKeyCount)
+                .withResetOutputBuffer(resetOutputBuffer)
                 .build();
 
         String expectedString = "OrcWriterOptions{flushPolicy=DefaultOrcWriterFlushPolicy{stripeMaxRowCount=1100000, " +
@@ -195,7 +197,7 @@ public class TestOrcWriterOptions
                 "stringDictionarySortingEnabled=true, stringDictionaryEncodingEnabled=true, " +
                 "dwrfWriterOptions=Optional[DwrfStripeCacheOptions{stripeCacheMode=INDEX_AND_FOOTER, stripeCacheMaxSize=4MB}], " +
                 "ignoreDictionaryRowGroupSizes=false, preserveDirectEncodingStripeCount=0, flattenedColumns=[4], mapStatisticsEnabled=true, " +
-                "maxFlattenedMapKeyCount=27}";
+                "maxFlattenedMapKeyCount=27, resetOutputBuffer=false}";
         assertEquals(expectedString, writerOptions.toString());
     }
 }
