@@ -25,11 +25,21 @@ std::function<
 addPartitionAndSerializeNode(
     uint32_t numPartitions,
     bool replicateNullsAndAny,
+    const std::vector<velox::core::TypedExprPtr>& partitionKeys,
     const std::vector<std::string>& serializedColumns = {},
     const std::optional<std::vector<velox::core::SortOrder>>& sortOrders =
         std::nullopt,
     const std::optional<std::vector<velox::core::FieldAccessTypedExprPtr>>&
-        fields = std::nullopt);
+        sortKeys = std::nullopt);
+
+std::function<
+    velox::core::PlanNodePtr(std::string nodeId, velox::core::PlanNodePtr)>
+
+addPartitionAndSerializeNode(
+    uint32_t numPartitions,
+    const std::vector<std::string>& partitionKeys,
+    const std::optional<std::vector<std::string>>& sortExpr,
+    velox::memory::MemoryPool* pool);
 
 std::function<
     velox::core::PlanNodePtr(std::string nodeId, velox::core::PlanNodePtr)>

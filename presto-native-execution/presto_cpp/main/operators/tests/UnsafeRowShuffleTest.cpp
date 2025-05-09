@@ -420,11 +420,13 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
       const RowVectorPtr& data,
       const VectorPtr& expectedReplicate = nullptr) {
     const bool replicateNullsAndAny = expectedReplicate != nullptr;
-    auto plan =
-        exec::test::PlanBuilder()
-            .values({data})
-            .addNode(addPartitionAndSerializeNode(7, replicateNullsAndAny))
-            .planNode();
+    const auto partitionKey =
+        std::make_shared<core::FieldAccessTypedExpr>(INTEGER(), "c0");
+    auto plan = exec::test::PlanBuilder()
+                    .values({data})
+                    .addNode(addPartitionAndSerializeNode(
+                        7, replicateNullsAndAny, {partitionKey}))
+                    .planNode();
 
     auto results = exec::test::AssertQueryBuilder(plan).copyResults(pool());
 
@@ -522,12 +524,19 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
     // Flatten the inputs to avoid issues assertEqualResults referred here:
     // https://github.com/facebookincubator/velox/issues/2859
     auto dataType = asRowType(data[0]->type());
+    const auto partitionKey =
+        std::make_shared<core::FieldAccessTypedExpr>(INTEGER(), "c0");
 
     auto writerPlan =
         exec::test::PlanBuilder()
             .values(data, true)
             .addNode(addPartitionAndSerializeNode(
-                numPartitions, replicateNullsAndAny, {}, sortOrders, fields))
+                numPartitions,
+                replicateNullsAndAny,
+                {partitionKey},
+                {},
+                sortOrders,
+                fields))
             .localPartition(std::vector<std::string>{})
             .addNode(addShuffleWriteNode(
                 numPartitions, shuffleName, serializedShuffleWriteInfo))
@@ -766,6 +775,8 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
     std::optional<
         std::vector<std::shared_ptr<const velox::core::FieldAccessTypedExpr>>>
         fields = std::nullopt;
+    const auto partitionKey =
+        std::make_shared<core::FieldAccessTypedExpr>(INTEGER(), "c0");
 
     if (sorted) {
       data = makeRowVector(
@@ -791,7 +802,7 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
     auto plan = exec::test::PlanBuilder()
                     .values({data}, false)
                     .addNode(addPartitionAndSerializeNode(
-                        2, true, {}, ordering, fields))
+                        2, true, {partitionKey}, {}, ordering, fields))
                     .planNode();
 
     auto properties = std::unordered_map<std::string, std::string>{
@@ -823,14 +834,17 @@ TEST_F(UnsafeRowShuffleTest, operators) {
       makeFlatVector<int32_t>({1, 2, 3, 4}),
       makeFlatVector<int64_t>({10, 20, 30, 40}),
   });
+  const auto partitionKey =
+      std::make_shared<core::FieldAccessTypedExpr>(INTEGER(), "c0");
   auto info = testShuffleInfo(4, 1 << 20 /* 1MB */);
-  auto plan = exec::test::PlanBuilder()
-                  .values({data}, true)
-                  .addNode(addPartitionAndSerializeNode(4, false))
-                  .localPartition(std::vector<std::string>{})
-                  .addNode(addShuffleWriteNode(
-                      4, std::string(TestShuffleFactory::kShuffleName), info))
-                  .planNode();
+  auto plan =
+      exec::test::PlanBuilder()
+          .values({data}, true)
+          .addNode(addPartitionAndSerializeNode(4, false, {partitionKey}))
+          .localPartition(std::vector<std::string>{})
+          .addNode(addShuffleWriteNode(
+              4, std::string(TestShuffleFactory::kShuffleName), info))
+          .planNode();
 
   exec::CursorParameters params;
   params.planNode = plan;
@@ -846,6 +860,8 @@ DEBUG_ONLY_TEST_F(UnsafeRowShuffleTest, shuffleWriterExceptions) {
       makeFlatVector<int32_t>({1, 2, 3, 4}),
       makeFlatVector<int64_t>({10, 20, 30, 40}),
   });
+  const auto partitionKey =
+      std::make_shared<core::FieldAccessTypedExpr>(INTEGER(), "c0");
   auto info = testShuffleInfo(4, 1 << 20 /* 1MB */);
 
   SCOPED_TESTVALUE_SET(
@@ -861,7 +877,7 @@ DEBUG_ONLY_TEST_F(UnsafeRowShuffleTest, shuffleWriterExceptions) {
   params.planNode =
       exec::test::PlanBuilder()
           .values({data})
-          .addNode(addPartitionAndSerializeNode(4, false))
+          .addNode(addPartitionAndSerializeNode(4, false, {partitionKey}))
           .addNode(addShuffleWriteNode(
               4, std::string(TestShuffleFactory::kShuffleName), info))
           .planNode();
@@ -878,6 +894,8 @@ DEBUG_ONLY_TEST_F(UnsafeRowShuffleTest, shuffleReaderExceptions) {
       makeFlatVector<int32_t>({1, 2, 3, 4}),
       makeFlatVector<int64_t>({10, 20, 30, 40}),
   });
+  const auto partitionKey =
+      std::make_shared<core::FieldAccessTypedExpr>(INTEGER(), "c0");
 
   auto info = testShuffleInfo(4, 1 << 20 /* 1MB */);
   TestShuffleWriter::createWriter(info, pool());
@@ -886,7 +904,7 @@ DEBUG_ONLY_TEST_F(UnsafeRowShuffleTest, shuffleReaderExceptions) {
   params.planNode =
       exec::test::PlanBuilder()
           .values({data})
-          .addNode(addPartitionAndSerializeNode(2, false))
+          .addNode(addPartitionAndSerializeNode(2, false, {partitionKey}))
           .addNode(addShuffleWriteNode(
               2, std::string(TestShuffleFactory::kShuffleName), info))
           .planNode();
@@ -1235,11 +1253,14 @@ TEST_F(UnsafeRowShuffleTest, partitionAndSerializeOperator) {
       makeFlatVector<int32_t>(1'000, [](auto row) { return row; }),
       makeFlatVector<int64_t>(1'000, [](auto row) { return row * 10; }),
   });
+  const auto partitionKey =
+      std::make_shared<core::FieldAccessTypedExpr>(INTEGER(), "c0");
 
-  auto plan = exec::test::PlanBuilder()
-                  .values({data}, false)
-                  .addNode(addPartitionAndSerializeNode(4, false))
-                  .planNode();
+  auto plan =
+      exec::test::PlanBuilder()
+          .values({data}, false)
+          .addNode(addPartitionAndSerializeNode(4, false, {partitionKey}))
+          .planNode();
 
   testPartitionAndSerialize(plan, data);
 }
@@ -1247,11 +1268,14 @@ TEST_F(UnsafeRowShuffleTest, partitionAndSerializeOperator) {
 TEST_F(UnsafeRowShuffleTest, partitionAndSerializeWithLargeInput) {
   auto data = makeRowVector(
       {makeFlatVector<int32_t>(20'000, [](auto row) { return row; })});
+  const auto partitionKey =
+      std::make_shared<core::FieldAccessTypedExpr>(INTEGER(), "c0");
 
-  auto plan = exec::test::PlanBuilder()
-                  .values({data}, false)
-                  .addNode(addPartitionAndSerializeNode(1, true))
-                  .planNode();
+  auto plan =
+      exec::test::PlanBuilder()
+          .values({data}, false)
+          .addNode(addPartitionAndSerializeNode(1, true, {partitionKey}))
+          .planNode();
 
   testPartitionAndSerialize(plan, data);
 }
@@ -1261,21 +1285,24 @@ TEST_F(UnsafeRowShuffleTest, partitionAndSerializeWithDifferentColumnOrder) {
       makeFlatVector<int32_t>(1'000, [](auto row) { return row; }),
       makeFlatVector<int64_t>(1'000, [](auto row) { return row * 10; }),
   });
+  const auto partitionKey =
+      std::make_shared<core::FieldAccessTypedExpr>(INTEGER(), "c0");
 
   auto plan = exec::test::PlanBuilder()
                   .values({data}, false)
-                  .addNode(addPartitionAndSerializeNode(4, false, {"c1", "c0"}))
+                  .addNode(addPartitionAndSerializeNode(
+                      4, false, {partitionKey}, {"c1", "c0"}))
                   .planNode();
 
   auto expected = makeRowVector({data->childAt(1), data->childAt(0)});
   testPartitionAndSerialize(plan, expected);
 
   // Duplicate some columns.
-  plan =
-      exec::test::PlanBuilder()
-          .values({data}, false)
-          .addNode(addPartitionAndSerializeNode(4, false, {"c1", "c0", "c1"}))
-          .planNode();
+  plan = exec::test::PlanBuilder()
+             .values({data}, false)
+             .addNode(addPartitionAndSerializeNode(
+                 4, false, {partitionKey}, {"c1", "c0", "c1"}))
+             .planNode();
 
   expected =
       makeRowVector({data->childAt(1), data->childAt(0), data->childAt(1)});
@@ -1284,7 +1311,8 @@ TEST_F(UnsafeRowShuffleTest, partitionAndSerializeWithDifferentColumnOrder) {
   // Remove one column.
   plan = exec::test::PlanBuilder()
              .values({data}, false)
-             .addNode(addPartitionAndSerializeNode(4, false, {"c1"}))
+             .addNode(
+                 addPartitionAndSerializeNode(4, false, {partitionKey}, {"c1"}))
              .planNode();
 
   expected = makeRowVector({data->childAt(1)});
@@ -1296,11 +1324,14 @@ TEST_F(UnsafeRowShuffleTest, partitionAndSerializeOperatorWhenSinglePartition) {
       makeFlatVector<int32_t>(1'000, [](auto row) { return row; }),
       makeFlatVector<int64_t>(1'000, [](auto row) { return row * 10; }),
   });
+  const auto partitionKey =
+      std::make_shared<core::FieldAccessTypedExpr>(INTEGER(), "c0");
 
-  auto plan = exec::test::PlanBuilder()
-                  .values({data}, false)
-                  .addNode(addPartitionAndSerializeNode(1, false))
-                  .planNode();
+  auto plan =
+      exec::test::PlanBuilder()
+          .values({data}, false)
+          .addNode(addPartitionAndSerializeNode(1, false, {partitionKey}))
+          .planNode();
 
   testPartitionAndSerialize(plan, data);
 }
@@ -1310,16 +1341,19 @@ TEST_F(UnsafeRowShuffleTest, shuffleWriterToString) {
       makeFlatVector<int32_t>(1'000, [](auto row) { return row; }),
       makeFlatVector<int64_t>(1'000, [](auto row) { return row * 10; }),
   });
+  const auto partitionKey =
+      std::make_shared<core::FieldAccessTypedExpr>(INTEGER(), "c0");
 
-  auto plan = exec::test::PlanBuilder()
-                  .values({data}, true)
-                  .addNode(addPartitionAndSerializeNode(4, false))
-                  .localPartition(std::vector<std::string>{})
-                  .addNode(addShuffleWriteNode(
-                      4,
-                      std::string(TestShuffleFactory::kShuffleName),
-                      testShuffleInfo(10, 10)))
-                  .planNode();
+  auto plan =
+      exec::test::PlanBuilder()
+          .values({data}, true)
+          .addNode(addPartitionAndSerializeNode(4, false, {partitionKey}))
+          .localPartition(std::vector<std::string>{})
+          .addNode(addShuffleWriteNode(
+              4,
+              std::string(TestShuffleFactory::kShuffleName),
+              testShuffleInfo(10, 10)))
+          .planNode();
 
   ASSERT_EQ(plan->toString(false, false), "-- ShuffleWrite[3]\n");
   ASSERT_EQ(
@@ -1333,11 +1367,14 @@ TEST_F(UnsafeRowShuffleTest, partitionAndSerializeToString) {
       makeFlatVector<int32_t>(1'000, [](auto row) { return row; }),
       makeFlatVector<int64_t>(1'000, [](auto row) { return row * 10; }),
   });
+  const auto partitionKey =
+      std::make_shared<core::FieldAccessTypedExpr>(INTEGER(), "c0");
 
-  auto plan = exec::test::PlanBuilder()
-                  .values({data}, true)
-                  .addNode(addPartitionAndSerializeNode(4, false))
-                  .planNode();
+  auto plan =
+      exec::test::PlanBuilder()
+          .values({data}, true)
+          .addNode(addPartitionAndSerializeNode(4, false, {partitionKey}))
+          .planNode();
 
   ASSERT_EQ(plan->toString(false, false), "-- PartitionAndSerialize[1]\n");
   ASSERT_EQ(
@@ -1347,7 +1384,7 @@ TEST_F(UnsafeRowShuffleTest, partitionAndSerializeToString) {
 
   plan = exec::test::PlanBuilder()
              .values({data}, true)
-             .addNode(addPartitionAndSerializeNode(4, true))
+             .addNode(addPartitionAndSerializeNode(4, true, {partitionKey}))
              .planNode();
 
   ASSERT_EQ(plan->toString(false, false), "-- PartitionAndSerialize[1]\n");
