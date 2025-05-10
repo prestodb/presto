@@ -16,8 +16,8 @@
 #include <thrift/lib/cpp2/protocol/BinaryProtocol.h>
 
 template <typename T>
-void thriftRead(std::string data, std::shared_ptr<T>& buffer) {
-  auto inBuf = folly::IOBuf::copyBuffer(data);
+void thriftRead(const std::string& data, std::shared_ptr<T>& buffer) {
+  auto inBuf = folly::IOBuf::wrapBuffer(data.data(), data.size());
   apache::thrift::BinaryProtocolReader reader;
   reader.setInput(inBuf.get());
   buffer->read(&reader);

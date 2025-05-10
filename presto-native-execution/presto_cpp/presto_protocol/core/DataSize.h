@@ -51,6 +51,10 @@ class DataSize {
 
   std::string dataUnitToString(DataUnit dataUnit) const;
 
+  bool operator==(const DataSize& other) const {
+    return value_ == other.value_ && dataUnit_ == other.dataUnit_;
+  }
+
  private:
   double value_ = 0;
   DataUnit dataUnit_ = DataUnit::BYTE;

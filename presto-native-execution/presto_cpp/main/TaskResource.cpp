@@ -19,6 +19,7 @@
 #include "presto_cpp/main/thrift/ThriftIO.h"
 #include "presto_cpp/main/thrift/gen-cpp2/PrestoThrift.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
+#include "presto_cpp/main/thrift/experimental/ThriftUtils.h"
 
 namespace facebook::presto {
 
@@ -210,25 +211,35 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTaskImpl(
         const protocol::TaskId& taskId,
         const std::string& updateJson,
         const bool summarize,
-        long startProcessCpuTime)>& createOrUpdateFunc) {
+        long startProcessCpuTime,
+        bool receiveThrift)>& createOrUpdateFunc) {
   protocol::TaskId taskId = pathMatch[1];
   bool summarize = message->hasQueryParam("summarize");
+
+  auto& headers = message->getHeaders();
+  auto acceptHeader = headers.getSingleOrEmpty(proxygen::HTTP_HEADER_ACCEPT);
+  auto sendThrift =
+      acceptHeader.find(http::kMimeTypeApplicationThrift) != std::string::npos;
+  auto contentHeader = headers.getSingleOrEmpty(proxygen::HTTP_HEADER_CONTENT_TYPE);
+  auto receiveThrift =
+      contentHeader.find(http::kMimeTypeApplicationThrift) != std::string::npos;
+
   return new http::CallbackRequestHandler(
-      [this, taskId, summarize, createOrUpdateFunc](
+      [this, taskId, summarize, createOrUpdateFunc, sendThrift, receiveThrift](
           proxygen::HTTPMessage* /*message*/,
           const std::vector<std::unique_ptr<folly::IOBuf>>& body,
           proxygen::ResponseHandler* downstream,
           std::shared_ptr<http::CallbackRequestHandlerState> handlerState) {
         folly::via(
             httpSrvCpuExecutor_,
-            [this, &body, taskId, summarize, createOrUpdateFunc]() {
+            [this, &body, taskId, summarize, createOrUpdateFunc, receiveThrift]() {
               const auto startProcessCpuTimeNs = util::getProcessCpuTimeNs();
               std::string updateJson = util::extractMessageBody(body);
 
               std::unique_ptr<protocol::TaskInfo> taskInfo;
               try {
                 taskInfo = createOrUpdateFunc(
-                    taskId, updateJson, summarize, startProcessCpuTimeNs);
+                    taskId, updateJson, summarize, startProcessCpuTimeNs, receiveThrift);
               } catch (const velox::VeloxException& e) {
                 // Creating an empty task, putting errors inside so that next
                 // status fetch from coordinator will catch the error and well
@@ -243,12 +254,19 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTaskImpl(
                   throw;
                 }
               }
-              return json(*taskInfo);
+              return taskInfo;
             })
             .via(folly::EventBaseManager::get()->getEventBase())
-            .thenValue([downstream, handlerState](auto&& taskInfoJson) {
+            .thenValue([downstream, handlerState, sendThrift](std::unique_ptr<protocol::TaskInfo> taskInfo) {
               if (!handlerState->requestExpired()) {
-                http::sendOkResponse(downstream, taskInfoJson);
+                if (sendThrift) {
+                  protocol::cpp2::TaskInfo thriftTaskInfo;
+                  protocol::cpp2::toThrift(*taskInfo, thriftTaskInfo);
+                  http::sendOkThriftResponse(
+                      downstream, thriftWrite(thriftTaskInfo));
+                } else {
+                  http::sendOkResponse(downstream, json(*taskInfo));
+                }
               }
             })
             .thenError(
@@ -277,7 +295,8 @@ proxygen::RequestHandler* TaskResource::createOrUpdateBatchTask(
       [&](const protocol::TaskId& taskId,
           const std::string& updateJson,
           const bool summarize,
-          long startProcessCpuTime) {
+          long startProcessCpuTime,
+          bool receiveThrift) {
         protocol::BatchTaskUpdateRequest batchUpdateRequest =
             json::parse(updateJson);
         auto updateRequest = batchUpdateRequest.taskUpdateRequest;
@@ -329,13 +348,25 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTask(
       [&](const protocol::TaskId& taskId,
           const std::string& updateJson,
           const bool summarize,
-          long startProcessCpuTime) {
-        protocol::TaskUpdateRequest updateRequest = json::parse(updateJson);
+          long startProcessCpuTime,
+          bool receiveThrift) {
+        protocol::TaskUpdateRequest updateRequest;
+        if (receiveThrift) {
+          auto thriftTaskUpdateRequest = std::make_shared<protocol::cpp2::TaskUpdateRequest>();
+          thriftRead(updateJson, thriftTaskUpdateRequest);
+          protocol::cpp2::fromThrift(*thriftTaskUpdateRequest, updateRequest);
+        } else {
+          updateRequest = json::parse(updateJson);
+        }
         velox::core::PlanFragment planFragment;
         std::shared_ptr<velox::core::QueryCtx> queryCtx;
         if (updateRequest.fragment) {
-          auto fragment =
-              velox::encoding::Base64::decode(*updateRequest.fragment);
+          std::string fragment;
+          if (receiveThrift) {
+            fragment = *updateRequest.fragment;
+          } else {
+            fragment = velox::encoding::Base64::decode(*updateRequest.fragment);
+          }
           protocol::PlanFragment prestoPlan = json::parse(fragment);
 
           queryCtx =
@@ -511,11 +542,11 @@ proxygen::RequestHandler* TaskResource::getTaskStatus(
 
   auto& headers = message->getHeaders();
   auto acceptHeader = headers.getSingleOrEmpty(proxygen::HTTP_HEADER_ACCEPT);
-  auto useThrift =
+  auto sendThrift =
       acceptHeader.find(http::kMimeTypeApplicationThrift) != std::string::npos;
 
   return new http::CallbackRequestHandler(
-      [this, useThrift, taskId, currentState, maxWait](
+      [this, sendThrift, taskId, currentState, maxWait](
           proxygen::HTTPMessage* /*message*/,
           const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
           proxygen::ResponseHandler* downstream,
@@ -525,7 +556,7 @@ proxygen::RequestHandler* TaskResource::getTaskStatus(
             httpSrvCpuExecutor_,
             [this,
              evb,
-             useThrift,
+             sendThrift,
              taskId,
              currentState,
              maxWait,
@@ -535,12 +566,12 @@ proxygen::RequestHandler* TaskResource::getTaskStatus(
                   .getTaskStatus(taskId, currentState, maxWait, handlerState)
                   .via(evb)
                   .thenValue(
-                      [useThrift, downstream, taskId, handlerState](
+                      [sendThrift, downstream, taskId, handlerState](
                           std::unique_ptr<protocol::TaskStatus> taskStatus) {
                         if (!handlerState->requestExpired()) {
-                          if (useThrift) {
-                            thrift::TaskStatus thriftTaskStatus;
-                            toThrift(*taskStatus, thriftTaskStatus);
+                          if (sendThrift) {
+                            protocol::cpp2::TaskStatus thriftTaskStatus;
+                            protocol::cpp2::toThrift(*taskStatus, thriftTaskStatus);
                             http::sendOkThriftResponse(
                                 downstream, thriftWrite(thriftTaskStatus));
                           } else {
