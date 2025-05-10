@@ -33,20 +33,22 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Random;
 import java.util.stream.Collectors;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.presto.router.TestClusterManager.runAndAsserQueryResults;
 import static com.facebook.presto.router.scheduler.SchedulerType.CUSTOM_PLUGIN_SCHEDULER;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -59,9 +61,8 @@ public class TestCustomSchedulerManager
     private HttpServerInfo httpServerInfo;
     private File configFile;
     private CustomSchedulerManager schedulerManager;
-    private static final Random RANDOM = new Random();
     private static List<URI> serverURIs;
-
+    private static Path tempPluginSchedulerConfigFile;
     @BeforeClass
     public void setup()
             throws Exception
@@ -77,7 +78,7 @@ public class TestCustomSchedulerManager
 
         configFile = getRouterConfigFile(prestoServers);
 
-        Path tempPluginSchedulerConfigFile = Files.createTempFile("router-scheduler-mock", ".properties");
+        tempPluginSchedulerConfigFile = Files.createTempFile("router-scheduler-mock", ".properties");
         String schedulerName = "router-scheduler.name=mock";
         Files.write(tempPluginSchedulerConfigFile, schedulerName.getBytes());
 
@@ -187,7 +188,7 @@ public class TestCustomSchedulerManager
     public void testQuery()
             throws Exception
     {
-        TestingRouterUtil.testQuery(httpServerInfo);
+        runAndAsserQueryResults(httpServerInfo.getHttpUri());
 
         MockScheduler mockScheduler = (MockScheduler) schedulerManager.getScheduler();
         assertEquals(mockScheduler.getRequestsMade(), 1);
@@ -203,5 +204,29 @@ public class TestCustomSchedulerManager
 
         URI target = scheduler.getDestination("test", null).orElse(new URI("invalid"));
         assertTrue(serverURIs.contains(target));
+    }
+
+    @DataProvider(name = "schedulerNameProvider")
+    public Object[][] schedulerNameProvider() throws URISyntaxException
+    {
+        return new Object[][]{
+                {"router-scheduler.name=RANDOM"},
+                {"router-scheduler.name=METRICS"},
+                {"router-scheduler.name=MOCK"}
+        };
+    }
+
+    @Test(dataProvider = "schedulerNameProvider")
+    public void testCustomSchedulerFail(String schedulerName)
+            throws Exception
+    {
+        Files.write(tempPluginSchedulerConfigFile, schedulerName.getBytes());
+
+        try {
+            schedulerManager.loadScheduler();
+        }
+        catch (Exception e) {
+            assertEquals(IllegalStateException.class, e.getClass());
+        }
     }
 }

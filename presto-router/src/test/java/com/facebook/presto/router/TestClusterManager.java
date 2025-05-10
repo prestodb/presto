@@ -36,13 +36,17 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -52,9 +56,9 @@ import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeoutException;
 
-import static com.facebook.presto.router.TestingRouterUtil.createConnection;
 import static com.facebook.presto.router.TestingRouterUtil.getConfigFile;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
+import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -73,6 +77,7 @@ public class TestClusterManager
     private RemoteInfoFactory remoteInfoFactory;
     private RemoteStateConfig remoteStateConfig;
     private CustomSchedulerManager schedulerManager;
+    private URI httpServerUri;
 
     @BeforeClass
     public void setup()
@@ -105,6 +110,8 @@ public class TestClusterManager
         clusterStatusTracker = injector.getInstance(ClusterStatusTracker.class);
         schedulerManager = injector.getInstance(CustomSchedulerManager.class);
 
+        httpServerUri = httpServerInfo.getHttpUri();
+
         // Store dependencies for later use
         remoteInfoFactory = injector.getInstance(RemoteInfoFactory.class);
         remoteStateConfig = injector.getInstance(RemoteStateConfig.class);
@@ -123,25 +130,45 @@ public class TestClusterManager
     public void testQuery()
             throws Exception
     {
-        String sql = "SELECT row_number() OVER () n FROM tpch.tiny.orders";
         for (int i = 0; i < NUM_QUERIES; ++i) {
-            try (Connection connection = createConnection(httpServerInfo.getHttpUri());
-                    Statement statement = connection.createStatement();
-                    ResultSet rs = statement.executeQuery(sql)) {
-                long count = 0;
-                long sum = 0;
-                while (rs.next()) {
-                    count++;
-                    sum += rs.getLong("n");
-                }
-                assertEquals(count, 15000);
-                assertEquals(sum, (count / 2) * (1 + count));
-            }
+            runAndAsserQueryResults(httpServerUri);
         }
-
         sleepUninterruptibly(10, SECONDS);
-        assertEquals(clusterStatusTracker.getAllQueryInfos().size(), NUM_QUERIES);
+        assertEquals(clusterStatusTracker.getAllQueryInfos().size(), NUM_QUERIES + 1);
         assertQueryState();
+    }
+
+    @DataProvider(name = "uriProvider")
+    public Object[][] uriProvider() throws URISyntaxException
+    {
+        return new Object[][]{
+                {httpServerUri}
+        };
+    }
+
+    @Test(dataProvider = "uriProvider")
+    public static void runAndAsserQueryResults(URI uri) throws SQLException
+    {
+        String sql = "SELECT row_number() OVER () n FROM tpch.tiny.orders";
+        try (Connection connection = createConnection(uri);
+                 Statement statement = connection.createStatement();
+                 ResultSet rs = statement.executeQuery(sql)) {
+            long count = 0;
+            long sum = 0;
+            while (rs.next()) {
+                count++;
+                sum += rs.getLong("n");
+            }
+            assertEquals(count, 15000);
+            assertEquals(sum, (count / 2) * (1 + count));
+        }
+    }
+
+    private static Connection createConnection(URI uri)
+            throws SQLException
+    {
+        String url = format("jdbc:presto://%s:%s", uri.getHost(), uri.getPort());
+        return DriverManager.getConnection(url, "test", null);
     }
 
     public void testConfigReload()
@@ -200,7 +227,7 @@ public class TestClusterManager
                 total += count;
             }
         }
-        assertEquals(total, NUM_QUERIES);
+        assertEquals(total, NUM_QUERIES + 1);
     }
 
     private static TestingPrestoServer createPrestoServer()

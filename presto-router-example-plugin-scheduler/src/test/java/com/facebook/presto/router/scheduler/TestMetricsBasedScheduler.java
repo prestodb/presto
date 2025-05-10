@@ -24,7 +24,7 @@ import java.util.Map;
 
 import static org.testng.Assert.assertEquals;
 
-public class TestCustomScheduler
+public class TestMetricsBasedScheduler
 {
     private final Map<URI, ClusterInfo> clusterInfos = new HashMap<>();
 

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.router;
 
-import com.facebook.airlift.http.server.HttpServerInfo;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.router.spec.GroupSpec;
 import com.facebook.presto.router.spec.RouterSpec;
@@ -25,19 +24,12 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.router.scheduler.SchedulerType.ROUND_ROBIN;
-import static java.lang.String.format;
-import static org.testng.Assert.assertEquals;
 
 public class TestingRouterUtil
 {
@@ -58,29 +50,5 @@ public class TestingRouterUtil
         JsonCodec<RouterSpec> codec = jsonCodec(RouterSpec.class);
         Files.write(tempFile.toPath(), codec.toBytes(spec));
         return tempFile;
-    }
-
-    public static void testQuery(HttpServerInfo httpServerInfo) throws SQLException
-    {
-        String sql = "SELECT row_number() OVER () n FROM tpch.tiny.orders";
-        try (Connection connection = createConnection(httpServerInfo.getHttpUri());
-                 Statement statement = connection.createStatement();
-                 ResultSet rs = statement.executeQuery(sql)) {
-            long count = 0;
-            long sum = 0;
-            while (rs.next()) {
-                count++;
-                sum += rs.getLong("n");
-            }
-            assertEquals(count, 15000);
-            assertEquals(sum, (count / 2) * (1 + count));
-        }
-    }
-
-    public static Connection createConnection(URI uri)
-            throws SQLException
-    {
-        String url = format("jdbc:presto://%s:%s", uri.getHost(), uri.getPort());
-        return DriverManager.getConnection(url, "test", null);
     }
 }

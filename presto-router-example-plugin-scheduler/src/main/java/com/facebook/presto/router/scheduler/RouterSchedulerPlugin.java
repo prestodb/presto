@@ -15,9 +15,7 @@ package com.facebook.presto.router.scheduler;
 
 import com.facebook.presto.spi.RouterPlugin;
 import com.facebook.presto.spi.router.SchedulerFactory;
-
-import java.util.ArrayList;
-import java.util.List;
+import com.google.common.collect.ImmutableList;
 
 public class RouterSchedulerPlugin
         implements RouterPlugin
@@ -25,8 +23,6 @@ public class RouterSchedulerPlugin
     @Override
     public Iterable<SchedulerFactory> getSchedulerFactories()
     {
-        List<SchedulerFactory> schedulerFactories = new ArrayList<>();
-        schedulerFactories.add(new MetricsBasedSchedulerFactory());
-        return schedulerFactories;
+        return ImmutableList.of(new MetricsBasedSchedulerFactory());
     }
 }
