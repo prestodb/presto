@@ -637,7 +637,8 @@ void OperatorStats::clear() {
 }
 
 bool Operator::isDraining() const {
-  return operatorCtx_->driver()->isDraining(operatorId());
+  return operatorCtx_->driver() != nullptr &&
+      operatorCtx_->driver()->isDraining(operatorId());
 }
 
 bool Operator::hasDrained() const {
