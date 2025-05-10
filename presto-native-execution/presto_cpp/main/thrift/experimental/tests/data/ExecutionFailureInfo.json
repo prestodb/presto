@@ -1,0 +1,71 @@
+{
+    "type": "type",
+    "message": "message",
+    "cause": {
+      "type": "cause",
+      "message": "message",
+      "suppressed": [],
+      "stack": [],
+      "errorLocation": {
+          "lineNumber": 1,
+          "columnNumber": 2
+      },
+      "errorCode": {
+          "code": 1234,
+          "name": "name",
+          "type": "INSUFFICIENT_RESOURCES",
+          "retriable": true
+      },
+      "remoteHost": "localhost:8080",
+      "errorCause": "UNKNOWN"
+    },
+    "suppressed": [{
+      "type": "suppressed1",
+      "message": "message",
+      "suppressed": [],
+      "stack": [],
+      "errorLocation": {
+          "lineNumber": 1,
+          "columnNumber": 2
+      },
+      "errorCode": {
+          "code": 1234,
+          "name": "name",
+          "type": "EXTERNAL",
+          "retriable": true
+      },
+      "remoteHost": "localhost:8080",
+      "errorCause": "LOW_PARTITION_COUNT"
+    },
+    {
+      "type": "suppressed2",
+      "message": "message",
+      "suppressed": [],
+      "stack": [],
+      "errorLocation": {
+          "lineNumber": 1,
+          "columnNumber": 2
+      },
+      "errorCode": {
+          "code": 1234,
+          "name": "name",
+          "type": "INTERNAL_ERROR",
+          "retriable": true
+      },
+      "remoteHost": "localhost:8080",
+      "errorCause": "EXCEEDS_BROADCAST_MEMORY_LIMIT"
+    }],
+    "stack": [],
+    "errorLocation": {
+        "lineNumber": 1,
+        "columnNumber": 2
+    },
+    "errorCode": {
+        "code": 1234,
+        "name": "name",
+        "type": "INTERNAL_ERROR",
+        "retriable": false
+    },
+    "remoteHost": "localhost:8080",
+    "errorCause": "EXCEEDS_BROADCAST_MEMORY_LIMIT"
+}
