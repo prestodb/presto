@@ -28,6 +28,7 @@ import com.facebook.presto.router.cluster.ClusterManager;
 import com.facebook.presto.router.cluster.ClusterManager.ClusterStatusTracker;
 import com.facebook.presto.router.cluster.RemoteInfoFactory;
 import com.facebook.presto.router.cluster.RemoteStateConfig;
+import com.facebook.presto.router.scheduler.CustomSchedulerManager;
 import com.facebook.presto.router.spec.RouterSpec;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.tpch.TpchPlugin;
@@ -35,11 +36,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
@@ -73,6 +76,8 @@ public class TestClusterManager
     private File configFile;
     private RemoteInfoFactory remoteInfoFactory;
     private RemoteStateConfig remoteStateConfig;
+    private CustomSchedulerManager schedulerManager;
+    private URI httpServerUri;
 
     @BeforeClass
     public void setup()
@@ -94,7 +99,7 @@ public class TestClusterManager
                 new TestingHttpServerModule(),
                 new JsonModule(),
                 new JaxrsModule(true),
-                new RouterModule());
+                new RouterModule(Optional.empty()));
 
         Injector injector = app.doNotInitializeLogging()
                 .setRequiredConfigurationProperty("router.config-file", configFile.getAbsolutePath())
@@ -103,6 +108,9 @@ public class TestClusterManager
         lifeCycleManager = injector.getInstance(LifeCycleManager.class);
         httpServerInfo = injector.getInstance(HttpServerInfo.class);
         clusterStatusTracker = injector.getInstance(ClusterStatusTracker.class);
+        schedulerManager = injector.getInstance(CustomSchedulerManager.class);
+
+        httpServerUri = httpServerInfo.getHttpUri();
 
         // Store dependencies for later use
         remoteInfoFactory = injector.getInstance(RemoteInfoFactory.class);
@@ -122,25 +130,45 @@ public class TestClusterManager
     public void testQuery()
             throws Exception
     {
-        String sql = "SELECT row_number() OVER () n FROM tpch.tiny.orders";
         for (int i = 0; i < NUM_QUERIES; ++i) {
-            try (Connection connection = createConnection(httpServerInfo.getHttpUri());
-                    Statement statement = connection.createStatement();
-                    ResultSet rs = statement.executeQuery(sql)) {
-                long count = 0;
-                long sum = 0;
-                while (rs.next()) {
-                    count++;
-                    sum += rs.getLong("n");
-                }
-                assertEquals(count, 15000);
-                assertEquals(sum, (count / 2) * (1 + count));
-            }
+            runAndAsserQueryResults(httpServerUri);
         }
-
         sleepUninterruptibly(10, SECONDS);
-        assertEquals(clusterStatusTracker.getAllQueryInfos().size(), NUM_QUERIES);
+        assertEquals(clusterStatusTracker.getAllQueryInfos().size(), NUM_QUERIES + 1);
         assertQueryState();
+    }
+
+    @DataProvider(name = "uriProvider")
+    public Object[][] uriProvider() throws URISyntaxException
+    {
+        return new Object[][]{
+                {httpServerUri}
+        };
+    }
+
+    @Test(dataProvider = "uriProvider")
+    public static void runAndAsserQueryResults(URI uri) throws SQLException
+    {
+        String sql = "SELECT row_number() OVER () n FROM tpch.tiny.orders";
+        try (Connection connection = createConnection(uri);
+                 Statement statement = connection.createStatement();
+                 ResultSet rs = statement.executeQuery(sql)) {
+            long count = 0;
+            long sum = 0;
+            while (rs.next()) {
+                count++;
+                sum += rs.getLong("n");
+            }
+            assertEquals(count, 15000);
+            assertEquals(sum, (count / 2) * (1 + count));
+        }
+    }
+
+    private static Connection createConnection(URI uri)
+            throws SQLException
+    {
+        String url = format("jdbc:presto://%s:%s", uri.getHost(), uri.getPort());
+        return DriverManager.getConnection(url, "test", null);
     }
 
     public void testConfigReload()
@@ -153,7 +181,7 @@ public class TestClusterManager
         newRouterConfig.setConfigFile(newConfig.getAbsolutePath());
 
         CyclicBarrier barrier = new CyclicBarrier(2);
-        ClusterManager barrierClusterManager = new BarrierClusterManager(newRouterConfig, remoteInfoFactory, barrier, lifeCycleManager);
+        ClusterManager barrierClusterManager = new BarrierClusterManager(newRouterConfig, remoteInfoFactory, barrier, lifeCycleManager, schedulerManager);
         assertEquals(barrierClusterManager.getAllClusters().size(), 3);
 
         while (!barrierClusterManager.getIsWatchServiceStarted()) {
@@ -199,7 +227,7 @@ public class TestClusterManager
                 total += count;
             }
         }
-        assertEquals(total, NUM_QUERIES);
+        assertEquals(total, NUM_QUERIES + 1);
     }
 
     private static TestingPrestoServer createPrestoServer()
@@ -211,12 +239,5 @@ public class TestClusterManager
         server.refreshNodes();
 
         return server;
-    }
-
-    private static Connection createConnection(URI uri)
-            throws SQLException
-    {
-        String url = format("jdbc:presto://%s:%s", uri.getHost(), uri.getPort());
-        return DriverManager.getConnection(url, "test", null);
     }
 }

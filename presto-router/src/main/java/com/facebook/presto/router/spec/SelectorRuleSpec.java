@@ -17,6 +17,7 @@ import com.facebook.presto.router.cluster.RequestInfo;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.regex.Matcher;
@@ -84,7 +85,8 @@ public class SelectorRuleSpec
             }
         }
 
-        if (clientTags.isPresent() && !requestInfo.getClientTags().containsAll(clientTags.get())) {
+        if (clientTags.isPresent() &&
+                !new HashSet<>(requestInfo.getClientTags()).containsAll(clientTags.get())) {
             return Optional.empty();
         }
 

@@ -15,10 +15,10 @@ package com.facebook.presto.router;
 
 import com.facebook.presto.router.scheduler.RandomChoiceScheduler;
 import com.facebook.presto.router.scheduler.RoundRobinScheduler;
-import com.facebook.presto.router.scheduler.Scheduler;
 import com.facebook.presto.router.scheduler.UserHashScheduler;
 import com.facebook.presto.router.scheduler.WeightedRandomChoiceScheduler;
 import com.facebook.presto.router.scheduler.WeightedRoundRobinScheduler;
+import com.facebook.presto.spi.router.Scheduler;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;

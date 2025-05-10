@@ -11,14 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.router.scheduler;
+package com.facebook.presto.spi.router;
 
-public enum SchedulerType
+public interface ClusterInfo
 {
-    RANDOM_CHOICE,
-    ROUND_ROBIN,
-    USER_HASH,
-    WEIGHTED_RANDOM_CHOICE,
-    WEIGHTED_ROUND_ROBIN,
-    CUSTOM_PLUGIN_SCHEDULER
+    long getRunningQueries();
+
+    long getBlockedQueries();
+
+    long getQueuedQueries();
+
+    long getActiveWorkers();
+
+    long getRunningDrivers();
 }

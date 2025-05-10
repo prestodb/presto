@@ -1,3 +1,4 @@
+package com.facebook.presto.router;
 /*
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -11,14 +12,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.server;
 
 import com.facebook.airlift.log.Logger;
-import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.plugin.base.PluginClassLoader;
-import com.facebook.presto.spi.CoordinatorPlugin;
+import com.facebook.presto.server.PluginManagerConfig;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.RouterPlugin;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
+import com.facebook.presto.spi.router.SchedulerFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import io.airlift.resolver.ArtifactResolver;
@@ -31,22 +32,19 @@ import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
-import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.plugin.base.PluginDiscovery.discoverPlugins;
 import static com.facebook.presto.plugin.base.PluginDiscovery.writePluginServices;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
-public class FunctionPluginManager
+public class RouterPluginManager
 {
     // When generating code the AfterBurner module loads classes with *some* classloader.
     // When the AfterBurner module is configured not to use the value classloader
@@ -70,23 +68,27 @@ public class FunctionPluginManager
             .add("com.facebook.drift.TApplicationException")
             .build();
 
-    //  TODO: Add plugins based on FunctionPlugin interface. Currently loading the plugins implemented on Plugin interface to the Function Server for now.
-    private static final String PLUGIN_SERVICES_FILE = "META-INF/services/" + Plugin.class.getName();
-    private static final Logger log = Logger.get(FunctionPluginManager.class);
-    private final ArtifactResolver resolver;
+    private static final Logger log = Logger.get(RouterPluginManager.class);
+
     private final File installedPluginsDir;
     private final List<String> plugins;
+    private final ArtifactResolver resolver;
     private final AtomicBoolean pluginsLoading = new AtomicBoolean();
     private final AtomicBoolean pluginsLoaded = new AtomicBoolean();
-    private final FunctionAndTypeManager functionAndTypeManager;
+    private static final String SERVICES_FILE = "META-INF/services/" + Plugin.class.getName();
+
+    List<SchedulerFactory> registeredSchedulerFactoriyList = new ArrayList<>();
+
+    public List<SchedulerFactory> getRegisteredSchedulerFactoriyList()
+    {
+        return registeredSchedulerFactoriyList;
+    }
+
     @Inject
-    public FunctionPluginManager(
-            PluginManagerConfig config,
-            FunctionAndTypeManager functionAndTypeManager)
+    public RouterPluginManager(
+            PluginManagerConfig config)
     {
         requireNonNull(config, "config is null");
-        requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
-        this.functionAndTypeManager = functionAndTypeManager;
 
         installedPluginsDir = config.getInstalledPluginsDir();
         if (config.getPlugins() == null) {
@@ -122,14 +124,15 @@ public class FunctionPluginManager
             throws Exception
     {
         log.info("-- Loading plugin %s --", plugin);
-        URLClassLoader pluginClassLoader = buildClassLoader(plugin);
+        PluginClassLoader pluginClassLoader = buildClassLoader(plugin);
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(pluginClassLoader)) {
+            loadPlugin(pluginClassLoader, RouterPlugin.class);
             loadPlugin(pluginClassLoader, Plugin.class);
         }
         log.info("-- Finished loading plugin %s --", plugin);
     }
 
-    private void loadPlugin(URLClassLoader pluginClassLoader, Class<?> clazz)
+    private void loadPlugin(PluginClassLoader pluginClassLoader, Class<?> clazz)
     {
         ServiceLoader<?> serviceLoader = ServiceLoader.load(clazz, pluginClassLoader);
         List<?> plugins = ImmutableList.copyOf(serviceLoader);
@@ -140,8 +143,9 @@ public class FunctionPluginManager
 
         for (Object plugin : plugins) {
             log.info("Installing %s", plugin.getClass().getName());
-            if (plugin instanceof Plugin) {
-                installPlugin((Plugin) plugin);
+
+            if (plugin instanceof RouterPlugin) {
+                installRouterPlugin((RouterPlugin) plugin);
             }
             else {
                 log.warn("Unknown plugin type: %s", plugin.getClass().getName());
@@ -149,15 +153,15 @@ public class FunctionPluginManager
         }
     }
 
-    public void installPlugin(Plugin plugin)
+    public void installRouterPlugin(RouterPlugin plugin)
     {
-        for (Class<?> functionClass : plugin.getFunctions()) {
-            log.info("Registering functions from %s", functionClass.getName());
-            functionAndTypeManager.registerBuiltInFunctions(extractFunctions(functionClass));
+        for (SchedulerFactory schedulerFactory : plugin.getSchedulerFactories()) {
+            log.info("Registering router scheduler  %s", schedulerFactory.getName());
+            registeredSchedulerFactoriyList.add(schedulerFactory);
         }
     }
 
-    private URLClassLoader buildClassLoader(String plugin)
+    private PluginClassLoader buildClassLoader(String plugin)
             throws Exception
     {
         File file = new File(plugin);
@@ -170,20 +174,22 @@ public class FunctionPluginManager
         return buildClassLoaderFromCoordinates(plugin);
     }
 
-    private URLClassLoader buildClassLoaderFromPom(File pomFile)
+    private PluginClassLoader buildClassLoaderFromPom(File pomFile)
             throws Exception
     {
         List<Artifact> artifacts = resolver.resolvePom(pomFile);
-        URLClassLoader classLoader = createClassLoader(artifacts, pomFile.getPath());
+        PluginClassLoader classLoader = createClassLoader(artifacts, pomFile.getPath());
 
         Artifact artifact = artifacts.get(0);
-
-        processPlugins(artifact, classLoader, PLUGIN_SERVICES_FILE, CoordinatorPlugin.class.getName());
+        Set<String> plugins = discoverPlugins(artifact, classLoader, SERVICES_FILE, Plugin.class.getName());
+        if (!plugins.isEmpty()) {
+            writePluginServices(plugins, artifact.getFile(), SERVICES_FILE);
+        }
 
         return classLoader;
     }
 
-    private URLClassLoader buildClassLoaderFromDirectory(File dir)
+    private PluginClassLoader buildClassLoaderFromDirectory(File dir)
             throws Exception
     {
         log.debug("Classpath for %s:", dir.getName());
@@ -195,7 +201,7 @@ public class FunctionPluginManager
         return createClassLoader(urls);
     }
 
-    private URLClassLoader buildClassLoaderFromCoordinates(String coordinates)
+    private PluginClassLoader buildClassLoaderFromCoordinates(String coordinates)
             throws Exception
     {
         Artifact rootArtifact = new DefaultArtifact(coordinates);
@@ -203,7 +209,7 @@ public class FunctionPluginManager
         return createClassLoader(artifacts, rootArtifact.toString());
     }
 
-    private URLClassLoader createClassLoader(List<Artifact> artifacts, String name)
+    private PluginClassLoader createClassLoader(List<Artifact> artifacts, String name)
             throws IOException
     {
         log.debug("Classpath for %s:", name);
@@ -219,7 +225,7 @@ public class FunctionPluginManager
         return createClassLoader(urls);
     }
 
-    private URLClassLoader createClassLoader(List<URL> urls)
+    private PluginClassLoader createClassLoader(List<URL> urls)
     {
         ClassLoader parent = getClass().getClassLoader();
         return new PluginClassLoader(urls, parent, SPI_PACKAGES);
@@ -240,16 +246,7 @@ public class FunctionPluginManager
     private static List<Artifact> sortedArtifacts(List<Artifact> artifacts)
     {
         List<Artifact> list = new ArrayList<>(artifacts);
-        Collections.sort(list, Ordering.natural().nullsLast().onResultOf(Artifact::getFile));
+        list.sort(Ordering.natural().nullsLast().onResultOf(Artifact::getFile));
         return list;
-    }
-
-    private void processPlugins(Artifact artifact, ClassLoader classLoader, String servicesFile, String className)
-            throws IOException
-    {
-        Set<String> plugins = discoverPlugins(artifact, classLoader, servicesFile, className);
-        if (!plugins.isEmpty()) {
-            writePluginServices(plugins, artifact.getFile(), servicesFile);
-        }
     }
 }

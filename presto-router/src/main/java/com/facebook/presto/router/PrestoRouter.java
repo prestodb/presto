@@ -28,6 +28,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Module;
 import org.weakref.jmx.guice.MBeanModule;
 
+import java.util.Optional;
+
 public class PrestoRouter
 {
     private PrestoRouter()
@@ -47,7 +49,7 @@ public class PrestoRouter
                 .add(new LogJmxModule())
                 .add(new TraceTokenModule())
                 .add(new EventModule())
-                .add(new RouterModule())
+                .add(new RouterModule(Optional.empty()))
                 .add(extraModules)
                 .build());
 

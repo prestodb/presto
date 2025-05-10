@@ -14,6 +14,7 @@
 package com.facebook.presto.router.scheduler;
 
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.router.Scheduler;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
@@ -21,10 +22,12 @@ import static java.util.Objects.requireNonNull;
 public class SchedulerFactory
 {
     private final SchedulerType schedulerType;
+    private final CustomSchedulerManager schedulerManager;
 
-    public SchedulerFactory(SchedulerType schedulerType)
+    public SchedulerFactory(SchedulerType schedulerType, CustomSchedulerManager schedulerManager)
     {
         this.schedulerType = requireNonNull(schedulerType, "schedulerType is null");
+        this.schedulerManager = requireNonNull(schedulerManager, "schedulerManager is null");
     }
 
     public Scheduler create()
@@ -40,6 +43,9 @@ public class SchedulerFactory
                 return new RoundRobinScheduler();
             case WEIGHTED_ROUND_ROBIN:
                 return new WeightedRoundRobinScheduler();
+            case CUSTOM_PLUGIN_SCHEDULER:
+                schedulerManager.loadScheduler();
+                return schedulerManager.getScheduler();
         }
         throw new PrestoException(NOT_SUPPORTED, "Unsupported router scheduler type " + schedulerType);
     }
