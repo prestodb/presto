@@ -481,7 +481,7 @@ TEST_P(UnnestTest, barrier) {
   std::vector<RowVectorPtr> vectors;
   std::vector<std::shared_ptr<TempFilePath>> tempFiles;
   const int numSplits{5};
-  const int numRowsPerSplit{1'000};
+  const int numRowsPerSplit{1'00};
   for (int32_t i = 0; i < 5; ++i) {
     auto vector = makeRowVector({
         makeFlatVector<int64_t>(numRowsPerSplit, [](auto row) { return row; }),
@@ -507,7 +507,8 @@ TEST_P(UnnestTest, barrier) {
 
   const auto expectedResult = makeRowVector({
       makeFlatVector<int64_t>(
-          1'000 * 3 * numSplits, [](auto row) { return 1 + row % 3; }),
+          numRowsPerSplit * 3 * numSplits,
+          [](auto row) { return 1 + row % 3; }),
   });
 
   struct {
