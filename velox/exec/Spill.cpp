@@ -388,6 +388,47 @@ void FileSpillMergeStream::close() {
   spillFile_.reset();
 }
 
+std::unique_ptr<SpillMergeStream> ConcatFilesSpillMergeStream::create(
+    uint32_t id,
+    std::vector<std::unique_ptr<SpillReadFile>> spillFiles) {
+  auto spillStream = std::unique_ptr<ConcatFilesSpillMergeStream>(
+      new ConcatFilesSpillMergeStream(id, std::move(spillFiles)));
+  spillStream->nextBatch();
+  return spillStream;
+}
+
+uint32_t ConcatFilesSpillMergeStream::id() const {
+  return id_;
+}
+
+void ConcatFilesSpillMergeStream::nextBatch() {
+  VELOX_CHECK(!closed_);
+  index_ = 0;
+  for (; fileIndex_ < spillFiles_.size(); ++fileIndex_) {
+    VELOX_CHECK_NOT_NULL(spillFiles_[fileIndex_]);
+    if (spillFiles_[fileIndex_]->nextBatch(rowVector_)) {
+      VELOX_CHECK_NOT_NULL(rowVector_);
+      size_ = rowVector_->size();
+      return;
+    }
+    spillFiles_[fileIndex_].reset();
+  }
+  size_ = 0;
+  close();
+}
+
+void ConcatFilesSpillMergeStream::close() {
+  VELOX_CHECK(!closed_);
+  SpillMergeStream::close();
+  spillFiles_.clear();
+}
+
+const std::vector<SpillSortKey>& ConcatFilesSpillMergeStream::sortingKeys()
+    const {
+  VELOX_CHECK(!closed_);
+  return spillFiles_[fileIndex_]->sortingKeys();
+}
+
 SpillPartitionId::SpillPartitionId(uint32_t partitionNumber)
     : encodedId_(partitionNumber) {
   if (FOLLY_UNLIKELY(partitionNumber >= (1 << kMaxPartitionBits))) {
