@@ -394,7 +394,7 @@ std::optional<HashJoinBridge::SpillInput> HashJoinBridge::spillInputOrFuture(
 
 bool HashJoinBridge::testingHasMoreSpilledPartitions() {
   std::lock_guard<std::mutex> l(mutex_);
-  return spillPartitionSet_.hasNext() || restoringSpillPartitionId_.has_value();
+  return spillPartitionSet_.hasNext();
 }
 
 bool isLeftNullAwareJoinWithFilter(
