@@ -194,7 +194,7 @@ public class TestJdbcQueryBuilderJoinPushdownExtended
         PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, session, connection, "test_catalog", "test_schema", "test_table_1", joinTablesList, selectColumns, tupleDomain, additionalPredicate);
 
         String expectedPreparedStatement = "SELECT \"table_alias_1\".\"integer_col_1\", \"table_alias_2\".\"integer_col_2\" " +
-                "FROM \"test_schema\".\"test_table_2\" \"table_alias_2\", \"test_schema\".\"test_table_1\" \"table_alias_1\" " +
+                "FROM \"test_schema\".\"test_table_1\" \"table_alias_1\", \"test_schema\".\"test_table_2\" \"table_alias_2\" " +
                 "WHERE \"table_alias_1\".\"integer_col_1\" = \"table_alias_2\".\"integer_col_2\"";
 
         // preparedStatement will have some additional metadata like name of the user, and some text in the beginning as well. We can ignore those.
@@ -327,7 +327,7 @@ public class TestJdbcQueryBuilderJoinPushdownExtended
 
             // We are Asserting the preparedStatement and also the resultSet.
             String expectedPreparedStatement = "SELECT \"table_alias_1\".\"integer_col_1\", \"table_alias_2\".\"integer_col_2\", \"table_alias_3\".\"integer_col_3\" " +
-                    "FROM \"test_schema\".\"test_table_3\" \"table_alias_3\", \"test_schema\".\"test_table_2\" \"table_alias_2\", \"test_schema\".\"test_table_1\" \"table_alias_1\" " +
+                    "FROM \"test_schema\".\"test_table_1\" \"table_alias_1\", \"test_schema\".\"test_table_2\" \"table_alias_2\", \"test_schema\".\"test_table_3\" \"table_alias_3\" " +
                     "WHERE \"table_alias_1\".\"integer_col_1\" = \"table_alias_2\".\"integer_col_2\" AND \"table_alias_2\".\"integer_col_2\" = \"table_alias_3\".\"integer_col_3\"";
 
             assertTrue(preparedStatement.toString().contains(expectedPreparedStatement),
@@ -425,7 +425,7 @@ public class TestJdbcQueryBuilderJoinPushdownExtended
             ImmutableSet<Integer> expectedIntegerCol4Values = ImmutableSet.of(0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
 
             String expectedPreparedStatement = "SELECT \"table_alias_1\".\"integer_col_1\", \"table_alias_2\".\"integer_col_2\", \"table_alias_3\".\"integer_col_3\", \"table_alias_4\".\"integer_col_4\" " +
-                    "FROM \"test_schema\".\"test_table_4\" \"table_alias_4\", \"test_schema\".\"test_table_3\" \"table_alias_3\", \"test_schema\".\"test_table_2\" \"table_alias_2\", \"test_schema\".\"test_table_1\" \"table_alias_1\" " +
+                    "FROM \"test_schema\".\"test_table_1\" \"table_alias_1\", \"test_schema\".\"test_table_2\" \"table_alias_2\", \"test_schema\".\"test_table_3\" \"table_alias_3\", \"test_schema\".\"test_table_4\" \"table_alias_4\" " +
                     "WHERE \"table_alias_1\".\"integer_col_1\" = \"table_alias_2\".\"integer_col_2\" AND \"table_alias_2\".\"integer_col_2\" = \"table_alias_3\".\"integer_col_3\" AND \"table_alias_3\".\"integer_col_3\" = \"table_alias_4\".\"integer_col_4\"";
 
             assertTrue(preparedStatement.toString().contains(expectedPreparedStatement),
