@@ -419,9 +419,9 @@ public class TestJdbcQueryBuilderJoinPushdown
             expectedPreparedStatement.append(", ");
             expectedPreparedStatement.append(quote(tableAlias2)).append(".").append(quote(column2));
             expectedPreparedStatement.append(" FROM ");
-            expectedPreparedStatement.append(quote(schemaName1)).append(".").append(quote(tableName2)).append(" ").append(quote(tableAlias2));
+            expectedPreparedStatement.append(quote(schemaName1)).append(".").append(quote(tableName1)).append(" ").append(quote(tableAlias1));
             expectedPreparedStatement.append(", ");
-            expectedPreparedStatement.append(quote(schemaName2)).append(".").append(quote(tableName1)).append(" ").append(quote(tableAlias1));
+            expectedPreparedStatement.append(quote(schemaName2)).append(".").append(quote(tableName2)).append(" ").append(quote(tableAlias2));
             expectedPreparedStatement.append(" WHERE ");
             expectedPreparedStatement.append(predicateAsString);
 
