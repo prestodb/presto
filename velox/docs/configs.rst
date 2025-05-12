@@ -280,7 +280,7 @@ Spilling
    * - mixed_grouped_mode_hash_join_spill_enabled
      - boolean
      - false
-     - When both `spill_enabled` and `join_spill_enabled` are true, determines if HashProbe and HashBuild are able to spill under mixed groupede execution mode.
+     - When both `spill_enabled` and `join_spill_enabled` are true, determines if HashProbe and HashBuild are able to spill under mixed grouped execution mode.
    * - order_by_spill_enabled
      - boolean
      - true
