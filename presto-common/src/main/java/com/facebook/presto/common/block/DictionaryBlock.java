@@ -131,6 +131,12 @@ public class DictionaryBlock
     }
 
     @Override
+    public byte[] getBytes(int position, int offset, int length)
+    {
+        return dictionary.getBytes(getId(position), offset, length);
+    }
+
+    @Override
     public short getShort(int position)
     {
         return dictionary.getShort(getId(position));

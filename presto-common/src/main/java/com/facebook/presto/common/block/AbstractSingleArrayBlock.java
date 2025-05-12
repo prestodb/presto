@@ -52,6 +52,13 @@ public abstract class AbstractSingleArrayBlock
     }
 
     @Override
+    public byte[] getBytes(int position, int offset, int length)
+    {
+        checkReadablePosition(position);
+        return getBlock().getBytes(position + start, offset, length);
+    }
+
+    @Override
     public short getShort(int position)
     {
         checkReadablePosition(position);

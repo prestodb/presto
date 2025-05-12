@@ -46,6 +46,13 @@ public abstract class AbstractVariableWidthBlock
     }
 
     @Override
+    public byte[] getBytes(int position, int offset, int length)
+    {
+        checkReadablePosition(position);
+        return getRawSlice(position).getBytes(getPositionOffset(position) + offset, length);
+    }
+
+    @Override
     public short getShort(int position)
     {
         checkReadablePosition(position);
