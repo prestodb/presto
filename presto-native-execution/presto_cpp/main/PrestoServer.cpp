@@ -65,6 +65,10 @@
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/serializers/UnsafeRowSerializer.h"
 
+#ifdef PRESTO_ENABLE_CUDF
+#include "velox/experimental/cudf/exec/ToCudf.h"
+#endif
+
 #ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
 #include "presto_cpp/main/RemoteFunctionRegisterer.h"
 #endif
@@ -139,6 +143,18 @@ bool cachePeriodicPersistenceEnabled() {
       systemConfig->asyncCacheSsdGb() > 0 &&
       systemConfig->asyncCachePersistenceInterval() >
       std::chrono::seconds::zero();
+}
+
+void registerVeloxCudf() {
+#ifdef PRESTO_ENABLE_CUDF
+ facebook::velox::cudf_velox::registerCudf();
+#endif
+}
+
+void unregisterVeloxCudf() {
+#ifdef PRESTO_ENABLE_CUDF
+ facebook::velox::cudf_velox::unregisterCudf();
+#endif
 }
 
 } // namespace
@@ -365,6 +381,7 @@ void PrestoServer::run() {
           });
     }
   }
+  registerVeloxCudf();
   registerFunctions();
   registerRemoteFunctions();
   registerVectorSerdes();
@@ -637,6 +654,7 @@ void PrestoServer::run() {
   unregisterFileReadersAndWriters();
   unregisterFileSystems();
   unregisterConnectors();
+  unregisterVeloxCudf();
 
   PRESTO_SHUTDOWN_LOG(INFO)
       << "Joining Driver CPU Executor '" << driverExecutor_->getName()
