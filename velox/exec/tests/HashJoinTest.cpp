@@ -104,6 +104,22 @@ TEST_P(MultiThreadedHashJoinTest, joinWithCancellation) {
       .run();
 }
 
+TEST_P(MultiThreadedHashJoinTest, testJoinWithSpillenabledCancellation) {
+  auto spillDirectory = exec::test::TempDirectoryPath::create();
+  HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
+      .numDrivers(numDrivers_)
+      .keyTypes({BIGINT()})
+      .probeVectors(1600, 5)
+      .buildVectors(1500, 5)
+      .injectTaskCancellation(true)
+      .injectSpill(false)
+      // Need spill directory so that canSpill() is true for HashProbe
+      .spillDirectory(spillDirectory->getPath())
+      .referenceQuery(
+          "SELECT t_k0, t_data, u_k0, u_data FROM t, u WHERE t.t_k0 = u.u_k0")
+      .run();
+}
+
 TEST_P(MultiThreadedHashJoinTest, emptyBuild) {
   const std::vector<bool> finishOnEmptys = {false, true};
   for (const auto finishOnEmpty : finishOnEmptys) {

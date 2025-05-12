@@ -493,6 +493,7 @@ void HashProbe::wakeupPeerOperators() {
   for (auto& promise : promises) {
     promise.setValue();
   }
+  promises_.clear();
 }
 
 std::vector<HashProbe*> HashProbe::findPeerOperators() {
@@ -2057,6 +2058,11 @@ void HashProbe::close() {
   spillOutputPartitionSet_.clear();
   spillOutputReader_.reset();
   clearBuffers();
+
+  // Fullfill any pending promises
+  if (lastProber_) {
+    wakeupPeerOperators();
+  }
 }
 
 void HashProbe::clearBuffers() {
