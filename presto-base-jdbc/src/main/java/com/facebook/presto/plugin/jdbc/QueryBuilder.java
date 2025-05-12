@@ -122,13 +122,14 @@ public class QueryBuilder
             buildFromClause(catalog, schema, table, sql);
         }
 
-        List<TypeAndValue> accumulator = new ArrayList<>();
-        List<String> clauses = toConjuncts(columns, tupleDomain, accumulator);
-        clauses = buildClauses(additionalPredicate, accumulator, clauses);
+        ImmutableList.Builder<TypeAndValue> accumulatorBuilder = ImmutableList.builder();
+        List<String> clauses = toConjuncts(columns, tupleDomain, accumulatorBuilder);
+        clauses = buildClauses(additionalPredicate, accumulatorBuilder, clauses);
         buildWhereClause(clauses, sql);
 
         sql.append(String.format("/* %s : %s */", session.getUser(), session.getQueryId()));
         PreparedStatement statement = client.getPreparedStatement(session, connection, sql.toString());
+        List<TypeAndValue> accumulator = accumulatorBuilder.build();
         bindParams(accumulator, statement);
 
         return statement;
@@ -160,7 +161,7 @@ public class QueryBuilder
         }
     }
 
-    private static List<String> buildClauses(Optional<JdbcExpression> additionalPredicate, List<TypeAndValue> accumulator, List<String> clauses)
+    private static List<String> buildClauses(Optional<JdbcExpression> additionalPredicate, ImmutableList.Builder<TypeAndValue> accumulator, List<String> clauses)
     {
         if (additionalPredicate.isPresent()) {
             clauses = ImmutableList.<String>builder()
@@ -168,7 +169,6 @@ public class QueryBuilder
                     .add(additionalPredicate.get().getExpression())
                     .build();
             accumulator.addAll(additionalPredicate.get().getBoundConstantValues().stream()
-                    //see https://github.com/Ahana-Inc/prestodb/pull/144#discussion_r895353628 for details.
                     .map(constantExpression -> new TypeAndValue(constantExpression.getType(), constantExpression.getValue()))
                     .collect(ImmutableList.toImmutableList()));
         }
@@ -281,7 +281,7 @@ public class QueryBuilder
                 validType instanceof CharType;
     }
 
-    private List<String> toConjuncts(List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> tupleDomain, List<TypeAndValue> accumulator)
+    private List<String> toConjuncts(List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> tupleDomain, ImmutableList.Builder<TypeAndValue> accumulatorBuilder)
     {
         ImmutableList.Builder<String> builder = ImmutableList.builder();
         for (JdbcColumnHandle column : columns) {
@@ -289,14 +289,14 @@ public class QueryBuilder
             if (isAcceptedType(type)) {
                 Domain domain = tupleDomain.getDomains().get().get(column);
                 if (domain != null) {
-                    builder.add(toPredicate(domain, column, accumulator));
+                    builder.add(toPredicate(domain, column, accumulatorBuilder));
                 }
             }
         }
         return builder.build();
     }
 
-    private String toPredicate(Domain domain, JdbcColumnHandle columnHandle, List<TypeAndValue> accumulator)
+    private String toPredicate(Domain domain, JdbcColumnHandle columnHandle, ImmutableList.Builder<TypeAndValue> accumulatorBuilder)
     {
         checkArgument(domain.getType().isOrderable(), "Domain type must be orderable");
 
@@ -318,10 +318,10 @@ public class QueryBuilder
             else {
                 List<String> rangeConjuncts = new ArrayList<>();
                 if (!range.isLowUnbounded()) {
-                    rangeConjuncts.add(toPredicate(range.isLowInclusive() ? ">=" : ">", range.getLowBoundedValue(), columnHandle, accumulator));
+                    rangeConjuncts.add(toPredicate(range.isLowInclusive() ? ">=" : ">", range.getLowBoundedValue(), columnHandle, accumulatorBuilder));
                 }
                 if (!range.isHighUnbounded()) {
-                    rangeConjuncts.add(toPredicate(range.isHighInclusive() ? "<=" : "<", range.getHighBoundedValue(), columnHandle, accumulator));
+                    rangeConjuncts.add(toPredicate(range.isHighInclusive() ? "<=" : "<", range.getHighBoundedValue(), columnHandle, accumulatorBuilder));
                 }
                 // If rangeConjuncts is null, then the range was ALL, which should already have been checked for
                 checkState(!rangeConjuncts.isEmpty());
@@ -331,11 +331,11 @@ public class QueryBuilder
 
         // Add back all of the possible single values either as an equality or an IN predicate
         if (singleValues.size() == 1) {
-            disjuncts.add(toPredicate("=", getOnlyElement(singleValues), columnHandle, accumulator));
+            disjuncts.add(toPredicate("=", getOnlyElement(singleValues), columnHandle, accumulatorBuilder));
         }
         else if (singleValues.size() > 1) {
             for (Object value : singleValues) {
-                bindValue(value, columnHandle, accumulator);
+                bindValue(value, columnHandle, accumulatorBuilder);
             }
             String values = Joiner.on(",").join(nCopies(singleValues.size(), "?"));
             disjuncts.add(getColumnIdentifier(columnHandle) + " IN (" + values + ")");
@@ -355,9 +355,9 @@ public class QueryBuilder
         return columnHandle.getTableAlias().map(s -> quote(s) + "." + quote(columnHandle.getColumnName())).orElseGet(() -> quote(columnHandle.getColumnName()));
     }
 
-    private String toPredicate(String operator, Object value, JdbcColumnHandle columnHandle, List<TypeAndValue> accumulator)
+    private String toPredicate(String operator, Object value, JdbcColumnHandle columnHandle, ImmutableList.Builder<TypeAndValue> accumulatorBuilder)
     {
-        bindValue(value, columnHandle, accumulator);
+        bindValue(value, columnHandle, accumulatorBuilder);
         return getColumnIdentifier(columnHandle) + " " + operator + " ?";
     }
 
@@ -372,11 +372,11 @@ public class QueryBuilder
         return identifierQuote + name + identifierQuote;
     }
 
-    private static void bindValue(Object value, JdbcColumnHandle columnHandle, List<TypeAndValue> accumulator)
+    private static void bindValue(Object value, JdbcColumnHandle columnHandle, ImmutableList.Builder<TypeAndValue> accumulatorBuilder)
     {
         Type type = columnHandle.getColumnType();
         checkArgument(isAcceptedType(type), "Can't handle type: %s", type);
-        accumulator.add(new TypeAndValue(type, value));
+        accumulatorBuilder.add(new TypeAndValue(type, value));
     }
 
     private void buildFromClause(StringBuilder sql, List<ConnectorTableHandle> joinTables)
@@ -385,8 +385,8 @@ public class QueryBuilder
         for (ConnectorTableHandle table : joinTables) {
             JdbcTableHandle tableHandle = (JdbcTableHandle) table;
             /*
-               Schema name is null for connectors like MySQl, SingleStore etc.
-               Such case we are taking catalog name.
+               Schema name is null for connectors like MySQL, SingleStore etc.
+               In such cases we are taking catalog name.
              */
             String schemaName = (null != tableHandle.getSchemaName() && !tableHandle.getSchemaName().isEmpty()) ? tableHandle.getSchemaName() : tableHandle.getCatalogName();
             String tableName = tableHandle.getTableName();

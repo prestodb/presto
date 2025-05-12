@@ -227,6 +227,7 @@ public class TestJdbcComputePushdown
         assertPlanMatch(actual, JdbcTableScanMatcher.jdbcTableScanPattern(jdbcTableLayoutHandle, columns));
     }
 
+    // Verifies partial pushdown: arithmetic condition is pushed down, while unsupported CAST remains in filter
     @Test
     public void testJdbcComputePartialPushdown()
     {
@@ -254,6 +255,7 @@ public class TestJdbcComputePushdown
                 JdbcTableScanMatcher.jdbcTableScanPattern(jdbcTableLayoutHandle, columns)));
     }
 
+    // Verifies partial pushdown: pushable OR conditions are pushed down, while unsupported CAST remains in filter
     @Test
     public void testJdbcComputePartialPushdownWithOrOperator()
     {
@@ -281,6 +283,7 @@ public class TestJdbcComputePushdown
                 JdbcTableScanMatcher.jdbcTableScanPattern(jdbcTableLayoutHandle, columns)));
     }
 
+    // Verifies that no filter is pushed down when the expression contains unsupported operations or casts
     @Test
     public void testJdbcComputeNoPushdown()
     {

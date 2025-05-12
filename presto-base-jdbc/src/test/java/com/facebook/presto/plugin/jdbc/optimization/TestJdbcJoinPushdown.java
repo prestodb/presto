@@ -52,13 +52,12 @@ import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 import java.sql.Types;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -89,6 +88,7 @@ public class TestJdbcJoinPushdown
         this.jdbcJoinPushdown = new JdbcJoinPushdown();
     }
 
+    // Verifies that join pushdown correctly builds expected JdbcTableHandles and layout with proper aliases and expressions
     @Test
     public void testJdbcJoinPushdownWithJoins()
     {
@@ -97,14 +97,14 @@ public class TestJdbcJoinPushdown
         PlanNode actual = this.jdbcJoinPushdown.optimize(original, session, null, ID_ALLOCATOR);
 
         final String aliasPrefix = "T";
-        List<ConnectorTableHandle> tableHandles = new ArrayList<>();
+        ImmutableList.Builder<ConnectorTableHandle> expectedJoinTableHandlesBuilder = ImmutableList.builder();
         for (int i = 1; i <= 3; i++) {
             String table = "test_table" + i;
             String schema = "test_schema" + i;
             JdbcTableHandle tableHandle = new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName(schema, table), CATALOG_NAME, schema, table, Collections.emptyList(), Optional.of(aliasPrefix + i));
-            tableHandles.add(tableHandle);
+            expectedJoinTableHandlesBuilder.add(tableHandle);
         }
-        JdbcTableHandle jdbcTableHandle = new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName("test_schema1", "test_table1"), CATALOG_NAME, "test_schema1", "test_table1", tableHandles, Optional.of("T1"));
+        JdbcTableHandle jdbcTableHandle = new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName("test_schema1", "test_table1"), CATALOG_NAME, "test_schema1", "test_table1", expectedJoinTableHandlesBuilder.build(), Optional.of("T1"));
         JdbcTableLayoutHandle jdbcTableLayoutHandle = new JdbcTableLayoutHandle(session.getSqlFunctionProperties(), jdbcTableHandle, TupleDomain.none(), Optional.of(new JdbcExpression("(('c1' + 'c2') - 'c2')")));
         Set<ColumnHandle> columns = Stream.of("c1", "c2").map(TestJdbcJoinPushdown::integerJdbcColumnHandle).collect(Collectors.toSet());
         assertPlanMatch(
@@ -117,7 +117,7 @@ public class TestJdbcJoinPushdown
     {
         String table = "test_table";
         String schema = "test_schema";
-        PlanNode original = jdbcTableScan(schema, table, BIGINT, false, "c1", "c2");
+        PlanNode original = jdbcTableScan(schema, table, BIGINT, "c1", "c2");
         ConnectorSession session = new TestingConnectorSession(ImmutableList.of());
         PlanNode actual = jdbcJoinPushdown.optimize(original, session, null, ID_ALLOCATOR);
 
@@ -149,6 +149,12 @@ public class TestJdbcJoinPushdown
         return new JdbcColumnHandle(CONNECTOR_ID, name, new JdbcTypeHandle(Types.BOOLEAN, "boolean", 1, 0), BOOLEAN, false, Optional.empty(), Optional.empty());
     }
 
+    /**
+     * Gets a TableScanNode that represent the output of {@code GroupInnerJoinsByConnectorRuleSet} for a JDBC source -
+     * TableScanNode
+     *    - Pushed down predicate - `('c1' + 'c2') - 'c2')`
+     *    - (T1,T2,T3)
+     */
     private TableScanNode combinedJdbcTableScan(Type type, String... columnNames)
     {
         Set<ConnectorTableHandle> tableHandles = new LinkedHashSet<>();
@@ -179,30 +185,10 @@ public class TestJdbcJoinPushdown
                 assignments);
     }
 
-    private TableScanNode jdbcTableScan(String schema, String table, Type type, boolean isJoinPushdown, String... columnNames)
+    private TableScanNode jdbcTableScan(String schema, String table, Type type, String... columnNames)
     {
-        JdbcTableHandle jdbcTableHandle = null;
-        ConnectorTableHandle connectorTableHandle = null;
-        if (isJoinPushdown) {
-            List<ConnectorTableHandle> tableHandles = new ArrayList<>();
-            Set<JoinTableInfo> joinTableInfos = new HashSet<>();
-            List<VariableReferenceExpression> outputVariables = Arrays.stream(columnNames).map(column -> newVariable(column, type)).collect(toImmutableList());
-            Map<VariableReferenceExpression, ColumnHandle> assignments = Arrays.stream(columnNames)
-                    .map(column -> newVariable(column, type)).collect(toMap(identity(), entry -> getColumnHandleForVariable(entry.getName(), type)));
-            tableHandles.forEach(tableHandle -> {
-                joinTableInfos.add(new JoinTableInfo(tableHandle, assignments, outputVariables));
-            });
-            for (int i = 0; i < 3; i++) {
-                connectorTableHandle = new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName(schema, table), CATALOG_NAME, schema, table, Collections.emptyList(), Optional.empty());
-                tableHandles.add(connectorTableHandle);
-            }
-            jdbcTableHandle = (JdbcTableHandle) tableHandles.get(0);
-            connectorTableHandle = new JoinTableSet(ImmutableSet.copyOf(joinTableInfos));
-        }
-        else {
-            jdbcTableHandle = new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName(schema, table), CATALOG_NAME, schema, table, Collections.emptyList(), Optional.empty());
-            connectorTableHandle = jdbcTableHandle;
-        }
+        JdbcTableHandle jdbcTableHandle = new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName(schema, table), CATALOG_NAME, schema, table, Collections.emptyList(), Optional.empty());
+        ConnectorTableHandle connectorTableHandle = jdbcTableHandle;
 
         Optional<JdbcExpression> additionalExpression = Optional.of(new JdbcExpression("(('c1' + 'c2') - 'c2')"));
         JdbcTableLayoutHandle jdbcTableLayoutHandle = new JdbcTableLayoutHandle(TEST_SESSION.getSqlFunctionProperties(), jdbcTableHandle, TupleDomain.none(), additionalExpression);
@@ -262,10 +248,7 @@ public class TestJdbcJoinPushdown
             TableScanNode tableScanNode = (TableScanNode) node;
             JdbcTableLayoutHandle layoutHandle = (JdbcTableLayoutHandle) tableScanNode.getTable().getLayout().get();
 
-            if (jdbcTableLayoutHandle.getTable().equals(layoutHandle.getTable())
-                    && jdbcTableLayoutHandle.getTupleDomain().equals(layoutHandle.getTupleDomain())
-                    && ((!jdbcTableLayoutHandle.getAdditionalPredicate().isPresent() && !layoutHandle.getAdditionalPredicate().isPresent())
-                    || jdbcTableLayoutHandle.getAdditionalPredicate().get().getExpression().equals(layoutHandle.getAdditionalPredicate().get().getExpression()))) {
+            if (Objects.equals(jdbcTableLayoutHandle, layoutHandle)) {
                 return MatchResult.match(
                         SymbolAliases.builder().putAll(
                                         columns.stream()
