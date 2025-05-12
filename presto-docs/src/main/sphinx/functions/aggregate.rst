@@ -135,17 +135,17 @@ General Aggregate Functions
     ``combineFunction`` is `commutative <https://en.wikipedia.org/wiki/Commutative_property>`_
     and `associative <https://en.wikipedia.org/wiki/Associative_property>`_
     operation with ``initialState`` as the
-    `identity <https://en.wikipedia.org/wiki/Identity_element>`_ value.
+    `identity <https://en.wikipedia.org/wiki/Identity_element>`_ value.::
 
-     combineFunction(s, initialState) = s for any s
+        combineFunction(s, initialState) = s for any s
 
-     combineFunction(s1, s2) = combineFunction(s2, s1) for any s1 and s2
+        combineFunction(s1, s2) = combineFunction(s2, s1) for any s1 and s2
 
-     combineFunction(s1, combineFunction(s2, s3)) = combineFunction(combineFunction(s1, s2), s3) for any s1, s2, s3
+        combineFunction(s1, combineFunction(s2, s3)) = combineFunction(combineFunction(s1, s2), s3) for any s1, s2, s3
 
-    In addition, make sure that the following holds for the inputFunction:
+    In addition, make sure that the following holds for the inputFunction::
 
-     inputFunction(inputFunction(initialState, x), y) = combineFunction(inputFunction(initialState, x), inputFunction(initialState, y)) for any x and y
+        inputFunction(inputFunction(initialState, x), y) = combineFunction(inputFunction(initialState, x), inputFunction(initialState, y)) for any x and y
 
     ::
 
@@ -511,62 +511,62 @@ classification thresholds. They are meant to be used in conjunction.
 
 For example, to find the `precision-recall curve <https://en.wikipedia.org/wiki/Precision_and_recall>`_, use
 
-    .. code-block:: none
+.. code-block:: none
 
-         WITH
-             recall_precision AS (
-                 SELECT
-                     CLASSIFICATION_RECALL(10000, correct, pred) AS recalls,
-                     CLASSIFICATION_PRECISION(10000, correct, pred) AS precisions
-                 FROM
-                    classification_dataset
-             )
-         SELECT
-             recall,
-             precision
-         FROM
-             recall_precision
-         CROSS JOIN UNNEST(recalls, precisions) AS t(recall, precision)
+    WITH
+        recall_precision AS (
+            SELECT
+                CLASSIFICATION_RECALL(10000, correct, pred) AS recalls,
+                CLASSIFICATION_PRECISION(10000, correct, pred) AS precisions
+            FROM
+                classification_dataset
+        )
+    SELECT
+        recall,
+        precision
+    FROM
+        recall_precision
+    CROSS JOIN UNNEST(recalls, precisions) AS t(recall, precision)
 
 To get the corresponding thresholds for these values, use
 
-    .. code-block:: none
+.. code-block:: none
 
-         WITH
-             recall_precision AS (
-                 SELECT
-                     CLASSIFICATION_THRESHOLDS(10000, correct, pred) AS thresholds,
-                     CLASSIFICATION_RECALL(10000, correct, pred) AS recalls,
-                     CLASSIFICATION_PRECISION(10000, correct, pred) AS precisions
-                 FROM
-                    classification_dataset
-             )
-         SELECT
-             threshold,
-             recall,
-             precision
-         FROM
-             recall_precision
-         CROSS JOIN UNNEST(thresholds, recalls, precisions) AS t(threshold, recall, precision)
+    WITH
+        recall_precision AS (
+            SELECT
+                CLASSIFICATION_THRESHOLDS(10000, correct, pred) AS thresholds,
+                CLASSIFICATION_RECALL(10000, correct, pred) AS recalls,
+                CLASSIFICATION_PRECISION(10000, correct, pred) AS precisions
+            FROM
+                classification_dataset
+        )
+    SELECT
+        threshold,
+        recall,
+        precision
+    FROM
+        recall_precision
+    CROSS JOIN UNNEST(thresholds, recalls, precisions) AS t(threshold, recall, precision)
 
 To find the `ROC curve <https://en.wikipedia.org/wiki/Receiver_operating_characteristic>`_, use
 
-    .. code-block:: none
+.. code-block:: none
 
-         WITH
-             fallout_recall AS (
-                 SELECT
-                     CLASSIFICATION_FALLOUT(10000, correct, pred) AS fallouts,
-                     CLASSIFICATION_RECALL(10000, correct, pred) AS recalls
-                 FROM
-                    classification_dataset
-             )
-         SELECT
-             fallout
-             recall,
-         FROM
-             recall_fallout
-         CROSS JOIN UNNEST(fallouts, recalls) AS t(fallout, recall)
+    WITH
+        fallout_recall AS (
+            SELECT
+                CLASSIFICATION_FALLOUT(10000, correct, pred) AS fallouts,
+                CLASSIFICATION_RECALL(10000, correct, pred) AS recalls
+            FROM
+                classification_dataset
+        )
+    SELECT
+        fallout
+        recall,
+    FROM
+        recall_fallout
+    CROSS JOIN UNNEST(fallouts, recalls) AS t(fallout, recall)
 
 
 .. function:: classification_miss_rate(buckets, y, x, weight) -> array<double>
@@ -725,10 +725,10 @@ where :math:`f(x)` is the partial density function of :math:`x`.
 
     .. code-block:: none
 
-         SELECT
-             differential_entropy(1000000, x)
-         FROM
-             data
+        SELECT
+            differential_entropy(1000000, x)
+        FROM
+            data
 
     .. note::
 
@@ -807,12 +807,12 @@ where :math:`f(x)` is the partial density function of :math:`x`.
     To find the differential entropy of ``x``, each between ``-2.0`` and ``2.0``,
     with weights ``weight`` of ``data`` using 1000000 buckets and maximum-likelihood estimates, use
 
-        .. code-block:: none
+    .. code-block:: none
 
-             SELECT
-                 differential_entropy(1000000, x, weight, 'fixed_histogram_mle', -2.0, 2.0)
-             FROM
-                 data
+        SELECT
+            differential_entropy(1000000, x, weight, 'fixed_histogram_mle', -2.0, 2.0)
+        FROM
+            data
 
     .. note::
 
