@@ -16,6 +16,7 @@
 
 #include "velox/exec/LocalPartition.h"
 #include "velox/exec/Task.h"
+#include "velox/vector/EncodedVectorCopy.h"
 
 namespace facebook::velox::exec {
 namespace {
@@ -324,7 +325,8 @@ void LocalExchange::close() {
 LocalPartition::LocalPartition(
     int32_t operatorId,
     DriverCtx* ctx,
-    const std::shared_ptr<const core::LocalPartitionNode>& planNode)
+    const std::shared_ptr<const core::LocalPartitionNode>& planNode,
+    bool eagerFlush)
     : Operator(
           ctx,
           planNode->outputType(),
@@ -338,7 +340,16 @@ LocalPartition::LocalPartition(
           numPartitions_ == 1 ? nullptr
                               : planNode->partitionFunctionSpec().create(
                                     numPartitions_,
-                                    /*localExchange=*/true)) {
+                                    /*localExchange=*/true)),
+      singlePartitionBufferSize_{
+          (numPartitions_ <
+               ctx->queryConfig()
+                   .minLocalExchangePartitionCountToUsePartitionBuffer() ||
+           eagerFlush)
+              ? 0
+              : ctx->queryConfig().maxLocalExchangePartitionBufferSize()},
+      partitionBufferPreserveEncoding_{
+          ctx->queryConfig().localExchangePartitionBufferPreserveEncoding()} {
   VELOX_CHECK(numPartitions_ == 1 || partitionFunction_ != nullptr);
   for (auto& queue : queues_) {
     queue->addProducer();
@@ -406,6 +417,70 @@ RowVectorPtr LocalPartition::wrapChildren(
   return result;
 }
 
+void LocalPartition::copy(
+    const RowVectorPtr& input,
+    const folly::Range<const BaseVector::CopyRange*>& ranges,
+    VectorPtr& target) {
+  if (ranges.empty()) {
+    return;
+  }
+
+  if (partitionBufferPreserveEncoding_) {
+    encodedVectorCopy(
+        EncodedVectorCopyOptions{pool(), false, 0.5}, input, ranges, target);
+    return;
+  }
+
+  if (!target) {
+    target = BaseVector::create<RowVector>(outputType_, 0, pool());
+  }
+  target->resize(target->size() + ranges.size());
+  target->copyRanges(input.get(), ranges);
+}
+
+RowVectorPtr LocalPartition::processPartition(
+    const RowVectorPtr& input,
+    vector_size_t size,
+    int partition,
+    const BufferPtr& indices,
+    const vector_size_t* rawIndices) {
+  RowVectorPtr partitionData{nullptr};
+  if (singlePartitionBufferSize_ > 0) {
+    if (partitionBuffers_.empty()) {
+      partitionBuffers_.resize(numPartitions_);
+    }
+    if (copyRanges_.size() < size) {
+      copyRanges_.resize(size);
+    }
+
+    auto& partitionBuffer = partitionBuffers_[partition];
+    auto targetIndex = 0;
+    if (partitionBuffer) {
+      targetIndex = partitionBuffer->size();
+    }
+    for (int i = 0; i < size; i++) {
+      copyRanges_[i] = {rawIndices[i], targetIndex, 1};
+      targetIndex++;
+    }
+
+    copy(
+        input,
+        folly::Range{copyRanges_.data(), static_cast<size_t>(size)},
+        partitionBuffer);
+
+    if (partitionBuffer &&
+        partitionBuffer->retainedSize() >= singlePartitionBufferSize_) {
+      partitionData = std::dynamic_pointer_cast<RowVector>(partitionBuffer);
+      VELOX_CHECK(partitionData);
+      partitionBuffers_[partition] = nullptr;
+    }
+  } else {
+    partitionData =
+        wrapChildren(input, size, indices, queues_[partition]->getVector());
+  }
+  return partitionData;
+}
+
 void LocalPartition::addInput(RowVectorPtr input) {
   prepareForInput(input);
 
@@ -438,20 +513,28 @@ void LocalPartition::addInput(RowVectorPtr input) {
   }
 
   const int64_t totalSize = input->retainedSize();
-  for (auto i = 0; i < numPartitions_; i++) {
-    auto partitionSize = maxIndex[i];
+  for (auto partition = 0; partition < numPartitions_; partition++) {
+    auto partitionSize = maxIndex[partition];
     if (partitionSize == 0) {
       // Do not enqueue empty partitions.
       continue;
     }
-    auto partitionData = wrapChildren(
-        input, partitionSize, indexBuffers_[i], queues_[i]->getVector());
-    ContinueFuture future;
-    auto reason = queues_[i]->enqueue(
-        partitionData, totalSize * partitionSize / numInput, &future);
-    if (reason != BlockingReason::kNotBlocked) {
-      blockingReasons_.push_back(reason);
-      futures_.push_back(std::move(future));
+
+    auto partitionData = processPartition(
+        input,
+        partitionSize,
+        partition,
+        indexBuffers_[partition],
+        rawIndices_[partition]);
+
+    if (partitionData) {
+      ContinueFuture future;
+      auto reason = queues_[partition]->enqueue(
+          partitionData, totalSize * partitionSize / numInput, &future);
+      if (reason != BlockingReason::kNotBlocked) {
+        blockingReasons_.push_back(reason);
+        futures_.push_back(std::move(future));
+      }
     }
   }
 }
@@ -482,6 +565,24 @@ BlockingReason LocalPartition::isBlocked(ContinueFuture* future) {
 
 void LocalPartition::noMoreInput() {
   Operator::noMoreInput();
+  if (!partitionBuffers_.empty()) {
+    for (auto partition = 0; partition < numPartitions_; partition++) {
+      if (partitionBuffers_[partition] &&
+          partitionBuffers_[partition]->size() > 0) {
+        auto partitionData =
+            std::dynamic_pointer_cast<RowVector>(partitionBuffers_[partition]);
+        VELOX_CHECK(partitionData);
+        ContinueFuture future;
+        queues_[partition]->enqueue(
+            partitionData,
+            partitionBuffers_[partition]->retainedSize(),
+            &future);
+      }
+      partitionBuffers_[partition] = nullptr;
+    }
+    partitionBuffers_.resize(0);
+    copyRanges_.resize(0);
+  }
   for (const auto& queue : queues_) {
     queue->noMoreData();
   }

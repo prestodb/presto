@@ -207,7 +207,8 @@ class LocalPartition : public Operator {
   LocalPartition(
       int32_t operatorId,
       DriverCtx* ctx,
-      const std::shared_ptr<const core::LocalPartitionNode>& planNode);
+      const std::shared_ptr<const core::LocalPartitionNode>& planNode,
+      bool eagerFlush);
 
   std::string toString() const override {
     return fmt::format("LocalPartition({})", numPartitions_);
@@ -239,11 +240,12 @@ class LocalPartition : public Operator {
 
   void allocateIndexBuffers(const std::vector<vector_size_t>& sizes);
 
-  RowVectorPtr wrapChildren(
+  RowVectorPtr processPartition(
       const RowVectorPtr& input,
       vector_size_t size,
+      int partition,
       const BufferPtr& indices,
-      RowVectorPtr reusable);
+      const vector_size_t* rawIndices);
 
   const std::vector<std::shared_ptr<LocalExchangeQueue>> queues_;
   const size_t numPartitions_;
@@ -257,6 +259,23 @@ class LocalPartition : public Operator {
   /// Reusable buffers for input partitioning.
   std::vector<BufferPtr> indexBuffers_;
   std::vector<vector_size_t*> rawIndices_;
+
+ private:
+  RowVectorPtr wrapChildren(
+      const RowVectorPtr& input,
+      vector_size_t size,
+      const BufferPtr& indices,
+      RowVectorPtr reusable);
+
+  void copy(
+      const RowVectorPtr& input,
+      const folly::Range<const BaseVector::CopyRange*>& ranges,
+      VectorPtr& target);
+
+  const uint64_t singlePartitionBufferSize_;
+  std::vector<BaseVector::CopyRange> copyRanges_;
+  std::vector<VectorPtr> partitionBuffers_;
+  const bool partitionBufferPreserveEncoding_;
 };
 
 } // namespace facebook::velox::exec

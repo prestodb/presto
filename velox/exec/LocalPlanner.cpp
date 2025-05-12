@@ -52,6 +52,23 @@
 
 namespace facebook::velox::exec {
 
+namespace {
+
+// If the upstream is partial limit, downstream is final limit and we want to
+// flush as soon as we can to reach the limit and do as little work as possible.
+bool eagerFlush(const core::PlanNode& node) {
+  if (auto* limit = dynamic_cast<const core::LimitNode*>(&node)) {
+    return limit->isPartial() && limit->offset() + limit->count() < 10'000;
+  }
+  if (node.sources().empty()) {
+    return false;
+  }
+  // Follow the first source, which is driving the output.
+  return eagerFlush(*node.sources()[0]);
+}
+
+} // namespace
+
 namespace detail {
 
 /// Returns true if source nodes must run in a separate pipeline.
@@ -127,9 +144,11 @@ OperatorSupplier makeConsumerSupplier(
             localPartitionNode, operatorId, ctx);
       };
     }
-    return [localPartitionNode](int32_t operatorId, DriverCtx* ctx) {
+    bool useEagerFlush = eagerFlush(*planNode);
+    return [localPartitionNode, useEagerFlush](
+               int32_t operatorId, DriverCtx* ctx) {
       return std::make_unique<LocalPartition>(
-          operatorId, ctx, localPartitionNode);
+          operatorId, ctx, localPartitionNode, useEagerFlush);
     };
   }
 
@@ -441,23 +460,6 @@ void LocalPlanner::markMixedJoinBridges(
     }
   }
 }
-
-namespace {
-
-// If the upstream is partial limit, downstream is final limit and we want to
-// flush as soon as we can to reach the limit and do as little work as possible.
-bool eagerFlush(const core::PlanNode& node) {
-  if (auto* limit = dynamic_cast<const core::LimitNode*>(&node)) {
-    return limit->isPartial() && limit->offset() + limit->count() < 10'000;
-  }
-  if (node.sources().empty()) {
-    return false;
-  }
-  // Follow the first source, which is driving the output.
-  return eagerFlush(*node.sources()[0]);
-}
-
-} // namespace
 
 std::shared_ptr<Driver> DriverFactory::createDriver(
     std::unique_ptr<DriverCtx> ctx,

@@ -25,7 +25,7 @@ ScaleWriterPartitioningLocalPartition::ScaleWriterPartitioningLocalPartition(
     int32_t operatorId,
     DriverCtx* ctx,
     const std::shared_ptr<const core::LocalPartitionNode>& planNode)
-    : LocalPartition(operatorId, ctx, planNode),
+    : LocalPartition(operatorId, ctx, planNode, false),
       maxQueryMemoryUsageRatio_(
           ctx->queryConfig().scaleWriterRebalanceMaxMemoryUsageRatio()),
       maxTablePartitionsPerWriter_(
@@ -180,17 +180,20 @@ void ScaleWriterPartitioningLocalPartition::addInput(RowVectorPtr input) {
         continue;
       }
 
-      auto writerInput = wrapChildren(
+      auto writerInput = processPartition(
           input,
           writerRowCount,
+          i,
           std::move(writerAssignmmentIndicesBuffers_[i]),
-          queues_[i]->getVector());
-      ContinueFuture future;
-      auto reason = queues_[i]->enqueue(
-          writerInput, totalInputBytes * writerRowCount / numInput, &future);
-      if (reason != BlockingReason::kNotBlocked) {
-        blockingReasons_.push_back(reason);
-        futures_.push_back(std::move(future));
+          rawWriterAssignmmentIndicesBuffers_[i]);
+      if (writerInput != nullptr) {
+        ContinueFuture future;
+        auto reason = queues_[i]->enqueue(
+            writerInput, totalInputBytes * writerRowCount / numInput, &future);
+        if (reason != BlockingReason::kNotBlocked) {
+          blockingReasons_.push_back(reason);
+          futures_.push_back(std::move(future));
+        }
       }
     }
   }
@@ -243,7 +246,7 @@ ScaleWriterLocalPartition::ScaleWriterLocalPartition(
     int32_t operatorId,
     DriverCtx* ctx,
     const std::shared_ptr<const core::LocalPartitionNode>& planNode)
-    : LocalPartition(operatorId, ctx, planNode),
+    : LocalPartition(operatorId, ctx, planNode, false),
       maxQueryMemoryUsageRatio_(
           ctx->queryConfig().scaleWriterRebalanceMaxMemoryUsageRatio()),
       queryPool_(pool()->root()),

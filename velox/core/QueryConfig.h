@@ -103,6 +103,42 @@ class QueryConfig {
   static constexpr const char* kMaxLocalExchangePartitionCount =
       "max_local_exchange_partition_count";
 
+  /// Minimum number of local exchange output partitions to use buffered
+  /// partitioning.
+  ///
+  /// When the number of output partitions is low, it is preferred to process
+  /// one input vector at a time. For example, with 10 output partitions
+  /// splitting a single 100KB input vector into 10 10KB vectors is acceptable.
+  /// However, when the number of output partitions is high it may result in a
+  /// large number of tiny vectors generated. For example, with 100 output
+  /// partitions splitting a single 100KB input vector results in 100 1KB
+  /// vectors. Exchanging and processing tiny vectors may negatively impact
+  /// performance. To avoid this, buffered partitioning is used to accumulate
+  /// larger vectors.
+  static constexpr const char*
+      kMinLocalExchangePartitionCountToUsePartitionBuffer =
+          "min_local_exchange_partition_count_to_use_partition_buffer";
+
+  /// Maximum size in bytes to accumulate for a single partition of a local
+  /// exchange before flushing.
+  ///
+  /// The total amount of memory used by a single
+  /// local exchange operator is the sum of the sizes of all partitions. For
+  /// example, if the number of downstream pipeline drivers is 10 and the max
+  /// local exchange partition buffer size is 100KB, then the total memory used
+  /// by a single local exchange operator is 1MB. The total memory needed to
+  /// perform a local exchange is equal to the single local exchange
+  /// operator memory multiplied by the number of upstream pipeline drivers. For
+  /// example, if the number of upstream pipeline drivers is 10 the total memory
+  /// used by the local exchange operator is 10MB.
+  static constexpr const char* kMaxLocalExchangePartitionBufferSize =
+      "max_local_exchange_partition_buffer_size";
+
+  /// Try to preserve the encoding of the input vector when copying it to the
+  /// buffer.
+  static constexpr const char* kLocalExchangePartitionBufferPreserveEncoding =
+      "local_exchange_partition_buffer_preserve_encoding";
+
   /// Maximum size in bytes to accumulate in ExchangeQueue. Enforced
   /// approximately, not strictly.
   static constexpr const char* kMaxExchangeBufferSize =
@@ -660,6 +696,27 @@ class QueryConfig {
     // defaults to unlimited
     static constexpr uint32_t kDefault = std::numeric_limits<uint32_t>::max();
     return get<uint32_t>(kMaxLocalExchangePartitionCount, kDefault);
+  }
+
+  uint32_t minLocalExchangePartitionCountToUsePartitionBuffer() const {
+    // Use non buffering mode if the partition count 32 or less
+    // The default value is 32 is chosen rather conservatively. A
+    // significant performance degradation of a non-buffered approach is
+    // observed after 16 partitions.
+    static constexpr uint64_t kDefault = 33;
+    return get<uint32_t>(
+        kMinLocalExchangePartitionCountToUsePartitionBuffer, kDefault);
+  }
+
+  uint64_t maxLocalExchangePartitionBufferSize() const {
+    /// The default partition buffer size is 64KB.
+    static constexpr uint64_t kDefault = 64UL * 1024;
+    return get<uint64_t>(kMaxLocalExchangePartitionBufferSize, kDefault);
+  }
+
+  bool localExchangePartitionBufferPreserveEncoding() const {
+    /// Trying to preserve encoding can be expensive. Disabled by default.
+    return get<bool>(kLocalExchangePartitionBufferPreserveEncoding, false);
   }
 
   uint64_t maxExchangeBufferSize() const {
