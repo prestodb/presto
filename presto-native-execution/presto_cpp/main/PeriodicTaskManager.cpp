@@ -334,19 +334,23 @@ void PeriodicTaskManager::updateTaskStats() {
       kCounterNumTasksBytesProcessed, taskManager_->getBytesProcessed());
   RECORD_METRIC_VALUE(
       kCounterNumTasksRunning,
-      taskNumbers[static_cast<int>(velox::exec::TaskState::kRunning)]);
+      taskNumbers[static_cast<int>(PrestoTaskState::kRunning)]);
   RECORD_METRIC_VALUE(
       kCounterNumTasksFinished,
-      taskNumbers[static_cast<int>(velox::exec::TaskState::kFinished)]);
+      taskNumbers[static_cast<int>(PrestoTaskState::kFinished)]);
   RECORD_METRIC_VALUE(
       kCounterNumTasksCancelled,
-      taskNumbers[static_cast<int>(velox::exec::TaskState::kCanceled)]);
+      taskNumbers[static_cast<int>(PrestoTaskState::kCanceled)]);
   RECORD_METRIC_VALUE(
       kCounterNumTasksAborted,
-      taskNumbers[static_cast<int>(velox::exec::TaskState::kAborted)]);
+      taskNumbers[static_cast<int>(PrestoTaskState::kAborted)]);
   RECORD_METRIC_VALUE(
       kCounterNumTasksFailed,
-      taskNumbers[static_cast<int>(velox::exec::TaskState::kFailed)]);
+      taskNumbers[static_cast<int>(PrestoTaskState::kFailed)]);
+  RECORD_METRIC_VALUE(
+      kCounterNumTasksPlanned,
+      taskNumbers[static_cast<int>(PrestoTaskState::kPlanned)]);
+  RECORD_METRIC_VALUE(kCounterNumTasksQueued, taskManager_->numQueuedTasks());
 
   const auto driverCounts = taskManager_->getDriverCounts();
   RECORD_METRIC_VALUE(kCounterNumQueuedDrivers, driverCounts.numQueuedDrivers);
