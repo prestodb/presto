@@ -22,6 +22,39 @@ class ShuffleReadNode : public velox::core::PlanNode {
   ShuffleReadNode(const velox::core::PlanNodeId& id, velox::RowTypePtr type)
       : PlanNode(id), outputType_(type) {}
 
+  class Builder {
+   public:
+    Builder() = default;
+
+    explicit Builder(const ShuffleReadNode& other) {
+      id_ = other.id();
+      outputType_ = other.outputType();
+    }
+
+    Builder& id(velox::core::PlanNodeId id) {
+      id_ = std::move(id);
+      return *this;
+    }
+
+    Builder& outputType(velox::RowTypePtr outputType) {
+      outputType_ = std::move(outputType);
+      return *this;
+    }
+
+    std::shared_ptr<ShuffleReadNode> build() const {
+      VELOX_USER_CHECK(id_.has_value(), "ShuffleReadNode id is not set");
+      VELOX_USER_CHECK(
+          outputType_.has_value(), "ShuffleReadNode outputType is not set");
+
+      return std::make_shared<ShuffleReadNode>(
+          id_.value(), outputType_.value());
+    }
+
+   private:
+    std::optional<velox::core::PlanNodeId> id_;
+    std::optional<velox::RowTypePtr> outputType_;
+  };
+
   folly::dynamic serialize() const override;
 
   static velox::core::PlanNodePtr create(
