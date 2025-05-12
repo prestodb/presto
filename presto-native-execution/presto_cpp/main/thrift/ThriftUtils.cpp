@@ -1,8 +1,8 @@
 // (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 
-#include "presto_cpp/main/thrift/experimental/ThriftUtils.h"
+#include "presto_cpp/main/thrift/ThriftUtils.h"
 
-namespace facebook::presto::protocol::cpp2 {
+namespace facebook::presto::thrift {
 
   // Primitive types
   void toThrift(const std::string& proto, std::string& thrift) {
@@ -658,4 +658,4 @@ namespace facebook::presto::protocol::cpp2 {
     split = j;
   }
   
-} // namespace facebook::presto::protocol::cpp2
+} // namespace facebook::presto::thrift

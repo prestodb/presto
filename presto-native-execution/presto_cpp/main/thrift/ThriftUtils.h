@@ -3,9 +3,9 @@
 #pragma once
 
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
-#include "presto_cpp/main/thrift/experimental/gen-cpp2/presto_protocol_api_types.h"
+#include "presto_cpp/main/thrift/gen-cpp2/presto_thrift_types.h"
 
-namespace facebook::presto::protocol::cpp2 {
+namespace facebook::presto::thrift {
 
   void toThrift(const std::string& proto, std::string& thrift);
   void toThrift(const bool& proto, bool& thrift);
@@ -72,4 +72,4 @@ namespace facebook::presto::protocol::cpp2 {
   void fromThrift(const std::string& thriftTableWriteInfo, TableWriteInfo& tableWriteInfo);
   void fromThrift(const SplitWrapper& thriftSplitWrapper, Split& split);
   void fromThrift(const std::string& thriftSplit, Split& split);
-} // namespace facebook::presto::protocol::cpp2
+} // namespace facebook::presto::thrift
