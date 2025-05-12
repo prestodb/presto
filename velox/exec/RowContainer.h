@@ -28,8 +28,6 @@ namespace test {
 class RowContainerTestHelper;
 }
 
-using NextRowVector = std::vector<char*, StlAllocator<char*>>;
-
 class Aggregate;
 
 class Accumulator {
@@ -758,14 +756,8 @@ class RowContainer {
 
   /// Creates a next-row-vector if it doesn't exist. Appends the row address to
   /// the next-row-vector, and store the address of the next-row-vector in the
-  /// 'nextOffset_' slot for all duplicate rows. 'allocator' is provided for the
-  /// duplicate row vector allocations.
-  void
-  appendNextRow(char* current, char* nextRow, HashStringAllocator* allocator);
-
-  NextRowVector*& getNextRowVector(char* row) const {
-    return *reinterpret_cast<NextRowVector**>(row + nextOffset_);
-  }
+  /// 'nextOffset_' slot for all duplicate rows.
+  void appendNextRow(char* current, char* nextRow);
 
   /// Hashes the values of 'columnIndex' for 'rows'.  If 'mix' is true, mixes
   /// the hash with the existing value in 'result'.
@@ -1477,10 +1469,7 @@ class RowContainer {
   // Free any aggregates associated with the 'rows'.
   void freeAggregates(folly::Range<char**> rows);
 
-  // Free next row vectors associated with the 'rows'.
-  void freeNextRowVectors(folly::Range<char**> rows);
-
-  void freeRowsExtraMemory(folly::Range<char**> rows, bool freeNextRowVector);
+  void freeRowsExtraMemory(folly::Range<char**> rows);
 
   inline void updateColumnStats(
       const DecodedVector& decoded,

@@ -172,7 +172,7 @@ class BaseHashTable {
       rows = &lookup.rows;
       hits = &lookup.hits;
       lastRowIndex = 0;
-      lastDuplicateRowIndex = 0;
+      nextHit = nullptr;
     }
 
     bool atEnd() const {
@@ -191,7 +191,7 @@ class BaseHashTable {
     const raw_vector<char*>* hits{nullptr};
 
     vector_size_t lastRowIndex{0};
-    vector_size_t lastDuplicateRowIndex{0};
+    char* nextHit{nullptr};
   };
 
   struct RowsIterator {
@@ -208,7 +208,6 @@ class BaseHashTable {
   struct NullKeyRowsIterator {
     bool initialized = false;
     char* nextHit;
-    vector_size_t lastDuplicateRowIndex{0};
   };
 
   /// Takes ownership of 'hashers'. These are used to keep key-level
@@ -765,6 +764,10 @@ class HashTable : public BaseHashTable {
   int32_t
   listRows(RowsIterator* iter, int32_t maxRows, uint64_t maxBytes, char** rows);
 
+  char*& nextRow(char* row) {
+    return *reinterpret_cast<char**>(row + nextOffset_);
+  }
+
   void arrayGroupProbe(HashLookup& lookup);
 
   void setHashMode(
@@ -838,15 +841,12 @@ class HashTable : public BaseHashTable {
   // partition info for parallel join table build. It specifies the first and
   // (exclusive) last indexes of the insert entries in the table. If a row
   // can't be inserted within this range, it is not inserted but rather added
-  // to the end of 'overflows' in 'partitionInfo'. 'allocator' is provided for
-  // duplicate row vector allocations.
+  // to the end of 'overflows' in 'partitionInfo'.
   void insertForJoin(
-      RowContainer* rows,
       char** groups,
       uint64_t* hashes,
       int32_t numGroups,
-      TableInsertPartitionInfo* partitionInfo,
-      HashStringAllocator* allocator);
+      TableInsertPartitionInfo* partitionInfo);
 
   // Inserts 'numGroups' entries into 'this'. 'groups' point to
   // contents in a RowContainer owned by 'this'. 'hashes' are the hash
@@ -925,54 +925,32 @@ class HashTable : public BaseHashTable {
       const std::vector<vector_size_t>& columns,
       const char* row) const;
 
-  // The exact same as joinProjectedVarColumnsSize(const
-  // std::vector<vector_size_t>&, const char*) with the exception that this
-  // function takes in vector of rows instead of an individual row.
-  inline uint64_t joinProjectedVarColumnsSize(
-      const std::vector<vector_size_t>& columns,
-      NextRowVector*& rows) const;
+  // Adds a row to a hash join table in kArray hash mode. Returns true
+  // if a new entry was made and false if the row was added to an
+  // existing set of rows with the same key.
+  bool arrayPushRow(char* row, int32_t index);
 
-  // Adds a row to a hash join table in kArray hash mode. Returns true if a new
-  // entry was made and false if the row was added to an existing set of rows
-  // with the same key. 'allocator' is provided for duplicate row vector
-  // allocations.
-  bool arrayPushRow(
-      RowContainer* rows,
-      char* row,
-      int32_t index,
-      HashStringAllocator* allocator);
-
-  // Adds a row to a hash join build side entry with multiple rows with the same
-  // key.  'rows' should be the same as the one in hash table except for
-  // 'parallelJoinBuild'. 'allocator' is provided for duplicate row vector
-  // allocations.
-  void pushNext(
-      RowContainer* rows,
-      char* row,
-      char* next,
-      HashStringAllocator* allocator);
+  // Adds a row to a hash join build side entry with multiple rows
+  // with the same key.
+  void pushNext(char* row, char* next);
 
   // Finishes inserting an entry into a join hash table. If 'partitionInfo' is
   // not null and the insert falls out-side of the partition range, then insert
   // is not made but row is instead added to 'overflow' in 'partitionInfo'
   template <bool isNormailizedKeyMode>
   void buildFullProbe(
-      RowContainer* rows,
       ProbeState& state,
       uint64_t hash,
       char* row,
       bool extraCheck,
-      TableInsertPartitionInfo* partitionInfo,
-      HashStringAllocator* allocator);
+      TableInsertPartitionInfo* partitionInfo);
 
   template <bool isNormailizedKeyMode>
   void insertForJoinWithPrefetch(
-      RowContainer* rows,
       char** groups,
       uint64_t* hashes,
       int32_t numGroups,
-      TableInsertPartitionInfo* partitionInfo,
-      HashStringAllocator* allocator);
+      TableInsertPartitionInfo* partitionInfo);
 
   // Updates 'hashers_' to correspond to the keys in the
   // content. Returns true if all hashers offer a mapping to value ids
@@ -1088,10 +1066,6 @@ class HashTable : public BaseHashTable {
   // Owns the memory of multiple build side hash join tables that are
   // combined into a single probe hash table.
   std::vector<std::unique_ptr<HashTable<ignoreNullKeys>>> otherTables_;
-  // The allocators used for duplicate row vector allocations under parallel
-  // join insert with one per each parallel join partition. These allocators
-  // all allocate memory from the memory pool of the top level memory pool.
-  std::vector<std::unique_ptr<HashStringAllocator>> joinInsertAllocators_;
   // Statistics maintained if kTrackLoads is set.
 
   // Flags indicate whether the same column in all build-side join hash tables

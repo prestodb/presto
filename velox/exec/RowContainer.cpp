@@ -24,8 +24,6 @@
 
 namespace facebook::velox::exec {
 namespace {
-static constexpr int32_t kNextRowVectorSize = sizeof(NextRowVector);
-
 template <TypeKind Kind>
 static int32_t kindSize() {
   return sizeof(typename KindToFlatVector<Kind>::HashRowType);
@@ -327,9 +325,6 @@ char* RowContainer::initializeRow(char* row, bool reuse) {
   if (rowSizeOffset_) {
     variableRowSize(row) = 0;
   }
-  if (nextOffset_) {
-    getNextRowVector(row) = nullptr;
-  }
   bits::clearBit(row, freeFlagOffset_);
   return row;
 }
@@ -353,7 +348,7 @@ void RowContainer::removeOrUpdateRowColumnStats(
 }
 
 void RowContainer::eraseRows(folly::Range<char**> rows) {
-  freeRowsExtraMemory(rows, /*freeNextRowVector=*/true);
+  freeRowsExtraMemory(rows);
   for (auto* row : rows) {
     VELOX_CHECK(!bits::isBitSet(row, freeFlagOffset_), "Double free of row");
     removeOrUpdateRowColumnStats(row, /*setToNull=*/false);
@@ -408,22 +403,6 @@ int32_t RowContainer::findRows(folly::Range<char**> rows, char** result) const {
   return numRows;
 }
 
-void RowContainer::appendNextRow(
-    char* current,
-    char* nextRow,
-    HashStringAllocator* allocator) {
-  VELOX_CHECK(getNextRowVector(nextRow) == nullptr);
-  NextRowVector*& nextRowArrayPtr = getNextRowVector(current);
-  if (nextRowArrayPtr == nullptr) {
-    nextRowArrayPtr = new (allocator->allocate(kNextRowVectorSize)->begin())
-        NextRowVector(StlAllocator<char*>(allocator));
-    hasDuplicateRows_ = true;
-    nextRowArrayPtr->emplace_back(current);
-  }
-  nextRowArrayPtr->emplace_back(nextRow);
-  getNextRowVector(nextRow) = nextRowArrayPtr;
-}
-
 void RowContainer::freeVariableWidthFields(folly::Range<char**> rows) {
   for (auto i = 0; i < types_.size(); ++i) {
     switch (typeKinds_[i]) {
@@ -449,37 +428,9 @@ void RowContainer::freeAggregates(folly::Range<char**> rows) {
   }
 }
 
-void RowContainer::freeNextRowVectors(folly::Range<char**> rows) {
-  if (!nextOffset_ || !hasDuplicateRows_) {
-    return;
-  }
-
-  for (auto row : rows) {
-    auto vector = getNextRowVector(row);
-    if (vector) {
-      // If 'clear' is false, the caller must ensure that all rows with same
-      // keys appear in the 'rows'.
-      for (auto& next : *vector) {
-        VELOX_CHECK(
-            std::find(rows.begin(), rows.end(), next) != rows.end(),
-            "All rows with the same keys must be present in 'rows'");
-        getNextRowVector(next) = nullptr;
-      }
-      auto allocator = vector->get_allocator().allocator();
-      std::destroy_at(vector);
-      allocator->free(HashStringAllocator::headerOf(vector));
-    }
-  }
-}
-
-void RowContainer::freeRowsExtraMemory(
-    folly::Range<char**> rows,
-    bool freeNextRowVector) {
+void RowContainer::freeRowsExtraMemory(folly::Range<char**> rows) {
   freeVariableWidthFields(rows);
   freeAggregates(rows);
-  if (freeNextRowVector) {
-    freeNextRowVectors(rows);
-  }
   numRows_ -= rows.size();
 }
 
@@ -1020,9 +971,7 @@ void RowContainer::clear() {
     std::vector<char*> rows(kBatch);
     RowContainerIterator iter;
     while (auto numRows = listRows(&iter, kBatch, rows.data())) {
-      freeRowsExtraMemory(
-          folly::Range<char**>(rows.data(), numRows),
-          /*freeNextRowVector=*/false);
+      freeRowsExtraMemory(folly::Range<char**>(rows.data(), numRows));
     }
   }
   hasDuplicateRows_ = false;
