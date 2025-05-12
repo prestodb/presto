@@ -25,8 +25,16 @@ inline size_t count_trailing_zeros(uint64_t x) {
   return x == 0 ? 64 : __builtin_ctzll(x);
 }
 
+inline size_t count_trailing_zeros_32bits(uint32_t x) {
+  return x == 0 ? 32 : __builtin_ctz(x);
+}
+
 inline size_t count_leading_zeros(uint64_t x) {
   return x == 0 ? 64 : __builtin_clzll(x);
+}
+
+inline size_t count_leading_zeros_32bits(uint32_t x) {
+  return x == 0 ? 32 : __builtin_clz(x);
 }
 
 namespace facebook::velox {
