@@ -19,7 +19,7 @@
 #include "presto_cpp/main/thrift/ThriftIO.h"
 #include "presto_cpp/main/thrift/gen-cpp2/PrestoThrift.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
-#include "presto_cpp/main/thrift/experimental/ThriftUtils.h"
+#include "presto_cpp/main/thrift/ThriftUtils.h"
 
 namespace facebook::presto {
 

@@ -1,7 +1,7 @@
 // (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 
 #include <gtest/gtest.h>
-#include "presto_cpp/main/thrift/experimental/ThriftUtils.h"
+#include "presto_cpp/main/thrift/ThriftUtils.h"
 #include "presto_cpp/presto_protocol/core/Duration.h"
 #include "presto_cpp/main/common/tests/test_json.h"
 #include "presto_cpp/main/connectors/PrestoToVeloxConnector.h"
@@ -18,7 +18,7 @@ TEST_F(TaskInfoTest, duration) {
 }
 
 TEST_F(TaskInfoTest, binaryMetadataUpdates) {
-  std::string str = slurp(getDataPath("/github/presto-trunk/presto-native-execution/presto_cpp/main/thrift/experimental/tests/data/", "MetadataUpdates.json"));
+  std::string str = slurp(getDataPath("/github/presto-trunk/presto-native-execution/presto_cpp/main/thrift/tests/data/", "MetadataUpdates.json"));
   json j = json::parse(str);
   registerPrestoToVeloxConnector(std::make_unique<facebook::presto::HivePrestoToVeloxConnector>("hive"));
   MetadataUpdates metadataUpdates = j;
@@ -32,7 +32,7 @@ TEST_F(TaskInfoTest, binaryMetadataUpdates) {
 }
 
 TEST_F(TaskInfoTest, taskInfo) {
-  std::string str = slurp(getDataPath("/github/presto-trunk/presto-native-execution/presto_cpp/main/thrift/experimental/tests/data/", "TaskInfo.json"));
+  std::string str = slurp(getDataPath("/github/presto-trunk/presto-native-execution/presto_cpp/main/thrift/tests/data/", "TaskInfo.json"));
   json j = json::parse(str);
   registerPrestoToVeloxConnector(std::make_unique<facebook::presto::HivePrestoToVeloxConnector>("hive"));
   TaskInfo taskInfo = j;
@@ -67,7 +67,7 @@ TEST_F(TaskInfoTest, taskId) {
 
 
 TEST_F(TaskInfoTest, operatorStatsEmptyBlockedReason) {
-  std::string str = slurp(getDataPath("/github/presto-trunk/presto-native-execution/presto_cpp/main/thrift/experimental/tests/data/", "OperatorStatsEmptyBlockedReason.json"));
+  std::string str = slurp(getDataPath("/github/presto-trunk/presto-native-execution/presto_cpp/main/thrift/tests/data/", "OperatorStatsEmptyBlockedReason.json"));
   json j = json::parse(str);
   OperatorStats operatorStats = j;
   cpp2::OperatorStats thriftOperatorStats;
@@ -79,7 +79,7 @@ TEST_F(TaskInfoTest, operatorStatsEmptyBlockedReason) {
 }
 
 TEST_F(TaskInfoTest, operatorStats) {
-  std::string str = slurp(getDataPath("/github/presto-trunk/presto-native-execution/presto_cpp/main/thrift/experimental/tests/data/", "OperatorStats.json"));
+  std::string str = slurp(getDataPath("/github/presto-trunk/presto-native-execution/presto_cpp/main/thrift/tests/data/", "OperatorStats.json"));
   json j = json::parse(str);
   OperatorStats operatorStats = j;
   cpp2::OperatorStats thriftOperatorStats;

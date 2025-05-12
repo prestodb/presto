@@ -1,7 +1,7 @@
 // (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 
 #include <gtest/gtest.h>
-#include "presto_cpp/main/thrift/experimental/ThriftUtils.h"
+#include "presto_cpp/main/thrift/ThriftUtils.h"
 #include "presto_cpp/main/common/tests/test_json.h"
 
 using namespace facebook;
@@ -77,7 +77,7 @@ TEST_F(TaskStatusTest, executionFailureInfoOptionalFieldsEmpty) {
 }
 
 TEST_F(TaskStatusTest, executionFailureInfoOptionalFieldsNonempty) {
-  std::string str = slurp(getDataPath("/github/presto-trunk/presto-native-execution/presto_cpp/main/thrift/experimental/tests/data/", "ExecutionFailureInfo.json"));
+  std::string str = slurp(getDataPath("/github/presto-trunk/presto-native-execution/presto_cpp/main/thrift/tests/data/", "ExecutionFailureInfo.json"));
 
   json j = json::parse(str);
   ExecutionFailureInfo executionFailureInfo = j;

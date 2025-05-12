@@ -1,7 +1,7 @@
 // (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 
 #include <gtest/gtest.h>
-#include "presto_cpp/main/thrift/experimental/ThriftUtils.h"
+#include "presto_cpp/main/thrift/ThriftUtils.h"
 #include "presto_cpp/main/common/tests/test_json.h"
 #include "presto_cpp/main/connectors/PrestoToVeloxConnector.h"
 
@@ -10,7 +10,7 @@ using namespace facebook::presto::protocol;
 
 class TaskUpdateRequestTest : public ::testing::Test {};
 
-const std::string BASE_DATA_PATH = "/github/presto-trunk/presto-native-execution/presto_cpp/main/thrift/experimental/tests/data/";
+const std::string BASE_DATA_PATH = "/github/presto-trunk/presto-native-execution/presto_cpp/main/thrift/tests/data/";
 
 TEST_F(TaskUpdateRequestTest, connectorId) {
   ConnectorId connectorId;
