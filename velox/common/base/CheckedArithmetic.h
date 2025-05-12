@@ -24,7 +24,7 @@
 namespace facebook::velox {
 
 template <typename T>
-T checkedPlus(const T& a, const T& b, const char* typeName = "integer") {
+T checkedPlus(T a, T b, const char* typeName = "integer") {
   T result;
   bool overflow = __builtin_add_overflow(a, b, &result);
   if (UNLIKELY(overflow)) {
@@ -34,7 +34,7 @@ T checkedPlus(const T& a, const T& b, const char* typeName = "integer") {
 }
 
 template <typename T>
-T checkedMinus(const T& a, const T& b, const char* typeName = "integer") {
+T checkedMinus(T a, T b, const char* typeName = "integer") {
   T result;
   bool overflow = __builtin_sub_overflow(a, b, &result);
   if (UNLIKELY(overflow)) {
@@ -44,7 +44,7 @@ T checkedMinus(const T& a, const T& b, const char* typeName = "integer") {
 }
 
 template <typename T>
-T checkedMultiply(const T& a, const T& b, const char* typeName = "integer") {
+T checkedMultiply(T a, T b, const char* typeName = "integer") {
   T result;
   bool overflow = __builtin_mul_overflow(a, b, &result);
   if (UNLIKELY(overflow)) {
@@ -54,7 +54,7 @@ T checkedMultiply(const T& a, const T& b, const char* typeName = "integer") {
 }
 
 template <typename T>
-T checkedDivide(const T& a, const T& b) {
+T checkedDivide(T a, T b) {
   if (b == 0) {
     VELOX_ARITHMETIC_ERROR("division by zero");
   }
@@ -69,7 +69,7 @@ T checkedDivide(const T& a, const T& b) {
 }
 
 template <typename T>
-T checkedModulus(const T& a, const T& b) {
+T checkedModulus(T a, T b) {
   if (UNLIKELY(b == 0)) {
     VELOX_ARITHMETIC_ERROR("Cannot divide by 0");
   }
@@ -83,7 +83,7 @@ T checkedModulus(const T& a, const T& b) {
 }
 
 template <typename T>
-T checkedNegate(const T& a) {
+T checkedNegate(T a) {
   if (UNLIKELY(a == std::numeric_limits<T>::min())) {
     VELOX_ARITHMETIC_ERROR("Cannot negate minimum value");
   }
