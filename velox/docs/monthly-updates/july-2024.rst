@@ -1,0 +1,128 @@
+****************
+July 2024 Update
+****************
+
+This month has **170** commits from **47** authors. Below are some of the highlights.
+
+Documentation
+=============
+
+* Document :doc:`Spark Types </develop/types>`.
+* Document :doc:`Empty Window Frames </develop/window>`.
+
+Core Library
+============
+
+* Add support for Wave Driver and Aggregate operator on Nvidia GPUs.
+* Add support for multiple dynamic filters pushed to the same column by merging them.
+* Add support for polymorphic `dwio::common::WriterOptions`.
+* Add checkpoint support for SSD cache writes.
+* Add normalization rules for timezone offsets :pr:`10611`
+* Add support for TPC-H Query 4 in TPCHQueryBuilder.
+* Fix SSD cache delta stats reported. :pr:`10408`
+* Fix SSD cache recovery by preserving file id map.
+* Fix incorrect result of approx_percentile in window operations. :pr:`10368`
+* Fix deadlock in MemoryPool when `toString`` is invoked. :pr:`10400`
+* Fix `try_cast` to not suppress `VeloxRuntimeErrors`.
+* Fix `AssignUniqueId`` to avoid generating duplicate IDs. :pr:`10492`
+* Fix range and multi-range filters to handle NaNs correctly. :pr:`10533`
+* Fix memory leak in HashBuild operator.
+* Fix HashBuild memory over-use. :pr:`10534`
+* Fix deadlock in join when arbitration is triggered.
+* Fix timezone conversions to use seconds instead of time point to reduce overflows.
+* Fix spilling of grouping set. :pr:`10548`
+
+Presto Functions
+================
+
+* Add :func:`secure_random`, :func:`inverse_weibull_cdf`, :func:`inverse_cauchy_cdf`
+  :func:`inverse_laplace_cdf` functions.
+* Fix NaN handling in comparison functions. :pr:`10165`
+* Fix Nan handling in  :func:`min`, :func:`max`, :func:`min_by`, :func:`max_by` aggregate functions. :pr:`10583`, :pr:`10586`
+* Fix :func:`is_finite` for NaN input. :pr:`10599`
+* Fix timezone handling in :func:`to_iso8601` for TIMESTAMP input. :pr:`10576`
+
+
+Spark Functions
+===============
+
+* Add :spark:func:`raise_error`, :spark:func:`levenshtein`, :spark:func:`repeat`,
+  :spark:func:`json_object_keys`, :spark:func:`mask` scalar functions.
+* Add :spark:func:`min`, :spark:func:`max`, :spark:func:`collect_set` aggregate functions.
+* Add SIMD support for hash and comparison functions. :pr:`10301`, :pr:`10273`
+* Add support for fast path comparison function in join filter.
+* Fix CAST(STRING AS BOOLEAN) to only allow inputs supported by Spark.
+
+Hive Connector
+==============
+
+* Add support for reading dictionary encoded INT96 TIMESTAMP types in Parquet.
+* Add support for reading BINARY as STRING in parquet.
+* Fix selective MAP and ARRAY column readers by passing requested type instead of file type.
+* Fix DELTA_BINARY_PACKED Parquet decoder. :pr:`10485`
+* Fix Iceberg read with positional delete files. :pr:`10505`
+
+
+Performance and Correctness
+===========================
+
+* Add PrefixSort in OrderBy and TableWrite.
+* Optimize `cast(UUID AS VARCHAR)` by using a custom implementation. :pr:`10361`
+* Optimize execution by reducing peeled vectors size. :pr:`10521`
+
+Build System
+============
+
+* Add support for monolithic build.
+* Add support for ARM64 CPU Neoverse N1/N2/V1 architectures.
+
+
+Credits
+=======
+::
+
+     5	Amit Dutta - Meta
+     6	Bikramjeet Vig - Meta
+     2	Bradley Dice - Nvidia
+     4	Christian Zentgraf - IBM
+     3	Daniel Hunte - Meta
+     9	Deepak Majeti - IBM
+     1	Guilherme Kunigami - Meta
+     1	Huameng (Michael) Jiang - Meta
+     1	Jacob Khaliqi - IBM
+     2	Jacob Wujciak-Jens - Voltron Data
+     1	Jia Ke - Intel
+    11	Jialiang Tan - Meta
+     8	Jimmy Lu - Meta
+     1	JineHelin404
+     4	Ke
+     1	Kevin Pis
+     7	Kevin Wilfong - Meta
+     6	Krishna Pai - Meta
+     2	Masha Basmanova - Meta
+     2	Orri Erling - Meta
+     1	PHILO-HE - Intel
+    15	Pedro Eugenio Rocha Pedreira - Meta
+     1	Reetika Agrawal - IBM
+     2	Richard Barnes - Meta
+     1	Shengxuan Liu - ByteDance
+     7	Wei He - Meta
+     4	Wills Feng - IBM
+     1	Xuedong Luan
+     1	YIMINGXU
+     1	Yuqi Gu
+     3	Zac Wen - Meta
+     1	Zuyu ZHANG
+     4	Aditi Pandit - IBM
+     1	Duanmeng - Tencent
+     2	gaoyangxiaozhu
+     3	hengjiang.ly - Alibaba Inc
+     2	joey.ljy - Alibaba Inc
+     1	kevincmchen
+     7	lingbin - Alibaba Inc
+     1	mwish
+    13	Rui Mo - Intel
+     5	xiaoxmeng - Meta
+     2	Ying Su - IBM
+     2	youxiduo
+    12	Zhen Li - Microsoft
