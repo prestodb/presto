@@ -75,9 +75,9 @@ public class TestRestRemoteFunctions
                         .getMaterializedRows().get(0).getField(0).toString(),
                 "1230");
         assertEquals(
-                computeActual(session, "select rest.default.second(CAST('2001-01-02 03:04:05' as timestamp))")
+                computeActual(session, "select rest.default.day(interval '2' day)")
                         .getMaterializedRows().get(0).getField(0).toString(),
-                "5");
+                "2");
         assertEquals(
                 computeActual(session, "select rest.default.length(CAST('AB' AS VARBINARY))")
                         .getMaterializedRows().get(0).getField(0).toString(),
