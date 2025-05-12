@@ -60,5 +60,6 @@ services:
         - EXTRA_CMAKE_FLAGS=-DPRESTO_ENABLE_TESTING=OFF
                             -DPRESTO_ENABLE_PARQUET=ON
                             -DPRESTO_ENABLE_S3=ON
+                            -DPRESTO_ENABLE_CUDF=${GPU:-OFF}
       context: .
       dockerfile: scripts/dockerfiles/prestissimo-runtime.dockerfile
