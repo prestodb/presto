@@ -32,7 +32,6 @@ import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.collect.ImmutableList;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -94,7 +93,7 @@ public class JdbcJoinPushdown
                 JoinTableSet tableHandles = (JoinTableSet) tableHandle.getConnectorHandle();
                 ImmutableList<JoinTableInfo> newJoinTableInfos = ImmutableList.copyOf(tableHandles.getInnerJoinTableInfos());
 
-                List<ConnectorTableHandle> newConnectorTableHandles = new ArrayList<>();
+                ImmutableList.Builder<ConnectorTableHandle> newConnectorTableHandlesBuilder = ImmutableList.builder();
                 Map<VariableReferenceExpression, ColumnHandle> groupAssignments = new HashMap<>();
 
                 //Generate aliases for each table being joined to avoid any ambiguous column name references.
@@ -107,7 +106,7 @@ public class JdbcJoinPushdown
                     JdbcTableHandle handle = (JdbcTableHandle) tableMapping.getTableHandle();
                     JdbcTableHandle newHandle = new JdbcTableHandle(handle.getConnectorId(), handle.getSchemaTableName(), handle.getCatalogName(),
                             handle.getSchemaName(), handle.getTableName(), handle.getJoinTables(), Optional.of(aliasPrefix + (++aliasTableCounter)));
-                    newConnectorTableHandles.add(newHandle);
+                    newConnectorTableHandlesBuilder.add(newHandle);
 
                     tableMapping.getAssignments().forEach((key, oldColumnHandle) -> {
                         JdbcColumnHandle newColumnHandle = new JdbcColumnHandle(((JdbcColumnHandle) oldColumnHandle).getConnectorId(), ((JdbcColumnHandle) oldColumnHandle).getColumnName(),
@@ -117,6 +116,7 @@ public class JdbcJoinPushdown
                     });
                 }
 
+                List<ConnectorTableHandle> newConnectorTableHandles = newConnectorTableHandlesBuilder.build();
                 JdbcTableHandle jdbcTableHandle = (JdbcTableHandle) newConnectorTableHandles.get(0);
                 JdbcTableHandle newConnectorTableHandle = new JdbcTableHandle(jdbcTableHandle.getConnectorId(), jdbcTableHandle.getSchemaTableName(), jdbcTableHandle.getCatalogName(),
                         jdbcTableHandle.getSchemaName(), jdbcTableHandle.getTableName(), newConnectorTableHandles, jdbcTableHandle.getTableAlias());

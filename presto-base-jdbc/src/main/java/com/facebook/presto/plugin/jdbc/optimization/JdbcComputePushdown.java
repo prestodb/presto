@@ -38,7 +38,6 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -165,8 +164,8 @@ public class JdbcComputePushdown
                 and the remaining part will keep in a new FilterNode.
              */
             // Find out which parts can be pushed down
-            List<RowExpression> remainingExpressions = new ArrayList<>();
-            List<JdbcExpression> translatedExpressions = new ArrayList<>();
+            ImmutableList.Builder<RowExpression> remainingExpressionsBuilder = ImmutableList.builder();
+            ImmutableList.Builder<JdbcExpression> translatedExpressionsBuilder = ImmutableList.builder();
 
             predicate = expressionOptimizerProvider.getExpressionOptimizer(session).optimize(node.getPredicate(), SERIALIZABLE, session);
             List<RowExpression> rowExpressions = LogicalRowExpressions.extractConjuncts(predicate);
@@ -177,12 +176,15 @@ public class JdbcComputePushdown
                         oldTableScanNode.getAssignments());
 
                 if (!translatedExpression.getTranslated().isPresent()) {
-                    remainingExpressions.add(expression);
+                    remainingExpressionsBuilder.add(expression);
                 }
                 else {
-                    translatedExpressions.add(translatedExpression.getTranslated().get());
+                    translatedExpressionsBuilder.add(translatedExpression.getTranslated().get());
                 }
             }
+
+            List<RowExpression> remainingExpressions = remainingExpressionsBuilder.build();
+            List<JdbcExpression> translatedExpressions = translatedExpressionsBuilder.build();
 
             // no filter can be pushed down
             if (!remainingExpressions.isEmpty() && translatedExpressions.isEmpty()) {

@@ -15,7 +15,7 @@ package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.testing.QueryRunner;
-import com.facebook.presto.tests.AbstractTestJoinQueries;
+import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
@@ -25,6 +25,7 @@ import org.testng.annotations.Test;
 import java.util.Map;
 
 import static com.facebook.airlift.testing.Closeables.closeAllSuppress;
+import static com.facebook.presto.SystemSessionProperties.INEQUALITY_JOIN_PUSHDOWN_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.INNER_JOIN_PUSHDOWN_ENABLED;
 import static com.facebook.presto.plugin.jdbc.JdbcQueryRunner.createSchema;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -32,20 +33,23 @@ import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 
 public class TestJoinQueriesWithPushDown
-        extends AbstractTestJoinQueries
+        extends AbstractTestQueryFramework
 {
     private static final String TPCH_SCHEMA = "tpch";
     private static final String JDBC = "jdbc";
+    private static Session pushdownDisabledSession;
+
     @Override
     protected QueryRunner createQueryRunner() throws Exception
     {
-        Session session = testSessionBuilder()
+        pushdownDisabledSession = testSessionBuilder()
                 .setCatalog(JDBC)
                 .setSchema(TPCH_SCHEMA)
                 .build();
+
         DistributedQueryRunner queryRunner = null;
         try {
-            queryRunner = new DistributedQueryRunner(session, 3);
+            queryRunner = new DistributedQueryRunner(pushdownDisabledSession, 3);
 
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
@@ -56,7 +60,7 @@ public class TestJoinQueriesWithPushDown
             queryRunner.installPlugin(new JdbcPlugin("base-jdbc", new TestingH2JdbcModule()));
             queryRunner.createCatalog(JDBC, "base-jdbc", properties);
 
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, session, ImmutableList.copyOf(TpchTable.getTables()));
+            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, pushdownDisabledSession, ImmutableList.copyOf(TpchTable.getTables()));
 
             return queryRunner;
         }
@@ -69,52 +73,46 @@ public class TestJoinQueriesWithPushDown
     @Test
     public void testSimpleInnerEquiJoin()
     {
-        Session pushdownEnabled = getSession(true);
-        Session disabled = getSession(false);
-        assertQueryWithSameQueryRunner(pushdownEnabled, "SELECT o.orderkey, o.totalprice, c.name " +
+        assertQueryWithSameQueryRunner(getSession(), "SELECT o.orderkey, o.totalprice, c.name " +
                 "FROM orders o " +
                 "JOIN customer c ON o.custkey = c.custkey " +
                 "WHERE o.totalprice > 50000 " +
-                "ORDER BY o.totalprice DESC", disabled);
+                "ORDER BY o.totalprice DESC", pushdownDisabledSession);
     }
 
     @Test
     public void testInnerEquiJoinWithFilter()
     {
-        Session pushdownEnabled = getSession(true);
-        Session disabled = getSession(false);
-        assertQueryWithSameQueryRunner(pushdownEnabled, "SELECT o.orderkey, o.totalprice, c.name " +
+        assertQueryWithSameQueryRunner(getSession(), "SELECT o.orderkey, o.totalprice, c.name " +
                 "FROM orders o " +
                 "JOIN customer c ON o.custkey = c.custkey " +
                 "WHERE o.totalprice > 50000 " +
-                "ORDER BY o.totalprice DESC", disabled);
+                "ORDER BY o.totalprice DESC", pushdownDisabledSession);
     }
 
     @Test
     public void testSimpleInnerNonEquiJoin()
     {
-        Session pushdownEnabled = getSession(true);
-        Session disabled = getSession(false);
-        assertQueryWithSameQueryRunner(pushdownEnabled, "SELECT o.orderkey, c.name, o.totalprice, c.custkey " +
+        assertQueryWithSameQueryRunner(getSession(), "SELECT o.orderkey, c.name, o.totalprice, c.custkey " +
                 "FROM orders o " +
-                "JOIN customer c ON o.custkey = c.custkey ", disabled);
+                "JOIN customer c ON o.custkey = c.custkey ", pushdownDisabledSession);
     }
 
     @Test
     public void testInnerNonEquiJoinWithFilter()
     {
-        Session pushdownEnabled = getSession(true);
-        Session disabled = getSession(false);
-        assertQueryWithSameQueryRunner(pushdownEnabled, "SELECT o.orderkey, c.name, o.totalprice, c.custkey " +
+        assertQueryWithSameQueryRunner(getSession(), "SELECT o.orderkey, c.name, o.totalprice, c.custkey " +
                 "FROM orders o " +
                 "JOIN customer c ON o.custkey = c.custkey " +
-                "WHERE o.totalprice < c.acctbal / 2", disabled);
+                "WHERE o.totalprice < c.acctbal / 2", pushdownDisabledSession);
     }
 
-    private Session getSession(boolean pushdownEnabled)
+    @Override
+    protected Session getSession()
     {
-        return Session.builder(getSession())
-                .setSystemProperty(INNER_JOIN_PUSHDOWN_ENABLED, String.valueOf(pushdownEnabled))
+        return Session.builder(super.getSession())
+                .setSystemProperty(INNER_JOIN_PUSHDOWN_ENABLED, "true")
+                .setSystemProperty(INEQUALITY_JOIN_PUSHDOWN_ENABLED, "true")
                 .build();
     }
 }
