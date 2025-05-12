@@ -87,7 +87,7 @@ add_executable(
   SqlTest.cpp
   StreamingAggregationTest.cpp
   TableScanTest.cpp
-  TableWriteTest.cpp
+  TableWriterTest.cpp
   TaskListenerTest.cpp
   ThreadDebugInfoTest.cpp
   TopNRowNumberTest.cpp

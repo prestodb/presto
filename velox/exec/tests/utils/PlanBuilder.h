@@ -437,7 +437,7 @@ class PlanBuilder {
 
     /// @param ensureFiles When set the Task will always output a file, even if
     /// it's empty.
-    TableWriterBuilder& ensureFiles(const bool ensureFiles) {
+    TableWriterBuilder& ensureFiles(bool ensureFiles) {
       ensureFiles_ = ensureFiles;
       return *this;
     }
