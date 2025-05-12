@@ -559,72 +559,102 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
   PromiseHolderWeakPtr<std::unique_ptr<protocol::TaskStatus>> statusRequest;
   PromiseHolderWeakPtr<std::unique_ptr<protocol::TaskInfo>> infoRequest;
 
-  // Create or update task can be called concurrently for the same task.
-  // We need to lock here for allow only one to be executed at a time.
-  // This is especially important for adding splits to the task.
-  std::lock_guard<std::mutex> l(prestoTask->mutex);
+  bool startNextQueuedTask = false;
+  std::unique_ptr<TaskInfo> ret;
+  {
+    // Create or update task can be called concurrently for the same task.
+    // We need to lock here for allow only one to be executed at a time.
+    // This is especially important for adding splits to the task.
+    std::lock_guard<std::mutex> l(prestoTask->mutex);
 
-  if (startTask) {
-    startTaskLocked(prestoTask);
+    if (startTask) {
+      // Default behavior is to start tasks immediately.
+      if (!SystemConfig::instance()->workerOverloadedTaskQueuingEnabled()) {
+        startTaskLocked(prestoTask);
+      } else {
+        if (isServerOverloaded_) {
+          LOG(INFO) << "Server is overloaded. Queueing task " << taskId;
+          taskQueue_.wlock()->emplace(prestoTask);
+        } else {
+          if (!taskQueue_.rlock()->empty()) {
+            LOG(INFO)
+                << "Server is not overloaded, but queued tasks detected. Queueing task "
+                << taskId;
+            auto lockedTaskQueue = taskQueue_.wlock();
+            lockedTaskQueue->emplace(prestoTask);
+            startNextQueuedTask = true;
+          } else {
+            startTaskLocked(prestoTask);
+          }
+        }
+      }
 
-    resultRequests = std::move(prestoTask->resultRequests);
-    statusRequest = prestoTask->statusRequest;
-    infoRequest = prestoTask->infoRequest;
-  }
+      resultRequests = std::move(prestoTask->resultRequests);
+      statusRequest = prestoTask->statusRequest;
+      infoRequest = prestoTask->infoRequest;
+    }
 
-  getDataForResultRequests(resultRequests);
+    getDataForResultRequests(resultRequests);
 
-  if (outputBuffers.type != protocol::BufferType::PARTITIONED &&
-      !execTask->updateOutputBuffers(
-          outputBuffers.buffers.size(), outputBuffers.noMoreBufferIds)) {
-    VLOG(1) << "Failed to update output buffers for task: " << taskId;
-  }
+    if (outputBuffers.type != protocol::BufferType::PARTITIONED &&
+        !execTask->updateOutputBuffers(
+            outputBuffers.buffers.size(), outputBuffers.noMoreBufferIds)) {
+      VLOG(1) << "Failed to update output buffers for task: " << taskId;
+    }
 
-  for (const auto& source : sources) {
-    // Add all splits from the source to the task.
-    VLOG(1) << "Adding " << source.splits.size() << " splits to " << taskId
-            << " for node " << source.planNodeId;
-    // Keep track of the max sequence for this batch of splits.
-    long maxSplitSequenceId{-1};
-    for (const auto& protocolSplit : source.splits) {
-      auto split = toVeloxSplit(protocolSplit);
-      if (split.hasConnectorSplit()) {
-        maxSplitSequenceId =
-            std::max(maxSplitSequenceId, protocolSplit.sequenceId);
-        execTask->addSplitWithSequence(
-            source.planNodeId, std::move(split), protocolSplit.sequenceId);
+    for (const auto& source : sources) {
+      // Add all splits from the source to the task.
+      VLOG(1) << "Adding " << source.splits.size() << " splits to " << taskId
+              << " for node " << source.planNodeId;
+      // Keep track of the max sequence for this batch of splits.
+      long maxSplitSequenceId{-1};
+      for (const auto& protocolSplit : source.splits) {
+        auto split = toVeloxSplit(protocolSplit);
+        if (split.hasConnectorSplit()) {
+          maxSplitSequenceId =
+              std::max(maxSplitSequenceId, protocolSplit.sequenceId);
+          execTask->addSplitWithSequence(
+              source.planNodeId, std::move(split), protocolSplit.sequenceId);
+        }
+      }
+      // Update task's max split sequence id after all splits have been added.
+      execTask->setMaxSplitSequenceId(source.planNodeId, maxSplitSequenceId);
+
+      for (const auto& lifespan : source.noMoreSplitsForLifespan) {
+        if (lifespan.isgroup) {
+          LOG(INFO) << "No more splits for group " << lifespan.groupid
+                    << " for " << taskId << " for node " << source.planNodeId;
+          execTask->noMoreSplitsForGroup(source.planNodeId, lifespan.groupid);
+        }
+      }
+
+      if (source.noMoreSplits) {
+        LOG(INFO) << "No more splits for " << taskId << " for node "
+                  << source.planNodeId;
+        execTask->noMoreSplits(source.planNodeId);
       }
     }
-    // Update task's max split sequence id after all splits have been added.
-    execTask->setMaxSplitSequenceId(source.planNodeId, maxSplitSequenceId);
 
-    for (const auto& lifespan : source.noMoreSplitsForLifespan) {
-      if (lifespan.isgroup) {
-        LOG(INFO) << "No more splits for group " << lifespan.groupid << " for "
-                  << taskId << " for node " << source.planNodeId;
-        execTask->noMoreSplitsForGroup(source.planNodeId, lifespan.groupid);
-      }
+    // 'prestoTask' will exist by virtue of shared_ptr but may for example have
+    // been aborted.
+    auto info =
+        prestoTask->updateInfoLocked(summarize); // Presto task is locked above.
+    if (auto promiseHolder = infoRequest.lock()) {
+      promiseHolder->promise.setValue(
+          std::make_unique<protocol::TaskInfo>(info));
     }
-
-    if (source.noMoreSplits) {
-      LOG(INFO) << "No more splits for " << taskId << " for node "
-                << source.planNodeId;
-      execTask->noMoreSplits(source.planNodeId);
+    if (auto promiseHolder = statusRequest.lock()) {
+      promiseHolder->promise.setValue(
+          std::make_unique<protocol::TaskStatus>(info.taskStatus));
     }
+    ret = std::make_unique<TaskInfo>(info);
   }
 
-  // 'prestoTask' will exist by virtue of shared_ptr but may for example have
-  // been aborted.
-  auto info =
-      prestoTask->updateInfoLocked(summarize); // Presto task is locked above.
-  if (auto promiseHolder = infoRequest.lock()) {
-    promiseHolder->promise.setValue(std::make_unique<protocol::TaskInfo>(info));
+  if (startNextQueuedTask) {
+    maybeStartNextQueuedTask();
   }
-  if (auto promiseHolder = statusRequest.lock()) {
-    promiseHolder->promise.setValue(
-        std::make_unique<protocol::TaskStatus>(info.taskStatus));
-  }
-  return std::make_unique<TaskInfo>(info);
+
+  return ret;
 }
 
 void TaskManager::startTaskLocked(std::shared_ptr<PrestoTask>& prestoTask) {
@@ -654,10 +684,50 @@ void TaskManager::startTaskLocked(std::shared_ptr<PrestoTask>& prestoTask) {
               << maxDrivers << " max drivers.";
   }
   execTask->start(maxDrivers, concurrentLifespans);
-
   prestoTask->taskStarted = true;
-  prestoTask->info.stats.queuedTimeInNanos =
-      (velox::getCurrentTimeMs() - prestoTask->createTimeMs) * 1'000'000;
+
+  // Record the time we spent between task creation and start, which is the
+  // planned (queued) time.
+  const auto queuedTimeInMs =
+      velox::getCurrentTimeMs() - prestoTask->createTimeMs;
+  prestoTask->info.stats.queuedTimeInNanos = queuedTimeInMs * 1'000'000;
+  RECORD_METRIC_VALUE(kCounterTaskPlannedTimeMs, queuedTimeInMs);
+}
+
+void TaskManager::maybeStartNextQueuedTask() {
+  if (isServerOverloaded_) {
+    return;
+  }
+
+  // We run the loop here because some tasks might have failed or were aborted
+  // or cancelled. Despite of that we want to start at least one task.
+  auto lockedTaskQueue = taskQueue_.wlock();
+  while (!lockedTaskQueue->empty()) {
+    auto firstQueuedTask = lockedTaskQueue->front().lock();
+    lockedTaskQueue->pop();
+
+    // Task is already gone or no Velox task (the latter will never happen).
+    if (firstQueuedTask == nullptr || firstQueuedTask->task == nullptr) {
+      continue;
+    }
+
+    // If the status is not 'planned' (Velox task is in 'running' state and
+    // Presto is 'not started') then no need to start the task.
+    if (!firstQueuedTask->task->isRunning() || firstQueuedTask->taskStarted) {
+      LOG(INFO) << "Not starting task " << firstQueuedTask->info.taskId
+                << " because state is "
+                << velox::exec::taskStateString(firstQueuedTask->task->state())
+                << " and taskStarted is " << firstQueuedTask->taskStarted;
+      continue;
+    }
+
+    // Start this task and leave.
+    // We don't need the queue lock anymore, so unlock it earlier.
+    lockedTaskQueue.unlock();
+    std::lock_guard<std::mutex> l(firstQueuedTask->mutex);
+    startTaskLocked(firstQueuedTask);
+    break;
+  }
 }
 
 std::unique_ptr<TaskInfo>
@@ -1220,13 +1290,22 @@ int32_t TaskManager::yieldTasks(
   return numYields;
 }
 
-std::array<size_t, 5> TaskManager::getTaskNumbers(size_t& numTasks) const {
-  std::array<size_t, 5> res{0};
+std::array<size_t, 6> TaskManager::getTaskNumbers(size_t& numTasks) const {
+  std::array<size_t, 6> res{0};
   auto taskMap = taskMap_.rlock();
   numTasks = 0;
   for (const auto& pair : *taskMap) {
     if (pair.second->task != nullptr) {
-      ++res[static_cast<int>(pair.second->task->state())];
+      auto prestoTaskState =
+          static_cast<PrestoTaskState>(pair.second->task->state());
+      // Velox Task is created with 'Running' state even though it is not
+      // running until start() is called. Here we we check this and use Planned
+      // state if it is not running yet.
+      if (prestoTaskState == PrestoTaskState::kRunning &&
+          !pair.second->taskStarted) {
+        prestoTaskState = PrestoTaskState::kPlanned;
+      }
+      ++res[static_cast<int>(prestoTaskState)];
       ++numTasks;
     }
   }
