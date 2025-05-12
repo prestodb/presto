@@ -51,6 +51,117 @@ class PartitionAndSerializeNode : public velox::core::PlanNode {
         partitionFunctionSpec_, "Partition function factory cannot be null.");
   }
 
+  class Builder {
+   public:
+    Builder() = default;
+
+    explicit Builder(const PartitionAndSerializeNode& other) {
+      id_ = other.id();
+      keys_ = other.keys();
+      numPartitions_ = other.numPartitions();
+      serializedRowType_ = other.serializedRowType();
+      source_ = other.sources()[0];
+      replicateNullsAndAny_ = other.isReplicateNullsAndAny();
+      partitionFunctionFactory_ = other.partitionFunctionFactory();
+      sortingOrders_ = other.sortingOrders();
+      sortingKeys_ = other.sortingKeys();
+    }
+
+    Builder& id(velox::core::PlanNodeId id) {
+      id_ = std::move(id);
+      return *this;
+    }
+
+    Builder& keys(std::vector<velox::core::TypedExprPtr> keys) {
+      keys_ = std::move(keys);
+      return *this;
+    }
+
+    Builder& numPartitions(uint32_t numPartitions) {
+      numPartitions_ = numPartitions;
+      return *this;
+    }
+
+    Builder& serializedRowType(velox::RowTypePtr serializedRowType) {
+      serializedRowType_ = std::move(serializedRowType);
+      return *this;
+    }
+
+    Builder& source(velox::core::PlanNodePtr source) {
+      source_ = std::move(source);
+      return *this;
+    }
+
+    Builder& replicateNullsAndAny(bool replicateNullsAndAny) {
+      replicateNullsAndAny_ = replicateNullsAndAny;
+      return *this;
+    }
+
+    Builder& partitionFunctionFactory(
+        velox::core::PartitionFunctionSpecPtr partitionFunctionFactory) {
+      partitionFunctionFactory_ = std::move(partitionFunctionFactory);
+      return *this;
+    }
+
+    Builder& sortingOrders(
+        std::optional<std::vector<velox::core::SortOrder>> sortingOrders) {
+      sortingOrders_ = std::move(sortingOrders);
+      return *this;
+    }
+
+    Builder& sortingKeys(
+        std::optional<std::vector<velox::core::FieldAccessTypedExprPtr>>
+            sortingKeys) {
+      sortingKeys_ = sortingKeys;
+      return *this;
+    }
+
+    std::shared_ptr<PartitionAndSerializeNode> build() const {
+      VELOX_USER_CHECK(
+          id_.has_value(), "PartitionAndSerializeNode id is not set");
+      VELOX_USER_CHECK(
+          keys_.has_value(), "PartitionAndSerializeNode keys is not set");
+      VELOX_USER_CHECK(
+          numPartitions_.has_value(),
+          "PartitionAndSerializeNode numPartitions is not set");
+      VELOX_USER_CHECK(
+          serializedRowType_.has_value(),
+          "PartitionAndSerializeNode serializedRowType is not set");
+      VELOX_USER_CHECK(
+          source_.has_value(), "PartitionAndSerializeNode source is not set");
+      VELOX_USER_CHECK(
+          replicateNullsAndAny_.has_value(),
+          "PartitionAndSerializeNode replicateNullsAndAny is not set");
+      VELOX_USER_CHECK(
+          partitionFunctionFactory_.has_value(),
+          "PartitionAndSerializeNode partitionFunctionFactory is not set");
+
+      return std::make_shared<PartitionAndSerializeNode>(
+          id_.value(),
+          keys_.value(),
+          numPartitions_.value(),
+          serializedRowType_.value(),
+          source_.value(),
+          replicateNullsAndAny_.value(),
+          partitionFunctionFactory_.value(),
+          sortingOrders_,
+          sortingKeys_);
+    }
+
+   private:
+    std::optional<velox::core::PlanNodeId> id_;
+    std::optional<std::vector<velox::core::TypedExprPtr>> keys_;
+    std::optional<uint32_t> numPartitions_;
+    std::optional<velox::RowTypePtr> serializedRowType_;
+    std::optional<velox::core::PlanNodePtr> source_;
+    std::optional<bool> replicateNullsAndAny_;
+    std::optional<velox::core::PartitionFunctionSpecPtr>
+        partitionFunctionFactory_;
+    std::optional<std::vector<velox::core::SortOrder>> sortingOrders_;
+    std::optional<std::vector<velox::core::FieldAccessTypedExprPtr>>
+        sortingKeys_;
+  };
+
   folly::dynamic serialize() const override;
 
   static velox::core::PlanNodePtr create(
