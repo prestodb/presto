@@ -33,6 +33,73 @@ class ShuffleWriteNode : public velox::core::PlanNode {
         serializedShuffleWriteInfo_(serializedShuffleWriteInfo),
         sources_{std::move(source)} {}
 
+  class Builder {
+   public:
+    Builder() = default;
+
+    explicit Builder(const ShuffleWriteNode& other) {
+      id_ = other.id();
+      numPartitions_ = other.numPartitions();
+      shuffleName_ = other.shuffleName();
+      serializedShuffleWriteInfo_ = other.serializedShuffleWriteInfo();
+      source_ = other.sources()[0];
+    }
+
+    Builder& id(velox::core::PlanNodeId id) {
+      id_ = std::move(id);
+      return *this;
+    }
+
+    Builder& numPartitions(uint32_t numPartitions) {
+      numPartitions_ = numPartitions;
+      return *this;
+    }
+
+    Builder& shuffleName(std::string shuffleName) {
+      shuffleName_ = std::move(shuffleName);
+      return *this;
+    }
+
+    Builder& serializedShuffleWriteInfo(
+        std::string serializedShuffleWriteInfo) {
+      serializedShuffleWriteInfo_ = std::move(serializedShuffleWriteInfo);
+      return *this;
+    }
+
+    Builder& source(velox::core::PlanNodePtr source) {
+      source_ = std::move(source);
+      return *this;
+    }
+
+    std::shared_ptr<ShuffleWriteNode> build() const {
+      VELOX_USER_CHECK(id_.has_value(), "ShuffleWriteNode id is not set");
+      VELOX_USER_CHECK(
+          numPartitions_.has_value(),
+          "ShuffleWriteNode numPartitions_ is not set");
+      VELOX_USER_CHECK(
+          shuffleName_.has_value(), "ShuffleWriteNode shuffleName is not set");
+      VELOX_USER_CHECK(
+          serializedShuffleWriteInfo_.has_value(),
+          "ShuffleWriteNode serializedShuffleWriteInfo is not set");
+      VELOX_USER_CHECK(
+          source_.has_value(), "ShuffleWriteNode source is not set");
+
+      return std::make_shared<ShuffleWriteNode>(
+          id_.value(),
+          numPartitions_.value(),
+          shuffleName_.value(),
+          serializedShuffleWriteInfo_.value(),
+          source_.value());
+    }
+
+   private:
+    std::optional<velox::core::PlanNodeId> id_;
+    std::optional<uint32_t> numPartitions_;
+    std::optional<std::string> shuffleName_;
+    std::optional<std::string> serializedShuffleWriteInfo_;
+    std::optional<velox::core::PlanNodePtr> source_;
+  };
+
   folly::dynamic serialize() const override;
 
   static velox::core::PlanNodePtr create(
