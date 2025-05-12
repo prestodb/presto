@@ -60,7 +60,7 @@ public interface Block
     }
 
     /**
-     * Gets a byte byte of {@code length} at {@code offset} in the value at {@code position}
+     * Gets a byte array of {@code length} at {@code offset} in the value at {@code position}
      *
      * @throws IllegalArgumentException if position is negative or greater than or equal to the positionCount
      */
