@@ -306,6 +306,34 @@ Field           Required  Type      Description
 
 There is no limit on field descriptions for either key or message.
 
+JSON Type Handling
+------------------
+
+The connector supports writing ``json`` columns by converting their contents to BSON
+using ``.parse(...)``.
+
+For example:
+
+.. code-block:: sql
+
+    CREATE TABLE orders (
+        orderkey bigint,
+        orderstatus varchar,
+        totalprice double,
+        orderdate date,
+        metadata json
+    );
+
+    INSERT INTO orders VALUES (
+        3,
+        'processing',
+        150.0,
+        current_date,
+        JSON '{"created_by": "admin", "priority": "high"}'
+    );
+
+The JSON string must be well-formed. If it's not, the insert will fail with a parsing error.
+
 ObjectId
 --------
 

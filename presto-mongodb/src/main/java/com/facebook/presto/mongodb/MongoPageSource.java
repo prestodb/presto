@@ -46,8 +46,10 @@ import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.mongodb.ObjectIdType.OBJECT_ID;
 import static com.facebook.presto.mongodb.TypeUtils.isArrayType;
+import static com.facebook.presto.mongodb.TypeUtils.isJsonType;
 import static com.facebook.presto.mongodb.TypeUtils.isMapType;
 import static com.facebook.presto.mongodb.TypeUtils.isRowType;
+import static com.facebook.presto.plugin.base.JsonTypeUtil.jsonParse;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -221,6 +223,9 @@ public class MongoPageSource
             else {
                 output.appendNull();
             }
+        }
+        else if (isJsonType(type)) {
+            type.writeSlice(output, jsonParse(utf8Slice(toVarcharValue(value))));
         }
         else {
             throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Slice: " + type.getTypeSignature());
