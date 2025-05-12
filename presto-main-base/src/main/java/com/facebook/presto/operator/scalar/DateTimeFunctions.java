@@ -851,12 +851,14 @@ public final class DateTimeFunctions
     @Description("second of the minute of the given timestamp")
     @ScalarFunction("second")
     @SqlType(StandardTypes.BIGINT)
-    public static long secondFromTimestamp(@SqlType(StandardTypes.TIMESTAMP) long timestamp)
+    public static long secondFromTimestamp(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
     {
-        // No need to check isLegacyTimestamp:
-        // * Under legacy semantics, the session zone matters. But a zone always has offset of whole minutes.
-        // * Under new semantics, timestamp is agnostic to the session zone.
-        return SECOND_OF_MINUTE.get(timestamp);
+        if (properties.isLegacyTimestamp()) {
+            return getChronology(properties.getTimeZoneKey()).secondOfMinute().get(timestamp);
+        }
+        else {
+            return SECOND_OF_MINUTE.get(timestamp);
+        }
     }
 
     @Description("second of the minute of the given timestamp")
@@ -864,28 +866,28 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long secondFromTimestampWithTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
     {
-        // No need to check the associated zone here. A zone always has offset of whole minutes.
-        return SECOND_OF_MINUTE.get(unpackMillisUtc(timestampWithTimeZone));
+        return unpackChronology(timestampWithTimeZone).secondOfMinute().get(unpackMillisUtc(timestampWithTimeZone));
     }
 
     @Description("second of the minute of the given time")
     @ScalarFunction("second")
     @SqlType(StandardTypes.BIGINT)
-    public static long secondFromTime(@SqlType(StandardTypes.TIME) long time)
+    public static long secondFromTime(SqlFunctionProperties properties, @SqlType(StandardTypes.TIME) long time)
     {
-        // No need to check isLegacyTimestamp:
-        // * Under legacy semantics, the session zone matters. But a zone always has offset of whole minutes.
-        // * Under new semantics, time is agnostic to the session zone.
-        return SECOND_OF_MINUTE.get(time);
+        if (properties.isLegacyTimestamp()) {
+            return getChronology(properties.getTimeZoneKey()).secondOfMinute().get(time);
+        }
+        else {
+            return SECOND_OF_MINUTE.get(time);
+        }
     }
 
     @Description("second of the minute of the given time")
     @ScalarFunction("second")
     @SqlType(StandardTypes.BIGINT)
-    public static long secondFromTimeWithTimeZone(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long time)
+    public static long secondFromTimeWithTimeZone(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long timeWithTimeZone)
     {
-        // No need to check the associated zone here. A zone always has offset of whole minutes.
-        return SECOND_OF_MINUTE.get(unpackMillisUtc(time));
+        return unpackChronology(timeWithTimeZone).secondOfMinute().get(unpackMillisUtc(timeWithTimeZone));
     }
 
     @Description("second of the minute of the given interval")
