@@ -383,6 +383,19 @@ public abstract class TestDateTimeFunctionsBase
     }
 
     @Test
+    public void testPartFunctionsWithSecondsOffset()
+    {
+        // Prior to 1920 Asia/Kathmandu's offset was 5:41:16
+        DateTime dateTime = new DateTime(1910, 1, 22, 3, 4, 5, 678, KATHMANDU_ZONE);
+        String dateTimeLiteral = "TIMESTAMP '1910-01-22 03:04:05.678 Asia/Kathmandu'";
+
+        assertFunction("millisecond(" + dateTimeLiteral + ")", BIGINT, (long) dateTime.getMillisOfSecond());
+        assertFunction("second(" + dateTimeLiteral + ")", BIGINT, (long) dateTime.getSecondOfMinute());
+        assertFunction("minute(" + dateTimeLiteral + ")", BIGINT, (long) dateTime.getMinuteOfHour());
+        assertFunction("hour(" + dateTimeLiteral + ")", BIGINT, (long) dateTime.getHourOfDay());
+    }
+
+    @Test
     public void testYearOfWeek()
     {
         assertFunction("year_of_week(DATE '2001-08-22')", BIGINT, 2001L);
