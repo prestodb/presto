@@ -24,6 +24,25 @@ using namespace facebook::velox;
 
 namespace facebook::presto {
 
+std::string prestoTaskStateString(PrestoTaskState state) {
+  switch (state) {
+    case PrestoTaskState::kRunning:
+      return "Running";
+    case PrestoTaskState::kFinished:
+      return "Finished";
+    case PrestoTaskState::kCanceled:
+      return "Canceled";
+    case PrestoTaskState::kAborted:
+      return "Aborted";
+    case PrestoTaskState::kFailed:
+      return "Failed";
+    case PrestoTaskState::kPlanned:
+      return "Planned";
+    default:
+      return fmt::format("UNKNOWN[{}]", static_cast<int>(state));
+  }
+}
+
 namespace {
 
 #define TASK_STATS_SUM(taskStats, statsName, taskStatusSum)      \
@@ -37,7 +56,25 @@ namespace {
     }                                                            \
   } while (0)
 
-protocol::TaskState toPrestoTaskState(exec::TaskState state) {
+// Convert Velox task state to Presto task state.
+PrestoTaskState toPrestoTaskState(exec::TaskState state) {
+  switch (state) {
+    case exec::TaskState::kRunning:
+      return PrestoTaskState::kRunning;
+    case exec::TaskState::kFinished:
+      return PrestoTaskState::kFinished;
+    case exec::TaskState::kCanceled:
+      return PrestoTaskState::kCanceled;
+    case exec::TaskState::kAborted:
+      return PrestoTaskState::kAborted;
+    case exec::TaskState::kFailed:
+      return PrestoTaskState::kFailed;
+  }
+  // Should not be here.
+  return PrestoTaskState::kAborted;
+}
+
+protocol::TaskState toProtocolTaskState(exec::TaskState state) {
   switch (state) {
     case exec::TaskState::kRunning:
       return protocol::TaskState::RUNNING;
@@ -466,6 +503,21 @@ PrestoTask::PrestoTask(
   createTimeMs = getCurrentTimeMs();
 }
 
+PrestoTaskState PrestoTask::taskState() const {
+  if (task != nullptr) {
+    const auto prestoTaskState = toPrestoTaskState(task->state());
+    // Velox Task is created with 'Running' state even though it is not running
+    // until start() is called. Here we check for this and return 'Planned'
+    // state if it is the case.
+    if (prestoTaskState == PrestoTaskState::kRunning && !taskStarted) {
+      return PrestoTaskState::kPlanned;
+    }
+    return prestoTaskState;
+  }
+  // Fallback to 'aborted' if there is no Velox task.
+  return PrestoTaskState::kAborted;
+}
+
 void PrestoTask::updateHeartbeatLocked() {
   lastHeartbeatMs = velox::getCurrentTimeMs();
   info.lastHeartbeatInMillis = lastHeartbeatMs;
@@ -527,7 +579,7 @@ protocol::TaskStatus PrestoTask::updateStatusLocked() {
 
   const auto veloxTaskStats = task->taskStats();
 
-  info.taskStatus.state = toPrestoTaskState(task->state());
+  info.taskStatus.state = toProtocolTaskState(task->state());
 
   // Presto has a Driver per split. When splits represent partitions
   // of data, there is a queue of them per Task. We represent
@@ -856,14 +908,14 @@ void PrestoTask::updateExecutionInfoLocked(
 }
 
 /*static*/ std::string PrestoTask::taskStatesToString(
-    const std::array<size_t, 5>& taskStates) {
+    const std::array<size_t, 6>& taskStates) {
   std::string str;
   for (size_t i = 0; i < taskStates.size(); ++i) {
     if (taskStates[i] != 0) {
       folly::toAppend(
           fmt::format(
               "{}={} ",
-              velox::exec::taskStateString(velox::exec::TaskState(i)),
+              prestoTaskStateString(PrestoTaskState(i)),
               taskStates[i]),
           &str);
     }

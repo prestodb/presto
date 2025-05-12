@@ -617,6 +617,25 @@ memory use. Ignored if zero.
 CPU threshold in % above which the worker is considered overloaded in terms of
 CPU use. Ignored if zero.
 
+``worker-overloaded-cooldown-period-sec``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``5``
+
+Specifies how many seconds worker has to be not overloaded (in terms of
+memory and CPU) before its status changes to not overloaded.
+This is to prevent spiky fluctuation of the overloaded status.
+
+``worker-overloaded-task-queuing-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+If true, the worker starts queuing new tasks when overloaded, and
+starts them gradually when it stops being overloaded.
+
 Environment Variables As Values For Worker Properties
 -----------------------------------------------------
 

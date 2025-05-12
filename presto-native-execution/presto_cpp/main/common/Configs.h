@@ -313,6 +313,15 @@ class SystemConfig : public ConfigBase {
   /// Ignored if zero. Default is zero.
   static constexpr std::string_view kWorkerOverloadedThresholdCpuPct{
       "worker-overloaded-threshold-cpu-pct"};
+  /// Specifies how many seconds worker has to be not overloaded (in terms of
+  /// memory and CPU) before its status changes to not overloaded.
+  /// This is to prevent spiky fluctuation of the overloaded status.
+  static constexpr std::string_view kWorkerOverloadedCooldownPeriodSec{
+      "worker-overloaded-cooldown-period-sec"};
+  /// If true, the worker starts queuing new tasks when overloaded, and
+  /// starts them gradually when it stops being overloaded.
+  static constexpr std::string_view kWorkerOverloadedTaskQueuingEnabled{
+      "worker-overloaded-task-queuing-enabled"};
 
   /// If true, memory allocated via malloc is periodically checked and a heap
   /// profile is dumped if usage exceeds 'malloc-heap-dump-gb-threshold'.
@@ -719,7 +728,7 @@ class SystemConfig : public ConfigBase {
 
   // Specifies the type of worker pool
   static constexpr std::string_view kPoolType{"pool-type"};
-  
+
   // Spill related configs
   static constexpr std::string_view kSpillEnabled{"spill-enabled"};
   static constexpr std::string_view kJoinSpillEnabled{"join-spill-enabled"};
@@ -840,6 +849,10 @@ class SystemConfig : public ConfigBase {
   uint64_t workerOverloadedThresholdMemGb() const;
 
   uint32_t workerOverloadedThresholdCpuPct() const;
+
+  uint32_t workerOverloadedCooldownPeriodSec() const;
+
+  bool workerOverloadedTaskQueuingEnabled() const;
 
   bool mallocMemHeapDumpEnabled() const;
 
@@ -986,12 +999,12 @@ class SystemConfig : public ConfigBase {
   bool enableRuntimeMetricsCollection() const;
 
   bool prestoNativeSidecar() const;
-  
+
   std::string prestoDefaultNamespacePrefix() const;
 
   std::string poolType() const;
 
-  bool spillEnabled() const; 
+  bool spillEnabled() const;
 
   bool joinSpillEnabled() const;
 

@@ -15,6 +15,7 @@
 
 #include <folly/Synchronized.h>
 #include <memory>
+#include <queue>
 #include "presto_cpp/main/PrestoTask.h"
 #include "presto_cpp/main/QueryContextManager.h"
 #include "presto_cpp/main/http/HttpServer.h"
@@ -22,6 +23,8 @@
 #include "velox/exec/OutputBufferManager.h"
 
 namespace facebook::presto {
+
+using TaskQueue = std::queue<std::weak_ptr<PrestoTask>>;
 
 class TaskManager {
  public:
@@ -144,9 +147,12 @@ class TaskManager {
   /// Stores the number of drivers in various states of execution.
   velox::exec::Task::DriverCounts getDriverCounts() const;
 
-  // Returns array with number of tasks for each of five TaskState (enum defined
-  // in exec/Task.h).
-  std::array<size_t, 5> getTaskNumbers(size_t& numTasks) const;
+  /// Returns array with number of tasks for each of six PrestoTaskState (enum
+  /// defined in PrestoTask.h).
+  std::array<size_t, 6> getTaskNumbers(size_t& numTasks) const;
+
+  /// Returns number of tasks in the task queue.
+  size_t numQueuedTasks() const;
 
   /// Invoked to check the stuck operation calls in the system.  If the function
   /// fails to get the stuck call information from a task due to the lock
@@ -167,6 +173,20 @@ class TaskManager {
       const std::string& queryId,
       const protocol::TaskId& taskId,
       bool includeNodeInSpillPath);
+
+  /// Presto Server can notify the Task Manager that the former is overloaded,
+  /// so the Task Manager can optionally change Task admission algorithm.
+  void setServerOverloaded(bool serverOverloaded) {
+    serverOverloaded_ = serverOverloaded;
+  }
+
+  /// Contains the logic on starting tasks if not overloaded.
+  void maybeStartTaskLocked(
+      std::shared_ptr<PrestoTask>& prestoTask,
+      bool& startNextQueuedTask);
+
+  /// See if we have any queued tasks that can be started.
+  void maybeStartNextQueuedTask();
 
  private:
   static constexpr folly::StringPiece kMaxDriversPerTask{
@@ -201,8 +221,10 @@ class TaskManager {
   int32_t oldTaskCleanUpMs_;
   std::shared_ptr<velox::exec::OutputBufferManager> bufferManager_;
   folly::Synchronized<TaskMap> taskMap_;
+  folly::Synchronized<TaskQueue> taskQueue_;
   std::unique_ptr<QueryContextManager> queryContextManager_;
   folly::Executor* httpSrvCpuExecutor_;
+  std::atomic_bool serverOverloaded_{false};
 };
 
 } // namespace facebook::presto
