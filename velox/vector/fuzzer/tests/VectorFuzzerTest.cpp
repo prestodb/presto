@@ -993,13 +993,14 @@ TEST_F(VectorFuzzerTest, randTypeByWidth) {
   }
 }
 
-TEST_F(VectorFuzzerTest, json) {
+TEST_F(VectorFuzzerTest, customTypeGenerator) {
+  // Verify that the fuzzer automatically pick up the custom type generator for
+  // a registered custom type. In this case, we pick json type for verification.
   VectorFuzzer::Options opts;
   VectorFuzzer fuzzer(opts, pool());
 
   const uint32_t kSize = 10;
-  for (auto i = 0; i < 10; ++i) {
-    auto result = fuzzer.fuzz(JSON(), kSize);
+  auto verifyJson = [&](const VectorPtr& result) {
     EXPECT_TRUE(result != nullptr);
     EXPECT_TRUE(isJsonType(result->type()));
     EXPECT_EQ(result->size(), kSize);
@@ -1021,6 +1022,14 @@ TEST_F(VectorFuzzerTest, json) {
         EXPECT_TRUE(false);
       }
     }
+  };
+  for (int i = 0; i < 5; i++) {
+    // We verify all the public APIs of the fuzzer.
+    verifyJson(fuzzer.fuzz(JSON(), kSize));
+    verifyJson(fuzzer.fuzzNotNull(JSON(), kSize));
+    verifyJson(fuzzer.fuzzConstant(JSON(), kSize));
+    verifyJson(fuzzer.fuzzFlat(JSON(), kSize));
+    verifyJson(fuzzer.fuzzFlatNotNull(JSON(), kSize));
   }
 }
 

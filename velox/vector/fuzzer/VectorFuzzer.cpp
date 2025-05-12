@@ -331,6 +331,11 @@ VectorPtr VectorFuzzer::fuzzConstant(
     if (type->isUnKnown()) {
       return BaseVector::createNullConstant(type, size, pool_);
     } else {
+      auto inputGenerator = customGenerator;
+      if (!inputGenerator && customTypeExists(type->name())) {
+        InputGeneratorConfig config{rand<uint32_t>(rng_), opts_.nullRatio};
+        inputGenerator = getCustomTypeInputGenerator(type->name(), config);
+      }
       return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH_ALL(
           fuzzConstantPrimitiveImpl,
           type->kind(),
@@ -339,7 +344,7 @@ VectorPtr VectorFuzzer::fuzzConstant(
           size,
           rng_,
           opts_,
-          customGenerator);
+          inputGenerator);
     }
   }
 
@@ -387,9 +392,14 @@ VectorPtr VectorFuzzer::fuzzFlat(
     const TypePtr& type,
     vector_size_t size,
     const AbstractInputGeneratorPtr& customGenerator) {
-  if (customGenerator) {
+  auto inputGenerator = customGenerator;
+  if (!inputGenerator && customTypeExists(type->name())) {
+    InputGeneratorConfig config{rand<uint32_t>(rng_), opts_.nullRatio};
+    inputGenerator = getCustomTypeInputGenerator(type->name(), config);
+  }
+  if (inputGenerator) {
     return fuzzer::ConstrainedVectorGenerator::generateFlat(
-        customGenerator, size, pool_);
+        inputGenerator, size, pool_);
   }
 
   // Primitive types.
