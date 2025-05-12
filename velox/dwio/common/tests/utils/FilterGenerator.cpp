@@ -348,14 +348,11 @@ void FilterGenerator::collectFilterableSubFields(
     auto kind = rowType->childAt(i)->kind();
     switch (kind) {
       // ignore these types for filtering
-      case TypeKind::ARRAY:
-      case TypeKind::MAP:
       case TypeKind::UNKNOWN:
       case TypeKind::FUNCTION:
       case TypeKind::OPAQUE:
       case TypeKind::VARBINARY:
       case TypeKind::TIMESTAMP:
-      case TypeKind::ROW:
       case TypeKind::INVALID:
         continue;
 
