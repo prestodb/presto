@@ -677,6 +677,16 @@ TEST(FilterTest, doubleRange) {
 
   EXPECT_THROW(betweenDouble(NAN, NAN), VeloxRuntimeError)
       << "able to create a DoubleRange with NaN";
+
+  // A filter that has upper value set but really is unbounded.
+  filter = std::make_unique<common::DoubleRange>(
+      3, false, false, 0, true, false, true);
+  EXPECT_TRUE(filter->testDoubleRange(1, 100, false));
+  EXPECT_FALSE(filter->testDoubleRange(0, 1, false));
+  EXPECT_TRUE(filter->testDoubleRange(0, 1, true));
+  EXPECT_FALSE(filter->testDouble(1));
+  EXPECT_TRUE(filter->testDouble(3));
+  EXPECT_TRUE(filter->testDouble(100));
 }
 
 TEST(FilterTest, floatRange) {
@@ -732,6 +742,16 @@ TEST(FilterTest, floatRange) {
   EXPECT_THROW(
       betweenFloat(std::nanf("NAN"), std::nanf("NAN")), VeloxRuntimeError)
       << "able to create a FloatRange with NaN";
+
+  // A filter that has upper value set but really is unbounded.
+  filter = std::make_unique<common::FloatRange>(
+      3, false, false, 0, true, false, true);
+  EXPECT_TRUE(filter->testDoubleRange(1, 100, false));
+  EXPECT_FALSE(filter->testDoubleRange(0, 1, false));
+  EXPECT_TRUE(filter->testDoubleRange(0, 1, true));
+  EXPECT_FALSE(filter->testFloat(1));
+  EXPECT_TRUE(filter->testFloat(3));
+  EXPECT_TRUE(filter->testFloat(100));
 }
 
 TEST(FilterTest, bytesRange) {

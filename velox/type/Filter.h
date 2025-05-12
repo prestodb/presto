@@ -1416,7 +1416,9 @@ class FloatingPointRange final : public AbstractRange {
       return true;
     }
 
-    return !(min > upper_ || max < lower_);
+    return !(
+        (!upperUnbounded_ && min > upper_) ||
+        (!lowerUnbounded_ && max < lower_));
   }
 
   std::unique_ptr<Filter> mergeWith(const Filter* other) const final {
