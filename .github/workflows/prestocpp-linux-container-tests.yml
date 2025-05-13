@@ -27,8 +27,20 @@ jobs:
         # it doesn't work
         run: git config --global --add safe.directory ${GITHUB_WORKSPACE}
 
-      - name: Disk space consumption before build
-        run: df
+      - name: Disk space usage by folder
+        run: |
+          sudo du -hxd1 / | sort -hr | head -n 20
+          sudo du -hxd1 /home/runner | sort -hr | head -n 20
+
+      - name: Free up space before build
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost /usr/local/lib/android
+          sudo apt-get clean
+          docker system prune -af || true
+          df -h
+
+      - name: Disk space after cleanup
+        run: df -h
 
       - name: Set env variables
         run: |
