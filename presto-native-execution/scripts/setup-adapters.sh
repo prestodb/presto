@@ -37,62 +37,14 @@ function install_prometheus_cpp {
   cmake_install -DBUILD_SHARED_LIBS=ON -DENABLE_PUSH=OFF -DENABLE_COMPRESSION=OFF
 }
 
-function install_abseil {
-  # abseil-cpp
-  github_checkout abseil/abseil-cpp 20240116.2 --depth 1
-  cmake_install \
-    -DABSL_BUILD_TESTING=OFF \
-    -DCMAKE_CXX_STANDARD=17 \
-    -DABSL_PROPAGATE_CXX_STD=ON \
-    -DABSL_ENABLE_INSTALL=ON
-}
-
-function install_grpc {
-  # grpc
-  github_checkout grpc/grpc v1.48.1 --depth 1
-  cmake_install \
-    -DgRPC_BUILD_TESTS=OFF \
-    -DgRPC_ABSL_PROVIDER=package \
-    -DgRPC_ZLIB_PROVIDER=package \
-    -DgRPC_CARES_PROVIDER=package \
-    -DgRPC_RE2_PROVIDER=package \
-    -DgRPC_SSL_PROVIDER=package \
-    -DgRPC_PROTOBUF_PROVIDER=package \
-    -DgRPC_INSTALL=ON
-}
-
 function install_arrow_flight {
   ARROW_VERSION="${ARROW_VERSION:-15.0.0}"
-  if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-    export INSTALL_PREFIX=${INSTALL_PREFIX:-"/usr/local"}
-    LINUX_DISTRIBUTION=$(. /etc/os-release && echo ${ID})
-    if [[ "$LINUX_DISTRIBUTION" == "ubuntu" || "$LINUX_DISTRIBUTION" == "debian" ]]; then
-      SUDO="${SUDO:-"sudo --preserve-env"}"
-      ${SUDO} apt install -y libc-ares-dev
-      ${SUDO} ldconfig -v 2>/dev/null | grep "${INSTALL_PREFIX}/lib" || \
-        echo "${INSTALL_PREFIX}/lib" | ${SUDO} tee /etc/ld.so.conf.d/local-libraries.conf > /dev/null \
-        && ${SUDO} ldconfig
-    else
-      dnf -y install c-ares-devel
-      ldconfig -v 2>/dev/null | grep "${INSTALL_PREFIX}/lib" || \
-        echo "${INSTALL_PREFIX}/lib" | tee /etc/ld.so.conf.d/local-libraries.conf > /dev/null \
-        && ldconfig
-    fi
-  else
-    # The installation script for the Arrow Flight connector currently works only on Linux distributions.
-    return 0
-  fi
 
-  install_abseil
-  install_grpc
-
+  source "${SCRIPT_DIR}/../velox/scripts/setup-rhel.sh"
   # NOTE: benchmarks are on due to a compilation error with v15.0.0, once updated that can be removed
   # see https://github.com/apache/arrow/issues/41617
-  wget_and_untar https://github.com/apache/arrow/archive/apache-arrow-${ARROW_VERSION}.tar.gz arrow
-  cmake_install_dir arrow/cpp \
-    -DARROW_FLIGHT=ON \
-    -DARROW_BUILD_BENCHMARKS=ON \
-    -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX}
+  EXTRA_ARROW_OPTIONS=" -DARROW_FLIGHT=ON "
+  install_arrow
 }
 
 cd "${DEPENDENCY_DIR}" || exit
