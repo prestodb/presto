@@ -1010,7 +1010,7 @@
             <dependency>
                 <groupId>com.facebook.presto.hive</groupId>
                 <artifactId>hive-apache</artifactId>
-                <version>4.0.1-1-SNAPSHOT</version>
+                <version>4.0.1-1-wxd</version>
             </dependency>
 
             <dependency>
@@ -1122,7 +1122,7 @@
             <dependency>
                 <groupId>com.facebook.hive</groupId>
                 <artifactId>hive-dwrf</artifactId>
-                <version>0.8.8-SNAPSHOT</version>
+                <version>0.8.8-wxd</version>
             </dependency>
 
             <dependency>
