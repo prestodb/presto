@@ -37,7 +37,7 @@ target_include_directories(presto_thrift-cpp2 PUBLIC ${presto_thrift_INCLUDES}
 target_include_directories(presto_thrift-cpp2-obj PUBLIC ${THRIFT_INCLUDES}
                                                          ${GLOG_INCLUDE_DIR})
 
-add_library(presto_thrift_extra ProtocolToThrift.cpp ThriftUtils.cpp)
+add_library(presto_thrift_extra ThriftUtils.cpp)
 target_include_directories(
   presto_thrift_extra PUBLIC ${presto_thrift_INCLUDES} ${THRIFT_INCLUDES}
                              ${GLOG_INCLUDE_DIR})
