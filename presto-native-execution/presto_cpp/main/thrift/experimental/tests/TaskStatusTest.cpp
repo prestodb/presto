@@ -1,7 +1,7 @@
 // (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 
 #include <gtest/gtest.h>
-#include "presto_cpp/main/thrift/ThriftUtils.h"
+#include "presto_cpp/main/thrift/ProtocolToThrift.h"
 #include "presto_cpp/main/common/tests/test_json.h"
 
 using namespace facebook;

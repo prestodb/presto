@@ -1,6 +1,6 @@
 // (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 
-#include "presto_cpp/main/thrift/ThriftUtils.h"
+#include "presto_cpp/main/thrift/ProtocolToThrift.h"
 
 namespace facebook::presto::thrift {
 
