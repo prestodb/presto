@@ -763,7 +763,7 @@ class MemoryPoolImpl : public MemoryPool {
       std::unique_ptr<MemoryReclaimer> reclaimer) override;
 
   FOLLY_ALWAYS_INLINE int64_t capacityLocked() const {
-    return parent_ != nullptr ? toImpl(parent_)->capacity_ : capacity_;
+    return toImpl(root())->capacity_;
   }
 
   FOLLY_ALWAYS_INLINE int64_t availableReservationLocked() const {
