@@ -25,7 +25,7 @@ function install_proxygen {
   ${SUDO} apt update
   ${SUDO} apt install -y gperf python3
   github_checkout facebook/proxygen "${FB_OS_VERSION}"
-  cmake_install -DBUILD_TESTS=OFF
+  cmake_install -DBUILD_TESTS=OFF ${EXTRA_FBOS_FLAGS}
 }
 
 function install_presto_deps {

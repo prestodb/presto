@@ -15,6 +15,12 @@ set -eufx -o pipefail
 
 SCRIPTDIR=$(dirname "${BASH_SOURCE[0]}")
 PYTHON_VENV=${PYTHON_VENV:-"${SCRIPTDIR}/../.venv"}
+
+MACHINE=$(uname -m)
+if [ "$MACHINE" != "arm64" ]; then
+  export CXXFLAGS="-msse4.2 "
+fi
+
 # Prestissimo fails to build DuckDB with error
 # "math cannot parse the expression" when this
 # script is invoked under the Presto git project.
@@ -26,14 +32,14 @@ GPERF_VERSION="3.1"
 
 function install_proxygen {
   github_checkout facebook/proxygen "${FB_OS_VERSION}"
-  cmake_install -DBUILD_TESTS=OFF
+  cmake_install -DBUILD_TESTS=OFF ${EXTRA_FBOS_FLAGS}
 }
 
 function install_gperf {
   wget_and_untar https://ftpmirror.gnu.org/gperf/gperf-${GPERF_VERSION}.tar.gz gperf
   cd ${DEPENDENCY_DIR}/gperf
   ./configure --prefix=${INSTALL_PREFIX}
-  make install 
+  make install
 }
 
 function install_presto_deps {
