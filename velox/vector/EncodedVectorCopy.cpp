@@ -275,35 +275,6 @@ std::vector<BaseVector::CopyRange> toBaseRanges(
   return baseRanges;
 }
 
-void compactNestedRangesImpl(
-    std::vector<BaseVector::CopyRange>& nested,
-    vector_size_t targetNestedStart,
-    vector_size_t* newOffsets,
-    vector_size_t* newSizes) {
-  std::sort(nested.begin(), nested.end(), [](auto& x, auto& y) {
-    return x.sourceIndex < y.sourceIndex;
-  });
-  vector_size_t size = 0;
-  for (auto& r : nested) {
-    newOffsets[r.targetIndex] = targetNestedStart;
-    newSizes[r.targetIndex] = r.count;
-    if (r.count == 0) {
-      continue;
-    }
-    if (size > 0 &&
-        nested[size - 1].sourceIndex + nested[size - 1].count ==
-            r.sourceIndex) {
-      nested[size - 1].count += r.count;
-    } else {
-      nested[size] = r;
-      nested[size].targetIndex = targetNestedStart;
-      ++size;
-    }
-    targetNestedStart += r.count;
-  }
-  nested.resize(size);
-}
-
 std::vector<BaseVector::CopyRange> toNestedRanges(
     const ArrayVectorBase& source,
     const folly::Range<const BaseVector::CopyRange*>& outer,
@@ -311,26 +282,28 @@ std::vector<BaseVector::CopyRange> toNestedRanges(
     vector_size_t* newOffsets,
     vector_size_t* newSizes) {
   std::vector<BaseVector::CopyRange> nested;
-  vector_size_t size = 0;
-  for (auto& range : outer) {
-    size += range.count;
-  }
-  nested.reserve(size);
   for (auto& range : outer) {
     for (vector_size_t i = 0; i < range.count; ++i) {
       auto j = range.sourceIndex + i;
-      auto& r = nested.emplace_back();
-      if (source.isNullAt(j)) {
-        r.count = 0;
-      } else {
-        r.sourceIndex = source.offsetAt(j);
-        r.count = source.sizeAt(j);
+      auto k = range.targetIndex + i;
+      vector_size_t size = source.isNullAt(j) ? 0 : source.sizeAt(j);
+      if (size > 0) {
+        auto offset = source.offsetAt(j);
+        if (!nested.empty() &&
+            nested.back().sourceIndex + nested.back().count == offset) {
+          nested.back().count += size;
+        } else {
+          auto& r = nested.emplace_back();
+          r.sourceIndex = offset;
+          r.targetIndex = targetNestedStart;
+          r.count = size;
+        }
       }
-      // Store the outer target index temporarily.
-      r.targetIndex = range.targetIndex + i;
+      newOffsets[k] = targetNestedStart;
+      newSizes[k] = size;
+      targetNestedStart += size;
     }
   }
-  compactNestedRangesImpl(nested, targetNestedStart, newOffsets, newSizes);
   return nested;
 }
 
@@ -351,20 +324,9 @@ std::vector<BaseVector::CopyRange> compactNestedRanges(
     const ArrayVectorBase& vector,
     vector_size_t* newOffsets,
     vector_size_t* newSizes) {
-  std::vector<BaseVector::CopyRange> nested;
-  nested.reserve(vector.size());
-  for (vector_size_t i = 0; i < vector.size(); ++i) {
-    auto& r = nested.emplace_back();
-    if (vector.isNullAt(i)) {
-      r.count = 0;
-    } else {
-      r.sourceIndex = vector.offsetAt(i);
-      r.count = vector.sizeAt(i);
-    }
-    r.targetIndex = i;
-  }
-  compactNestedRangesImpl(nested, 0, newOffsets, newSizes);
-  return nested;
+  BaseVector::CopyRange range{0, 0, vector.size()};
+  return toNestedRanges(
+      vector, folly::Range(&range, 1), 0, newOffsets, newSizes);
 }
 
 void compactNestedVector(
