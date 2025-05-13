@@ -56,6 +56,10 @@ Property Name                                      Description                  
                                                    cached. Set to ``0ms`` to disable the cache.                         ``1m``
 
 ``list-schemas-ignored-schemas``                   List of schemas to ignore when listing schemas.                      ``information_schema``
+
+``case-sensitive-name-matching``                   Enable case sensitive identifier support for schema and table        ``false``
+                                                   names for the connector. When disabled, names are matched
+                                                   case-insensitively using lowercase normalization.
 ================================================== ==================================================================== ===========
 
 Querying Redshift

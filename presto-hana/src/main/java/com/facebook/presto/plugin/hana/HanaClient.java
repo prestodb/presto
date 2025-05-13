@@ -144,4 +144,10 @@ public class HanaClient
         // HANA only accepts upper case
         return "\"" + literal.toUpperCase() + "\"";
     }
+
+    @Override
+    public String normalizeIdentifier(ConnectorSession session, String identifier)
+    {
+        return caseSensitiveNameMatchingEnabled ? identifier : identifier.toLowerCase(ENGLISH);
+    }
 }
