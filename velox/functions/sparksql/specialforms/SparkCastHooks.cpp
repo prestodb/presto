@@ -87,6 +87,10 @@ Expected<std::optional<Timestamp>> SparkCastHooks::castDoubleToTimestamp(
   return castNumberToTimestamp(value);
 }
 
+Expected<Timestamp> SparkCastHooks::castBooleanToTimestamp(bool val) const {
+  return Timestamp::fromMicrosNoError(val ? 1 : 0);
+}
+
 Expected<int32_t> SparkCastHooks::castStringToDate(
     const StringView& dateString) const {
   // Allows all patterns supported by Spark:

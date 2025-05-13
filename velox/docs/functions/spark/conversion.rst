@@ -183,7 +183,7 @@ From strings
 ^^^^^^^^^^^^
 
 All Spark supported patterns are allowed:
-  
+
   * ``[+-](YYYY-MM-DD)``
   * ``[+-]yyyy*``
   * ``[+-]yyyy*-[m]m``
@@ -193,10 +193,10 @@ All Spark supported patterns are allowed:
 
 The asterisk ``*`` in ``yyyy*`` stands for any numbers.
 For the last two patterns, the trailing ``*`` can represent none or any sequence of characters, e.g:
-  
+
   * "1970-01-01 123"
   * "1970-01-01 (BC)"
-  
+
 All leading and trailing UTF8 white-spaces will be trimmed before cast.
 Casting from invalid input values throws.
 
@@ -295,4 +295,18 @@ Valid examples
   SELECT cast(cast(1.79769e+308 as double) as timestamp); -- 294247-01-10 04:00:54.775807
   SELECT cast(cast('inf' as double) as timestamp); -- NULL
   SELECT cast(cast('nan' as double) as timestamp); -- NULL
-  
+
+From boolean
+^^^^^^^^^^^^
+
+Casting from boolean to timestamp is supported.
+
+* ``true`` - cast to **1970-01-01 00:00:00.000001**
+* ``false`` - cast to **1970-01-01 00:00:00** (epoch)
+
+Valid examples
+
+::
+
+  SELECT cast(true as timestamp); -- 1970-01-01 00:00:00.000001
+  SELECT cast(false as timestamp); -- 1970-01-01 00:00:00
