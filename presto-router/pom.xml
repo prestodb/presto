@@ -153,6 +153,11 @@
         </dependency>
 
         <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-core</artifactId>
         </dependency>
@@ -180,6 +185,17 @@
         <dependency>
             <groupId>io.airlift.resolver</groupId>
             <artifactId>resolver</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-password-authenticators</artifactId>
+        </dependency>
+
+        <!-- test dependencies-->
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-parser</artifactId>
         </dependency>
 
         <!-- test dependencies-->
@@ -211,12 +227,6 @@
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>mockwebserver</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-password-authenticators</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

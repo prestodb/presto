@@ -14,6 +14,7 @@
 package com.facebook.presto.router.scheduler;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.router.cluster.RequestInfo;
 
 import javax.annotation.concurrent.GuardedBy;
 
@@ -41,7 +42,7 @@ public class RoundRobinScheduler
     private String candidateGroupName;
 
     @Override
-    public Optional<URI> getDestination(String user)
+    public Optional<URI> getDestination(RequestInfo requestInfo, String statement)
     {
         try {
             return Optional.of(candidates.get(candidateIndexByGroup.compute(candidateGroupName, (key, oldValue) -> {
@@ -52,7 +53,7 @@ public class RoundRobinScheduler
             })));
         }
         catch (IllegalArgumentException e) {
-            log.warn(e, "Error getting destination for user " + user);
+            log.warn(e, "Error getting destination for user " + requestInfo.getUser());
             return Optional.empty();
         }
     }

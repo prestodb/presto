@@ -166,7 +166,8 @@ public class TestClusterManager
                 spec.getSelectors(),
                 Optional.ofNullable(spec.getSchedulerType()),
                 spec.getPredictorUri(),
-                Optional.empty());
+                Optional.empty(),
+                spec.getValidatorUris());
 
         Files.write(newConfig.toPath(), jsonCodec.toBytes(newSpec));
         barrier.await(10, SECONDS);

@@ -35,9 +35,11 @@ public class RequestInfo
     private final String user;
     private final Optional<String> source;
     private final List<String> clientTags;
+    private final HttpServletRequest servletRequest;
 
-    public RequestInfo(HttpServletRequest servletRequest, String query)
+    public RequestInfo(HttpServletRequest servletRequest)
     {
+        this.servletRequest = requireNonNull(servletRequest, "servletRequest is null");
         this.user = parseHeader(servletRequest, PRESTO_USER);
         this.source = Optional.ofNullable(parseHeader(servletRequest, PRESTO_SOURCE));
         this.clientTags = requireNonNull(parseClientTags(servletRequest), "clientTags is null");
@@ -56,6 +58,11 @@ public class RequestInfo
     public List<String> getClientTags()
     {
         return clientTags;
+    }
+
+    public HttpServletRequest getServletRequest()
+    {
+        return servletRequest;
     }
 
     private static List<String> parseClientTags(HttpServletRequest servletRequest)

@@ -154,6 +154,6 @@ public class TestHealthChecks
                 ImmutableListMultimap.of(),
                 "testRemote",
                 ImmutableMap.of());
-        return clusterManager.getDestination(new RequestInfo(request, ""));
+        return clusterManager.getDestination(new RequestInfo(request), "");
     }
 }

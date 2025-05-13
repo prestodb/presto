@@ -99,7 +99,7 @@ public class ClusterManager
                 .orElseThrow(() -> new PrestoException(CONFIGURATION_INVALID, "Failed to load router config"));
         Map<String, GroupSpec> newGroups = newRouterSpec.getGroups().stream().collect(toImmutableMap(GroupSpec::getName, group -> group));
         List<SelectorRuleSpec> newGroupSelectors = ImmutableList.copyOf(newRouterSpec.getSelectors());
-        Scheduler newScheduler = new SchedulerFactory(newRouterSpec.getSchedulerType()).create();
+        Scheduler newScheduler = new SchedulerFactory(newRouterSpec.getSchedulerType(), newRouterSpec.getValidatorUris()).create();
         SchedulerType newSchedulerType = newRouterSpec.getSchedulerType();
 
         List<URI> updatedAllClusters = newGroups.values().stream()
@@ -180,7 +180,7 @@ public class ClusterManager
                 .collect(toImmutableList());
     }
 
-    public Optional<URI> getDestination(RequestInfo requestInfo)
+    public Optional<URI> getDestination(RequestInfo requestInfo, String statement)
     {
         ClusterManagerConfig config = currentConfig.get();
         Optional<String> target = matchGroup(requestInfo);
@@ -192,9 +192,9 @@ public class ClusterManager
         GroupSpec groupSpec = config.getGroups().get(target.get());
 
         List<URI> healthyClusterURIs = groupSpec.getMembers().stream().filter((entry) ->
-                Optional.ofNullable(remoteClusterInfos.get(entry))
-                        .map(RemoteClusterInfo::isHealthy)
-                        .orElse(false))
+                        Optional.ofNullable(remoteClusterInfos.get(entry))
+                                .map(RemoteClusterInfo::isHealthy)
+                                .orElse(false))
                 .collect(Collectors.toList());
 
         if (healthyClusterURIs.isEmpty()) {
@@ -212,7 +212,7 @@ public class ClusterManager
             config.getScheduler().setCandidateGroupName(target.get());
         }
 
-        return config.getScheduler().getDestination(requestInfo.getUser());
+        return config.getScheduler().getDestination(requestInfo, statement);
     }
 
     private Optional<String> matchGroup(RequestInfo requestInfo)
