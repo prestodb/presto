@@ -85,7 +85,12 @@ void SelectiveFloatingPointColumnReader<TData, TRequested>::readHelper(
     ExtractValues extractValues) {
   reinterpret_cast<Reader*>(this)->readWithVisitor(
       rows,
-      ColumnVisitor<TData, TFilter, ExtractValues, isDense>(
+      ColumnVisitor<
+          TData,
+          TFilter,
+          ExtractValues,
+          isDense,
+          std::is_same_v<TData, TRequested>>(
           *reinterpret_cast<TFilter*>(filter), this, rows, extractValues));
 }
 
@@ -131,8 +136,10 @@ void SelectiveFloatingPointColumnReader<TData, TRequested>::processFilter(
       break;
     case velox::common::FilterKind::kDoubleRange:
     case velox::common::FilterKind::kFloatRange:
-      readHelper<Reader, velox::common::FloatingPointRange<TData>, isDense>(
-          filter, rows, extractValues);
+      readHelper<
+          Reader,
+          velox::common::FloatingPointRange<TRequested>,
+          isDense>(filter, rows, extractValues);
       break;
     default:
       readHelper<Reader, velox::common::Filter, isDense>(
