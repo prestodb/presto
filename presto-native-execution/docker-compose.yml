@@ -19,6 +19,38 @@ services:
       context: .
       dockerfile: scripts/dockerfiles/ubuntu-22.04-dependency.dockerfile
 
+  ubuntu-native-dev:
+    # Usage:
+    #   docker compose build ubuntu-native-dev
+    #   podman compose build ubuntu-native-dev
+    image: presto/prestissimo-dependency:ubuntu-22.04
+    build:
+      args:
+          # A few files in Velox require significant memory to compile and link.
+          # Build requires 18GB of memory for 2 threads.
+        - NUM_THREADS=2 # default value for NUM_THREADS.
+        - DEPENDENCY_IMAGE=presto/prestissimo-dependency:ubuntu-22.04
+        - BASE_IMAGE=ubuntu:22.04
+        - OSNAME=ubuntu
+        - EXTRA_CMAKE_FLAGS=-DPRESTO_ENABLE_TESTING=OFF
+                            -DPRESTO_ENABLE_PARQUET=ON
+                            -DPRESTO_ENABLE_S3=ON
+      context: .
+      dockerfile: scripts/dockerfiles/prestissimo-runtime.dockerfile
+      target: prestissimo-dev
+    stdin_open: true
+    tty: true
+    volumes:
+      - ..:/presto
+    working_dir: /presto/presto-native-execution
+    environment:
+      - NUM_THREADS=2 # default value for NUM_THREADS
+      - EXTRA_CMAKE_FLAGS=-DPRESTO_ENABLE_TESTING=OFF
+                          -DPRESTO_ENABLE_PARQUET=ON
+                          -DPRESTO_ENABLE_S3=ON
+    command: >
+      bash -c "git config --global --add safe.directory /presto && git config --global --add safe.directory /presto/presto-native-execution/velox && ccache -sz -v && exec bash -i"
+
   ubuntu-native-runtime:
     # Usage:
     #   docker compose build ubuntu-native-runtime
@@ -46,6 +78,35 @@ services:
     build:
       context: .
       dockerfile: scripts/dockerfiles/centos-dependency.dockerfile
+
+  centos-native-dev:
+    # Usage:
+    #   docker compose build centos-native-dev
+    #   podman compose build centos-native-dev
+    image: presto/prestissimo-dependency:centos9
+    build:
+      args:
+          # A few files in Velox require significant memory to compile and link.
+          # Build requires 18GB of memory for 2 threads.
+        - NUM_THREADS=2 # default value for NUM_THREADS
+        - EXTRA_CMAKE_FLAGS=-DPRESTO_ENABLE_TESTING=OFF
+                            -DPRESTO_ENABLE_PARQUET=ON
+                            -DPRESTO_ENABLE_S3=ON
+      context: .
+      dockerfile: scripts/dockerfiles/prestissimo-runtime.dockerfile
+      target: prestissimo-dev
+    stdin_open: true
+    tty: true
+    volumes:
+      - ..:/presto
+    working_dir: /presto/presto-native-execution
+    environment:
+      - NUM_THREADS=2 # default value for NUM_THREADS
+      - EXTRA_CMAKE_FLAGS=-DPRESTO_ENABLE_TESTING=OFF
+                          -DPRESTO_ENABLE_PARQUET=ON
+                          -DPRESTO_ENABLE_S3=ON
+    command: >
+      bash -c "echo 'unset LANG' >> /root/.bashrc && git config --global --add safe.directory /presto && git config --global --add safe.directory /presto/presto-native-execution/velox && ccache -sz -v && exec bash -i"
 
   centos-native-runtime:
     # Usage:
