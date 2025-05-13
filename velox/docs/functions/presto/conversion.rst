@@ -1117,12 +1117,12 @@ Full form:
 
 Compressed form:
 ::
-  2001:DB8::8:800:200C:417A
+   2001:DB8::8:800:200C:417A
 
 Alternate form:
 ::
-  0:0:0:0:0:0:13.1.68.3
-  ::13.1.68.3
+   0:0:0:0:0:0:13.1.68.3
+   ::13.1.68.3
 
 Internally, the type is a pure IPv6 address. Support for IPv4 is handled using the IPv4-mapped IPv6 address range `(RFC 4291#section-2.5.5.2) <https://datatracker.ietf.org/doc/html/rfc4291.html#section-2.5.5.2>`_.
 When creating an IPADDRESS, IPv4 addresses will be mapped into that range.

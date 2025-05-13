@@ -77,6 +77,7 @@ Task Execution
      - Tracks the averaged task batch processing time. This only applies for
        sequential task execution mode.
    * - task_barrier_process_time_ms
+     - Histogram
      - Tracks task barrier execution time in range of [0, 30s] with 30 buckets
        and each bucket with time window of 1s. We report P50, P90, P99, and P100.
 
