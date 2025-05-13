@@ -38,7 +38,7 @@ std::optional<std::string> BingTileType::bingTileInvalidReason(uint64_t tile) {
         BingTileType::kBingTileMaxZoomLevel);
   }
 
-  uint64_t coordinateBound = 1 << zoom;
+  uint64_t coordinateBound = 1ul << zoom;
 
   if (BingTileType::bingTileX(tile) >= coordinateBound) {
     return fmt::format(

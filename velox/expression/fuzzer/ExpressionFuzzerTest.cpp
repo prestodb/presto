@@ -123,13 +123,6 @@ int main(int argc, char** argv) {
       "array_join(array(real),varchar,varchar) -> varchar",
       "array_join(array(double),varchar) -> varchar",
       "array_join(array(double),varchar,varchar) -> varchar",
-      // BingTiles throw VeloxUserError when zoom/x/y are out of range.
-      "bing_tile",
-      "bing_tile_zoom_level",
-      "bing_tile_coordinates",
-      "bing_tile_parent",
-      "bing_tile_children",
-      "bing_tile_quadkey",
       "array_min_by", // https://github.com/facebookincubator/velox/issues/12934
       "array_max_by", // https://github.com/facebookincubator/velox/issues/12934
       // https://github.com/facebookincubator/velox/issues/13047

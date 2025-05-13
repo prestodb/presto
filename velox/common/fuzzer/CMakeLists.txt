@@ -18,8 +18,12 @@ velox_link_libraries(velox_common_fuzzer_util velox_type velox_exception)
 
 velox_add_library(velox_constrained_input_generators ConstrainedGenerators.cpp)
 
-velox_link_libraries(velox_constrained_input_generators Folly::folly velox_type
-                     velox_common_fuzzer_util)
+velox_link_libraries(
+  velox_constrained_input_generators
+  Folly::folly
+  velox_type
+  velox_common_fuzzer_util
+  velox_functions_prestosql)
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)

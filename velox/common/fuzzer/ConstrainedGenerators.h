@@ -489,4 +489,15 @@ class TDigestInputGenerator : public AbstractInputGenerator {
   variant generate() override;
 };
 
+class BingTileInputGenerator : public AbstractInputGenerator {
+ public:
+  BingTileInputGenerator(size_t seed, const TypePtr& type, double nullRatio);
+
+  ~BingTileInputGenerator() override;
+
+  variant generate() override;
+
+ private:
+  int64_t generateImpl();
+};
 } // namespace facebook::velox::fuzzer

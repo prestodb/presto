@@ -20,6 +20,7 @@
 #include "velox/common/fuzzer/ConstrainedGenerators.h"
 #include "velox/common/fuzzer/Utils.h"
 #include "velox/functions/lib/TDigest.h"
+#include "velox/functions/prestosql/types/BingTileType.h"
 
 namespace facebook::velox::fuzzer {
 
@@ -274,6 +275,32 @@ variant TDigestInputGenerator::generate() {
   digest.serialize(&serializedDigest[0]);
   StringView serializedView(serializedDigest.data(), serializedDigest.size());
   return variant::create<TypeKind::VARBINARY>(serializedDigest);
+}
+
+// BingTileInputGenerator
+
+BingTileInputGenerator::BingTileInputGenerator(
+    size_t seed,
+    const TypePtr& type,
+    double nullRatio)
+    : AbstractInputGenerator(seed, type, nullptr, nullRatio) {}
+
+BingTileInputGenerator::~BingTileInputGenerator() = default;
+
+variant BingTileInputGenerator::generate() {
+  if (coinToss(rng_, nullRatio_)) {
+    return variant::null(type_->kind());
+  }
+  int64_t tileInt = generateImpl();
+  return variant(tileInt);
+}
+
+int64_t BingTileInputGenerator::generateImpl() {
+  uint8_t zoom = rand<uint32_t>(rng_, 0, 23);
+  uint32_t maxCoordinate = (1 << zoom) - 1;
+  uint32_t x = rand<uint32_t>(rng_, 0, maxCoordinate);
+  uint32_t y = rand<uint32_t>(rng_, 0, maxCoordinate);
+  return static_cast<int64_t>(BingTileType::bingTileCoordsToInt(x, y, zoom));
 }
 
 // Utility functions

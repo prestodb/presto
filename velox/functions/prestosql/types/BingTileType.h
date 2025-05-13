@@ -120,7 +120,7 @@ class BingTileType : public BigintType {
   /// Returns true if the tile (as uint64) is valid
   static inline bool isBingTileIntValid(uint64_t tile) {
     uint8_t zoom = bingTileZoom(tile);
-    uint64_t coordinateBound = 1 << zoom;
+    uint64_t coordinateBound = 1ul << zoom;
     // Using bitwise & so that it's branchless and the data
     // can be prefetched and the ops pipelined.
     // Linter wants the bools cast to uint8 for bitwise ops.
