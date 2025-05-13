@@ -26,6 +26,7 @@ public class SemanticException
 {
     private final SemanticErrorCode code;
     private final Optional<NodeLocation> location;
+    private final String formattedMessage;
 
     public SemanticException(SemanticErrorCode code, String format, Object... args)
     {
@@ -44,10 +45,18 @@ public class SemanticException
 
     public SemanticException(SemanticErrorCode code, Throwable cause, Optional<NodeLocation> location, String format, Object... args)
     {
-        super(formatMessage(format, location, args), cause);
+        super(cause);
 
         this.code = requireNonNull(code, "code is null");
         this.location = requireNonNull(location, "location is null");
+        requireNonNull(format, "format is null");
+        this.formattedMessage = formatMessage(format, location, args);
+    }
+
+    @Override
+    public String getMessage()
+    {
+        return formattedMessage;
     }
 
     // TODO: Should be replaced with analyzer agnostic location
