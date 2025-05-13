@@ -188,10 +188,25 @@ public class TestNativeSidecarPlugin
     }
 
     @Test
-    public void testArraySort()
+    public void testLambdaFunctions()
     {
-        assertQueryFails("SELECT array_sort(quantities, (x, y) -> if (x < y, 1, if (x > y, -1, 0))) FROM orders_ex",
-                "line 1:31: Expected a lambda that takes 1 argument\\(s\\) but got 2");
+        // These function signatures are only supported in the native execution engine
+        assertQuerySucceeds("select array_sort(array[row('apples', 23), row('bananas', 12), row('grapes', 44)], x -> x[2])");
+        assertQuerySucceeds("SELECT array_sort(quantities, x -> abs(x)) FROM orders_ex");
+        assertQuerySucceeds("SELECT array_sort(quantities, (x, y) -> if (x < y, cast(1 as bigint), if (x > y, cast(-1 as bigint), cast(0 as bigint)))) FROM orders_ex");
+
+        assertQuery("SELECT array_sort(map_keys(map_union(quantity_by_linenumber))) FROM orders_ex");
+        assertQuery("SELECT filter(quantities, q -> q > 10) FROM orders_ex");
+        assertQuery("SELECT all_match(shuffle(quantities), x -> (x > 500.0)) FROM orders_ex");
+        assertQuery("SELECT any_match(quantities, x -> TRY(((10 / x) > 2))) FROM orders_ex");
+        assertQuery("SELECT TRY(none_match(quantities, x -> ((10 / x) > 2))) FROM orders_ex");
+        assertQuery("SELECT reduce(array[nationkey, regionkey], 103, (s, x) -> s + x, s -> s) FROM nation");
+        assertQuery("SELECT transform(array[1, 2, 3], x -> x * regionkey + nationkey) FROM nation");
+        assertQueryFails(
+                "SELECT array_sort(quantities, (x, y, z) -> if (x < y + z, cast(1 as bigint), if (x > y + z, cast(-1 as bigint), cast(0 as bigint)))) FROM orders_ex",
+                Pattern.quote("Failed to find matching function signature for array_sort, matching failures: \n" +
+                        " Exception 1: line 1:31: Expected a lambda that takes 1 argument(s) but got 3\n" +
+                        " Exception 2: line 1:31: Expected a lambda that takes 2 argument(s) but got 3\n"));
     }
 
     @Test
