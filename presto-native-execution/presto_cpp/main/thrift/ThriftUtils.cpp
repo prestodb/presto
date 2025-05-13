@@ -20,8 +20,8 @@ namespace facebook::presto::thrift {
   void toThrift(const double& proto, double& thrift) {
     thrift = proto;
   }
-  void toThrift(const Duration& duration, double& thrift) {
-    thrift = duration.getValue(TimeUnit::MILLISECONDS);
+  void toThrift(const facebook::presto::protocol::Duration& duration, double& thrift) {
+    thrift = duration.getValue(facebook::presto::protocol::TimeUnit::MILLISECONDS);
   }
 
   // Templates
@@ -418,12 +418,12 @@ namespace facebook::presto::thrift {
     proto = thrift;
   }
 
-  void fromThrift(const double& thrift, Duration& duration) {
-    duration = Duration(thrift, TimeUnit::MILLISECONDS);
+  void fromThrift(const double& thrift, facebook::presto::protocol::Duration& duration) {
+    duration = facebook::presto::protocol::Duration(thrift, facebook::presto::protocol::TimeUnit::MILLISECONDS);
   }
 
-  void fromThrift(const double& thrift, DataSize& dataSize) {
-    dataSize = DataSize(thrift, DataUnit::BYTE);
+  void fromThrift(const double& thrift, facebook::presto::protocol::DataSize& dataSize) {
+    dataSize = facebook::presto::protocol::DataSize(thrift, facebook::presto::protocol::DataUnit::BYTE);
   }
 
   template <typename P, typename T>
@@ -640,20 +640,20 @@ namespace facebook::presto::thrift {
     fromThrift(*thriftTypeSignature.signature(), typeSignature);
   }
 
-  void fromThrift(const TableWriteInfoWrapper& thriftTableWriteInfoWrapper, TableWriteInfo& tableWriteInfo) {
+  void fromThrift(const TableWriteInfoWrapper& thriftTableWriteInfoWrapper, facebook::presto::protocol::TableWriteInfo& tableWriteInfo) {
     fromThrift(*thriftTableWriteInfoWrapper.tableWriteInfo_ref(), tableWriteInfo);
   }
 
-  void fromThrift(const std::string& thriftTableWriteInfo, TableWriteInfo& tableWriteInfo) {
+  void fromThrift(const std::string& thriftTableWriteInfo, facebook::presto::protocol::TableWriteInfo& tableWriteInfo) {
     json j = json::parse(thriftTableWriteInfo);
     tableWriteInfo = j;
   }
 
-  void fromThrift(const SplitWrapper& thriftSplitWrapper, Split& split) {
+  void fromThrift(const SplitWrapper& thriftSplitWrapper, facebook::presto::protocol::Split& split) {
     fromThrift(*thriftSplitWrapper.split_ref(), split);
   }
 
-  void fromThrift(const std::string& thriftSplit, Split& split) {
+  void fromThrift(const std::string& thriftSplit, facebook::presto::protocol::Split& split) {
     json j = json::parse(thriftSplit);
     split = j;
   }
