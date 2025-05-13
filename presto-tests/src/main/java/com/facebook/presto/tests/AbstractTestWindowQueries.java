@@ -95,7 +95,7 @@ public abstract class AbstractTestWindowQueries
     public void testWindowImplicitCoercion()
     {
         assertQueryOrdered(
-                "SELECT orderkey, 1e0 / row_number() OVER (ORDER BY orderkey) FROM orders LIMIT 2",
+                "SELECT orderkey, 1e0 / row_number() OVER (ORDER BY orderkey) FROM orders ORDER BY orderkey LIMIT 2",
                 "VALUES (1, 1.0), (2, 0.5)");
     }
 
