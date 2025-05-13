@@ -300,7 +300,8 @@ bool PrestoQueryRunner::isConstantExprSupported(
     auto& type = expr->type();
     return type->isPrimitiveType() && !type->isTimestamp() &&
         !isJsonType(type) && !type->isIntervalDayTime() &&
-        !isIPAddressType(type) && !isIPPrefixType(type) && !isUuidType(type);
+        !isIPAddressType(type) && !isIPPrefixType(type) && !isUuidType(type) &&
+        !isTimestampWithTimeZoneType(type);
   }
   return true;
 }

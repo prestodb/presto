@@ -342,6 +342,11 @@ class ExpressionFuzzer {
 
   std::vector<std::string> supportedFunctions_;
 
+  // The set of scalar types to be used when fuzzing types, used when fuzzing
+  // argument/return types. Defaults to whatever VectorFuzzer supports, but may
+  // be augmented/restricted by the ReferenceQueryRunner.
+  std::vector<TypePtr> supportedScalarTypes_;
+
   State state_;
 
   // Maps from function name to a specific generator of argument types.

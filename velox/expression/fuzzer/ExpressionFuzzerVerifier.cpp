@@ -29,6 +29,7 @@
 #include "velox/expression/FunctionSignature.h"
 #include "velox/expression/ReverseSignatureBinder.h"
 #include "velox/expression/fuzzer/ExpressionFuzzer.h"
+#include "velox/parse/TypeResolver.h"
 
 namespace facebook::velox::fuzzer {
 
@@ -83,6 +84,7 @@ ExpressionFuzzerVerifier::ExpressionFuzzerVerifier(
           argValuesGenerators),
       referenceQueryRunner_{
           options_.expressionFuzzerOptions.referenceQueryRunner} {
+  parse::registerTypeResolver();
   filesystems::registerLocalFileSystem();
   connector::registerConnectorFactory(
       std::make_shared<connector::hive::HiveConnectorFactory>());
