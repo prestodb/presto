@@ -260,8 +260,8 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTaskImpl(
             .thenValue([downstream, handlerState, sendThrift](std::unique_ptr<protocol::TaskInfo> taskInfo) {
               if (!handlerState->requestExpired()) {
                 if (sendThrift) {
-                  protocol::cpp2::TaskInfo thriftTaskInfo;
-                  protocol::cpp2::toThrift(*taskInfo, thriftTaskInfo);
+                  facebook::presto::thrift::TaskInfo thriftTaskInfo;
+                  facebook::presto::thrift::toThrift(*taskInfo, thriftTaskInfo);
                   http::sendOkThriftResponse(
                       downstream, thriftWrite(thriftTaskInfo));
                 } else {
@@ -352,9 +352,9 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTask(
           bool receiveThrift) {
         protocol::TaskUpdateRequest updateRequest;
         if (receiveThrift) {
-          auto thriftTaskUpdateRequest = std::make_shared<protocol::cpp2::TaskUpdateRequest>();
+          auto thriftTaskUpdateRequest = std::make_shared<facebook::presto::thrift::TaskUpdateRequest>();
           thriftRead(updateJson, thriftTaskUpdateRequest);
-          protocol::cpp2::fromThrift(*thriftTaskUpdateRequest, updateRequest);
+          facebook::presto::thrift::fromThrift(*thriftTaskUpdateRequest, updateRequest);
         } else {
           updateRequest = json::parse(updateJson);
         }
@@ -570,8 +570,8 @@ proxygen::RequestHandler* TaskResource::getTaskStatus(
                           std::unique_ptr<protocol::TaskStatus> taskStatus) {
                         if (!handlerState->requestExpired()) {
                           if (sendThrift) {
-                            protocol::cpp2::TaskStatus thriftTaskStatus;
-                            protocol::cpp2::toThrift(*taskStatus, thriftTaskStatus);
+                            facebook::presto::thrift::TaskStatus thriftTaskStatus;
+                            facebook::presto::thrift::toThrift(*taskStatus, thriftTaskStatus);
                             http::sendOkThriftResponse(
                                 downstream, thriftWrite(thriftTaskStatus));
                           } else {

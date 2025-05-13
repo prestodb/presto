@@ -12,7 +12,7 @@ namespace facebook::presto::thrift {
   void toThrift(const int32_t& proto, int32_t& thrift);
   void toThrift(const int64_t& proto, int64_t& thrift);
   void toThrift(const double& proto, double& thrift);
-  void toThrift(const Duration& duration, double& thrift);
+  void toThrift(const facebook::presto::protocol::Duration& duration, double& thrift);
   
   void toThrift(const facebook::presto::protocol::TaskStatus& taskStatus, TaskStatus& thriftTaskStatus);
   void toThrift(const facebook::presto::protocol::Lifespan& lifespan, Lifespan& thriftLifeSpan);
@@ -42,8 +42,8 @@ namespace facebook::presto::thrift {
   void fromThrift(const int32_t& thrift, int32_t& proto);
   void fromThrift(const int64_t& thrift, int64_t& proto);
   void fromThrift(const double& thrift, double& proto);
-  void fromThrift(const double& thrift, Duration& duration);
-  void fromThrift(const double& thrift, DataSize& dataSize);
+  void fromThrift(const double& thrift, facebook::presto::protocol::Duration& duration);
+  void fromThrift(const double& thrift, facebook::presto::protocol::DataSize& dataSize);
 
   void fromThrift(const TaskUpdateRequest& thriftTaskUpdateRequest, facebook::presto::protocol::TaskUpdateRequest& taskUpdateRequest);
   void fromThrift(const SessionRepresentation& thriftSessionRepresentation, facebook::presto::protocol::SessionRepresentation& sessionRepresentation);
@@ -68,8 +68,8 @@ namespace facebook::presto::thrift {
   void fromThrift(const LongVariableConstraint& thriftLongVariableConstraint, facebook::presto::protocol::LongVariableConstraint& longVariableConstraint);
   void fromThrift(const Signature& thriftSignature, facebook::presto::protocol::Signature& signature);
   void fromThrift(const TypeSignature& thriftTypeSignature, facebook::presto::protocol::TypeSignature& typeSignature);
-  void fromThrift(const TableWriteInfoWrapper& thriftTableWriteInfoWrapper, TableWriteInfo& tableWriteInfo);
-  void fromThrift(const std::string& thriftTableWriteInfo, TableWriteInfo& tableWriteInfo);
-  void fromThrift(const SplitWrapper& thriftSplitWrapper, Split& split);
-  void fromThrift(const std::string& thriftSplit, Split& split);
+  void fromThrift(const TableWriteInfoWrapper& thriftTableWriteInfoWrapper, facebook::presto::protocol::TableWriteInfo& tableWriteInfo);
+  void fromThrift(const std::string& thriftTableWriteInfo, facebook::presto::protocol::TableWriteInfo& tableWriteInfo);
+  void fromThrift(const SplitWrapper& thriftSplitWrapper, facebook::presto::protocol::Split& split);
+  void fromThrift(const std::string& thriftSplit, facebook::presto::protocol::Split& split);
 } // namespace facebook::presto::thrift
