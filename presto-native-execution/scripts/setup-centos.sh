@@ -54,7 +54,7 @@ function install_proxygen {
   git clone https://github.com/facebook/proxygen &&
   cd proxygen &&
   git checkout $FB_OS_VERSION &&
-  cmake_install -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON
+  cmake_install -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON ${EXTRA_FBOS_FLAGS}
 }
 
 function install_presto_deps {
