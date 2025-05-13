@@ -46,12 +46,12 @@ jobs:
         run: |
           echo "TESTCONTAINERS_RYUK_DISABLED=true" >> $GITHUB_ENV
       
-      - name: Remove node docker images
-        run: |
-          docker rmi node:20
-          docker rmi node:18
-          docker rmi node:22
-          docker images
+#      - name: Remove node docker images
+#        run: |
+#          docker rmi node:20
+#          docker rmi node:18
+#          docker rmi node:22
+#          docker images
 
       - name: Update velox
         run: |
