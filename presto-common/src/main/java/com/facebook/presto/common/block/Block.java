@@ -60,6 +60,16 @@ public interface Block
     }
 
     /**
+     * Gets a byte array of {@code length} at {@code offset} in the value at {@code position}
+     *
+     * @throws IllegalArgumentException if position is negative or greater than or equal to the positionCount
+     */
+    default byte[] getBytes(int position, int offset, int length)
+    {
+        throw new UnsupportedOperationException(getClass().getName());
+    }
+
+    /**
      * Gets a short in the value at {@code position}.
      *
      * @throws IllegalArgumentException if position is negative or greater than or equal to the positionCount

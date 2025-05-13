@@ -59,6 +59,13 @@ public class LazyBlock
     }
 
     @Override
+    public byte[] getBytes(int position, int offset, int length)
+    {
+        assureLoaded();
+        return block.getBytes(position, offset, length);
+    }
+
+    @Override
     public short getShort(int position)
     {
         assureLoaded();

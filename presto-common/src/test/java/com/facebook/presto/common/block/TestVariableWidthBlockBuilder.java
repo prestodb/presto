@@ -19,6 +19,7 @@ import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 
@@ -82,6 +83,27 @@ public class TestVariableWidthBlockBuilder
         }
         verifyBlockValues(blockBuilder, values);
         verifyBlockValues(blockBuilder.build(), values);
+    }
+
+    @Test
+    public void testGetBytes()
+    {
+        int entries = 100;
+        String inputChars = "abcdefghijklmnopqrstuvwwxyz01234566789!@#$%^";
+        VariableWidthBlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, entries, entries);
+        Random rand = new Random(0);
+        byte[] bytes = inputChars.getBytes(UTF_8);
+        assertEquals(bytes.length, inputChars.length());
+        for (int i = 0; i < entries; i++) {
+            int valueLength = rand.nextInt(bytes.length);
+            VARCHAR.writeBytes(blockBuilder, bytes, 0, valueLength);
+        }
+        Block block = blockBuilder.build();
+        int randPosition = rand.nextInt(entries);
+        int randLength = rand.nextInt(block.getSliceLength(randPosition));
+        byte[] control = block.getSlice(randPosition, 0, randLength).getBytes();
+        byte[] test = block.getBytes(randPosition, 0, randLength);
+        assertTrue(Arrays.equals(control, test));
     }
 
     private void verifyBlockValues(Block block, List<String> values)
