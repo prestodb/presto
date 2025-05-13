@@ -199,4 +199,10 @@ public class SingleStoreClient
     {
         super.renameTable(identity, null, oldTable, newTable);
     }
+
+    @Override
+    public String normalizeIdentifier(ConnectorSession session, String identifier)
+    {
+        return caseSensitiveNameMatchingEnabled ? identifier : identifier.toLowerCase(ENGLISH);
+    }
 }
