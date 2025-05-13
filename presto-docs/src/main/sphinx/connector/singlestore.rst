@@ -39,6 +39,19 @@ with a different name (making sure it ends in ``.properties``). For
 example, if you name the property file ``sales.properties``, Presto
 will create a catalog named ``sales`` using the configured connector.
 
+General Configuration Properties
+---------------------------------
+
+================================================== ==================================================================== ===========
+Property Name                                      Description                                                          Default
+================================================== ==================================================================== ===========
+
+``case-sensitive-name-matching``                   Enable case sensitive identifier support for schema and table        ``false``
+                                                   names for the connector. When disabled, names are matched
+                                                   case-insensitively using lowercase normalization.
+================================================== ==================================================================== ===========
+
+
 Querying SingleStore
 --------------------
 
