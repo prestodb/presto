@@ -122,7 +122,8 @@ public class DeltaMetadata
         metastore.createTable(
                 metastoreContext(session),
                 table,
-                principalPrivileges);
+                principalPrivileges,
+                emptyList());
     }
 
     @Override
@@ -218,6 +219,7 @@ public class DeltaMetadata
         }
 
         Optional<DeltaTable> table = deltaClient.getTable(
+                config,
                 session,
                 schemaTableName,
                 tableLocation,
@@ -278,7 +280,8 @@ public class DeltaMetadata
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
-        List<String> schemaNames = schemaName.<List<String>>map(ImmutableList::of).orElse(listSchemaNames(session));
+        List<String> schemaNames = schemaName.<List<String>>map(ImmutableList::of)
+                .orElseGet(() -> listSchemaNames(session));
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         for (String schema : schemaNames) {
             for (String tableName : metastore.getAllTables(metastoreContext(session), schema).orElse(emptyList())) {
@@ -330,7 +333,7 @@ public class DeltaMetadata
         }
 
         List<ColumnMetadata> columnMetadata = tableHandle.getDeltaTable().getColumns().stream()
-                .map(column -> getColumnMetadata(column))
+                .map(this::getColumnMetadata)
                 .collect(Collectors.toList());
 
         return new ConnectorTableMetadata(tableName, columnMetadata);
@@ -345,7 +348,10 @@ public class DeltaMetadata
     private ColumnMetadata getColumnMetadata(ColumnHandle columnHandle)
     {
         DeltaColumnHandle deltaColumnHandle = (DeltaColumnHandle) columnHandle;
-        return new ColumnMetadata(deltaColumnHandle.getName(), typeManager.getType(deltaColumnHandle.getDataType()));
+        return ColumnMetadata.builder()
+                .setName(deltaColumnHandle.getName())
+                .setType(typeManager.getType(deltaColumnHandle.getDataType()))
+                .build();
     }
 
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
@@ -358,7 +364,10 @@ public class DeltaMetadata
 
     private ColumnMetadata getColumnMetadata(DeltaColumn deltaColumn)
     {
-        return new ColumnMetadata(deltaColumn.getName(), typeManager.getType(deltaColumn.getType()));
+        return ColumnMetadata.builder()
+                .setName(deltaColumn.getName())
+                .setType(typeManager.getType(deltaColumn.getType()))
+                .build();
     }
 
     private MetastoreContext metastoreContext(ConnectorSession session)
@@ -367,10 +376,13 @@ public class DeltaMetadata
                 session.getIdentity(),
                 session.getQueryId(),
                 session.getClientInfo(),
+                session.getClientTags(),
                 session.getSource(),
                 Optional.empty(),
                 false,
-                DEFAULT_COLUMN_CONVERTER_PROVIDER);
+                DEFAULT_COLUMN_CONVERTER_PROVIDER,
+                session.getWarningCollector(),
+                session.getRuntimeStats());
     }
 
     private void checkConnectorId(DeltaTableHandle tableHandle)

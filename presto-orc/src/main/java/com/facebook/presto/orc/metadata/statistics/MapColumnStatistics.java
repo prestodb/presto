@@ -26,9 +26,14 @@ public class MapColumnStatistics
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapColumnStatistics.class).instanceSize();
     private final MapStatistics mapStatistics;
 
-    public MapColumnStatistics(Long numberOfValues, HiveBloomFilter bloomFilter, MapStatistics mapStatistics)
+    public MapColumnStatistics(
+            Long numberOfValues,
+            HiveBloomFilter bloomFilter,
+            Long rawSize,
+            Long storageSize,
+            MapStatistics mapStatistics)
     {
-        super(numberOfValues, bloomFilter);
+        super(numberOfValues, bloomFilter, rawSize, storageSize);
         this.mapStatistics = requireNonNull(mapStatistics, "mapStatistics is null");
     }
 
@@ -46,12 +51,6 @@ public class MapColumnStatistics
             size += entry.getColumnStatistics().getTotalValueSizeInBytes();
         }
         return size;
-    }
-
-    @Override
-    public ColumnStatistics withBloomFilter(HiveBloomFilter bloomFilter)
-    {
-        return new MapColumnStatistics(getNumberOfValues(), bloomFilter, mapStatistics);
     }
 
     @Override

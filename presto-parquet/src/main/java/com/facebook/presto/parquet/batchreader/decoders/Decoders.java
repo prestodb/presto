@@ -19,21 +19,39 @@ import com.facebook.presto.parquet.DataPageV2;
 import com.facebook.presto.parquet.ParquetEncoding;
 import com.facebook.presto.parquet.RichColumnDescriptor;
 import com.facebook.presto.parquet.batchreader.decoders.delta.BinaryDeltaValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.delta.BinaryLongDecimalDeltaValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.delta.BinaryShortDecimalDeltaValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.delta.FixedLenByteArrayLongDecimalDeltaValueDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.delta.FixedLenByteArrayShortDecimalDeltaValueDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.delta.FixedLenByteArrayUuidDeltaValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.delta.Int32DeltaBinaryPackedValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.delta.Int32ShortDecimalDeltaValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.delta.Int64DeltaBinaryPackedValuesDecoder;
-import com.facebook.presto.parquet.batchreader.decoders.delta.Int64TimestampMicrosDeltaBinaryPackedValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.delta.Int64ShortDecimalDeltaValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.delta.Int64TimeAndTimestampMicrosDeltaBinaryPackedValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.plain.BinaryLongDecimalPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.BinaryPlainValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.plain.BinaryShortDecimalPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.BooleanPlainValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.plain.FixedLenByteArrayLongDecimalPlainValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.plain.FixedLenByteArrayShortDecimalPlainValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.plain.FixedLenByteArrayUuidPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.Int32PlainValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.plain.Int32ShortDecimalPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.Int64PlainValuesDecoder;
-import com.facebook.presto.parquet.batchreader.decoders.plain.Int64TimestampMicrosPlainValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.plain.Int64ShortDecimalPlainValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.plain.Int64TimeAndTimestampMicrosPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.TimestampPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.BinaryRLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.BooleanRLEValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.Int32RLEDictionaryValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.rle.Int32ShortDecimalRLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.Int64RLEDictionaryValuesDecoder;
-import com.facebook.presto.parquet.batchreader.decoders.rle.Int64TimestampMicrosRLEDictionaryValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.rle.Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.rle.LongDecimalRLEDictionaryValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.rle.ShortDecimalRLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.TimestampRLEDictionaryValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.rle.UuidRLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.dictionary.BinaryBatchDictionary;
 import com.facebook.presto.parquet.batchreader.dictionary.TimestampDictionary;
 import com.facebook.presto.parquet.dictionary.Dictionary;
@@ -43,6 +61,8 @@ import com.facebook.presto.spi.PrestoException;
 import io.airlift.slice.Slice;
 import org.apache.parquet.bytes.ByteBufferInputStream;
 import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.column.values.ValuesReader;
+import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 
 import java.io.ByteArrayInputStream;
@@ -61,7 +81,12 @@ import static com.facebook.presto.parquet.ParquetEncoding.RLE_DICTIONARY;
 import static com.facebook.presto.parquet.ParquetErrorCode.PARQUET_IO_READ_ERROR;
 import static com.facebook.presto.parquet.ParquetErrorCode.PARQUET_UNSUPPORTED_COLUMN_TYPE;
 import static com.facebook.presto.parquet.ParquetErrorCode.PARQUET_UNSUPPORTED_ENCODING;
+import static com.facebook.presto.parquet.ParquetTypeUtils.isDecimalType;
+import static com.facebook.presto.parquet.ParquetTypeUtils.isShortDecimalType;
+import static com.facebook.presto.parquet.ParquetTypeUtils.isTimeMicrosType;
 import static com.facebook.presto.parquet.ParquetTypeUtils.isTimeStampMicrosType;
+import static com.facebook.presto.parquet.ParquetTypeUtils.isUuidType;
+import static com.facebook.presto.parquet.ValuesType.VALUES;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static org.apache.parquet.bytes.BytesUtils.getWidthFromMaxInt;
@@ -88,7 +113,7 @@ public class Decoders
         }
     }
 
-    private static final ValuesDecoder createValuesDecoder(ColumnDescriptor columnDescriptor, Dictionary dictionary, int valueCount, ParquetEncoding encoding, byte[] buffer, int offset, int length)
+    private static ValuesDecoder createValuesDecoder(ColumnDescriptor columnDescriptor, Dictionary dictionary, int valueCount, ParquetEncoding encoding, byte[] buffer, int offset, int length)
             throws IOException
     {
         final PrimitiveTypeName type = columnDescriptor.getPrimitiveType().getPrimitiveTypeName();
@@ -98,11 +123,22 @@ public class Decoders
                 case BOOLEAN:
                     return new BooleanPlainValuesDecoder(buffer, offset, length);
                 case INT32:
+                    if (isShortDecimalType(columnDescriptor)) {
+                        return new Int32ShortDecimalPlainValuesDecoder(buffer, offset, length);
+                    }
                 case FLOAT:
                     return new Int32PlainValuesDecoder(buffer, offset, length);
                 case INT64: {
                     if (isTimeStampMicrosType(columnDescriptor)) {
-                        return new Int64TimestampMicrosPlainValuesDecoder(buffer, offset, length);
+                        LogicalTypeAnnotation.TimestampLogicalTypeAnnotation typeAnnotation = (LogicalTypeAnnotation.TimestampLogicalTypeAnnotation) columnDescriptor.getPrimitiveType().getLogicalTypeAnnotation();
+                        boolean withTimezone = typeAnnotation.isAdjustedToUTC();
+                        return new Int64TimeAndTimestampMicrosPlainValuesDecoder(buffer, offset, length, withTimezone);
+                    }
+                    if (isTimeMicrosType(columnDescriptor)) {
+                        return new Int64TimeAndTimestampMicrosPlainValuesDecoder(buffer, offset, length);
+                    }
+                    if (isShortDecimalType(columnDescriptor)) {
+                        return new Int64ShortDecimalPlainValuesDecoder(buffer, offset, length);
                     }
                 }
                 case DOUBLE:
@@ -110,8 +146,26 @@ public class Decoders
                 case INT96:
                     return new TimestampPlainValuesDecoder(buffer, offset, length);
                 case BINARY:
+                    if (isDecimalType(columnDescriptor)) {
+                        if (isShortDecimalType(columnDescriptor)) {
+                            return new BinaryShortDecimalPlainValuesDecoder(buffer, offset, length);
+                        }
+                        return new BinaryLongDecimalPlainValuesDecoder(buffer, offset, length);
+                    }
                     return new BinaryPlainValuesDecoder(buffer, offset, length);
                 case FIXED_LEN_BYTE_ARRAY:
+                    if (isDecimalType(columnDescriptor)) {
+                        if (isShortDecimalType(columnDescriptor)) {
+                            return new FixedLenByteArrayShortDecimalPlainValuesDecoder(columnDescriptor, buffer, offset, length);
+                        }
+
+                        int typeLength = columnDescriptor.getPrimitiveType().getTypeLength();
+                        return new FixedLenByteArrayLongDecimalPlainValuesDecoder(typeLength, buffer, offset, length);
+                    }
+                    else if (isUuidType(columnDescriptor)) {
+                        int typeLength = columnDescriptor.getPrimitiveType().getTypeLength();
+                        return new FixedLenByteArrayUuidPlainValuesDecoder(typeLength, buffer, offset, length);
+                    }
                 default:
                     throw new PrestoException(PARQUET_UNSUPPORTED_COLUMN_TYPE, format("Column: %s, Encoding: %s", columnDescriptor, encoding));
             }
@@ -129,11 +183,22 @@ public class Decoders
             switch (type) {
                 case INT32:
                 case FLOAT: {
+                    if (isShortDecimalType(columnDescriptor)) {
+                        return new Int32ShortDecimalRLEDictionaryValuesDecoder(bitWidth, inputStream, (IntegerDictionary) dictionary);
+                    }
                     return new Int32RLEDictionaryValuesDecoder(bitWidth, inputStream, (IntegerDictionary) dictionary);
                 }
                 case INT64: {
                     if (isTimeStampMicrosType(columnDescriptor)) {
-                        return new Int64TimestampMicrosRLEDictionaryValuesDecoder(bitWidth, inputStream, (LongDictionary) dictionary);
+                        LogicalTypeAnnotation.TimestampLogicalTypeAnnotation typeAnnotation = (LogicalTypeAnnotation.TimestampLogicalTypeAnnotation) columnDescriptor.getPrimitiveType().getLogicalTypeAnnotation();
+                        boolean withTimezone = typeAnnotation.isAdjustedToUTC();
+                        return new Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder(bitWidth, inputStream, (LongDictionary) dictionary, withTimezone);
+                    }
+                    if (isTimeMicrosType(columnDescriptor)) {
+                        return new Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder(bitWidth, inputStream, (LongDictionary) dictionary, false);
+                    }
+                    if (isShortDecimalType(columnDescriptor)) {
+                        return new Int64RLEDictionaryValuesDecoder(bitWidth, inputStream, (LongDictionary) dictionary);
                     }
                 }
                 case DOUBLE: {
@@ -146,6 +211,15 @@ public class Decoders
                     return new BinaryRLEDictionaryValuesDecoder(bitWidth, inputStream, (BinaryBatchDictionary) dictionary);
                 }
                 case FIXED_LEN_BYTE_ARRAY:
+                    if (isDecimalType(columnDescriptor)) {
+                        if (isShortDecimalType(columnDescriptor)) {
+                            return new ShortDecimalRLEDictionaryValuesDecoder(bitWidth, inputStream, (BinaryBatchDictionary) dictionary);
+                        }
+                        return new LongDecimalRLEDictionaryValuesDecoder(bitWidth, inputStream, (BinaryBatchDictionary) dictionary);
+                    }
+                    else if (isUuidType(columnDescriptor)) {
+                        return new UuidRLEDictionaryValuesDecoder(bitWidth, inputStream, (BinaryBatchDictionary) dictionary);
+                    }
                 default:
                     throw new PrestoException(PARQUET_UNSUPPORTED_COLUMN_TYPE, format("Column: %s, Encoding: %s", columnDescriptor, encoding));
             }
@@ -155,12 +229,25 @@ public class Decoders
             ByteBufferInputStream inputStream = ByteBufferInputStream.wrap(ByteBuffer.wrap(buffer, offset, length));
             switch (type) {
                 case INT32:
+                    if (isShortDecimalType(columnDescriptor)) {
+                        ValuesReader parquetReader = getParquetReader(encoding, columnDescriptor, valueCount, inputStream);
+                        return new Int32ShortDecimalDeltaValuesDecoder(parquetReader);
+                    }
                 case FLOAT: {
                     return new Int32DeltaBinaryPackedValuesDecoder(valueCount, inputStream);
                 }
                 case INT64: {
                     if (isTimeStampMicrosType(columnDescriptor)) {
-                        return new Int64TimestampMicrosDeltaBinaryPackedValuesDecoder(valueCount, inputStream);
+                        LogicalTypeAnnotation.TimestampLogicalTypeAnnotation typeAnnotation = (LogicalTypeAnnotation.TimestampLogicalTypeAnnotation) columnDescriptor.getPrimitiveType().getLogicalTypeAnnotation();
+                        boolean withTimezone = typeAnnotation.isAdjustedToUTC();
+                        return new Int64TimeAndTimestampMicrosDeltaBinaryPackedValuesDecoder(valueCount, inputStream, withTimezone);
+                    }
+                    if (isTimeMicrosType(columnDescriptor)) {
+                        return new Int64TimeAndTimestampMicrosDeltaBinaryPackedValuesDecoder(valueCount, inputStream, false);
+                    }
+                    if (isShortDecimalType(columnDescriptor)) {
+                        ValuesReader parquetReader = getParquetReader(encoding, columnDescriptor, valueCount, inputStream);
+                        return new Int64ShortDecimalDeltaValuesDecoder(parquetReader);
                     }
                 }
                 case DOUBLE: {
@@ -173,9 +260,43 @@ public class Decoders
 
         if ((encoding == DELTA_BYTE_ARRAY || encoding == DELTA_LENGTH_BYTE_ARRAY) && type == PrimitiveTypeName.BINARY) {
             ByteBufferInputStream inputStream = ByteBufferInputStream.wrap(ByteBuffer.wrap(buffer, offset, length));
+            if (isDecimalType(columnDescriptor)) {
+                if (isShortDecimalType(columnDescriptor)) {
+                    return new BinaryShortDecimalDeltaValuesDecoder(encoding, valueCount, inputStream);
+                }
+
+                return new BinaryLongDecimalDeltaValuesDecoder(encoding, valueCount, inputStream);
+            }
             return new BinaryDeltaValuesDecoder(encoding, valueCount, inputStream);
         }
+
+        if (encoding == DELTA_BYTE_ARRAY && type == PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY) {
+            if (isDecimalType(columnDescriptor)) {
+                ByteBufferInputStream inputStream = ByteBufferInputStream.wrap(ByteBuffer.wrap(buffer, offset, length));
+                ValuesReader parquetReader = getParquetReader(encoding, columnDescriptor, valueCount, inputStream);
+
+                if (isShortDecimalType(columnDescriptor)) {
+                    return new FixedLenByteArrayShortDecimalDeltaValueDecoder(parquetReader, columnDescriptor);
+                }
+
+                return new FixedLenByteArrayLongDecimalDeltaValueDecoder(parquetReader);
+            }
+            else if (isUuidType(columnDescriptor)) {
+                ByteBufferInputStream inputStream = ByteBufferInputStream.wrap(ByteBuffer.wrap(buffer, offset, length));
+                ValuesReader parquetReader = getParquetReader(encoding, columnDescriptor, valueCount, inputStream);
+                return new FixedLenByteArrayUuidDeltaValuesDecoder(parquetReader);
+            }
+        }
+
         throw new PrestoException(PARQUET_UNSUPPORTED_ENCODING, format("Column: %s, Encoding: %s", columnDescriptor, encoding));
+    }
+
+    private static ValuesReader getParquetReader(ParquetEncoding encoding, ColumnDescriptor descriptor, int valueCount, ByteBufferInputStream inputStream)
+            throws IOException
+    {
+        ValuesReader valuesReader = encoding.getValuesReader(descriptor, VALUES);
+        valuesReader.initFromPage(valueCount, inputStream);
+        return valuesReader;
     }
 
     private static FlatDecoders readFlatPageV1(DataPageV1 page, RichColumnDescriptor columnDescriptor, Dictionary dictionary)
@@ -268,7 +389,7 @@ public class Decoders
                 createValuesDecoderV2(pageV2, columnDescriptor, dictionary));
     }
 
-    private static final RepetitionLevelDecoder createRepetitionLevelDecoderV2(int valueCount, RichColumnDescriptor columnDescriptor, Slice repetitionLevelBuffer)
+    private static RepetitionLevelDecoder createRepetitionLevelDecoderV2(int valueCount, RichColumnDescriptor columnDescriptor, Slice repetitionLevelBuffer)
     {
         final int maxRepetitionLevel = columnDescriptor.getMaxRepetitionLevel();
         final int repetitionLevelBitWidth = getWidthFromMaxInt(maxRepetitionLevel);
@@ -278,7 +399,7 @@ public class Decoders
         return new RepetitionLevelDecoder(valueCount, repetitionLevelBitWidth, new ByteArrayInputStream(repetitionLevelBuffer.getBytes()));
     }
 
-    private static final DefinitionLevelDecoder createDefinitionLevelDecoderV2(int valueCount, RichColumnDescriptor columnDescriptor, Slice definitionLevelBuffer)
+    private static DefinitionLevelDecoder createDefinitionLevelDecoderV2(int valueCount, RichColumnDescriptor columnDescriptor, Slice definitionLevelBuffer)
     {
         final int maxDefinitionLevel = columnDescriptor.getMaxDefinitionLevel();
         final int definitionLevelBitWidth = getWidthFromMaxInt(maxDefinitionLevel);
@@ -288,14 +409,14 @@ public class Decoders
         return new DefinitionLevelDecoder(valueCount, definitionLevelBitWidth, new ByteArrayInputStream(definitionLevelBuffer.getBytes()));
     }
 
-    private static final ValuesDecoder createValuesDecoderV2(DataPageV2 pageV2, RichColumnDescriptor columnDescriptor, Dictionary dictionary)
+    private static ValuesDecoder createValuesDecoderV2(DataPageV2 pageV2, RichColumnDescriptor columnDescriptor, Dictionary dictionary)
             throws IOException
     {
         final byte[] valueBuffer = pageV2.getSlice().getBytes();
         return createValuesDecoder(columnDescriptor, dictionary, pageV2.getValueCount(), pageV2.getDataEncoding(), valueBuffer, 0, valueBuffer.length);
     }
 
-    private static final FlatDefinitionLevelDecoder createFlatDefinitionLevelDecoder(ParquetEncoding encoding, boolean isRequired, int maxLevelValue, int valueCount, ByteBuffer buffer)
+    private static FlatDefinitionLevelDecoder createFlatDefinitionLevelDecoder(ParquetEncoding encoding, boolean isRequired, int maxLevelValue, int valueCount, ByteBuffer buffer)
             throws IOException
     {
         if (isRequired) {
@@ -320,7 +441,7 @@ public class Decoders
         return definitionLevelDecoder;
     }
 
-    public static final RepetitionLevelDecoder createRepetitionLevelDecoder(ParquetEncoding encoding, int maxLevelValue, int valueCount, ByteBuffer buffer)
+    public static RepetitionLevelDecoder createRepetitionLevelDecoder(ParquetEncoding encoding, int maxLevelValue, int valueCount, ByteBuffer buffer)
             throws IOException
     {
         final int bitWidth = getWidthFromMaxInt(maxLevelValue);
@@ -337,7 +458,7 @@ public class Decoders
         return repetitionLevelDecoder;
     }
 
-    public static final DefinitionLevelDecoder createDefinitionLevelDecoder(ParquetEncoding encoding, int maxLevelValue, int valueCount, ByteBuffer buffer)
+    public static DefinitionLevelDecoder createDefinitionLevelDecoder(ParquetEncoding encoding, int maxLevelValue, int valueCount, ByteBuffer buffer)
             throws IOException
     {
         final int bitWidth = getWidthFromMaxInt(maxLevelValue);

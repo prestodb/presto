@@ -16,23 +16,34 @@ package com.facebook.presto.verifier.checksum;
 import javax.annotation.Nullable;
 
 import java.util.Objects;
+import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 
 public class SimpleColumnChecksum
         extends ColumnChecksum
 {
     private final Object checksum;
+    private final Optional<FloatingPointColumnChecksum> asDoubleChecksum;
 
-    public SimpleColumnChecksum(@Nullable Object checksum)
+    public SimpleColumnChecksum(@Nullable Object checksum, Optional<FloatingPointColumnChecksum> asDoubleChecksum)
     {
         this.checksum = checksum;
+        this.asDoubleChecksum = asDoubleChecksum;
     }
 
     @Nullable
     public Object getChecksum()
     {
         return checksum;
+    }
+
+    public FloatingPointColumnChecksum getAsDoubleChecksum()
+    {
+        checkArgument(asDoubleChecksum.isPresent(), "Expect as-double checksum to be present, but it is not");
+
+        return asDoubleChecksum.get();
     }
 
     @Override
@@ -45,18 +56,24 @@ public class SimpleColumnChecksum
             return false;
         }
         SimpleColumnChecksum o = (SimpleColumnChecksum) obj;
-        return Objects.equals(checksum, o.checksum);
+        return Objects.equals(checksum, o.checksum) &&
+                Objects.equals(asDoubleChecksum, o.asDoubleChecksum);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(checksum);
+        return Objects.hash(checksum, asDoubleChecksum);
     }
 
     @Override
     public String toString()
     {
-        return format("%s", checksum);
+        if (asDoubleChecksum.isPresent()) {
+            return asDoubleChecksum.get().toString();
+        }
+        else {
+            return format("checksum: %s", checksum);
+        }
     }
 }

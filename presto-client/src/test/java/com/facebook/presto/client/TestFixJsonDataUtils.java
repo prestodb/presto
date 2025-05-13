@@ -66,6 +66,7 @@ public class TestFixJsonDataUtils
         assertQueryResult(typePrefix + "ipaddress", "1.2.3.4", "1.2.3.4");
         assertQueryResult(typePrefix + "ipprefix", "1.2.3.4/32", "1.2.3.4/32");
         assertQueryResult(typePrefix + "Geometry", "POINT (1.2 3.4)", "POINT (1.2 3.4)");
+        assertQueryResult(typePrefix + "SphericalGeography", "POINT (1.2 3.4)", "POINT (1.2 3.4)");
         assertQueryResult(typePrefix + "map(BingTile,bigint)", ImmutableMap.of("BingTile{x=1, y=2, zoom_level=10}", 1), ImmutableMap.of("BingTile{x=1, y=2, zoom_level=10}", 1L));
         // test nested map structure
         assertQueryResult(typePrefix + "map(map(bigint,bigint),bigint)", ImmutableMap.of("{\n  \"1\" : \"2\",\n  \"3\" : \"4\",\n  \"5\" : \"6\"\n}", "3"), ImmutableMap.of(ImmutableMap.of(1L, 2L, 3L, 4L, 5L, 6L), 3L));

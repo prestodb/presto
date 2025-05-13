@@ -128,7 +128,7 @@ public class TestHiveAggregationFunctions
             for (int j = 0; j < numColumns; j++) {
                 Object actual = rows.get(i).getField(j);
                 Object expected = expectedColumns[j].values[i];
-                if (expectedColumns[j].type == DOUBLE) {
+                if (expectedColumns[j].type.equals(DOUBLE)) {
                     assertEquals(((Number) actual).doubleValue(), ((double) expected), 0.000001);
                 }
                 else {
@@ -149,7 +149,8 @@ public class TestHiveAggregationFunctions
         functionAndTypeManager.loadFunctionNamespaceManager(
                 "hive-functions",
                 "hive",
-                Collections.emptyMap());
+                Collections.emptyMap(),
+                server.getPluginNodeManager());
         server.refreshNodes();
         return server;
     }

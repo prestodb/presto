@@ -23,6 +23,84 @@ connection properties as appropriate for your setup:
     connection-user=root
     connection-password=secret
 
+
+Connection security
+-------------------
+
+The JDBC driver and connector automatically use Transport Layer Security (TLS) encryption and certificate validation. This requires a suitable TLS certificate configured on your SQL Server database host.
+
+.. note::
+
+   Starting from release 0.292, the default value of ``encrypt`` has changed from ``false`` to ``true``.
+
+To disable encryption in the connection string, use the ``encrypt`` property:
+
+.. code-block:: none
+
+    connection-url=jdbc:sqlserver://<host>:<port>;databaseName=<databaseName>;encrypt=false;
+
+Other SSL configuration properties that can be configured using the ``connection-url``:
+
+SSL Configuration Properties
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+================================================== ==================================================================== ===========
+Property Name                                      Description                                                          Default
+================================================== ==================================================================== ===========
+``trustServerCertificate``                         Indicates that the server certificate is not trusted                 ``false``
+                                                   automatically and a truststore is required for 
+                                                   SSL certificate verification.
+
+``trustStoreType``                                 File format of the truststore file, for example ``JKS`` or ``PEM``.
+
+``hostNameInCertificate``                          Specifies the expected CN (Common Name) in the SSL certificate 
+                                                   from the server.
+
+``trustStore``                                     The path to the truststore file.
+
+``trustStorePassword``                             The password for the truststore.
+================================================== ==================================================================== ===========
+
+A connection string using a truststore would be similar to the following example:
+
+.. code-block:: none
+
+    connection-url=jdbc:sqlserver://<host>:<port>;databaseName=<databaseName>;encrypt=true;trustServerCertificate=false;trustStoreType=PEM;hostNameInCertificate=hostname;trustStore=path/to/truststore.pem;trustStorePassword=password
+
+Authentication
+^^^^^^^^^^^^^^
++--------------------------+-----------------------------------------------------------------+------------------+
+| **Property**             | **Description**                                                 | **Default Value**|
++--------------------------+-----------------------------------------------------------------+------------------+
+| ``integratedSecurity``   | Enables Windows Authentication for SQL Server.                  | ``false``        |
+|                          |                                                                 |                  |
+|                          | - Set to ``true`` with ``authenticationScheme=JavaKerberos``    |                  |
+|                          |   to indicate that Kerberos credentials are used by SQL Server. |                  |
+|                          | - Set to ``true`` with ``authenticationScheme=NTLM`` to         |                  |
+|                          |   indicate that NTLM credentials are used by SQL Server.        |                  |
++--------------------------+-----------------------------------------------------------------+------------------+
+| ``authentication``       | Specifies the authentication method to use for connection.      | ``NotSpecified`` |
+|                          | Possible values:                                                |                  |
+|                          |                                                                 |                  |
+|                          | - ``NotSpecified``                                              |                  |
+|                          | - ``SqlPassword``                                               |                  |
+|                          | - ``ActiveDirectoryPassword``                                   |                  |
+|                          | - ``ActiveDirectoryIntegrated``                                 |                  |
+|                          | - ``ActiveDirectoryManagedIdentity``                            |                  |
+|                          | - ``ActiveDirectoryMSI``                                        |                  |
+|                          | - ``ActiveDirectoryInteractive``                                |                  |
+|                          | - ``ActiveDirectoryServicePrincipal``                           |                  |
++--------------------------+-----------------------------------------------------------------+------------------+
+
+Below is a sample connection URL with the NTLM authentication:
+
+.. code-block:: none
+
+    connection-url=jdbc:sqlserver://<host>:<port>;databaseName=<databaseName>;encrypt=true;trustServerCertificate=false;integratedSecurity=true;authenticationScheme=NTLM;
+
+
+Refer to `setting the connection properties <https://learn.microsoft.com/en-us/sql/connect/jdbc/setting-the-connection-properties?view=sql-server-ver16>`_ from the Microsoft official documentation.
+
+
 Multiple SQL Server Databases or Servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -37,20 +115,18 @@ if you name the property file ``sales.properties``, Presto will create a
 catalog named ``sales`` using the configured connector.
 
 General Configuration Properties
----------------------------------
+--------------------------------
 
 ================================================== ==================================================================== ===========
 Property Name                                      Description                                                          Default
 ================================================== ==================================================================== ===========
 ``user-credential-name``                           Name of the ``extraCredentials`` property whose value is the JDBC
-                                                   driver's user name. See ``extraCredentials`` in `Parameter Reference
-                                                   <https://prestodb.io/docs/current/installation/jdbc.html
-                                                   #parameter-reference>`_.
+                                                   driver's user name. See ``extraCredentials`` in
+                                                   :ref:`Parameter Reference <jdbc-parameter-reference>`.
 
 ``password-credential-name``                       Name of the ``extraCredentials`` property whose value is the JDBC
-                                                   driver's user password. See ``extraCredentials`` in `Parameter
-                                                   Reference <https://prestodb.io/docs/current/installation/jdbc.html
-                                                   #parameter-reference>`_.
+                                                   driver's user password. See ``extraCredentials`` in
+                                                   :ref:`Parameter Reference <jdbc-parameter-reference>`.
 
 ``case-insensitive-name-matching``                 Match dataset and table names case-insensitively.                    ``false``
 

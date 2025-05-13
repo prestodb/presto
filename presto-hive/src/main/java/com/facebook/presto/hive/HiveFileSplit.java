@@ -24,6 +24,11 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * Identifies a piece of a file at a given path starting at a given position and continuing for length bytes.
+ * This class does not check whether the file exists, or, if it exists, that it is long enough to
+ * contain all the indicated bytes.
+ */
 public class HiveFileSplit
 {
     private final String path;
@@ -33,7 +38,17 @@ public class HiveFileSplit
     private final long fileModifiedTime;
     private final Optional<byte[]> extraFileInfo;
     private final Map<String, String> customSplitInfo;
+    private final long affinitySchedulingFileSectionIndex;
 
+    /**
+     * @param path the absolute path to the file that contains the split
+     * @param start the position in the containing file of the first byte of the split
+     * @param length the number of bytes in the split
+     * @param fileSize the total length of the file that contains the split
+     * @param fileModifiedTime the most recent time when the file containing the split was modified
+     * @throws NullPointerException if any object parameter is null
+     * @throws IllegalArgumentException if any numeric parameter is less than zero
+     */
     @JsonCreator
     public HiveFileSplit(
             @JsonProperty("path") String path,
@@ -42,12 +57,13 @@ public class HiveFileSplit
             @JsonProperty("fileSize") long fileSize,
             @JsonProperty("fileModifiedTime") long fileModifiedTime,
             @JsonProperty("extraFileInfo") Optional<byte[]> extraFileInfo,
-            @JsonProperty("customSplitInfo") Map<String, String> customSplitInfo)
+            @JsonProperty("customSplitInfo") Map<String, String> customSplitInfo,
+            @JsonProperty("affinitySchedulingFileSectionIndex") long affinitySchedulingFileSectionIndex)
     {
-        checkArgument(start >= 0, "start must be positive");
-        checkArgument(length >= 0, "length must be positive");
-        checkArgument(fileSize >= 0, "fileSize must be positive");
-        checkArgument(fileModifiedTime >= 0, "modificationTime must be positive");
+        checkArgument(start >= 0, "start must be non-negative");
+        checkArgument(length >= 0, "length must be non-negative");
+        checkArgument(fileSize >= 0, "fileSize must be non-negative");
+        checkArgument(fileModifiedTime >= 0, "modificationTime must be non-negative");
         requireNonNull(path, "path is null");
         requireNonNull(extraFileInfo, "extraFileInfo is null");
         requireNonNull(customSplitInfo, "customSplitInfo is null");
@@ -59,6 +75,7 @@ public class HiveFileSplit
         this.fileModifiedTime = fileModifiedTime;
         this.extraFileInfo = extraFileInfo;
         this.customSplitInfo = ImmutableMap.copyOf(customSplitInfo);
+        this.affinitySchedulingFileSectionIndex = affinitySchedulingFileSectionIndex;
     }
 
     @JsonProperty
@@ -101,6 +118,12 @@ public class HiveFileSplit
     public Map<String, String> getCustomSplitInfo()
     {
         return customSplitInfo;
+    }
+
+    @JsonProperty
+    public long getAffinitySchedulingFileSectionIndex()
+    {
+        return affinitySchedulingFileSectionIndex;
     }
 
     @Override

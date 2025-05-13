@@ -206,6 +206,7 @@
 
         <module name="IllegalImport">
             <property name="illegalPkgs" value="org.weakref.jmx.internal" />
+            <property name="illegalPkgs" value="org.jheaps.annotations" />
             <property name="illegalPkgs" value="jersey.repackaged" />
             <property name="illegalPkgs" value="jdk.nashorn.internal" />
             <property name="illegalPkgs" value="jdk.internal" />

@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.security.ranger;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
@@ -98,6 +99,7 @@ public class RangerBasedAccessControlConfig
     }
 
     @Config(RANGER_REST_USER_GROUPS_AUTH_PASSWORD)
+    @ConfigSecuritySensitive
     public RangerBasedAccessControlConfig setBasicAuthPassword(String basicAuthPassword)
     {
         this.basicAuthPassword = basicAuthPassword;

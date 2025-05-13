@@ -13,6 +13,7 @@
  */
 #include "presto_cpp/main/types/PrestoToVeloxSplit.h"
 #include <gtest/gtest.h>
+#include "presto_cpp/main/connectors/PrestoToVeloxConnector.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
 
 using namespace facebook::velox;
@@ -27,11 +28,11 @@ protocol::ScheduledSplit makeHiveScheduledSplit() {
   protocol::Split split;
   split.connectorId = "split.connectorId-0";
   auto hiveTransactionHandle =
-      std::make_shared<protocol::HiveTransactionHandle>();
+      std::make_shared<protocol::hive::HiveTransactionHandle>();
   hiveTransactionHandle->uuid = "split.transactionHandle.uuid-0";
   split.transactionHandle = hiveTransactionHandle;
 
-  auto hiveSplit = std::make_shared<protocol::HiveSplit>();
+  auto hiveSplit = std::make_shared<protocol::hive::HiveSplit>();
   hiveSplit->fileSplit.path = "/file/path";
   hiveSplit->storage.storageFormat.inputFormat =
       "com.facebook.hive.orc.OrcInputFormat";
@@ -44,13 +45,23 @@ protocol::ScheduledSplit makeHiveScheduledSplit() {
 }
 } // namespace
 
-class PrestoToVeloxSplitTest : public ::testing::Test {};
+class PrestoToVeloxSplitTest : public ::testing::Test {
+ protected:
+  void SetUp() override {
+    registerPrestoToVeloxConnector(
+        std::make_unique<HivePrestoToVeloxConnector>("hive"));
+  }
 
-TEST(PrestoToVeloxSplitTest, nullPartitionKey) {
+  void TearDown() override {
+    unregisterPrestoToVeloxConnector("hive");
+  }
+};
+
+TEST_F(PrestoToVeloxSplitTest, nullPartitionKey) {
   auto scheduledSplit = makeHiveScheduledSplit();
-  auto hiveSplit = std::dynamic_pointer_cast<protocol::HiveSplit>(
+  auto hiveSplit = std::dynamic_pointer_cast<protocol::hive::HiveSplit>(
       scheduledSplit.split.connectorSplit);
-  protocol::HivePartitionKey partitionKey{"nullPartitionKey", nullptr};
+  protocol::hive::HivePartitionKey partitionKey{"nullPartitionKey", nullptr};
   hiveSplit->partitionKeys.push_back(partitionKey);
   auto veloxSplit = toVeloxSplit(scheduledSplit);
   std::shared_ptr<connector::hive::HiveConnectorSplit> veloxHiveSplit;
@@ -65,10 +76,10 @@ TEST(PrestoToVeloxSplitTest, nullPartitionKey) {
       veloxHiveSplit->partitionKeys.at("nullPartitionKey").has_value());
 }
 
-TEST(PrestoToVeloxSplitTest, customSplitInfo) {
+TEST_F(PrestoToVeloxSplitTest, customSplitInfo) {
   auto scheduledSplit = makeHiveScheduledSplit();
-  auto& hiveSplit =
-      static_cast<protocol::HiveSplit&>(*scheduledSplit.split.connectorSplit);
+  auto& hiveSplit = static_cast<protocol::hive::HiveSplit&>(
+      *scheduledSplit.split.connectorSplit);
   hiveSplit.fileSplit.customSplitInfo["foo"] = "bar";
   auto veloxSplit = toVeloxSplit(scheduledSplit);
   auto* veloxHiveSplit =
@@ -79,10 +90,10 @@ TEST(PrestoToVeloxSplitTest, customSplitInfo) {
   ASSERT_EQ(veloxHiveSplit->customSplitInfo.at("foo"), "bar");
 }
 
-TEST(PrestoToVeloxSplitTest, extraFileInfo) {
+TEST_F(PrestoToVeloxSplitTest, extraFileInfo) {
   auto scheduledSplit = makeHiveScheduledSplit();
-  auto& hiveSplit =
-      static_cast<protocol::HiveSplit&>(*scheduledSplit.split.connectorSplit);
+  auto& hiveSplit = static_cast<protocol::hive::HiveSplit&>(
+      *scheduledSplit.split.connectorSplit);
   hiveSplit.fileSplit.extraFileInfo =
       std::make_shared<std::string>(encoding::Base64::encode("quux"));
   auto veloxSplit = toVeloxSplit(scheduledSplit);
@@ -94,10 +105,10 @@ TEST(PrestoToVeloxSplitTest, extraFileInfo) {
   ASSERT_EQ(*veloxHiveSplit->extraFileInfo, "quux");
 }
 
-TEST(PrestoToVeloxSplitTest, serdeParameters) {
+TEST_F(PrestoToVeloxSplitTest, serdeParameters) {
   auto scheduledSplit = makeHiveScheduledSplit();
-  auto& hiveSplit =
-      dynamic_cast<protocol::HiveSplit&>(*scheduledSplit.split.connectorSplit);
+  auto& hiveSplit = dynamic_cast<protocol::hive::HiveSplit&>(
+      *scheduledSplit.split.connectorSplit);
   hiveSplit.storage.serdeParameters[dwio::common::SerDeOptions::kFieldDelim] =
       "\t";
   hiveSplit.storage
@@ -123,4 +134,37 @@ TEST(PrestoToVeloxSplitTest, serdeParameters) {
       veloxHiveSplit->serdeParameters.at(
           dwio::common::SerDeOptions::kMapKeyDelim),
       "|");
+}
+
+TEST_F(PrestoToVeloxSplitTest, bucketConversion) {
+  auto scheduledSplit = makeHiveScheduledSplit();
+  auto& hiveSplit = static_cast<protocol::hive::HiveSplit&>(
+      *scheduledSplit.split.connectorSplit);
+  hiveSplit.tableBucketNumber = std::make_shared<int>(42);
+  hiveSplit.bucketConversion =
+      std::make_shared<protocol::hive::BucketConversion>();
+  hiveSplit.bucketConversion->tableBucketCount = 4096;
+  hiveSplit.bucketConversion->partitionBucketCount = 512;
+  auto& column = hiveSplit.bucketConversion->bucketColumnHandles.emplace_back();
+  column.name = "c0";
+  column.hiveType = "bigint";
+  column.typeSignature = "bigint";
+  column.columnType = protocol::hive::ColumnType::REGULAR;
+  auto veloxSplit = toVeloxSplit(scheduledSplit);
+  const auto& veloxHiveSplit =
+      static_cast<const connector::hive::HiveConnectorSplit&>(
+          *veloxSplit.connectorSplit);
+  ASSERT_TRUE(veloxHiveSplit.bucketConversion.has_value());
+  ASSERT_EQ(veloxHiveSplit.bucketConversion->tableBucketCount, 4096);
+  ASSERT_EQ(veloxHiveSplit.bucketConversion->partitionBucketCount, 512);
+  ASSERT_EQ(veloxHiveSplit.bucketConversion->bucketColumnHandles.size(), 1);
+  ASSERT_EQ(veloxHiveSplit.infoColumns.at("$path"), hiveSplit.fileSplit.path);
+  ASSERT_EQ(veloxHiveSplit.infoColumns.at("$bucket"), "42");
+  auto& veloxColumn = veloxHiveSplit.bucketConversion->bucketColumnHandles[0];
+  ASSERT_EQ(veloxColumn->name(), "c0");
+  ASSERT_EQ(*veloxColumn->dataType(), *BIGINT());
+  ASSERT_EQ(*veloxColumn->hiveType(), *BIGINT());
+  ASSERT_EQ(
+      veloxColumn->columnType(),
+      connector::hive::HiveColumnHandle::ColumnType::kRegular);
 }

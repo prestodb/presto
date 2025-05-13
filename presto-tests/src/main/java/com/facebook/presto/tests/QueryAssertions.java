@@ -37,6 +37,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
@@ -224,11 +225,15 @@ public final class QueryAssertions
 
         if (ensureOrdering) {
             if (!actualRows.equals(expectedRows)) {
-                assertEquals(actualRows, expectedRows, "For query: \n " + actual + "\n:");
+                assertEquals(actualRows,
+                        expectedRows,
+                        "For query: \n " + actual + "\n actual column types:\n " + actualResults.getTypes() + "\nexpected column types:\n" + expectedResults.getTypes() + "\n");
             }
         }
         else {
-            assertEqualsIgnoreOrder(actualRows, expectedRows, "For query: \n " + actual);
+            assertEqualsIgnoreOrder(actualRows,
+                    expectedRows,
+                    "For query: \n " + actual + "\n actual column types:\n " + actualResults.getTypes() + "\nexpected column types:\n" + expectedResults.getTypes() + "\n");
         }
     }
 
@@ -248,19 +253,32 @@ public final class QueryAssertions
             Multiset<?> unexpectedRows = Multisets.difference(actualSet, expectedSet);
             Multiset<?> missingRows = Multisets.difference(expectedSet, actualSet);
             int limit = 100;
-            fail(format(
-                    "%snot equal\n" +
-                            "Actual rows (up to %s of %s extra rows shown, %s rows in total):\n    %s\n" +
-                            "Expected rows (up to %s of %s missing rows shown, %s rows in total):\n    %s\n",
+            String extraRowsMessage = "";
+            if (!unexpectedRows.isEmpty()) {
+                int numShown = Math.min(limit, unexpectedRows.size());
+                extraRowsMessage = format(
+                        "Actual rows (%s of %s extra rows shown, %s rows in total):\n    %s\n",
+                        numShown,
+                        unexpectedRows.size(),
+                        actualSet.size(),
+                        Joiner.on("\n    ").join(Iterables.limit(unexpectedRows, limit)));
+            }
+            String missingRowsMessage = "";
+            if (!missingRows.isEmpty()) {
+                int numShown = Math.min(limit, missingRows.size());
+                missingRowsMessage = format(
+                        "Expected rows (%s of %s missing rows shown, %s rows in total):\n    %s\n",
+                        numShown,
+                        missingRows.size(),
+                        expectedSet.size(),
+                        Joiner.on("\n    ").join(Iterables.limit(missingRows, limit)));
+            }
+            String rowsDiff = format(
+                    "%snot equal\n%s%s",
                     message == null ? "" : (message + "\n"),
-                    limit,
-                    unexpectedRows.size(),
-                    actualSet.size(),
-                    Joiner.on("\n    ").join(Iterables.limit(unexpectedRows, limit)),
-                    limit,
-                    missingRows.size(),
-                    expectedSet.size(),
-                    Joiner.on("\n    ").join(Iterables.limit(missingRows, limit))));
+                    extraRowsMessage,
+                    missingRowsMessage);
+            fail(rowsDiff);
         }
     }
 
@@ -329,7 +347,18 @@ public final class QueryAssertions
             fail(format("Expected query to fail: %s", sql));
         }
         catch (RuntimeException ex) {
-            assertExceptionMessage(sql, ex, expectedMessageRegExp);
+            assertExceptionMessage(sql, ex, expectedMessageRegExp, false);
+        }
+    }
+
+    protected static void assertQueryFails(QueryRunner queryRunner, Session session, @Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp, boolean usePatternMatcher)
+    {
+        try {
+            queryRunner.execute(session, sql);
+            fail(format("Expected query to fail: %s", sql));
+        }
+        catch (RuntimeException ex) {
+            assertExceptionMessage(sql, ex, expectedMessageRegExp, usePatternMatcher);
         }
     }
 
@@ -345,10 +374,18 @@ public final class QueryAssertions
         }
     }
 
-    private static void assertExceptionMessage(String sql, Exception exception, @Language("RegExp") String regex)
+    private static void assertExceptionMessage(String sql, Exception exception, @Language("RegExp") String regex, boolean usePatternMatcher)
     {
-        if (!nullToEmpty(exception.getMessage()).matches(regex)) {
-            fail(format("Expected exception message '%s' to match '%s' for query: %s", exception.getMessage(), regex, sql), exception);
+        if (usePatternMatcher) {
+            Pattern p = Pattern.compile(regex, Pattern.MULTILINE);
+            if (!(p.matcher(exception.getMessage()).find())) {
+                fail(format("Expected exception message '%s' to match '%s' for query: %s", exception.getMessage(), regex, sql), exception);
+            }
+        }
+        else {
+            if (!nullToEmpty(exception.getMessage()).matches(regex)) {
+                fail(format("Expected exception message '%s' to match '%s' for query: %s", exception.getMessage(), regex, sql), exception);
+            }
         }
     }
 
@@ -366,6 +403,24 @@ public final class QueryAssertions
                 session,
                 Iterables.transform(tables, table -> table.getTableName()),
                 false,
+                false);
+    }
+
+    public static void copyTpchTables(
+            QueryRunner queryRunner,
+            String sourceCatalog,
+            String sourceSchema,
+            Session session,
+            Iterable<TpchTable<?>> tables,
+            boolean ifNotExists)
+    {
+        copyTables(
+                queryRunner,
+                sourceCatalog,
+                sourceSchema,
+                session,
+                Iterables.transform(tables, table -> table.getTableName()),
+                ifNotExists,
                 false);
     }
 

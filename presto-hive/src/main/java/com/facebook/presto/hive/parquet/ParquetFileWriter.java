@@ -86,7 +86,7 @@ public class ParquetFileWriter
     @Override
     public long getWrittenBytes()
     {
-        return parquetWriter.getWrittenBytes();
+        return parquetWriter.getWrittenBytes() + parquetWriter.getBufferedBytes();
     }
 
     @Override
@@ -154,12 +154,6 @@ public class ParquetFileWriter
     public long getValidationCpuNanos()
     {
         return 0;
-    }
-
-    @Override
-    public Optional<Runnable> getVerificationTask()
-    {
-        return Optional.empty();
     }
 
     @Override

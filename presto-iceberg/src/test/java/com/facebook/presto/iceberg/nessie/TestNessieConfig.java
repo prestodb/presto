@@ -27,7 +27,7 @@ public class TestNessieConfig
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(NessieConfig.class)
+        assertRecordedDefaults(recordDefaults(IcebergNessieConfig.class)
                 .setClientBuilderImpl(null)
                 .setAuthenticationType(null)
                 .setBearerToken(null)
@@ -57,7 +57,7 @@ public class TestNessieConfig
                 .put("iceberg.nessie.client-builder-impl", "org.projectnessie.example.ClientBuilderImpl")
                 .build();
 
-        NessieConfig expected = new NessieConfig()
+        IcebergNessieConfig expected = new IcebergNessieConfig()
                 .setServerUri("http://localhost:xxx/api/v1")
                 .setDefaultReferenceName("someRef")
                 .setAuthenticationType(AuthenticationType.BASIC)

@@ -89,7 +89,7 @@ public class TestTsvPrinter
     }
 
     @Test
-    public void testCsvVarbinaryPrinting()
+    public void testTsvVarbinaryPrinting()
             throws IOException
     {
         StringWriter writer = new StringWriter();

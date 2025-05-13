@@ -18,7 +18,6 @@ import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.apache.hadoop.fs.Path;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.concurrent.NotThreadSafe;
@@ -32,20 +31,21 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.airlift.slice.SizeOf.sizeOfCharArray;
 import static io.airlift.slice.SizeOf.sizeOfObjectArray;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 @NotThreadSafe
 public class InternalHiveSplit
 {
-    // Overhead of ImmutableList and ImmutableMap is not accounted because of its complexity.
+    // Overhead of ImmutableList and ImmutableMap is not accounted for because of its complexity.
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(InternalHiveSplit.class).instanceSize();
 
     private static final int HOST_ADDRESS_INSTANCE_SIZE = ClassLayout.parseClass(HostAddress.class).instanceSize() +
             ClassLayout.parseClass(String.class).instanceSize();
 
-    private final byte[] relativeUri;
+    private final String path;
+    private final boolean isRelative;
     private final long end;
     private final long fileSize;
     private final long fileModifiedTime;
@@ -72,7 +72,8 @@ public class InternalHiveSplit
     private int currentBlockIndex;
 
     public InternalHiveSplit(
-            String relativeUri,
+            String path,
+            boolean isRelative,
             long start,
             long end,
             long fileSize,
@@ -88,11 +89,11 @@ public class InternalHiveSplit
             Optional<EncryptionInformation> encryptionInformation,
             Map<String, String> customSplitInfo)
     {
-        checkArgument(start >= 0, "start must be positive");
-        checkArgument(end >= 0, "end must be positive");
-        checkArgument(fileSize >= 0, "fileSize must be positive");
-        checkArgument(fileModifiedTime >= 0, "fileModifiedTime must be positive");
-        requireNonNull(relativeUri, "relativeUri is null");
+        checkArgument(start >= 0, "start must be non-negative");
+        checkArgument(end >= 0, "end must be non-negative");
+        checkArgument(fileSize >= 0, "fileSize must be non-negative");
+        checkArgument(fileModifiedTime >= 0, "fileModifiedTime must be non-negative");
+        requireNonNull(path, "path is null");
         requireNonNull(readBucketNumber, "readBucketNumber is null");
         requireNonNull(tableBucketNumber, "tableBucketNumber is null");
         requireNonNull(nodeSelectionStrategy, "nodeSelectionStrategy is null");
@@ -100,7 +101,8 @@ public class InternalHiveSplit
         requireNonNull(extraFileInfo, "extraFileInfo is null");
         requireNonNull(encryptionInformation, "encryptionInformation is null");
 
-        this.relativeUri = relativeUri.getBytes(UTF_8);
+        this.path = path;
+        this.isRelative = isRelative;
         this.start = start;
         this.end = end;
         this.fileSize = fileSize;
@@ -113,7 +115,7 @@ public class InternalHiveSplit
         this.partitionInfo = partitionInfo;
         this.extraFileInfo = extraFileInfo;
         this.customSplitInfo = ImmutableMap
-            .copyOf(requireNonNull(customSplitInfo, "customSplitInfo is null"));
+                .copyOf(requireNonNull(customSplitInfo, "customSplitInfo is null"));
 
         ImmutableList.Builder<List<HostAddress>> addressesBuilder = ImmutableList.builder();
         blockEndOffsets = new long[blocks.size()];
@@ -131,8 +133,7 @@ public class InternalHiveSplit
 
     public String getPath()
     {
-        String relativePathString = new String(relativeUri, UTF_8);
-        return new Path(partitionInfo.getPath().resolve(relativePathString)).toString();
+        return isRelative ? partitionInfo.getPath() + path : path;
     }
 
     public long getStart()
@@ -254,7 +255,7 @@ public class InternalHiveSplit
     public int getEstimatedSizeInBytes()
     {
         int result = INSTANCE_SIZE;
-        result += sizeOf(relativeUri);
+        result += sizeOfCharArray(path.length());
         result += sizeOf(blockEndOffsets);
         if (!blockAddresses.isEmpty()) {
             result += sizeOfObjectArray(blockAddresses.size());
@@ -275,7 +276,7 @@ public class InternalHiveSplit
     public String toString()
     {
         return toStringHelper(this)
-                .add("relativeUri", new String(relativeUri, UTF_8))
+                .add("path", path)
                 .add("start", start)
                 .add("end", end)
                 .add("fileSize", fileSize)

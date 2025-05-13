@@ -11,11 +11,11 @@ General Changes
 * Fix planning failure for some query shapes containing ``count(*)`` and a non-empty
   ``GROUP BY`` clause.
 * Fix communication failures caused by lock contention in the local scheduler.
-* Improve performance of :func:`element_at` for maps to be constant time rather than
+* Improve performance of :func:`!element_at` for maps to be constant time rather than
   proportional to the size of the map.
 * Improve performance of queries with gathering exchanges.
 * Require ``coalesce()`` to have at least two arguments, as mandated by the SQL standard.
-* Add :func:`hamming_distance` function.
+* Add :func:`!hamming_distance` function.
 
 JDBC Driver Changes
 -------------------

@@ -19,12 +19,13 @@ import com.facebook.presto.spi.WarningCodeSupplier;
 public enum IcebergWarningCode
         implements WarningCodeSupplier
 {
-    ICEBERG_TABLESCAN_CONVERTED_TO_VALUESNODE(1),
+    SORT_COLUMN_TRANSFORM_NOT_SUPPORTED_WARNING(1),
+    USE_OF_DEPRECATED_TABLE_PROPERTY(2)
     /**/;
 
-    private final WarningCode warningCode;
+    public static final int WARNING_CODE_MASK = 0x0200_0000;
 
-    public static final int WARNING_CODE_MASK = 0x0100_0000;
+    private final WarningCode warningCode;
 
     IcebergWarningCode(int code)
     {

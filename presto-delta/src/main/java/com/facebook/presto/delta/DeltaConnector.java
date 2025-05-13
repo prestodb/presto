@@ -16,6 +16,7 @@ package com.facebook.presto.delta;
 import com.facebook.airlift.bootstrap.LifeCycleManager;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.delta.rule.DeltaPlanOptimizerProvider;
+import com.facebook.presto.hive.HiveCommonSessionProperties;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
@@ -30,6 +31,7 @@ import com.facebook.presto.spi.transaction.IsolationLevel;
 
 import javax.inject.Inject;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static com.facebook.presto.delta.DeltaTransactionHandle.INSTANCE;
@@ -44,6 +46,7 @@ public class DeltaConnector
     private final DeltaMetadata metadata;
     private final DeltaSplitManager splitManager;
     private final DeltaSessionProperties sessionProperties;
+    private final HiveCommonSessionProperties hiveCommonSessionProperties;
     private final DeltaPageSourceProvider pageSourceProvider;
     private final DeltaPlanOptimizerProvider planOptimizerProvider;
     private final DeltaTableProperties deltaTableProperties;
@@ -54,6 +57,7 @@ public class DeltaConnector
             DeltaMetadata metadata,
             DeltaSplitManager splitManager,
             DeltaSessionProperties sessionProperties,
+            HiveCommonSessionProperties hiveCommonSessionProperties,
             DeltaPageSourceProvider pageSourceProvider,
             DeltaPlanOptimizerProvider planOptimizerProvider,
             DeltaTableProperties deltaTableProperties)
@@ -62,6 +66,7 @@ public class DeltaConnector
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null");
+        this.hiveCommonSessionProperties = requireNonNull(hiveCommonSessionProperties, "hiveCommonSessionProperties is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.planOptimizerProvider = requireNonNull(planOptimizerProvider, "planOptimizerProvider is null");
         this.deltaTableProperties = requireNonNull(deltaTableProperties, "tableProperties is null");
@@ -94,7 +99,9 @@ public class DeltaConnector
     @Override
     public List<PropertyMetadata<?>> getSessionProperties()
     {
-        return sessionProperties.getSessionProperties();
+        List<PropertyMetadata<?>> allSessionProperties = new ArrayList<>(sessionProperties.getSessionProperties());
+        allSessionProperties.addAll(hiveCommonSessionProperties.getSessionProperties());
+        return allSessionProperties;
     }
 
     @Override

@@ -51,8 +51,8 @@ Presto Coordinator Node Configuration
 You must make the following changes to the environment prior to configuring the
 Presto coordinator to use LDAP authentication and HTTPS.
 
- * :ref:`ldap_server`
- * :ref:`server_java_keystore`
+* :ref:`ldap_server`
+* :ref:`server_java_keystore`
 
 You also need to make changes to the Presto configuration files.
 LDAP authentication is configured on the coordinator in two parts.
@@ -89,6 +89,9 @@ Property                                                Description
                                                         used to secure TLS.
 ``http-server.https.keystore.key``                      The password for the keystore. This must match the
                                                         password you specified when creating the keystore.
+``http-server.authentication.allow-forwarded-https``    Enable treating forwarded HTTPS requests over HTTP as secure.
+                                                        Requires the ``X-Forwarded-Proto`` header to be set to ``https`` on forwarded requests.
+                                                        Default value is ``false``.
 ======================================================= ======================================================
 
 Password Authenticator Configuration

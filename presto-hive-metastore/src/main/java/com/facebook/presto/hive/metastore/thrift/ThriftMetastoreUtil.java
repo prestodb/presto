@@ -37,6 +37,7 @@ import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.security.SelectedRole;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -118,6 +119,7 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.Math.round;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -135,6 +137,7 @@ public final class ThriftMetastoreUtil
     private static final String PUBLIC_ROLE_NAME = "public";
     private static final String ADMIN_ROLE_NAME = "admin";
     public static final String LAST_DATA_COMMIT_TIME = "lastDataCommitTime";
+    public static final String ROW_ID_PARTITION_COMPONENT_KEY = "rowIDPartitionComponent";
 
     private ThriftMetastoreUtil() {}
 
@@ -147,6 +150,7 @@ public final class ThriftMetastoreUtil
         result.setOwnerType(toMetastoreApiPrincipalType(database.getOwnerType()));
         database.getComment().ifPresent(result::setDescription);
         result.setParameters(database.getParameters());
+        database.getCatalogName().ifPresent(result::setCatalogName);
         return result;
     }
 
@@ -154,6 +158,7 @@ public final class ThriftMetastoreUtil
     {
         org.apache.hadoop.hive.metastore.api.Table result = new org.apache.hadoop.hive.metastore.api.Table();
 
+        table.getCatalogName().ifPresent(result::setCatName);
         result.setDbName(table.getDatabaseName());
         result.setTableName(table.getTableName());
         result.setOwner(table.getOwner());
@@ -368,6 +373,7 @@ public final class ThriftMetastoreUtil
     public static org.apache.hadoop.hive.metastore.api.Partition toMetastoreApiPartition(Partition partition, ColumnConverter columnConverter)
     {
         org.apache.hadoop.hive.metastore.api.Partition result = new org.apache.hadoop.hive.metastore.api.Partition();
+        partition.getCatalogName().ifPresent(result::setCatName);
         result.setDbName(partition.getDatabaseName());
         result.setTableName(partition.getTableName());
         result.setValues(partition.getValues());
@@ -503,6 +509,7 @@ public final class ThriftMetastoreUtil
         }
 
         Partition.Builder partitionBuilder = Partition.builder()
+                .setCatalogName(Optional.ofNullable(partition.getCatName()))
                 .setDatabaseName(partition.getDbName())
                 .setTableName(partition.getTableName())
                 .setValues(partition.getValues())
@@ -511,6 +518,7 @@ public final class ThriftMetastoreUtil
                         .collect(toList()))
                 .setParameters(partition.getParameters())
                 .setCreateTime(partition.getCreateTime())
+                .setRowIdPartitionComponent(getRowIDPartitionComponent(partition))
                 .setLastDataCommitTime(getLastDataCommitTime(partition));
 
         // mutate apache partition to Presto partition
@@ -886,5 +894,18 @@ public final class ThriftMetastoreUtil
             return OptionalDouble.of(((double) totalSizeInBytes.getAsLong()) / nonNullsCount);
         }
         return OptionalDouble.empty();
+    }
+
+    @VisibleForTesting
+    static Optional<byte[]> getRowIDPartitionComponent(org.apache.hadoop.hive.metastore.api.Partition partition)
+    {
+        if (partition.isSetParameters()) {
+            Map<String, String> parameters = partition.getParameters();
+            if (parameters.containsKey(ROW_ID_PARTITION_COMPONENT_KEY)) {
+                String encoded = parameters.get(ROW_ID_PARTITION_COMPONENT_KEY);
+                return Optional.of(encoded.getBytes(ISO_8859_1));
+            }
+        }
+        return Optional.empty();
     }
 }

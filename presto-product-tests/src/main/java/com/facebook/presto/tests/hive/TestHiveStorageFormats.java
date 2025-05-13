@@ -353,11 +353,6 @@ public class TestHiveStorageFormats
             return sessionProperties;
         }
 
-        public Map<String, String> getProperties()
-        {
-            return sessionProperties;
-        }
-
         public String getStoragePropertiesAsSql()
         {
             return Stream.concat(

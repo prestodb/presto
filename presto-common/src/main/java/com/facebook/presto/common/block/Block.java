@@ -22,6 +22,21 @@ import java.util.function.ObjLongConsumer;
 import static com.facebook.presto.common.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.common.block.DictionaryId.randomDictionaryId;
 
+/**
+ * A block packs positionCount values into a chunk of memory. How the values are packed,
+ * whether compression is used, endianness, and other implementation details are up to the subclasses.
+ * However, for purposes of API, you can think of a Block as a sequence of zero-indexed values that
+ * can be read by calling the getter methods in this interface. For instance,
+ * you can read positionCount bytes by calling
+ * block.getByte(0), block.getByte(1), ... block.getByte(positionCount - 1).
+ * You can read positionCount longs by calling
+ * block.getLong(0), block.getLong(1), ... block.getLong(positionCount - 1).
+ * Of course the values returned might not make a lot of sense if
+ * one type is written to a position and a different type is read.
+ * Many subclasses will throw an UnsupportedOperationException if you try to read the
+ * wrong type from a block. It's generally up to the reader to know what types to expect
+ * where in each block.
+ */
 public interface Block
         extends UncheckedBlock
 {
@@ -36,6 +51,8 @@ public interface Block
 
     /**
      * Gets a byte in the value at {@code position}.
+     *
+     * @throws IllegalArgumentException if position is negative or greater than or equal to the positionCount
      */
     default byte getByte(int position)
     {
@@ -43,7 +60,9 @@ public interface Block
     }
 
     /**
-     * Gets a little endian short at in the value at {@code position}.
+     * Gets a short in the value at {@code position}.
+     *
+     * @throws IllegalArgumentException if position is negative or greater than or equal to the positionCount
      */
     default short getShort(int position)
     {
@@ -51,7 +70,9 @@ public interface Block
     }
 
     /**
-     * Gets a little endian int in the value at {@code position}.
+     * Gets an int in the value at {@code position}.
+     *
+     * @throws IllegalArgumentException if position is negative or greater than or equal to the positionCount
      */
     default int getInt(int position)
     {
@@ -59,7 +80,9 @@ public interface Block
     }
 
     /**
-     * Gets a little endian long in the value at {@code position}.
+     * Gets a long in the value at {@code position}.
+     *
+     * @throws IllegalArgumentException if position is negative or greater than or equal to the positionCount
      */
     default long getLong(int position)
     {
@@ -67,7 +90,7 @@ public interface Block
     }
 
     /**
-     * Gets a little endian long at {@code offset} in the value at {@code position}.
+     * Gets a long at {@code offset} in the value at {@code position}.
      */
     default long getLong(int position, int offset)
     {
@@ -84,7 +107,8 @@ public interface Block
 
     /**
      * Gets a block in the value at {@code position}.
-     * @return
+     *
+     * @throws IllegalArgumentException if position is negative or greater than or equal to the positionCount
      */
     default Block getBlock(int position)
     {
@@ -92,7 +116,7 @@ public interface Block
     }
 
     /**
-     * Is the byte sequences at {@code offset} in the value at {@code position} equal
+     * Is the byte sequence at {@code offset} in the value at {@code position} equal
      * to the byte sequence at {@code otherOffset} in {@code otherSlice}.
      * This method must be implemented if @{code getSlice} is implemented.
      */
@@ -132,7 +156,7 @@ public interface Block
     }
 
     /**
-     * Appends the value at {@code position} to {@code blockBuilder} and close the entry.
+     * Appends the value at {@code position} to {@code blockBuilder} and closes the entry.
      */
     void writePositionTo(int position, BlockBuilder blockBuilder);
 
@@ -153,7 +177,7 @@ public interface Block
     }
 
     /**
-     * Calculates the hash code the byte sequences at {@code offset} in the
+     * Calculates a 64-bit hash code of the byte sequence at {@code offset} in the
      * value at {@code position}.
      * This method must be implemented if @{code getSlice} is implemented.
      */
@@ -329,7 +353,7 @@ public interface Block
     Block copyRegion(int position, int length);
 
     /**
-     * Is it possible the block may have a null value?  If false, the block can not contain
+     * Is it possible the block may have a null value?  If false, the block cannot contain
      * a null, but if true, the block may or may not have a null.
      */
     default boolean mayHaveNull()
@@ -363,12 +387,14 @@ public interface Block
     Block appendNull();
 
     /**
-     * Returns the converted long value at {@code position} if the value ar {@code position} can be converted to long.
-     * @throws UnsupportedOperationException if value at {@code position} is not compatible to be converted to long.
+     * Returns the converted long value at {@code position} if the value at {@code position} can be converted to long.
      *
      * Difference between toLong() and getLong() is:
      * getLong() would only return value when the block is LongArrayBlock, otherwise it would throw exception.
      * toLong() would return value for compatible types: LongArrayBlock, IntArrayBlock, ByteArrayBlock and ShortArrayBlock.
+     *
+     * @throws UnsupportedOperationException if value at {@code position} is not able to be converted to long.
+     * @throws IllegalArgumentException if position is negative or greater than or equal to the positionCount
      */
     default long toLong(int position)
     {

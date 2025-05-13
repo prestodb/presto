@@ -44,7 +44,7 @@ public class PlanOptimizerInformation
             @JsonProperty("statsSource") Optional<String> statsSource)
     {
         this.optimizerName = requireNonNull(optimizerName, "optimizerName is null");
-        this.optimizerTriggered = requireNonNull(optimizerTriggered, "optimizerTriggered is null");
+        this.optimizerTriggered = optimizerTriggered;
         this.optimizerApplicable = requireNonNull(optimizerApplicable, "optimizerApplicable is null");
         this.optimizerFailure = requireNonNull(optimizerFailure, "optimizerFailure is null");
         this.isCostBased = requireNonNull(isCostBased, "isCostBased is null");

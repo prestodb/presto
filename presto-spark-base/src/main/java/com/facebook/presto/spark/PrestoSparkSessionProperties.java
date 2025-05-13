@@ -18,6 +18,7 @@ import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 
 import javax.inject.Inject;
 
@@ -30,6 +31,7 @@ import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LI
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.dataSizeProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.doubleProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.durationProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.google.common.base.Strings.nullToEmpty;
@@ -71,7 +73,11 @@ public class PrestoSparkSessionProperties
     public static final String SPARK_ADAPTIVE_QUERY_EXECUTION_ENABLED = "spark_adaptive_query_execution_enabled";
     public static final String ADAPTIVE_JOIN_SIDE_SWITCHING_ENABLED = "adaptive_join_side_switching_enabled";
     public static final String NATIVE_EXECUTION_BROADCAST_BASE_PATH = "native_execution_broadcast_base_path";
-    public static final String NATIVE_TRIGGER_COREDUMP_WHEN_UNRESPONSIVE_ENABLED = "native_trigger_coredump_when_unresponsive_enabled";
+    public static final String NATIVE_TERMINATE_WITH_CORE_WHEN_UNRESPONSIVE_ENABLED = "native_terminate_with_core_when_unresponsive_enabled";
+    public static final String NATIVE_TERMINATE_WITH_CORE_TIMEOUT = "native_terminate_with_core_timeout";
+    public static final String DYNAMIC_PRESTO_MEMORY_POOL_TUNING_ENABLED = "dynamic_presto_memory_pool_tuning_enabled";
+    public static final String DYNAMIC_PRESTO_MEMORY_POOL_TUNING_FRACTION = "dynamic_presto_memory_pool_tuning_fraction";
+    public static final String ATTEMPT_NUMBER_TO_APPLY_DYNAMIC_MEMORY_POOL_TUNING = "attempt_number_to_apply_dynamic_memory_pool_tuning";
 
     private final List<PropertyMetadata<?>> sessionProperties;
     private final ExecutionStrategyValidator executionStrategyValidator;
@@ -267,9 +273,29 @@ public class PrestoSparkSessionProperties
                         prestoSparkConfig.getNativeExecutionBroadcastBasePath(),
                         false),
                 booleanProperty(
-                        NATIVE_TRIGGER_COREDUMP_WHEN_UNRESPONSIVE_ENABLED,
-                        "Trigger coredump of the native execution process when it becomes unresponsive",
-                        prestoSparkConfig.isNativeTriggerCoredumpWhenUnresponsiveEnabled(),
+                        NATIVE_TERMINATE_WITH_CORE_WHEN_UNRESPONSIVE_ENABLED,
+                        "Terminate native execution process with core when it becomes unresponsive",
+                        prestoSparkConfig.isNativeTerminateWithCoreWhenUnresponsiveEnabled(),
+                        false),
+                durationProperty(
+                        NATIVE_TERMINATE_WITH_CORE_TIMEOUT,
+                        "Timeout for native execution process termination with core. The process is forcefully killed on timeout",
+                        prestoSparkConfig.getNativeTerminateWithCoreTimeout(),
+                        false),
+                booleanProperty(
+                        DYNAMIC_PRESTO_MEMORY_POOL_TUNING_ENABLED,
+                        "Dynamic tuning for Presto memory pool enabled",
+                        prestoSparkConfig.isDynamicPrestoMemoryPoolTuningEnabled(),
+                        false),
+                doubleProperty(
+                        DYNAMIC_PRESTO_MEMORY_POOL_TUNING_FRACTION,
+                        "Percentage of JVM memory available to Presto",
+                        prestoSparkConfig.getDynamicPrestoMemoryPoolTuningFraction(),
+                        false),
+                integerProperty(
+                        ATTEMPT_NUMBER_TO_APPLY_DYNAMIC_MEMORY_POOL_TUNING,
+                        "Attempt number after which dynamic memory pool tuning will be enabled",
+                        prestoSparkConfig.getAttemptNumberToApplyDynamicMemoryPoolTuning(),
                         false));
     }
 
@@ -438,8 +464,28 @@ public class PrestoSparkSessionProperties
         return session.getSystemProperty(NATIVE_EXECUTION_BROADCAST_BASE_PATH, String.class);
     }
 
-    public static boolean isNativeTriggerCoredumpWhenUnresponsiveEnabled(Session session)
+    public static boolean isNativeTerminateWithCoreWhenUnresponsiveEnabled(Session session)
     {
-        return session.getSystemProperty(NATIVE_TRIGGER_COREDUMP_WHEN_UNRESPONSIVE_ENABLED, Boolean.class);
+        return session.getSystemProperty(NATIVE_TERMINATE_WITH_CORE_WHEN_UNRESPONSIVE_ENABLED, Boolean.class);
+    }
+
+    public static Duration getNativeTerminateWithCoreTimeout(Session session)
+    {
+        return session.getSystemProperty(NATIVE_TERMINATE_WITH_CORE_TIMEOUT, Duration.class);
+    }
+
+    public static boolean isDynamicPrestoMemoryPoolTuningEnabled(Session session)
+    {
+        return session.getSystemProperty(DYNAMIC_PRESTO_MEMORY_POOL_TUNING_ENABLED, Boolean.class);
+    }
+
+    public static double getDynamicPrestoMemoryPoolTuningFraction(Session session)
+    {
+        return session.getSystemProperty(DYNAMIC_PRESTO_MEMORY_POOL_TUNING_FRACTION, Double.class);
+    }
+
+    public static int getAttemptNumberToApplyDynamicMemoryPoolTuning(Session session)
+    {
+        return session.getSystemProperty(ATTEMPT_NUMBER_TO_APPLY_DYNAMIC_MEMORY_POOL_TUNING, Integer.class);
     }
 }

@@ -141,13 +141,14 @@ public class TestCreateViewVerification
     @Test
     public void testRunningInQueryBankMode()
     {
-        String query = "CREATE VIEW succeeded_not_exists AS SELECT * FROM tpch.tiny.nation";
+        String snapshotModeQuery = "CREATE VIEW succeeded_not_exists_snapshot AS SELECT * FROM tpch.tiny.nation";
 
-        Optional<VerifierQueryEvent> event = runVerification(query, query, saveSnapshotSettings);
+        Optional<VerifierQueryEvent> event = runVerification(snapshotModeQuery, snapshotModeQuery, saveSnapshotSettings);
         assertTrue(event.isPresent());
         assertEvent(event.get(), SUCCEEDED);
 
-        event = runVerification(query, query, queryBankModeSettings);
+        String queryBankModeQuery = "CREATE VIEW succeeded_not_exists_querybank AS SELECT * FROM tpch.tiny.nation";
+        event = runVerification(queryBankModeQuery, queryBankModeQuery, queryBankModeSettings);
         assertTrue(event.isPresent());
         assertEvent(event.get(), SUCCEEDED);
     }

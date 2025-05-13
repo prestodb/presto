@@ -15,6 +15,7 @@ package com.facebook.presto.plugin.prometheus;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
+import com.facebook.airlift.configuration.ConfigSecuritySensitive;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.ConfigurationException;
 import com.google.inject.spi.Message;
@@ -36,6 +37,10 @@ public class PrometheusConnectorConfig
     private Duration maxQueryRangeDuration = new Duration(1, TimeUnit.HOURS);
     private Duration cacheDuration = new Duration(30, TimeUnit.SECONDS);
     private File bearerTokenFile;
+    private boolean tlsEnabled;
+    private String trustStorePath;
+    private String truststorePassword;
+    private boolean verifyHostName;
 
     @NotNull
     public URI getPrometheusURI()
@@ -114,5 +119,53 @@ public class PrometheusConnectorConfig
         if (maxQueryRangeDuration < queryChunkSizeDuration) {
             throw new ConfigurationException(ImmutableList.of(new Message("prometheus.max-query-duration must be greater than prometheus.query-chunk-duration")));
         }
+    }
+    public boolean isTlsEnabled()
+    {
+        return tlsEnabled;
+    }
+
+    @Config("prometheus.tls.enabled")
+    public PrometheusConnectorConfig setTlsEnabled(boolean tlsEnabled)
+    {
+        this.tlsEnabled = tlsEnabled;
+        return this;
+    }
+
+    public String getTrustStorePath()
+    {
+        return trustStorePath;
+    }
+
+    @Config("prometheus.tls.truststore-path")
+    public PrometheusConnectorConfig setTrustStorePath(String path)
+    {
+        this.trustStorePath = path;
+        return this;
+    }
+
+    public String getTruststorePassword()
+    {
+        return truststorePassword;
+    }
+
+    @Config("prometheus.tls.truststore-password")
+    @ConfigSecuritySensitive
+    public PrometheusConnectorConfig setTruststorePassword(String password)
+    {
+        this.truststorePassword = password;
+        return this;
+    }
+
+    public boolean getVerifyHostName()
+    {
+        return verifyHostName;
+    }
+
+    @Config("verify-host-name")
+    public PrometheusConnectorConfig setVerifyHostName(boolean val)
+    {
+        this.verifyHostName = val;
+        return this;
     }
 }

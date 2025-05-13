@@ -5,12 +5,14 @@ UPDATE
 Synopsis
 --------
 
-.. code-block:: text
-    UPDATE table_name SET [ ( column = expression [, ... ] ) ] [ WHERE condition ]
+.. code-block:: none
+
+    UPDATE table_name SET [ column = expression [, ... ] ] [ WHERE condition ]
+
 Description
 -----------
 
-Update selected columns values in existing rows in a table.
+Update selected columns values in existing rows in a table. 
 
 The columns named in the ``column = expression`` assignments will be updated
 for all rows that match the ``WHERE`` condition.  The values of all column update

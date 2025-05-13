@@ -12,52 +12,22 @@
  * limitations under the License.
  */
 #include <gtest/gtest.h>
-
-#include <boost/algorithm/string.hpp>
-#include <boost/filesystem.hpp>
 #include <ios>
-#include <iosfwd>
 
 #include "presto_cpp/main/common/tests/test_json.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
-#include "presto_cpp/presto_protocol/presto_protocol.h"
+#include "presto_cpp/main/types/tests/TestUtils.h"
 #include "velox/exec/Operator.h"
 #include "velox/type/Type.h"
 #include "velox/vector/FlatVector.h"
 
-namespace fs = boost::filesystem;
-
 using namespace facebook::presto;
 using namespace facebook::velox;
-
-namespace {
-std::string getDataPath(const std::string& fileName) {
-  std::string currentPath = fs::current_path().c_str();
-  if (boost::algorithm::ends_with(currentPath, "fbcode")) {
-    return currentPath +
-        "/github/presto-trunk/presto-native-execution/presto_cpp/main/types/tests/data/" +
-        fileName;
-  }
-  if (boost::algorithm::ends_with(currentPath, "fbsource")) {
-    return currentPath + "/third-party/presto_cpp/main/types/tests/data/" +
-        fileName;
-  }
-
-  // CLion runs the tests from cmake-build-release/ or cmake-build-debug/
-  // directory. Hard-coded json files are not copied there and test fails with
-  // file not found. Fixing the path so that we can trigger these tests from
-  // CLion.
-  boost::algorithm::replace_all(currentPath, "cmake-build-release/", "");
-  boost::algorithm::replace_all(currentPath, "cmake-build-debug/", "");
-
-  return currentPath + "/data/" + fileName;
-}
-} // namespace
 
 class TestValues : public ::testing::Test {};
 
 TEST_F(TestValues, valuesRowVector) {
-  std::string str = slurp(getDataPath("ValuesNode.json"));
+  std::string str = slurp(test::utils::getDataPath("ValuesNode.json"));
 
   json j = json::parse(str);
   std::shared_ptr<protocol::ValuesNode> p = j;
@@ -65,7 +35,7 @@ TEST_F(TestValues, valuesRowVector) {
   testJsonRoundtrip(j, p);
 
   auto pool = memory::deprecatedAddDefaultLeafMemoryPool();
-  auto queryCtx = std::make_shared<core::QueryCtx>();
+  auto queryCtx = core::QueryCtx::create();
   VeloxInteractiveQueryPlanConverter converter(queryCtx.get(), pool.get());
   auto values = std::dynamic_pointer_cast<const core::ValuesNode>(
       converter.toVeloxQueryPlan(
@@ -97,7 +67,7 @@ TEST_F(TestValues, valuesPlan) {
   // select a, b from (VALUES (1, 'a'), (2, 'b'), (3, 'c')) as t (a, b) where a
   // = 1;
   //
-  std::string str = slurp(getDataPath("ValuesPipeTest.json"));
+  std::string str = slurp(test::utils::getDataPath("ValuesPipeTest.json"));
 
   json j = json::parse(str);
   std::shared_ptr<protocol::PlanFragment> p = j;
@@ -105,7 +75,7 @@ TEST_F(TestValues, valuesPlan) {
   testJsonRoundtrip(j, p);
 
   auto pool = memory::deprecatedAddDefaultLeafMemoryPool();
-  auto queryCtx = std::make_shared<core::QueryCtx>();
+  auto queryCtx = core::QueryCtx::create();
   VeloxInteractiveQueryPlanConverter converter(queryCtx.get(), pool.get());
   auto values = converter.toVeloxQueryPlan(
       std::dynamic_pointer_cast<protocol::OutputNode>(p->root)->source,

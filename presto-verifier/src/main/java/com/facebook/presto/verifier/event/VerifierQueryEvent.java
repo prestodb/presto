@@ -39,6 +39,7 @@ public class VerifierQueryEvent
         FAILED,
         FAILED_RESOLVED,
         SKIPPED,
+        RESUBMITTED,
     }
 
     private final String suite;
@@ -46,6 +47,7 @@ public class VerifierQueryEvent
     private final String name;
 
     private final String status;
+    private final String dataType;
     private final String matchType;
     private final String skippedReason;
 
@@ -69,6 +71,7 @@ public class VerifierQueryEvent
             String testId,
             String name,
             EventStatus status,
+            Optional<String> dataType,
             Optional<String> matchType,
             Optional<SkippedReason> skippedReason,
             Optional<DeterminismAnalysisDetails> determinismAnalysisDetails,
@@ -85,6 +88,7 @@ public class VerifierQueryEvent
         this.testId = requireNonNull(testId, "testId is null");
         this.name = requireNonNull(name, "name is null");
         this.status = status.name();
+        this.dataType = dataType.orElse(null);
         this.matchType = matchType.orElse(null);
         this.skippedReason = skippedReason.map(SkippedReason::name).orElse(null);
         this.determinismAnalysis = determinismAnalysisDetails.map(DeterminismAnalysisDetails::getResult).orElse(null);
@@ -111,6 +115,7 @@ public class VerifierQueryEvent
                 testId,
                 sourceQuery.getName(),
                 SKIPPED,
+                Optional.empty(),
                 Optional.empty(),
                 Optional.of(skippedReason),
                 Optional.empty(),
@@ -156,6 +161,12 @@ public class VerifierQueryEvent
     public String getStatus()
     {
         return status;
+    }
+
+    @EventField
+    public String getDataType()
+    {
+        return dataType;
     }
 
     @EventField

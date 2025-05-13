@@ -14,12 +14,15 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.dispatcher.DispatchManager;
+import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.resourcemanager.ResourceManagerProxy;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.google.re2j.Pattern;
+import io.airlift.slice.Slices;
 
 import javax.annotation.security.RolesAllowed;
 import javax.inject.Inject;
@@ -40,12 +43,13 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
 
 import java.net.URI;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.regex.Pattern;
 
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.server.QueryStateInfo.createQueryStateInfo;
@@ -55,7 +59,9 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 import static javax.ws.rs.core.Response.Status.SERVICE_UNAVAILABLE;
 
@@ -93,6 +99,7 @@ public class QueryStateInfoResource
             @QueryParam("includeAllQueryProgressStats") @DefaultValue("false") boolean includeAllQueryProgressStats,
             @QueryParam("excludeResourceGroupPathInfo") @DefaultValue("false") boolean excludeResourceGroupPathInfo,
             @QueryParam("queryTextSizeLimit") Integer queryTextSizeLimit,
+            @QueryParam("state") String stateFilter,
             @HeaderParam(X_FORWARDED_PROTO) String xForwardedProto,
             @Context UriInfo uriInfo,
             @Context HttpServletRequest servletRequest,
@@ -105,9 +112,27 @@ public class QueryStateInfoResource
             List<BasicQueryInfo> queryInfos = dispatchManager.getQueries();
             Optional<Pattern> userPattern = isNullOrEmpty(user) ? Optional.empty() : Optional.of(Pattern.compile(user));
 
+            final QueryState expectedQueryState = Optional.ofNullable(stateFilter)
+                    .map(filter -> {
+                        try {
+                            return QueryState.valueOf(filter.toUpperCase(Locale.ENGLISH));
+                        }
+                        catch (IllegalArgumentException e) {
+                            throw new WebApplicationException(Response.status(BAD_REQUEST)
+                                    .type(MediaType.TEXT_PLAIN)
+                                    .entity(format("Invalid 'state' parameter. Must be one of %s", Arrays.toString(QueryState.values())))
+                                    .build());
+                        }
+                    })
+                    .orElse(null);
+
             List<QueryStateInfo> queryStateInfos = queryInfos.stream()
-                    .filter(queryInfo -> includeAllQueries || !queryInfo.getState().isDone())
-                    .filter(queryInfo -> userPattern.map(pattern -> pattern.matcher(queryInfo.getSession().getUser()).matches()).orElse(true))
+                    .filter(queryInfo -> {
+                        boolean includeQuery = includeAllQueries ||
+                                (expectedQueryState == null ? !queryInfo.getState().isDone() : queryInfo.getState().equals(expectedQueryState));
+                        return includeQuery;
+                    })
+                    .filter(queryInfo -> userPattern.map(pattern -> pattern.matcher(Slices.utf8Slice(queryInfo.getSession().getUser())).matches()).orElse(true))
                     .map(queryInfo -> getQueryStateInfo(
                             queryInfo,
                             includeAllQueryProgressStats,

@@ -1,6 +1,6 @@
-===============
+=====================
 SingleStore Connector
-===============
+=====================
 
 The SingleStore connector allows querying and creating tables in an external
 SingleStore database. This can be used to join data between different
@@ -66,11 +66,14 @@ If you used a different name for your catalog properties file, use
 that catalog name instead of ``singlestore`` in the above examples.
 
 SingleStore Connector Limitations
----------------------------
+---------------------------------
 
-The following SQL statements are not yet supported:
+For :doc:`/sql/create-table` statement, the default table type is ``columnstore``.
+The table type can be configured by setting the ``default_table_type`` engine variable, see 
+`Creating a Columnstore Table <https://docs.singlestore.com/cloud/create-a-database/creating-a-columnstore-table/>`_.
 
-* :doc:`/sql/create-table` with ``rowstore`` table type (supports only ``columnstore`` table type, set by default `docs <https://docs.singlestore.com/cloud/reference/sql-reference/data-definition-language-ddl/create-table/>`_.)
+The following SQL statements are not supported:
+
 * :doc:`/sql/alter-schema`
 * :doc:`/sql/analyze`
 * :doc:`/sql/create-role`

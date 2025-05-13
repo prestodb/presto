@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.testing.TestingHttpClient;
+import com.facebook.presto.CompressionCodec;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.Location;
@@ -55,6 +56,7 @@ import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
@@ -62,7 +64,7 @@ import static org.testng.Assert.assertTrue;
 public class TestExchangeOperator
 {
     private static final List<Type> TYPES = ImmutableList.of(VARCHAR);
-    private static final PagesSerdeFactory SERDE_FACTORY = new TestingPagesSerdeFactory();
+    private static final PagesSerdeFactory SERDE_FACTORY = new TestingPagesSerdeFactory(CompressionCodec.LZ4);
 
     private static final String TASK_1_ID = "task1.0.0.0.0";
     private static final String TASK_2_ID = "task2.0.0.0.0";
@@ -91,10 +93,8 @@ public class TestExchangeOperator
                 3,
                 new Duration(1, TimeUnit.MINUTES),
                 true,
-                false,
                 0.2,
-                httpClient,
-                new TestingDriftClient<>(),
+                new HttpShuffleClientProvider(httpClient),
                 scheduler,
                 systemMemoryUsageListener,
                 pageBufferClientCallbackExecutor);
@@ -170,9 +170,9 @@ public class TestExchangeOperator
         waitForPages(operator, 3);
 
         // verify state
-        assertEquals(operator.isFinished(), false);
-        assertEquals(operator.needsInput(), false);
-        assertEquals(operator.getOutput(), null);
+        assertFalse(operator.isFinished());
+        assertFalse(operator.needsInput());
+        assertNull(operator.getOutput());
 
         // add more pages and close the buffers
         taskBuffers.getUnchecked(TASK_1_ID).addPages(2, true);
@@ -201,9 +201,9 @@ public class TestExchangeOperator
         waitForPages(operator, 1);
 
         // verify state
-        assertEquals(operator.isFinished(), false);
-        assertEquals(operator.needsInput(), false);
-        assertEquals(operator.getOutput(), null);
+        assertFalse(operator.isFinished());
+        assertFalse(operator.needsInput());
+        assertNull(operator.getOutput());
 
         // add a buffer location
         operator.addSplit(new ScheduledSplit(1, operator.getSourceId(), newRemoteSplit(TASK_2_ID)));
@@ -239,9 +239,9 @@ public class TestExchangeOperator
         waitForPages(operator, 3);
 
         // verify state
-        assertEquals(operator.isFinished(), false);
-        assertEquals(operator.needsInput(), false);
-        assertEquals(operator.getOutput(), null);
+        assertFalse(operator.isFinished());
+        assertFalse(operator.needsInput());
+        assertNull(operator.getOutput());
 
         // finish without closing buffers
         operator.finish();
@@ -263,7 +263,7 @@ public class TestExchangeOperator
                 .addDriverContext();
 
         SourceOperator operator = operatorFactory.createOperator(driverContext);
-        assertEquals(operator.getOperatorContext().getOperatorStats().getSystemMemoryReservation().toBytes(), 0);
+        assertEquals(operator.getOperatorContext().getOperatorStats().getSystemMemoryReservationInBytes(), 0);
         return operator;
     }
 
@@ -318,7 +318,7 @@ public class TestExchangeOperator
             assertPageEquals(TYPES, page, PAGE);
         }
 
-        assertEquals(operator.getOperatorContext().getOperatorStats().getSystemMemoryReservation().toBytes(), 0);
+        assertEquals(operator.getOperatorContext().getOperatorStats().getSystemMemoryReservationInBytes(), 0);
 
         return outputPages;
     }
@@ -341,6 +341,6 @@ public class TestExchangeOperator
         assertEquals(operator.isFinished(), true);
         assertEquals(operator.needsInput(), false);
         assertNull(operator.getOutput());
-        assertEquals(operator.getOperatorContext().getOperatorStats().getSystemMemoryReservation().toBytes(), 0);
+        assertEquals(operator.getOperatorContext().getOperatorStats().getSystemMemoryReservationInBytes(), 0);
     }
 }

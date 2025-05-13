@@ -18,6 +18,8 @@ import com.facebook.presto.spi.api.Experimental;
 
 import java.util.List;
 
+import static java.util.Collections.emptyList;
+
 public interface ColumnHandle
 {
     /**
@@ -40,5 +42,11 @@ public interface ColumnHandle
     default ColumnHandle withRequiredSubfields(List<Subfield> subfields)
     {
         return this;
+    }
+
+    @Experimental
+    default List<Subfield> getRequiredSubfields()
+    {
+        return emptyList();
     }
 }

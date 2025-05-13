@@ -44,14 +44,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcMaxMergeDistance;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcMaxReadBlockSize;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcTinyStripeThreshold;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.isOrcZstdJniDecompressionEnabled;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
-import static com.facebook.presto.hive.HiveSessionProperties.getOrcLazyReadSmallRanges;
-import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxBufferSize;
-import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDistance;
-import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxReadBlockSize;
-import static com.facebook.presto.hive.HiveSessionProperties.getOrcStreamBufferSize;
-import static com.facebook.presto.hive.HiveSessionProperties.getOrcTinyStripeThreshold;
-import static com.facebook.presto.hive.HiveSessionProperties.isOrcZstdJniDecompressionEnabled;
 import static com.facebook.presto.hive.orc.OrcBatchPageSourceFactory.createOrcPageSource;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static java.util.Objects.requireNonNull;
@@ -101,7 +98,8 @@ public class DwrfBatchPageSourceFactory
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone,
             HiveFileContext hiveFileContext,
-            Optional<EncryptionInformation> encryptionInformation)
+            Optional<EncryptionInformation> encryptionInformation,
+            Optional<byte[]> rowIDPartitionComponent)
     {
         if (!OrcSerde.class.getName().equals(storage.getStorageFormat().getSerDe())) {
             return Optional.empty();
@@ -114,7 +112,6 @@ public class DwrfBatchPageSourceFactory
         return Optional.of(createOrcPageSource(
                 DWRF,
                 hdfsEnvironment,
-                session.getUser(),
                 configuration,
                 fileSplit,
                 columns,
@@ -122,10 +119,6 @@ public class DwrfBatchPageSourceFactory
                 effectivePredicate,
                 hiveStorageTimeZone,
                 typeManager,
-                functionResolution,
-                getOrcMaxBufferSize(session),
-                getOrcStreamBufferSize(session),
-                getOrcLazyReadSmallRanges(session),
                 false,
                 stats,
                 domainCompactionThreshold,
@@ -139,6 +132,8 @@ public class DwrfBatchPageSourceFactory
                         .withZstdJniDecompressionEnabled(isOrcZstdJniDecompressionEnabled(session))
                         .build(),
                 encryptionInformation,
-                dwrfEncryptionProvider));
+                dwrfEncryptionProvider,
+                session,
+                rowIDPartitionComponent));
     }
 }

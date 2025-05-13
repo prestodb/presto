@@ -28,8 +28,30 @@ import static com.facebook.presto.common.block.Int128ArrayBlock.INT128_BYTES;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.Slices.wrappedLongArray;
+import static java.lang.Long.reverseBytes;
 import static java.lang.String.format;
 
+/**
+ * The value of a UUID is stored as two longs in little-endian
+ * format in the order of [MSB, LSB] when executing within Presto:
+ * <br>
+ *
+ *  0 1 2 3 4 5 6 7 8 0 1 2 3 4 5 6 7 8
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |     MSB (LE)    |     LSB (LE)    |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ * <br>
+ * The MSB and LSB are stored in little-endian format because the {@code slice}
+ * library assumes that longs used in byte-wise comparisons are stored in
+ * little-endian format. This requires us to store the bytes in little-endian
+ * too.
+ * <br>
+ * On-disk storage specifications such as Parquet or ORC may require different
+ * endianness or ordering of the MSB and LSB. Such conversions should be done in
+ * the code responsible for reading and writing the UUID.
+ *
+ */
 public class UuidType
         extends AbstractPrimitiveType
         implements FixedWidthType
@@ -117,7 +139,9 @@ public class UuidType
         if (block.isNull(position)) {
             return null;
         }
-        return new UUID(block.getLong(position, 0), block.getLong(position, SIZE_OF_LONG)).toString();
+        return new UUID(
+                reverseBytes(block.getLong(position, 0)),
+                reverseBytes(block.getLong(position, SIZE_OF_LONG))).toString();
     }
 
     @Override
@@ -161,8 +185,8 @@ public class UuidType
     public static Slice javaUuidToPrestoUuid(UUID uuid)
     {
         return wrappedLongArray(
-                uuid.getMostSignificantBits(),
-                uuid.getLeastSignificantBits());
+                reverseBytes(uuid.getMostSignificantBits()),
+                reverseBytes(uuid.getLeastSignificantBits()));
     }
 
     public static UUID prestoUuidToJavaUuid(Slice uuid)
@@ -171,7 +195,7 @@ public class UuidType
             throw new IllegalStateException(format("Expected value to be exactly %d bytes but was %d", INT128_BYTES, uuid.length()));
         }
         return new UUID(
-                uuid.getLong(0),
-                uuid.getLong(SIZE_OF_LONG));
+                reverseBytes(uuid.getLong(0)),
+                reverseBytes(uuid.getLong(SIZE_OF_LONG)));
     }
 }

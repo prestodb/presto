@@ -278,7 +278,7 @@ public class TestDataWritableWriter
 
         recordConsumer.startGroup();
         Map<?, ?> mapValues = inspector.getMap(value);
-        if (mapValues != null && mapValues.size() > 0) {
+        if (mapValues != null && !mapValues.isEmpty()) {
             recordConsumer.startField(repeatedType.getName(), 0);
 
             Type keyType = repeatedType.getType(0);

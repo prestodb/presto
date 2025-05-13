@@ -82,18 +82,16 @@ public class SimpleHttpResponseHandler<T>
     private String createErrorMessage(BaseResponse<T> response)
     {
         if (response instanceof JsonResponseWrapper) {
-            return format("Expected response code from %s to be %s, but was %s: %s%n%s",
+            return format("Expected response code from %s to be %s, but was %s: %n%s",
                     uri,
                     OK.code(),
                     response.getStatusCode(),
-                    response.getStatusMessage(),
                     unwrapJsonResponse(response).getResponseBody());
         }
-        return format("Expected response code from %s to be %s, but was %s: %s",
+        return format("Expected response code from %s to be %s, but was %s: %n%s",
                 uri,
                 OK.code(),
                 response.getStatusCode(),
-                response.getStatusMessage(),
                 new String(response.getResponseBytes()));
     }
 

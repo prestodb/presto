@@ -101,7 +101,7 @@ public class TestMarker
         // of their indexes.
         for (int i = 0; i < markers.size(); i++) {
             for (int j = 0; j < markers.size(); j++) {
-                assertTrue(markers.get(i).compareTo(markers.get(j)) == Integer.compare(i, j));
+                assertEquals(markers.get(i).compareTo(markers.get(j)), Integer.compare(i, j));
             }
         }
     }
@@ -189,6 +189,16 @@ public class TestMarker
         assertDifferentMarker(Marker.above(BIGINT, 0L), Marker.below(BIGINT, 0L), true);
         assertDifferentMarker(Marker.below(BIGINT, 0L), Marker.exactly(BIGINT, 0L), true);
         assertDifferentMarker(Marker.upperUnbounded(BIGINT), Marker.lowerUnbounded(BIGINT), true);
+    }
+
+    @Test
+    public void testGetValue()
+    {
+        assertTrue(Marker.exactly(BIGINT, 1L).getObjectValue().isPresent());
+        assertTrue(Marker.above(BIGINT, 1L).getObjectValue().isPresent());
+        assertTrue(Marker.below(BIGINT, 1L).getObjectValue().isPresent());
+        assertFalse(Marker.upperUnbounded(BIGINT).getObjectValue().isPresent());
+        assertFalse(Marker.lowerUnbounded(BIGINT).getObjectValue().isPresent());
     }
 
     private void assertSameMarker(Marker marker1, Marker marker2, boolean removeConstants)

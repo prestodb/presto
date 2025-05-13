@@ -935,7 +935,7 @@ public class BytecodeBlock
 
     public BytecodeBlock visitLineNumber(int currentLineNumber)
     {
-        checkArgument(currentLineNumber >= 0, "currentLineNumber must be positive");
+        checkArgument(currentLineNumber >= 0, "currentLineNumber must be non-negative");
         if (this.currentLineNumber != currentLineNumber) {
             nodes.add(new LineNumberNode(currentLineNumber));
             this.currentLineNumber = currentLineNumber;

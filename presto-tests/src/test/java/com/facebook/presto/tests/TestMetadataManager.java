@@ -31,6 +31,7 @@ import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
 import com.facebook.presto.transaction.TransactionBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -82,6 +83,7 @@ public class TestMetadataManager
                         .withGetTableStatistics(() -> {
                             throw new UnsupportedOperationException();
                         })
+                        .withConnectorCapabilities(ImmutableSet.of())
                         .build();
                 return ImmutableList.of(connectorFactory);
             }
@@ -115,7 +117,7 @@ public class TestMetadataManager
             queryRunner.execute(sql);
             fail("expected exception");
         }
-        catch (Throwable t) {
+        catch (RuntimeException t) {
             // query should fail
         }
 

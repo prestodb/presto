@@ -52,7 +52,6 @@ public class TestCreateTableVerification
 
         event = runVerification(query, query);
         assertTrue(event.isPresent());
-        System.out.println(event.get().getErrorMessage());
         assertEvent(event.get(), SUCCEEDED, Optional.of(MATCH), false);
 
         getQueryRunner().execute("DROP TABLE like_table");
@@ -79,7 +78,6 @@ public class TestCreateTableVerification
 
         Optional<VerifierQueryEvent> event = verify(getSourceQuery(query, query), false, prestoAction);
         assertTrue(event.isPresent());
-        System.out.println(event.get().getErrorMessage());
         assertEvent(event.get(), FAILED, Optional.of(CONTROL_NOT_PARSABLE), false);
     }
 

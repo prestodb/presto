@@ -6,7 +6,7 @@ General Changes
 ---------------
 
 * Add :doc:`/connector/redis`.
-* Add :func:`geometric_mean` function.
+* Add :func:`!geometric_mean` function.
 * Fix restoring interrupt status in ``StatementClient``.
 * Support getting server version in JDBC driver.
 * Improve correctness and compliance of JDBC ``DatabaseMetaData``.
@@ -19,7 +19,7 @@ General Changes
 * Replaced the ``task.http-notification-threads`` config option with two
   independent options: ``task.http-response-threads`` and ``task.http-timeout-threads``.
 * Improve handling of negated expressions in join criteria.
-* Fix :func:`arbitrary`, :func:`max_by` and :func:`min_by` functions when used
+* Fix :func:`!arbitrary`, :func:`!max_by` and :func:`!min_by` functions when used
   with an array, map or row type.
 * Fix union coercion when the same constant or column appears more than once on
   the same side.

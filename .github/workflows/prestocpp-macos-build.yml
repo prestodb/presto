@@ -1,0 +1,74 @@
+name: prestocpp-macos-build
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'presto-native-execution/**'
+      - '.github/workflows/prestocpp-macos-build.yml'
+
+jobs:
+  prestocpp-macos-build-engine:
+    runs-on: macos-13
+    env:
+      CCACHE_DIR: "${{ github.workspace }}/ccache"
+      CMAKE_POLICY_VERSION_MINIMUM: "3.5"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fix git permissions
+        # Usually actions/checkout does this but as we run in a container
+        # it doesn't work
+        run: git config --global --add safe.directory ${GITHUB_WORKSPACE}
+
+      - name: Update submodules
+        run: |
+          cd presto-native-execution
+          make submodules
+
+      # The current Github runners for newer versions of macOS (14, 15) only provide 7GB memory while macOS 13 runners provide 14GB.
+      # Thus, we are installing XCode 15 on macOS 13 to build with Clang 15.
+      # https://docs.github.com/en/actions/using-github-hosted-runners/using-github-hosted-runners/about-github-hosted-runners#standard-github-hosted-runners-for-public-repositories
+      - uses: maxim-lobanov/setup-xcode@v1.6.0
+        with:
+          xcode-version: 15
+
+      - name: "Setup MacOS"
+        run: |
+          set -xu
+          mkdir ~/deps ~/deps-src
+          git clone --depth 1 https://github.com/Homebrew/brew ~/deps
+          PATH=~/deps/bin:${PATH} DEPENDENCY_DIR=~/deps-src INSTALL_PREFIX=~/deps PROMPT_ALWAYS_RESPOND=n ./presto-native-execution/scripts/setup-macos.sh
+          # Calculate the prefix path before we delete brew's repos and taps.
+          rm -rf ~/deps/.git ~/deps/Library/Taps/  # Reduce cache size by 70%.
+          rm -rf ~/deps-src
+
+      - name: Install Github CLI for using apache/infrastructure-actions/stash
+        run: |
+          PATH=~/deps/bin:${PATH}
+          brew install gh
+
+      - uses: apache/infrastructure-actions/stash/restore@4ab8682fbd4623d2b4fc1c98db38aba5091924c3
+        with:
+          path: '${{ env.CCACHE_DIR }}'
+          key: ccache-prestocpp-macos-build-engine
+
+      - name: Zero ccache statistics
+        run: ccache -sz
+
+      - name: "Build presto_cpp on MacOS"
+        run: |
+          clang --version
+          export INSTALL_PREFIX=~/deps
+          export PATH=~/deps/bin:$(brew --prefix m4)/bin:$(brew --prefix bison)/bin:${PATH}
+          cd presto-native-execution
+          cmake -B _build/debug -GNinja -DTREAT_WARNINGS_AS_ERRORS=1 -DENABLE_ALL_WARNINGS=1 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          ninja -C _build/debug
+
+      - name: Ccache after
+        run: ccache -s
+
+      - uses: apache/infrastructure-actions/stash/save@4ab8682fbd4623d2b4fc1c98db38aba5091924c3
+        with:
+          path: '${{ env.CCACHE_DIR }}'
+          key: ccache-macos-prestocpp

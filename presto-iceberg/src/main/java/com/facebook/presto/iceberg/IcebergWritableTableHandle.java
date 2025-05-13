@@ -13,12 +13,9 @@
  */
 package com.facebook.presto.iceberg;
 
-import com.facebook.presto.spi.ConnectorInsertTableHandle;
-import com.facebook.presto.spi.ConnectorOutputTableHandle;
-import com.fasterxml.jackson.annotation.JsonCreator;
+import com.facebook.presto.hive.HiveCompressionCodec;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import org.apache.iceberg.FileFormat;
 
 import java.util.List;
 import java.util.Map;
@@ -26,36 +23,40 @@ import java.util.Map;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergWritableTableHandle
-        implements ConnectorInsertTableHandle, ConnectorOutputTableHandle
 {
     private final String schemaName;
     private final IcebergTableName tableName;
-    private final String schemaAsJson;
-    private final String partitionSpecAsJson;
+    private final PrestoIcebergSchema schema;
+    private final PrestoIcebergPartitionSpec partitionSpec;
     private final List<IcebergColumnHandle> inputColumns;
     private final String outputPath;
     private final FileFormat fileFormat;
+    private final HiveCompressionCodec compressionCodec;
     private final Map<String, String> storageProperties;
+    private final List<SortField> sortOrder;
 
-    @JsonCreator
     public IcebergWritableTableHandle(
-            @JsonProperty("schemaName") String schemaName,
-            @JsonProperty("tableName") IcebergTableName tableName,
-            @JsonProperty("schemaAsJson") String schemaAsJson,
-            @JsonProperty("partitionSpecAsJson") String partitionSpecAsJson,
-            @JsonProperty("inputColumns") List<IcebergColumnHandle> inputColumns,
-            @JsonProperty("outputPath") String outputPath,
-            @JsonProperty("fileFormat") FileFormat fileFormat,
-            @JsonProperty("storageProperties") Map<String, String> storageProperties)
+            String schemaName,
+            IcebergTableName tableName,
+            PrestoIcebergSchema schema,
+            PrestoIcebergPartitionSpec partitionSpec,
+            List<IcebergColumnHandle> inputColumns,
+            String outputPath,
+            FileFormat fileFormat,
+            HiveCompressionCodec compressionCodec,
+            Map<String, String> storageProperties,
+            List<SortField> sortOrder)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
-        this.schemaAsJson = requireNonNull(schemaAsJson, "schemaAsJson is null");
-        this.partitionSpecAsJson = requireNonNull(partitionSpecAsJson, "partitionSpecAsJson is null");
+        this.schema = requireNonNull(schema, "schema is null");
+        this.partitionSpec = requireNonNull(partitionSpec, "partitionSpec is null");
         this.inputColumns = ImmutableList.copyOf(requireNonNull(inputColumns, "inputColumns is null"));
         this.outputPath = requireNonNull(outputPath, "filePrefix is null");
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
+        this.compressionCodec = requireNonNull(compressionCodec, "compressionCodec is null");
         this.storageProperties = requireNonNull(storageProperties, "storageProperties is null");
+        this.sortOrder = ImmutableList.copyOf(requireNonNull(sortOrder, "sortOrder is null"));
     }
 
     @JsonProperty
@@ -71,15 +72,15 @@ public class IcebergWritableTableHandle
     }
 
     @JsonProperty
-    public String getSchemaAsJson()
+    public PrestoIcebergSchema getSchema()
     {
-        return schemaAsJson;
+        return schema;
     }
 
     @JsonProperty
-    public String getPartitionSpecAsJson()
+    public PrestoIcebergPartitionSpec getPartitionSpec()
     {
-        return partitionSpecAsJson;
+        return partitionSpec;
     }
 
     @JsonProperty
@@ -101,6 +102,12 @@ public class IcebergWritableTableHandle
     }
 
     @JsonProperty
+    public HiveCompressionCodec getCompressionCodec()
+    {
+        return compressionCodec;
+    }
+
+    @JsonProperty
     public Map<String, String> getStorageProperties()
     {
         return storageProperties;
@@ -110,5 +117,11 @@ public class IcebergWritableTableHandle
     public String toString()
     {
         return schemaName + "." + tableName;
+    }
+
+    @JsonProperty
+    public List<SortField> getSortOrder()
+    {
+        return sortOrder;
     }
 }

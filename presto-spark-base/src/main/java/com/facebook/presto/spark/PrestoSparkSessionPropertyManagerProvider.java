@@ -15,11 +15,14 @@ package com.facebook.presto.spark;
 
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.spiller.NodeSpillConfig;
+import com.facebook.presto.sql.analyzer.JavaFeaturesConfig;
 import com.google.common.collect.Streams;
 
 import javax.inject.Inject;
 import javax.inject.Provider;
 
+import static com.facebook.presto.metadata.SessionPropertyManager.createTestingSessionPropertyManager;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -28,20 +31,27 @@ public class PrestoSparkSessionPropertyManagerProvider
 {
     private final SystemSessionProperties systemSessionProperties;
     private final PrestoSparkSessionProperties prestoSparkSessionProperties;
+    private final JavaFeaturesConfig javaFeaturesConfig;
+    private final NodeSpillConfig nodeSpillConfig;
 
     @Inject
-    public PrestoSparkSessionPropertyManagerProvider(SystemSessionProperties systemSessionProperties, PrestoSparkSessionProperties prestoSparkSessionProperties)
+    public PrestoSparkSessionPropertyManagerProvider(SystemSessionProperties systemSessionProperties, PrestoSparkSessionProperties prestoSparkSessionProperties, JavaFeaturesConfig javaFeaturesConfig, NodeSpillConfig nodeSpillConfig)
     {
         this.systemSessionProperties = requireNonNull(systemSessionProperties, "systemSessionProperties is null");
         this.prestoSparkSessionProperties = requireNonNull(prestoSparkSessionProperties, "prestoSparkSessionProperties is null");
+        this.javaFeaturesConfig = requireNonNull(javaFeaturesConfig, "javaFeaturesConfig is null");
+        this.nodeSpillConfig = requireNonNull(nodeSpillConfig, "nodeSpillConfig is null");
     }
 
     @Override
     public SessionPropertyManager get()
     {
-        return new SessionPropertyManager(Streams.concat(
-                systemSessionProperties.getSessionProperties().stream(),
-                prestoSparkSessionProperties.getSessionProperties().stream())
-                .collect(toImmutableList()));
+        return createTestingSessionPropertyManager(
+                Streams.concat(
+                        systemSessionProperties.getSessionProperties().stream(),
+                        prestoSparkSessionProperties.getSessionProperties().stream()
+                ).collect(toImmutableList()),
+                javaFeaturesConfig,
+                nodeSpillConfig);
     }
 }

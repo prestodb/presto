@@ -49,6 +49,7 @@ import static com.facebook.presto.common.type.StandardTypes.MAP;
 import static com.facebook.presto.common.type.StandardTypes.REAL;
 import static com.facebook.presto.common.type.StandardTypes.ROW;
 import static com.facebook.presto.common.type.StandardTypes.SMALLINT;
+import static com.facebook.presto.common.type.StandardTypes.SPHERICAL_GEOGRAPHY;
 import static com.facebook.presto.common.type.StandardTypes.TIME;
 import static com.facebook.presto.common.type.StandardTypes.TIMESTAMP;
 import static com.facebook.presto.common.type.StandardTypes.TIMESTAMP_WITH_TIME_ZONE;
@@ -108,7 +109,7 @@ final class FixJsonDataUtils
             if (List.class.isAssignableFrom(value.getClass())) {
                 List<Object> fixedValue = new ArrayList<>();
                 for (Object object : List.class.cast(value)) {
-                    fixedValue.add(fixValue(signature.getTypeParametersAsTypeSignatures().get(0), object));
+                    fixedValue.add(fixValue(signature.getTypeOrNamedTypeParametersAsTypeSignatures().get(0), object));
                 }
                 return fixedValue;
             }
@@ -121,8 +122,8 @@ final class FixJsonDataUtils
         }
         if (signature.getBase().equals(MAP)) {
             if (Map.class.isAssignableFrom(value.getClass())) {
-                TypeSignature keySignature = signature.getTypeParametersAsTypeSignatures().get(0);
-                TypeSignature valueSignature = signature.getTypeParametersAsTypeSignatures().get(1);
+                TypeSignature keySignature = signature.getTypeOrNamedTypeParametersAsTypeSignatures().get(0);
+                TypeSignature valueSignature = signature.getTypeOrNamedTypeParametersAsTypeSignatures().get(1);
                 Map<Object, Object> fixedValue = new HashMap<>();
                 for (Map.Entry<?, ?> entry : (Set<Map.Entry<?, ?>>) Map.class.cast(value).entrySet()) {
                     fixedValue.put(fixValue(keySignature, entry.getKey()), fixValue(valueSignature, entry.getValue()));
@@ -218,6 +219,7 @@ final class FixJsonDataUtils
             case DECIMAL:
             case CHAR:
             case GEOMETRY:
+            case SPHERICAL_GEOGRAPHY:
             case UUID:
                 return String.class.cast(value);
             case BING_TILE:

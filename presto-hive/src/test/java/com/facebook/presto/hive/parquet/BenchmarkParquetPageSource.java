@@ -261,7 +261,7 @@ public class BenchmarkParquetPageSource
                     values,
                     ROWS,
                     compressionCodecName,
-                    ParquetProperties.WriterVersion.PARQUET_2_0);
+                    ParquetProperties.WriterVersion.PARQUET_1_0);
 
             //Set up PageProcessor
             List<RowExpression> projections = getProjections(type);
@@ -448,7 +448,7 @@ public class BenchmarkParquetPageSource
             }
         }
 
-        private final Object createValue(Type type, float filterRate)
+        private Object createValue(Type type, float filterRate)
         {
             if (BOOLEAN.equals(type)) {
                 switch (withNulls) {

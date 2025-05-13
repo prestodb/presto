@@ -21,10 +21,6 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncoding;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
-import com.facebook.presto.common.predicate.Domain;
-import com.facebook.presto.common.predicate.Range;
-import com.facebook.presto.common.predicate.SortedRangeSet;
-import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
@@ -34,7 +30,6 @@ import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeDeserializer;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
@@ -47,7 +42,6 @@ import java.util.Optional;
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
-import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.StandardTypes.DATE;
 import static com.facebook.presto.common.type.StandardTypes.DOUBLE;
 import static com.facebook.presto.common.type.StandardTypes.INTEGER;
@@ -56,7 +50,6 @@ import static com.facebook.presto.delta.DeltaColumnHandle.ColumnType.PARTITION;
 import static com.facebook.presto.delta.DeltaColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
-import static java.lang.Float.floatToRawIntBits;
 import static org.testng.Assert.assertEquals;
 
 /**
@@ -85,14 +78,6 @@ public class TestDeltaTableHandle
                 columns.get(0).getType(),
                 columns.get(0).isPartition() ? PARTITION : REGULAR,
                 Optional.empty());
-
-        TupleDomain<DeltaColumnHandle> predicate = TupleDomain.withColumnDomains(ImmutableMap.of(
-                c1ColumnHandle, Domain.create(SortedRangeSet.copyOf(REAL,
-                                ImmutableList.of(
-                                        Range.equal(REAL, (long) floatToRawIntBits(100.0f + 0)),
-                                        Range.equal(REAL, (long) floatToRawIntBits(100.008f + 0)),
-                                        Range.equal(REAL, (long) floatToRawIntBits(100.0f + 14)))),
-                        false)));
 
         DeltaTableHandle expected = new DeltaTableHandle("delta", deltaTable);
 

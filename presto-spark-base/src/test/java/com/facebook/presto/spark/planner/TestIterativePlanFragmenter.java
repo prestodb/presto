@@ -42,36 +42,42 @@ import com.facebook.presto.execution.scheduler.nodeSelection.SimpleTtlNodeSelect
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.operator.StageExecutionDescriptor;
 import com.facebook.presto.spark.planner.IterativePlanFragmenter.PlanAndFragments;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.EquiJoinClause;
+import com.facebook.presto.spi.plan.JoinDistributionType;
+import com.facebook.presto.spi.plan.JoinNode;
+import com.facebook.presto.spi.plan.JoinType;
+import com.facebook.presto.spi.plan.PartitioningHandle;
+import com.facebook.presto.spi.plan.PartitioningScheme;
+import com.facebook.presto.spi.plan.PlanFragmentId;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.SimplePlanFragment;
+import com.facebook.presto.spi.plan.StageExecutionDescriptor;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
-import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
-import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
-import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.PlanFragmentId;
+import com.facebook.presto.sql.planner.plan.JsonCodecSimplePlanFragmentSerde;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
+import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManager;
+import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManagerConfig;
 import com.facebook.presto.tpch.TpchColumnHandle;
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.facebook.presto.tpch.TpchTableLayoutHandle;
@@ -95,6 +101,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.SystemSessionProperties.FORCE_SINGLE_NODE_OUTPUT;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
@@ -128,6 +135,7 @@ public class TestIterativePlanFragmenter
     private FinalizerService finalizerService;
     private NodeScheduler nodeScheduler;
     private NodePartitioningManager nodePartitioningManager;
+    private PlanCheckerProviderManager planCheckerProviderManager;
 
     @BeforeClass
     public void setUp()
@@ -140,7 +148,7 @@ public class TestIterativePlanFragmenter
         CatalogManager catalogManager = new CatalogManager();
         catalogManager.registerCatalog(createBogusTestingCatalog("tpch"));
         transactionManager = createTestTransactionManager(catalogManager);
-        metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
+        metadata = createTestMetadataManager(transactionManager);
 
         finalizerService = new FinalizerService();
         finalizerService.start();
@@ -155,7 +163,8 @@ public class TestIterativePlanFragmenter
                 new SimpleTtlNodeSelectorConfig());
         PartitioningProviderManager partitioningProviderManager = new PartitioningProviderManager();
         nodePartitioningManager = new NodePartitioningManager(nodeScheduler, partitioningProviderManager, new NodeSelectionStats());
-        planFragmenter = new PlanFragmenter(metadata, nodePartitioningManager, new QueryManagerConfig(), new SqlParser(), new FeaturesConfig());
+        planCheckerProviderManager = new PlanCheckerProviderManager(new JsonCodecSimplePlanFragmentSerde(jsonCodec(SimplePlanFragment.class)), new PlanCheckerProviderManagerConfig());
+        planFragmenter = new PlanFragmenter(metadata, nodePartitioningManager, new QueryManagerConfig(), new FeaturesConfig(), planCheckerProviderManager);
     }
 
     @AfterClass(alwaysRun = true)
@@ -200,7 +209,7 @@ public class TestIterativePlanFragmenter
         JoinNode join = join("join",
                 remoteExchange1,
                 localExchange,
-                JoinNode.DistributionType.PARTITIONED,
+                JoinDistributionType.PARTITIONED,
                 "orderkey_1",
                 "orderkey_0");
         Map<String, Type> types = ImmutableMap.of(
@@ -222,8 +231,7 @@ public class TestIterativePlanFragmenter
                 plan,
                 testingFragmentTracker::isFragmentFinished,
                 metadata,
-                new PlanChecker(new FeaturesConfig()),
-                new SqlParser(),
+                new PlanChecker(new FeaturesConfig(), planCheckerProviderManager),
                 new PlanNodeIdAllocator(),
                 nodePartitioningManager,
                 new QueryManagerConfig(),
@@ -304,7 +312,7 @@ public class TestIterativePlanFragmenter
                 variables,
                 assignments.build(),
                 TupleDomain.all(),
-                TupleDomain.all());
+                TupleDomain.all(), Optional.empty());
     }
 
     private PlanNode project(String id, PlanNode source, VariableReferenceExpression variable, RowExpression expression)
@@ -336,19 +344,19 @@ public class TestIterativePlanFragmenter
      * EquiJoinClause is created from symbols in form of:
      * symbol[0] = symbol[1] AND symbol[2] = symbol[3] AND ...
      */
-    private JoinNode join(String planNodeId, PlanNode left, PlanNode right, JoinNode.DistributionType distributionType, String... symbols)
+    private JoinNode join(String planNodeId, PlanNode left, PlanNode right, JoinDistributionType distributionType, String... symbols)
     {
         checkArgument(symbols.length % 2 == 0);
-        ImmutableList.Builder<JoinNode.EquiJoinClause> criteria = ImmutableList.builder();
+        ImmutableList.Builder<EquiJoinClause> criteria = ImmutableList.builder();
 
         for (int i = 0; i < symbols.length; i += 2) {
-            criteria.add(new JoinNode.EquiJoinClause(new VariableReferenceExpression(Optional.empty(), symbols[i], BIGINT), new VariableReferenceExpression(Optional.empty(), symbols[i + 1], BIGINT)));
+            criteria.add(new EquiJoinClause(new VariableReferenceExpression(Optional.empty(), symbols[i], BIGINT), new VariableReferenceExpression(Optional.empty(), symbols[i + 1], BIGINT)));
         }
 
         return new JoinNode(
                 Optional.empty(),
                 new PlanNodeId(planNodeId),
-                JoinNode.Type.INNER,
+                JoinType.INNER,
                 left,
                 right,
                 criteria.build(),
@@ -418,7 +426,7 @@ public class TestIterativePlanFragmenter
         private final PartitioningScheme partitioningScheme;
         private final StageExecutionDescriptor stageExecutionDescriptor;
         private final boolean outputTableWriterFragment;
-        private final StatsAndCosts statsAndCosts;
+        private final Optional<StatsAndCosts> statsAndCosts;
 
         public CanonicalTestFragment(
                 Class<PlanNode> clazz,
@@ -430,7 +438,7 @@ public class TestIterativePlanFragmenter
                 PartitioningScheme partitioningScheme,
                 StageExecutionDescriptor stageExecutionDescriptor,
                 boolean outputTableWriterFragment,
-                StatsAndCosts statsAndCosts)
+                Optional<StatsAndCosts> statsAndCosts)
         {
             this.clazz = requireNonNull(clazz, "clazz is null");
             this.variables = ImmutableSet.copyOf(requireNonNull(variables, "variables is null"));

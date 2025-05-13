@@ -29,6 +29,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
@@ -119,7 +120,7 @@ public class InMemoryHiveMetastore
         }
 
         checkArgument(!directory.exists(), "Database directory already exists");
-        checkArgument(isParentDir(directory, baseDirectory), "Database directory must be inside of the metastore base directory");
+        checkArgument(isAncestor(directory, baseDirectory), "Database directory %s must be inside of the metastore base directory %s", directory, baseDirectory);
         checkArgument(directory.mkdirs(), "Could not create database directory");
 
         if (databases.putIfAbsent(database.getName(), database) != null) {
@@ -173,7 +174,7 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public synchronized MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table)
+    public synchronized MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table, List<TableConstraint<String>> constraints)
     {
         TableType tableType = TableType.valueOf(table.getTableType());
         checkArgument(EnumSet.of(MANAGED_TABLE, EXTERNAL_TABLE, VIRTUAL_VIEW).contains(tableType), "Invalid table type: %s", tableType);
@@ -185,7 +186,7 @@ public class InMemoryHiveMetastore
             File directory = new File(new Path(table.getSd().getLocation()).toUri());
             checkArgument(directory.exists(), "Table directory does not exist: %s", directory);
             if (tableType == MANAGED_TABLE) {
-                checkArgument(isParentDir(directory, baseDirectory), "Table directory must be inside of the metastore base directory");
+                checkArgument(isAncestor(directory, baseDirectory), "Table directory %s must be inside of the metastore base directory %s", directory, baseDirectory);
             }
         }
 
@@ -226,7 +227,7 @@ public class InMemoryHiveMetastore
             for (String location : locations) {
                 if (location != null) {
                     File directory = new File(new Path(location).toUri());
-                    checkArgument(isParentDir(directory, baseDirectory), "Table directory must be inside of the metastore base directory");
+                    checkArgument(isAncestor(directory, baseDirectory), "Table directory %s must be inside of the metastore base directory %s", directory, baseDirectory);
                     deleteDirectory(directory);
                 }
             }
@@ -524,6 +525,18 @@ public class InMemoryHiveMetastore
         throw new UnsupportedOperationException();
     }
 
+    @Override
+    public MetastoreOperationResult dropConstraint(MetastoreContext metastoreContext, String databaseName, String tableName, String constraintName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public MetastoreOperationResult addConstraint(MetastoreContext metastoreContext, String databaseName, String tableName, TableConstraint<String> tableConstraint)
+    {
+        throw new UnsupportedOperationException();
+    }
+
     private Partition getPartitionFromInMemoryMap(MetastoreContext metastoreContext, PartitionName name)
     {
         com.facebook.presto.hive.metastore.Partition partition = partitions.get(name);
@@ -537,7 +550,10 @@ public class InMemoryHiveMetastore
         return convertedPartition;
     }
 
-    private static boolean isParentDir(File directory, File baseDirectory)
+    /**
+     * Returns true if the first directory is contained in the baseDirectory, false otherwise.
+     */
+    private static boolean isAncestor(File directory, File baseDirectory)
     {
         for (File parent = directory.getParentFile(); parent != null; parent = parent.getParentFile()) {
             if (parent.equals(baseDirectory)) {

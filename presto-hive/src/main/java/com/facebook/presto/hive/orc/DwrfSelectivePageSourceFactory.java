@@ -48,6 +48,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
+import static com.facebook.presto.hive.HiveUtil.checkRowIDPartitionComponent;
 import static com.facebook.presto.hive.orc.OrcSelectivePageSourceFactory.createOrcPageSource;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static java.util.Objects.requireNonNull;
@@ -108,7 +109,7 @@ public class DwrfSelectivePageSourceFactory
             HiveFileContext hiveFileContext,
             Optional<EncryptionInformation> encryptionInformation,
             boolean appendRowNumberEnabled,
-            boolean footerStatsUnreliable)
+            Optional<byte[]> rowIDPartitionComponent)
     {
         if (!OrcSerde.class.getName().equals(storage.getStorageFormat().getSerDe())) {
             return Optional.empty();
@@ -117,6 +118,8 @@ public class DwrfSelectivePageSourceFactory
         if (fileSplit.getFileSize() == 0) {
             throw new PrestoException(HIVE_BAD_DATA, "ORC file is empty: " + fileSplit.getPath());
         }
+
+        checkRowIDPartitionComponent(columns, rowIDPartitionComponent);
 
         return Optional.of(createOrcPageSource(
                 session,
@@ -146,6 +149,6 @@ public class DwrfSelectivePageSourceFactory
                 encryptionInformation,
                 dwrfEncryptionProvider,
                 appendRowNumberEnabled,
-                footerStatsUnreliable));
+                rowIDPartitionComponent));
     }
 }

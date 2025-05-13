@@ -45,6 +45,11 @@ public abstract class PlanVisitor<R, C>
         return visitPlan(node, context);
     }
 
+    public R visitSort(SortNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
     public R visitUnion(UnionNode node, C context)
     {
         return visitPlan(node, context);
@@ -100,7 +105,47 @@ public abstract class PlanVisitor<R, C>
         return visitPlan(node, context);
     }
 
-    public R visitSequence(SequenceNode node, C context)
+    public R visitWindow(WindowNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitJoin(JoinNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitSemiJoin(SemiJoinNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitSpatialJoin(SpatialJoinNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitMergeJoin(MergeJoinNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitDelete(DeleteNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitTableWriter(TableWriterNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitTableFinish(TableFinishNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitIndexSource(IndexSourceNode node, C context)
     {
         return visitPlan(node, context);
     }

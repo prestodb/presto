@@ -28,9 +28,9 @@ import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
-import com.facebook.presto.spi.analyzer.AnalyzerProvider;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.security.AccessControl;
+import com.facebook.presto.sql.analyzer.AnalyzerProviderManager;
 import com.facebook.presto.tracing.NoopTracerProvider;
 import com.facebook.presto.tracing.QueryStateTracingListener;
 import com.facebook.presto.transaction.TransactionManager;
@@ -42,6 +42,7 @@ import javax.inject.Inject;
 import java.util.Optional;
 import java.util.function.Consumer;
 
+import static com.facebook.presto.SystemSessionProperties.getAnalyzerType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
 
@@ -64,6 +65,7 @@ public class LocalDispatchQueryFactory
     private final ListeningExecutorService executor;
 
     private final QueryPrerequisitesManager queryPrerequisitesManager;
+    private final AnalyzerProviderManager analyzerProviderManager;
 
     /**
      * Instantiates a new Local dispatch query factory.
@@ -90,7 +92,8 @@ public class LocalDispatchQueryFactory
             ExecutionFactoriesManager executionFactoriesManager,
             ClusterSizeMonitor clusterSizeMonitor,
             DispatchExecutor dispatchExecutor,
-            QueryPrerequisitesManager queryPrerequisitesManager)
+            QueryPrerequisitesManager queryPrerequisitesManager,
+            AnalyzerProviderManager analyzerProviderManager)
     {
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
@@ -104,6 +107,7 @@ public class LocalDispatchQueryFactory
 
         this.executor = requireNonNull(dispatchExecutor, "executorService is null").getExecutor();
         this.queryPrerequisitesManager = requireNonNull(queryPrerequisitesManager, "queryPrerequisitesManager is null");
+        this.analyzerProviderManager = requireNonNull(analyzerProviderManager, "analyzerProviderManager is null");
     }
 
     /**
@@ -131,7 +135,6 @@ public class LocalDispatchQueryFactory
     @Override
     public DispatchQuery createDispatchQuery(
             Session session,
-            AnalyzerProvider analyzerProvider,
             String query,
             PreparedQuery preparedQuery,
             String slug,
@@ -164,7 +167,7 @@ public class LocalDispatchQueryFactory
                 throw new PrestoException(NOT_SUPPORTED, "Unsupported statement type: " + preparedQuery.getStatementClass().getSimpleName());
             }
 
-            return queryExecutionFactory.createQueryExecution(analyzerProvider, preparedQuery, stateMachine, slug, retryCount, warningCollector, queryType);
+            return queryExecutionFactory.createQueryExecution(analyzerProviderManager.getAnalyzerProvider(getAnalyzerType(session)), preparedQuery, stateMachine, slug, retryCount, warningCollector, queryType, accessControl, query);
         });
 
         return new LocalDispatchQuery(

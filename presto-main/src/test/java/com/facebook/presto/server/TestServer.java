@@ -18,14 +18,17 @@ import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.HttpUriBuilder;
 import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.http.client.StatusResponseHandler;
+import com.facebook.airlift.http.client.UnexpectedResponseException;
 import com.facebook.airlift.http.client.jetty.JettyHttpClient;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.testing.Closeables;
+import com.facebook.presto.CompressionCodec;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.type.TimeZoneNotSupportedException;
+import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.QueryId;
@@ -48,9 +51,11 @@ import java.util.List;
 
 import static com.facebook.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static com.facebook.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
+import static com.facebook.airlift.http.client.Request.Builder.fromRequest;
 import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
 import static com.facebook.airlift.http.client.Request.Builder.prepareHead;
 import static com.facebook.airlift.http.client.Request.Builder.preparePost;
+import static com.facebook.airlift.http.client.Request.Builder.preparePut;
 import static com.facebook.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static com.facebook.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
@@ -105,7 +110,6 @@ public class TestServer
         client = new JettyHttpClient();
     }
 
-    @SuppressWarnings("deprecation")
     @AfterMethod
     public void teardown()
     {
@@ -190,7 +194,7 @@ public class TestServer
         byte[] decodedPage = Base64.getDecoder().decode((String) encodedPages.get(0));
 
         BlockEncodingManager blockEncodingSerde = new BlockEncodingManager();
-        PagesSerde pagesSerde = new PagesSerdeFactory(blockEncodingSerde, false, false).createPagesSerde();
+        PagesSerde pagesSerde = new PagesSerdeFactory(blockEncodingSerde, CompressionCodec.NONE, false).createPagesSerde();
         BasicSliceInput pageInput = new BasicSliceInput(Slices.wrappedBuffer(decodedPage, 0, decodedPage.length));
         SerializedPage serializedPage = readSerializedPage(pageInput);
 
@@ -264,6 +268,103 @@ public class TestServer
     }
 
     @Test
+    public void testQueryWithPreMintedQueryIdAndSlug()
+    {
+        QueryId queryId = new QueryIdGenerator().createNextQueryId();
+        String slug = "xxx";
+        Request request = preparePut()
+                .setUri(uriFor("/v1/statement/", queryId, slug))
+                .setBodyGenerator(createStaticBodyGenerator("show catalogs", UTF_8))
+                .setHeader(PRESTO_USER, "user")
+                .setHeader(PRESTO_SOURCE, "source")
+                .setHeader(PRESTO_CATALOG, "catalog")
+                .setHeader(PRESTO_SCHEMA, "schema")
+                .build();
+
+        QueryResults queryResults = client.execute(request, createJsonResponseHandler(QUERY_RESULTS_CODEC));
+
+        // verify slug in nextUri is same as requested
+        assertEquals(queryResults.getNextUri().getQuery(), "slug=xxx");
+
+        // verify nextUri points to requested query id
+        assertEquals(queryResults.getNextUri().getPath(), format("/v1/statement/queued/%s/1", queryId));
+
+        while (queryResults.getNextUri() != null) {
+            queryResults = client.execute(prepareGet().setUri(queryResults.getNextUri()).build(), createJsonResponseHandler(QUERY_RESULTS_CODEC));
+        }
+
+        if (queryResults.getError() != null) {
+            fail(queryResults.getError().toString());
+        }
+
+        // verify query id was passed down properly
+        assertEquals(server.getDispatchManager().getQueryInfo(queryId).getQueryId(), queryId);
+    }
+
+    @Test
+    public void testPutStatementIdempotency()
+    {
+        QueryId queryId = new QueryIdGenerator().createNextQueryId();
+        Request request = preparePut()
+                .setUri(uriFor("/v1/statement/", queryId, "slug"))
+                .setBodyGenerator(createStaticBodyGenerator("show catalogs", UTF_8))
+                .setHeader(PRESTO_USER, "user")
+                .setHeader(PRESTO_SOURCE, "source")
+                .setHeader(PRESTO_CATALOG, "catalog")
+                .setHeader(PRESTO_SCHEMA, "schema")
+                .build();
+
+        client.execute(request, createJsonResponseHandler(QUERY_RESULTS_CODEC));
+        // Execute PUT request again should succeed
+        QueryResults queryResults = client.execute(request, createJsonResponseHandler(QUERY_RESULTS_CODEC));
+
+        while (queryResults.getNextUri() != null) {
+            queryResults = client.execute(prepareGet().setUri(queryResults.getNextUri()).build(), createJsonResponseHandler(QUERY_RESULTS_CODEC));
+        }
+        if (queryResults.getError() != null) {
+            fail(queryResults.getError().toString());
+        }
+    }
+
+    @Test(expectedExceptions = UnexpectedResponseException.class, expectedExceptionsMessageRegExp = "Expected response code to be \\[.*\\], but was 409")
+    public void testPutStatementWithDifferentSlugFails()
+    {
+        QueryId queryId = new QueryIdGenerator().createNextQueryId();
+        Request request = preparePut()
+                .setUri(uriFor("/v1/statement/", queryId, "slug"))
+                .setBodyGenerator(createStaticBodyGenerator("show catalogs", UTF_8))
+                .setHeader(PRESTO_USER, "user")
+                .setHeader(PRESTO_SOURCE, "source")
+                .setHeader(PRESTO_CATALOG, "catalog")
+                .setHeader(PRESTO_SCHEMA, "schema")
+                .build();
+        client.execute(request, createJsonResponseHandler(QUERY_RESULTS_CODEC));
+
+        Request badRequest = fromRequest(request)
+                .setUri(uriFor("/v1/statement/", queryId, "different_slug"))
+                .build();
+        client.execute(badRequest, createJsonResponseHandler(QUERY_RESULTS_CODEC));
+    }
+
+    @Test(expectedExceptions = UnexpectedResponseException.class, expectedExceptionsMessageRegExp = "Expected response code to be \\[.*\\], but was 409")
+    public void testPutStatementAfterGetFails()
+    {
+        QueryId queryId = new QueryIdGenerator().createNextQueryId();
+        Request request = preparePut()
+                .setUri(uriFor("/v1/statement/", queryId, "slug"))
+                .setBodyGenerator(createStaticBodyGenerator("show catalogs", UTF_8))
+                .setHeader(PRESTO_USER, "user")
+                .setHeader(PRESTO_SOURCE, "source")
+                .setHeader(PRESTO_CATALOG, "catalog")
+                .setHeader(PRESTO_SCHEMA, "schema")
+                .build();
+
+        QueryResults queryResults = client.execute(request, createJsonResponseHandler(QUERY_RESULTS_CODEC));
+        client.execute(prepareGet().setUri(queryResults.getNextUri()).build(), createJsonResponseHandler(QUERY_RESULTS_CODEC));
+        client.execute(request, createJsonResponseHandler(QUERY_RESULTS_CODEC));
+    }
+
+    @Test
     public void testTransactionSupport()
     {
         Request request = preparePost()
@@ -327,5 +428,14 @@ public class TestServer
     public URI uriFor(String path)
     {
         return HttpUriBuilder.uriBuilderFrom(server.getBaseUrl()).replacePath(path).build();
+    }
+
+    public URI uriFor(String path, QueryId queryId, String slug)
+    {
+        return HttpUriBuilder.uriBuilderFrom(server.getBaseUrl())
+                .replacePath(path)
+                .appendPath(queryId.getId())
+                .addParameter("slug", slug)
+                .build();
     }
 }

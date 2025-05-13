@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.smile.SmileCodec;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.PagesIndexPageSorter;
 import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.common.block.BlockEncodingManager;
@@ -33,13 +34,16 @@ import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.datasink.OutputStreamDataSinkFactory;
 import com.facebook.presto.hive.gcs.HiveGcsConfig;
 import com.facebook.presto.hive.gcs.HiveGcsConfigurationInitializer;
+import com.facebook.presto.hive.orc.DwrfAggregatedPageSourceFactory;
 import com.facebook.presto.hive.orc.DwrfBatchPageSourceFactory;
 import com.facebook.presto.hive.orc.DwrfSelectivePageSourceFactory;
+import com.facebook.presto.hive.orc.OrcAggregatedPageSourceFactory;
 import com.facebook.presto.hive.orc.OrcBatchPageSourceFactory;
 import com.facebook.presto.hive.orc.OrcSelectivePageSourceFactory;
 import com.facebook.presto.hive.orc.TupleDomainFilterCache;
 import com.facebook.presto.hive.pagefile.PageFilePageSourceFactory;
 import com.facebook.presto.hive.pagefile.PageFileWriterFactory;
+import com.facebook.presto.hive.parquet.ParquetAggregatedPageSourceFactory;
 import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.hive.s3.HiveS3Config;
@@ -64,6 +68,7 @@ import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.relation.PredicateCompiler;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
+import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.sql.gen.RowExpressionPredicateCompiler;
 import com.facebook.presto.sql.planner.planPrinter.RowExpressionFormatter;
 import com.facebook.presto.sql.relational.FunctionResolution;
@@ -75,7 +80,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 
+import java.io.File;
 import java.math.BigDecimal;
+import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -89,16 +97,20 @@ import static java.util.stream.Collectors.toList;
 
 public final class HiveTestUtils
 {
+    private static final Logger log = Logger.get(HiveTestUtils.class);
+
     private HiveTestUtils()
     {
     }
 
+    public static final DirectoryLister DO_NOTHING_DIRECTORY_LISTER = (fileSystem, table, path, partition, namenodeStats, hiveDirectoryContext) -> null;
+
     public static final JsonCodec<PartitionUpdate> PARTITION_UPDATE_CODEC = jsonCodec(PartitionUpdate.class);
     public static final SmileCodec<PartitionUpdate> PARTITION_UPDATE_SMILE_CODEC = smileCodec(PartitionUpdate.class);
 
-    public static final ConnectorSession SESSION = new TestingConnectorSession(
-            new HiveSessionProperties(new HiveClientConfig(), new OrcFileWriterConfig(), new ParquetFileWriterConfig(), new CacheConfig()).getSessionProperties());
+    public static final Set<String> TEST_CLIENT_TAGS = ImmutableSet.of("TAG1", "TAG2");
 
+    public static final ConnectorSession SESSION = new TestingConnectorSession(getAllSessionProperties(new HiveClientConfig(), new HiveCommonClientConfig()), TEST_CLIENT_TAGS);
     public static final MetadataManager METADATA = MetadataManager.createTestMetadataManager();
 
     public static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = METADATA.getFunctionAndTypeManager();
@@ -114,7 +126,7 @@ public final class HiveTestUtils
         }
 
         @Override
-        public ExpressionOptimizer getExpressionOptimizer()
+        public ExpressionOptimizer getExpressionOptimizer(ConnectorSession session)
         {
             return new RowExpressionOptimizer(METADATA);
         }
@@ -139,7 +151,7 @@ public final class HiveTestUtils
     };
 
     public static final FilterStatsCalculatorService FILTER_STATS_CALCULATOR_SERVICE = new ConnectorFilterStatsCalculatorService(
-            new FilterStatsCalculator(METADATA, new ScalarStatsCalculator(METADATA), new StatsNormalizer()));
+            new FilterStatsCalculator(METADATA, new ScalarStatsCalculator(METADATA, ROW_EXPRESSION_SERVICE), new StatsNormalizer()));
 
     public static final HiveClientConfig HIVE_CLIENT_CONFIG = new HiveClientConfig();
     public static final MetastoreClientConfig METASTORE_CLIENT_CONFIG = new MetastoreClientConfig();
@@ -168,6 +180,17 @@ public final class HiveTestUtils
         return ImmutableSet.<HiveSelectivePageSourceFactory>builder()
                 .add(new OrcSelectivePageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, ROW_EXPRESSION_SERVICE, hiveClientConfig, testHdfsEnvironment, stats, new StorageOrcFileTailSource(), StripeMetadataSourceFactory.of(new StorageStripeMetadataSource()), new TupleDomainFilterCache()))
                 .add(new DwrfSelectivePageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, ROW_EXPRESSION_SERVICE, hiveClientConfig, testHdfsEnvironment, stats, new StorageOrcFileTailSource(), StripeMetadataSourceFactory.of(new StorageStripeMetadataSource()), new TupleDomainFilterCache(), NO_ENCRYPTION))
+                .build();
+    }
+
+    public static Set<HiveAggregatedPageSourceFactory> getDefaultHiveAggregatedPageSourceFactories(HiveClientConfig hiveClientConfig, MetastoreClientConfig metastoreClientConfig)
+    {
+        FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
+        HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig, metastoreClientConfig);
+        return ImmutableSet.<HiveAggregatedPageSourceFactory>builder()
+                .add(new OrcAggregatedPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, hiveClientConfig, testHdfsEnvironment, stats, new StorageOrcFileTailSource(), StripeMetadataSourceFactory.of(new StorageStripeMetadataSource())))
+                .add(new DwrfAggregatedPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, hiveClientConfig, testHdfsEnvironment, stats, new StorageOrcFileTailSource(), StripeMetadataSourceFactory.of(new StorageStripeMetadataSource())))
+                .add(new ParquetAggregatedPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, testHdfsEnvironment, stats, new MetadataReader()))
                 .build();
     }
 
@@ -292,5 +315,63 @@ public final class HiveTestUtils
             }
             return Optional.of(systemPropertyValue);
         }
+    }
+
+    public static Optional<Path> getDataDirectoryPath(Optional<String> suppliedDataDirectoryPath)
+    {
+        Optional<Path> dataDirectory = Optional.empty();
+        if (!suppliedDataDirectoryPath.isPresent()) {
+            //in case the path is not supplied as program argument, read it from env variable.
+            suppliedDataDirectoryPath = getProperty("DATA_DIR");
+        }
+        if (suppliedDataDirectoryPath.isPresent()) {
+            File dataDirectoryFile = new File(suppliedDataDirectoryPath.get());
+            if (dataDirectoryFile.exists()) {
+                if (!dataDirectoryFile.isDirectory()) {
+                    log.error("Error: " + dataDirectoryFile.getAbsolutePath() + " is not a directory.");
+                    System.exit(1);
+                }
+                else if (!dataDirectoryFile.canRead() || !dataDirectoryFile.canWrite()) {
+                    log.error("Error: " + dataDirectoryFile.getAbsolutePath() + " is not readable/writable.");
+                    System.exit(1);
+                }
+            }
+            else {
+                // For user supplied path like [path_exists_but_is_not_readable_or_writable]/[paths_do_not_exist], the hadoop file system won't
+                // be able to create directory for it. e.g. "/aaa/bbb" is not creatable because path "/" is not writable.
+                while (!dataDirectoryFile.exists()) {
+                    dataDirectoryFile = dataDirectoryFile.getParentFile();
+                }
+                if (!dataDirectoryFile.canRead() || !dataDirectoryFile.canWrite()) {
+                    log.error("Error: The ancestor directory " + dataDirectoryFile.getAbsolutePath() + " is not readable/writable.");
+                    System.exit(1);
+                }
+            }
+
+            dataDirectory = Optional.of(dataDirectoryFile.toPath());
+        }
+        return dataDirectory;
+    }
+
+    public static List<PropertyMetadata<?>> getAllSessionProperties(HiveClientConfig hiveClientConfig, HiveCommonClientConfig hiveCommonClientConfig)
+    {
+        return getAllSessionProperties(hiveClientConfig, new ParquetFileWriterConfig(), hiveCommonClientConfig);
+    }
+
+    public static List<PropertyMetadata<?>> getAllSessionProperties(HiveClientConfig hiveClientConfig, ParquetFileWriterConfig parquetFileWriterConfig, HiveCommonClientConfig hiveCommonClientConfig)
+    {
+        HiveSessionProperties hiveSessionProperties = new HiveSessionProperties(
+                hiveClientConfig,
+                new OrcFileWriterConfig(),
+                parquetFileWriterConfig,
+                new CacheConfig());
+
+        List<PropertyMetadata<?>> allSessionProperties = new ArrayList<>(hiveSessionProperties.getSessionProperties());
+
+        HiveCommonSessionProperties hiveCommonSessionProperties = new HiveCommonSessionProperties(
+                hiveCommonClientConfig);
+
+        allSessionProperties.addAll(hiveCommonSessionProperties.getSessionProperties());
+        return allSessionProperties;
     }
 }

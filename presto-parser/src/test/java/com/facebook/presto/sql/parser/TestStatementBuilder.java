@@ -130,6 +130,15 @@ public class TestStatementBuilder
         printStatement("select * from foo tablesample system (10) join bar tablesample bernoulli (30) on a.id = b.id");
         printStatement("select * from foo tablesample system (10) join bar tablesample bernoulli (30) on not(a.id > b.id)");
 
+        printStatement("select * from foo for version as of 8772871542276440693");
+        printStatement("select * from foo for system_version as of 8772871542276440693");
+        printStatement("select * from foo for timestamp as of timestamp '2023-08-17 13:29:46.822 America/Los_Angeles'");
+        printStatement("select * from foo for system_time as of timestamp '2023-08-17 13:29:46.822 America/Los_Angeles'");
+        printStatement("select * from foo for version before 8772871542276440693");
+        printStatement("select * from foo for system_version before 8772871542276440693");
+        printStatement("select * from foo for timestamp before timestamp '2023-08-17 13:29:46.822 America/Los_Angeles'");
+        printStatement("select * from foo for system_time before timestamp '2023-08-17 13:29:46.822 America/Los_Angeles'");
+
         printStatement("create table foo as (select * from abc)");
         printStatement("create table if not exists foo as (select * from abc)");
         printStatement("create table foo with (a = 'apple', b = 'banana') as select * from abc");
@@ -184,6 +193,10 @@ public class TestStatementBuilder
 
         printStatement("alter table foo rename to bar");
         printStatement("alter table a.b.c rename to d.e.f");
+
+        printStatement("alter table foo set properties (a='1')");
+        printStatement("alter table a.b.c set properties (a=true, b=123, c='x')");
+        printStatement("alter table if exists bar set properties (b='1')");
 
         printStatement("alter table a.b.c rename column x to y");
 
@@ -262,6 +275,26 @@ public class TestStatementBuilder
         printStatement("SELECT * FROM table1 WHERE a >= ALL (VALUES 2, 3, 4)");
         printStatement("SELECT * FROM table1 WHERE a <> ANY (SELECT 2, 3, 4)");
         printStatement("SELECT * FROM table1 WHERE a = SOME (SELECT id FROM table2)");
+
+        // Table Constraints
+        printStatement("alter table foo add constraint bar unique (col1, col2, col3)");
+        printStatement("alter table foo add constraint bar primary key (col1, col2)");
+        printStatement("alter table foo add constraint bar primary key (col1, col2) disabled not rely not enforced");
+        printStatement("alter table foo add constraint bar primary key (col1, col2) enforced");
+        printStatement("alter table foo add constraint bar primary key (col1, col2) disabled not rely");
+        printStatement("alter table foo add constraint bar unique (col1, col2, col3) disabled");
+        printStatement("alter table foo add constraint bar unique (col1, col2, col3) not rely not enforced");
+        printStatement("alter table a.b.c add constraint bar unique (col1, col2, col3)");
+        printStatement("create table t1 (c1 int, c2 varchar, c3 double, c4 int, primary key (c1, c2))");
+        printStatement("create table t1 (c1 int, c2 varchar, c3 double, c4 int, primary key (c1, c2), unique (c4), unique (c3))");
+        printStatement("create table t1 (c1 int, c2 varchar, c3 double, c4 int, constraint pk1 primary key (c1, c2))");
+        printStatement("create table t1 (c1 int, c2 varchar, c3 double, c4 int, constraint pk1 primary key (c1, c2), constraint uq1 unique (c4), unique (c3))");
+        printStatement("create table t1 (c1 int, c2 varchar, c3 double, c4 int, constraint pk1 primary key (c1, c2) disabled not rely enforced , constraint uq1 unique (c4) not rely enforced, unique (c3) disabled)");
+
+        printStatement("alter table foo alter column bar set not null");
+        printStatement("alter table foo alter column bar drop not null");
+        printStatement("alter table if exists foo alter bar set not null");
+        printStatement("alter table if exists foo alter bar drop not null");
     }
 
     @Test

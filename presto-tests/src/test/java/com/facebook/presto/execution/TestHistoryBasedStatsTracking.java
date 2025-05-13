@@ -20,23 +20,25 @@ import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.SemiJoinNode;
+import com.facebook.presto.spi.plan.SortNode;
 import com.facebook.presto.spi.plan.TopNNode;
+import com.facebook.presto.spi.plan.WindowNode;
+import com.facebook.presto.spi.statistics.CostBasedSourceInfo;
 import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.sql.planner.assertions.MatchResult;
 import com.facebook.presto.sql.planner.assertions.Matcher;
 import com.facebook.presto.sql.planner.assertions.SymbolAliases;
+import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
-import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
-import com.facebook.presto.sql.planner.plan.SemiJoinNode;
-import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
-import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.testing.InMemoryHistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
@@ -47,15 +49,23 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SystemSessionProperties.CONFIDENCE_BASED_BROADCAST_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.ENFORCE_HISTORY_BASED_OPTIMIZER_REGISTRATION_TIMEOUT;
+import static com.facebook.presto.SystemSessionProperties.HISTORY_BASED_OPTIMIZER_TIMEOUT_LIMIT;
 import static com.facebook.presto.SystemSessionProperties.HISTORY_CANONICAL_PLAN_NODE_LIMIT;
+import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.RESTRICT_HISTORY_BASED_OPTIMIZATION_TO_COMPLEX_QUERY;
 import static com.facebook.presto.SystemSessionProperties.TRACK_HISTORY_BASED_PLAN_STATISTICS;
+import static com.facebook.presto.SystemSessionProperties.TRACK_HISTORY_STATS_FROM_FAILED_QUERIES;
 import static com.facebook.presto.SystemSessionProperties.USE_HISTORY_BASED_PLAN_STATISTICS;
 import static com.facebook.presto.SystemSessionProperties.USE_PERFECTLY_CONSISTENT_HISTORIES;
+import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel.FACT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static java.lang.Double.NaN;
 import static java.lang.Double.isNaN;
 import static org.testng.Assert.assertFalse;
 
@@ -119,6 +129,108 @@ public class TestHistoryBasedStatsTracking
         assertPlan(
                 "SELECT max(nationkey) FROM nation where name < 'D' group by regionkey",
                 anyTree(node(AggregationNode.class, node(ExchangeNode.class, anyTree(any()))).withOutputRowCount(3).withOutputSize(54)));
+    }
+
+    @Test
+    public void testHistoryBasedStatsCalculatorEnforceTimeOut()
+    {
+        Session sessionWithDefaultTimeoutLimit = Session.builder(createSession())
+                .setSystemProperty(ENFORCE_HISTORY_BASED_OPTIMIZER_REGISTRATION_TIMEOUT, "true")
+                .build();
+        Session sessionWithZeroTimeoutLimit = Session.builder(createSession())
+                .setSystemProperty(ENFORCE_HISTORY_BASED_OPTIMIZER_REGISTRATION_TIMEOUT, "true")
+                .setSystemProperty(HISTORY_BASED_OPTIMIZER_TIMEOUT_LIMIT, "0ms")
+                .build();
+        // CBO Statistics
+        assertPlan(
+                sessionWithDefaultTimeoutLimit,
+                "SELECT * FROM nation where substr(name, 1, 1) = 'A'",
+                anyTree(node(FilterNode.class, any()).withOutputRowCount(Double.NaN)));
+
+        // Write HBO statistics failed as we set timeout limit to be 0
+        executeAndNoHistoryWritten("SELECT * FROM nation where substr(name, 1, 1) = 'A'", sessionWithZeroTimeoutLimit);
+        // No HBO statistics read
+        assertPlan(
+                sessionWithDefaultTimeoutLimit,
+                "SELECT * FROM nation where substr(name, 1, 1) = 'A'",
+                anyTree(node(FilterNode.class, any()).withOutputRowCount(Double.NaN)));
+
+        // Write HBO Statistics is successful, as we use the default 10 seconds timeout limit
+        executeAndTrackHistory("SELECT * FROM nation where substr(name, 1, 1) = 'A'", sessionWithDefaultTimeoutLimit);
+        // Read HBO statistics successfully with default timeout
+        assertPlan(
+                sessionWithDefaultTimeoutLimit,
+                "SELECT * FROM nation where substr(name, 1, 1) = 'A'",
+                anyTree(node(FilterNode.class, any()).withOutputRowCount(2).withOutputSize(199)));
+        // Read HBO statistics fail due to timeout
+        assertPlan(
+                sessionWithZeroTimeoutLimit,
+                "SELECT * FROM nation where substr(name, 1, 1) = 'A'",
+                anyTree(node(FilterNode.class, any()).withOutputRowCount(Double.NaN)));
+
+        // CBO Statistics
+        assertPlan(
+                sessionWithDefaultTimeoutLimit,
+                "SELECT max(nationkey) FROM nation where name < 'D' group by regionkey",
+                anyTree(node(ProjectNode.class, node(FilterNode.class, any())).withOutputRowCount(12.5)));
+        assertPlan(
+                sessionWithDefaultTimeoutLimit,
+                "SELECT max(nationkey) FROM nation where name < 'D' group by regionkey",
+                anyTree(node(AggregationNode.class, node(ExchangeNode.class, anyTree(any()))).withOutputRowCount(Double.NaN)));
+
+        // Write HBO statistics failed as we set timeout limit to be 0
+        executeAndNoHistoryWritten("SELECT max(nationkey) FROM nation where name < 'D' group by regionkey", sessionWithZeroTimeoutLimit);
+        // No HBO statistics read
+        assertPlan(
+                sessionWithDefaultTimeoutLimit,
+                "SELECT max(nationkey) FROM nation where name < 'D' group by regionkey",
+                anyTree(node(ProjectNode.class, node(FilterNode.class, any())).withOutputRowCount(12.5)));
+        assertPlan(
+                sessionWithDefaultTimeoutLimit,
+                "SELECT max(nationkey) FROM nation where name < 'D' group by regionkey",
+                anyTree(node(AggregationNode.class, node(ExchangeNode.class, anyTree(any()))).withOutputRowCount(Double.NaN)));
+
+        // Write HBO Statistics is successful, as we use the default 10 seconds timeout limit
+        executeAndTrackHistory("SELECT max(nationkey) FROM nation where name < 'D' group by regionkey", sessionWithDefaultTimeoutLimit);
+        // Read HBO statistics successfully with default timeout
+        assertPlan(
+                sessionWithDefaultTimeoutLimit,
+                "SELECT max(nationkey) FROM nation where name < 'D' group by regionkey",
+                anyTree(node(ProjectNode.class, node(FilterNode.class, any())).withOutputRowCount(5).withOutputSize(90)));
+        assertPlan(
+                sessionWithDefaultTimeoutLimit,
+                "SELECT max(nationkey) FROM nation where name < 'D' group by regionkey",
+                anyTree(node(AggregationNode.class, node(ExchangeNode.class, anyTree(any()))).withOutputRowCount(3).withOutputSize(54)));
+
+        // Read HBO statistics fail due to timeout
+        assertPlan(
+                sessionWithZeroTimeoutLimit,
+                "SELECT max(nationkey) FROM nation where name < 'D' group by regionkey",
+                anyTree(node(ProjectNode.class, node(FilterNode.class, any())).withOutputRowCount(12.5)));
+        assertPlan(
+                sessionWithZeroTimeoutLimit,
+                "SELECT max(nationkey) FROM nation where name < 'D' group by regionkey",
+                anyTree(node(AggregationNode.class, node(ExchangeNode.class, anyTree(any()))).withOutputRowCount(Double.NaN)));
+    }
+
+    @Test
+    public void testFailedQuery()
+    {
+        String sql = "select o.orderkey, l.partkey, l.mapcol[o.orderkey] from (select orderkey, partkey, mapcol from (select *, map(array[1], array[2]) mapcol from lineitem)) l " +
+                "join orders o on l.partkey=o.custkey where length(comment)>10";
+        Session session = Session.builder(createSession())
+                .setSystemProperty(TRACK_HISTORY_STATS_FROM_FAILED_QUERIES, "true")
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "PARTITIONED")
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, "NONE")
+                .build();
+        // CBO Statistics
+        assertPlan(session, sql, anyTree(anyTree(any()), anyTree(node(ProjectNode.class, node(FilterNode.class, any())).withOutputRowCount(Double.NaN))));
+
+        // HBO Statistics
+        assertQueryFails(session, sql, ".*Key not present in map.*");
+        getHistoryProvider().waitProcessQueryEvents();
+
+        assertPlan(session, sql, anyTree(anyTree(any()), anyTree(node(ProjectNode.class, node(FilterNode.class, any())).withOutputRowCount(15000))));
     }
 
     @Test
@@ -424,10 +536,83 @@ public class TestHistoryBasedStatsTracking
         assertPlan(query, anyTree(node(DistinctLimitNode.class, anyTree(any())).withOutputRowCount(2)));
     }
 
+    @Test
+    public void testBroadcastJoin()
+    {
+        Session broadcastSession = Session.builder(getQueryRunner().getDefaultSession()).setSystemProperty(JOIN_DISTRIBUTION_TYPE, "BROADCAST").build();
+        String sql = "select s.name, s.acctbal, sum(l.quantity) from lineitem l join supplier s on l.suppkey=s.suppkey where acctbal < 0 and length(l.comment) > 2 group by 1, 2";
+        // CBO Statistics
+        assertPlan(
+                broadcastSession,
+                sql,
+                anyTree(
+                        node(ProjectNode.class, anyTree(any())).withOutputRowCount(NaN),
+                        anyTree(any())));
+
+        // HBO Statistics
+        executeAndTrackHistory(sql, broadcastSession);
+        assertPlan(
+                broadcastSession,
+                sql,
+                anyTree(
+                        node(ProjectNode.class, anyTree(any())).withOutputRowCount(60175.0),
+                        anyTree(any())));
+    }
+
+    @Test
+    public void testFactPrioritization()
+    {
+        String query1 = "SELECT (SELECT nationkey FROM nation WHERE name = 'UNITED STATES') AS us_nationkey";
+        executeAndTrackHistory(query1);
+        assertPlan(query1, anyTree(node(EnforceSingleRowNode.class, anyTree(any()))
+                .withOutputRowCount(1)
+                .withSourceInfo(new CostBasedSourceInfo(FACT)))
+                .withConfidenceLevel(FACT));
+
+        Session session = Session.builder(createSession()).setSystemProperty("prefer_partial_aggregation", "false").build();
+        String query2 = "SELECT COUNT(*) FROM orders";
+        executeAndTrackHistory(query2);
+        assertPlan(session, query2, anyTree(node(AggregationNode.class, anyTree(any())))
+                .withOutputRowCount(1)
+                .withSourceInfo(new CostBasedSourceInfo(FACT))
+                .withConfidenceLevel(FACT));
+    }
+
+    @Test
+    public void testBroadcastHighConfidence()
+    {
+        Session broadcastSession = Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "AUTOMATIC")
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, "NONE")
+                .setSystemProperty(CONFIDENCE_BASED_BROADCAST_ENABLED, "TRUE")
+                .setSystemProperty("prefer_partial_aggregation", "false")
+                .build();
+        String sql = "SELECT COUNT(*) FROM lineitem l JOIN supplier s ON l.suppkey = s.suppkey";
+
+        executeAndTrackHistory(sql, broadcastSession);
+        assertPlan(
+                broadcastSession,
+                sql,
+                anyTree(
+                        node(AggregationNode.class, anyTree(any())).withOutputRowCount(1).withConfidenceLevel(FACT)));
+    }
+
     private void executeAndTrackHistory(String sql)
     {
         getQueryRunner().execute(sql);
         getHistoryProvider().waitProcessQueryEvents();
+    }
+
+    private void executeAndTrackHistory(String sql, Session session)
+    {
+        getQueryRunner().execute(session, sql);
+        getHistoryProvider().waitProcessQueryEvents();
+    }
+
+    private void executeAndNoHistoryWritten(String sql, Session session)
+    {
+        getQueryRunner().execute(session, sql);
+        getHistoryProvider().noProcessQueryEvents();
     }
 
     private InMemoryHistoryBasedPlanStatisticsProvider getHistoryProvider()

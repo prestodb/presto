@@ -285,7 +285,7 @@ public class TestExchangeClient
         //  wait for client to decide there are no more pages
         assertNull(getNextPage(exchangeClient));
         assertEquals(exchangeClient.getStatus().getBufferedPages(), 0);
-        assertTrue(exchangeClient.getStatus().getBufferedBytes() == 0);
+        assertEquals(exchangeClient.getStatus().getBufferedBytes(), 0);
         assertTrue(exchangeClient.isClosed());
         assertStatus(exchangeClient.getStatus().getPageBufferClientStatuses().get(0), location, "closed", 3, 5, 5, "not scheduled");
     }
@@ -332,7 +332,8 @@ public class TestExchangeClient
         DataSize bufferCapacity = new DataSize(16, MEGABYTE);
         DataSize maxResponseSize = new DataSize(DEFAULT_MAX_PAGE_SIZE_IN_BYTES, BYTE);
         CountDownLatch countDownLatch = new CountDownLatch(1);
-        MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize) {
+        MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize)
+        {
             @Override
             public Response handle(Request request)
             {
@@ -558,10 +559,8 @@ public class TestExchangeClient
                 1,
                 new Duration(1, MINUTES),
                 true,
-                false,
                 0.2,
-                new TestingHttpClient(processor, testingHttpClientExecutor),
-                new TestingDriftClient<>(),
+                new HttpShuffleClientProvider(new TestingHttpClient(processor, testingHttpClientExecutor)),
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor);

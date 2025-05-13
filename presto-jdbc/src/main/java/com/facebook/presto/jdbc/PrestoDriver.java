@@ -85,6 +85,7 @@ public class PrestoDriver
         PrestoDriverUri uri = new PrestoDriverUri(url, info);
 
         OkHttpClient.Builder builder = httpClient.newBuilder();
+        builder.followRedirects(uri.followRedirects());
         uri.setupClient(builder);
         QueryExecutor executor = new QueryExecutor(builder.build());
 

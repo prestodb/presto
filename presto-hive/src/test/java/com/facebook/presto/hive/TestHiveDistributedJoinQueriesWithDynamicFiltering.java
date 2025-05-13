@@ -162,6 +162,9 @@ public class TestHiveDistributedJoinQueriesWithDynamicFiltering
                         return false;
                     }
                     ProjectNode projectNode = (ProjectNode) node;
+                    if (!(projectNode.getSource() instanceof FilterNode)) {
+                        return false;
+                    }
                     FilterNode filterNode = (FilterNode) projectNode.getSource();
                     TableScanNode tableScanNode = (TableScanNode) filterNode.getSource();
                     return tableName.equals(((HiveTableHandle) (tableScanNode.getTable().getConnectorHandle())).getTableName());

@@ -40,6 +40,7 @@ import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
@@ -80,12 +81,20 @@ public class TestQueryStateInfoResource
         QueryResults queryResults2 = client.execute(request2, createJsonResponseHandler(jsonCodec(QueryResults.class)));
         client.execute(prepareGet().setUri(queryResults2.getNextUri()).build(), createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
 
+        Request request3 = preparePost()
+                .setUri(uriBuilderFrom(server.getBaseUrl()).replacePath("/v1/statement").build())
+                .setBodyGenerator(createStaticBodyGenerator(LONG_LASTING_QUERY, UTF_8))
+                .setHeader(PRESTO_USER, "alt3")
+                .build();
+        QueryResults queryResults3 = client.execute(request3, createJsonResponseHandler(jsonCodec(QueryResults.class)));
+        client.execute(prepareGet().setUri(queryResults3.getNextUri()).build(), createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
+
         // queries are started in the background, so they may not all be immediately visible
         while (true) {
             List<BasicQueryInfo> queryInfos = client.execute(
                     prepareGet().setUri(uriBuilderFrom(server.getBaseUrl()).replacePath("/v1/query").build()).build(),
                     createJsonResponseHandler(listJsonCodec(BasicQueryInfo.class)));
-            if ((queryInfos.size() == 2) && queryInfos.stream().allMatch(info -> info.getState() == RUNNING)) {
+            if ((queryInfos.size() == 3) && queryInfos.stream().allMatch(info -> info.getState() == RUNNING)) {
                 break;
             }
         }
@@ -105,7 +114,7 @@ public class TestQueryStateInfoResource
                 prepareGet().setUri(server.resolve("/v1/queryState")).build(),
                 createJsonResponseHandler(listJsonCodec(QueryStateInfo.class)));
 
-        assertEquals(infos.size(), 2);
+        assertEquals(infos.size(), 3);
     }
 
     @Test
@@ -138,11 +147,75 @@ public class TestQueryStateInfoResource
         assertNotNull(info);
     }
 
-    @Test(expectedExceptions = {UnexpectedResponseException.class}, expectedExceptionsMessageRegExp = ".*404: Not Found")
+    @Test
+    public void testQueryStateInfoRegexMatching()
+    {
+        // Match strings containing "user"
+        List<QueryStateInfo> infos = client.execute(
+                prepareGet()
+                        .setUri(server.resolve("/v1/queryState?user=user%5Cd")) // Encoded user\d
+                        .build(),
+                createJsonResponseHandler(listJsonCodec(QueryStateInfo.class)));
+        assertEquals(infos.size(), 2);
+
+        // Match strings ending in a digit
+        infos = client.execute(
+                prepareGet()
+                        .setUri(server.resolve("/v1/queryState?user=%2E%2A%5Cd")) // Encoded .*\d
+                        .build(),
+                createJsonResponseHandler(listJsonCodec(QueryStateInfo.class)));
+        assertEquals(infos.size(), 3);
+
+        // Non supported version of previous pattern
+        infos = client.execute(
+                prepareGet()
+                        .setUri(server.resolve("/v1/queryState?user=%2E%7B%7D%5Cd")) // Encoded .{}\d
+                        .build(),
+                createJsonResponseHandler(listJsonCodec(QueryStateInfo.class)));
+        assertEquals(infos.size(), 0);
+
+        Request failingReq = prepareGet().setUri(server.resolve("/v1/queryState?user=%2A%5Cd")).build(); // Encoded *\d
+        assertThrows(() -> client.execute(failingReq, createJsonResponseHandler(listJsonCodec(QueryStateInfo.class))));
+    }
+
+    @Test(expectedExceptions = {UnexpectedResponseException.class}, expectedExceptionsMessageRegExp = "Expected response code .*, but was 404")
     public void testGetQueryStateInfoNo()
     {
         client.execute(
                 prepareGet().setUri(server.resolve("/v1/queryState/123")).build(),
+                createJsonResponseHandler(jsonCodec(QueryStateInfo.class)));
+    }
+
+    @Test
+    public void testGetQueryStateInfoStateFilter()
+    {
+        List<QueryStateInfo> infos = client.execute(
+                prepareGet()
+                        .setUri(server.resolve("/v1/queryState?state=DISPATCHING")) // Encoded user\d
+                        .build(),
+                createJsonResponseHandler(listJsonCodec(QueryStateInfo.class)));
+        assertEquals(infos.size(), 0);
+
+        infos = client.execute(
+                prepareGet()
+                        .setUri(server.resolve("/v1/queryState?state=QUEUED"))
+                        .build(),
+                createJsonResponseHandler(listJsonCodec(QueryStateInfo.class)));
+        assertEquals(infos.size(), 0);
+
+        infos = client.execute(
+                prepareGet()
+                        .setUri(server.resolve("/v1/queryState?includeAllQueries=true"))
+                        .build(),
+                createJsonResponseHandler(listJsonCodec(QueryStateInfo.class)));
+        assertEquals(infos.size(), 3);
+    }
+
+    @Test(expectedExceptions = {UnexpectedResponseException.class}, expectedExceptionsMessageRegExp = "Expected response code .*, but was 400")
+    public void testGetQueryStateInfoBadStateFilter()
+    {
+        client.execute(
+                prepareGet().setUri(server.resolve("/v1/queryState?state=INVALID_STATE")).build(),
                 createJsonResponseHandler(jsonCodec(QueryStateInfo.class)));
     }
 }

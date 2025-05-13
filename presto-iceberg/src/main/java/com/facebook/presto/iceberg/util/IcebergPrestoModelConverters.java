@@ -13,14 +13,22 @@
  */
 package com.facebook.presto.iceberg.util;
 
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.google.common.base.Splitter;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.TableIdentifier;
 
 import java.util.Optional;
 
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static java.lang.String.format;
+
 public class IcebergPrestoModelConverters
 {
+    private static final String NAMESPACE_SEPARATOR = ".";
+    private static final Splitter NAMESPACE_SPLITTER = Splitter.on(NAMESPACE_SEPARATOR).omitEmptyStrings().trimResults();
+
     private IcebergPrestoModelConverters()
     {
     }
@@ -30,23 +38,38 @@ public class IcebergPrestoModelConverters
         return icebergNamespace.toString();
     }
 
-    public static Namespace toIcebergNamespace(Optional<String> prestoSchemaName)
+    public static Namespace toIcebergNamespace(Optional<String> prestoSchemaName, boolean nestedNamespaceEnabled)
     {
-        return prestoSchemaName.map(Namespace::of).orElse(Namespace.empty());
+        if (prestoSchemaName.isPresent()) {
+            checkNestedNamespaceSupport(prestoSchemaName.get(), nestedNamespaceEnabled);
+            return Namespace.of(NAMESPACE_SPLITTER.splitToList(prestoSchemaName.get()).toArray(new String[0]));
+        }
+        return Namespace.empty();
     }
 
-    public static SchemaTableName toPrestoSchemaTableName(TableIdentifier icebergTableIdentifier)
+    public static SchemaTableName toPrestoSchemaTableName(TableIdentifier icebergTableIdentifier, boolean nestedNamespaceEnabled)
     {
-        return new SchemaTableName(icebergTableIdentifier.namespace().toString(), icebergTableIdentifier.name());
+        String schemaName = icebergTableIdentifier.namespace().toString();
+        checkNestedNamespaceSupport(schemaName, nestedNamespaceEnabled);
+        return new SchemaTableName(schemaName, icebergTableIdentifier.name());
     }
 
-    public static TableIdentifier toIcebergTableIdentifier(SchemaTableName prestoSchemaTableName)
+    public static TableIdentifier toIcebergTableIdentifier(SchemaTableName prestoSchemaTableName, boolean nestedNamespaceEnabled)
     {
-        return toIcebergTableIdentifier(prestoSchemaTableName.getSchemaName(), prestoSchemaTableName.getTableName());
+        return toIcebergTableIdentifier(toIcebergNamespace(Optional.ofNullable(prestoSchemaTableName.getSchemaName()), nestedNamespaceEnabled),
+                prestoSchemaTableName.getTableName(), nestedNamespaceEnabled);
     }
 
-    public static TableIdentifier toIcebergTableIdentifier(String prestoSchemaName, String prestoTableName)
+    public static TableIdentifier toIcebergTableIdentifier(Namespace icebergNamespace, String prestoTableName, boolean nestedNamespaceEnabled)
     {
-        return TableIdentifier.of(prestoSchemaName, prestoTableName);
+        checkNestedNamespaceSupport(icebergNamespace.toString(), nestedNamespaceEnabled);
+        return TableIdentifier.of(icebergNamespace, prestoTableName);
+    }
+
+    private static void checkNestedNamespaceSupport(String schemaName, boolean nestedNamespaceEnabled)
+    {
+        if (!nestedNamespaceEnabled && schemaName.contains(NAMESPACE_SEPARATOR)) {
+            throw new PrestoException(NOT_SUPPORTED, format("Nested namespaces are disabled. Schema %s is not valid", schemaName));
+        }
     }
 }

@@ -22,6 +22,12 @@ public class ChecksumQueryContext
     private Optional<String> checksumQueryId = Optional.empty();
     private Optional<String> checksumQuery = Optional.empty();
 
+    private Optional<String> partitionChecksumQueryId = Optional.empty();
+    private Optional<String> partitionChecksumQuery = Optional.empty();
+
+    private Optional<String> bucketChecksumQueryId = Optional.empty();
+    private Optional<String> bucketChecksumQuery = Optional.empty();
+
     public Optional<String> getChecksumQueryId()
     {
         return checksumQueryId;
@@ -42,5 +48,49 @@ public class ChecksumQueryContext
     {
         checkState(!this.checksumQuery.isPresent(), "controlChecksumQuery is already set");
         this.checksumQuery = Optional.of(checksumQuery);
+    }
+
+    public Optional<String> getPartitionChecksumQueryId()
+    {
+        return partitionChecksumQueryId;
+    }
+
+    public void setPartitionChecksumQueryId(String partitionChecksumQueryId)
+    {
+        checkState(!this.partitionChecksumQueryId.isPresent(), "partitionChecksumQueryId is already set");
+        this.partitionChecksumQueryId = Optional.of(partitionChecksumQueryId);
+    }
+
+    public Optional<String> getPartitionChecksumQuery()
+    {
+        return partitionChecksumQuery;
+    }
+
+    public void setPartitionChecksumQuery(String partitionChecksumQuery)
+    {
+        checkState(!this.partitionChecksumQuery.isPresent(), "partitionChecksumQuery is already set");
+        this.partitionChecksumQuery = Optional.of(partitionChecksumQuery);
+    }
+
+    public Optional<String> getBucketChecksumQueryId()
+    {
+        return bucketChecksumQueryId;
+    }
+
+    public void setBucketChecksumQueryId(String bucketChecksumQueryId)
+    {
+        checkState(!this.bucketChecksumQueryId.isPresent(), "bucketChecksumQueryId is already set");
+        this.bucketChecksumQueryId = Optional.of(bucketChecksumQueryId);
+    }
+
+    public Optional<String> getBucketChecksumQuery()
+    {
+        return bucketChecksumQuery;
+    }
+
+    public void setBucketChecksumQuery(String bucketChecksumQuery)
+    {
+        checkState(!this.bucketChecksumQuery.isPresent(), "bucketChecksumQuery is already set");
+        this.bucketChecksumQuery = Optional.of(bucketChecksumQuery);
     }
 }

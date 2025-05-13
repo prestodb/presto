@@ -93,7 +93,7 @@ public class TestPrometheusRetrieveUpValueIntegrationTests
     {
         PrometheusMetadata metadata = new PrometheusMetadata(client);
         assertEquals(metadata.getColumnMetadata(SESSION, RUNTIME_DETERMINED_TABLE_HANDLE, new PrometheusColumnHandle("text", createUnboundedVarcharType(), 0)),
-                new ColumnMetadata("text", createUnboundedVarcharType()));
+                ColumnMetadata.builder().setName("text").setType(createUnboundedVarcharType()).build());
 
         // prometheus connector assumes that the table handle and column handle are
         // properly formed, so it will return a metadata object for any
@@ -110,7 +110,7 @@ public class TestPrometheusRetrieveUpValueIntegrationTests
                 SESSION,
                 new ConnectorTableMetadata(
                         new SchemaTableName("default", "foo"),
-                        ImmutableList.of(new ColumnMetadata("text", createUnboundedVarcharType()))),
+                        ImmutableList.of(ColumnMetadata.builder().setName("text").setType(createUnboundedVarcharType()).build())),
                 false);
     }
 

@@ -124,7 +124,9 @@ This property is optional; the default is ``false``.
 
 This flag enables SSL connections to MongoDB servers.
 
-This property is optional; the default is ``false``.
+This property is optional and defaults to ``false``. If you set it to ``true`` and host Presto yourself, it’s likely that you also use a TLS CA file.
+
+For setup instructions, see :ref:`tls-ca-definition-label`.
 
 ``mongodb.read-preference``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -165,6 +167,89 @@ If batchSize is negative, it will limit of number objects returned, that fit wit
 .. note:: Do not use a batch size of ``1``.
 
 This property is optional; the default is ``0``.
+
+.. _tls-ca-definition-label:
+
+Configuring the MongoDB Connector to Use a TLS CA File
+------------------------------------------------------
+
+A TLS CA file may be required to connect securely to a MongoDB cluster hosted on DigitalOcean. MongoDB clusters are hosted on multiple nodes, each with its own hostname. Cluster hostnames do not resolve using standard ``dig`` requests to the hostname in the connection string.
+
+Retrieve the Node Hostnames
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To retrieve the node hostnames of a cluster using ``dig``, specify the ``srv`` record type in the request and prepend ``_mongodb._tcp.`` to the hostname in the connection string, as shown below:
+
+.. code-block:: bash
+
+    dig srv _mongodb._tcp.<cluster-hostname>
+
+For example, a properly formatted ``dig`` request would look like this:
+
+.. code-block:: bash
+
+    dig srv _mongodb._tcp.mongodb-prod-cluster-ba6e9b05.mongo.ondigitalocean.com
+
+The ``dig`` command returns the actual hosts (in the **Answer Section**) that you can use to connect to MongoDB through Presto. The regular hostname won’t work and will result in a ``host not found`` error.
+
+Set Up a TLS CA File
+^^^^^^^^^^^^^^^^^^^^
+
+The following steps were developed using CentOS. Adapt them as needed for your environment.
+
+1. Create the certificate file:
+
+   .. code-block:: bash
+
+       touch /etc/pki/ca-trust/source/anchors/mongo.prod-cluster.crt
+
+2. Paste the contents of the TLS CA file into the newly created file.
+
+3. Update the trust store by running the following command:
+
+   .. code-block:: bash
+
+       update-ca-trust
+
+4. Verify the setup by running the following command:
+
+   .. code-block:: bash
+
+       openssl s_client -connect <host-found-with-dig-above>:27017 < /dev/null
+
+   The output should include ``CONNECTED`` and ``Verification: OK``, indicating the SSL connection is properly configured.
+
+Configure the Catalog
+^^^^^^^^^^^^^^^^^^^^^
+
+To configure a MongoDB catalog for this cluster, follow these steps:
+
+1. Create the catalog configuration file:
+
+   .. code-block:: bash
+
+       touch etc/catalog/mongodb.properties
+
+2. Edit the file and include the host found using ``dig`` in `Retrieve the Node Hostnames <#retrieve-the-node-hostnames>`_. For example:
+
+   .. code-block:: none
+
+       connector.name=mongodb
+       mongodb.seeds=<host-found-with-dig-above>:27017
+       mongodb.credentials=<user>:<password>@<mongodb-auth-source>
+       mongodb.ssl.enabled=true
+       mongodb.required-replica-set=<mongodb-replica-set>
+
+Run Queries
+^^^^^^^^^^^
+
+After starting the Presto server, you should be able to connect to the catalog and execute queries. For instance:
+
+.. code-block:: sql
+
+    SELECT name
+    FROM users
+    WHERE _id = ObjectId('66fe8898c4ce1100c811cbe0');
 
 .. _table-definition-label:
 
@@ -268,4 +353,19 @@ SQL support
 ALTER TABLE
 ^^^^^^^^^^^
 
-The connector supports ``ALTER TABLE RENAME TO`` operation. Other uses of ``ALTER TABLE`` are not supported.
+.. code-block:: sql
+
+    ALTER TABLE mongodb.admin.sample_table ADD COLUMN new_col INT;
+    ALTER TABLE mongodb.admin.sample_table DROP COLUMN new_col;
+    ALTER TABLE mongodb.admin.sample_table RENAME COLUMN is_active TO is_enabled;
+    ALTER TABLE mongodb.admin.sample_table RENAME TO renamed_table;
+
+.. note:: Presto does not support altering the data type of a column directly with the ALTER TABLE command.
+
+ .. code-block:: sql
+
+   ALTER TABLE mongodb.admin.users ALTER COLUMN age TYPE BIGINT;
+
+ returns an error similar to the following:
+
+ ``Query 20240720_123348_00014_v7vrn failed: line 1:55: mismatched input 'int'. Expecting: 'FUNCTION', 'SCHEMA', 'TABLE'``

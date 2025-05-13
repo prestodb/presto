@@ -24,7 +24,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalLong;
 
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.SOFT_AFFINITY;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -110,7 +109,7 @@ public class HudiSplit
     public List<HostAddress> getPreferredNodes(NodeProvider nodeProvider)
     {
         if (getNodeSelectionStrategy() == SOFT_AFFINITY) {
-            return baseFile.map(file -> nodeProvider.get(file.getPath(), 2)).orElse(addresses);
+            return baseFile.map(file -> nodeProvider.get(file.getPath())).orElse(addresses);
         }
         return addresses;
     }
@@ -119,18 +118,6 @@ public class HudiSplit
     public Object getInfo()
     {
         return this;
-    }
-
-    @Override
-    public Object getSplitIdentifier()
-    {
-        return this;
-    }
-
-    @Override
-    public OptionalLong getSplitSizeInBytes()
-    {
-        return OptionalLong.empty();
     }
 
     @JsonProperty

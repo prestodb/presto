@@ -65,6 +65,10 @@ public final class ConfigurationUtils
     public static void copy(Configuration from, Configuration to)
     {
         for (Map.Entry<String, String> entry : from) {
+            if (entry.getKey().equals("io.bytes.per.checksum")) {
+                to.set("dfs.bytes-per-checksum", entry.getValue());
+                continue;
+            }
             to.set(entry.getKey(), entry.getValue());
         }
     }
@@ -100,7 +104,7 @@ public final class ConfigurationUtils
     {
         boolean compressed = compression != HiveCompressionCodec.NONE;
         config.setBoolean(COMPRESSRESULT.varname, compressed);
-        config.setBoolean("mapred.output.compress", compressed);
+        config.setBoolean("mapreduce.output.fileoutputformat.compress", compressed);
         config.setBoolean(FileOutputFormat.COMPRESS, compressed);
         // For DWRF
         com.facebook.hive.orc.OrcConf.setVar(config, HIVE_ORC_COMPRESSION, compression.getOrcCompressionKind().name());
@@ -108,11 +112,11 @@ public final class ConfigurationUtils
         OrcConf.COMPRESS.setString(config, compression.getOrcCompressionKind().name());
         // For RCFile and Text
         if (compression.getCodec().isPresent()) {
-            config.set("mapred.output.compression.codec", compression.getCodec().get().getName());
+            config.set("mapreduce.output.fileoutputformat.compress.codec", compression.getCodec().get().getName());
             config.set(FileOutputFormat.COMPRESS_CODEC, compression.getCodec().get().getName());
         }
         else {
-            config.unset("mapred.output.compression.codec");
+            config.unset("mapreduce.output.fileoutputformat.compress.codec");
             config.unset(FileOutputFormat.COMPRESS_CODEC);
         }
         // For Parquet

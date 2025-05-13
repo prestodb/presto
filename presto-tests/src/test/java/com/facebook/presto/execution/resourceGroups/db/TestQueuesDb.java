@@ -73,7 +73,6 @@ public class TestQueuesDb
 {
     // Copy of TestQueues with tests for db reconfiguration of resource groups
     private static final String LONG_LASTING_QUERY = "SELECT COUNT(*) FROM lineitem";
-    public static final String DEFAULT_TEST_USER = "user";
     private DistributedQueryRunner queryRunner;
     private H2ResourceGroupsDao dao;
 
@@ -341,7 +340,6 @@ public class TestQueuesDb
                 .setSchema("sf100000")
                 .setSource("non-leaf")
                 .build();
-        QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
         InternalResourceGroupManager manager = queryRunner.getCoordinator().getResourceGroupManager().get();
         ReloadingResourceGroupConfigurationManager reloadingConfigurationManager = (ReloadingResourceGroupConfigurationManager) manager.getConfigurationManager();
         int originalSize = getSelectors(queryRunner).size();

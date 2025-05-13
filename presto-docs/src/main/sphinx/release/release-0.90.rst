@@ -19,22 +19,22 @@ General Changes
 * Fix failure when accessing elements in an empty array.
 * Fix *"Remote page is too large"* errors.
 * Improve error message when attempting to cast a value to ``UNKNOWN``.
-* Update the :func:`approx_distinct` documentation with correct standard error bounds.
+* Update the :func:`!approx_distinct` documentation with correct standard error bounds.
 * Disable falling back to the interpreter when expressions fail to be compiled
   to bytecode. To enable this option, add ``compiler.interpreter-enabled=true``
   to the coordinator and worker config properties. Enabling this option will
   allow certain queries to run slowly rather than failing.
-* Improve :doc:`/installation/jdbc` conformance. In particular, all unimplemented
+* Improve :doc:`/clients/java` conformance. In particular, all unimplemented
   methods now throw ``SQLException`` rather than ``UnsupportedOperationException``.
 
 Functions and Language Features
 -------------------------------
 
-* Add :func:`bool_and` and :func:`bool_or` aggregation functions.
-* Add standard SQL function :func:`every` as an alias for :func:`bool_and`.
-* Add :func:`year_of_week` function.
-* Add :func:`regexp_extract_all` function.
-* Add :func:`map_agg` aggregation function.
+* Add :func:`!bool_and` and :func:`!bool_or` aggregation functions.
+* Add standard SQL function :func:`!every` as an alias for :func:`!bool_and`.
+* Add :func:`!year_of_week` function.
+* Add :func:`!regexp_extract_all` function.
+* Add :func:`!map_agg` aggregation function.
 * Add support for casting ``JSON`` to ``ARRAY`` or ``MAP`` types.
 * Add support for unparenthesized expressions in ``VALUES`` clause.
 * Added :doc:`/sql/set-session`, :doc:`/sql/reset-session` and :doc:`/sql/show-session`.

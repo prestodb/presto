@@ -292,6 +292,21 @@ public class MemoryMetadata
     }
 
     @Override
+    public synchronized void renameView(ConnectorSession session, SchemaTableName viewName, SchemaTableName newViewName)
+    {
+        checkSchemaExists(newViewName.getSchemaName());
+        if (tableIds.containsKey(newViewName)) {
+            throw new PrestoException(ALREADY_EXISTS, "Table already exists: " + newViewName);
+        }
+
+        if (views.containsKey(newViewName)) {
+            throw new PrestoException(ALREADY_EXISTS, "View already exists: " + newViewName);
+        }
+
+        views.put(newViewName, views.remove(viewName));
+    }
+
+    @Override
     public synchronized void dropView(ConnectorSession session, SchemaTableName viewName)
     {
         if (views.remove(viewName) == null) {

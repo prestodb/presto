@@ -72,6 +72,7 @@ public class DataVerificationUtil
     }
 
     public static DataMatchResult match(
+            DataMatchResult.DataType dataType,
             ChecksumValidator checksumValidator,
             List<Column> controlColumns,
             List<Column> testColumns,
@@ -81,7 +82,9 @@ public class DataVerificationUtil
         requireNonNull(controlColumns, "controlColumns is null.");
         if (!controlColumns.equals(testColumns)) {
             return new DataMatchResult(
+                    dataType,
                     SCHEMA_MISMATCH,
+                    Optional.empty(),
                     Optional.empty(),
                     OptionalLong.empty(),
                     OptionalLong.empty(),
@@ -102,8 +105,10 @@ public class DataVerificationUtil
             matchType = mismatchedColumns.isEmpty() ? MATCH : COLUMN_MISMATCH;
         }
         return new DataMatchResult(
+                dataType,
                 matchType,
                 Optional.of(controlChecksum),
+                Optional.of(testChecksum),
                 controlRowCount,
                 testRowCount,
                 mismatchedColumns);

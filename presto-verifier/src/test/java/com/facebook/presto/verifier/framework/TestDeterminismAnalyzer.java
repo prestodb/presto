@@ -13,12 +13,15 @@
  */
 package com.facebook.presto.verifier.framework;
 
+import com.facebook.presto.common.block.BlockEncodingManager;
+import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
+import com.facebook.presto.verifier.prestoaction.DefaultClientInfoFactory;
 import com.facebook.presto.verifier.prestoaction.JdbcPrestoAction;
 import com.facebook.presto.verifier.prestoaction.JdbcUrlSelector;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
@@ -48,7 +51,8 @@ public class TestDeterminismAnalyzer
 {
     private static final String SUITE = "test-suite";
     private static final String NAME = "test-query";
-    private static final SqlParser sqlParser = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN));
+    private static final SqlParser SQL_PARSER = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN));
+    private static final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager();
 
     @Test
     public void testMutableCatalog()
@@ -60,12 +64,12 @@ public class TestDeterminismAnalyzer
 
     private static boolean isMutableCatalogReferenced(DeterminismAnalyzer determinismAnalyzer, String query)
     {
-        return determinismAnalyzer.isNonDeterministicCatalogReferenced(sqlParser.createStatement(query, ParsingOptions.builder().build()));
+        return determinismAnalyzer.isNonDeterministicCatalogReferenced(SQL_PARSER.createStatement(query, ParsingOptions.builder().build()));
     }
 
     private static DeterminismAnalyzer createDeterminismAnalyzer(String mutableCatalogPattern)
     {
-        QueryConfiguration configuration = new QueryConfiguration(CATALOG, SCHEMA, Optional.of("user"), Optional.empty(), Optional.empty());
+        QueryConfiguration configuration = new QueryConfiguration(CATALOG, SCHEMA, Optional.of("user"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         VerificationContext verificationContext = VerificationContext.create(SUITE, NAME);
         VerifierConfig verifierConfig = new VerifierConfig().setTestId("test-id");
         RetryConfig retryConfig = new RetryConfig();
@@ -81,15 +85,17 @@ public class TestDeterminismAnalyzer
                 queryActionsConfig.getChecksumTimeout(),
                 retryConfig,
                 retryConfig,
-                verifierConfig);
+                new DefaultClientInfoFactory(verifierConfig));
         QueryRewriter queryRewriter = new QueryRewriter(
-                sqlParser,
+                SQL_PARSER,
                 typeManager,
+                blockEncodingSerde,
                 prestoAction,
                 ImmutableMap.of(CONTROL, QualifiedName.of("tmp_verifier_c"), TEST, QualifiedName.of("tmp_verifier_t")),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                ImmutableMap.of(CONTROL, false, TEST, false));
         ChecksumValidator checksumValidator = createChecksumValidator(verifierConfig);
-        SourceQuery sourceQuery = new SourceQuery("test", "", "", "", configuration, configuration);
+        SourceQuery sourceQuery = new SourceQuery("test", "", "", "", Optional.empty(), Optional.empty(), configuration, configuration);
 
         return new DeterminismAnalyzer(
                 sourceQuery,

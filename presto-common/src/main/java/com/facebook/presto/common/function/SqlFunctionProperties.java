@@ -34,7 +34,10 @@ public class SqlFunctionProperties
     private final Locale sessionLocale;
     private final String sessionUser;
     private final boolean fieldNamesInJsonCastEnabled;
+    private final boolean legacyJsonCast;
     private final Map<String, String> extraCredentials;
+    private final boolean warnOnCommonNanPatterns;
+    private final boolean canonicalizedJsonExtract;
 
     private SqlFunctionProperties(
             boolean parseDecimalLiteralAsDouble,
@@ -46,7 +49,10 @@ public class SqlFunctionProperties
             Locale sessionLocale,
             String sessionUser,
             boolean fieldNamesInJsonCastEnabled,
-            Map<String, String> extraCredentials)
+            boolean legacyJsonCast,
+            Map<String, String> extraCredentials,
+            boolean warnOnCommonNanPatterns,
+            boolean canonicalizedJsonExtract)
     {
         this.parseDecimalLiteralAsDouble = parseDecimalLiteralAsDouble;
         this.legacyRowFieldOrdinalAccessEnabled = legacyRowFieldOrdinalAccessEnabled;
@@ -57,7 +63,10 @@ public class SqlFunctionProperties
         this.sessionLocale = requireNonNull(sessionLocale, "sessionLocale is null");
         this.sessionUser = requireNonNull(sessionUser, "sessionUser is null");
         this.fieldNamesInJsonCastEnabled = fieldNamesInJsonCastEnabled;
+        this.legacyJsonCast = legacyJsonCast;
         this.extraCredentials = requireNonNull(extraCredentials, "extraCredentials is null");
+        this.warnOnCommonNanPatterns = warnOnCommonNanPatterns;
+        this.canonicalizedJsonExtract = canonicalizedJsonExtract;
     }
 
     public boolean isParseDecimalLiteralAsDouble()
@@ -111,6 +120,19 @@ public class SqlFunctionProperties
         return fieldNamesInJsonCastEnabled;
     }
 
+    public boolean isLegacyJsonCast()
+    {
+        return legacyJsonCast;
+    }
+
+    public boolean shouldWarnOnCommonNanPatterns()
+    {
+        return warnOnCommonNanPatterns;
+    }
+
+    public boolean isCanonicalizedJsonExtract()
+    { return canonicalizedJsonExtract; }
+
     @Override
     public boolean equals(Object o)
     {
@@ -129,13 +151,17 @@ public class SqlFunctionProperties
                 Objects.equals(sessionStartTime, that.sessionStartTime) &&
                 Objects.equals(sessionLocale, that.sessionLocale) &&
                 Objects.equals(sessionUser, that.sessionUser) &&
-                Objects.equals(extraCredentials, that.extraCredentials);
+                Objects.equals(extraCredentials, that.extraCredentials) &&
+                Objects.equals(legacyJsonCast, that.legacyJsonCast) &&
+                Objects.equals(canonicalizedJsonExtract, that.canonicalizedJsonExtract);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(parseDecimalLiteralAsDouble, legacyRowFieldOrdinalAccessEnabled, timeZoneKey, legacyTimestamp, legacyMapSubscript, sessionStartTime, sessionLocale, sessionUser, extraCredentials);
+        return Objects.hash(parseDecimalLiteralAsDouble, legacyRowFieldOrdinalAccessEnabled, timeZoneKey,
+                legacyTimestamp, legacyMapSubscript, sessionStartTime, sessionLocale, sessionUser,
+                extraCredentials, legacyJsonCast, canonicalizedJsonExtract);
     }
 
     public static Builder builder()
@@ -154,7 +180,10 @@ public class SqlFunctionProperties
         private Locale sessionLocale;
         private String sessionUser;
         private boolean fieldNamesInJsonCastEnabled;
+        private boolean legacyJsonCast;
         private Map<String, String> extraCredentials = emptyMap();
+        private boolean warnOnCommonNanPatterns;
+        private boolean canonicalizedJsonExtract;
 
         private Builder() {}
 
@@ -218,9 +247,40 @@ public class SqlFunctionProperties
             return this;
         }
 
+        public Builder setLegacyJsonCast(boolean legacyJsonCast)
+        {
+            this.legacyJsonCast = legacyJsonCast;
+            return this;
+        }
+
+        public Builder setWarnOnCommonNanPatterns(boolean warnOnCommonNanPatterns)
+        {
+            this.warnOnCommonNanPatterns = warnOnCommonNanPatterns;
+            return this;
+        }
+
+        public Builder setCanonicalizedJsonExtract(boolean canonicalizedJsonExtract)
+        {
+            this.canonicalizedJsonExtract = canonicalizedJsonExtract;
+            return this;
+        }
+
         public SqlFunctionProperties build()
         {
-            return new SqlFunctionProperties(parseDecimalLiteralAsDouble, legacyRowFieldOrdinalAccessEnabled, timeZoneKey, legacyTimestamp, legacyMapSubscript, sessionStartTime, sessionLocale, sessionUser, fieldNamesInJsonCastEnabled, extraCredentials);
+            return new SqlFunctionProperties(
+                    parseDecimalLiteralAsDouble,
+                    legacyRowFieldOrdinalAccessEnabled,
+                    timeZoneKey,
+                    legacyTimestamp,
+                    legacyMapSubscript,
+                    sessionStartTime,
+                    sessionLocale,
+                    sessionUser,
+                    fieldNamesInJsonCastEnabled,
+                    legacyJsonCast,
+                    extraCredentials,
+                    warnOnCommonNanPatterns,
+                    canonicalizedJsonExtract);
         }
     }
 }

@@ -19,11 +19,13 @@ import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
 import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
 import com.facebook.presto.spi.eventlistener.QueryCreatedEvent;
+import com.facebook.presto.spi.eventlistener.SplitCompletedEvent;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.util.Collections.newSetFromMap;
 
@@ -33,11 +35,12 @@ public class TestHiveEventListenerPlugin
             implements Plugin
     {
         private final Set<QueryId> runningQueries = newSetFromMap(new ConcurrentHashMap<>());
+        private final AtomicInteger totalSplits = new AtomicInteger(0);
 
         @Override
         public Iterable<EventListenerFactory> getEventListenerFactories()
         {
-            return ImmutableList.of(new TestingHiveEventListenerFactory(runningQueries));
+            return ImmutableList.of(new TestingHiveEventListenerFactory(runningQueries, totalSplits));
         }
     }
 
@@ -45,10 +48,12 @@ public class TestHiveEventListenerPlugin
             implements EventListenerFactory
     {
         private final Set<QueryId> runningQueries;
+        private AtomicInteger totalSplits;
 
-        public TestingHiveEventListenerFactory(Set<QueryId> runningQueries)
+        public TestingHiveEventListenerFactory(Set<QueryId> runningQueries, AtomicInteger totalSplits)
         {
             this.runningQueries = runningQueries;
+            this.totalSplits = totalSplits;
         }
 
         @Override
@@ -60,7 +65,7 @@ public class TestHiveEventListenerPlugin
         @Override
         public EventListener create(Map<String, String> config)
         {
-            return new TestingHiveEventListener(runningQueries);
+            return new TestingHiveEventListener(runningQueries, totalSplits);
         }
     }
 
@@ -68,10 +73,12 @@ public class TestHiveEventListenerPlugin
             implements EventListener
     {
         private final Set<QueryId> runningQueries;
+        private final AtomicInteger totalSplits;
 
-        public TestingHiveEventListener(Set<QueryId> runningQueries)
+        public TestingHiveEventListener(Set<QueryId> runningQueries, AtomicInteger totalSplits)
         {
             this.runningQueries = runningQueries;
+            this.totalSplits = totalSplits;
         }
 
         @Override
@@ -88,6 +95,22 @@ public class TestHiveEventListenerPlugin
                 throw new RuntimeException("Missing create event for query " + queryId);
             }
             runningQueries.remove(queryId);
+        }
+
+        @Override
+        public void splitCompleted(SplitCompletedEvent splitCompletedEvent)
+        {
+            totalSplits.incrementAndGet();
+        }
+
+        public void resetSplits()
+        {
+            totalSplits.set(0);
+        }
+
+        public int getTotalSplits()
+        {
+            return totalSplits.get();
         }
 
         public Set<QueryId> getRunningQueries()

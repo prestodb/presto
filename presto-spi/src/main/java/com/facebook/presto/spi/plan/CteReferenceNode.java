@@ -31,16 +31,16 @@ public final class CteReferenceNode
         extends PlanNode
 {
     private final PlanNode source;
-    private final String cteName;
+    private final String cteId;
 
     @JsonCreator
     public CteReferenceNode(
             Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
-            @JsonProperty("cteName") String cteName)
+            @JsonProperty("cteName") String cteId)
     {
-        this(sourceLocation, id, Optional.empty(), source, cteName);
+        this(sourceLocation, id, Optional.empty(), source, cteId);
     }
 
     public CteReferenceNode(
@@ -48,10 +48,10 @@ public final class CteReferenceNode
             PlanNodeId id,
             Optional<PlanNode> statsEquivalentPlanNode,
             PlanNode source,
-            String cteName)
+            String cteId)
     {
         super(sourceLocation, id, statsEquivalentPlanNode);
-        this.cteName = requireNonNull(cteName, "cteName must not be null");
+        this.cteId = requireNonNull(cteId, "cteName must not be null");
         this.source = requireNonNull(source, "source must not be null");
     }
 
@@ -78,13 +78,13 @@ public final class CteReferenceNode
     {
         requireNonNull(newChildren, "newChildren is null");
         checkArgument(newChildren.size() == 1, "expected newChildren to contain 1 node");
-        return new CteReferenceNode(newChildren.get(0).getSourceLocation(), getId(), getStatsEquivalentPlanNode(), newChildren.get(0), cteName);
+        return new CteReferenceNode(newChildren.get(0).getSourceLocation(), getId(), getStatsEquivalentPlanNode(), newChildren.get(0), cteId);
     }
 
     @Override
     public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
     {
-        return new CteReferenceNode(getSourceLocation(), getId(), statsEquivalentPlanNode, source, cteName);
+        return new CteReferenceNode(getSourceLocation(), getId(), statsEquivalentPlanNode, source, cteId);
     }
 
     @Override
@@ -93,9 +93,9 @@ public final class CteReferenceNode
         return visitor.visitCteReference(this, context);
     }
 
-    public String getCteName()
+    public String getCteId()
     {
-        return cteName;
+        return cteId;
     }
 
     private static void checkArgument(boolean condition, String message)

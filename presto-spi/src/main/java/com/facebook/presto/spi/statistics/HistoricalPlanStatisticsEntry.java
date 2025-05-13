@@ -31,13 +31,15 @@ public class HistoricalPlanStatisticsEntry
     private final PlanStatistics planStatistics;
     // Size of input tables when plan statistics was recorded. This list will be sorted by input tables canonical order.
     private final List<PlanStatistics> inputTableStatistics;
+    private final HistoricalPlanStatisticsEntryInfo historicalPlanStatisticsEntryInfo;
 
     @ThriftConstructor
-    public HistoricalPlanStatisticsEntry(PlanStatistics planStatistics, List<PlanStatistics> inputTableStatistics)
+    public HistoricalPlanStatisticsEntry(PlanStatistics planStatistics, List<PlanStatistics> inputTableStatistics, HistoricalPlanStatisticsEntryInfo historicalPlanStatisticsEntryInfo)
     {
         // Check for nulls, to make it thrift backwards compatible
         this.planStatistics = planStatistics == null ? PlanStatistics.empty() : planStatistics;
         this.inputTableStatistics = unmodifiableList(inputTableStatistics == null ? emptyList() : inputTableStatistics);
+        this.historicalPlanStatisticsEntryInfo = historicalPlanStatisticsEntryInfo;
     }
 
     @ThriftField(value = 1, requiredness = OPTIONAL)
@@ -52,6 +54,12 @@ public class HistoricalPlanStatisticsEntry
         return inputTableStatistics;
     }
 
+    @ThriftField(value = 3, requiredness = OPTIONAL)
+    public HistoricalPlanStatisticsEntryInfo getHistoricalPlanStatisticsEntryInfo()
+    {
+        return historicalPlanStatisticsEntryInfo;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -62,18 +70,18 @@ public class HistoricalPlanStatisticsEntry
             return false;
         }
         HistoricalPlanStatisticsEntry that = (HistoricalPlanStatisticsEntry) o;
-        return Objects.equals(planStatistics, that.planStatistics) && Objects.equals(inputTableStatistics, that.inputTableStatistics);
+        return Objects.equals(planStatistics, that.planStatistics) && Objects.equals(inputTableStatistics, that.inputTableStatistics) && Objects.equals(historicalPlanStatisticsEntryInfo, that.historicalPlanStatisticsEntryInfo);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(planStatistics, inputTableStatistics);
+        return Objects.hash(planStatistics, inputTableStatistics, historicalPlanStatisticsEntryInfo);
     }
 
     @Override
     public String toString()
     {
-        return format("HistoricalPlanStatisticsEntry{planStatistics=%s, inputTableStatistics=%s}", planStatistics, inputTableStatistics);
+        return format("HistoricalPlanStatisticsEntry{planStatistics=%s, inputTableStatistics=%s, historicalPlanStatisticsEntryInfo=%s}", planStatistics, inputTableStatistics, historicalPlanStatisticsEntryInfo);
     }
 }

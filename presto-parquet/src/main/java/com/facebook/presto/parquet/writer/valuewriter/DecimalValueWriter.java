@@ -24,6 +24,7 @@ import org.apache.parquet.schema.PrimitiveType;
 
 import java.math.BigInteger;
 import java.util.Arrays;
+import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 
@@ -32,9 +33,9 @@ public class DecimalValueWriter
 {
     private final DecimalType decimalType;
 
-    public DecimalValueWriter(ValuesWriter valuesWriter, Type type, PrimitiveType parquetType)
+    public DecimalValueWriter(Supplier<ValuesWriter> valuesWriterSupplier, Type type, PrimitiveType parquetType)
     {
-        super(parquetType, valuesWriter);
+        super(parquetType, valuesWriterSupplier);
         this.decimalType = (DecimalType) requireNonNull(type, "type is null");
     }
 

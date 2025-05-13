@@ -8,8 +8,8 @@ env:
   CONTINUOUS_INTEGRATION: true
   MAVEN_OPTS: "-Xmx1024M -XX:+ExitOnOutOfMemoryError"
   MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
-  MAVEN_FAST_INSTALL: "-B -V --quiet -T C1 -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true"
-  MAVEN_TEST: "-B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --fail-at-end"
+  MAVEN_FAST_INSTALL: "-B -V --quiet -T 1C -DskipTests -Dair.check.skip-all --no-transfer-progress -Dmaven.javadoc.skip=true"
+  MAVEN_TEST: "-B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --no-transfer-progress --fail-at-end"
   RETRY: .github/bin/retry
 
 jobs:
@@ -36,6 +36,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        java: [8.0.442, 17.0.13]
         modules:
           - ":presto-tests -P presto-tests-execution-memory"
           - ":presto-tests -P presto-tests-general"
@@ -56,6 +57,7 @@ jobs:
           - ":presto-hive -P test-hive-pushdown-filter-queries-advanced"
           - ":presto-hive -P test-hive-repartitioning"
           - ":presto-hive -P test-hive-parquet"
+          - ":presto-main-base"
           - ":presto-main"
           - ":presto-mongodb -P test-mongo-distributed-queries"
           - ":presto-redis -P test-redis-integration-smoke-test"
@@ -68,27 +70,22 @@ jobs:
           - ":presto-iceberg"
     timeout-minutes: 80
     concurrency:
-      group: ${{ github.workflow }}-test-${{ matrix.modules }}-${{ github.event.pull_request.number }}
+      group: ${{ github.workflow }}-test-${{ matrix.modules }}-${{ github.event.pull_request.number }}-${{ matrix.java }}
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v2
-        if: needs.changes.outputs.codechange == 'true'
-      - uses: actions/setup-java@v1
+      - uses: actions/checkout@v4
         if: needs.changes.outputs.codechange == 'true'
         with:
-          java-version: 8
-      - name: Cache local Maven repository
+          show-progress: false
+      - uses: actions/setup-java@v4
         if: needs.changes.outputs.codechange == 'true'
-        id: cache-maven
-        uses: actions/cache@v2
         with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-2-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-2-
-      - name: Populate maven cache
-        if: steps.cache-maven.outputs.cache-hit != 'true' && needs.changes.outputs.codechange == 'true'
-        run: ./mvnw de.qaware.maven:go-offline-maven-plugin:resolve-dependencies
+          distribution: 'temurin'
+          java-version: ${{ matrix.java }}
+          cache: 'maven'
+      - name: Download nodejs to maven cache
+        if: needs.changes.outputs.codechange == 'true'
+        run: .github/bin/download_nodejs
       - name: Maven Install
         if: needs.changes.outputs.codechange == 'true'
         run: |

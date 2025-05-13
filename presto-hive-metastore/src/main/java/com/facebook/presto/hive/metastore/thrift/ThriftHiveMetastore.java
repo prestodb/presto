@@ -30,6 +30,7 @@ import com.facebook.presto.hive.PartitionNotFoundException;
 import com.facebook.presto.hive.RetryDriver;
 import com.facebook.presto.hive.SchemaAlreadyExistsException;
 import com.facebook.presto.hive.TableAlreadyExistsException;
+import com.facebook.presto.hive.TableConstraintAlreadyExistsException;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
@@ -40,8 +41,11 @@ import com.facebook.presto.hive.metastore.PartitionWithStatistics;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.TableConstraintNotFoundException;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.constraints.NotNullConstraint;
 import com.facebook.presto.spi.constraints.PrimaryKeyConstraint;
+import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.constraints.UniqueConstraint;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
@@ -71,11 +75,13 @@ import org.apache.hadoop.hive.metastore.api.LockResponse;
 import org.apache.hadoop.hive.metastore.api.LockState;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
+import org.apache.hadoop.hive.metastore.api.NotNullConstraintsResponse;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.PrimaryKeysResponse;
 import org.apache.hadoop.hive.metastore.api.PrincipalType;
 import org.apache.hadoop.hive.metastore.api.PrivilegeBag;
 import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
+import org.apache.hadoop.hive.metastore.api.SQLNotNullConstraint;
 import org.apache.hadoop.hive.metastore.api.SQLPrimaryKey;
 import org.apache.hadoop.hive.metastore.api.SQLUniqueConstraint;
 import org.apache.hadoop.hive.metastore.api.Table;
@@ -93,8 +99,10 @@ import javax.inject.Inject;
 import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetAddress;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -133,6 +141,7 @@ import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.pars
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiPartition;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.constraints.TableConstraintsHolder.validateTableConstraints;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.MAX_VALUE;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.MAX_VALUE_SIZE_IN_BYTES;
@@ -146,12 +155,12 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.difference;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.hadoop.hive.common.FileUtils.makePartName;
 import static org.apache.hadoop.hive.metastore.api.HiveObjectType.TABLE;
@@ -173,6 +182,9 @@ public class ThriftHiveMetastore
     private final boolean impersonationEnabled;
     private final boolean isMetastoreAuthenticationEnabled;
     private final boolean deleteFilesOnTableDrop;
+
+    private volatile boolean metastoreKnownToSupportTableParamEqualsPredicate;
+    private volatile boolean metastoreKnownToSupportTableParamLikePredicate;
 
     @Inject
     public ThriftHiveMetastore(HiveCluster hiveCluster, MetastoreClientConfig config, HdfsEnvironment hdfsEnvironment)
@@ -232,9 +244,10 @@ public class ThriftHiveMetastore
             List<SQLPrimaryKey> pkCols = pkResponse.get().getPrimaryKeys();
             boolean isEnabled = pkCols.get(0).isEnable_cstr();
             boolean isRely = pkCols.get(0).isRely_cstr();
+            boolean isEnforced = pkCols.get(0).isValidate_cstr();
             String pkName = pkCols.get(0).getPk_name();
-            Set<String> keyCols = pkCols.stream().map(SQLPrimaryKey::getColumn_name).collect(toImmutableSet());
-            return Optional.of(new PrimaryKeyConstraint<>(pkName, keyCols, isEnabled, isRely));
+            LinkedHashSet<String> keyCols = pkCols.stream().map(SQLPrimaryKey::getColumn_name).collect(toCollection(LinkedHashSet::new));
+            return Optional.of(new PrimaryKeyConstraint<>(Optional.of(pkName), keyCols, isEnabled, isRely, isEnforced));
         }
         catch (TException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
@@ -264,13 +277,58 @@ public class ThriftHiveMetastore
             //create a unique table constraint per bucket
             ImmutableList<UniqueConstraint<String>> result = bucketedConstraints.entrySet().stream().map(e -> {
                 String constraintName = e.getKey();
-                Set<String> columnNames = e.getValue().stream().map(SQLUniqueConstraint::getColumn_name).collect(toImmutableSet());
+                LinkedHashSet<String> columnNames = e.getValue().stream().map(SQLUniqueConstraint::getColumn_name).collect(toCollection(LinkedHashSet::new));
                 boolean isEnabled = e.getValue().get(0).isEnable_cstr();
                 boolean isRely = e.getValue().get(0).isRely_cstr();
-                return new UniqueConstraint<>(constraintName, columnNames, isEnabled, isRely);
+                boolean isEnforced = e.getValue().get(0).isValidate_cstr();
+                return new UniqueConstraint<>(Optional.of(constraintName), columnNames, isEnabled, isRely, isEnforced);
             }).collect(toImmutableList());
 
             return result;
+        }
+        catch (TException e) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            throw propagate(e);
+        }
+    }
+
+    @Override
+    public List<NotNullConstraint<String>> getNotNullConstraints(MetastoreContext metastoreContext, String dbName, String tableName)
+    {
+        try {
+            Optional<NotNullConstraintsResponse> notNullConstraintsResponse = retry()
+                    .stopOnIllegalExceptions()
+                    .run("getNotNullConstraints", stats.getGetNotNullConstraints().wrap(() ->
+                            getMetastoreClientThenCall(metastoreContext, client -> client.getNotNullConstraints("hive", dbName, tableName))));
+
+            if (!notNullConstraintsResponse.isPresent() || notNullConstraintsResponse.get().getNotNullConstraints().size() == 0) {
+                return ImmutableList.of();
+            }
+
+            ImmutableList<NotNullConstraint<String>> result = notNullConstraintsResponse.get().getNotNullConstraints().stream()
+                    .map(constraint -> new NotNullConstraint<>(constraint.getColumn_name()))
+                    .collect(toImmutableList());
+
+            return result;
+        }
+        catch (TException e) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            throw propagate(e);
+        }
+    }
+
+    @Override
+    public List<String> getDatabases(MetastoreContext context, String pattern)
+    {
+        try {
+            return retry()
+                    .stopOnIllegalExceptions()
+                    .run("getDatabases", stats.getGetDatabases().wrap(() ->
+                            getMetastoreClientThenCall(context, client -> client.getDatabases(pattern))));
         }
         catch (TException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
@@ -543,7 +601,7 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public synchronized void updateTableStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update)
+    public void updateTableStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update)
     {
         PartitionStatistics currentStatistics = getTableStatistics(metastoreContext, databaseName, tableName);
         PartitionStatistics updatedStatistics = update.apply(currentStatistics);
@@ -614,7 +672,7 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public synchronized void updatePartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    public void updatePartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
     {
         PartitionStatistics currentStatistics = requireNonNull(
                 getPartitionStatistics(metastoreContext, databaseName, tableName, ImmutableSet.of(partitionName)).get(partitionName), "getPartitionStatistics() returned null");
@@ -858,11 +916,9 @@ public class ThriftHiveMetastore
             return retry()
                     .stopOn(UnknownDBException.class)
                     .stopOnIllegalExceptions()
-                    .run("getAllViews", stats.getGetAllViews().wrap(() ->
-                            getMetastoreClientThenCall(metastoreContext, client -> {
-                                String filter = HIVE_FILTER_FIELD_PARAMS + PRESTO_VIEW_FLAG + " = \"true\"";
-                                return Optional.of(client.getTableNamesByFilter(databaseName, filter));
-                            })));
+                    .run("getAllViews", stats.getGetAllViews().wrap(() -> {
+                        return Optional.of(getPrestoViews(databaseName));
+                    }));
         }
         catch (UnknownDBException e) {
             return Optional.empty();
@@ -948,19 +1004,83 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table)
+    public MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table, List<TableConstraint<String>> constraints)
     {
+        List<SQLPrimaryKey> primaryKeys = new ArrayList<>();
+        List<SQLUniqueConstraint> uniqueConstraints = new ArrayList<>();
+        List<SQLNotNullConstraint> notNullConstraints = new ArrayList<>();
+        String callableName = "createTable";
+        HiveMetastoreApiStats apiStats = stats.getCreateTable();
+        Callable callableClient = apiStats.wrap(() ->
+                getMetastoreClientThenCall(metastoreContext, client -> {
+                    client.createTable(table);
+                    return null;
+                }));
+
+        if (!constraints.isEmpty()) {
+            validateTableConstraints(constraints);
+            for (TableConstraint<String> constraint : constraints) {
+                int keySeq = 1;
+                if (constraint instanceof PrimaryKeyConstraint) {
+                    for (String column : constraint.getColumns()) {
+                        primaryKeys.add(
+                                new SQLPrimaryKey(
+                                        table.getDbName(),
+                                        table.getTableName(),
+                                        column,
+                                        keySeq++,
+                                        constraint.getName().orElse(null),
+                                        constraint.isEnabled(),
+                                        constraint.isEnforced(),
+                                        constraint.isRely()));
+                    }
+                }
+                else if (constraint instanceof UniqueConstraint) {
+                    for (String column : constraint.getColumns()) {
+                        uniqueConstraints.add(
+                                new SQLUniqueConstraint(
+                                        table.getCatName(),
+                                        table.getDbName(),
+                                        table.getTableName(),
+                                        column,
+                                        keySeq++,
+                                        constraint.getName().orElse(null),
+                                        constraint.isEnabled(),
+                                        constraint.isEnforced(),
+                                        constraint.isRely()));
+                    }
+                }
+                else if (constraint instanceof NotNullConstraint) {
+                    notNullConstraints.add(
+                            new SQLNotNullConstraint(
+                                    table.getCatName(),
+                                    table.getDbName(),
+                                    table.getTableName(),
+                                    constraint.getColumns().stream().findFirst().get(),
+                                    constraint.getName().orElse(null),
+                                    constraint.isEnabled(),
+                                    constraint.isEnforced(),
+                                    constraint.isRely()));
+                }
+                else {
+                    throw new PrestoException(NOT_SUPPORTED, format("Constraint %s of unknown type is not supported", constraint.getName().orElse("")));
+                }
+            }
+
+            callableName = "createTableWithConstraints";
+            apiStats = stats.getCreateTableWithConstraints();
+            callableClient = apiStats.wrap(() ->
+                    getMetastoreClientThenCall(metastoreContext, client -> {
+                        client.createTableWithConstraints(table, primaryKeys, uniqueConstraints, notNullConstraints);
+                        return null;
+                    }));
+        }
+
         try {
             retry()
                     .stopOn(AlreadyExistsException.class, InvalidObjectException.class, MetaException.class, NoSuchObjectException.class)
                     .stopOnIllegalExceptions()
-                    .run("createTable", stats.getCreateTable().wrap(() ->
-                            getMetastoreClientThenCall(metastoreContext, client -> {
-                                client.createTable(table);
-                                return null;
-                            })));
-
-            return EMPTY_RESULT;
+                    .run(callableName, callableClient);
         }
         catch (AlreadyExistsException e) {
             throw new TableAlreadyExistsException(new SchemaTableName(table.getDbName(), table.getTableName()));
@@ -974,6 +1094,8 @@ public class ThriftHiveMetastore
         catch (Exception e) {
             throw propagate(e);
         }
+
+        return EMPTY_RESULT;
     }
 
     @Override
@@ -1103,6 +1225,46 @@ public class ThriftHiveMetastore
             storePartitionColumnStatistics(metastoreContext, databaseName, tableName, partitionWithStatistics.getPartitionName(), partitionWithStatistics);
         }
         return EMPTY_RESULT;
+    }
+
+    private List<String> getPrestoViews(String databaseName)
+            throws TException
+    {
+        /*
+         * Thrift call `get_table_names_by_filter` may be translated by Metastore to a SQL query against Metastore database.
+         * Hive 2.3 on some databases uses CLOB for table parameter value column and some databases disallow `=` predicate over
+         * CLOB values. At the same time, they allow `LIKE` predicates over them.
+         */
+        String filterWithEquals = HIVE_FILTER_FIELD_PARAMS + PRESTO_VIEW_FLAG + " = \"true\"";
+        String filterWithLike = HIVE_FILTER_FIELD_PARAMS + PRESTO_VIEW_FLAG + " LIKE \"true\"";
+        if (metastoreKnownToSupportTableParamEqualsPredicate) {
+            try (HiveMetastoreClient client = clientProvider.createMetastoreClient(Optional.empty())) {
+                return client.getTableNamesByFilter(databaseName, filterWithEquals);
+            }
+        }
+        if (metastoreKnownToSupportTableParamLikePredicate) {
+            try (HiveMetastoreClient client = clientProvider.createMetastoreClient(Optional.empty())) {
+                return client.getTableNamesByFilter(databaseName, filterWithLike);
+            }
+        }
+        try (HiveMetastoreClient client = clientProvider.createMetastoreClient(Optional.empty())) {
+            List<String> views = client.getTableNamesByFilter(databaseName, filterWithEquals);
+            metastoreKnownToSupportTableParamEqualsPredicate = true;
+            return views;
+        }
+        catch (TException | RuntimeException firstException) {
+            try (HiveMetastoreClient client = clientProvider.createMetastoreClient(Optional.empty())) {
+                List<String> views = client.getTableNamesByFilter(databaseName, filterWithLike);
+                metastoreKnownToSupportTableParamLikePredicate = true;
+                return views;
+            }
+            catch (TException | RuntimeException secondException) {
+                if (firstException != secondException) {
+                    firstException.addSuppressed(secondException);
+                }
+            }
+            throw firstException;
+        }
     }
 
     private void addPartitionsWithoutStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, List<Partition> partitions)
@@ -1450,6 +1612,135 @@ public class ThriftHiveMetastore
         catch (Exception e) {
             throw propagate(e);
         }
+    }
+
+    @Override
+    public MetastoreOperationResult dropConstraint(MetastoreContext metastoreContext, String databaseName, String tableName, String constraintName)
+    {
+        Optional<org.apache.hadoop.hive.metastore.api.Table> source = getTable(metastoreContext, databaseName, tableName);
+        if (!source.isPresent()) {
+            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
+        }
+
+        try {
+            retry()
+                    .stopOnIllegalExceptions()
+                    .run("dropConstraint", stats.getDropConstraint().wrap(() ->
+                            getMetastoreClientThenCall(metastoreContext, client -> {
+                                client.dropConstraint(databaseName, tableName, constraintName);
+                                return null;
+                            })));
+            return EMPTY_RESULT;
+        }
+        catch (NoSuchObjectException e) {
+            throw new TableConstraintNotFoundException(Optional.of(constraintName));
+        }
+        catch (TException e) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            throw propagate(e);
+        }
+    }
+
+    @Override
+    public MetastoreOperationResult addConstraint(MetastoreContext metastoreContext, String databaseName, String tableName, TableConstraint<String> tableConstraint)
+    {
+        Optional<org.apache.hadoop.hive.metastore.api.Table> source = getTable(metastoreContext, databaseName, tableName);
+        if (!source.isPresent()) {
+            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
+        }
+
+        org.apache.hadoop.hive.metastore.api.Table table = source.get();
+        Set<String> constraintColumns = tableConstraint.getColumns();
+        int keySequence = 1;
+        List<SQLPrimaryKey> primaryKeyConstraint = new ArrayList<>();
+        List<SQLUniqueConstraint> uniqueConstraint = new ArrayList<>();
+        List<SQLNotNullConstraint> notNullConstraint = new ArrayList<>();
+        String callableName;
+        HiveMetastoreApiStats apiStats;
+        Callable callableClient;
+
+        if (tableConstraint instanceof PrimaryKeyConstraint) {
+            for (String column : constraintColumns) {
+                SQLPrimaryKey sqlPrimaryKey = new SQLPrimaryKey(table.getDbName(),
+                        table.getTableName(),
+                        column,
+                        keySequence++,
+                        tableConstraint.getName().orElse(null),
+                        tableConstraint.isEnabled(),
+                        tableConstraint.isEnforced(),
+                        tableConstraint.isRely());
+                sqlPrimaryKey.setCatName(table.getCatName());
+                primaryKeyConstraint.add(sqlPrimaryKey);
+            }
+            callableName = "addPrimaryKeyConstraint";
+            apiStats = stats.getAddPrimaryKeyConstraint();
+            callableClient = apiStats.wrap(() ->
+                    getMetastoreClientThenCall(metastoreContext, client -> {
+                        client.addPrimaryKeyConstraint(primaryKeyConstraint);
+                        return null;
+                    }));
+        }
+        else if (tableConstraint instanceof UniqueConstraint) {
+            for (String column : constraintColumns) {
+                uniqueConstraint.add(
+                        new SQLUniqueConstraint(table.getCatName(),
+                                table.getDbName(),
+                                table.getTableName(),
+                                column,
+                                keySequence++,
+                                tableConstraint.getName().orElse(null),
+                                tableConstraint.isEnabled(),
+                                tableConstraint.isEnforced(),
+                                tableConstraint.isRely()));
+            }
+            callableName = "addUniqueConstraint";
+            apiStats = stats.getAddUniqueConstraint();
+            callableClient = apiStats.wrap(() ->
+                    getMetastoreClientThenCall(metastoreContext, client -> {
+                        client.addUniqueConstraint(uniqueConstraint);
+                        return null;
+                    }));
+        }
+        else if (tableConstraint instanceof NotNullConstraint) {
+            notNullConstraint.add(
+                    new SQLNotNullConstraint(table.getCatName(),
+                            table.getDbName(),
+                            table.getTableName(),
+                            tableConstraint.getColumns().stream().findFirst().get(),
+                            tableConstraint.getName().orElse(null),
+                            true,
+                            true,
+                            true));
+            callableName = "addNotNullConstraint";
+            apiStats = stats.getAddNotNullConstraint();
+            callableClient = apiStats.wrap(() ->
+                    getMetastoreClientThenCall(metastoreContext, client -> {
+                        client.addNotNullConstraint(notNullConstraint);
+                        return null;
+                    }));
+        }
+        else {
+            throw new PrestoException(NOT_SUPPORTED, "This connector can only handle Unique/Primary Key/Not Null constraints at this time");
+        }
+
+        try {
+            retry()
+                    .stopOnIllegalExceptions()
+                    .run(callableName, callableClient);
+        }
+        catch (AlreadyExistsException e) {
+            throw new TableConstraintAlreadyExistsException(tableConstraint.getName());
+        }
+        catch (TException e) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            throw propagate(e);
+        }
+
+        return EMPTY_RESULT;
     }
 
     @Override

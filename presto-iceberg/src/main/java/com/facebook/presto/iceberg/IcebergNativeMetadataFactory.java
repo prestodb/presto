@@ -16,8 +16,10 @@ package com.facebook.presto.iceberg;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.NodeVersion;
+import com.facebook.presto.iceberg.statistics.StatisticsFileCache;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
+import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.relation.RowExpressionService;
 
 import javax.inject.Inject;
@@ -29,23 +31,29 @@ public class IcebergNativeMetadataFactory
 {
     final TypeManager typeManager;
     final JsonCodec<CommitTaskData> commitTaskCodec;
-    final IcebergResourceFactory resourceFactory;
+    final IcebergNativeCatalogFactory catalogFactory;
     final CatalogType catalogType;
     final StandardFunctionResolution functionResolution;
     final RowExpressionService rowExpressionService;
     final NodeVersion nodeVersion;
+    final FilterStatsCalculatorService filterStatsCalculatorService;
+    final StatisticsFileCache statisticsFileCache;
+    final IcebergTableProperties tableProperties;
 
     @Inject
     public IcebergNativeMetadataFactory(
             IcebergConfig config,
-            IcebergResourceFactory resourceFactory,
+            IcebergNativeCatalogFactory catalogFactory,
             TypeManager typeManager,
             StandardFunctionResolution functionResolution,
             RowExpressionService rowExpressionService,
             JsonCodec<CommitTaskData> commitTaskCodec,
-            NodeVersion nodeVersion)
+            NodeVersion nodeVersion,
+            FilterStatsCalculatorService filterStatsCalculatorService,
+            StatisticsFileCache statisticsFileCache,
+            IcebergTableProperties tableProperties)
     {
-        this.resourceFactory = requireNonNull(resourceFactory, "resourceFactory is null");
+        this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
         this.rowExpressionService = requireNonNull(rowExpressionService, "rowExpressionService is null");
@@ -53,10 +61,13 @@ public class IcebergNativeMetadataFactory
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         requireNonNull(config, "config is null");
         this.catalogType = config.getCatalogType();
+        this.filterStatsCalculatorService = requireNonNull(filterStatsCalculatorService, "filterStatsCalculatorService is null");
+        this.statisticsFileCache = requireNonNull(statisticsFileCache, "statisticsFileCache is null");
+        this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");
     }
 
     public ConnectorMetadata create()
     {
-        return new IcebergNativeMetadata(resourceFactory, typeManager, functionResolution, rowExpressionService, commitTaskCodec, catalogType, nodeVersion);
+        return new IcebergNativeMetadata(catalogFactory, typeManager, functionResolution, rowExpressionService, commitTaskCodec, catalogType, nodeVersion, filterStatsCalculatorService, statisticsFileCache, tableProperties);
     }
 }

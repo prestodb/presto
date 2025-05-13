@@ -14,7 +14,6 @@
 package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.presto.common.type.BigintType;
-import com.facebook.presto.common.type.DateType;
 import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
@@ -30,6 +29,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -129,10 +129,10 @@ public class TestJdbcClient
         String tableName = randomUUID().toString().toUpperCase(ENGLISH);
         SchemaTableName schemaTableName = new SchemaTableName("schema_for_create_table_tests", tableName);
         List<ColumnMetadata> expectedColumns = ImmutableList.of(
-                new ColumnMetadata("columnA", BigintType.BIGINT, null, null, false),
-                new ColumnMetadata("columnB", BigintType.BIGINT, true, null, null, false, emptyMap()),
-                new ColumnMetadata("columnC", BigintType.BIGINT, false, null, null, false, emptyMap()),
-                new ColumnMetadata("columnD", DateType.DATE, false, null, null, false, emptyMap()));
+                ColumnMetadata.builder().setName("columnA").setType(BIGINT).setHidden(false).build(),
+                ColumnMetadata.builder().setName("columnB").setType(BIGINT).setNullable(true).setHidden(false).setProperties(emptyMap()).build(),
+                ColumnMetadata.builder().setName("columnC").setType(BIGINT).setNullable(false).setHidden(false).setProperties(emptyMap()).build(),
+                ColumnMetadata.builder().setName("columnD").setType(DATE).setNullable(false).setHidden(false).setProperties(emptyMap()).build());
 
         jdbcClient.createTable(session, new ConnectorTableMetadata(schemaTableName, expectedColumns));
 
@@ -144,21 +144,24 @@ public class TestJdbcClient
                     new JdbcColumnHandle(CONNECTOR_ID, "COLUMNA", JDBC_BIGINT, BigintType.BIGINT, true, Optional.empty()),
                     new JdbcColumnHandle(CONNECTOR_ID, "COLUMNB", JDBC_BIGINT, BigintType.BIGINT, true, Optional.empty()),
                     new JdbcColumnHandle(CONNECTOR_ID, "COLUMNC", JDBC_BIGINT, BigintType.BIGINT, false, Optional.empty()),
-                    new JdbcColumnHandle(CONNECTOR_ID, "COLUMND", JDBC_DATE, DateType.DATE, false, Optional.empty())));
+                    new JdbcColumnHandle(CONNECTOR_ID, "COLUMND", JDBC_DATE, DATE, false, Optional.empty())));
         }
         finally {
             jdbcClient.dropTable(session, JdbcIdentity.from(session), tableHandle);
         }
     }
 
-    // disabled due to https://github.com/prestodb/presto/issues/16081
-    @Test(enabled = false)
+    @Test
     public void testAlterColumns()
     {
         String tableName = randomUUID().toString().toUpperCase(ENGLISH);
         SchemaTableName schemaTableName = new SchemaTableName("schema_for_create_table_tests", tableName);
         List<ColumnMetadata> expectedColumns = ImmutableList.of(
-                new ColumnMetadata("columnA", BigintType.BIGINT, null, null, false));
+                ColumnMetadata.builder()
+                        .setName("columnA")
+                        .setType(BIGINT)
+                        .setHidden(false)
+                        .build());
 
         jdbcClient.createTable(session, new ConnectorTableMetadata(schemaTableName, expectedColumns));
 
@@ -169,7 +172,11 @@ public class TestJdbcClient
             assertEquals(jdbcClient.getColumns(session, tableHandle), ImmutableList.of(
                     new JdbcColumnHandle(CONNECTOR_ID, "COLUMNA", JDBC_BIGINT, BigintType.BIGINT, true, Optional.empty())));
 
-            jdbcClient.addColumn(session, JdbcIdentity.from(session), tableHandle, new ColumnMetadata("columnB", DoubleType.DOUBLE, null, null, false));
+            jdbcClient.addColumn(session, JdbcIdentity.from(session), tableHandle, ColumnMetadata.builder()
+                    .setName("columnB")
+                    .setType(DOUBLE)
+                    .setHidden(false)
+                    .build());
             assertEquals(jdbcClient.getColumns(session, tableHandle), ImmutableList.of(
                     new JdbcColumnHandle(CONNECTOR_ID, "COLUMNA", JDBC_BIGINT, BigintType.BIGINT, true, Optional.empty()),
                     new JdbcColumnHandle(CONNECTOR_ID, "COLUMNB", JDBC_DOUBLE, DoubleType.DOUBLE, true, Optional.empty())));

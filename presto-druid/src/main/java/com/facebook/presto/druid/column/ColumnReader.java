@@ -35,13 +35,13 @@ public interface ColumnReader
         if (type == VARCHAR) {
             return new StringColumnReader(valueSelector);
         }
-        if (type == DOUBLE) {
+        if (type.equals(DOUBLE)) {
             return new DoubleColumnReader(valueSelector);
         }
         if (type == BIGINT) {
             return new LongColumnReader(valueSelector);
         }
-        if (type == REAL) {
+        if (type.equals(REAL)) {
             return new FloatColumnReader(valueSelector);
         }
         if (type == TIMESTAMP) {

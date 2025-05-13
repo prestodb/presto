@@ -15,6 +15,7 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.hive.BaseHiveColumnHandle;
 import com.facebook.presto.hive.BaseHiveTableLayoutHandle;
 import com.facebook.presto.hive.HivePartition;
 import com.facebook.presto.hive.metastore.Column;
@@ -30,12 +31,13 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.hive.MetadataUtils.isEntireColumn;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 public class IcebergTableLayoutHandle
         extends BaseHiveTableLayoutHandle
 {
-    private final List<IcebergColumnHandle> partitionColumns;
     private final List<Column> dataColumns;
     private final Map<String, IcebergColumnHandle> predicateColumns;
     private final Optional<Set<IcebergColumnHandle>> requestedColumns;
@@ -54,7 +56,7 @@ public class IcebergTableLayoutHandle
             @JsonProperty("table") IcebergTableHandle table)
     {
         this(
-                partitionColumns,
+                partitionColumns.stream().map(BaseHiveColumnHandle.class::cast).collect(toList()),
                 dataColumns,
                 domainPredicate,
                 remainingPredicate,
@@ -66,8 +68,8 @@ public class IcebergTableLayoutHandle
                 table);
     }
 
-    protected IcebergTableLayoutHandle(
-            List<IcebergColumnHandle> partitionColumns,
+    public IcebergTableLayoutHandle(
+            List<BaseHiveColumnHandle> partitionColumns,
             List<Column> dataColumns,
             TupleDomain<Subfield> domainPredicate,
             RowExpression remainingPredicate,
@@ -78,19 +80,18 @@ public class IcebergTableLayoutHandle
             Optional<List<HivePartition>> partitions,
             IcebergTableHandle table)
     {
-        super(domainPredicate, remainingPredicate, pushdownFilterEnabled, partitionColumnPredicate, partitions);
+        super(
+                partitionColumns,
+                domainPredicate,
+                remainingPredicate,
+                pushdownFilterEnabled,
+                partitionColumnPredicate,
+                partitions);
 
-        this.partitionColumns = ImmutableList.copyOf(requireNonNull(partitionColumns, "partitionColumns is null"));
         this.dataColumns = ImmutableList.copyOf(requireNonNull(dataColumns, "dataColumns is null"));
         this.predicateColumns = requireNonNull(predicateColumns, "predicateColumns is null");
         this.requestedColumns = requireNonNull(requestedColumns, "requestedColumns is null");
         this.table = requireNonNull(table, "table is null");
-    }
-
-    @JsonProperty
-    public List<IcebergColumnHandle> getPartitionColumns()
-    {
-        return partitionColumns;
     }
 
     @JsonProperty
@@ -117,6 +118,17 @@ public class IcebergTableLayoutHandle
         return table;
     }
 
+    public TupleDomain<IcebergColumnHandle> getValidPredicate()
+    {
+        TupleDomain<IcebergColumnHandle> predicate = getDomainPredicate()
+                .transform(subfield -> isEntireColumn(subfield) ? subfield.getRootName() : null)
+                .transform(getPredicateColumns()::get);
+        if (isPushdownFilterEnabled()) {
+            predicate = predicate.intersect(getPartitionColumnPredicate().transform(IcebergColumnHandle.class::cast));
+        }
+        return predicate;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -129,7 +141,7 @@ public class IcebergTableLayoutHandle
         IcebergTableLayoutHandle that = (IcebergTableLayoutHandle) o;
         return Objects.equals(getDomainPredicate(), that.getDomainPredicate()) &&
                 Objects.equals(getRemainingPredicate(), that.getRemainingPredicate()) &&
-                Objects.equals(partitionColumns, that.partitionColumns) &&
+                Objects.equals(getPartitionColumns(), that.getPartitionColumns()) &&
                 Objects.equals(predicateColumns, that.predicateColumns) &&
                 Objects.equals(requestedColumns, that.requestedColumns) &&
                 Objects.equals(isPushdownFilterEnabled(), that.isPushdownFilterEnabled()) &&
@@ -151,7 +163,7 @@ public class IcebergTableLayoutHandle
 
     public static class Builder
     {
-        private List<IcebergColumnHandle> partitionColumns;
+        private List<BaseHiveColumnHandle> partitionColumns;
         private List<Column> dataColumns;
         private TupleDomain<Subfield> domainPredicate;
         private RowExpression remainingPredicate;
@@ -162,7 +174,7 @@ public class IcebergTableLayoutHandle
         private Optional<List<HivePartition>> partitions;
         private IcebergTableHandle table;
 
-        public Builder setPartitionColumns(List<IcebergColumnHandle> partitionColumns)
+        public Builder setPartitionColumns(List<BaseHiveColumnHandle> partitionColumns)
         {
             this.partitionColumns = partitionColumns;
             return this;

@@ -23,7 +23,6 @@ import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.spark.PrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.classloader_interface.MutablePartitionId;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkMutableRow;
-import com.facebook.presto.spark.classloader_interface.PrestoSparkNativeTaskRdd;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleStats;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskOutput;
@@ -35,17 +34,17 @@ import com.facebook.presto.spark.classloader_interface.SerializedPrestoSparkTask
 import com.facebook.presto.spark.classloader_interface.SerializedTaskInfo;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.plan.PartitioningHandle;
+import com.facebook.presto.spi.plan.PlanFragmentId;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.split.CloseableSplitSourceProvider;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.split.SplitSource;
-import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.SplitSourceFactory;
-import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
@@ -71,7 +70,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.classTag;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.serializeZstdCompressed;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -252,26 +250,14 @@ public class PrestoSparkRddFactory
             taskSourceRdd = Optional.empty();
         }
 
-        if (isNativeExecutionEnabled(session)) {
-            return JavaPairRDD.fromRDD(
-                    PrestoSparkNativeTaskRdd.create(
-                            sparkContext.sc(),
-                            taskSourceRdd,
-                            shuffleInputRddMap,
-                            taskProcessor).setName(getRDDName(fragment.getId().getId())),
-                    classTag(MutablePartitionId.class),
-                    classTag(outputType));
-        }
-        else {
-            return JavaPairRDD.fromRDD(
-                    PrestoSparkTaskRdd.create(
-                            sparkContext.sc(),
-                            taskSourceRdd,
-                            shuffleInputRddMap,
-                            taskProcessor).setName(getRDDName(fragment.getId().getId())),
-                    classTag(MutablePartitionId.class),
-                    classTag(outputType));
-        }
+        return JavaPairRDD.fromRDD(
+                PrestoSparkTaskRdd.create(
+                        sparkContext.sc(),
+                        taskSourceRdd,
+                        shuffleInputRddMap,
+                        taskProcessor).setName(getRDDName(fragment.getId().getId())),
+                classTag(MutablePartitionId.class),
+                classTag(outputType));
     }
 
     private PrestoSparkTaskSourceRdd createTaskSourcesRdd(

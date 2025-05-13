@@ -13,55 +13,31 @@
 
 set -eufx -o pipefail
 
-# Run the velox setup script first.
+SCRIPTDIR=$(dirname "${BASH_SOURCE[0]}")
+PYTHON_VENV=${PYTHON_VENV:-"${SCRIPTDIR}/../.venv"}
+# Prestissimo fails to build DuckDB with error
+# "math cannot parse the expression" when this
+# script is invoked under the Presto git project.
+# Set DEPENDENCY_DIR to a directory outside of Presto
+# to build DuckDB.
+BUILD_DUCKDB="${BUILD_DUCKDB:-false}"
 source "$(dirname "${BASH_SOURCE}")/../velox/scripts/setup-macos.sh"
-
-MACOS_DEPS="${MACOS_DEPS} bison gperf libsodium"
-export FB_OS_VERSION=v2022.11.14.00
-
-function install_six {
-  pip3 install six
-}
-
-export PATH=$(brew --prefix bison)/bin:$PATH
-
-function install_folly {
-  github_checkout facebook/folly "${FB_OS_VERSION}"
-  OPENSSL_ROOT_DIR=$(brew --prefix openssl@1.1) \
-   cmake_install -DBUILD_TESTS=OFF -DFOLLY_HAVE_INT128_T=ON
-}
-
-function install_fizz {
-  github_checkout facebookincubator/fizz "${FB_OS_VERSION}"
-  OPENSSL_ROOT_DIR=$(brew --prefix openssl@1.1) \
-    cmake_install -DBUILD_TESTS=OFF -S fizz
-}
-
-function install_wangle {
-  github_checkout facebook/wangle "${FB_OS_VERSION}"
-  OPENSSL_ROOT_DIR=$(brew --prefix openssl@1.1) \
-    cmake_install -DBUILD_TESTS=OFF -S wangle
-}
-
-function install_fbthrift {
-  github_checkout facebook/fbthrift "${FB_OS_VERSION}"
-  OPENSSL_ROOT_DIR=$(brew --prefix openssl@1.1) \
-    cmake_install -DBUILD_TESTS=OFF
-}
+GPERF_VERSION="3.1"
 
 function install_proxygen {
   github_checkout facebook/proxygen "${FB_OS_VERSION}"
-  OPENSSL_ROOT_DIR=$(brew --prefix openssl@1.1) \
-    cmake_install -DBUILD_TESTS=OFF
+  cmake_install -DBUILD_TESTS=OFF
+}
+
+function install_gperf {
+  wget_and_untar https://ftpmirror.gnu.org/gperf/gperf-${GPERF_VERSION}.tar.gz gperf
+  cd ${DEPENDENCY_DIR}/gperf
+  ./configure --prefix=${INSTALL_PREFIX}
+  make install 
 }
 
 function install_presto_deps {
-  install_velox_deps
-  run_and_time install_folly
-  run_and_time install_six
-  run_and_time install_fizz
-  run_and_time install_wangle
-  run_and_time install_fbthrift
+  run_and_time install_gperf
   run_and_time install_proxygen
 }
 
@@ -69,6 +45,17 @@ if [[ $# -ne 0 ]]; then
   for cmd in "$@"; do
     run_and_time "${cmd}"
   done
+  echo "All specified dependencies installed!"
 else
+  if [ "${INSTALL_PREREQUISITES:-Y}" == "Y" ]; then
+    echo "Installing build dependencies"
+    run_and_time install_build_prerequisites
+  else
+    echo "Skipping installation of build dependencies since INSTALL_PREREQUISITES is not set"
+  fi
+  install_velox_deps
   install_presto_deps
+  echo "All dependencies for Prestissimo installed!"
+  echo "To reuse the installed dependencies for subsequent builds, consider adding this to your ~/.zshrc"
+  echo "export INSTALL_PREFIX=$INSTALL_PREFIX"
 fi

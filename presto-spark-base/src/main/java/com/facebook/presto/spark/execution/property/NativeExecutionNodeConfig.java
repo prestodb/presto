@@ -16,6 +16,8 @@ package com.facebook.presto.spark.execution.property;
 import com.facebook.airlift.configuration.Config;
 import com.google.common.collect.ImmutableMap;
 
+import javax.validation.constraints.NotNull;
+
 import java.util.Map;
 
 /**
@@ -26,12 +28,12 @@ public class NativeExecutionNodeConfig
     private static final String NODE_ENVIRONMENT = "node.environment";
     private static final String NODE_ID = "node.id";
     private static final String NODE_LOCATION = "node.location";
-    private static final String NODE_IP = "node.ip";
+    private static final String NODE_INTERNAL_ADDRESS = "node.internal-address";
     private static final String NODE_MEMORY_GB = "node.memory_gb";
 
     private String nodeEnvironment = "spark-velox";
     private String nodeLocation = "/dummy/location";
-    private String nodeIp = "0.0.0.0";
+    private String nodeInternalAddress = "127.0.0.1";
     private int nodeId;
     private int nodeMemoryGb = 10;
 
@@ -41,7 +43,7 @@ public class NativeExecutionNodeConfig
         return builder.put(NODE_ENVIRONMENT, getNodeEnvironment())
                 .put(NODE_ID, String.valueOf(getNodeId()))
                 .put(NODE_LOCATION, getNodeLocation())
-                .put(NODE_IP, getNodeIp())
+                .put(NODE_INTERNAL_ADDRESS, getNodeInternalAddress())
                 .put(NODE_MEMORY_GB, String.valueOf(getNodeMemoryGb())).build();
     }
 
@@ -69,15 +71,16 @@ public class NativeExecutionNodeConfig
         return this;
     }
 
-    public String getNodeIp()
+    @NotNull
+    public String getNodeInternalAddress()
     {
-        return nodeIp;
+        return nodeInternalAddress;
     }
 
-    @Config(NODE_IP)
-    public NativeExecutionNodeConfig setNodeIp(String nodeIp)
+    @Config(NODE_INTERNAL_ADDRESS)
+    public NativeExecutionNodeConfig setNodeInternalAddress(String nodeInternalAddress)
     {
-        this.nodeIp = nodeIp;
+        this.nodeInternalAddress = nodeInternalAddress;
         return this;
     }
 

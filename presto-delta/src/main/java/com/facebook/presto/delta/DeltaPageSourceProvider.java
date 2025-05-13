@@ -84,12 +84,12 @@ import static com.facebook.presto.delta.DeltaErrorCode.DELTA_BAD_DATA;
 import static com.facebook.presto.delta.DeltaErrorCode.DELTA_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.delta.DeltaErrorCode.DELTA_MISSING_DATA;
 import static com.facebook.presto.delta.DeltaErrorCode.DELTA_PARQUET_SCHEMA_MISMATCH;
-import static com.facebook.presto.delta.DeltaSessionProperties.getParquetMaxReadBlockSize;
-import static com.facebook.presto.delta.DeltaSessionProperties.getReadNullMaskedParquetEncryptedValue;
-import static com.facebook.presto.delta.DeltaSessionProperties.isParquetBatchReaderVerificationEnabled;
-import static com.facebook.presto.delta.DeltaSessionProperties.isParquetBatchReadsEnabled;
 import static com.facebook.presto.delta.DeltaTypeUtils.convertPartitionValue;
 import static com.facebook.presto.hive.CacheQuota.NO_CACHE_CONSTRAINTS;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.getParquetMaxReadBlockSize;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.getReadNullMaskedParquetEncryptedValue;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.isParquetBatchReaderVerificationEnabled;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.isParquetBatchReadsEnabled;
 import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
 import static com.facebook.presto.hive.parquet.ParquetPageSourceFactory.checkSchemaMatch;
 import static com.facebook.presto.hive.parquet.ParquetPageSourceFactory.createDecryptor;
@@ -139,7 +139,8 @@ public class DeltaPageSourceProvider
             ConnectorSplit split,
             ConnectorTableLayoutHandle layout,
             List<ColumnHandle> columns,
-            SplitContext splitContext)
+            SplitContext splitContext,
+            RuntimeStats runtimeStats)
     {
         DeltaSplit deltaSplit = (DeltaSplit) split;
         DeltaTableLayoutHandle deltaTableLayoutHandle = (DeltaTableLayoutHandle) layout;
@@ -252,7 +253,7 @@ public class DeltaPageSourceProvider
                     .map(type -> new MessageType(fileSchema.getName(), type))
                     .reduce(MessageType::union);
 
-            MessageType requestedSchema = message.orElse(new MessageType(fileSchema.getName(), ImmutableList.of()));
+            MessageType requestedSchema = message.orElseGet(() -> new MessageType(fileSchema.getName(), ImmutableList.of()));
 
             ImmutableList.Builder<BlockMetaData> footerBlocks = ImmutableList.builder();
             for (BlockMetaData block : parquetMetadata.getBlocks()) {

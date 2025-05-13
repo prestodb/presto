@@ -833,6 +833,20 @@ so a cross join between the two tables produces 125 rows::
     ...
     (125 rows)
 
+Lateral
+^^^^^^^
+
+Subqueries appearing in the FROM clause can be preceded by the keyword ``LATERAL``. This allows them to reference columns provided by preceding ``FROM`` items.
+
+INNER and LEFT OUTER lateral joins are supported in Presto.
+
+.. code-block:: none
+
+    SELECT name, x, y
+    FROM nation
+    CROSS JOIN LATERAL (SELECT name || ' :-' AS x)
+    CROSS JOIN LATERAL (SELECT x || ')' AS y);
+
 Qualifying Column Names
 ^^^^^^^^^^^^^^^^^^^^^^^
 

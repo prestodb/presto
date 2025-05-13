@@ -13,11 +13,32 @@
  */
 
 #include "presto_cpp/main/common/ConfigReader.h"
+#include <fmt/format.h>
 #include <fstream>
 #include "velox/common/base/Exceptions.h"
-#include "velox/core/Config.h"
+#include "velox/common/config/Config.h"
 
 namespace facebook::presto::util {
+
+namespace {
+// Replaces strings of the form "${VAR}"
+// with the value of the environment variable "VAR" (if it exists).
+// Does nothing if the input doesn't look like "${...}".
+void extractValueIfEnvironmentVariable(std::string& value) {
+  if (value.size() > 3 && value.substr(0, 2) == "${" && value.back() == '}') {
+    auto envName = value.substr(2, value.size() - 3);
+
+    const char* envVal = std::getenv(envName.c_str());
+    if (envVal != nullptr) {
+      if (strlen(envVal) == 0) {
+        LOG(WARNING) << fmt::format(
+            "Config environment variable {} is empty.", envName);
+      }
+      value = std::string(envVal);
+    }
+  }
+}
+} // namespace
 
 std::unordered_map<std::string, std::string> readConfig(
     const std::string& filePath) {
@@ -32,12 +53,20 @@ std::unordered_map<std::string, std::string> readConfig(
   std::string line;
   while (getline(configFile, line)) {
     line.erase(std::remove_if(line.begin(), line.end(), isspace), line.end());
-    if (line[0] == '#' || line.empty()) {
+    if (line.empty() || line[0] == '#') {
       continue;
     }
-    auto delimiterPos = line.find('=');
-    auto name = line.substr(0, delimiterPos);
+
+    const auto delimiterPos = line.find('=');
+    VELOX_CHECK_NE(
+        delimiterPos,
+        std::string::npos,
+        "No '=' sign found for property pair '{}'",
+        line);
+    const auto name = line.substr(0, delimiterPos);
+    VELOX_CHECK(!name.empty(), "property pair '{}' has empty key", line);
     auto value = line.substr(delimiterPos + 1);
+    extractValueIfEnvironmentVariable(value);
     properties.emplace(name, value);
   }
 
@@ -55,9 +84,9 @@ std::string requiredProperty(
 }
 
 std::string requiredProperty(
-    const velox::Config& properties,
+    const velox::config::ConfigBase& properties,
     const std::string& name) {
-  auto value = properties.get(name);
+  auto value = properties.get<std::string>(name);
   if (!value.hasValue()) {
     VELOX_USER_FAIL("Missing configuration property {}", name);
   }
@@ -87,10 +116,10 @@ std::string getOptionalProperty(
 }
 
 std::string getOptionalProperty(
-    const velox::Config& properties,
+    const velox::config::ConfigBase& properties,
     const std::string& name,
     const std::string& defaultValue) {
-  auto value = properties.get(name);
+  auto value = properties.get<std::string>(name);
   if (!value.hasValue()) {
     return defaultValue;
   }

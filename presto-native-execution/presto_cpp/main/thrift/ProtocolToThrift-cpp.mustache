@@ -82,7 +82,7 @@ void toThrift(const protocol::{{class_name}}& proto, thrift::{{&class_name}}& th
 {{/struct}}
 {{#enum}}
 void toThrift(const protocol::{{class_name}}& proto, thrift::{{class_name}}& thrift) {
-  thrift = (thrift::{{class_name}})((int)proto);
+  thrift = (thrift::{{class_name}})(static_cast<int>(proto));
 }
 {{/enum}}
 {{/cinc}}

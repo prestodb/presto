@@ -1,8 +1,9 @@
-FROM quay.io/centos/centos:stream8
+FROM quay.io/centos/centos:stream9
 
 ARG PRESTO_VERSION
 ARG PRESTO_PKG=presto-server-$PRESTO_VERSION.tar.gz
 ARG PRESTO_CLI_JAR=presto-cli-$PRESTO_VERSION-executable.jar
+ARG JMX_PROMETHEUS_JAVAAGENT_VERSION=0.20.0
 
 ENV PRESTO_HOME="/opt/presto-server"
 
@@ -26,12 +27,13 @@ RUN dnf install -y java-11-openjdk less procps python3 \
     && mkdir -p $PRESTO_HOME/etc/catalog \
     && mkdir -p /var/lib/presto/data \
         && mkdir -p /usr/lib/presto/utils \
-        # Download jmx prometheus exporter \
-        && curl -o /usr/lib/presto/utils/jmx_prometheus_javaagent-0.20.0.jar https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/0.20.0/jmx_prometheus_javaagent-0.20.0.jar
+        && curl -o /usr/lib/presto/utils/jmx_prometheus_javaagent-$JMX_PROMETHEUS_JAVAAGENT_VERSION.jar https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/$JMX_PROMETHEUS_JAVAAGENT_VERSION/jmx_prometheus_javaagent-$JMX_PROMETHEUS_JAVAAGENT_VERSION.jar \
+        && ln -s /usr/lib/presto/utils/jmx_prometheus_javaagent-$JMX_PROMETHEUS_JAVAAGENT_VERSION.jar /usr/lib/presto/utils/jmx_prometheus_javaagent.jar
 
 COPY etc/config.properties.example $PRESTO_HOME/etc/config.properties
 COPY etc/jvm.config.example $PRESTO_HOME/etc/jvm.config
 COPY etc/node.properties $PRESTO_HOME/etc/node.properties
+COPY etc/catalog $PRESTO_HOME/etc/catalog
 COPY entrypoint.sh /opt
 
 EXPOSE 8080

@@ -44,6 +44,7 @@ import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveBasicStatistics;
 import com.facebook.presto.hive.HiveType;
+import com.facebook.presto.hive.PartitionNameWithVersion;
 import com.facebook.presto.hive.PartitionOfflineException;
 import com.facebook.presto.hive.TableOfflineException;
 import com.facebook.presto.hive.TypeTranslator;
@@ -86,6 +87,7 @@ import java.math.BigInteger;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -131,6 +133,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Strings.padEnd;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.io.BaseEncoding.base16;
 import static java.lang.Float.intBitsToFloat;
@@ -799,7 +802,7 @@ public class MetastoreUtil
         for (Entry<Column, Domain> partitionPredicate : partitionPredicates.entrySet()) {
             Domain domain = partitionPredicate.getValue();
             if (!domain.isAll()) {
-                if (domain != null && domain.isNullableSingleValue()) {
+                if (domain.isNullableSingleValue()) {
                     Object value = domain.getNullableSingleValue();
                     Type type = domain.getType();
                     filter.add(convertRawValueToString(value, type));
@@ -1023,6 +1026,11 @@ public class MetastoreUtil
         return ICEBERG_TABLE_TYPE_VALUE.equalsIgnoreCase(tableParameters.get(ICEBERG_TABLE_TYPE_NAME));
     }
 
+    public static boolean isIcebergView(Table table)
+    {
+        return "true".equalsIgnoreCase(table.getParameters().get(PRESTO_VIEW_FLAG));
+    }
+
     public static PrincipalPrivileges buildInitialPrivilegeSet(String tableOwner)
     {
         PrestoPrincipal owner = new PrestoPrincipal(USER, tableOwner);
@@ -1054,7 +1062,7 @@ public class MetastoreUtil
         for (ColumnMetadata column : viewMetadata.getColumns()) {
             try {
                 HiveType hiveType = toHiveType(typeTranslator, column.getType());
-                columns.add(new Column(column.getName(), hiveType, Optional.ofNullable(column.getComment()), columnConverter.getTypeMetadata(hiveType, column.getType().getTypeSignature())));
+                columns.add(new Column(column.getName(), hiveType, column.getComment(), columnConverter.getTypeMetadata(hiveType, column.getType().getTypeSignature())));
             }
             catch (PrestoException e) {
                 // if a view uses any unsupported hive types, include only a dummy column value
@@ -1105,5 +1113,19 @@ public class MetastoreUtil
         if (view == null) {
             throw new ViewNotFoundException(viewName);
         }
+    }
+
+    public static List<PartitionNameWithVersion> getPartitionNamesWithEmptyVersion(Collection<String> partitions)
+    {
+        return partitions.stream()
+                .map(partition -> new PartitionNameWithVersion(partition, Optional.empty()))
+                .collect(toImmutableList());
+    }
+
+    public static List<String> getPartitionNames(Collection<PartitionNameWithVersion> partitionNameWithVersions)
+    {
+        return partitionNameWithVersions.stream()
+                .map(PartitionNameWithVersion::getPartitionName)
+                .collect(toImmutableList());
     }
 }

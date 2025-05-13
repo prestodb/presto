@@ -12,6 +12,8 @@ services:
     hostname: presto-master
     image: '${HADOOP_BASE_IMAGE}-kerberized:${DOCKER_IMAGES_VERSION}'
     command: /docker/volumes/conf/docker/files/presto-launcher-wrapper.sh singlenode-kerberized run
+    volumes:
+      - ${OVERRIDE_JDK_DIR}:/docker/volumes/overridejdk
     networks:
       default:
         aliases:

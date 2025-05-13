@@ -21,16 +21,17 @@ import com.facebook.presto.common.block.SingleRowBlock;
 import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.iceberg.changelog.ChangelogOperation;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.apache.iceberg.ChangelogOperation;
 import org.openjdk.jol.info.ClassLayout;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.iceberg.changelog.ChangelogOperation.INSERT;
 import static java.util.Objects.requireNonNull;
 
 public class ChangelogRecord
@@ -79,11 +80,6 @@ public class ChangelogRecord
         return lastOperation;
     }
 
-    private int getLastOrdinal()
-    {
-        return lastOrdinal;
-    }
-
     public ChangelogRecord merge(ChangelogRecord other)
     {
         if (other.lastOrdinal > lastOrdinal) {
@@ -98,7 +94,7 @@ public class ChangelogRecord
             switch (operation) {
                 case UPDATE_AFTER:
                 case INSERT:
-                    if (ChangelogOperation.valueOf(lastOperation.toStringUtf8().toUpperCase()).equals(ChangelogOperation.INSERT)) {
+                    if (ChangelogOperation.valueOf(lastOperation.toStringUtf8().toUpperCase()).equals(INSERT)) {
                         throw new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, "unresolvable order for two inserts");
                     }
                     lastOperation = other.lastOperation;

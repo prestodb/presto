@@ -9,13 +9,13 @@ General Changes
 * Fix invalid plans when scalar subqueries use ``GROUP BY``, ``DISTINCT`` or ``JOIN``.
 * Do not allow creating views with a column type of ``UNKNOWN``.
 * Improve expression optimizer to remove some redundant operations.
-* Add :func:`bit_count`, :func:`bitwise_not`, :func:`bitwise_and`,
-  :func:`bitwise_or`, and :func:`bitwise_xor` functions.
-* Add :func:`approx_distinct` aggregation support for ``VARBINARY`` input.
+* Add :func:`!bit_count`, :func:`!bitwise_not`, :func:`!bitwise_and`,
+  :func:`!bitwise_or`, and :func:`!bitwise_xor` functions.
+* Add :func:`!approx_distinct` aggregation support for ``VARBINARY`` input.
 * Add create time to query detail page in UI.
 * Add support for ``VARCHAR(length)`` type.
 * Track per-stage peak memory usage.
-* Allow using double input for :func:`approx_percentile` with an array of
+* Allow using double input for :func:`!approx_percentile` with an array of
   percentiles.
 * Add API to JDBC driver to track query progress.
 

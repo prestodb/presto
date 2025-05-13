@@ -13,11 +13,6 @@
  */
 package com.facebook.presto.common.plan;
 
-import java.util.List;
-
-import static java.util.Arrays.asList;
-import static java.util.Collections.unmodifiableList;
-
 public enum PlanCanonicalizationStrategy
 {
     /**
@@ -31,7 +26,7 @@ public enum PlanCanonicalizationStrategy
      *
      * This is used in context of fragment result caching
      */
-    DEFAULT,
+    DEFAULT(0),
     /**
      * CONNECTOR strategy will canonicalize plan according to DEFAULT strategy, and additionally
      * canoncialize `TableScanNode` by giving a connector specific implementation. Unlike DEFAULT strategy,
@@ -46,9 +41,9 @@ public enum PlanCanonicalizationStrategy
      *
      * This is used in context of history based optimizations.
      */
-    CONNECTOR,
+    CONNECTOR(1),
     /**
-     * REMOVE_SAFE_CONSTANTS strategy is used to canonicalize plan with
+     * IGNORE_SAFE_CONSTANTS strategy is used to canonicalize plan with
      * CONNECTOR strategy and will additionally remove constants from plan
      * which are not bound to have impact on plan statistics.
      *
@@ -61,15 +56,37 @@ public enum PlanCanonicalizationStrategy
      *
      * This is used in context of history based optimizations.
      */
-    REMOVE_SAFE_CONSTANTS;
+    IGNORE_SAFE_CONSTANTS(2),
+
+    /**
+     * IGNORE_SCAN_CONSTANTS further relaxes over the IGNORE_SAFE_CONSTANTS strategy.
+     * In IGNORE_SAFE_CONSTANTS, only predicate on partitioned column in scan node is canonicalized, but
+     * in IGNORE_SCAN_CONSTANTS, predicates on non-partitioned columns in scan node are also canonicalized
+     *
+     * For example:
+     * `SELECT *, 1 FROM table` will be equivalent to `SELECT *, 2 FROM table`
+     * `SELECT * FROM table WHERE id = 1` will also be equivalent to `SELECT * FROM table WHERE id = 1000` even if id is not partitioned column
+     *
+     * This is used in context of history based optimizations.
+     */
+    IGNORE_SCAN_CONSTANTS(3);
 
     /**
      * Creates a list of PlanCanonicalizationStrategy to be used for history based optimizations.
      * Output is ordered by decreasing accuracy of statistics, at benefit of more coverage.
      * TODO: Remove CONNECTOR strategy
      */
-    public static List<PlanCanonicalizationStrategy> historyBasedPlanCanonicalizationStrategyList()
+
+    // Smaller value means more accurate
+    private final int errorLevel;
+
+    PlanCanonicalizationStrategy(int errorLevel)
     {
-        return unmodifiableList(asList(REMOVE_SAFE_CONSTANTS));
+        this.errorLevel = errorLevel;
+    }
+
+    public int getErrorLevel()
+    {
+        return errorLevel;
     }
 }

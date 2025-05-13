@@ -15,9 +15,10 @@
 #include <array>
 
 #include "presto_cpp/main/types/PrestoToVeloxExpr.h"
-#include "presto_cpp/presto_protocol/presto_protocol.h"
+#include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/core/Expressions.h"
 #include "velox/type/Type.h"
+#include "velox/functions/prestosql/types/JsonRegistration.h"
 
 using namespace facebook::presto;
 using namespace facebook::velox;
@@ -26,10 +27,11 @@ using namespace facebook::velox::core;
 class RowExpressionTest : public ::testing::Test {
  public:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManagerOptions{});
   }
 
   void SetUp() override {
+    registerJsonType();
     pool_ = memory::MemoryManager::getInstance()->addLeafPool();
     converter_ =
         std::make_unique<VeloxExprConverter>(pool_.get(), &typeParser_);
@@ -47,6 +49,54 @@ class RowExpressionTest : public ::testing::Test {
 
     ASSERT_EQ(cexpr->type()->toString(), type);
     ASSERT_EQ(cexpr->value().toJson(cexpr->type()), value);
+  }
+
+  std::string makeCastToVarchar(
+      bool isTryCast,
+      const std::string& inputType,
+      const std::string& returnType) {
+    std::string signatureNameField = isTryCast
+        ? R"("name": "presto.default.try_cast")"
+        : R"("name": "presto.default.$operator$cast")";
+    std::string inputTypeField = fmt::format("\"{}\"", inputType);
+    std::string returnTypeField =
+        fmt::format("\"returnType\": \"{}\"", returnType);
+
+    std::string result = R"##(
+      {
+        "@type": "call",
+        "arguments": [
+          {
+            "@type": "variable",
+            "name": "my_col",
+            "type": )##" +
+        inputTypeField + R"##(
+          }
+        ],
+        "displayName": "CAST",
+        "functionHandle": {
+          "@type": "$static",
+          "signature": {
+            "argumentTypes": [
+    )##" +
+        inputTypeField + R"##(
+            ],
+            "kind": "SCALAR",
+    )##" +
+        signatureNameField + R"##(,
+            "longVariableConstraints": [],
+    )##" +
+        returnTypeField + R"##(,
+            "typeVariableConstraints": [],
+            "variableArity": false
+          }
+        },
+    )##" +
+        returnTypeField + R"##(
+      }
+    )##";
+
+    return result;
   }
 
   std::shared_ptr<memory::MemoryPool> pool_;
@@ -487,6 +537,119 @@ TEST_F(RowExpressionTest, call) {
       ASSERT_EQ(cexpr->type()->toString(), "VARCHAR");
       ASSERT_EQ(cexpr->value().toJson(cexpr->type()), "\"foo\"");
     }
+  }
+}
+
+TEST_F(RowExpressionTest, castToVarchar) {
+  // CAST(varchar_col AS varchar)
+  {
+    std::shared_ptr<protocol::CallExpression> p =
+        json::parse(makeCastToVarchar(false, "varchar", "varchar"));
+
+    auto expr = converter_->toVeloxExpr(p);
+
+    auto returnExpr = std::dynamic_pointer_cast<const CastTypedExpr>(expr);
+    ASSERT_NE(returnExpr, nullptr);
+    ASSERT_FALSE(returnExpr->nullOnFailure());
+    ASSERT_EQ(returnExpr->type()->toString(), "VARCHAR");
+  }
+  // TRY_CAST(varchar_col AS varchar)
+  {
+    std::shared_ptr<protocol::CallExpression> p =
+        json::parse(makeCastToVarchar(true, "varchar", "varchar"));
+
+    auto expr = converter_->toVeloxExpr(p);
+
+    auto returnExpr = std::dynamic_pointer_cast<const CastTypedExpr>(expr);
+    ASSERT_NE(returnExpr, nullptr);
+    ASSERT_TRUE(returnExpr->nullOnFailure());
+    ASSERT_EQ(returnExpr->type()->toString(), "VARCHAR");
+  }
+  // CAST(varchar_col AS varchar(3))
+  {
+    std::shared_ptr<protocol::CallExpression> p =
+        json::parse(makeCastToVarchar(false, "varchar", "varchar(3)"));
+
+    auto expr = converter_->toVeloxExpr(p);
+
+    auto returnExpr = std::dynamic_pointer_cast<const CallTypedExpr>(expr);
+    ASSERT_NE(returnExpr, nullptr);
+    ASSERT_EQ(returnExpr->name(), "presto.default.substr");
+
+    auto returnArg = std::dynamic_pointer_cast<const ConstantTypedExpr>(
+        returnExpr->inputs()[2]);
+    ASSERT_EQ(returnArg->type()->toString(), "BIGINT");
+    ASSERT_EQ(returnArg->value().toJson(returnArg->type()), "3");
+  }
+  // CAST(varchar_col AS varchar(1000))
+  {
+    std::shared_ptr<protocol::CallExpression> p =
+        json::parse(makeCastToVarchar(false, "varchar", "varchar(1000)"));
+
+    auto expr = converter_->toVeloxExpr(p);
+
+    auto returnExpr = std::dynamic_pointer_cast<const CallTypedExpr>(expr);
+    ASSERT_NE(returnExpr, nullptr);
+    ASSERT_EQ(returnExpr->name(), "presto.default.substr");
+
+    auto returnArg = std::dynamic_pointer_cast<const ConstantTypedExpr>(
+        returnExpr->inputs()[2]);
+    ASSERT_EQ(returnArg->type()->toString(), "BIGINT");
+    ASSERT_EQ(returnArg->value().toJson(returnArg->type()), "1000");
+  }
+  // TRY_CAST(varchar_col AS varchar(3))
+  {
+    std::shared_ptr<protocol::CallExpression> p =
+        json::parse(makeCastToVarchar(true, "varchar", "varchar(3)"));
+
+    ASSERT_THROW(converter_->toVeloxExpr(p), VeloxUserError);
+  }
+  // CAST(nonvarchar_col AS varchar(3))
+  {
+    std::shared_ptr<protocol::CallExpression> p =
+        json::parse(makeCastToVarchar(false, "double", "varchar(3)"));
+
+    auto expr = converter_->toVeloxExpr(p);
+
+    auto returnExpr = std::dynamic_pointer_cast<const CastTypedExpr>(expr);
+    ASSERT_NE(returnExpr, nullptr);
+    ASSERT_FALSE(returnExpr->nullOnFailure());
+    ASSERT_EQ(returnExpr->type()->toString(), "VARCHAR");
+  }
+  // TRY_CAST(nonvarchar_col AS varchar(3))
+  {
+    std::shared_ptr<protocol::CallExpression> p =
+        json::parse(makeCastToVarchar(true, "double", "varchar(3)"));
+
+    auto expr = converter_->toVeloxExpr(p);
+
+    auto returnExpr = std::dynamic_pointer_cast<const CastTypedExpr>(expr);
+    ASSERT_NE(returnExpr, nullptr);
+    ASSERT_TRUE(returnExpr->nullOnFailure());
+    ASSERT_EQ(returnExpr->type()->toString(), "VARCHAR");
+  }
+  // CAST(json AS varchar(3))
+  {
+    std::shared_ptr<protocol::CallExpression> p =
+        json::parse(makeCastToVarchar(false, "json", "varchar(3)"));
+    auto expr = converter_->toVeloxExpr(p);
+    auto returnExpr = std::dynamic_pointer_cast<const CallTypedExpr>(expr);
+
+    ASSERT_NE(returnExpr, nullptr);
+    ASSERT_EQ(returnExpr->name(), "presto.default.substr");
+
+    auto returnArg1 = std::dynamic_pointer_cast<const CastTypedExpr>(
+        returnExpr->inputs()[0]);
+    auto returnArg2 = std::dynamic_pointer_cast<const ConstantTypedExpr>(
+        returnExpr->inputs()[1]);
+    auto returnArg3 = std::dynamic_pointer_cast<const ConstantTypedExpr>(
+        returnExpr->inputs()[2]);
+
+    ASSERT_EQ(returnArg1->type()->toString(), "VARCHAR");
+    ASSERT_EQ(returnArg2->type()->toString(), "BIGINT");
+    ASSERT_EQ(returnArg2->value().toJson(returnArg2->type()), "1");
+    ASSERT_EQ(returnArg3->type()->toString(), "BIGINT");
+    ASSERT_EQ(returnArg3->value().toJson(returnArg3->type()), "3");
   }
 }
 

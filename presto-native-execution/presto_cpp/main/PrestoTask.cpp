@@ -19,7 +19,6 @@
 #include "presto_cpp/main/common/Utils.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/time/Timer.h"
-#include "velox/exec/Operator.h"
 
 using namespace facebook::velox;
 
@@ -27,7 +26,7 @@ namespace facebook::presto {
 
 namespace {
 
-#define TASK_STATS_SUM(taskStats, taskStatusSum, statsName)      \
+#define TASK_STATS_SUM(taskStats, statsName, taskStatusSum)      \
   do {                                                           \
     for (int i = 0; i < taskStats.pipelineStats.size(); ++i) {   \
       auto& pipeline = taskStats.pipelineStats[i];               \
@@ -40,15 +39,16 @@ namespace {
 
 protocol::TaskState toPrestoTaskState(exec::TaskState state) {
   switch (state) {
-    case exec::kRunning:
+    case exec::TaskState::kRunning:
       return protocol::TaskState::RUNNING;
-    case exec::kFinished:
+    case exec::TaskState::kFinished:
       return protocol::TaskState::FINISHED;
-    case exec::kCanceled:
+    case exec::TaskState::kCanceled:
       return protocol::TaskState::CANCELED;
-    case exec::kFailed:
+    case exec::TaskState::kFailed:
       return protocol::TaskState::FAILED;
-    case exec::kAborted:
+    case exec::TaskState::kAborted:
+      [[fallthrough]];
     default:
       return protocol::TaskState::ABORTED;
   }
@@ -77,6 +77,16 @@ protocol::RuntimeUnit toPrestoRuntimeUnit(RuntimeCounter::Unit unit) {
   }
 }
 
+// Presto operator's node id sometimes is not equivalent to velox's.
+// So when reporting task stats, we need to parse node id back to presto's.
+// For example, velox's partitionedOutput operator would have "root." prefix.
+std::string toPrestoPlanNodeId(const protocol::PlanNodeId& id) {
+  if (FOLLY_LIKELY(id.find("root.") == std::string::npos)) {
+    return id;
+  }
+  return id.substr(5);
+}
+
 // Presto has certain query stats logic depending on the operator names.
 // To leverage this logic we need to supply Presto's operator names.
 std::string toPrestoOperatorType(const std::string& operatorType) {
@@ -91,6 +101,24 @@ std::string toPrestoOperatorType(const std::string& operatorType) {
   }
   if (operatorType == "TableWrite") {
     return "TableWriterOperator";
+  }
+  if (operatorType == "HashProbe") {
+    return "LookupJoinOperator";
+  }
+  if (operatorType == "HashBuild") {
+    return "HashBuilderOperator";
+  }
+  if (operatorType == "TableWriteMerge") {
+    return "TableWriterMergeOperator";
+  }
+  if (operatorType == "Unnest") {
+    return "UnnestOperator";
+  }
+  if (operatorType == "LocalPartition") {
+    return "LocalExchangeSourceOperator";
+  }
+  if (operatorType == "LocalExchange") {
+    return "LocalExchangeSinkOperator";
   }
   return operatorType;
 }
@@ -113,13 +141,6 @@ static protocol::RuntimeMetric createProtocolRuntimeMetric(
   return protocol::RuntimeMetric{name, unit, value, 1, value, value};
 }
 
-// Creates a Velox runtime metric object from a raw value.
-static RuntimeMetric createVeloxRuntimeMetric(
-    int64_t value,
-    RuntimeCounter::Unit unit) {
-  return RuntimeMetric{value, unit};
-}
-
 // Updates a Velox runtime metric in the unordered map.
 static void addRuntimeMetric(
     std::unordered_map<std::string, RuntimeMetric>& runtimeMetrics,
@@ -139,10 +160,17 @@ static void addRuntimeMetricIfNotZero(
     const std::string& name,
     uint64_t value) {
   if (value > 0) {
-    auto veloxMetric =
-        createVeloxRuntimeMetric(value, RuntimeCounter::Unit::kNone);
+    auto veloxMetric = RuntimeMetric(value, RuntimeCounter::Unit::kNone);
     addRuntimeMetric(runtimeMetrics, name, veloxMetric);
   }
+}
+
+RuntimeMetric fromMillis(int64_t ms) {
+  return RuntimeMetric{ms * 1'000'000, velox::RuntimeCounter::Unit::kNanos};
+}
+
+RuntimeMetric fromNanos(int64_t nanos) {
+  return RuntimeMetric{nanos, velox::RuntimeCounter::Unit::kNanos};
 }
 
 // Utility to generate presto runtime stat name when translating velox runtime
@@ -157,57 +185,70 @@ std::string generateRuntimeStatName(
       statName);
 }
 
+// Helper to convert Velox-specific generic operator stats into Presto runtime
+// stats.
+struct OperatorStatsCollector {
+  const exec::OperatorStats& veloxStats;
+  protocol::RuntimeStats& prestoStats;
+
+  void addIfNotZero(
+      const std::string& name,
+      int64_t value,
+      protocol::RuntimeUnit unit = protocol::RuntimeUnit::NONE) {
+    if (value == 0) {
+      return;
+    }
+
+    add(name, value, unit);
+  }
+
+  void add(
+      const std::string& name,
+      int64_t value,
+      protocol::RuntimeUnit unit = protocol::RuntimeUnit::NONE) {
+    const std::string statName = generateRuntimeStatName(veloxStats, name);
+    auto prestoMetric = createProtocolRuntimeMetric(statName, value, unit);
+    prestoStats.emplace(statName, prestoMetric);
+  }
+};
+
 // Add 'spilling' metrics from Velox operator stats to Presto operator stats.
-static void addSpillingOperatorMetrics(
-    protocol::OperatorStats& opOut,
-    protocol::TaskStats& prestoTaskStats,
-    const exec::OperatorStats& op) {
-  std::string statName = generateRuntimeStatName(op, "spilledBytes");
-  auto prestoMetric = createProtocolRuntimeMetric(
-      statName, op.spilledBytes, protocol::RuntimeUnit::BYTE);
-  opOut.runtimeStats.emplace(statName, prestoMetric);
-  prestoTaskStats.runtimeStats[statName] = prestoMetric;
+void addSpillingOperatorMetrics(OperatorStatsCollector& collector) {
+  auto& op = collector.veloxStats;
 
-  statName = generateRuntimeStatName(op, "spilledRows");
-  prestoMetric = createProtocolRuntimeMetric(statName, op.spilledRows);
-  opOut.runtimeStats.emplace(statName, prestoMetric);
-  prestoTaskStats.runtimeStats[statName] = prestoMetric;
-
-  statName = generateRuntimeStatName(op, "spilledPartitions");
-  prestoMetric = createProtocolRuntimeMetric(statName, op.spilledPartitions);
-  opOut.runtimeStats.emplace(statName, prestoMetric);
-  prestoTaskStats.runtimeStats[statName] = prestoMetric;
-
-  statName = generateRuntimeStatName(op, "spilledFiles");
-  prestoMetric = createProtocolRuntimeMetric(statName, op.spilledFiles);
-  opOut.runtimeStats.emplace(statName, prestoMetric);
-  prestoTaskStats.runtimeStats[statName] = prestoMetric;
+  collector.add("spilledBytes", op.spilledBytes, protocol::RuntimeUnit::BYTE);
+  collector.add("spilledRows", op.spilledRows);
+  collector.add("spilledPartitions", op.spilledPartitions);
+  collector.add("spilledFiles", op.spilledFiles);
 }
 
-// Process the runtime stats of individual protocol::OperatorStats. Do not add
-// runtime stats to protocol unless it is for one of the final task states.
-static void processOperatorStats(
-    protocol::TaskStats& prestoTaskStats,
-    protocol::TaskState state) {
+// Updates the operator runtime stats in 'prestoTaskStats' based on the presto
+// task state and system config. For example, if the task is running, then we
+// might skip reporting operator runtime stats to control the communication data
+// size with the coordinator.
+void updateOperatorRuntimeStats(
+    protocol::TaskState state,
+    protocol::TaskStats& prestoTaskStats) {
   if (SystemConfig::instance()->skipRuntimeStatsInRunningTaskInfo() &&
       !isFinalState(state)) {
-    for (auto& pipelineOut : prestoTaskStats.pipelines) {
-      for (auto& opOut : pipelineOut.operatorSummaries) {
-        opOut.runtimeStats.clear();
+    for (auto& pipelineStats : prestoTaskStats.pipelines) {
+      for (auto& opStats : pipelineStats.operatorSummaries) {
+        opStats.runtimeStats.clear();
       }
     }
-  } else {
-    const std::vector<std::string> prefixToExclude{"running", "blocked"};
-    for (auto& pipelineOut : prestoTaskStats.pipelines) {
-      for (auto& opOut : pipelineOut.operatorSummaries) {
-        for (const auto& prefix : prefixToExclude) {
-          for (auto it = opOut.runtimeStats.begin();
-               it != opOut.runtimeStats.end();) {
-            if (it->first.find(prefix) != std::string::npos) {
-              it = opOut.runtimeStats.erase(it);
-            } else {
-              ++it;
-            }
+    return;
+  }
+
+  static const std::vector<std::string> prefixToExclude{"running", "blocked"};
+  for (auto& pipelineStats : prestoTaskStats.pipelines) {
+    for (auto& opStats : pipelineStats.operatorSummaries) {
+      for (const auto& prefix : prefixToExclude) {
+        for (auto it = opStats.runtimeStats.begin();
+             it != opStats.runtimeStats.end();) {
+          if (it->first.find(prefix) != std::string::npos) {
+            it = opStats.runtimeStats.erase(it);
+          } else {
+            ++it;
           }
         }
       }
@@ -215,24 +256,199 @@ static void processOperatorStats(
   }
 }
 
-// Copy taskRuntimeMetrics to protocol::TaskStats if we are in a final task
-// state, or we are told to not skip metrics if still running.
-// Clear runtime stats otherwise.
-void processTaskStats(
-    protocol::TaskStats& prestoTaskStats,
-    const std::unordered_map<std::string, RuntimeMetric>& taskRuntimeMetrics,
+// Updates the task runtime stats in 'prestoTaskStats' based on the presto
+// task state and system config. For example, if the task is running, then we
+// might skip reporting task runtime stats to control the communication data
+// size with the coordinator.
+void updateTaskRuntimeStats(
     protocol::TaskState state,
-    bool tryToSkipIfRunning = true) {
+    const std::unordered_map<std::string, RuntimeMetric>& taskRuntimeStats,
+    bool tryToSkipIfRunning,
+    protocol::TaskStats& prestoTaskStats) {
   if (!tryToSkipIfRunning ||
       !SystemConfig::instance()->skipRuntimeStatsInRunningTaskInfo() ||
       isFinalState(state)) {
-    for (const auto& stat : taskRuntimeMetrics) {
-      prestoTaskStats.runtimeStats[stat.first] =
-          toRuntimeMetric(stat.first, stat.second);
+    for (const auto& stats : taskRuntimeStats) {
+      prestoTaskStats.runtimeStats[stats.first] =
+          toRuntimeMetric(stats.first, stats.second);
     }
   } else {
     prestoTaskStats.runtimeStats.clear();
   }
+}
+
+presto::protocol::DynamicFilterStats toPrestoDynamicFilterStats(
+    const velox::exec::OperatorStats& veloxOpStats) {
+  presto::protocol::DynamicFilterStats dynamicFilterStats;
+  for (const auto& nodeId : veloxOpStats.dynamicFilterStats.producerNodeIds) {
+    dynamicFilterStats.producerNodeIds.emplace_back(nodeId);
+  }
+  return dynamicFilterStats;
+}
+
+void updateOperatorRuntimeStats(
+    const exec::OperatorStats& veloxOp,
+    protocol::RuntimeStats& runtimeStats) {
+  OperatorStatsCollector operatorStatsCollector{veloxOp, runtimeStats};
+
+  operatorStatsCollector.addIfNotZero("numSplits", veloxOp.numSplits);
+  operatorStatsCollector.addIfNotZero("inputBatches", veloxOp.inputVectors);
+  operatorStatsCollector.addIfNotZero("outputBatches", veloxOp.outputVectors);
+  operatorStatsCollector.addIfNotZero(
+      "numMemoryAllocations", veloxOp.memoryStats.numMemoryAllocations);
+
+  // If Velox operator has spilling stats, then add them to the Presto
+  // operator stats and the task stats as runtime stats.
+  if (veloxOp.spilledBytes > 0) {
+    addSpillingOperatorMetrics(operatorStatsCollector);
+  }
+}
+
+void updatePipelineStats(
+    const PrestoTaskId& taskId,
+    const int pipelineId,
+    const exec::PipelineStats& veloxPipelineStats,
+    const protocol::TaskStats& prestoTaskStats,
+    protocol::PipelineStats& prestoPipelineStats) {
+  prestoPipelineStats.inputPipeline = veloxPipelineStats.inputPipeline;
+  prestoPipelineStats.outputPipeline = veloxPipelineStats.outputPipeline;
+  prestoPipelineStats.firstStartTimeInMillis = prestoTaskStats.createTimeInMillis;
+  prestoPipelineStats.lastStartTimeInMillis = prestoTaskStats.endTimeInMillis;
+  prestoPipelineStats.lastEndTimeInMillis = prestoTaskStats.endTimeInMillis;
+
+  prestoPipelineStats.operatorSummaries.resize(
+      veloxPipelineStats.operatorStats.size());
+  prestoPipelineStats.totalScheduledTimeInNanos = {};
+  prestoPipelineStats.totalCpuTimeInNanos = {};
+  prestoPipelineStats.totalBlockedTimeInNanos = {};
+  prestoPipelineStats.userMemoryReservationInBytes = {};
+  prestoPipelineStats.revocableMemoryReservationInBytes = {};
+  prestoPipelineStats.systemMemoryReservationInBytes = {};
+
+  // tasks may fail before any operators are created;
+  // collect stats only when we have operators
+  if (!veloxPipelineStats.operatorStats.empty()) {
+    const auto& firstVeloxOpStats = veloxPipelineStats.operatorStats[0];
+    const auto& lastVeloxOpStats = veloxPipelineStats.operatorStats.back();
+
+    prestoPipelineStats.pipelineId = firstVeloxOpStats.pipelineId;
+    prestoPipelineStats.totalDrivers = firstVeloxOpStats.numDrivers;
+    prestoPipelineStats.rawInputPositions = firstVeloxOpStats.rawInputPositions;
+    prestoPipelineStats.rawInputDataSizeInBytes =
+        firstVeloxOpStats.rawInputBytes;
+    prestoPipelineStats.processedInputPositions =
+        firstVeloxOpStats.inputPositions;
+    prestoPipelineStats.processedInputDataSizeInBytes =
+        firstVeloxOpStats.inputBytes;
+    prestoPipelineStats.outputPositions = lastVeloxOpStats.outputPositions;
+    prestoPipelineStats.outputDataSizeInBytes = lastVeloxOpStats.outputBytes;
+  }
+
+  for (auto j = 0; j < veloxPipelineStats.operatorStats.size(); ++j) {
+    auto& prestoOp = prestoPipelineStats.operatorSummaries[j];
+    auto& veloxOp = veloxPipelineStats.operatorStats[j];
+
+    prestoOp.stageId = taskId.stageId();
+    prestoOp.stageExecutionId = taskId.stageExecutionId();
+    prestoOp.pipelineId = pipelineId;
+    prestoOp.planNodeId = veloxOp.planNodeId;
+    prestoOp.planNodeId = toPrestoPlanNodeId(prestoOp.planNodeId);
+    prestoOp.operatorId = veloxOp.operatorId;
+    prestoOp.operatorType = toPrestoOperatorType(veloxOp.operatorType);
+
+    prestoOp.totalDrivers = veloxOp.numDrivers;
+    prestoOp.inputPositions = veloxOp.inputPositions;
+    prestoOp.sumSquaredInputPositions =
+        ((double)veloxOp.inputPositions) * veloxOp.inputPositions;
+    prestoOp.inputDataSizeInBytes = veloxOp.inputBytes;
+    prestoOp.rawInputPositions = veloxOp.rawInputPositions;
+    prestoOp.rawInputDataSizeInBytes = veloxOp.rawInputBytes;
+
+    // Report raw input statistics on the Project node following TableScan, if
+    // exists.
+    if (j == 1 && veloxOp.operatorType == "FilterProject" &&
+        veloxPipelineStats.operatorStats[0].operatorType == "TableScan") {
+      const auto& scanOp = veloxPipelineStats.operatorStats[0];
+      prestoOp.rawInputPositions = scanOp.rawInputPositions;
+      prestoOp.rawInputDataSizeInBytes = scanOp.rawInputBytes;
+    }
+
+    prestoOp.outputPositions = veloxOp.outputPositions;
+    prestoOp.outputDataSizeInBytes = veloxOp.outputBytes;
+
+    setTiming(
+        veloxOp.isBlockedTiming,
+        prestoOp.isBlockedCalls,
+        prestoOp.isBlockedWall,
+        prestoOp.isBlockedCpu);
+    setTiming(
+        veloxOp.addInputTiming,
+        prestoOp.addInputCalls,
+        prestoOp.addInputWall,
+        prestoOp.addInputCpu);
+    setTiming(
+        veloxOp.getOutputTiming,
+        prestoOp.getOutputCalls,
+        prestoOp.getOutputWall,
+        prestoOp.getOutputCpu);
+    CpuWallTiming finishAndBackgroundTiming;
+    finishAndBackgroundTiming.add(veloxOp.finishTiming);
+    finishAndBackgroundTiming.add(veloxOp.backgroundTiming);
+    setTiming(
+        finishAndBackgroundTiming,
+        prestoOp.finishCalls,
+        prestoOp.finishWall,
+        prestoOp.finishCpu);
+
+    prestoOp.blockedWall = protocol::Duration(
+        veloxOp.blockedWallNanos, protocol::TimeUnit::NANOSECONDS);
+
+    prestoOp.userMemoryReservationInBytes = veloxOp.memoryStats.userMemoryReservation;
+    prestoOp.revocableMemoryReservationInBytes = veloxOp.memoryStats.revocableMemoryReservation;
+    prestoOp.systemMemoryReservationInBytes = veloxOp.memoryStats.systemMemoryReservation;
+    prestoOp.peakUserMemoryReservationInBytes = veloxOp.memoryStats.peakUserMemoryReservation;
+    prestoOp.peakSystemMemoryReservationInBytes = veloxOp.memoryStats.peakSystemMemoryReservation;
+    prestoOp.peakTotalMemoryReservationInBytes = veloxOp.memoryStats.peakTotalMemoryReservation;
+
+    prestoOp.spilledDataSizeInBytes = veloxOp.spilledBytes;
+
+    if (veloxOp.operatorType == "HashBuild") {
+      prestoOp.joinBuildKeyCount = veloxOp.inputPositions;
+      prestoOp.nullJoinBuildKeyCount = veloxOp.numNullKeys;
+    }
+    if (veloxOp.operatorType == "HashProbe") {
+      prestoOp.joinProbeKeyCount = veloxOp.inputPositions;
+      prestoOp.nullJoinProbeKeyCount = veloxOp.numNullKeys;
+    }
+
+    if (!veloxOp.dynamicFilterStats.empty()) {
+      prestoOp.dynamicFilterStats = toPrestoDynamicFilterStats(veloxOp);
+    }
+
+    for (const auto& stat : veloxOp.runtimeStats) {
+      auto statName = generateRuntimeStatName(veloxOp, stat.first);
+      prestoOp.runtimeStats[statName] = toRuntimeMetric(statName, stat.second);
+    }
+
+    updateOperatorRuntimeStats(veloxOp, prestoOp.runtimeStats);
+
+    auto wallNanos = veloxOp.isBlockedTiming.wallNanos +
+        veloxOp.addInputTiming.wallNanos + veloxOp.getOutputTiming.wallNanos +
+        veloxOp.finishTiming.wallNanos;
+    auto cpuNanos = veloxOp.isBlockedTiming.cpuNanos +
+        veloxOp.addInputTiming.cpuNanos + veloxOp.getOutputTiming.cpuNanos +
+        veloxOp.finishTiming.cpuNanos;
+
+    prestoPipelineStats.totalScheduledTimeInNanos += wallNanos;
+    prestoPipelineStats.totalCpuTimeInNanos += cpuNanos;
+    prestoPipelineStats.totalBlockedTimeInNanos += veloxOp.blockedWallNanos;
+    prestoPipelineStats.userMemoryReservationInBytes +=
+        veloxOp.memoryStats.userMemoryReservation;
+    prestoPipelineStats.revocableMemoryReservationInBytes +=
+        veloxOp.memoryStats.revocableMemoryReservation;
+    prestoPipelineStats.systemMemoryReservationInBytes +=
+        veloxOp.memoryStats.systemMemoryReservation;
+  } // velox pipeline's operators loop
 }
 
 } // namespace
@@ -244,14 +460,24 @@ PrestoTask::PrestoTask(
     : id(taskId),
       startProcessCpuTime{
           _startProcessCpuTime > 0 ? _startProcessCpuTime
-                                   : getProcessCpuTime()} {
+                                   : util::getProcessCpuTimeNs()} {
   info.taskId = taskId;
   info.nodeId = nodeId;
+  createTimeMs = getCurrentTimeMs();
 }
 
 void PrestoTask::updateHeartbeatLocked() {
   lastHeartbeatMs = velox::getCurrentTimeMs();
-  info.lastHeartbeat = util::toISOTimestamp(lastHeartbeatMs);
+  info.lastHeartbeatInMillis = lastHeartbeatMs;
+}
+
+void PrestoTask::updateCoordinatorHeartbeat() {
+  std::lock_guard<std::mutex> l(mutex);
+  updateCoordinatorHeartbeatLocked();
+}
+
+void PrestoTask::updateCoordinatorHeartbeatLocked() {
+  lastCoordinatorHeartbeatMs = velox::getCurrentTimeMs();
 }
 
 uint64_t PrestoTask::timeSinceLastHeartbeatMs() const {
@@ -262,16 +488,12 @@ uint64_t PrestoTask::timeSinceLastHeartbeatMs() const {
   return getCurrentTimeMs() - lastHeartbeatMs;
 }
 
-// static
-long PrestoTask::getProcessCpuTime() {
-  struct rusage rusageEnd;
-  getrusage(RUSAGE_SELF, &rusageEnd);
-
-  auto tvNanos = [](struct timeval tv) {
-    return tv.tv_sec * 1000000000 + tv.tv_usec * 1000;
-  };
-
-  return tvNanos(rusageEnd.ru_utime) + tvNanos(rusageEnd.ru_stime);
+uint64_t PrestoTask::timeSinceLastCoordinatorHeartbeatMs() const {
+  std::lock_guard<std::mutex> l(mutex);
+  if (lastCoordinatorHeartbeatMs == 0UL) {
+    return 0UL;
+  }
+  return getCurrentTimeMs() - lastCoordinatorHeartbeatMs;
 }
 
 void PrestoTask::recordProcessCpuTime() {
@@ -279,11 +501,11 @@ void PrestoTask::recordProcessCpuTime() {
     return;
   }
 
-  processCpuTime_ = getProcessCpuTime() - startProcessCpuTime;
+  processCpuTime_ = util::getProcessCpuTimeNs() - startProcessCpuTime;
 }
 
 protocol::TaskStatus PrestoTask::updateStatusLocked() {
-  if (!taskStarted and error == nullptr) {
+  if (!taskStarted && (error == nullptr)) {
     protocol::TaskStatus ret = info.taskStatus;
     if (ret.state != protocol::TaskState::ABORTED) {
       ret.state = protocol::TaskState::PLANNED;
@@ -301,109 +523,246 @@ protocol::TaskStatus PrestoTask::updateStatusLocked() {
     recordProcessCpuTime();
     return info.taskStatus;
   }
-  VELOX_CHECK_NOT_NULL(task, "task is null when updating status")
-  const auto taskStats = task->taskStats();
+  VELOX_CHECK_NOT_NULL(task, "task is null when updating status");
+
+  const auto veloxTaskStats = task->taskStats();
+
+  info.taskStatus.state = toPrestoTaskState(task->state());
 
   // Presto has a Driver per split. When splits represent partitions
   // of data, there is a queue of them per Task. We represent
-  // processed/queued splits as Drivers for Presto.
-  info.taskStatus.queuedPartitionedDrivers = taskStats.numQueuedSplits;
-  info.taskStatus.runningPartitionedDrivers = taskStats.numRunningSplits;
+  // running/queued table scan splits as partitioned drivers for Presto.
+  info.taskStatus.queuedPartitionedDrivers =
+      veloxTaskStats.numQueuedTableScanSplits;
+  info.taskStatus.runningPartitionedDrivers =
+      veloxTaskStats.numRunningTableScanSplits;
+  // Return weights if they were supplied in the table scan splits. Coordinator
+  // uses these for split scheduling.
+  info.taskStatus.queuedPartitionedSplitsWeight =
+      veloxTaskStats.queuedTableScanSplitWeights;
+  info.taskStatus.runningPartitionedSplitsWeight =
+      veloxTaskStats.runningTableScanSplitWeights;
 
-  // TODO(spershin): Note, we dont' clean the stats.completedSplitGroups
-  // and it seems not required now, but we might want to do it one day.
-  for (auto splitGroupId : taskStats.completedSplitGroups) {
+  info.taskStatus.completedDriverGroups.clear();
+  info.taskStatus.completedDriverGroups.reserve(
+      veloxTaskStats.completedSplitGroups.size());
+  for (auto splitGroupId : veloxTaskStats.completedSplitGroups) {
     info.taskStatus.completedDriverGroups.push_back({true, splitGroupId});
   }
-  info.taskStatus.state = toPrestoTaskState(task->state());
 
-  const auto stats = task->pool()->stats();
-  info.taskStatus.memoryReservationInBytes = stats.currentBytes;
+  const auto veloxTaskMemStats = task->pool()->stats();
+  info.taskStatus.memoryReservationInBytes = veloxTaskMemStats.usedBytes;
   info.taskStatus.systemMemoryReservationInBytes = 0;
-  info.taskStatus.peakNodeTotalMemoryReservationInBytes = stats.peakBytes;
+  // NOTE: a presto worker may run multiple tasks from the same query.
+  // 'peakNodeTotalMemoryReservationInBytes' represents peak memory usage across
+  // all these tasks.
+  info.taskStatus.peakNodeTotalMemoryReservationInBytes =
+      task->queryCtx()->pool()->peakBytes();
 
   TASK_STATS_SUM(
-      taskStats,
-      info.taskStatus.physicalWrittenDataSizeInBytes,
-      physicalWrittenBytes);
+      veloxTaskStats,
+      physicalWrittenBytes,
+      info.taskStatus.physicalWrittenDataSizeInBytes);
 
-  info.taskStatus.outputBufferUtilization = taskStats.outputBufferUtilization;
-  info.taskStatus.outputBufferOverutilized = taskStats.outputBufferOverutilized;
+  info.taskStatus.outputBufferUtilization =
+      veloxTaskStats.outputBufferUtilization;
+  info.taskStatus.outputBufferOverutilized =
+      veloxTaskStats.outputBufferOverutilized;
 
   if (task->error() && info.taskStatus.failures.empty()) {
     info.taskStatus.failures.emplace_back(toPrestoError(task->error()));
   }
+
   if (isFinalState(info.taskStatus.state)) {
     recordProcessCpuTime();
   }
   return info.taskStatus;
 }
 
-protocol::TaskInfo PrestoTask::updateInfoLocked() {
-  protocol::TaskStatus taskStatus = updateStatusLocked();
+void PrestoTask::updateOutputBufferInfoLocked(
+    const velox::exec::TaskStats& veloxTaskStats,
+    std::unordered_map<std::string, RuntimeMetric>& taskRuntimeStats) {
+  if (!veloxTaskStats.outputBufferStats.has_value()) {
+    return;
+  }
+  const auto& outputBufferStats = veloxTaskStats.outputBufferStats.value();
+  auto& outputBufferInfo = info.outputBuffers;
+  outputBufferInfo.type =
+      velox::core::PartitionedOutputNode::kindString(outputBufferStats.kind);
+  outputBufferInfo.canAddBuffers = !outputBufferStats.noMoreBuffers;
+  outputBufferInfo.canAddPages = !outputBufferStats.noMoreData;
+  outputBufferInfo.totalBufferedBytes = outputBufferStats.bufferedBytes;
+  outputBufferInfo.totalBufferedPages = outputBufferStats.bufferedPages;
+  outputBufferInfo.totalPagesSent = outputBufferStats.totalPagesSent;
+  outputBufferInfo.totalRowsSent = outputBufferStats.totalRowsSent;
+  // TODO: populate state and destination buffer stats in info.outputBuffers.
+
+  taskRuntimeStats.insert(
+      {"averageOutputBufferWallNanos",
+       fromMillis(outputBufferStats.averageBufferTimeMs)});
+  taskRuntimeStats["numTopOutputBuffers"].addValue(
+      outputBufferStats.numTopBuffers);
+}
+
+protocol::TaskInfo PrestoTask::updateInfoLocked(bool summarize) {
+  const protocol::TaskStatus prestoTaskStatus = updateStatusLocked();
 
   // Return limited info if there is no exec task.
-  if (!task) {
+  if (task == nullptr) {
     return info;
   }
+  const velox::exec::TaskStats veloxTaskStats = task->taskStats();
+  const uint64_t currentTimeMs = velox::getCurrentTimeMs();
+  // Set 'lastTaskStatsUpdateMs' to execution start time if it is 0.
+  if (lastTaskStatsUpdateMs == 0) {
+    lastTaskStatsUpdateMs = veloxTaskStats.executionStartTimeMs;
+  }
 
-  const velox::exec::TaskStats taskStats = task->taskStats();
+  std::unordered_map<std::string, RuntimeMetric> taskRuntimeStats;
   protocol::TaskStats& prestoTaskStats = info.stats;
   // Clear the old runtime metrics as not all of them would be overwritten by
   // the new ones.
   prestoTaskStats.runtimeStats.clear();
 
+  updateOutputBufferInfoLocked(veloxTaskStats, taskRuntimeStats);
+
+  // Update time related info.
+  updateTimeInfoLocked(veloxTaskStats, currentTimeMs, taskRuntimeStats);
+
+  // Update memory related info.
+  updateMemoryInfoLocked(veloxTaskStats, currentTimeMs, taskRuntimeStats);
+
+  // Update execution related info.
+  updateExecutionInfoLocked(
+      veloxTaskStats,
+      prestoTaskStatus,
+      taskRuntimeStats,
+      isFinalState(prestoTaskStatus.state) || !summarize);
+
+  // Task runtime metrics we want while the Task is not finalized.
+  hasStuckOperator = false;
+  if (!isFinalState(prestoTaskStatus.state)) {
+    taskRuntimeStats.clear();
+
+    addRuntimeMetricIfNotZero(
+        taskRuntimeStats, "drivers.total", veloxTaskStats.numTotalDrivers);
+    addRuntimeMetricIfNotZero(
+        taskRuntimeStats, "drivers.running", veloxTaskStats.numRunningDrivers);
+    addRuntimeMetricIfNotZero(
+        taskRuntimeStats,
+        "drivers.completed",
+        veloxTaskStats.numCompletedDrivers);
+    addRuntimeMetricIfNotZero(
+        taskRuntimeStats,
+        "drivers.terminated",
+        veloxTaskStats.numTerminatedDrivers);
+    for (const auto it : veloxTaskStats.numBlockedDrivers) {
+      addRuntimeMetricIfNotZero(
+          taskRuntimeStats,
+          fmt::format("drivers.{}", exec::blockingReasonToString(it.first)),
+          it.second);
+    }
+    if (veloxTaskStats.longestRunningOpCallMs != 0) {
+      hasStuckOperator = true;
+      addRuntimeMetricIfNotZero(
+          taskRuntimeStats,
+          "stuck_op." + veloxTaskStats.longestRunningOpCall,
+          veloxTaskStats.numCompletedDrivers);
+    }
+    // These metrics we need when we are running, so do not try to skipp them.
+    updateTaskRuntimeStats(
+        prestoTaskStatus.state,
+        taskRuntimeStats,
+        /*tryToSkipIfRunning=*/false,
+        prestoTaskStats);
+  }
+
+  lastTaskStatsUpdateMs = currentTimeMs;
+  return info;
+}
+
+void PrestoTask::updateTimeInfoLocked(
+    const velox::exec::TaskStats& veloxTaskStats,
+    uint64_t currentTimeMs,
+    std::unordered_map<std::string, velox::RuntimeMetric>& taskRuntimeStats) {
+  protocol::TaskStats& prestoTaskStats = info.stats;
+
   prestoTaskStats.totalScheduledTimeInNanos = {};
   prestoTaskStats.totalCpuTimeInNanos = {};
   prestoTaskStats.totalBlockedTimeInNanos = {};
 
-  prestoTaskStats.createTime =
-      util::toISOTimestamp(taskStats.executionStartTimeMs);
-  prestoTaskStats.firstStartTime =
-      util::toISOTimestamp(taskStats.firstSplitStartTimeMs);
-  prestoTaskStats.lastStartTime =
-      util::toISOTimestamp(taskStats.lastSplitStartTimeMs);
-  prestoTaskStats.lastEndTime =
-      util::toISOTimestamp(taskStats.executionEndTimeMs);
-  prestoTaskStats.endTime = util::toISOTimestamp(taskStats.executionEndTimeMs);
-  if (taskStats.executionEndTimeMs > taskStats.executionStartTimeMs) {
-    prestoTaskStats.elapsedTimeInNanos =
-        (taskStats.executionEndTimeMs - taskStats.executionStartTimeMs) *
+  prestoTaskStats.createTimeInMillis = createTimeMs;
+  startTimeMs = veloxTaskStats.executionStartTimeMs;
+  prestoTaskStats.firstStartTimeInMillis = veloxTaskStats.firstSplitStartTimeMs;
+  firstSplitStartTimeMs = veloxTaskStats.firstSplitStartTimeMs;
+  prestoTaskStats.lastStartTimeInMillis = veloxTaskStats.lastSplitStartTimeMs;
+  prestoTaskStats.lastEndTimeInMillis = veloxTaskStats.executionEndTimeMs;
+  prestoTaskStats.endTimeInMillis = veloxTaskStats.executionEndTimeMs;
+  lastEndTimeMs = veloxTaskStats.executionEndTimeMs;
+
+  if (veloxTaskStats.executionEndTimeMs > veloxTaskStats.executionStartTimeMs) {
+    prestoTaskStats.elapsedTimeInNanos = (veloxTaskStats.executionEndTimeMs -
+                                          veloxTaskStats.executionStartTimeMs) *
         1'000'000;
+  } else {
+    prestoTaskStats.elapsedTimeInNanos =
+        (currentTimeMs - veloxTaskStats.executionStartTimeMs) * 1'000'000;
   }
 
-  const auto stats = task->pool()->stats();
-  prestoTaskStats.userMemoryReservationInBytes = stats.currentBytes;
+  taskRuntimeStats["createTime"].addValue(veloxTaskStats.executionStartTimeMs);
+  if (veloxTaskStats.endTimeMs >= veloxTaskStats.executionEndTimeMs) {
+    taskRuntimeStats.insert(
+        {"outputConsumedDelayInNanos",
+         fromMillis(
+             veloxTaskStats.endTimeMs - veloxTaskStats.executionEndTimeMs)});
+    taskRuntimeStats["endTime"].addValue(veloxTaskStats.endTimeMs);
+  }
+  taskRuntimeStats.insert({"nativeProcessCpuTime", fromNanos(processCpuTime_)});
+}
+
+void PrestoTask::updateMemoryInfoLocked(
+    const velox::exec::TaskStats& veloxTaskStats,
+    uint64_t currentTimeMs,
+    std::unordered_map<std::string, velox::RuntimeMetric>& taskRuntimeStats) {
+  protocol::TaskStats& prestoTaskStats = info.stats;
+
+  const auto veloxTaskMemStats = task->pool()->stats();
+  const auto currentBytes = veloxTaskMemStats.usedBytes;
+  prestoTaskStats.userMemoryReservationInBytes = currentBytes;
   prestoTaskStats.systemMemoryReservationInBytes = 0;
-  prestoTaskStats.peakUserMemoryInBytes = stats.peakBytes;
-  prestoTaskStats.peakTotalMemoryInBytes = stats.peakBytes;
+  prestoTaskStats.peakUserMemoryInBytes = veloxTaskMemStats.peakBytes;
+  prestoTaskStats.peakTotalMemoryInBytes = veloxTaskMemStats.peakBytes;
 
   // TODO(venkatra): Populate these memory stats as well.
   prestoTaskStats.revocableMemoryReservationInBytes = {};
 
-  // Set the lastTaskStatsUpdateMs to execution start time if it is 0.
-  if (lastTaskStatsUpdateMs == 0) {
-    lastTaskStatsUpdateMs = taskStats.executionStartTimeMs;
-  }
-
-  const uint64_t currentTimeMs = velox::getCurrentTimeMs();
-  const uint64_t sinceLastPeriodMs = currentTimeMs - lastTaskStatsUpdateMs;
-
-  const int64_t currentBytes = stats.currentBytes;
-
-  int64_t averageMemoryForLastPeriod =
+  const int64_t averageMemoryForLastPeriod =
       (currentBytes + lastMemoryReservation) / 2;
+  const double sinceLastPeriodMs = currentTimeMs - lastTaskStatsUpdateMs;
 
   prestoTaskStats.cumulativeUserMemory +=
-      (averageMemoryForLastPeriod * sinceLastPeriodMs) / 1000;
-
+      (averageMemoryForLastPeriod * sinceLastPeriodMs);
+  // NOTE: velox doesn't differentiate user and system memory usages.
   prestoTaskStats.cumulativeTotalMemory = prestoTaskStats.cumulativeUserMemory;
-
-  lastTaskStatsUpdateMs = currentTimeMs;
-  lastMemoryReservation = currentBytes;
-
   prestoTaskStats.peakNodeTotalMemoryInBytes =
       task->queryCtx()->pool()->peakBytes();
+
+  if (veloxTaskStats.memoryReclaimCount > 0) {
+    taskRuntimeStats["taskMemoryReclaimCount"].addValue(
+        veloxTaskStats.memoryReclaimCount);
+    taskRuntimeStats.insert(
+        {"taskMemoryReclaimWallNanos",
+         fromMillis(veloxTaskStats.memoryReclaimMs)});
+  }
+  lastMemoryReservation = currentBytes;
+}
+
+void PrestoTask::updateExecutionInfoLocked(
+    const velox::exec::TaskStats& veloxTaskStats,
+    const protocol::TaskStatus& prestoTaskStatus,
+    std::unordered_map<std::string, velox::RuntimeMetric>& taskRuntimeStats,
+    bool includePipelineStats) {
+  protocol::TaskStats& prestoTaskStats = info.stats;
 
   prestoTaskStats.rawInputPositions = 0;
   prestoTaskStats.rawInputDataSizeInBytes = 0;
@@ -412,277 +771,123 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
   prestoTaskStats.outputPositions = 0;
   prestoTaskStats.outputDataSizeInBytes = 0;
 
-  prestoTaskStats.totalDrivers = taskStats.numTotalSplits;
-  prestoTaskStats.queuedDrivers = taskStats.numQueuedSplits;
-  prestoTaskStats.runningDrivers = taskStats.numRunningSplits;
-  prestoTaskStats.completedDrivers = taskStats.numFinishedSplits;
+  // Presto Java reports number of drivers to number of splits in Presto UI
+  // because split and driver are 1 to 1 mapping relationship. This is not true
+  // in Prestissimo where 1 driver handles many splits. In order to quickly
+  // unblock developers from viewing the correct progress of splits in
+  // Prestissimo's coordinator UI, we put number of splits in total, queued, and
+  // finished to indicate the progress of the query. Number of running drivers
+  // are passed as it is to have a proper running drivers count in UI.
+  //
+  // TODO: We should really extend the API (protocol::TaskStats and Presto
+  // coordinator UI) to have splits information as a proper fix.
+  prestoTaskStats.totalDrivers = veloxTaskStats.numTotalSplits;
+  prestoTaskStats.queuedDrivers = veloxTaskStats.numQueuedSplits;
+  prestoTaskStats.runningDrivers = veloxTaskStats.numRunningDrivers;
+  prestoTaskStats.completedDrivers = veloxTaskStats.numFinishedSplits;
 
-  prestoTaskStats.pipelines.resize(taskStats.pipelineStats.size());
-
-  std::unordered_map<std::string, RuntimeMetric> taskRuntimeStats;
-
-  if (taskStats.endTimeMs >= taskStats.executionEndTimeMs) {
-    taskRuntimeStats["outputConsumedDelayInNanos"].addValue(
-        (taskStats.endTimeMs - taskStats.executionEndTimeMs) * 1'000'000);
-    taskRuntimeStats["createTime"].addValue(taskStats.executionStartTimeMs);
-    taskRuntimeStats["endTime"].addValue(taskStats.endTimeMs);
+  if (includePipelineStats) {
+    prestoTaskStats.pipelines.resize(veloxTaskStats.pipelineStats.size());
+  } else {
+    prestoTaskStats.pipelines = {};
   }
-
-  taskRuntimeStats.insert(
-      {"nativeProcessCpuTime",
-       RuntimeMetric(processCpuTime_, RuntimeCounter::Unit::kNanos)});
-
-  for (int i = 0; i < taskStats.pipelineStats.size(); ++i) {
-    auto& pipelineOut = info.stats.pipelines[i];
-    auto& pipeline = taskStats.pipelineStats[i];
-    pipelineOut.inputPipeline = pipeline.inputPipeline;
-    pipelineOut.outputPipeline = pipeline.outputPipeline;
-    pipelineOut.firstStartTime = prestoTaskStats.createTime;
-    pipelineOut.lastStartTime = prestoTaskStats.endTime;
-    pipelineOut.lastEndTime = prestoTaskStats.endTime;
-
-    pipelineOut.operatorSummaries.resize(pipeline.operatorStats.size());
-    pipelineOut.totalScheduledTimeInNanos = {};
-    pipelineOut.totalCpuTimeInNanos = {};
-    pipelineOut.totalBlockedTimeInNanos = {};
-    pipelineOut.userMemoryReservationInBytes = {};
-    pipelineOut.revocableMemoryReservationInBytes = {};
-    pipelineOut.systemMemoryReservationInBytes = {};
+  for (int i = 0; i < veloxTaskStats.pipelineStats.size(); ++i) {
+    auto& veloxPipeline = veloxTaskStats.pipelineStats[i];
 
     // tasks may fail before any operators are created;
     // collect stats only when we have operators
-    if (!pipeline.operatorStats.empty()) {
-      const auto& firstOperatorStats = pipeline.operatorStats[0];
-      const auto& lastOperatorStats = pipeline.operatorStats.back();
-
-      pipelineOut.pipelineId = firstOperatorStats.pipelineId;
-      pipelineOut.totalDrivers = firstOperatorStats.numDrivers;
-      pipelineOut.rawInputPositions = firstOperatorStats.rawInputPositions;
-      pipelineOut.rawInputDataSizeInBytes = firstOperatorStats.rawInputBytes;
-      pipelineOut.processedInputPositions = firstOperatorStats.inputPositions;
-      pipelineOut.processedInputDataSizeInBytes = firstOperatorStats.inputBytes;
-      pipelineOut.outputPositions = lastOperatorStats.outputPositions;
-      pipelineOut.outputDataSizeInBytes = lastOperatorStats.outputBytes;
-    }
-
-    if (pipelineOut.inputPipeline) {
-      prestoTaskStats.rawInputPositions += pipelineOut.rawInputPositions;
-      prestoTaskStats.rawInputDataSizeInBytes +=
-          pipelineOut.rawInputDataSizeInBytes;
-      prestoTaskStats.processedInputPositions +=
-          pipelineOut.processedInputPositions;
-      prestoTaskStats.processedInputDataSizeInBytes +=
-          pipelineOut.processedInputDataSizeInBytes;
-    }
-    if (pipelineOut.outputPipeline) {
-      prestoTaskStats.outputPositions += pipelineOut.outputPositions;
-      prestoTaskStats.outputDataSizeInBytes +=
-          pipelineOut.outputDataSizeInBytes;
-    }
-
-    for (auto j = 0; j < pipeline.operatorStats.size(); ++j) {
-      auto& opOut = pipelineOut.operatorSummaries[j];
-      auto& op = pipeline.operatorStats[j];
-
-      opOut.stageId = id.stageId();
-      opOut.stageExecutionId = id.stageExecutionId();
-      opOut.pipelineId = i;
-      opOut.planNodeId = op.planNodeId;
-      opOut.operatorId = op.operatorId;
-      opOut.operatorType = toPrestoOperatorType(op.operatorType);
-
-      opOut.totalDrivers = op.numDrivers;
-      opOut.inputPositions = op.inputPositions;
-      opOut.sumSquaredInputPositions =
-          ((double)op.inputPositions) * op.inputPositions;
-      opOut.inputDataSize =
-          protocol::DataSize(op.inputBytes, protocol::DataUnit::BYTE);
-      opOut.rawInputPositions = op.rawInputPositions;
-      opOut.rawInputDataSize =
-          protocol::DataSize(op.rawInputBytes, protocol::DataUnit::BYTE);
-
-      // Report raw input statistics on the Project node following TableScan, if
-      // exists.
-      if (j == 1 && op.operatorType == "FilterProject" &&
-          pipeline.operatorStats[0].operatorType == "TableScan") {
-        const auto& scanOp = pipeline.operatorStats[0];
-        opOut.rawInputPositions = scanOp.rawInputPositions;
-        opOut.rawInputDataSize =
-            protocol::DataSize(scanOp.rawInputBytes, protocol::DataUnit::BYTE);
+    if (!veloxPipeline.operatorStats.empty()) {
+      if (veloxPipeline.inputPipeline) {
+        const auto& firstVeloxOpStats = veloxPipeline.operatorStats[0];
+        prestoTaskStats.rawInputPositions +=
+            firstVeloxOpStats.rawInputPositions;
+        prestoTaskStats.rawInputDataSizeInBytes +=
+            firstVeloxOpStats.rawInputBytes;
+        prestoTaskStats.processedInputPositions +=
+            firstVeloxOpStats.inputPositions;
+        prestoTaskStats.processedInputDataSizeInBytes +=
+            firstVeloxOpStats.inputBytes;
+      }
+      if (veloxPipeline.outputPipeline) {
+        const auto& lastVeloxOpStats = veloxPipeline.operatorStats.back();
+        prestoTaskStats.outputPositions += lastVeloxOpStats.outputPositions;
+        prestoTaskStats.outputDataSizeInBytes += lastVeloxOpStats.outputBytes;
       }
 
-      opOut.outputPositions = op.outputPositions;
-      opOut.outputDataSize =
-          protocol::DataSize(op.outputBytes, protocol::DataUnit::BYTE);
+      for (auto j = 0; j < veloxPipeline.operatorStats.size(); ++j) {
+        auto& veloxOp = veloxPipeline.operatorStats[j];
+        auto wallNanos = veloxOp.isBlockedTiming.wallNanos +
+            veloxOp.addInputTiming.wallNanos +
+            veloxOp.getOutputTiming.wallNanos + veloxOp.finishTiming.wallNanos;
+        auto cpuNanos = veloxOp.isBlockedTiming.cpuNanos +
+            veloxOp.addInputTiming.cpuNanos + veloxOp.getOutputTiming.cpuNanos +
+            veloxOp.finishTiming.cpuNanos;
 
-      setTiming(
-          op.addInputTiming,
-          opOut.addInputCalls,
-          opOut.addInputWall,
-          opOut.addInputCpu);
-      setTiming(
-          op.getOutputTiming,
-          opOut.getOutputCalls,
-          opOut.getOutputWall,
-          opOut.getOutputCpu);
-      CpuWallTiming finishAndBackgroundTiming;
-      finishAndBackgroundTiming.add(op.finishTiming);
-      finishAndBackgroundTiming.add(op.backgroundTiming);
-      setTiming(
-          finishAndBackgroundTiming,
-          opOut.finishCalls,
-          opOut.finishWall,
-          opOut.finishCpu);
+        prestoTaskStats.totalScheduledTimeInNanos += wallNanos;
+        prestoTaskStats.totalCpuTimeInNanos += cpuNanos;
+        prestoTaskStats.totalBlockedTimeInNanos += veloxOp.blockedWallNanos;
 
-      opOut.blockedWall = protocol::Duration(
-          op.blockedWallNanos, protocol::TimeUnit::NANOSECONDS);
-
-      opOut.userMemoryReservation = protocol::DataSize(
-          op.memoryStats.userMemoryReservation, protocol::DataUnit::BYTE);
-      opOut.revocableMemoryReservation = protocol::DataSize(
-          op.memoryStats.revocableMemoryReservation, protocol::DataUnit::BYTE);
-      opOut.systemMemoryReservation = protocol::DataSize(
-          op.memoryStats.systemMemoryReservation, protocol::DataUnit::BYTE);
-      opOut.peakUserMemoryReservation = protocol::DataSize(
-          op.memoryStats.peakUserMemoryReservation, protocol::DataUnit::BYTE);
-      opOut.peakSystemMemoryReservation = protocol::DataSize(
-          op.memoryStats.peakSystemMemoryReservation, protocol::DataUnit::BYTE);
-      opOut.peakTotalMemoryReservation = protocol::DataSize(
-          op.memoryStats.peakTotalMemoryReservation, protocol::DataUnit::BYTE);
-
-      opOut.spilledDataSize =
-          protocol::DataSize(op.spilledBytes, protocol::DataUnit::BYTE);
-
-      for (const auto& stat : op.runtimeStats) {
-        auto statName = generateRuntimeStatName(op, stat.first);
-        opOut.runtimeStats[statName] = toRuntimeMetric(statName, stat.second);
-        if (taskRuntimeStats.count(statName)) {
-          taskRuntimeStats[statName].merge(stat.second);
-        } else {
-          taskRuntimeStats[statName] = stat.second;
+        for (const auto& stat : veloxOp.runtimeStats) {
+          auto statName = generateRuntimeStatName(veloxOp, stat.first);
+          addRuntimeMetric(taskRuntimeStats, statName, stat.second);
         }
+        updateOperatorRuntimeStats(veloxOp, prestoTaskStats.runtimeStats);
       }
-
-      if (op.numSplits != 0) {
-        const auto statName = generateRuntimeStatName(op, "numSplits");
-        opOut.runtimeStats.emplace(
-            statName, createProtocolRuntimeMetric(statName, op.numSplits));
-      }
-      if (op.inputVectors != 0) {
-        auto statName = generateRuntimeStatName(op, "inputBatches");
-        opOut.runtimeStats.emplace(
-            statName, createProtocolRuntimeMetric(statName, op.inputVectors));
-      }
-      if (op.outputVectors != 0) {
-        auto statName = generateRuntimeStatName(op, "outputBatches");
-        opOut.runtimeStats.emplace(
-            statName, createProtocolRuntimeMetric(statName, op.outputVectors));
-      }
-      if (op.memoryStats.numMemoryAllocations > 0) {
-        auto statName = generateRuntimeStatName(op, "numMemoryAllocations");
-        opOut.runtimeStats.emplace(
-            statName,
-            createProtocolRuntimeMetric(
-                statName, op.memoryStats.numMemoryAllocations));
-      }
-
-      // If Velox operator has spilling stats, then add them to the Presto
-      // operator stats and the task stats as runtime stats.
-      if (op.spilledBytes > 0) {
-        addSpillingOperatorMetrics(opOut, prestoTaskStats, op);
-      }
-
-      auto wallNanos = op.addInputTiming.wallNanos +
-          op.getOutputTiming.wallNanos + op.finishTiming.wallNanos;
-      auto cpuNanos = op.addInputTiming.cpuNanos + op.getOutputTiming.cpuNanos +
-          op.finishTiming.cpuNanos;
-
-      pipelineOut.totalScheduledTimeInNanos += wallNanos;
-      pipelineOut.totalCpuTimeInNanos += cpuNanos;
-      pipelineOut.totalBlockedTimeInNanos += op.blockedWallNanos;
-      pipelineOut.userMemoryReservationInBytes +=
-          op.memoryStats.userMemoryReservation;
-      pipelineOut.revocableMemoryReservationInBytes +=
-          op.memoryStats.revocableMemoryReservation;
-      pipelineOut.systemMemoryReservationInBytes +=
-          op.memoryStats.systemMemoryReservation;
-
-      prestoTaskStats.totalScheduledTimeInNanos += wallNanos;
-      prestoTaskStats.totalCpuTimeInNanos += cpuNanos;
-      prestoTaskStats.totalBlockedTimeInNanos += op.blockedWallNanos;
-    } // pipeline's operators loop
-  } // task's pipelines loop
-
-  processOperatorStats(prestoTaskStats, taskStatus.state);
-  processTaskStats(prestoTaskStats, taskRuntimeStats, taskStatus.state);
-
-  // Task runtime metrics we want while the Task is not finalized.
-  hasStuckOperator = false;
-  if (!isFinalState(taskStatus.state)) {
-    taskRuntimeStats.clear();
-    addRuntimeMetricIfNotZero(
-        taskRuntimeStats, "drivers.total", taskStats.numTotalDrivers);
-    addRuntimeMetricIfNotZero(
-        taskRuntimeStats, "drivers.running", taskStats.numRunningDrivers);
-    addRuntimeMetricIfNotZero(
-        taskRuntimeStats, "drivers.completed", taskStats.numCompletedDrivers);
-    addRuntimeMetricIfNotZero(
-        taskRuntimeStats, "drivers.terminated", taskStats.numTerminatedDrivers);
-    for (const auto it : taskStats.numBlockedDrivers) {
-      addRuntimeMetricIfNotZero(
-          taskRuntimeStats,
-          fmt::format("drivers.{}", exec::blockingReasonToString(it.first)),
-          it.second);
     }
-    if (taskStats.longestRunningOpCallMs != 0) {
-      hasStuckOperator = true;
-      addRuntimeMetricIfNotZero(
-          taskRuntimeStats,
-          "stuck_op." + taskStats.longestRunningOpCall,
-          taskStats.numCompletedDrivers);
-    }
-    // These metrics we need when we are running, so do not try to skipp them.
-    processTaskStats(
-        prestoTaskStats, taskRuntimeStats, taskStatus.state, false);
-  }
 
-  return info;
+    for (const auto& driverStat : veloxPipeline.driverStats) {
+      for (const auto& [name, value] : driverStat.runtimeStats) {
+        addRuntimeMetric(taskRuntimeStats, name, value);
+      }
+    }
+
+    if (includePipelineStats) {
+      updatePipelineStats(
+          id, i, veloxPipeline, prestoTaskStats, prestoTaskStats.pipelines[i]);
+    }
+  } // velox task's pipelines loop
+
+  updateOperatorRuntimeStats(prestoTaskStatus.state, prestoTaskStats);
+  updateTaskRuntimeStats(
+      prestoTaskStatus.state,
+      taskRuntimeStats,
+      /*tryToSkipIfRunning=*/true,
+      prestoTaskStats);
 }
 
-/*static*/ std::string PrestoTask::taskNumbersToString(
-    const std::array<size_t, 5>& taskNumbers) {
-  // Names of five TaskState (enum defined in exec/Task.h).
-  static constexpr std::array<folly::StringPiece, 5> taskStateNames{
-      "Running",
-      "Finished",
-      "Canceled",
-      "Aborted",
-      "Failed",
-  };
-
+/*static*/ std::string PrestoTask::taskStatesToString(
+    const std::array<size_t, 5>& taskStates) {
   std::string str;
-  for (size_t i = 0; i < taskNumbers.size(); ++i) {
-    if (taskNumbers[i] != 0) {
+  for (size_t i = 0; i < taskStates.size(); ++i) {
+    if (taskStates[i] != 0) {
       folly::toAppend(
-          fmt::format("{}={} ", taskStateNames[i], taskNumbers[i]), &str);
+          fmt::format(
+              "{}={} ",
+              velox::exec::taskStateString(velox::exec::TaskState(i)),
+              taskStates[i]),
+          &str);
     }
   }
   return str;
 }
 
-std::string PrestoTask::toJsonString() const {
+folly::dynamic PrestoTask::toJson() const {
   std::lock_guard<std::mutex> l(mutex);
   folly::dynamic obj = folly::dynamic::object;
-  obj["task"] = task ? task->toJsonString() : "null";
+  obj["task"] = task ? task->toJson() : "null";
   obj["taskStarted"] = taskStarted;
   obj["lastHeartbeatMs"] = lastHeartbeatMs;
   obj["lastTaskStatsUpdateMs"] = lastTaskStatsUpdateMs;
   obj["lastMemoryReservation"] = lastMemoryReservation;
+  obj["createTimeMs"] = createTimeMs;
+  obj["startTimeMs"] = startTimeMs;
+  obj["firstSplitStartTimeMs"] = firstSplitStartTimeMs;
+  obj["lastEndTimeMs"] = lastEndTimeMs;
 
   json j;
   to_json(j, info);
-  obj["taskInfo"] = to_string(j);
-  return folly::toPrettyJson(obj);
+  obj["taskInfo"] = folly::parseJson(to_string(j));
+  return obj;
 }
 
 protocol::RuntimeMetric toRuntimeMetric(
@@ -700,8 +905,11 @@ protocol::RuntimeMetric toRuntimeMetric(
 bool isFinalState(protocol::TaskState state) {
   switch (state) {
     case protocol::TaskState::FINISHED:
+      [[fallthrough]];
     case protocol::TaskState::FAILED:
+      [[fallthrough]];
     case protocol::TaskState::ABORTED:
+      [[fallthrough]];
     case protocol::TaskState::CANCELED:
       return true;
     default:

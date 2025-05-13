@@ -29,7 +29,9 @@
           "type": "varchar(1)"
         }
       ],
-      "replicateNullsAndAny": false
+      "replicateNullsAndAny": false,
+      "scaleWriters": false,
+      "encoding":"COLUMNAR"
     },
     "sources": [],
     "inputs": [

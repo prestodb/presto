@@ -16,13 +16,14 @@
 #include <folly/executors/CPUThreadPoolExecutor.h>
 #include <folly/stop_watch.h>
 #include "presto_cpp/main/PrestoExchangeSource.h"
-#include "presto_cpp/main/TaskManager.h"
+#include "presto_cpp/main/PrestoServer.h"
 #include "presto_cpp/main/common/Counters.h"
 #include "presto_cpp/main/http/filters/HttpEndpointLatencyFilter.h"
+#include "velox/common/base/PeriodicStatsReporter.h"
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/base/SuccinctPrinter.h"
 #include "velox/common/caching/AsyncDataCache.h"
-#include "velox/common/caching/SsdFile.h"
+#include "velox/common/caching/CacheTTLController.h"
 #include "velox/common/memory/MemoryAllocator.h"
 #include "velox/common/memory/MmapAllocator.h"
 #include "velox/connectors/hive/HiveConnector.h"
@@ -31,56 +32,235 @@
 #include <sys/resource.h>
 
 namespace {
-#define REPORT_IF_NOT_ZERO(name, counter)   \
-  if ((counter) != 0) {                     \
-    RECORD_METRIC_VALUE((name), (counter)); \
-  }
+#define REPORT_IF_NOT_ZERO(name, counter)     \
+  do {                                        \
+    if ((counter) != 0) {                     \
+      RECORD_METRIC_VALUE((name), (counter)); \
+    }                                         \
+  } while (0)
 } // namespace
 
 namespace facebook::presto {
 
+namespace {
+folly::StringPiece getCounterForBlockingReason(
+    velox::exec::BlockingReason reason) {
+  switch (reason) {
+    case velox::exec::BlockingReason::kWaitForConsumer:
+      return kCounterNumBlockedWaitForConsumerDrivers;
+    case velox::exec::BlockingReason::kWaitForSplit:
+      return kCounterNumBlockedWaitForSplitDrivers;
+    case velox::exec::BlockingReason::kWaitForProducer:
+      return kCounterNumBlockedWaitForProducerDrivers;
+    case velox::exec::BlockingReason::kWaitForJoinBuild:
+      return kCounterNumBlockedWaitForJoinBuildDrivers;
+    case velox::exec::BlockingReason::kWaitForJoinProbe:
+      return kCounterNumBlockedWaitForJoinProbeDrivers;
+    case velox::exec::BlockingReason::kWaitForMergeJoinRightSide:
+      return kCounterNumBlockedWaitForMergeJoinRightSideDrivers;
+    case velox::exec::BlockingReason::kWaitForMemory:
+      return kCounterNumBlockedWaitForMemoryDrivers;
+    case velox::exec::BlockingReason::kWaitForConnector:
+      return kCounterNumBlockedWaitForConnectorDrivers;
+    case velox::exec::BlockingReason::kYield:
+      return kCounterNumBlockedYieldDrivers;
+    case velox::exec::BlockingReason::kNotBlocked:
+      [[fallthrough]];
+    default:
+      return {};
+  }
+}
+
+class ThreadPoolExecutorStatsReporter {
+ public:
+  ThreadPoolExecutorStatsReporter(
+      folly::ThreadPoolExecutor* executor,
+      const std::string& poolName,
+      uint32_t estimatedMaxNumTasks)
+      : executor_(executor),
+        numThreadsMetricName_(
+            fmt::format(kCounterThreadPoolNumThreadsFormat, poolName)),
+        numActiveThreadsMetricName_(
+            fmt::format(kCounterThreadPoolNumActiveThreadsFormat, poolName)),
+        numPendingTasksMetricName_(
+            fmt::format(kCounterThreadPoolNumPendingTasksFormat, poolName)),
+        numTotalTasksMetricName_(
+            fmt::format(kCounterThreadPoolNumTotalTasksFormat, poolName)),
+        maxIdleTimeNsMetricName_(
+            fmt::format(kCounterThreadPoolMaxIdleTimeNsFormat, poolName)) {
+    VELOX_CHECK_NOT_NULL(executor_);
+    const auto numThreads = executor_->numThreads();
+    const auto numHistogramBuckets = 100;
+    DEFINE_METRIC(numThreadsMetricName_, facebook::velox::StatType::AVG);
+    DEFINE_HISTOGRAM_METRIC(
+        numActiveThreadsMetricName_, 1, 0, numThreads, 50, 90, 100);
+    DEFINE_HISTOGRAM_METRIC(
+        numPendingTasksMetricName_,
+        estimatedMaxNumTasks / numHistogramBuckets,
+        0,
+        estimatedMaxNumTasks,
+        50,
+        90,
+        100);
+    DEFINE_HISTOGRAM_METRIC(
+        numTotalTasksMetricName_,
+        estimatedMaxNumTasks / numHistogramBuckets,
+        0,
+        estimatedMaxNumTasks,
+        50,
+        90,
+        100);
+    DEFINE_HISTOGRAM_METRIC(
+        maxIdleTimeNsMetricName_,
+        10'000'000'000 /* 10s */,
+        0,
+        300'000'000'000 /* 300s */,
+        50,
+        90,
+        100);
+  }
+
+  void report() const {
+    const auto poolStats = executor_->getPoolStats();
+    RECORD_METRIC_VALUE(numThreadsMetricName_, poolStats.threadCount);
+    RECORD_HISTOGRAM_METRIC_VALUE(
+        numActiveThreadsMetricName_, poolStats.activeThreadCount);
+    RECORD_HISTOGRAM_METRIC_VALUE(
+        numPendingTasksMetricName_, poolStats.pendingTaskCount);
+    RECORD_HISTOGRAM_METRIC_VALUE(
+        numTotalTasksMetricName_, poolStats.totalTaskCount);
+    RECORD_HISTOGRAM_METRIC_VALUE(
+        maxIdleTimeNsMetricName_, poolStats.maxIdleTime.count());
+  }
+
+ private:
+  folly::ThreadPoolExecutor* const executor_{nullptr};
+
+  const std::string numThreadsMetricName_;
+  const std::string numActiveThreadsMetricName_;
+  const std::string numPendingTasksMetricName_;
+  const std::string numTotalTasksMetricName_;
+  const std::string maxIdleTimeNsMetricName_;
+};
+
+class HiveConnectorStatsReporter {
+ public:
+  explicit HiveConnectorStatsReporter(
+      std::shared_ptr<velox::connector::hive::HiveConnector> connector)
+      : connector_(std::move(connector)),
+        numElementsMetricName_(fmt::format(
+            kCounterHiveFileHandleCacheNumElementsFormat,
+            connector_->connectorId())),
+        pinnedSizeMetricName_(fmt::format(
+            kCounterHiveFileHandleCachePinnedSizeFormat,
+            connector_->connectorId())),
+        curSizeMetricName_(fmt::format(
+            kCounterHiveFileHandleCacheCurSizeFormat,
+            connector_->connectorId())),
+        numAccumulativeHitsMetricName_(fmt::format(
+            kCounterHiveFileHandleCacheNumAccumulativeHitsFormat,
+            connector_->connectorId())),
+        numAccumulativeLookupsMetricName_(fmt::format(
+            kCounterHiveFileHandleCacheNumAccumulativeLookupsFormat,
+            connector_->connectorId())),
+        numHitsMetricName_(fmt::format(
+            kCounterHiveFileHandleCacheNumHitsFormat,
+            connector_->connectorId())),
+        numLookupsMetricName_(fmt::format(
+            kCounterHiveFileHandleCacheNumLookupsFormat,
+            connector_->connectorId())) {
+    DEFINE_METRIC(numElementsMetricName_, velox::StatType::AVG);
+    DEFINE_METRIC(pinnedSizeMetricName_, velox::StatType::AVG);
+    DEFINE_METRIC(curSizeMetricName_, velox::StatType::AVG);
+    DEFINE_METRIC(numAccumulativeHitsMetricName_, velox::StatType::AVG);
+    DEFINE_METRIC(numAccumulativeLookupsMetricName_, velox::StatType::AVG);
+    DEFINE_METRIC(numHitsMetricName_, velox::StatType::AVG);
+    DEFINE_METRIC(numLookupsMetricName_, velox::StatType::AVG);
+  }
+
+  void report() {
+    auto stats = connector_->fileHandleCacheStats();
+    RECORD_METRIC_VALUE(numElementsMetricName_, stats.numElements);
+    RECORD_METRIC_VALUE(pinnedSizeMetricName_, stats.pinnedSize);
+    RECORD_METRIC_VALUE(curSizeMetricName_, stats.curSize);
+    RECORD_METRIC_VALUE(numAccumulativeHitsMetricName_, stats.numHits);
+    RECORD_METRIC_VALUE(numAccumulativeLookupsMetricName_, stats.numLookups);
+    RECORD_METRIC_VALUE(numHitsMetricName_, stats.numHits - lastNumHits_);
+    lastNumHits_ = stats.numHits;
+    RECORD_METRIC_VALUE(
+        numLookupsMetricName_, stats.numLookups - lastNumLookups_);
+    lastNumLookups_ = stats.numLookups;
+  }
+
+ private:
+  const std::shared_ptr<velox::connector::hive::HiveConnector> connector_;
+  const std::string numElementsMetricName_;
+  const std::string pinnedSizeMetricName_;
+  const std::string curSizeMetricName_;
+  const std::string numAccumulativeHitsMetricName_;
+  const std::string numAccumulativeLookupsMetricName_;
+  const std::string numHitsMetricName_;
+  const std::string numLookupsMetricName_;
+  size_t lastNumHits_{0};
+  size_t lastNumLookups_{0};
+};
+
+} // namespace
+
 // Every two seconds we export server counters.
 static constexpr size_t kTaskPeriodGlobalCounters{2'000'000}; // 2 seconds.
-// Every two seconds we export memory counters.
-static constexpr size_t kMemoryPeriodGlobalCounters{2'000'000}; // 2 seconds.
 // Every two seconds we export exchange source counters.
 static constexpr size_t kExchangeSourcePeriodGlobalCounters{
     2'000'000}; // 2 seconds.
 // Every 1 minute we clean old tasks.
 static constexpr size_t kTaskPeriodCleanOldTasks{60'000'000}; // 60 seconds.
-// Every 1 minute we export cache counters.
-static constexpr size_t kCachePeriodGlobalCounters{60'000'000}; // 60 seconds.
 // Every 1 minute we export connector counters.
 static constexpr size_t kConnectorPeriodGlobalCounters{
     60'000'000}; // 60 seconds.
 static constexpr size_t kOsPeriodGlobalCounters{2'000'000}; // 2 seconds
-static constexpr size_t kSpillStatsUpdateIntervalUs{60'000'000}; // 60 seconds
-static constexpr size_t kArbitratorStatsUpdateIntervalUs{
-    60'000'000}; // 60 seconds
-// Every 1 minute we print endpoint latency counters.
-static constexpr size_t kHttpEndpointLatencyPeriodGlobalCounters{
+static constexpr size_t kHttpServerPeriodGlobalCounters{
+    60'000'000}; // 60 seconds.
+static constexpr size_t kHttpClientPeriodGlobalCounters{
     60'000'000}; // 60 seconds.
 
 PeriodicTaskManager::PeriodicTaskManager(
-    folly::CPUThreadPoolExecutor* const driverCPUExecutor,
-    folly::IOThreadPoolExecutor* const httpExecutor,
-    TaskManager* const taskManager,
-    const velox::memory::MemoryAllocator* const memoryAllocator,
-    const velox::cache::AsyncDataCache* const asyncDataCache,
+    folly::CPUThreadPoolExecutor* driverCPUExecutor,
+    folly::CPUThreadPoolExecutor* spillerExecutor,
+    folly::IOThreadPoolExecutor* httpSrvIoExecutor,
+    folly::CPUThreadPoolExecutor* httpSrvCpuExecutor,
+    folly::IOThreadPoolExecutor* exchangeHttpIoExecutor,
+    folly::CPUThreadPoolExecutor* exchangeHttpCpuExecutor,
+    TaskManager* taskManager,
+    const velox::memory::MemoryAllocator* memoryAllocator,
+    const velox::cache::AsyncDataCache* asyncDataCache,
     const std::unordered_map<
         std::string,
-        std::shared_ptr<velox::connector::Connector>>& connectors)
+        std::shared_ptr<velox::connector::Connector>>& connectors,
+    PrestoServer* server)
     : driverCPUExecutor_(driverCPUExecutor),
-      httpExecutor_(httpExecutor),
+      spillerExecutor_(spillerExecutor),
+      httpSrvIoExecutor_(httpSrvIoExecutor),
+      httpSrvCpuExecutor_(httpSrvCpuExecutor),
+      exchangeHttpIoExecutor_(exchangeHttpIoExecutor),
+      exchangeHttpCpuExecutor_(exchangeHttpCpuExecutor),
       taskManager_(taskManager),
       memoryAllocator_(memoryAllocator),
       asyncDataCache_(asyncDataCache),
       arbitrator_(velox::memory::memoryManager()->arbitrator()),
-      connectors_(connectors) {}
+      connectors_(connectors),
+      server_(server) {}
 
 void PeriodicTaskManager::start() {
+  VELOX_CHECK_NOT_NULL(arbitrator_);
+  velox::PeriodicStatsReporter::Options opts;
+  opts.arbitrator = arbitrator_->kind() == "NOOP" ? nullptr : arbitrator_;
+  opts.allocator = memoryAllocator_;
+  opts.cache = asyncDataCache_;
+  opts.spillMemoryPool = velox::memory::spillMemoryPool();
+  velox::startPeriodicStatsReporter(opts);
+
   // If executors are null, don't bother starting this task.
-  if ((driverCPUExecutor_ != nullptr) || (httpExecutor_ != nullptr)) {
+  if ((driverCPUExecutor_ != nullptr) || (httpSrvIoExecutor_ != nullptr)) {
     addExecutorStatsTask();
   }
 
@@ -91,68 +271,56 @@ void PeriodicTaskManager::start() {
     addOldTaskCleanupTask();
   }
 
-  if (memoryAllocator_ != nullptr) {
-    addMemoryAllocatorStatsTask();
-  }
-
   addPrestoExchangeSourceMemoryStatsTask();
-
-  if (asyncDataCache_ != nullptr) {
-    addCacheStatsUpdateTask();
-  }
 
   addConnectorStatsTask();
 
   addOperatingSystemStatsUpdateTask();
 
-  addSpillStatsUpdateTask();
-
   if (SystemConfig::instance()->enableHttpEndpointLatencyFilter()) {
-    addHttpEndpointLatencyStatsTask();
+    addHttpServerStatsTask();
   }
 
-  VELOX_CHECK_NOT_NULL(arbitrator_);
-  if (arbitrator_->kind() != "NOOP") {
-    addArbitratorStatsTask();
+  addHttpClientStatsTask();
+
+  if (server_ && server_->hasCoordinatorDiscoverer()) {
+    numDriverThreads_ = server_->numDriverThreads();
+    addWatchdogTask();
   }
 
-  // This should be the last call in this method.
-  scheduler_.start();
+  oneTimeRunner_.start();
 }
 
 void PeriodicTaskManager::stop() {
-  scheduler_.cancelAllFunctionsAndWait();
-  scheduler_.shutdown();
-}
-
-void PeriodicTaskManager::updateExecutorStats() {
-  if (driverCPUExecutor_ != nullptr) {
-    // Report the current queue size of the thread pool.
-    RECORD_METRIC_VALUE(
-        kCounterDriverCPUExecutorQueueSize,
-        driverCPUExecutor_->getTaskQueueSize());
-
-    // Report driver execution latency.
-    folly::stop_watch<std::chrono::milliseconds> timer;
-    driverCPUExecutor_->add([timer = timer]() {
-      RECORD_METRIC_VALUE(
-          kCounterDriverCPUExecutorLatencyMs, timer.elapsed().count());
-    });
-  }
-
-  if (httpExecutor_ != nullptr) {
-    // Report the latency between scheduling the task and its execution.
-    folly::stop_watch<std::chrono::milliseconds> timer;
-    httpExecutor_->add([timer = timer]() {
-      RECORD_METRIC_VALUE(
-          kCounterHTTPExecutorLatencyMs, timer.elapsed().count());
-    });
-  }
+  velox::stopPeriodicStatsReporter();
+  oneTimeRunner_.cancelAllFunctionsAndWait();
+  oneTimeRunner_.shutdown();
+  repeatedRunner_.stop();
 }
 
 void PeriodicTaskManager::addExecutorStatsTask() {
+  std::vector<ThreadPoolExecutorStatsReporter> reporters;
+  auto addExecutorFunc = [&](folly::ThreadPoolExecutor* executor,
+                             const std::string& executorName,
+                             uint32_t estimatedMaxNumTasks) {
+    if (executor != nullptr) {
+      reporters.push_back(ThreadPoolExecutorStatsReporter(
+          executor, executorName, estimatedMaxNumTasks));
+    }
+  };
+  addExecutorFunc(driverCPUExecutor_, "driver_cpu_executor", 5'000);
+  addExecutorFunc(spillerExecutor_, "spiller_executor", 5'000);
+  addExecutorFunc(httpSrvIoExecutor_, "http_srv_io_executor", 50'000);
+  addExecutorFunc(httpSrvCpuExecutor_, "http_srv_cpu_executor", 50'000);
+  addExecutorFunc(exchangeHttpIoExecutor_, "exchange_http_io_executor", 50'000);
+  addExecutorFunc(
+      exchangeHttpCpuExecutor_, "exchange_http_cpu_executor", 50'000);
   addTask(
-      [this]() { updateExecutorStats(); },
+      [this, reporters = std::move(reporters)]() {
+        for (auto& reporter : reporters) {
+          reporter.report();
+        }
+      },
       kTaskPeriodGlobalCounters,
       "executor_counters");
 }
@@ -163,25 +331,38 @@ void PeriodicTaskManager::updateTaskStats() {
   auto taskNumbers = taskManager_->getTaskNumbers(numTasks);
   RECORD_METRIC_VALUE(kCounterNumTasks, taskManager_->getNumTasks());
   RECORD_METRIC_VALUE(
-      kCounterNumTasksRunning, taskNumbers[velox::exec::TaskState::kRunning]);
+      kCounterNumTasksBytesProcessed, taskManager_->getBytesProcessed());
   RECORD_METRIC_VALUE(
-      kCounterNumTasksFinished, taskNumbers[velox::exec::TaskState::kFinished]);
+      kCounterNumTasksRunning,
+      taskNumbers[static_cast<int>(velox::exec::TaskState::kRunning)]);
+  RECORD_METRIC_VALUE(
+      kCounterNumTasksFinished,
+      taskNumbers[static_cast<int>(velox::exec::TaskState::kFinished)]);
   RECORD_METRIC_VALUE(
       kCounterNumTasksCancelled,
-      taskNumbers[velox::exec::TaskState::kCanceled]);
+      taskNumbers[static_cast<int>(velox::exec::TaskState::kCanceled)]);
   RECORD_METRIC_VALUE(
-      kCounterNumTasksAborted, taskNumbers[velox::exec::TaskState::kAborted]);
+      kCounterNumTasksAborted,
+      taskNumbers[static_cast<int>(velox::exec::TaskState::kAborted)]);
   RECORD_METRIC_VALUE(
-      kCounterNumTasksFailed, taskNumbers[velox::exec::TaskState::kFailed]);
+      kCounterNumTasksFailed,
+      taskNumbers[static_cast<int>(velox::exec::TaskState::kFailed)]);
 
-  auto driverCountStats = taskManager_->getDriverCountStats();
+  const auto driverCounts = taskManager_->getDriverCounts();
+  RECORD_METRIC_VALUE(kCounterNumQueuedDrivers, driverCounts.numQueuedDrivers);
   RECORD_METRIC_VALUE(
-      kCounterNumRunningDrivers, driverCountStats.numRunningDrivers);
+      kCounterNumOnThreadDrivers, driverCounts.numOnThreadDrivers);
   RECORD_METRIC_VALUE(
-      kCounterNumBlockedDrivers, driverCountStats.numBlockedDrivers);
+      kCounterNumSuspendedDrivers, driverCounts.numSuspendedDrivers);
+  for (const auto& it : driverCounts.numBlockedDrivers) {
+    const auto counterName = getCounterForBlockingReason(it.first);
+    if (counterName.data() != nullptr) {
+      RECORD_METRIC_VALUE(counterName, it.second);
+    }
+  }
   RECORD_METRIC_VALUE(
       kCounterTotalPartitionedOutputBuffer,
-      velox::exec::OutputBufferManager::getInstance().lock()->numBuffers());
+      velox::exec::OutputBufferManager::getInstanceRef()->numBuffers());
 }
 
 void PeriodicTaskManager::addTaskStatsTask() {
@@ -205,35 +386,6 @@ void PeriodicTaskManager::addOldTaskCleanupTask() {
       "clean_old_tasks");
 }
 
-void PeriodicTaskManager::updateMemoryAllocatorStats() {
-  RECORD_METRIC_VALUE(
-      kCounterMappedMemoryBytes,
-      (velox::memory::AllocationTraits::pageBytes(
-          memoryAllocator_->numMapped())));
-  RECORD_METRIC_VALUE(
-      kCounterAllocatedMemoryBytes,
-      (velox::memory::AllocationTraits::pageBytes(
-          memoryAllocator_->numAllocated())));
-  // TODO(jtan6): Remove condition after T150019700 is done
-  if (auto* mmapAllocator =
-          dynamic_cast<const velox::memory::MmapAllocator*>(memoryAllocator_)) {
-    RECORD_METRIC_VALUE(
-        kCounterMmapRawAllocBytesSmall, (mmapAllocator->numMallocBytes()));
-    RECORD_METRIC_VALUE(
-        kCounterMmapExternalMappedBytes,
-        velox::memory::AllocationTraits::pageBytes(
-            (mmapAllocator->numExternalMapped())));
-  }
-  // TODO(xiaoxmeng): add memory allocation size stats.
-}
-
-void PeriodicTaskManager::addMemoryAllocatorStatsTask() {
-  addTask(
-      [this]() { updateMemoryAllocatorStats(); },
-      kMemoryPeriodGlobalCounters,
-      "mmap_memory_counters");
-}
-
 void PeriodicTaskManager::updatePrestoExchangeSourceMemoryStats() {
   int64_t currQueuedMemoryBytes{0};
   int64_t peakQueuedMemoryBytes{0};
@@ -251,212 +403,23 @@ void PeriodicTaskManager::addPrestoExchangeSourceMemoryStatsTask() {
       "exchange_source_counters");
 }
 
-void PeriodicTaskManager::updateCacheStats() {
-  const auto memoryCacheStats = asyncDataCache_->refreshStats();
-
-  // Snapshots.
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheNumEntries, memoryCacheStats.numEntries);
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheNumEmptyEntries, memoryCacheStats.numEmptyEntries);
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheNumSharedEntries, memoryCacheStats.numShared);
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheNumExclusiveEntries, memoryCacheStats.numExclusive);
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheNumPrefetchedEntries, memoryCacheStats.numPrefetch);
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheTotalTinyBytes, memoryCacheStats.tinySize);
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheTotalLargeBytes, memoryCacheStats.largeSize);
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheTotalTinyPaddingBytes, memoryCacheStats.tinyPadding);
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheTotalLargePaddingBytes, memoryCacheStats.largePadding);
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheTotalPrefetchBytes, memoryCacheStats.prefetchBytes);
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheSumEvictScore, memoryCacheStats.sumEvictScore);
-
-  // Interval cumulatives.
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheNumHit,
-      memoryCacheStats.numHit - lastMemoryCacheHits_);
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheHitBytes,
-      memoryCacheStats.hitBytes - lastMemoryCacheHitsBytes_);
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheNumNew,
-      memoryCacheStats.numNew - lastMemoryCacheInserts_);
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheNumEvict,
-      memoryCacheStats.numEvict - lastMemoryCacheEvictions_);
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheNumEvictChecks,
-      memoryCacheStats.numEvictChecks - lastMemoryCacheEvictionChecks_);
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheNumWaitExclusive,
-      memoryCacheStats.numWaitExclusive - lastMemoryCacheStalls_);
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheNumAllocClocks,
-      memoryCacheStats.allocClocks - lastMemoryCacheAllocClocks_);
-
-  lastMemoryCacheHits_ = memoryCacheStats.numHit;
-  lastMemoryCacheHitsBytes_ = memoryCacheStats.hitBytes;
-  lastMemoryCacheInserts_ = memoryCacheStats.numNew;
-  lastMemoryCacheEvictions_ = memoryCacheStats.numEvict;
-  lastMemoryCacheEvictionChecks_ = memoryCacheStats.numEvictChecks;
-  lastMemoryCacheStalls_ = memoryCacheStats.numWaitExclusive;
-  lastMemoryCacheAllocClocks_ = memoryCacheStats.allocClocks;
-
-  // All time cumulatives.
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheNumCumulativeHit, memoryCacheStats.numHit);
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheCumulativeHitBytes, memoryCacheStats.hitBytes);
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheNumCumulativeNew, memoryCacheStats.numNew);
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheNumCumulativeEvict, memoryCacheStats.numEvict);
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheNumCumulativeEvictChecks,
-      memoryCacheStats.numEvictChecks);
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheNumCumulativeWaitExclusive,
-      memoryCacheStats.numWaitExclusive);
-  RECORD_METRIC_VALUE(
-      kCounterMemoryCacheNumCumulativeAllocClocks,
-      memoryCacheStats.allocClocks);
-  if (memoryCacheStats.ssdStats != nullptr) {
-    RECORD_METRIC_VALUE(
-        kCounterSsdCacheCumulativeReadEntries,
-        memoryCacheStats.ssdStats->entriesRead)
-    RECORD_METRIC_VALUE(
-        kCounterSsdCacheCumulativeReadBytes,
-        memoryCacheStats.ssdStats->bytesRead);
-    RECORD_METRIC_VALUE(
-        kCounterSsdCacheCumulativeWrittenEntries,
-        memoryCacheStats.ssdStats->entriesWritten);
-    RECORD_METRIC_VALUE(
-        kCounterSsdCacheCumulativeWrittenBytes,
-        memoryCacheStats.ssdStats->bytesWritten);
-    RECORD_METRIC_VALUE(
-        kCounterSsdCacheCumulativeCachedEntries,
-        memoryCacheStats.ssdStats->entriesCached);
-    RECORD_METRIC_VALUE(
-        kCounterSsdCacheCumulativeCachedBytes,
-        memoryCacheStats.ssdStats->bytesCached);
-    RECORD_METRIC_VALUE(
-        kCounterSsdCacheCumulativeOpenSsdErrors,
-        memoryCacheStats.ssdStats->openFileErrors);
-    RECORD_METRIC_VALUE(
-        kCounterSsdCacheCumulativeOpenCheckpointErrors,
-        memoryCacheStats.ssdStats->openCheckpointErrors);
-    RECORD_METRIC_VALUE(
-        kCounterSsdCacheCumulativeOpenLogErrors,
-        memoryCacheStats.ssdStats->openLogErrors);
-    RECORD_METRIC_VALUE(
-        kCounterSsdCacheCumulativeDeleteCheckpointErrors,
-        memoryCacheStats.ssdStats->deleteCheckpointErrors);
-    RECORD_METRIC_VALUE(
-        kCounterSsdCacheCumulativeGrowFileErrors,
-        memoryCacheStats.ssdStats->growFileErrors);
-    RECORD_METRIC_VALUE(
-        kCounterSsdCacheCumulativeWriteSsdErrors,
-        memoryCacheStats.ssdStats->writeSsdErrors);
-    RECORD_METRIC_VALUE(
-        kCounterSsdCacheCumulativeWriteCheckpointErrors,
-        memoryCacheStats.ssdStats->writeCheckpointErrors);
-    RECORD_METRIC_VALUE(
-        kCounterSsdCacheCumulativeReadSsdErrors,
-        memoryCacheStats.ssdStats->readSsdErrors);
-    RECORD_METRIC_VALUE(
-        kCounterSsdCacheCumulativeReadCheckpointErrors,
-        memoryCacheStats.ssdStats->readCheckpointErrors);
-  }
-  LOG(INFO) << "Cache stats:\n" << memoryCacheStats.toString();
-}
-
-void PeriodicTaskManager::addCacheStatsUpdateTask() {
-  addTask(
-      [this]() { updateCacheStats(); },
-      kCachePeriodGlobalCounters,
-      "cache_counters");
-}
-
 void PeriodicTaskManager::addConnectorStatsTask() {
+  std::vector<HiveConnectorStatsReporter> reporters;
   for (const auto& itr : connectors_) {
-    static std::unordered_map<std::string, int64_t> oldValues;
-    // Export HiveConnector stats
     if (auto hiveConnector =
             std::dynamic_pointer_cast<velox::connector::hive::HiveConnector>(
                 itr.second)) {
-      auto connectorId = hiveConnector->connectorId();
-      const auto kNumElementsMetricName = fmt::format(
-          kCounterHiveFileHandleCacheNumElementsFormat, connectorId);
-      const auto kPinnedSizeMetricName =
-          fmt::format(kCounterHiveFileHandleCachePinnedSizeFormat, connectorId);
-      const auto kCurSizeMetricName =
-          fmt::format(kCounterHiveFileHandleCacheCurSizeFormat, connectorId);
-      const auto kNumAccumulativeHitsMetricName = fmt::format(
-          kCounterHiveFileHandleCacheNumAccumulativeHitsFormat, connectorId);
-      const auto kNumAccumulativeLookupsMetricName = fmt::format(
-          kCounterHiveFileHandleCacheNumAccumulativeLookupsFormat, connectorId);
-
-      const auto kNumHitsMetricName =
-          fmt::format(kCounterHiveFileHandleCacheNumHitsFormat, connectorId);
-      oldValues[kNumHitsMetricName] = 0;
-      const auto kNumLookupsMetricName =
-          fmt::format(kCounterHiveFileHandleCacheNumLookupsFormat, connectorId);
-      oldValues[kNumLookupsMetricName] = 0;
-
-      // Exporting metrics types here since the metrics key is dynamic
-      DEFINE_METRIC(kNumElementsMetricName, facebook::velox::StatType::AVG);
-      DEFINE_METRIC(kPinnedSizeMetricName, facebook::velox::StatType::AVG);
-      DEFINE_METRIC(kCurSizeMetricName, facebook::velox::StatType::AVG);
-      DEFINE_METRIC(
-          kNumAccumulativeHitsMetricName, facebook::velox::StatType::AVG);
-      DEFINE_METRIC(
-          kNumAccumulativeLookupsMetricName, facebook::velox::StatType::AVG);
-      DEFINE_METRIC(kNumHitsMetricName, facebook::velox::StatType::AVG);
-      DEFINE_METRIC(kNumLookupsMetricName, facebook::velox::StatType::AVG);
-
-      addTask(
-          [hiveConnector,
-           connectorId,
-           kNumElementsMetricName,
-           kPinnedSizeMetricName,
-           kCurSizeMetricName,
-           kNumAccumulativeHitsMetricName,
-           kNumAccumulativeLookupsMetricName,
-           kNumHitsMetricName,
-           kNumLookupsMetricName]() {
-            auto fileHandleCacheStats = hiveConnector->fileHandleCacheStats();
-            RECORD_METRIC_VALUE(
-                kNumElementsMetricName, fileHandleCacheStats.numElements);
-            RECORD_METRIC_VALUE(
-                kPinnedSizeMetricName, fileHandleCacheStats.pinnedSize);
-            RECORD_METRIC_VALUE(
-                kCurSizeMetricName, fileHandleCacheStats.curSize);
-            RECORD_METRIC_VALUE(
-                kNumAccumulativeHitsMetricName, fileHandleCacheStats.numHits);
-            RECORD_METRIC_VALUE(
-                kNumAccumulativeLookupsMetricName,
-                fileHandleCacheStats.numLookups);
-            RECORD_METRIC_VALUE(
-                kNumHitsMetricName,
-                fileHandleCacheStats.numHits - oldValues[kNumHitsMetricName]);
-            oldValues[kNumHitsMetricName] = fileHandleCacheStats.numHits;
-            RECORD_METRIC_VALUE(
-                kNumLookupsMetricName,
-                fileHandleCacheStats.numLookups -
-                    oldValues[kNumLookupsMetricName]);
-            oldValues[kNumLookupsMetricName] = fileHandleCacheStats.numLookups;
-          },
-          kConnectorPeriodGlobalCounters,
-          fmt::format("{}.hive_connector_counters", connectorId));
+      reporters.emplace_back(std::move(hiveConnector));
     }
   }
+  addTask(
+      [reporters = std::move(reporters)]() mutable {
+        for (auto& reporter : reporters) {
+          reporter.report();
+        }
+      },
+      kConnectorPeriodGlobalCounters,
+      "ConnectorStats");
 }
 
 void PeriodicTaskManager::updateOperatingSystemStats() {
@@ -465,15 +428,15 @@ void PeriodicTaskManager::updateOperatingSystemStats() {
   getrusage(RUSAGE_SELF, &usage);
 
   const int64_t userCpuTimeUs{
-      (int64_t)usage.ru_utime.tv_sec * 1'000'000 +
-      (int64_t)usage.ru_utime.tv_usec};
+      static_cast<int64_t>(usage.ru_utime.tv_sec) * 1'000'000 +
+      static_cast<int64_t>(usage.ru_utime.tv_usec)};
   RECORD_METRIC_VALUE(
       kCounterOsUserCpuTimeMicros, userCpuTimeUs - lastUserCpuTimeUs_);
   lastUserCpuTimeUs_ = userCpuTimeUs;
 
   const int64_t systemCpuTimeUs{
-      (int64_t)usage.ru_stime.tv_sec * 1'000'000 +
-      (int64_t)usage.ru_stime.tv_usec};
+      static_cast<int64_t>(usage.ru_stime.tv_sec) * 1'000'000 +
+      static_cast<int64_t>(usage.ru_stime.tv_usec)};
   RECORD_METRIC_VALUE(
       kCounterOsSystemCpuTimeMicros, systemCpuTimeUs - lastSystemCpuTimeUs_);
   lastSystemCpuTimeUs_ = systemCpuTimeUs;
@@ -508,95 +471,7 @@ void PeriodicTaskManager::addOperatingSystemStatsUpdateTask() {
       "os_counters");
 }
 
-void PeriodicTaskManager::addArbitratorStatsTask() {
-  addTask(
-      [this]() { updateArbitratorStatsTask(); },
-      kArbitratorStatsUpdateIntervalUs,
-      "arbitrator_stats");
-}
-
-void PeriodicTaskManager::updateArbitratorStatsTask() {
-  const auto updatedArbitratorStats = arbitrator_->stats();
-  VELOX_CHECK_GE(updatedArbitratorStats, lastArbitratorStats_);
-  const auto deltaArbitratorStats =
-      updatedArbitratorStats - lastArbitratorStats_;
-  REPORT_IF_NOT_ZERO(
-      kCounterArbitratorNumRequests, deltaArbitratorStats.numRequests);
-  REPORT_IF_NOT_ZERO(
-      kCounterArbitratorNumAborted, deltaArbitratorStats.numAborted);
-  REPORT_IF_NOT_ZERO(
-      kCounterArbitratorNumFailures, deltaArbitratorStats.numFailures);
-  REPORT_IF_NOT_ZERO(
-      kCounterArbitratorQueueTimeUs, deltaArbitratorStats.queueTimeUs);
-  REPORT_IF_NOT_ZERO(
-      kCounterArbitratorArbitrationTimeUs,
-      deltaArbitratorStats.arbitrationTimeUs);
-  REPORT_IF_NOT_ZERO(
-      kCounterArbitratorNumShrunkBytes, deltaArbitratorStats.numShrunkBytes);
-  REPORT_IF_NOT_ZERO(
-      kCounterArbitratorNumReclaimedBytes,
-      deltaArbitratorStats.numReclaimedBytes);
-  REPORT_IF_NOT_ZERO(
-      kCounterArbitratorFreeCapacityBytes,
-      deltaArbitratorStats.freeCapacityBytes);
-  REPORT_IF_NOT_ZERO(
-      kCounterArbitratorNonReclaimableAttempts,
-      deltaArbitratorStats.numNonReclaimableAttempts);
-
-  if (!deltaArbitratorStats.empty()) {
-    LOG(INFO) << "Updated memory arbitrator stats: "
-              << updatedArbitratorStats.toString();
-    LOG(INFO) << "Memory arbitrator stats change: "
-              << deltaArbitratorStats.toString();
-  }
-  lastArbitratorStats_ = updatedArbitratorStats;
-}
-
-void PeriodicTaskManager::addSpillStatsUpdateTask() {
-  addTask(
-      [this]() { updateSpillStatsTask(); },
-      kSpillStatsUpdateIntervalUs,
-      "spill_stats");
-}
-
-void PeriodicTaskManager::updateSpillStatsTask() {
-  const auto updatedSpillStats = velox::common::globalSpillStats();
-  VELOX_CHECK_GE(updatedSpillStats, lastSpillStats_);
-  const auto deltaSpillStats = updatedSpillStats - lastSpillStats_;
-  REPORT_IF_NOT_ZERO(kCounterSpillRuns, deltaSpillStats.spillRuns);
-  REPORT_IF_NOT_ZERO(kCounterSpilledFiles, deltaSpillStats.spilledFiles);
-  REPORT_IF_NOT_ZERO(kCounterSpilledRows, deltaSpillStats.spilledRows);
-  REPORT_IF_NOT_ZERO(kCounterSpilledBytes, deltaSpillStats.spilledBytes);
-  REPORT_IF_NOT_ZERO(kCounterSpillFillTimeUs, deltaSpillStats.spillFillTimeUs);
-  REPORT_IF_NOT_ZERO(kCounterSpillSortTimeUs, deltaSpillStats.spillSortTimeUs);
-  REPORT_IF_NOT_ZERO(
-      kCounterSpillSerializationTimeUs,
-      deltaSpillStats.spillSerializationTimeUs);
-  REPORT_IF_NOT_ZERO(kCounterSpillDiskWrites, deltaSpillStats.spillDiskWrites);
-  REPORT_IF_NOT_ZERO(
-      kCounterSpillFlushTimeUs, deltaSpillStats.spillFlushTimeUs);
-  REPORT_IF_NOT_ZERO(
-      kCounterSpillWriteTimeUs, deltaSpillStats.spillWriteTimeUs);
-  REPORT_IF_NOT_ZERO(
-      kCounterSpillMaxLevelExceeded,
-      deltaSpillStats.spillMaxLevelExceededCount);
-
-  if (!deltaSpillStats.empty()) {
-    LOG(INFO) << "Updated spill stats: " << updatedSpillStats.toString();
-    LOG(INFO) << "Spill stats change:" << deltaSpillStats.toString();
-  }
-
-  const auto spillMemoryStats = velox::memory::spillMemoryPool()->stats();
-  LOG(INFO) << "Spill memory usage: current["
-            << velox::succinctBytes(spillMemoryStats.currentBytes) << "] peak["
-            << velox::succinctBytes(spillMemoryStats.peakBytes) << "]";
-  RECORD_METRIC_VALUE(kCounterSpillMemoryBytes, spillMemoryStats.currentBytes);
-  RECORD_METRIC_VALUE(kCounterSpillPeakMemoryBytes, spillMemoryStats.peakBytes);
-
-  lastSpillStats_ = updatedSpillStats;
-}
-
-void PeriodicTaskManager::printHttpEndpointLatencyStats() {
+void PeriodicTaskManager::printHttpServerStats() {
   const auto latencyMetrics =
       http::filters::HttpEndpointLatencyFilter::retrieveLatencies();
   std::ostringstream oss;
@@ -608,10 +483,85 @@ void PeriodicTaskManager::printHttpEndpointLatencyStats() {
   LOG(INFO) << oss.str();
 }
 
-void PeriodicTaskManager::addHttpEndpointLatencyStatsTask() {
+void PeriodicTaskManager::addHttpServerStatsTask() {
   addTask(
-      [this]() { printHttpEndpointLatencyStats(); },
-      kHttpEndpointLatencyPeriodGlobalCounters,
-      "http_endpoint_counters");
+      [this]() { printHttpServerStats(); },
+      kHttpServerPeriodGlobalCounters,
+      "http_server_stats");
 }
+
+void PeriodicTaskManager::updateHttpClientStats() {
+  const auto numConnectionsCreated = http::HttpClient::numConnectionsCreated();
+  RECORD_METRIC_VALUE(
+      kCounterHttpClientNumConnectionsCreated,
+      numConnectionsCreated - lastHttpClientNumConnectionsCreated_);
+  lastHttpClientNumConnectionsCreated_ = numConnectionsCreated;
+}
+
+void PeriodicTaskManager::addHttpClientStatsTask() {
+  addTask(
+      [this] { updateHttpClientStats(); },
+      kHttpClientPeriodGlobalCounters,
+      "http_client_stats");
+}
+
+void PeriodicTaskManager::addWatchdogTask() {
+  addTask(
+      [this] {
+        std::vector<std::string> deadlockTasks;
+        std::vector<velox::exec::Task::OpCallInfo> stuckOpCalls;
+        if (!taskManager_->getStuckOpCalls(deadlockTasks, stuckOpCalls)) {
+          LOG(ERROR)
+              << "Cannot take lock on task manager, likely starving or deadlocked";
+          RECORD_METRIC_VALUE(kCounterNumTaskManagerLockTimeOut, 1);
+          detachWorker("starving or deadlocked task manager");
+          return;
+        }
+        RECORD_METRIC_VALUE(kCounterNumTaskManagerLockTimeOut, 0);
+        for (const auto& taskId : deadlockTasks) {
+          LOG(ERROR) << "Starving or deadlocked task: " << taskId;
+        }
+        RECORD_METRIC_VALUE(kCounterNumTasksDeadlock, deadlockTasks.size());
+        for (const auto& call : stuckOpCalls) {
+          LOG(ERROR) << "Stuck operator: tid=" << call.tid
+                     << " taskId=" << call.taskId << " opCall=" << call.opCall
+                     << " duration= " << velox::succinctMillis(call.durationMs);
+        }
+        RECORD_METRIC_VALUE(kCounterNumStuckDrivers, stuckOpCalls.size());
+
+        // Detach worker from the cluster if more than a certain number of
+        // driver threads are blocked by stuck operators (one unique operator
+        // can only get stuck on one unique thread).
+        const auto numStuckOperatorsToDetachWorker = std::min(
+            SystemConfig::instance()->driverNumStuckOperatorsToDetachWorker(),
+            numDriverThreads_);
+        if (stuckOpCalls.size() >= numStuckOperatorsToDetachWorker) {
+          detachWorker("detected stuck operators");
+        } else if (!deadlockTasks.empty()) {
+          detachWorker("starving or deadlocked task");
+        } else {
+          maybeAttachWorker();
+        }
+      },
+      60'000'000, // 60 seconds
+      "Watchdog");
+}
+
+void PeriodicTaskManager::detachWorker(const char* reason) {
+  LOG(WARNING) << "TraceContext::status:\n"
+               << velox::process::TraceContext::statusLine();
+  if (server_ && server_->nodeState() == NodeState::kActive) {
+    LOG(WARNING) << "Will detach worker due to " << reason;
+    server_->detachWorker();
+  }
+}
+
+void PeriodicTaskManager::maybeAttachWorker() {
+  if (server_ && !server_->isShuttingDown() &&
+      server_->nodeState() == NodeState::kShuttingDown) {
+    LOG(WARNING) << "Will attach worker due to the absence of stuck operators";
+    server_->maybeAttachWorker();
+  }
+}
+
 } // namespace facebook::presto

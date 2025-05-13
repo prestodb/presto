@@ -9,6 +9,7 @@ using [Velox](https://github.com/facebookincubator/velox).
 * [Development](#development)
 * [Create Pull Request](#create-pull-request)
 * [Advance Velox Version](#advance-velox-version)
+* [Functional test using containers](#functional-test-using-containers)
 * [Troubleshooting](#troubleshooting)
 
 ## Build from Source
@@ -21,31 +22,64 @@ using [Velox](https://github.com/facebookincubator/velox).
 Dependency installation scripts based on the operating system are
 available inside `presto/presto-native-execution/scripts`.
 
-* MacOS: `setup-macos.sh`
-* CentOS Stream 8: `setup-centos.sh`
+* macOS: `setup-macos.sh`
+* CentOS Stream 9: `setup-centos.sh`
 * Ubuntu: `setup-ubuntu.sh`
 
-Create a directory say `dependencies` and invoke one of these scripts from
-this folder. All the dependencies are installed in the system default location eg: `/usr/local`.
+The above setup scripts use the `DEPENDENCY_DIR` environment variable to set the
+location to download and build packages. This defaults to `deps-download` in the current
+working directory.
 
+Use `INSTALL_PREFIX` to set the install directory of the packages. This defaults to
+`deps-install` in the current working directory on macOS and to the default install
+location (for example, `/usr/local`) on Linux.
+Using the default install location `/usr/local` on macOS is discouraged because this
+location is owned by `root`.
 
+Manually add the `INSTALL_PREFIX` value in the IDE or bash environment, so subsequent
+Prestissimo builds can use the installed packages. Say
+`export INSTALL_PREFIX=/Users/$USERNAME/presto/presto-native-execution/deps-install` to `~/.zshrc`.
 
 The following libraries are installed by the above setup scripts.
-The Velox library installs other dependencies not listed below.
+The Velox library installs other
+[dependencies](https://github.com/facebookincubator/velox/tree/main/CMake/resolve_dependency_modules/README.md)
+not listed below.
 
 | Name       | Version |
 | ---------- | ------- |
 | [Velox](https://github.com/facebookincubator/velox)  | Latest  |
 | [CMake](https://cmake.org/) | Minimum `3.10` |
-| [libsodium](https://download.libsodium.org/libsodium/releases/LATEST.tar.gz) | Latest|
-| [ANTLR Runtime](https://www.antlr.org/download/antlr4-cpp-runtime-4.9.3-source.zip) |`4.9.3`|
-| [protobuf](https://github.com/protocolbuffers/protobuf) |`v21.4`|
-| [fizz](https://github.com/facebookincubator/fizz) |`2022.11.14.00`|
-| [wangle](https://github.com/facebook/wangle) |`2022.11.14.00`|
-| [proxygen](https://github.com/facebook/proxygen) |`2022.11.14.00`|
-| [fbthrift](https://github.com/facebook/fbthrift) |`2022.11.14.00`|
+| [gperf](https://www.gnu.org/software/gperf) |`v3.1`|
+| [proxygen](https://github.com/facebook/proxygen) |`v2024.07.01.00`|
+
+Prestissimo sources the Velox scripts and the configuration for the installation
+location and other configuration applies to Prestissimo. Please make sure to also
+review the [Velox README](https://github.com/facebookincubator/velox/tree/main/README.md).
+
+For build issues refer to the troubleshooting section in this document.
+
+### Supported architectures, operating systems, and compilers
+
+The supported architectures are `x86_64 (avx, sse)`, and `AArch64 (apple-m1+crc, neoverse-n1)`.
+
+Prestissimo can be built by a variety of compilers (and versions) but not all.
+Compilers (and versions) not mentioned are known to not work or have not been tried.
+
+#### Recommended
+| OS | compiler |
+| -- | -------- |
+| CentOS 9/RHEL 9 | `gcc12` |
+| Ubuntu 22.04 | `gcc11` |
+| macOS | `clang15` |
+
+#### Older alternatives
+| OS | compiler |
+| -- | -------- |
+| Ubuntu 20.04 | `gcc9` |
+| macOS | `clang14` |
 
 ### Build Prestissimo
+#### Parquet and S3 Support
 To enable Parquet and S3 support, set `PRESTO_ENABLE_PARQUET = "ON"`,
 `PRESTO_ENABLE_S3 = "ON"` in the environment.
 
@@ -55,6 +89,7 @@ This dependency can be installed by running the script below from the
 
 `./velox/scripts/setup-adapters.sh aws`
 
+#### JWT Authentication
 To enable JWT authentication support, set `PRESTO_ENABLE_JWT = "ON"` in
 the environment.
 
@@ -64,12 +99,30 @@ This dependency can be installed by running the script below from the
 
 `./scripts/setup-adapters.sh jwt`
 
+#### Worker Metrics Collection
+
+To enable worker level metrics collection and to enable the REST API `v1/info/metrics`
+follow these steps:
+
+*Pre-build setup:* `./scripts/setup-adapters.sh prometheus`
+
+*CMake flags:* `PRESTO_STATS_REPORTER_TYPE=PROMETHEUS`
+
+*Runtime configuration:* `runtime-metrics-collection-enabled=true`
+
 * After installing the above dependencies, from the
 `presto/presto-native-execution` directory, run `make`
-* For development, use
-`make debug` to build a non-optimized debug version.
-* Use `make unittest` to build
-and run tests.
+* For development, use `make debug` to build a non-optimized debug version.
+* Use `make unittest` to build and run tests.
+
+#### Arrow Flight Connector
+To enable Arrow Flight connector support, add to the extra cmake flags:
+`EXTRA_CMAKE_FLAGS = -DPRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR=ON`
+
+The Arrow Flight connector requires the Arrow Flight library. You can install this dependency
+by running the following script from the `presto/presto-native-execution` directory:
+
+`./scripts/setup-adapters.sh arrow_flight`
 
 ### Makefile Targets
 A reminder of the available Makefile targets can be obtained using `make help`
@@ -88,15 +141,11 @@ A reminder of the available Makefile targets can be obtained using `make help`
     header-check            Check for license header issues on the current branch
     tidy-fix                Fix clang-tidy issues in the current branch
     tidy-check              Check clang-tidy issues in the current branch
-    linux-container         Build the CircleCi linux container from scratch
-    runtime-container       Build the software in container using current git commit
     help                    Show the help messages
 ```
 
 ## Build using Dockerfile
-Run `make runtime-container` in the presto-native-execution root directory
-to build run-ready containerized version of Prestissimo. Information on available
-configuration options can be found in [scripts/release-centos-dockerfile/README.md](scripts/release-centos-dockerfile/README.md)
+Information on how to build a dependency and runtime image of Prestissimo [can be found here](scripts/dockerfiles/README.md).
 
 ## Development
 ### Setup Presto with [IntelliJ IDEA](https://www.jetbrains.com/idea/) and Prestissimo with [CLion](https://www.jetbrains.com/clion/)
@@ -109,22 +158,30 @@ From the Presto repo run the commands below:
 * `mvn clean install -DskipTests -T1C -pl -presto-docs`
 
 Run IntelliJ IDEA:
-* Edit/Create `HiveQueryRunnerExternal` Application Run/Debug Configuration (alter paths accordingly).
+
+Run HiveExternalWorkerQueryRunner,
+* Edit/Create `HiveExternalWorkerQueryRunner` Application Run/Debug Configuration (alter paths accordingly).
   * Main class: `com.facebook.presto.nativeworker.HiveExternalWorkerQueryRunner`.
   * VM options: `-ea -Xmx5G -XX:+ExitOnOutOfMemoryError -Duser.timezone=America/Bahia_Banderas -Dhive.security=legacy`.
   * Working directory: `$MODULE_DIR$`
   * Environment variables: `PRESTO_SERVER=/Users/<user>/git/presto/presto-native-execution/cmake-build-debug/presto_cpp/main/presto_server;DATA_DIR=/Users/<user>/Desktop/data;WORKER_COUNT=0`
   * Use classpath of module: choose `presto-native-execution` module.
-* Edit/Create `TestPrestoNativeGeneralQueriesJSON` Test Run/Debug Configuration (alter paths accordingly).
-  * Class: `com.facebook.presto.nativeworker.TestPrestoNativeGeneralQueriesJSON`
-  * VM Options: `-ea -DPRESTO_SERVER=/Users/<user>/git/presto_cpp/cmake-build-debug/presto_cpp/main/presto_server -DDATA_DIR=/Users/<user>/Desktop/data`
-  * Working directory: `$MODULE_WORKING_DIR$`
-  * On Apple Silicon
-    * Environment Variables: `DYLD_LIBRARY_PATH=/usr/local/lib`
-* Edit/Create `Presto Client` Application Run/Debug Configuration (alter paths accordingly).
-  * Main class: `com.facebook.presto.cli.Presto`
-  * Program arguments: `--catalog hive --schema tpch`
-  * Use classpath of module: choose `presto-cli` module.
+
+Run IcebergExternalWorkerQueryRunner,
+* Edit/Create `IcebergExternalWorkerQueryRunner` Application Run/Debug Configuration (alter paths accordingly).
+  * Main class: `com.facebook.presto.nativeworker.IcebergExternalWorkerQueryRunner`.
+  * VM options: `-ea -Xmx5G -XX:+ExitOnOutOfMemoryError -Duser.timezone=America/Bahia_Banderas -Dhive.security=legacy`.
+  * Working directory: `$MODULE_DIR$`
+  * Environment variables: `PRESTO_SERVER=/Users/<user>/git/presto/presto-native-execution/cmake-build-debug/presto_cpp/main/presto_server;DATA_DIR=/Users/<user>/Desktop/data;WORKER_COUNT=0`
+    * When `addStorageFormatToPath = false` **(Default)**,
+
+      `$DATA_DIR/iceberg_data/<catalog_type>`. Here `catalog_type` could be `HIVE | HADOOP | NESSIE | REST`.
+
+      `addStorageFormatToPath` is `false` by default because Java `HiveQueryRunner` and `IcebergQueryRunner` do not add the file format to the path.
+    * When `addStorageFormatToPath = true`,
+
+      `$DATA_DIR/iceberg_data/<file_format>/<catalog_type>`. Here `file_format` could be `PARQUET | ORC | AVRO` and `catalog_type` could be `HIVE | HADOOP | NESSIE | REST`.
+  * Use classpath of module: choose `presto-native-execution` module.
 
 Run CLion:
 * File->Close Project if any is open.
@@ -144,8 +201,10 @@ Run CLion:
     ![ScreenShot](cl_clangformat_switcherenable.png)
 
 ### Run Presto Coordinator + Worker
-* Note that everything below can be done w/o using IDEs by running command line commands (not in this readme).
-* Run 'HiveQueryRunnerExternal' from IntelliJ and wait until it started (`======== SERVER STARTED ========` in the log output).
+* Note that everything below can be done without using IDEs by running command line commands (not in this readme).
+* Run QueryRunner as per your choice,
+  * For Hive, Run `HiveExternalWorkerQueryRunner` from IntelliJ and wait until it starts (`======== SERVER STARTED ========` is displayed in the log output).
+  * For Iceberg, Run `IcebergExternalWorkerQueryRunner` from IntelliJ and wait until it starts (`======== SERVER STARTED ========` is displayed in the log output).
 * Scroll up the log output and find `Discovery URL http://127.0.0.1:50555`. The port is 'random' with every start.
 * Copy that port (or the whole URL) to the `discovery.uri` field in `presto/presto-native-execution/etc/config.properties` for the worker to discover the Coordinator.
 * In CLion run "presto_server" module. Connection success will be indicated by `Announcement succeeded: 202` line in the log output.
@@ -216,6 +275,9 @@ For Prestissimo to use a newer Velox version from the Presto repository root:
 * `git add presto-native-execution/velox`
 * Build and run tests (including E2E) to ensure everything works.
 * Submit a PR, get it approved and merged.
+
+## Functional test using containers
+To build container images and do functional tests, see [Prestissimo: Functional Testing Using Containers](testcontainers/README.md).
 
 ## Troubleshooting
 For known build issues check the wiki page [Troubleshooting known build issues](https://github.com/prestodb/presto/wiki/Troubleshooting-known-build-issues).

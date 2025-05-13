@@ -31,10 +31,11 @@ class Announcer : public PeriodicServiceInventoryManager {
       const std::string& environment,
       const std::string& nodeId,
       const std::string& nodeLocation,
+      const std::string& nodePoolType,
+      const bool sidecar,
       const std::vector<std::string>& connectorIds,
       const uint64_t maxFrequencyMs_,
-      const std::string& clientCertAndKeyPath = "",
-      const std::string& ciphers = "");
+      folly::SSLContextPtr sslContext);
 
   ~Announcer() = default;
 

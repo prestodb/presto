@@ -121,8 +121,7 @@ public class HiveWriterFactory
     private final List<String> partitionColumnNames;
     private final List<Type> partitionColumnTypes;
 
-    private final HiveStorageFormat tableStorageFormat;
-    private final HiveStorageFormat partitionStorageFormat;
+    private final HiveStorageFormat storageFormat;
     private final HiveCompressionCodec compressionCodec;
     private final Map<String, String> additionalTableParameters;
     private final LocationHandle locationHandle;
@@ -158,8 +157,7 @@ public class HiveWriterFactory
             String tableName,
             boolean isCreateTable,
             List<HiveColumnHandle> inputColumns,
-            HiveStorageFormat tableStorageFormat,
-            HiveStorageFormat partitionStorageFormat,
+            HiveStorageFormat storageFormat,
             HiveCompressionCodec compressionCodec,
             Map<String, String> additionalTableParameters,
             OptionalInt bucketCount,
@@ -188,8 +186,7 @@ public class HiveWriterFactory
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.isCreateTable = isCreateTable;
 
-        this.tableStorageFormat = requireNonNull(tableStorageFormat, "tableStorageFormat is null");
-        this.partitionStorageFormat = requireNonNull(partitionStorageFormat, "partitionStorageFormat is null");
+        this.storageFormat = requireNonNull(storageFormat, "storageFormat is null");
         this.compressionCodec = requireNonNull(compressionCodec, "compressionCodec is null");
         this.additionalTableParameters = ImmutableMap.copyOf(requireNonNull(additionalTableParameters, "additionalTableParameters is null"));
         this.locationHandle = requireNonNull(locationHandle, "locationHandle is null");
@@ -392,7 +389,7 @@ public class HiveWriterFactory
                             .collect(toList()),
                     writerParameters.getOutputStorageFormat(),
                     schema,
-                    partitionStorageFormat.getEstimatedWriterSystemMemoryUsage(),
+                    storageFormat.getEstimatedWriterSystemMemoryUsage(),
                     conf,
                     typeManager,
                     session);
@@ -404,7 +401,7 @@ public class HiveWriterFactory
             hiveFileWriter = sortingFileWriterFactory.get().createSortingFileWriter(
                     path,
                     hiveFileWriter,
-                    bucketNumber.orElse(abs(path.hashCode() % 1024)),
+                    bucketNumber.orElseGet(() -> abs(path.hashCode() % 1024)),
                     writerParameters.getWriteInfo().getTempPath());
         }
 
@@ -449,7 +446,7 @@ public class HiveWriterFactory
                 UpdateMode.NEW,
                 createHiveSchema(dataColumns),
                 locationService.getTableWriteInfo(locationHandle),
-                fromHiveStorageFormat(tableStorageFormat));
+                fromHiveStorageFormat(storageFormat));
     }
 
     private WriterParameters getWriterParametersForNewPartitionedTable(String partitionName)
@@ -472,7 +469,7 @@ public class HiveWriterFactory
                 UpdateMode.NEW,
                 createHiveSchema(dataColumns),
                 writeInfo,
-                fromHiveStorageFormat(partitionStorageFormat));
+                fromHiveStorageFormat(storageFormat));
     }
 
     private WriterParameters getWriterParametersForExistingUnpartitionedTable(OptionalInt bucketNumber)
@@ -490,7 +487,7 @@ public class HiveWriterFactory
                 UpdateMode.APPEND,
                 getHiveSchema(table),
                 locationService.getTableWriteInfo(locationHandle),
-                fromHiveStorageFormat(tableStorageFormat));
+                fromHiveStorageFormat(storageFormat));
     }
 
     private WriterParameters getWriterParametersForExistingPartitionedTable(String partitionName, OptionalInt bucketNumber)
@@ -520,7 +517,7 @@ public class HiveWriterFactory
                     UpdateMode.NEW,
                     getHiveSchema(table),
                     locationService.getPartitionWriteInfo(locationHandle, Optional.empty(), partitionName),
-                    fromHiveStorageFormat(partitionStorageFormat));
+                    fromHiveStorageFormat(storageFormat));
         }
         // Append to an existing partition
         checkState(!immutablePartitions);
@@ -550,7 +547,7 @@ public class HiveWriterFactory
                 UpdateMode.OVERWRITE,
                 getHiveSchema(table),
                 writeInfo,
-                fromHiveStorageFormat(partitionStorageFormat));
+                fromHiveStorageFormat(storageFormat));
     }
 
     private WriterParameters getWriterParametersForImmutablePartition(String partitionName)
@@ -570,7 +567,7 @@ public class HiveWriterFactory
                 UpdateMode.NEW,
                 getHiveSchema(table),
                 writerInfo,
-                fromHiveStorageFormat(partitionStorageFormat));
+                fromHiveStorageFormat(storageFormat));
     }
 
     private void validateSchema(Optional<String> partitionName, Properties schema)

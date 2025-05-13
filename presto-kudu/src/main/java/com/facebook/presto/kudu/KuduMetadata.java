@@ -14,12 +14,11 @@
 package com.facebook.presto.kudu;
 
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.VarbinaryType;
-import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.kudu.properties.KuduTableProperties;
 import com.facebook.presto.kudu.properties.PartitionDesign;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorDeleteTableHandle;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
@@ -54,6 +53,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -133,7 +134,13 @@ public class KuduMetadata
         extra.append("compression=").append(compression);
 
         Type prestoType = TypeHelper.fromKuduColumn(column);
-        return new ColumnMetadata(column.getName(), prestoType, null, extra.toString(), false, properties);
+        return ColumnMetadata.builder()
+                .setName(column.getName())
+                .setType(prestoType)
+                .setExtraInfo(extra.toString())
+                .setHidden(false)
+                .setProperties(properties)
+                .build();
     }
 
     private ConnectorTableMetadata getTableMetadata(KuduTableHandle tableHandle)
@@ -173,7 +180,11 @@ public class KuduMetadata
     {
         KuduColumnHandle kuduColumnHandle = (KuduColumnHandle) columnHandle;
         if (kuduColumnHandle.isVirtualRowId()) {
-            return new ColumnMetadata(KuduColumnHandle.ROW_ID, VarbinaryType.VARBINARY, null, true);
+            return ColumnMetadata.builder()
+                    .setName(KuduColumnHandle.ROW_ID)
+                    .setType(VARBINARY)
+                    .setHidden(true)
+                    .build();
         }
         else {
             return kuduColumnHandle.getColumnMetadata();
@@ -313,7 +324,13 @@ public class KuduMetadata
             List<ColumnMetadata> copy = new ArrayList<>(tableMetadata.getColumns());
             Map<String, Object> columnProperties = new HashMap<>();
             columnProperties.put(KuduTableProperties.PRIMARY_KEY, true);
-            copy.add(0, new ColumnMetadata(rowId, VarcharType.VARCHAR, "key=true", null, true, columnProperties));
+            copy.add(0, ColumnMetadata.builder()
+                    .setName(rowId)
+                    .setType(VARCHAR)
+                    .setComment("key=true")
+                    .setHidden(true)
+                    .setProperties(columnProperties)
+                    .build());
             List<ColumnMetadata> finalColumns = ImmutableList.copyOf(copy);
             Map<String, Object> propsCopy = new HashMap<>(tableMetadata.getProperties());
             propsCopy.put(KuduTableProperties.PARTITION_BY_HASH_COLUMNS, ImmutableList.of(rowId));
@@ -357,13 +374,13 @@ public class KuduMetadata
     }
 
     @Override
-    public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public ConnectorDeleteTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return tableHandle;
+        return (ConnectorDeleteTableHandle) tableHandle;
     }
 
     @Override
-    public void finishDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
+    public void finishDelete(ConnectorSession session, ConnectorDeleteTableHandle tableHandle, Collection<Slice> fragments)
     {
     }
 

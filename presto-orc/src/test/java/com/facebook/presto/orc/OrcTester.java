@@ -155,6 +155,7 @@ import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
 import static com.facebook.presto.orc.NoOpOrcWriterStats.NOOP_WRITER_STATS;
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
+import static com.facebook.presto.orc.OrcReader.MODIFICATION_TIME_NOT_SET;
 import static com.facebook.presto.orc.OrcTester.Format.DWRF;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_11;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
@@ -360,9 +361,8 @@ public class OrcTester
     }
 
     /**
-     *
-     * @param type          Presto data type for the readValues.
-     * @param readValues    The values to be written, read and compared against.
+     * @param type Presto data type for the readValues.
+     * @param readValues The values to be written, read and compared against.
      * @param columnFilters The filters for the readers. For CHAR(n) values, the columnFilters should remove the paddings.
      * @param valuesFilters The filters for the readValues. For CHAR(n) values, valuesFilters keeps the original paddings.
      * @throws Exception
@@ -1144,7 +1144,7 @@ public class OrcTester
             return;
         }
 
-        try (OrcBatchRecordReader recordReader = createCustomOrcRecordReader(tempFile, orcEncoding, orcPredicate, types, MAX_BATCH_SIZE, new StorageOrcFileTailSource(), new StorageStripeMetadataSource(), false, intermediateEncryptionKeys, false)) {
+        try (OrcBatchRecordReader recordReader = createCustomOrcRecordReader(tempFile, orcEncoding, orcPredicate, types, MAX_BATCH_SIZE, new StorageOrcFileTailSource(), new StorageStripeMetadataSource(), false, intermediateEncryptionKeys, false, tempFile.getFile().lastModified())) {
             assertEquals(recordReader.getReaderPosition(), 0);
             assertEquals(recordReader.getFilePosition(), 0);
 
@@ -1279,11 +1279,11 @@ public class OrcTester
             return filter.testLong(((Number) value).longValue());
         }
 
-        if (type == REAL) {
+        if (type.equals(REAL)) {
             return filter.testFloat(((Number) value).floatValue());
         }
 
-        if (type == DOUBLE) {
+        if (type.equals(DOUBLE)) {
             return filter.testDouble((double) value);
         }
 
@@ -1562,7 +1562,8 @@ public class OrcTester
                 new StorageStripeMetadataSource(),
                 cacheable,
                 ImmutableMap.of(),
-                mapNullKeysEnabled);
+                mapNullKeysEnabled,
+                MODIFICATION_TIME_NOT_SET);
     }
 
     static OrcBatchRecordReader createCustomOrcRecordReader(
@@ -1575,7 +1576,8 @@ public class OrcTester
             StripeMetadataSource stripeMetadataSource,
             boolean cacheable,
             Map<Integer, Slice> intermediateEncryptionKeys,
-            boolean mapNullKeysEnabled)
+            boolean mapNullKeysEnabled,
+            long fileModificationTime)
             throws IOException
     {
         OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
@@ -1594,7 +1596,8 @@ public class OrcTester
                 cacheable,
                 new DwrfEncryptionProvider(new UnsupportedEncryptionLibrary(), new TestingEncryptionLibrary()),
                 DwrfKeyProvider.of(intermediateEncryptionKeys),
-                new RuntimeStats());
+                new RuntimeStats(),
+                fileModificationTime);
 
         assertEquals(orcReader.getFooter().getRowsInRowGroup(), 10_000);
 

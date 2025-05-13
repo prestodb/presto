@@ -17,13 +17,11 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 
-import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
 
 @JsonTypeInfo(
@@ -32,24 +30,27 @@ import static java.util.Objects.requireNonNull;
         property = "@type")
 @JsonSubTypes({
         @JsonSubTypes.Type(value = PrimaryKeyConstraint.class, name = "primarykeyconstraint"),
-        @JsonSubTypes.Type(value = UniqueConstraint.class, name = "uniqueconstraint")})
+        @JsonSubTypes.Type(value = UniqueConstraint.class, name = "uniqueconstraint"),
+        @JsonSubTypes.Type(value = NotNullConstraint.class, name = "notnullconstraint")})
 public abstract class TableConstraint<T>
 {
     private final Optional<String> name;
-    private final boolean enforced;
+    private final boolean enabled;
     private final boolean rely;
-    private final Set<T> columns;
+    private final boolean enforced;
+    private final LinkedHashSet<T> columns;
 
-    protected TableConstraint(Optional<String> name, Set<T> columnNames, boolean enforced, boolean rely)
+    protected TableConstraint(Optional<String> name, LinkedHashSet<T> columnNames, boolean enabled, boolean rely, boolean enforced)
     {
-        this.enforced = requireNonNull(enforced, "enabled is null");
-        this.rely = requireNonNull(rely, "rely is null");
+        this.enabled = enabled;
+        this.rely = rely;
+        this.enforced = enforced;
         this.name = requireNonNull(name, "name is null");
         requireNonNull(columnNames, "columnNames is null");
         if (columnNames.isEmpty()) {
             throw new IllegalArgumentException("columnNames is empty.");
         }
-        this.columns = unmodifiableSet(new HashSet<>(columnNames));
+        this.columns = new LinkedHashSet<>(columnNames);
     }
 
     public abstract <T, R> Optional<TableConstraint<R>> rebaseConstraint(Map<T, R> assignments);
@@ -61,9 +62,9 @@ public abstract class TableConstraint<T>
     }
 
     @JsonProperty
-    public boolean isEnforced()
+    public boolean isEnabled()
     {
-        return enforced;
+        return enabled;
     }
 
     @JsonProperty
@@ -73,7 +74,13 @@ public abstract class TableConstraint<T>
     }
 
     @JsonProperty
-    public Set<T> getColumns()
+    public boolean isEnforced()
+    {
+        return enforced;
+    }
+
+    @JsonProperty
+    public LinkedHashSet<T> getColumns()
     {
         return columns;
     }
@@ -81,7 +88,7 @@ public abstract class TableConstraint<T>
     @Override
     public int hashCode()
     {
-        return Objects.hash(getName(), getColumns(), isEnforced(), isRely());
+        return Objects.hash(getName(), getColumns(), isEnabled(), isRely(), isEnforced());
     }
 
     @Override
@@ -96,8 +103,9 @@ public abstract class TableConstraint<T>
         TableConstraint constraint = (TableConstraint) obj;
         return Objects.equals(this.getName(), constraint.getName()) &&
                 Objects.equals(this.getColumns(), constraint.getColumns()) &&
-                Objects.equals(this.isEnforced(), constraint.isEnforced()) &&
-                Objects.equals(this.isRely(), constraint.isRely());
+                Objects.equals(this.isEnabled(), constraint.isEnabled()) &&
+                Objects.equals(this.isRely(), constraint.isRely()) &&
+                Objects.equals(this.isEnforced(), constraint.isEnforced());
     }
 
     @Override
@@ -107,8 +115,9 @@ public abstract class TableConstraint<T>
         stringBuilder.append(" {");
         stringBuilder.append("name='").append(name.orElse("null")).append('\'');
         stringBuilder.append(", columns='").append(columns).append('\'');
-        stringBuilder.append(", enforced='").append(enforced).append('\'');
+        stringBuilder.append(", enforced='").append(enabled).append('\'');
         stringBuilder.append(", rely='").append(rely).append('\'');
+        stringBuilder.append(", validate='").append(enforced).append('\'');
         stringBuilder.append('}');
         return stringBuilder.toString();
     }

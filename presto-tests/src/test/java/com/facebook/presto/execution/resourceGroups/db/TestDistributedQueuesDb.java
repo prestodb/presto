@@ -14,14 +14,16 @@
 package com.facebook.presto.execution.resourceGroups.db;
 
 import com.facebook.presto.execution.resourceGroups.ResourceGroupRuntimeInfo;
+import com.facebook.presto.plugin.blackhole.BlackHolePlugin;
 import com.facebook.presto.resourceGroups.db.H2ResourceGroupsDao;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -45,10 +47,10 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 @Test(singleThreaded = true)
 public class TestDistributedQueuesDb
 {
-    private static final String LONG_LASTING_QUERY = "SELECT COUNT(*) FROM lineitem";
+    private static final String LONG_LASTING_QUERY = "SELECT COUNT(*) FROM blackhole.default.dummy";
     private DistributedQueryRunner queryRunner;
 
-    @BeforeMethod
+    @BeforeClass
     public void setup()
             throws Exception
     {
@@ -61,13 +63,28 @@ public class TestDistributedQueuesDb
         coordinatorProperties.put("concurrency-threshold-to-enable-resource-group-refresh", "0");
 
         queryRunner = createQueryRunner(dbConfigUrl, dao, coordinatorProperties.build(), 2);
+        queryRunner.installPlugin(new BlackHolePlugin());
+        queryRunner.createCatalog("blackhole", "blackhole", ImmutableMap.of());
+        // Black hole connectors do not have external metadata, which means that table metadata is local to each coordinator.
+        // So for the purposes of the test setup, create a local table per connector.
+        for (int i = 0; i < queryRunner.getCoordinators().size(); i++) {
+            queryRunner.execute(i, "CREATE TABLE blackhole.default.dummy (col BIGINT) WITH (split_count = 1, rows_per_page = 1, pages_per_split = 1, page_processing_delay = '10m')");
+        }
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterClass(alwaysRun = true)
     public void tearDown()
     {
         closeQuietly(queryRunner);
         queryRunner = null;
+    }
+
+    @AfterMethod(alwaysRun = true)
+    public void cancelAllQueries()
+    {
+        if (queryRunner != null) {
+            queryRunner.cancelAllQueries();
+        }
     }
 
     @Test(timeOut = 60_000)

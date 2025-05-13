@@ -24,6 +24,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 
 import static com.facebook.airlift.testing.Closeables.closeAllRuntimeException;
@@ -54,7 +55,7 @@ public abstract class BaseTestHiveInsertOverwrite
             throws Exception
     {
         this.bucketName = "test-hive-insert-overwrite-" + randomTableSuffix();
-        this.dockerizedS3DataLake = new HiveMinIODataLake(bucketName, ImmutableMap.of(), hiveHadoopImage);
+        this.dockerizedS3DataLake = new HiveMinIODataLake(bucketName, ImmutableMap.of(), hiveHadoopImage, false);
         this.dockerizedS3DataLake.start();
         return S3HiveQueryRunner.create(
                 this.dockerizedS3DataLake.getHiveHadoop().getHiveMetastoreEndpoint(),
@@ -66,7 +67,7 @@ public abstract class BaseTestHiveInsertOverwrite
                         .put("hive.s3.path-style-access", "true")
                         .put("hive.insert-existing-partitions-behavior", "OVERWRITE")
                         .put("hive.non-managed-table-writes-enabled", "true")
-                        .build());
+                        .build(), new HashMap<>());
     }
 
     @BeforeClass
@@ -180,7 +181,7 @@ public abstract class BaseTestHiveInsertOverwrite
                         "    comment varchar(152),  " +
                         "    nationkey bigint, " +
                         "    regionkey bigint) " +
-                        (propertiesEntries.size() < 1 ? "" : propertiesEntries
+                        (propertiesEntries.isEmpty() ? "" : propertiesEntries
                                 .stream()
                                 .collect(joining(",", "WITH (", ")"))),
                 tableName);

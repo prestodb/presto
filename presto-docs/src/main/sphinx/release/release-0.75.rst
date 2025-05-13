@@ -16,12 +16,12 @@ Hive Changes
 General Changes
 ---------------
 
-* Optimize :func:`count` with a constant to execute as the much faster ``count(*)``
+* Optimize :func:`!count` with a constant to execute as the much faster ``count(*)``
 * Add support for binary types to the JDBC driver
 * The legacy byte code compiler has been removed
 * New aggregation framework (~10% faster)
-* Added :func:`max_by` aggregation function
-* The ``approx_avg()`` function has been removed. Use :func:`avg` instead.
+* Added :func:`!max_by` aggregation function
+* The ``approx_avg()`` function has been removed. Use :func:`!avg` instead.
 * Fixed parsing of ``UNION`` queries that use both ``DISTINCT`` and ``ALL``
 * Fixed cross join planning error for certain query shapes
 * Added hex and base64 conversion functions for varbinary
@@ -34,7 +34,7 @@ General Changes
 JSON Function Changes
 ---------------------
 
-The :func:`json_extract` and :func:`json_extract_scalar` functions now support
+The :func:`!json_extract` and :func:`!json_extract_scalar` functions now support
 the square bracket syntax::
 
     SELECT json_extract(json, '$.store[book]');
@@ -58,7 +58,7 @@ when the node already has the maximum allowable splits, every task can schedule 
 Row Number Optimizations
 ------------------------
 
-Queries that use the :func:`row_number` function are substantially faster
+Queries that use the :func:`!row_number` function are substantially faster
 and can run on larger result sets for two types of queries.
 
 Performing a partitioned limit that choses ``N`` arbitrary rows per

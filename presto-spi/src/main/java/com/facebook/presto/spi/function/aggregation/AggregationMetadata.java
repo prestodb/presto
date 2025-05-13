@@ -152,7 +152,7 @@ public class AggregationMetadata
             ParameterMetadata metadata = dataChannelMetadata.get(i);
             switch (metadata.getParameterType()) {
                 case STATE:
-                    checkArgument(stateDescriptors.get(stateIndex).getStateInterface() == parameters[i], format("State argument must be of type %s", stateDescriptors.get(stateIndex).getStateInterface()));
+                    checkArgument(stateDescriptors.get(stateIndex).getStateInterface() == parameters[i], format("State argument must be of type %s, found %s", stateDescriptors.get(stateIndex).getStateInterface(), parameters[i]));
                     stateIndex++;
                     break;
                 case BLOCK_INPUT_CHANNEL:

@@ -23,13 +23,16 @@ IIDFILE="${IIDFILE:-$TMP_IIDFILE}"
 PUBLISH="${PUBLISH:-false}"
 BUILDER="${BUILDER:-container}"
 
+export BUILDX_NO_DEFAULT_ATTESTATIONS=""
 # If PUBLISH=false, images only stores in local cache, otherwise they are pushed to th container registry
-BUILDX_NO_DEFAULT_ATTESTATIONS="" docker buildx build --builder="${BUILDER}" --iidfile "${IIDFILE}" --build-arg="PRESTO_VERSION=${VERSION}" \
+docker buildx build --builder="${BUILDER}" --iidfile "${IIDFILE}" \
+    --build-arg="PRESTO_VERSION=${VERSION}" \
+    --build-arg="JMX_PROMETHEUS_JAVAAGENT_VERSION=0.20.0" \
     --output "type=image,name=${REG_ORG}/${IMAGE_NAME},push-by-digest=true,name-canonical=true,push=${PUBLISH}" \
     --platform "${PLATFORMS}" -f Dockerfile .
 
 if [[ "$PUBLISH" = "true" ]]; then
     # This only happens when push=true, since push-by-digest=true in the above build step, need to tag the images explicitly
-    BUILDX_NO_DEFAULT_ATTESTATIONS="" docker buildx imagetools create --builder="${BUILDER}" \
+    docker buildx imagetools create --builder="${BUILDER}" \
     -t "${REG_ORG}/${IMAGE_NAME}:${TAG}" "${REG_ORG}/${IMAGE_NAME}@$(cat "$IIDFILE")"
 fi

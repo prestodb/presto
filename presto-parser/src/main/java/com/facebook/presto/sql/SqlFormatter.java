@@ -14,8 +14,10 @@
 package com.facebook.presto.sql;
 
 import com.facebook.presto.sql.tree.AddColumn;
+import com.facebook.presto.sql.tree.AddConstraint;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
+import com.facebook.presto.sql.tree.AlterColumnNotNull;
 import com.facebook.presto.sql.tree.AlterFunction;
 import com.facebook.presto.sql.tree.AlterRoutineCharacteristics;
 import com.facebook.presto.sql.tree.Analyze;
@@ -24,6 +26,7 @@ import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.CallArgument;
 import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.Commit;
+import com.facebook.presto.sql.tree.ConstraintSpecification;
 import com.facebook.presto.sql.tree.CreateFunction;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.CreateRole;
@@ -36,6 +39,7 @@ import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DescribeInput;
 import com.facebook.presto.sql.tree.DescribeOutput;
 import com.facebook.presto.sql.tree.DropColumn;
+import com.facebook.presto.sql.tree.DropConstraint;
 import com.facebook.presto.sql.tree.DropFunction;
 import com.facebook.presto.sql.tree.DropMaterializedView;
 import com.facebook.presto.sql.tree.DropRole;
@@ -78,6 +82,7 @@ import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameSchema;
 import com.facebook.presto.sql.tree.RenameTable;
+import com.facebook.presto.sql.tree.RenameView;
 import com.facebook.presto.sql.tree.ResetSession;
 import com.facebook.presto.sql.tree.Return;
 import com.facebook.presto.sql.tree.Revoke;
@@ -88,6 +93,7 @@ import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
+import com.facebook.presto.sql.tree.SetProperties;
 import com.facebook.presto.sql.tree.SetRole;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.ShowCatalogs;
@@ -133,6 +139,7 @@ import static com.facebook.presto.sql.ExpressionFormatter.formatExpression;
 import static com.facebook.presto.sql.ExpressionFormatter.formatGroupBy;
 import static com.facebook.presto.sql.ExpressionFormatter.formatOrderBy;
 import static com.facebook.presto.sql.ExpressionFormatter.formatStringLiteral;
+import static com.facebook.presto.sql.tree.ConstraintSpecification.ConstraintType.UNIQUE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
@@ -576,8 +583,7 @@ public final class SqlFormatter
 
             node.getSecurity().ifPresent(security ->
                     builder.append(" SECURITY ")
-                            .append(security.toString())
-                            .append(" "));
+                            .append(security.toString()));
 
             builder.append(" AS\n");
 
@@ -679,6 +685,20 @@ public final class SqlFormatter
                 builder.append(" NAME ");
                 builder.append(node.getIdentifier().get().toString());
             }
+
+            return null;
+        }
+
+        @Override
+        protected Void visitRenameView(RenameView node, Integer context)
+        {
+            builder.append("ALTER VIEW ");
+            if (node.isExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(formatName(node.getSource()))
+                    .append(" RENAME TO ")
+                    .append(formatName(node.getTarget()));
 
             return null;
         }
@@ -808,6 +828,27 @@ public final class SqlFormatter
                             .append(formatStringLiteral(value)));
 
             return null;
+        }
+
+        protected Void visitSetProperties(SetProperties node, Integer context)
+        {
+            builder.append("ALTER TABLE ");
+            if (node.isTableExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(formatName(node.getTableName()));
+            builder.append(" SET PROPERTIES ( ");
+            builder.append(joinProperties(node.getProperties()));
+            builder.append(" )");
+            return null;
+        }
+
+        private String joinProperties(List<Property> properties)
+        {
+            return properties.stream()
+                    .map(element -> formatExpression(element.getName(), Optional.empty()) + " = " +
+                            formatExpression(element.getValue(), Optional.empty()))
+                    .collect(joining(", "));
         }
 
         @Override
@@ -1021,6 +1062,10 @@ public final class SqlFormatter
                                         .append(" PROPERTIES");
                             }
                             return builder.toString();
+                        }
+                        if (element instanceof ConstraintSpecification) {
+                            ConstraintSpecification constraint = (ConstraintSpecification) element;
+                            return elementIndent + processConstraintDefinition(constraint);
                         }
                         throw new UnsupportedOperationException("unknown table element: " + element);
                     })
@@ -1585,6 +1630,88 @@ public final class SqlFormatter
             }
 
             return null;
+        }
+
+        @Override
+        protected Void visitDropConstraint(DropConstraint node, Integer indent)
+        {
+            builder.append("ALTER TABLE ");
+            if (node.isTableExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(formatName(node.getTableName()))
+                    .append(" DROP CONSTRAINT ");
+            if (node.isConstraintExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(node.getConstraintName());
+
+            return null;
+        }
+
+        @Override
+        protected Void visitAddConstraint(AddConstraint node, Integer indent)
+        {
+            builder.append("ALTER TABLE ");
+            if (node.isTableExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(node.getTableName().toString());
+            builder.append(" ADD ");
+            builder.append(processConstraintDefinition(node.getConstraintSpecification()));
+
+            return null;
+        }
+
+        @Override
+        protected Void visitAlterColumnNotNull(AlterColumnNotNull node, Integer indent)
+        {
+            builder.append("ALTER TABLE ");
+            if (node.isTableExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(node.getTable().toString());
+            builder.append(" ALTER COLUMN ");
+            builder.append(node.getColumn());
+            builder.append(" ");
+            if (node.isDropConstraint()) {
+                builder.append("DROP");
+            }
+            else {
+                builder.append("SET");
+            }
+            builder.append(" NOT NULL");
+            return null;
+        }
+
+        private String processConstraintDefinition(ConstraintSpecification node)
+        {
+            StringBuilder sb = new StringBuilder();
+            if (node.getConstraintName().isPresent()) {
+                sb.append("CONSTRAINT ");
+                sb.append(node.getConstraintName().get());
+                sb.append(" ");
+            }
+            sb.append(node.getConstraintType() == UNIQUE ? "UNIQUE " : "PRIMARY KEY ");
+            sb.append("(");
+            Iterator<String> columns = node.getColumns().iterator();
+            while (columns.hasNext()) {
+                sb.append(columns.next());
+                if (columns.hasNext()) {
+                    sb.append(", ");
+                }
+            }
+            sb.append(")");
+            if (!node.isEnabled()) {
+                sb.append(" DISABLED");
+            }
+            if (!node.isRely()) {
+                sb.append(" NOT RELY");
+            }
+            if (!node.isEnforced()) {
+                sb.append(" NOT ENFORCED");
+            }
+            return sb.toString();
         }
 
         private void processRelation(Relation relation, Integer indent)

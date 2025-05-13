@@ -20,18 +20,18 @@ import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.PrimitiveType;
 
+import java.util.function.Supplier;
+
 import static java.util.Objects.requireNonNull;
 
 public class CharValueWriter
         extends PrimitiveValueWriter
 {
-    private final ValuesWriter valuesWriter;
     private final Type type;
 
-    public CharValueWriter(ValuesWriter valuesWriter, Type type, PrimitiveType parquetType)
+    public CharValueWriter(Supplier<ValuesWriter> valuesWriterSupplier, Type type, PrimitiveType parquetType)
     {
-        super(parquetType, valuesWriter);
-        this.valuesWriter = requireNonNull(valuesWriter, "valuesWriter is null");
+        super(parquetType, valuesWriterSupplier);
         this.type = requireNonNull(type, "type is null");
     }
 
@@ -42,7 +42,7 @@ public class CharValueWriter
             if (!block.isNull(i)) {
                 Slice slice = type.getSlice(block, i);
                 Binary binary = Binary.fromConstantByteBuffer(slice.toByteBuffer());
-                valuesWriter.writeBytes(binary);
+                getValueWriter().writeBytes(binary);
                 getStatistics().updateStats(binary);
             }
         }

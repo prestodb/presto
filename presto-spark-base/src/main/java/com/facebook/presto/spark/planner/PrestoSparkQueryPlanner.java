@@ -106,7 +106,7 @@ public class PrestoSparkQueryPlanner
         this.planCanonicalInfoProvider = requireNonNull(historyBasedPlanStatisticsManager, "historyBasedPlanStatisticsManager is null").getPlanCanonicalInfoProvider();
     }
 
-    public PlanAndMore createQueryPlan(Session session, BuiltInPreparedQuery preparedQuery, WarningCollector warningCollector, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, SparkContext sparkContext)
+    public PlanAndMore createQueryPlan(Session session, BuiltInPreparedQuery preparedQuery, WarningCollector warningCollector, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, SparkContext sparkContext, String query)
     {
         Analyzer analyzer = new Analyzer(
                 session,
@@ -116,7 +116,8 @@ public class PrestoSparkQueryPlanner
                 Optional.of(queryExplainer),
                 preparedQuery.getParameters(),
                 parameterExtractor(preparedQuery.getStatement(), preparedQuery.getParameters()),
-                warningCollector);
+                warningCollector,
+                query);
 
         Analysis analysis = analyzer.analyze(preparedQuery.getStatement());
 
@@ -127,7 +128,7 @@ public class PrestoSparkQueryPlanner
                 variableAllocator,
                 sqlParser);
 
-        PlanNode planNode = session.getRuntimeStats().profileNanos(
+        PlanNode planNode = session.getRuntimeStats().recordWallAndCpuTime(
                 LOGICAL_PLANNER_TIME_NANOS,
                 () -> logicalPlanner.plan(analysis));
 
@@ -136,7 +137,6 @@ public class PrestoSparkQueryPlanner
                 metadata,
                 optimizers.getPlanningTimeOptimizers(),
                 planChecker,
-                sqlParser,
                 variableAllocator,
                 idAllocator,
                 warningCollector,
@@ -144,7 +144,7 @@ public class PrestoSparkQueryPlanner
                 costCalculator,
                 false);
 
-        Plan plan = session.getRuntimeStats().profileNanos(
+        Plan plan = session.getRuntimeStats().recordWallAndCpuTime(
                 OPTIMIZER_TIME_NANOS,
                 () -> optimizer.validateAndOptimizePlan(planNode, OPTIMIZED_AND_VALIDATED));
 

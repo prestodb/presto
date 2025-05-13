@@ -44,6 +44,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 import static org.testng.Assert.fail;
@@ -187,7 +188,7 @@ public class TestMemoryMetadata
         SchemaTableName test = new SchemaTableName("test", "test_view");
         ConnectorTableMetadata viewMetadata = new ConnectorTableMetadata(
                 test,
-                ImmutableList.of(new ColumnMetadata("a", BIGINT)));
+                ImmutableList.of(ColumnMetadata.builder().setName("a").setType(BIGINT).build()));
         metadata.createSchema(SESSION, "test", ImmutableMap.of());
         try {
             metadata.createView(SESSION, viewMetadata, "test", false);
@@ -204,7 +205,7 @@ public class TestMemoryMetadata
         SchemaTableName test = new SchemaTableName("test", "test_view");
         ConnectorTableMetadata viewMetadata = new ConnectorTableMetadata(
                 test,
-                ImmutableList.of(new ColumnMetadata("a", BIGINT)));
+                ImmutableList.of(ColumnMetadata.builder().setName("a").setType(BIGINT).build()));
 
         metadata.createSchema(SESSION, "test", ImmutableMap.of());
         metadata.createView(SESSION, viewMetadata, "aaa", true);
@@ -219,11 +220,13 @@ public class TestMemoryMetadata
         SchemaTableName test1 = new SchemaTableName("test", "test_view1");
         ConnectorTableMetadata viewMetadata1 = new ConnectorTableMetadata(
                 test1,
-                ImmutableList.of(new ColumnMetadata("a", BIGINT)));
+                ImmutableList.of(ColumnMetadata.builder().setName("a").setType(BIGINT).build()));
         SchemaTableName test2 = new SchemaTableName("test", "test_view2");
         ConnectorTableMetadata viewMetadata2 = new ConnectorTableMetadata(
                 test2,
-                ImmutableList.of(new ColumnMetadata("a", BIGINT)));
+                ImmutableList.of(ColumnMetadata.builder().setName("a").setType(BIGINT).build()));
+
+        SchemaTableName test3 = new SchemaTableName("test", "test_view3");
 
         // create schema
         metadata.createSchema(SESSION, "test", ImmutableMap.of());
@@ -264,8 +267,14 @@ public class TestMemoryMetadata
         views = metadata.getViews(SESSION, new SchemaTablePrefix("test"));
         assertEquals(views.keySet(), ImmutableSet.of(test2));
 
+        // rename second view
+        metadata.renameView(SESSION, test2, test3);
+
+        Map<?, ?> result = metadata.getViews(SESSION, new SchemaTablePrefix("test"));
+        assertTrue(result.containsKey(test3));
+
         // drop second view
-        metadata.dropView(SESSION, test2);
+        metadata.dropView(SESSION, test3);
 
         views = metadata.getViews(SESSION, new SchemaTablePrefix("test"));
         assertTrue(views.isEmpty());
@@ -289,12 +298,12 @@ public class TestMemoryMetadata
             assertEquals(ex.getErrorCode(), NOT_FOUND.toErrorCode());
             assertEquals(ex.getMessage(), "Schema test1 not found");
         }
-        assertEquals(metadata.getTableHandle(SESSION, table1), null);
+        assertNull(metadata.getTableHandle(SESSION, table1));
 
         SchemaTableName view2 = new SchemaTableName("test2", "test_schema_view2");
         ConnectorTableMetadata viewMetadata2 = new ConnectorTableMetadata(
                 view2,
-                ImmutableList.of(new ColumnMetadata("a", BIGINT)));
+                ImmutableList.of(ColumnMetadata.builder().setName("a").setType(BIGINT).build()));
         try {
             metadata.createView(SESSION, viewMetadata2, "aaa", false);
             fail("Should fail because schema does not exist");
@@ -303,12 +312,12 @@ public class TestMemoryMetadata
             assertEquals(ex.getErrorCode(), NOT_FOUND.toErrorCode());
             assertEquals(ex.getMessage(), "Schema test2 not found");
         }
-        assertEquals(metadata.getTableHandle(SESSION, view2), null);
+        assertNull(metadata.getTableHandle(SESSION, view2));
 
         SchemaTableName view3 = new SchemaTableName("test3", "test_schema_view3");
         ConnectorTableMetadata viewMetadata3 = new ConnectorTableMetadata(
                 view3,
-                ImmutableList.of(new ColumnMetadata("a", BIGINT)));
+                ImmutableList.of(ColumnMetadata.builder().setName("a").setType(BIGINT).build()));
 
         try {
             metadata.createView(SESSION, viewMetadata3, "bbb", true);
@@ -318,7 +327,7 @@ public class TestMemoryMetadata
             assertEquals(ex.getErrorCode(), NOT_FOUND.toErrorCode());
             assertEquals(ex.getMessage(), "Schema test3 not found");
         }
-        assertEquals(metadata.getTableHandle(SESSION, view3), null);
+        assertNull(metadata.getTableHandle(SESSION, view3));
 
         assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of("default"));
     }

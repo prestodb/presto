@@ -20,10 +20,6 @@ import com.amazonaws.services.glue.model.DeleteTableRequest;
 import com.amazonaws.services.glue.model.TableInput;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.Range;
-import com.facebook.presto.common.type.DateType;
-import com.facebook.presto.common.type.IntegerType;
-import com.facebook.presto.common.type.SmallintType;
-import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.hive.AbstractTestHiveClientLocal;
 import com.facebook.presto.hive.HdfsConfiguration;
@@ -34,6 +30,7 @@ import com.facebook.presto.hive.HiveHdfsConfiguration;
 import com.facebook.presto.hive.HiveStorageFormat;
 import com.facebook.presto.hive.HiveTypeTranslator;
 import com.facebook.presto.hive.MetastoreClientConfig;
+import com.facebook.presto.hive.PartitionNameWithVersion;
 import com.facebook.presto.hive.TypeTranslator;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.Column;
@@ -66,6 +63,10 @@ import java.util.concurrent.ExecutorService;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.hive.HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER;
@@ -78,6 +79,7 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.ICEBERG_TABLE_TYP
 import static com.facebook.presto.hive.metastore.MetastoreUtil.ICEBERG_TABLE_TYPE_VALUE;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.SPARK_TABLE_PROVIDER_KEY;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeaders;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.getPartitionNamesWithEmptyVersion;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isDeltaLakeTable;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isIcebergTable;
 import static com.facebook.presto.hive.metastore.glue.PartitionFilterBuilder.DECIMAL_TYPE;
@@ -93,6 +95,7 @@ import static org.apache.hadoop.hive.common.FileUtils.makePartName;
 import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestHiveClientGlueMetastore
@@ -106,40 +109,40 @@ public class TestHiveClientGlueMetastore
     private static final TypeTranslator HIVE_TYPE_TRANSLATOR = new HiveTypeTranslator();
 
     private static final List<ColumnMetadata> CREATE_TABLE_COLUMNS = ImmutableList.<ColumnMetadata>builder()
-            .add(new ColumnMetadata("id", BIGINT))
+            .add(ColumnMetadata.builder().setName("id").setType(BIGINT).build())
             .build();
     private static final List<ColumnMetadata> CREATE_TABLE_COLUMNS_PARTITIONED_VARCHAR = ImmutableList.<ColumnMetadata>builder()
             .addAll(CREATE_TABLE_COLUMNS)
-            .add(new ColumnMetadata(PARTITION_KEY, VARCHAR))
+            .add(ColumnMetadata.builder().setName(PARTITION_KEY).setType(VARCHAR).build())
             .build();
     private static final List<ColumnMetadata> CREATE_TABLE_COLUMNS_PARTITIONED_TWO_KEYS = ImmutableList.<ColumnMetadata>builder()
             .addAll(CREATE_TABLE_COLUMNS)
-            .add(new ColumnMetadata(PARTITION_KEY, VARCHAR))
-            .add(new ColumnMetadata(PARTITION_KEY2, BIGINT))
+            .add(ColumnMetadata.builder().setName(PARTITION_KEY).setType(VARCHAR).build())
+            .add(ColumnMetadata.builder().setName(PARTITION_KEY2).setType(BIGINT).build())
             .build();
     private static final List<ColumnMetadata> CREATE_TABLE_COLUMNS_PARTITIONED_TINYINT = ImmutableList.<ColumnMetadata>builder()
             .addAll(CREATE_TABLE_COLUMNS)
-            .add(new ColumnMetadata(PARTITION_KEY, TinyintType.TINYINT))
+            .add(ColumnMetadata.builder().setName(PARTITION_KEY).setType(TINYINT).build())
             .build();
     private static final List<ColumnMetadata> CREATE_TABLE_COLUMNS_PARTITIONED_SMALLINT = ImmutableList.<ColumnMetadata>builder()
             .addAll(CREATE_TABLE_COLUMNS)
-            .add(new ColumnMetadata(PARTITION_KEY, SmallintType.SMALLINT))
+            .add(ColumnMetadata.builder().setName(PARTITION_KEY).setType(SMALLINT).build())
             .build();
     private static final List<ColumnMetadata> CREATE_TABLE_COLUMNS_PARTITIONED_INTEGER = ImmutableList.<ColumnMetadata>builder()
             .addAll(CREATE_TABLE_COLUMNS)
-            .add(new ColumnMetadata(PARTITION_KEY, IntegerType.INTEGER))
+            .add(ColumnMetadata.builder().setName(PARTITION_KEY).setType(INTEGER).build())
             .build();
     private static final List<ColumnMetadata> CREATE_TABLE_COLUMNS_PARTITIONED_BIGINT = ImmutableList.<ColumnMetadata>builder()
             .addAll(CREATE_TABLE_COLUMNS)
-            .add(new ColumnMetadata(PARTITION_KEY, BIGINT))
+            .add(ColumnMetadata.builder().setName(PARTITION_KEY).setType(BIGINT).build())
             .build();
     private static final List<ColumnMetadata> CREATE_TABLE_COLUMNS_PARTITIONED_DECIMAL = ImmutableList.<ColumnMetadata>builder()
             .addAll(CREATE_TABLE_COLUMNS)
-            .add(new ColumnMetadata(PARTITION_KEY, DECIMAL_TYPE))
+            .add(ColumnMetadata.builder().setName(PARTITION_KEY).setType(DECIMAL_TYPE).build())
             .build();
     private static final List<ColumnMetadata> CREATE_TABLE_COLUMNS_PARTITIONED_DATE = ImmutableList.<ColumnMetadata>builder()
             .addAll(CREATE_TABLE_COLUMNS)
-            .add(new ColumnMetadata(PARTITION_KEY, DateType.DATE))
+            .add(ColumnMetadata.builder().setName(PARTITION_KEY).setType(DATE).build())
             .build();
     private static final List<String> VARCHAR_PARTITION_VALUES = ImmutableList.of("2020-01-01", "2020-02-01", "2020-03-01", "2020-04-01");
 
@@ -246,9 +249,9 @@ public class TestHiveClientGlueMetastore
         try {
             createDummyPartitionedTable(tablePartitionFormat, CREATE_TABLE_COLUMNS_PARTITIONED);
             Table table = getMetastoreClient().getTable(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName()).get();
-            Optional<List<String>> partitionNames = getMetastoreClient().getPartitionNames(METASTORE_CONTEXT, table.getDatabaseName(), table.getTableName());
+            Optional<List<PartitionNameWithVersion>> partitionNames = getMetastoreClient().getPartitionNames(METASTORE_CONTEXT, table.getDatabaseName(), table.getTableName());
             assertTrue(partitionNames.isPresent());
-            assertEquals(partitionNames.get(), ImmutableList.of("ds=2016-01-01", "ds=2016-01-02"));
+            assertEquals(partitionNames.get(), getPartitionNamesWithEmptyVersion(ImmutableList.of("ds=2016-01-01", "ds=2016-01-02")));
         }
         finally {
             dropTable(tableName);
@@ -270,10 +273,13 @@ public class TestHiveClientGlueMetastore
                     session.getIdentity(),
                     session.getQueryId(),
                     session.getClientInfo(),
+                    session.getClientTags(),
                     session.getSource(),
                     getMetastoreHeaders(session),
                     false,
-                    DEFAULT_COLUMN_CONVERTER_PROVIDER);
+                    DEFAULT_COLUMN_CONVERTER_PROVIDER,
+                    session.getWarningCollector(),
+                    session.getRuntimeStats());
             TableInput tableInput = new TableInput()
                     .withName(table.getTableName())
                     .withTableType(EXTERNAL_TABLE.name());
@@ -317,9 +323,9 @@ public class TestHiveClientGlueMetastore
             String reservedKeywordPartitionColumnName = "key";
             String regularColumnPartitionName = "int_partition";
             List<ColumnMetadata> columns = ImmutableList.<ColumnMetadata>builder()
-                    .add(new ColumnMetadata("t_string", createUnboundedVarcharType()))
-                    .add(new ColumnMetadata(reservedKeywordPartitionColumnName, createUnboundedVarcharType()))
-                    .add(new ColumnMetadata(regularColumnPartitionName, BIGINT))
+                    .add(ColumnMetadata.builder().setName("t_string").setType(createUnboundedVarcharType()).build())
+                    .add(ColumnMetadata.builder().setName(reservedKeywordPartitionColumnName).setType(createUnboundedVarcharType()).build())
+                    .add(ColumnMetadata.builder().setName(regularColumnPartitionName).setType(BIGINT).build())
                     .build();
             List<String> partitionedBy = ImmutableList.of(reservedKeywordPartitionColumnName, regularColumnPartitionName);
 
@@ -345,13 +351,13 @@ public class TestHiveClientGlueMetastore
                     .addBigintValues(regularColumnPartitionName, 2L)
                     .build();
 
-            List<String> partitionNames = metastoreClient.getPartitionNamesByFilter(
+            List<PartitionNameWithVersion> partitionNames = metastoreClient.getPartitionNamesByFilter(
                     METASTORE_CONTEXT,
                     tableName.getSchemaName(),
                     tableName.getTableName(),
                     predicates);
 
-            assertTrue(!partitionNames.isEmpty());
+            assertFalse(partitionNames.isEmpty());
             assertEquals(partitionNames, ImmutableList.of("key=value2/int_partition=2"));
 
             // KEY is a reserved keyword in the grammar of the SQL parser used internally by Glue API
@@ -365,7 +371,7 @@ public class TestHiveClientGlueMetastore
                     tableName.getSchemaName(),
                     tableName.getTableName(),
                     predicates);
-            assertTrue(!partitionNames.isEmpty());
+            assertFalse(partitionNames.isEmpty());
             assertEquals(partitionNames, ImmutableList.of("key=value1/int_partition=1", "key=value2/int_partition=2"));
         }
         finally {
@@ -461,19 +467,19 @@ public class TestHiveClientGlueMetastore
                 .addIntegerValues(PARTITION_KEY, 1000L)
                 .build();
         Map<Column, Domain> greaterThan = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
-                .addRanges(PARTITION_KEY, Range.greaterThan(IntegerType.INTEGER, 100L))
+                .addRanges(PARTITION_KEY, Range.greaterThan(INTEGER, 100L))
                 .build();
         Map<Column, Domain> betweenInclusive = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
-                .addRanges(PARTITION_KEY, Range.range(IntegerType.INTEGER, 100L, true, 1000L, true))
+                .addRanges(PARTITION_KEY, Range.range(INTEGER, 100L, true, 1000L, true))
                 .build();
         Map<Column, Domain> greaterThanOrEquals = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
-                .addRanges(PARTITION_KEY, Range.greaterThanOrEqual(IntegerType.INTEGER, 100L))
+                .addRanges(PARTITION_KEY, Range.greaterThanOrEqual(INTEGER, 100L))
                 .build();
         Map<Column, Domain> inClause = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addIntegerValues(PARTITION_KEY, 1L, 1000000L)
                 .build();
         Map<Column, Domain> lessThan = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
-                .addRanges(PARTITION_KEY, Range.lessThan(IntegerType.INTEGER, 1000L))
+                .addRanges(PARTITION_KEY, Range.lessThan(INTEGER, 1000L))
                 .build();
         Map<Column, Domain> all = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addDomain(PARTITION_KEY, Domain.all(VARCHAR))
@@ -501,19 +507,19 @@ public class TestHiveClientGlueMetastore
                 .addSmallintValues(PARTITION_KEY, 1000L)
                 .build();
         Map<Column, Domain> greaterThan = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
-                .addRanges(PARTITION_KEY, Range.greaterThan(SmallintType.SMALLINT, 100L))
+                .addRanges(PARTITION_KEY, Range.greaterThan(SMALLINT, 100L))
                 .build();
         Map<Column, Domain> betweenInclusive = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
-                .addRanges(PARTITION_KEY, Range.range(SmallintType.SMALLINT, 100L, true, 1000L, true))
+                .addRanges(PARTITION_KEY, Range.range(SMALLINT, 100L, true, 1000L, true))
                 .build();
         Map<Column, Domain> greaterThanOrEquals = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
-                .addRanges(PARTITION_KEY, Range.greaterThanOrEqual(SmallintType.SMALLINT, 100L))
+                .addRanges(PARTITION_KEY, Range.greaterThanOrEqual(SMALLINT, 100L))
                 .build();
         Map<Column, Domain> inClause = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addSmallintValues(PARTITION_KEY, 1L, 10000L)
                 .build();
         Map<Column, Domain> lessThan = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
-                .addRanges(PARTITION_KEY, Range.lessThan(SmallintType.SMALLINT, 1000L))
+                .addRanges(PARTITION_KEY, Range.lessThan(SMALLINT, 1000L))
                 .build();
         Map<Column, Domain> all = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addDomain(PARTITION_KEY, Domain.all(VARCHAR))
@@ -541,19 +547,19 @@ public class TestHiveClientGlueMetastore
                 .addTinyintValues(PARTITION_KEY, 127L)
                 .build();
         Map<Column, Domain> greaterThan = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
-                .addRanges(PARTITION_KEY, Range.greaterThan(TinyintType.TINYINT, 10L))
+                .addRanges(PARTITION_KEY, Range.greaterThan(TINYINT, 10L))
                 .build();
         Map<Column, Domain> betweenInclusive = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
-                .addRanges(PARTITION_KEY, Range.range(TinyintType.TINYINT, 10L, true, 100L, true))
+                .addRanges(PARTITION_KEY, Range.range(TINYINT, 10L, true, 100L, true))
                 .build();
         Map<Column, Domain> greaterThanOrEquals = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
-                .addRanges(PARTITION_KEY, Range.greaterThanOrEqual(TinyintType.TINYINT, 10L))
+                .addRanges(PARTITION_KEY, Range.greaterThanOrEqual(TINYINT, 10L))
                 .build();
         Map<Column, Domain> inClause = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addTinyintValues(PARTITION_KEY, 1L, 127L)
                 .build();
         Map<Column, Domain> lessThan = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
-                .addRanges(PARTITION_KEY, Range.lessThan(TinyintType.TINYINT, 100L))
+                .addRanges(PARTITION_KEY, Range.lessThan(TINYINT, 100L))
                 .build();
         Map<Column, Domain> all = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addDomain(PARTITION_KEY, Domain.all(VARCHAR))
@@ -581,19 +587,19 @@ public class TestHiveClientGlueMetastore
                 .addTinyintValues(PARTITION_KEY, -128L)
                 .build();
         Map<Column, Domain> greaterThan = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
-                .addRanges(PARTITION_KEY, Range.greaterThan(TinyintType.TINYINT, 0L))
+                .addRanges(PARTITION_KEY, Range.greaterThan(TINYINT, 0L))
                 .build();
         Map<Column, Domain> betweenInclusive = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
-                .addRanges(PARTITION_KEY, Range.range(TinyintType.TINYINT, 0L, true, 50L, true))
+                .addRanges(PARTITION_KEY, Range.range(TINYINT, 0L, true, 50L, true))
                 .build();
         Map<Column, Domain> greaterThanOrEquals = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
-                .addRanges(PARTITION_KEY, Range.greaterThanOrEqual(TinyintType.TINYINT, 0L))
+                .addRanges(PARTITION_KEY, Range.greaterThanOrEqual(TINYINT, 0L))
                 .build();
         Map<Column, Domain> inClause = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addTinyintValues(PARTITION_KEY, 0L, -128L)
                 .build();
         Map<Column, Domain> lessThan = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
-                .addRanges(PARTITION_KEY, Range.lessThan(TinyintType.TINYINT, 0L))
+                .addRanges(PARTITION_KEY, Range.lessThan(TINYINT, 0L))
                 .build();
         Map<Column, Domain> all = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addDomain(PARTITION_KEY, Domain.all(VARCHAR))
@@ -667,19 +673,19 @@ public class TestHiveClientGlueMetastore
                 .addDateValues(PARTITION_KEY, 18000L)
                 .build();
         Map<Column, Domain> greaterThan = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
-                .addRanges(PARTITION_KEY, Range.greaterThan(DateType.DATE, 19000L))
+                .addRanges(PARTITION_KEY, Range.greaterThan(DATE, 19000L))
                 .build();
         Map<Column, Domain> betweenInclusive = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
-                .addRanges(PARTITION_KEY, Range.range(DateType.DATE, 19000L, true, 20000L, true))
+                .addRanges(PARTITION_KEY, Range.range(DATE, 19000L, true, 20000L, true))
                 .build();
         Map<Column, Domain> greaterThanOrEquals = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
-                .addRanges(PARTITION_KEY, Range.greaterThanOrEqual(DateType.DATE, 19000L))
+                .addRanges(PARTITION_KEY, Range.greaterThanOrEqual(DATE, 19000L))
                 .build();
         Map<Column, Domain> inClause = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addDateValues(PARTITION_KEY, 18000L, 21000L)
                 .build();
         Map<Column, Domain> lessThan = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
-                .addRanges(PARTITION_KEY, Range.lessThan(DateType.DATE, 20000L))
+                .addRanges(PARTITION_KEY, Range.lessThan(DATE, 20000L))
                 .build();
         Map<Column, Domain> all = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addDomain(PARTITION_KEY, Domain.all(VARCHAR))
@@ -892,7 +898,7 @@ public class TestHiveClientGlueMetastore
                         .map(expectedPartitionValues -> makePartName(partitionColumnNames, expectedPartitionValues.getValues()))
                         .collect(toImmutableList());
 
-                List<String> partitionNames = metastoreClient.getPartitionNamesByFilter(
+                List<PartitionNameWithVersion> partitionNames = metastoreClient.getPartitionNamesByFilter(
                         METASTORE_CONTEXT,
                         tableName.getSchemaName(),
                         tableName.getTableName(),
@@ -958,11 +964,6 @@ public class TestHiveClientGlueMetastore
         private static PartitionValues make(String... values)
         {
             return new PartitionValues(Arrays.asList(values));
-        }
-
-        private static PartitionValues make(List<String> values)
-        {
-            return new PartitionValues(values);
         }
 
         private PartitionValues(List<String> values)

@@ -38,7 +38,7 @@ public final class ChunkedSliceOutput
         extends SliceOutput
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(ChunkedSliceOutput.class).instanceSize();
-    private static final int MINIMUM_CHUNK_SIZE = 4096;
+    private static final int MINIMUM_CHUNK_SIZE = 256;
     private static final int MAXIMUM_CHUNK_SIZE = 16 * 1024 * 1024;
     // This must not be larger than MINIMUM_CHUNK_SIZE/2
     private static final int MAX_UNUSED_BUFFER_SIZE = 128;
@@ -303,9 +303,9 @@ public final class ChunkedSliceOutput
     @Override
     public String toString()
     {
-        StringBuilder builder = new StringBuilder("OutputStreamSliceOutputAdapter{");
+        StringBuilder builder = new StringBuilder("ChunkedSliceOutput{");
         builder.append("position=").append(size());
-        builder.append("bufferSize=").append(slice.length());
+        builder.append(", bufferSize=").append(slice.length());
         builder.append('}');
         return builder.toString();
     }
@@ -371,8 +371,8 @@ public final class ChunkedSliceOutput
         {
             byte[] buffer;
             if (bufferPool.isEmpty()) {
-                currentSize = min(multiplyExact(currentSize, 2), maxChunkSize);
                 buffer = new byte[currentSize];
+                currentSize = min(multiplyExact(currentSize, 2), maxChunkSize);
             }
             else {
                 buffer = bufferPool.remove(0);

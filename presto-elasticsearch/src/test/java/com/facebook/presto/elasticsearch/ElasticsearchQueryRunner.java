@@ -64,7 +64,7 @@ public final class ElasticsearchQueryRunner
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
-            TestingElasticsearchConnectorFactory testFactory = new TestingElasticsearchConnectorFactory();
+            ElasticsearchConnectorFactory testFactory = new ElasticsearchConnectorFactory();
 
             installElasticsearchPlugin(address, queryRunner, testFactory, extraConnectorProperties);
 
@@ -91,7 +91,7 @@ public final class ElasticsearchQueryRunner
     private static void installElasticsearchPlugin(
             HostAndPort address,
             QueryRunner queryRunner,
-            TestingElasticsearchConnectorFactory factory,
+            ElasticsearchConnectorFactory factory,
             Map<String, String> extraConnectorProperties)
     {
         queryRunner.installPlugin(new ElasticsearchPlugin(factory));

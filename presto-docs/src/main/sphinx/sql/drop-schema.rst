@@ -26,7 +26,7 @@ Drop the schema ``web``::
 
 Drop the schema ``sales`` if it exists::
 
-    DROP TABLE IF EXISTS sales
+    DROP SCHEMA IF EXISTS sales
 
 See Also
 --------

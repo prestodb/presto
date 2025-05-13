@@ -105,21 +105,120 @@ public class TestJdbcConnection
     public void testCommit()
             throws SQLException
     {
-        try (Connection connection = createConnection()) {
-            connection.setAutoCommit(false);
-            try (Statement statement = connection.createStatement()) {
-                statement.execute("CREATE TABLE test_commit (x bigint)");
+        try {
+            try (Connection connection = createConnection()) {
+                connection.setAutoCommit(false);
+                try (Statement statement = connection.createStatement()) {
+                    statement.execute("CREATE TABLE test_commit (x bigint)");
+                }
+
+                try (Connection otherConnection = createConnection()) {
+                    assertThat(listTables(otherConnection)).doesNotContain("test_commit");
+                }
+
+                connection.commit();
             }
 
-            try (Connection otherConnection = createConnection()) {
-                assertThat(listTables(otherConnection)).doesNotContain("test_commit");
+            try (Connection connection = createConnection()) {
+                assertThat(listTables(connection)).contains("test_commit");
             }
-
-            connection.commit();
         }
+        finally {
+            try (Connection connection = createConnection()) {
+                try (Statement statement = connection.createStatement()) {
+                    statement.execute("DROP TABLE test_commit");
+                }
+            }
+        }
+    }
 
+    @Test
+    public void testAutoCommit()
+            throws SQLException
+    {
+        try {
+            try (Connection connection = createConnection()) {
+                connection.setAutoCommit(true);
+                try (Statement statement = connection.createStatement()) {
+                    statement.execute("CREATE TABLE test_autocommit (x bigint)");
+                }
+            }
+
+            try (Connection connection = createConnection()) {
+                assertThat(listTables(connection)).contains("test_autocommit");
+            }
+        }
+        finally {
+            try (Connection connection = createConnection()) {
+                try (Statement statement = connection.createStatement()) {
+                    statement.execute("DROP TABLE test_autocommit");
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testResetAutoCommit()
+            throws SQLException
+    {
+        try {
+            try (Connection connection = createConnection()) {
+                connection.setAutoCommit(false);
+                try (Statement statement = connection.createStatement()) {
+                    statement.execute("CREATE TABLE test_reset_autocommit (x bigint)");
+                }
+
+                try (Connection otherConnection = createConnection()) {
+                    assertThat(listTables(otherConnection)).doesNotContain("test_reset_autocommit");
+                }
+                connection.setAutoCommit(true);
+            }
+
+            try (Connection connection = createConnection()) {
+                assertThat(listTables(connection)).contains("test_reset_autocommit");
+            }
+        }
+        finally {
+            try (Connection connection = createConnection()) {
+                try (Statement statement = connection.createStatement()) {
+                    statement.execute("DROP TABLE test_reset_autocommit");
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testTableType()
+            throws SQLException
+    {
         try (Connection connection = createConnection()) {
-            assertThat(listTables(connection)).contains("test_commit");
+            assertThat(connection.getCatalog()).isEqualTo("hive");
+            assertThat(connection.getSchema()).isEqualTo("default");
+
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("CREATE TABLE test_table_type (x bigint)");
+                statement.execute("CREATE VIEW table_type_view AS SELECT * FROM test_table_type");
+                ResultSet rs = statement.executeQuery("SELECT TABLE_NAME, TABLE_TYPE FROM system.jdbc.tables WHERE TABLE_SCHEM = 'default' AND TABLE_NAME = 'table_type_view'");
+                int rowCount = 0;
+                while (rs.next()) {
+                    assertEquals(rs.getString("TABLE_NAME"), "table_type_view");
+                    assertEquals(rs.getString("TABLE_TYPE"), "VIEW");
+                    rowCount++;
+                }
+                assertEquals(rowCount, 1);
+
+                rowCount = 0;
+                rs = statement.executeQuery("SELECT TABLE_NAME, TABLE_TYPE FROM system.jdbc.tables WHERE TABLE_SCHEM = 'default' AND TABLE_NAME = 'test_table_type'");
+                while (rs.next()) {
+                    assertEquals(rs.getString("TABLE_NAME"), "test_table_type");
+                    assertEquals(rs.getString("TABLE_TYPE"), "TABLE");
+                    rowCount++;
+                }
+                assertEquals(rowCount, 1);
+
+                statement.execute("DROP TABLE test_table_type");
+                statement.execute("DROP VIEW table_type_view");
+            }
         }
     }
 
@@ -203,7 +302,7 @@ public class TestJdbcConnection
         try (Connection connection = createConnection("sessionProperties=query_max_run_time:2d;max_failed_task_percentage:0.6")) {
             assertThat(listSession(connection))
                     .contains("join_distribution_type|AUTOMATIC|AUTOMATIC")
-                    .contains("exchange_compression|false|false")
+                    .contains("exchange_compression_codec|NONE|NONE")
                     .contains("query_max_run_time|2d|100.00d")
                     .contains("max_failed_task_percentage|0.6|0.3");
 
@@ -213,15 +312,15 @@ public class TestJdbcConnection
 
             assertThat(listSession(connection))
                     .contains("join_distribution_type|BROADCAST|AUTOMATIC")
-                    .contains("exchange_compression|false|false");
+                    .contains("exchange_compression_codec|NONE|NONE");
 
             try (Statement statement = connection.createStatement()) {
-                statement.execute("SET SESSION exchange_compression = true");
+                statement.execute("SET SESSION exchange_compression_codec = 'LZ4'");
             }
 
             assertThat(listSession(connection))
                     .contains("join_distribution_type|BROADCAST|AUTOMATIC")
-                    .contains("exchange_compression|true|false");
+                    .contains("exchange_compression_codec|LZ4|NONE");
         }
     }
 
@@ -339,10 +438,6 @@ public class TestJdbcConnection
     public static class TestNoopQueryInterceptor
             implements QueryInterceptor
     {
-        @Override
-        public void init(Map<String, String> properties)
-        {
-        }
     }
 
     private Connection createConnection()

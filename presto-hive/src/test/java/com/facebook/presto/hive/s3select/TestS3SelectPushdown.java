@@ -23,7 +23,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.TextInputFormat;
@@ -75,20 +74,10 @@ public class TestS3SelectPushdown
                 .setLocation("location")
                 .build();
 
-        partition = new Partition(
-                "db",
-                "table",
-                emptyList(),
-                storage,
-                singletonList(column),
-                emptyMap(),
-                Optional.empty(),
-                false,
-                false,
-                1234,
-                4567L);
+        partition = new Partition("db", "table", emptyList(), storage, singletonList(column), emptyMap(), Optional.empty(), false, false, 1234, 4567L, Optional.empty());
 
         table = new Table(
+                Optional.of("catalogName"),
                 "db",
                 "table",
                 "owner",
@@ -106,11 +95,11 @@ public class TestS3SelectPushdown
     @Test
     public void testIsCompressionCodecSupported()
     {
-        assertTrue(S3SelectPushdown.isCompressionCodecSupported(inputFormat, new Path("s3://fakeBucket/fakeObject.gz")));
-        assertTrue(S3SelectPushdown.isCompressionCodecSupported(inputFormat, new Path("s3://fakeBucket/fakeObject")));
-        assertFalse(S3SelectPushdown.isCompressionCodecSupported(inputFormat, new Path("s3://fakeBucket/fakeObject.lz4")));
-        assertFalse(S3SelectPushdown.isCompressionCodecSupported(inputFormat, new Path("s3://fakeBucket/fakeObject.snappy")));
-        assertTrue(S3SelectPushdown.isCompressionCodecSupported(inputFormat, new Path("s3://fakeBucket/fakeObject.bz2")));
+        assertTrue(S3SelectPushdown.isCompressionCodecSupported(inputFormat, "s3://fakeBucket/fakeObject.gz"));
+        assertTrue(S3SelectPushdown.isCompressionCodecSupported(inputFormat, "s3://fakeBucket/fakeObject"));
+        assertFalse(S3SelectPushdown.isCompressionCodecSupported(inputFormat, "s3://fakeBucket/fakeObject.lz4"));
+        assertFalse(S3SelectPushdown.isCompressionCodecSupported(inputFormat, "s3://fakeBucket/fakeObject.snappy"));
+        assertTrue(S3SelectPushdown.isCompressionCodecSupported(inputFormat, "s3://fakeBucket/fakeObject.bz2"));
     }
 
     @Test
@@ -144,6 +133,7 @@ public class TestS3SelectPushdown
                 .setLocation("location")
                 .build();
         Table newTable = new Table(
+                Optional.of("catalogName"),
                 "db",
                 "table",
                 "owner",
@@ -157,18 +147,7 @@ public class TestS3SelectPushdown
 
         assertFalse(shouldEnablePushdownForTable(session, newTable, "s3://fakeBucket/fakeObject", Optional.empty()));
 
-        Partition newPartition = new Partition(
-                "db",
-                "table",
-                emptyList(),
-                newStorage,
-                singletonList(column),
-                emptyMap(),
-                Optional.empty(),
-                false,
-                false,
-                1234,
-                4567L);
+        Partition newPartition = new Partition("db", "table", emptyList(), newStorage, singletonList(column), emptyMap(), Optional.empty(), false, false, 1234, 4567L, Optional.empty());
         assertFalse(shouldEnablePushdownForTable(session, newTable, "s3://fakeBucket/fakeObject", Optional.of(newPartition)));
     }
 
@@ -180,6 +159,7 @@ public class TestS3SelectPushdown
                 .setLocation("location")
                 .build();
         Table newTable = new Table(
+                Optional.of("catalogName"),
                 "db",
                 "table",
                 "owner",
@@ -198,6 +178,7 @@ public class TestS3SelectPushdown
     {
         Column newColumn = new Column("column", HIVE_BINARY, Optional.empty(), Optional.empty());
         Table newTable = new Table(
+                Optional.of("catalogName"),
                 "db",
                 "table",
                 "owner",
@@ -210,18 +191,7 @@ public class TestS3SelectPushdown
                 Optional.empty());
         assertFalse(shouldEnablePushdownForTable(session, newTable, "s3://fakeBucket/fakeObject", Optional.empty()));
 
-        Partition newPartition = new Partition(
-                "db",
-                "table",
-                emptyList(),
-                storage,
-                singletonList(column),
-                emptyMap(),
-                Optional.empty(),
-                false,
-                false,
-                1234,
-                4567L);
+        Partition newPartition = new Partition("db", "table", emptyList(), storage, singletonList(column), emptyMap(), Optional.empty(), false, false, 1234, 4567L, Optional.empty());
         assertFalse(shouldEnablePushdownForTable(session, newTable, "s3://fakeBucket/fakeObject", Optional.of(newPartition)));
     }
 
@@ -229,20 +199,20 @@ public class TestS3SelectPushdown
     public void testShouldEnableSplits()
     {
         // Uncompressed CSV
-        assertTrue(isSelectSplittable(inputFormat, new Path("s3://fakeBucket/fakeObject.csv"), true));
+        assertTrue(isSelectSplittable(inputFormat, "s3://fakeBucket/fakeObject.csv", true));
         // Pushdown disabled
-        assertTrue(isSelectSplittable(inputFormat, new Path("s3://fakeBucket/fakeObject.csv"), false));
-        assertTrue(isSelectSplittable(inputFormat, new Path("s3://fakeBucket/fakeObject.json"), false));
-        assertTrue(isSelectSplittable(inputFormat, new Path("s3://fakeBucket/fakeObject.gz"), false));
-        assertTrue(isSelectSplittable(inputFormat, new Path("s3://fakeBucket/fakeObject.bz2"), false));
+        assertTrue(isSelectSplittable(inputFormat, "s3://fakeBucket/fakeObject.csv", false));
+        assertTrue(isSelectSplittable(inputFormat, "s3://fakeBucket/fakeObject.json", false));
+        assertTrue(isSelectSplittable(inputFormat, "s3://fakeBucket/fakeObject.gz", false));
+        assertTrue(isSelectSplittable(inputFormat, "s3://fakeBucket/fakeObject.bz2", false));
     }
 
     @Test
     public void testShouldNotEnableSplits()
     {
         // Compressed files
-        assertFalse(isSelectSplittable(inputFormat, new Path("s3://fakeBucket/fakeObject.gz"), true));
-        assertFalse(isSelectSplittable(inputFormat, new Path("s3://fakeBucket/fakeObject.bz2"), true));
+        assertFalse(isSelectSplittable(inputFormat, "s3://fakeBucket/fakeObject.gz", true));
+        assertFalse(isSelectSplittable(inputFormat, "s3://fakeBucket/fakeObject.bz2", true));
     }
 
     @AfterClass(alwaysRun = true)

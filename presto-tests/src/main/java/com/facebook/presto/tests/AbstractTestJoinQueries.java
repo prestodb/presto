@@ -94,7 +94,7 @@ public abstract class AbstractTestJoinQueries
         assertTrue((broadcastJoinQueryInfo.getQueryStats().getShuffledPositions() - expectedOutputRows) >= lineitemRows);
         // Both partitioned join and broadcast join should have the same raw input data set.
         assertEquals(partitionJoinQueryInfo.getQueryStats().getRawInputPositions(), broadcastJoinQueryInfo.getQueryStats().getRawInputPositions());
-        assertNotEquals(partitionJoinQueryInfo.getQueryStats().getShuffledDataSize().toBytes(), broadcastJoinQueryInfo.getQueryStats().getShuffledDataSize().toBytes());
+        assertNotEquals(partitionJoinQueryInfo.getQueryStats().getShuffledDataSize(), broadcastJoinQueryInfo.getQueryStats().getShuffledDataSize());
     }
 
     @Test
@@ -1282,9 +1282,9 @@ public abstract class AbstractTestJoinQueries
     {
         assertQuery("SELECT COUNT(*) FROM lineitem FULL JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.orderkey = 2",
                 "SELECT COUNT(*) FROM (" +
-                        "SELECT lineitem.orderkey, orders.orderkey AS o2 FROM lineitem LEFT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.orderkey = 2" +
+                        "SELECT lineitem.orderkey, orders.orderkey AS o2 FROM lineitem LEFT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.orderkey = 2 " +
                         "UNION ALL " +
-                        "SELECT lineitem.orderkey, orders.orderkey AS o2 FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.orderkey = 2" +
+                        "SELECT lineitem.orderkey, orders.orderkey AS o2 FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.orderkey = 2 " +
                         "WHERE lineitem.orderkey IS NULL" +
                         ")");
     }
@@ -1294,9 +1294,9 @@ public abstract class AbstractTestJoinQueries
     {
         assertQuery("SELECT COUNT(*) FROM lineitem FULL JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.orderkey = 2",
                 "SELECT COUNT(*) FROM (" +
-                        "SELECT lineitem.orderkey, orders.orderkey AS o2 FROM lineitem LEFT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.orderkey = 2" +
+                        "SELECT lineitem.orderkey, orders.orderkey AS o2 FROM lineitem LEFT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.orderkey = 2 " +
                         "UNION ALL " +
-                        "SELECT lineitem.orderkey, orders.orderkey AS o2 FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.orderkey = 2" +
+                        "SELECT lineitem.orderkey, orders.orderkey AS o2 FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.orderkey = 2 " +
                         "WHERE lineitem.orderkey IS NULL" +
                         ")");
     }

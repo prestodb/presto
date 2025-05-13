@@ -106,6 +106,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot create table %s%s", tableName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denySetTableProperties(String tableName)
+    {
+        denySetTableProperties(tableName, null);
+    }
+
+    public static void denySetTableProperties(String tableName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot set table properties to %s%s", tableName, formatExtraInfo(extraInfo)));
+    }
+
     public static void denyDropTable(String tableName)
     {
         denyDropTable(tableName, null);
@@ -241,6 +251,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("View owner '%s' cannot create view that selects from %s%s", identity.getUser(), sourceName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyRenameView(String viewName, String newViewName)
+    {
+        denyRenameView(viewName, newViewName, null);
+    }
+
+    public static void denyRenameView(String viewName, String newViewName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot rename view from %s to %s%s", viewName, newViewName, formatExtraInfo(extraInfo)));
+    }
+
     public static void denyDropView(String viewName)
     {
         denyDropView(viewName, null);
@@ -354,6 +374,26 @@ public class AccessDeniedException
     public static void denySetRole(String role)
     {
         throw new AccessDeniedException(format("Cannot set role %s", role));
+    }
+
+    public static void denyDropConstraint(String tableName)
+    {
+        denyDropConstraint(tableName, null);
+    }
+
+    public static void denyDropConstraint(String tableName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot drop a constraint from table %s%s", tableName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyAddConstraint(String tableName)
+    {
+        denyAddConstraint(tableName, null);
+    }
+
+    public static void denyAddConstraint(String tableName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot add a constraint to table %s%s", tableName, formatExtraInfo(extraInfo)));
     }
 
     private static Object formatExtraInfo(String extraInfo)

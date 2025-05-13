@@ -19,6 +19,7 @@ Functions and Operators
     functions/json
     functions/datetime
     functions/aggregate
+    functions/noisy
     functions/window
     functions/array
     functions/map
@@ -36,3 +37,4 @@ Functions and Operators
     functions/internationalization
     functions/setdigest
     functions/sketch
+    functions/pinot

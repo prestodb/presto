@@ -270,7 +270,7 @@ public class PrometheusRecordCursor
         int columnIndex = fieldToColumnIndex[field];
         switch (columnIndex) {
             case 0:
-                return fields.getLabels();
+                return getBlockFromMap(columnHandles.get(columnIndex).getColumnType(), fields.getLabels());
             case 1:
                 return fields.getTimestamp();
             case 2:
@@ -284,13 +284,12 @@ public class PrometheusRecordCursor
         Type actual = getType(field);
         checkArgument(actual.equals(expected), "Expected field %s to be type %s but is %s", field, expected, actual);
     }
-
     private List<PrometheusStandardizedRow> prometheusResultsInStandardizedForm(List<PrometheusMetricResult> results)
     {
         return results.stream().map(result ->
                 result.getTimeSeriesValues().getValues().stream().map(prometheusTimeSeriesValue ->
                         new PrometheusStandardizedRow(
-                                getBlockFromMap(columnHandles.get(0).getColumnType(), metricHeaderToMap(result.getMetricHeader())),
+                                result.getMetricHeader(),
                                 prometheusTimeSeriesValue.getTimestamp(),
                                 Double.parseDouble(prometheusTimeSeriesValue.getValue())))
                         .collect(Collectors.toList()))

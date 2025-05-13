@@ -12,7 +12,7 @@ General Changes
 * Fix incorrect results when performing comparisons between values of approximate
   data types (``REAL``, ``DOUBLE``) and columns of certain exact numeric types
   (``INTEGER``, ``BIGINT``, ``DECIMAL``).
-* Fix memory accounting for :func:`min_by` and :func:`max_by` on complex types.
+* Fix memory accounting for :func:`!min_by` and :func:`!max_by` on complex types.
 * Fix query failure due to ``NoClassDefFoundError`` when scalar functions declared
   in plugins are implemented with instance methods.
 * Improve performance of map subscript from O(n) to O(1) in all cases. Previously, only maps

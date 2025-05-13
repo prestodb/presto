@@ -20,10 +20,10 @@ import com.facebook.presto.geospatial.Rectangle;
 import com.facebook.presto.plugin.memory.MemoryConnectorFactory;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.sql.Optimizer;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
-import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableList;
@@ -368,7 +368,7 @@ public class TestSpatialJoinPlanning
                         "WHERE NOT ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat))",
                 anyTree(
                         filter("NOT ST_Contains(ST_GeometryFromText(cast(wkt as varchar)), ST_Point(lng, lat))",
-                                join(JoinNode.Type.INNER, emptyList(),
+                                join(JoinType.INNER, emptyList(),
                                         anyTree(values(ImmutableMap.of("lng", 0, "lat", 1))),
                                         values(ImmutableMap.of("wkt", 0))))));
     }
@@ -381,7 +381,7 @@ public class TestSpatialJoinPlanning
                         "WHERE NOT ST_Intersects(ST_GeometryFromText(a.wkt), ST_GeometryFromText(b.wkt))",
                 anyTree(
                         filter("NOT ST_Intersects(ST_GeometryFromText(cast(wkt_a as varchar)), ST_GeometryFromText(cast(wkt_b as varchar)))",
-                                join(JoinNode.Type.INNER, emptyList(),
+                                join(JoinType.INNER, emptyList(),
                                         anyTree(values(ImmutableMap.of("wkt_a", 0, "name_a", 1))),
                                         values(ImmutableMap.of("wkt_b", 0, "name_b", 1))))));
     }
@@ -393,7 +393,7 @@ public class TestSpatialJoinPlanning
                         "FROM " + POINTS_SQL + ", " + POLYGONS_SQL + " " +
                         "WHERE a.name = b.name AND ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat))",
                 anyTree(
-                        join(JoinNode.Type.INNER, ImmutableList.of(equiJoinClause("name_a", "name_b")),
+                        join(JoinType.INNER, ImmutableList.of(equiJoinClause("name_a", "name_b")),
                                 Optional.of("ST_Contains(ST_GeometryFromText(cast(wkt as varchar)), ST_Point(lng, lat))"),
                                 anyTree(values(ImmutableMap.of("lng", 0, "lat", 1, "name_a", 2))),
                                 anyTree(values(ImmutableMap.of("wkt", 0, "name_b", 1))))));
@@ -406,7 +406,7 @@ public class TestSpatialJoinPlanning
                         "FROM (VALUES ('POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))', 'a')) AS a (wkt, name), (VALUES ('POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))', 'a')) AS b (wkt, name) " +
                         "WHERE a.name = b.name AND ST_Intersects(ST_GeometryFromText(a.wkt), ST_GeometryFromText(b.wkt))",
                 anyTree(
-                        join(JoinNode.Type.INNER, ImmutableList.of(equiJoinClause("name_a", "name_b")),
+                        join(JoinType.INNER, ImmutableList.of(equiJoinClause("name_a", "name_b")),
                                 Optional.of("ST_Intersects(ST_GeometryFromText(cast(wkt_a as varchar)), ST_GeometryFromText(cast(wkt_B as varchar)))"),
                                 anyTree(values(ImmutableMap.of("wkt_a", 0, "name_a", 1))),
                                 anyTree(values(ImmutableMap.of("wkt_b", 0, "name_b", 1))))));

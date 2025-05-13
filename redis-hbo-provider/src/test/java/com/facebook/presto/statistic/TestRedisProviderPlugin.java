@@ -15,21 +15,38 @@ package com.facebook.presto.statistic;
 
 import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
 import com.github.fppt.jedismock.RedisServer;
+import com.google.common.collect.ImmutableMap;
+import io.lettuce.core.RedisURI;
 import org.testng.annotations.Test;
+
+import java.util.Map;
 
 import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
 
 public class TestRedisProviderPlugin
 {
-    private final String redisHboPropertyFilePath = "src/test/java/resources/test-redis-hbo-provider.properties";
+    private Map<String, String> createConfigMap(String serverUri)
+    {
+        Map<String, String> configMap = ImmutableMap.<String, String>builder()
+                .put("coordinator", "true")
+                .put("hbo.redis-provider.enabled", "true")
+                .put("hbo.redis-provider.total-fetch-timeoutms", "5000")
+                .put("hbo.redis-provider.total-set-timeoutms", "5000")
+                .put("hbo.redis-provider.default-ttl-seconds", "4320000")
+                .put("hbo.redis-provider.cluster-mode-enabled", "false")
+                .put("hbo.redis-provider.server_uri", serverUri)
+                .build();
+        return configMap;
+    }
 
     @Test
     public void testStartup()
             throws Exception
     {
-        RedisServer server = RedisServer.newRedisServer(57872);
+        RedisServer server = RedisServer.newRedisServer(); // bind to a random port
         server.start();
-        RedisProviderPlugin plugin = new RedisProviderPlugin(redisHboPropertyFilePath);
+        RedisProviderPlugin plugin = new RedisProviderPlugin(
+                createConfigMap(RedisURI.create(server.getHost(), server.getBindPort()).toString()));
         HistoryBasedPlanStatisticsProvider hboProvider = plugin.getHistoryBasedPlanStatisticsProviders().iterator().next();
         assertInstanceOf(hboProvider, RedisPlanStatisticsProvider.class);
         server.stop();

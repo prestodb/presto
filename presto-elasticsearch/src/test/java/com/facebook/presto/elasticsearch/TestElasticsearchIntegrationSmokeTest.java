@@ -40,17 +40,19 @@ import java.util.Map;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.elasticsearch.ElasticsearchQueryRunner.createElasticsearchQueryRunner;
+import static com.facebook.presto.elasticsearch.client.ElasticSearchClientUtils.performRequest;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.elasticsearch.client.RequestOptions.DEFAULT;
 
 @Test(singleThreaded = true)
 public class TestElasticsearchIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private final String elasticsearchServer = "docker.elastic.co/elasticsearch/elasticsearch-oss:6.0.0";
+    private final String elasticsearchServer = "docker.elastic.co/elasticsearch/elasticsearch:7.17.27";
     private ElasticsearchServer elasticsearch;
     private RestHighLevelClient client;
 
@@ -163,7 +165,7 @@ public class TestElasticsearchIntegrationSmokeTest
         String mapping = "" +
                 "{" +
                 "  \"mappings\": {" +
-                "    \"doc\": {" +
+                "    \"_doc\": {" +
                 "      \"_meta\": {" +
                 "        \"presto\": {" +
                 "          \"a\": {" +
@@ -357,7 +359,7 @@ public class TestElasticsearchIntegrationSmokeTest
         String mapping = "" +
                 "{" +
                 "  \"mappings\": {" +
-                "    \"doc\": {" +
+                "    \"_doc\": {" +
                 "      \"properties\": {" +
                 "        \"boolean_column\":   { \"type\": \"boolean\" }," +
                 "        \"float_column\":     { \"type\": \"float\" }," +
@@ -421,7 +423,7 @@ public class TestElasticsearchIntegrationSmokeTest
         String mapping = "" +
                 "{" +
                 "  \"mappings\": {" +
-                "    \"doc\": {" +
+                "    \"_doc\": {" +
                 "      \"properties\": {" +
                 "        \"boolean_column\":   { \"type\": \"boolean\" }," +
                 "        \"float_column\":     { \"type\": \"float\" }," +
@@ -534,7 +536,7 @@ public class TestElasticsearchIntegrationSmokeTest
         String mapping = "" +
                 "{" +
                 "  \"mappings\": {" +
-                "    \"doc\": {" +
+                "    \"_doc\": {" +
                 "      \"properties\": {" +
                 "        \"field\": {" +
                 "          \"properties\": {" +
@@ -604,7 +606,7 @@ public class TestElasticsearchIntegrationSmokeTest
         String mapping = "" +
                 "{" +
                 "  \"mappings\": {" +
-                "    \"doc\": {" +
+                "    \"_doc\": {" +
                 "      \"properties\": {" +
                 "        \"nested_field\": {" +
                 "          \"type\":\"nested\"," +
@@ -752,9 +754,9 @@ public class TestElasticsearchIntegrationSmokeTest
     private void index(String index, Map<String, Object> document)
             throws IOException
     {
-        client.index(new IndexRequest(index, "doc")
+        client.index(new IndexRequest(index, "_doc")
                 .source(document)
-                .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE));
+                .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE), DEFAULT);
     }
 
     @Test
@@ -788,21 +790,26 @@ public class TestElasticsearchIntegrationSmokeTest
     private void addAlias(String index, String alias)
             throws IOException
     {
-        client.getLowLevelClient()
-                .performRequest("PUT", format("/%s/_alias/%s", index, alias));
+        performRequest("PUT", format("/%s/_alias/%s", index, alias), client);
     }
 
     private void removeAlias(String index, String alias)
             throws IOException
     {
-        client.getLowLevelClient()
-                .performRequest("DELETE", format("/%s/_alias/%s", index, alias));
+        performRequest("DELETE", format("/%s/_alias/%s", index, alias), client);
     }
 
     private void createIndex(String indexName, @Language("JSON") String mapping)
             throws IOException
     {
-        client.getLowLevelClient()
-                .performRequest("PUT", "/" + indexName, ImmutableMap.of(), new NStringEntity(mapping, ContentType.APPLICATION_JSON));
+        performRequest("PUT", "/" + indexName, ImmutableMap.of("include_type_name", "true"), new NStringEntity(mapping, ContentType.APPLICATION_JSON), client);
+    }
+
+    @Test
+    public void testEmptyIndexNoMappings()
+            throws IOException
+    {
+        performRequest("PUT", "/emptyindex", client);
+        assertQueryFails("SELECT * FROM emptyindex", "line 1:8: SELECT \\* not allowed from relation that has no columns");
     }
 }

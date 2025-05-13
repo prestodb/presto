@@ -1,0 +1,21 @@
+{
+  "ntile": [
+    {
+      "docString": "presto.default.ntile",
+      "functionKind": "WINDOW",
+      "longVariableConstraints":[],
+      "outputType": "bigint",
+      "paramTypes": [
+        "bigint"
+      ],
+      "routineCharacteristics": {
+        "determinism": "DETERMINISTIC",
+        "language": "CPP",
+        "nullCallClause": "CALLED_ON_NULL_INPUT"
+      },
+      "schema": "default",
+      "typeVariableConstraints":[],
+      "variableArity":false
+    }
+  ]
+}

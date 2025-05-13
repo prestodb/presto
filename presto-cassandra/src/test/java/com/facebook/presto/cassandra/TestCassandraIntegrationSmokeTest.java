@@ -21,7 +21,7 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
-import org.testng.annotations.BeforeClass;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.math.BigInteger;
@@ -59,7 +59,6 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
 
-@Test(singleThreaded = true)
 public class TestCassandraIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
@@ -69,13 +68,13 @@ public class TestCassandraIntegrationSmokeTest
     private static final Timestamp DATE_TIME_LOCAL = Timestamp.valueOf(LocalDateTime.of(1970, 1, 1, 3, 4, 5, 0));
     private static final LocalDateTime TIMESTAMP_LOCAL = LocalDateTime.of(1969, 12, 31, 23, 4, 5); // TODO #7122 should match DATE_TIME_LOCAL
 
+    private CassandraServer server;
     private CassandraSession session;
 
-    @BeforeClass
-    public void setUp()
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
     {
-        session = EmbeddedCassandra.getSession();
-        createTestTables(session, KEYSPACE, DATE_TIME_LOCAL);
+        server.close();
     }
 
     @Override
@@ -94,7 +93,11 @@ public class TestCassandraIntegrationSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createCassandraQueryRunner();
+        CassandraServer server = new CassandraServer();
+        this.server = server;
+        this.session = server.getSession();
+        createTestTables(session, KEYSPACE, DATE_TIME_LOCAL);
+        return createCassandraQueryRunner(server);
     }
 
     @Test
@@ -344,6 +347,7 @@ public class TestCassandraIntegrationSmokeTest
 
     @Test
     public void testTableNameAmbiguity()
+            throws Exception
     {
         session.execute("CREATE KEYSPACE keyspace_4 WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
         assertContainsEventually(() -> execute("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
@@ -354,6 +358,9 @@ public class TestCassandraIntegrationSmokeTest
         // that have differences only in letters case.
         session.execute("CREATE TABLE keyspace_4.\"TaBlE_4\" (column_4 bigint PRIMARY KEY)");
         session.execute("CREATE TABLE keyspace_4.\"tAbLe_4\" (column_4 bigint PRIMARY KEY)");
+
+        // This is added for Cassandra to refresh its metadata so that we don't encounter a race condition in the forthcoming steps and achieve eventual consistency.
+        Thread.sleep(1000);
 
         // Although in Presto all the schema and table names are always displayed as lowercase
         assertContainsEventually(() -> execute("SHOW TABLES FROM cassandra.keyspace_4"), resultBuilder(getSession(), createUnboundedVarcharType())

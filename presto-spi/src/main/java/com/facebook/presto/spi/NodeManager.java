@@ -25,6 +25,8 @@ public interface NodeManager
 
     Node getCurrentNode();
 
+    Node getSidecarNode();
+
     String getEnvironment();
 
     default Set<Node> getRequiredWorkerNodes()

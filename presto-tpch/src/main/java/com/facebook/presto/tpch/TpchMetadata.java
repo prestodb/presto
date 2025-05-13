@@ -76,6 +76,7 @@ import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
+import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel.HIGH;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.facebook.presto.tpch.util.PredicateUtils.convertToPredicate;
 import static com.facebook.presto.tpch.util.PredicateUtils.filterOutColumnFromPredicate;
@@ -288,9 +289,17 @@ public class TpchMetadata
     {
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
         for (TpchColumn<? extends TpchEntity> column : tpchTable.getColumns()) {
-            columns.add(new ColumnMetadata(columnNaming.getName(column), getPrestoType(column), false, null, null, false, emptyMap()));
+            columns.add(ColumnMetadata.builder()
+                    .setName(columnNaming.getName(column))
+                    .setType(getPrestoType(column))
+                    .setNullable(false)
+                    .build());
         }
-        columns.add(new ColumnMetadata(ROW_NUMBER_COLUMN_NAME, BIGINT, null, true));
+        columns.add(ColumnMetadata.builder()
+                .setName(ROW_NUMBER_COLUMN_NAME)
+                .setType(BIGINT)
+                .setHidden(true)
+                .build());
 
         SchemaTableName tableName = new SchemaTableName(schemaName, tpchTable.getTableName());
         return new ConnectorTableMetadata(tableName, columns.build());
@@ -392,7 +401,7 @@ public class TpchMetadata
                 builder.setColumnStatistics(columnHandle, toColumnStatistics(stats, columnHandle.getType()));
             }
         });
-        return builder.build();
+        return builder.setConfidenceLevel(HIGH).build();
     }
 
     private ColumnStatistics toColumnStatistics(ColumnStatisticsData stats, Type columnType)
@@ -488,7 +497,7 @@ public class TpchMetadata
                     return entry.getValue().stream()
                             .map(nullableValue -> Domain.singleValue(type, nullableValue.getValue()))
                             .reduce((Domain::union))
-                            .orElse(Domain.none(type));
+                            .orElseGet(() -> Domain.none(type));
                 })));
     }
 

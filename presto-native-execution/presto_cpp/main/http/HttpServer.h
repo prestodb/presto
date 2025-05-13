@@ -42,6 +42,11 @@ void sendErrorResponse(
     const std::string& error = "",
     uint16_t status = http::kHttpInternalServerError);
 
+void sendResponse(
+    proxygen::ResponseHandler* downstream,
+    const json& body,
+    uint16_t status);
+
 class AbstractRequestHandler : public proxygen::RequestHandler {
  public:
   void onRequest(

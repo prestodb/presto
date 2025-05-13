@@ -19,52 +19,67 @@ import java.net.URI;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Collections.nCopies;
 
-// As the weighted round-robin scheduler, similar to the normal round-robin method,
-// keeps the selected index as a state for scheduling, the candidates and weights
-// shall not be modified after they are assigned.
-// This design indicates that the weighted round-robin scheduler can only be used
-// when the candidates and weights are always consistent. Otherwise, users need to
-// create a new scheduler object to pick up the change.
+/**
+* As the weighted round-robin scheduler, similar to the normal round-robin method,
+* keeps the selected index as a state for scheduling, the candidates and weights
+* shall not be modified after they are assigned.
+* This design indicates that the weighted round-robin scheduler can only be used
+* when the candidates and weights are always consistent. Otherwise, users need to
+* create a new scheduler object to pick up the change.
+ */
 public class WeightedRoundRobinScheduler
         implements Scheduler
 {
     private List<URI> candidates;
-    private HashMap<URI, Integer> weights;
+    private Map<URI, Integer> weights;
     private List<URI> serverList;
 
-    private static Integer serverIndex = 0;
+    private final Map<String, Integer> candidateIndexByGroup = new HashMap<>();
+    private String candidateGroupName;
     private static final Logger log = Logger.get(WeightedRoundRobinScheduler.class);
 
     @Override
     public Optional<URI> getDestination(String user)
     {
+        int serverIndex = 0;
+
         checkArgument(candidates.size() == weights.size());
 
-        if (serverList == null) {
+        if (serverList == null || weights.values().stream().mapToInt(Integer::intValue).sum() != serverList.size()) {
             this.generateServerList();
         }
 
-        synchronized (serverIndex) {
-            if (serverIndex >= serverList.size()) {
-                serverIndex = 0;
-            }
-            return Optional.of(serverList.get(serverIndex++));
+        if (!candidateIndexByGroup.containsKey(candidateGroupName)) {
+            candidateIndexByGroup.put(candidateGroupName, 0);
         }
+        else {
+            serverIndex = candidateIndexByGroup.get(candidateGroupName) + 1;
+        }
+        if (serverIndex >= serverList.size()) {
+            serverIndex = 0;
+        }
+        candidateIndexByGroup.put(candidateGroupName, serverIndex);
+
+        //If server list is empty (servers got filtered out due to 0 weight)
+        //select the first candidate from candidate list
+        if (serverList.isEmpty() && !candidates.isEmpty()) {
+            return Optional.of(candidates.get(0));
+        }
+
+        return Optional.of(serverList.get(serverIndex));
     }
 
+    @Override
     public void setCandidates(List<URI> candidates)
     {
-        // Only keeps the first given `candidates` due to maintaining the
-        // selected index for weighted round-robin.
-        if (this.candidates == null) {
-            this.candidates = candidates;
-        }
+        this.candidates = candidates;
     }
 
     public List<URI> getCandidates()
@@ -72,7 +87,8 @@ public class WeightedRoundRobinScheduler
         return candidates;
     }
 
-    public void setWeights(HashMap<URI, Integer> weights)
+    @Override
+    public void setWeights(Map<URI, Integer> weights)
     {
         // Only keeps the first given `weights` due to maintaining the
         // selected index for weighted round-robin.
@@ -81,18 +97,24 @@ public class WeightedRoundRobinScheduler
         }
     }
 
-    public HashMap<URI, Integer> getWeights()
+    public Map<URI, Integer> getWeights()
     {
         return weights;
     }
 
     private void generateServerList()
     {
-        checkArgument(candidates.size() > 0, "Server candidates should not be empty");
+        checkArgument(!candidates.isEmpty(), "Server candidates should not be empty");
 
         serverList = weights.keySet().stream()
                 .map(uri -> nCopies(weights.get(uri), uri))
                 .flatMap(Collection::stream)
                 .collect(toImmutableList());
+    }
+
+    @Override
+    public void setCandidateGroupName(String candidateGroupName)
+    {
+        this.candidateGroupName = candidateGroupName;
     }
 }

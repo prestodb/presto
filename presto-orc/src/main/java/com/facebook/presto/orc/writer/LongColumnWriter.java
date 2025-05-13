@@ -15,6 +15,7 @@ package com.facebook.presto.orc.writer;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.FixedWidthType;
+import com.facebook.presto.common.type.TimeType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.ColumnWriterOptions;
 import com.facebook.presto.orc.DwrfDataEncryptor;
@@ -43,6 +44,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.LongFunction;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
@@ -69,6 +71,7 @@ public class LongColumnWriter
 
     private final List<ColumnStatistics> rowGroupColumnStatistics = new ArrayList<>();
     private final CompressedMetadataWriter metadataWriter;
+    private final LongFunction<Long> convertUnits;
     private long columnStatisticsRetainedSizeInBytes;
     private PresentOutputStream presentStream;
 
@@ -111,6 +114,13 @@ public class LongColumnWriter
         this.metadataWriter = new CompressedMetadataWriter(metadataWriter, columnWriterOptions, dwrfEncryptor);
         this.statisticsBuilderSupplier = requireNonNull(statisticsBuilderSupplier, "statisticsBuilderSupplier is null");
         this.statisticsBuilder = statisticsBuilderSupplier.get();
+
+        if (this.type instanceof TimeType) {
+            this.convertUnits = longValue -> Math.multiplyExact(longValue, 1000L);
+        }
+        else {
+            this.convertUnits = longValue -> longValue;
+        }
     }
 
     @Override
@@ -138,6 +148,11 @@ public class LongColumnWriter
         presentStream = updatedPresentStream;
     }
 
+    void updateRawSize(long rawSize)
+    {
+        statisticsBuilder.incrementRawSize(rawSize);
+    }
+
     @Override
     public long writeBlock(Block block)
     {
@@ -153,7 +168,7 @@ public class LongColumnWriter
         int nonNullValueCount = 0;
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (!block.isNull(position)) {
-                long value = type.getLong(block, position);
+                long value = this.convertUnits.apply(type.getLong(block, position));
                 writeValue(value);
                 nonNullValueCount++;
             }

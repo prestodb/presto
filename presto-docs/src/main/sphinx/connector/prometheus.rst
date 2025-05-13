@@ -25,6 +25,10 @@ replacing the properties as appropriate:
     prometheus.max-query-duration=1h
     prometheus.cache-ttl=30s
     prometheus.bearer-token-file=/path/to/bearer/token/file
+    prometheus.tls.enabled=true
+    prometheus.tls.truststore-path=/path/to/truststore
+    prometheus.tls.truststore-password=truststorePassword
+    verify-host-name=true
 
 Configuration Properties
 ------------------------
@@ -39,6 +43,10 @@ Property Name                                   Description
 ``prometheus.max-query-duration``        Width of overall query to Prometheus, will be divided into query-chunk-duration queries
 ``prometheus.cache-ttl``                 How long the config values are cached
 ``prometheus.bearer-token-file``         File holding bearer token for access to Prometheus
+``prometheus.tls.enabled``               Enable or disable TLS for securing communication with Prometheus
+``prometheus.tls.truststore-path``       Path to the trust store containing the SSL certificates
+``prometheus.tls.truststore-password``   Password to access the trust store for TLS verification
+``verify-host-name``                     Enable or disable hostname verification in the SSL certificate
 ======================================== ============================================================================================
 
 Not Exhausting Your Presto Available Heap

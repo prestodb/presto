@@ -47,11 +47,15 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
+import it.unimi.dsi.fastutil.ints.Int2LongMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -85,6 +89,7 @@ import static com.facebook.presto.orc.metadata.DwrfMetadataWriter.toStripeEncryp
 import static com.facebook.presto.orc.metadata.OrcType.createNodeIdToColumnMap;
 import static com.facebook.presto.orc.metadata.OrcType.mapColumnToNode;
 import static com.facebook.presto.orc.metadata.PostScript.MAGIC;
+import static com.facebook.presto.orc.metadata.statistics.ColumnStatistics.mergeColumnStatistics;
 import static com.facebook.presto.orc.writer.ColumnWriters.createColumnWriter;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -151,6 +156,7 @@ public class OrcWriter
     private long rawSize;
     private List<ColumnStatistics> unencryptedStats;
     private final Map<Integer, Integer> nodeIdToColumn;
+    private final StreamSizeHelper streamSizeHelper;
 
     public OrcWriter(
             DataSink dataSink,
@@ -218,6 +224,8 @@ public class OrcWriter
                 .setCompressionKind(compressionKind)
                 .setCompressionLevel(options.getCompressionLevel())
                 .setCompressionMaxBufferSize(options.getMaxCompressionBufferSize())
+                .setMinOutputBufferChunkSize(options.getMinOutputBufferChunkSize())
+                .setMaxOutputBufferChunkSize(options.getMaxOutputBufferChunkSize())
                 .setStringStatisticsLimit(options.getMaxStringStatisticsLimit())
                 .setIntegerDictionaryEncodingEnabled(options.isIntegerDictionaryEncodingEnabled())
                 .setStringDictionarySortingEnabled(options.isStringDictionarySortingEnabled())
@@ -246,6 +254,7 @@ public class OrcWriter
         this.metadataWriter = new CompressedMetadataWriter(orcEncoding.createMetadataWriter(), columnWriterOptions, Optional.empty());
         this.hiveStorageTimeZone = requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
         this.stats = requireNonNull(stats, "stats is null");
+        this.streamSizeHelper = new StreamSizeHelper(orcTypes, columnWriterOptions.getFlattenedNodes(), columnWriterOptions.isMapStatisticsEnabled());
 
         recordValidation(validation -> validation.setColumnNames(columnNames));
 
@@ -533,19 +542,20 @@ public class OrcWriter
             return ImmutableList.of();
         }
 
-        List<DataOutput> outputData = new ArrayList<>();
         List<Stream> unencryptedStreams = new ArrayList<>(columnWriters.size() * 3);
         Multimap<Integer, Stream> encryptedStreams = ArrayListMultimap.create();
+        List<StreamDataOutput> indexStreams = new ArrayList<>(columnWriters.size());
 
         // get index streams
         long indexLength = 0;
         long offset = 0;
         int previousEncryptionGroup = -1;
         for (ColumnWriter columnWriter : columnWriters) {
-            for (StreamDataOutput indexStream : columnWriter.getIndexStreams(Optional.empty())) {
+            List<StreamDataOutput> streams = columnWriter.getIndexStreams(Optional.empty());
+            indexStreams.addAll(streams);
+            for (StreamDataOutput indexStream : streams) {
                 // The ordering is critical because the stream only contain a length with no offset.
                 // if the previous stream was part of a different encryption group, need to specify an offset so we know the column order
-                outputData.add(indexStream);
                 Optional<Integer> encryptionGroup = dwrfEncryptionInfo.getGroupByNodeId(indexStream.getStream().getColumn());
                 if (encryptionGroup.isPresent()) {
                     Stream stream = previousEncryptionGroup == encryptionGroup.get() ? indexStream.getStream() : indexStream.getStream().withOffset(offset);
@@ -563,7 +573,7 @@ public class OrcWriter
         }
 
         if (dwrfStripeCacheWriter.isPresent()) {
-            dwrfStripeCacheWriter.get().addIndexStreams(ImmutableList.copyOf(outputData), indexLength);
+            dwrfStripeCacheWriter.get().addIndexStreams(ImmutableList.copyOf(indexStreams), indexLength);
         }
 
         // data streams (sorted by size)
@@ -576,17 +586,20 @@ public class OrcWriter
                     .mapToLong(StreamDataOutput::size)
                     .sum();
         }
+
         ImmutableMap.Builder<Integer, ColumnEncoding> columnEncodingsBuilder = ImmutableMap.builder();
         columnEncodingsBuilder.put(0, new ColumnEncoding(DIRECT, 0));
         columnWriters.forEach(columnWriter -> columnEncodingsBuilder.putAll(columnWriter.getColumnEncodings()));
         Map<Integer, ColumnEncoding> columnEncodings = columnEncodingsBuilder.build();
+
+        // reorder data streams
         streamLayout.reorder(dataStreams, nodeIdToColumn, columnEncodings);
+        streamSizeHelper.collectStreamSizes(Iterables.concat(indexStreams, dataStreams), columnEncodings);
 
         // add data streams
         for (StreamDataOutput dataStream : dataStreams) {
             // The ordering is critical because the stream only contains a length with no offset.
             // if the previous stream was part of a different encryption group, need to specify an offset so we know the column order
-            outputData.add(dataStream);
             Optional<Integer> encryptionGroup = dwrfEncryptionInfo.getGroupByNodeId(dataStream.getStream().getColumn());
             if (encryptionGroup.isPresent()) {
                 Stream stream = previousEncryptionGroup == encryptionGroup.get() ? dataStream.getStream() : dataStream.getStream().withOffset(offset);
@@ -605,7 +618,7 @@ public class OrcWriter
         columnWriters.forEach(columnWriter -> columnStatistics.putAll(columnWriter.getColumnStripeStatistics()));
 
         // the 0th column is a struct column for the whole row
-        columnStatistics.put(0, new ColumnStatistics((long) stripeRowCount, null));
+        columnStatistics.put(0, new ColumnStatistics((long) stripeRowCount, null, stripeRawSize, null));
 
         Map<Integer, ColumnEncoding> unencryptedColumnEncodings = columnEncodings.entrySet().stream()
                 .filter(entry -> !dwrfEncryptionInfo.getGroupByNodeId(entry.getKey()).isPresent())
@@ -618,7 +631,7 @@ public class OrcWriter
 
         StripeFooter stripeFooter = new StripeFooter(unencryptedStreams, unencryptedColumnEncodings, encryptedGroups);
         Slice footer = metadataWriter.writeStripeFooter(stripeFooter);
-        outputData.add(createDataOutput(footer));
+        DataOutput footerDataOutput = createDataOutput(footer);
         dwrfStripeCacheWriter.ifPresent(stripeCacheWriter -> stripeCacheWriter.addStripeFooter(createDataOutput(footer)));
 
         // create final stripe statistics
@@ -640,7 +653,11 @@ public class OrcWriter
                 dictionaryCompressionOptimizer.getDictionaryMemoryBytes(),
                 stripeInformation);
 
-        return outputData;
+        return ImmutableList.<DataOutput>builder()
+                .addAll(indexStreams)
+                .addAll(dataStreams)
+                .add(footerDataOutput)
+                .build();
     }
 
     private List<Slice> createEncryptedGroups(Multimap<Integer, Stream> encryptedStreams, Map<Integer, ColumnEncoding> encryptedColumnEncodings)
@@ -706,7 +723,9 @@ public class OrcWriter
                 closedStripes.stream()
                         .map(ClosedStripe::getStatistics)
                         .map(StripeStatistics::getColumnStatistics)
-                        .collect(toList()));
+                        .collect(toList()),
+                streamSizeHelper.getNodeSizes(),
+                streamSizeHelper.getMapKeySizes());
         recordValidation(validation -> validation.setFileStatistics(fileStats));
 
         Map<String, Slice> userMetadata = this.userMetadata.entrySet().stream()
@@ -790,7 +809,9 @@ public class OrcWriter
             nodeAndSubNodeStats.computeIfAbsent(group, x -> new ArrayList<>()).add(columnStatistics);
             unencryptedStats.add(new ColumnStatistics(
                     columnStatistics.getNumberOfValues(),
-                    null));
+                    null,
+                    columnStatistics.hasRawSize() ? columnStatistics.getRawSize() : null,
+                    columnStatistics.hasStorageSize() ? columnStatistics.getStorageSize() : null));
             for (Integer fieldIndex : orcTypes.get(index).getFieldTypeIndexes()) {
                 addStatsRecursive(allStats, fieldIndex, nodeAndSubNodeStats, unencryptedStats, encryptedStats);
             }
@@ -885,20 +906,25 @@ public class OrcWriter
         return denseList.build();
     }
 
-    private static List<ColumnStatistics> toFileStats(List<List<ColumnStatistics>> stripes)
+    private static List<ColumnStatistics> toFileStats(List<List<ColumnStatistics>> stripes, Int2LongMap nodeSizes, Int2ObjectMap<Object2LongMap<DwrfProto.KeyInfo>> mapKeySizes)
     {
         if (stripes.isEmpty()) {
             return ImmutableList.of();
         }
+
         int columnCount = stripes.get(0).size();
         checkArgument(stripes.stream().allMatch(stripe -> columnCount == stripe.size()));
 
         ImmutableList.Builder<ColumnStatistics> fileStats = ImmutableList.builder();
         for (int i = 0; i < columnCount; i++) {
             int column = i;
-            fileStats.add(ColumnStatistics.mergeColumnStatistics(stripes.stream()
+            List<ColumnStatistics> stripeColumnStats = stripes.stream()
                     .map(stripe -> stripe.get(column))
-                    .collect(toList())));
+                    .collect(toList());
+            long storageSize = nodeSizes.getOrDefault(column, 0L);
+            Object2LongMap<DwrfProto.KeyInfo> keySizes = mapKeySizes.get(column);
+            ColumnStatistics columnStats = mergeColumnStatistics(stripeColumnStats, storageSize, keySizes);
+            fileStats.add(columnStats);
         }
         return fileStats.build();
     }

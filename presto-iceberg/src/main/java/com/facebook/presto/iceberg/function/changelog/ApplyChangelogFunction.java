@@ -16,6 +16,7 @@ package com.facebook.presto.iceberg.function.changelog;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.iceberg.changelog.ChangelogOperation;
 import com.facebook.presto.spi.function.AggregationFunction;
 import com.facebook.presto.spi.function.AggregationState;
 import com.facebook.presto.spi.function.BlockIndex;
@@ -26,10 +27,10 @@ import com.facebook.presto.spi.function.OutputFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import io.airlift.slice.Slice;
-import org.apache.iceberg.ChangelogOperation;
 
 import java.util.Optional;
 
+import static com.facebook.presto.iceberg.changelog.ChangelogOperation.DELETE;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
 
 @AggregationFunction(value = "apply_changelog", visibility = HIDDEN)
@@ -86,7 +87,7 @@ public class ApplyChangelogFunction
             return;
         }
 
-        if (ChangelogOperation.valueOf(record.get().getLastOperation().toStringUtf8().toUpperCase()).equals(ChangelogOperation.DELETE)) {
+        if (ChangelogOperation.valueOf(record.get().getLastOperation().toStringUtf8().toUpperCase()).equals(DELETE)) {
             out.appendNull();
         }
         else {

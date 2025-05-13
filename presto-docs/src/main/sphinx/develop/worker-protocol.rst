@@ -56,11 +56,16 @@ results or by a downstream worker to fetch intermediate results from the
 upstream worker.
 
 * A ``GET`` on ``{taskId}/results/{bufferId}/{token}`` returns the next batch
-  of results from the specified output buffer.
+  of results from the specified output buffer. Acknowledges the receipt of the
+  previous batch.
 * A ``GET`` on ``{taskId}/results/{bufferId}/{token}/acknowledge`` acknowledges
   the receipt of the results and allows the worker to delete them.
 * A ``DELETE`` on ``{taskId}/results/{bufferId}`` deletes all results from the
   specified output buffer in case of an error.
+* Optionally, a ``HEAD`` request can be made to ``{taskId}/results/{bufferId}``
+  to retrieve any non-data page sequence related headers.  Use this to check if
+  the buffer is finished, or to see how much data is buffered without fetching
+  the data. Acknowledges the receipt of the previous batch of results.
 
 Coordinator and workers fetch results in chunks. They specify the maximum size
 in bytes for the chunk using ``X-Presto-Max-Size`` HTTP header. Each chunk is
@@ -72,16 +77,24 @@ response includes:
 * The sequence number to use to acknowledge the receipt of the chunk and to
   request the next chunk as ``X-Presto-Page-End-Sequence-Id`` HTTP header,
 * An indication that there are no more results as ``X-Presto-Buffer-Complete``
-  HTTP header with the value of "true".
+  HTTP header with the value of ``true``.
+* The remaining buffered bytes in the output buffer as ``X-Presto-Buffer-Remaining-Bytes``
+  HTTP header.  This should return a comma separated list of the size in bytes of
+  the pages that can be returned in the next request.  This can be used as a hint
+  to upstream tasks to optimize data exchange.
 
 The body of the response contains a list of pages in :doc:`SerializedPage wire format <serialized-page>`.
 
-After receiving the first chunk of results, the client sends an ack via a GET
-on ``{taskId}/results/{bufferId}/{token}/acknowledge`` with the token set to
-the value of the ``X-Presto-Page-End-Sequence-Id`` HTTP header received earlier
-along with the results. Then, the client uses that sequence number to request
-the next chunk of results. The client keeps fetching results until it receives
-``X-Presto-Buffer-Complete`` HTTP header with the value of "true".
+After receiving the first chunk of results, the client uses the
+``X-Presto-Page-End-Sequence-Id`` sequence number to request the next chunk of results.
+Requesting the next chunk automatically acknowledges reception of the previous chunk.
+The client keeps fetching results until it receives ``X-Presto-Buffer-Complete`` HTTP header
+with the value of ``true``.
+
+When a client decides not to fetch the next chunk of data right away, it sends an
+explicit ack using a GET on ``{taskId}/results/{bufferId}/{token}/acknowledge``. The client
+sets the token to the value of the ``X-Presto-Page-End-Sequence-Id`` header
+received earlier.
 
 If the worker times out populating a response, or the task has already failed
 or been aborted, the worker will return empty results. The client can attempt
@@ -117,3 +130,72 @@ upstream workers using buffer number 2.
 
 .. image:: worker-protocol-output-buffers.png
   :width: 600
+
+Failure Handling
+~~~~~~~~~~~~~~~~
+
+Task failures are reported to the coordinator via ``TaskStatus`` and ``TaskInfo``
+updates.
+
+When a task failure is discovered, the coordinator aborts all remaining tasks and
+reports a query failure to the client. When a task failure occurs or an abort
+request is received, all further processing stops, and all remaining task output
+is discarded.
+
+Failed or aborted tasks continue responding to data plane requests as usual to
+prevent cascading failures. Because the output is fully discarded upon failure, all
+following responses are empty. The ``X-Presto-Buffer-Complete`` header is set to
+``false`` to prevent downstream tasks from finishing successfully and producing
+incorrect results.
+
+To the client, these responses are indistinguishable from those of healthy tasks.
+To avoid request bursts, a standard delay before responding with an empty result
+set is applied.
+
+Diagnosing Issues
+~~~~~~~~~~~~~~~~~
+
+HTTP request logging can help to diagnose protocol related problems.
+
+Request logging can be enabled through the ``config.properties`` file.
+
+In Presto:
+
+.. code-block:: none
+
+    http-server.log.enabled=true
+    http-server.log.path=<request_log_file_path>
+
+
+In Prestissimo (logs are written to standard log):
+
+.. code-block:: none
+
+    http-server.enable-access-log=true
+
+Use grep to follow a certain protocol interaction.
+
+An Exchange:
+
+.. code-block:: none
+
+    cat stderr* | grep '/v1/task/20240402_223203_00000_kg5tr.11.0.455.0/results'
+    I0402 15:33:06.928076   625 AccessLogFilter.cpp:69] 2401:db00:126c:f2f:face:0:3e1:0 - - [2024-04-02 15:33:06] "GET /v1/task/20240402_223203_00000_kg5tr.11.0.455.0/results/213/0 HTTP/1.1" 200 0   57
+    I0402 15:33:07.181629   625 AccessLogFilter.cpp:69] 2401:db00:126c:f2f:face:0:3e1:0 - - [2024-04-02 15:33:07] "GET /v1/task/20240402_223203_00000_kg5tr.11.0.455.0/results/213/0 HTTP/1.1" 200 94024   0
+    I0402 15:33:25.392717   675 AccessLogFilter.cpp:69] 2401:db00:126c:f2f:face:0:3e1:0 - - [2024-04-02 15:33:25] "GET /v1/task/20240402_223203_00000_kg5tr.11.0.455.0/results/213/1 HTTP/1.1" 200 0   0
+    I0402 15:33:25.393162   675 AccessLogFilter.cpp:69] 2401:db00:126c:f2f:face:0:3e1:0 - - [2024-04-02 15:33:25] "DELETE /v1/task/20240402_223203_00000_kg5tr.11.0.455.0/results/213 HTTP/1.1" 200 0   0
+
+A ``TaskStatus`` update:
+
+.. code-block:: none
+
+    cat stderr* | grep '/v1/task/20240402_223203_00000_kg5tr.11.0.455.0/status'
+    I0402 15:33:34.629278   668 AccessLogFilter.cpp:69] 2401:db00:1210:4267:face:0:15:0 - - [2024-04-02 15:33:34] "GET /v1/task/20240402_223203_00000_kg5tr.11.0.455.0/status HTTP/1.1" 200 739   1000
+    I0402 15:33:35.636466   668 AccessLogFilter.cpp:69] 2401:db00:1210:4267:face:0:15:0 - - [2024-04-02 15:33:35] "GET /v1/task/20240402_223203_00000_kg5tr.11.0.455.0/status HTTP/1.1" 200 739   1000
+    I0402 15:33:36.644189   668 AccessLogFilter.cpp:69] 2401:db00:1210:4267:face:0:15:0 - - [2024-04-02 15:33:36] "GET /v1/task/20240402_223203_00000_kg5tr.11.0.455.0/status HTTP/1.1" 200 739   1000
+    I0402 15:33:36.768704   668 AccessLogFilter.cpp:69] 2401:db00:1210:4267:face:0:15:0 - - [2024-04-02 15:33:36] "GET /v1/task/20240402_223203_00000_kg5tr.11.0.455.0/status HTTP/1.1" 200 717   115
+
+
+The log records contain information such as response status, response size,
+and time to respond, which can help understand the interaction flow, including
+delays and timeouts, when examining them.

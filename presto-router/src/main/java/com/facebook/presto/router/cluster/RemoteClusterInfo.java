@@ -39,9 +39,9 @@ public class RemoteClusterInfo
     private final AtomicLong activeWorkers = new AtomicLong();
     private final AtomicLong runningDrivers = new AtomicLong();
 
-    public RemoteClusterInfo(HttpClient httpClient, URI remoteUri)
+    public RemoteClusterInfo(HttpClient httpClient, URI remoteUri, RemoteStateConfig remoteStateConfig)
     {
-        super(httpClient, remoteUri);
+        super(httpClient, remoteUri, remoteStateConfig);
     }
 
     @Override

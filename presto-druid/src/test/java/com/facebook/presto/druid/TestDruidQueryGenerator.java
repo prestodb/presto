@@ -39,16 +39,6 @@ public class TestDruidQueryGenerator
             Map<String, String> outputVariables)
     {
         PlanNode planNode = planBuilderConsumer.apply(createPlanBuilder(sessionHolder));
-        testDQL(givenDruidConfig, planNode, expectedDQL, sessionHolder, outputVariables);
-    }
-
-    private void testDQL(
-            DruidConfig givenDruidConfig,
-            PlanNode planNode,
-            String expectedDQL,
-            SessionHolder sessionHolder,
-            Map<String, String> outputVariables)
-    {
         DruidQueryGenerator.DruidQueryGeneratorResult druidQueryGeneratorResult = new DruidQueryGenerator(functionAndTypeManager, functionAndTypeManager, standardFunctionResolution).generate(planNode, sessionHolder.getConnectorSession()).get();
         if (expectedDQL.contains("__expressions__")) {
             String expressions = planNode.getOutputVariables().stream().map(v -> outputVariables.get(v.getName())).filter(v -> v != null).collect(Collectors.joining(", "));

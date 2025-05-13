@@ -36,9 +36,14 @@ class UnsafeRowExchangeSource : public velox::exec::ExchangeSource {
 
   folly::SemiFuture<Response> request(
       uint32_t maxBytes,
-      uint32_t maxWaitSeconds) override;
+      std::chrono::microseconds maxWait) override;
 
-  void close() override {}
+  folly::SemiFuture<Response> requestDataSizes(
+      std::chrono::microseconds maxWait) override;
+
+  void close() override {
+    shuffle_->noMoreData(true);
+  }
 
   folly::F14FastMap<std::string, int64_t> stats() const override;
 

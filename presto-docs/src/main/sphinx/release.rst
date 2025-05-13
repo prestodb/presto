@@ -5,11 +5,22 @@ Release Notes
 .. toctree::
     :maxdepth: 1
 
-    release/release-0.284
+    Release-0.292 [2025-03-28] <release/release-0.292>
+    Release-0.291 [2025-01-27] <release/release-0.291>
+    Release-0.290 [2024-11-01] <release/release-0.290>
+    Release-0.289 [2024-08-23] <release/release-0.289>
+    Release-0.288.1 [2024-08-12] <release/release-0.288.1>
+    Release-0.288 [2024-06-13] <release/release-0.288>
+    Release-0.287 [2024-04-16] <release/release-0.287>
+    Release-0.286 [2024-02-12] <release/release-0.286>
+    Release-0.285.1 [2023-12-30] <release/release-0.285.1>
+    Release-0.285 [2023-12-08] <release/release-0.285>
+    Release-0.284 [2023-10-11] <release/release-0.284>
     Release-0.283 [2023-08-08] <release/release-0.283>
     release/release-0.282
     release/release-0.281
     release/release-0.280
+    release/release-0.279.2
     release/release-0.279
     release/release-0.278.1
     release/release-0.278
@@ -54,6 +65,7 @@ Release Notes
     release/release-0.249.2
     release/release-0.249.1
     release/release-0.249
+    release/release-0.248.1
     release/release-0.248
     release/release-0.247
     release/release-0.246

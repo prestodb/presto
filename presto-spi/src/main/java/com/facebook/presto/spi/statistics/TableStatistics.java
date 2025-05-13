@@ -17,10 +17,13 @@ package com.facebook.presto.spi.statistics;
 import com.facebook.presto.spi.ColumnHandle;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 
+import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel;
+import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel.HIGH;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
@@ -32,13 +35,14 @@ public final class TableStatistics
     private final Estimate rowCount;
     private final Estimate totalSize;
     private final Map<ColumnHandle, ColumnStatistics> columnStatistics;
+    private ConfidenceLevel confidenceLevel;
 
     public static TableStatistics empty()
     {
         return EMPTY;
     }
 
-    private TableStatistics(Estimate rowCount, Estimate totalSize, Map<ColumnHandle, ColumnStatistics> columnStatistics)
+    private TableStatistics(Estimate rowCount, Estimate totalSize, Map<ColumnHandle, ColumnStatistics> columnStatistics, ConfidenceLevel confidenceLevel)
     {
         this.rowCount = requireNonNull(rowCount, "rowCount can not be null");
         if (!rowCount.isUnknown() && rowCount.getValue() < 0) {
@@ -49,6 +53,7 @@ public final class TableStatistics
             throw new IllegalArgumentException(format("totalSize must be greater than or equal to 0: %s", totalSize.getValue()));
         }
         this.columnStatistics = unmodifiableMap(requireNonNull(columnStatistics, "columnStatistics can not be null"));
+        this.confidenceLevel = confidenceLevel;
     }
 
     @JsonProperty
@@ -61,6 +66,12 @@ public final class TableStatistics
     public Estimate getTotalSize()
     {
         return totalSize;
+    }
+
+    @JsonProperty
+    public ConfidenceLevel getConfidence()
+    {
+        return confidenceLevel;
     }
 
     @JsonProperty
@@ -105,15 +116,36 @@ public final class TableStatistics
         return new Builder();
     }
 
+    public static Builder buildFrom(TableStatistics tableStatistics)
+    {
+        return new Builder()
+                .setRowCount(tableStatistics.getRowCount())
+                .setTotalSize(tableStatistics.getTotalSize())
+                .setConfidenceLevel(tableStatistics.getConfidence())
+                .setColumnStatistics(tableStatistics.getColumnStatistics());
+    }
+
     public static final class Builder
     {
         private Estimate rowCount = Estimate.unknown();
         private Estimate totalSize = Estimate.unknown();
         private Map<ColumnHandle, ColumnStatistics> columnStatisticsMap = new LinkedHashMap<>();
+        private ConfidenceLevel confidenceLevel = HIGH;
 
         public Builder setRowCount(Estimate rowCount)
         {
             this.rowCount = requireNonNull(rowCount, "rowCount can not be null");
+            return this;
+        }
+
+        public Estimate getRowCount()
+        {
+            return rowCount;
+        }
+
+        public Builder setConfidenceLevel(ConfidenceLevel confidenceLevel)
+        {
+            this.confidenceLevel = confidenceLevel;
             return this;
         }
 
@@ -131,9 +163,21 @@ public final class TableStatistics
             return this;
         }
 
+        public Builder setColumnStatistics(Map<ColumnHandle, ColumnStatistics> columnStatistics)
+        {
+            requireNonNull(columnStatistics, "columnStatistics can not be null");
+            this.columnStatisticsMap.putAll(columnStatistics);
+            return this;
+        }
+
+        public Map<ColumnHandle, ColumnStatistics> getColumnStatistics()
+        {
+            return Collections.unmodifiableMap(columnStatisticsMap);
+        }
+
         public TableStatistics build()
         {
-            return new TableStatistics(rowCount, totalSize, columnStatisticsMap);
+            return new TableStatistics(rowCount, totalSize, columnStatisticsMap, confidenceLevel);
         }
     }
 }

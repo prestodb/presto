@@ -156,7 +156,8 @@ public class TestOrcRecordReaderDwrfStripeCaching
                     false,
                     NO_ENCRYPTION,
                     DwrfKeyProvider.EMPTY,
-                    new RuntimeStats());
+                    new RuntimeStats(),
+                    orcFile.lastModified());
 
             assertRecordValues(orcDataSource, orcReader);
 
@@ -181,7 +182,8 @@ public class TestOrcRecordReaderDwrfStripeCaching
                     false,
                     NO_ENCRYPTION,
                     DwrfKeyProvider.EMPTY,
-                    new RuntimeStats());
+                    new RuntimeStats(),
+                    orcFile.lastModified());
 
             assertRecordValues(orcDataSource, orcReader);
         }

@@ -12,7 +12,7 @@ This release also includes several bug fixes and performance improvements.
 General Changes
 ---------------
 
-* New window functions: :func:`lead`, and :func:`lag`
+* New window functions: :func:`!lead`, and :func:`!lag`
 
-* New scalar function: :func:`json_size`
+* New scalar function: :func:`!json_size`
 

@@ -20,7 +20,10 @@ import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.server.BasicQueryInfo;
+import com.facebook.presto.spi.plan.PlanFragmentId;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.SelectedRole;
+import com.facebook.presto.sql.planner.planPrinter.JsonRenderer;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.TestingSession;
@@ -35,6 +38,7 @@ import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
@@ -48,8 +52,11 @@ import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static com.facebook.presto.SystemSessionProperties.REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN;
 import static com.facebook.presto.SystemSessionProperties.SHARDED_JOINS_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.VERBOSE_OPTIMIZER_INFO_ENABLED;
+import static com.facebook.presto.common.type.UuidType.UUID;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
+import static com.facebook.presto.spi.security.SelectedRole.Type.ROLE;
+import static com.facebook.presto.sql.tree.CreateView.Security.INVOKER;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.ADD_COLUMN;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_TABLE;
@@ -66,6 +73,7 @@ import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.QueryAssertions.assertContains;
+import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
@@ -82,6 +90,7 @@ import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
+@Test(singleThreaded = true)
 public abstract class AbstractTestDistributedQueries
         extends AbstractTestQueries
 {
@@ -238,6 +247,40 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
+    public void testNonAutoCommitTransactionWithFailAndRollback()
+    {
+        assertUpdate("create table test_non_autocommit_table(a int, b varchar)");
+        Session session = getQueryRunner().getDefaultSession();
+        String defaultCatalog = session.getCatalog().get();
+        transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
+                .execute(Session.builder(session)
+                                .setIdentity(new Identity("admin",
+                                        Optional.empty(),
+                                        ImmutableMap.of(defaultCatalog, new SelectedRole(ROLE, Optional.of("admin"))),
+                                        ImmutableMap.of(),
+                                        ImmutableMap.of(),
+                                        Optional.empty(),
+                                        Optional.empty()))
+                                .build(),
+                        txnSession -> {
+                            // simulate failure of SQL statement execution
+                            assertQueryFails(txnSession, "SELECT fail('forced failure')", "forced failure");
+
+                            // cannot execute any SQLs except `rollback` in current session
+                            assertQueryFails(txnSession, "select count(*) from test_non_autocommit_table", "Current transaction is aborted, commands ignored until end of transaction block");
+                            assertQueryFails(txnSession, "show tables", "Current transaction is aborted, commands ignored until end of transaction block");
+                            assertQueryFails(txnSession, "insert into test_non_autocommit_table values(1, '1001')", "Current transaction is aborted, commands ignored until end of transaction block");
+                            assertQueryFails(txnSession, "create table test_table(a int, b varchar)", "Current transaction is aborted, commands ignored until end of transaction block");
+
+                            // execute `rollback` successfully
+                            assertUpdate(txnSession, "rollback");
+                        });
+
+        assertQuery("select count(*) from test_non_autocommit_table", "values(0)");
+        assertUpdate("drop table if exists test_non_autocommit_table");
+    }
+
+    @Test
     public void testCreateTableAsSelect()
     {
         assertUpdate("CREATE TABLE IF NOT EXISTS test_ctas AS SELECT name, regionkey FROM nation", "SELECT count(*) FROM nation");
@@ -365,47 +408,37 @@ public abstract class AbstractTestDistributedQueries
         assertExplainAnalyze("EXPLAIN ANALYZE VERBOSE SELECT rank() OVER (PARTITION BY orderkey ORDER BY clerk DESC) FROM orders WHERE orderkey < 0");
     }
 
+    private static void assertJsonNodesHaveStats(JsonRenderer.JsonRenderedNode node)
+    {
+        assertTrue(node.getStats().isPresent());
+        node.getChildren().forEach(AbstractTestDistributedQueries::assertJsonNodesHaveStats);
+    }
+
+    @Test
+    public void testExplainAnalyzeFormatJson()
+    {
+        JsonRenderer renderer = new JsonRenderer(getQueryRunner().getMetadata().getFunctionAndTypeManager());
+        Map<PlanFragmentId, JsonRenderer.JsonPlan> fragments = renderer.deserialize((String) computeActual("EXPLAIN ANALYZE (format JSON) SELECT * FROM orders").getOnlyValue());
+        fragments.values().forEach(planFragment -> assertJsonNodesHaveStats(planFragment.getPlan()));
+        fragments = renderer.deserialize((String) computeActual("EXPLAIN ANALYZE (format JSON) SELECT rank() OVER (PARTITION BY orderkey ORDER BY clerk DESC) FROM orders").getOnlyValue());
+        fragments.values().forEach(planFragment -> assertJsonNodesHaveStats(planFragment.getPlan()));
+        fragments = renderer.deserialize((String) computeActual("EXPLAIN ANALYZE (format JSON) SELECT rank() OVER (PARTITION BY orderkey ORDER BY clerk DESC) FROM orders WHERE orderkey < 0").getOnlyValue());
+        fragments.values().forEach(planFragment -> assertJsonNodesHaveStats(planFragment.getPlan()));
+    }
+
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "EXPLAIN ANALYZE doesn't support statement type: DropTable")
     public void testExplainAnalyzeDDL()
     {
         computeActual("EXPLAIN ANALYZE DROP TABLE orders");
     }
 
-    private void assertExplainAnalyze(@Language("SQL") String query)
-    {
-        String value = (String) computeActual(query).getOnlyValue();
-
-        assertTrue(value.matches("(?s:.*)CPU:.*, Input:.*, Output(?s:.*)"), format("Expected output to contain \"CPU:.*, Input:.*, Output\", but it is %s", value));
-
-        // TODO: check that rendered plan is as expected, once stats are collected in a consistent way
-        // assertTrue(value.contains("Cost: "), format("Expected output to contain \"Cost: \", but it is %s", value));
-    }
-
-    protected void assertCreateTableAsSelect(String table, @Language("SQL") String query, @Language("SQL") String rowCountQuery)
-    {
-        assertCreateTableAsSelect(getSession(), table, query, query, rowCountQuery);
-    }
-
-    protected void assertCreateTableAsSelect(String table, @Language("SQL") String query, @Language("SQL") String expectedQuery, @Language("SQL") String rowCountQuery)
-    {
-        assertCreateTableAsSelect(getSession(), table, query, expectedQuery, rowCountQuery);
-    }
-
-    protected void assertCreateTableAsSelect(Session session, String table, @Language("SQL") String query, @Language("SQL") String expectedQuery, @Language("SQL") String rowCountQuery)
-    {
-        assertUpdate(session, "CREATE TABLE " + table + " AS " + query, rowCountQuery);
-        assertQuery(session, "SELECT * FROM " + table, expectedQuery);
-        assertUpdate(session, "DROP TABLE " + table);
-
-        assertFalse(getQueryRunner().tableExists(session, table));
-    }
-
-    // Flaky test: https://github.com/prestodb/presto/issues/20764
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Regexp matching interrupted", timeOut = 30_000, enabled = false)
+    @Test(expectedExceptions = RuntimeException.class,
+            expectedExceptionsMessageRegExp = "Regexp matching interrupted|The query optimizer exceeded the timeout of .*",
+            timeOut = 30_000)
     public void testRunawayRegexAnalyzerTimeout()
     {
         Session session = Session.builder(getSession())
-                .setSystemProperty(SystemSessionProperties.QUERY_ANALYZER_TIMEOUT, "1s")
+                .setSystemProperty(SystemSessionProperties.QUERY_ANALYZER_TIMEOUT, "5s")
                 .build();
 
         computeActual(session, "select REGEXP_EXTRACT('runaway_regex-is-evaluated-infinitely - xxx\"}', '.*runaway_(.*?)+-+xxx.*')");
@@ -973,10 +1006,11 @@ public abstract class AbstractTestDistributedQueries
 
         // test SHOW CREATE VIEW
         String expectedSql = formatSqlText(format(
-                "CREATE VIEW %s.%s.%s AS %s",
+                "CREATE VIEW %s.%s.%s SECURITY %s AS %s",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
                 "meta_test_view",
+                "DEFINER",
                 query)).trim();
 
         actual = computeActual("SHOW CREATE VIEW meta_test_view");
@@ -1120,6 +1154,48 @@ public abstract class AbstractTestDistributedQueries
             // There is no clean exception message for authorization failure.  We simply get a 403
             Assertions.assertContains(e.getMessage(), "statusCode=403");
         }
+    }
+
+    @Test
+    public void testViewAccessControlInvokerDefault()
+    {
+        skipTestUnless(supportsViews());
+
+        Session viewOwnerSession = TestingSession.testSessionBuilder()
+                .setIdentity(new Identity("test_view_access_owner", Optional.empty()))
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema(getSession().getSchema().get())
+                .setSystemProperty("default_view_security_mode", INVOKER.name())
+                .build();
+
+        assertAccessAllowed(
+                viewOwnerSession,
+                "CREATE VIEW test_view_access AS SELECT * FROM orders",
+                privilege("orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
+
+        assertAccessAllowed(
+                "SELECT * FROM test_view_access",
+                privilege(viewOwnerSession.getUser(), "orders", SELECT_COLUMN));
+
+        assertAccessDenied(
+                "SELECT * FROM test_view_access",
+                "Cannot select from columns.*",
+                privilege(getSession().getUser(), "orders", SELECT_COLUMN));
+
+        assertAccessAllowed(
+                viewOwnerSession,
+                "CREATE VIEW test_view_access1 SECURITY DEFINER AS SELECT * FROM orders",
+                privilege("orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
+
+        assertAccessAllowed(
+                "SELECT * FROM test_view_access1",
+                privilege(viewOwnerSession.getUser(), "orders", SELECT_COLUMN));
+
+        assertAccessAllowed(
+                "SELECT * FROM test_view_access1",
+                privilege(getSession().getUser(), "orders", SELECT_COLUMN));
+        assertAccessAllowed(viewOwnerSession, "DROP VIEW test_view_access");
+        assertAccessAllowed(viewOwnerSession, "DROP VIEW test_view_access1");
     }
 
     @Test
@@ -1406,8 +1482,8 @@ public abstract class AbstractTestDistributedQueries
         MaterializedResult materializedResult = computeActual(session, "explain " + query);
         String explain = (String) getOnlyElement(materializedResult.getOnlyColumnAsSet());
 
-        checkCTEInfo(explain, "tbl", 2, false);
-        checkCTEInfo(explain, "tbl2", 1, false);
+        checkCTEInfo(explain, "tbl", 2, false, false);
+        checkCTEInfo(explain, "tbl2", 1, false, false);
     }
 
     @Test
@@ -1423,13 +1499,13 @@ public abstract class AbstractTestDistributedQueries
         MaterializedResult resultExplainQuery = computeActual(session, "EXPLAIN with cte1 as (select * from v), v as (select 2 as x) select * from cte1, v, v");
         String explainString = (String) resultExplainQuery.getOnlyValue();
 
-        checkCTEInfo(explainString, "cte1", 1, false);
+        checkCTEInfo(explainString, "cte1", 1, false, false);
 
         // view "catalog.schema.v" is referenced once, and the cte "v" twice in the above query
-        checkCTEInfo(explainString, "v", 2, false);
+        checkCTEInfo(explainString, "v", 2, false, false);
 
         String viewName = format("%s.%s.v", getSession().getCatalog().get(), getSession().getSchema().get());
-        checkCTEInfo(explainString, viewName, 1, true);
+        checkCTEInfo(explainString, viewName, 1, true, false);
     }
 
     @Test
@@ -1456,11 +1532,11 @@ public abstract class AbstractTestDistributedQueries
         MaterializedResult resultExplainQuery = computeActual(sessionNoCatalog, sql);
         String explainString = (String) resultExplainQuery.getOnlyValue();
 
-        checkCTEInfo(explainString, "cte1", 1, false);
+        checkCTEInfo(explainString, "cte1", 1, false, false);
 
         // view "catalog.schema.v" is referenced once, and the cte "v" twice in the above query
-        checkCTEInfo(explainString, "v", 2, false);
-        checkCTEInfo(explainString, viewName, 1, true);
+        checkCTEInfo(explainString, "v", 2, false, false);
+        checkCTEInfo(explainString, viewName, 1, true, false);
     }
 
     @Test
@@ -1500,7 +1576,18 @@ public abstract class AbstractTestDistributedQueries
         }
     }
 
-    private void checkCTEInfo(String explain, String name, int frequency, boolean isView)
+    @Test
+    public void testSessionPropertyDecode()
+    {
+        assertQueryFails(
+                Session.builder(getSession())
+                        .setSystemProperty("task_writer_count", "abc" /*number is expected*/)
+                        .build(),
+                "SELECT 1",
+                ".*task_writer_count is invalid.*");
+    }
+
+    protected void checkCTEInfo(String explain, String name, int frequency, boolean isView, boolean isMaterialized)
     {
         String regex = "CTEInfo.*";
         Pattern pattern = Pattern.compile(regex);
@@ -1508,7 +1595,7 @@ public abstract class AbstractTestDistributedQueries
         assertTrue(matcher.find());
 
         String cteInfo = matcher.group();
-        assertTrue(cteInfo.contains(name + ": " + frequency + " (is_view: " + isView + ")"));
+        assertTrue(cteInfo.contains(name + ": " + frequency + " (is_view: " + isView + ")" + " (is_materialized: " + isMaterialized + ")"));
     }
 
     private String sanitizePlan(String explain)
@@ -1519,5 +1606,27 @@ public abstract class AbstractTestDistributedQueries
                 .replaceAll("sum_[0-9][0-9]", "sumXXX")
                 .replaceAll("\\[PlanNodeId (\\d+(?:,\\d+)*)\\]", "")
                 .replaceAll("Values => .*\n", "\n");
+    }
+
+    @Test
+    public void testViewWithUUID()
+    {
+        skipTestUnless(supportsViews());
+
+        @Language("SQL") String query = "SELECT * FROM (VALUES (CAST(0 AS INTEGER), NULL), (CAST(1 AS INTEGER), UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59')) AS t (rum, c1)";
+
+        // Create View with UUID type in Hive
+        assertQuerySucceeds("CREATE VIEW test_hive_view AS " + query);
+
+        // Select UUID from the view
+        MaterializedResult result = computeActual("SELECT c1 FROM test_hive_view WHERE rum = 1");
+
+        // Verify the result set is not empty
+        assertTrue(result.getMaterializedRows().size() > 0, "Result set is empty");
+        assertEquals(result.getTypes(), ImmutableList.of(UUID));
+        assertEquals(result.getOnlyValue(), "12151fd2-7586-11e9-8f9e-2a86e4085a59");
+
+        // Drop the view after the test
+        assertQuerySucceeds("DROP VIEW test_hive_view");
     }
 }

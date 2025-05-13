@@ -12,39 +12,12 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/types/PrestoToVeloxSplit.h"
-#include <optional>
-#include "velox/connectors/hive/HiveConnectorSplit.h"
-#include "velox/connectors/tpch/TpchConnectorSplit.h"
+#include "presto_cpp/main/connectors/PrestoToVeloxConnector.h"
 #include "velox/exec/Exchange.h"
 
 using namespace facebook::velox;
 
 namespace facebook::presto {
-
-namespace {
-
-dwio::common::FileFormat toVeloxFileFormat(
-    const presto::protocol::StorageFormat& format) {
-  if (format.inputFormat == "com.facebook.hive.orc.OrcInputFormat") {
-    return dwio::common::FileFormat::DWRF;
-  } else if (
-      format.inputFormat ==
-      "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat") {
-    return dwio::common::FileFormat::PARQUET;
-  } else if (format.inputFormat == "org.apache.hadoop.mapred.TextInputFormat") {
-    if (format.serDe == "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe") {
-      return dwio::common::FileFormat::TEXT;
-    } else if (format.serDe == "org.apache.hive.hcatalog.data.JsonSerDe") {
-      return dwio::common::FileFormat::JSON;
-    }
-  } else if (format.inputFormat == "com.facebook.alpha.AlphaInputFormat") {
-    return dwio::common::FileFormat::ALPHA;
-  }
-  VELOX_UNSUPPORTED(
-      "Unsupported file format: {} {}", format.inputFormat, format.serDe);
-}
-
-} // anonymous namespace
 
 velox::exec::Split toVeloxSplit(
     const presto::protocol::ScheduledSplit& scheduledSplit) {
@@ -52,45 +25,6 @@ velox::exec::Split toVeloxSplit(
   const auto splitGroupId = scheduledSplit.split.lifespan.isgroup
       ? scheduledSplit.split.lifespan.groupid
       : -1;
-  if (auto hiveSplit = std::dynamic_pointer_cast<const protocol::HiveSplit>(
-          connectorSplit)) {
-    std::unordered_map<std::string, std::optional<std::string>> partitionKeys;
-    for (const auto& entry : hiveSplit->partitionKeys) {
-      partitionKeys.emplace(
-          entry.name,
-          entry.value == nullptr ? std::nullopt
-                                 : std::optional<std::string>{*entry.value});
-    }
-    std::unordered_map<std::string, std::string> customSplitInfo;
-    for (const auto& [key, value] : hiveSplit->fileSplit.customSplitInfo) {
-      customSplitInfo[key] = value;
-    }
-    std::shared_ptr<std::string> extraFileInfo;
-    if (hiveSplit->fileSplit.extraFileInfo) {
-      extraFileInfo = std::make_shared<std::string>(
-          velox::encoding::Base64::decode(*hiveSplit->fileSplit.extraFileInfo));
-    }
-    std::unordered_map<std::string, std::string> serdeParameters;
-    serdeParameters.reserve(hiveSplit->storage.serdeParameters.size());
-    for (const auto& [key, value] : hiveSplit->storage.serdeParameters) {
-      serdeParameters[key] = value;
-    }
-    return velox::exec::Split(
-        std::make_shared<connector::hive::HiveConnectorSplit>(
-            scheduledSplit.split.connectorId,
-            hiveSplit->fileSplit.path,
-            toVeloxFileFormat(hiveSplit->storage.storageFormat),
-            hiveSplit->fileSplit.start,
-            hiveSplit->fileSplit.length,
-            partitionKeys,
-            hiveSplit->tableBucketNumber
-                ? std::optional<int>(*hiveSplit->tableBucketNumber)
-                : std::nullopt,
-            customSplitInfo,
-            extraFileInfo,
-            serdeParameters),
-        splitGroupId);
-  }
   if (auto remoteSplit = std::dynamic_pointer_cast<const protocol::RemoteSplit>(
           connectorSplit)) {
     return velox::exec::Split(
@@ -98,21 +32,18 @@ velox::exec::Split toVeloxSplit(
             remoteSplit->location.location),
         splitGroupId);
   }
-  if (auto tpchSplit = std::dynamic_pointer_cast<const protocol::TpchSplit>(
-          connectorSplit)) {
-    return velox::exec::Split(
-        std::make_shared<connector::tpch::TpchConnectorSplit>(
-            scheduledSplit.split.connectorId,
-            tpchSplit->totalParts,
-            tpchSplit->partNumber),
-        splitGroupId);
-  }
+
   if (std::dynamic_pointer_cast<const protocol::EmptySplit>(connectorSplit)) {
     // We return NULL for empty splits to signal to do nothing.
     return velox::exec::Split(nullptr, splitGroupId);
   }
 
-  VELOX_CHECK(false, "Unknown split type {}", connectorSplit->_type);
+  auto& connector = getPrestoToVeloxConnector(connectorSplit->_type);
+  auto veloxSplit = connector.toVeloxSplit(
+      scheduledSplit.split.connectorId,
+      connectorSplit.get(),
+      &scheduledSplit.split.splitContext);
+  return velox::exec::Split(std::move(veloxSplit), splitGroupId);
 }
 
 } // namespace facebook::presto

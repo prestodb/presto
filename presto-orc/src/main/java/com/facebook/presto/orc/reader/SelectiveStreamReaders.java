@@ -83,7 +83,7 @@ public final class SelectiveStreamReaders
             case DATE: {
                 checkArgument(requiredSubfields.isEmpty(), "Primitive type stream reader doesn't support subfields");
                 verifyStreamType(streamDescriptor, outputType, t -> t instanceof BigintType || t instanceof IntegerType || t instanceof SmallintType || t instanceof DateType);
-                return new LongSelectiveStreamReader(streamDescriptor, getOptionalOnlyFilter(type, filters), outputType, systemMemoryContext, isLowMemory);
+                return new LongSelectiveStreamReader(streamDescriptor, getOptionalOnlyFilter(type, filters), outputType, systemMemoryContext, isLowMemory, options.getMaxSliceSize(), options.isResetAllReaders());
             }
             case FLOAT: {
                 checkArgument(requiredSubfields.isEmpty(), "Float type stream reader doesn't support subfields");
@@ -100,7 +100,7 @@ public final class SelectiveStreamReaders
             case CHAR:
                 checkArgument(requiredSubfields.isEmpty(), "Primitive stream reader doesn't support subfields");
                 verifyStreamType(streamDescriptor, outputType, t -> t instanceof VarcharType || t instanceof CharType || t instanceof VarbinaryType);
-                return new SliceSelectiveStreamReader(streamDescriptor, getOptionalOnlyFilter(type, filters), outputType, systemMemoryContext, isLowMemory);
+                return new SliceSelectiveStreamReader(streamDescriptor, getOptionalOnlyFilter(type, filters), outputType, systemMemoryContext, isLowMemory, options.getMaxSliceSize(), options.isResetAllReaders());
             case TIMESTAMP:
             case TIMESTAMP_MICROSECONDS: {
                 boolean enableMicroPrecision = outputType.isPresent() && outputType.get() == TIMESTAMP_MICROSECONDS;

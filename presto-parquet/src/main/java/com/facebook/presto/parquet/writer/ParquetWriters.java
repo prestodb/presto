@@ -29,11 +29,17 @@ import com.facebook.presto.parquet.writer.valuewriter.PrimitiveValueWriter;
 import com.facebook.presto.parquet.writer.valuewriter.RealValueWriter;
 import com.facebook.presto.parquet.writer.valuewriter.TimeValueWriter;
 import com.facebook.presto.parquet.writer.valuewriter.TimestampValueWriter;
+import com.facebook.presto.parquet.writer.valuewriter.TimestampWithTimezoneValueWriter;
+import com.facebook.presto.parquet.writer.valuewriter.UuidValuesWriter;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.ParquetProperties;
+import org.apache.parquet.column.ParquetProperties.WriterVersion;
 import org.apache.parquet.column.values.ValuesWriter;
+import org.apache.parquet.column.values.factory.DefaultV1ValuesWriterFactory;
+import org.apache.parquet.column.values.factory.DefaultV2ValuesWriterFactory;
+import org.apache.parquet.column.values.factory.ValuesWriterFactory;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.MessageType;
@@ -42,6 +48,7 @@ import org.apache.parquet.schema.PrimitiveType;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -52,7 +59,9 @@ import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.common.type.UuidType.UUID;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -60,6 +69,18 @@ import static java.util.Objects.requireNonNull;
 class ParquetWriters
 {
     private ParquetWriters() {}
+
+    static ValuesWriterFactory getValuesWriterFactory(WriterVersion writerVersion)
+    {
+        switch (writerVersion) {
+            case PARQUET_1_0:
+                return new DefaultV1ValuesWriterFactory();
+            case PARQUET_2_0:
+                return new DefaultV2ValuesWriterFactory();
+            default:
+                throw new PrestoException(NOT_SUPPORTED, format("Unsupported Parquet writer version: %s", writerVersion));
+        }
+    }
 
     static List<ColumnWriter> getColumnWriters(MessageType messageType, Map<List<String>, Type> prestoTypes, ParquetProperties parquetProperties, CompressionCodecName compressionCodecName)
     {
@@ -136,7 +157,7 @@ class ParquetWriters
                 case PARQUET_1_0:
                     return new PrimitiveColumnWriterV1(prestoType,
                             columnDescriptor,
-                            getValueWriter(parquetProperties.newValuesWriter(columnDescriptor), prestoType, columnDescriptor.getPrimitiveType()),
+                            getValueWriter(() -> parquetProperties.newValuesWriter(columnDescriptor), prestoType, columnDescriptor.getPrimitiveType()),
                             parquetProperties.newDefinitionLevelWriter(columnDescriptor),
                             parquetProperties.newRepetitionLevelWriter(columnDescriptor),
                             compressionCodecName,
@@ -144,7 +165,7 @@ class ParquetWriters
                 case PARQUET_2_0:
                     return new PrimitiveColumnWriterV2(prestoType,
                             columnDescriptor,
-                            getValueWriter(parquetProperties.newValuesWriter(columnDescriptor), prestoType, columnDescriptor.getPrimitiveType()),
+                            getValueWriter(() -> parquetProperties.newValuesWriter(columnDescriptor), prestoType, columnDescriptor.getPrimitiveType()),
                             parquetProperties.newDefinitionLevelEncoder(columnDescriptor),
                             parquetProperties.newRepetitionLevelEncoder(columnDescriptor),
                             compressionCodecName,
@@ -167,37 +188,43 @@ class ParquetWriters
         }
     }
 
-    private static PrimitiveValueWriter getValueWriter(ValuesWriter valuesWriter, Type type, PrimitiveType parquetType)
+    private static PrimitiveValueWriter getValueWriter(Supplier<ValuesWriter> valuesWriterSupplier, Type type, PrimitiveType parquetType)
     {
         if (BOOLEAN.equals(type)) {
-            return new BooleanValueWriter(valuesWriter, parquetType);
+            return new BooleanValueWriter(valuesWriterSupplier, parquetType);
         }
         if (INTEGER.equals(type) || SMALLINT.equals(type) || TINYINT.equals(type)) {
-            return new IntegerValueWriter(valuesWriter, type, parquetType);
+            return new IntegerValueWriter(valuesWriterSupplier, type, parquetType);
         }
         if (type instanceof DecimalType) {
-            return new DecimalValueWriter(valuesWriter, type, parquetType);
+            return new DecimalValueWriter(valuesWriterSupplier, type, parquetType);
         }
         if (DATE.equals(type)) {
-            return new DateValueWriter(valuesWriter, parquetType);
+            return new DateValueWriter(valuesWriterSupplier, parquetType);
         }
         if (BIGINT.equals(type)) {
-            return new BigintValueWriter(valuesWriter, type, parquetType);
+            return new BigintValueWriter(valuesWriterSupplier, type, parquetType);
         }
         if (DOUBLE.equals(type)) {
-            return new DoubleValueWriter(valuesWriter, parquetType);
+            return new DoubleValueWriter(valuesWriterSupplier, parquetType);
         }
         if (REAL.equals(type)) {
-            return new RealValueWriter(valuesWriter, parquetType);
+            return new RealValueWriter(valuesWriterSupplier, parquetType);
         }
         if (TIMESTAMP.equals(type)) {
-            return new TimestampValueWriter(valuesWriter, type, parquetType);
+            return new TimestampValueWriter(valuesWriterSupplier, type, parquetType);
+        }
+        if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
+            return new TimestampWithTimezoneValueWriter(valuesWriterSupplier, type, parquetType);
         }
         if (TIME.equals(type)) {
-            return new TimeValueWriter(valuesWriter, type, parquetType);
+            return new TimeValueWriter(valuesWriterSupplier, type, parquetType);
+        }
+        if (UUID.equals(type)) {
+            return new UuidValuesWriter(valuesWriterSupplier, parquetType);
         }
         if (type instanceof VarcharType || type instanceof CharType || type instanceof VarbinaryType) {
-            return new CharValueWriter(valuesWriter, type, parquetType);
+            return new CharValueWriter(valuesWriterSupplier, type, parquetType);
         }
         throw new PrestoException(NOT_SUPPORTED, format("Unsupported type for Parquet writer: %s", type));
     }

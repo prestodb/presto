@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.hive.TestHiveEventListenerPlugin.TestingHiveEventListener;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.eventlistener.EventListener;
@@ -23,17 +24,21 @@ import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.SystemSessionProperties.CTE_MATERIALIZATION_STRATEGY;
+import static com.facebook.presto.SystemSessionProperties.CTE_PARTITIONING_PROVIDER_CATALOG;
+import static com.facebook.presto.SystemSessionProperties.VERBOSE_OPTIMIZER_INFO_ENABLED;
 import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.tpch.TpchTable.getTables;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+@Test(singleThreaded = true)
 public class TestHiveDistributedQueries
         extends AbstractTestDistributedQueries
 {
@@ -55,10 +60,10 @@ public class TestHiveDistributedQueries
     public void close()
             throws Exception
     {
-        Optional<EventListener> eventListener = getQueryRunner().getEventListener();
-        assertTrue(eventListener.isPresent());
-        assertTrue(eventListener.get() instanceof TestingHiveEventListener, eventListener.get().getClass().getName());
-        Set<QueryId> runningQueryIds = ((TestingHiveEventListener) eventListener.get()).getRunningQueries();
+        assertFalse(getQueryRunner().getEventListeners().isEmpty());
+        EventListener eventListener = getQueryRunner().getEventListeners().get(0);
+        assertTrue(eventListener instanceof TestingHiveEventListener, eventListener.getClass().getName());
+        Set<QueryId> runningQueryIds = ((TestingHiveEventListener) eventListener).getRunningQueries();
 
         if (!runningQueryIds.isEmpty()) {
             // Await query events to propagate and finish
@@ -92,6 +97,23 @@ public class TestHiveDistributedQueries
         String query = "CREATE TABLE copy_orders AS SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN " + query);
         assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan("EXPLAIN ", query, LOGICAL));
+    }
+
+    @Test
+    public void testTrackMaterializedCTEs()
+    {
+        Session materializedSession = Session.builder(getSession())
+                .setSystemProperty(VERBOSE_OPTIMIZER_INFO_ENABLED, "true")
+                .setSystemProperty(CTE_MATERIALIZATION_STRATEGY, "ALL")
+                .setSystemProperty(CTE_PARTITIONING_PROVIDER_CATALOG, "hive")
+                .build();
+
+        String query = "with tbl as (select * from lineitem), tbl2 as (select * from tbl) select * from tbl, tbl2";
+        MaterializedResult materializedResult = computeActual(materializedSession, "explain " + query);
+        String explain = (String) getOnlyElement(materializedResult.getOnlyColumnAsSet());
+
+        checkCTEInfo(explain, "tbl", 2, false, true);
+        checkCTEInfo(explain, "tbl2", 1, false, true);
     }
 
     // Hive specific tests should normally go in TestHiveIntegrationSmokeTest

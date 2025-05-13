@@ -128,7 +128,7 @@ public class TestHighMemoryTaskKiller
                 ImmutableList.of(),
                 createInitialEmptyOutputBuffers(PARTITIONED)
                         .withNoMoreBufferIds(),
-                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())));
+                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty())));
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
         TaskContext taskContext = sqlTask.getTaskContext().get();
@@ -156,14 +156,14 @@ public class TestHighMemoryTaskKiller
                 listJsonCodec(TaskMemoryReservationSummary.class));
 
         TaskContext taskContext = queryContext.addTaskContext(
-                                    new TaskStateMachine(taskId, taskNotificationExecutor),
-                                    testSessionBuilder().build(),
-                                    Optional.of(PLAN_FRAGMENT.getRoot()),
-                                    false,
-                                    false,
-                                    false,
-                                    false,
-                                    false);
+                new TaskStateMachine(taskId, taskNotificationExecutor),
+                testSessionBuilder().build(),
+                Optional.of(PLAN_FRAGMENT.getRoot()),
+                false,
+                false,
+                false,
+                false,
+                false);
 
         return createSqlTask(
                 taskId,
@@ -174,7 +174,7 @@ public class TestHighMemoryTaskKiller
                 new TestSqlTaskManager.MockExchangeClientSupplier(),
                 taskNotificationExecutor,
                 Functions.identity(),
-                new DataSize(32, MEGABYTE),
+                new DataSize(32, MEGABYTE).toBytes(),
                 new CounterStat(),
                 new SpoolingOutputBufferFactory(new FeaturesConfig()));
     }

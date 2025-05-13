@@ -253,11 +253,6 @@ public class TestFlatbush
             this.extent = GeometryUtils.getExtent(geometry);
         }
 
-        public OGCGeometry getGeometry()
-        {
-            return geometry;
-        }
-
         @Override
         public Rectangle getExtent()
         {

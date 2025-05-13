@@ -1,6 +1,6 @@
-====================
+==============
 HANA Connector
-====================
+==============
 
 The HANA connector allows querying and creating tables in an
 external HANA database. This can be used to join data between
@@ -24,6 +24,40 @@ connection properties as appropriate for your setup:
     connection-user=root
     connection-password=secret
 
+Connection security
+-------------------
+
+The JDBC driver and connector automatically use Transport Layer Security (TLS) encryption and certificate validation. This requires a suitable TLS certificate configured on your Hana database host.
+
+To enable encryption in the connection string, use the ``encrypt`` property:
+
+.. code-block:: none
+
+    connection-url=jdbc:sap://<host>:<port>?encrypt=true;
+
+Other SSL configuration properties that can be configured using the ``connection-url``:
+
+SSL Configuration Properties
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+================================================== ==================================================================== ===========
+Property Name                                      Description                                                          Default
+================================================== ==================================================================== ===========
+``validateCertificate``                            Indicates that the SSL certificate presented by the server            ``true``
+                                                   should be validated against the truststore specified.
+
+``trustStoreType``                                 File format of the truststore file, for example ``JKS``.
+
+``trustStore``                                     The path to the truststore file.
+
+``trustStorePassword``                             The password for the truststore.
+================================================== ==================================================================== ===========
+
+A connection string using a truststore would be similar to the following example:
+
+.. code-block:: none
+
+    connection-url=jdbc:sap://<host>:<port>?encrypt=true&validateCertificate=true&trustStore=path/to/truststore.jks&trustStorePassword=password&trustStoreType=jks
+
 Multiple HANA Databases or Servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -44,14 +78,12 @@ General Configuration Properties
 Property Name                                      Description                                                          Default
 ================================================== ==================================================================== ===========
 ``user-credential-name``                           Name of the ``extraCredentials`` property whose value is the JDBC
-                                                   driver's user name. See ``extraCredentials`` in `Parameter Reference
-                                                   <https://prestodb.io/docs/current/installation/jdbc.html
-                                                   #parameter-reference>`_.
+                                                   driver's user name. See ``extraCredentials`` in
+                                                   :ref:`Parameter Reference <jdbc-parameter-reference>`.
 
 ``password-credential-name``                       Name of the ``extraCredentials`` property whose value is the JDBC
-                                                   driver's user password. See ``extraCredentials`` in `Parameter
-                                                   Reference <https://prestodb.io/docs/current/installation/jdbc.html
-                                                   #parameter-reference>`_.
+                                                   driver's user password. See ``extraCredentials`` in
+                                                   :ref:`Parameter Reference <jdbc-parameter-reference>`.
 
 ``case-insensitive-name-matching``                 Match dataset and table names case-insensitively.                    ``false``
 

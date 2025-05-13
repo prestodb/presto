@@ -114,17 +114,23 @@ public abstract class AbstractCliTest
 
     protected void executeQueries(List<String> queries)
     {
-        Console console = new Console();
         QueryRunner queryRunner = createQueryRunner(createMockClientSession());
+        executeQueries(queryRunner, queries);
+    }
+
+    protected void executeQueries(QueryRunner queryRunner, List<String> queries)
+    {
+        Console console = new Console();
         for (String query : queries) {
             console.executeCommand(queryRunner, query, CSV, false);
         }
     }
 
-    protected static QueryRunner createQueryRunner(ClientSession clientSession)
+    protected static QueryRunner createQueryRunner(ClientSession clientSession, boolean insecureSsl)
     {
         return new QueryRunner(
                 clientSession,
+                false,
                 false,
                 Optional.empty(),
                 Optional.empty(),
@@ -135,12 +141,21 @@ public abstract class AbstractCliTest
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
+                insecureSsl,
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                false);
+                Optional.empty(),
+                Optional.empty(),
+                false,
+                true);
+    }
+
+    protected static QueryRunner createQueryRunner(ClientSession clientSession)
+    {
+        return createQueryRunner(clientSession, false);
     }
 
     protected static void assertHeaders(String headerName, Headers headers, Set<String> expectedSessionHeaderValues)

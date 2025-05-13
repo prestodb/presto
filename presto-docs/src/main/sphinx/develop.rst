@@ -19,4 +19,6 @@ This guide is intended for Presto contributors and plugin developers.
     develop/client-protocol
     develop/worker-protocol
     develop/serialized-page
-    develop/presto-native
+    develop/presto-console
+    develop/presto-authenticator
+    develop/client-request-filter

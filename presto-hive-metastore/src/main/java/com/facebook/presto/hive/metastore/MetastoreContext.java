@@ -13,13 +13,16 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.hive.ColumnConverter;
 import com.facebook.presto.hive.ColumnConverterProvider;
 import com.facebook.presto.hive.HiveColumnConverterProvider;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -29,6 +32,7 @@ public class MetastoreContext
     private final String username;
     private final String queryId;
     private final Optional<String> clientInfo;
+    private final Set<String> clientTags;
     private final Optional<String> source;
     private final boolean impersonationEnabled;
     private final Optional<String> metastoreHeaders;
@@ -38,22 +42,56 @@ public class MetastoreContext
     // a new MetastoreContext from either an existing MetastoreContext or callers
     // that only have a handle to the provider (e.g. SemiTransactionalHiveMetastore)
     private final ColumnConverterProvider columnConverterProvider;
+    private final WarningCollector warningCollector;
+    private final RuntimeStats runtimeStats;
 
-    public MetastoreContext(ConnectorIdentity identity, String queryId, Optional<String> clientInfo, Optional<String> source, Optional<String> metastoreHeaders, boolean userDefinedTypeEncodingEnabled, ColumnConverterProvider columnConverterProvider)
+    public MetastoreContext(
+            ConnectorIdentity identity,
+            String queryId,
+            Optional<String> clientInfo,
+            Set<String> clientTags,
+            Optional<String> source,
+            Optional<String> metastoreHeaders,
+            boolean userDefinedTypeEncodingEnabled,
+            ColumnConverterProvider columnConverterProvider,
+            WarningCollector warningCollector,
+            RuntimeStats runtimeStats)
     {
-        this(requireNonNull(identity, "identity is null").getUser(), queryId, clientInfo, source, metastoreHeaders, userDefinedTypeEncodingEnabled, columnConverterProvider);
+        this(requireNonNull(identity, "identity is null").getUser(), queryId, clientInfo, clientTags, source, metastoreHeaders, userDefinedTypeEncodingEnabled, columnConverterProvider, warningCollector, runtimeStats);
     }
 
-    public MetastoreContext(String username, String queryId, Optional<String> clientInfo, Optional<String> source, Optional<String> metastoreHeaders, boolean userDefinedTypeEncodingEnabled, ColumnConverterProvider columnConverterProvider)
+    public MetastoreContext(
+            String username,
+            String queryId,
+            Optional<String> clientInfo,
+            Set<String> clientTags,
+            Optional<String> source,
+            Optional<String> metastoreHeaders,
+            boolean userDefinedTypeEncodingEnabled,
+            ColumnConverterProvider columnConverterProvider,
+            WarningCollector warningCollector,
+            RuntimeStats runtimeStats)
     {
-        this(username, queryId, clientInfo, source, false, metastoreHeaders, userDefinedTypeEncodingEnabled, columnConverterProvider);
+        this(username, queryId, clientInfo, clientTags, source, false, metastoreHeaders, userDefinedTypeEncodingEnabled, columnConverterProvider, warningCollector, runtimeStats);
     }
 
-    public MetastoreContext(String username, String queryId, Optional<String> clientInfo, Optional<String> source, boolean impersonationEnabled, Optional<String> metastoreHeaders, boolean userDefinedTypeEncodingEnabled, ColumnConverterProvider columnConverterProvider)
+    public MetastoreContext(
+            String username,
+            String queryId,
+            Optional<String> clientInfo,
+            Set<String> clientTags,
+            Optional<String> source,
+            boolean impersonationEnabled,
+            Optional<String> metastoreHeaders,
+            boolean userDefinedTypeEncodingEnabled,
+            ColumnConverterProvider columnConverterProvider,
+            WarningCollector warningCollector,
+            RuntimeStats runtimeStats)
     {
         this.username = requireNonNull(username, "username is null");
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
+        this.clientTags = requireNonNull(clientTags, "clientTags is null");
         this.source = requireNonNull(source, "source is null");
         this.columnConverterProvider = requireNonNull(columnConverterProvider, "columnConverterProvider is null");
         this.impersonationEnabled = impersonationEnabled;
@@ -65,6 +103,8 @@ public class MetastoreContext
         else {
             this.columnConverter = requireNonNull(HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER, "columnConverter is null");
         }
+        this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+        this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
     }
 
     public ColumnConverterProvider getColumnConverterProvider()
@@ -92,6 +132,11 @@ public class MetastoreContext
         return clientInfo;
     }
 
+    public Set<String> getClientTags()
+    {
+        return clientTags;
+    }
+
     public Optional<String> getSource()
     {
         return source;
@@ -112,6 +157,16 @@ public class MetastoreContext
         return metastoreHeaders;
     }
 
+    public WarningCollector getWarningCollector()
+    {
+        return warningCollector;
+    }
+
+    public RuntimeStats getRuntimeStats()
+    {
+        return runtimeStats;
+    }
+
     @Override
     public String toString()
     {
@@ -119,6 +174,7 @@ public class MetastoreContext
                 .add("username", username)
                 .add("queryId", queryId)
                 .add("clientInfo", clientInfo.orElse(""))
+                .add("clientTags", clientTags)
                 .add("source", source.orElse(""))
                 .add("impersonationEnabled", Boolean.toString(impersonationEnabled))
                 .add("userDefinedTypeEncodingEnabled", Boolean.toString(userDefinedTypeEncodingEnabled))

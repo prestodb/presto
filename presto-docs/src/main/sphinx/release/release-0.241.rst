@@ -7,7 +7,7 @@ Release 0.241
 
 General Changes
 _______________
-* Fix incorrect results from function :func:`classification_precision` introduced in release 0.239.
+* Fix incorrect results from function :func:`!classification_precision` introduced in release 0.239.
 * Improve performance for queries with broadcast or collocated joins by adding dynamic filtering and bucket pruning support. This can be enabled with the ``experimental.enable-dynamic-filtering`` configuration property and ``enable_dynamic_filtering`` system session property. For more information please refer to (:pr:`15077`).
 * Add new warning message for ``UNION`` queries without ``ALL`` or ``DISTINCT`` keywords.
 * Downgrade the ZSTD JNI compressor version to resolve the frequent excessive GC events introduced in version 0.238.
@@ -48,5 +48,5 @@ ___________
 
 Geospatial Changes
 __________________
-* Fix a bug when two envelopes intersect at a point for :func:`ST_Intersection`.
-* Add :func:`geometry_nearest_points` to find nearest points of a pair of geometries.
+* Fix a bug when two envelopes intersect at a point for :func:`!ST_Intersection`.
+* Add :func:`!geometry_nearest_points` to find nearest points of a pair of geometries.

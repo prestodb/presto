@@ -11,6 +11,10 @@ Synopsis
     ALTER TABLE [ IF EXISTS ] name ADD COLUMN [ IF NOT EXISTS ] column_name data_type [ COMMENT comment ] [ WITH ( property_name = expression [, ...] ) ]
     ALTER TABLE [ IF EXISTS ] name DROP COLUMN column_name
     ALTER TABLE [ IF EXISTS ] name RENAME COLUMN [ IF EXISTS ] column_name TO new_column_name
+    ALTER TABLE [ IF EXISTS ] name ADD [ CONSTRAINT constraint_name ] { PRIMARY KEY | UNIQUE } ( { column_name [, ...] } ) [ { ENABLED | DISABLED } ] [ [ NOT ] RELY ] [ [ NOT ] ENFORCED } ]
+    ALTER TABLE [ IF EXISTS ] name DROP CONSTRAINT [ IF EXISTS ] constraint_name
+    ALTER TABLE [ IF EXISTS ] name ALTER [ COLUMN ] column_name { SET | DROP } NOT NULL
+    ALTER TABLE [ IF EXISTS ] name SET PROPERTIES (property_name=value, [, ...])
 
 Description
 -----------
@@ -57,6 +61,38 @@ Rename column ``id`` to ``user_id`` in the ``users`` table::
 Rename column ``id`` to ``user_id`` in the ``users`` table if table ``users`` and column ``id`` exists::
 
     ALTER TABLE IF EXISTS users RENAME column IF EXISTS id to user_id;
+
+Add constraint ``pk`` on column ``user_id`` in the ``users`` table::
+
+    ALTER TABLE users ADD CONSTRAINT pk PRIMARY KEY (user_id);
+
+Add unnamed, disabled unique constraint on columns ``first_name`` and ``last_name`` in the ``users`` table if table ``users`` exists::
+
+    ALTER TABLE IF EXISTS users ADD UNIQUE (first_name, last_name) DISABLED;
+
+Drop constraint ``pk`` from the ``users`` table::
+
+    ALTER TABLE users DROP CONSTRAINT pk;
+
+Drop constraint ``pk`` from the ``users`` table if table ``users`` exists and constraint ``pk`` exists::
+
+    ALTER TABLE IF EXISTS users DROP CONSTRAINT IF EXISTS pk;
+
+Add not null constraint to column ``zip`` in the ``users`` table::
+
+    ALTER TABLE users ALTER COLUMN zip SET NOT NULL;
+
+Add not null constraint to column ``zip`` in the ``users`` table if  table ``users`` exists::
+
+    ALTER TABLE IF EXISTS users ALTER zip SET NOT NULL;
+
+Drop not null constraint from column ``zip`` in the ``users`` table::
+
+    ALTER TABLE users ALTER COLUMN zip DROP NOT NULL;
+
+Set table property (``x=y``) to table ``users``::
+
+    ALTER TABLE users SET PROPERTIES (x='y');
 
 See Also
 --------

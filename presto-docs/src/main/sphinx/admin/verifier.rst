@@ -114,6 +114,8 @@ The following steps summarize the workflow of Verifier.
        * Artificial names are used for unnamed columns.
     * Rewrites ``Insert`` and ``CreateTableAsSelect`` queries to have their table names replaced.
        * Constructs a setup query to create the table necessary for an ``Insert`` query.
+    * Rewrites function calls according to ``nondeterministic-function-substitutes``
+      if the configuration is set.
 
 * **Query Execution**
     * Conceptually, Verifier is configured with a control cluster and a test cluster. However, they
@@ -156,30 +158,76 @@ queries.
 
 * **Floating Point Columns**
     * For ``DOUBLE`` and ``REAL`` columns, 4 columns are generated for verification:
-       * Sum of the finite values of the column
-       * ``NAN`` count of the column
-       * Positive infinity count of the column
-       * Negative infinity count of the column
+        * Sum of the finite values of the column
+        * ``NAN`` count of the column
+        * Positive infinity count of the column
+        * Negative infinity count of the column
     * Checks if ``NAN`` count, positive and negative infinity count matches.
     * Checks the nullity of control sum and test sum.
     * If either control mean or test mean very close 0, checks if both are close to 0.
     * Checks the relative error between control sum and test sum.
+* **VARCHAR Columns**
+    * For ``VARCHAR`` columns, a simple checksum column is generated for verification using the :func:`!checksum`.
+    * If ``validate-string-as-double`` is set, seven columns below are generated. If ``NULL`` counts are equal before and after casting all values to ``DOUBLE``, apply the floating point validation. Otherwise, check if the simple checksum matches.
+        * Checksum
+        * Count of the ``NULL`` values
+        * Count of the ``NULL`` values after all values are casted to ``DOUBLE``
+      After casting all values to ``DOUBLE``
+        * Sum of the finite values
+        * ``NAN`` count of the values
+        * Positive infinity count of the values
+        * Negative infinity count of the values
 * **Array Columns**
-    * 2 columns are generated for verification:
-       * Sum of the cardinality
-       * Array checksum
-    * For an array column ``arr`` of type ``array(E)``:
-       * If ``E`` is not orderable, array checksum is ``checksum(arr)``.
-       * If ``E`` is orderable, array checksum ``coalesce(checksum(try(array_sort(arr))), checksum(arr))``.
+    * For an array column ``arr`` of type ``array(E)``, three columns are generated for verification:
+        * Sum of the cardinality
+        * Checksum of the cardinality
+        * Array checksum
+            * If ``E`` is not orderable, array checksum is ``checksum(arr)``.
+            * If ``E`` is orderable, array checksum is ``coalesce(checksum(try(array_sort(arr))), checksum(arr))``.
+    * If ``use-error-margin-for-floating-point-arrays`` is set and E is ``DOUBLE`` or ``REAL``, these six columns below are generated instead. Check if the sum of the cardinality matches and if the checksum of the cardinality matches. Apply the floating point validation to the rest of results.
+        * Sum of the cardinality
+        * Checksum of the cardinality
+        * Sum of the finite elements of all array values
+        * Count of the ``NAN`` elements of all array values
+        * Count of the positive infinity elements of all array values
+        * Count of the negative infinity elements of all array values
+    * If ``validate-string-as-double`` is set and E is ``VARCHAR``, these nine columns below are generated instead. Check if the sum and the checksum of the cardinality match. If ``NULL`` counts are equal before and after casting all array elements to ``DOUBLE``, apply the floating point validation. Otherwise, check if the array checksum matches.
+        * Sum of the cardinality
+        * Checksum of the cardinality
+        * Array checksum ``checksum(array_sort(arr))``
+        * Count of the ``NULL`` elements of all array values
+        * Count of the ``NULL`` elements after all array elements are casted to ``DOUBLE``
+      After casting all array elements to ``DOUBLE``
+        * Sum of the finite elements of all array values
+        * Count of the ``NAN`` elements of all array values
+        * Count of the positive infinity elements of all array values
+        * Count of the negative infinity elements of all array values
 * **Map Columns**
-    * 4 columns are generated for verification:
-       * Sum of the cardinality
-       * Checksum of the map
-       * Array checksum of the key set
-       * Array checksum of the value set
+    * For a map column of type ``map(K, V)``, four columns are generated for verification:
+        * Sum of the cardinality
+        * Checksum of the map
+        * Array checksum of the key set
+        * Array checksum of the value set
+    * If ``validate-string-as-double`` is set and K is ``VARCHAR``, six additional columns are generated:
+        * Count of the ``NULL`` elements of all key sets
+        * Count of the ``NULL`` elements of the key sets after all map keys are casted to ``DOUBLE``
+      After casting all map keys to ``DOUBLE``
+        * Sum of the finite elements of all key sets
+        * Count of the ``NAN`` elements of all key sets
+        * Count of the positive infinity elements of all key sets
+        * Count of the negative infinity elements of all key sets
+    * If ``validate-string-as-double`` is set and V is ``VARCHAR``, six additional columns are generated:
+        * Count of the ``NULL`` elements of all value sets
+        * Count of the ``NULL`` elements of the value sets after all map values are casted to ``DOUBLE``
+      After casting all map values to ``DOUBLE``
+        * Sum of the finite elements of all value sets
+        * Count of the ``NAN`` elements of all value sets
+        * Count of the positive infinity elements of all value sets
+        * Count of the negative infinity elements of all value sets
 * **Row Columns**
     * Checksums row fields recursively according to the type of the fields.
-* For all other column types, generates a simple checksum using the :func:`checksum` function.
+    
+For all other column types, generates a simple checksum using the :func:`!checksum` function.
 
 Determinism
 -----------
@@ -274,6 +322,10 @@ Name                                        Description
                                             are emitted to ``stdout``.
 ``control.table-prefix``                    The table prefix to be appended to the control target table.
 ``test.table-prefix``                       The table prefix to be appended to the test target table.
+``control.reuse-table``                     If ``true``, reuse the output table of the control source Insert and CreateTableAsSelect
+                                            query. Otherwise, run the control source query and write to a temporary table.
+``test.reuse-table``                        If ``true``, reuse the output table of the test source Insert and CreateTableAsSelect
+                                            query. Otherwise, run the test source query and write to a temporary table.
 ``test-id``                                 A string to be attached to output events.
 ``max-concurrency``                         Maximum number of concurrent verifications.
 ``suite-repetition``                        How many times a suite is verified.
@@ -286,6 +338,23 @@ Name                                        Description
 ``running-mode``                            Set to ``query-bank`` to make the Verifier run in ``query-bank`` mode. Supports
                                             ``query-bank`` and ``control-test``. Defaults to ``control-test``.
 ``save-snapshot``                           Set to ``true`` to save checksums to ``mysql`` database.
+``extended-verification``                   Set to ``true`` to run extended table layout verification for written tables.
+                                            It only applies to ``Insert`` and ``CreateTableAsSelect`` queries.
+                                            It would verify each partition's data checksum if the inserted table is partitioned.
+                                            It would verify each bucket's data checksum if the inserted table is bucketed.
+``function-substitutes``                    Specification of function substitutions, in the format of
+                                            ``/foo(c0,_)/bar(c0)/,/fred(c0,c1)/baz(qux(c1,c0))/,/foobar(c0)/if(qux(c1),bar(c0),baz(c1))/,...``,
+                                            where ``foo(c0, _)`` would be substituted by ``bar(c0)``,
+                                            with the declared arguments applied to the corresponding positions.
+
+                                            Concatenate function substitutions with a comma.
+
+                                            Select a function substitute that has the return type and argument types
+                                            compatible with those of the original function, to produce a valid source query. For
+                                            example, ``/array_agg(z)/array_sort(array_agg(z))/,/approx_percentile(x,y)/avg(x)/``.
+
+                                            Declare the function arguments as identifiers if they need to be applied to
+                                            the function substitute.
 =========================================== ===============================================================================
 
 

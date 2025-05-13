@@ -19,6 +19,9 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.common.RuntimeUnit.BYTE;
 import static com.facebook.presto.common.RuntimeUnit.NANO;
 import static com.facebook.presto.common.RuntimeUnit.NONE;
+import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 
@@ -29,7 +32,9 @@ public class TestRuntimeStats
     private static final String TEST_METRIC_NAME_3 = "test3";
     private static final String TEST_METRIC_NAME_NANO_1 = "test_nano_1";
     private static final String TEST_METRIC_NAME_NANO_2 = "test_nano_2";
+    private static final String TEST_METRIC_NAME_NANO_3 = "test_nano_3";
     private static final String TEST_METRIC_NAME_BYTE = "test_byte";
+    private static final long ONE_SECOND_IN_NANOS = 1_000_000_000L;
 
     private void assertRuntimeMetricEquals(RuntimeMetric m1, RuntimeMetric m2)
     {
@@ -233,5 +238,34 @@ public class TestRuntimeStats
     {
         RuntimeStats stats = new RuntimeStats();
         stats.getMetrics().put(TEST_METRIC_NAME_1, new RuntimeMetric(TEST_METRIC_NAME_1, NONE));
+    }
+
+    @Test
+    public void testRecordWallTime()
+    {
+        RuntimeStats stats = new RuntimeStats();
+
+        assertEquals(stats.recordWallTime(TEST_METRIC_NAME_NANO_3, () -> 1), 1);
+        assertThat(stats.getMetric(TEST_METRIC_NAME_NANO_3).getSum()).isLessThan(ONE_SECOND_IN_NANOS);
+
+        stats.recordWallTime(TEST_METRIC_NAME_NANO_2, () -> {});
+        assertThat(stats.getMetric(TEST_METRIC_NAME_NANO_2).getSum()).isLessThan(ONE_SECOND_IN_NANOS);
+    }
+
+    @Test
+    public void testRecordWallAndCpuTime()
+    {
+        RuntimeStats stats = new RuntimeStats();
+
+        assertEquals(stats.recordWallAndCpuTime(TEST_METRIC_NAME_NANO_1, () -> {
+            sleepUninterruptibly(100, MILLISECONDS);
+            return 1;
+        }), 1);
+        assertThat(stats.getMetric(TEST_METRIC_NAME_NANO_1).getSum()).isGreaterThanOrEqualTo(MILLISECONDS.toNanos(100));
+        assertThat(stats.getMetric(TEST_METRIC_NAME_NANO_1 + "OnCpu").getSum()).isLessThan(MILLISECONDS.toNanos(100));
+
+        stats.recordWallAndCpuTime(TEST_METRIC_NAME_NANO_2, () -> sleepUninterruptibly(100, MILLISECONDS));
+        assertThat(stats.getMetric(TEST_METRIC_NAME_NANO_2).getSum()).isGreaterThanOrEqualTo(MILLISECONDS.toNanos(100));
+        assertThat(stats.getMetric(TEST_METRIC_NAME_NANO_2 + "OnCpu").getSum()).isLessThan(MILLISECONDS.toNanos(100));
     }
 }

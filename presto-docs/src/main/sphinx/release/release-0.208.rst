@@ -22,7 +22,7 @@ General Changes
 * Add a limit on the number of stages in a query.  The default is ``100`` and can
   be changed with the ``query.max-stage-count`` configuration property and the
   ``query_max_stage_count`` session property.
-* Add :func:`spooky_hash_v2_32` and :func:`spooky_hash_v2_64` functions.
+* Add :func:`!spooky_hash_v2_32` and :func:`!spooky_hash_v2_64` functions.
 * Add a cluster memory leak detector that logs queries that have possibly accounted for
   memory usage incorrectly on workers. This is a tool to for debugging internal errors.
 * Add support for correlated subqueries requiring coercions.

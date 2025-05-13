@@ -18,6 +18,7 @@ import com.facebook.presto.verifier.event.QueryInfo;
 import com.facebook.presto.verifier.event.VerifierQueryEvent;
 import com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus;
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -45,6 +46,7 @@ import static java.util.stream.Collectors.joining;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
@@ -179,6 +181,26 @@ public class TestDataVerification
     }
 
     @Test
+    public void testInvalidFunctionCallSubstitutes()
+    {
+        VerificationSettings settings = new VerificationSettings();
+        settings.functionSubstitutes = Optional.of("/ARRAY_AGG(c)/MIN(c)/");
+        String sourceQuery = "SELECT ARRAY_AGG(c)[1] FROM (VALUES (10), (100)) AS t(c)";
+
+        Optional<VerifierQueryEvent> event = runVerification(sourceQuery, sourceQuery, settings);
+        assertTrue(event.isPresent());
+        assertEquals(event.get().getSkippedReason(), FAILED_BEFORE_CONTROL_QUERY.name());
+        assertEvent(
+                event.get(),
+                SKIPPED,
+                Optional.empty(),
+                Optional.of("PRESTO(SYNTAX_ERROR)"),
+                Optional.of("Test state NOT_RUN, Control state NOT_RUN.\n\n" +
+                        "REWRITE query failed on CONTROL cluster:\n.*" +
+                        "com.facebook.presto.sql.analyzer.SemanticException.*"));
+    }
+
+    @Test
     public void testControlFailed()
     {
         Optional<VerifierQueryEvent> event = runVerification("INSERT INTO dest SELECT * FROM test", "SELECT 1");
@@ -191,6 +213,29 @@ public class TestDataVerification
                 Optional.of("PRESTO(SYNTAX_ERROR)"),
                 Optional.of("Test state NOT_RUN, Control state FAILED_TO_SETUP.\n\n" +
                         "CONTROL SETUP query failed on CONTROL cluster:\n.*"));
+    }
+
+    @Test
+    public void testReuseTable()
+    {
+        getQueryRunner().execute("CREATE TABLE test_reuse_table (test_column INT)");
+        String testQuery = "INSERT INTO test_reuse_table SELECT 1";
+        getQueryRunner().execute(testQuery);
+        String testQueryId = "test_query_id";
+
+        getQueryRunner().execute("CREATE TABLE control_reuse_table (test_column INT)");
+        String controlQuery = "INSERT INTO control_reuse_table SELECT 1";
+        getQueryRunner().execute(controlQuery);
+        String controlQueryId = "control_query_id";
+
+        Optional<VerifierQueryEvent> event = runVerification(testQuery, controlQuery, controlQueryId, testQueryId,
+                new QueryConfiguration(CATALOG, SCHEMA, Optional.of("user"), Optional.empty(),
+                        Optional.empty(), true, Optional.of(ImmutableList.of("test_column=1"))),
+                new QueryConfiguration(CATALOG, SCHEMA, Optional.of("user"), Optional.empty(),
+                        Optional.empty(), true, Optional.empty()), reuseTableSettings);
+        assertTrue(event.get().getControlQueryInfo().getIsReuseTable());
+        assertFalse(event.get().getTestQueryInfo().getIsReuseTable());
+        assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     @Test
@@ -226,6 +271,70 @@ public class TestDataVerification
         runs = event.get().getDeterminismAnalysisDetails().getRuns();
         assertEquals(runs.size(), 1);
         assertDeterminismAnalysisRun(runs.get(0), true);
+    }
+
+    @Test
+    public void testDeterminismAnalysisOnControlAndTest()
+    {
+        Optional<VerifierQueryEvent> event;
+        List<DeterminismAnalysisRun> runs;
+
+        // Control and test are stable, same results.
+        // No need for determinism analysis. Status is SUCCEEDED.
+        event = runVerification("SELECT 2.0", "SELECT 2.0");
+        assertTrue(event.isPresent());
+        assertEquals(event.get().getStatus(), SUCCEEDED.name());
+        assertNull(event.get().getDeterminismAnalysisDetails());
+
+        // Control is non-deterministic, test is stable, different results.
+        // Determinism analysis found query to be non-deterministic in 1 run. Status is SKIPPED.
+        event = runVerification("SELECT rand()", "SELECT 2.0");
+        assertTrue(event.isPresent());
+        assertEquals(event.get().getStatus(), SKIPPED.name());
+        assertEquals(event.get().getSkippedReason(), NON_DETERMINISTIC.name());
+        runs = event.get().getDeterminismAnalysisDetails().getRuns();
+        assertEquals(runs.size(), 1);
+        assertEquals(runs.get(0).getClusterType(), ClusterType.CONTROL.name());
+
+        // Control is stable, test is non-deterministic, different results.
+        // Determinism analysis found query to be deterministic in 3 runs. Status is FAILED.
+        event = runVerification("SELECT 2.0", "SELECT rand()");
+        assertTrue(event.isPresent());
+        assertEquals(event.get().getStatus(), FAILED.name());
+        runs = event.get().getDeterminismAnalysisDetails().getRuns();
+        assertEquals(runs.size(), DETERMINISM_ANALYSIS_RUNS);
+        for (DeterminismAnalysisRun run : runs) {
+            assertEquals(runs.get(0).getClusterType(), ClusterType.CONTROL.name());
+        }
+
+        // From this moment determinism analysis will run on TEST, not CONTROL and will rerun on CONTROL,
+        // if found non-deterministic on TEST.
+        VerificationSettings settings = new VerificationSettings();
+        settings.runDeterminismAnalysisOnTest = Optional.of(true);
+
+        // Control is non-deterministic, test is stable, different results.
+        // Determinism analysis found query to be deterministic in 3 runs on TEST. Status is FAILED.
+        event = runVerification("SELECT rand()", "SELECT 2.0", settings);
+        assertTrue(event.isPresent());
+        assertEquals(event.get().getStatus(), FAILED.name());
+        runs = event.get().getDeterminismAnalysisDetails().getRuns();
+        assertEquals(runs.size(), DETERMINISM_ANALYSIS_RUNS);
+        for (DeterminismAnalysisRun run : runs) {
+            assertEquals(runs.get(0).getClusterType(), ClusterType.TEST.name());
+        }
+
+        // Control is stable, test is non-deterministic, different results.
+        // First determinism analysis found query to be non-deterministic in 1 run on TEST.
+        // Second determinism analysis found query to be deterministic in 3 runs on CONTROL. Status is FAILED.
+        event = runVerification("SELECT 2.0", "SELECT rand()", settings);
+        assertTrue(event.isPresent());
+        assertEquals(event.get().getStatus(), FAILED.name());
+        runs = event.get().getDeterminismAnalysisDetails().getRuns();
+        assertEquals(runs.size(), DETERMINISM_ANALYSIS_RUNS + 1);
+        assertEquals(runs.get(0).getClusterType(), ClusterType.TEST.name());
+        for (int i = 1; i < runs.size(); i++) {
+            assertEquals(runs.get(i).getClusterType(), ClusterType.CONTROL.name());
+        }
     }
 
     @Test
@@ -337,8 +446,9 @@ public class TestDataVerification
     @Test
     public void testExecutionTimeSessionProperty()
     {
-        QueryConfiguration configuration = new QueryConfiguration(CATALOG, SCHEMA, Optional.of("user"), Optional.empty(), Optional.of(ImmutableMap.of(QUERY_MAX_EXECUTION_TIME, "20m")));
-        SourceQuery sourceQuery = new SourceQuery(SUITE, NAME, "SELECT 1.0", "SELECT 1.00001", configuration, configuration);
+        QueryConfiguration configuration = new QueryConfiguration(CATALOG, SCHEMA, Optional.of("user"), Optional.empty(), Optional.of(ImmutableMap.of(QUERY_MAX_EXECUTION_TIME,
+                "20m")), Optional.empty(), Optional.empty());
+        SourceQuery sourceQuery = new SourceQuery(SUITE, NAME, "SELECT 1.0", "SELECT 1.00001", Optional.empty(), Optional.empty(), configuration, configuration);
         Optional<VerifierQueryEvent> event = verify(sourceQuery, false);
         assertTrue(event.isPresent());
         assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
@@ -417,16 +527,28 @@ public class TestDataVerification
         assertNotNull(queryInfo.getSessionProperties());
         assertNotNull(queryInfo.getSetupQueries());
         assertNotNull(queryInfo.getTeardownQueries());
-        assertEquals(queryInfo.getTeardownQueries().size(), 1);
 
         assertNotNull(queryInfo.getQueryId());
         assertNotNull(queryInfo.getSetupQueryIds());
         assertNotNull(queryInfo.getTeardownQueryIds());
-        assertEquals(queryInfo.getTeardownQueryIds().size(), 1);
+        if (queryInfo.getIsReuseTable()) {
+            assertEquals(queryInfo.getTeardownQueries().size(), 0);
+            assertEquals(queryInfo.getTeardownQueryIds().size(), 0);
+        }
+        else {
+            assertEquals(queryInfo.getTeardownQueries().size(), 1);
+            assertEquals(queryInfo.getTeardownQueryIds().size(), 1);
+        }
 
         if (queryType == QueryType.INSERT) {
-            assertEquals(queryInfo.getSetupQueries().size(), 1);
-            assertEquals(queryInfo.getSetupQueryIds().size(), 1);
+            if (queryInfo.getIsReuseTable()) {
+                assertEquals(queryInfo.getSetupQueries().size(), 0);
+                assertEquals(queryInfo.getSetupQueryIds().size(), 0);
+            }
+            else {
+                assertEquals(queryInfo.getSetupQueries().size(), 1);
+                assertEquals(queryInfo.getSetupQueryIds().size(), 1);
+            }
         }
 
         assertNotNull(queryInfo.getOutputTableName());

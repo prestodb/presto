@@ -53,6 +53,12 @@ public class StructuredColumnMismatchResolver
                 ArrayColumnChecksum controlChecksum = (ArrayColumnChecksum) mismatchedColumn.getControlChecksum();
                 ArrayColumnChecksum testChecksum = (ArrayColumnChecksum) mismatchedColumn.getTestChecksum();
 
+                // If this checksum is null then we have FloatingPointColumnChecksum as part of the ArrayColumnChecksum,
+                // which tackles the floating point imprecision. So we don't resolve.
+                if (Objects.isNull(controlChecksum.getChecksum())) {
+                    return Optional.empty();
+                }
+
                 if (!containsFloatingPointType(((ArrayType) columnType).getElementType())
                         || !isCardinalityMatched(controlChecksum, testChecksum)) {
                     return Optional.empty();
@@ -62,22 +68,37 @@ public class StructuredColumnMismatchResolver
                 MapColumnChecksum controlChecksum = (MapColumnChecksum) mismatchedColumn.getControlChecksum();
                 MapColumnChecksum testChecksum = (MapColumnChecksum) mismatchedColumn.getTestChecksum();
 
+                // Cardinality mismatch. Do not resolve.
                 if (!isCardinalityMatched(controlChecksum, testChecksum)) {
                     return Optional.empty();
                 }
 
                 boolean keyContainsFloatingPoint = containsFloatingPointType(((MapType) columnType).getKeyType());
                 boolean valueContainsFloatingPoint = containsFloatingPointType(((MapType) columnType).getValueType());
+                // No pure floating point types. Do not resolve.
                 if (!keyContainsFloatingPoint && !valueContainsFloatingPoint) {
                     return Optional.empty();
                 }
+                // Not-floating point keys mismatch. Do not resolve.
                 if (!keyContainsFloatingPoint &&
                         !Objects.equals(controlChecksum.getKeysChecksum(), testChecksum.getKeysChecksum())) {
                     return Optional.empty();
                 }
-                if (!valueContainsFloatingPoint &&
-                        !Objects.equals(controlChecksum.getValuesChecksum(), testChecksum.getValuesChecksum())) {
-                    return Optional.empty();
+                // Not-floating point values.
+                if (!valueContainsFloatingPoint) {
+                    // If we got values checksums and they are not matching, then do not resolve.
+                    if (!Objects.equals(controlChecksum.getValuesChecksum(), testChecksum.getValuesChecksum())) {
+                        return Optional.empty();
+                    }
+
+                    // Values checksums either match or missing (being nulls).
+                    // They can be missing because omitted or in corner cases of no rows, null maps, no elements, etc.
+                    // Checking the whole checksum if the values checksums are missing.
+                    if (Objects.isNull(controlChecksum.getValuesChecksum())) {
+                        if (!Objects.equals(controlChecksum.getChecksum(), testChecksum.getChecksum())) {
+                            return Optional.empty();
+                        }
+                    }
                 }
             }
             else {

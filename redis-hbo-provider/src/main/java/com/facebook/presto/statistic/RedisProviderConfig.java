@@ -14,6 +14,7 @@
 package com.facebook.presto.statistic;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigSecuritySensitive;
 
 public class RedisProviderConfig
 {
@@ -92,6 +93,7 @@ public class RedisProviderConfig
     }
 
     @Config("hbo.redis-provider.cluster-password")
+    @ConfigSecuritySensitive
     public RedisProviderConfig setClusterPassword(String value)
     {
         this.clusterPassword = value;

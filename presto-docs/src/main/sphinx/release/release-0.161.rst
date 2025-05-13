@@ -19,11 +19,11 @@ General Changes
 * Improve error message when coordinator responds with ``403 FORBIDDEN``.
 * Improve performance for queries containing expressions in the join criteria
   that reference columns on one side of the join.
-* Improve performance of :func:`map_concat` when one argument is empty.
+* Improve performance of :func:`!map_concat` when one argument is empty.
 * Remove ``/v1/execute`` resource.
 * Add new column to :doc:`/sql/show-columns` (and :doc:`/sql/describe`)
   to show extra information from connectors.
-* Add :func:`map` to construct an empty :ref:`map_type`.
+* Add :func:`!map` to construct an empty :ref:`map_type`.
 
 Hive Connector
 --------------

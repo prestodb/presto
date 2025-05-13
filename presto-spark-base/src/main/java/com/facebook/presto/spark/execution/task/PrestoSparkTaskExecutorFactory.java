@@ -18,6 +18,8 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.TestingGcMonitor;
 import com.facebook.presto.Session;
+import com.facebook.presto.SessionRepresentation;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.io.DataOutput;
 import com.facebook.presto.event.SplitMonitor;
@@ -48,6 +50,7 @@ import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskMemoryReservationSummary;
 import com.facebook.presto.operator.TaskStats;
+import com.facebook.presto.spark.BasicPrincipal;
 import com.facebook.presto.spark.PrestoSparkConfig;
 import com.facebook.presto.spark.PrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.accesscontrol.PrestoSparkAuthenticatorProvider;
@@ -79,9 +82,13 @@ import com.facebook.presto.spark.execution.shuffle.PrestoSparkShuffleReadInfo;
 import com.facebook.presto.spark.execution.shuffle.PrestoSparkShuffleWriteInfo;
 import com.facebook.presto.spark.util.PrestoSparkStatsCollectionUtils;
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.page.PageDataOutput;
+import com.facebook.presto.spi.plan.PlanFragmentId;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.TokenAuthenticator;
 import com.facebook.presto.spi.storage.TempDataOperationContext;
 import com.facebook.presto.spi.storage.TempDataSink;
@@ -89,11 +96,11 @@ import com.facebook.presto.spi.storage.TempStorage;
 import com.facebook.presto.spi.storage.TempStorageHandle;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.spiller.SpillSpaceTracker;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import com.facebook.presto.sql.planner.OutputPartitioning;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
 import com.facebook.presto.storage.TempStorageManager;
@@ -104,7 +111,6 @@ import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.util.CollectionAccumulator;
-import org.joda.time.DateTime;
 import scala.Tuple2;
 import scala.collection.AbstractIterator;
 import scala.collection.Iterator;
@@ -116,7 +122,9 @@ import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -132,6 +140,9 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.zip.CRC32;
 
 import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalTotalMemoryLimit;
+import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY_PER_NODE;
+import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_REVOCABLE_MEMORY_PER_NODE;
+import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_TOTAL_MEMORY_PER_NODE;
 import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
 import static com.facebook.presto.SystemSessionProperties.getHeapDumpFileDirectory;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxBroadcastMemory;
@@ -145,11 +156,14 @@ import static com.facebook.presto.execution.TaskState.FAILED;
 import static com.facebook.presto.execution.TaskStatus.STARTING_VERSION;
 import static com.facebook.presto.execution.buffer.BufferState.FINISHED;
 import static com.facebook.presto.metadata.MetadataUpdates.DEFAULT_METADATA_UPDATES;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.getAttemptNumberToApplyDynamicMemoryPoolTuning;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.getDynamicPrestoMemoryPoolTuningFraction;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getMemoryRevokingTarget;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getMemoryRevokingThreshold;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getShuffleOutputTargetAverageRowSize;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getSparkBroadcastJoinMaxMemoryOverride;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getStorageBasedBroadcastJoinWriteBufferSize;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.isDynamicPrestoMemoryPoolTuningEnabled;
 import static com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleStats.Operation.WRITE;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.deserializeZstdCompressed;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.getNullifyingIterator;
@@ -196,6 +210,9 @@ public class PrestoSparkTaskExecutorFactory
     private final Set<PrestoSparkAuthenticatorProvider> authenticatorProviders;
 
     private final NodeMemoryConfig nodeMemoryConfig;
+
+    private final boolean nativeExecution;
+
     private final DataSize maxQuerySpillPerNode;
     private final DataSize sinkMaxBufferSize;
 
@@ -210,6 +227,7 @@ public class PrestoSparkTaskExecutorFactory
 
     private final AtomicBoolean memoryRevokePending = new AtomicBoolean();
     private final AtomicBoolean memoryRevokeRequestInProgress = new AtomicBoolean();
+
     @Inject
     public PrestoSparkTaskExecutorFactory(
             SessionPropertyManager sessionPropertyManager,
@@ -228,6 +246,7 @@ public class PrestoSparkTaskExecutorFactory
             TaskExecutor taskExecutor,
             SplitMonitor splitMonitor,
             Set<PrestoSparkAuthenticatorProvider> authenticatorProviders,
+            FeaturesConfig featuresConfig,
             TaskManagerConfig taskManagerConfig,
             NodeMemoryConfig nodeMemoryConfig,
             NodeSpillConfig nodeSpillConfig,
@@ -253,6 +272,7 @@ public class PrestoSparkTaskExecutorFactory
                 splitMonitor,
                 authenticatorProviders,
                 nodeMemoryConfig,
+                featuresConfig.isNativeExecutionEnabled(),
                 requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").getQueryMaxSpillPerNode(),
                 requireNonNull(taskManagerConfig, "taskManagerConfig is null").getSinkMaxBufferSize(),
                 requireNonNull(taskManagerConfig, "taskManagerConfig is null").isPerOperatorCpuTimerEnabled(),
@@ -282,6 +302,7 @@ public class PrestoSparkTaskExecutorFactory
             SplitMonitor splitMonitor,
             Set<PrestoSparkAuthenticatorProvider> authenticatorProviders,
             NodeMemoryConfig nodeMemoryConfig,
+            boolean nativeExecution,
             DataSize maxQuerySpillPerNode,
             DataSize sinkMaxBufferSize,
             boolean perOperatorCpuTimerEnabled,
@@ -310,6 +331,7 @@ public class PrestoSparkTaskExecutorFactory
         this.authenticatorProviders = ImmutableSet.copyOf(requireNonNull(authenticatorProviders, "authenticatorProviders is null"));
         // Ordering is needed to make sure serialized plans are consistent for the same map
         this.nodeMemoryConfig = requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null");
+        this.nativeExecution = nativeExecution;
         this.maxQuerySpillPerNode = requireNonNull(maxQuerySpillPerNode, "maxQuerySpillPerNode is null");
         this.sinkMaxBufferSize = requireNonNull(sinkMaxBufferSize, "sinkMaxBufferSize is null");
         this.perOperatorCpuTimerEnabled = perOperatorCpuTimerEnabled;
@@ -365,10 +387,26 @@ public class PrestoSparkTaskExecutorFactory
         ImmutableMap.Builder<String, TokenAuthenticator> extraAuthenticators = ImmutableMap.builder();
         authenticatorProviders.forEach(provider -> extraAuthenticators.putAll(provider.getTokenAuthenticators()));
 
-        Session session = taskDescriptor.getSession().toSession(
+        SessionRepresentation sessionRepresentation = taskDescriptor.getSession();
+        Session session = sessionRepresentation.toSession(
                 sessionPropertyManager,
                 taskDescriptor.getExtraCredentials(),
                 extraAuthenticators.build());
+        DataSize maxUserMemory = getDynamicallyComputedMemory(session, getQueryMaxMemoryPerNode(session), attemptNumber);
+        DataSize maxTotalMemory = getDynamicallyComputedMemory(session, getQueryMaxTotalMemoryPerNode(session), attemptNumber);
+        DataSize maxRevocableMemory = getDynamicallyComputedMemory(session, getQueryMaxRevocableMemoryPerNode(session), attemptNumber);
+
+        ImmutableMap.Builder<String, String> extraSessionProperties = ImmutableMap.<String, String>builder()
+                .put(QUERY_MAX_MEMORY_PER_NODE, maxUserMemory.toString())
+                .put(QUERY_MAX_TOTAL_MEMORY_PER_NODE, maxTotalMemory.toString())
+                .put(QUERY_MAX_REVOCABLE_MEMORY_PER_NODE, maxRevocableMemory.toString());
+
+        session = createSessionWithExtraSessionProperties(
+                 sessionRepresentation,
+                 taskDescriptor.getExtraCredentials(),
+                 extraAuthenticators.build(),
+                 extraSessionProperties.build());
+
         PlanFragment fragment = taskDescriptor.getFragment();
         StageId stageId = new StageId(session.getQueryId(), fragment.getId().getId());
 
@@ -380,9 +418,6 @@ public class PrestoSparkTaskExecutorFactory
 
         log.info(PlanPrinter.textPlanFragment(fragment, functionAndTypeManager, session, true));
 
-        DataSize maxUserMemory = getQueryMaxMemoryPerNode(session);
-        DataSize maxTotalMemory = getQueryMaxTotalMemoryPerNode(session);
-        DataSize maxRevocableMemory = getQueryMaxRevocableMemoryPerNode(session);
         DataSize maxBroadcastMemory = getSparkBroadcastJoinMaxMemoryOverride(session);
         if (maxBroadcastMemory == null) {
             maxBroadcastMemory = new DataSize(min(nodeMemoryConfig.getMaxQueryBroadcastMemory().toBytes(), getQueryMaxBroadcastMemory(session).toBytes()), BYTE);
@@ -430,6 +465,7 @@ public class PrestoSparkTaskExecutorFactory
                 memoryRevokingTarget <= memoryRevokingThreshold,
                 "memoryRevokingTarget should be less than or equal memoryRevokingThreshold, but got %s and %s respectively",
                 memoryRevokingTarget, memoryRevokingThreshold);
+        boolean heapDumpOnExceededMemoryLimitEnabled = isHeapDumpOnExceededMemoryLimitEnabled(session);
         if (isSpillEnabled(session)) {
             memoryPool.addListener((pool, queryId, totalMemoryReservationBytes) -> {
                 if (totalMemoryReservationBytes > queryContext.getPeakNodeTotalMemory()) {
@@ -475,7 +511,7 @@ public class PrestoSparkTaskExecutorFactory
                                     format("Total reserved memory: %s, Total revocable memory: %s",
                                             succinctBytes(pool.getQueryMemoryReservation(queryId)),
                                             succinctBytes(pool.getQueryRevocableMemoryReservation(queryId))),
-                            isHeapDumpOnExceededMemoryLimitEnabled(session),
+                            heapDumpOnExceededMemoryLimitEnabled,
                             Optional.ofNullable(heapDumpFilePath),
                             UNKNOWN);
                 }
@@ -564,7 +600,8 @@ public class PrestoSparkTaskExecutorFactory
                 taskExecutor,
                 splitMonitor,
                 notificationExecutor,
-                memoryUpdateExecutor);
+                memoryUpdateExecutor,
+                nativeExecution);
 
         log.info("Task [%s] received %d splits.",
                 taskId,
@@ -590,6 +627,67 @@ public class PrestoSparkTaskExecutorFactory
                 outputBuffer,
                 tempStorage,
                 tempDataOperationContext);
+    }
+
+    private DataSize getDynamicallyComputedMemory(Session session, DataSize memory, int attemptNumber)
+    {
+        // For the first attempt, use the static memory values present in SessionProperties.
+        // Second attempt onwards use configured JVM memory for computing presto memory limits.
+        if (isDynamicPrestoMemoryPoolTuningEnabled(session) && attemptNumber >= getAttemptNumberToApplyDynamicMemoryPoolTuning(session)) {
+            double jvmMaxMemoryInBytes = Runtime.getRuntime().maxMemory();
+            double prestoMemoryPoolTuningFraction = getDynamicPrestoMemoryPoolTuningFraction(session);
+            log.info("Dynamically Tuning Presto Memory Configs. Configured JVM Memory: %f; Dynamic Memory Tuning fraction: %f", jvmMaxMemoryInBytes, prestoMemoryPoolTuningFraction);
+            double finalMemoryValue = Math.max(prestoMemoryPoolTuningFraction * jvmMaxMemoryInBytes, memory.toBytes());
+            return DataSize.succinctDataSize(finalMemoryValue, DataSize.Unit.BYTE);
+        }
+
+        return memory;
+    }
+
+    private Session createSessionWithExtraSessionProperties(
+            SessionRepresentation sessionRepresentation,
+            Map<String, String> extraCredentials,
+            Map<String, TokenAuthenticator> extraAuthenticators,
+            Map<String, String> extraSystemProperties)
+    {
+        Map<String, String> updatedSessionProperties = new HashMap<>(sessionRepresentation.getSystemProperties());
+        updatedSessionProperties.putAll(extraSystemProperties);
+
+        return new Session(
+                new QueryId(sessionRepresentation.getQueryId()),
+                sessionRepresentation.getTransactionId(),
+                sessionRepresentation.isClientTransactionSupport(),
+                new Identity(
+                        sessionRepresentation.getUser(),
+                        sessionRepresentation.getPrincipal().map(BasicPrincipal::new),
+                        sessionRepresentation.getRoles(),
+                        extraCredentials,
+                        extraAuthenticators,
+                        Optional.empty(),
+                        Optional.empty()),
+                sessionRepresentation.getSource(),
+                sessionRepresentation.getCatalog(),
+                sessionRepresentation.getSchema(),
+                sessionRepresentation.getTraceToken(),
+                sessionRepresentation.getTimeZoneKey(),
+                sessionRepresentation.getLocale(),
+                sessionRepresentation.getRemoteUserAddress(),
+                sessionRepresentation.getUserAgent(),
+                sessionRepresentation.getClientInfo(),
+                sessionRepresentation.getClientTags(),
+                sessionRepresentation.getResourceEstimates(),
+                sessionRepresentation.getStartTime(),
+                ImmutableMap.copyOf(updatedSessionProperties),
+                sessionRepresentation.getCatalogProperties(),
+                sessionRepresentation.getUnprocessedCatalogProperties(),
+                sessionPropertyManager,
+                sessionRepresentation.getPreparedStatements(),
+                sessionRepresentation.getSessionFunctions(),
+                Optional.empty(),
+                // we use NOOP to create a session from the representation as worker does not require warning collectors
+                WarningCollector.NOOP,
+                new RuntimeStats(),
+                Optional.empty());
     }
 
     public boolean isMemoryRevokePending(TaskContext taskContext)
@@ -926,7 +1024,7 @@ public class PrestoSparkTaskExecutorFactory
                     taskStats.getFullGcCount(),
                     taskStats.getFullGcTimeInMillis(),
                     taskStats.getTotalCpuTimeInNanos(),
-                    System.currentTimeMillis() - taskStats.getCreateTime().getMillis(),
+                    System.currentTimeMillis() - taskStats.getCreateTimeInMillis(),
                     taskStats.getQueuedPartitionedSplitsWeight(),
                     taskStats.getRunningPartitionedSplitsWeight());
 
@@ -944,7 +1042,7 @@ public class PrestoSparkTaskExecutorFactory
             return new TaskInfo(
                     taskId,
                     taskStatus,
-                    DateTime.now(),
+                    System.currentTimeMillis(),
                     outputBufferInfo,
                     ImmutableSet.of(),
                     taskStats,

@@ -13,22 +13,28 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
+import com.facebook.presto.hive.metastore.InvalidateMetastoreCacheProcedure;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.google.inject.Binder;
-import com.google.inject.Module;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 
 public class HiveProcedureModule
-        implements Module
+        extends AbstractConfigurationAwareModule
 {
     @Override
-    public void configure(Binder binder)
+    protected void setup(Binder binder)
     {
         Multibinder<Procedure> procedures = newSetBinder(binder, Procedure.class);
         procedures.addBinding().toProvider(CreateEmptyPartitionProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(SyncPartitionMetadataProcedure.class).in(Scopes.SINGLETON);
+        procedures.addBinding().toProvider(DirectoryListCacheInvalidationProcedure.class).in(Scopes.SINGLETON);
+
+        if (buildConfigObject(MetastoreClientConfig.class).isInvalidateMetastoreCacheProcedureEnabled()) {
+            procedures.addBinding().toProvider(InvalidateMetastoreCacheProcedure.class).in(Scopes.SINGLETON);
+        }
     }
 }

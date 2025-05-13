@@ -54,12 +54,12 @@ public class CachingParquetMetadataSource
                 ParquetFileMetadata fileMetadataCache = cache.get(
                         parquetDataSource.getId(),
                         () -> delegate.getParquetMetadata(parquetDataSource, fileSize, cacheable, modificationTime, fileDecryptor, readMaskedValue));
-                if (fileMetadataCache.getModificationTime() == modificationTime) {
-                    return fileMetadataCache;
-                }
-                else {
+                if (fileMetadataCache.getModificationTime() != modificationTime) {
                     cache.invalidate(parquetDataSource.getId());
+                    fileMetadataCache = delegate.getParquetMetadata(parquetDataSource, fileSize, cacheable, modificationTime, fileDecryptor, readMaskedValue);
+                    cache.put(parquetDataSource.getId(), fileMetadataCache);
                 }
+                return fileMetadataCache;
             }
             return delegate.getParquetMetadata(parquetDataSource, fileSize, cacheable, modificationTime, fileDecryptor, readMaskedValue);
         }

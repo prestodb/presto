@@ -5,7 +5,7 @@ Release 0.188
 General Changes
 ---------------
 
-* Fix handling of negative start indexes in array :func:`slice` function.
+* Fix handling of negative start indexes in array :func:`!slice` function.
 * Fix inverted sign for time zones ``Etc/GMT-12``, ``Etc/GMT-11``, ..., ``Etc/GMT-1``,
   ``Etc/GMT+1``, ... ``Etc/GMT+12``.
 * Improve performance of server logging and HTTP request logging.

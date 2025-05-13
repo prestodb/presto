@@ -29,7 +29,7 @@ import java.net.URI;
 
 import static alluxio.conf.PropertyKey.USER_CLIENT_CACHE_QUOTA_ENABLED;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.hash.Hashing.md5;
+import static com.google.common.hash.Hashing.sha256;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class AlluxioCachingFileSystem
@@ -37,18 +37,20 @@ public class AlluxioCachingFileSystem
 {
     private static final int BUFFER_SIZE = 65536;
     private final boolean cacheValidationEnabled;
+    private final boolean lastModifiedTimeCheckEnabled;
     private boolean cacheQuotaEnabled;
     private LocalCacheFileSystem localCacheFileSystem;
 
     public AlluxioCachingFileSystem(ExtendedFileSystem dataTier, URI uri)
     {
-        this(dataTier, uri, false);
+        this(dataTier, uri, false, false);
     }
 
-    public AlluxioCachingFileSystem(ExtendedFileSystem dataTier, URI uri, boolean cacheValidationEnabled)
+    public AlluxioCachingFileSystem(ExtendedFileSystem dataTier, URI uri, boolean cacheValidationEnabled, boolean lastModifiedTimeCheckEnabled)
     {
         super(dataTier, uri);
         this.cacheValidationEnabled = cacheValidationEnabled;
+        this.lastModifiedTimeCheckEnabled = lastModifiedTimeCheckEnabled;
     }
 
     @Override
@@ -79,14 +81,17 @@ public class AlluxioCachingFileSystem
         // Using Alluxio caching requires knowing file size for now
         if (hiveFileContext.isCacheable() && hiveFileContext.getFileSize().isPresent()) {
             // FilePath is a unique identifier for a file, however it can be a long string
-            // hence using md5 hash of the file path as the identifier in the cache.
+            // hence using sha256 hash of the file path as the identifier in the cache.
             // We don't set fileId because fileId is Alluxio specific
             FileInfo info = new FileInfo()
                     .setLastModificationTimeMs(hiveFileContext.getModificationTime())
                     .setPath(path.toString())
                     .setFolder(false)
                     .setLength(hiveFileContext.getFileSize().getAsLong());
-            String cacheIdentifier = md5().hashString(path.toString(), UTF_8).toString();
+            String cacheIdentifier = sha256().hashString(path.toString(), UTF_8).toString();
+            if (lastModifiedTimeCheckEnabled) {
+                cacheIdentifier = sha256().hashString(cacheIdentifier + hiveFileContext.getModificationTime(), UTF_8).toString();
+            }
             // CacheContext is the mechanism to pass the cache related context to the source filesystem
             CacheContext cacheContext = PrestoCacheContext.build(cacheIdentifier, hiveFileContext, cacheQuotaEnabled);
             URIStatus uriStatus = new URIStatus(info, cacheContext);

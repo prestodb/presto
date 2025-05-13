@@ -82,7 +82,7 @@ databases:
 
   mysql:
     jdbc_driver_class: com.mysql.jdbc.Driver
-    jdbc_url: jdbc:mysql://mysql:13306/test
+    jdbc_url: jdbc:mysql://mysql:13306/test?enabledTLSProtocols=TLSv1.2
     jdbc_user: root
     jdbc_password: swarm
     jdbc_pooling: true
@@ -105,7 +105,7 @@ databases:
 
   sqlserver:
     jdbc_driver_class: com.microsoft.sqlserver.jdbc.SQLServerDriver
-    jdbc_url: jdbc:sqlserver://sqlserver
+    jdbc_url: jdbc:sqlserver://sqlserver;encrypt=false;
     jdbc_user: sa
     jdbc_password: SQLServerPass1
     jdbc_pooling: true

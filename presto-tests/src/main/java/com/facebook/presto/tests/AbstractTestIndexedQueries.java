@@ -21,6 +21,7 @@ import com.facebook.presto.tpch.TpchMetadata;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SystemSessionProperties.JOINS_NOT_NULL_INFERENCE_STRATEGY;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -668,5 +669,20 @@ public abstract class AbstractTestIndexedQueries
     public void testNonEquiJoin()
     {
         assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity + length(orders.comment) > 7");
+    }
+
+    @Test
+    public void testIndexJoinNotNullKeys()
+    {
+        Session defaultSession = getSession();
+
+        Session session = Session.builder(defaultSession)
+                .setSystemProperty(JOINS_NOT_NULL_INFERENCE_STRATEGY, "USE_FUNCTION_METADATA").build();
+        String sql = "SELECT * FROM (SELECT * FROM lineitem WHERE partkey % 8 = 0) l LEFT JOIN orders o ON l.orderkey = o.orderkey";
+        MaterializedResult resultExplainQuery = computeActual(session, "EXPLAIN " + sql);
+        String explainString = (String) resultExplainQuery.getOnlyValue();
+        assert (explainString.contains("IndexJoin"));
+
+        assertQuery(session, sql);
     }
 }

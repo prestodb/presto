@@ -16,17 +16,13 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.PrestoException;
 import org.openjdk.jol.info.ClassLayout;
 
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.airlift.slice.SizeOf.sizeOfObjectArray;
 import static java.util.Objects.requireNonNull;
 
@@ -39,26 +35,28 @@ public class HiveSplitPartitionInfo
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(HiveSplitPartitionInfo.class).instanceSize();
 
     private final Storage storage;
-    private final URI path;
+    private final String path;
     private final List<HivePartitionKey> partitionKeys;
     private final String partitionName;
     private final int partitionDataColumnCount;
     private final TableToPartitionMapping tableToPartitionMapping;
     private final Optional<HiveSplit.BucketConversion> bucketConversion;
     private final Set<ColumnHandle> redundantColumnDomains;
+    private final Optional<byte[]> rowIdPartitionComponent;
 
     // keep track of how many InternalHiveSplits reference this PartitionInfo.
     private final AtomicInteger references = new AtomicInteger(0);
 
-    public HiveSplitPartitionInfo(
+    HiveSplitPartitionInfo(
             Storage storage,
-            URI path,
+            String path,
             List<HivePartitionKey> partitionKeys,
             String partitionName,
             int partitionDataColumnCount,
             TableToPartitionMapping tableToPartitionMapping,
             Optional<HiveSplit.BucketConversion> bucketConversion,
-            Set<ColumnHandle> redundantColumnDomains)
+            Set<ColumnHandle> redundantColumnDomains,
+            Optional<byte[]> rowIdPartitionComponent)
     {
         requireNonNull(storage, "storage is null");
         requireNonNull(path, "path is null");
@@ -67,34 +65,17 @@ public class HiveSplitPartitionInfo
         requireNonNull(tableToPartitionMapping, "tableToPartitionMapping is null");
         requireNonNull(bucketConversion, "bucketConversion is null");
         requireNonNull(redundantColumnDomains, "redundantColumnDomains is null");
+        requireNonNull(rowIdPartitionComponent, "rowIdPartitionComponent is null");
 
         this.storage = storage;
-        this.path = ensurePathHasTrailingSlash(path);
+        this.path = path;
         this.partitionKeys = partitionKeys;
         this.partitionName = partitionName;
         this.partitionDataColumnCount = partitionDataColumnCount;
         this.tableToPartitionMapping = tableToPartitionMapping;
         this.bucketConversion = bucketConversion;
         this.redundantColumnDomains = redundantColumnDomains;
-    }
-
-    // Hadoop path strips trailing slashes from the path string,
-    // and Java URI has a bug where a.resolve(a.relativize(b))
-    // doesn't equal 'b' if 'a' had any components after the last slash
-    // https://bugs.openjdk.java.net/browse/JDK-6523089
-    private static URI ensurePathHasTrailingSlash(URI path)
-    {
-        // since this is the partition path, it's always a directory.
-        // it's safe to add a trailing slash
-        if (!path.getPath().endsWith("/")) {
-            try {
-                path = new URI(path.toString() + "/");
-            }
-            catch (URISyntaxException e) {
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, e);
-            }
-        }
-        return path;
+        this.rowIdPartitionComponent = rowIdPartitionComponent;
     }
 
     public Storage getStorage()
@@ -110,6 +91,11 @@ public class HiveSplitPartitionInfo
     public String getPartitionName()
     {
         return partitionName;
+    }
+
+    public Optional<byte[]> getRowIdPartitionComponent()
+    {
+        return rowIdPartitionComponent;
     }
 
     public int getPartitionDataColumnCount()
@@ -155,7 +141,7 @@ public class HiveSplitPartitionInfo
         return references.decrementAndGet();
     }
 
-    public URI getPath()
+    public String getPath()
     {
         return path;
     }

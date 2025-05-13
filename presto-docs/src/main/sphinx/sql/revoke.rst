@@ -48,5 +48,4 @@ See connector documentation for more details.
 See Also
 --------
 
-:doc:`grant`
-:doc:`show-grants`
+:doc:`grant`, :doc:`show-grants`

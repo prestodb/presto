@@ -19,12 +19,13 @@ import com.facebook.presto.spi.statistics.EmptyPlanStatisticsProvider;
 import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Injector;
 import io.lettuce.core.AbstractRedisClient;
 
 import java.util.Map;
 
-import static com.facebook.presto.statistic.PropertiesUtil.loadAndProcessProperties;
+import static com.facebook.presto.statistic.PropertiesUtil.initializeConfigs;
 
 public class RedisProviderPlugin
         implements Plugin, AutoCloseable
@@ -34,24 +35,21 @@ public class RedisProviderPlugin
 
     private Injector injector;
 
-    @VisibleForTesting
     public RedisProviderPlugin(String configPath)
     {
         // This plugin cannot be loaded like other plugins because this is not a connector
-        Map<String, String> propertyMap;
-        try {
-            propertyMap = loadAndProcessProperties(configPath);
-        }
-        catch (Exception e) {
-            propertyMap = null;
-            log.info("Redis Provider Plugin was not loaded since config was not loaded properly");
-        }
-        this.propertyMap = propertyMap;
+        this(initializeConfigs(configPath));
     }
 
     public RedisProviderPlugin()
     {
         this(RedisProviderConfig.REDIS_PROPERTIES_PATH);
+    }
+
+    @VisibleForTesting
+    public RedisProviderPlugin(Map<String, String> configs)
+    {
+        this.propertyMap = ImmutableMap.copyOf(configs);
     }
 
     public Iterable<HistoryBasedPlanStatisticsProvider> getHistoryBasedPlanStatisticsProviders()

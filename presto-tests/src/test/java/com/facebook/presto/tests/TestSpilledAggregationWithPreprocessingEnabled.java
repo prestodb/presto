@@ -21,6 +21,8 @@ import com.google.common.collect.ImmutableMap;
 
 import java.nio.file.Paths;
 
+import static com.facebook.presto.sessionpropertyproviders.JavaWorkerSessionPropertyProvider.AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT;
+import static com.facebook.presto.sessionpropertyproviders.JavaWorkerSessionPropertyProvider.DEDUP_BASED_DISTINCT_AGGREGATION_SPILL_ENABLED;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 
@@ -35,10 +37,10 @@ public class TestSpilledAggregationWithPreprocessingEnabled
                 .setCatalog("tpch")
                 .setSchema(TINY_SCHEMA_NAME)
                 .setSystemProperty(SystemSessionProperties.TASK_CONCURRENCY, "2")
-                .setSystemProperty(SystemSessionProperties.AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT, "128kB")
+                .setSystemProperty(AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT, "128kB")
                 .setSystemProperty(SystemSessionProperties.USE_MARK_DISTINCT, "false")
                 // Enable preprocessing
-                .setSystemProperty(SystemSessionProperties.DEDUP_BASED_DISTINCT_AGGREGATION_SPILL_ENABLED, "true")
+                .setSystemProperty(DEDUP_BASED_DISTINCT_AGGREGATION_SPILL_ENABLED, "true")
                 .build();
 
         ImmutableMap<String, String> extraProperties = ImmutableMap.<String, String>builder()

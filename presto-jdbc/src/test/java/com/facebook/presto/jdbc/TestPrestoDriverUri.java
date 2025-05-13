@@ -26,6 +26,7 @@ import static com.facebook.presto.jdbc.ConnectionProperties.CLIENT_TAGS;
 import static com.facebook.presto.jdbc.ConnectionProperties.CUSTOM_HEADERS;
 import static com.facebook.presto.jdbc.ConnectionProperties.DISABLE_COMPRESSION;
 import static com.facebook.presto.jdbc.ConnectionProperties.EXTRA_CREDENTIALS;
+import static com.facebook.presto.jdbc.ConnectionProperties.FOLLOW_REDIRECTS;
 import static com.facebook.presto.jdbc.ConnectionProperties.HTTP_PROTOCOLS;
 import static com.facebook.presto.jdbc.ConnectionProperties.HTTP_PROXY;
 import static com.facebook.presto.jdbc.ConnectionProperties.QUERY_INTERCEPTORS;
@@ -179,6 +180,17 @@ public class TestPrestoDriverUri
         PrestoDriverUri parameters = createDriverUri("presto://localhost:8080/blackhole?disableCompression=true");
         assertTrue(parameters.isCompressionDisabled());
         assertEquals(parameters.getProperties().getProperty(DISABLE_COMPRESSION.getKey()), "true");
+    }
+
+    @Test
+    public void testUriWithoutFollowingRedirects()
+            throws SQLException
+    {
+        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080/blackhole?followRedirects=false");
+        assertFalse(parameters.followRedirects());
+        assertEquals(parameters.getProperties().getProperty(FOLLOW_REDIRECTS.getKey()), "false");
+
+        assertInvalid("presto://localhost:8080/blackhole?followRedirects=ANOTHERVALUE", "Connection property 'followRedirects' value is invalid: ANOTHERVALUE");
     }
 
     @Test

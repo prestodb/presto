@@ -22,7 +22,7 @@ import static java.util.Objects.requireNonNull;
 public class PlanNodeWithHash
 {
     private final PlanNode planNode;
-    // An optional canonical hash of the corresponding plan node
+    // An optional canonical hash of the corresponding plan node. Hash strategy is part of `CanonicalPlan` which gets hashed, hence different strategies gives different hash
     private final Optional<String> hash;
 
     public PlanNodeWithHash(PlanNode planNode, Optional<String> hash)

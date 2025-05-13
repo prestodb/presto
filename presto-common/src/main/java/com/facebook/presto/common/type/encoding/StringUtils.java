@@ -14,24 +14,22 @@
 
 package com.facebook.presto.common.type.encoding;
 
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 
-public final class StringUtils
+final class StringUtils
 {
     private StringUtils() {}
-
-    public static final Charset UTF_8 = Charset.forName("UTF-8");
 
     static byte[] getBytesUtf8(final String string)
     {
         if (string == null) {
             return null;
         }
-        return string.getBytes(StringUtils.UTF_8);
+        return string.getBytes(StandardCharsets.UTF_8);
     }
 
     static String newStringUtf8(final byte[] bytes)
     {
-        return bytes == null ? null : new String(bytes, StringUtils.UTF_8);
+        return bytes == null ? null : new String(bytes, StandardCharsets.UTF_8);
     }
 }

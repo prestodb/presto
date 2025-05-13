@@ -417,12 +417,6 @@ public class InvokeInstruction
         }
 
         @Override
-        public List<BytecodeNode> getChildNodes()
-        {
-            return ImmutableList.of();
-        }
-
-        @Override
         public <T> T accept(BytecodeNode parent, BytecodeVisitor<T> visitor)
         {
             return visitor.visitInvokeDynamic(parent, this);

@@ -25,18 +25,23 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.security.SecureRandom;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.plugin.clickhouse.ClickHouseQueryRunner.createClickHouseQueryRunner;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.facebook.presto.testing.TestingSession.DEFAULT_TIME_ZONE_KEY;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
 import static java.lang.Character.MAX_RADIX;
 import static java.lang.Math.abs;
 import static java.lang.Math.min;
 import static java.lang.String.format;
+import static java.time.format.DateTimeFormatter.ISO_ZONED_DATE_TIME;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
@@ -44,6 +49,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+@Test(singleThreaded = true)
 public class TestClickHouseDistributedQueries
             extends AbstractTestDistributedQueries
 {
@@ -221,6 +227,75 @@ public class TestClickHouseDistributedQueries
                 "VALUES ( NULL, CAST ('2012-12-31' AS DATE), 1 ), ( CAST ('2013-01-01' AS DATE), CAST ('2013-01-02' AS DATE), 2 );");
 
         assertUpdate("DROP TABLE test_not_null_with_insert");
+    }
+
+    @Test
+    public void testInsertAndSelectFromDateTimeTables()
+    {
+        // ----- Table T - No milliseconds -----
+        ZonedDateTime originalTimestamp = ZonedDateTime.parse("2025-01-08T12:34:56Z", ISO_ZONED_DATE_TIME);
+        // the test session is Pacific/Apia
+        ZonedDateTime adjustedTimestamp = originalTimestamp.withZoneSameInstant(
+                ZoneId.of(DEFAULT_TIME_ZONE_KEY.getId()));
+
+        // Pacific/Apia becomes 2025-01-09 01:34:56
+        String adjustedTimestampString = adjustedTimestamp.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+
+        assertUpdate("CREATE TABLE t (ts timestamp not null)");
+        assertUpdate("INSERT INTO t (ts) VALUES (timestamp '" + adjustedTimestampString + "')", 1);
+        assertQuery(
+                "SELECT * FROM t LIMIT 100",
+                "VALUES (timestamp  '" + adjustedTimestampString + "')");
+        assertUpdate("DROP TABLE IF EXISTS t");
+        // ----- End of Table T - No milliseconds -----
+
+        // ----- Table T1 - 1 digit of milliseconds -----
+        originalTimestamp = ZonedDateTime.parse("2025-01-08T12:34:56.7Z", ISO_ZONED_DATE_TIME);
+        // the test session is Pacific/Apia
+        adjustedTimestamp = originalTimestamp.withZoneSameInstant(ZoneId.of(DEFAULT_TIME_ZONE_KEY.getId()));
+
+        // Pacific/Apia becomes 2025-01-09 01:34:56.7
+        adjustedTimestampString = adjustedTimestamp.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.S"));
+
+        assertUpdate("CREATE TABLE t1 (ts timestamp not null)");
+        assertUpdate("INSERT INTO t1 (ts) VALUES (timestamp '" + adjustedTimestampString + "')", 1);
+        assertQuery(
+                "SELECT * FROM t1 LIMIT 100",
+                "VALUES (timestamp  '" + adjustedTimestampString + "')");
+        assertUpdate("DROP TABLE IF EXISTS t1");
+        // ----- End of Table T1 - 1 digit of milliseconds -----
+
+        // ----- Table T2 - 2 digits of milliseconds -----
+        originalTimestamp = ZonedDateTime.parse("2025-01-08T12:34:56.75Z", ISO_ZONED_DATE_TIME);
+        // the test session is Pacific/Apia
+        adjustedTimestamp = originalTimestamp.withZoneSameInstant(ZoneId.of(DEFAULT_TIME_ZONE_KEY.getId()));
+
+        // Pacific/Apia becomes 2025-01-09 01:34:56.75
+        adjustedTimestampString = adjustedTimestamp.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SS"));
+
+        assertUpdate("CREATE TABLE t2 (ts timestamp not null)");
+        assertUpdate("INSERT INTO t2 (ts) VALUES (timestamp '" + adjustedTimestampString + "')", 1);
+        assertQuery(
+                "SELECT * FROM t2 LIMIT 100",
+                "VALUES (timestamp  '" + adjustedTimestampString + "')");
+        assertUpdate("DROP TABLE IF EXISTS t2");
+        // ----- End of Table T2 - 2 digits of milliseconds -----
+
+        // ----- Table T3 - 3 digits of milliseconds -----
+        originalTimestamp = ZonedDateTime.parse("2025-01-08T12:34:56.759Z", ISO_ZONED_DATE_TIME);
+        // the test session is Pacific/Apia
+        adjustedTimestamp = originalTimestamp.withZoneSameInstant(ZoneId.of(DEFAULT_TIME_ZONE_KEY.getId()));
+
+        // Pacific/Apia becomes 2025-01-09 01:34:56.759
+        adjustedTimestampString = adjustedTimestamp.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"));
+
+        assertUpdate("CREATE TABLE t3 (ts timestamp not null)");
+        assertUpdate("INSERT INTO t3 (ts) VALUES (timestamp '" + adjustedTimestampString + "')", 1);
+        assertQuery(
+                "SELECT * FROM t3 LIMIT 100",
+                "VALUES (timestamp  '" + adjustedTimestampString + "')");
+        assertUpdate("DROP TABLE IF EXISTS t3");
+        // ----- End of Table T3 - 3 digits of milliseconds -----
     }
 
     @Override

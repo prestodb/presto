@@ -14,10 +14,10 @@ _______________
     Streaming aggregation can be enabled with the ``streaming_for_partial_aggregation_enabled`` session property or the ``streaming-for-partial-aggregation-enabled`` configuration property.
 * Add an adaptive stage scheduling policy that switches to phased execution mode once a query's stage count exceeds a configurable upper bound.
     This can be enabled by setting the session property ``execution_policy`` to ``phased`` and the stage count limit can be configured by the session property ``max_stage_count_for_eager_scheduling``.
-* Add :func:`secure_random()` function to return a cryptographically secure random number.
+* Add :func:`!secure_random()` function to return a cryptographically secure random number.
 
-Hive Changes
-____________
+Hive Connector Changes
+______________________
 * Fix integer overflow exception in Parquet writer when writing files larger than ~2 GB.
 * Add ability to do streaming aggregation for Hive table scans to improve query performance with aggregation when group-by keys are the same as order-by keys.
     Cases where group-by keys are a subset of order-by keys can't enable streaming aggregation for now.
@@ -30,22 +30,22 @@ ____________
 
 JDBC Changes
 ____________
-* Add a new parameter ``timeZoneID`` which will set the time zone used for the timestamp columns. (See :doc:`/installation/jdbc` :issue:`16680`).
+* Add a new parameter ``timeZoneID`` which will set the time zone used for the timestamp columns. (See :doc:`/clients/java` and issue :issue:`16680`).
 
 MongoDB Connector Changes
 _________________________
 * Fix the spelling of the write concern option ``JOURNAL_SAFE`` for the property ``mongodb.write-concern``.
 
-Iceberg Changes
-_______________
+Iceberg Connector Changes
+_________________________
 * Add support for concurrent insertion from the same Presto cluster or multiple Presto clusters which share the same Metastore.
 
-Pinot Changes
-_____________
+Pinot Connector Changes
+_______________________
 * Add support for querying Pinot ``JSON`` type.
 
 Lark Sheets Connector Changes
-_____________________
+_____________________________
 * Add Lark Sheets connector.
 
 **Credits**

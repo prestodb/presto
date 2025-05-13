@@ -18,7 +18,10 @@ import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.expressions.Term;
 
+import javax.annotation.Nullable;
+
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.regex.MatchResult;
 import java.util.regex.Matcher;
@@ -27,6 +30,7 @@ import java.util.regex.Pattern;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static org.apache.iceberg.expressions.Expressions.bucket;
 import static org.apache.iceberg.expressions.Expressions.day;
 import static org.apache.iceberg.expressions.Expressions.hour;
@@ -40,6 +44,12 @@ public final class PartitionFields
     private static final String NAME = "[a-z_][a-z0-9_]*";
     private static final String FUNCTION_NAME = "\\((" + NAME + ")\\)";
     private static final String FUNCTION_NAME_INT = "\\((" + NAME + "), *(\\d+)\\)";
+
+    private static final String UNQUOTED_IDENTIFIER = "[a-zA-Z_][a-zA-Z0-9_]*";
+    private static final String QUOTED_IDENTIFIER = "\"(?:\"\"|[^\"])*\"";
+    public static final String IDENTIFIER = "(" + UNQUOTED_IDENTIFIER + "|" + QUOTED_IDENTIFIER + ")";
+    private static final Pattern UNQUOTED_IDENTIFIER_PATTERN = Pattern.compile(UNQUOTED_IDENTIFIER);
+    private static final Pattern QUOTED_IDENTIFIER_PATTERN = Pattern.compile(QUOTED_IDENTIFIER);
 
     private static final Pattern IDENTITY_PATTERN = Pattern.compile(NAME);
     private static final Pattern YEAR_PATTERN = Pattern.compile("year" + FUNCTION_NAME);
@@ -58,7 +68,15 @@ public final class PartitionFields
 
     public static PartitionSpec parsePartitionFields(Schema schema, List<String> fields)
     {
-        PartitionSpec.Builder builder = PartitionSpec.builderFor(schema);
+        return parsePartitionFields(schema, fields, null);
+    }
+
+    public static PartitionSpec parsePartitionFields(Schema schema, List<String> fields, @Nullable Integer specId)
+    {
+        PartitionSpec.Builder builder = Optional.ofNullable(specId)
+                .map(id -> PartitionSpec.builderFor(schema).withSpecId(id))
+                .orElseGet(() -> PartitionSpec.builderFor(schema));
+
         for (String field : fields) {
             parsePartitionField(builder, field);
         }
@@ -178,5 +196,21 @@ public final class PartitionFields
         }
 
         throw new UnsupportedOperationException("Unsupported partition transform: " + field);
+    }
+
+    public static String quotedName(String name)
+    {
+        if (UNQUOTED_IDENTIFIER_PATTERN.matcher(name).matches()) {
+            return name;
+        }
+        return '"' + name.replace("\"", "\"\"") + '"';
+    }
+
+    public static String fromIdentifierToColumn(String identifier)
+    {
+        if (QUOTED_IDENTIFIER_PATTERN.matcher(identifier).matches()) {
+            return identifier.substring(1, identifier.length() - 1).replace("\"\"", "\"").toLowerCase(ENGLISH);
+        }
+        return identifier.toLowerCase(ENGLISH);
     }
 }

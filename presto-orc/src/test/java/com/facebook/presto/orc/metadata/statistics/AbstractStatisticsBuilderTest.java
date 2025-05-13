@@ -171,7 +171,7 @@ public abstract class AbstractStatisticsBuilderTest<B extends StatisticsBuilder,
     static List<ColumnStatistics> insertEmptyColumnStatisticsAt(List<ColumnStatistics> statisticsList, int index, long numberOfValues)
     {
         List<ColumnStatistics> newStatisticsList = new ArrayList<>(statisticsList);
-        newStatisticsList.add(index, new ColumnStatistics(numberOfValues, null));
+        newStatisticsList.add(index, new ColumnStatistics(numberOfValues, null, null, null));
         return newStatisticsList;
     }
 

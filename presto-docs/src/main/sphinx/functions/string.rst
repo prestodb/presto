@@ -15,7 +15,7 @@ String Functions
     These functions assume that the input strings contain valid UTF-8 encoded
     Unicode code points.  There are no explicit checks for valid UTF-8 and
     the functions may return incorrect results on invalid UTF-8.
-    Invalid UTF-8 data can be corrected with :func:`from_utf8`.
+    Invalid UTF-8 data can be corrected with :func:`!from_utf8`.
 
     Additionally, the functions operate on Unicode code points and not user
     visible *characters* (or *grapheme clusters*).  Some languages combine
@@ -23,10 +23,14 @@ String Functions
     unit of a writing system for a language, but the functions will treat each
     code point as a separate unit.
 
-    The :func:`lower` and :func:`upper` functions do not perform
+    The :func:`!lower` and :func:`!upper` functions do not perform
     locale-sensitive, context-sensitive, or one-to-many mappings required for
     some languages. Specifically, this will return incorrect results for
     Lithuanian, Turkish and Azeri.
+
+.. function:: bit_length(string) -> boolean
+
+    Returns the count of bits for the given ``string``.
 
 .. function:: chr(n) -> varchar
 
@@ -52,6 +56,10 @@ String Functions
     i.e. the number of positions at which the corresponding characters are different.
     Note that the two strings must have the same length.
 
+.. function:: jarowinkler_similarity(string1, string2) -> double
+
+    Returns the Jaro-Winkler similarity of ``string1`` and ``string2``.
+
 .. function:: length(string) -> bigint
 
     Returns the length of ``string`` in characters.
@@ -61,6 +69,10 @@ String Functions
     Returns the Levenshtein edit distance of ``string1`` and ``string2``,
     i.e. the minimum number of single-character edits (insertions,
     deletions or substitutions) needed to change ``string1`` into ``string2``.
+
+.. function:: longest_common_prefix(string1, string2) -> varchar
+
+    Returns the longest common prefix between ``string1`` and ``string2``
 
 .. function:: lower(string) -> varchar
 
@@ -75,7 +87,7 @@ String Functions
 
 .. function:: ltrim(string) -> varchar
 
-    Removes leading whitespace from ``string``. See :func:`trim` for the set of
+    Removes leading whitespace from ``string``. See :func:`!trim` for the set of
     recognized whitespace characters.
 
 .. function:: ltrim(string, chars) -> varchar
@@ -115,7 +127,7 @@ String Functions
 
 .. function:: rtrim(string) -> varchar
 
-    Removes trailing whitespace from ``string``. See :func:`trim` for the set of
+    Removes trailing whitespace from ``string``. See :func:`!trim` for the set of
     recognized whitespace characters.
 
 .. function:: rtrim(string, chars) -> varchar

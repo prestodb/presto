@@ -17,9 +17,13 @@ public interface MatchResult
 {
     boolean isMatched();
 
+    String getDataType();
+
     String getMatchTypeName();
 
     boolean isMismatchPossiblyCausedByNonDeterminism();
+
+    boolean isMismatchPossiblyCausedByReuseOutdatedTable();
 
     String getReport();
 }

@@ -45,7 +45,7 @@ public class TestTpcdsMetadataStatistics
 {
     private static final EstimateAssertion estimateAssertion = new EstimateAssertion(0.01);
     private static final ConnectorSession session = null;
-    private final TpcdsMetadata metadata = new TpcdsMetadata();
+    private final TpcdsMetadata metadata = new TpcdsMetadata(false);
 
     @Test
     public void testNoTableStatsForNotSupportedSchema()
@@ -178,7 +178,7 @@ public class TestTpcdsMetadataStatistics
 
         Entry<ColumnHandle, ColumnStatistics> entry = tableStatistics.getColumnStatistics().entrySet().iterator().next();
 
-        TableStatistics expectedTableStatistics = tableStatistics.builder()
+        TableStatistics expectedTableStatistics = TableStatistics.builder()
                 .setRowCount(tableStatistics.getRowCount())
                 .setColumnStatistics(entry.getKey(), entry.getValue())
                 .build();
@@ -208,7 +208,8 @@ public class TestTpcdsMetadataStatistics
                 "        \"max\" : 30.0\n" +
                 "      }\n" +
                 "    }\n" +
-                "  }\n" +
+                "  },\n" +
+                "  \"confidence\" : \"HIGH\"\n" +
                 "}");
     }
 

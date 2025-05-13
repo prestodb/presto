@@ -58,12 +58,24 @@ statement
         DROP COLUMN (IF EXISTS)? column=qualifiedName                  #dropColumn
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         ADD COLUMN (IF NOT EXISTS)? column=columnDefinition            #addColumn
+    | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
+        ADD constraintSpecification                                    #addConstraint
+    | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
+        DROP CONSTRAINT (IF EXISTS)? name=identifier                   #dropConstraint
+    | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
+        ALTER (COLUMN)? column=identifier SET NOT NULL                 #alterColumnSetNotNull
+    | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
+        ALTER (COLUMN)? column=identifier DROP NOT NULL                #alterColumnDropNotNull
+    | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
+        SET PROPERTIES properties                                      #setTableProperties
     | ANALYZE qualifiedName (WITH properties)?                         #analyze
     | CREATE TYPE qualifiedName AS (
         '(' sqlParameterDeclaration (',' sqlParameterDeclaration)* ')'
         | type)                                                        #createType
     | CREATE (OR REPLACE)? VIEW qualifiedName
             (SECURITY (DEFINER | INVOKER))? AS query                   #createView
+    | ALTER VIEW (IF EXISTS)? from=qualifiedName
+        RENAME TO to=qualifiedName                                     #renameView
     | DROP VIEW (IF EXISTS)? qualifiedName                             #dropView
     | CREATE MATERIALIZED VIEW (IF NOT EXISTS)? qualifiedName
         (COMMENT string)?
@@ -150,7 +162,8 @@ with
     ;
 
 tableElement
-    : columnDefinition
+    : constraintSpecification
+    | columnDefinition
     | likeClause
     ;
 
@@ -227,7 +240,7 @@ queryNoWith:
       queryTerm
       (ORDER BY sortItem (',' sortItem)*)?
       (OFFSET offset=INTEGER_VALUE (ROW | ROWS)?)?
-      ((LIMIT limit=(INTEGER_VALUE | ALL) | (FETCH FIRST fetchFirstNRows=INTEGER_VALUE ROWS ONLY))?)?
+      ((LIMIT limit=(INTEGER_VALUE | ALL) | (FETCH FIRST fetchFirstNRows=INTEGER_VALUE ROWS ONLY)))?
     ;
 
 queryTerm
@@ -538,7 +551,12 @@ qualifiedName
     ;
 
 tableVersionExpression
-    : FOR tableVersionType=(SYSTEM_TIME | SYSTEM_VERSION | TIMESTAMP | VERSION) AS OF valueExpression          #tableVersion
+    : FOR tableVersionType=(SYSTEM_TIME | SYSTEM_VERSION | TIMESTAMP | VERSION) tableVersionState valueExpression          #tableVersion
+    ;
+
+tableVersionState
+    : AS OF                 #tableversionasof
+    | BEFORE                #tableversionbefore
     ;
 
 grantor
@@ -571,28 +589,68 @@ number
     | INTEGER_VALUE  #integerLiteral
     ;
 
+constraintSpecification
+    : namedConstraintSpecification | unnamedConstraintSpecification
+    ;
+
+namedConstraintSpecification
+    : CONSTRAINT name=identifier unnamedConstraintSpecification
+    ;
+
+unnamedConstraintSpecification
+    : constraintType columnAliases constraintQualifiers?
+    ;
+
+constraintType
+    : UNIQUE
+    | PRIMARY KEY
+    ;
+
+constraintQualifiers
+    : constraintQualifier*
+    ;
+
+constraintQualifier
+    : constraintEnabled
+    | constraintRely
+    | constraintEnforced
+    ;
+
+constraintRely
+    : RELY | NOT RELY
+    ;
+
+constraintEnabled
+    : ENABLED | DISABLED
+    ;
+
+constraintEnforced
+    : ENFORCED | NOT ENFORCED
+    ;
+
 nonReserved
     // IMPORTANT: this rule must only contain tokens. Nested rules are not supported. See SqlParser.exitNonReserved
     : ADD | ADMIN | ALL | ANALYZE | ANY | ARRAY | ASC | AT
-    | BERNOULLI
+    | BEFORE | BERNOULLI
     | CALL | CALLED | CASCADE | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | CURRENT | CURRENT_ROLE
-    | DATA | DATE | DAY | DEFINER | DESC | DETERMINISTIC | DISTRIBUTED
-    | EXCLUDING | EXPLAIN | EXTERNAL
+    | DATA | DATE | DAY | DEFINER | DESC | DETERMINISTIC | DISABLED | DISTRIBUTED
+    | ENABLED | ENFORCED | EXCLUDING | EXPLAIN | EXTERNAL
     | FETCH | FILTER | FIRST | FOLLOWING | FORMAT | FUNCTION | FUNCTIONS
     | GRANT | GRANTED | GRANTS | GRAPHVIZ | GROUPS
     | HOUR
     | IF | IGNORE | INCLUDING | INPUT | INTERVAL | INVOKER | IO | ISOLATION
     | JSON
+    | KEY
     | LANGUAGE | LAST | LATERAL | LEVEL | LIMIT | LOGICAL
     | MAP | MATERIALIZED | MINUTE | MONTH
     | NAME | NFC | NFD | NFKC | NFKD | NO | NONE | NULLIF | NULLS
     | OF | OFFSET | ONLY | OPTION | ORDINALITY | OUTPUT | OVER
-    | PARTITION | PARTITIONS | POSITION | PRECEDING | PRIVILEGES | PROPERTIES
-    | RANGE | READ | REFRESH | RENAME | REPEATABLE | REPLACE | RESET | RESPECT | RESTRICT | RETURN | RETURNS | REVOKE | ROLE | ROLES | ROLLBACK | ROW | ROWS
+    | PARTITION | PARTITIONS | POSITION | PRECEDING | PRIMARY | PRIVILEGES | PROPERTIES
+    | RANGE | READ | REFRESH | RELY | RENAME | REPEATABLE | REPLACE | RESET | RESPECT | RESTRICT | RETURN | RETURNS | REVOKE | ROLE | ROLES | ROLLBACK | ROW | ROWS
     | SCHEMA | SCHEMAS | SECOND | SECURITY | SERIALIZABLE | SESSION | SET | SETS | SQL
     | SHOW | SOME | START | STATS | SUBSTRING | SYSTEM | SYSTEM_TIME | SYSTEM_VERSION
     | TABLES | TABLESAMPLE | TEMPORARY | TEXT | TIME | TIMESTAMP | TO | TRANSACTION | TRUNCATE | TRY_CAST | TYPE
-    | UNBOUNDED | UNCOMMITTED | UPDATE | USE | USER
+    | UNBOUNDED | UNCOMMITTED | UNIQUE | UPDATE | USE | USER
     | VALIDATE | VERBOSE | VERSION | VIEW
     | WORK | WRITE
     | YEAR
@@ -610,6 +668,7 @@ ARRAY: 'ARRAY';
 AS: 'AS';
 ASC: 'ASC';
 AT: 'AT';
+BEFORE: 'BEFORE';
 BERNOULLI: 'BERNOULLI';
 BETWEEN: 'BETWEEN';
 BY: 'BY';
@@ -643,11 +702,14 @@ DELETE: 'DELETE';
 DESC: 'DESC';
 DESCRIBE: 'DESCRIBE';
 DETERMINISTIC: 'DETERMINISTIC';
+DISABLED: 'DISABLED';
 DISTINCT: 'DISTINCT';
 DISTRIBUTED: 'DISTRIBUTED';
 DROP: 'DROP';
 ELSE: 'ELSE';
+ENABLED: 'ENABLED';
 END: 'END';
+ENFORCED: 'ENFORCED';
 ESCAPE: 'ESCAPE';
 EXCEPT: 'EXCEPT';
 EXCLUDING: 'EXCLUDING';
@@ -692,6 +754,7 @@ IS: 'IS';
 ISOLATION: 'ISOLATION';
 JSON: 'JSON';
 JOIN: 'JOIN';
+KEY: 'KEY';
 LANGUAGE: 'LANGUAGE';
 LAST: 'LAST';
 LATERAL: 'LATERAL';
@@ -735,12 +798,14 @@ PARTITIONS: 'PARTITIONS';
 POSITION: 'POSITION';
 PRECEDING: 'PRECEDING';
 PREPARE: 'PREPARE';
+PRIMARY: 'PRIMARY';
 PRIVILEGES: 'PRIVILEGES';
 PROPERTIES: 'PROPERTIES';
 RANGE: 'RANGE';
 READ: 'READ';
 RECURSIVE: 'RECURSIVE';
 REFRESH: 'REFRESH';
+RELY: 'RELY';
 RENAME: 'RENAME';
 REPEATABLE: 'REPEATABLE';
 REPLACE: 'REPLACE';
@@ -793,6 +858,7 @@ UESCAPE: 'UESCAPE';
 UNBOUNDED: 'UNBOUNDED';
 UNCOMMITTED: 'UNCOMMITTED';
 UNION: 'UNION';
+UNIQUE: 'UNIQUE';
 UNNEST: 'UNNEST';
 UPDATE: 'UPDATE';
 USE: 'USE';

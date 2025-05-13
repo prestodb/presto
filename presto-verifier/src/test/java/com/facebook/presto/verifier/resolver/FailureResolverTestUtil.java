@@ -24,6 +24,7 @@ import com.facebook.presto.verifier.framework.DataMatchResult;
 import java.util.Optional;
 import java.util.OptionalLong;
 
+import static com.facebook.presto.verifier.framework.DataMatchResult.DataType.DATA;
 import static com.facebook.presto.verifier.framework.DataMatchResult.MatchType.COLUMN_MISMATCH;
 import static java.util.Arrays.asList;
 
@@ -39,7 +40,7 @@ public class FailureResolverTestUtil
 
     public static DataMatchResult createMatchResult(ColumnMatchResult<?>... mismatchedColumns)
     {
-        return new DataMatchResult(COLUMN_MISMATCH, Optional.empty(), OptionalLong.of(1L), OptionalLong.of(1L), asList(mismatchedColumns));
+        return new DataMatchResult(DATA, COLUMN_MISMATCH, Optional.empty(), Optional.empty(), OptionalLong.of(1L), OptionalLong.of(1L), asList(mismatchedColumns));
     }
 
     public static SqlVarbinary binary(int data)

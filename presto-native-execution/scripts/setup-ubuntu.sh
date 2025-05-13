@@ -18,39 +18,17 @@ set -eufx -o pipefail
 
 # Run the velox setup script first.
 source "$(dirname "${BASH_SOURCE}")/../velox/scripts/setup-ubuntu.sh"
-export FB_OS_VERSION=v2022.11.14.00
-sudo apt install -y gperf uuid-dev libsodium-dev
-
-function install_six {
-  pip3 install six
-}
-
-function install_fizz {
-  github_checkout facebookincubator/fizz "${FB_OS_VERSION}"
-  cmake_install -DBUILD_TESTS=OFF -S fizz
-}
-
-function install_wangle {
-  github_checkout facebook/wangle "${FB_OS_VERSION}"
-  cmake_install -DBUILD_TESTS=OFF -S wangle
-}
-
-function install_fbthrift {
-  github_checkout facebook/fbthrift "${FB_OS_VERSION}"
-  cmake_install -DBUILD_TESTS=OFF
-}
+SUDO="${SUDO:-"sudo --preserve-env"}"
 
 function install_proxygen {
+  # proxygen requires python and gperf
+  ${SUDO} apt update
+  ${SUDO} apt install -y gperf python3
   github_checkout facebook/proxygen "${FB_OS_VERSION}"
   cmake_install -DBUILD_TESTS=OFF
 }
 
 function install_presto_deps {
-  install_velox_deps
-  run_and_time install_six
-  run_and_time install_fizz
-  run_and_time install_wangle
-  run_and_time install_fbthrift
   run_and_time install_proxygen
 }
 
@@ -58,6 +36,15 @@ if [[ $# -ne 0 ]]; then
   for cmd in "$@"; do
     run_and_time "${cmd}"
   done
+  echo "All specified dependencies installed!"
 else
+  if [ "${INSTALL_PREREQUISITES:-Y}" == "Y" ]; then
+    echo "Installing build dependencies"
+    run_and_time install_build_prerequisites
+  else
+    echo "Skipping installation of build dependencies since INSTALL_PREREQUISITES is not set"
+  fi
+  install_velox_deps
   install_presto_deps
+  echo "All dependencies for Prestissimo installed!"
 fi

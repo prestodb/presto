@@ -188,7 +188,7 @@ public class ComplexTypeFunctionDescriptor
         return subfields.stream().map(subfield -> new Subfield(subfield.getRootName(),
                         unmodifiableList(
                                 Stream.concat(
-                                        Arrays.asList(allSubscripts()).stream(),
+                                        Stream.of(allSubscripts()),
                                         subfield.getPath().stream()).collect(Collectors.toList()))))
                 .collect(Collectors.toSet());
     }
@@ -228,7 +228,7 @@ public class ComplexTypeFunctionDescriptor
     {
         return subfields.stream().map(subfield -> new Subfield(subfield.getRootName(),
                         unmodifiableList(
-                                Stream.concat(Arrays.asList(subfield.getPath().get(0)).stream(), subfield.getPath().stream().skip(2)).collect(Collectors.toList()))))
+                                Stream.concat(Stream.of(subfield.getPath().get(0)), subfield.getPath().stream().skip(2)).collect(Collectors.toList()))))
                 .collect(Collectors.toSet());
     }
 }

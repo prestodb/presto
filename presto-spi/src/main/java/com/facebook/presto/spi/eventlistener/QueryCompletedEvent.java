@@ -16,6 +16,7 @@ package com.facebook.presto.spi.eventlistener;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.spi.PrestoWarning;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.prestospark.PrestoSparkExecutionContext;
 import com.facebook.presto.spi.statistics.PlanStatisticsWithSourceInfo;
@@ -43,6 +44,8 @@ public class QueryCompletedEvent
     private final List<PlanStatisticsWithSourceInfo> planStatisticsRead;
     private final List<PlanStatisticsWithSourceInfo> planStatisticsWritten;
     private final Map<PlanNodeId, Map<PlanCanonicalizationStrategy, String>> planNodeHash;
+    private final Map<PlanCanonicalizationStrategy, String> canonicalPlan;
+    private final Optional<String> statsEquivalentPlan;
 
     private final Instant createTime;
     private final Instant executionStartTime;
@@ -52,8 +55,10 @@ public class QueryCompletedEvent
     private final List<CTEInformation> cteInformationList;
     private final Set<String> scalarFunctions;
     private final Set<String> aggregateFunctions;
-    private final Set<String> windowsFunctions;
+    private final Set<String> windowFunctions;
     private final Optional<PrestoSparkExecutionContext> prestoSparkExecutionContext;
+    private final Map<PlanCanonicalizationStrategy, String> hboPlanHash;
+    private final Optional<Map<PlanNodeId, PlanNode>> planIdNodeMap;
 
     public QueryCompletedEvent(
             QueryMetadata metadata,
@@ -72,13 +77,17 @@ public class QueryCompletedEvent
             List<PlanStatisticsWithSourceInfo> planStatisticsRead,
             List<PlanStatisticsWithSourceInfo> planStatisticsWritten,
             Map<PlanNodeId, Map<PlanCanonicalizationStrategy, String>> planNodeHash,
+            Map<PlanCanonicalizationStrategy, String> canonicalPlan,
+            Optional<String> statsEquivalentPlan,
             Optional<String> expandedQuery,
             List<PlanOptimizerInformation> optimizerInformation,
             List<CTEInformation> cteInformationList,
             Set<String> scalarFunctions,
             Set<String> aggregateFunctions,
-            Set<String> windowsFunctions,
-            Optional<PrestoSparkExecutionContext> prestoSparkExecutionContext)
+            Set<String> windowFunctions,
+            Optional<PrestoSparkExecutionContext> prestoSparkExecutionContext,
+            Map<PlanCanonicalizationStrategy, String> hboPlanHash,
+            Optional<Map<PlanNodeId, PlanNode>> planNodeIdMap)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.statistics = requireNonNull(statistics, "statistics is null");
@@ -95,14 +104,18 @@ public class QueryCompletedEvent
         this.operatorStatistics = requireNonNull(operatorStatistics, "operatorStatistics is null");
         this.planStatisticsRead = requireNonNull(planStatisticsRead, "planStatisticsRead is null");
         this.planNodeHash = requireNonNull(planNodeHash, "planNodeHash is null");
+        this.canonicalPlan = requireNonNull(canonicalPlan, "canonicalPlan is null");
+        this.statsEquivalentPlan = requireNonNull(statsEquivalentPlan, "statsEquivalentPlan is null");
         this.planStatisticsWritten = requireNonNull(planStatisticsWritten, "planStatisticsWritten is null");
         this.expandedQuery = requireNonNull(expandedQuery, "expandedQuery is null");
         this.optimizerInformation = requireNonNull(optimizerInformation, "optimizerInformation is null");
         this.cteInformationList = requireNonNull(cteInformationList, "cteInformationList is null");
         this.scalarFunctions = requireNonNull(scalarFunctions, "scalarFunctions is null");
         this.aggregateFunctions = requireNonNull(aggregateFunctions, "aggregateFunctions is null");
-        this.windowsFunctions = requireNonNull(windowsFunctions, "windowsFunctions is null");
+        this.windowFunctions = requireNonNull(windowFunctions, "windowFunctions is null");
         this.prestoSparkExecutionContext = requireNonNull(prestoSparkExecutionContext, "prestoSparkExecutionContext is null");
+        this.hboPlanHash = requireNonNull(hboPlanHash, "planHash is null");
+        this.planIdNodeMap = requireNonNull(planNodeIdMap, "planNodeIdMap is null");
     }
 
     public QueryMetadata getMetadata()
@@ -185,6 +198,16 @@ public class QueryCompletedEvent
         return planNodeHash;
     }
 
+    public Map<PlanCanonicalizationStrategy, String> getCanonicalPlan()
+    {
+        return canonicalPlan;
+    }
+
+    public Optional<String> getStatsEquivalentPlan()
+    {
+        return statsEquivalentPlan;
+    }
+
     public Optional<String> getExpandedQuery()
     {
         return expandedQuery;
@@ -210,13 +233,23 @@ public class QueryCompletedEvent
         return aggregateFunctions;
     }
 
-    public Set<String> getWindowsFunctions()
+    public Set<String> getWindowFunctions()
     {
-        return windowsFunctions;
+        return windowFunctions;
     }
 
     public Optional<PrestoSparkExecutionContext> getPrestoSparkExecutionContext()
     {
         return prestoSparkExecutionContext;
+    }
+
+    public Map<PlanCanonicalizationStrategy, String> getHboPlanHash()
+    {
+        return hboPlanHash;
+    }
+
+    public Optional<Map<PlanNodeId, PlanNode>> getPlanNodeIdMap()
+    {
+        return planIdNodeMap;
     }
 }

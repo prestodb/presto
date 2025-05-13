@@ -23,6 +23,7 @@ import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.transaction.ForTransactionManager;
@@ -39,6 +40,7 @@ import com.facebook.presto.verifier.checksum.MapColumnValidator;
 import com.facebook.presto.verifier.checksum.RowColumnValidator;
 import com.facebook.presto.verifier.checksum.SimpleColumnValidator;
 import com.facebook.presto.verifier.framework.Column.Category;
+import com.facebook.presto.verifier.prestoaction.ClientInfoFactory;
 import com.facebook.presto.verifier.resolver.FailureResolverModule;
 import com.facebook.presto.verifier.rewrite.VerificationQueryRewriterModule;
 import com.google.common.collect.ImmutableList;
@@ -77,13 +79,16 @@ public class VerifierModule
 {
     private final SqlParserOptions sqlParserOptions;
     private final List<Class<? extends Predicate<SourceQuery>>> customQueryFilterClasses;
+    private final Class<? extends ClientInfoFactory> clientInfoFactory;
 
     public VerifierModule(
             SqlParserOptions sqlParserOptions,
-            List<Class<? extends Predicate<SourceQuery>>> customQueryFilterClasses)
+            List<Class<? extends Predicate<SourceQuery>>> customQueryFilterClasses,
+            Class<? extends ClientInfoFactory> clientInfoFactory)
     {
         this.sqlParserOptions = requireNonNull(sqlParserOptions, "sqlParserOptions is null");
         this.customQueryFilterClasses = ImmutableList.copyOf(customQueryFilterClasses);
+        this.clientInfoFactory = requireNonNull(clientInfoFactory, "clientInfoFactory is null");
     }
 
     protected final void setup(Binder binder)
@@ -114,6 +119,7 @@ public class VerifierModule
 
         // parser
         binder.bind(SqlParserOptions.class).toInstance(sqlParserOptions);
+        binder.bind(ClientInfoFactory.class).to(clientInfoFactory).in(SINGLETON);
         binder.bind(SqlParser.class).in(SINGLETON);
 
         // transaction
@@ -121,6 +127,7 @@ public class VerifierModule
 
         // type
         configBinder(binder).bindConfig(FeaturesConfig.class);
+        configBinder(binder).bindConfig(FunctionsConfig.class);
         binder.bind(TypeManager.class).to(FunctionAndTypeManager.class).in(SINGLETON);
         newSetBinder(binder, Type.class);
 
@@ -130,6 +137,7 @@ public class VerifierModule
         binder.bind(VerificationManager.class).in(SINGLETON);
         binder.bind(VerificationFactory.class).in(SINGLETON);
         binder.bind(ChecksumValidator.class).in(SINGLETON);
+        binder.bind(FloatingPointColumnValidator.class).in(SINGLETON);
         MapBinder<Category, ColumnValidator> columnValidatorBinder = MapBinder.newMapBinder(binder, Category.class, ColumnValidator.class);
         columnValidatorBinder.addBinding(SIMPLE).to(SimpleColumnValidator.class).in(SINGLETON);
         columnValidatorBinder.addBinding(FLOATING_POINT).to(FloatingPointColumnValidator.class).in(SINGLETON);

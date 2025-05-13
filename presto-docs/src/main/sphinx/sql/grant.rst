@@ -48,5 +48,4 @@ See connector documentation for more details.
 See Also
 --------
 
-:doc:`revoke`
-:doc:`show-grants`
+:doc:`revoke`, :doc:`show-grants`

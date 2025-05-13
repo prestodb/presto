@@ -11,10 +11,10 @@ General Changes
   grouping columns is one. For example: ``SELECT c1, sum(c2) FROM t WHERE c1 = 'foo' GROUP BY c1``
 * Fix high memory pressure on the coordinator during the execution of queries
   using bucketed execution.
-* Add :func:`ST_Union`, :func:`ST_Geometries`, :func:`ST_PointN`, :func:`ST_InteriorRings`,
-  and :func:`ST_InteriorRingN` geospatial functions.
-* Add :func:`split_to_multimap` function.
-* Expand the :func:`approx_distinct` function to support the following types:
+* Add :func:`!ST_Union`, :func:`!ST_Geometries`, :func:`!ST_PointN`, :func:`!ST_InteriorRings`,
+  and :func:`!ST_InteriorRingN` geospatial functions.
+* Add :func:`!split_to_multimap` function.
+* Expand the :func:`!approx_distinct` function to support the following types:
   ``INTEGER``, ``SMALLINT``, ``TINYINT``, ``DECIMAL``, ``REAL``, ``DATE``,
   ``TIMESTAMP``, ``TIMESTAMP WITH TIME ZONE``, ``TIME``, ``TIME WITH TIME ZONE``, ``IPADDRESS``.
 * Add a resource group ID column to the ``system.runtime.queries`` table.

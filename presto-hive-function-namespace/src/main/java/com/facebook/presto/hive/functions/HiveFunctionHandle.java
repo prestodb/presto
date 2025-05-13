@@ -15,12 +15,14 @@
 package com.facebook.presto.hive.functions;
 
 import com.facebook.presto.common.CatalogSchemaName;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.List;
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
@@ -52,6 +54,12 @@ public class HiveFunctionHandle
     public FunctionKind getKind()
     {
         return signature.getKind();
+    }
+
+    @Override
+    public List<TypeSignature> getArgumentTypes()
+    {
+        return signature.getArgumentTypes();
     }
 
     @JsonProperty

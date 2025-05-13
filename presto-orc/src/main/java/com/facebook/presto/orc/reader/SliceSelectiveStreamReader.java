@@ -50,9 +50,16 @@ public class SliceSelectiveStreamReader
     private SliceDictionarySelectiveReader dictionaryReader;
     private SelectiveStreamReader currentReader;
 
-    public SliceSelectiveStreamReader(StreamDescriptor streamDescriptor, Optional<TupleDomainFilter> filter, Optional<Type> outputType, OrcAggregatedMemoryContext systemMemoryContext, boolean isLowMemory)
+    public SliceSelectiveStreamReader(
+            StreamDescriptor streamDescriptor,
+            Optional<TupleDomainFilter> filter,
+            Optional<Type> outputType,
+            OrcAggregatedMemoryContext systemMemoryContext,
+            boolean isLowMemory,
+            long maxSliceSize,
+            boolean resetAllReaders)
     {
-        this.context = new SelectiveReaderContext(streamDescriptor, outputType, filter, systemMemoryContext, isLowMemory);
+        this.context = new SelectiveReaderContext(streamDescriptor, outputType, filter, systemMemoryContext, isLowMemory, maxSliceSize, resetAllReaders);
     }
 
     public static int computeTruncatedLength(Slice slice, int offset, int length, int maxCodePointCount, boolean isCharType)
@@ -82,6 +89,10 @@ public class SliceSelectiveStreamReader
                     directReader = new SliceDirectSelectiveStreamReader(context);
                 }
                 currentReader = directReader;
+                if (dictionaryReader != null && context.isResetAllReaders()) {
+                    dictionaryReader = null;
+                    System.setProperty("RESET_SLICE_READER", "RESET_SLICE_READER");
+                }
                 break;
             case DICTIONARY:
             case DICTIONARY_V2:
@@ -89,6 +100,10 @@ public class SliceSelectiveStreamReader
                     dictionaryReader = new SliceDictionarySelectiveReader(context);
                 }
                 currentReader = dictionaryReader;
+                if (directReader != null && context.isResetAllReaders()) {
+                    directReader = null;
+                    System.setProperty("RESET_SLICE_READER", "RESET_SLICE_READER");
+                }
                 break;
             default:
                 throw new IllegalArgumentException("Unsupported encoding " + kind);

@@ -1,10 +1,11 @@
-version: '2'
 services:
 
   presto-master:
     command: /docker/volumes/conf/docker/files/presto-launcher-wrapper.sh multinode-master run
     volumes:
       - ../../../conf/presto/etc/multinode-master-jvm.config:/docker/volumes/conf/presto/etc/jvm.config
+      - ../../../conf/presto/etc/multinode-master-jvm17.config:/docker/volumes/conf/presto/etc/jvm17.config
+      - ${OVERRIDE_JDK_DIR}:/docker/volumes/overridejdk
 
   presto-worker:
     extends:
@@ -17,3 +18,4 @@ services:
       - presto-master
     volumes:
       - ../../../conf/presto/etc/multinode-worker-jvm.config:/docker/volumes/conf/presto/etc/jvm.config
+      - ../../../conf/presto/etc/multinode-worker-jvm17.config:/docker/volumes/conf/presto/etc/jvm17.config

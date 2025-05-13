@@ -41,16 +41,21 @@ public class TestVerifierConfig
                 .setQueryRepetitions(1)
                 .setRelativeErrorMargin(1e-4)
                 .setAbsoluteErrorMargin(1e-12)
+                .setUseErrorMarginForFloatingPointArrays(true)
                 .setSmartTeardown(false)
                 .setVerificationResubmissionLimit(6)
                 .setSetupOnMainClusters(true)
                 .setTeardownOnMainClusters(true)
                 .setSkipControl(false)
                 .setSkipChecksum(false)
+                .setRunDeterminismAnalysisOnTest(false)
                 .setExplain(false)
                 .setConcurrentControlAndTest(false)
                 .setRunningMode("control-test")
-                .setSaveSnapshot(false));
+                .setExtendedVerification(false)
+                .setSaveSnapshot(false)
+                .setFunctionSubstitutes(null)
+                .setValidateStringAsDouble(false));
     }
 
     @Test
@@ -70,16 +75,21 @@ public class TestVerifierConfig
                 .put("query-repetitions", "3")
                 .put("relative-error-margin", "2e-5")
                 .put("absolute-error-margin", "1e-14")
+                .put("use-error-margin-for-floating-point-arrays", "false")
                 .put("smart-teardown", "true")
                 .put("verification-resubmission.limit", "1")
                 .put("setup-on-main-clusters", "false")
                 .put("teardown-on-main-clusters", "false")
                 .put("skip-control", "true")
                 .put("skip-checksum", "true")
+                .put("run-determinism-analysis-on-test", "true")
                 .put("explain", "true")
                 .put("concurrent-control-and-test", "true")
                 .put("running-mode", "query-bank")
+                .put("extended-verification", "true")
                 .put("save-snapshot", "true")
+                .put("function-substitutes", "/approx_distinct(c)/count(c)/")
+                .put("validate-string-as-double", "true")
                 .build();
         VerifierConfig expected = new VerifierConfig()
                 .setWhitelist("a,b,c")
@@ -95,16 +105,21 @@ public class TestVerifierConfig
                 .setQueryRepetitions(3)
                 .setRelativeErrorMargin(2e-5)
                 .setAbsoluteErrorMargin(1e-14)
+                .setUseErrorMarginForFloatingPointArrays(false)
                 .setSmartTeardown(true)
                 .setVerificationResubmissionLimit(1)
                 .setSetupOnMainClusters(false)
                 .setTeardownOnMainClusters(false)
                 .setSkipControl(true)
                 .setSkipChecksum(true)
+                .setRunDeterminismAnalysisOnTest(true)
                 .setExplain(true)
                 .setConcurrentControlAndTest(true)
                 .setRunningMode("query-bank")
-                .setSaveSnapshot(true);
+                .setExtendedVerification(true)
+                .setSaveSnapshot(true)
+                .setFunctionSubstitutes("/approx_distinct(c)/count(c)/")
+                .setValidateStringAsDouble(true);
 
         assertFullMapping(properties, expected);
     }

@@ -33,21 +33,20 @@ import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.plan.Partitioning;
+import com.facebook.presto.spi.plan.PartitioningHandle;
+import com.facebook.presto.spi.plan.PartitioningScheme;
+import com.facebook.presto.spi.plan.PlanFragmentId;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
-import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.BasePlanFragmenter;
 import com.facebook.presto.sql.planner.BasePlanFragmenter.FragmentProperties;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
-import com.facebook.presto.sql.planner.Partitioning;
-import com.facebook.presto.sql.planner.PartitioningHandle;
-import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
-import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
@@ -66,8 +65,9 @@ import java.util.function.Function;
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
 import static com.facebook.presto.sql.planner.PlanFragmenterUtils.ROOT_FRAGMENT_ID;
 import static com.facebook.presto.sql.planner.PlanFragmenterUtils.finalizeSubPlan;
-import static com.facebook.presto.sql.planner.PlanFragmenterUtils.getTableWriterNodeIds;
+import static com.facebook.presto.sql.planner.PlanFragmenterUtils.getOutputTableWriterNodeIds;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.optimizations.PartitioningUtils.translateOutputLayout;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_MATERIALIZED;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -87,14 +87,13 @@ public class IterativePlanFragmenter
     private final Plan originalPlan;
     private final Metadata metadata;
     private final PlanChecker planChecker;
-    private final SqlParser sqlParser;
     private final PlanNodeIdAllocator idAllocator;
     private final VariableAllocator variableAllocator;
     private final NodePartitioningManager nodePartitioningManager;
     private final QueryManagerConfig queryManagerConfig;
     private final Session session;
     private final WarningCollector warningCollector;
-    private final boolean forceSingleNode;
+    private final boolean noExchange;
 
     // Fragment numbers need to be unique across the whole query,
     // so keep it in this top-level class.
@@ -112,26 +111,24 @@ public class IterativePlanFragmenter
             Function<PlanFragmentId, Boolean> isFragmentFinished,
             Metadata metadata,
             PlanChecker planChecker,
-            SqlParser sqlParser,
             PlanNodeIdAllocator idAllocator,
             NodePartitioningManager nodePartitioningManager,
             QueryManagerConfig queryManagerConfig,
             Session session,
             WarningCollector warningCollector,
-            boolean forceSingleNode)
+            boolean noExchange)
     {
         this.originalPlan = requireNonNull(originalPlan, "originalPlan is null");
         this.isFragmentFinished = requireNonNull(isFragmentFinished, "isSourceReady is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.planChecker = requireNonNull(planChecker, "planChecker is null");
-        this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         this.variableAllocator = new VariableAllocator(originalPlan.getTypes().allVariables());
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
         this.queryManagerConfig = requireNonNull(queryManagerConfig, "queryManagerConfig is null");
         this.session = requireNonNull(session, "session is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
-        this.forceSingleNode = forceSingleNode;
+        this.noExchange = noExchange;
     }
 
     /**
@@ -149,14 +146,13 @@ public class IterativePlanFragmenter
                 originalPlan.getStatsAndCosts(),
                 planChecker,
                 warningCollector,
-                sqlParser,
                 idAllocator,
                 variableAllocator,
-                getTableWriterNodeIds(plan));
+                getOutputTableWriterNodeIds(plan));
         FragmentProperties properties = new FragmentProperties(new PartitioningScheme(
                 Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()),
                 plan.getOutputVariables()));
-        if (forceSingleNode || isForceSingleNodeOutput(session)) {
+        if (noExchange || isForceSingleNodeOutput(session)) {
             properties = properties.setSingleNodeDistribution();
         }
         PlanNode planRoot = SimplePlanRewriter.rewriteWith(iterativeFragmenter, plan, properties);
@@ -186,7 +182,7 @@ public class IterativePlanFragmenter
         // and rewriting the partition handle
         PartitioningHandle partitioningHandle = properties.getPartitioningHandle();
         subPlans = subPlans.stream()
-                .map(subPlan -> finalizeSubPlan(subPlan, queryManagerConfig, metadata, nodePartitioningManager, session, forceSingleNode, warningCollector, partitioningHandle))
+                .map(subPlan -> finalizeSubPlan(subPlan, queryManagerConfig, metadata, nodePartitioningManager, session, noExchange, warningCollector, partitioningHandle))
                 .collect(toImmutableList());
 
         return new PlanAndFragments(remainingPlan, subPlans);
@@ -244,12 +240,11 @@ public class IterativePlanFragmenter
                 StatsAndCosts statsAndCosts,
                 PlanChecker planChecker,
                 WarningCollector warningCollector,
-                SqlParser sqlParser,
                 PlanNodeIdAllocator idAllocator,
                 VariableAllocator variableAllocator,
                 Set<PlanNodeId> outputTableWriterNodeIds)
         {
-            super(session, metadata, statsAndCosts, planChecker, warningCollector, sqlParser, idAllocator, variableAllocator, outputTableWriterNodeIds);
+            super(session, metadata, statsAndCosts, planChecker, warningCollector, idAllocator, variableAllocator, outputTableWriterNodeIds);
         }
 
         @Override
@@ -263,7 +258,7 @@ public class IterativePlanFragmenter
             // don't fragment
             ImmutableList.Builder<PlanNode> builder = ImmutableList.builder();
             for (int sourceIndex = 0; sourceIndex < node.getSources().size(); sourceIndex++) {
-                FragmentProperties childProperties = new FragmentProperties(node.getPartitioningScheme().translateOutputLayout(node.getInputs().get(sourceIndex)));
+                FragmentProperties childProperties = new FragmentProperties(translateOutputLayout(node.getPartitioningScheme(), node.getInputs().get(sourceIndex)));
                 builder.add(context.rewrite(node.getSources().get(sourceIndex), childProperties));
                 context.get().addChildren(childProperties.getChildren());
             }

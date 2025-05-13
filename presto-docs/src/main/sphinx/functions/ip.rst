@@ -1,6 +1,6 @@
-===================
+============
 IP Functions
-===================
+============
 
 .. function:: ip_prefix(ip_address, prefix_bits) -> ipprefix
 
@@ -49,3 +49,32 @@ IP Functions
         SELECT is_subnet_of(IPPREFIX '192.168.3.131/26', IPPREFIX '192.168.3.144/30'); -- true
         SELECT is_subnet_of(IPPREFIX '64:ff9b::17/64', IPPREFIX '64:ffff::17/64'); -- false
         SELECT is_subnet_of(IPPREFIX '192.168.3.131/26', IPPREFIX '192.168.3.131/26'); -- true
+
+.. function:: ip_prefix_collapse(array(ip_prefix)) -> array(ip_prefix)
+
+    Returns the minimal CIDR representation of the input ``IPPREFIX`` array.
+    Every ``IPPREFIX`` in the input array must be the same IP version (that is, only IPv4 or only IPv6)
+    or the query will fail and raise an error. ::
+
+        SELECT IP_PREFIX_COLLAPSE(ARRAY[IPPREFIX '192.168.0.0/24', IPPREFIX '192.168.1.0/24']); -- [{192.168.0.0/23}]
+        SELECT IP_PREFIX_COLLAPSE(ARRAY[IPPREFIX '2620:10d:c090::/48', IPPREFIX '2620:10d:c091::/48']); -- [{2620:10d:c090::/47}]
+        SELECT IP_PREFIX_COLLAPSE(ARRAY[IPPREFIX '192.168.1.0/24', IPPREFIX '192.168.0.0/24', IPPREFIX '192.168.2.0/24', IPPREFIX '192.168.9.0/24']); -- [{192.168.0.0/23}, {192.168.2.0/24}, {192.168.9.0/24}]
+
+.. function:: is_private_ip(ip_address) -> boolean
+
+    Returns whether ``ip_address`` of type ``IPADDRESS`` is a private or reserved IP address
+    that is not considered globally reachable by IANA. For more information, see `IANA IPv4 Special-Purpose Address Registry <https://www.iana.org/assignments/iana-ipv4-special-registry/iana-ipv4-special-registry.xhtml>`_ and `IANA IPv6 Special-Purpose Address Registry <https://www.iana.org/assignments/iana-ipv6-special-registry/iana-ipv6-special-registry.xhtml>`_. `Null` inputs return `null`. ::
+
+        SELECT is_private_ip(IPADDRESS '10.0.0.1'); -- true
+        SELECT is_private_ip(IPADDRESS '192.168.0.1'); -- true
+        SELECT is_private_ip(IPADDRESS '157.240.200.99'); -- false
+        SELECT is_private_ip(IPADDRESS '2a03:2880:f031:12:face:b00c:0:2'); -- false
+
+.. function:: ip_prefix_subnets(ip_prefix, prefix_length) -> array(ip_prefix)
+
+    Returns the subnets of ``ip_prefix`` of size ``prefix_length``. ``prefix_length`` must be valid ([0, 32] for IPv4
+    and [0, 128] for IPv6) or the query will fail and raise an error. An empty array is returned if ``prefix_length``
+    is shorter (that is, less specific) than ``ip_prefix``. ::
+
+        SELECT IP_PREFIX_SUBNETS(IPPREFIX '192.168.1.0/24', 25); -- [{192.168.1.0/25}, {192.168.1.128/25}]
+        SELECT IP_PREFIX_SUBNETS(IPPREFIX '2a03:2880:c000::/34', 36); -- [{2a03:2880:c000::/36}, {2a03:2880:d000::/36}, {2a03:2880:e000::/36}, {2a03:2880:f000::/36}]

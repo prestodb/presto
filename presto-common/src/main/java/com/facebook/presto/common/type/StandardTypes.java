@@ -33,6 +33,7 @@ public final class StandardTypes
     public static final String HYPER_LOG_LOG = "HyperLogLog";
     public static final String QDIGEST = "qdigest";
     public static final String TDIGEST = "tdigest";
+    public static final String KLL_SKETCH = "kllsketch";
     public static final String P4_HYPER_LOG_LOG = "P4HyperLogLog";
     public static final String INTERVAL_DAY_TO_SECOND = "interval day to second";
     public static final String INTERVAL_YEAR_TO_MONTH = "interval year to month";
@@ -51,11 +52,13 @@ public final class StandardTypes
     public static final String IPADDRESS = "ipaddress";
     public static final String IPPREFIX = "ipprefix";
     public static final String GEOMETRY = "Geometry";
+    public static final String SPHERICAL_GEOGRAPHY = "SphericalGeography";
     public static final String BING_TILE = "BingTile";
     public static final String BIGINT_ENUM = "BigintEnum";
     public static final String VARCHAR_ENUM = "VarcharEnum";
     public static final String DISTINCT_TYPE = "DistinctType";
     public static final String UUID = "uuid";
+    public static final String UNKNOWN = "unknown";
 
     private StandardTypes() {}
 
@@ -70,6 +73,7 @@ public final class StandardTypes
             MAP,
             QDIGEST,
             TDIGEST,
+            KLL_SKETCH,
             BIGINT_ENUM,
             VARCHAR_ENUM,
             DISTINCT_TYPE)));

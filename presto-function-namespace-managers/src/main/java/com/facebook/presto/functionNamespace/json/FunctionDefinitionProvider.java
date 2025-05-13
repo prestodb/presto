@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.functionNamespace.json;
 
+import com.facebook.presto.functionNamespace.UdfFunctionSignatureMap;
+
 public interface FunctionDefinitionProvider
 {
     UdfFunctionSignatureMap getUdfDefinition(String filePath);

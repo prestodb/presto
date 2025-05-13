@@ -40,6 +40,12 @@ import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static java.lang.String.format;
 
+/**
+ * A block that contains positionCount elements.
+ * All block methods are supported: getInt(), getLong(), etc.
+ * Whether the values they return make sense depends on what
+ * was stored at that position.
+ */
 public class VariableWidthBlock
         extends AbstractVariableWidthBlock
 {

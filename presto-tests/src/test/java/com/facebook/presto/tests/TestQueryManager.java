@@ -13,34 +13,58 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.common.RuntimeStats;
+import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.dispatcher.DispatchManager;
+import com.facebook.presto.execution.MockQueryExecution;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryState;
+import com.facebook.presto.execution.QueryStats;
+import com.facebook.presto.execution.StateMachine;
+import com.facebook.presto.execution.TestEventListener.EventsBuilder;
+import com.facebook.presto.execution.TestEventListenerPlugin.TestingEventListenerPlugin;
 import com.facebook.presto.execution.TestingSessionContext;
+import com.facebook.presto.plugin.blackhole.BlackHolePlugin;
 import com.facebook.presto.resourceGroups.FileResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
+import com.facebook.presto.spi.WarningCode;
+import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
+import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
+import org.intellij.lang.annotations.Language;
+import org.joda.time.DateTime;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.net.URI;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.QueryState.FAILED;
+import static com.facebook.presto.execution.QueryState.FINISHED;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.createQuery;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.waitForQueryState;
+import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.getSimpleQueryRunner;
+import static com.facebook.presto.operator.BlockedReason.WAITING_FOR_MEMORY;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_CPU_LIMIT;
+import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_GLOBAL_MEMORY_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_OUTPUT_POSITIONS_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_OUTPUT_SIZE_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_SCAN_RAW_BYTES_READ_LIMIT;
@@ -57,12 +81,16 @@ import static org.testng.Assert.fail;
 public class TestQueryManager
 {
     private DistributedQueryRunner queryRunner;
+    private static final String LONG_LASTING_QUERY = "SELECT COUNT(*) FROM blackhole.default.dummy";
 
     @BeforeClass
     public void setUp()
             throws Exception
     {
-        queryRunner = TpchQueryRunnerBuilder.builder().build();
+        queryRunner = getSimpleQueryRunner();
+        queryRunner.installPlugin(new BlackHolePlugin());
+        queryRunner.createCatalog("blackhole", "blackhole");
+        queryRunner.execute("CREATE TABLE blackhole.default.dummy (col BIGINT) WITH (split_count = 1, rows_per_page = 1, pages_per_split = 1, page_processing_delay = '10m')");
         TestingPrestoServer server = queryRunner.getCoordinator();
         server.getResourceGroupManager().get().addConfigurationManagerFactory(new FileResourceGroupConfigurationManagerFactory());
         server.getResourceGroupManager().get()
@@ -94,7 +122,7 @@ public class TestQueryManager
                         "slug",
                         0,
                         new TestingSessionContext(TEST_SESSION),
-                        "SELECT * FROM lineitem")
+                        LONG_LASTING_QUERY)
                 .get();
 
         // wait until query starts running
@@ -139,7 +167,7 @@ public class TestQueryManager
                         "slug",
                         0,
                         new TestingSessionContext(TEST_SESSION),
-                        "SELECT * FROM lineitem")
+                        LONG_LASTING_QUERY)
                 .get();
 
         //Wait for query to be in queued state
@@ -176,7 +204,7 @@ public class TestQueryManager
                             "slug",
                             0,
                             new TestingSessionContext(TEST_SESSION),
-                            "SELECT * FROM lineitem")
+                            LONG_LASTING_QUERY)
                     .get();
         }
     }
@@ -192,6 +220,8 @@ public class TestQueryManager
             BasicQueryInfo queryInfo = queryManager.getQueryInfo(queryId);
             assertEquals(queryInfo.getState(), FAILED);
             assertEquals(queryInfo.getErrorCode(), EXCEEDED_CPU_LIMIT.toErrorCode());
+            assertEquals(queryManager.getQuerySession(queryId).getAccessControlContext().getSchema(), TEST_SESSION.getSchema());
+            assertEquals(queryManager.getQuerySession(queryId).getAccessControlContext().getCatalog(), TEST_SESSION.getCatalog());
         }
     }
 
@@ -199,13 +229,15 @@ public class TestQueryManager
     public void testQueryScanExceeded()
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder().setSingleExtraProperty("query.max-scan-raw-input-bytes", "0B").build()) {
+        try (DistributedQueryRunner queryRunner = builder().setSingleExtraProperty("query.max-scan-raw-input-bytes", "0B").build()) {
             QueryId queryId = createQuery(queryRunner, TEST_SESSION, "SELECT COUNT(*) FROM lineitem");
             waitForQueryState(queryRunner, queryId, FAILED);
             QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
             BasicQueryInfo queryInfo = queryManager.getQueryInfo(queryId);
             assertEquals(queryInfo.getState(), FAILED);
             assertEquals(queryInfo.getErrorCode(), EXCEEDED_SCAN_RAW_BYTES_READ_LIMIT.toErrorCode());
+            assertEquals(queryManager.getQuerySession(queryId).getAccessControlContext().getSchema(), TEST_SESSION.getSchema());
+            assertEquals(queryManager.getQuerySession(queryId).getAccessControlContext().getCatalog(), TEST_SESSION.getCatalog());
         }
     }
 
@@ -213,13 +245,15 @@ public class TestQueryManager
     public void testQueryOutputPositionsExceeded()
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder().setSingleExtraProperty("query.max-output-positions", "10").build()) {
+        try (DistributedQueryRunner queryRunner = builder().setSingleExtraProperty("query.max-output-positions", "10").build()) {
             QueryId queryId = createQuery(queryRunner, TEST_SESSION, "SELECT * FROM lineitem");
             waitForQueryState(queryRunner, queryId, FAILED);
             QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
             BasicQueryInfo queryInfo = queryManager.getQueryInfo(queryId);
             assertEquals(queryInfo.getState(), FAILED);
             assertEquals(queryInfo.getErrorCode(), EXCEEDED_OUTPUT_POSITIONS_LIMIT.toErrorCode());
+            assertEquals(queryManager.getQuerySession(queryId).getAccessControlContext().getSchema(), TEST_SESSION.getSchema());
+            assertEquals(queryManager.getQuerySession(queryId).getAccessControlContext().getCatalog(), TEST_SESSION.getCatalog());
         }
     }
 
@@ -227,38 +261,41 @@ public class TestQueryManager
     public void testQueryOutputSizeExceeded()
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder().setSingleExtraProperty("query.max-output-size", "1B").build()) {
+        try (DistributedQueryRunner queryRunner = builder().setSingleExtraProperty("query.max-output-size", "1B").build()) {
             QueryId queryId = createQuery(queryRunner, TEST_SESSION, "SELECT COUNT(*) FROM lineitem");
             waitForQueryState(queryRunner, queryId, FAILED);
             QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
             BasicQueryInfo queryInfo = queryManager.getQueryInfo(queryId);
             assertEquals(queryInfo.getState(), FAILED);
             assertEquals(queryInfo.getErrorCode(), EXCEEDED_OUTPUT_SIZE_LIMIT.toErrorCode());
+            assertEquals(queryManager.getQuerySession(queryId).getAccessControlContext().getSchema(), TEST_SESSION.getSchema());
+            assertEquals(queryManager.getQuerySession(queryId).getAccessControlContext().getCatalog(), TEST_SESSION.getCatalog());
         }
     }
 
-    // Flaky test: https://github.com/prestodb/presto/issues/20447
-    @Test(enabled = false)
+    @Test
     public void testQueryCountMetrics()
             throws Exception
     {
         DispatchManager dispatchManager = queryRunner.getCoordinator().getDispatchManager();
-        // Create a total of 10 queries to test concurrency limit and
+        // Create a total of 6 queries to test concurrency limit and
         // ensure that some queries are queued as concurrency limit is 3
-        createQueries(dispatchManager, 10);
+        createQueries(dispatchManager, 6);
+
+        while (dispatchManager.getStats().getRunningQueries() != 3
+                || dispatchManager.getStats().getQueuedQueries() != 3) {
+            Thread.sleep(1000);
+        }
 
         List<BasicQueryInfo> queries = dispatchManager.getQueries();
-        long queuedQueryCount = dispatchManager.getStats().getQueuedQueries();
-        long runningQueryCount = dispatchManager.getStats().getRunningQueries();
-
-        assertEquals(queuedQueryCount,
+        assertEquals(dispatchManager.getStats().getQueuedQueries(),
                 queries.stream().filter(basicQueryInfo -> basicQueryInfo.getState() == QUEUED).count());
-        assertEquals(runningQueryCount,
+        assertEquals(dispatchManager.getStats().getRunningQueries(),
                 queries.stream().filter(basicQueryInfo -> basicQueryInfo.getState() == RUNNING).count());
 
         Stopwatch stopwatch = Stopwatch.createStarted();
 
-        long oldQueuedQueryCount = queuedQueryCount;
+        long oldQueuedQueryCount = dispatchManager.getStats().getQueuedQueries();
 
         // Assert that number of queued queries are decreasing with time and
         // number of running queries are always <= 3 (max concurrency limit)
@@ -269,7 +306,214 @@ public class TestQueryManager
 
             oldQueuedQueryCount = dispatchManager.getStats().getQueuedQueries();
 
-            Thread.sleep(100);
+            Thread.sleep(1000);
         }
+    }
+
+    @Test
+    public void testQueryCompletedInfoNotPruned()
+            throws Exception
+    {
+        try (DistributedQueryRunner runner = DistributedQueryRunner.builder(TEST_SESSION)
+                .setNodeCount(0)
+                .build()) {
+            EventsBuilder eventsBuilder = new EventsBuilder();
+            eventsBuilder.initialize(1);
+            TestingEventListenerPlugin testEventListenerPlugin = new TestingEventListenerPlugin(eventsBuilder);
+            runner.installPlugin(testEventListenerPlugin);
+            QueryManager manager = runner.getCoordinator().getQueryManager();
+            QueryId id = runner.getCoordinator().getDispatchManager().createQueryId();
+            @Language("SQL") String sql = "SELECT * FROM lineitem WHERE linenumber = 0 LIMIT 1";
+            QueryInfo mockInfo = mockInfo(sql, id.toString(), FINISHED);
+            MockExecution exec = new MockExecution(eventsBuilder, mockInfo);
+            manager.createQuery(exec);
+
+            // when the listener executes, we will verify that the query completed event exists
+            // when pruneInfo is called
+            exec.finalInfoListeners.forEach(item -> item.stateChanged(mockInfo));
+            // verify we actually called pruneQueryFinished to assert that it was checked
+            assertEquals(exec.pruneFinishedCalls, 1);
+        }
+    }
+
+    private static class MockExecution
+            extends MockQueryExecution
+    {
+        List<StateMachine.StateChangeListener<QueryInfo>> finalInfoListeners = new ArrayList<>();
+        private final EventsBuilder eventsBuilder;
+        int pruneFinishedCalls;
+        int pruneExpiredCalls;
+        private final QueryInfo info;
+
+        private MockExecution(EventsBuilder eventsBuilder, QueryInfo info)
+        {
+            this.eventsBuilder = eventsBuilder;
+            this.info = info;
+        }
+
+        @Override
+        public long getCreateTimeInMillis()
+        {
+            return info.getQueryStats().getCreateTimeInMillis();
+        }
+
+        @Override
+        public Duration getTotalCpuTime()
+        {
+            return info.getQueryStats().getTotalCpuTime();
+        }
+
+        @Override
+        public long getRawInputDataSizeInBytes()
+        {
+            return info.getQueryStats().getRawInputDataSize().toBytes();
+        }
+
+        @Override
+        public long getOutputDataSizeInBytes()
+        {
+            return info.getQueryStats().getOutputDataSize().toBytes();
+        }
+
+        @Override
+        public Session getSession()
+        {
+            return TEST_SESSION;
+        }
+
+        @Override
+        public void addFinalQueryInfoListener(StateMachine.StateChangeListener<QueryInfo> stateChangeListener)
+        {
+            finalInfoListeners.add(stateChangeListener);
+        }
+
+        @Override
+        public void pruneExpiredQueryInfo()
+        {
+            pruneExpiredCalls++;
+            Optional<QueryCompletedEvent> event = eventsBuilder.getQueryCompletedEvents().stream()
+                    .filter(x -> x.getMetadata().getQueryId().equals(info.getQueryId().toString()))
+                    .findFirst();
+            // verify that the event listener was notified before prune was called
+            assertTrue(event.isPresent());
+        }
+
+        @Override
+        public void pruneFinishedQueryInfo()
+        {
+            pruneFinishedCalls++;
+            Optional<QueryCompletedEvent> event = eventsBuilder.getQueryCompletedEvents().stream()
+                    .filter(x -> x.getMetadata().getQueryId().equals(info.getQueryId().toString()))
+                    .findFirst();
+            // verify that the event listener was notified before prune was called
+            assertTrue(event.isPresent());
+        }
+    }
+
+    private static QueryInfo mockInfo(String query, String queryId, QueryState state)
+    {
+        return new QueryInfo(
+                new QueryId(queryId),
+                TEST_SESSION.toSessionRepresentation(),
+                state,
+                new MemoryPoolId("reserved"),
+                true,
+                URI.create("1"),
+                ImmutableList.of("2", "3"),
+                query,
+                Optional.empty(),
+                Optional.empty(),
+                new QueryStats(
+                        DateTime.parse("1991-09-06T05:00-05:30").getMillis(),
+                        DateTime.parse("1991-09-06T05:01-05:30").getMillis(),
+                        DateTime.parse("1991-09-06T05:02-05:30").getMillis(),
+                        DateTime.parse("1991-09-06T06:00-05:30").getMillis(),
+                        Duration.valueOf("8m"),
+                        Duration.valueOf("5m"),
+                        Duration.valueOf("7m"),
+                        Duration.valueOf("34m"),
+                        Duration.valueOf("5m"),
+                        Duration.valueOf("6m"),
+                        Duration.valueOf("35m"),
+                        Duration.valueOf("44m"),
+                        Duration.valueOf("9m"),
+                        Duration.valueOf("10m"),
+                        Duration.valueOf("11m"),
+                        13,
+                        14,
+                        15,
+                        16,
+                        100,
+                        17,
+                        18,
+                        34,
+                        19,
+                        20.0,
+                        43.0,
+                        DataSize.valueOf("21GB"),
+                        DataSize.valueOf("22GB"),
+                        DataSize.valueOf("23GB"),
+                        DataSize.valueOf("24GB"),
+                        DataSize.valueOf("25GB"),
+                        DataSize.valueOf("26GB"),
+                        DataSize.valueOf("42GB"),
+                        true,
+                        Duration.valueOf("23m"),
+                        Duration.valueOf("24m"),
+                        Duration.valueOf("0m"),
+                        Duration.valueOf("26m"),
+                        true,
+                        ImmutableSet.of(WAITING_FOR_MEMORY),
+                        DataSize.valueOf("123MB"),
+                        DataSize.valueOf("27GB"),
+                        28,
+                        DataSize.valueOf("29GB"),
+                        30,
+                        DataSize.valueOf("32GB"),
+                        40,
+                        DataSize.valueOf("31GB"),
+                        32,
+                        33,
+                        DataSize.valueOf("34GB"),
+                        DataSize.valueOf("35GB"),
+                        DataSize.valueOf("36GB"),
+                        ImmutableList.of(),
+                        ImmutableList.of(),
+                        new RuntimeStats()),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableMap.of(),
+                ImmutableSet.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableSet.of(),
+                Optional.empty(),
+                false,
+                "33",
+                Optional.empty(),
+                null,
+                EXCEEDED_GLOBAL_MEMORY_LIMIT.toErrorCode(),
+                ImmutableList.of(
+                        new PrestoWarning(
+                                new WarningCode(123, "WARNING_123"),
+                                "warning message")),
+                ImmutableSet.of(),
+                Optional.empty(),
+                false,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableMap.of(),
+                ImmutableSet.of(),
+                StatsAndCosts.empty(),
+                ImmutableList.of(),
+                ImmutableList.of(),
+                ImmutableSet.of(),
+                ImmutableSet.of(),
+                ImmutableSet.of(),
+                ImmutableList.of(),
+                ImmutableMap.of(),
+                Optional.empty());
     }
 }

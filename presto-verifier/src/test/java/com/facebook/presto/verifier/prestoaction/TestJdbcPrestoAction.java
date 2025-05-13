@@ -56,8 +56,8 @@ public class TestJdbcPrestoAction
     private static final String SUITE = "test-suite";
     private static final String NAME = "test-query";
     private static final QueryStage QUERY_STAGE = CONTROL_MAIN;
-    private static final QueryConfiguration CONFIGURATION = new QueryConfiguration(CATALOG, SCHEMA, Optional.of("user"), Optional.empty(), Optional.empty());
-    private static final SqlParser sqlParser = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN));
+    private static final QueryConfiguration CONFIGURATION = new QueryConfiguration(CATALOG, SCHEMA, Optional.of("user"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+    private static final SqlParser SQL_PARSER = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN));
     private static final ParsingOptions PARSING_OPTIONS = ParsingOptions.builder().setDecimalLiteralTreatment(AS_DECIMAL).build();
 
     private static StandaloneQueryRunner queryRunner;
@@ -80,6 +80,7 @@ public class TestJdbcPrestoAction
         PrestoActionConfig prestoActionConfig = new PrestoActionConfig()
                 .setHosts(queryRunner.getServer().getAddress().getHost())
                 .setJdbcPort(queryRunner.getServer().getAddress().getPort());
+        VerifierConfig verifierConfig = new VerifierConfig().setTestId("test");
         prestoAction = new JdbcPrestoAction(
                 PrestoExceptionClassifier.defaultBuilder().build(),
                 CONFIGURATION,
@@ -90,7 +91,7 @@ public class TestJdbcPrestoAction
                 queryActionsConfig.getChecksumTimeout(),
                 new RetryConfig(),
                 new RetryConfig(),
-                new VerifierConfig().setTestId("test"));
+                new DefaultClientInfoFactory(new VerifierConfig().setTestId("test")));
     }
 
     @Test
@@ -98,13 +99,13 @@ public class TestJdbcPrestoAction
     {
         assertEquals(
                 prestoAction.execute(
-                        sqlParser.createStatement("SELECT 1", PARSING_OPTIONS),
+                        SQL_PARSER.createStatement("SELECT 1", PARSING_OPTIONS),
                         QUERY_STAGE).getQueryStats().map(QueryStats::getState).orElse(null),
                 FINISHED.name());
 
         assertEquals(
                 prestoAction.execute(
-                        sqlParser.createStatement("CREATE TABLE test_table (x int)", PARSING_OPTIONS),
+                        SQL_PARSER.createStatement("CREATE TABLE test_table (x int)", PARSING_OPTIONS),
                         QUERY_STAGE).getQueryStats().map(QueryStats::getState).orElse(null),
                 FINISHED.name());
     }
@@ -113,7 +114,7 @@ public class TestJdbcPrestoAction
     public void testQuerySucceededWithConverter()
     {
         QueryResult<Integer> result = prestoAction.execute(
-                sqlParser.createStatement("SELECT x FROM (VALUES (1), (2), (3)) t(x)", PARSING_OPTIONS),
+                SQL_PARSER.createStatement("SELECT x FROM (VALUES (1), (2), (3)) t(x)", PARSING_OPTIONS),
                 QUERY_STAGE,
                 resultSet -> Optional.of(resultSet.getInt("x") * resultSet.getInt("x")));
         assertEquals(result.getQueryActionStats().getQueryStats().map(QueryStats::getState).orElse(null), FINISHED.name());
@@ -125,7 +126,7 @@ public class TestJdbcPrestoAction
     {
         try {
             prestoAction.execute(
-                    sqlParser.createStatement("SELECT * FROM test_table", PARSING_OPTIONS),
+                    SQL_PARSER.createStatement("SELECT * FROM test_table", PARSING_OPTIONS),
                     QUERY_STAGE);
             fail("Expect QueryException");
         }

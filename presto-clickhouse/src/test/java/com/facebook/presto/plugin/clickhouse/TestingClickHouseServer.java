@@ -26,7 +26,7 @@ import static org.testcontainers.containers.ClickHouseContainer.HTTP_PORT;
 public class TestingClickHouseServer
         implements Closeable
 {
-    private static final String CLICKHOUSE_IMAGE = "yandex/clickhouse-server:20.8";
+    private static final String CLICKHOUSE_IMAGE = "clickhouse/clickhouse-server:23.12.2.59";
     private final ClickHouseContainer dockerContainer;
 
     public TestingClickHouseServer()

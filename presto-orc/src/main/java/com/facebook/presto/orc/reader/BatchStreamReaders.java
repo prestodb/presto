@@ -40,7 +40,7 @@ public final class BatchStreamReaders
             case INT:
             case LONG:
             case DATE:
-                return new LongBatchStreamReader(type, streamDescriptor, systemMemoryContext);
+                return new LongBatchStreamReader(type, streamDescriptor, systemMemoryContext, options.isResetAllReaders());
             case FLOAT:
                 return new FloatBatchStreamReader(type, streamDescriptor);
             case DOUBLE:
@@ -49,7 +49,7 @@ public final class BatchStreamReaders
             case STRING:
             case VARCHAR:
             case CHAR:
-                return new SliceBatchStreamReader(type, streamDescriptor, systemMemoryContext);
+                return new SliceBatchStreamReader(type, streamDescriptor, systemMemoryContext, options.getMaxSliceSize(), options.isResetAllReaders());
             case TIMESTAMP:
             case TIMESTAMP_MICROSECONDS:
                 boolean enableMicroPrecision = type == TIMESTAMP_MICROSECONDS;

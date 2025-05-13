@@ -18,8 +18,6 @@
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/VectorStream.h"
 
-using namespace facebook::velox;
-
 namespace facebook::presto::operators {
 
 /// Struct for single broadcast file info.]
@@ -48,7 +46,7 @@ class BroadcastFileWriter {
   virtual ~BroadcastFileWriter() = default;
 
   /// Write to file.
-  void collect(const RowVectorPtr& input);
+  void collect(const velox::RowVectorPtr& input);
 
   /// Flush the data.
   void noMoreData();
@@ -110,8 +108,8 @@ class BroadcastFactory {
   virtual ~BroadcastFactory() = default;
 
   std::unique_ptr<BroadcastFileWriter> createWriter(
-      memory::MemoryPool* pool,
-      const RowTypePtr& inputType);
+      velox::memory::MemoryPool* pool,
+      const velox::RowTypePtr& inputType);
 
   std::shared_ptr<BroadcastFileReader> createReader(
       const std::unique_ptr<BroadcastFileInfo> fileInfo,

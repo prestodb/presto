@@ -34,7 +34,6 @@ public class TestClientOptions
         assertEquals(session.getServer().toString(), "http://localhost:8080");
         assertEquals(session.getSource(), "presto-cli");
     }
-
     @Test
     public void testSource()
     {
@@ -132,6 +131,20 @@ public class TestClientOptions
         Console console = singleCommand(Console.class).parse("--disable-compression");
         assertTrue(console.clientOptions.disableCompression);
         assertTrue(console.clientOptions.toClientSession().isCompressionDisabled());
+    }
+
+    @Test
+    public void testDisableFollowingRedirects()
+    {
+        Console console = singleCommand(Console.class).parse("--disable-redirects");
+        assertTrue(console.clientOptions.disableRedirects);
+    }
+
+    @Test
+    public void testRunTimeStat()
+    {
+        Console console = singleCommand(Console.class).parse("--runtime-stats");
+        assertTrue(console.clientOptions.runtime);
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)

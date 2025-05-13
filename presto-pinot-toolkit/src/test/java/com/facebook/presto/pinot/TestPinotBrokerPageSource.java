@@ -182,7 +182,7 @@ public class TestPinotBrokerPageSource
                 new MockPinotClusterInfoFetcher(pinotConfig),
                 objectMapper,
                 PinotBrokerAuthenticationProvider.create(PinotEmptyAuthenticationProvider.instance()));
-        assertEquals(pageSource.getRequestPayload(generatedPinotQuery), "{\"sql\":\"SELECT * FROM myTable\"}");
+        assertEquals(PinotBrokerPageSource.getRequestPayload(generatedPinotQuery), "{\"sql\":\"SELECT * FROM myTable\"}");
 
         generatedPinotQuery = new PinotQueryGenerator.GeneratedPinotQuery(
                 pinotTable.getTableName(),
@@ -190,7 +190,7 @@ public class TestPinotBrokerPageSource
                 ImmutableList.of(),
                 false,
                 false);
-        assertEquals(pageSource.getRequestPayload(generatedPinotQuery), "{\"sql\":\"SELECT * FROM myTable WHERE jsonStr = '\\\"{\\\"abc\\\" : \\\"def\\\"}\\\"'\"}");
+        assertEquals(PinotBrokerPageSource.getRequestPayload(generatedPinotQuery), "{\"sql\":\"SELECT * FROM myTable WHERE jsonStr = '\\\"{\\\"abc\\\" : \\\"def\\\"}\\\"'\"}");
     }
 
     @Test(dataProvider = "sqlResponses")

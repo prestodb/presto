@@ -21,7 +21,6 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.pinot.query.PinotQueryGeneratorContext;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
@@ -72,6 +71,7 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
+import static com.facebook.presto.metadata.SessionPropertyManager.createTestingSessionPropertyManager;
 import static com.facebook.presto.pinot.PinotColumnHandle.PinotColumnType.REGULAR;
 import static com.facebook.presto.pinot.query.PinotQueryGeneratorContext.Origin.DERIVED;
 import static com.facebook.presto.pinot.query.PinotQueryGeneratorContext.Origin.TABLE_COLUMN;
@@ -139,7 +139,7 @@ public class TestPinotQueryBase
         public SessionHolder(PinotConfig pinotConfig)
         {
             connectorSession = new TestingConnectorSession(new PinotSessionProperties(pinotConfig).getSessionProperties());
-            session = TestingSession.testSessionBuilder(new SessionPropertyManager(new SystemSessionProperties().getSessionProperties())).build();
+            session = TestingSession.testSessionBuilder(createTestingSessionPropertyManager(new SystemSessionProperties().getSessionProperties())).build();
         }
 
         public SessionHolder(boolean useDateTrunc)
@@ -277,11 +277,6 @@ public class TestPinotQueryBase
     protected static PinotColumnHandle bigint(String name)
     {
         return new PinotColumnHandle(name, BIGINT, PinotColumnHandle.PinotColumnType.REGULAR);
-    }
-
-    protected static PinotColumnHandle fraction(String name)
-    {
-        return new PinotColumnHandle(name, DOUBLE, PinotColumnHandle.PinotColumnType.REGULAR);
     }
 
     protected static PinotColumnHandle varchar(String name)

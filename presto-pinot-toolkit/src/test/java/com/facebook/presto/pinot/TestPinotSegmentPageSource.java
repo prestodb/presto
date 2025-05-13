@@ -363,7 +363,6 @@ public class TestPinotSegmentPageSource
                 Assert.assertTrue(block.getBlock(0).getInt(2) == 67, "Array element not matching");
             }
             else if (((ArrayType) type).getElementType() instanceof VariableWidthType) {
-                Type type1 = ((ArrayType) type).getElementType();
                 Assert.assertTrue(block.getBlock(0) instanceof VariableWidthBlock);
                 VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block.getBlock(0);
                 Assert.assertTrue("stringVal1".equals(new String(variableWidthBlock.getSlice(0, 0, variableWidthBlock.getSliceLength(0)).getBytes())), "Array element not matching");

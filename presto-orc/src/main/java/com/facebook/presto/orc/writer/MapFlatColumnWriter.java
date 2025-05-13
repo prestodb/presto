@@ -125,6 +125,8 @@ public class MapFlatColumnWriter
     // This field contains cached stripe column statistics for the value node(s)
     // for this edge case.
     private Map<Integer, ColumnStatistics> emptyValueColumnStatistics;
+    private long rawSize;
+    private long stripeRawSize;
 
     public MapFlatColumnWriter(
             int nodeIndex,
@@ -232,13 +234,15 @@ public class MapFlatColumnWriter
         }
         Arrays.fill(valueWritersLastRow, 0);
 
-        Map<Integer, ColumnStatistics> columnStatistics = getColumnStatisticsFromValueWriters(ColumnWriter::finishRowGroup, nonNullRowGroupValueCount);
+        Map<Integer, ColumnStatistics> columnStatistics = getColumnStatisticsFromValueWriters(ColumnWriter::finishRowGroup, nonNullRowGroupValueCount, rawSize);
         ColumnStatistics mapStatistics = requireNonNull(columnStatistics.get(nodeIndex), "ColumnStatistics for the map node is missing");
         rowGroupColumnStatistics.add(mapStatistics);
 
         rowsInFinishedRowGroups.add(nonNullRowGroupValueCount);
         nonNullStripeValueCount += nonNullRowGroupValueCount;
         nonNullRowGroupValueCount = 0;
+        stripeRawSize += rawSize;
+        rawSize = 0;
 
         return columnStatistics;
     }
@@ -250,7 +254,7 @@ public class MapFlatColumnWriter
 
         return ImmutableMap.<Integer, ColumnStatistics>builder()
                 .put(keyNodeIndex, keyManager.getStripeColumnStatistics())
-                .putAll(getColumnStatisticsFromValueWriters(ColumnWriter::getColumnStripeStatistics, nonNullStripeValueCount))
+                .putAll(getColumnStatisticsFromValueWriters(ColumnWriter::getColumnStripeStatistics, nonNullStripeValueCount, stripeRawSize))
                 .build();
     }
 
@@ -272,10 +276,11 @@ public class MapFlatColumnWriter
      * Aggregates statistics of all value writers. A value column can be complex (it is a tree of nodes), we need to
      * aggregate every level of the tree, across all value writers.
      */
-    private Map<Integer, ColumnStatistics> getColumnStatisticsFromValueWriters(Function<ColumnWriter, Map<Integer, ColumnStatistics>> getStats, int valueCount)
+    private Map<Integer, ColumnStatistics> getColumnStatisticsFromValueWriters(Function<ColumnWriter, Map<Integer, ColumnStatistics>> getStats, int valueCount, long rawSize)
     {
         MapColumnStatisticsBuilder mapStatsBuilder = new MapColumnStatisticsBuilder(mapStatsEnabled);
         mapStatsBuilder.increaseValueCount(valueCount);
+        mapStatsBuilder.incrementRawSize(rawSize);
 
         // return some stats even if the map is empty
         if (valueWriters.isEmpty()) {
@@ -340,9 +345,10 @@ public class MapFlatColumnWriter
             }
         }
 
-        // TODO Implement size reporting
         int blockNonNullValueCount = nonNullRowGroupValueCount - nonNullValueCountBefore;
-        return (columnarMap.getPositionCount() - blockNonNullValueCount) * NULL_SIZE + childRawSize;
+        long rawSize = (columnarMap.getPositionCount() - blockNonNullValueCount) * NULL_SIZE + childRawSize;
+        this.rawSize += rawSize;
+        return rawSize;
     }
 
     private long writeMapKeyValue(Block keysBlock, Block valuesBlock, int position)
@@ -370,7 +376,7 @@ public class MapFlatColumnWriter
             //     and keep memory consumption in check.
             singleValueBlock = valuesBlock.getRegion(position, 1);
         }
-        return valueWriter.writeSingleEntryBlock(singleValueBlock);
+        return valueWriter.writeSingleEntryBlock(singleValueBlock) + valueWriter.getKeyRawSize();
     }
 
     @Override
@@ -445,18 +451,21 @@ public class MapFlatColumnWriter
         rowsInFinishedRowGroups.clear();
         nonNullRowGroupValueCount = 0;
         nonNullStripeValueCount = 0;
+        rawSize = 0;
+        stripeRawSize = 0;
         Arrays.fill(valueWritersLastRow, 0);
     }
 
-    private MapFlatValueWriter createNewValueWriter(DwrfProto.KeyInfo dwrfKey)
+    private MapFlatValueWriter createNewValueWriter(DwrfProto.KeyInfo dwrfKey, int keyRawSize)
     {
+        checkArgument(keyRawSize >= 0, "keyRawSize must be non-negative: %s", keyRawSize);
         checkState(valueWriters.size() < maxFlattenedMapKeyCount - 1,
                 "Map column writer for node %s reached max allowed number of keys %s", nodeIndex, maxFlattenedMapKeyCount);
 
         int valueWriterIdx = valueWriters.size();
         int sequence = valueWriterIdx + SEQUENCE_START_INDEX;
         ColumnWriter columnWriter = valueWriterFactory.apply(sequence);
-        MapFlatValueWriter valueWriter = new MapFlatValueWriter(valueNodeIndex, sequence, dwrfKey, columnWriter, columnWriterOptions, dwrfEncryptor);
+        MapFlatValueWriter valueWriter = new MapFlatValueWriter(valueNodeIndex, sequence, keyRawSize, dwrfKey, columnWriter, columnWriterOptions, dwrfEncryptor);
         valueWriters.add(valueWriter);
         growCapacity();
 
@@ -487,7 +496,7 @@ public class MapFlatColumnWriter
     private KeyManager getKeyManager(Type type, Supplier<StatisticsBuilder> statisticsBuilderSupplier)
     {
         if (type == BIGINT || type == INTEGER || type == SMALLINT || type == TINYINT) {
-            return new NumericKeyManager(statisticsBuilderSupplier);
+            return new NumericKeyManager(statisticsBuilderSupplier, (FixedWidthType) type);
         }
         else if (type instanceof VarcharType || type == VARBINARY) {
             return new SliceKeyManager(statisticsBuilderSupplier);
@@ -526,20 +535,26 @@ public class MapFlatColumnWriter
     private class NumericKeyManager
             extends KeyManager<Long2ObjectOpenHashMap<MapFlatValueWriter>>
     {
-        public NumericKeyManager(Supplier<StatisticsBuilder> statisticsBuilderSupplier)
+        private final int typeSize;
+
+        public NumericKeyManager(Supplier<StatisticsBuilder> statisticsBuilderSupplier, FixedWidthType type)
         {
             super(new Long2ObjectOpenHashMap<>(), statisticsBuilderSupplier);
+            checkArgument(type.getFixedSize() > 0, "Integer type size must for %s be positive: %s", type, type.getFixedSize());
+            this.typeSize = type.getFixedSize();
         }
 
         @Override
         public MapFlatValueWriter getOrCreateValueWriter(int position, Block keyBlock)
         {
+            // make raw size for the key node work like in a regular map
+            rowGroupStatsBuilder.incrementRawSize(typeSize);
             rowGroupStatsBuilder.addValue(keyType, keyBlock, position);
 
             long key = keyType.getLong(keyBlock, position);
             MapFlatValueWriter valueWriter = keyToWriter.get(key);
             if (valueWriter == null) {
-                valueWriter = createNewValueWriter(createDwrfKey(key));
+                valueWriter = createNewValueWriter(createDwrfKey(key), typeSize);
                 keyToWriter.put(key, valueWriter);
             }
             return valueWriter;
@@ -563,15 +578,17 @@ public class MapFlatColumnWriter
         @Override
         public MapFlatValueWriter getOrCreateValueWriter(int position, Block keyBlock)
         {
+            // make raw size for the key node work like in a regular map
+            Slice key = keyType.getSlice(keyBlock, position);
+            rowGroupStatsBuilder.incrementRawSize(key.length());
             rowGroupStatsBuilder.addValue(keyType, keyBlock, position);
 
-            Slice key = keyType.getSlice(keyBlock, position);
             MapFlatValueWriter valueWriter = keyToWriter.get(key);
             if (valueWriter == null) {
                 if (!key.isCompact()) {
                     key = Slices.copyOf(key);
                 }
-                valueWriter = createNewValueWriter(createDwrfKey(key));
+                valueWriter = createNewValueWriter(createDwrfKey(key), key.length());
                 keyToWriter.put(key, valueWriter);
             }
             return valueWriter;

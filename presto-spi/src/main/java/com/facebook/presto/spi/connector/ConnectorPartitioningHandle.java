@@ -24,4 +24,14 @@ public interface ConnectorPartitioningHandle
     {
         return false;
     }
+
+    default boolean isBroadcast()
+    {
+        return false;
+    }
+
+    default boolean isArbitrary()
+    {
+        return false;
+    }
 }

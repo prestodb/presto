@@ -5,7 +5,7 @@
     <parent>
         <artifactId>presto-root</artifactId>
         <groupId>com.facebook.presto</groupId>
-        <version>0.286-SNAPSHOT</version>
+        <version>0.293-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-benchmark-runner</artifactId>
@@ -85,6 +85,11 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-main-base</artifactId>
         </dependency>
 
         <dependency>
@@ -175,7 +180,7 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>testing-mysql-server-5</artifactId>
+            <artifactId>testing-mysql-server-8</artifactId>
             <scope>test</scope>
         </dependency>
 

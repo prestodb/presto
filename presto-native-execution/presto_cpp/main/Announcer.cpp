@@ -30,6 +30,8 @@ std::string announcementBody(
     const std::string& nodeVersion,
     const std::string& environment,
     const std::string& nodeLocation,
+    const std::string& nodePoolType,
+    const bool sidecar,
     const std::vector<std::string>& connectorIds) {
   std::string id =
       boost::lexical_cast<std::string>(boost::uuids::random_generator()());
@@ -46,7 +48,9 @@ std::string announcementBody(
          {"properties",
           {{"node_version", nodeVersion},
            {"coordinator", false},
+           {"sidecar", sidecar},
            {"connectorIds", folly::join(',', connectorIds)},
+           {"pool_type", nodePoolType},
            {uriScheme,
             fmt::format("{}://{}:{}", uriScheme, address, port)}}}}}}};
   return body.dump();
@@ -79,16 +83,16 @@ Announcer::Announcer(
     const std::string& environment,
     const std::string& nodeId,
     const std::string& nodeLocation,
+    const std::string& nodePoolType,
+    const bool sidecar,
     const std::vector<std::string>& connectorIds,
     const uint64_t maxFrequencyMs,
-    const std::string& clientCertAndKeyPath,
-    const std::string& ciphers)
+    folly::SSLContextPtr sslContext)
     : PeriodicServiceInventoryManager(
           address,
           port,
           coordinatorDiscoverer,
-          clientCertAndKeyPath,
-          ciphers,
+          std::move(sslContext),
           "Announcement",
           maxFrequencyMs),
       announcementBody_(announcementBody(
@@ -98,6 +102,8 @@ Announcer::Announcer(
           nodeVersion,
           environment,
           nodeLocation,
+          nodePoolType,
+          sidecar,
           connectorIds)),
       announcementRequest_(
           announcementRequest(address, port, nodeId, announcementBody_)) {}

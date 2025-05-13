@@ -14,7 +14,6 @@
 #include <gtest/gtest.h>
 
 #include "presto_cpp/main/common/tests/test_json.h"
-#include "presto_cpp/presto_protocol/presto_protocol.h"
 
 using namespace facebook::presto::protocol;
 
@@ -39,6 +38,8 @@ TEST_F(VariableReferenceExpressionTest, basic) {
   testJsonRoundtrip(j, p);
 
   ASSERT_EQ(json_map_key(p), "segment<integer>") << "... json_map_key";
-  ASSERT_EQ((json)VariableReferenceExpression("segment<integer>"), (json)p)
+  ASSERT_EQ(
+      static_cast<json>(VariableReferenceExpression("segment<integer>")),
+      static_cast<json>(p))
       << "... string constructor";
 }

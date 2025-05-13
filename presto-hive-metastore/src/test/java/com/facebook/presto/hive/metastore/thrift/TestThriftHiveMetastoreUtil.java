@@ -58,6 +58,7 @@ import static org.apache.hadoop.hive.serde.serdeConstants.DECIMAL_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.serdeConstants.DOUBLE_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.serdeConstants.STRING_TYPE_NAME;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 
 public class TestThriftHiveMetastoreUtil
 {
@@ -387,5 +388,16 @@ public class TestThriftHiveMetastoreUtil
 
         partition.setParameters(ImmutableMap.of("lastDataCommitTime", "a"));
         assertEquals(ThriftMetastoreUtil.getLastDataCommitTime(partition), 0);
+    }
+
+    @Test
+    public void testGetRowIDPartitionComponent()
+    {
+        Partition partition = new Partition();
+        assertFalse(ThriftMetastoreUtil.getRowIDPartitionComponent(partition).isPresent());
+
+        partition.setParameters(ImmutableMap.of("rowIDPartitionComponent", "\u0000\u0001\u00FF"));
+        byte[] expected = {0, 1, (byte) 255};
+        assertEquals(ThriftMetastoreUtil.getRowIDPartitionComponent(partition).get(), expected);
     }
 }

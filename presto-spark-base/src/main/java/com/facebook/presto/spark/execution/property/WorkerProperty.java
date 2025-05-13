@@ -103,10 +103,9 @@ public class WorkerProperty<T1 extends NativeExecutionConnectorConfig, T2 extend
         return veloxConfig;
     }
 
-    public void populateAllProperties(Path veloxConfigPath, Path systemConfigPath, Path nodeConfigPath, Path connectorConfigPath)
+    public void populateAllProperties(Path systemConfigPath, Path nodeConfigPath, Path connectorConfigPath)
             throws IOException
     {
-        populateProperty(veloxConfig.getAllProperties(), veloxConfigPath);
         populateProperty(systemConfig.getAllProperties(), systemConfigPath);
         populateProperty(nodeConfig.getAllProperties(), nodeConfigPath);
         populateProperty(connectorConfig.getAllProperties(), connectorConfigPath);

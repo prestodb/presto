@@ -14,13 +14,22 @@
 package com.facebook.presto.hive.s3;
 
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
+import com.facebook.presto.hive.DynamicConfigurationProvider;
 import com.facebook.presto.hive.HiveClientConfig;
+import com.facebook.presto.hive.aws.security.AWSSecurityMappingConfig;
+import com.facebook.presto.hive.aws.security.AWSSecurityMappingsSupplier;
+import com.facebook.presto.hive.s3.security.AWSS3SecurityMappingConfigurationProvider;
+import com.facebook.presto.hive.s3.security.ForAWSS3DynamicConfigurationProvider;
 import com.google.inject.Binder;
+import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.Singleton;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.common.JavaUtils;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static com.facebook.presto.hive.aws.security.AWSSecurityMappingType.S3;
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static java.util.Objects.requireNonNull;
 import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
@@ -42,6 +51,8 @@ public class HiveS3Module
     {
         S3FileSystemType type = buildConfigObject(HiveClientConfig.class).getS3FileSystemType();
         if (type == S3FileSystemType.PRESTO) {
+            bindSecurityMapping(binder);
+
             binder.bind(S3ConfigurationUpdater.class).to(PrestoS3ConfigurationUpdater.class).in(Scopes.SINGLETON);
             configBinder(binder).bindConfig(HiveS3Config.class);
 
@@ -58,6 +69,23 @@ public class HiveS3Module
         }
         else {
             throw new RuntimeException("Unknown file system type: " + type);
+        }
+    }
+
+    @Provides
+    @Singleton
+    @ForAWSS3DynamicConfigurationProvider
+    public AWSSecurityMappingsSupplier provideAWSSecurityMappingsSupplier(AWSSecurityMappingConfig config)
+    {
+        return new AWSSecurityMappingsSupplier(config.getConfigFile(), config.getRefreshPeriod());
+    }
+
+    private void bindSecurityMapping(Binder binder)
+    {
+        if (buildConfigObject(AWSSecurityMappingConfig.class).getConfigFile().isPresent() &&
+                buildConfigObject(AWSSecurityMappingConfig.class).getMappingType().equals(S3)) {
+            newSetBinder(binder, DynamicConfigurationProvider.class).addBinding()
+                    .to(AWSS3SecurityMappingConfigurationProvider.class).in(Scopes.SINGLETON);
         }
     }
 

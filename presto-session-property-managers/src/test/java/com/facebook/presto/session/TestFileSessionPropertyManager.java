@@ -40,11 +40,13 @@ public class TestFileSessionPropertyManager
 {
     private static final SessionConfigurationContext CONTEXT = new SessionConfigurationContext(
             "user",
+            Optional.empty(),
             Optional.of("source"),
             ImmutableSet.of("tag1", "tag2"),
             Optional.of(QueryType.DATA_DEFINITION.toString()),
             Optional.of(new ResourceGroupId(ImmutableList.of("global", "pipeline", "user_foo", "bar"))),
-            Optional.of("bar"));
+            Optional.of("bar"),
+            "testversion");
 
     @Test
     public void testResourceGroupMatch()

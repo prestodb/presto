@@ -25,6 +25,7 @@ import com.facebook.presto.verifier.checksum.ChecksumValidator;
 import com.facebook.presto.verifier.event.DeterminismAnalysisDetails;
 import com.facebook.presto.verifier.event.DeterminismAnalysisRun;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
+import com.facebook.presto.verifier.prestoaction.QueryAction;
 import com.facebook.presto.verifier.rewrite.QueryRewriter;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
@@ -36,7 +37,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
 import static com.facebook.presto.verifier.framework.DataVerificationUtil.getColumns;
 import static com.facebook.presto.verifier.framework.DataVerificationUtil.match;
 import static com.facebook.presto.verifier.framework.DataVerificationUtil.teardownSafely;
@@ -60,7 +60,7 @@ import static java.util.Objects.requireNonNull;
 public class DeterminismAnalyzer
 {
     private final SourceQuery sourceQuery;
-    private final PrestoAction prestoAction;
+    private final PrestoAction helperAction;
     private final QueryRewriter queryRewriter;
     private final ChecksumValidator checksumValidator;
     private final TypeManager typeManager;
@@ -72,14 +72,14 @@ public class DeterminismAnalyzer
 
     public DeterminismAnalyzer(
             SourceQuery sourceQuery,
-            PrestoAction prestoAction,
+            PrestoAction helperAction,
             QueryRewriter queryRewriter,
             ChecksumValidator checksumValidator,
             TypeManager typeManager,
             DeterminismAnalyzerConfig config)
     {
         this.sourceQuery = requireNonNull(sourceQuery, "sourceQuery is null");
-        this.prestoAction = requireNonNull(prestoAction, "prestoAction is null");
+        this.helperAction = requireNonNull(helperAction, "helperAction is null");
         this.queryRewriter = requireNonNull(queryRewriter, "queryRewriter is null");
         this.checksumValidator = requireNonNull(checksumValidator, "checksumValidator is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -90,26 +90,27 @@ public class DeterminismAnalyzer
         this.handleLimitQuery = config.isHandleLimitQuery();
     }
 
-    protected DeterminismAnalysisDetails analyze(QueryObjectBundle control, ChecksumResult controlChecksum)
+    protected DeterminismAnalysisDetails analyze(QueryAction queryAction, QueryObjectBundle objectBundle, ChecksumResult referenceChecksum)
     {
+        requireNonNull(queryAction, "queryAction is null");
         DeterminismAnalysisDetails.Builder determinismAnalysisDetails = DeterminismAnalysisDetails.builder();
-        DeterminismAnalysis analysis = analyze(control, controlChecksum, determinismAnalysisDetails);
+        DeterminismAnalysis analysis = analyze(queryAction, objectBundle, referenceChecksum, determinismAnalysisDetails);
         return determinismAnalysisDetails.build(analysis);
     }
 
-    private DeterminismAnalysis analyze(QueryObjectBundle control, ChecksumResult controlChecksum, DeterminismAnalysisDetails.Builder determinismAnalysisDetails)
+    private DeterminismAnalysis analyze(QueryAction actionForQuery, QueryObjectBundle objectBundle, ChecksumResult referenceChecksum, DeterminismAnalysisDetails.Builder determinismAnalysisDetails)
     {
         // Handle mutable catalogs
-        if (isNonDeterministicCatalogReferenced(control.getQuery())) {
+        if (isNonDeterministicCatalogReferenced(objectBundle.getQuery())) {
             return NON_DETERMINISTIC_CATALOG;
         }
 
         // Handle limit query
         LimitQueryDeterminismAnalysis limitQueryAnalysis = new LimitQueryDeterminismAnalyzer(
-                prestoAction,
+                helperAction,
                 handleLimitQuery,
-                control.getQuery(),
-                controlChecksum.getRowCount(),
+                objectBundle.getQuery(),
+                referenceChecksum.getRowCount(),
                 determinismAnalysisDetails).analyze();
 
         switch (limitQueryAnalysis) {
@@ -127,29 +128,31 @@ public class DeterminismAnalyzer
         }
 
         // Rerun control query multiple times
-        List<Column> columns = getColumns(prestoAction, typeManager, control.getObjectName());
+        List<Column> columns = getColumns(helperAction, typeManager, objectBundle.getObjectName());
+        ClusterType clusterType = objectBundle.getCluster();
         Map<QueryBundle, DeterminismAnalysisRun.Builder> queryRuns = new HashMap<>();
         try {
             for (int i = 0; i < maxAnalysisRuns; i++) {
-                QueryObjectBundle queryBundle = queryRewriter.rewriteQuery(sourceQuery.getQuery(CONTROL), CONTROL);
+                QueryObjectBundle queryBundle = queryRewriter.rewriteQuery(sourceQuery.getQuery(clusterType), sourceQuery.getQueryConfiguration(clusterType), clusterType, false);
                 DeterminismAnalysisRun.Builder run = determinismAnalysisDetails.addRun().setTableName(queryBundle.getObjectName().toString());
+                run.setClusterType(clusterType.name());
                 queryRuns.put(queryBundle, run);
 
                 // Rerun setup and main query
                 queryBundle.getSetupQueries().forEach(query -> runAndConsume(
-                        () -> prestoAction.execute(query, DETERMINISM_ANALYSIS_SETUP),
+                        () -> helperAction.execute(query, DETERMINISM_ANALYSIS_SETUP),
                         stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(run::addSetupQueryId)));
                 runAndConsume(
-                        () -> prestoAction.execute(queryBundle.getQuery(), DETERMINISM_ANALYSIS_MAIN),
+                        () -> actionForQuery.execute(queryBundle.getQuery(), DETERMINISM_ANALYSIS_MAIN),
                         stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(run::setQueryId));
 
                 // Run checksum query
-                Query checksumQuery = checksumValidator.generateChecksumQuery(queryBundle.getObjectName(), columns);
+                Query checksumQuery = checksumValidator.generateChecksumQuery(queryBundle.getObjectName(), columns, Optional.empty());
                 ChecksumResult testChecksum = getOnlyElement(callAndConsume(
-                        () -> prestoAction.execute(checksumQuery, DETERMINISM_ANALYSIS_CHECKSUM, ChecksumResult::fromResultSet),
+                        () -> helperAction.execute(checksumQuery, DETERMINISM_ANALYSIS_CHECKSUM, ChecksumResult::fromResultSet),
                         stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(run::setChecksumQueryId)).getResults());
 
-                DeterminismAnalysis analysis = matchResultToDeterminism(match(checksumValidator, columns, columns, controlChecksum, testChecksum));
+                DeterminismAnalysis analysis = matchResultToDeterminism(match(DataMatchResult.DataType.DATA, checksumValidator, columns, columns, referenceChecksum, testChecksum));
                 if (analysis != DETERMINISTIC) {
                     return analysis;
                 }
@@ -163,7 +166,7 @@ public class DeterminismAnalyzer
         finally {
             if (runTeardown) {
                 queryRuns.forEach((queryBundle, run) -> teardownSafely(
-                        prestoAction,
+                        helperAction,
                         Optional.of(queryBundle),
                         queryStats -> queryStats.getQueryStats().map(QueryStats::getQueryId).ifPresent(run::addTeardownQueryId)));
             }

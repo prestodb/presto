@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.hive.HiveCommonSessionProperties.getNodeSelectionStrategy;
 import static com.facebook.presto.hive.HiveErrorCode.MALFORMED_HIVE_FILE_STATISTICS;
 import static com.facebook.presto.hive.HiveManifestUtils.FILE_NAMES;
 import static com.facebook.presto.hive.HiveManifestUtils.FILE_SIZES;
@@ -46,8 +47,8 @@ import static com.facebook.presto.hive.HiveManifestUtils.decompressFileNames;
 import static com.facebook.presto.hive.HiveManifestUtils.decompressFileSizes;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxSplitSize;
-import static com.facebook.presto.hive.HiveSessionProperties.getNodeSelectionStrategy;
 import static com.facebook.presto.hive.HiveSessionProperties.isManifestVerificationEnabled;
+import static com.facebook.presto.hive.HiveSessionProperties.isSkipEmptyFilesEnabled;
 import static com.facebook.presto.hive.HiveUtil.buildDirectoryContextProperties;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
 import static com.facebook.presto.hive.NestedDirectoryPolicy.IGNORED;
@@ -62,11 +63,11 @@ public class ManifestPartitionLoader
         extends PartitionLoader
 {
     // The following constants are referred from FileSystem.getFileBlockLocations in Hadoop
-    private static final String[] BLOCK_LOCATION_NAMES = new String[] {"localhost:50010"};
-    private static final String[] BLOCK_LOCATION_HOSTS = new String[] {"localhost"};
+    private static final String[] BLOCK_LOCATION_NAMES = {"localhost:50010"};
+    private static final String[] BLOCK_LOCATION_HOSTS = {"localhost"};
 
     private final Table table;
-    private final Optional<Domain> pathDomain;
+    private final Map<Integer, Domain> infoColumnConstraints;
     private final ConnectorSession session;
     private final HdfsEnvironment hdfsEnvironment;
     private final HdfsContext hdfsContext;
@@ -77,7 +78,7 @@ public class ManifestPartitionLoader
 
     public ManifestPartitionLoader(
             Table table,
-            Optional<Domain> pathDomain,
+            Map<Integer, Domain> infoColumnConstraints,
             ConnectorSession session,
             HdfsEnvironment hdfsEnvironment,
             NamenodeStats namenodeStats,
@@ -86,7 +87,7 @@ public class ManifestPartitionLoader
             boolean schedulerUsesHostAddresses)
     {
         this.table = requireNonNull(table, "table is null");
-        this.pathDomain = requireNonNull(pathDomain, "pathDomain is null");
+        this.infoColumnConstraints = requireNonNull(infoColumnConstraints, "infoColumnConstraints is null");
         this.session = requireNonNull(session, "session is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName(), table.getStorage().getLocation(), false);
@@ -122,7 +123,7 @@ public class ManifestPartitionLoader
             Path filePath = new Path(path, fileNames.get(i));
             FileStatus fileStatus = new FileStatus(fileSizes.get(i), false, 1, getMaxSplitSize(session).toBytes(), 0, filePath);
             try {
-                BlockLocation[] locations = new BlockLocation[] {new BlockLocation(BLOCK_LOCATION_NAMES, BLOCK_LOCATION_HOSTS, 0, fileSizes.get(i))};
+                BlockLocation[] locations = {new BlockLocation(BLOCK_LOCATION_NAMES, BLOCK_LOCATION_HOSTS, 0, fileSizes.get(i))};
 
                 // It is safe to set extraFileContext as empty because downstream code always checks if its present before proceeding.
                 fileListBuilder.add(HiveFileInfo.createHiveFileInfo(new LocatedFileStatus(fileStatus, locations), Optional.empty()));
@@ -132,7 +133,7 @@ public class ManifestPartitionLoader
             }
         }
 
-        InternalHiveSplitFactory splitFactory = createInternalHiveSplitFactory(table, partition, session, pathDomain, hdfsEnvironment, hdfsContext, schedulerUsesHostAddresses);
+        InternalHiveSplitFactory splitFactory = createInternalHiveSplitFactory(table, partition, session, infoColumnConstraints, hdfsEnvironment, hdfsContext, schedulerUsesHostAddresses);
 
         return hiveSplitSource.addToQueue(fileListBuilder.build().stream()
                 .map(status -> splitFactory.createInternalHiveSplit(status, true))
@@ -145,20 +146,21 @@ public class ManifestPartitionLoader
             Table table,
             HivePartitionMetadata partition,
             ConnectorSession session,
-            Optional<Domain> pathDomain,
+            Map<Integer, Domain> infoColumnConstraints,
             HdfsEnvironment hdfsEnvironment,
             HdfsContext hdfsContext,
             boolean schedulerUsesHostAddresses)
             throws IOException
     {
-        String partitionName = partition.getHivePartition().getPartitionId();
+        String partitionName = partition.getHivePartition().getPartitionId().getPartitionName();
         Storage storage = partition.getPartition().map(Partition::getStorage).orElse(table.getStorage());
         String inputFormatName = storage.getStorageFormat().getInputFormat();
         int partitionDataColumnCount = partition.getPartition()
                 .map(p -> p.getColumns().size())
-                .orElse(table.getDataColumns().size());
+                .orElseGet(table.getDataColumns()::size);
         List<HivePartitionKey> partitionKeys = getPartitionKeys(table, partition.getPartition(), partitionName);
-        Path path = new Path(getPartitionLocation(table, partition.getPartition()));
+        String location = getPartitionLocation(table, partition.getPartition());
+        Path path = new Path(location);
         Configuration configuration = hdfsEnvironment.getConfiguration(hdfsContext, path);
         InputFormat<?, ?> inputFormat = getInputFormat(configuration, inputFormatName, false);
         ExtendedFileSystem fileSystem = hdfsEnvironment.getFileSystem(hdfsContext, path);
@@ -166,19 +168,20 @@ public class ManifestPartitionLoader
         return new InternalHiveSplitFactory(
                 fileSystem,
                 inputFormat,
-                pathDomain,
+                infoColumnConstraints,
                 getNodeSelectionStrategy(session),
                 getMaxInitialSplitSize(session),
                 false,
                 new HiveSplitPartitionInfo(
                         storage,
-                        path.toUri(),
+                        location,
                         partitionKeys,
                         partitionName,
                         partitionDataColumnCount,
                         partition.getTableToPartitionMapping(),
                         Optional.empty(),
-                        partition.getRedundantColumnDomains()),
+                        partition.getRedundantColumnDomains(),
+                        partition.getRowIdPartitionComponent()),
                 schedulerUsesHostAddresses,
                 partition.getEncryptionInformation());
     }
@@ -190,14 +193,16 @@ public class ManifestPartitionLoader
         HiveDirectoryContext hiveDirectoryContext = new HiveDirectoryContext(
                 recursiveDirWalkerEnabled ? RECURSE : IGNORED,
                 false,
+                isSkipEmptyFilesEnabled(session),
                 hdfsContext.getIdentity(),
-                buildDirectoryContextProperties(session));
+                buildDirectoryContextProperties(session),
+                session.getRuntimeStats());
 
         Iterator<HiveFileInfo> fileInfoIterator = directoryLister.list(fileSystem, table, path, partition.getPartition(), namenodeStats, hiveDirectoryContext);
         int fileCount = 0;
         while (fileInfoIterator.hasNext()) {
             HiveFileInfo fileInfo = fileInfoIterator.next();
-            String fileName = fileInfo.getPath().getName();
+            String fileName = fileInfo.getFileName();
             if (!manifestFileNames.contains(fileName)) {
                 throw new PrestoException(
                         MALFORMED_HIVE_FILE_STATISTICS,

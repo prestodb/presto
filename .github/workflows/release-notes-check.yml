@@ -1,0 +1,57 @@
+name: release-notes
+
+on:
+  pull_request:
+    types: [ opened, edited, reopened ]
+
+env:
+  RELEASE_TOOLS_VERSION: "0.11"
+
+jobs:
+  check_release_note:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: 8
+          cache: 'maven'
+      - name: Get presto-release-tools
+        run: |
+          ./mvnw \
+            -B \
+            -DgroupId=com.facebook.presto \
+            -DartifactId=presto-release-tools -Dversion=${RELEASE_TOOLS_VERSION} \
+            -Dpackaging=jar \
+            -Dclassifier=executable \
+            dependency:get
+      - name: Get PR body from GraphQL API
+        id: graphql_query
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "pr_bodytext<<EOF" >> $GITHUB_OUTPUT
+          gh api graphql -f query='
+              query {
+                repository(owner: "prestodb", name: "presto") {
+                                      pullRequest(number: ${{ github.event.pull_request.number }}) {
+                                        bodyText
+                                      }
+                }
+              }
+            ' --jq '.data.repository.pullRequest.bodyText' >> $GITHUB_OUTPUT
+          echo 'EOF' >> $GITHUB_OUTPUT
+      - name: Echo PR Text
+        env:
+          PR_BODY: ${{ steps.graphql_query.outputs.pr_bodytext }}
+        run: echo "${PR_BODY}"
+      - name: Set presto-release-tools as executable
+        run: chmod +x ~/.m2/repository/com/facebook/presto/presto-release-tools/${RELEASE_TOOLS_VERSION}/presto-release-tools-${RELEASE_TOOLS_VERSION}-executable.jar
+      - name: Check release notes
+        env:
+          PR_BODY: ${{ steps.graphql_query.outputs.pr_bodytext }}
+        run: echo "${PR_BODY}" | ~/.m2/repository/com/facebook/presto/presto-release-tools/${RELEASE_TOOLS_VERSION}/presto-release-tools-${RELEASE_TOOLS_VERSION}-executable.jar check-release-notes

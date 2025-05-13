@@ -18,6 +18,9 @@ import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.resourcemanager.ResourceManagerProxy;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
+import io.airlift.units.Duration;
 
 import javax.annotation.security.RolesAllowed;
 import javax.inject.Inject;
@@ -42,16 +45,23 @@ import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.facebook.presto.server.security.RoleType.ADMIN;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.base.Suppliers.memoizeWithExpiration;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 import static javax.ws.rs.core.Response.Status.SERVICE_UNAVAILABLE;
@@ -60,10 +70,62 @@ import static javax.ws.rs.core.Response.Status.SERVICE_UNAVAILABLE;
 @RolesAllowed(ADMIN)
 public class ResourceGroupStateInfoResource
 {
+    private static class ResourceGroupStateInfoKey
+    {
+        private final ResourceGroupId resourceGroupId;
+        private final boolean includeQueryInfo;
+        private final boolean summarizeSubGroups;
+        private final boolean includeStaticSubgroupsOnly;
+
+        public ResourceGroupStateInfoKey(ResourceGroupId resourceGroupId, boolean includeQueryInfo, boolean summarizeSubGroups, boolean includeStaticSubgroupsOnly)
+        {
+            this.resourceGroupId = requireNonNull(resourceGroupId, "resourceGroupId is null");
+            this.includeQueryInfo = includeQueryInfo;
+            this.summarizeSubGroups = summarizeSubGroups;
+            this.includeStaticSubgroupsOnly = includeStaticSubgroupsOnly;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            ResourceGroupStateInfoKey that = (ResourceGroupStateInfoKey) o;
+            return Objects.equals(that.resourceGroupId, resourceGroupId) &&
+                    that.includeQueryInfo == includeQueryInfo &&
+                    that.summarizeSubGroups == summarizeSubGroups &&
+                    that.includeStaticSubgroupsOnly == includeStaticSubgroupsOnly;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(resourceGroupId, includeQueryInfo, summarizeSubGroups, includeStaticSubgroupsOnly);
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("resourceGroupId", resourceGroupId)
+                    .add("includeQueryInfo", includeQueryInfo)
+                    .add("summarizeSubGroups", summarizeSubGroups)
+                    .add("includeStaticSubgroupsOnly", includeStaticSubgroupsOnly)
+                    .toString();
+        }
+    }
+
     private final ResourceGroupManager<?> resourceGroupManager;
     private final boolean resourceManagerEnabled;
     private final InternalNodeManager internalNodeManager;
     private final Optional<ResourceManagerProxy> proxyHelper;
+    private final Map<ResourceGroupStateInfoKey, Supplier<ResourceGroupInfo>> resourceGroupStateInfoKeySupplierMap;
+    private final Supplier<List<ResourceGroupInfo>> rootResourceGroupInfoSupplier;
+    private final Duration expirationDuration;
 
     @Inject
     public ResourceGroupStateInfoResource(
@@ -76,6 +138,11 @@ public class ResourceGroupStateInfoResource
         this.resourceGroupManager = requireNonNull(resourceGroupManager, "resourceGroupManager is null");
         this.internalNodeManager = requireNonNull(internalNodeManager, "internalNodeManager is null");
         this.proxyHelper = requireNonNull(proxyHelper, "proxyHelper is null");
+        this.resourceGroupStateInfoKeySupplierMap = new HashMap<>();
+        this.expirationDuration = requireNonNull(serverConfig, "serverConfig is null").getClusterResourceGroupStateInfoExpirationDuration();
+        this.rootResourceGroupInfoSupplier = expirationDuration.getValue() > 0 ?
+                memoizeWithExpiration(() -> resourceGroupManager.getRootResourceGroups(), expirationDuration.toMillis(), MILLISECONDS) :
+                () -> resourceGroupManager.getRootResourceGroups();
     }
 
     @GET
@@ -100,25 +167,42 @@ public class ResourceGroupStateInfoResource
         try {
             if (isNullOrEmpty(resourceGroupIdString)) {
                 // return root groups if no group id is specified
-                asyncResponse.resume(Response.ok().entity(resourceGroupManager.getRootResourceGroups()).build());
-                return;
+                asyncResponse.resume(Response.ok().entity(rootResourceGroupInfoSupplier.get()).build());
             }
             else {
-                asyncResponse.resume(Response.ok().entity(resourceGroupManager.getResourceGroupInfo(
-                        new ResourceGroupId(
-                                Arrays.stream(resourceGroupIdString.split("/"))
-                                        .map(ResourceGroupStateInfoResource::urlDecode)
-                                        .collect(toImmutableList())),
-                        includeQueryInfo,
-                        summarizeSubgroups,
-                        includeStaticSubgroupsOnly)).build());
-                return;
+                ResourceGroupId resourceGroupId = getResourceGroupId(resourceGroupIdString);
+
+                ResourceGroupStateInfoKey resourceGroupStateInfoKey = new ResourceGroupStateInfoKey(resourceGroupId, includeQueryInfo, summarizeSubgroups, includeStaticSubgroupsOnly);
+
+                Supplier<ResourceGroupInfo> resourceGroupInfoSupplier = resourceGroupStateInfoKeySupplierMap.getOrDefault(resourceGroupStateInfoKey, expirationDuration.getValue() > 0 ?
+                        Suppliers.memoizeWithExpiration(() -> getResourceGroupInfo(resourceGroupId, includeQueryInfo, summarizeSubgroups, includeStaticSubgroupsOnly), expirationDuration.toMillis(), MILLISECONDS) :
+                        () -> getResourceGroupInfo(resourceGroupId, includeQueryInfo, summarizeSubgroups, includeStaticSubgroupsOnly));
+
+                resourceGroupStateInfoKeySupplierMap.putIfAbsent(resourceGroupStateInfoKey, resourceGroupInfoSupplier);
+
+                asyncResponse.resume(Response.ok().entity(resourceGroupInfoSupplier.get()).build());
             }
         }
         catch (NoSuchElementException | IllegalArgumentException e) {
             asyncResponse.resume(Response.status(NOT_FOUND).build());
-            return;
         }
+    }
+
+    private ResourceGroupInfo getResourceGroupInfo(ResourceGroupId resourceGroupId, boolean includeQueryInfo, boolean summarizeSubgroups, boolean includeStaticSubgroupsOnly)
+    {
+        return resourceGroupManager.getResourceGroupInfo(
+                resourceGroupId,
+                includeQueryInfo,
+                summarizeSubgroups,
+                includeStaticSubgroupsOnly);
+    }
+
+    private ResourceGroupId getResourceGroupId(String resourceGroupIdString)
+    {
+        return new ResourceGroupId(
+                Arrays.stream(resourceGroupIdString.split("/"))
+                        .map(ResourceGroupStateInfoResource::urlDecode)
+                        .collect(toImmutableList()));
     }
 
     private static String urlDecode(String value)

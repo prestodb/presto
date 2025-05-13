@@ -391,7 +391,7 @@ public class PinotBrokerPageSource
                 throw new PinotException(
                     PINOT_UNEXPECTED_RESPONSE,
                     Optional.of(sql),
-                    String.format("Expected data schema in the response"));
+                    "Expected data schema in the response");
             }
             JsonNode columnDataTypes = dataSchema.get("columnDataTypes");
             JsonNode columnNames = dataSchema.get("columnNames");

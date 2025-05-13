@@ -1,0 +1,78 @@
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+AbstractClasses:
+  ColumnHandle:
+    super: JsonEncodedSubclass
+    comparable: true
+    subclasses:
+      - { name: IcebergColumnHandle,      key: hive-iceberg }
+
+  ConnectorPartitioningHandle:
+    super: JsonEncodedSubclass
+    subclasses:
+      - { name: HivePartitioningHandle,   key: hive}
+
+  ConnectorTableHandle:
+    super: JsonEncodedSubclass
+    subclasses:
+      - { name: IcebergTableHandle,       key: hive-iceberg }
+
+  ConnectorOutputTableHandle:
+    super: JsonEncodedSubclass
+    subclasses:
+      - { name: IcebergOutputTableHandle,       key: hive-iceberg }
+
+  ConnectorInsertTableHandle:
+    super: JsonEncodedSubclass
+    subclasses:
+      - { name: IcebergInsertTableHandle,       key: hive-iceberg }
+
+  ConnectorTableLayoutHandle:
+    super: JsonEncodedSubclass
+    subclasses:
+      - { name: IcebergTableLayoutHandle, key: hive-iceberg }
+
+  ConnectorMetadataUpdateHandle:
+    super: JsonEncodedSubclass
+    subclasses:
+      - { name: HiveMetadataUpdateHandle, key: hive}
+
+  ConnectorSplit:
+    super: JsonEncodedSubclass
+    subclasses:
+      - { name: IcebergSplit,         key: hive-iceberg }
+
+UpdateFields:
+  IcebergTableLayoutHandle:
+    std::shared_ptr<RowExpression>: remainingPredicate
+
+JavaClasses:
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/FileContent.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/FileFormat.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/PrestoIcebergSchema.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/IcebergSplit.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/IcebergTableHandle.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/IcebergTableName.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/IcebergTableType.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/IcebergTableLayoutHandle.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/IcebergOutputTableHandle.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/IcebergInsertTableHandle.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/IcebergColumnHandle.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/ColumnIdentity.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/PrestoIcebergPartitionSpec.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/PrestoIcebergNestedField.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/delete/DeleteFile.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/changelog/ChangelogOperation.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/changelog/ChangelogSplitInfo.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/SortField.java
+  

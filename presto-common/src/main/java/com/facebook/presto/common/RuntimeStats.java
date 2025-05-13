@@ -19,6 +19,8 @@ import com.facebook.drift.annotations.ThriftStruct;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadMXBean;
 import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -34,6 +36,8 @@ import static java.util.Objects.requireNonNull;
 @ThriftStruct
 public class RuntimeStats
 {
+    private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
+
     private final ConcurrentMap<String, RuntimeMetric> metrics = new ConcurrentHashMap<>();
 
     public RuntimeStats()
@@ -130,11 +134,42 @@ public class RuntimeStats
         stats.getMetrics().forEach((name, newMetric) -> metrics.computeIfAbsent(name, k -> new RuntimeMetric(name, newMetric.getUnit())).set(newMetric));
     }
 
-    public <V> V profileNanos(String tag, Supplier<V> supplier)
+    public <V> V recordWallTime(String tag, Supplier<V> supplier)
     {
         long startTime = System.nanoTime();
         V result = supplier.get();
         addMetricValueIgnoreZero(tag, NANO, System.nanoTime() - startTime);
         return result;
+    }
+
+    public void recordWallTime(String tag, Runnable runnable)
+    {
+        recordWallTime(tag, () -> {
+            runnable.run();
+            return null;
+        });
+    }
+
+    public <V> V recordWallAndCpuTime(String tag, Supplier<V> supplier)
+    {
+        long startWall = System.nanoTime();
+        long startCpu = THREAD_MX_BEAN.getCurrentThreadCpuTime();
+
+        V result = supplier.get();
+
+        long endWall = System.nanoTime();
+        long endCpu = THREAD_MX_BEAN.getCurrentThreadCpuTime();
+
+        addMetricValueIgnoreZero(tag, NANO, endWall - startWall);
+        addMetricValueIgnoreZero(tag + "OnCpu", NANO, endCpu - startCpu);
+        return result;
+    }
+
+    public void recordWallAndCpuTime(String tag, Runnable runnable)
+    {
+        recordWallAndCpuTime(tag, () -> {
+            runnable.run();
+            return null;
+        });
     }
 }

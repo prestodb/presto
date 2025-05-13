@@ -67,7 +67,7 @@ public class HiveBloomFilter
     @Override
     public int hashCode()
     {
-        return Objects.hash(numBits, numHashFunctions, bitSet.getData());
+        return Objects.hash(numBits, numHashFunctions, Arrays.hashCode(bitSet.getData()));
     }
 
     @Override

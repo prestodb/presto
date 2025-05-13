@@ -208,7 +208,7 @@ class PinotProjectExpressionConverter
             case DEREFERENCE:
             case ROW_CONSTRUCTOR:
             case BIND:
-                throw new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), "Pinot does not support the special form" + specialForm);
+                throw new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), "Pinot does not support the special form " + specialForm);
             case IN:
             case AND:
             case OR:

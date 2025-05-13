@@ -21,12 +21,49 @@
 namespace facebook::presto::http {
 
 void sendOkResponse(proxygen::ResponseHandler* downstream) {
-  proxygen::ResponseBuilder(downstream)
-      .status(http::kHttpOk, "OK")
-      .sendWithEOM();
+  proxygen::ResponseBuilder(downstream).status(http::kHttpOk, "").sendWithEOM();
 }
 
 void sendOkResponse(proxygen::ResponseHandler* downstream, const json& body) {
+  sendResponse(downstream, body, http::kHttpOk);
+}
+
+void sendOkResponse(
+    proxygen::ResponseHandler* downstream,
+    const std::string& body) {
+  proxygen::ResponseBuilder(downstream)
+      .status(http::kHttpOk, "")
+      .header(
+          proxygen::HTTP_HEADER_CONTENT_TYPE, http::kMimeTypeApplicationJson)
+      .body(body)
+      .sendWithEOM();
+}
+
+void sendOkThriftResponse(
+    proxygen::ResponseHandler* downstream,
+    const std::string& body) {
+  proxygen::ResponseBuilder(downstream)
+      .status(http::kHttpOk, "")
+      .header(
+          proxygen::HTTP_HEADER_CONTENT_TYPE, http::kMimeTypeApplicationThrift)
+      .body(body)
+      .sendWithEOM();
+}
+
+void sendErrorResponse(
+    proxygen::ResponseHandler* downstream,
+    const std::string& error,
+    uint16_t status) {
+  proxygen::ResponseBuilder(downstream)
+      .status(status, "")
+      .body(error)
+      .sendWithEOM();
+}
+
+void sendResponse(
+    proxygen::ResponseHandler* downstream,
+    const json& body,
+    uint16_t status) {
   // nlohmann::json throws when it finds invalid UTF-8 characters. In that case
   // the server will crash. We handle such situation here and generate body
   // replacing the faulty UTF-8 sequences.
@@ -42,49 +79,11 @@ void sendOkResponse(proxygen::ResponseHandler* downstream, const json& body) {
                  << messageBody;
   }
 
-  sendOkResponse(downstream, messageBody);
-}
-
-void sendOkResponse(
-    proxygen::ResponseHandler* downstream,
-    const std::string& body) {
   proxygen::ResponseBuilder(downstream)
-      .status(http::kHttpOk, "OK")
+      .status(status, "")
       .header(
           proxygen::HTTP_HEADER_CONTENT_TYPE, http::kMimeTypeApplicationJson)
-      .body(body)
-      .sendWithEOM();
-}
-
-void sendOkThriftResponse(
-    proxygen::ResponseHandler* downstream,
-    const std::string& body) {
-  proxygen::ResponseBuilder(downstream)
-      .status(http::kHttpOk, "OK")
-      .header(
-          proxygen::HTTP_HEADER_CONTENT_TYPE, http::kMimeTypeApplicationThrift)
-      .body(body)
-      .sendWithEOM();
-}
-
-void sendErrorResponse(
-    proxygen::ResponseHandler* downstream,
-    const std::string& error,
-    uint16_t status) {
-  static const size_t kMaxStatusSize = 1024;
-
-  // Use a prefix of the 'error' as status message. Make sure it doesn't include
-  // new lines. See https://www.w3.org/Protocols/rfc2616/rfc2616-sec6.html
-
-  size_t statusSize = kMaxStatusSize;
-  auto pos = error.find('\n');
-  if (pos != std::string::npos && pos < statusSize) {
-    statusSize = pos;
-  }
-
-  proxygen::ResponseBuilder(downstream)
-      .status(status, error.substr(0, statusSize))
-      .body(error)
+      .body(messageBody)
       .sendWithEOM();
 }
 
@@ -277,8 +276,8 @@ void HttpServer::start(
   options.handlerFactories = handlerFactories.build();
 
   // Increase the default flow control to 1MB/10MB
-  options.initialReceiveWindow = uint32_t(1 << 20);
-  options.receiveStreamWindowSize = uint32_t(1 << 20);
+  options.initialReceiveWindow = static_cast<uint32_t>(1 << 20);
+  options.receiveStreamWindowSize = static_cast<uint32_t>(1 << 20);
   options.receiveSessionWindowSize = 10 * (1 << 20);
   options.h2cEnabled = true;
 

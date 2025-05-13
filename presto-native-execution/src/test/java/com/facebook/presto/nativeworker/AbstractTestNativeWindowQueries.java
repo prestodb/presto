@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLineitem;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrders;
 
 public abstract class AbstractTestNativeWindowQueries
@@ -36,6 +37,7 @@ public abstract class AbstractTestNativeWindowQueries
     {
         QueryRunner queryRunner = (QueryRunner) getExpectedQueryRunner();
         createOrders(queryRunner);
+        createLineitem(queryRunner);
     }
 
     private static final List<String> OVER_CLAUSES_WITH_ORDER_BY = Arrays.asList(
@@ -68,6 +70,18 @@ public abstract class AbstractTestNativeWindowQueries
             "ROWS BETWEEN 1 PRECEDING AND 4 PRECEDING",
             "ROWS BETWEEN 1 FOLLOWING AND UNBOUNDED FOLLOWING",
             "ROWS BETWEEN 4 FOLLOWING AND 1 FOLLOWING");
+
+    private static final List<String> RANGE_WINDOWS = Arrays.asList(
+            "PARTITION BY orderkey ORDER BY totalprice RANGE BETWEEN 5 PRECEDING AND CURRENT ROW",
+            "PARTITION BY orderkey ORDER BY totalprice RANGE BETWEEN CURRENT ROW AND 5 FOLLOWING",
+            "PARTITION BY orderkey ORDER BY totalprice RANGE BETWEEN 5 PRECEDING AND 5 FOLLOWING",
+            "PARTITION BY orderkey ORDER BY totalprice RANGE BETWEEN 10 PRECEDING AND 5 PRECEDING",
+            // All empty frames.
+            "PARTITION BY orderkey ORDER BY totalprice RANGE BETWEEN 5 PRECEDING AND 10 PRECEDING",
+            "PARTITION BY orderkey ORDER BY totalprice RANGE BETWEEN 5 FOLLOWING AND 10 FOLLOWING",
+            "PARTITION BY orderkey ORDER BY totalprice RANGE BETWEEN 5 FOLLOWING AND 5 FOLLOWING",
+            // All empty frames.
+            "PARTITION BY orderkey ORDER BY totalprice RANGE BETWEEN 10 FOLLOWING AND 5 FOLLOWING");
 
     protected List<String> getQueries(String function, FunctionType functionType)
     {
@@ -104,6 +118,13 @@ public abstract class AbstractTestNativeWindowQueries
         for (String wClause : windowClauseList) {
             queries.add(String.format("SELECT %s FROM orders", wClause));
         }
+
+        if (functionType == FunctionType.VALUE) {
+            for (String rangeClause : RANGE_WINDOWS) {
+                queries.add(String.format("SELECT %s OVER (%s) FROM orders", function, rangeClause));
+            }
+        }
+
         return queries.build();
     }
 
@@ -150,51 +171,107 @@ public abstract class AbstractTestNativeWindowQueries
     public void testRowNumberWithFilter()
     {
         assertQuery("SELECT sum(rn) FROM (SELECT row_number() over() rn, * from orders) WHERE rn = 10");
+    }
+
+    @Test
+    public void testRowNumberWithFilter_2()
+    {
         assertQuery("SELECT * FROM (SELECT row_number() over(partition by orderstatus order by orderkey) rn, * from orders) WHERE rn = 1");
     }
 
     @Test
-    public void testFirstValue()
+    public void testFirstValueOrderKey()
     {
         testWindowFunction("first_value(orderkey)", FunctionType.VALUE);
+    }
+
+    @Test
+    public void testFirstValueOrderDate()
+    {
         testWindowFunction("first_value(orderdate)", FunctionType.VALUE);
     }
 
     @Test
-    public void testLastValue()
+    public void testLastValueOrderKey()
     {
         testWindowFunction("last_value(orderkey)", FunctionType.VALUE);
+    }
+
+    @Test
+    public void testLastValueOrderDate()
+    {
         testWindowFunction("last_value(orderdate)", FunctionType.VALUE);
     }
 
     @Test
-    public void testNthValue()
+    public void testNthValueOrderKey()
     {
         testWindowFunction("nth_value(orderkey, 9)", FunctionType.VALUE);
+    }
+
+    @Test
+    public void testNthValueOrderDate()
+    {
         testWindowFunction("nth_value(orderdate, 5)", FunctionType.VALUE);
     }
 
     @Test
-    public void testLead()
+    public void testLeadOrderKey()
+    {
+        testWindowFunction("lead(orderkey, 5)", FunctionType.VALUE);
+    }
+
+    @Test
+    public void testLeadOrderDate()
     {
         testWindowFunction("lead(orderdate)", FunctionType.VALUE);
-        testWindowFunction("lead(orderkey, 5)", FunctionType.VALUE);
+    }
+
+    @Test
+    public void testLeadTotalPrice()
+    {
         testWindowFunction("lead(totalprice, 2, -123.456)", FunctionType.VALUE);
     }
 
     @Test
-    public void testLag()
+    public void testLagOrderKey()
+    {
+        testWindowFunction("lag(orderkey, 5)", FunctionType.VALUE);
+    }
+
+    @Test
+    public void testLagOrderDate()
     {
         testWindowFunction("lag(orderdate)", FunctionType.VALUE);
-        testWindowFunction("lag(orderkey, 5)", FunctionType.VALUE);
+    }
+
+    @Test
+    public void testLagTotalPrice()
+    {
         testWindowFunction("lag(totalprice, 2, -123.456)", FunctionType.VALUE);
     }
 
     @Test
-    public void testOverlappingPartitionAndSortingKeys()
+    public void testOverlappingPartitionAndSortingKeys_1()
     {
         assertQuery("SELECT row_number() OVER (PARTITION BY orderdate ORDER BY orderdate) FROM orders");
+    }
+
+    @Test
+    public void testOverlappingPartitionAndSortingKeys_2()
+    {
         assertQuery("SELECT min(orderkey) OVER (PARTITION BY orderdate ORDER BY orderdate, totalprice) FROM orders");
+    }
+
+    @Test
+    public void testOverlappingPartitionAndSortingKeys_3()
+    {
         assertQuery("SELECT * FROM (SELECT row_number() over(partition by orderstatus order by orderkey, orderstatus) rn, * from orders) WHERE rn = 1");
+    }
+
+    @Test
+    public void testOverlappingPartitionAndSortingKeys_4()
+    {
+        assertQuery("WITH t AS (SELECT linenumber, row_number() over (partition by linenumber order by linenumber) as rn FROM lineitem) SELECT * FROM t WHERE rn = 1");
     }
 }

@@ -14,12 +14,15 @@ add_library(presto_operators_plan_builder PlanBuilder.cpp)
 target_link_libraries(presto_operators_plan_builder velox_core)
 
 add_executable(presto_operators_test PlanNodeSerdeTest.cpp
-                                     UnsafeRowShuffleTest.cpp BroadcastTest.cpp)
+                                     UnsafeRowShuffleTest.cpp
+                                     BroadcastTest.cpp
+                                     BinarySortableSerializerTest.cpp)
 
 add_test(presto_operators_test presto_operators_test)
 
 target_link_libraries(
   presto_operators_test
+  presto_connectors
   presto_operators_plan_builder
   presto_operators
   presto_protocol
@@ -34,9 +37,9 @@ target_link_libraries(
   velox_exec
   velox_memory
   velox_exec
-  gmock
-  gtest
-  gtest_main)
+  GTest::gmock
+  GTest::gtest
+  GTest::gtest_main)
 
 set_property(TARGET presto_operators_test PROPERTY JOB_POOL_LINK
                                                    presto_link_job_pool)

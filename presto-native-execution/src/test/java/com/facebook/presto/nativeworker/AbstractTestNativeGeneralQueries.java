@@ -15,20 +15,40 @@ package com.facebook.presto.nativeworker;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.execution.QueryInfo;
+import com.facebook.presto.execution.StageInfo;
+import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.plan.SortNode;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
+import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
+import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_SORT;
+import static com.facebook.presto.SystemSessionProperties.INLINE_SQL_FUNCTIONS;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.NATIVE_MIN_COLUMNAR_ENCODING_CHANNELS_TO_PREFER_ROW_WISE_ENCODING;
+import static com.facebook.presto.SystemSessionProperties.SINGLE_NODE_EXECUTION_ENABLED;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
@@ -50,16 +70,32 @@ import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPart
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPrestoBenchTables;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createRegion;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createSupplier;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createTableToTestHiddenColumns;
+import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
+import static com.facebook.presto.spi.plan.ExchangeEncoding.COLUMNAR;
+import static com.facebook.presto.spi.plan.ExchangeEncoding.ROW_WISE;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
+import static java.util.stream.Collectors.toList;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestNativeGeneralQueries
         extends AbstractTestQueryFramework
@@ -78,10 +114,17 @@ public abstract class AbstractTestNativeGeneralQueries
         createBucketedCustomer(queryRunner);
         createPart(queryRunner);
         createRegion(queryRunner);
+        createTableToTestHiddenColumns(queryRunner);
         createEmptyTable(queryRunner);
         createBucketedLineitemAndOrders(queryRunner);
 
         createPrestoBenchTables(queryRunner);
+    }
+
+    @Override
+    protected FeaturesConfig createFeaturesConfig()
+    {
+        return new FeaturesConfig().setNativeExecutionEnabled(true);
     }
 
     @Test
@@ -109,7 +152,7 @@ public abstract class AbstractTestNativeGeneralQueries
     }
 
     @Test
-    public void testFiltersAndProjections()
+    public void testFiltersAndProjections1()
     {
         assertQuery("SELECT * FROM nation");
         assertQuery("SELECT * FROM nation WHERE nationkey = 4");
@@ -129,6 +172,11 @@ public abstract class AbstractTestNativeGeneralQueries
         // "SELECT * FROM nation WHERE nationkey NOT IN (2, 33, " + Long.MAX_VALUE + ")"
         // "SELECT * FROM nation WHERE nationkey NOT IN (" + Long.MIN_VALUE + ", 2, 33)"
         // "SELECT * FROM nation WHERE nationkey NOT IN (" + Long.MIN_VALUE + ", " + Long.MAX_VALUE + ")"
+    }
+
+    @Test
+    public void testFiltersAndProjections2()
+    {
         assertQuery("SELECT * FROM nation WHERE nationkey NOT BETWEEN 3 AND 7");
         assertQuery("SELECT * FROM nation WHERE nationkey NOT BETWEEN -10 AND 5");
         assertQuery("SELECT * FROM nation WHERE nationkey < 5 OR nationkey > 10");
@@ -141,6 +189,11 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT * FROM nation WHERE name NOT IN ('', ';', 'new country w1th $p3c1@l ch@r@c73r5')");
         assertQuery("SELECT * FROM nation WHERE name NOT BETWEEN 'A' AND 'K'"); // should produce NegatedBytesRange
         assertQuery("SELECT * FROM nation WHERE name <= 'B' OR 'G' <= name");
+    }
+
+    @Test
+    public void testFiltersAndProjections3()
+    {
         assertQuery("SELECT * FROM lineitem WHERE shipmode <> 'FOB'");
         assertQuery("SELECT * FROM lineitem WHERE shipmode NOT IN ('RAIL', 'AIR')");
         assertQuery("SELECT * FROM lineitem WHERE shipmode NOT IN ('', 'TRUCK', 'FOB', 'RAIL')");
@@ -159,7 +212,11 @@ public abstract class AbstractTestNativeGeneralQueries
 
         assertQuery("SELECT * FROM lineitem WHERE linenumber = 1");
         assertQuery("SELECT * FROM lineitem WHERE linenumber > 3");
+    }
 
+    @Test
+    public void testFiltersAndProjections4()
+    {
         assertQuery("SELECT * FROM lineitem WHERE linenumber_as_smallint = 3");
         assertQuery("SELECT * FROM lineitem WHERE linenumber_as_smallint > 5 AND linenumber_as_smallint < 2");
 
@@ -173,7 +230,11 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT linenumber, orderkey, discount FROM lineitem WHERE discount_as_real BETWEEN 0.01 AND 0.02");
         assertQuery("SELECT linenumber, orderkey, discount FROM lineitem WHERE tax_as_real < 0.02");
         assertQuery("SELECT linenumber, orderkey, discount FROM lineitem WHERE tax_as_real BETWEEN 0.02 AND 0.06");
+    }
 
+    @Test
+    public void testFiltersAndProjections5()
+    {
         assertQuery("SELECT * FROM lineitem WHERE is_open=true");
         assertQuery("SELECT * FROM lineitem WHERE is_open<>true");
         assertQuery("SELECT * FROM lineitem WHERE is_open");
@@ -191,7 +252,11 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT * FROM lineitem WHERE is_returned and NOT is_open");
         assertQuery("SELECT * FROM lineitem WHERE NOT is_returned and is_open");
         assertQuery("SELECT * FROM lineitem WHERE NOT is_returned and  NOT is_open");
+    }
 
+    @Test
+    public void testFiltersAndProjections6()
+    {
         // query with filter using like
         assertQuery("SELECT * FROM lineitem WHERE shipinstruct like 'TAKE BACK%'");
         assertQuery("SELECT * FROM lineitem WHERE shipinstruct like 'TAKE BACK#%' escape '#'");
@@ -199,7 +264,6 @@ public abstract class AbstractTestNativeGeneralQueries
         // no row passes the filter
         assertQuery(
                 "SELECT linenumber, orderkey, discount FROM lineitem WHERE discount > 0.2");
-
         // remaining filter
         assertQuery("SELECT count(*) FROM orders_ex WHERE contains(map_keys(quantity_by_linenumber), 1)");
 
@@ -220,10 +284,10 @@ public abstract class AbstractTestNativeGeneralQueries
         // column_name | data_size | distinct_values_count | nulls_fraction | row_count | low_value | high_value
         assertQuery("SHOW STATS FOR region",
                 "SELECT * FROM (VALUES" +
-                        "('regionkey', NULL, 5.0, 0.0, NULL, '0', '4')," +
-                        "('name', 54.0, 5.0, 0.0, NULL, NULL, NULL)," +
-                        "('comment', 350.0, 5.0, 0.0, NULL, NULL, NULL)," +
-                        "(NULL, NULL, NULL, NULL, 5.0, NULL, NULL))");
+                        "('regionkey', NULL, 5e0, 0e0, NULL, '0', '4', NULL)," +
+                        "('name', 5.4e1, 5e0, 0e0, NULL, NULL, NULL, NULL)," +
+                        "('comment', 3.5e2, 5e0, 0e0, NULL, NULL, NULL, NULL)," +
+                        "(NULL, NULL, NULL, NULL, 5e0, NULL, NULL, NULL))");
 
         // Create a partitioned table and run analyze on it.
         String tmpTableName = generateRandomTableName();
@@ -237,17 +301,17 @@ public abstract class AbstractTestNativeGeneralQueries
             assertUpdate(String.format("ANALYZE %s", tmpTableName), 25);
             assertQuery(String.format("SHOW STATS for %s", tmpTableName),
                     "SELECT * FROM (VALUES" +
-                            "('name', 277.0, 1.0, 0.0, NULL, NULL, NULL)," +
-                            "('regionkey', NULL, 5.0, 0.0, NULL, '0', '4')," +
-                            "('nationkey', NULL, 25.0, 0.0, NULL, '0', '24')," +
-                            "(NULL, NULL, NULL, NULL, 25.0, NULL, NULL))");
+                            "('name', 2.77e2, 1e0, 0e0, NULL, NULL, NULL, NULL)," +
+                            "('regionkey', NULL, 5e0, 0e0, NULL, '0', '4', NULL)," +
+                            "('nationkey', NULL, 2.5e1, 0e0, NULL, '0', '24', NULL)," +
+                            "(NULL, NULL, NULL, NULL, 2.5e1, NULL, NULL, NULL))");
             assertUpdate(String.format("ANALYZE %s WITH (partitions = ARRAY[ARRAY['0','0'],ARRAY['4', '11']])", tmpTableName), 2);
             assertQuery(String.format("SHOW STATS for (SELECT * FROM %s where regionkey=4 and nationkey=11)", tmpTableName),
                     "SELECT * FROM (VALUES" +
-                            "('name', 8.0, 1.0, 0.0, NULL, NULL, NULL)," +
-                            "('regionkey', NULL, 1.0, 0.0, NULL, '4', '4')," +
-                            "('nationkey', NULL, 1.0, 0.0, NULL, '11', '11')," +
-                            "(NULL, NULL, NULL, NULL, 1.0, NULL, NULL))");
+                            "('name', 8e0, 1e0, 0e0, NULL, NULL, NULL, NULL)," +
+                            "('regionkey', NULL, 1e0, 0e0, NULL, '4', '4', NULL)," +
+                            "('nationkey', NULL, 1e0, 0e0, NULL, '11', '11', NULL)," +
+                            "(NULL, NULL, NULL, NULL, 1e0, NULL, NULL, NULL))");
         }
         finally {
             dropTableIfExists(tmpTableName);
@@ -267,14 +331,33 @@ public abstract class AbstractTestNativeGeneralQueries
             assertUpdate(String.format("ANALYZE %s", tmpTableName), 7);
             assertQuery(String.format("SHOW STATS for %s", tmpTableName),
                     "SELECT * FROM (VALUES" +
-                            "('c0', NULL,4.0 , 0.2857142857142857, NULL, '-542392.89', '1000000.12')," +
-                            "('c1', NULL,4.0 , 0.2857142857142857, NULL,  '-6.72398239210929E12', '2.823982323232357E13')," +
-                            "(NULL, NULL, NULL, NULL, 7.0, NULL, NULL))");
+                            "('c0', NULL, 4e0, 2.857142857142857e-1, NULL, '-542392.89', '1000000.12', NULL)," +
+                            "('c1', NULL, 4e0, 2.857142857142857e-1, NULL, '-6.72398239210929E12', '2.823982323232357E13', NULL)," +
+                            "(NULL, NULL, NULL, NULL, 7e0, NULL, NULL, NULL))");
         }
         finally {
             dropTableIfExists(tmpTableName);
         }
     }
+
+    @Test
+    public void testIPAddressIPPrefix()
+            throws InterruptedException
+    {
+        String tmpTableName = generateRandomTableName();
+        try {
+            getQueryRunner().execute(String.format("CREATE TABLE %s (ip VARCHAR, prefixSize  BIGINT, ippre VARCHAR)", tmpTableName));
+            getQueryRunner().execute(String.format("INSERT INTO %s VALUES " +
+                    "(VARCHAR '255.255.255.255', BIGINT '8', VARCHAR '255.0.0.0/8'), " +
+                    "(VARCHAR '2001:0db8:85a3:0001:0001:8a2e:0370:7334', BIGINT '48', VARCHAR '2001:db8:85a3::/48')", tmpTableName));
+
+            assertQuery("SELECT * FROM (VALUES (IPADDRESS '192.1.1.10'), (IPADDRESS '192.1.1.1'), (IPADDRESS '192.1.1.11')) as t (ip) ORDER BY ip LIMIT 1");
+        }
+        finally {
+            dropTableIfExists(tmpTableName);
+        }
+    }
+
     @Test
     public void testTableSample()
     {
@@ -389,6 +472,14 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT CAST(true as VARCHAR), CAST(false as VARCHAR)");
         assertQuery("SELECT CAST(0.0 as VARCHAR)");
 
+        // Cast to varchar(n).
+        assertQuery("SELECT CAST(comment as VARCHAR(1)) FROM orders");
+        assertQuery("SELECT CAST(comment as VARCHAR(1000)) FROM orders WHERE LENGTH(comment) < 1000");
+        assertQuery("SELECT CAST(c0 AS VARCHAR(1)) FROM ( VALUES (NULL) ) t(c0)");
+        assertQuery("SELECT CAST(c0 AS VARCHAR(1)) FROM ( VALUES ('') ) t(c0)");
+        assertQuery("SELECT CAST(is_returned as VARCHAR(1)), CAST(linenumber_as_tinyint as VARCHAR(1)), CAST(linenumber_as_smallint as VARCHAR(1)), " +
+                "CAST(linenumber as VARCHAR(1)), CAST(tax_as_real as VARCHAR(1)), CAST(tax as VARCHAR(1)) FROM lineitem");
+
         assertQuery("SELECT try_cast(linenumber as TINYINT), try_cast(linenumber AS SMALLINT), "
                 + "try_cast(linenumber AS INTEGER), try_cast(linenumber AS BIGINT), try_cast(quantity AS REAL), "
                 + "try_cast(orderkey AS DOUBLE), try_cast(orderkey AS VARCHAR) FROM lineitem");
@@ -411,13 +502,13 @@ public abstract class AbstractTestNativeGeneralQueries
         // Cast to Json type.
         assertQuery("SELECT cast(regionkey = 2 as JSON) FROM nation");
         assertQuery("SELECT cast(size as JSON), cast(partkey as JSON), cast(brand as JSON), cast(name as JSON) FROM part");
-        assertQuery("SELECT cast(nationkey + 0.01 as JSON), cast(array[suppkey, nationkey] as JSON), cast(map(array[name, address, phone], array[1.1, 2.2, 3.3]) as JSON), cast(row(name, suppkey) as JSON), cast(array[map(array[name, address], array[1, 2]), map(array[name, phone], array[3, 4])] as JSON), cast(map(array[name, address, phone], array[array[1, 2], array[3, 4], array[5, 6]]) as JSON), cast(map(array[suppkey], array[name]) as JSON), cast(row(array[name, address], array[], array[null], map(array[phone], array[null])) as JSON) from supplier");
+        assertQuery("SELECT cast(nationkey + 1e-2 as JSON), cast(array[suppkey, nationkey] as JSON), cast(map(array[name, address, phone], array[1.1, 2.2, 3.3]) as JSON), cast(row(name, suppkey) as JSON), cast(array[map(array[name, address], array[1, 2]), map(array[name, phone], array[3, 4])] as JSON), cast(map(array[name, address, phone], array[array[1e0, 2], array[3, 4], array[5, 6]]) as JSON), cast(map(array[suppkey], array[name]) as JSON), cast(row(array[name, address], array[], array[null], map(array[phone], array[null])) as JSON) from supplier");
         assertQuery("SELECT cast(orderdate as JSON) FROM orders");
         assertQueryFails("SELECT cast(map(array[from_unixtime(suppkey)], array[1]) as JSON) from supplier", "Cannot cast .* to JSON");
 
         assertQuery("SELECT try_cast(regionkey = 2 as JSON) FROM nation");
         assertQuery("SELECT try_cast(size as JSON), try_cast(partkey as JSON), try_cast(brand as JSON), try_cast(name as JSON) FROM part");
-        assertQuery("SELECT try_cast(nationkey + 0.01 as JSON), try_cast(array[suppkey, nationkey] as JSON), try_cast(map(array[name, address, phone], array[1.1, 2.2, 3.3]) as JSON), try_cast(row(name, suppkey) as JSON), try_cast(array[map(array[name, address], array[1, 2]), map(array[name, phone], array[3, 4])] as JSON), try_cast(map(array[name, address, phone], array[array[1, 2], array[3, 4], array[5, 6]]) as JSON), try_cast(map(array[suppkey], array[name]) as JSON), try_cast(row(array[name, address], array[], array[null], map(array[phone], array[null])) as JSON) from supplier");
+        assertQuery("SELECT try_cast(nationkey + 1e-2 as JSON), try_cast(array[suppkey, nationkey] as JSON), try_cast(map(array[name, address, phone], array[1.1, 2.2, 3.3]) as JSON), try_cast(row(name, suppkey) as JSON), try_cast(array[map(array[name, address], array[1, 2]), map(array[name, phone], array[3, 4])] as JSON), try_cast(map(array[name, address, phone], array[array[1e0, 2], array[3, 4], array[5, 6]]) as JSON), try_cast(map(array[suppkey], array[name]) as JSON), try_cast(row(array[name, address], array[], array[null], map(array[phone], array[null])) as JSON) from supplier");
         assertQuery("SELECT try_cast(orderdate as JSON) FROM orders");
         assertQueryFails("SELECT try_cast(map(array[from_unixtime(suppkey)], array[1]) as JSON) from supplier", "Cannot cast .* to JSON");
 
@@ -429,6 +520,7 @@ public abstract class AbstractTestNativeGeneralQueries
         // Round-trip tests of casts for Json.
         assertQuery("SELECT cast(cast(name as JSON) as VARCHAR), cast(cast(size as JSON) as INTEGER), cast(cast(size + 0.01 as JSON) as DOUBLE), cast(cast(size > 5 as JSON) as BOOLEAN) FROM part");
         assertQuery("SELECT cast(cast(array[suppkey, nationkey] as JSON) as ARRAY(INTEGER)), cast(cast(map(array[name, address, phone], array[1.1, 2.2, 3.3]) as JSON) as MAP(VARCHAR(40), DOUBLE)), cast(cast(map(array[name], array[phone]) as JSON) as MAP(VARCHAR(25), JSON)), cast(cast(array[array[suppkey], array[nationkey]] as JSON) as ARRAY(JSON)) from supplier");
+        assertQuery("SELECT cast(json_extract(x, '$.a') AS varchar(255)) AS extracted_value FROM (VALUES ('{\"a\": \"Some long string\"}')) AS t(x)");
 
         // Cast from date to timestamp
         assertQuery("SELECT CAST(date(shipdate) AS timestamp) FROM lineitem");
@@ -719,6 +811,12 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT n/m from(values (DECIMAL'100', DECIMAL'299'),(DECIMAL'5.4', DECIMAL'-125')," +
                 "(DECIMAL'-3.4', DECIMAL'0.6'), (DECIMAL'-0.0004', DECIMAL'-0.0123')) t(n,m)");
 
+        // Short decimal / long decimal -> long decimal.
+        assertQuery("SELECT n/m from(values " +
+                "(CAST('0.01' as decimal(17, 4)), CAST('5' as decimal(21, 19)))," +
+                "(CAST('0.02' as decimal(17, 4)), CAST('4' as decimal(21, 19)))" +
+                ") t(n,m)");
+
         // Division overflow.
         assertQueryFails("SELECT n/m from(values (DECIMAL'99999999999999999999999999999999999999', DECIMAL'0.01'))" +
                 " t(n,m)", ".*Decimal.*");
@@ -785,6 +883,25 @@ public abstract class AbstractTestNativeGeneralQueries
 
         // Reverse
         assertQuery("SELECT comment, reverse(comment) FROM orders");
+
+        // Normalize
+        String tmpTableName = generateRandomTableName();
+        try {
+            getQueryRunner().execute(String.format("CREATE TABLE %s (c0 VARCHAR)", tmpTableName));
+            getQueryRunner().execute(String.format("INSERT INTO %s VALUES " +
+                    "('\\u3231\\u3327\\u3326\\u2162\\u3231\\u3327\\u3326\\u2162\\u3231\\u3327\\u3326\\u2162'), " +
+                    "('\\xEF\\xBE\\x8'), " +
+                    "('sch\\u00f6n') ", tmpTableName));
+
+            assertQuery("SELECT normalize(comment) FROM orders");
+            assertQuery("SELECT normalize(comment, NFKC) FROM nation");
+            assertQuery("SELECT normalize(comment, NFD) FROM nation");
+            assertQuery(String.format("SELECT normalize(c0) from %s", tmpTableName));
+            assertQuery(String.format("SELECT normalize(c0, NFKD) from %s", tmpTableName));
+        }
+        finally {
+            dropTableIfExists(tmpTableName);
+        }
     }
 
     @Test
@@ -861,6 +978,22 @@ public abstract class AbstractTestNativeGeneralQueries
         // from_base64url, to_base64url
         assertQuery("SELECT from_base64url(to_base64url(cast(comment as varbinary))) FROM orders");
 
+        //to_ieee754_32
+        assertQuery("SELECT to_ieee754_32(null)");
+        assertQuery("SELECT to_ieee754_32(cast(0.0 as REAL))");
+        assertQuery("SELECT to_ieee754_32(cast(3.14158999999999988261834005243E0 as REAL))");
+        assertQuery("SELECT to_ieee754_32(cast(-3.14158999999999988261834005243E0 as REAL))");
+        assertQuery("SELECT to_ieee754_32(cast(totalprice as REAL)) FROM orders");
+        assertQuery("SELECT to_ieee754_32(cast(acctbal as REAL)) FROM customer");
+
+        //from_ieee754_32
+        assertQuery("SELECT from_ieee754_32(to_ieee754_32(null))");
+        assertQuery("SELECT from_ieee754_32(to_ieee754_32(cast(0.0 as REAL)))");
+        assertQuery("SELECT from_ieee754_32(to_ieee754_32(cast(3.14158999999999988261834005243E0 as REAL)))");
+        assertQuery("SELECT from_ieee754_32(to_ieee754_32(cast(-3.14158999999999988261834005243E0 as REAL)))");
+        assertQuery("SELECT from_ieee754_32(to_ieee754_32(cast(totalprice as REAL))) FROM orders");
+        assertQuery("SELECT from_ieee754_32(to_ieee754_32(cast(acctbal as REAL))) FROM customer");
+
         //to_ieee754_64
         assertQuery("SELECT to_ieee754_64(null)");
         assertQuery("SELECT to_ieee754_64(0.0)");
@@ -868,6 +1001,14 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT to_ieee754_64(-3.14158999999999988261834005243E0)");
         assertQuery("SELECT to_ieee754_64(totalprice) FROM orders");
         assertQuery("SELECT to_ieee754_64(acctbal) FROM customer");
+
+        //from_ieee754_64
+        assertQuery("SELECT from_ieee754_64(to_ieee754_64(null))");
+        assertQuery("SELECT from_ieee754_64(to_ieee754_64(0.0))");
+        assertQuery("SELECT from_ieee754_64(to_ieee754_64(3.14158999999999988261834005243E0))");
+        assertQuery("SELECT from_ieee754_64(to_ieee754_64(-3.14158999999999988261834005243E0))");
+        assertQuery("SELECT from_ieee754_64(to_ieee754_64(totalprice)) FROM orders");
+        assertQuery("SELECT from_ieee754_64(to_ieee754_64(acctbal)) FROM customer");
     }
 
     @Test
@@ -898,6 +1039,8 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT quantity_by_linenumber[2] FROM orders_ex WHERE cardinality(quantities) >= 2");
         assertQuery("SELECT element_at(quantity_by_linenumber, 2) FROM orders_ex");
         assertQuery("SELECT cast(zip(quantities, map_values(quantity_by_linenumber)) as array(row(a double, b integer))) FROM orders_ex");
+
+        assertQuery("select ngrams(quantities, 2) from orders_ex where orderkey <= 10");
     }
 
     @Test
@@ -924,14 +1067,51 @@ public abstract class AbstractTestNativeGeneralQueries
     }
 
     @Test
-    public void testPath()
+    public void testPathHiddenColumn()
     {
-        assertQuery("SELECT \"$path\", * from orders");
+        assertQuery("SELECT \"$path\", * from test_hidden_columns");
 
         // Fetch one of the file paths and use it in a filter
-        String path = (String) computeActual("SELECT \"$path\" from orders LIMIT 1").getOnlyValue();
+        String path = (String) computeActual("SELECT \"$path\" from test_hidden_columns LIMIT 1").getOnlyValue();
+        assertQuery(format("SELECT * from test_hidden_columns WHERE \"$path\"='%s'", path));
 
-        assertQuery(format("SELECT * from orders WHERE \"$path\"='%s'", path));
+        assertEquals(
+                (Long) computeActual(format("SELECT count(*) from test_hidden_columns WHERE \"$path\"='%s'", path))
+                        .getOnlyValue(),
+                1L);
+    }
+
+    @Test
+    public void testFileSizeHiddenColumn()
+    {
+        assertQuery("SELECT \"$file_size\", * from test_hidden_columns");
+
+        // Fetch one of the file sizes and use it in a filter
+        Long fileSize = (Long) computeActual("SELECT \"$file_size\" from test_hidden_columns LIMIT 1").getOnlyValue();
+        assertQuery(format("SELECT * from test_hidden_columns WHERE \"$file_size\"=%d", fileSize));
+
+        // A bug used to return all rows even though filters on hidden column were present in the query.
+        // So checking the count here to verify the number of rows returned is correct. Since the bug was present
+        // for both Java and Native Presto for non-$path columns, the assertQuery test above used to pass.
+        assertEquals(
+                (Long) computeActual(format("SELECT count(*) from test_hidden_columns WHERE \"$file_size\"=%d", fileSize))
+                        .getOnlyValue(),
+                1L);
+    }
+
+    @Test
+    public void testFileModifiedTimeHiddenColumn()
+    {
+        assertQuery("SELECT \"$file_modified_time\", * from test_hidden_columns");
+
+        // Fetch one of the file modified times and use it as a filter.
+        Long fileModifiedTime = (Long) computeActual("SELECT \"$file_modified_time\" from test_hidden_columns LIMIT 1").getOnlyValue();
+        assertQuery(format("SELECT * from test_hidden_columns WHERE \"$file_modified_time\"=%d", fileModifiedTime));
+        assertEquals(
+                (Long) computeActual(
+                        format("SELECT count(*) from " +
+                                "test_hidden_columns WHERE \"$file_modified_time\"=%d", fileModifiedTime)).getOnlyValue(),
+                1L);
     }
 
     @Test
@@ -943,6 +1123,11 @@ public abstract class AbstractTestNativeGeneralQueries
         Integer bucket = (Integer) computeActual("SELECT \"$bucket\" from customer_bucketed LIMIT 1").getOnlyValue();
 
         assertQuery(format("SELECT * from customer_bucketed WHERE \"$bucket\"=%d", bucket));
+
+        long bucketRowCount = (long) computeActual(format("SELECT count(*) from customer_bucketed WHERE \"$bucket\"=%d", bucket)).getOnlyValue();
+        long tableRowCount = (long) computeActual("SELECT count(*) from customer_bucketed").getOnlyValue();
+
+        assertTrue(bucketRowCount != tableRowCount);
     }
 
     @Test
@@ -993,6 +1178,33 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SHOW functions");
         assertQuery("SHOW tables");
         assertQuery("DESCRIBE lineitem");
+    }
+
+    @Test
+    public void testShowSessionWithoutJavaSessionProperties()
+    {
+        // SHOW SESSION will exclude java-worker session properties
+        @Language("SQL") String sql = "SHOW SESSION";
+        MaterializedResult actualResult = computeActual(sql);
+        List<MaterializedRow> actualRows = actualResult.getMaterializedRows();
+
+        String javaSessionProperty = "distinct_aggregation_spill_enabled";
+        List<MaterializedRow> filteredRows = getJavaWorkerSessionProperties(actualRows, javaSessionProperty);
+        assertTrue(filteredRows.isEmpty());
+    }
+
+    @Test
+    public void testSetSessionJavaWorkerSessionProperty()
+    {
+        // SET SESSION on a java-worker session property
+        @Language("SQL") String setSession = "SET SESSION distinct_aggregation_spill_enabled=false";
+        MaterializedResult setSessionResult = computeActual(setSession);
+        assertEquals(
+                setSessionResult.toString(),
+                "MaterializedResult{rows=[[true]], " +
+                        "types=[boolean], " +
+                        "setSessionProperties={distinct_aggregation_spill_enabled=false}, " +
+                        "resetSessionProperties=[], updateType=SET SESSION}");
     }
 
     @Test
@@ -1051,6 +1263,7 @@ public abstract class AbstractTestNativeGeneralQueries
     {
         assertQuery("SELECT * FROM nation_text");
     }
+
     private void dropTableIfExists(String tableName)
     {
         // An ugly workaround for the lack of getExpectedQueryRunner()
@@ -1109,6 +1322,11 @@ public abstract class AbstractTestNativeGeneralQueries
 
         assertQuery("SELECT timezone_hour(from_unixtime(orderkey, 'Asia/Oral')) FROM orders");
         assertQuery("SELECT timezone_minute(from_unixtime(orderkey, 'Asia/Kolkata')) FROM orders");
+
+        Session filterPushdown = Session.builder(getSession())
+                .setCatalogSessionProperty("hive", "pushdown_filter_enabled", "true")
+                .build();
+        assertQuery(filterPushdown, "select distinct custkey from orders where date_diff('day', from_unixtime(orderkey), TIMESTAMP '2023-01-01 00:00:00 UTC') = 150");
     }
 
     @Test
@@ -1302,13 +1520,74 @@ public abstract class AbstractTestNativeGeneralQueries
                     "AS " +
                     "SELECT nationkey, name, comment, regionkey FROM nation", tableName));
 
+            String filter = format("SELECT regionkey FROM \"%s\" WHERE regionkey %% 3 = 1", partitionsTableName);
+            assertPlan(
+                    filter,
+                    anyTree(
+                            exchange(REMOTE_STREAMING, GATHER,
+                                    filter(
+                                            "REGION_KEY % 3 = 1",
+                                            tableScan(partitionsTableName, ImmutableMap.of("REGION_KEY", "regionkey"))))));
+            assertQuery(filter);
+
+            String project = format("SELECT regionkey + 1 FROM \"%s\"", partitionsTableName);
+            assertPlan(
+                    project,
+                    anyTree(
+                            exchange(REMOTE_STREAMING, GATHER,
+                                    project(
+                                            ImmutableMap.of("EXPRESSION", expression("REGION_KEY + CAST(1 AS bigint)")),
+                                            tableScan(partitionsTableName, ImmutableMap.of("REGION_KEY", "regionkey"))))));
+            assertQuery(project);
+
+            String filterProject = format("SELECT regionkey + 1 FROM \"%s\" WHERE regionkey %% 3 = 1", partitionsTableName);
+            assertPlan(
+                    filterProject,
+                    anyTree(
+                            exchange(REMOTE_STREAMING, GATHER,
+                                    project(
+                                            ImmutableMap.of("EXPRESSION", expression("REGION_KEY + CAST(1 AS bigint)")),
+                                            filter(
+                                                    "REGION_KEY % 3 = 1",
+                                                    tableScan(partitionsTableName, ImmutableMap.of("REGION_KEY", "regionkey")))))));
+            assertQuery(filterProject);
+
+            String aggregation = format("SELECT count(*), sum(regionkey) FROM \"%s\"", partitionsTableName);
+            assertPlan(
+                    aggregation,
+                    anyTree(
+                            aggregation(
+                                    ImmutableMap.of(
+                                            "FINAL_COUNT", functionCall("count", ImmutableList.of()),
+                                            "FINAL_SUM", functionCall("sum", ImmutableList.of("REGION_KEY"))),
+                                    SINGLE,
+                                    exchange(LOCAL, GATHER,
+                                            exchange(REMOTE_STREAMING, GATHER,
+                                                    tableScan(partitionsTableName, ImmutableMap.of("REGION_KEY", "regionkey")))))));
+            assertQuery(aggregation);
+
+            String groupBy = format("SELECT regionkey, count(*) FROM \"%s\" GROUP BY regionkey", partitionsTableName);
+            assertPlan(
+                    groupBy,
+                    anyTree(
+                            aggregation(
+                                    singleGroupingSet("REGION_KEY"),
+                                    ImmutableMap.of(
+                                            Optional.of("FINAL_COUNT"), functionCall("count", ImmutableList.of())),
+                                    ImmutableMap.of(),
+                                    Optional.empty(),
+                                    SINGLE,
+                                    exchange(LOCAL, REPARTITION,
+                                            exchange(REMOTE_STREAMING, GATHER,
+                                                    tableScan(partitionsTableName, ImmutableMap.of("REGION_KEY", "regionkey")))))));
+            assertQuery(groupBy);
+
             String join = format("SELECT * " +
                     "FROM " +
                     "   (SELECT DISTINCT regionkey FROM %s) t " +
                     "INNER JOIN " +
                     "   (SELECT regionkey FROM \"%s\") p " +
                     "ON t.regionkey = p.regionkey", tableName, partitionsTableName);
-
             Session session = Session.builder(getSession())
                     .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "PARTITIONED")
                     .build();
@@ -1321,8 +1600,8 @@ public abstract class AbstractTestNativeGeneralQueries
                                     anyTree(
                                             exchange(REMOTE_STREAMING, REPARTITION,
                                                     exchange(REMOTE_STREAMING, GATHER,
-                                                            anyTree(
-                                                                    tableScan(partitionsTableName))))))));
+                                                            filter("REGION_KEY IN (0, 1, 2, 3, 4)",
+                                                                    tableScan(partitionsTableName, ImmutableMap.of("REGION_KEY", "regionkey")))))))));
             assertQuery(session, join);
         }
         finally {
@@ -1376,11 +1655,14 @@ public abstract class AbstractTestNativeGeneralQueries
                     .put(SORTED_BY_PROPERTY, ImmutableList.of())
                     .build();
             ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(table, ImmutableList.of(
-                    new ColumnMetadata("col", RowType.from(ImmutableList.of(
-                        new RowType.Field(Optional.of("NationKey"), BIGINT),
-                        new RowType.Field(Optional.of("NAME"), VARCHAR),
-                        new RowType.Field(Optional.of("ReGiOnKeY"), BIGINT),
-                        new RowType.Field(Optional.of("commenT"), VARCHAR))))),
+                    ColumnMetadata.builder()
+                            .setName("col")
+                            .setType(RowType.from(ImmutableList.of(
+                            new RowType.Field(Optional.of("NationKey"), BIGINT),
+                            new RowType.Field(Optional.of("NAME"), VARCHAR),
+                            new RowType.Field(Optional.of("ReGiOnKeY"), BIGINT),
+                            new RowType.Field(Optional.of("commenT"), VARCHAR))))
+                            .build()),
                     tableProperties);
             transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
                     .singleStatement()
@@ -1398,6 +1680,314 @@ public abstract class AbstractTestNativeGeneralQueries
         }
     }
 
+    /**
+     * See GitHub issue: <a href="https://github.com/prestodb/presto/issues/22085">link</a>
+     */
+    @Test
+    public void testKeyBasedSamplingInlined()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(INLINE_SQL_FUNCTIONS, "true")
+                .setSystemProperty(KEY_BASED_SAMPLING_ENABLED, "true")
+                .build();
+        assertQuerySucceeds(session, "select count(1) from orders join lineitem using(orderkey)");
+    }
+
+    @Test
+    public void testColumnFilter()
+    {
+        String tmpTableName = generateRandomTableName();
+        assertUpdate(format("CREATE TABLE %s " +
+                "AS " +
+                "SELECT c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_varbinary " +
+                "FROM ( " +
+                "  VALUES " +
+                "    (null, null, null, null, null, null), " +
+                "    (true, BIGINT '1', DOUBLE '2.2', TIMESTAMP '2012-08-08 01:00', CAST('abc1' AS VARCHAR), to_ieee754_64(1))," +
+                "    (false, BIGINT '0', DOUBLE '1.2', TIMESTAMP '2012-08-08 00:00', CAST('abc2' AS VARCHAR), to_ieee754_64(2))," +
+                "    (true, BIGINT '2', DOUBLE '3.3', TIMESTAMP '2012-09-09 01:00', CAST('cba1' AS VARCHAR), to_ieee754_64(3)), " +
+                "    (false, BIGINT '1', DOUBLE '2.3', TIMESTAMP '2012-09-09 00:00', CAST('cba2' AS VARCHAR), to_ieee754_64(4)) " +
+                ") AS x (c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_varbinary)", tmpTableName), 5);
+
+        // Filter on BOOLEAN column.
+        assertQuery(format("SELECT c_boolean, c_bigint, c_double, c_varchar, c_varbinary FROM %s WHERE c_boolean", tmpTableName));
+
+        // Filter on BIGINT column.
+        assertQuery(format("SELECT c_boolean, c_bigint, c_double, c_varchar, c_varbinary FROM %s WHERE c_bigint = 0", tmpTableName));
+
+        // Filter on DOUBLE column.
+        assertQuery(format("SELECT c_boolean, c_bigint, c_double, c_varchar, c_varbinary FROM %s WHERE c_double = 1.2", tmpTableName));
+
+        // Filter on VARCHAR column.
+        assertQuery(format("SELECT c_boolean, c_bigint, c_double, c_varchar, c_varbinary FROM %s WHERE c_varchar = CAST('cba2' AS VARCHAR)", tmpTableName));
+
+        // Filter on TIMESTAMP column.
+        // NOTE: c_timestamp field in Velox uses the America/Los_Angeles time zone when reading and writing
+        // TIMESTAMP type data in DWRF/ORC format (see https://github.com/facebookincubator/velox/issues/8127),
+        // while Presto Java uses the America/Bahia_Banderas time zone when reading TIMESTAMP during the test
+        // (see com.facebook.presto.hive.HiveQueryRunner),
+        // Therefore, the data read by the two engines will be inconsistent. So using a VALUES list for the
+        // validation.
+        assertQuery(format("SELECT * FROM %s WHERE c_TIMESTAMP = TIMESTAMP '2012-09-09 00:00'", tmpTableName), "VALUES(false, BIGINT '1', DOUBLE '2.3', TIMESTAMP '2012-09-09 00:00', CAST('cba2' AS VARCHAR), to_ieee754_64(4))");
+
+        // NOTE: Presto Java's DWRF format does not support pushing down VARBINARY type filters to TableScan, so we need to disable filter pushdown.
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("hive", "pushdown_filter_enabled", "false")
+                .build();
+        // Filter on VARBINARY column.
+        assertQuery(session, format("SELECT c_boolean, c_bigint, c_double, c_varchar, c_varbinary FROM %s WHERE c_varbinary = to_ieee754_64(1)", tmpTableName));
+    }
+
+    @Test
+    public void testCorrelatedExistsSubqueries()
+    {
+        // projection
+        assertQuery(
+                "SELECT EXISTS(SELECT 1 FROM (VALUES 1, 1, 1, 2, 2, 3, 4) i(a) WHERE i.a < o.a AND i.a < 4) " +
+                        "FROM (VALUES 0, 3, 3, 5) o(a)",
+                "VALUES false, true, true, true");
+        assertQuery(
+                "SELECT EXISTS(SELECT 1 WHERE l.orderkey > 0 OR l.orderkey != 3) " +
+                        "FROM lineitem l LIMIT 1");
+
+        assertQuery(
+                "SELECT count(*) FROM orders o " +
+                        "WHERE EXISTS(SELECT 1 FROM orders i WHERE o.orderkey < i.orderkey AND i.orderkey % 1000 = 0)"); // h2 is slow
+        assertQuery(
+                "SELECT count(*) FROM lineitem l " +
+                        "WHERE EXISTS(SELECT 1 WHERE l.orderkey > 0 OR l.orderkey != 3)");
+
+        // order by
+        assertQuery(
+                "SELECT orderkey FROM orders o ORDER BY " +
+                        "EXISTS(SELECT 1 FROM orders i WHERE o.orderkey < i.orderkey AND i.orderkey % 10000 = 0)" +
+                        "LIMIT 1"); // h2 is slow
+        assertQuery(
+                "SELECT orderkey FROM lineitem l ORDER BY " +
+                        "EXISTS(SELECT 1 WHERE l.orderkey > 0 OR l.orderkey != 3)");
+
+        // group by
+        assertQuery(
+                "SELECT max(o.orderdate), o.orderkey, " +
+                        "EXISTS(SELECT 1 FROM orders i WHERE o.orderkey < i.orderkey AND i.orderkey % 10000 = 0) " +
+                        "FROM orders o GROUP BY o.orderkey ORDER BY o.orderkey LIMIT 1");
+        assertQuery(
+                "SELECT max(o.orderdate), o.orderkey " +
+                        "FROM orders o " +
+                        "GROUP BY o.orderkey " +
+                        "HAVING EXISTS(SELECT 1 FROM orders i WHERE o.orderkey < i.orderkey AND i.orderkey % 10000 = 0)" +
+                        "ORDER BY o.orderkey LIMIT 1"); // h2 is slow
+        assertQuery(
+                "SELECT max(o.orderdate), o.orderkey FROM orders o " +
+                        "GROUP BY o.orderkey, EXISTS(SELECT 1 FROM orders i WHERE o.orderkey < i.orderkey AND i.orderkey % 10000 = 0)" +
+                        "ORDER BY o.orderkey LIMIT 1"); // h2 is slow
+        assertQuery(
+                "SELECT max(l.quantity), l.orderkey, EXISTS(SELECT 1 WHERE l.orderkey > 0 OR l.orderkey != 3) FROM lineitem l " +
+                        "GROUP BY l.orderkey");
+        assertQuery(
+                "SELECT max(l.quantity), l.orderkey FROM lineitem l " +
+                        "GROUP BY l.orderkey " +
+                        "HAVING EXISTS (SELECT 1 WHERE l.orderkey > 0 OR l.orderkey != 3)");
+        assertQuery(
+                "SELECT max(l.quantity), l.orderkey FROM lineitem l " +
+                        "GROUP BY l.orderkey, EXISTS (SELECT 1 WHERE l.orderkey > 0 OR l.orderkey != 3)");
+
+        // join
+        assertQuery(
+                "SELECT count(*) " +
+                        "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) o1 " +
+                        "JOIN (SELECT * FROM orders ORDER BY orderkey LIMIT 5) o2 " +
+                        "ON NOT EXISTS(SELECT 1 FROM orders i WHERE o1.orderkey < o2.orderkey AND i.orderkey % 10000 = 0)");
+        assertQueryFails(
+                "SELECT count(*) FROM orders o1 LEFT JOIN orders o2 " +
+                        "ON NOT EXISTS(SELECT 1 FROM orders i WHERE o1.orderkey < o2.orderkey)",
+                "line .*: Correlated subquery in given context is not supported");
+
+        // subrelation
+        assertQuery(
+                "SELECT count(*) FROM orders o " +
+                        "WHERE (SELECT * FROM (SELECT EXISTS(SELECT 1 FROM orders i WHERE o.orderkey < i.orderkey AND i.orderkey % 10000 = 0)))"); // h2 is slow
+        assertQuery(
+                "SELECT count(*) FROM orders o " +
+                        "WHERE (SELECT * FROM (SELECT EXISTS(SELECT 1 WHERE o.orderkey > 10 OR o.orderkey != 3)))");
+    }
+
+    @Test
+    public void testUnicodeInJson()
+    {
+        // Test casting to JSON returning the same results for all unicode characters in the entire range.
+        List<int[]> unicodeRanges = new ArrayList<int[]>()
+        {{
+                add(new int[] {0, 0x7F});
+                add(new int[] {0x80, 0xD7FF});
+                add(new int[] {0xE000, 0xFFFF});
+            }};
+        for (int start = 0x10000; start < 0x110000; ) {
+            int end = start + 0x10000;
+            unicodeRanges.add(new int[] {start, end - 1});
+            start = end;
+        }
+        List<String> unicodeStrings = unicodeRanges.stream().map(range -> {
+            StringBuilder unicodeString = new StringBuilder();
+            for (int u = range[0]; u <= range[1]; u++) {
+                String hex = Integer.toHexString(u);
+                switch (hex.length()) {
+                    case 1:
+                        unicodeString.append("\\000");
+                        break;
+                    case 2:
+                        unicodeString.append("\\00");
+                        break;
+                    case 3:
+                        unicodeString.append("\\0");
+                        break;
+                    case 4:
+                        unicodeString.append("\\");
+                        break;
+                    case 5:
+                        unicodeString.append("\\+0");
+                        break;
+                    default:
+                        unicodeString.append("\\+");
+                }
+                unicodeString.append(hex);
+            }
+            return unicodeString.toString();
+        }).collect(ImmutableList.toImmutableList());
+
+        for (String unicodeString : unicodeStrings) {
+            assertQuery(String.format("SELECT CAST(a as JSON) FROM ( VALUES(U&'%s') ) t(a)", unicodeString));
+        }
+    }
+
+    @Test
+    public void testRowWiseExchange()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(NATIVE_MIN_COLUMNAR_ENCODING_CHANNELS_TO_PREFER_ROW_WISE_ENCODING, "10")
+                .build();
+
+        assertQuery(session, "SELECT orderkey, count(*) FROM orders GROUP BY orderkey", plan -> {
+            searchFrom(plan.getRoot())
+                    .where(node -> node instanceof ExchangeNode
+                            && ((ExchangeNode) node).getScope() == REMOTE_STREAMING
+                            && ((ExchangeNode) node).getPartitioningScheme().isSingleOrBroadcastOrArbitrary()
+                            && ((ExchangeNode) node).getPartitioningScheme().getEncoding() == COLUMNAR)
+                    .findOnlyElement();
+            searchFrom(plan.getRoot())
+                    .where(node -> node instanceof ExchangeNode
+                            && ((ExchangeNode) node).getScope() == REMOTE_STREAMING
+                            && !((ExchangeNode) node).getPartitioningScheme().isSingleOrBroadcastOrArbitrary()
+                            && ((ExchangeNode) node).getPartitioningScheme().getEncoding() == COLUMNAR)
+                    .findOnlyElement();
+        });
+
+        String wideAggregation = "SELECT orderkey, max(orderdate), max(comment), min(comment), sum(totalprice), max(totalprice) FROM orders GROUP BY orderkey";
+        assertQuery(session, wideAggregation, plan -> {
+            searchFrom(plan.getRoot())
+                    .where(node -> node instanceof ExchangeNode
+                            && ((ExchangeNode) node).getScope() == REMOTE_STREAMING
+                            && ((ExchangeNode) node).getPartitioningScheme().isSingleOrBroadcastOrArbitrary()
+                            && ((ExchangeNode) node).getPartitioningScheme().getEncoding() == COLUMNAR)
+                    .findOnlyElement();
+            searchFrom(plan.getRoot())
+                    .where(node -> node instanceof ExchangeNode
+                            && ((ExchangeNode) node).getScope() == REMOTE_STREAMING
+                            && !((ExchangeNode) node).getPartitioningScheme().isSingleOrBroadcastOrArbitrary()
+                            && ((ExchangeNode) node).getPartitioningScheme().getEncoding() == ROW_WISE)
+                    .findOnlyElement();
+        });
+
+        assertThat(getQueryRunner().execute(session, "EXPLAIN (TYPE DISTRIBUTED) " + wideAggregation).getOnlyValue().toString())
+                .contains("Output encoding: ROW_WISE");
+    }
+    @Test
+    public void testUuid()
+    {
+        // Valid UUIDs. Note: These evaluate on the coordinator. They are used in subsequent SQL.
+        assertQuery("SELECT cast('33355449-2c7d-43d7-967a-f53cd23215ad' AS uuid)");
+        assertQuery("SELECT cast('eed9f812-4b0c-472f-8a10-4ae7bff79a47' AS uuid)");
+        assertQuery("SELECT cast('f768f36d-4f09-4da7-a298-3564d8f3c986' AS uuid)");
+        String tmpTableName = generateRandomTableName();
+        getQueryRunner().execute(format("CREATE TABLE %s " +
+                "AS " +
+                "SELECT c_uuid  " +
+                "FROM ( " +
+                "  VALUES " +
+                "    (null), " +
+                "    ('33355449-2c7d-43d7-967a-f53cd23215ad')," +
+                "    ('eed9f812-4b0c-472f-8a10-4ae7bff79a47')," +
+                "    ('f768f36d-4f09-4da7-a298-3564d8f3c986')," +
+                "    (cast(uuid() AS VARCHAR))" +
+                ") AS x (c_uuid)", tmpTableName));
+        // Validates UUID projects the same for Java and Native engine.
+        assertQuery(format("SELECT CAST(c_uuid AS uuid) FROM %s", tmpTableName));
+        // Round-trip CAST between UUID and varchar.
+        assertQuery(format("SELECT CAST(CAST(c_uuid AS uuid) AS VARCHAR) FROM %s", tmpTableName));
+
+        // Invalid cast on both Presto Java and Native.
+        assertQueryFails(format("SELECT CAST(CAST(c_uuid as uuid) AS INTEGER) FROM %s", tmpTableName), ".*Cannot cast uuid to integer.*");
+        // Cast from UUID->VARBINARY is valid.
+        assertQuery(format("SELECT CAST(CAST(c_uuid AS uuid) AS VARBINARY) FROM %s", tmpTableName));
+
+        // UUID equi join.
+        assertQuery(format("SELECT a, b FROM " +
+                "(SELECT CAST(c_uuid AS uuid) as a FROM %s) AS A, " +
+                "(SELECT CAST(c_uuid AS uuid) as b FROM %s) AS B " +
+                "WHERE a = b", tmpTableName, tmpTableName));
+
+        assertQuery(format("SELECT a, b FROM " +
+                "(SELECT CAST(c_uuid AS uuid) as a FROM %s) AS A, " +
+                "(SELECT CAST(c_uuid AS uuid) as b FROM %s) AS B " +
+                "WHERE a < b", tmpTableName, tmpTableName));
+
+        assertQuery(format("SELECT a, b FROM " +
+                "(SELECT CAST(c_uuid AS uuid) as a FROM %s) AS A, " +
+                "(SELECT CAST(c_uuid AS uuid) as b FROM %s) AS B " +
+                "WHERE a <= b", tmpTableName, tmpTableName));
+
+        assertQuery(format("SELECT a, b FROM " +
+                "(SELECT CAST(c_uuid AS uuid) as a FROM %s) AS A, " +
+                "(SELECT CAST(c_uuid AS uuid) as b FROM %s) AS B " +
+                "WHERE a > b", tmpTableName, tmpTableName));
+
+        assertQuery(format("SELECT a, b FROM " +
+                "(SELECT CAST(c_uuid AS uuid) as a FROM %s) AS A, " +
+                "(SELECT CAST(c_uuid AS uuid) as b FROM %s) AS B " +
+                "WHERE a >= b", tmpTableName, tmpTableName));
+
+        assertQuery(format("SELECT a, b FROM " +
+                "(SELECT CAST(c_uuid AS uuid) as a FROM %s) AS A, " +
+                "(SELECT CAST(c_uuid AS uuid) as b FROM %s) AS B, " +
+                "(SELECT CAST(c_uuid AS uuid) as c FROM %s) AS C " +
+                "WHERE a BETWEEN b AND c", tmpTableName, tmpTableName, tmpTableName));
+
+        getQueryRunner().execute(format("DROP TABLE %s", tmpTableName));
+    }
+
+    @Test
+    public void testInvalidUuid()
+    {
+        // Invalid UUID. Note: This evaluates on the co-ordinator. This is used in subsequent SQL.
+        assertQueryFails("SELECT cast('0E984725-C51C-4BF4-9960-H1C80E27ABA0' AS uuid)",
+                "Cannot cast value to UUID: 0E984725-C51C-4BF4-9960-H1C80E27ABA0");
+        assertQuery("SELECT try_cast('0E984725-C51C-4BF4-9960-H1C80E27ABA0' AS uuid)");
+
+        String tmpTableName = generateRandomTableName();
+        // The Invalid UUID from above is rejected on the native engine as well.
+        getQueryRunner().execute(format("CREATE TABLE %s " +
+                "AS " +
+                "SELECT c_uuid  " +
+                "FROM ( " +
+                "  VALUES " +
+                "    ('0E984725-C51C-4BF4-9960-H1C80E27ABA0')" +
+                ") AS x (c_uuid)", tmpTableName));
+        assertQueryFails(format("SELECT CAST(c_uuid AS uuid) FROM %s", tmpTableName),
+                ".*bad lexical cast: source type value could not be interpreted as target.*");
+        assertQuery(format("SELECT try_cast(c_uuid AS uuid) FROM %s", tmpTableName));
+        getQueryRunner().execute(format("DROP TABLE %s", tmpTableName));
+    }
+
     private void assertQueryResultCount(String sql, int expectedResultCount)
     {
         assertEquals(getQueryRunner().execute(sql).getRowCount(), expectedResultCount);
@@ -1406,5 +1996,55 @@ public abstract class AbstractTestNativeGeneralQueries
     private void assertQueryResultCount(Session session, String sql, int expectedResultCount)
     {
         assertEquals(getQueryRunner().execute(session, sql).getRowCount(), expectedResultCount);
+    }
+
+    private List<MaterializedRow> getJavaWorkerSessionProperties(List<MaterializedRow> inputRows, String sessionPropertyName)
+    {
+        return inputRows.stream()
+                .filter(row -> Pattern.matches(sessionPropertyName, row.getFields().get(4).toString()))
+                .collect(toList());
+    }
+
+    @Test
+    public void testDistributedSortSingleNode()
+    {
+        assertDistributedSortSingleNode("SELECT orderkey FROM orders ORDER BY orderkey");
+        assertDistributedSortSingleNode("SELECT DISTINCT orderkey FROM orders ORDER BY 1");
+        assertDistributedSortSingleNode("SELECT orderstatus, SUM(totalprice) FROM orders GROUP BY orderstatus ORDER BY 2 DESC");
+    }
+
+    private void assertDistributedSortSingleNode(String query)
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(DISTRIBUTED_SORT, "true")
+                .setSystemProperty(SINGLE_NODE_EXECUTION_ENABLED, "true")
+                .build();
+        assertQuery(session, query, plan -> {
+            SortNode sortNode = searchFrom(plan.getRoot())
+                    .where(node -> node instanceof SortNode)
+                    .findOnlyElement();
+            assertTrue(sortNode.isPartial());
+        });
+        DistributedQueryRunner runner = getDistributedQueryRunner();
+        QueryId queryId = runner.executeWithQueryId(session, query).getQueryId();
+        QueryInfo queryInfo = runner.getQueryInfo(queryId);
+        OperatorStats sortStats = findSortStats(queryInfo);
+        assertThat(sortStats.getTotalDrivers())
+                .isGreaterThan(1);
+    }
+
+    private OperatorStats findSortStats(QueryInfo queryInfo)
+    {
+        // exactly one stage is expected
+        StageInfo stageInfo = getOnlyElement(queryInfo.getOutputStage()
+                .orElseThrow(() -> new AssertionError("stage info is expected to be set"))
+                .getAllStages());
+        // exactly one task is expected
+        TaskInfo taskInfo = getOnlyElement(stageInfo.getLatestAttemptExecutionInfo().getTasks());
+        // exactly one sort operator is expected
+        return getOnlyElement(taskInfo.getStats().getPipelines().stream()
+                .flatMap(pipelineStats -> pipelineStats.getOperatorSummaries().stream())
+                .filter(operatorStats -> operatorStats.getOperatorType().contains("OrderBy"))
+                .collect(toList()));
     }
 }

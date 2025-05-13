@@ -94,3 +94,62 @@ configuration variable ``catalog.config-dir``. In order for Presto to pick up
 the new plugin, you must restart Presto.
 
 Plugins must be installed on all nodes in the Presto cluster (coordinator and workers).
+
+Coordinator Plugin
+------------------
+
+The ``CoordinatorPlugin`` interface allows plugins to provide additional
+functionality for the Presto coordinator. Presto SPI defines different service
+provider factories and service providers that allow customization of session
+property providers, function namespace managers, type managers, expression
+optimizers, and plan checkers. The following service providers can be accessed
+via their respective provider factories.
+
++----------------------+----------------------------------------+---------------------------------+
+|       Service        |             Provider Factory           |        Service Provider         |
++======================+========================================+=================================+
+|  Session Properties  |  WorkerSessionPropertyProviderFactory  |  WorkerSessionPropertyProvider  |
++----------------------+----------------------------------------+---------------------------------+
+|      Functions       |     FunctionNamespaceManagerFactory    |    FunctionNamespaceManager     |
++----------------------+----------------------------------------+---------------------------------+
+|        Types         |           TypeManagerFactory           |           TypeManager           |
++----------------------+----------------------------------------+---------------------------------+
+| Expression Optimizer |       ExpressionOptimizerFactory       |       ExpressionOptimizer       |
++----------------------+----------------------------------------+---------------------------------+
+|    Plan Checker      |       PlanCheckerProviderFactory       |       PlanCheckerProvider       |
++----------------------+----------------------------------------+---------------------------------+
+
+``CoordinatorPlugin`` interface provides methods to access all registered
+provider factories that customize these services. In a Presto C++ cluster,
+the class ``NativeSidecarPlugin`` implements ``CoordinatorPlugin`` interface
+to customize functionality for Presto C++.
+
+.. _native-sidecar-plugin:
+
+Native Sidecar Plugin
+---------------------
+
+The ``NativeSidecarPlugin`` class implements ``CoordinatorPlugin`` interface
+and returns the following service providers via their respective provider
+factories.
+
++----------------------+----------------------------------------------+---------------------------------------+
+|       Service        |           Native Provider Factory            |        Native Service Provider        |
++======================+==============================================+=======================================+
+|  Session Properties  |  NativeSystemSessionPropertyProviderFactory  |  NativeSystemSessionPropertyProvider  |
++----------------------+----------------------------------------------+---------------------------------------+
+|      Functions       |     NativeFunctionNamespaceManagerFactory    |    NativeFunctionNamespaceManager     |
++----------------------+----------------------------------------------+---------------------------------------+
+|        Types         |           NativeTypeManagerFactory           |           NativeTypeManager           |
++----------------------+----------------------------------------------+---------------------------------------+
+|    Plan Checker      |       NativePlanCheckerProviderFactory       |       NativePlanCheckerProvider       |
++----------------------+----------------------------------------------+---------------------------------------+
+
+For instance, the class ``NativeSystemSessionPropertyProviderFactory``
+implements the interface ``WorkerSessionPropertyProviderFactory`` in Presto SPI
+to return the service provider, ``NativeSystemSessionPropertyProvider``. The class
+``NativeSystemSessionPropertyProvider`` retrieves all session properties
+supported by the Presto C++ worker by making a REST call to the endpoint
+``/v1/properties/session`` on the Presto C++ sidecar. ``NativeSidecarPlugin``,
+therefore, needs at least one Presto C++ worker in the cluster to be configured
+as a sidecar. See :doc:`/presto_cpp/sidecar` for more details.

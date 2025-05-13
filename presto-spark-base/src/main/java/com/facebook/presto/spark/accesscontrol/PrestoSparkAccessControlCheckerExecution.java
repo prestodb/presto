@@ -47,6 +47,7 @@ public class PrestoSparkAccessControlCheckerExecution
     private final BuiltInQueryPreparer.BuiltInPreparedQuery preparedQuery;
     private final QueryStateTimer queryStateTimer;
     private final WarningCollector warningCollector;
+    private final String query;
 
     public PrestoSparkAccessControlCheckerExecution(
             Session session,
@@ -56,7 +57,8 @@ public class PrestoSparkAccessControlCheckerExecution
             QueryExplainer queryExplainer,
             BuiltInQueryPreparer.BuiltInPreparedQuery preparedQuery,
             QueryStateTimer queryStateTimer,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            String query)
     {
         this.session = requireNonNull(session, "session is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -66,6 +68,7 @@ public class PrestoSparkAccessControlCheckerExecution
         this.preparedQuery = requireNonNull(preparedQuery, "preparedQuery is null");
         this.queryStateTimer = requireNonNull(queryStateTimer, "queryStateTimer is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+        this.query = requireNonNull(query, "query is null");
     }
 
     @Override
@@ -79,12 +82,13 @@ public class PrestoSparkAccessControlCheckerExecution
                 Optional.of(queryExplainer),
                 preparedQuery.getParameters(),
                 parameterExtractor(preparedQuery.getStatement(), preparedQuery.getParameters()),
-                warningCollector);
+                warningCollector,
+                query);
 
         queryStateTimer.beginSemanticAnalyzing();
         Analysis analysis = analyzer.analyzeSemantic(preparedQuery.getStatement(), false);
         queryStateTimer.beginColumnAccessPermissionChecking();
-        checkAccessPermissions(analysis.getAccessControlReferences());
+        checkAccessPermissions(analysis.getAccessControlReferences(), query);
         queryStateTimer.endColumnAccessPermissionChecking();
 
         List<List<Object>> results = new ArrayList<>();

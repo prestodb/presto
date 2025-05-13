@@ -43,14 +43,14 @@ fi
 
 function start_docker_container() {
   # stop already running containers
-  docker-compose -f "${DOCKER_COMPOSE_LOCATION}" down || true
+  docker compose -f "${DOCKER_COMPOSE_LOCATION}" down || true
 
   # start containers
-  docker-compose -f "${DOCKER_COMPOSE_LOCATION}" up -d
+  docker compose -f "${DOCKER_COMPOSE_LOCATION}" up -d
 }
 
 function cleanup_docker_container() {
-  docker-compose -f "${DOCKER_COMPOSE_LOCATION}" down
+  docker compose -f "${DOCKER_COMPOSE_LOCATION}" down
 }
 
 
@@ -59,7 +59,7 @@ start_docker_container
 # run product tests
 pushd ${PROJECT_ROOT}
 set +e
-./mvnw -pl presto-kudu test -P integration \
+./mvnw --no-transfer-progress -pl presto-kudu test -P integration \
   -Dkudu.client.master-addresses=${DOCKER_HOST_IP}:${KUDU_MASTER_RPC_PORT} \
   -Dkudu.schema-emulation.prefix=${TEST_SCHEMA_EMULATION_PREFIX}
 EXIT_CODE=$?

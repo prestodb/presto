@@ -78,7 +78,4 @@ public class ReportMultiThreadedBeforeOrAfterMethod
             }
         }
     }
-
-    @Override
-    public void onAfterClass(ITestClass iTestClass) {}
 }

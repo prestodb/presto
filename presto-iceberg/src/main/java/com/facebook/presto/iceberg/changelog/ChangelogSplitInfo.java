@@ -16,7 +16,6 @@ package com.facebook.presto.iceberg.changelog;
 import com.facebook.presto.iceberg.IcebergColumnHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import org.apache.iceberg.ChangelogOperation;
 
 import java.util.List;
 

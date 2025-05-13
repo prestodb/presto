@@ -38,5 +38,5 @@ General Changes
 * Add ConnectorPageSource which is a more efficient interface for column-oriented sources
 * Add support for string partition keys in Cassandra
 * Add support for variable arity functions
-* Add support for :func:`count` for all types
+* Add support for :func:`!count` for all types
 * Fix bug in HashAggregation that could cause the operator to go in an infinite loop

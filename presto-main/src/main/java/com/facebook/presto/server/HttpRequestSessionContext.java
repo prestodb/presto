@@ -15,10 +15,12 @@ package com.facebook.presto.server;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session.ResourceEstimateBuilder;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
+import com.facebook.presto.spi.security.AuthorizedIdentity;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.spi.session.ResourceEstimates;
@@ -75,6 +77,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_TIME_ZONE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TRACE_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TRANSACTION_ID;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
+import static com.facebook.presto.server.security.ServletSecurityUtils.authorizedIdentity;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -98,6 +101,7 @@ public final class HttpRequestSessionContext
     private final String schema;
 
     private final Identity identity;
+    private final Optional<AuthorizedIdentity> authorizedIdentity;
     private final List<X509Certificate> certificates;
 
     private final String source;
@@ -121,6 +125,7 @@ public final class HttpRequestSessionContext
 
     private final Optional<SessionPropertyManager> sessionPropertyManager;
     private final Optional<Tracer> tracer;
+    private final RuntimeStats runtimeStats = new RuntimeStats();
 
     public HttpRequestSessionContext(HttpServletRequest servletRequest, SqlParserOptions sqlParserOptions)
     {
@@ -153,6 +158,7 @@ public final class HttpRequestSessionContext
                 ImmutableMap.of(),
                 Optional.empty(),
                 Optional.empty());
+        authorizedIdentity = authorizedIdentity(servletRequest);
 
         X509Certificate[] certs = (X509Certificate[]) servletRequest.getAttribute(X509_ATTRIBUTE);
         if (certs != null && certs.length > 0) {
@@ -403,6 +409,12 @@ public final class HttpRequestSessionContext
     }
 
     @Override
+    public Optional<AuthorizedIdentity> getAuthorizedIdentity()
+    {
+        return authorizedIdentity;
+    }
+
+    @Override
     public List<X509Certificate> getCertificates()
     {
         return certificates;
@@ -514,6 +526,12 @@ public final class HttpRequestSessionContext
     public Optional<Tracer> getTracer()
     {
         return tracer;
+    }
+
+    @Override
+    public RuntimeStats getRuntimeStats()
+    {
+        return runtimeStats;
     }
 
     /**

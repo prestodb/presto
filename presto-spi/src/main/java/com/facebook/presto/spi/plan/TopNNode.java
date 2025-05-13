@@ -78,7 +78,7 @@ public final class TopNNode
         super(sourceLocation, id, statsEquivalentPlanNode);
 
         requireNonNull(source, "source is null");
-        checkArgument(count >= 0, "count must be positive");
+        checkArgument(count >= 0, "count must be non-negative");
         checkCondition(count <= Integer.MAX_VALUE, NOT_SUPPORTED, "ORDER BY LIMIT > %s is not supported", Integer.MAX_VALUE);
         requireNonNull(orderingScheme, "orderingScheme is null");
 

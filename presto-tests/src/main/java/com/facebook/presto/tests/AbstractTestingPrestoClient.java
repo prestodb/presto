@@ -25,6 +25,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.server.testing.TestingPrestoServer;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
@@ -38,6 +39,7 @@ import org.intellij.lang.annotations.Language;
 
 import java.io.Closeable;
 import java.net.URI;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -133,11 +135,17 @@ public abstract class AbstractTestingPrestoClient<T>
 
     private static ClientSession toClientSession(Session session, URI server, Duration clientRequestTimeout)
     {
-        ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
+        Map<String, String> properties = new HashMap<>();
         properties.putAll(session.getSystemProperties());
         for (Entry<String, Map<String, String>> connectorProperties : session.getUnprocessedCatalogProperties().entrySet()) {
             for (Entry<String, String> entry : connectorProperties.getValue().entrySet()) {
                 properties.put(connectorProperties.getKey() + "." + entry.getKey(), entry.getValue());
+            }
+        }
+
+        for (Entry<ConnectorId, Map<String, String>> connectorProperties : session.getConnectorProperties().entrySet()) {
+            for (Entry<String, String> entry : connectorProperties.getValue().entrySet()) {
+                properties.put(connectorProperties.getKey().getCatalogName() + "." + entry.getKey(), entry.getValue());
             }
         }
 
@@ -164,7 +172,7 @@ public abstract class AbstractTestingPrestoClient<T>
                 session.getTimeZoneKey().getId(),
                 session.getLocale(),
                 resourceEstimates.build(),
-                properties.build(),
+                ImmutableMap.copyOf(properties),
                 session.getPreparedStatements(),
                 session.getIdentity().getRoles(),
                 session.getIdentity().getExtraCredentials(),

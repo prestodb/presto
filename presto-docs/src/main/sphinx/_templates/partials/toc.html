@@ -1,0 +1,68 @@
+{#-
+This file was automatically generated - do not edit
+-#}
+{% set title = lang.t("toc") %}
+{% if config.mdx_configs.toc and config.mdx_configs.toc.title %}
+  {% set title = config.mdx_configs.toc.title %}
+{% endif %}
+<nav class="md-nav md-nav--secondary">
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+        <li class="md-nav__item">
+            <a href="{{ page.edit_url }}" class="">
+                <span class="md-source__icon md-icon">
+                    {% include ".icons/material/eye.svg" %}
+                </span>
+                View Page Source
+            </a>
+        </li>
+        <li class="md-nav__item">
+            <a href="{{theme_repo_url}}/edit/master/presto-docs/src/main/sphinx/{{pagename}}.rst" class="">
+                <span class="md-source__icon md-icon">
+                    {% include ".icons/material/file-edit.svg" %}
+                </span>
+                Edit this page
+            </a>
+        </li>
+        <li class="md-nav__item">
+            <a href="https://github.com/prestodb/presto/issues/new?title=Documentation&labels=docs"
+                class="">
+                <span class="md-source__icon md-icon">
+                    {% include ".icons/fontawesome/solid/list.svg" %}
+                </span>
+                Create docs issue
+            </a>
+        </li>
+        <li class="md-nav__item">
+            <a href="https://github.com/prestodb/presto/issues/new" class="">
+                <span class="md-source__icon  md-icon">
+                    {% include ".icons/fontawesome/solid/list.svg" %}
+                </span>
+                Create project issue
+            </a>
+        </li>
+        <li class="md-nav__item">
+            <a href="https://communityinviter.com/apps/prestodb/prestodb" class="">
+                <span class="md-source__icon  md-icon">
+                    {% include ".icons/fontawesome/brands/slack.svg" %}
+                </span>
+                Join PrestoDB on Slack
+            </a>
+        </li>
+    </ul>
+    <hr>
+    {% set toc = page.toc %}
+    {% if use_integrated_local_toc %}
+    {% set toc = page.integrated_local_toc %}
+    {% endif %}
+    {% if toc %}
+    <label class="md-nav__title" for="__toc">
+        <span class="md-nav__icon md-icon"></span>
+        {{ title }}
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+        {% for toc_item in toc %}
+        {% include "partials/toc-item.html" %}
+        {% endfor %}
+    </ul>
+    {% endif %}
+</nav>

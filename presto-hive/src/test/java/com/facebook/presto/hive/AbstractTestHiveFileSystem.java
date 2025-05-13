@@ -17,14 +17,15 @@ import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.cache.CacheConfig;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.hive.AbstractTestHiveClient.HiveTransaction;
 import com.facebook.presto.hive.AbstractTestHiveClient.Transaction;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.datasink.OutputStreamDataSinkFactory;
-import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HivePartitionMutator;
+import com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.MetastoreOperationResult;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
@@ -33,6 +34,8 @@ import com.facebook.presto.hive.metastore.thrift.BridgingHiveMetastore;
 import com.facebook.presto.hive.metastore.thrift.HiveCluster;
 import com.facebook.presto.hive.metastore.thrift.TestingHiveCluster;
 import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastore;
+import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastoreConfig;
+import com.facebook.presto.hive.statistics.QuickStatsProvider;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -56,8 +59,8 @@ import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingContext;
+import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.security.ConnectorIdentity;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.TestingConnectorSession;
@@ -95,11 +98,15 @@ import static com.facebook.presto.hive.AbstractTestHiveClient.filterNonHiddenCol
 import static com.facebook.presto.hive.AbstractTestHiveClient.getAllSplits;
 import static com.facebook.presto.hive.HiveFileSystemTestUtils.getTableHandle;
 import static com.facebook.presto.hive.HiveQueryRunner.METASTORE_CONTEXT;
+import static com.facebook.presto.hive.HiveTestUtils.DO_NOTHING_DIRECTORY_LISTER;
 import static com.facebook.presto.hive.HiveTestUtils.FILTER_STATS_CALCULATOR_SERVICE;
 import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_RESOLUTION;
+import static com.facebook.presto.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static com.facebook.presto.hive.HiveTestUtils.PAGE_SORTER;
 import static com.facebook.presto.hive.HiveTestUtils.ROW_EXPRESSION_SERVICE;
+import static com.facebook.presto.hive.HiveTestUtils.getAllSessionProperties;
+import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveAggregatedPageSourceFactories;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveBatchPageSourceFactories;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveFileWriterFactories;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveRecordCursorProvider;
@@ -144,6 +151,7 @@ public abstract class AbstractTestHiveFileSystem
     private HiveClientConfig config;
     private CacheConfig cacheConfig;
     private MetastoreClientConfig metastoreClientConfig;
+    private ThriftHiveMetastoreConfig thriftHiveMetastoreConfig;
 
     @BeforeClass
     public void setUp()
@@ -173,13 +181,14 @@ public abstract class AbstractTestHiveFileSystem
         config = new HiveClientConfig().setS3SelectPushdownEnabled(s3SelectPushdownEnabled);
         cacheConfig = new CacheConfig();
         metastoreClientConfig = new MetastoreClientConfig();
+        thriftHiveMetastoreConfig = new ThriftHiveMetastoreConfig();
 
         String proxy = System.getProperty("hive.metastore.thrift.client.socks-proxy");
         if (proxy != null) {
             metastoreClientConfig.setMetastoreSocksProxy(HostAndPort.fromString(proxy));
         }
 
-        HiveCluster hiveCluster = new TestingHiveCluster(metastoreClientConfig, host, port);
+        HiveCluster hiveCluster = new TestingHiveCluster(metastoreClientConfig, thriftHiveMetastoreConfig, host, port, new HiveCommonClientConfig());
         ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("hive-%s"));
         HivePartitionManager hivePartitionManager = new HivePartitionManager(FUNCTION_AND_TYPE_MANAGER, config);
 
@@ -217,7 +226,10 @@ public abstract class AbstractTestHiveFileSystem
                 new HiveEncryptionInformationProvider(ImmutableList.of()),
                 new HivePartitionStats(),
                 new HiveFileRenamer(),
-                columnConverterProvider);
+                columnConverterProvider,
+                new QuickStatsProvider(metastoreClient, HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()),
+                new HiveTableWritabilityChecker(config));
+
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(
                 transactionManager,
@@ -241,10 +253,11 @@ public abstract class AbstractTestHiveFileSystem
                 hdfsEnvironment,
                 PAGE_SORTER,
                 metastoreClient,
-                new GroupByHashPageIndexerFactory(new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig())),
+                new GroupByHashPageIndexerFactory(new JoinCompiler(MetadataManager.createTestMetadataManager())),
                 FUNCTION_AND_TYPE_MANAGER,
                 config,
                 metastoreClientConfig,
+                new SortingFileWriterConfig(),
                 locationService,
                 HiveTestUtils.PARTITION_UPDATE_CODEC,
                 HiveTestUtils.PARTITION_UPDATE_SMILE_CODEC,
@@ -255,21 +268,22 @@ public abstract class AbstractTestHiveFileSystem
                 getDefaultOrcFileWriterFactory(config, metastoreClientConfig),
                 columnConverterProvider);
         Set<HiveRecordCursorProvider> recordCursorProviderSet = s3SelectPushdownEnabled ?
-                                                                    getDefaultS3HiveRecordCursorProvider(config, metastoreClientConfig) :
-                                                                    getDefaultHiveRecordCursorProvider(config, metastoreClientConfig);
+                getDefaultS3HiveRecordCursorProvider(config, metastoreClientConfig) :
+                getDefaultHiveRecordCursorProvider(config, metastoreClientConfig);
         pageSourceProvider = new HivePageSourceProvider(
                 config,
                 hdfsEnvironment,
                 recordCursorProviderSet,
                 getDefaultHiveBatchPageSourceFactories(config, metastoreClientConfig),
                 getDefaultHiveSelectivePageSourceFactories(config, metastoreClientConfig),
+                getDefaultHiveAggregatedPageSourceFactories(config, metastoreClientConfig),
                 FUNCTION_AND_TYPE_MANAGER,
                 ROW_EXPRESSION_SERVICE);
     }
 
     protected ConnectorSession newSession()
     {
-        return new TestingConnectorSession(new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig(), new CacheConfig()).getSessionProperties());
+        return new TestingConnectorSession(getAllSessionProperties(config, new HiveCommonClientConfig()));
     }
 
     protected Transaction newTransaction()
@@ -405,7 +419,7 @@ public abstract class AbstractTestHiveFileSystem
             throws Exception
     {
         List<ColumnMetadata> columns = ImmutableList.<ColumnMetadata>builder()
-                .add(new ColumnMetadata("id", BIGINT))
+                .add(ColumnMetadata.builder().setName("id").setType(BIGINT).build())
                 .build();
 
         MaterializedResult data = MaterializedResult.resultBuilder(newSession(), BIGINT)
@@ -471,7 +485,8 @@ public abstract class AbstractTestHiveFileSystem
                     split,
                     tableHandle.getLayout().get(),
                     columnHandles,
-                    NON_CACHEABLE)) {
+                    NON_CACHEABLE,
+                    new RuntimeStats())) {
                 MaterializedResult result = materializeSourceDataStream(session, pageSource, getTypes(columnHandles));
                 assertEqualsIgnoreOrder(result.getMaterializedRows(), data.getMaterializedRows());
             }
@@ -487,7 +502,7 @@ public abstract class AbstractTestHiveFileSystem
     }
 
     public static class TestingHiveMetastore
-            extends CachingHiveMetastore
+            extends InMemoryCachingHiveMetastore
     {
         private final Path basePath;
         private final HdfsEnvironment hdfsEnvironment;
@@ -509,12 +524,12 @@ public abstract class AbstractTestHiveFileSystem
         }
 
         @Override
-        public MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges privileges)
+        public MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges privileges, List<TableConstraint<String>> constraints)
         {
             // hack to work around the metastore not being configured for S3 or other FS
             Table.Builder tableBuilder = Table.builder(table);
             tableBuilder.getStorageBuilder().setLocation("/");
-            super.createTable(metastoreContext, tableBuilder.build(), privileges);
+            super.createTable(metastoreContext, tableBuilder.build(), privileges, constraints);
             return EMPTY_RESULT;
         }
 
@@ -535,7 +550,7 @@ public abstract class AbstractTestHiveFileSystem
 
                 // drop table
                 replaceTable(metastoreContext, databaseName, tableName, tableBuilder.build(), new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of()));
-                delegate.dropTable(metastoreContext, databaseName, tableName, false);
+                getDelegate().dropTable(metastoreContext, databaseName, tableName, false);
 
                 // drop data
                 if (deleteData) {
@@ -549,7 +564,7 @@ public abstract class AbstractTestHiveFileSystem
                 throw new UncheckedIOException(e);
             }
             finally {
-                invalidateTable(databaseName, tableName);
+                invalidateTableCache(databaseName, tableName);
             }
         }
 
@@ -578,7 +593,7 @@ public abstract class AbstractTestHiveFileSystem
                 locations.add(table.getStorage().getLocation());
             }
 
-            Optional<List<String>> partitionNames = getPartitionNames(metastoreContext, schemaName, tableName);
+            Optional<List<PartitionNameWithVersion>> partitionNames = getPartitionNames(metastoreContext, schemaName, tableName);
             if (partitionNames.isPresent()) {
                 getPartitionsByNames(metastoreContext, schemaName, tableName, partitionNames.get()).values().stream()
                         .map(Optional::get)

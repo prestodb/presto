@@ -8,13 +8,13 @@ General Changes
 * Fix issue where aggregations may produce the wrong result when ``task.concurrency`` is set to ``1``.
 * Fix query failure when ``array``, ``map``, or ``row`` type is used in non-equi ``JOIN``.
 * Fix performance regression for queries using ``OUTER JOIN``.
-* Fix query failure when using the :func:`arbitrary` aggregation function on ``integer`` type.
+* Fix query failure when using the :func:`!arbitrary` aggregation function on ``integer`` type.
 * Add various math functions that operate directly on ``float`` type.
-* Add flag ``deprecated.legacy-array-agg`` to restore legacy :func:`array_agg`
+* Add flag ``deprecated.legacy-array-agg`` to restore legacy :func:`!array_agg`
   behavior (ignore ``NULL`` input). This flag will be removed in a future release.
 * Add support for uncorrelated ``EXISTS`` clause.
-* Add :func:`cosine_similarity` function.
-* Allow :doc:`/installation/tableau` to use catalogs other than ``hive``.
+* Add :func:`!cosine_similarity` function.
+* Allow :doc:`/clients/tableau` to use catalogs other than ``hive``.
 
 Verifier Changes
 ----------------

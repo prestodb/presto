@@ -3,7 +3,7 @@ Release 0.253
 =============
 
 .. warning::
-    A CPU regression was introduced by :pr:`16027` for queries using :func:`element_at` with ``MAP``
+    A CPU regression was introduced by :pr:`16027` for queries using :func:`!element_at` with ``MAP``
 
 **Details**
 ===========
@@ -13,7 +13,7 @@ _______________
 * Fix amplified ``Cumulative User Memory`` metric in web UI.
 * Add tracking for system memory used by column statistics in ``TableFinishOperator``.
 * Add support for shutting down coordinator via ``/v1/info/state`` endpoint.
-* Add :func:`binomial_cdf` and :func:`inverse_binomial_cdf` functions.
+* Add :func:`!binomial_cdf` and :func:`!inverse_binomial_cdf` functions.
 
 Security Changes
 ________________

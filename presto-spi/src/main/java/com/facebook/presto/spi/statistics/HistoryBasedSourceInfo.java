@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel.HIGH;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -27,11 +28,13 @@ public class HistoryBasedSourceInfo
 {
     private final Optional<String> hash;
     private final Optional<List<PlanStatistics>> inputTableStatistics;
+    private final Optional<HistoricalPlanStatisticsEntryInfo> historicalPlanStatisticsEntryInfo;
 
-    public HistoryBasedSourceInfo(Optional<String> hash, Optional<List<PlanStatistics>> inputTableStatistics)
+    public HistoryBasedSourceInfo(Optional<String> hash, Optional<List<PlanStatistics>> inputTableStatistics, Optional<HistoricalPlanStatisticsEntryInfo> historicalPlanStatisticsEntryInfo)
     {
         this.hash = requireNonNull(hash, "hash is null");
         this.inputTableStatistics = requireNonNull(inputTableStatistics, "inputTableStatistics is null");
+        this.historicalPlanStatisticsEntryInfo = requireNonNull(historicalPlanStatisticsEntryInfo, "historicalPlanStatisticsEntryInfo is null");
     }
 
     public Optional<String> getHash()
@@ -44,6 +47,11 @@ public class HistoryBasedSourceInfo
         return inputTableStatistics;
     }
 
+    public Optional<HistoricalPlanStatisticsEntryInfo> getHistoricalPlanStatisticsEntryInfo()
+    {
+        return historicalPlanStatisticsEntryInfo;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -54,19 +62,19 @@ public class HistoryBasedSourceInfo
             return false;
         }
         HistoryBasedSourceInfo that = (HistoryBasedSourceInfo) o;
-        return Objects.equals(hash, that.hash) && Objects.equals(inputTableStatistics, that.inputTableStatistics);
+        return Objects.equals(hash, that.hash) && Objects.equals(inputTableStatistics, that.inputTableStatistics) && Objects.equals(historicalPlanStatisticsEntryInfo, that.historicalPlanStatisticsEntryInfo);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(hash, inputTableStatistics);
+        return Objects.hash(hash, inputTableStatistics, historicalPlanStatisticsEntryInfo);
     }
 
     @Override
-    public boolean isConfident()
+    public ConfidenceLevel confidenceLevel()
     {
-        return true;
+        return HIGH;
     }
 
     @Override

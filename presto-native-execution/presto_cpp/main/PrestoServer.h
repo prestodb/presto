@@ -16,6 +16,7 @@
 #include <folly/SocketAddress.h>
 #include <folly/Synchronized.h>
 #include <folly/executors/IOThreadPoolExecutor.h>
+#include <folly/io/async/SSLContext.h>
 #include <proxygen/httpserver/RequestHandlerFactory.h>
 #include <velox/exec/Task.h>
 #include <velox/expression/Expr.h>
@@ -24,6 +25,7 @@
 #include "presto_cpp/main/PeriodicHeartbeatManager.h"
 #include "presto_cpp/main/PrestoExchangeSource.h"
 #include "presto_cpp/main/PrestoServerOperations.h"
+#include "presto_cpp/main/types/VeloxPlanValidator.h"
 #include "velox/common/caching/AsyncDataCache.h"
 #include "velox/common/memory/MemoryAllocator.h"
 #if __has_include("filesystem")
@@ -56,13 +58,16 @@ struct MemoryInfo;
 
 namespace facebook::presto {
 
-// Three states our server can be in.
-enum class NodeState { ACTIVE, INACTIVE, SHUTTING_DOWN };
+/// Three states server can be in.
+enum class NodeState : int8_t { kActive, kInActive, kShuttingDown };
+
+std::string nodeState2String(NodeState nodeState);
 
 class Announcer;
 class SignalHandler;
 class TaskManager;
 class TaskResource;
+class PeriodicMemoryChecker;
 class PeriodicTaskManager;
 class SystemConfig;
 
@@ -80,11 +85,39 @@ class PrestoServer {
     return nodeState_;
   }
 
-  void setNodeState(NodeState nodeState) {
-    nodeState_ = nodeState;
+  /// Returns true if the worker needs and has a coordinator discovery and the
+  /// announcer.
+  bool hasCoordinatorDiscoverer() const {
+    return coordinatorDiscoverer_ != nullptr;
   }
 
+  /// Returns the number of threads in the Driver executor.
+  size_t numDriverThreads() const;
+
+  /// Returns true if the server got terminate signal and in the 'shutting down'
+  /// mode. False otherwise.
+  bool isShuttingDown() const {
+    return *shuttingDown_.rlock();
+  }
+
+  /// Set worker into the SHUTTING_DOWN state even if we aren't shutting down.
+  /// This will prevent coordinator from sending new tasks to this worker.
+  void detachWorker();
+
+  /// Set worker into the ACTIVE state if we aren't shutting down.
+  /// This will enable coordinator to send new tasks to this worker.
+  void maybeAttachWorker();
+
+  /// Changes this node's state.
+  void setNodeState(NodeState nodeState);
+
+  /// Enable/disable announcer (process notifying coordinator about this
+  /// worker).
+  void enableAnnouncer(bool enable);
+
  protected:
+  virtual void createPeriodicMemoryChecker();
+
   /// Hook for derived PrestoServer implementations to add/stop additional
   /// periodic tasks.
   virtual void addAdditionalPeriodicTasks(){};
@@ -97,16 +130,16 @@ class PrestoServer {
 
   virtual std::shared_ptr<velox::exec::ExprSetListener> getExprSetListener();
 
-  /// Returns any additional http filters.
-  virtual std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>>
-  getAdditionalHttpServerFilters();
-
-  virtual std::vector<std::string> registerConnectors(
+  virtual std::vector<std::string> registerVeloxConnectors(
       const fs::path& configDirectoryPath);
 
   /// Invoked to register the required dwio data sinks which are used by
   /// connectors.
-  virtual void registerFileSinks() {}
+  virtual void registerFileSinks();
+
+  virtual void registerFileReadersAndWriters();
+
+  virtual void unregisterFileReadersAndWriters();
 
   /// Invoked by presto shutdown procedure to unregister connectors.
   virtual void unregisterConnectors();
@@ -123,9 +156,9 @@ class PrestoServer {
 
   virtual void registerFileSystems();
 
-  virtual void registerMemoryArbitrators();
+  virtual void unregisterFileSystems();
 
-  virtual void registerStatsCounters();
+  virtual void registerMemoryArbitrators();
 
   /// Invoked after creating global (singleton) config objects (SystemConfig and
   /// NodeConfig) and before loading their properties from the file.
@@ -142,15 +175,27 @@ class PrestoServer {
   /// Invoked to get the spill directory.
   virtual std::string getBaseSpillDirectory() const;
 
+  /// Invoked to enable stats reporting and register counters.
+  virtual void enableWorkerStatsReporting();
+
+  /// Invoked to initialize Presto to Velox plan validator.
+  virtual void initVeloxPlanValidator();
+
+  VeloxPlanValidator* getVeloxPlanValidator();
+
   /// Invoked to get the list of filters passed to the http server.
-  std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>>
-  getHttpServerFilters();
+  virtual std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>>
+  getHttpServerFilters() const;
 
   void initializeVeloxMemory();
 
   void initializeThreadPools();
 
+  void registerStatsCounters();
+
  protected:
+  void updateAnnouncerDetails();
+
   void addServerPeriodicTasks();
 
   void reportMemoryInfo(proxygen::ResponseHandler* downstream);
@@ -159,6 +204,10 @@ class PrestoServer {
 
   void reportNodeStatus(proxygen::ResponseHandler* downstream);
 
+  void handleGracefulShutdown(
+      const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+      proxygen::ResponseHandler* downstream);
+
   protocol::NodeStatus fetchNodeStatus();
 
   void populateMemAndCPUInfo();
@@ -166,21 +215,35 @@ class PrestoServer {
   // Periodically yield tasks if there are tasks queued.
   void yieldTasks();
 
+  void registerSystemConnector();
+
+  void registerSidecarEndpoints();
+
+  std::unique_ptr<velox::cache::SsdCache> setupSsdCache();
+
+  void checkOverload();
+
   const std::string configDirectoryPath_;
 
   std::shared_ptr<CoordinatorDiscoverer> coordinatorDiscoverer_;
 
   // Executor for background writing into SSD cache.
-  std::unique_ptr<folly::IOThreadPoolExecutor> cacheExecutor_;
+  std::unique_ptr<folly::CPUThreadPoolExecutor> cacheExecutor_;
+
+  // Executor for async execution for connectors.
+  std::unique_ptr<folly::CPUThreadPoolExecutor> connectorCpuExecutor_;
 
   // Executor for async IO for connectors.
   std::unique_ptr<folly::IOThreadPoolExecutor> connectorIoExecutor_;
 
   // Executor for exchange data over http.
-  std::shared_ptr<folly::IOThreadPoolExecutor> exchangeHttpExecutor_;
+  std::shared_ptr<folly::IOThreadPoolExecutor> exchangeHttpIoExecutor_;
+
+  // Executor for exchange request processing.
+  std::shared_ptr<folly::CPUThreadPoolExecutor> exchangeHttpCpuExecutor_;
 
   // Executor for HTTP request dispatching
-  std::shared_ptr<folly::IOThreadPoolExecutor> httpSrvIOExecutor_;
+  std::shared_ptr<folly::IOThreadPoolExecutor> httpSrvIoExecutor_;
 
   // Executor for HTTP request processing after dispatching
   std::shared_ptr<folly::CPUThreadPoolExecutor> httpSrvCpuExecutor_;
@@ -191,10 +254,9 @@ class PrestoServer {
   // Executor for spilling.
   std::shared_ptr<folly::CPUThreadPoolExecutor> spillerExecutor_;
 
-  std::unique_ptr<ConnectionPools> exchangeSourceConnectionPools_;
+  std::shared_ptr<VeloxPlanValidator> planValidator_;
 
-  // Instance of MemoryAllocator used for all query memory allocations.
-  std::shared_ptr<velox::memory::MemoryAllocator> allocator_;
+  std::unique_ptr<http::HttpClientConnectionPool> exchangeSourceConnectionPool_;
 
   // If not null,  the instance of AsyncDataCache used for in-memory file cache.
   std::shared_ptr<velox::cache::AsyncDataCache> cache_;
@@ -204,13 +266,17 @@ class PrestoServer {
   std::unique_ptr<Announcer> announcer_;
   std::unique_ptr<PeriodicHeartbeatManager> heartbeatManager_;
   std::shared_ptr<velox::memory::MemoryPool> pool_;
+  std::shared_ptr<velox::memory::MemoryPool> nativeWorkerPool_;
   std::unique_ptr<TaskManager> taskManager_;
   std::unique_ptr<TaskResource> taskResource_;
-  std::atomic<NodeState> nodeState_{NodeState::ACTIVE};
-  std::atomic_bool shuttingDown_{false};
+  std::atomic<NodeState> nodeState_{NodeState::kActive};
+  folly::Synchronized<bool> shuttingDown_{false};
   std::chrono::steady_clock::time_point start_;
   std::unique_ptr<PeriodicTaskManager> periodicTaskManager_;
   std::unique_ptr<PrestoServerOperations> prestoServerOperations_;
+  std::unique_ptr<PeriodicMemoryChecker> memoryChecker_;
+  bool isMemOverloaded_{false};
+  bool isCpuOverloaded_{false};
 
   // We update these members asynchronously and return in http requests w/o
   // delay.
@@ -222,6 +288,9 @@ class PrestoServer {
   std::string nodeId_;
   std::string address_;
   std::string nodeLocation_;
+  std::string nodePoolType_;
+  folly::SSLContextPtr sslContext_;
+  std::string prestoBuiltinFunctionPrefix_;
 };
 
 } // namespace facebook::presto

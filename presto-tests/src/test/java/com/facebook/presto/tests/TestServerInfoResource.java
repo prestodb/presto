@@ -33,7 +33,6 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestServerInfoResource
 {
@@ -42,7 +41,6 @@ public class TestServerInfoResource
             .setCatalog("tpch")
             .setSchema("tiny")
             .build();
-    private static final String COORDINATOR = "coordinator";
 
     private ListeningExecutorService executor;
 
@@ -71,7 +69,7 @@ public class TestServerInfoResource
 
             ServerInfoResource serverInfoResource = coordinator.getServerInfoResource();
             NodeState nodeState = serverInfoResource.getServerState();
-            assertTrue(nodeState == NodeState.ACTIVE);
+            assertEquals(nodeState, NodeState.ACTIVE);
         }
     }
 
@@ -90,11 +88,11 @@ public class TestServerInfoResource
             Response response = serverInfoResource.updateState(NodeState.INACTIVE);
             assertEquals(response.getStatus(), 200);
             NodeState nodeState = serverInfoResource.getServerState();
-            assertTrue(nodeState == NodeState.INACTIVE);
+            assertEquals(nodeState, NodeState.INACTIVE);
             response = serverInfoResource.updateState(NodeState.ACTIVE);
             assertEquals(response.getStatus(), 200);
             nodeState = serverInfoResource.getServerState();
-            assertTrue(nodeState == NodeState.ACTIVE);
+            assertEquals(nodeState, NodeState.ACTIVE);
         }
     }
 
@@ -113,7 +111,7 @@ public class TestServerInfoResource
             Response response = serverInfoResource.updateState(NodeState.SHUTTING_DOWN);
             assertEquals(response.getStatus(), 200);
             NodeState nodeState = serverInfoResource.getServerState();
-            assertTrue(nodeState == NodeState.SHUTTING_DOWN);
+            assertEquals(nodeState, NodeState.SHUTTING_DOWN);
         }
     }
 

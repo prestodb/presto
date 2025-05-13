@@ -11,7 +11,7 @@ General Changes
 * Fix occasional query planning failure due to a bug in the projection
   push down optimizer.
 * Fix a parsing issue when expressions contain the form ``POSITION(x in (y))``.
-* Add a new version of :func:`approx_percentile` that takes an ``accuracy``
+* Add a new version of :func:`!approx_percentile` that takes an ``accuracy``
   parameter.
 * Allow specifying columns names in :doc:`/sql/insert` queries.
 * Add ``field_length`` table property to blackhole connector to control the
@@ -23,7 +23,7 @@ General Changes
   within a task. This allows us to optimize for index cache hits or for more
   CPU parallelism. This option is toggled by the ``task.share-index-loading``
   config property or the ``task_share_index_loading`` session property.
-* Add :doc:`Tableau web connector </installation/tableau>`.
+* Add :doc:`Tableau web connector </clients/tableau>`.
 * Improve performance of queries that use an ``IN`` expression with a large
   list of constant values.
 * Enable connector predicate push down for all comparable and equatable types.

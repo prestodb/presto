@@ -59,13 +59,13 @@ import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.facebook.presto.hive.CacheQuota.NO_CACHE_CONSTRAINTS;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.getParquetMaxReadBlockSize;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.getReadNullMaskedParquetEncryptedValue;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.isParquetBatchReaderVerificationEnabled;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.isParquetBatchReadsEnabled;
 import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
 import static com.facebook.presto.hive.parquet.ParquetPageSourceFactory.createDecryptor;
 import static com.facebook.presto.hudi.HudiErrorCode.HUDI_CANNOT_OPEN_SPLIT;
-import static com.facebook.presto.hudi.HudiSessionProperties.getParquetMaxReadBlockSize;
-import static com.facebook.presto.hudi.HudiSessionProperties.getReadNullMaskedParquetEncryptedValue;
-import static com.facebook.presto.hudi.HudiSessionProperties.isParquetBatchReaderVerificationEnabled;
-import static com.facebook.presto.hudi.HudiSessionProperties.isParquetBatchReadsEnabled;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getColumnIO;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getDescriptors;

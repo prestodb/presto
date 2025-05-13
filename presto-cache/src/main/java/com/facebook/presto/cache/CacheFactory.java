@@ -21,7 +21,7 @@ import org.apache.hadoop.conf.Configuration;
 import java.io.IOException;
 import java.net.URI;
 
-import static alluxio.shaded.client.com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Preconditions.checkState;
 
 public class CacheFactory
 {
@@ -31,30 +31,30 @@ public class CacheFactory
             ExtendedFileSystem fileSystem,
             CacheManager cacheManager,
             boolean cachingEnabled,
-            CacheType cacheType,
-            boolean validationEnabled)
+            CacheConfig cacheConfig)
             throws IOException
     {
         if (!cachingEnabled) {
             return fileSystem;
         }
 
-        checkState(cacheType != null);
+        checkState(cacheConfig != null && cacheConfig.getCacheType() != null);
 
-        switch (cacheType) {
+        switch (cacheConfig.getCacheType()) {
             case FILE_MERGE:
                 return new FileMergeCachingFileSystem(
                         factoryUri,
                         factoryConfig,
                         cacheManager,
                         fileSystem,
-                        validationEnabled);
+                        cacheConfig.isValidationEnabled());
             case ALLUXIO:
-                ExtendedFileSystem cachingFileSystem = new AlluxioCachingFileSystem(fileSystem, factoryUri, validationEnabled);
+                ExtendedFileSystem cachingFileSystem = new AlluxioCachingFileSystem(fileSystem,
+                        factoryUri, cacheConfig.isValidationEnabled(), cacheConfig.isLastModifiedTimeCheckEnabled());
                 cachingFileSystem.initialize(factoryUri, factoryConfig);
                 return cachingFileSystem;
             default:
-                throw new IllegalArgumentException("Invalid CacheType: " + cacheType.name());
+                throw new IllegalArgumentException("Invalid CacheType: " + cacheConfig.getCacheType());
         }
     }
 }

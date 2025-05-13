@@ -106,7 +106,7 @@ A connector implementing ``DELETE`` must specify three ``ConnectorMetadata`` met
 
 * ``beginDelete()``::
 
-    ConnectorTableHandle beginDelete(
+    ConnectorDeleteTableHandle beginDelete(
          ConnectorSession session,
          ConnectorTableHandle tableHandle)
 
@@ -116,7 +116,7 @@ A connector implementing ``DELETE`` must specify three ``ConnectorMetadata`` met
   ``beginDelete()`` performs any orchestration needed in the connector to start processing the ``DELETE``.
   This orchestration varies from connector to connector.
 
-  ``beginDelete()`` returns a ``ConnectorTableHandle`` with any added information the connector needs when the handle
+  ``beginDelete()`` returns a ``ConnectorDeleteTableHandle`` with any added information the connector needs when the handle
   is passed back to ``finishDelete()`` and the split generation machinery.  For most connectors, the returned table
   handle contains a flag identifying the table handle as a table handle for a ``DELETE`` operation.
 
@@ -124,7 +124,7 @@ A connector implementing ``DELETE`` must specify three ``ConnectorMetadata`` met
 
       void finishDelete(
           ConnectorSession session,
-          ConnectorTableHandle tableHandle,
+          ConnectoDeleteTableHandle tableHandle,
           Collection<Slice> fragments)
 
   During ``DELETE`` processing, the Presto engine accumulates the ``Slice`` collections returned by ``UpdatablePageSource.finish()``.

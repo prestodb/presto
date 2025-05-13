@@ -17,8 +17,8 @@ package com.facebook.presto.hudi;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.MetastoreClientConfig;
-import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 
 import javax.inject.Inject;
@@ -52,7 +52,7 @@ public class HudiMetadataFactory
     public ConnectorMetadata create()
     {
         return new HudiMetadata(
-                CachingHiveMetastore.memoizeMetastore(metastore, metastoreImpersonationEnabled, perTransactionCacheMaximumSize, metastorePartitionCacheMaxColumnCount),
+                InMemoryCachingHiveMetastore.memoizeMetastore(metastore, metastoreImpersonationEnabled, perTransactionCacheMaximumSize, metastorePartitionCacheMaxColumnCount),
                 hdfsEnvironment,
                 typeManager);
     }

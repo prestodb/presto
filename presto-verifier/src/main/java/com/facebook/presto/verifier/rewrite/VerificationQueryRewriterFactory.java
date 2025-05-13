@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.verifier.rewrite;
 
+import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.BooleanLiteral;
@@ -24,9 +25,11 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.verifier.annotation.ForControl;
 import com.facebook.presto.verifier.annotation.ForTest;
+import com.facebook.presto.verifier.framework.VerifierConfig;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Multimap;
 
 import javax.inject.Inject;
 
@@ -37,6 +40,7 @@ import java.util.Map.Entry;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
 import static com.facebook.presto.verifier.framework.ClusterType.TEST;
+import static com.facebook.presto.verifier.rewrite.FunctionCallRewriter.FunctionCallSubstitute;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -45,24 +49,35 @@ public class VerificationQueryRewriterFactory
 {
     private final SqlParser sqlParser;
     private final TypeManager typeManager;
+    private final BlockEncodingSerde blockEncodingSerde;
     private final QualifiedName controlTablePrefix;
     private final QualifiedName testTablePrefix;
     private final List<Property> controlTableProperties;
     private final List<Property> testTableProperties;
+    private final boolean controlReuseTable;
+    private final boolean testReuseTable;
+
+    private final Multimap<String, FunctionCallSubstitute> functionSubstitutes;
 
     @Inject
     public VerificationQueryRewriterFactory(
             SqlParser sqlParser,
             TypeManager typeManager,
+            BlockEncodingSerde blockEncodingSerde,
             @ForControl QueryRewriteConfig controlConfig,
-            @ForTest QueryRewriteConfig testConfig)
+            @ForTest QueryRewriteConfig testConfig,
+            VerifierConfig verifierConfig)
     {
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerge is null");
         this.controlTablePrefix = requireNonNull(controlConfig.getTablePrefix(), "controlTablePrefix is null");
         this.testTablePrefix = requireNonNull(testConfig.getTablePrefix(), "testTablePrefix is null");
         this.controlTableProperties = constructProperties(controlConfig.getTableProperties());
         this.testTableProperties = constructProperties(testConfig.getTableProperties());
+        this.controlReuseTable = controlConfig.isReuseTable();
+        this.testReuseTable = testConfig.isReuseTable();
+        this.functionSubstitutes = verifierConfig.getFunctionSubstitutes();
     }
 
     @Override
@@ -71,9 +86,12 @@ public class VerificationQueryRewriterFactory
         return new QueryRewriter(
                 sqlParser,
                 typeManager,
+                blockEncodingSerde,
                 prestoAction,
                 ImmutableMap.of(CONTROL, controlTablePrefix, TEST, testTablePrefix),
-                ImmutableMap.of(CONTROL, controlTableProperties, TEST, testTableProperties));
+                ImmutableMap.of(CONTROL, controlTableProperties, TEST, testTableProperties),
+                ImmutableMap.of(CONTROL, controlReuseTable, TEST, testReuseTable),
+                functionSubstitutes);
     }
 
     private static List<Property> constructProperties(Map<String, Object> propertiesMap)

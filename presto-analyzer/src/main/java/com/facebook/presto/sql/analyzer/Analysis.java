@@ -52,16 +52,19 @@ import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.Table;
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Multiset;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Deque;
 import java.util.HashMap;
@@ -70,6 +73,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -157,6 +161,12 @@ public class Analysis
 
     private final Map<NodeRef<QuerySpecification>, List<GroupingOperation>> groupingOperations = new LinkedHashMap<>();
 
+    private final Multiset<RowFilterScopeEntry> rowFilterScopes = HashMultiset.create();
+    private final Map<NodeRef<Table>, List<Expression>> rowFilters = new LinkedHashMap<>();
+
+    private final Multiset<ColumnMaskScopeEntry> columnMaskScopes = HashMultiset.create();
+    private final Map<NodeRef<Table>, Map<String, Expression>> columnMasks = new LinkedHashMap<>();
+
     // for create table
     private Optional<QualifiedObjectName> createTableDestination = Optional.empty();
     private Map<String, Expression> createTableProperties = ImmutableMap.of();
@@ -182,8 +192,6 @@ public class Analysis
 
     // for materialized view analysis state detection, state is used to identify if materialized view has been expanded or in-process.
     private final Map<Table, MaterializedViewAnalysisState> materializedViewAnalysisStateMap = new HashMap<>();
-
-    private final HashSet<QualifiedObjectName> views = new HashSet<>();
 
     private final Map<QualifiedObjectName, String> materializedViews = new LinkedHashMap<>();
 
@@ -835,6 +843,11 @@ public class Analysis
         return accessControlReferences;
     }
 
+    public void addQueryAccessControlInfo(AccessControlInfo accessControlInfo)
+    {
+        accessControlReferences.setQueryAccessControlInfo(accessControlInfo);
+    }
+
     public void addAccessControlCheckForTable(AccessControlRole accessControlRole, AccessControlInfoForTable accessControlInfoForTable)
     {
         accessControlReferences.addTableReference(accessControlRole, accessControlInfoForTable);
@@ -994,6 +1007,59 @@ public class Analysis
             functionMap.get(functionHandle.getKind()).add(functionHandle.getName());
         }
         return functionMap.entrySet().stream().collect(toImmutableMap(Map.Entry::getKey, entry -> ImmutableSet.copyOf(entry.getValue())));
+    }
+
+    public boolean hasRowFilter(QualifiedObjectName table, String identity)
+    {
+        return rowFilterScopes.contains(new RowFilterScopeEntry(table, identity));
+    }
+
+    public void registerTableForRowFiltering(QualifiedObjectName table, String identity)
+    {
+        rowFilterScopes.add(new RowFilterScopeEntry(table, identity));
+    }
+
+    public void unregisterTableForRowFiltering(QualifiedObjectName table, String identity)
+    {
+        rowFilterScopes.remove(new RowFilterScopeEntry(table, identity));
+    }
+
+    public void addRowFilter(Table table, Expression filter)
+    {
+        rowFilters.computeIfAbsent(NodeRef.of(table), node -> new ArrayList<>())
+                .add(filter);
+    }
+
+    public List<Expression> getRowFilters(Table node)
+    {
+        return rowFilters.getOrDefault(NodeRef.of(node), ImmutableList.of());
+    }
+
+    public boolean hasColumnMask(QualifiedObjectName table, String column, String identity)
+    {
+        return columnMaskScopes.contains(new ColumnMaskScopeEntry(table, column, identity));
+    }
+
+    public void registerTableForColumnMasking(QualifiedObjectName table, String column, String identity)
+    {
+        columnMaskScopes.add(new ColumnMaskScopeEntry(table, column, identity));
+    }
+
+    public void unregisterTableForColumnMasking(QualifiedObjectName table, String column, String identity)
+    {
+        columnMaskScopes.remove(new ColumnMaskScopeEntry(table, column, identity));
+    }
+
+    public void addColumnMask(Table table, String column, Expression mask)
+    {
+        Map<String, Expression> masks = columnMasks.computeIfAbsent(NodeRef.of(table), node -> new LinkedHashMap<>());
+        checkArgument(!masks.containsKey(column), "Mask already exists for column %s", column);
+        masks.put(column, mask);
+    }
+
+    public Map<String, Expression> getColumnMasks(Table table)
+    {
+        return columnMasks.getOrDefault(NodeRef.of(table), ImmutableMap.of());
     }
 
     @Immutable
@@ -1177,6 +1243,73 @@ public class Analysis
         public boolean isFromView()
         {
             return isFromView;
+        }
+    }
+
+    private static class RowFilterScopeEntry
+    {
+        private final QualifiedObjectName table;
+        private final String identity;
+
+        public RowFilterScopeEntry(QualifiedObjectName table, String identity)
+        {
+            this.table = requireNonNull(table, "table is null");
+            this.identity = requireNonNull(identity, "identity is null");
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            RowFilterScopeEntry that = (RowFilterScopeEntry) o;
+            return table.equals(that.table) &&
+                    identity.equals(that.identity);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(table, identity);
+        }
+    }
+
+    private static class ColumnMaskScopeEntry
+    {
+        private final QualifiedObjectName table;
+        private final String column;
+        private final String identity;
+
+        public ColumnMaskScopeEntry(QualifiedObjectName table, String column, String identity)
+        {
+            this.table = requireNonNull(table, "table is null");
+            this.column = requireNonNull(column, "column is null");
+            this.identity = requireNonNull(identity, "identity is null");
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            ColumnMaskScopeEntry that = (ColumnMaskScopeEntry) o;
+            return table.equals(that.table) &&
+                    column.equals(that.column) &&
+                    identity.equals(that.identity);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(table, column, identity);
         }
     }
 }

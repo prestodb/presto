@@ -99,6 +99,5 @@ fetching the sheet data for every table, unless it is already cached.
 SQL support
 -----------
 
-The connector provides :ref:`globally available <sql-globally-available>` and
-:ref:`read operation <sql-read-operations>` statements to access data and
+The connector provides globally available and read operation statements to access data and
 metadata in Google Sheets.

@@ -43,6 +43,7 @@ public class HiveFileIterator
     private final ListDirectoryOperation listDirectoryOperation;
     private final NamenodeStats namenodeStats;
     private final NestedDirectoryPolicy nestedDirectoryPolicy;
+    private final boolean skipEmptyFiles;
 
     private Iterator<HiveFileInfo> remoteIterator = Collections.emptyIterator();
 
@@ -50,12 +51,14 @@ public class HiveFileIterator
             Path path,
             ListDirectoryOperation listDirectoryOperation,
             NamenodeStats namenodeStats,
-            NestedDirectoryPolicy nestedDirectoryPolicy)
+            NestedDirectoryPolicy nestedDirectoryPolicy,
+            boolean skipEmptyFiles)
     {
         paths.addLast(requireNonNull(path, "path is null"));
         this.listDirectoryOperation = requireNonNull(listDirectoryOperation, "listDirectoryOperation is null");
         this.namenodeStats = requireNonNull(namenodeStats, "namenodeStats is null");
         this.nestedDirectoryPolicy = requireNonNull(nestedDirectoryPolicy, "nestedDirectoryPolicy is null");
+        this.skipEmptyFiles = skipEmptyFiles;
     }
 
     @Override
@@ -66,8 +69,8 @@ public class HiveFileIterator
                 HiveFileInfo fileInfo = getLocatedFileStatus(remoteIterator);
 
                 // Ignore hidden files and directories. Hive ignores files starting with _ and . as well.
-                String fileName = fileInfo.getPath().getName();
-                if (fileName.startsWith("_") || fileName.startsWith(".")) {
+                String fileName = fileInfo.getFileName();
+                if (fileName.startsWith("_") || fileName.startsWith(".") || (fileInfo.getLength() == 0 && skipEmptyFiles)) {
                     continue;
                 }
 
@@ -76,7 +79,7 @@ public class HiveFileIterator
                         case IGNORED:
                             continue;
                         case RECURSE:
-                            paths.add(fileInfo.getPath());
+                            paths.add(new Path(fileInfo.getPath()));
                             continue;
                         case FAIL:
                             throw new NestedDirectoryNotAllowedException();

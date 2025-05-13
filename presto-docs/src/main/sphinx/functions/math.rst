@@ -28,7 +28,7 @@ Mathematical Functions
 
 .. function:: ceil(x) -> [same as input]
 
-    This is an alias for :func:`ceiling`.
+    This is an alias for :func:`!ceiling`.
 
 .. function:: ceiling(x) -> [same as input]
 
@@ -82,7 +82,7 @@ Mathematical Functions
 
 .. function:: pow(x, p) -> double
 
-    This is an alias for :func:`power`.
+    This is an alias for :func:`!power`.
 
 .. function:: power(x, p) -> double
 
@@ -94,7 +94,7 @@ Mathematical Functions
 
 .. function:: rand() -> double
 
-    This is an alias for :func:`random()`.
+    This is an alias for :func:`!random()`.
 
 .. function:: random() -> double
 
@@ -106,7 +106,7 @@ Mathematical Functions
 
 .. function:: secure_rand() -> double
 
-    This is an alias for :func:`secure_random()`.
+    This is an alias for :func:`!secure_random()`.
 
 .. function:: secure_random() -> double
 
@@ -168,11 +168,19 @@ Mathematical Functions
 .. function:: width_bucket(x, bins) -> bigint
 
     Returns the bin number of ``x`` according to the bins specified by the
-    array ``bins``. The ``bins`` parameter must be an array of doubles and is
-    assumed to be in sorted ascending order.
+    array ``bins``. The ``bins`` parameter must be an array of doubles, should not
+    contain ``null`` or non-finite elements, and is assumed to be in sorted ascending order.
+
+    Note: The function returns an error if it encounters a ``null`` or non-finite
+    element in ``bins``, but due to the binary search algorithm some such elements
+    might go unnoticed and the function will return a result.
+
+.. function:: factorial(x) -> bigint
+
+    Returns the factorial of ``x``.
 
 Probability Functions: cdf
------------------------
+--------------------------
 
 .. function:: beta_cdf(a, b, value) -> double
 
@@ -230,7 +238,7 @@ Probability Functions: cdf
 
 
 Probability Functions: inverse_cdf
------------------------
+----------------------------------
 
 .. function:: inverse_beta_cdf(a, b, p) -> double
 
@@ -297,7 +305,7 @@ Probability Functions: inverse_cdf
 
 
 Statistical Functions
------------------------
+---------------------
 
 .. function:: wilson_interval_lower(successes, trials, z) -> double
 
@@ -313,7 +321,7 @@ Trigonometric Functions
 -----------------------
 
 All trigonometric function arguments are expressed in radians.
-See unit conversion functions :func:`degrees` and :func:`radians`.
+See unit conversion functions :func:`!degrees` and :func:`!radians`.
 
 .. function:: acos(x) -> double
 

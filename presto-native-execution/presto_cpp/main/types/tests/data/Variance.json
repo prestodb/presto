@@ -1,0 +1,130 @@
+{
+  "variance": [
+    {
+      "aggregateMetadata": {
+        "intermediateType": "row(bigint,double,double)",
+        "isOrderSensitive": true
+      },
+      "docString": "presto.default.variance",
+      "functionKind": "AGGREGATE",
+      "longVariableConstraints":[],
+      "outputType": "double",
+      "paramTypes": [
+        "smallint"
+      ],
+      "routineCharacteristics": {
+        "determinism": "DETERMINISTIC",
+        "language": "CPP",
+        "nullCallClause": "CALLED_ON_NULL_INPUT"
+      },
+      "schema": "default",
+      "typeVariableConstraints":[],
+      "variableArity":false
+    },
+    {
+      "aggregateMetadata": {
+        "intermediateType": "row(bigint,double,double)",
+        "isOrderSensitive": true
+      },
+      "docString": "presto.default.variance",
+      "functionKind": "AGGREGATE",
+      "longVariableConstraints":[],
+      "outputType": "double",
+      "paramTypes": [
+        "integer"
+      ],
+      "routineCharacteristics": {
+        "determinism": "DETERMINISTIC",
+        "language": "CPP",
+        "nullCallClause": "CALLED_ON_NULL_INPUT"
+      },
+      "schema": "default",
+      "typeVariableConstraints":[],
+      "variableArity":false
+    },
+    {
+      "aggregateMetadata": {
+        "intermediateType": "row(bigint,double,double)",
+        "isOrderSensitive": true
+      },
+      "docString": "presto.default.variance",
+      "functionKind": "AGGREGATE",
+      "longVariableConstraints":[],
+      "outputType": "double",
+      "paramTypes": [
+        "bigint"
+      ],
+      "routineCharacteristics": {
+        "determinism": "DETERMINISTIC",
+        "language": "CPP",
+        "nullCallClause": "CALLED_ON_NULL_INPUT"
+      },
+      "schema": "default",
+      "typeVariableConstraints":[],
+      "variableArity":false
+    },
+    {
+      "aggregateMetadata": {
+        "intermediateType": "row(bigint,double,double)",
+        "isOrderSensitive": true
+      },
+      "docString": "presto.default.variance",
+      "functionKind": "AGGREGATE",
+      "longVariableConstraints":[],
+      "outputType": "double",
+      "paramTypes": [
+        "real"
+      ],
+      "routineCharacteristics": {
+        "determinism": "DETERMINISTIC",
+        "language": "CPP",
+        "nullCallClause": "CALLED_ON_NULL_INPUT"
+      },
+      "schema": "default",
+      "typeVariableConstraints":[],
+      "variableArity":false
+    },
+    {
+      "aggregateMetadata": {
+        "intermediateType": "row(bigint,double,double)",
+        "isOrderSensitive": true
+      },
+      "docString": "presto.default.variance",
+      "functionKind": "AGGREGATE",
+      "longVariableConstraints":[],
+      "outputType": "double",
+      "paramTypes": [
+        "double"
+      ],
+      "routineCharacteristics": {
+        "determinism": "DETERMINISTIC",
+        "language": "CPP",
+        "nullCallClause": "CALLED_ON_NULL_INPUT"
+      },
+      "schema": "default",
+      "typeVariableConstraints":[],
+      "variableArity":false
+    },
+    {
+      "aggregateMetadata": {
+        "intermediateType": "row(bigint,double,double)",
+        "isOrderSensitive": true
+      },
+      "docString": "presto.default.variance",
+      "functionKind": "WINDOW",
+      "longVariableConstraints":[],
+      "outputType": "double",
+      "paramTypes": [
+        "smallint"
+      ],
+      "routineCharacteristics": {
+        "determinism": "DETERMINISTIC",
+        "language": "CPP",
+        "nullCallClause": "CALLED_ON_NULL_INPUT"
+      },
+      "schema": "default",
+      "typeVariableConstraints":[],
+      "variableArity":false
+    }
+  ]
+}

@@ -33,6 +33,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
+import com.facebook.presto.common.type.UuidType;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.hive.HiveType;
@@ -60,6 +61,7 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.hive.HiveType.HIVE_BINARY;
@@ -117,9 +119,15 @@ public final class TypeConverter
             case TIME:
                 return TimeType.TIME;
             case TIMESTAMP:
+                Types.TimestampType timestampType = (Types.TimestampType) type.asPrimitiveType();
+                if (timestampType.shouldAdjustToUTC()) {
+                    return TIMESTAMP_WITH_TIME_ZONE;
+                }
                 return TimestampType.TIMESTAMP;
             case STRING:
                 return VarcharType.createUnboundedVarcharType();
+            case UUID:
+                return UuidType.UUID;
             case LIST:
                 Types.ListType listType = (Types.ListType) type;
                 return new ArrayType(toPrestoType(listType.elementType(), typeManager));
@@ -136,6 +144,24 @@ public final class TypeConverter
             default:
                 throw new UnsupportedOperationException(format("Cannot convert from Iceberg type '%s' (%s) to Presto type", type, type.typeId()));
         }
+    }
+
+    public static org.apache.iceberg.types.Type toIcebergType(
+            Type type,
+            String columnName,
+            Map<String, Integer> columnNameToIdMapping)
+    {
+        if (type instanceof RowType) {
+            return fromRow((RowType) type, columnName, columnNameToIdMapping);
+        }
+        if (type instanceof ArrayType) {
+            return fromArray((ArrayType) type, columnName, columnNameToIdMapping);
+        }
+        if (type instanceof MapType) {
+            return fromMap((MapType) type, columnName, columnNameToIdMapping);
+        }
+
+        return toIcebergType(type);
     }
 
     public static org.apache.iceberg.types.Type toIcebergType(Type type)
@@ -185,6 +211,9 @@ public final class TypeConverter
         if (type instanceof TimestampWithTimeZoneType) {
             return Types.TimestampType.withZone();
         }
+        if (type instanceof UuidType) {
+            return Types.UUIDType.get();
+        }
         throw new PrestoException(NOT_SUPPORTED, "Type not supported for Iceberg: " + type.getDisplayName());
     }
 
@@ -209,14 +238,53 @@ public final class TypeConverter
         return Types.StructType.of(fields);
     }
 
+    public static org.apache.iceberg.types.Type fromRow(
+            RowType type,
+            String columnName,
+            Map<String, Integer> columnNameToIdMapping)
+    {
+        List<Types.NestedField> fields = new ArrayList<>();
+        for (RowType.Field field : type.getFields()) {
+            String name = field.getName().orElseThrow(() ->
+                    new PrestoException(NOT_SUPPORTED, "Cannot convert Row type field " + type.getDisplayName() + " to Iceberg"));
+            fields.add(Types.NestedField.optional(
+                    columnNameToIdMapping.get(columnName + "." + name),
+                    name,
+                    toIcebergType(field.getType(), columnName + "." + name, columnNameToIdMapping)));
+        }
+        return Types.StructType.of(fields);
+    }
+
     public static org.apache.iceberg.types.Type fromRow(RowType type)
     {
         return fromRow(type, 0);
     }
 
+    private static org.apache.iceberg.types.Type fromArray(
+            ArrayType type,
+            String columnName,
+            Map<String, Integer> columnNameToIdMapping)
+    {
+        return Types.ListType.ofOptional(
+                columnNameToIdMapping.get(columnName + ".element"),
+                toIcebergType(type.getElementType(), columnName + ".element", columnNameToIdMapping));
+    }
+
     private static org.apache.iceberg.types.Type fromArray(ArrayType type)
     {
         return Types.ListType.ofOptional(1, toIcebergType(type.getElementType()));
+    }
+
+    private static org.apache.iceberg.types.Type fromMap(
+            MapType type,
+            String columnName,
+            Map<String, Integer> columnNameToIdMapping)
+    {
+        return Types.MapType.ofOptional(
+                columnNameToIdMapping.get(columnName + ".key"),
+                columnNameToIdMapping.get(columnName + ".value"),
+                toIcebergType(type.getKeyType(), columnName + ".key", columnNameToIdMapping),
+                toIcebergType(type.getValueType(), columnName + ".value", columnNameToIdMapping));
     }
 
     private static org.apache.iceberg.types.Type fromMap(MapType type)
@@ -246,6 +314,9 @@ public final class TypeConverter
         }
         if (DOUBLE.equals(type)) {
             return HIVE_DOUBLE.getTypeInfo();
+        }
+        if (TimeType.TIME.equals(type)) {
+            return HIVE_LONG.getTypeInfo();
         }
         if (type instanceof VarcharType) {
             VarcharType varcharType = (VarcharType) type;

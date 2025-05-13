@@ -15,6 +15,7 @@ package com.facebook.presto.orc;
 
 import io.airlift.units.DataSize;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class OrcRecordReaderOptions
@@ -24,10 +25,18 @@ public class OrcRecordReaderOptions
     private final DataSize maxBlockSize;
     private final boolean mapNullKeysEnabled;
     private final boolean appendRowNumber;
+    private final long maxSliceSize;
+    private final boolean resetAllReaders;
 
     public OrcRecordReaderOptions(OrcReaderOptions options)
     {
-        this(options.getMaxMergeDistance(), options.getTinyStripeThreshold(), options.getMaxBlockSize(), options.mapNullKeysEnabled(), options.appendRowNumber());
+        this(options.getMaxMergeDistance(),
+                options.getTinyStripeThreshold(),
+                options.getMaxBlockSize(),
+                options.mapNullKeysEnabled(),
+                options.appendRowNumber(),
+                options.getMaxSliceSize(),
+                options.isResetAllReaders());
     }
 
     public OrcRecordReaderOptions(
@@ -35,13 +44,19 @@ public class OrcRecordReaderOptions
             DataSize tinyStripeThreshold,
             DataSize maxBlockSize,
             boolean mapNullKeysEnabled,
-            boolean appendRowNumber)
+            boolean appendRowNumber,
+            DataSize maxSliceSize,
+            boolean resetAllReaders)
     {
         this.maxMergeDistance = requireNonNull(maxMergeDistance, "maxMergeDistance is null");
         this.maxBlockSize = requireNonNull(maxBlockSize, "maxBlockSize is null");
         this.tinyStripeThreshold = requireNonNull(tinyStripeThreshold, "tinyStripeThreshold is null");
         this.mapNullKeysEnabled = mapNullKeysEnabled;
         this.appendRowNumber = appendRowNumber;
+        checkArgument(maxSliceSize.toBytes() < Integer.MAX_VALUE, "maxSliceSize cannot be larger than Integer.MAX_VALUE");
+        checkArgument(maxSliceSize.toBytes() > 0, "maxSliceSize must be positive");
+        this.maxSliceSize = maxSliceSize.toBytes();
+        this.resetAllReaders = resetAllReaders;
     }
 
     public DataSize getMaxMergeDistance()
@@ -67,5 +82,15 @@ public class OrcRecordReaderOptions
     public boolean appendRowNumber()
     {
         return appendRowNumber;
+    }
+
+    public long getMaxSliceSize()
+    {
+        return maxSliceSize;
+    }
+
+    public boolean isResetAllReaders()
+    {
+        return resetAllReaders;
     }
 }

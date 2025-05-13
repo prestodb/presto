@@ -39,7 +39,13 @@ public final class TpcdsQueryRunner
         return createQueryRunner(extraProperties, ImmutableMap.of());
     }
 
-    public static DistributedQueryRunner createQueryRunner(Map<String, String> extraProperties, Map<String, String> coordinatorProperties)
+    public static DistributedQueryRunner createQueryRunner(Map<String, String> extraProperties, Map<String, String> tpcdsProperties)
+            throws Exception
+    {
+        return createQueryRunner(extraProperties, tpcdsProperties, ImmutableMap.of());
+    }
+
+    public static DistributedQueryRunner createQueryRunner(Map<String, String> extraProperties, Map<String, String> tpcdsProperties, Map<String, String> coordinatorProperties)
             throws Exception
     {
         Session session = testSessionBuilder()
@@ -56,7 +62,7 @@ public final class TpcdsQueryRunner
 
         try {
             queryRunner.installPlugin(new TpcdsPlugin());
-            queryRunner.createCatalog("tpcds", "tpcds");
+            queryRunner.createCatalog("tpcds", "tpcds", tpcdsProperties);
             return queryRunner;
         }
         catch (Exception e) {

@@ -37,6 +37,7 @@ import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_ENABLED;
 import static com.facebook.presto.common.type.StandardTypes.BIGINT;
 import static com.facebook.presto.common.type.StandardTypes.BOOLEAN;
 import static com.facebook.presto.common.type.StandardTypes.DATE;
@@ -110,7 +111,8 @@ public class TestHivePushdownFilterQueries
     {
         DistributedQueryRunner queryRunner = HiveQueryRunner.createQueryRunner(getTables(),
                 ImmutableMap.of("experimental.pushdown-subfields-enabled", "true",
-                        "experimental.pushdown-dereference-enabled", "true"),
+                        "experimental.pushdown-dereference-enabled", "true",
+                        "use-new-nan-definition", "true"),
                 "sql-standard",
                 ImmutableMap.of("hive.pushdown-filter-enabled", "true",
                         "hive.enable-parquet-dereference-pushdown", "true",
@@ -1044,7 +1046,8 @@ public class TestHivePushdownFilterQueries
             // no filter
             assertQueryUsingH2Cte("SELECT * FROM test_file_format_orc", cte);
             assertQueryUsingH2Cte("SELECT comment FROM test_file_format_orc", cte);
-            assertQueryFails("SELECT COUNT(*) FROM test_file_format_orc", "Partial aggregation pushdown only supported for ORC/Parquet files. Table tpch.test_file_format_orc has file ((.*?)) of format (.*?). Set session property hive.pushdown_partial_aggregations_into_scan=false and execute query again");
+            assertQueryFails("SELECT COUNT(*) FROM test_file_format_orc", "Table tpch.test_file_format_orc has file of format .* that does not support partial aggregation pushdown. " +
+                    "Set session property \\[catalog\\-name\\].pushdown_partial_aggregations_into_scan=false and execute query again.");
             assertQueryUsingH2Cte(noPartialAggregationPushdown(queryRunner.getDefaultSession()), "SELECT COUNT(*) FROM test_file_format_orc", cte, Function.identity());
 
             // filter on partition column
@@ -1104,6 +1107,8 @@ public class TestHivePushdownFilterQueries
             assertQuery("SELECT double_value FROM test_nan WHERE double_value != 1", "SELECT cast('NaN' as DOUBLE) UNION SELECT 2");
             assertQuery("SELECT float_value FROM test_nan WHERE float_value != 1", "SELECT CAST('NaN' as REAL) UNION SELECT 2");
             assertQuery("SELECT double_value FROM test_nan WHERE double_value NOT IN (1, 2)", "SELECT CAST('NaN' as DOUBLE)");
+            assertQuery("SELECT double_value FROM test_nan WHERE double_value > 1", "SELECT cast('NaN' as DOUBLE) UNION SELECT 2");
+            assertQuery("SELECT float_value FROM test_nan WHERE float_value > 1", "SELECT cast('NaN' as REAL) UNION SELECT 2");
         }
         finally {
             assertUpdate("DROP TABLE test_nan");
@@ -1125,6 +1130,54 @@ public class TestHivePushdownFilterQueries
                 getSession(),
                 "SELECT * FROM lineitem WHERE orderkey = 1 and orderkey = 2",
                 ImmutableSet.of(HIVE_TABLESCAN_CONVERTED_TO_VALUESNODE.toWarningCode()));
+    }
+
+    //Test for issue https://github.com/prestodb/presto/issues/22690
+    //Avoid negative index pushdown
+    @Test
+    public void testArraySubscriptPushdown()
+    {
+        Session session = enablePushdownFilterAndSubfield(getQueryRunner().getDefaultSession());
+        getQueryRunner().execute(session,
+                "CREATE TABLE test_neg_array_sub_pushdown AS \n" +
+                        "select ARRAY[10,20,30,40] numbers");
+
+        try {
+            assertQuery("select element_at(numbers,1) as number from test_neg_array_sub_pushdown", "SELECT 10");
+            assertQuery("select element_at(numbers,2) as number from test_neg_array_sub_pushdown", "SELECT 20");
+            assertQuery("select element_at(numbers,3) as number from test_neg_array_sub_pushdown", "SELECT 30");
+            assertQuery("select element_at(numbers,-1) as number from test_neg_array_sub_pushdown", "SELECT 40");
+            assertQuery("select element_at(numbers,-2) as number from test_neg_array_sub_pushdown", "SELECT 30");
+            assertQuery("select element_at(numbers,-3) as number from test_neg_array_sub_pushdown", "SELECT 20");
+            assertQueryFails("select element_at(numbers,0) as number from test_neg_array_sub_pushdown", "SQL array indices start at 1");
+
+            assertQuery("select numbers[1]  as number from test_neg_array_sub_pushdown", "SELECT 10");
+            assertQuery("select numbers[2]  as number from test_neg_array_sub_pushdown", "SELECT 20");
+            assertQuery("select numbers[3 ]  as number from test_neg_array_sub_pushdown", "SELECT 30");
+            assertQueryFails("select numbers[-1]  as number from test_neg_array_sub_pushdown", "Array subscript is negative");
+            assertQueryFails("select numbers[-2]  as number from test_neg_array_sub_pushdown", "Array subscript is negative");
+            assertQueryFails("select numbers[0]  as number from test_neg_array_sub_pushdown", "SQL array indices start at 1");
+        }
+        finally {
+            getQueryRunner().execute("DROP TABLE test_neg_array_sub_pushdown");
+        }
+    }
+
+    @Test
+    public void testArraySubscriptPushdownEmptyArray()
+    {
+        Session session = enablePushdownFilterAndSubfield(getQueryRunner().getDefaultSession());
+        getQueryRunner().execute(session,
+                "CREATE TABLE test_neg_array_sub_pushdown ( numbers  array(integer))");
+        assertUpdate("INSERT into test_neg_array_sub_pushdown (numbers) values (ARRAY[])", 1);
+
+        try {
+            assertQuery("select element_at(numbers,1) as number from test_neg_array_sub_pushdown", "SELECT NULL");
+            assertQuery("select element_at(numbers,-2) as number from test_neg_array_sub_pushdown", "SELECT NULL");
+        }
+        finally {
+            getQueryRunner().execute("DROP TABLE test_neg_array_sub_pushdown");
+        }
     }
 
     private Path getPartitionDirectory(String tableName, String partitionClause)
@@ -1212,6 +1265,14 @@ public class TestHivePushdownFilterQueries
     {
         return Session.builder(session)
                 .setCatalogSessionProperty(HIVE_CATALOG, PARTIAL_AGGREGATION_PUSHDOWN_ENABLED, "false")
+                .build();
+    }
+
+    private static Session enablePushdownFilterAndSubfield(Session session)
+    {
+        return Session.builder(session)
+                .setCatalogSessionProperty(HIVE_CATALOG, PUSHDOWN_FILTER_ENABLED, "true")
+                .setSystemProperty(PUSHDOWN_SUBFIELDS_ENABLED, "true")
                 .build();
     }
 }

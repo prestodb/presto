@@ -206,6 +206,12 @@ public class LongDictionaryColumnWriter
     }
 
     @Override
+    protected void updateRawSizeInDirectWriter(long rawSize)
+    {
+        directColumnWriter.updateRawSize(rawSize);
+    }
+
+    @Override
     protected Optional<int[]> writeDictionary()
     {
         long[] elements = dictionary.elements();
@@ -268,6 +274,7 @@ public class LongDictionaryColumnWriter
     @Override
     protected ColumnStatistics createColumnStatistics()
     {
+        statisticsBuilder.incrementRawSize(rawSize);
         ColumnStatistics statistics = statisticsBuilder.buildColumnStatistics();
         statisticsBuilder = new IntegerStatisticsBuilder();
         return statistics;

@@ -356,10 +356,12 @@ public class TestStringStatisticsBuilder
     private static ColumnStatistics stringColumnStatistics(Slice minimum, Slice maximum)
     {
         if (minimum == null && maximum == null) {
-            return new ColumnStatistics(100L, null);
+            return new ColumnStatistics(100L, null, null, null);
         }
         return new StringColumnStatistics(
                 100L,
+                null,
+                null,
                 null,
                 new StringStatistics(minimum, maximum, 100));
     }

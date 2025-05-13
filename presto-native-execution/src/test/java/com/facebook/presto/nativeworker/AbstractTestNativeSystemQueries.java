@@ -13,16 +13,33 @@
  */
 package com.facebook.presto.nativeworker;
 
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
+
 import static com.facebook.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.getNativeQueryRunnerParameters;
+import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static org.testng.Assert.assertEquals;
 
 public abstract class AbstractTestNativeSystemQueries
         extends AbstractTestQueryFramework
 {
+    @Override
+    protected FeaturesConfig createFeaturesConfig()
+    {
+        return new FeaturesConfig().setNativeExecutionEnabled(true);
+    }
+
     @Test
     public void testNodes()
     {
@@ -33,8 +50,27 @@ public abstract class AbstractTestNativeSystemQueries
     @Test
     public void testTasks()
     {
-        assertQueryFails("select * from system.runtime.tasks",
-                ".*system not registered.*");
+        // This query has a single task on the co-ordinator, and at least one on a Native worker.
+        // So limit 2 should always return correctly.
+        assertQueryResultCount("select * from system.runtime.tasks limit 2", 2);
+
+        // This query performs an aggregation on tasks table.
+        // There are 2 special planning rules for system tables :
+        // i) Partial aggregations are disabled for system tables
+        // (as aggregations are not consistent across co-ordinator and native workers)
+        // ii) A remote gather exchange is added after the system table TableScanNode so that the partitioning
+        // is made consistent with the rest of the tables.
+        String aggregation = "select sum(output_bytes) from system.runtime.tasks";
+        assertQuerySucceeds(aggregation);
+        assertPlan(
+                aggregation,
+                anyTree(
+                        aggregation(
+                                Collections.emptyMap(),
+                                SINGLE,
+                                exchange(LOCAL, GATHER,
+                                        exchange(REMOTE_STREAMING, GATHER,
+                                                tableScan("tasks"))))));
     }
 
     @Test

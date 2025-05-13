@@ -1,6 +1,6 @@
-**********
+*******
 Plugins
-**********
+*******
 
 This chapter outlines the plugins in Presto that are available for various use cases.
 

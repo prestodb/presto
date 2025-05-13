@@ -103,7 +103,7 @@ public class ColumnIdentity
     @Override
     public String toString()
     {
-        return id + ":" + name;
+        return id + ":" + name + ":" + typeCategory + ":" + children;
     }
 
     public enum TypeCategory
@@ -121,14 +121,11 @@ public class ColumnIdentity
 
     public static ColumnIdentity createColumnIdentity(Types.NestedField column)
     {
-        int id = column.fieldId();
-        String name = column.name();
-        org.apache.iceberg.types.Type fieldType = column.type();
+        return createColumnIdentity(column.name(), column.fieldId(), column.type());
+    }
 
-        if (fieldType.equals(Types.TimestampType.withZone())) {
-            throw new UnsupportedOperationException(format("Iceberg column type %s is not supported", fieldType));
-        }
-
+    public static ColumnIdentity createColumnIdentity(String name, int id, org.apache.iceberg.types.Type fieldType)
+    {
         if (!fieldType.isNestedType()) {
             return new ColumnIdentity(id, name, PRIMITIVE, ImmutableList.of());
         }

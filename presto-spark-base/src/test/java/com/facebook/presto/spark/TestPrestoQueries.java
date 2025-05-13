@@ -15,6 +15,7 @@ package com.facebook.presto.spark;
 
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueries;
+import org.testng.annotations.Test;
 
 public class TestPrestoQueries
         extends AbstractTestQueries
@@ -104,18 +105,8 @@ public class TestPrestoQueries
         // prepared statement is not supported by Presto on Spark
     }
 
-    public void testExecuteUsingComplexJoinCriteria()
-    {
-        // prepared statement is not supported by Presto on Spark
-    }
-
     @Override
     public void testExecuteUsingWithSubquery()
-    {
-        // prepared statement is not supported by Presto on Spark
-    }
-
-    public void testExecuteUsingWithSubqueryInJoin()
     {
         // prepared statement is not supported by Presto on Spark
     }
@@ -190,5 +181,23 @@ public class TestPrestoQueries
     public void testExplainDdl()
     {
         // DDL statements are not supported by Presto on Spark
+    }
+
+    @Override
+    public void testShowSessionWithoutNativeSessionProperties()
+    {
+        // prepared statement is not supported by Presto on Spark
+    }
+
+    @Override
+    public void testSetSessionNativeWorkerSessionProperty()
+    {
+        // prepared statement is not supported by Presto on Spark
+    }
+
+    @Test
+    public void testUse()
+    {
+        // USE statement is not supported
     }
 }

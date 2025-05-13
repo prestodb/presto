@@ -15,13 +15,11 @@ package com.facebook.presto.druid;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
-import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
@@ -31,13 +29,10 @@ import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.LimitNode;
-import com.facebook.presto.spi.plan.Ordering;
-import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
-import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.ExpressionUtils;
@@ -51,15 +46,12 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.testing.TestingSession;
 import com.facebook.presto.testing.TestingTransactionHandle;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Arrays;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.IntStream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
@@ -69,6 +61,7 @@ import static com.facebook.presto.druid.DruidColumnHandle.DruidColumnType.REGULA
 import static com.facebook.presto.druid.DruidQueryGeneratorContext.Origin.DERIVED;
 import static com.facebook.presto.druid.DruidQueryGeneratorContext.Origin.TABLE_COLUMN;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
+import static com.facebook.presto.metadata.SessionPropertyManager.createTestingSessionPropertyManager;
 import static com.facebook.presto.spi.plan.LimitNode.Step.FINAL;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
@@ -116,7 +109,7 @@ public class TestDruidQueryBase
         public SessionHolder()
         {
             connectorSession = SESSION;
-            session = TestingSession.testSessionBuilder(new SessionPropertyManager(new SystemSessionProperties().getSessionProperties())).build();
+            session = TestingSession.testSessionBuilder(createTestingSessionPropertyManager(new SystemSessionProperties().getSessionProperties())).build();
         }
 
         public ConnectorSession getConnectorSession()
@@ -154,7 +147,7 @@ public class TestDruidQueryBase
                 variables,
                 assignments.build(),
                 TupleDomain.all(),
-                TupleDomain.all());
+                TupleDomain.all(), Optional.empty());
     }
 
     protected FilterNode filter(PlanBuilder planBuilder, PlanNode source, RowExpression predicate)
@@ -169,17 +162,6 @@ public class TestDruidQueryBase
         columnNames.forEach(columnName -> {
             VariableReferenceExpression variable = requireNonNull(incomingColumns.get(columnName), "Couldn't find the incoming column " + columnName);
             assignmentsBuilder.put(variable, variable);
-        });
-        return planBuilder.project(assignmentsBuilder.build(), source);
-    }
-
-    protected ProjectNode project(PlanBuilder planBuilder, PlanNode source, LinkedHashMap<String, String> toProject, SessionHolder sessionHolder)
-    {
-        Assignments.Builder assignmentsBuilder = Assignments.builder();
-        toProject.forEach((columnName, expression) -> {
-            RowExpression rowExpression = getRowExpression(expression, sessionHolder);
-            VariableReferenceExpression variable = new VariableReferenceExpression(Optional.empty(), columnName, rowExpression.getType());
-            assignmentsBuilder.put(variable, rowExpression);
         });
         return planBuilder.project(assignmentsBuilder.build(), source);
     }
@@ -205,12 +187,6 @@ public class TestDruidQueryBase
     protected LimitNode limit(PlanBuilder pb, long count, PlanNode source)
     {
         return new LimitNode(Optional.empty(), pb.getIdAllocator().getNextId(), source, count, FINAL);
-    }
-
-    protected TopNNode topN(PlanBuilder pb, long count, List<String> orderingColumns, List<Boolean> ascending, PlanNode source)
-    {
-        ImmutableList<Ordering> ordering = IntStream.range(0, orderingColumns.size()).boxed().map(i -> new Ordering(variable(orderingColumns.get(i)), ascending.get(i) ? SortOrder.ASC_NULLS_FIRST : SortOrder.DESC_NULLS_FIRST)).collect(toImmutableList());
-        return new TopNNode(Optional.empty(), pb.getIdAllocator().getNextId(), source, count, new OrderingScheme(ordering), TopNNode.Step.SINGLE);
     }
 
     protected RowExpression getRowExpression(String sqlExpression, SessionHolder sessionHolder)

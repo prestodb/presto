@@ -15,9 +15,6 @@
 package com.facebook.presto.plugin.singlestore;
 
 import com.facebook.airlift.log.Logger;
-import com.facebook.presto.testing.docker.DockerContainer;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
 import java.io.Closeable;
 import java.sql.Connection;
@@ -32,57 +29,33 @@ public class DockerizedSingleStoreServer
         implements Closeable
 {
     private static final Logger LOG = Logger.get(DockerizedSingleStoreServer.class);
-    private static final int SINGLESTORE_PORT = 3306;
-    private static final String SINGLESTORE_USER = "root";
-    private static final String ROOT_PASSWORD = "LbRootPass1";
     private static final String SINGLESTORE_LICENSE_PROPERTY = "SINGLESTORE_LICENSE";
 
-    private final DockerContainer dockerContainer;
+    private final SingleStoreContainer dockerContainer;
 
     public DockerizedSingleStoreServer()
     {
         String license = System.getenv(SINGLESTORE_LICENSE_PROPERTY);
         if (license == null || license.isEmpty()) {
-            LOG.info("Missed environment variable: '" + SINGLESTORE_LICENSE_PROPERTY + "'");
+            LOG.info("Using default license value, environment variable: '{}' is missed.", SINGLESTORE_LICENSE_PROPERTY);
             license = "BGNkNGNlYzFlYWYwYjQ0Yjc5ZGQ5ZTUwM2NjZTc3OWMxAAAAAAAAAAAEAAAAAAAAACgwNQIYK8UIk2TShKVDLkN3bRKbH/JMFGURGStoAhkAtCoka/omJzS5DWPltpVhJMjqh4ZV2bYEAA==";
         }
         assertTrue(license != null && !license.isEmpty(), "Missed environment variable: '" + SINGLESTORE_LICENSE_PROPERTY + "'");
-        this.dockerContainer = new DockerContainer(
-                "ghcr.io/singlestore-labs/singlestoredb-dev:latest",
-                ImmutableList.of(SINGLESTORE_PORT),
-                ImmutableMap.of(
-                        "SINGLESTORE_LICENSE", license,
-                        "ROOT_PASSWORD", ROOT_PASSWORD),
-                DockerizedSingleStoreServer::healthCheck);
-    }
-
-    private static void healthCheck(DockerContainer.HostPortProvider hostPortProvider)
-            throws SQLException
-    {
-        String jdbcUrl = getJdbcUrl(hostPortProvider, SINGLESTORE_USER, ROOT_PASSWORD);
-        try (Connection conn = DriverManager.getConnection(jdbcUrl);
-                Statement stmt = conn.createStatement()) {
-            stmt.execute("SELECT 1");
-        }
+        this.dockerContainer = new SingleStoreContainer(license);
+        this.dockerContainer.start();
     }
 
     public void setGlobalVariable(String name, String value)
             throws SQLException
     {
-        try (Connection conn = DriverManager.getConnection(getJdbcUrl());
-                Statement stmt = conn.createStatement()) {
+        try (Connection conn = DriverManager.getConnection(getJdbcUrl()); Statement stmt = conn.createStatement()) {
             stmt.execute(format("SET GLOBAL %s = %s", name, value));
         }
     }
 
     public String getJdbcUrl()
     {
-        return getJdbcUrl(dockerContainer::getHostPort, SINGLESTORE_USER, ROOT_PASSWORD);
-    }
-
-    private static String getJdbcUrl(DockerContainer.HostPortProvider hostPortProvider, String user, String password)
-    {
-        return format("jdbc:singlestore://localhost:%s?user=%s&password=%s", hostPortProvider.getHostPort(SINGLESTORE_PORT), user, password);
+        return dockerContainer.getJdbcUrl();
     }
 
     @Override

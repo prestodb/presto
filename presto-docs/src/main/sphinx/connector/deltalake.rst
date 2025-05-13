@@ -7,7 +7,7 @@ Overview
 
 This connector allows reading `Delta Lake <https://delta.io/>`_
 tables in Presto. The connector uses the
-`Delta Standalone Library (DSR) <https://github.com/delta-io/connectors/wiki/Delta-Standalone-Reader>`_
+`Delta Kernel API <https://docs.delta.io/latest/delta-kernel.html>`_
 provided by Delta Lake project to read the table metadata.
 
 Configuration
@@ -22,6 +22,12 @@ replacing the properties as appropriate:
     connector.name=delta
     hive.metastore.uri=hostname:port
 
+File-Based Metastore
+^^^^^^^^^^^^^^^^^^^^
+
+For testing or development purposes, this connector can be configured to use a local 
+filesystem directory as a Hive Metastore. See :ref:`installation/deployment:File-Based Metastore`.  
+
 Configuration Properties
 ------------------------
 
@@ -35,12 +41,17 @@ Property Name                                   Description                     
                                                 metastore to find the location of Delta Lake tables.
                                                 From the Delta Log at given location, schema and data
                                                 file list of the table is found.
+
+``hive.metastore.catalog.name``                 Specifies the catalog name to be passed to the metastore.
+
 ``delta.parquet-dereference-pushdown-enabled``  Enable pushing nested column dereferences into            ``true``
                                                 table scan so that only the required fields
                                                 selected in a ``struct`` data type column are selected.
                                                 In order for this option to work, also set
                                                 ``experimental.pushdown-dereference-enabled`` to
                                                 ``true``.
+``delta.case-sensitive-partitions-enabled``     Allows matching the names of partitioned columns in a     ``true``
+                                                case-sensitive manner.
 =============================================== ========================================================= ============
 
 Delta Lake connector reuses many of the modules existing in Hive connector.

@@ -14,15 +14,19 @@
 package com.facebook.presto.iceberg.changelog;
 
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.iceberg.FileFormat;
 import com.facebook.presto.iceberg.IcebergColumnHandle;
 import com.facebook.presto.iceberg.IcebergSplit;
+import com.facebook.presto.iceberg.PartitionData;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SplitWeight;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
+import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.google.common.collect.ImmutableList;
+import com.google.common.io.Closer;
 import org.apache.iceberg.AddedRowsScanTask;
 import org.apache.iceberg.ChangelogScanTask;
 import org.apache.iceberg.ContentScanTask;
@@ -30,7 +34,10 @@ import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DeletedDataFileScanTask;
 import org.apache.iceberg.DeletedRowsScanTask;
 import org.apache.iceberg.IncrementalChangelogScan;
+import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.CloseableIterator;
 
 import java.io.IOException;
@@ -40,10 +47,16 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
+import static com.facebook.presto.hive.HiveCommonSessionProperties.getAffinitySchedulingFileSectionSize;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.getNodeSelectionStrategy;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT;
-import static com.facebook.presto.iceberg.IcebergSessionProperties.getNodeSelectionStrategy;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.getMinimumAssignedSplitWeight;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
+import static com.facebook.presto.iceberg.IcebergUtil.getDataSequenceNumber;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitionKeys;
+import static com.facebook.presto.iceberg.IcebergUtil.getTargetSplitSize;
+import static com.facebook.presto.iceberg.IcebergUtil.partitionDataFromStructLike;
+import static com.facebook.presto.iceberg.changelog.ChangelogOperation.fromIcebergChangelogOperation;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.collect.Iterators.limit;
 import static java.util.Objects.requireNonNull;
@@ -52,25 +65,30 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 public class ChangelogSplitSource
         implements ConnectorSplitSource
 {
+    private final Closer closer = Closer.create();
+    private CloseableIterable<ChangelogScanTask> fileScanTaskIterable;
     private CloseableIterator<ChangelogScanTask> fileScanTaskIterator;
-    private final IncrementalChangelogScan tableScan;
     private final double minimumAssignedSplitWeight;
-    private final ConnectorSession session;
+    private final long targetSplitSize;
     private final List<IcebergColumnHandle> columnHandles;
+    private final NodeSelectionStrategy nodeSelectionStrategy;
+    private final long affinitySchedulingSectionSize;
 
     public ChangelogSplitSource(
             ConnectorSession session,
             TypeManager typeManager,
             Table table,
-            IncrementalChangelogScan tableScan,
-            double minimumAssignedSplitWeight)
+            IncrementalChangelogScan tableScan)
     {
-        this.session = requireNonNull(session, "session is null");
+        requireNonNull(session, "session is null");
         requireNonNull(typeManager, "typeManager is null");
         this.columnHandles = getColumns(table.schema(), table.spec(), typeManager);
-        this.tableScan = requireNonNull(tableScan, "tableScan is null");
-        this.minimumAssignedSplitWeight = minimumAssignedSplitWeight;
-        this.fileScanTaskIterator = tableScan.planFiles().iterator();
+        this.minimumAssignedSplitWeight = getMinimumAssignedSplitWeight(session);
+        this.targetSplitSize = getTargetSplitSize(session, tableScan).toBytes();
+        this.nodeSelectionStrategy = getNodeSelectionStrategy(session);
+        this.fileScanTaskIterable = closer.register(tableScan.planFiles());
+        this.fileScanTaskIterator = closer.register(fileScanTaskIterable.iterator());
+        this.affinitySchedulingSectionSize = getAffinitySchedulingFileSectionSize(session).toBytes();
     }
 
     @Override
@@ -95,7 +113,11 @@ public class ChangelogSplitSource
     public void close()
     {
         try {
-            fileScanTaskIterator.close();
+            closer.close();
+            // TODO: remove this after org.apache.iceberg.io.CloseableIterator'withClose
+            //  correct release resources holds by iterator.
+            fileScanTaskIterable = CloseableIterable.empty();
+            fileScanTaskIterator = CloseableIterator.empty();
         }
         catch (IOException e) {
             throw new PrestoException(GENERIC_INTERNAL_ERROR, e);
@@ -115,19 +137,26 @@ public class ChangelogSplitSource
 
     private IcebergSplit splitFromContentScanTask(ContentScanTask<DataFile> task, ChangelogScanTask changeTask)
     {
+        PartitionSpec spec = task.spec();
+        Optional<PartitionData> partitionData = partitionDataFromStructLike(spec, task.file().partition());
+
         return new IcebergSplit(
                 task.file().path().toString(),
                 task.start(),
                 task.length(),
-                task.file().format(),
+                FileFormat.fromIcebergFileFormat(task.file().format()),
                 ImmutableList.of(),
                 getPartitionKeys(task),
-                getNodeSelectionStrategy(session),
-                SplitWeight.fromProportion(Math.min(Math.max((double) task.length() / tableScan.targetSplitSize(), minimumAssignedSplitWeight), 1.0)),
+                PartitionSpecParser.toJson(spec),
+                partitionData.map(PartitionData::toJson),
+                nodeSelectionStrategy,
+                SplitWeight.fromProportion(Math.min(Math.max((double) task.length() / targetSplitSize, minimumAssignedSplitWeight), 1.0)),
                 ImmutableList.of(),
-                Optional.of(new ChangelogSplitInfo(changeTask.operation(),
+                Optional.of(new ChangelogSplitInfo(fromIcebergChangelogOperation(changeTask.operation()),
                         changeTask.changeOrdinal(),
                         changeTask.commitSnapshotId(),
-                        columnHandles)));
+                        columnHandles)),
+                getDataSequenceNumber(task.file()),
+                affinitySchedulingSectionSize);
     }
 }

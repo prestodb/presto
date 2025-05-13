@@ -38,7 +38,6 @@ import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
-import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.base.Joiner;
@@ -88,12 +87,6 @@ public class ClickHouseFilterToSqlTranslator
                 Optional.of(new ClickHouseExpression(quote + columnHandle.getColumnName().replace(quote, quote + quote) + quote)),
                 variable,
                 ImmutableList.of());
-    }
-
-    @Override
-    public TranslatedExpression<ClickHouseExpression> translateLambda(LambdaDefinitionExpression lambda, Map<VariableReferenceExpression, ColumnHandle> context, RowExpressionTreeTranslator<ClickHouseExpression, Map<VariableReferenceExpression, ColumnHandle>> rowExpressionTreeTranslator)
-    {
-        return untranslated(lambda);
     }
 
     @Override

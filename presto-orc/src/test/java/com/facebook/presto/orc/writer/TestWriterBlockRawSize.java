@@ -183,7 +183,7 @@ public class TestWriterBlockRawSize
         BlockBuilder blockBuilder = type.createBlockBuilder(null, NUM_ELEMENTS * 2);
         for (int i = 0; i < NUM_ELEMENTS; i++) {
             blockBuilder.appendNull();
-            if (type == REAL) {
+            if (type.equals(REAL)) {
                 type.writeLong(blockBuilder, Float.floatToIntBits(i));
             }
             else {

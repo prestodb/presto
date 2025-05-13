@@ -1,0 +1,1079 @@
+openapi: "3.0.0"
+info:
+  description: 'Presto object schemas'
+  title: 'Presto schemas'
+  version: "1"
+paths: {}
+# notes:
+  # enum types are not properly generated in HTML due to a bug fixed in a later version:
+  # https://github.com/OpenAPITools/openapi-generator/pull/16582#issuecomment-1719707219
+components:
+  schemas:
+    BasicQueryInfo:
+      type: object
+      required:
+        - queryId
+        - session
+        - state
+        - memoryPool
+        - scheduled
+        - self
+        - query
+        - queryStats
+        - errorType
+        - errorCode
+        - executionFailureInfo
+        - warnings
+      properties:
+        queryId:
+          type: string
+          description: The ID of the query
+        session:
+          $ref: '#/components/schemas/SessionRepresentation'
+        resourceGroupId:
+          type: string
+          nullable: true
+          description: The resource group ID
+        state:
+          type: string
+          description: The state of the query
+        memoryPool:
+          type: string
+          description: The memory pool ID
+        scheduled:
+          type: boolean
+          description: Whether the query is scheduled
+        self:
+          type: string
+          format: uri
+          description: The URI of the query
+        query:
+          type: string
+          description: The query string
+        queryStats:
+          $ref: '#/components/schemas/BasicQueryStats'
+        errorType:
+          $ref: '#/components/schemas/ErrorType'
+        errorCode:
+          $ref: '#/components/schemas/ErrorCode'
+        failureInfo:
+          $ref: '#/components/schemas/ExecutionFailureInfo'
+        queryType:
+          $ref: '#/components/schemas/QueryType'
+        warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/PrestoWarning'
+        preparedQuery:
+          type: string
+          description: The prepared query, if any
+    QueryType:
+      type: string
+      enum:
+        - DATA_DEFINITION
+        - DELETE
+        - DESCRIBE
+        - EXPLAIN
+        - ANALYZE
+        - INSERT
+        - SELECT
+        - CONTROL
+        - UPDATE
+    WarningCode:
+      type: object
+      properties:
+        code:
+          type: integer
+        name:
+          type: string
+    BasicQueryStats:
+      type: object
+      required:
+        - createTime
+        - endTime
+        - waitingForPrerequisitesTime
+        - queuedTime
+        - elapsedTime
+        - executionTime
+        - runningTasks
+        - peakRunningTasks
+        - totalDrivers
+        - queuedDrivers
+        - runningDrivers
+        - completedDrivers
+        - rawInputDataSize
+        - rawInputPositions
+        - cumulativeTotalMemory
+        - userMemoryReservation
+        - totalMemoryReservation
+        - peakUserMemoryReservation
+        - peakTaskTotalMemoryReservation
+        - peakNodeTotalMemoryReservation
+        - totalCpuTime
+        - totalScheduledTime
+        - fullyBlocked
+        - blockedReasons
+        - totalAllocation
+      description: Basic statistics about the query
+      properties:
+        createTime:
+          type: string
+          format: date-time
+          description: The time when the query was created
+        endTime:
+          type: string
+          format: date-time
+          description: The time when the query ended
+        waitingForPrerequisitesTime:
+          $ref: '#/components/schemas/Duration'
+        queuedTime:
+          $ref: '#/components/schemas/Duration'
+        elapsedTime:
+          $ref: '#/components/schemas/Duration'
+        executionTime:
+          $ref: '#/components/schemas/Duration'
+        runningTasks:
+          type: integer
+          description: The number of running tasks
+        peakRunningTasks:
+          type: integer
+          description: The maximum number of concurrently running tasks
+        totalDrivers:
+          type: integer
+          description: The total number of drivers
+        queuedDrivers:
+          type: integer
+          description: The number of queued drivers
+        runningDrivers:
+          type: integer
+          description: The number of running drivers
+        completedDrivers:
+          type: integer
+          description: The number of completed drivers
+        rawInputDataSize:
+          $ref: '#/components/schemas/DataSize'
+        rawInputPositions:
+          type: integer
+          description: The raw input positions
+        cumulativeUserMemory:
+          description: The cumulative user memory
+          type: number
+        cumulativeTotalMemory:
+          type: number
+          description: The cumulative total memory
+        userMemoryReservation:
+          $ref: '#/components/schemas/DataSize'
+        totalMemoryReservation:
+          $ref: '#/components/schemas/DataSize'
+        peakUserMemoryReservation:
+          $ref: '#/components/schemas/DataSize'
+        peakTotalMemoryReservation:
+          $ref: '#/components/schemas/DataSize'
+        peakTaskTotalMemoryReservation:
+          $ref: '#/components/schemas/DataSize'
+        peakNodeTotalMemoryReservation:
+          $ref: '#/components/schemas/DataSize'
+        totalCpuTime:
+          $ref: '#/components/schemas/Duration'
+        totalScheduledTime:
+          $ref: '#/components/schemas/Duration'
+        fullyBlocked:
+          type: boolean
+        blockedReasons:
+          type: array
+          items:
+            $ref: '#/components/schemas/BlockedReason'
+        totalAllocation:
+          $ref: '#/components/schemas/DataSize'
+        progressPercentage:
+          type: number
+    BlockedReason:
+      type: string
+      enum:
+        - 'WAITING_FOR_MEMORY'
+    Duration:
+      type: string
+      pattern: '^\s*(\d+(?:\.\d+)?)\s*([a-zA-Z]+)\s*$'
+    DataSize:
+      type: string
+      pattern: '^\s*(\d+(?:\.\d+)?)\s*([a-zA-Z]+)\s*$'
+    ExecutionFailureInfo:
+      type: object
+      description: Information about the failure, if any
+      required:
+        - type
+        - message
+        - cause
+        - suppressed
+        - stack
+      properties:
+        type:
+          type: string
+        message:
+          type: string
+          description: The error message
+        cause:
+          $ref: '#/components/schemas/ExecutionFailureInfo'
+        suppressed:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExecutionFailureInfo'
+        stack:
+          type: array
+          items:
+            type: string
+        errorLocation:
+          type: string
+          description: The location of the error
+          nullable: true
+        errorCode:
+          $ref: '#/components/schemas/ErrorCode'
+        remoteHost:
+          type: string
+        errorCause:
+          $ref: '#/components/schemas/ErrorCause'
+    ErrorCause:
+      type: string
+      enum: [ 'UNKNOWN', 'LOW_PARTITION_COUNT', 'EXCEEDS_BROADCAST_MEMORY_LIMIT' ]
+    QueryResults:
+      type: object
+      required:
+        - id
+        - infoUri
+        - partialCancelUri
+        - nextUri
+        - columns
+        - data
+        - binaryData
+        - stats
+        - error
+        - warnings
+        - updateType
+        - updateCount
+      properties:
+        id:
+          type: string
+          description: The ID of the query
+        infoUri:
+          type: string
+          format: uri
+          description: The URI at the coordinator that provides information about the query
+        partialCancelUri:
+          type: string
+          format: uri
+          nullable: true
+          description: URI to a leaf stage that is currently executing in order to issue a cancel signal
+        nextUri:
+          type: string
+          format: uri
+          nullable: true
+          description: URI to get the next batch of query results
+        columns:
+          type: array
+          items:
+            $ref: '#/components/schemas/Column'
+          nullable: true
+          description: List of columns present in the result set
+        data:
+          type: array
+          items:
+            type: array
+            items:
+              type: object
+          description: Iterator to the payload (results)
+        binaryData:
+          type: array
+          items:
+            type: string
+            format: binary
+          nullable: true
+          description: Iterator to the payload (results) in binary format
+        stats:
+          $ref: '#/components/schemas/StatementStats'
+        error:
+          nullable: true
+          description: Error encountered in query execution
+        warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/PrestoWarning'
+          description: List of warnings encountered in query execution
+        updateType:
+          type: string
+          nullable: true
+          description: The update type of the query
+        updateCount:
+          type: integer
+          nullable: true
+          description: The count of rows updated by the query
+    Column:
+      type: object
+      required:
+        - name
+        - type
+        - typeSignature
+      properties:
+        name:
+          type: string
+          description: The name of the column
+        type:
+          type: string
+          description: The type of the column
+        typeSignature:
+          $ref: '#/components/schemas/ClientTypeSignature'
+    ErrorType:
+      type: string
+      enum: [ 'USER_ERROR', 'INTERNAL_ERROR', 'INSUFFICIENT_RESOURCES', 'EXTERNAL' ]
+    ErrorCode:
+      type: object
+      description: 'presto error code'
+      required:
+        - code
+        - name
+        - type
+        - retriable
+      properties:
+        code:
+          type: integer
+        name:
+          type: string
+        type:
+          $ref: '#/components/schemas/ErrorType'
+        retriable:
+          type: boolean
+    StatementStats:
+      type: object
+      required:
+        - state
+        - waitingForPrerequisites
+        - queued
+        - scheduled
+        - nodes
+        - totalSplits
+        - queuedSplits
+        - runningSplits
+        - completedSplits
+        - cpuTimeMillis
+        - wallTimeMillis
+        - waitingForPrerequisitesTimeMillis
+        - queuedTimeMillis
+        - elapsedTimeMillis
+        - processedRows
+        - processedBytes
+        - peakMemoryBytes
+        - peakTotalMemoryBytes
+        - peakTaskTotalMemoryBytes
+        - spilledBytes
+        - rootStage
+        - runtimeStats
+      properties:
+        state:
+          type: string
+          description: The state of the query
+        waitingForPrerequisites:
+          type: boolean
+          description: Whether the query is waiting for prerequisites
+        queued:
+          type: boolean
+        scheduled:
+          type: boolean
+        nodes:
+          type: integer
+        totalSplits:
+          type: integer
+        queuedSplits:
+          type: integer
+        runningSplits:
+          type: integer
+        completedSplits:
+          type: integer
+        cpuTimeMillis:
+          type: integer
+        wallTimeMillis:
+          type: integer
+        waitingForPrerequisitesTimeMillis:
+          type: integer
+        queuedTimeMillis:
+          type: integer
+        elapsedTimeMillis:
+          type: integer
+        processedRows:
+          type: integer
+        processedBytes:
+          type: integer
+        peakMemoryBytes:
+          type: integer
+        peakTotalMemoryBytes:
+          type: integer
+        peakTaskTotalMemoryBytes:
+          type: integer
+        spilledBytes:
+          type: integer
+        rootStage:
+          $ref: '#/components/schemas/StageStats'
+        runtimeStats:
+          $ref: '#/components/schemas/RuntimeStats'
+    StageStats:
+      type: object
+      required:
+        - stageId
+        - state
+        - done
+        - nodes
+        - totalSplits
+        - queuedSplits
+        - runningSplits
+        - completedSplits
+        - cpuTimeMillis
+        - wallTimeMillis
+        - processedRows
+        - processedBytes
+        - subStages
+      properties:
+        stageId:
+          type: string
+        state:
+          type: string
+        done:
+          type: boolean
+        nodes:
+          type: integer
+        totalSplits:
+          type: integer
+        queuedSplits:
+          type: integer
+        runningSplits:
+          type: integer
+        completedSplits:
+          type: integer
+        cpuTimeMillis:
+          type: integer
+        wallTimeMillis:
+          type: integer
+        processedRows:
+          type: integer
+        processedBytes:
+          type: integer
+        subStages:
+          type: array
+          items:
+            $ref: '#/components/schemas/StageStats'
+        runtimeStats:
+          $ref: '#/components/schemas/RuntimeStats'
+    RuntimeStats:
+      type: object
+      additionalProperties:
+        $ref: '#/components/schemas/RuntimeMetric'
+    RuntimeMetric:
+      type: object
+      required:
+        - name
+        - unit
+        - sum
+        - count
+        - max
+        - min
+      properties:
+        name:
+          type: string
+        unit:
+          $ref: '#/components/schemas/RuntimeUnit'
+        sum:
+          type: integer
+        count:
+          type: integer
+        max:
+          type: integer
+        min:
+          type: integer
+    RuntimeUnit:
+      type: string
+      enum:
+        - NONE
+        - NANO
+        - BYTE
+    QueryError:
+      type: object
+      properties:
+        message:
+          type: string
+        sqlState:
+          type: string
+        errorCode:
+          type: integer
+        errorName:
+          type: string
+        errorType:
+          type: string
+        retriable:
+          type: boolean
+        errorLocation:
+          $ref: '#/components/schemas/ErrorLocation'
+        failureInfo:
+          $ref: '#/components/schemas/FailureInfo'
+    ErrorLocation:
+      type: object
+      properties:
+        lineNumber:
+          type: integer
+        columnNumber:
+          type: integer
+    FailureInfo:
+      type: object
+      properties:
+        type:
+          type: string
+        message:
+          type: string
+        cause:
+          $ref: '#/components/schemas/FailureInfo'
+        suppressed:
+          type: array
+          items:
+            $ref: '#/components/schemas/FailureInfo'
+        stack:
+          type: array
+          items:
+            type: string
+        errorLocation:
+          $ref: '#/components/schemas/ErrorLocation'
+    PrestoWarning:
+      type: object
+      required:
+        - message
+        - warningCode
+      properties:
+        message:
+          type: string
+          description: The warning message
+        warningCode:
+          type: string
+          description: The warning code
+    ClientTypeSignature:
+      type: object
+      properties:
+        rawType:
+          type: string
+          description: The raw type of the signature
+        typeArguments:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClientTypeSignature'
+          description: The type arguments of the signature
+        literalArguments:
+          type: object
+        arguments:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClientTypeSignatureParameter'
+    ClientTypeSignatureParameter:
+      type: object
+      required:
+        - kind
+        - value
+      properties:
+        kind:
+          $ref: '#/components/schemas/ParameterKind'
+        value:
+          type: object
+    ParameterKind:
+      type: string
+      enum:
+        - TYPE
+        - NAMED_TYPE
+        - LONG
+        - VARIABLE
+        - LONG_ENUM
+        - VARCHAR_ENUM
+        - DISTINCT_TYPE
+    SessionRepresentation:
+      type: object
+      required:
+        - queryId
+        - clientTransactionSupport
+        - user
+        - timeZoneKey
+        - locale
+        - clientTags
+        - resourceEstimates
+        - startTime
+        - systemProperties
+        - catalogProperties
+        - unprocessedCatalogProperties
+        - roles
+        - preparedStatements
+        - sessionFunctions
+      properties:
+        queryId:
+          type: string
+        transactionId:
+          $ref: '#/components/schemas/TransactionId'
+        clientTransactionSupport:
+          type: boolean
+        user:
+          type: string
+        principal:
+          type: string
+        source:
+          type: string
+        catalog:
+          type: string
+        schema:
+          type: string
+        traceToken:
+          type: string
+        timeZoneKey:
+          $ref: '#/components/schemas/TimeZoneKey'
+        locale:
+          $ref: '#/components/schemas/Locale'
+        remoteUserAddress:
+          type: string
+        userAgent:
+          type: string
+        clientInfo:
+          type: string
+        clientTags:
+          type: array
+          items:
+            type: string
+        resourceEstimates:
+          $ref: '#/components/schemas/ResourceEstimates'
+        startTime:
+          type: integer
+        systemProperties:
+          type: object
+          additionalProperties:
+            type: string
+        catalogProperties:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties:
+              type: string
+        unprocessedCatalogProperties:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties:
+              type: string
+        roles:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/SelectedRole'
+        preparedStatements:
+          type: object
+          additionalProperties:
+            type: string
+        sessionFunctions:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/SqlInvokedFunction'
+    SqlInvokedFunction:
+      type: object
+      required:
+        - parameters
+        - description
+        - routineCharacteristics
+        - body
+        - signature
+        - functionId
+      properties:
+        parameters:
+          type: array
+          items:
+            $ref: '#/components/schemas/Parameter'
+        description:
+          type: string
+        routineCharacteristics:
+          $ref: '#/components/schemas/RoutineCharacteristics'
+        body:
+          type: string
+        signature:
+          $ref: '#/components/schemas/Signature'
+        functionId:
+          $ref: '#/components/schemas/SqlFunctionId'
+    RoutineCharacteristics:
+      type: object
+      required:
+        - language
+        - determinism
+        - nullCallClause
+      properties:
+        language:
+          $ref: '#/components/schemas/Language'
+        determinism:
+          $ref: '#/components/schemas/Determinism'
+        nullCallClause:
+          $ref: '#/components/schemas/NullCallClause'
+    SqlFunctionId:
+      type: string
+    Signature:
+      type: object
+      required:
+        - name
+        - kind
+        - typeVariableConstraints
+        - longVariableConstraints
+        - returnType
+        - argumentTypes
+      properties:
+        name:
+          $ref: '#/components/schemas/QualifiedObjectName'
+        kind:
+          $ref: '#/components/schemas/FunctionKind'
+        typeVariableConstraints:
+          type: array
+          items:
+            $ref: '#/components/schemas/TypeVariableConstraint'
+        longVariableConstraints:
+          type: array
+          items:
+            $ref: '#/components/schemas/LongVariableConstraint'
+        returnType:
+          $ref: '#/components/schemas/TypeSignature'
+        argumentTypes:
+          type: array
+          items:
+            $ref: '#/components/schemas/TypeSignature'
+        variableArity:
+          type: boolean
+    LongVariableConstraint:
+      type: object
+      required:
+        - name
+        - expression
+      properties:
+        name:
+          type: string
+        expression:
+          type: string
+    TypeVariableConstraint:
+      type: object
+      required:
+        - name
+        - comparableRequired
+        - orderableRequired
+        - nonDecimalNumericRequired
+      properties:
+        name:
+          type: string
+        comparableRequired:
+          type: boolean
+        orderableRequired:
+          type: boolean
+        variadicBound:
+          type: string
+          nullable: true
+        nonDecimalNumericRequired:
+          type: boolean
+    QualifiedObjectName:
+      type: string
+    FunctionKind:
+      type: string
+      enum:
+        - SCALAR
+        - AGGREGATE
+        - WINDOW
+    Language:
+      type: string
+      enum:
+        - SQL
+        - CPP
+    Determinism:
+      type: string
+      enum:
+        - DETERMINISTIC
+        - NON_DETERMINISTIC
+    NullCallClause:
+      type: string
+      enum:
+        - RETURNS_NULL_ON_NULL_INPUT
+        - CALLED_ON_NULL_INPUT
+    Parameter:
+      type: object
+      required:
+        - name
+        - type
+      properties:
+        name:
+          type: string
+        type:
+          $ref: '#/components/schemas/TypeSignature'
+    TypeSignature:
+      type: string
+    ResourceEstimates:
+      type: object
+      properties:
+        executionTime:
+          $ref: '#/components/schemas/Duration'
+        cpuTime:
+          $ref: '#/components/schemas/Duration'
+        peakMemory:
+          $ref: '#/components/schemas/DataSize'
+        peakTaskMemory:
+          $ref: '#/components/schemas/DataSize'
+    SelectedRole:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          $ref: '#/components/schemas/SelectedRoleType'
+        role:
+          type: string
+    SelectedRoleType:
+      type: string
+      enum:
+        - ROLE
+        - ALL
+        - NONE
+    TransactionId:
+      type: string
+      format: uuid
+    TimeZoneKey:
+      type: integer
+    Locale:
+      type: string
+    ClusterStats:
+      type: object
+      required:
+        - runningQueries
+        - blockedQueries
+        - queuedQueries
+        - activeWorkers
+        - runningDrivers
+        - runningTasks
+        - reservedMemory
+        - totalInputRows
+        - totalInputBytes
+        - totalCpuTimeSecs
+        - adjustedQueueSize
+      properties:
+        runningQueries:
+          type: integer
+          description: The number of running queries
+        blockedQueries:
+          type: integer
+          description: The number of blocked queries
+        queuedQueries:
+          type: integer
+          description: The number of queued queries
+        activeWorkers:
+          type: integer
+          description: The number of active workers
+        runningDrivers:
+          type: integer
+          description: The number of running drivers
+        runningTasks:
+          type: integer
+          description: The number of running tasks
+        reservedMemory:
+          type: number
+          format: double
+          description: The amount of reserved memory
+        totalInputRows:
+          type: integer
+          description: The total number of input rows
+        totalInputBytes:
+          type: integer
+          description: The total number of input bytes
+        totalCpuTimeSecs:
+          type: integer
+          description: The total CPU time in seconds
+        adjustedQueueSize:
+          type: integer
+          description: The adjusted queue size
+    ClusterMemoryPoolInfo:
+      type: object
+      required:
+        - memoryPoolInfo
+        - blockedNodes
+        - assignedQueries
+      properties:
+        memoryPoolInfo:
+          $ref: '#/components/schemas/MemoryPoolInfo'
+        blockedNodes:
+          type: integer
+        assignedQueries:
+          type: integer
+        largestMemoryQuery:
+          $ref: '#/components/schemas/QueryId'
+        runningQueries:
+          type: array
+          items:
+            $ref: '#/components/schemas/QueryId'
+    QueryId:
+      type: string
+      pattern: ^[_a-z0-9]+$
+    MemoryPoolInfo:
+      type: object
+      required:
+        - maxBytes
+        - reservedBytes
+        - reservedRevocableBytes
+        - queryMemoryReservations
+        - queryMemoryAllocations
+        - queryMemoryRevocableReservations
+      properties:
+        maxBytes:
+          type: integer
+        reservedBytes:
+          type: integer
+        reservedRevocableBytes:
+          type: integer
+        queryMemoryReservations:
+          type: object
+          additionalProperties:
+            type: integer
+        queryMemoryAllocations:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/components/schemas/MemoryAllocation'
+        queryMemoryRevocableReservations:
+          type: object
+          additionalProperties:
+            type: integer
+    MemoryAllocation:
+      type: object
+      required:
+        - name
+        - bytes
+      properties:
+        name:
+          type: string
+        bytes:
+          type: integer
+    WorkerMemoryInfo:
+      type: object
+      properties:
+        workers:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              memory:
+                type: number
+                format: double
+    ConfidenceBasedTtlInfo:
+      type: object
+      required:
+        - expiryEpochTime
+        - confidencePercentage
+      properties:
+        expiryEpochTime:
+          type: integer
+        confidencePercentage:
+          type: number
+          format: double
+    MemoryInfo:
+      type: object
+      required:
+        - totalNodeMemory
+        - pools
+      properties:
+        totalNodeMemory:
+          $ref: '#/components/schemas/DataSize'
+        pools:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/MemoryPoolInfo'
+    MemoryPoolId:
+      type: string
+    QueryState:
+      type: string
+      enum:
+        - WAITING_FOR_PREREQUISITES
+        - QUEUED
+        - WAITING_FOR_RESOURCES
+        - DISPATCHING
+        - PLANNING
+        - STARTING
+        - RUNNING
+        - FINISHING
+        - FINISHED
+        - FAILED
+    QueryInfo:
+      type: object
+      # TODO generate all the classes for this object
+    SessionPropertyMetadata:
+      type: object
+      required:
+        - name
+        - description
+        - typeSignature
+        - defaultValue
+        - hidden
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        typeSignature:
+          $ref: '#/components/schemas/TypeSignature'
+        defaultValue:
+          type: string
+        hidden:
+          type: boolean
+    AggregationFunctionMetadata:
+      type: object
+      required:
+        - intermediateType
+        - isOrderSensitive
+      properties:
+        intermediateType:
+          $ref: '#/components/schemas/TypeSignature'
+          description: Intermediate TypeSignature for the aggregation function
+        isOrderSensitive:
+          type: boolean
+          description: Determines if the corresponding aggregation function is order-sensitive
+    JsonBasedUdfFunctionMetadata:
+      type: object
+      required:
+        - docString
+        - functionKind
+        - outputType
+        - paramTypes
+        - schema
+        - routineCharacteristics
+        - variableArity
+      properties:
+        docString:
+          type: string
+          description: Description of the function
+        functionKind:
+          $ref: '#/components/schemas/FunctionKind'
+          description: FunctionKind of the function
+        outputType:
+          $ref: '#/components/schemas/TypeSignature'
+          description: Output type of the function
+        paramTypes:
+          type: array
+          items:
+            $ref: '#/components/schemas/TypeSignature'
+          description: Input types of the function
+        schema:
+          type: string
+          description: Schema the function belongs to. Catalog.schema.function uniquely identifies a function.
+        routineCharacteristics:
+          $ref: '#/components/schemas/RoutineCharacteristics'
+          description: Implement language of the function.
+        variableArity:
+          type: boolean
+          description: Arity of the function.
+        typeVariableConstraints:
+          type: array
+          items:
+            $ref: '#/components/schemas/TypeVariableConstraint'
+          description: Optional list of the typeVariableConstraints.
+        aggregationFunctionMetadata:
+          $ref: '#/components/schemas/AggregationFunctionMetadata'
+          description: Optional Aggregate-specific metadata (required for aggregation functions)
+
+
+
+
+

@@ -16,12 +16,12 @@ package com.facebook.presto.spark.planner;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.AbstractMockMetadata;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spark.PrestoSparkPhysicalResourceCalculator;
 import com.facebook.presto.spark.PrestoSparkSourceStatsCollector;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.TableScanNode;
@@ -31,7 +31,6 @@ import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.testing.TestingMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -41,6 +40,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
+import static com.facebook.presto.metadata.SessionPropertyManager.createTestingSessionPropertyManager;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_AVERAGE_INPUT_DATA_SIZE_PER_EXECUTOR;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_AVERAGE_INPUT_DATA_SIZE_PER_PARTITION;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_EXECUTOR_ALLOCATION_STRATEGY_ENABLED;
@@ -85,12 +85,12 @@ public class TestPrestoSparkPhysicalResourceAllocationStrategy
             PropertyMetadata.integerProperty(HASH_PARTITION_COUNT, "HASH_PARTITION_COUNT", 150, false)
     };
     // system property with allocation based tuning enabled
-    private static final Session testSessionWithAllocation = testSessionBuilder(new SessionPropertyManager(
+    private static final Session testSessionWithAllocation = testSessionBuilder(createTestingSessionPropertyManager(
             new ImmutableList.Builder<PropertyMetadata<?>>().add(defaultPropertyMetadata).add(
                     PropertyMetadata.booleanProperty(SPARK_RESOURCE_ALLOCATION_STRATEGY_ENABLED, "SPARK_RESOURCE_ALLOCATION_STRATEGY_ENABLED", true, false)
             ).build())).build();
     // system property with allocation based tuning disabled
-    private static final Session testSessionWithoutAllocation = testSessionBuilder(new SessionPropertyManager(
+    private static final Session testSessionWithoutAllocation = testSessionBuilder(createTestingSessionPropertyManager(
             new ImmutableList.Builder<PropertyMetadata<?>>().add(defaultPropertyMetadata).add(
                     PropertyMetadata.booleanProperty(SPARK_RESOURCE_ALLOCATION_STRATEGY_ENABLED, "SPARK_RESOURCE_ALLOCATION_STRATEGY_ENABLED", false, false),
                     PropertyMetadata.booleanProperty(SPARK_HASH_PARTITION_COUNT_ALLOCATION_STRATEGY_ENABLED, "SPARK_HASH_PARTITION_COUNT_ALLOCATION_STRATEGY_ENABLED", false, false),
@@ -112,7 +112,7 @@ public class TestPrestoSparkPhysicalResourceAllocationStrategy
         VariableReferenceExpression filteringSource = planBuilder.variable("filteringSource");
         TableScanNode b = planBuilder.tableScan(ImmutableList.of(filteringSource), ImmutableMap.of(filteringSource, new TestingMetadata.TestingColumnHandle("filteringSource")));
 
-        return planBuilder.join(JoinNode.Type.LEFT, a, b);
+        return planBuilder.join(JoinType.LEFT, a, b);
     }
 
     private PhysicalResourceSettings getSettingsHolder(Session session, Metadata metadata)

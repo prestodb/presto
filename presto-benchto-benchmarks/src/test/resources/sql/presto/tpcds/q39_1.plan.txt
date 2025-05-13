@@ -3,10 +3,10 @@ remote exchange (GATHER, SINGLE, [])
         remote exchange (REPARTITION, ROUND_ROBIN, [])
             join (INNER, PARTITIONED):
                 remote exchange (REPARTITION, HASH, [i_item_sk, w_warehouse_sk])
-                    final aggregation over (d_moy, i_item_sk, w_warehouse_name, w_warehouse_sk)
+                    final aggregation over (i_item_sk, w_warehouse_name, w_warehouse_sk)
                         local exchange (GATHER, SINGLE, [])
-                            remote exchange (REPARTITION, HASH, [d_moy, i_item_sk, w_warehouse_name, w_warehouse_sk])
-                                partial aggregation over (d_moy, i_item_sk, w_warehouse_name, w_warehouse_sk)
+                            remote exchange (REPARTITION, HASH, [i_item_sk, w_warehouse_name, w_warehouse_sk])
+                                partial aggregation over (i_item_sk, w_warehouse_name, w_warehouse_sk)
                                     join (INNER, REPLICATED):
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
@@ -22,10 +22,10 @@ remote exchange (GATHER, SINGLE, [])
                                                 scan warehouse
                 local exchange (GATHER, SINGLE, [])
                     remote exchange (REPARTITION, HASH, [i_item_sk_66, w_warehouse_sk_88])
-                        final aggregation over (d_moy_110, i_item_sk_66, w_warehouse_name_90, w_warehouse_sk_88)
+                        final aggregation over (i_item_sk_66, w_warehouse_name_90, w_warehouse_sk_88)
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, [d_moy_110, i_item_sk_66, w_warehouse_name_90, w_warehouse_sk_88])
-                                    partial aggregation over (d_moy_110, i_item_sk_66, w_warehouse_name_90, w_warehouse_sk_88)
+                                remote exchange (REPARTITION, HASH, [i_item_sk_66, w_warehouse_name_90, w_warehouse_sk_88])
+                                    partial aggregation over (i_item_sk_66, w_warehouse_name_90, w_warehouse_sk_88)
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):

@@ -332,10 +332,6 @@ public class BenchmarkSelectiveStreamReaders
                 return Optional.of(BigintRange.of((long) (Integer.MIN_VALUE * selectionRateForNonNull), (long) (Integer.MAX_VALUE * selectionRateForNonNull), filterAllowNull));
             }
 
-            if (type == INTEGER) {
-                return Optional.of(BigintRange.of((long) (Integer.MIN_VALUE * selectionRateForNonNull), (long) (Integer.MAX_VALUE * selectionRateForNonNull), filterAllowNull));
-            }
-
             if (type == SMALLINT) {
                 return Optional.of(BigintRange.of((long) (Short.MIN_VALUE * selectionRateForNonNull), (long) (Short.MAX_VALUE * selectionRateForNonNull), filterAllowNull));
             }
@@ -344,11 +340,11 @@ public class BenchmarkSelectiveStreamReaders
                 return Optional.of(BigintRange.of((long) (Byte.MIN_VALUE * selectionRateForNonNull), (long) (Byte.MAX_VALUE * selectionRateForNonNull), filterAllowNull));
             }
 
-            if (type == REAL) {
+            if (type.equals(REAL)) {
                 return Optional.of(FloatRange.of(0, false, false, selectionRateForNonNull, false, true, filterAllowNull));
             }
 
-            if (type == DOUBLE) {
+            if (type.equals(DOUBLE)) {
                 return Optional.of(DoubleRange.of(0, false, false, selectionRateForNonNull, false, true, filterAllowNull));
             }
 
@@ -392,7 +388,7 @@ public class BenchmarkSelectiveStreamReaders
             }
         }
 
-        private final Object createValue(Type type, float filterRate)
+        private Object createValue(Type type, float filterRate)
         {
             if (type == BOOLEAN) {
                 // We need to specialize BOOLEAN case because we can't specify filterRate by manipulating the filter value in getFilter.
@@ -427,11 +423,11 @@ public class BenchmarkSelectiveStreamReaders
                 return new SqlTimestamp(value, TimeZoneKey.UTC_KEY, MILLISECONDS);
             }
 
-            if (type == REAL) {
+            if (type.equals(REAL)) {
                 return random.nextFloat();
             }
 
-            if (type == DOUBLE) {
+            if (type.equals(DOUBLE)) {
                 return random.nextDouble();
             }
 

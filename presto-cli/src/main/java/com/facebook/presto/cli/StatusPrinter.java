@@ -67,13 +67,15 @@ public class StatusPrinter
     private final ConsolePrinter console;
 
     private boolean debug;
+    private boolean runtime;
 
-    public StatusPrinter(StatementClient client, PrintStream out, boolean debug)
+    public StatusPrinter(StatementClient client, PrintStream out, boolean debug, boolean runtime)
     {
         this.client = client;
         this.out = out;
         this.console = new ConsolePrinter(out);
         this.debug = debug;
+        this.runtime = runtime;
     }
 
 /*
@@ -204,48 +206,50 @@ Spilled: 20GB
         out.println(splitsSummary);
 
         if (debug) {
-            // CPU Time: 565.2s total,   26K rows/s, 3.85MB/s
-            Duration cpuTime = millis(stats.getCpuTimeMillis());
-            String cpuTimeSummary = format("CPU Time: %.1fs total, %5s rows/s, %8s, %d%% active",
-                    cpuTime.getValue(SECONDS),
-                    formatCountRate(stats.getProcessedRows(), cpuTime, false),
-                    formatDataRate(bytes(stats.getProcessedBytes()), cpuTime, true),
-                    (int) percentage(stats.getCpuTimeMillis(), stats.getWallTimeMillis()));
-            out.println(cpuTimeSummary);
+            if (runtime) {
+                // CPU Time: 565.2s total,   26K rows/s, 3.85MB/s
+                Duration cpuTime = millis(stats.getCpuTimeMillis());
+                String cpuTimeSummary = format("CPU Time: %.1fs total, %5s rows/s, %8s, %d%% active",
+                        cpuTime.getValue(SECONDS),
+                        formatCountRate(stats.getProcessedRows(), cpuTime, false),
+                        formatDataRate(bytes(stats.getProcessedBytes()), cpuTime, true),
+                        (int) percentage(stats.getCpuTimeMillis(), stats.getWallTimeMillis()));
+                out.println(cpuTimeSummary);
 
-            double parallelism = cpuTime.getValue(MILLISECONDS) / serverSideWallTime.getValue(MILLISECONDS);
+                double parallelism = cpuTime.getValue(MILLISECONDS) / serverSideWallTime.getValue(MILLISECONDS);
 
-            // Per Node: 3.5 parallelism, 83.3K rows/s, 0.7 MB/s
-            String perNodeSummary = format("Per Node: %.1f parallelism, %5s rows/s, %8s",
-                    parallelism / nodes,
-                    formatCountRate((double) stats.getProcessedRows() / nodes, serverSideWallTime, false),
-                    formatDataRate(bytes(stats.getProcessedBytes() / nodes), serverSideWallTime, true));
-            reprintLine(perNodeSummary);
+                // Per Node: 3.5 parallelism, 83.3K rows/s, 0.7 MB/s
+                String perNodeSummary = format("Per Node: %.1f parallelism, %5s rows/s, %8s",
+                        parallelism / nodes,
+                        formatCountRate((double) stats.getProcessedRows() / nodes, serverSideWallTime, false),
+                        formatDataRate(bytes(stats.getProcessedBytes() / nodes), serverSideWallTime, true));
+                reprintLine(perNodeSummary);
 
-            // Parallelism: 5.3
-            out.println(format("Parallelism: %.1f", parallelism));
+                // Parallelism: 5.3
+                out.println(format("Parallelism: %.1f", parallelism));
 
-            // Peak User Memory: 1.97GB
-            reprintLine("Peak User Memory: " + formatDataSize(bytes(stats.getPeakMemoryBytes()), true));
-            // Peak Total Memory: 1.98GB
-            reprintLine("Peak Total Memory: " + formatDataSize(bytes(stats.getPeakTotalMemoryBytes()), true));
-            // Peak Task Total Memory: 1.99GB
-            reprintLine("Peak Task Total Memory: " + formatDataSize(bytes(stats.getPeakTaskTotalMemoryBytes()), true));
+                // Peak User Memory: 1.97GB
+                reprintLine("Peak User Memory: " + formatDataSize(bytes(stats.getPeakMemoryBytes()), true));
+                // Peak Total Memory: 1.98GB
+                reprintLine("Peak Total Memory: " + formatDataSize(bytes(stats.getPeakTotalMemoryBytes()), true));
+                // Peak Task Total Memory: 1.99GB
+                reprintLine("Peak Task Total Memory: " + formatDataSize(bytes(stats.getPeakTaskTotalMemoryBytes()), true));
 
-            // Spilled Data: 20GB
-            if (stats.getSpilledBytes() > 0) {
-                reprintLine("Spilled: " + formatDataSize(bytes(stats.getSpilledBytes()), true));
-            }
+                // Spilled Data: 20GB
+                if (stats.getSpilledBytes() > 0) {
+                    reprintLine("Spilled: " + formatDataSize(bytes(stats.getSpilledBytes()), true));
+                }
 
-            // bytesFromCache: sum=2K count=2 min=1K max=1K
-            if (stats.getRuntimeStats() != null) {
-                stats.getRuntimeStats().getMetrics().values().stream().sorted(Comparator.comparing(RuntimeMetric::getName)).forEach(
-                        metric -> reprintLine(format("%s: sum=%s count=%s min=%s max=%s",
-                                metric.getName(),
-                                autoFormatMetricValue(metric.getUnit(), metric.getSum()),
-                                formatCount(metric.getCount()),
-                                autoFormatMetricValue(metric.getUnit(), metric.getMin()),
-                                autoFormatMetricValue(metric.getUnit(), metric.getMax()))));
+                // bytesFromCache: sum=2K count=2 min=1K max=1K
+                if (stats.getRuntimeStats() != null) {
+                    stats.getRuntimeStats().getMetrics().values().stream().sorted(Comparator.comparing(RuntimeMetric::getName)).forEach(
+                            metric -> reprintLine(format("%s: sum=%s count=%s min=%s max=%s",
+                                    metric.getName(),
+                                    autoFormatMetricValue(metric.getUnit(), metric.getSum()),
+                                    formatCount(metric.getCount()),
+                                    autoFormatMetricValue(metric.getUnit(), metric.getMin()),
+                                    autoFormatMetricValue(metric.getUnit(), metric.getMax()))));
+                }
             }
         }
 

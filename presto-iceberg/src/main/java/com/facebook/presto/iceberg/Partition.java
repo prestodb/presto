@@ -32,7 +32,7 @@ import java.util.function.Predicate;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
 
-class Partition
+public class Partition
 {
     private final Map<Integer, Type.PrimitiveType> idToTypeMapping;
     private final List<Types.NestedField> nonPartitionPrimitiveColumns;
@@ -128,11 +128,6 @@ class Partition
     public Map<Integer, Long> getNullCounts()
     {
         return nullCounts;
-    }
-
-    public Map<Integer, Long> getColumnSizes()
-    {
-        return columnSizes;
     }
 
     public Set<Integer> getCorruptedStats()

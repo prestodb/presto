@@ -31,9 +31,11 @@ public class IntegerColumnStatistics
     public IntegerColumnStatistics(
             Long numberOfValues,
             HiveBloomFilter bloomFilter,
+            Long rawSize,
+            Long storageSize,
             IntegerStatistics integerStatistics)
     {
-        super(numberOfValues, bloomFilter);
+        super(numberOfValues, bloomFilter, rawSize, storageSize);
         requireNonNull(integerStatistics, "integerStatistics is null");
         this.integerStatistics = integerStatistics;
     }
@@ -48,15 +50,6 @@ public class IntegerColumnStatistics
     public long getTotalValueSizeInBytes()
     {
         return getNumberOfValues() * INTEGER_VALUE_BYTES;
-    }
-
-    @Override
-    public ColumnStatistics withBloomFilter(HiveBloomFilter bloomFilter)
-    {
-        return new IntegerColumnStatistics(
-                getNumberOfValues(),
-                bloomFilter,
-                integerStatistics);
     }
 
     @Override

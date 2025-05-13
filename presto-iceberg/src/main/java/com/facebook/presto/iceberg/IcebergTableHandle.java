@@ -13,51 +13,64 @@
  */
 package com.facebook.presto.iceberg;
 
-import com.facebook.presto.common.predicate.TupleDomain;
-import com.facebook.presto.spi.ConnectorTableHandle;
-import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.hive.BaseHiveTableHandle;
+import com.facebook.presto.spi.ConnectorDeleteTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
 public class IcebergTableHandle
-        implements ConnectorTableHandle
+        extends BaseHiveTableHandle
+            implements ConnectorDeleteTableHandle
 {
-    private final String schemaName;
-    private final IcebergTableName tableName;
-    private final TupleDomain<IcebergColumnHandle> predicate;
+    private final IcebergTableName icebergTableName;
     private final boolean snapshotSpecified;
+    private final Optional<String> outputPath;
+    private final Optional<Map<String, String>> storageProperties;
     private final Optional<String> tableSchemaJson;
+    private final Optional<Set<Integer>> partitionFieldIds;
+    private final Optional<Set<Integer>> equalityFieldIds;
+    private final List<SortField> sortOrder;
+    private final List<IcebergColumnHandle> updatedColumns;
 
     @JsonCreator
     public IcebergTableHandle(
             @JsonProperty("schemaName") String schemaName,
-            @JsonProperty("tableName") IcebergTableName tableName,
+            @JsonProperty("icebergTableName") IcebergTableName icebergTableName,
             @JsonProperty("snapshotSpecified") boolean snapshotSpecified,
-            @JsonProperty("predicate") TupleDomain<IcebergColumnHandle> predicate,
-            @JsonProperty("tableSchemaJson") Optional<String> tableSchemaJson)
+            @JsonProperty("outputPath") Optional<String> outputPath,
+            @JsonProperty("storageProperties") Optional<Map<String, String>> storageProperties,
+            @JsonProperty("tableSchemaJson") Optional<String> tableSchemaJson,
+            @JsonProperty("partitionFieldIds") Optional<Set<Integer>> partitionFieldIds,
+            @JsonProperty("equalityFieldIds") Optional<Set<Integer>> equalityFieldIds,
+            @JsonProperty("sortOrder") List<SortField> sortOrder,
+            @JsonProperty("updatedColumns") List<IcebergColumnHandle> updatedColumns)
     {
-        this.schemaName = requireNonNull(schemaName, "schemaName is null");
-        this.tableName = requireNonNull(tableName, "tableName is null");
+        super(schemaName, icebergTableName.getTableName());
+
+        this.icebergTableName = requireNonNull(icebergTableName, "tableName is null");
         this.snapshotSpecified = snapshotSpecified;
-        this.predicate = requireNonNull(predicate, "predicate is null");
+        this.outputPath = requireNonNull(outputPath, "filePrefix is null");
+        this.storageProperties = requireNonNull(storageProperties, "storageProperties is null");
         this.tableSchemaJson = requireNonNull(tableSchemaJson, "tableSchemaJson is null");
+        this.partitionFieldIds = requireNonNull(partitionFieldIds, "partitionFieldIds is null");
+        this.equalityFieldIds = requireNonNull(equalityFieldIds, "equalityFieldIds is null");
+        this.sortOrder = ImmutableList.copyOf(requireNonNull(sortOrder, "sortOrder is null"));
+        this.updatedColumns = requireNonNull(updatedColumns, "updatedColumns is null");
     }
 
     @JsonProperty
-    public String getSchemaName()
+    public IcebergTableName getIcebergTableName()
     {
-        return schemaName;
-    }
-
-    @JsonProperty
-    public IcebergTableName getTableName()
-    {
-        return tableName;
+        return icebergTableName;
     }
 
     @JsonProperty
@@ -67,9 +80,9 @@ public class IcebergTableHandle
     }
 
     @JsonProperty
-    public TupleDomain<IcebergColumnHandle> getPredicate()
+    public List<SortField> getSortOrder()
     {
-        return predicate;
+        return sortOrder;
     }
 
     @JsonProperty
@@ -78,14 +91,49 @@ public class IcebergTableHandle
         return tableSchemaJson;
     }
 
-    public SchemaTableName getSchemaTableName()
+    @JsonProperty
+    public Optional<String> getOutputPath()
     {
-        return new SchemaTableName(schemaName, tableName.getTableName());
+        return outputPath;
     }
 
-    public SchemaTableName getSchemaTableNameWithType()
+    @JsonProperty
+    public Optional<Map<String, String>> getStorageProperties()
     {
-        return new SchemaTableName(schemaName, tableName.getTableNameWithType());
+        return storageProperties;
+    }
+
+    @JsonProperty
+    public Optional<Set<Integer>> getPartitionSpecId()
+    {
+        return partitionFieldIds;
+    }
+
+    @JsonProperty
+    public Optional<Set<Integer>> getEqualityFieldIds()
+    {
+        return equalityFieldIds;
+    }
+
+    @JsonProperty
+    public List<IcebergColumnHandle> getUpdatedColumns()
+    {
+        return updatedColumns;
+    }
+
+    public IcebergTableHandle withUpdatedColumns(List<IcebergColumnHandle> updatedColumns)
+    {
+        return new IcebergTableHandle(
+                getSchemaName(),
+                icebergTableName,
+                snapshotSpecified,
+                outputPath,
+                storageProperties,
+                tableSchemaJson,
+                partitionFieldIds,
+                equalityFieldIds,
+                sortOrder,
+                updatedColumns);
     }
 
     @Override
@@ -99,22 +147,23 @@ public class IcebergTableHandle
         }
 
         IcebergTableHandle that = (IcebergTableHandle) o;
-        return Objects.equals(schemaName, that.schemaName) &&
-                Objects.equals(tableName, that.tableName) &&
+        return Objects.equals(getSchemaName(), that.getSchemaName()) &&
+                Objects.equals(icebergTableName, that.icebergTableName) &&
                 snapshotSpecified == that.snapshotSpecified &&
-                Objects.equals(predicate, that.predicate) &&
-                Objects.equals(tableSchemaJson, that.tableSchemaJson);
+                Objects.equals(sortOrder, that.sortOrder) &&
+                Objects.equals(tableSchemaJson, that.tableSchemaJson) &&
+                Objects.equals(equalityFieldIds, that.equalityFieldIds);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaName, tableName, predicate, snapshotSpecified, tableSchemaJson);
+        return Objects.hash(getSchemaName(), icebergTableName, sortOrder, snapshotSpecified, tableSchemaJson, equalityFieldIds);
     }
 
     @Override
     public String toString()
     {
-        return tableName.toString();
+        return icebergTableName.toString();
     }
 }

@@ -105,6 +105,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
@@ -1013,6 +1014,45 @@ public class TestSelectiveOrcReader
                 rowsProcessed += positionCount;
             }
             assertEquals(rowsProcessed, NUM_ROWS);
+        }
+    }
+
+    @Test
+    public void testToZeroBasedColumnIndex() throws Exception
+    {
+        List<Type> types = ImmutableList.of(INTEGER, INTEGER, INTEGER);
+        TempFile tempFile = new TempFile();
+
+        List<Integer> column0 = ImmutableList.of(11111);
+        List<Integer> column1 = ImmutableList.of(33333);
+        List<Integer> column2 = ImmutableList.of(437856);
+        List<List<?>> values = ImmutableList.of(column0, column1, column2);
+
+        writeOrcColumnsPresto(tempFile.getFile(), DWRF, NONE, Optional.empty(), types, values, NOOP_WRITER_STATS);
+
+        Map<Integer, Type> includedColumns = ImmutableMap.of(3, INTEGER, 7, INTEGER, -100, INTEGER);
+        List<Integer> outputColumns = ImmutableList.of(-100, 7, 3);
+        try (OrcSelectiveRecordReader recordReader = createCustomOrcSelectiveRecordReader(
+                tempFile.getFile(),
+                DWRF.getOrcEncoding(),
+                OrcPredicate.TRUE,
+                types,
+                MAX_BATCH_SIZE,
+                ImmutableMap.of(),
+                OrcReaderSettings.builder().build().getFilterFunctions(),
+                OrcReaderSettings.builder().build().getFilterFunctionInputMapping(),
+                OrcReaderSettings.builder().build().getRequiredSubfields(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                includedColumns,
+                outputColumns,
+                false,
+                new TestingHiveOrcAggregatedMemoryContext(),
+                false)) {
+            assertEquals(recordReader.toZeroBasedColumnIndex(3).getAsInt(), 2);
+            assertEquals(recordReader.toZeroBasedColumnIndex(7).getAsInt(), 1);
+            assertEquals(recordReader.toZeroBasedColumnIndex(-100).getAsInt(), 0);
+            assertFalse(recordReader.toZeroBasedColumnIndex(1).isPresent());
         }
     }
 

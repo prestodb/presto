@@ -60,6 +60,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.IntStream;
@@ -99,7 +100,7 @@ public class OrcSelectiveRecordReader
     private static final Page EMPTY_PAGE = new Page(0);
 
     private final int[] hiveColumnIndices;                            // elements are hive column indices
-    private final List<Integer> outputColumns;                        // elements are hive column indices
+    private final List<Integer> outputColumns;                        // elements are zero based column indices
     private final Map<Integer, Type> columnTypes;                     // key: index into hiveColumnIndices array
     private final Object[] constantValues;                            // aligned with hiveColumnIndices array
     private final Function<Block, Block>[] coercers;                   // aligned with hiveColumnIndices array
@@ -120,7 +121,6 @@ public class OrcSelectiveRecordReader
 
     private Set<Integer>[] filterFunctionInputs;                      // aligned with filterFunctionsOrder
     private boolean reorderFilters;
-    private int[] reorderableColumns;                                 // values are hiveColumnIndices
 
     // non-deterministic filter functions with only constant inputs; evaluated before any column is read
     private List<FilterFunctionWithStats> filterFunctionsWithConstantInputs;
@@ -188,7 +188,8 @@ public class OrcSelectiveRecordReader
             StripeMetadataSource stripeMetadataSource,
             boolean cacheable,
             RuntimeStats runtimeStats,
-            Optional<OrcFileIntrospector> fileIntrospector)
+            Optional<OrcFileIntrospector> fileIntrospector,
+            long fileModificationTime)
     {
         super(includedColumns,
                 requiredSubfields,
@@ -231,7 +232,8 @@ public class OrcSelectiveRecordReader
                 stripeMetadataSource,
                 cacheable,
                 runtimeStats,
-                fileIntrospector);
+                fileIntrospector,
+                fileModificationTime);
 
         // Hive column indices can't be used to index into arrays because they are negative
         // for partition and hidden columns. Hence, we create synthetic zero-based indices.
@@ -314,7 +316,7 @@ public class OrcSelectiveRecordReader
                 .collect(toImmutableList());
         filterFunctionsOrder = orderFilterFunctionsWithInputs(streamReaderOrder, filterFunctionsWithStats, this.filterFunctionInputMapping);
         filterFunctionInputs = collectFilterFunctionInputs(filterFunctionsOrder, this.filterFunctionInputMapping);
-        reorderableColumns = Arrays.stream(streamReaderOrder)
+        int[] reorderableColumns = Arrays.stream(streamReaderOrder)
                 .filter(columnIndex -> !columnsWithFilterScores.containsKey(columnIndex))
                 .filter(this.filterFunctionInputMapping::containsKey)
                 .toArray();
@@ -519,7 +521,7 @@ public class OrcSelectiveRecordReader
             return 20;
         }
 
-        if (type == REAL || type == DOUBLE) {
+        if (type.equals(REAL) || type.equals(DOUBLE)) {
             return 30;
         }
 
@@ -630,6 +632,12 @@ public class OrcSelectiveRecordReader
     public Page getNextPage()
             throws IOException
     {
+        return getNextPage(this.appendRowNumber);
+    }
+
+    public Page getNextPage(boolean withRowNumbers)
+            throws IOException
+    {
         if (constantFilterIsFalse) {
             return null;
         }
@@ -721,7 +729,7 @@ public class OrcSelectiveRecordReader
             }
         }
 
-        Block[] blocks = new Block[ appendRowNumber ? outputColumns.size() + 1 : outputColumns.size()];
+        Block[] blocks = new Block[ withRowNumbers ? outputColumns.size() + 1 : outputColumns.size()];
         for (int i = 0; i < outputColumns.size(); i++) {
             int columnIndex = outputColumns.get(i);
             if (constantValues[columnIndex] != null) {
@@ -742,7 +750,7 @@ public class OrcSelectiveRecordReader
             }
         }
 
-        if (appendRowNumber) {
+        if (withRowNumbers) {
             blocks[outputColumns.size()] = createRowNumbersBlock(positionsToRead, positionCount, this.getFilePosition());
         }
         Page page = new Page(positionCount, blocks);
@@ -898,11 +906,17 @@ public class OrcSelectiveRecordReader
         return new LongArrayBlock(positionCount, Optional.empty(), rowNumbers);
     }
 
-    @Override
-    public void close()
-            throws IOException
+    /**
+     * Convert from Hive column index to zero based column index.
+     */
+    public OptionalInt toZeroBasedColumnIndex(int hiveColumnIndex)
     {
-        super.close();
+        for (int i = 0; i < hiveColumnIndices.length; i++) {
+            if (hiveColumnIndices[i] == hiveColumnIndex) {
+                return OptionalInt.of(outputColumns.get(i));
+            }
+        }
+        return OptionalInt.empty();
     }
 
     private final class OrcBlockLoader

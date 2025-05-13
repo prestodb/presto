@@ -21,6 +21,7 @@ import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
+import com.amazonaws.auth.WebIdentityTokenCredentialsProvider;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.AmazonS3EncryptionClient;
 import com.amazonaws.services.s3.S3ClientOptions;
@@ -30,8 +31,8 @@ import com.amazonaws.services.s3.model.EncryptionMaterials;
 import com.amazonaws.services.s3.model.EncryptionMaterialsProvider;
 import com.amazonaws.services.s3.model.GetObjectMetadataRequest;
 import com.amazonaws.services.s3.model.GetObjectRequest;
-import com.amazonaws.services.s3.model.ListObjectsRequest;
-import com.amazonaws.services.s3.model.ObjectListing;
+import com.amazonaws.services.s3.model.ListObjectsV2Request;
+import com.amazonaws.services.s3.model.ListObjectsV2Result;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
@@ -86,6 +87,7 @@ import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_STAGING_DIRE
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_USER_AGENT_PREFIX;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_USER_AGENT_SUFFIX;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_USE_INSTANCE_CREDENTIALS;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_WEB_IDENTITY_ENABLED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -96,7 +98,9 @@ import static java.nio.file.Files.createTempDirectory;
 import static java.nio.file.Files.createTempFile;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 public class TestPrestoS3FileSystem
 {
@@ -144,6 +148,37 @@ public class TestPrestoS3FileSystem
         try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
             fs.initialize(new URI("s3a://test-bucket/"), config);
         }
+    }
+
+    @Test
+    public void testWebIdentityTokenCredentials()
+            throws Exception
+    {
+        Configuration config = new Configuration();
+        config.set(S3_IAM_ROLE, "role");
+        config.setBoolean(S3_WEB_IDENTITY_ENABLED, true);
+
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            fs.initialize(new URI("s3n://test-bucket/"), config);
+            assertInstanceOf(getAwsCredentialsProvider(fs), WebIdentityTokenCredentialsProvider.class);
+        }
+    }
+
+    @Test
+    public void testWebIdentityEnabledWithoutIamRole()
+    {
+        Configuration config = new Configuration();
+        config.setBoolean(S3_WEB_IDENTITY_ENABLED, true);
+        // S3_IAM_ROLE is NOT set (invalid case)
+
+        IllegalArgumentException exception = expectThrows(IllegalArgumentException.class, () -> {
+            try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+                fs.initialize(new URI("s3n://test-bucket/"), config);
+            }
+        });
+
+        assertEquals("Invalid configuration: hive.s3.iam-role must be provided when hive.s3.web.identity.auth.enabled is set to true",
+                exception.getMessage());
     }
 
     @Test
@@ -414,7 +449,7 @@ public class TestPrestoS3FileSystem
             s3.setGetObjectMetadataHttpCode(HTTP_NOT_FOUND);
             fs.initialize(new URI("s3n://test-bucket/"), new Configuration());
             fs.setS3Client(s3);
-            assertEquals(fs.getS3ObjectMetadata(new Path("s3n://test-bucket/test")).getObjectMetadata(), null);
+            assertNull(fs.getS3ObjectMetadata(new Path("s3n://test-bucket/test")).getObjectMetadata());
         }
     }
 
@@ -672,6 +707,23 @@ public class TestPrestoS3FileSystem
         }
     }
 
+    @Test
+    public void testListObjectsPagination()
+            throws Exception
+    {
+        Configuration config = new Configuration();
+
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            MockAmazonS3 s3 = new MockAmazonS3();
+            fs.initialize(new URI("s3n://test-bucket/"), config);
+            fs.setS3Client(s3);
+            FileStatus[] statuses = fs.listStatus(new Path("s3n://test-bucket/test-pagination"));
+            assertEquals(statuses.length, 2);
+            assertEquals("standardOne", statuses[0].getPath().getName());
+            assertEquals("standardTwo", statuses[1].getPath().getName());
+        }
+    }
+
     private void testEmptyDirectoryWithContentType(String s3ObjectContentType)
             throws Exception
     {
@@ -754,11 +806,11 @@ public class TestPrestoS3FileSystem
             MockAmazonS3 s3 = new MockAmazonS3()
             {
                 @Override
-                public ObjectListing listObjects(ListObjectsRequest listObjectsRequest)
+                public ListObjectsV2Result listObjectsV2(ListObjectsV2Request listObjectsV2Request)
                 {
-                    ObjectListing listing = new ObjectListing();
+                    ListObjectsV2Result listing = new ListObjectsV2Result();
                     // Shallow listing
-                    if ("/".equals(listObjectsRequest.getDelimiter())) {
+                    if ("/".equals(listObjectsV2Request.getDelimiter())) {
                         listing.getCommonPrefixes().add("prefix");
                         listing.getObjectSummaries().add(rootObject);
                         return listing;

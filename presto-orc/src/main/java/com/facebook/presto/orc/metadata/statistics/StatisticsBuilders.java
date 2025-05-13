@@ -38,8 +38,6 @@ public class StatisticsBuilders
             case BOOLEAN:
                 return BooleanStatisticsBuilder::new;
             case BYTE:
-                // TODO: sdruzkin - byte should use IntegerStatisticsBuilder
-                return CountStatisticsBuilder::new;
             case SHORT:
             case INT:
             case LONG:

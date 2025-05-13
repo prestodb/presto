@@ -6,14 +6,14 @@ General Changes
 ---------------
 
 * Fix correctness issue for queries involving aggregations over the result of an outer join (:issue:`10592`).
-* Fix :func:`map` to raise an error on duplicate keys rather than silently producing a corrupted map.
-* Fix :func:`map_from_entries` to raise an error when input array contains a ``null`` entry.
+* Fix :func:`!map` to raise an error on duplicate keys rather than silently producing a corrupted map.
+* Fix :func:`!map_from_entries` to raise an error when input array contains a ``null`` entry.
 * Fix out-of-memory error for bucketed execution by scheduling new splits on the same worker as
   the recently finished one.
 * Fix query failure when performing a ``GROUP BY`` on ``json`` or ``ipaddress`` types.
-* Fix correctness issue in :func:`line_locate_point`, :func:`ST_IsValid`, and :func:`geometry_invalid_reason`
+* Fix correctness issue in :func:`!line_locate_point`, :func:`!ST_IsValid`, and :func:`!geometry_invalid_reason`
   functions to not return values outside of the expected range.
-* Fix failure in :func:`geometry_to_bing_tiles` and :func:`ST_NumPoints` functions when
+* Fix failure in :func:`!geometry_to_bing_tiles` and :func:`!ST_NumPoints` functions when
   processing geometry collections.
 * Fix query failure in aggregation spilling (:issue:`10587`).
 * Remove support for ``SHOW PARTITIONS`` statement.
@@ -31,9 +31,9 @@ General Changes
 * Add support for column-level access control.
   Connectors have not yet been updated to take advantage of this support.
 * Add support for correlated subqueries with correlated ``OR`` predicates.
-* Add :func:`multimap_from_entries` function.
-* Add :func:`bing_tiles_around`, :func:`ST_NumGeometries`, :func:`ST_GeometryN`, and :func:`ST_ConvexHull` geospatial functions.
-* Add :func:`wilson_interval_lower` and :func:`wilson_interval_upper` functions.
+* Add :func:`!multimap_from_entries` function.
+* Add :func:`!bing_tiles_around`, :func:`!ST_NumGeometries`, :func:`!ST_GeometryN`, and :func:`!ST_ConvexHull` geospatial functions.
+* Add :func:`!wilson_interval_lower` and :func:`!wilson_interval_upper` functions.
 * Add ``IS DISTINCT FROM`` for ``json`` and ``ipaddress`` type.
 
 Hive Changes

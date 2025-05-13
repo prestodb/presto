@@ -22,6 +22,8 @@ import com.facebook.presto.verifier.framework.QueryObjectBundle;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.AT_SIGN;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
@@ -33,7 +35,7 @@ import static com.facebook.presto.verifier.resolver.FailureResolverTestUtil.crea
 public class TestIgnoredFunctionsMismatchResolver
         extends AbstractTestResultMismatchResolver
 {
-    private static final SqlParser sqlParser = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(AT_SIGN, COLON));
+    private static final SqlParser SQL_PARSER = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(AT_SIGN, COLON));
 
     public TestIgnoredFunctionsMismatchResolver()
     {
@@ -43,7 +45,10 @@ public class TestIgnoredFunctionsMismatchResolver
     @Test
     public void testDefault()
     {
-        ColumnMatchResult<?> mismatchedColumn = createMismatchedColumn(VARCHAR, new SimpleColumnChecksum(binary(0xa)), new SimpleColumnChecksum(binary(0xb)));
+        ColumnMatchResult<?> mismatchedColumn = createMismatchedColumn(
+                VARCHAR,
+                new SimpleColumnChecksum(binary(0xa), Optional.empty()),
+                new SimpleColumnChecksum(binary(0xb), Optional.empty()));
 
         // resolved
         assertResolved(createBundle("CREATE TABLE test AS SELECT rand() x FROM source"), mismatchedColumn);
@@ -63,8 +68,11 @@ public class TestIgnoredFunctionsMismatchResolver
         return new QueryObjectBundle(
                 QualifiedName.of("test"),
                 ImmutableList.of(),
-                sqlParser.createStatement(query, PARSING_OPTIONS),
+                SQL_PARSER.createStatement(query, PARSING_OPTIONS),
                 ImmutableList.of(),
-                CONTROL);
+                CONTROL,
+                Optional.empty(),
+                Optional.empty(),
+                false);
     }
 }

@@ -39,10 +39,12 @@ class MapFlatValueWriter
     private final ColumnWriter valueWriter;
     private final DwrfProto.KeyInfo dwrfKey;
     private final InMapOutputStream inMapStream;
+    private final int keyRawSize;
 
     public MapFlatValueWriter(
             int nodeIndex,
             int sequence,
+            int keyRawSize,
             DwrfProto.KeyInfo dwrfKey,
             ColumnWriter valueWriter,
             ColumnWriterOptions columnWriterOptions,
@@ -50,11 +52,14 @@ class MapFlatValueWriter
     {
         checkArgument(nodeIndex > 0, "nodeIndex is invalid: %s", nodeIndex);
         checkArgument(sequence > 0, "sequence must be positive: %s", sequence);
+        checkArgument(keyRawSize >= 0, "keyRawSize must be non-negative: %s", keyRawSize);
+
         requireNonNull(columnWriterOptions, "columnWriterOptions is null");
         requireNonNull(dwrfEncryptor, "dwrfEncryptor is null");
 
         this.nodeIndex = nodeIndex;
         this.sequence = sequence;
+        this.keyRawSize = keyRawSize;
         this.dwrfKey = requireNonNull(dwrfKey, "dwrfKey is null");
         this.valueWriter = requireNonNull(valueWriter, "valueWriter is null");
         this.inMapStream = new InMapOutputStream(columnWriterOptions, dwrfEncryptor);
@@ -63,6 +68,11 @@ class MapFlatValueWriter
     public int getSequence()
     {
         return sequence;
+    }
+
+    public int getKeyRawSize()
+    {
+        return keyRawSize;
     }
 
     public ColumnWriter getValueWriter()

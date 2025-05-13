@@ -16,7 +16,9 @@ package com.facebook.presto.verifier.checksum;
 import javax.annotation.Nullable;
 
 import java.util.Objects;
+import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 
 public class ArrayColumnChecksum
@@ -25,12 +27,19 @@ public class ArrayColumnChecksum
     private final Object checksum;
     private final Object cardinalityChecksum;
     private final long cardinalitySum;
+    // For array(floating point) or array(varchar) we have extra aggregations collected.
+    private final Optional<FloatingPointColumnChecksum> floatingPointChecksum;
 
-    public ArrayColumnChecksum(@Nullable Object checksum, @Nullable Object cardinalityChecksum, long cardinalitySum)
+    public ArrayColumnChecksum(
+            @Nullable Object checksum,
+            @Nullable Object cardinalityChecksum,
+            long cardinalitySum,
+            Optional<FloatingPointColumnChecksum> floatingPointChecksum)
     {
         this.checksum = checksum;
         this.cardinalityChecksum = cardinalityChecksum;
         this.cardinalitySum = cardinalitySum;
+        this.floatingPointChecksum = floatingPointChecksum;
     }
 
     @Nullable
@@ -52,6 +61,12 @@ public class ArrayColumnChecksum
         return cardinalitySum;
     }
 
+    public FloatingPointColumnChecksum getFloatingPointChecksum()
+    {
+        checkArgument(floatingPointChecksum.isPresent(), "Expect Floating Point Checksum to be present, but it is not");
+        return floatingPointChecksum.get();
+    }
+
     @Override
     public boolean equals(Object obj)
     {
@@ -63,6 +78,7 @@ public class ArrayColumnChecksum
         }
         ArrayColumnChecksum o = (ArrayColumnChecksum) obj;
         return Objects.equals(checksum, o.checksum) &&
+                Objects.equals(floatingPointChecksum, o.floatingPointChecksum) &&
                 Objects.equals(cardinalityChecksum, o.cardinalityChecksum) &&
                 Objects.equals(cardinalitySum, o.cardinalitySum);
     }
@@ -70,12 +86,21 @@ public class ArrayColumnChecksum
     @Override
     public int hashCode()
     {
-        return Objects.hash(checksum, cardinalityChecksum, cardinalitySum);
+        return Objects.hash(checksum, floatingPointChecksum, cardinalityChecksum, cardinalitySum);
     }
 
     @Override
     public String toString()
     {
-        return format("checksum: %s, cardinality_checksum: %s, cardinality_sum: %s", checksum, cardinalityChecksum, cardinalitySum);
+        if (!floatingPointChecksum.isPresent()) {
+            return format("checksum: %s, cardinality_checksum: %s, cardinality_sum: %s", checksum, cardinalityChecksum, cardinalitySum);
+        }
+        else {
+            return format(
+                    "%s, cardinality_checksum: %s, cardinality_sum: %s",
+                    floatingPointChecksum.get(),
+                    cardinalityChecksum,
+                    cardinalitySum);
+        }
     }
 }

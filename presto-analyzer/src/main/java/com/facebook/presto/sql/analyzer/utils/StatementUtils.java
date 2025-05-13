@@ -15,6 +15,8 @@ package com.facebook.presto.sql.analyzer.utils;
 
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.sql.tree.AddColumn;
+import com.facebook.presto.sql.tree.AddConstraint;
+import com.facebook.presto.sql.tree.AlterColumnNotNull;
 import com.facebook.presto.sql.tree.AlterFunction;
 import com.facebook.presto.sql.tree.Analyze;
 import com.facebook.presto.sql.tree.Call;
@@ -32,6 +34,7 @@ import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DescribeInput;
 import com.facebook.presto.sql.tree.DescribeOutput;
 import com.facebook.presto.sql.tree.DropColumn;
+import com.facebook.presto.sql.tree.DropConstraint;
 import com.facebook.presto.sql.tree.DropFunction;
 import com.facebook.presto.sql.tree.DropMaterializedView;
 import com.facebook.presto.sql.tree.DropRole;
@@ -48,10 +51,12 @@ import com.facebook.presto.sql.tree.RefreshMaterializedView;
 import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameSchema;
 import com.facebook.presto.sql.tree.RenameTable;
+import com.facebook.presto.sql.tree.RenameView;
 import com.facebook.presto.sql.tree.ResetSession;
 import com.facebook.presto.sql.tree.Revoke;
 import com.facebook.presto.sql.tree.RevokeRoles;
 import com.facebook.presto.sql.tree.Rollback;
+import com.facebook.presto.sql.tree.SetProperties;
 import com.facebook.presto.sql.tree.SetRole;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.ShowCatalogs;
@@ -126,7 +131,11 @@ public final class StatementUtils
         builder.put(RenameColumn.class, QueryType.DATA_DEFINITION);
         builder.put(DropColumn.class, QueryType.DATA_DEFINITION);
         builder.put(DropTable.class, QueryType.DATA_DEFINITION);
+        builder.put(DropConstraint.class, QueryType.DATA_DEFINITION);
+        builder.put(AddConstraint.class, QueryType.DATA_DEFINITION);
+        builder.put(AlterColumnNotNull.class, QueryType.DATA_DEFINITION);
         builder.put(CreateView.class, QueryType.DATA_DEFINITION);
+        builder.put(RenameView.class, QueryType.DATA_DEFINITION);
         builder.put(TruncateTable.class, QueryType.DATA_DEFINITION);
         builder.put(DropView.class, QueryType.DATA_DEFINITION);
         builder.put(CreateMaterializedView.class, QueryType.DATA_DEFINITION);
@@ -136,6 +145,7 @@ public final class StatementUtils
         builder.put(DropFunction.class, QueryType.CONTROL);
         builder.put(Use.class, QueryType.CONTROL);
         builder.put(SetSession.class, QueryType.CONTROL);
+        builder.put(SetProperties.class, QueryType.DATA_DEFINITION);
         builder.put(ResetSession.class, QueryType.CONTROL);
         builder.put(StartTransaction.class, QueryType.CONTROL);
         builder.put(Commit.class, QueryType.CONTROL);
@@ -167,5 +177,10 @@ public final class StatementUtils
     public static boolean isTransactionControlStatement(Statement statement)
     {
         return statement instanceof StartTransaction || statement instanceof Commit || statement instanceof Rollback;
+    }
+
+    public static boolean isRollbackStatement(Statement statement)
+    {
+        return statement instanceof Rollback;
     }
 }

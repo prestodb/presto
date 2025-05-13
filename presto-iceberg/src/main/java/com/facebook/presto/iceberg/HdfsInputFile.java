@@ -22,6 +22,8 @@ import org.apache.iceberg.io.InputFile;
 import org.apache.iceberg.io.SeekableInputStream;
 
 import java.io.IOException;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static java.util.Objects.requireNonNull;
@@ -32,14 +34,21 @@ public class HdfsInputFile
     private final InputFile delegate;
     private final HdfsEnvironment environment;
     private final String user;
+    private final AtomicLong length;
 
-    public HdfsInputFile(Path path, HdfsEnvironment environment, HdfsContext context)
+    public HdfsInputFile(Path path, HdfsEnvironment environment, HdfsContext context, Optional<Long> length)
     {
         requireNonNull(path, "path is null");
         this.environment = requireNonNull(environment, "environment is null");
+        this.length = new AtomicLong(length.orElse(-1L));
         requireNonNull(context, "context is null");
         try {
-            this.delegate = HadoopInputFile.fromPath(path, environment.getFileSystem(context, path), environment.getConfiguration(context, path));
+            if (this.length.get() < 0) {
+                this.delegate = HadoopInputFile.fromPath(path, environment.getFileSystem(context, path), environment.getConfiguration(context, path));
+            }
+            else {
+                this.delegate = HadoopInputFile.fromPath(path, this.length.get(), environment.getFileSystem(context, path), environment.getConfiguration(context, path));
+            }
         }
         catch (IOException e) {
             throw new PrestoException(ICEBERG_FILESYSTEM_ERROR, "Failed to create input file: " + path, e);
@@ -47,10 +56,20 @@ public class HdfsInputFile
         this.user = context.getIdentity().getUser();
     }
 
+    public HdfsInputFile(Path path, HdfsEnvironment environment, HdfsContext context)
+    {
+        this(path, environment, context, Optional.empty());
+    }
+
     @Override
     public long getLength()
     {
-        return environment.doAs(user, delegate::getLength);
+        return length.updateAndGet(value -> {
+            if (value < 0) {
+                return environment.doAs(user, delegate::getLength);
+            }
+            return value;
+        });
     }
 
     @Override
@@ -83,7 +102,8 @@ public class HdfsInputFile
         }
 
         @Override
-        public int read() throws IOException
+        public int read()
+                throws IOException
         {
             return delegate.read();
         }
@@ -96,19 +116,22 @@ public class HdfsInputFile
         }
 
         @Override
-        public long getPos() throws IOException
+        public long getPos()
+                throws IOException
         {
             return delegate.getPos();
         }
 
         @Override
-        public void seek(long newPos) throws IOException
+        public void seek(long newPos)
+                throws IOException
         {
             delegate.seek(newPos);
         }
 
         @Override
-        public void close() throws IOException
+        public void close()
+                throws IOException
         {
             delegate.close();
         }

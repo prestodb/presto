@@ -22,7 +22,7 @@ using namespace facebook::velox::memory;
 
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);
-  folly::init(&argc, &argv, true);
+  folly::Init init{&argc, &argv};
   return RUN_ALL_TESTS();
 }
 
@@ -34,10 +34,10 @@ class HttpJwtTestSuite : public ::testing::TestWithParam<bool> {
 
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManagerOptions{});
   }
 
-  std::unique_ptr<Config> jwtSystemConfig(
+  std::unique_ptr<config::ConfigBase> jwtSystemConfig(
       const std::unordered_map<std::string, std::string> configOverride = {})
       const {
     std::unordered_map<std::string, std::string> systemConfig{
@@ -52,15 +52,15 @@ class HttpJwtTestSuite : public ::testing::TestWithParam<bool> {
       systemConfig[configName] = configValue;
     }
 
-    return std::make_unique<core::MemConfigMutable>(systemConfig);
+    return std::make_unique<config::ConfigBase>(std::move(systemConfig), true);
   }
 
   void setupJwtNodeConfig() const {
     std::unordered_map<std::string, std::string> nodeConfigValues{
         {std::string(NodeConfig::kMutableConfig), std::string("true")},
         {std::string(NodeConfig::kNodeId), std::string("testnode")}};
-    std::unique_ptr<Config> rawNodeConfig =
-        std::make_unique<core::MemConfig>(nodeConfigValues);
+    std::unique_ptr<config::ConfigBase> rawNodeConfig =
+        std::make_unique<config::ConfigBase>(std::move(nodeConfigValues));
     NodeConfig::instance()->initialize(std::move(rawNodeConfig));
   }
 
@@ -108,7 +108,7 @@ class HttpJwtTestSuite : public ::testing::TestWithParam<bool> {
         sendGet(client.get(), "/async/msg", sendDelayMs, "TestBody");
 
     auto serverConfig = jwtSystemConfig(serverSystemConfigOverride);
-    auto valuesMap = serverConfig->valuesCopy();
+    auto valuesMap = serverConfig->rawConfigsCopy();
     /// The request is delayed. Meanwhile update the config so the server
     /// might use a different configuration, if provided.
     for (auto key : valuesMap) {

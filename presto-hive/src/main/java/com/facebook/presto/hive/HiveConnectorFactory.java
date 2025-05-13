@@ -29,6 +29,7 @@ import com.facebook.presto.hive.s3.HiveS3Module;
 import com.facebook.presto.hive.security.HiveSecurityModule;
 import com.facebook.presto.hive.security.SystemTableAwareAccessControl;
 import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.spi.ConnectorSystemConfig;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
@@ -120,6 +121,7 @@ public class HiveConnectorFactory
                     new HiveAuthenticationModule(),
                     new HiveProcedureModule(),
                     new CachingModule(),
+                    new HiveCommonModule(),
                     binder -> {
                         MBeanServer platformMBeanServer = ManagementFactory.getPlatformMBeanServer();
                         binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(platformMBeanServer));
@@ -133,6 +135,7 @@ public class HiveConnectorFactory
                         binder.bind(RowExpressionService.class).toInstance(context.getRowExpressionService());
                         binder.bind(FilterStatsCalculatorService.class).toInstance(context.getFilterStatsCalculatorService());
                         binder.bind(BlockEncodingSerde.class).toInstance(context.getBlockEncodingSerde());
+                        binder.bind(ConnectorSystemConfig.class).toInstance(context.getConnectorSystemConfig());
                     });
 
             Injector injector = app
@@ -172,7 +175,7 @@ public class HiveConnectorFactory
                     ImmutableSet.of(),
                     procedures,
                     allSessionProperties,
-                    HiveSchemaProperties.SCHEMA_PROPERTIES,
+                    SchemaProperties.SCHEMA_PROPERTIES,
                     hiveTableProperties.getTableProperties(),
                     hiveAnalyzeProperties.getAnalyzeProperties(),
                     accessControl,

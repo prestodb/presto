@@ -58,12 +58,14 @@ public class Query
     private final AtomicBoolean ignoreUserInterrupt = new AtomicBoolean();
     private final StatementClient client;
     private final boolean debug;
+    private final boolean runtime;
     private Optional<Long> clientStopTimestamp = Optional.empty();
 
-    public Query(StatementClient client, boolean debug)
+    public Query(StatementClient client, boolean debug, boolean runtime)
     {
         this.client = requireNonNull(client, "client is null");
         this.debug = debug;
+        this.runtime = runtime;
     }
 
     public Optional<String> getSetCatalog()
@@ -148,7 +150,7 @@ public class Query
         WarningsPrinter warningsPrinter = new PrintStreamWarningsPrinter(System.err);
 
         if (interactive) {
-            statusPrinter = new StatusPrinter(client, out, debug);
+            statusPrinter = new StatusPrinter(client, out, debug, runtime);
             statusPrinter.printInitialStatusUpdates();
         }
         else {
@@ -334,6 +336,8 @@ public class Query
                 return new TsvPrinter(fieldNames, writer, false);
             case TSV_HEADER:
                 return new TsvPrinter(fieldNames, writer, true);
+            case JSON:
+                return new JsonPrinter(fieldNames, writer);
             case NULL:
                 return new NullPrinter();
         }

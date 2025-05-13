@@ -16,6 +16,7 @@ package com.facebook.presto.iceberg;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.iceberg.changelog.ChangelogOperation;
 import com.facebook.presto.iceberg.function.changelog.ApplyChangelogFunction;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.FunctionExtractor;
@@ -23,7 +24,6 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.apache.iceberg.ChangelogOperation;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -33,6 +33,8 @@ import java.util.List;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.iceberg.changelog.ChangelogOperation.DELETE;
+import static com.facebook.presto.iceberg.changelog.ChangelogOperation.INSERT;
 import static com.facebook.presto.iceberg.function.changelog.ApplyChangelogFunction.NAME;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -55,7 +57,7 @@ public class TestApplyChangelogFunction
         assertAggregation(impl,
                 2,
                 toBlocks(
-                        record(1, ChangelogOperation.INSERT, 2)));
+                        record(1, INSERT, 2)));
     }
 
     @Test
@@ -66,9 +68,9 @@ public class TestApplyChangelogFunction
         assertAggregation(impl,
                 2,
                 toBlocks(
-                        record(0, ChangelogOperation.INSERT, 1),
-                        record(1, ChangelogOperation.DELETE, 1),
-                        record(1, ChangelogOperation.INSERT, 2)));
+                        record(0, INSERT, 1),
+                        record(1, DELETE, 1),
+                        record(1, INSERT, 2)));
     }
 
     @Test
@@ -79,7 +81,7 @@ public class TestApplyChangelogFunction
         assertAggregation(impl,
                 null,
                 toBlocks(
-                        record(0, ChangelogOperation.DELETE, 1)));
+                        record(0, DELETE, 1)));
     }
 
     @Test
@@ -100,12 +102,12 @@ public class TestApplyChangelogFunction
         assertAggregation(impl,
                 5,
                 toBlocks(
-                        record(0, ChangelogOperation.DELETE, 1),
-                        record(1, ChangelogOperation.INSERT, 2),
-                        record(2, ChangelogOperation.DELETE, 2),
-                        record(2, ChangelogOperation.INSERT, 3),
-                        record(3, ChangelogOperation.DELETE, 3),
-                        record(4, ChangelogOperation.INSERT, 5)));
+                        record(0, DELETE, 1),
+                        record(1, INSERT, 2),
+                        record(2, DELETE, 2),
+                        record(2, INSERT, 3),
+                        record(3, DELETE, 3),
+                        record(4, INSERT, 5)));
     }
 
     private static class ChangelogRecord

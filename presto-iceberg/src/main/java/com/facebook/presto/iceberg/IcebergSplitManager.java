@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.airlift.concurrent.ThreadPoolExecutorMBean;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.iceberg.changelog.ChangelogSplitSource;
+import com.facebook.presto.iceberg.equalitydeletes.EqualityDeletesSplitSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
@@ -23,19 +25,26 @@ import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
+import org.apache.iceberg.DeleteFile;
 import org.apache.iceberg.IncrementalChangelogScan;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
+import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.util.SnapshotUtil;
-import org.apache.iceberg.util.TableScanUtil;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import javax.inject.Inject;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
+
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
-import static com.facebook.presto.iceberg.IcebergSessionProperties.getMinimumAssignedSplitWeight;
-import static com.facebook.presto.iceberg.IcebergSessionProperties.isPushdownFilterEnabled;
+import static com.facebook.presto.iceberg.IcebergTableType.CHANGELOG;
+import static com.facebook.presto.iceberg.IcebergTableType.EQUALITY_DELETES;
 import static com.facebook.presto.iceberg.IcebergUtil.getIcebergTable;
-import static com.facebook.presto.iceberg.TableType.CHANGELOG;
+import static com.facebook.presto.iceberg.IcebergUtil.getMetadataColumnConstraints;
+import static com.facebook.presto.iceberg.IcebergUtil.getNonMetadataColumnConstraints;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergSplitManager
@@ -43,13 +52,19 @@ public class IcebergSplitManager
 {
     private final IcebergTransactionManager transactionManager;
     private final TypeManager typeManager;
+    private final ExecutorService executor;
+    private final ThreadPoolExecutorMBean executorServiceMBean;
 
     @Inject
-    public IcebergSplitManager(IcebergTransactionManager transactionManager,
-            TypeManager typeManager)
+    public IcebergSplitManager(
+            IcebergTransactionManager transactionManager,
+            TypeManager typeManager,
+            @ForIcebergSplitManager ExecutorService executor)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.executor = requireNonNull(executor, "executor is null");
+        this.executorServiceMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) executor);
     }
 
     @Override
@@ -62,38 +77,53 @@ public class IcebergSplitManager
         IcebergTableLayoutHandle layoutHandle = (IcebergTableLayoutHandle) layout;
         IcebergTableHandle table = layoutHandle.getTable();
 
-        if (!table.getTableName().getSnapshotId().isPresent()) {
+        if (!table.getIcebergTableName().getSnapshotId().isPresent()) {
             return new FixedSplitSource(ImmutableList.of());
         }
 
-        TupleDomain<IcebergColumnHandle> predicate = isPushdownFilterEnabled(session) ?
-                layoutHandle.getPartitionColumnPredicate().transform(IcebergColumnHandle.class::cast) :
-                table.getPredicate();
-
+        TupleDomain<IcebergColumnHandle> predicate = getNonMetadataColumnConstraints(layoutHandle
+                .getValidPredicate());
         Table icebergTable = getIcebergTable(transactionManager.get(transaction), session, table.getSchemaTableName());
 
-        if (table.getTableName().getTableType() == CHANGELOG) {
+        if (table.getIcebergTableName().getTableType() == CHANGELOG) {
             // if the snapshot isn't specified, grab the oldest available version of the table
-            long fromSnapshot = table.getTableName().getSnapshotId().orElseGet(() -> SnapshotUtil.oldestAncestor(icebergTable).snapshotId());
-            long toSnapshot = table.getTableName().getChangelogEndSnapshot().orElse(icebergTable.currentSnapshot().snapshotId());
+            long fromSnapshot = table.getIcebergTableName().getSnapshotId().orElseGet(() -> SnapshotUtil.oldestAncestor(icebergTable).snapshotId());
+            long toSnapshot = table.getIcebergTableName().getChangelogEndSnapshot()
+                    .orElseGet(icebergTable.currentSnapshot()::snapshotId);
             IncrementalChangelogScan scan = icebergTable.newIncrementalChangelogScan()
                     .fromSnapshotExclusive(fromSnapshot)
                     .toSnapshot(toSnapshot);
-            return new ChangelogSplitSource(session, typeManager, icebergTable, scan, scan.targetSplitSize());
+            return new ChangelogSplitSource(session, typeManager, icebergTable, scan);
+        }
+        else if (table.getIcebergTableName().getTableType() == EQUALITY_DELETES) {
+            CloseableIterable<DeleteFile> deleteFiles = IcebergUtil.getDeleteFiles(icebergTable,
+                    table.getIcebergTableName().getSnapshotId().get(),
+                    predicate,
+                    table.getPartitionSpecId(),
+                    table.getEqualityFieldIds());
+
+            return new EqualityDeletesSplitSource(session, icebergTable, deleteFiles);
         }
         else {
             TableScan tableScan = icebergTable.newScan()
                     .filter(toIcebergExpression(predicate))
-                    .useSnapshot(table.getTableName().getSnapshotId().get());
+                    .useSnapshot(table.getIcebergTableName().getSnapshotId().get())
+                    .planWith(executor);
 
             // TODO Use residual. Right now there is no way to propagate residual to presto but at least we can
             //      propagate it at split level so the parquet pushdown can leverage it.
             IcebergSplitSource splitSource = new IcebergSplitSource(
                     session,
                     tableScan,
-                    TableScanUtil.splitFiles(tableScan.planFiles(), tableScan.targetSplitSize()),
-                    getMinimumAssignedSplitWeight(session));
+                    getMetadataColumnConstraints(layoutHandle.getValidPredicate()));
             return splitSource;
         }
+    }
+
+    @Managed
+    @Nested
+    public ThreadPoolExecutorMBean getExecutor()
+    {
+        return executorServiceMBean;
     }
 }

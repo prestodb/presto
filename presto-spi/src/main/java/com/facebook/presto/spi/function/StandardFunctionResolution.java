@@ -70,9 +70,13 @@ public interface StandardFunctionResolution
 
     FunctionHandle maxFunction(Type valueType);
 
+    FunctionHandle greatestFunction(List<Type> valueTypes);
+
     boolean isMinFunction(FunctionHandle functionHandle);
 
     FunctionHandle minFunction(Type valueType);
+
+    FunctionHandle leastFunction(List<Type> valueTypes);
 
     boolean isApproximateCountDistinctFunction(FunctionHandle functionHandle);
 
@@ -81,4 +85,6 @@ public interface StandardFunctionResolution
     boolean isApproximateSetFunction(FunctionHandle functionHandle);
 
     FunctionHandle approximateSetFunction(Type valueType);
+
+    FunctionHandle lookupBuiltInFunction(String functionName, List<Type> inputTypes);
 }

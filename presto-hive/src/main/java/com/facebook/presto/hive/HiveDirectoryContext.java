@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.google.common.collect.ImmutableMap;
 
@@ -25,21 +26,26 @@ public class HiveDirectoryContext
     private final NestedDirectoryPolicy nestedDirectoryPolicy;
     private final ConnectorIdentity connectorIdentity;
     private final Map<String, String> additionalProperties;
-
+    private final RuntimeStats runtimeStats;
     private boolean cacheable;
+    private boolean skipEmptyFiles;
 
     public HiveDirectoryContext(
             NestedDirectoryPolicy nestedDirectoryPolicy,
             boolean cacheable,
+            boolean skipEmptyFiles,
             ConnectorIdentity connectorIdentity,
-            Map<String, String> additionalProperties)
+            Map<String, String> additionalProperties,
+            RuntimeStats runtimeStats)
     {
         this.nestedDirectoryPolicy = requireNonNull(nestedDirectoryPolicy, "nestedDirectoryPolicy is null");
         this.connectorIdentity = requireNonNull(connectorIdentity, "connectorIdentity is null");
         this.additionalProperties = ImmutableMap.copyOf(requireNonNull(additionalProperties, "additionalProperties is null"));
+        this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
 
         // this can be disabled
         this.cacheable = cacheable;
+        this.skipEmptyFiles = skipEmptyFiles;
     }
 
     public NestedDirectoryPolicy getNestedDirectoryPolicy()
@@ -65,5 +71,15 @@ public class HiveDirectoryContext
     public Map<String, String> getAdditionalProperties()
     {
         return additionalProperties;
+    }
+
+    public boolean isSkipEmptyFilesEnabled()
+    {
+        return skipEmptyFiles;
+    }
+
+    public RuntimeStats getRuntimeStats()
+    {
+        return runtimeStats;
     }
 }

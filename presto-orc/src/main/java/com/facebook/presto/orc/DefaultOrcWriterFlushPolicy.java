@@ -132,7 +132,7 @@ public class DefaultOrcWriterFlushPolicy
 
         public DefaultOrcWriterFlushPolicy build()
         {
-            checkArgument(stripeMaxSize.compareTo(stripeMinSize) >= 0, "stripeMaxSize must be greater than stripeMinSize");
+            checkArgument(stripeMaxSize.compareTo(stripeMinSize) >= 0, "stripeMaxSize must be greater than or equal to stripeMinSize");
             return new DefaultOrcWriterFlushPolicy(
                     stripeMaxRowCount,
                     toIntExact(stripeMinSize.toBytes()),

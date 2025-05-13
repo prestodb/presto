@@ -12,5 +12,5 @@ Synopsis
 Description
 -----------
 
-List non-recursively the ``ROLE``s that have been granted to the session user
+List non-recursively the roles that have been granted to the session user
 in ``catalog``, or the current catalog if ``catalog`` is not specified.

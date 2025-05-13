@@ -17,13 +17,13 @@ General Changes
 * Fix returned value from ``round(x, d)`` when ``x`` is a ``DECIMAL`` with
   scale ``0`` and ``d`` is a negative integer. Previously, no rounding was done
   in this case.
-* Improve performance of the :func:`array_join` function.
-* Improve performance of the :func:`ST_Envelope` function.
-* Optimize :func:`min_by` and :func:`max_by` by avoiding unnecessary object
+* Improve performance of the :func:`!array_join` function.
+* Improve performance of the :func:`!ST_Envelope` function.
+* Optimize :func:`!min_by` and :func:`!max_by` by avoiding unnecessary object
   creation in order to reduce GC overhead.
 * Show join partitioning explicitly in ``EXPLAIN``.
-* Add :func:`is_json_scalar` function.
-* Add :func:`regexp_replace` function variant that executes a lambda for
+* Add :func:`!is_json_scalar` function.
+* Add :func:`!regexp_replace` function variant that executes a lambda for
   each replacement.
 
 Security

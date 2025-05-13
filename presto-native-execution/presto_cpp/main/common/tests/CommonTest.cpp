@@ -14,7 +14,6 @@
 #include <gtest/gtest.h>
 #include "presto_cpp/main/common/Exception.h"
 #include "presto_cpp/main/common/Utils.h"
-#include "presto_cpp/presto_protocol/presto_protocol.h"
 #include "velox/common/base/Exceptions.h"
 
 using namespace facebook::velox;
@@ -23,44 +22,56 @@ using namespace facebook::presto;
 TEST(VeloxToPrestoExceptionTranslatorTest, exceptionTranslation) {
   FLAGS_velox_exception_user_stacktrace_enabled = true;
   for (const bool withContext : {false, true}) {
-    SCOPED_TRACE(fmt::format("withContext: {}", withContext));
-    // Setup context based on 'withContext' flag.
-    auto contextMessageFunction = [](VeloxException::Type type, auto* arg) {
-      return std::string(static_cast<char*>(arg));
-    };
-    std::string contextMessage = "context message";
-    facebook::velox::ExceptionContextSetter contextSetter(
-        withContext
-            ? ExceptionContext{contextMessageFunction, contextMessage.data()}
-            : ExceptionContext{});
-    VeloxUserError userException(
-        "file_name",
-        1,
-        "function_name()",
-        "operator()",
-        "test message",
-        "",
-        error_code::kArithmeticError,
-        false);
+    for (const bool withAdditionalContext : {false, true}) {
+      SCOPED_TRACE(fmt::format("withContext: {}", withContext));
+      // Setup context based on 'withContext' flag.
+      auto contextMessageFunction = [](VeloxException::Type type, auto* arg) {
+        return std::string(static_cast<char*>(arg));
+      };
+      std::string additonalMessage = "additional context message";
+      facebook::velox::ExceptionContextSetter additionalContextSetter(
+          withAdditionalContext
+              ? ExceptionContext{contextMessageFunction, additonalMessage.data(), true}
+              : ExceptionContext{});
 
-    EXPECT_THROW({ throw userException; }, VeloxException);
-    try {
-      throw userException;
-    } catch (const VeloxException& e) {
-      EXPECT_EQ(e.exceptionName(), "VeloxUserError");
-      EXPECT_EQ(e.errorSource(), error_source::kErrorSourceUser);
-      EXPECT_EQ(e.errorCode(), error_code::kArithmeticError);
+      std::string contextMessage = "context message";
+      facebook::velox::ExceptionContextSetter contextSetter(
+          withContext
+              ? ExceptionContext{contextMessageFunction, contextMessage.data()}
+              : ExceptionContext{});
+      VeloxUserError userException(
+          "file_name",
+          1,
+          "function_name()",
+          "operator()",
+          "test message",
+          "",
+          error_code::kArithmeticError,
+          false);
 
-      auto failureInfo = VeloxToPrestoExceptionTranslator::translate(e);
-      EXPECT_EQ(failureInfo.type, e.exceptionName());
-      EXPECT_EQ(failureInfo.errorLocation.lineNumber, e.line());
-      EXPECT_EQ(failureInfo.errorCode.name, "GENERIC_USER_ERROR");
-      EXPECT_EQ(failureInfo.errorCode.code, 0x00000000);
-      EXPECT_EQ(
-          failureInfo.message,
-          withContext ? "operator() test message context message"
-                      : "operator() test message");
-      EXPECT_EQ(failureInfo.errorCode.type, protocol::ErrorType::USER_ERROR);
+      EXPECT_THROW({ throw userException; }, VeloxException);
+      try {
+        throw userException;
+      } catch (const VeloxException& e) {
+        EXPECT_EQ(e.exceptionName(), "VeloxUserError");
+        EXPECT_EQ(e.errorSource(), error_source::kErrorSourceUser);
+        EXPECT_EQ(e.errorCode(), error_code::kArithmeticError);
+
+        auto failureInfo = VeloxToPrestoExceptionTranslator::translate(e);
+        EXPECT_EQ(failureInfo.type, e.exceptionName());
+        EXPECT_EQ(failureInfo.errorLocation.lineNumber, e.line());
+        EXPECT_EQ(failureInfo.errorCode.name, "GENERIC_USER_ERROR");
+        EXPECT_EQ(failureInfo.errorCode.code, 0x00000000);
+        std::string expectedMessage = "operator() test message";
+        if (withContext) {
+          expectedMessage += " " + contextMessage;
+        }
+        if (withAdditionalContext) {
+          expectedMessage += " " + additonalMessage;
+        }
+        EXPECT_EQ(failureInfo.message, expectedMessage);
+        EXPECT_EQ(failureInfo.errorCode.type, protocol::ErrorType::USER_ERROR);
+      }
     }
   }
 
@@ -121,4 +132,16 @@ TEST(VeloxToPrestoExceptionTranslatorTest, exceptionTranslation) {
 TEST(UtilsTest, general) {
   EXPECT_EQ("2021-05-20T19:18:27.001Z", util::toISOTimestamp(1621538307001l));
   EXPECT_EQ("2021-05-20T19:18:27.000Z", util::toISOTimestamp(1621538307000l));
+}
+
+TEST(UtilsTest, extractMessageBody) {
+  std::vector<std::unique_ptr<folly::IOBuf>> body;
+  body.push_back(folly::IOBuf::copyBuffer("body1"));
+  body.push_back(folly::IOBuf::copyBuffer("body2"));
+  body.push_back(folly::IOBuf::copyBuffer("body3"));
+  auto iobuf = folly::IOBuf::copyBuffer("body4");
+  iobuf->appendToChain(folly::IOBuf::copyBuffer("body5"));
+  body.push_back(std::move(iobuf));
+  auto messageBody = util::extractMessageBody(body);
+  EXPECT_EQ(messageBody, "body1body2body3body4body5");
 }

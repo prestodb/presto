@@ -28,17 +28,18 @@ public final class PropertiesUtil
     private PropertiesUtil() {}
 
     public static Map<String, String> loadProperties(File file)
-            throws IOException
     {
         Properties properties = new Properties();
         try (InputStream in = Files.newInputStream(file.toPath())) {
             properties.load(in);
         }
+        catch (IOException e) {
+            throw new RedisProviderInitializationException("Unable to Load RedisProviderPlugin", e);
+        }
         return fromProperties(properties);
     }
 
-    public static Map<String, String> loadAndProcessProperties(String path)
-            throws IOException
+    public static Map<String, String> initializeConfigs(String path)
     {
         Map<String, String> properties = new HashMap<>(loadProperties(new File(path)));
         // load secrets

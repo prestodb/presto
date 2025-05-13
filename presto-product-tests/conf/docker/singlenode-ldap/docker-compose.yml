@@ -1,4 +1,3 @@
-version: '2'
 services:
 
   presto-master:
@@ -10,6 +9,7 @@ services:
       - '8443:8443'
     volumes:
       - ../../../conf/presto/etc/ldap-authenticator.properties:/docker/volumes/conf/presto/etc/password-authenticator.properties
+      - ${OVERRIDE_JDK_DIR}:/docker/volumes/overridejdk
 
   application-runner:
     image: 'prestodb/centos6-oj8-openldap:${DOCKER_IMAGES_VERSION}'

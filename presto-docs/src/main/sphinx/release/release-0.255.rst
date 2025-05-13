@@ -9,7 +9,7 @@ General Changes
 _______________
 * Fix an issue where regular expression functions were not interruptible and could keep running for a long time after the query they were a part of failed.
 * Add support to interrupt runaway splits blocked in known situations. The interrupt timeout can be configured by the configuration property ``task.interrupt-runaway-splits-timeout``. The default value is ``600s``.
-* Added :func:`array_normalize` function to normalize an array by dividing each element by the p-norm of it.
+* Added :func:`!array_normalize` function to normalize an array by dividing each element by the p-norm of it.
 
 JDBC Changes
 ____________
@@ -23,7 +23,7 @@ Druid Connector Changes
 _______________________
 * Add support for querying non-lowercase table names in Druid connector (:pr:`15920`).
 
-Elasticserarch Changes
+Elasticsearch Changes
 ______________________
 * Fix to avoid ``NullPointerException`` when there is an unsupported data type column in the Object field.
 

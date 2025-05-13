@@ -16,32 +16,29 @@ package com.facebook.presto.spi.constraints;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
+
+import static java.util.stream.Collectors.toCollection;
 
 public class UniqueConstraint<T>
         extends TableConstraint<T>
 {
-    public UniqueConstraint(Set<T> columnNames, boolean enabled, boolean rely)
+    public UniqueConstraint(LinkedHashSet<T> columnNames, boolean enabled, boolean rely, boolean enforced)
     {
-        this(Optional.empty(), columnNames, enabled, rely);
+        this(Optional.empty(), columnNames, enabled, rely, enforced);
     }
 
     @JsonCreator
     public UniqueConstraint(
-            @JsonProperty("name") String name,
-            @JsonProperty("columns") Set<T> columnNames,
-            @JsonProperty("enforced") boolean enabled,
-            @JsonProperty("rely") boolean rely)
+            @JsonProperty("name") Optional<String> name,
+            @JsonProperty("columns") LinkedHashSet<T> columnNames,
+            @JsonProperty("enabled") boolean enabled,
+            @JsonProperty("rely") boolean rely,
+            @JsonProperty("enforced") boolean enforced)
     {
-        super(Optional.of(name), columnNames, enabled, rely);
-    }
-
-    protected UniqueConstraint(Optional<String> name, Set<T> columnNames, boolean enabled, boolean rely)
-    {
-        super(name, columnNames, enabled, rely);
+        super(name, columnNames, enabled, rely, enforced);
     }
 
     @Override
@@ -49,9 +46,10 @@ public class UniqueConstraint<T>
     {
         if (this.getColumns().stream().allMatch(assignments::containsKey)) {
             return Optional.of(new UniqueConstraint<R>(getName(),
-                    this.getColumns().stream().map(assignments::get).collect(Collectors.toSet()),
-                    this.isEnforced(),
-                    this.isRely()));
+                    this.getColumns().stream().map(assignments::get).collect(toCollection(LinkedHashSet::new)),
+                    this.isEnabled(),
+                    this.isRely(),
+                    this.isEnforced()));
         }
         else {
             return Optional.empty();

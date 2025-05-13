@@ -23,7 +23,7 @@ namespace facebook::presto::test {
 
 void setupMutableSystemConfig() {
   auto dir = exec::test::TempDirectoryPath::create();
-  auto sysConfigFilePath = fmt::format("{}/config.properties", dir->path);
+  auto sysConfigFilePath = fmt::format("{}/config.properties", dir->getPath());
   auto fileSystem = filesystems::getFileSystem(sysConfigFilePath, nullptr);
   auto sysConfigFile = fileSystem->openFileForWrite(sysConfigFilePath);
   sysConfigFile->append(fmt::format("{}=true\n", ConfigBase::kMutableConfig));

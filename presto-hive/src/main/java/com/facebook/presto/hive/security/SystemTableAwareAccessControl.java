@@ -25,6 +25,7 @@ import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -81,6 +82,12 @@ public class SystemTableAwareAccessControl
     public void checkCanCreateTable(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
     {
         delegate.checkCanCreateTable(transactionHandle, identity, context, tableName);
+    }
+
+    @Override
+    public void checkCanSetTableProperties(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Map<String, Object> properties)
+    {
+        delegate.checkCanSetTableProperties(transactionHandle, identity, context, tableName, properties);
     }
 
     @Override
@@ -167,6 +174,12 @@ public class SystemTableAwareAccessControl
     }
 
     @Override
+    public void checkCanRenameView(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName viewName, SchemaTableName newViewName)
+    {
+        delegate.checkCanRenameView(transactionHandle, identity, context, viewName, newViewName);
+    }
+
+    @Override
     public void checkCanDropView(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName viewName)
     {
         delegate.checkCanDropView(transactionHandle, identity, context, viewName);
@@ -242,5 +255,17 @@ public class SystemTableAwareAccessControl
     public void checkCanShowRoleGrants(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, String catalogName)
     {
         delegate.checkCanShowRoleGrants(transactionHandle, identity, context, catalogName);
+    }
+
+    @Override
+    public void checkCanDropConstraint(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    {
+        delegate.checkCanDropConstraint(transactionHandle, identity, context, tableName);
+    }
+
+    @Override
+    public void checkCanAddConstraint(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    {
+        delegate.checkCanAddConstraint(transactionHandle, identity, context, tableName);
     }
 }

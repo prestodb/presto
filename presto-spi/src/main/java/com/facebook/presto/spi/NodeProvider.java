@@ -19,8 +19,7 @@ public interface NodeProvider
 {
     /**
      * @param identifier   an unique identifier used to obtain the nodes
-     * @param count        how many desirable nodes to be returned
-     * @return a list of the chosen nodes by specific hash function
+     * @return a list of the chosen nodes
      */
-    List<HostAddress> get(String identifier, int count);
+    List<HostAddress> get(String identifier);
 }

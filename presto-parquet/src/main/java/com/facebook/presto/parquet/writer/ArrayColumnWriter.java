@@ -85,8 +85,8 @@ public class ArrayColumnWriter
     }
 
     @Override
-    public void reset()
+    public void resetChunk()
     {
-        elementWriter.reset();
+        elementWriter.resetChunk();
     }
 }

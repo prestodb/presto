@@ -20,15 +20,13 @@ PeriodicServiceInventoryManager::PeriodicServiceInventoryManager(
     std::string address,
     int port,
     std::shared_ptr<CoordinatorDiscoverer> coordinatorDiscoverer,
-    std::string clientCertAndKeyPath,
-    std::string ciphers,
+    folly::SSLContextPtr sslContext,
     std::string id,
     uint64_t frequencyMs)
     : address_(std::move(address)),
       port_(port),
       coordinatorDiscoverer_(std::move(coordinatorDiscoverer)),
-      clientCertAndKeyPath_(std::move(clientCertAndKeyPath)),
-      ciphers_(std::move(ciphers)),
+      sslContext_(std::move(sslContext)),
       id_(std::move(id)),
       frequencyMs_(frequencyMs),
       pool_(velox::memory::deprecatedAddDefaultLeafMemoryPool(id_)),
@@ -36,16 +34,33 @@ PeriodicServiceInventoryManager::PeriodicServiceInventoryManager(
 
 void PeriodicServiceInventoryManager::start() {
   eventBaseThread_.start(id_);
-  sessionPool_ = std::make_unique<proxygen::SessionPool>(nullptr, 10);
   stopped_ = false;
   auto* eventBase = eventBaseThread_.getEventBase();
-  eventBase->runOnDestruction([this] { sessionPool_.reset(); });
   eventBase->schedule([this]() { return sendRequest(); });
 }
 
 void PeriodicServiceInventoryManager::stop() {
   stopped_ = true;
+  // Simply cancel libevent timeout callback before calling reset on the client
+  // first. This is to ensure that the client is not destroyed while there is a
+  // pending request.
+  eventBaseThread_.getEventBase()->runInEventBaseThreadAndWait([this]() {
+    LOG(INFO) << fmt::format(
+        "Cancelled :{} async events in PeriodicServiceInventoryManager",
+        eventBaseThread_.getEventBase()->timer().cancelAll());
+  });
+  client_.reset();
   eventBaseThread_.stop();
+}
+
+void PeriodicServiceInventoryManager::setDetails(const std::string& details) {
+  *details_.wlock() = details;
+}
+
+void PeriodicServiceInventoryManager::enableRequest(bool enable) {
+  if (requestEnabled_.exchange(enable) != enable) {
+    LOG(INFO) << id_ << " has been " << (enable ? "enabled" : "disabled");
+  }
 }
 
 void PeriodicServiceInventoryManager::sendRequest() {
@@ -67,17 +82,26 @@ void PeriodicServiceInventoryManager::sendRequest() {
       std::swap(serviceAddress_, newAddress);
       client_ = std::make_shared<http::HttpClient>(
           eventBaseThread_.getEventBase(),
-          sessionPool_.get(),
+          nullptr,
+          proxygen::Endpoint(
+              serviceAddress_.getAddressStr(),
+              serviceAddress_.getPort(),
+              sslContext_ != nullptr),
           serviceAddress_,
           std::chrono::milliseconds(10'000),
           std::chrono::milliseconds(0),
           pool_,
-          clientCertAndKeyPath_,
-          ciphers_);
+          sslContext_);
     }
   } catch (const std::exception& ex) {
     LOG(WARNING) << "Error occurred during updating service address: "
                  << ex.what();
+    scheduleNext();
+    return;
+  }
+
+  if (!requestEnabled_) {
+    LOG(INFO) << id_ << " skipped (it is disabled).";
     scheduleNext();
     return;
   }
@@ -99,7 +123,8 @@ void PeriodicServiceInventoryManager::sendRequest() {
           LOG(ERROR) << id_ << " failed: " << response->error();
         } else {
           failedAttempts_ = 0;
-          LOG(INFO) << id_ << " succeeded: HTTP " << message->getStatusCode();
+          LOG(INFO) << id_ << " succeeded: HTTP " << message->getStatusCode()
+                    << ". " << *details_.rlock();
         }
       })
       .thenError(

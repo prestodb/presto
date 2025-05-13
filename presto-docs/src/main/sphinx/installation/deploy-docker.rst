@@ -12,7 +12,7 @@ Follow these steps to:
 - start your local Presto server
 
 Installing brew, Docker, and Colima
-===================================================
+===================================
 
 This task shows how to install brew, then to use brew to install Docker and Colima. 
 

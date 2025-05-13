@@ -30,4 +30,4 @@ class SignalHandler : private folly::AsyncSignalHandler {
   PrestoServer* prestoServer_{nullptr};
 };
 
-}; // namespace facebook::presto
+} // namespace facebook::presto

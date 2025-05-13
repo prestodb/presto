@@ -1,0 +1,209 @@
+name: arrow flight tests
+
+on:
+  pull_request:
+    paths-ignore:
+      - 'presto-docs/**'
+
+env:
+  CONTINUOUS_INTEGRATION: true
+  MAVEN_OPTS: "-Xmx1024M -XX:+ExitOnOutOfMemoryError"
+  MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
+  MAVEN_FAST_INSTALL: "-B -V --quiet -T 1C -DskipTests -Dair.check.skip-all --no-transfer-progress -Dmaven.javadoc.skip=true"
+  MAVEN_TEST: "-B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --no-transfer-progress --fail-at-end"
+  RETRY: .github/bin/retry
+
+jobs:
+  arrowflight-java-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        java: [ 8.0.442, 17.0.13 ]
+        modules:
+          - ":presto-base-arrow-flight"  # Only run tests for the `presto-base-arrow-flight` module
+
+    timeout-minutes: 80
+    concurrency:
+      group: ${{ github.workflow }}-test-${{ matrix.modules }}-${{ github.event.pull_request.number }}-${{ matrix.java }}
+      cancel-in-progress: true
+
+    steps:
+      # Checkout the code only if there are changes in the relevant files
+      - uses: actions/checkout@v4
+        with:
+          show-progress: false
+
+      # Set up Java and dependencies for the build environment
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: ${{ matrix.java }}
+          cache: 'maven'
+      - name: Download nodejs to maven cache
+        run: .github/bin/download_nodejs
+
+      # Install dependencies for the target module
+      - name: Maven Install
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          ./mvnw install ${MAVEN_FAST_INSTALL} -e -am -pl ${{ matrix.modules }}
+
+      # Run Maven tests for the target module, excluding native tests
+      - name: Maven Tests
+        run: ./mvnw test ${MAVEN_TEST} -pl ${{ matrix.modules }} -Dtest="*,!TestArrowFlightNativeQueries"
+
+  prestocpp-linux-build-for-test:
+    runs-on: ubuntu-22.04
+    container:
+      image: prestodb/presto-native-dependency:0.292-20250204112033-cf8ba84
+    env:
+      CCACHE_DIR: "${{ github.workspace }}/ccache"
+      DEPENDENCY_DIR: "${{ github.workspace }}/adapter-deps/download"
+      INSTALL_PREFIX: "${{ github.workspace }}/adapter-deps/install"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fix git permissions
+        # Usually actions/checkout does this but as we run in a container
+        # it doesn't work
+        run: git config --global --add safe.directory ${GITHUB_WORKSPACE}
+
+      - name: Update velox
+        run: |
+          cd presto-native-execution
+          make velox-submodule
+
+      - name: Install Arrow Flight
+        run: |
+          mkdir -p ${DEPENDENCY_DIR}/adapter-deps/download
+          mkdir -p ${INSTALL_PREFIX}/adapter-deps/install
+          source /opt/rh/gcc-toolset-12/enable
+          set -xu
+          cd presto-native-execution
+          PROMPT_ALWAYS_RESPOND=n ./scripts/setup-adapters.sh arrow_flight
+
+      - name: Install Github CLI for using apache/infrastructure-actions/stash
+        run: |
+          curl -L https://github.com/cli/cli/releases/download/v2.63.2/gh_2.63.2_linux_amd64.rpm > gh_2.63.2_linux_amd64.rpm
+          rpm -iv gh_2.63.2_linux_amd64.rpm
+
+      - uses: apache/infrastructure-actions/stash/restore@4ab8682fbd4623d2b4fc1c98db38aba5091924c3
+        with:
+          path: '${{ env.CCACHE_DIR }}'
+          key: ccache-prestocpp-linux-build-for-test
+
+      - name: Zero ccache statistics
+        run: ccache -sz
+
+      - name: Build engine
+        run: |
+          source /opt/rh/gcc-toolset-12/enable
+          cd presto-native-execution
+          cmake \
+            -B _build/release \
+            -GNinja \
+            -DTREAT_WARNINGS_AS_ERRORS=1 \
+            -DENABLE_ALL_WARNINGS=1 \
+            -DVELOX_ENABLE_ARROW=OFF \
+            -DVELOX_ENABLE_PARQUET=OFF \
+            -DPRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR=ON \
+            -DCMAKE_PREFIX_PATH=/usr/local \
+            -DThrift_ROOT=/usr/local \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DMAX_LINK_JOBS=4
+          ninja -C _build/release -j 4
+
+      - name: Ccache after
+        run: ccache -s
+
+      - uses: apache/infrastructure-actions/stash/save@4ab8682fbd4623d2b4fc1c98db38aba5091924c3
+        with:
+          path: '${{ env.CCACHE_DIR }}'
+          key: ccache-prestocpp-linux-build-for-test
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: arrow-flight-presto-native-build
+          path: presto-native-execution/_build/release/presto_cpp/main/presto_server
+
+      - name: Upload Arrow Flight install artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: arrow-flight-install
+          path: ${{ env.INSTALL_PREFIX }}/lib64/libarrow_flight*
+
+  arrowflight-native-e2e-tests:
+    needs: prestocpp-linux-build-for-test
+    runs-on: ubuntu-22.04
+    container:
+      image: prestodb/presto-native-dependency:0.292-20250204112033-cf8ba84
+    env:
+      INSTALL_PREFIX: "${{ github.workspace }}/adapter-deps/install"
+    strategy:
+      fail-fast: false
+      matrix:
+        modules:
+          - ":presto-base-arrow-flight"  # Only run tests for the `presto-base-arrow-flight` module
+
+    timeout-minutes: 80
+    concurrency:
+      group: ${{ github.workflow }}-test-${{ matrix.modules }}-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fix git permissions
+        # Usually actions/checkout does this but as we run in a container
+        # it doesn't work
+        run: git config --global --add safe.directory ${GITHUB_WORKSPACE}
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: arrow-flight-presto-native-build
+          path: presto-native-execution/_build/release/presto_cpp/main
+
+      - name: Download Arrow Flight install artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: arrow-flight-install
+          path: ${{ env.INSTALL_PREFIX }}/lib64
+
+      # Permissions are lost when uploading. Details here: https://github.com/actions/upload-artifact/issues/38
+      - name: Restore execute permissions and library path
+        run: |
+          chmod +x ${GITHUB_WORKSPACE}/presto-native-execution/_build/release/presto_cpp/main/presto_server
+          # Ensure transitive dependency libboost-iostreams is found.
+          ldconfig /usr/local/lib
+
+      - name: Install OpenJDK8
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: 8.0.442
+          cache: 'maven'
+      - name: Download nodejs to maven cache
+        run: .github/bin/download_nodejs
+
+      - name: Maven install
+        env:
+          # Use different Maven options to install.
+          MAVEN_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl ${{ matrix.modules }}
+
+      - name: Run arrowflight native e2e tests
+        run: |
+          export PRESTO_SERVER_PATH="${GITHUB_WORKSPACE}/presto-native-execution/_build/release/presto_cpp/main/presto_server"
+          mvn test \
+            ${MAVEN_TEST} \
+            -pl ${{ matrix.modules }} \
+            -Dtest="TestArrowFlightNativeQueries" \
+            -DPRESTO_SERVER=${PRESTO_SERVER_PATH} \
+            -DDATA_DIR=${RUNNER_TEMP} \
+            -Duser.timezone=America/Bahia_Banderas \
+            -T1C

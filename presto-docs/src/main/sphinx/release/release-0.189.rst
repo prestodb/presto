@@ -8,7 +8,7 @@ General Changes
 * Fix query failure while logging the query plan.
 * Fix a bug that causes clients to hang when executing ``LIMIT`` queries when
   ``optimizer.force-single-node-output`` is disabled.
-* Fix a bug in the :func:`bing_tile_at` and :func:`bing_tile_polygon` functions
+* Fix a bug in the :func:`!bing_tile_at` and :func:`!bing_tile_polygon` functions
   where incorrect results were produced for points close to tile edges.
 * Fix variable resolution when lambda argument has the same name as a table column.
 * Improve error message when running ``SHOW TABLES`` on a catalog that does not exist.

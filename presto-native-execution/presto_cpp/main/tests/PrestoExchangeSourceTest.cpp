@@ -17,11 +17,11 @@
 
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
+#include "folly/experimental/EventCount.h"
 #include "presto_cpp/main/PrestoExchangeSource.h"
-#include "presto_cpp/main/http/HttpServer.h"
+#include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/tests/HttpServerWrapper.h"
 #include "presto_cpp/main/tests/MultableConfigs.h"
-#include "presto_cpp/presto_protocol/presto_protocol.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/memory/MemoryAllocator.h"
@@ -33,19 +33,39 @@ DECLARE_bool(velox_memory_leak_check_enabled);
 
 namespace fs = boost::filesystem;
 using namespace facebook::presto;
-
-using namespace facebook::presto;
 using namespace facebook::velox;
 using namespace facebook::velox::memory;
 using namespace facebook::velox::common::testutil;
 using namespace testing;
 
-int main(int argc, char** argv) {
-  testing::InitGoogleTest(&argc, argv);
-  folly::init(&argc, &argv, true);
-  FLAGS_velox_memory_leak_check_enabled = true;
-  return RUN_ALL_TESTS();
-}
+namespace facebook::presto::test {
+class PrestoExchangeSourceTestHelper {
+ public:
+  PrestoExchangeSourceTestHelper(PrestoExchangeSource* exchangeSource)
+      : exchangeSource_(exchangeSource) {}
+
+  uint64_t sequence() const {
+    return exchangeSource_->sequence_;
+  }
+
+  int failedAttempts() const {
+    return exchangeSource_->failedAttempts_;
+  }
+
+  // Clears the node-wise memory usage tracking.
+  static void clearMemoryUsage() {
+    PrestoExchangeSource::currQueuedMemoryBytes() = 0;
+    PrestoExchangeSource::peakQueuedMemoryBytes() = 0;
+  }
+
+  bool atEnd() const {
+    return exchangeSource_->atEnd_;
+  }
+
+ private:
+  PrestoExchangeSource* const exchangeSource_;
+};
+} // namespace facebook::presto::test
 
 namespace {
 std::string getCertsPath(const std::string& fileName) {
@@ -69,8 +89,10 @@ std::string getCertsPath(const std::string& fileName) {
 class Producer {
  public:
   explicit Producer(
-      std::function<bool(bool)> shouldFail = [](bool) { return false; })
-      : shouldFail_(std::move(shouldFail)) {}
+      std::function<bool(bool)> shouldFail = [](bool) { return false; },
+      bool dataResponseHasNoSequence = false)
+      : shouldFail_(std::move(shouldFail)),
+        dataResponseHasNoSequence_(dataResponseHasNoSequence) {}
 
   void registerEndpoints(http::HttpServer* server) {
     server->registerGet(
@@ -78,8 +100,17 @@ class Producer {
         [this](
             proxygen::HTTPMessage* message,
             const std::vector<std::string>& pathMatch) {
-          return getResults(message, pathMatch);
+          return getResults(message, pathMatch, false);
         });
+
+    server->registerHead(
+        R"(/v1/task/(.+)/results/([0-9]+)/([0-9]+))",
+        [this](
+            proxygen::HTTPMessage* message,
+            const std::vector<std::string>& pathMatch) {
+          return getResults(message, pathMatch, true);
+        });
+
     server->registerGet(
         R"(/v1/task/(.+)/results/([0-9]+)/([0-9]+)/acknowledge)",
         [this](
@@ -87,6 +118,7 @@ class Producer {
             const std::vector<std::string>& pathMatch) {
           return acknowledgeResults(message, pathMatch);
         });
+
     server->registerDelete(
         R"(/v1/task/(.+)/results/([0-9]+))",
         [this](
@@ -98,12 +130,13 @@ class Producer {
 
   proxygen::RequestHandler* getResults(
       proxygen::HTTPMessage* /*message*/,
-      const std::vector<std::string>& pathMatch) {
+      const std::vector<std::string>& pathMatch,
+      bool getDataSizeOnly) {
     protocol::TaskId taskId = pathMatch[1];
     long sequence = std::stol(pathMatch[3]);
 
     return new http::CallbackRequestHandler(
-        [this, taskId, sequence](
+        [this, taskId, sequence, getDataSizeOnly](
             proxygen::HTTPMessage* message,
             const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
             proxygen::ResponseHandler* downstream) {
@@ -111,22 +144,58 @@ class Producer {
             return sendErrorResponse(
                 downstream, "ERR\nConnection reset by peer", 500);
           }
-          if (sequence < this->startSequence_) {
-            return sendResponse(downstream, taskId, sequence, "", false);
+
+          if (getDataSizeOnly) {
+            auto [remainingBytes, noMoreData] = getDataSize(sequence);
+            return sendResponse(
+                downstream,
+                taskId,
+                std::nullopt,
+                "",
+                remainingBytes,
+                noMoreData);
           }
-          auto [data, noMoreData] = getData(sequence);
+
+          std::optional<int64_t> sequenceOpt;
+          if (!dataResponseHasNoSequence_) {
+            sequenceOpt = sequence;
+          }
+          if (sequence < this->startSequence_) {
+            auto [remainingBytes, noMoreData] = getDataSize(sequence);
+            return sendResponse(
+                downstream,
+                taskId,
+                sequenceOpt,
+                "",
+                remainingBytes,
+                noMoreData);
+          }
+
+          auto [data, remainingBytes, noMoreData] = getData(sequence);
           if (!data.empty() || noMoreData) {
-            sendResponse(downstream, taskId, sequence, data, noMoreData);
+            sendResponse(
+                downstream,
+                taskId,
+                sequenceOpt,
+                data,
+                remainingBytes,
+                noMoreData);
           } else {
             auto [promise, future] = folly::makePromiseContract<bool>();
 
             std::move(future)
                 .via(folly::EventBaseManager::get()->getEventBase())
-                .thenValue([this, downstream, taskId, sequence](
+                .thenValue([this, downstream, taskId, sequence, sequenceOpt](
                                bool /*value*/) {
-                  auto [data, noMoreData] = getData(sequence);
+                  auto [data, remainingBytes, noMoreData] = getData(sequence);
                   VELOX_CHECK(!data.empty() || noMoreData);
-                  sendResponse(downstream, taskId, sequence, data, noMoreData);
+                  sendResponse(
+                      downstream,
+                      taskId,
+                      sequenceOpt,
+                      data,
+                      remainingBytes,
+                      noMoreData);
                 });
 
             promise_ = std::move(promise);
@@ -241,20 +310,42 @@ class Producer {
   }
 
  private:
-  std::tuple<std::string, bool> getData(int64_t sequence) {
+  std::tuple<std::string, uint64_t, bool> getData(int64_t sequence) {
     std::string data;
-    bool noMoreData = false;
+    uint64_t remainingBytes{0};
+    bool noMoreData{false};
     {
       std::lock_guard<std::mutex> l(mutex_);
-      auto index = sequence - startSequence_;
-      VELOX_CHECK_GE(index, 0);
-      if (queue_.size() > index) {
-        data = queue_[index];
+      const auto getIndex = sequence - startSequence_;
+      VELOX_CHECK_GE(getIndex, 0);
+      if (queue_.size() > getIndex) {
+        data = queue_[getIndex];
+        for (auto remainingIndex = getIndex + 1; remainingIndex < queue_.size();
+             ++remainingIndex) {
+          remainingBytes += queue_[remainingIndex].size();
+        }
       } else {
         noMoreData = noMoreData_;
       }
     }
-    return std::make_tuple(std::move(data), noMoreData);
+    return std::make_tuple(std::move(data), remainingBytes, noMoreData);
+  }
+
+  std::tuple<uint64_t, bool> getDataSize(int64_t sequence) const {
+    uint64_t remainingBytes{0};
+    bool noMoreData{false};
+    {
+      std::lock_guard<std::mutex> l(mutex_);
+      const auto startIndex = sequence - startSequence_;
+      VELOX_CHECK_GE(startIndex, 0);
+      for (auto index = startIndex; index < queue_.size(); ++index) {
+        remainingBytes += queue_[index].size();
+      }
+      if (remainingBytes == 0) {
+        noMoreData = noMoreData_;
+      }
+    }
+    return std::make_tuple(remainingBytes, noMoreData);
   }
 
   void sendErrorResponse(
@@ -270,19 +361,26 @@ class Producer {
   void sendResponse(
       proxygen::ResponseHandler* downstream,
       const protocol::TaskId& taskId,
-      int64_t sequence,
+      std::optional<int64_t> sequence,
       const std::string& data,
+      uint64_t remainingBytes,
       bool complete) {
     proxygen::ResponseBuilder builder(downstream);
     builder.status(http::kHttpOk, "OK")
         .header(protocol::PRESTO_TASK_INSTANCE_ID_HEADER, taskId)
-        .header(protocol::PRESTO_PAGE_TOKEN_HEADER, std::to_string(sequence))
-        .header(
-            protocol::PRESTO_PAGE_NEXT_TOKEN_HEADER,
-            std::to_string(sequence + 1))
         .header(
             protocol::PRESTO_BUFFER_COMPLETE_HEADER,
             complete ? "true" : "false");
+    if (sequence.has_value()) {
+      builder.header(
+          protocol::PRESTO_PAGE_TOKEN_HEADER, std::to_string(sequence.value()));
+      builder.header(
+          protocol::PRESTO_PAGE_NEXT_TOKEN_HEADER,
+          std::to_string(sequence.value() + 1));
+    }
+    builder.header(
+        protocol::PRESTO_BUFFER_REMAINING_BYTES_HEADER,
+        std::to_string(remainingBytes));
     if (!data.empty()) {
       auto buffer = folly::IOBuf::create(4 + data.size());
       int32_t dataSize = data.size();
@@ -299,23 +397,25 @@ class Producer {
     builder.sendWithEOM();
   }
 
+  const std::function<bool(bool)> shouldFail_;
+  const bool dataResponseHasNoSequence_;
+
   std::deque<std::string> queue_;
-  std::mutex mutex_;
+  mutable std::mutex mutex_;
   bool noMoreData_ = false;
   int startSequence_ = 0;
   folly::Promise<bool> promise_ = folly::Promise<bool>::makeEmpty();
   folly::Promise<bool> deleteResultsPromise_ =
       folly::Promise<bool>::makeEmpty();
   bool receivedDeleteResults_ = false;
-  std::function<bool(bool)> shouldFail_;
 };
 
 std::string toString(exec::SerializedPage* page) {
   auto input = page->prepareStreamForDeserialize();
 
-  auto numBytes = input.read<int32_t>();
+  auto numBytes = input->read<int32_t>();
   char data[numBytes + 1];
-  input.readBytes(data, numBytes);
+  input->readBytes(data, numBytes);
   data[numBytes] = '\0';
   return std::string(data);
 }
@@ -324,12 +424,14 @@ std::unique_ptr<exec::SerializedPage> waitForNextPage(
     const std::shared_ptr<exec::ExchangeQueue>& queue) {
   bool atEnd;
   facebook::velox::ContinueFuture future;
-  auto pages = queue->dequeueLocked(1, &atEnd, &future);
+  ContinuePromise stalePromise = ContinuePromise::makeEmpty();
+  auto pages = queue->dequeueLocked(0, 1, &atEnd, &future, &stalePromise);
   EXPECT_LE(pages.size(), 1);
   EXPECT_FALSE(atEnd);
   if (pages.empty()) {
     std::move(future).get();
-    pages = queue->dequeueLocked(1, &atEnd, &future);
+    ContinuePromise stalePromise = ContinuePromise::makeEmpty();
+    pages = queue->dequeueLocked(0, 1, &atEnd, &future, &stalePromise);
     EXPECT_EQ(pages.size(), 1);
   }
   return std::move(pages.front());
@@ -338,11 +440,13 @@ std::unique_ptr<exec::SerializedPage> waitForNextPage(
 void waitForEndMarker(const std::shared_ptr<exec::ExchangeQueue>& queue) {
   bool atEnd;
   facebook::velox::ContinueFuture future;
-  auto pages = queue->dequeueLocked(1, &atEnd, &future);
+  ContinuePromise stalePromise = ContinuePromise::makeEmpty();
+  auto pages = queue->dequeueLocked(0, 1, &atEnd, &future, &stalePromise);
   ASSERT_TRUE(pages.empty());
   if (!atEnd) {
     std::move(future).get();
-    pages = queue->dequeueLocked(1, &atEnd, &future);
+    ContinuePromise stalePromise = ContinuePromise::makeEmpty();
+    pages = queue->dequeueLocked(0, 1, &atEnd, &future, &stalePromise);
     ASSERT_TRUE(pages.empty());
     ASSERT_TRUE(atEnd);
   }
@@ -381,6 +485,7 @@ std::string makeProducerUri(
 
 struct Params {
   bool useHttps;
+  bool enableBufferCopy;
   bool immediateBufferTransfer;
   int exchangeCpuThreadPoolSize;
   int exchangeIoThreadPoolSize;
@@ -390,17 +495,20 @@ struct Params {
 
 class PrestoExchangeSourceTest : public ::testing::TestWithParam<Params> {
  public:
+  static void SetUpTestCase() {
+    MemoryManagerOptions options;
+    options.allocatorCapacity = 1L << 30;
+    options.useMmapAllocator = true;
+    MemoryManager::testingSetInstance(options);
+  }
+
   void SetUp() override {
     pool_ = memory::deprecatedAddDefaultLeafMemoryPool();
 
-    memory::MmapAllocator::Options options;
-    options.capacity = 1L << 30;
-    allocator_ = std::make_unique<memory::MmapAllocator>(options);
     exchangeCpuExecutor_ = std::make_shared<folly::CPUThreadPoolExecutor>(
         GetParam().exchangeCpuThreadPoolSize);
     exchangeIoExecutor_ = std::make_shared<folly::IOThreadPoolExecutor>(
         GetParam().exchangeIoThreadPoolSize);
-    memory::MemoryAllocator::setDefaultInstance(allocator_.get());
     TestValue::enable();
 
     filesystems::registerLocalFileSystem();
@@ -409,20 +517,19 @@ class PrestoExchangeSourceTest : public ::testing::TestWithParam<Params> {
         std::string(SystemConfig::kExchangeImmediateBufferTransfer),
         GetParam().immediateBufferTransfer ? "true" : "false");
     SystemConfig::instance()->setValue(
-        std::string(SystemConfig::kHttpsClientCertAndKeyPath),
-        getCertsPath("client_ca.pem"));
-    SystemConfig::instance()->setValue(
-        std::string(SystemConfig::kHttpsSupportedCiphers),
-        "AES128-SHA,AES128-SHA256,AES256-GCM-SHA384");
+        std::string(SystemConfig::kExchangeEnableBufferCopy),
+        GetParam().enableBufferCopy ? "true" : "false");
+    const std::string keyPath = getCertsPath("client_ca.pem");
+    const std::string ciphers = "AES128-SHA,AES128-SHA256,AES256-GCM-SHA384";
+    sslContext_ = facebook::presto::util::createSSLContext(keyPath, ciphers);
   }
 
   void TearDown() override {
-    memory::MemoryAllocator::setDefaultInstance(nullptr);
     TestValue::disable();
   }
 
   std::shared_ptr<exec::ExchangeQueue> makeSingleSourceQueue() {
-    auto queue = std::make_shared<exec::ExchangeQueue>();
+    auto queue = std::make_shared<exec::ExchangeQueue>(1, 0);
     queue->addSourceLocked();
     queue->noMoreSources();
     return queue;
@@ -441,24 +548,46 @@ class PrestoExchangeSourceTest : public ::testing::TestWithParam<Params> {
         pool != nullptr ? pool : pool_.get(),
         exchangeCpuExecutor_.get(),
         exchangeIoExecutor_.get(),
-        &connectionPools_);
+        &connectionPool_,
+        useHttps ? sslContext_ : nullptr);
   }
 
   void requestNextPage(
       const std::shared_ptr<exec::ExchangeQueue>& queue,
-      const std::shared_ptr<exec::ExchangeSource>& exchangeSource) {
+      const std::shared_ptr<exec::ExchangeSource>& exchangeSource,
+      size_t maxWaitMs = 2'000) {
     {
       std::lock_guard<std::mutex> l(queue->mutex());
-      ASSERT_TRUE(exchangeSource->shouldRequestLocked());
+      VELOX_CHECK(exchangeSource->shouldRequestLocked());
     }
-    exchangeSource->request(1 << 20, 2);
+    exchangeSource->request(1 << 20, std::chrono::milliseconds(maxWaitMs));
+  }
+
+  void requestDataSize(
+      const std::shared_ptr<exec::ExchangeQueue>& queue,
+      const std::shared_ptr<exec::ExchangeSource>& exchangeSource,
+      uint64_t& remainingBytes,
+      bool& atEnd) {
+    {
+      std::lock_guard<std::mutex> l(queue->mutex());
+      VELOX_CHECK(exchangeSource->shouldRequestLocked());
+    }
+    const auto response =
+        exchangeSource->requestDataSizes(std::chrono::seconds(2)).get();
+    remainingBytes = 0;
+
+    atEnd = false;
+    for (auto bytes : response.remainingBytes) {
+      remainingBytes += bytes;
+    }
+    atEnd = response.atEnd;
   }
 
   std::shared_ptr<memory::MemoryPool> pool_;
-  std::unique_ptr<memory::MemoryAllocator> allocator_;
   std::shared_ptr<folly::CPUThreadPoolExecutor> exchangeCpuExecutor_;
   std::shared_ptr<folly::IOThreadPoolExecutor> exchangeIoExecutor_;
-  ConnectionPools connectionPools_;
+  http::HttpClientConnectionPool connectionPool_;
+  folly::SSLContextPtr sslContext_;
 };
 
 int64_t totalBytes(const std::vector<std::string>& pages) {
@@ -489,7 +618,7 @@ TEST_P(PrestoExchangeSourceTest, basic) {
 
   auto exchangeSource = makeExchangeSource(producerAddress, useHttps, 3, queue);
 
-  size_t beforePoolSize = pool_->currentBytes();
+  size_t beforePoolSize = pool_->usedBytes();
   size_t beforeQueueSize = queue->totalBytes();
   requestNextPage(queue, exchangeSource);
   for (int i = 0; i < pages.size(); i++) {
@@ -499,19 +628,122 @@ TEST_P(PrestoExchangeSourceTest, basic) {
   }
   waitForEndMarker(queue);
 
-  size_t deltaPool = pool_->currentBytes() - beforePoolSize;
-  size_t deltaQueue = queue->totalBytes() - beforeQueueSize;
-  EXPECT_EQ(deltaPool, deltaQueue);
+  size_t deltaPoolBytes = pool_->usedBytes() - beforePoolSize;
+  size_t deltaQueueBytes = queue->totalBytes() - beforeQueueSize;
+  EXPECT_EQ(deltaPoolBytes, deltaQueueBytes);
 
   producer->waitForDeleteResults();
   exchangeCpuExecutor_->stop();
   serverWrapper.stop();
-  EXPECT_EQ(pool_->currentBytes(), 0);
+  EXPECT_EQ(pool_->usedBytes(), 0);
 
-  const auto stats = exchangeSource->stats();
+  const auto stats = exchangeSource->metrics();
   ASSERT_EQ(stats.size(), 2);
-  ASSERT_EQ(stats.at("prestoExchangeSource.numPages"), pages.size());
-  ASSERT_EQ(stats.at("prestoExchangeSource.totalBytes"), totalBytes(pages));
+  ASSERT_EQ(stats.at("prestoExchangeSource.numPages").sum, pages.size());
+  ASSERT_EQ(stats.at("prestoExchangeSource.totalBytes").sum, totalBytes(pages));
+}
+
+TEST_P(PrestoExchangeSourceTest, getDataSize) {
+  const std::vector<std::string> pages = {"page1 - xx", "page2 - xxxxx"};
+  const auto useHttps = GetParam().useHttps;
+  auto producer = std::make_unique<Producer>();
+
+  for (const auto& page : pages) {
+    producer->enqueue(page);
+  }
+  producer->noMoreData();
+
+  auto producerServer = createHttpServer(useHttps);
+  producer->registerEndpoints(producerServer.get());
+
+  test::HttpServerWrapper serverWrapper(std::move(producerServer));
+  auto producerAddress = serverWrapper.start().get();
+
+  auto queue = makeSingleSourceQueue();
+
+  auto exchangeSource = makeExchangeSource(producerAddress, useHttps, 3, queue);
+  test::PrestoExchangeSourceTestHelper sourceHelper(exchangeSource.get());
+
+  // Get data size before fetch any data.
+  ASSERT_EQ(sourceHelper.sequence(), 0);
+  uint64_t remainingBytes;
+  bool atEnd;
+  requestDataSize(queue, exchangeSource, remainingBytes, atEnd);
+  ASSERT_EQ(remainingBytes, pages[0].size() + pages[1].size());
+  ASSERT_FALSE(atEnd);
+  ASSERT_EQ(sourceHelper.sequence(), 0);
+
+  // Get first page size.
+  requestNextPage(queue, exchangeSource);
+  waitForNextPage(queue);
+
+  ASSERT_EQ(sourceHelper.sequence(), 1);
+  requestDataSize(queue, exchangeSource, remainingBytes, atEnd);
+  ASSERT_EQ(remainingBytes, pages[1].size());
+  ASSERT_FALSE(atEnd);
+  ASSERT_EQ(sourceHelper.sequence(), 1);
+
+  // Get second page size.
+  requestNextPage(queue, exchangeSource);
+  waitForNextPage(queue);
+  ASSERT_EQ(sourceHelper.sequence(), 2);
+  ASSERT_FALSE(sourceHelper.atEnd());
+
+  requestDataSize(queue, exchangeSource, remainingBytes, atEnd);
+  ASSERT_EQ(remainingBytes, 0);
+
+  ASSERT_TRUE(atEnd);
+  ASSERT_EQ(sourceHelper.sequence(), 2);
+
+  waitForEndMarker(queue);
+
+  producer->waitForDeleteResults();
+  exchangeCpuExecutor_->stop();
+  serverWrapper.stop();
+}
+
+TEST_P(PrestoExchangeSourceTest, invalidDataResponseWithoutTokenSet) {
+  SystemConfig::instance()->setValue(
+      std::string(SystemConfig::kExchangeMaxErrorDuration), "2s");
+  const std::vector<std::string> pages = {"page1 - xx", "page2 - xxxxx"};
+  const auto useHttps = GetParam().useHttps;
+  auto producer = std::make_unique<Producer>([](bool) { return false; }, true);
+
+  for (const auto& page : pages) {
+    producer->enqueue(page);
+  }
+  producer->noMoreData();
+
+  auto producerServer = createHttpServer(useHttps);
+  producer->registerEndpoints(producerServer.get());
+
+  test::HttpServerWrapper serverWrapper(std::move(producerServer));
+  auto producerAddress = serverWrapper.start().get();
+
+  auto queue = makeSingleSourceQueue();
+
+  auto exchangeSource = makeExchangeSource(producerAddress, useHttps, 3, queue);
+  test::PrestoExchangeSourceTestHelper sourceHelper(exchangeSource.get());
+
+  // Get data size before fetch any data.
+  ASSERT_EQ(sourceHelper.sequence(), 0);
+  uint64_t remainingBytes;
+  bool atEnd;
+  requestDataSize(queue, exchangeSource, remainingBytes, atEnd);
+  ASSERT_EQ(remainingBytes, pages[0].size() + pages[1].size());
+  ASSERT_FALSE(atEnd);
+  ASSERT_EQ(sourceHelper.sequence(), 0);
+
+  requestNextPage(queue, exchangeSource, 10);
+  VELOX_ASSERT_THROW(
+      waitForNextPage(queue),
+      "next token is not set in non-empty data response");
+  VELOX_ASSERT_THROW(
+      waitForEndMarker(queue),
+      "next token is not set in non-empty data response");
+
+  exchangeCpuExecutor_->stop();
+  serverWrapper.stop();
 }
 
 TEST_P(PrestoExchangeSourceTest, retryState) {
@@ -565,12 +797,13 @@ TEST_P(PrestoExchangeSourceTest, retries) {
   auto queue = makeSingleSourceQueue();
 
   auto exchangeSource = makeExchangeSource(producerAddress, useHttps, 3, queue);
+  test::PrestoExchangeSourceTestHelper sourceHelper(exchangeSource.get());
 
   requestNextPage(queue, exchangeSource);
   {
     auto page = waitForNextPage(queue);
     ASSERT_EQ(toString(page.get()), pages[0]) << "at " << 0;
-    ASSERT_EQ(exchangeSource->testingFailedAttempts(), 3);
+    ASSERT_EQ(sourceHelper.failedAttempts(), 3);
     requestNextPage(queue, exchangeSource);
   }
 
@@ -632,12 +865,12 @@ TEST_P(PrestoExchangeSourceTest, earlyTerminatingConsumer) {
 
   producer->waitForDeleteResults();
   serverWrapper.stop();
-  EXPECT_EQ(pool_->currentBytes(), 0);
+  EXPECT_EQ(pool_->usedBytes(), 0);
 
-  const auto stats = exchangeSource->stats();
+  const auto stats = exchangeSource->metrics();
   ASSERT_EQ(stats.size(), 2);
-  ASSERT_EQ(stats.at("prestoExchangeSource.numPages"), 0);
-  ASSERT_EQ(stats.at("prestoExchangeSource.totalBytes"), 0);
+  ASSERT_EQ(stats.at("prestoExchangeSource.numPages").sum, 0);
+  ASSERT_EQ(stats.at("prestoExchangeSource.totalBytes").sum, 0);
 }
 
 TEST_P(PrestoExchangeSourceTest, slowProducer) {
@@ -655,8 +888,8 @@ TEST_P(PrestoExchangeSourceTest, slowProducer) {
   auto queue = makeSingleSourceQueue();
   auto exchangeSource = makeExchangeSource(producerAddress, useHttps, 3, queue);
 
-  size_t beforePoolSize = pool_->currentBytes();
-  size_t beforeQueueSize = queue->totalBytes();
+  const size_t beforePoolSize = pool_->usedBytes();
+  const size_t beforeQueueSize = queue->totalBytes();
   requestNextPage(queue, exchangeSource);
 
   for (int i = 0; i < pages.size(); i++) {
@@ -668,39 +901,50 @@ TEST_P(PrestoExchangeSourceTest, slowProducer) {
   producer->noMoreData();
   waitForEndMarker(queue);
 
-  size_t deltaPool = pool_->currentBytes() - beforePoolSize;
-  size_t deltaQueue = queue->totalBytes() - beforeQueueSize;
-  EXPECT_EQ(deltaPool, deltaQueue);
+  const size_t deltaPoolBytes = pool_->usedBytes() - beforePoolSize;
+  const size_t deltaQueueBytes = queue->totalBytes() - beforeQueueSize;
+  EXPECT_EQ(deltaPoolBytes, deltaQueueBytes);
 
   producer->waitForDeleteResults();
   serverWrapper.stop();
-  EXPECT_EQ(pool_->currentBytes(), 0);
+  EXPECT_EQ(pool_->usedBytes(), 0);
 
-  const auto stats = exchangeSource->stats();
+  const auto stats = exchangeSource->metrics();
   ASSERT_EQ(stats.size(), 2);
-  ASSERT_EQ(stats.at("prestoExchangeSource.numPages"), pages.size());
-  ASSERT_EQ(stats.at("prestoExchangeSource.totalBytes"), totalBytes(pages));
+  ASSERT_EQ(stats.at("prestoExchangeSource.numPages").sum, pages.size());
+  ASSERT_EQ(stats.at("prestoExchangeSource.totalBytes").sum, totalBytes(pages));
 }
 
-TEST_P(PrestoExchangeSourceTest, slowProducerAndEarlyTerminatingConsumer) {
+DEBUG_ONLY_TEST_P(
+    PrestoExchangeSourceTest,
+    slowProducerAndEarlyTerminatingConsumer) {
   const bool useHttps = GetParam().useHttps;
-  std::atomic<bool> codePointHit{false};
+  std::atomic_bool codePointHit{false};
+  folly::EventCount closeWait;
+  std::atomic_bool allCloseCheckPassed{false};
   SCOPED_TESTVALUE_SET(
       "facebook::presto::PrestoExchangeSource::doRequest",
       std::function<void(const PrestoExchangeSource*)>(
+          ([&](const auto* prestoExchangeSource) {
+            allCloseCheckPassed = true;
+            closeWait.notifyAll();
+          })));
+  SCOPED_TESTVALUE_SET(
+      "facebook::presto::PrestoExchangeSource::handleDataResponse",
+      std::function<void(const PrestoExchangeSource*)>(
           ([&](const auto* prestoExchangeSource) { codePointHit = true; })));
-  auto producer = std::make_unique<Producer>();
 
+  auto producer = std::make_unique<Producer>();
   auto producerServer = createHttpServer(useHttps);
   producer->registerEndpoints(producerServer.get());
-
   test::HttpServerWrapper serverWrapper(std::move(producerServer));
   auto producerAddress = serverWrapper.start().get();
 
   auto queue = makeSingleSourceQueue();
   auto exchangeSource = makeExchangeSource(producerAddress, useHttps, 3, queue);
-
   requestNextPage(queue, exchangeSource);
+
+  closeWait.await([&]() { return allCloseCheckPassed.load(); });
 
   // Simulation of an early destruction of 'Task' will release following
   // resources, including pool_
@@ -727,8 +971,9 @@ TEST_P(PrestoExchangeSourceTest, slowProducerAndEarlyTerminatingConsumer) {
   // all resources have been cleaned up, so explicitly waiting is the only way
   // to allow the execution of background processing. We expect the test to not
   // crash.
-  std::this_thread::sleep_for(std::chrono::milliseconds(500));
-  EXPECT_TRUE(codePointHit);
+  while (!codePointHit) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  }
   serverWrapper.stop();
 }
 
@@ -763,6 +1008,13 @@ DEBUG_ONLY_TEST_P(
     exceedingMemoryCapacityForHttpResponse) {
   const int64_t memoryCapBytes = 1L << 30;
   const bool useHttps = GetParam().useHttps;
+  const bool enableBufferCopy = GetParam().enableBufferCopy;
+  if (!enableBufferCopy) {
+    // There is no data copy in http response handling in !enableBufferCopy
+    // mode.
+    return;
+  }
+  const bool immediateBufferTransfer = GetParam().immediateBufferTransfer;
 
   for (bool persistentError : {false, true}) {
     SCOPED_TRACE(fmt::format("persistentError: {}", persistentError));
@@ -802,6 +1054,7 @@ DEBUG_ONLY_TEST_P(
     auto queue = makeSingleSourceQueue();
     auto exchangeSource =
         makeExchangeSource(producerAddress, useHttps, 3, queue, leafPool.get());
+    test::PrestoExchangeSourceTestHelper sourceHelper(exchangeSource.get());
 
     requestNextPage(queue, exchangeSource);
     const std::string payload(1 << 20, 'L');
@@ -814,22 +1067,24 @@ DEBUG_ONLY_TEST_P(
       ASSERT_EQ(toString(receivedPage.get()), payload);
     }
     producer->noMoreData();
-    if (GetParam().immediateBufferTransfer) {
+    if (immediateBufferTransfer) {
       // Verify that we have retried on memory allocation failure of the http
       // response data other than just failing the query.
-      ASSERT_GE(exchangeSource->testingFailedAttempts(), 1);
+      ASSERT_GE(sourceHelper.failedAttempts(), 1);
     }
-    ASSERT_EQ(leafPool->currentBytes(), 0);
+    ASSERT_EQ(leafPool->usedBytes(), 0);
   }
 }
 
 TEST_P(PrestoExchangeSourceTest, memoryAllocationAndUsageCheck) {
-  const bool immediateBufferTransfer = GetParam().immediateBufferTransfer;
+  const bool enableBufferCopy = GetParam().enableBufferCopy;
+  const bool immediateBufferTransfer =
+      GetParam().immediateBufferTransfer && enableBufferCopy;
   std::vector<bool> resetPeaks = {false, true};
   for (const auto resetPeak : resetPeaks) {
     SCOPED_TRACE(fmt::format("resetPeak {}", resetPeak));
 
-    PrestoExchangeSource::testingClearMemoryUsage();
+    test::PrestoExchangeSourceTestHelper::clearMemoryUsage();
     auto rootPool = memory::MemoryManager::getInstance()->addRootPool();
     auto leafPool = rootPool->addLeafChild("memoryAllocationAndUsageCheck");
 
@@ -853,25 +1108,32 @@ TEST_P(PrestoExchangeSourceTest, memoryAllocationAndUsageCheck) {
     auto smallPage = waitForNextPage(queue);
     if (immediateBufferTransfer) {
       ASSERT_EQ(leafPool->stats().numAllocs, 2);
+    } else if (!enableBufferCopy) {
+      ASSERT_EQ(leafPool->stats().numAllocs, 0);
+    } else {
+      ASSERT_EQ(leafPool->stats().numAllocs, 1);
     }
     int64_t currMemoryBytes;
     int64_t peakMemoryBytes;
     PrestoExchangeSource::getMemoryUsage(currMemoryBytes, peakMemoryBytes);
-    ASSERT_EQ(
-        immediateBufferTransfer ? memory::AllocationTraits::pageBytes(
-                                      pool_->sizeClasses().front()) *
-                (1 + 2)
-                                : smallPayload.size() + 4,
-        currMemoryBytes);
+    if (immediateBufferTransfer) {
+      ASSERT_EQ(
+          currMemoryBytes,
+          memory::AllocationTraits::pageBytes(pool_->sizeClasses().front()) *
+              (1 + 2));
+      ASSERT_EQ(
+          peakMemoryBytes,
+          memory::AllocationTraits::pageBytes(pool_->sizeClasses().front()) *
+              (1 + 2));
+    } else if (!enableBufferCopy) {
+      ASSERT_GE(currMemoryBytes, smallPayload.size());
+      ASSERT_GE(peakMemoryBytes, smallPayload.size());
+    } else {
+      ASSERT_EQ(currMemoryBytes, smallPayload.size() + 4);
+      ASSERT_EQ(peakMemoryBytes, smallPayload.size() + 4);
+    }
 
-    ASSERT_EQ(
-        immediateBufferTransfer ? memory::AllocationTraits::pageBytes(
-                                      pool_->sizeClasses().front()) *
-                (1 + 2)
-                                : smallPayload.size() + 4,
-        peakMemoryBytes);
     int64_t oldCurrMemoryBytes = currMemoryBytes;
-
     if (resetPeak) {
       PrestoExchangeSource::resetPeakMemoryUsage();
       PrestoExchangeSource::getMemoryUsage(currMemoryBytes, peakMemoryBytes);
@@ -884,12 +1146,7 @@ TEST_P(PrestoExchangeSourceTest, memoryAllocationAndUsageCheck) {
     ASSERT_EQ(0, currMemoryBytes);
 
     if (!resetPeak) {
-      ASSERT_EQ(
-          immediateBufferTransfer ? memory::AllocationTraits::pageBytes(
-                                        pool_->sizeClasses().front()) *
-                  (1 + 2)
-                                  : smallPayload.size() + 4,
-          peakMemoryBytes);
+      ASSERT_EQ(peakMemoryBytes, oldCurrMemoryBytes);
     } else {
       ASSERT_EQ(peakMemoryBytes, oldCurrMemoryBytes);
       oldCurrMemoryBytes = currMemoryBytes;
@@ -907,21 +1164,22 @@ TEST_P(PrestoExchangeSourceTest, memoryAllocationAndUsageCheck) {
 
     PrestoExchangeSource::getMemoryUsage(currMemoryBytes, peakMemoryBytes);
 
-    ASSERT_EQ(
-        immediateBufferTransfer ? memory::AllocationTraits::pageBytes(
-                                      pool_->sizeClasses().front()) *
-                (1 + 2 + 4 + 8 + 16 + 16)
-                                : largePayload.size() + 4,
-        currMemoryBytes);
-    ASSERT_EQ(
-        immediateBufferTransfer ? memory::AllocationTraits::pageBytes(
-                                      pool_->sizeClasses().front()) *
-                (1 + 2 + 4 + 8 + 16 + 16)
-                                : largePayload.size() + 4,
-        peakMemoryBytes);
-    oldCurrMemoryBytes = currMemoryBytes;
+    if (immediateBufferTransfer) {
+      ASSERT_EQ(
+          currMemoryBytes,
+          memory::AllocationTraits::pageBytes(pool_->sizeClasses().front()) *
+              (1 + 2 + 4 + 8 + 16 + 16));
+      ASSERT_EQ(peakMemoryBytes, currMemoryBytes);
+    } else if (!enableBufferCopy) {
+      ASSERT_GE(currMemoryBytes, largePayload.size());
+      ASSERT_GE(peakMemoryBytes, largePayload.size());
+    } else {
+      ASSERT_EQ(currMemoryBytes, largePayload.size() + 4);
+      ASSERT_EQ(peakMemoryBytes, currMemoryBytes);
+    }
 
     if (resetPeak) {
+      oldCurrMemoryBytes = currMemoryBytes;
       PrestoExchangeSource::resetPeakMemoryUsage();
       PrestoExchangeSource::getMemoryUsage(currMemoryBytes, peakMemoryBytes);
       ASSERT_EQ(oldCurrMemoryBytes, currMemoryBytes);
@@ -931,20 +1189,18 @@ TEST_P(PrestoExchangeSourceTest, memoryAllocationAndUsageCheck) {
     largePage.reset();
     PrestoExchangeSource::getMemoryUsage(currMemoryBytes, peakMemoryBytes);
     ASSERT_EQ(0, currMemoryBytes);
-    ASSERT_EQ(
-        immediateBufferTransfer ? memory::AllocationTraits::pageBytes(
-                                      pool_->sizeClasses().front()) *
-                (1 + 2 + 4 + 8 + 16 + 16)
-                                : largePayload.size() + 4,
-        peakMemoryBytes);
 
     if (!resetPeak) {
-      ASSERT_EQ(
-          immediateBufferTransfer ? memory::AllocationTraits::pageBytes(
-                                        pool_->sizeClasses().front()) *
-                  (1 + 2 + 4 + 8 + 16 + 16)
-                                  : largePayload.size() + 4,
-          peakMemoryBytes);
+      if (immediateBufferTransfer) {
+        ASSERT_EQ(
+            peakMemoryBytes,
+            memory::AllocationTraits::pageBytes(pool_->sizeClasses().front()) *
+                (1 + 2 + 4 + 8 + 16 + 16));
+      } else if (!enableBufferCopy) {
+        ASSERT_GE(peakMemoryBytes, largePayload.size());
+      } else {
+        ASSERT_EQ(peakMemoryBytes, largePayload.size() + 4);
+      }
     } else {
       ASSERT_EQ(peakMemoryBytes, oldCurrMemoryBytes);
       oldCurrMemoryBytes = currMemoryBytes;
@@ -961,9 +1217,13 @@ TEST_P(PrestoExchangeSourceTest, memoryAllocationAndUsageCheck) {
     PrestoExchangeSource::getMemoryUsage(currMemoryBytes, peakMemoryBytes);
     ASSERT_EQ(0, currMemoryBytes);
     if (!resetPeak) {
-      ASSERT_EQ(
-          immediateBufferTransfer ? 192512 : largePayload.size() + 4,
-          peakMemoryBytes);
+      if (immediateBufferTransfer) {
+        ASSERT_EQ(peakMemoryBytes, 192512);
+      } else if (!enableBufferCopy) {
+        ASSERT_GE(peakMemoryBytes, largePayload.size());
+      } else {
+        ASSERT_EQ(peakMemoryBytes, largePayload.size() + 4);
+      }
     } else {
       ASSERT_EQ(peakMemoryBytes, oldCurrMemoryBytes);
       oldCurrMemoryBytes = currMemoryBytes;
@@ -976,15 +1236,60 @@ TEST_P(PrestoExchangeSourceTest, memoryAllocationAndUsageCheck) {
   }
 }
 
+DEBUG_ONLY_TEST_P(PrestoExchangeSourceTest, closeRaceCondition) {
+  const auto useHttps = GetParam().useHttps;
+  auto producer = std::make_unique<Producer>();
+  producer->enqueue("one pager");
+  producer->noMoreData();
+
+  auto producerServer = createHttpServer(useHttps);
+  producer->registerEndpoints(producerServer.get());
+  test::HttpServerWrapper serverWrapper(std::move(producerServer));
+  auto producerAddress = serverWrapper.start().get();
+  auto queue = makeSingleSourceQueue();
+
+  SCOPED_TESTVALUE_SET(
+      "facebook::presto::PrestoExchangeSource::request",
+      std::function<void(PrestoExchangeSource*)>((
+          [&](auto* prestoExchangeSource) { prestoExchangeSource->close(); })));
+  auto exchangeSource = makeExchangeSource(producerAddress, useHttps, 3, queue);
+  {
+    std::lock_guard<std::mutex> l(queue->mutex());
+    ASSERT_TRUE(exchangeSource->shouldRequestLocked());
+  }
+  auto future = exchangeSource->request(1 << 20, std::chrono::seconds(2));
+  ASSERT_TRUE(future.isReady());
+  auto response = std::move(future).get();
+  ASSERT_EQ(response.bytes, 0);
+  ASSERT_FALSE(response.atEnd);
+  exchangeCpuExecutor_->stop();
+  serverWrapper.stop();
+}
+
 INSTANTIATE_TEST_CASE_P(
     PrestoExchangeSourceTest,
     PrestoExchangeSourceTest,
     ::testing::Values(
-        Params{true, true, 1, 1},
-        Params{true, false, 1, 1},
-        Params{false, true, 1, 1},
-        Params{false, false, 1, 1},
-        Params{true, true, 2, 10},
-        Params{true, false, 2, 10},
-        Params{false, true, 2, 10},
-        Params{false, false, 2, 10}));
+        Params{true, true, true, 1, 1},
+        Params{true, true, false, 1, 1},
+        Params{false, true, true, 1, 1},
+        Params{false, true, false, 1, 1},
+        Params{true, true, true, 2, 10},
+        Params{true, true, false, 2, 10},
+        Params{false, true, true, 2, 10},
+        Params{false, true, false, 2, 10},
+        Params{true, false, true, 1, 1},
+        Params{true, false, false, 1, 1},
+        Params{false, false, true, 1, 1},
+        Params{false, false, false, 1, 1},
+        Params{true, false, true, 2, 10},
+        Params{true, false, false, 2, 10},
+        Params{false, false, true, 2, 10},
+        Params{false, false, false, 2, 10}));
+
+int main(int argc, char** argv) {
+  testing::InitGoogleTest(&argc, argv);
+  folly::Init init{&argc, &argv};
+  FLAGS_velox_memory_leak_check_enabled = true;
+  return RUN_ALL_TESTS();
+}

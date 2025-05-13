@@ -108,6 +108,12 @@ The properties that apply to Hive connector security are listed in the
 :doc:`/connector/hive-security` section for a more detailed discussion of the
 security options in the Hive connector.
 
+File-Based Metastore
+^^^^^^^^^^^^^^^^^^^^
+
+For testing or development purposes, this connector can be configured to use a local 
+filesystem directory as a Hive Metastore. See :ref:`installation/deployment:File-Based Metastore`.  
+
 Hive Configuration Properties
 -----------------------------
 
@@ -153,6 +159,9 @@ Property Name                                      Description                  
 
 ``hive.max-partitions-per-scan``                   Maximum number of partitions for a single table scan.        100,000
 
+``hive.dynamic-split-sizes-enabled``               Enable dynamic sizing of splits based on data scanned by     ``false``
+                                                   the query.
+
 ``hive.metastore.authentication.type``             Hive metastore authentication type.                          ``NONE``
                                                    Possible values are ``NONE`` or ``KERBEROS``.
 
@@ -192,6 +201,13 @@ Property Name                                      Description                  
                                                    S3SelectPushdown.
 
 ``hive.metastore.load-balancing-enabled``          Enable load balancing between multiple Metastore instances
+
+``hive.skip-empty-files``                          Enable skipping empty files. Otherwise, it will produce an   ``false``
+                                                   error iterating through empty files.
+
+ ``hive.file-status-cache.max-retained-size``      Maximum size in bytes of the directory listing cache          ``0KB``
+
+ ``hive.metastore.catalog.name``                   Specifies the catalog name to be passed to the metastore.
 ================================================== ============================================================ ============
 
 Metastore Configuration Properties
@@ -199,23 +215,36 @@ Metastore Configuration Properties
 
 The required Hive metastore can be configured with a number of properties.
 
-======================================= ============================================================ ============
-Property Name                                      Description                                       Default
-======================================= ============================================================ ============
-``hive.metastore-timeout``              Timeout for Hive metastore requests.                         ``10s``
+======================================================== ============================================================= ============
+Property Name                                                         Description                                       Default
+======================================================== ============================================================= ============
+``hive.metastore-timeout``                               Timeout for Hive metastore requests.                           ``10s``
 
-``hive.metastore-cache-ttl``            Duration how long cached metastore data should be considered ``0s``
-                                        valid.
+``hive.metastore-cache-ttl``                             Duration how long cached metastore data should be considered   ``0s``
+                                                         valid.
 
-``hive.metastore-cache-maximum-size``   Hive metastore cache maximum size.                            10000
+``hive.metastore-cache-maximum-size``                    Hive metastore cache maximum size.                              10000
 
-``hive.metastore-refresh-interval``     Asynchronously refresh cached metastore data after access    ``0s``
-                                        if it is older than this but is not yet expired, allowing
-                                        subsequent accesses to see fresh data.
+``hive.metastore-refresh-interval``                      Asynchronously refresh cached metastore data after access      ``0s``
+                                                         if it is older than this but is not yet expired, allowing
+                                                         subsequent accesses to see fresh data.
 
-``hive.metastore-refresh-max-threads``  Maximum threads used to refresh cached metastore data.        100
+``hive.metastore-refresh-max-threads``                   Maximum threads used to refresh cached metastore data.          100
 
-======================================= ============================================================ ============
+``hive.invalidate-metastore-cache-procedure-enabled``    When enabled, users will be able to invalidate metastore        false
+                                                         cache on demand.
+
+``hive.metastore.thrift.client.tls.enabled``             Whether TLS security is enabled.                                false
+
+``hive.metastore.thrift.client.tls.keystore-path``       Path to the PEM or JKS key store.                               NONE
+
+``hive.metastore.thrift.client.tls.keystore-password``   Password for the key store.                                     NONE
+
+``hive.metastore.thrift.client.tls.truststore-path``     Path to the PEM or JKS trust store.                             NONE
+
+``hive.metastore.thrift.client.tls.truststore-password`` Password for the trust store.                                   NONE
+
+======================================================== ============================================================= ============
 
 AWS Glue Catalog Configuration Properties
 -----------------------------------------
@@ -281,7 +310,9 @@ S3 Configuration Properties
 Property Name                                Description
 ============================================ =================================================================
 ``hive.s3.use-instance-credentials``         Use the EC2 metadata service to retrieve API credentials
-                                             (defaults to ``true``). This works with IAM roles in EC2.
+                                             (defaults to ``false``). This works with IAM roles in EC2.
+
+                                              **Note:** This property is deprecated.
 
 ``hive.s3.aws-access-key``                   Default AWS access key to use.
 
@@ -342,21 +373,31 @@ Property Name                                Description
 ``hive.s3.skip-glacier-objects``             Ignore Glacier objects rather than failing the query. This
                                              will skip data that may be expected to be part of the table
                                              or partition. Defaults to ``false``.
+
+``hive.s3.web.identity.auth.enabled``        Enables Web Identity authentication for S3 access. Requires
+                                             ``hive.s3.iam-role`` to be specified. Additionally, ensure that
+                                             the environment variables ``AWS_WEB_IDENTITY_TOKEN_FILE`` and
+                                             ``AWS_REGION`` are set for proper authentication. Since this
+                                             implementation uses AWS SDK 1.x, setting these environment
+                                             variables is necessary.
 ============================================ =================================================================
 
 S3 Credentials
 ^^^^^^^^^^^^^^
 
 If you are running Presto on Amazon EC2 using EMR or another facility,
-it is highly recommended that you set ``hive.s3.use-instance-credentials``
-to ``true`` and use IAM Roles for EC2 to govern access to S3. If this is
-the case, your EC2 instances will need to be assigned an IAM Role which
-grants appropriate access to the data stored in the S3 bucket(s) you wish
-to use. It's also possible to configure an IAM role with ``hive.s3.iam-role``
-that will be assumed for accessing any S3 bucket. This is much cleaner than
-setting AWS access and secret keys in the ``hive.s3.aws-access-key``
-and ``hive.s3.aws-secret-key`` settings, and also allows EC2 to automatically
-rotate credentials on a regular basis without any additional work on your part.
+it is recommended that you use IAM Roles for EC2 to govern access to S3. To enable this,
+your EC2 instances will need to be assigned an IAM Role which grants appropriate
+access to the data stored in the S3 bucket(s) you wish to use. It's also possible
+to configure an IAM role with ``hive.s3.iam-role`` that will be assumed for accessing
+any S3 bucket. This is much cleaner than setting AWS access and secret keys in the
+``hive.s3.aws-access-key`` and ``hive.s3.aws-secret-key`` settings, and also allows
+EC2 to automatically rotate credentials on a regular basis without any additional
+work on your part.
+
+After the introduction of DefaultAWSCredentialsProviderChain, if neither IAM role nor
+IAM credentials are configured, instance credentials will be used as they are the last item
+in the DefaultAWSCredentialsProviderChain.
 
 Custom S3 Credentials Provider
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -374,6 +415,90 @@ IAM role-based credentials (using ``STSAssumeRoleSessionCredentialsProvider``),
 or credentials for a specific use case (e.g., bucket/user specific credentials).
 This Hadoop configuration property must be set in the Hadoop configuration
 files referenced by the ``hive.config.resources`` Hive connector property.
+
+AWS Security Mapping
+^^^^^^^^^^^^^^^^^^^^
+
+Presto supports flexible mapping for AWS Lake Formation and AWS S3 API calls, allowing for separate
+credentials or IAM roles for specific users.
+
+The mappings can be of two types: ``S3`` or ``LAKEFORMATION``.
+
+The mapping entries are processed in the order listed in the configuration
+file. More specific mappings should be specified before less specific mappings.
+You can set default configuration by not including any match criteria for the last
+entry in the list.
+
+Each mapping entry when mapping type is ``S3`` may specify one match criteria. Available match criteria:
+
+* ``user``: Regular expression to match against username. Example: ``alice|bob``
+
+The mapping must provide one or more configuration settings:
+
+* ``accessKey`` and ``secretKey``: AWS access key and secret key. This overrides
+  any globally configured credentials, such as access key or instance credentials.
+
+* ``iamRole``: IAM role to use. This overrides any globally configured IAM role.
+
+Example JSON configuration file for s3:
+
+.. code-block:: json
+
+    {
+      "mappings": [
+        {
+          "user": "admin",
+          "accessKey": "AKIAxxxaccess",
+          "secretKey": "iXbXxxxsecret"
+        },
+        {
+          "user": "analyst|scientist",
+          "iamRole": "arn:aws:iam::123456789101:role/analyst_and_scientist_role"
+        },
+        {
+          "iamRole": "arn:aws:iam::123456789101:role/default"
+        }
+      ]
+    }
+
+Each mapping entry when mapping type is ``LAKEFORMATION`` may specify one match criteria. Available match criteria:
+
+* ``user``: Regular expression to match against username. Example: ``alice|bob``
+
+The mapping must provide one configuration setting:
+
+* ``iamRole``: IAM role to use. This overrides any globally configured IAM role.
+
+Example JSON configuration file for lakeformation:
+
+.. code-block:: json
+
+    {
+      "mappings": [
+        {
+          "user": "admin",
+          "iamRole": "arn:aws:iam::123456789101:role/admin_role"
+        },
+        {
+          "user": "analyst",
+          "iamRole": "arn:aws:iam::123456789101:role/analyst_role"
+        },
+        {
+          "iamRole": "arn:aws:iam::123456789101:role/default_role"
+        }
+      ]
+    }
+
+======================================================= =================================================================
+Property Name                                           Description
+======================================================= =================================================================
+``hive.aws.security-mapping.type``                      AWS Security Mapping Type. Possible values: S3 or LAKEFORMATION
+
+``hive.aws.security-mapping.config-file``               JSON configuration file containing AWS IAM Security mappings
+
+``hive.aws.security-mapping.refresh-period``            Time interval after which AWS IAM security mapping configuration
+                                                        will be refreshed
+======================================================= =================================================================
 
 Tuning Properties
 ^^^^^^^^^^^^^^^^^
@@ -649,6 +774,88 @@ This query will collect statistics for 2 partitions with keys:
 * ``partition1_value1, partition1_value2``
 * ``partition2_value1, partition2_value2``
 
+Quick Stats
+-----------
+
+The Hive connector can build basic statistics for partitions with missing statistics
+by examining file or table metadata. For example, Parquet footers can be used to infer
+row counts, number of nulls, and min/max values. These 'quick' statistics help in query planning,
+and serve as as a temporary source of stats for partitions which haven't had ANALYZE run on
+them.
+
+The following properties can be used to control how these quick stats are built:
+
+.. list-table::
+   :widths: 20 70 10
+   :header-rows: 1
+
+   -
+
+      - Property Name
+      - Description
+      - Default
+   -
+
+      - ``hive.quick-stats.enabled``
+      - Enable stats collection through quick stats providers. Also
+        toggleable through the ``quick_stats_enabled`` session property.
+      - ``false``
+   -
+
+      - ``hive.quick-stats.max-concurrent-calls``
+      - Quick stats are built for multiple partitions concurrently. This
+        property sets the maximum number of concurrent builds that can
+        be made.
+      - 100
+   -
+
+      - ``hive.quick-stats.inline-build-timeout``
+      - Duration the query that initiates a quick stats build for a
+        partition should wait before timing out and returning empty
+        stats. Set this to ``0s`` if you want quick stats to only be
+        built in the background and not block query planning.
+        Also toggleable through the ``quick_stats_inline_build_timeout``
+        session property.
+      - ``60s``
+   -
+
+      - ``hive.quick-stats.background-build-timeout``
+      - If a query observes that quick stats are being built for
+        a partition by another query, this is the duration it waits for
+        those stats to be built before returning empty stats.
+        Set this to ``0s`` if you want only one query to wait for
+        quick stats to be built (for a given partition).
+      - ``0s``
+   -
+
+      - ``hive.quick-stats.cache-expiry``
+      - Duration to retain the stats in the quick stats in-memory cache.
+      - ``24h``
+   -
+
+      - ``hive.quick-stats.reaper-expiry``
+      - If the quick stats build for a partition is stuck (for example, due to
+        a long-running IO operation), a reaper job terminates any background
+        build threads so that a new fetch could be triggered afresh.
+        This property controls the duration, after a background build
+        thread is started, for the reaper to perform the termination.
+      - ``5m``
+   -
+
+      - ``hive.quick-stats.parquet.max-concurrent-calls``
+      - Multiple Parquet file footers are read and processed
+        concurrently. This property sets the maximum number of
+        concurrent calls that can be made.
+      - 500
+   -
+
+      - ``hive.quick-stats.parquet.file-metadata-fetch-timeout``
+      - Duration after which the Parquet quick stats builder will fail
+        and return empty stats.
+      - ``60s``
+
+
+
 Schema Evolution
 ----------------
 
@@ -735,7 +942,7 @@ Parquet Writer Version
 
 Presto now supports Parquet writer versions V1 and V2 for the Hive catalog.
 It can be toggled using the session property ``parquet_writer_version`` and the config property ``hive.parquet.writer.version``.
-Valid values for these properties are ``PARQUET_1_0`` and ``PARQUET_2_0``. Default is ``PARQUET_2_0``.
+Valid values for these properties are ``PARQUET_1_0`` and ``PARQUET_2_0``. Default is ``PARQUET_1_0``.
 
 Procedures
 ----------
@@ -750,33 +957,60 @@ The following procedures are available:
 
 * ``system.create_empty_partition(schema_name, table_name, partition_columns, partition_values)``
 
-    Create an empty partition in the specified table.
+  Create an empty partition in the specified table.
 
 * ``system.sync_partition_metadata(schema_name, table_name, mode, case_sensitive)``
 
-    Check and update partitions list in metastore. There are three modes available:
+  Check and update partitions list in metastore. There are three modes available:
 
-    * ``ADD`` : add any partitions that exist on the file system but not in the metastore.
-    * ``DROP``: drop any partitions that exist in the metastore but not on the file system.
-    * ``FULL``: perform both ``ADD`` and ``DROP``.
+  * ``ADD`` : add any partitions that exist on the file system but not in the metastore.
+  * ``DROP``: drop any partitions that exist in the metastore but not on the file system.
+  * ``FULL``: perform both ``ADD`` and ``DROP``.
 
-    The ``case_sensitive`` argument is optional. The default value is ``true`` for compatibility
-    with Hive's ``MSCK REPAIR TABLE`` behavior, which expects the partition column names in
-    file system paths to use lowercase (e.g. ``col_x=SomeValue``). Partitions on the file system
-    not conforming to this convention are ignored, unless the argument is set to ``false``.
+  The ``case_sensitive`` argument is optional. The default value is ``true`` for compatibility
+  with Hive's ``MSCK REPAIR TABLE`` behavior, which expects the partition column names in
+  file system paths to use lowercase (e.g. ``col_x=SomeValue``). Partitions on the file system
+  not conforming to this convention are ignored, unless the argument is set to ``false``.
+
+* ``system.invalidate_directory_list_cache()``
+
+  Flush full directory list cache.
+
+* ``system.invalidate_directory_list_cache(directory_path)``
+
+  Invalidate directory list cache for specified directory_path.
+
+* ``system.invalidate_metastore_cache()``
+
+  Invalidate all metastore caches.
+
+* ``system.invalidate_metastore_cache(schema_name)``
+
+  Invalidate all metastore cache entries linked to a specific schema.
+
+* ``system.invalidate_metastore_cache(schema_name, table_name)``
+
+  Invalidate all metastore cache entries linked to a specific table.
+
+* ``system.invalidate_metastore_cache(schema_name, table_name, partition_columns, partition_values)``
+
+  Invalidate all metastore cache entries linked to a specific partition.
+
+Note: To enable ``system.invalidate_metastore_cache`` procedure, please refer to the properties that
+apply to Hive Metastore and are listed in the `Metastore Configuration Properties`_ table.
 
 Extra Hidden Columns
 --------------------
 
-The Hive connector exposes extra hidden metadata columns in Hive tables. You can query these
-columns as a part of SQL query like any other columns of the table.
+The Hive connector exposes extra hidden metadata columns in Hive tables. Query these
+columns as a part of the query like any other columns of the table.
 
 * ``$path`` : Filepath for the given row data
-* ``$file_size`` : Filesize for the given row
-* ``$file_modified_time`` : Last file modified time for the given row
+* ``$file_size`` : Filesize for the given row (int64_t)
+* ``$file_modified_time`` : Last file modified time for the given row (int64_t), in milliseconds since January 1, 1970 UTC
 
 How to invalidate metastore cache?
----------------------------------
+----------------------------------
 
 The Hive connector exposes a procedure over JMX (``com.facebook.presto.hive.metastore.CachingHiveMetastore#flushCache``) to invalidate the metastore cache.
 You can call this procedure to invalidate the metastore cache by connecting via jconsole or jmxterm.
@@ -902,4 +1136,56 @@ Drop a schema::
 Hive Connector Limitations
 --------------------------
 
+SQL DELETE
+^^^^^^^^^^
+
 :doc:`/sql/delete` is only supported if the ``WHERE`` clause matches entire partitions.
+
+CSV Format Type Limitations
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When creating tables with CSV format, all columns must be defined as ``VARCHAR`` due to 
+the underlying OpenCSVSerde limitations. `OpenCSVSerde <https://github.com/apache/hive/blob/master/serde/src/java/org/apache/hadoop/hive/serde2/OpenCSVSerde.java>`_ deserializes all CSV columns 
+as strings only. Using any other data type will result in an error similar to the following::
+
+  CREATE TABLE hive.csv.csv_fail ( 
+    id BIGINT, 
+    value INT, 
+    date_col DATE
+  ) with ( format = 'CSV' ) ;
+
+.. code-block:: none
+
+    Query failed: Hive CSV storage format only supports VARCHAR (unbounded). 
+    Unsupported columns: id integer, value integer, date_col date
+
+To work with other data types when using CSV format:
+
+1. Create the table with all the columns as ``VARCHAR``
+2. Create a view or another table that casts the columns to their desired data types
+
+Example::
+
+    -- First create table with VARCHAR columns
+    CREATE TABLE hive.csv.csv_data (
+        id VARCHAR,
+        value VARCHAR,
+        date_col VARCHAR
+    )
+    WITH (format = 'CSV');
+
+    -- Then create a view with the proper data types
+    CREATE VIEW hive.csv.csv_data_view AS
+    SELECT 
+        CAST(id AS BIGINT) AS id,
+        CAST(value AS INT) AS value,
+        CAST(date_col AS DATE) AS date_col
+    FROM hive.csv.csv_data;
+
+    -- OR another table with the proper data types
+    CREATE TABLE hive.csv.csv_data_cast AS
+    SELECT 
+        CAST(id AS BIGINT) AS id,
+        CAST(value AS INT) AS value,
+        CAST(date_col AS DATE) AS date_col
+    FROM hive.csv.csv_data;

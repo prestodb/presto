@@ -11,18 +11,30 @@
 # limitations under the License.
 
 add_library(presto_type_converter OBJECT TypeParser.cpp)
-
 target_link_libraries(presto_type_converter velox_type_parser)
 
-add_library(presto_types OBJECT PrestoToVeloxQueryPlan.cpp
-                                PrestoToVeloxExpr.cpp PrestoToVeloxSplit.cpp)
-add_dependencies(presto_types presto_operators presto_type_converter velox_type
-                 velox_type_fbhive velox_dwio_dwrf_proto)
+add_library(presto_velox_expr_conversion OBJECT PrestoToVeloxExpr.cpp)
+target_link_libraries(presto_velox_expr_conversion velox_presto_types
+                      velox_vector velox_exception)
 
-target_link_libraries(presto_types presto_type_converter velox_type_fbhive
-                      velox_hive_partition_function velox_tpch_gen)
+add_library(presto_types PrestoToVeloxQueryPlan.cpp VeloxPlanValidator.cpp
+                         PrestoToVeloxSplit.cpp)
+target_link_libraries(
+  presto_types
+  presto_velox_expr_conversion
+  presto_connectors
+  presto_operators
+  presto_type_converter
+  velox_type
+  velox_type_fbhive)
 
 set_property(TARGET presto_types PROPERTY JOB_POOL_LINK presto_link_job_pool)
+
+add_library(presto_function_metadata OBJECT FunctionMetadata.cpp)
+target_link_libraries(presto_function_metadata velox_function_registry)
+
+add_library(presto_velox_plan_conversion OBJECT VeloxPlanConversion.cpp)
+target_link_libraries(presto_velox_plan_conversion velox_type)
 
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)

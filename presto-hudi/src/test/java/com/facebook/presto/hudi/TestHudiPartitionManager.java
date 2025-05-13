@@ -56,6 +56,7 @@ public class TestHudiPartitionManager
     private static final Column PARTITION_COLUMN = new Column("ds", HIVE_STRING, Optional.empty(), Optional.empty());
     private static final Column BUCKET_COLUMN = new Column("c1", HIVE_INT, Optional.empty(), Optional.empty());
     private static final Table TABLE = new Table(
+            Optional.of("catalogName"),
             SCHEMA_NAME,
             TABLE_NAME,
             USER_NAME,

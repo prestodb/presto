@@ -55,9 +55,9 @@ public class DeltaSplit
             @JsonProperty("partitionValues") Map<String, String> partitionValues,
             @JsonProperty("nodeSelectionStrategy") NodeSelectionStrategy nodeSelectionStrategy)
     {
-        checkArgument(start >= 0, "start must be positive");
-        checkArgument(length >= 0, "length must be positive");
-        checkArgument(fileSize >= 0, "fileSize must be positive");
+        checkArgument(start >= 0, "start must be non-negative");
+        checkArgument(length >= 0, "length must be non-negative");
+        checkArgument(fileSize >= 0, "fileSize must be non-negative");
 
         this.connectorId = requireNonNull(connectorId, "connector id is null");
         this.schema = requireNonNull(schema, "schema name is null");
@@ -128,9 +128,8 @@ public class DeltaSplit
     public List<HostAddress> getPreferredNodes(NodeProvider nodeProvider)
     {
         if (getNodeSelectionStrategy() == SOFT_AFFINITY) {
-            // SOFT_AFFINITY node selection strategy scheduler would choose 2 workers (preferred, secondary preferred)
-            // for scheduling
-            return nodeProvider.get(filePath, 2);
+            // SOFT_AFFINITY node selection strategy scheduler would choose preferred nodes for scheduling
+            return nodeProvider.get(filePath);
         }
         return ImmutableList.of(); // empty list indicates no preference.
     }

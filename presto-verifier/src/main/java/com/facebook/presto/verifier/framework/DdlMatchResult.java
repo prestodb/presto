@@ -53,6 +53,12 @@ public class DdlMatchResult
     }
 
     @Override
+    public String getDataType()
+    {
+        return "DDL";
+    }
+
+    @Override
     public String getMatchTypeName()
     {
         return matchType.name();
@@ -60,6 +66,12 @@ public class DdlMatchResult
 
     @Override
     public boolean isMismatchPossiblyCausedByNonDeterminism()
+    {
+        return false;
+    }
+
+    @Override
+    public boolean isMismatchPossiblyCausedByReuseOutdatedTable()
     {
         return false;
     }

@@ -13,8 +13,6 @@
  */
 #include <boost/algorithm/string/join.hpp>
 #include <folly/Uri.h>
-#include "folly/init/Init.h"
-#include "presto_cpp/external/json/nlohmann/json.hpp"
 #include "presto_cpp/main/operators/BroadcastExchangeSource.h"
 #include "presto_cpp/main/operators/BroadcastWrite.h"
 #include "presto_cpp/main/operators/tests/PlanBuilder.h"
@@ -56,10 +54,14 @@ class BroadcastTest : public exec::test::OperatorTestBase {
       const std::string& taskId,
       core::PlanNodePtr planNode,
       int destination) {
-    auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
+    auto queryCtx = core::QueryCtx::create(executor_.get());
     core::PlanFragment planFragment{planNode};
     return exec::Task::create(
-        taskId, std::move(planFragment), destination, std::move(queryCtx));
+        taskId,
+        std::move(planFragment),
+        destination,
+        std::move(queryCtx),
+        exec::Task::ExecutionMode::kParallel);
   }
 
   std::pair<RowTypePtr, std::vector<std::string>> executeBroadcastWrite(
@@ -81,9 +83,9 @@ class BroadcastTest : public exec::test::OperatorTestBase {
         std::dynamic_pointer_cast<const BroadcastWriteNode>(writerPlan)
             ->serdeRowType();
 
-    exec::test::CursorParameters params;
+    exec::CursorParameters params;
     params.planNode = writerPlan;
-    auto [taskCursor, results] = readCursor(params, [](auto /*task*/) {});
+    auto [taskCursor, results] = exec::test::readCursor(params);
 
     std::vector<std::string> broadcastFilePaths;
     for (auto result : results) {
@@ -94,16 +96,16 @@ class BroadcastTest : public exec::test::OperatorTestBase {
     return {serdeRowType, broadcastFilePaths};
   }
 
-  std::pair<
-      std::unique_ptr<velox::exec::test::TaskCursor>,
-      std::vector<RowVectorPtr>>
+  std::pair<std::unique_ptr<velox::exec::TaskCursor>, std::vector<RowVectorPtr>>
   executeBroadcastRead(
       RowTypePtr dataType,
       const std::string& basePath,
       const std::vector<std::string>& broadcastFilePaths) {
     // Create plan for read node using file path.
-    auto readerPlan = exec::test::PlanBuilder().exchange(dataType).planNode();
-    exec::test::CursorParameters broadcastReadParams;
+    auto readerPlan = exec::test::PlanBuilder()
+                          .exchange(dataType, velox::VectorSerde::Kind::kPresto)
+                          .planNode();
+    exec::CursorParameters broadcastReadParams;
     broadcastReadParams.planNode = readerPlan;
 
     std::vector<std::string> fileInfos;
@@ -112,23 +114,27 @@ class BroadcastTest : public exec::test::OperatorTestBase {
           fmt::format(kBroadcastFileInfoFormat, broadcastFilePath));
     }
 
-    uint8_t splitIndex = 0;
     // Read back result using BroadcastExchangeSource.
-    return readCursor(broadcastReadParams, [&](auto* task) {
-      if (splitIndex >= broadcastFilePaths.size()) {
-        task->noMoreSplits("0");
-        return;
-      }
-
-      auto split = exec::Split(
-          std::make_shared<exec::RemoteConnectorSplit>(fmt::format(
-              "batch://task?broadcastInfo={}",
-              fmt::format(
-                  kBroadcastFileInfoFormat, broadcastFilePaths[splitIndex]))),
-          -1);
-      task->addSplit("0", std::move(split));
-      ++splitIndex;
-    });
+    return exec::test::readCursor(
+        broadcastReadParams, [&](exec::TaskCursor* taskCursor) {
+          if (taskCursor->noMoreSplits()) {
+            return;
+          }
+          auto& task = taskCursor->task();
+          for (int splitIndex = 0; splitIndex < broadcastFilePaths.size();
+               ++splitIndex) {
+            auto split = exec::Split(
+                std::make_shared<exec::RemoteConnectorSplit>(fmt::format(
+                    "batch://task?broadcastInfo={}",
+                    fmt::format(
+                        kBroadcastFileInfoFormat,
+                        broadcastFilePaths[splitIndex]))),
+                -1);
+            task->addSplit("0", std::move(split));
+          }
+          task->noMoreSplits("0");
+          taskCursor->setNoMoreSplits();
+        });
   }
 
   std::vector<RowVectorPtr> reorderColumns(
@@ -164,13 +170,13 @@ class BroadcastTest : public exec::test::OperatorTestBase {
 
     auto tempDirectoryPath = exec::test::TempDirectoryPath::create();
     auto [serdeRowType, broadcastFilePaths] =
-        executeBroadcastWrite(data, tempDirectoryPath->path, serdeLayout);
+        executeBroadcastWrite(data, tempDirectoryPath->getPath(), serdeLayout);
 
     // Expect one file for each request.
     ASSERT_EQ(broadcastFilePaths.size(), 1);
 
     // Validate file path prefix is consistent.
-    ASSERT_EQ(broadcastFilePaths.back().find(tempDirectoryPath->path), 0);
+    ASSERT_EQ(broadcastFilePaths.back().find(tempDirectoryPath->getPath()), 0);
 
     // Read back broadcast data from broadcast file.
     auto result = readFromFile(broadcastFilePaths.back(), serdeRowType);
@@ -184,7 +190,7 @@ class BroadcastTest : public exec::test::OperatorTestBase {
 
     // Read back result.
     auto [broadcastReadCursor, broadcastReadResults] = executeBroadcastRead(
-        serdeRowType, tempDirectoryPath->path, broadcastFilePaths);
+        serdeRowType, tempDirectoryPath->getPath(), broadcastFilePaths);
 
     // Assert its same as data.
     velox::exec::test::assertEqualResults(expected, broadcastReadResults);
@@ -202,12 +208,20 @@ class BroadcastTest : public exec::test::OperatorTestBase {
     std::vector<ByteRange> ranges;
     for (const auto& range : *ioBuf) {
       ranges.emplace_back(ByteRange{
-          const_cast<uint8_t*>(range.data()), (int32_t)range.size(), 0});
+          const_cast<uint8_t*>(range.data()),
+          static_cast<int32_t>(range.size()),
+          0});
     }
-    ByteInputStream byteStream(std::move(ranges));
+    auto byteStream = std::make_unique<BufferInputStream>(std::move(ranges));
 
     RowVectorPtr result;
-    VectorStreamGroup::read(&byteStream, pool(), dataType, &result);
+    VectorStreamGroup::read(
+        byteStream.get(),
+        pool(),
+        dataType,
+        velox::getNamedVectorSerde(velox::VectorSerde::Kind::kPresto),
+        &result,
+        nullptr);
     return result;
   }
 };
@@ -268,14 +282,14 @@ TEST_F(BroadcastTest, endToEndWithNoRows) {
   std::vector<std::string> broadcastFilePaths;
 
   // Execute write.
-  auto results = executeBroadcastWrite({data}, tempDirectoryPath->path);
+  auto results = executeBroadcastWrite({data}, tempDirectoryPath->getPath());
 
   // Assert no file path returned.
   ASSERT_EQ(broadcastFilePaths.size(), 0);
 
   auto fileSystem =
-      velox::filesystems::getFileSystem(tempDirectoryPath->path, nullptr);
-  auto files = fileSystem->list(tempDirectoryPath->path);
+      velox::filesystems::getFileSystem(tempDirectoryPath->getPath(), nullptr);
+  auto files = fileSystem->list(tempDirectoryPath->getPath());
 
   // Assert no file was generated in broadcast directory path.
   ASSERT_EQ(files.size(), 0);
@@ -297,14 +311,14 @@ TEST_F(BroadcastTest, endToEndWithMultipleWriteNodes) {
   // Execute write.
   for (auto data : dataVector) {
     auto [serdeRowType, results] =
-        executeBroadcastWrite({data}, tempDirectoryPath->path);
+        executeBroadcastWrite({data}, tempDirectoryPath->getPath());
     broadcastFilePaths.emplace_back(results[0]);
   }
 
   // Read back result.
   auto [taskCursorReadNode, broadcastReadResults] = executeBroadcastRead(
       asRowType(dataVector[0]->type()),
-      tempDirectoryPath->path,
+      tempDirectoryPath->getPath(),
       broadcastFilePaths);
 
   // Validate BroadcastExchange reads back output of both writes.
@@ -348,14 +362,19 @@ TEST_F(BroadcastTest, malformedBroadcastInfoJson) {
   std::string basePath = "/tmp";
   std::string invalidBroadcastFilePath = "/tmp/file.bin";
 
-  auto readerPlan = exec::test::PlanBuilder().exchange(dataType).planNode();
-  exec::test::CursorParameters broadcastReadParams;
+  auto readerPlan = exec::test::PlanBuilder()
+                        .exchange(dataType, velox::VectorSerde::Kind::kPresto)
+                        .planNode();
+  exec::CursorParameters broadcastReadParams;
   broadcastReadParams.planNode = readerPlan;
 
   VELOX_ASSERT_THROW(
-      readCursor(
+      exec::test::readCursor(
           broadcastReadParams,
-          [&](auto* task) {
+          [&](exec::TaskCursor* taskCursor) {
+            if (taskCursor->noMoreSplits()) {
+              return;
+            }
             auto fileInfos =
                 fmt::format(kBroadcastFileInfoFormat, invalidBroadcastFilePath);
             auto split = exec::Split(
@@ -366,8 +385,10 @@ TEST_F(BroadcastTest, malformedBroadcastInfoJson) {
                     basePath,
                     fileInfos)),
                 -1);
+            auto& task = taskCursor->task();
             task->addSplit("0", std::move(split));
             task->noMoreSplits("0");
+            taskCursor->setNoMoreSplits();
           }),
       "BroadcastInfo deserialization failed");
 }

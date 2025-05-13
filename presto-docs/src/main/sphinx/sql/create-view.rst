@@ -38,6 +38,9 @@ In the ``INVOKER`` security mode, tables referenced in the view are
 accessed using the permissions of the query user (the *invoker* of the
 view). A view created in this mode is simply a stored query.
 
+The ``default-view-security-mode`` can be used to configure the default
+security mode for view creation.
+
 Examples
 --------
 
@@ -59,6 +62,10 @@ Create a view that replaces an existing view::
     CREATE OR REPLACE VIEW test AS
     SELECT orderkey, orderstatus, totalprice / 4 AS quarter
     FROM orders
+
+Set the default view security mode to ``INVOKER``::
+
+    SET SESSION default_view_security_mode='INVOKER'
 
 See Also
 --------

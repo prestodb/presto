@@ -46,7 +46,7 @@ public class TestAccumuloClient
                 .setUsername("root")
                 .setPassword("secret");
 
-        Connector connector = AccumuloQueryRunner.getAccumuloConnector();
+        Connector connector = TestingAccumuloServer.getInstance().getConnector();
         config.setZooKeepers(connector.getInstance().getZooKeepers());
         zooKeeperMetadataManager = new ZooKeeperMetadataManager(config, createTestFunctionAndTypeManager());
         client = new AccumuloClient(connector, config, zooKeeperMetadataManager, new AccumuloTableManager(connector), new IndexLookup(connector, new ColumnCardinalityCache(connector, config)));
@@ -59,11 +59,11 @@ public class TestAccumuloClient
 
         try {
             List<ColumnMetadata> columns = ImmutableList.of(
-                    new ColumnMetadata("id", BIGINT),
-                    new ColumnMetadata("a", BIGINT),
-                    new ColumnMetadata("b", BIGINT),
-                    new ColumnMetadata("c", BIGINT),
-                    new ColumnMetadata("d", BIGINT));
+                    ColumnMetadata.builder().setName("id").setType(BIGINT).build(),
+                    ColumnMetadata.builder().setName("a").setType(BIGINT).build(),
+                    ColumnMetadata.builder().setName("b").setType(BIGINT).build(),
+                    ColumnMetadata.builder().setName("c").setType(BIGINT).build(),
+                    ColumnMetadata.builder().setName("d").setType(BIGINT).build());
 
             Map<String, Object> properties = new HashMap<>();
             new AccumuloTableProperties().getTableProperties().forEach(meta -> properties.put(meta.getName(), meta.getDefaultValue()));

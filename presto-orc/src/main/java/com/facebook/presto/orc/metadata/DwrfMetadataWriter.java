@@ -219,6 +219,14 @@ public class DwrfMetadataWriter
             builder.setNumberOfValues(columnStatistics.getNumberOfValues());
         }
 
+        if (columnStatistics.hasRawSize()) {
+            builder.setRawSize(columnStatistics.getRawSize());
+        }
+
+        if (columnStatistics.hasStorageSize()) {
+            builder.setSize(columnStatistics.getStorageSize());
+        }
+
         if (columnStatistics.getBooleanStatistics() != null) {
             builder.setBucketStatistics(DwrfProto.BucketStatistics.newBuilder()
                     .addCount(columnStatistics.getBooleanStatistics().getTrueValueCount())

@@ -39,14 +39,26 @@ and restart the Presto coordinator and workers:
 In the above example configuration,
 
 * ``hive.node-selection-strategy=SOFT_AFFINITY`` instructs Presto scheduler to take data affinity
-  into consideration when secheduling tasks to workers that enables meaningful data caching effectiveness.
-  This configuration property is defaul to ``NO_PREFERENCE`` and SDK cache is only enabled when set to ``SOFT_AFFINITY``.
+  into consideration when scheduling tasks to workers that enables meaningful data caching effectiveness.
+  This configuration property defaults to ``NO_PREFERENCE`` and SDK cache is only enabled when set to ``SOFT_AFFINITY``.
   Other configuration on coordinator that can impact data affinity includes
   ``node-scheduler.max-pending-splits-per-task`` (the max pending splits per task) and
   ``node-scheduler.max-splits-per-node`` (the max splits per node).
 * ``cache.enabled=true`` turns on the SDK cache and ``cache.type=ALLUXIO`` sets it to Alluxio.
 * ``cache.alluxio.max-cache-size=500GB`` sets storage space to be 500GB.
 * ``cache.base-directory=/tmp/alluxio-cache`` specifies a local directory ``/tmp/alluxio-cache``. Note that this Presto server must have both read and write permission to access this local directory.
+
+When affinity scheduling is enabled, a set of preferred nodes is assigned to a certain file section. The default file section size is ``256MB``.
+For example, if the file size is 512MB, two different affinity preferences will be assigned:
+
+- ``[0MB..256MB] -> NodeA, NodeB``
+- ``[256MB+1B..512MB] -> NodeC, NodeD``
+
+The section is selected based on the split start offset.
+A split that has its first byte in the first section is preferred to be scheduled on ``NodeA`` or ``NodeB``.
+
+Change the size of the section by setting the ``hive.affinity-scheduling-file-section-size`` configuration property
+or the ``affinity_scheduling_file_section_size`` session property.
 
 
 Monitoring

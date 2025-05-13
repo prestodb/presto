@@ -20,6 +20,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
+import com.facebook.presto.common.type.UuidType;
 import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
@@ -47,6 +48,7 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.StandardTypes.UUID;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
@@ -58,6 +60,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
+import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category.PRIMITIVE;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.binaryTypeInfo;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.booleanTypeInfo;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.byteTypeInfo;
@@ -87,6 +90,47 @@ public final class HiveType
     public static final HiveType HIVE_TIMESTAMP = new HiveType(timestampTypeInfo);
     public static final HiveType HIVE_DATE = new HiveType(dateTypeInfo);
     public static final HiveType HIVE_BINARY = new HiveType(binaryTypeInfo);
+    public static final HiveType HIVE_UUID = new HiveType(new TypeInfo()
+    {
+        @Override
+        public Category getCategory()
+        {
+            return PRIMITIVE;
+        }
+
+        @Override
+        public String getTypeName()
+        {
+            return UUID;
+        }
+
+        @Override
+        public boolean equals(Object other)
+        {
+            if (this == other) {
+                return true;
+            }
+            if (other == null || getClass() != other.getClass()) {
+                return false;
+            }
+
+            TypeInfo ti = (TypeInfo) other;
+
+            return UUID.equals(ti.getTypeName());
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return UUID.hashCode();
+        }
+
+        @Override
+        public String toString()
+        {
+            return UUID;
+        }
+    });
 
     private final HiveTypeName hiveTypeName;
     private final TypeInfo typeInfo;
@@ -183,6 +227,9 @@ public final class HiveType
     public static HiveType valueOf(String hiveTypeName)
     {
         requireNonNull(hiveTypeName, "hiveTypeName is null");
+        if (hiveTypeName.equals(HIVE_UUID.getTypeInfo().getTypeName())) {
+            return HIVE_UUID;
+        }
         return toHiveType(getTypeInfoFromTypeString(hiveTypeName));
     }
 
@@ -223,6 +270,9 @@ public final class HiveType
         switch (typeInfo.getCategory()) {
             case PRIMITIVE:
                 Type primitiveType = getPrimitiveType((PrimitiveTypeInfo) typeInfo);
+                if (primitiveType == null && typeInfo.getTypeName().equals(UUID)) {
+                    return UuidType.UUID.getTypeSignature();
+                }
                 if (primitiveType == null) {
                     break;
                 }

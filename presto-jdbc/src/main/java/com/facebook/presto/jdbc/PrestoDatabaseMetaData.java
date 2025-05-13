@@ -33,6 +33,7 @@ import static java.util.Objects.requireNonNull;
 public class PrestoDatabaseMetaData
         implements DatabaseMetaData
 {
+    private static final String JDBC_URL_START = "jdbc:";
     private static final String SEARCH_STRING_ESCAPE = "\\";
 
     private final PrestoConnection connection;
@@ -60,7 +61,7 @@ public class PrestoDatabaseMetaData
     public String getURL()
             throws SQLException
     {
-        return connection.getURI().toString();
+        return JDBC_URL_START + connection.getURI().toString();
     }
 
     @Override

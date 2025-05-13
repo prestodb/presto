@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.common.block;
 
+import io.airlift.slice.SliceTooLargeException;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.block.BlockUtil.MAX_ARRAY_SIZE;
@@ -32,5 +33,17 @@ public class TestBlockUtil
         catch (IllegalArgumentException e) {
             assertEquals(e.getMessage(), format("Can not grow array beyond '%s'", MAX_ARRAY_SIZE));
         }
+    }
+
+    @Test(expectedExceptions = SliceTooLargeException.class, expectedExceptionsMessageRegExp = "Cannot allocate slice larger than 2147483639 bytes")
+    public void testCheckInValidSliceRange()
+    {
+        BlockUtil.checkValidSliceRange(MAX_ARRAY_SIZE - 10, 11);
+    }
+
+    @Test
+    public void testCheckValidSliceRange()
+    {
+        BlockUtil.checkValidSliceRange(MAX_ARRAY_SIZE - 10, 9);
     }
 }

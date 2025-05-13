@@ -14,10 +14,12 @@
 package com.facebook.presto.spi;
 
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Type;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -28,6 +30,7 @@ import java.util.List;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.Decimals.encodeScaledValue;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
@@ -118,7 +121,15 @@ public class InMemoryRecordSet
         {
             checkState(record != null, "no current record");
             requireNonNull(record.get(field), "value is null");
-            return ((Number) record.get(field)).longValue();
+            Object value = record.get(field);
+            if (value instanceof BigDecimal) {
+                checkState(((DecimalType) this.getType(field)).isShort(),
+                        "Expected ShortDecimalType");
+                return ((BigDecimal) value).unscaledValue().longValue();
+            }
+            else {
+                return ((Number) record.get(field)).longValue();
+            }
         }
 
         @Override
@@ -143,6 +154,9 @@ public class InMemoryRecordSet
             }
             if (value instanceof Slice) {
                 return (Slice) value;
+            }
+            if (value instanceof BigDecimal) {
+                return encodeScaledValue((BigDecimal) value);
             }
             throw new IllegalArgumentException("Field " + field + " is not a String, but is a " + value.getClass().getName());
         }

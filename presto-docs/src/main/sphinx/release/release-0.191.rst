@@ -7,7 +7,7 @@ General Changes
 
 * Fix regression that could cause high CPU usage for join queries when dictionary
   processing for joins is enabled.
-* Fix :func:`bit_count` for bits between 33 and 63.
+* Fix :func:`!bit_count` for bits between 33 and 63.
 * The ``query.low-memory-killer.enabled`` config property has been replaced
   with ``query.low-memory-killer.policy``. Use ``total-reservation`` to continue
   using the previous policy of killing the largest query. There is also a new

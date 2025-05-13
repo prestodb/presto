@@ -96,10 +96,10 @@ public class TestBatchTaskUpdateRequest
         TaskUpdateRequest updateRequest = new TaskUpdateRequest(
                 session.toSessionRepresentation(),
                 session.getIdentity().getExtraCredentials(),
-                Optional.of(createPlanFragment().toBytes(PLAN_FRAGMENT_JSON_CODEC)),
+                Optional.of(createPlanFragment().bytesForTaskSerialization(PLAN_FRAGMENT_JSON_CODEC)),
                 sources,
                 createInitialEmptyOutputBuffers(PARTITIONED),
-                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())));
+                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty())));
         String shuffleWriteInfo = "dummy-shuffle-write-info";
         BatchTaskUpdateRequest batchUpdateRequest = new BatchTaskUpdateRequest(updateRequest, Optional.of(shuffleWriteInfo), Optional.empty());
         JsonCodec<BatchTaskUpdateRequest> batchTaskUpdateRequestJsonCodec = getJsonCodec();

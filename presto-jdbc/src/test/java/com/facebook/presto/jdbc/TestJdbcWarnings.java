@@ -267,7 +267,7 @@ public class TestJdbcWarnings
     private Connection createConnection()
             throws SQLException
     {
-        String url = format("jdbc:presto://%s", server.getAddress(), "blackhole", "blackhole");
+        String url = format("jdbc:presto://%s", server.getAddress());
         return DriverManager.getConnection(url, "test", null);
     }
 

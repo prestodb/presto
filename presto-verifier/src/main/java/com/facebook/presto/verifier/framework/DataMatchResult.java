@@ -33,30 +33,44 @@ import static java.util.Objects.requireNonNull;
 public class DataMatchResult
         implements MatchResult
 {
+    public enum DataType
+    {
+        DATA,
+        PARTITION_DATA,
+        BUCKET_DATA,
+    }
     public enum MatchType
     {
         MATCH,
         SCHEMA_MISMATCH,
         ROW_COUNT_MISMATCH,
         COLUMN_MISMATCH,
+        PARTITION_COUNT_MISMATCH,
+        BUCKET_COUNT_MISMATCH,
         SNAPSHOT_DOES_NOT_EXIST,
     }
 
+    private final DataType dataType;
     private final MatchType matchType;
     private final Optional<ChecksumResult> controlChecksum;
+    private final Optional<ChecksumResult> testChecksum;
     private final OptionalLong controlRowCount;
     private final OptionalLong testRowCount;
     private final List<ColumnMatchResult<?>> mismatchedColumns;
 
     public DataMatchResult(
+            DataType dataType,
             MatchType matchType,
             Optional<ChecksumResult> controlChecksum,
+            Optional<ChecksumResult> testChecksum,
             OptionalLong controlRowCount,
             OptionalLong testRowCount,
             List<ColumnMatchResult<?>> mismatchedColumns)
     {
-        this.matchType = requireNonNull(matchType, "type is null");
+        this.dataType = requireNonNull(dataType, "data type is null");
+        this.matchType = requireNonNull(matchType, "match type is null");
         this.controlChecksum = requireNonNull(controlChecksum, "controlChecksum is null");
+        this.testChecksum = requireNonNull(testChecksum, "testChecksum is null");
         this.controlRowCount = requireNonNull(controlRowCount, "controlRowCount is null");
         this.testRowCount = requireNonNull(testRowCount, "testRowCount is null");
         this.mismatchedColumns = ImmutableList.copyOf(mismatchedColumns);
@@ -66,6 +80,12 @@ public class DataMatchResult
     public boolean isMatched()
     {
         return matchType == MATCH;
+    }
+
+    @Override
+    public String getDataType()
+    {
+        return dataType.name();
     }
 
     @Override
@@ -80,6 +100,12 @@ public class DataMatchResult
         return matchType == ROW_COUNT_MISMATCH || matchType == COLUMN_MISMATCH;
     }
 
+    @Override
+    public boolean isMismatchPossiblyCausedByReuseOutdatedTable()
+    {
+        return matchType == SCHEMA_MISMATCH || matchType == ROW_COUNT_MISMATCH || matchType == COLUMN_MISMATCH;
+    }
+
     public MatchType getMatchType()
     {
         return matchType;
@@ -89,6 +115,12 @@ public class DataMatchResult
     {
         checkState(controlChecksum.isPresent(), "controlChecksum is missing");
         return controlChecksum.get();
+    }
+
+    public ChecksumResult getTestChecksum()
+    {
+        checkState(testChecksum.isPresent(), "testChecksum is missing");
+        return testChecksum.get();
     }
 
     public List<ColumnMatchResult<?>> getMismatchedColumns()

@@ -58,6 +58,11 @@ public final class QueryId
         return id;
     }
 
+    public void appendString(StringBuilder builder)
+    {
+        builder.append(id);
+    }
+
     @Override
     public int hashCode()
     {
@@ -82,7 +87,7 @@ public final class QueryId
     //
 
     // Check if the string matches [_a-z0-9]+ , but without the overhead of regex
-    private static final boolean isIdMatchPattern(String id)
+    private static boolean isIdMatchPattern(String id)
     {
         if (id.length() == 0) {
             return false;

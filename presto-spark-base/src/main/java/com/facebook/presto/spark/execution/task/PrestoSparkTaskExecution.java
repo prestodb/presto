@@ -62,7 +62,6 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.SystemSessionProperties.getInitialSplitsPerNode;
 import static com.facebook.presto.SystemSessionProperties.getMaxDriversPerTask;
 import static com.facebook.presto.SystemSessionProperties.getSplitConcurrencyAdjustmentInterval;
-import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
 import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -95,6 +94,8 @@ public class PrestoSparkTaskExecution
 
     private final SplitMonitor splitMonitor;
 
+    private final boolean nativeExecution;
+
     private final List<PlanNodeId> schedulingOrder;
     private final Map<PlanNodeId, DriverSplitRunnerFactory> driverRunnerFactoriesWithSplitLifeCycle;
     private final List<DriverSplitRunnerFactory> driverRunnerFactoriesWithTaskLifeCycle;
@@ -113,7 +114,8 @@ public class PrestoSparkTaskExecution
             TaskExecutor taskExecutor,
             SplitMonitor splitMonitor,
             Executor notificationExecutor,
-            ScheduledExecutorService memoryUpdateExecutor)
+            ScheduledExecutorService memoryUpdateExecutor,
+            boolean nativeExecution)
     {
         this.taskStateMachine = requireNonNull(taskStateMachine, "taskStateMachine is null");
         this.taskId = taskStateMachine.getTaskId();
@@ -123,6 +125,8 @@ public class PrestoSparkTaskExecution
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
 
         this.splitMonitor = requireNonNull(splitMonitor, "splitMonitor is null");
+
+        this.nativeExecution = nativeExecution;
 
         // index driver factories
         schedulingOrder = localExecutionPlan.getTableScanSourceOrder();
@@ -227,7 +231,7 @@ public class PrestoSparkTaskExecution
         // Enqueue driver runners with split lifecycle for this plan node and driver life cycle combination.
         ImmutableList.Builder<DriverSplitRunner> runners = ImmutableList.builder();
         // For native execution, process all splits in a single driver.
-        if (isNativeExecutionEnabled(this.taskContext.getSession())) {
+        if (nativeExecution) {
             runners.add(factory.createDriverRunner(splits));
         }
         else { // For Java execution, process each split in a separate driver.
@@ -361,13 +365,12 @@ public class PrestoSparkTaskExecution
         {
             Driver driver = driverFactory.createDriver(driverContext);
             if (scheduledSplits != null && scheduledSplits.size() > 0) {
-                boolean isNativeExecutionEnabled = isNativeExecutionEnabled(driver.getDriverContext().getSession());
-                if (!isNativeExecutionEnabled && scheduledSplits.size() != 1) {
+                if (!nativeExecution && scheduledSplits.size() != 1) {
                     throw new IllegalArgumentException(format("non-native (java) execution requires only one scheduledSplits but [%d] were found [%s]",
                             scheduledSplits.size(),
                             Joiner.on(",").join(scheduledSplits.stream().map(ScheduledSplit::toString).collect(Collectors.toList()))));
                 }
-                PlanNodeId sourceNodeId = isNativeExecutionEnabled ? driver.getSourceId().get() : Iterables.getOnlyElement(scheduledSplits).getPlanNodeId();
+                PlanNodeId sourceNodeId = nativeExecution ? driver.getSourceId().get() : Iterables.getOnlyElement(scheduledSplits).getPlanNodeId();
                 // TableScanOperator requires partitioned split to be added before the first call to process
                 driver.updateSource(new TaskSource(sourceNodeId, ImmutableSet.copyOf(scheduledSplits), true));
             }

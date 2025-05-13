@@ -1,6 +1,6 @@
-====================
-Hudi connector
-====================
+==============
+Hudi Connector
+==============
 
 Overview
 --------
@@ -18,8 +18,8 @@ To use Hudi, we need:
 
 * Network access from the Presto coordinator and workers to the distributed object storage.
 * Access to a Hive metastore service (HMS).
-* Network access from the Presto coordinator to the HMS. Hive metastore access with the Thrift
-protocol defaults to using port 9083.
+* Network access from the Presto coordinator to the HMS. Hive metastore access with the Thrift 
+  protocol defaults to using port 9083.
 
 Configuration
 -------------
@@ -38,7 +38,15 @@ Property Name                           Description                             
 ======================================= ============================================= ===========
 ``hudi.metadata-table-enabled``         Fetch the list of file names and sizes from   false
                                         Hudi's metadata table rather than storage.
+``hive.metastore.catalog.name``         Specifies the catalog name to be passed to
+                                        the metastore.
 ======================================= ============================================= ===========
+
+File-Based Metastore
+^^^^^^^^^^^^^^^^^^^^
+
+For testing or development purposes, this connector can be configured to use a local 
+filesystem directory as a Hive Metastore. See :ref:`installation/deployment:File-Based Metastore`.  
 
 SQL Support
 -----------

@@ -27,21 +27,24 @@ public class HivePartitionMetadata
     private final HivePartition hivePartition;
     private final TableToPartitionMapping tableToPartitionMapping;
     private final Optional<EncryptionInformation> encryptionInformation;
-    // This is a set of columns whose domain could be removed from table layout because all of the value in the partition will satisfy.
+    // This is a set of columns whose domain could be removed from table layout because all values in the partition will satisfy.
     private final Set<ColumnHandle> redundantColumnDomains;
+    private final Optional<byte[]> rowIdPartitionComponent;
 
     HivePartitionMetadata(
             HivePartition hivePartition,
             Optional<Partition> partition,
             TableToPartitionMapping tableToPartitionMapping,
             Optional<EncryptionInformation> encryptionInformation,
-            Set<ColumnHandle> redundantColumnDomains)
+            Set<ColumnHandle> redundantColumnDomains,
+            Optional<byte[]> rowIdPartitionComponent)
     {
         this.partition = requireNonNull(partition, "partition is null");
         this.hivePartition = requireNonNull(hivePartition, "hivePartition is null");
         this.tableToPartitionMapping = requireNonNull(tableToPartitionMapping, "tableToPartitionMapping is null");
         this.encryptionInformation = requireNonNull(encryptionInformation, "encryptionInformation is null");
         this.redundantColumnDomains = requireNonNull(redundantColumnDomains, "redundantColumnDomains is null");
+        this.rowIdPartitionComponent = requireNonNull(rowIdPartitionComponent, "rowIdPartitionComponent is null");
     }
 
     public HivePartition getHivePartition()
@@ -70,5 +73,10 @@ public class HivePartitionMetadata
     public Set<ColumnHandle> getRedundantColumnDomains()
     {
         return redundantColumnDomains;
+    }
+
+    public Optional<byte[]> getRowIdPartitionComponent()
+    {
+        return this.rowIdPartitionComponent;
     }
 }

@@ -99,8 +99,8 @@ public class StructColumnWriter
     }
 
     @Override
-    public void reset()
+    public void resetChunk()
     {
-        columnWriters.forEach(ColumnWriter::reset);
+        columnWriters.forEach(ColumnWriter::resetChunk);
     }
 }

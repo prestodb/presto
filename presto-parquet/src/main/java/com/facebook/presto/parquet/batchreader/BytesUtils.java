@@ -19,7 +19,7 @@ public class BytesUtils
     {
     }
 
-    public static final int getInt(byte[] byteBuffer, int offset)
+    public static int getInt(byte[] byteBuffer, int offset)
     {
         int ch0 = byteBuffer[offset + 0] & 255;
         int ch1 = byteBuffer[offset + 1] & 255;
@@ -29,7 +29,14 @@ public class BytesUtils
         return (ch3 << 24) + (ch2 << 16) + (ch1 << 8) + ch0;
     }
 
-    public static final long getLong(byte[] byteBuffer, int offset)
+    /**
+     * Convert a little-endian formatted value in a bytearray to a long.
+     *
+     * @param byteBuffer source bytes
+     * @param offset offset in byte array to start decoding
+     * @return long value
+     */
+    public static long getLong(byte[] byteBuffer, int offset)
     {
         int ch0 = byteBuffer[offset + 0];
         int ch1 = byteBuffer[offset + 1];
@@ -50,6 +57,34 @@ public class BytesUtils
                 ((long) (ch0 & 255) << 0);
     }
 
+    /**
+     * Convert a big-endian formatted value in a bytearray to a long.
+     *
+     * @param byteBuffer source bytes
+     * @param offset offset in byte array to start decoding
+     * @return long value
+     */
+    public static long getLongBigEndian(byte[] byteBuffer, int offset)
+    {
+        byte ch0 = byteBuffer[offset + 0];
+        byte ch1 = byteBuffer[offset + 1];
+        byte ch2 = byteBuffer[offset + 2];
+        byte ch3 = byteBuffer[offset + 3];
+        byte ch4 = byteBuffer[offset + 4];
+        byte ch5 = byteBuffer[offset + 5];
+        byte ch6 = byteBuffer[offset + 6];
+        byte ch7 = byteBuffer[offset + 7];
+
+        return ((long) (ch0 & 255) << 56) +
+                ((long) (ch1 & 255) << 48) +
+                ((long) (ch2 & 255) << 40) +
+                ((long) (ch3 & 255) << 32) +
+                ((long) (ch4 & 255) << 24) +
+                ((long) (ch5 & 255) << 16) +
+                ((long) (ch6 & 255) << 8) +
+                ((long) (ch7 & 255) << 0);
+    }
+
     public static void unpack8Values(byte inByte, byte[] out, int outPos)
     {
         out[0 + outPos] = (byte) (inByte & 1);
@@ -60,5 +95,10 @@ public class BytesUtils
         out[5 + outPos] = (byte) (inByte >> 5 & 1);
         out[6 + outPos] = (byte) (inByte >> 6 & 1);
         out[7 + outPos] = (byte) (inByte >> 7 & 1);
+    }
+
+    public static long propagateSignBit(long value, int bitsToPad)
+    {
+        return value << bitsToPad >> bitsToPad;
     }
 }

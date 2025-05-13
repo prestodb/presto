@@ -14,6 +14,7 @@
 package com.facebook.presto.verifier.framework;
 
 import com.facebook.presto.sql.parser.SqlParserOptions;
+import com.facebook.presto.verifier.prestoaction.ClientInfoFactory;
 import com.facebook.presto.verifier.prestoaction.SqlExceptionClassifier;
 import com.google.inject.Module;
 
@@ -37,4 +38,6 @@ public interface VerifyCommand
     List<Class<? extends Predicate<SourceQuery>>> getCustomQueryFilterClasses();
 
     SqlExceptionClassifier getSqlExceptionClassifier();
+
+    Class<? extends ClientInfoFactory> getClientInfoFactory();
 }

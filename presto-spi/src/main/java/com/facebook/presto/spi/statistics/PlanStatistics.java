@@ -22,6 +22,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Objects;
 
 import static com.facebook.drift.annotations.ThriftField.Requiredness.OPTIONAL;
+import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel;
+import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel.HIGH;
+import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel.LOW;
 import static java.util.Objects.requireNonNull;
 
 @ThriftStruct
@@ -125,6 +128,14 @@ public class PlanStatistics
                 getJoinNodeStatistics(),
                 getTableWriterNodeStatistics(),
                 partialAggregationStatistics);
+    }
+
+    public static ConfidenceLevel toConfidenceLevel(double confidence)
+    {
+        if (confidence > 0) {
+            return HIGH;
+        }
+        return LOW;
     }
 
     private static void checkArgument(boolean condition, String message)

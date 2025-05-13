@@ -11,7 +11,7 @@ General Changes
 * Add ability to cast to ``JSON`` from ``REAL``, ``TINYINT`` or ``SMALLINT``.
 * Add support for ``GROUPING`` operation to :ref:`complex grouping operations<complex_grouping_operations>`.
 * Add support for correlated subqueries in ``IN`` predicates.
-* Add :func:`to_ieee754_32` and :func:`to_ieee754_64` functions.
+* Add :func:`!to_ieee754_32` and :func:`!to_ieee754_64` functions.
 
 Hive Changes
 ------------

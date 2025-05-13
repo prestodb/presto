@@ -15,6 +15,7 @@
 
 #include "presto_cpp/main/TaskManager.h"
 #include "presto_cpp/main/http/HttpServer.h"
+#include "presto_cpp/main/types/VeloxPlanValidator.h"
 #include "velox/common/memory/Memory.h"
 
 namespace facebook::presto {
@@ -22,11 +23,13 @@ namespace facebook::presto {
 class TaskResource {
  public:
   explicit TaskResource(
-      TaskManager& taskManager,
       velox::memory::MemoryPool* pool,
-      folly::Executor* httpSrvCpuExecutor)
+      folly::Executor* httpSrvCpuExecutor,
+      VeloxPlanValidator* planValidator,
+      TaskManager& taskManager)
       : httpSrvCpuExecutor_(httpSrvCpuExecutor),
         pool_{pool},
+        planValidator_(planValidator),
         taskManager_(taskManager) {}
 
   void registerUris(http::HttpServer& server);
@@ -72,6 +75,7 @@ class TaskResource {
       const std::function<std::unique_ptr<protocol::TaskInfo>(
           const protocol::TaskId&,
           const std::string&,
+          const bool,
           long)>& createOrUpdateFunc);
 
   proxygen::RequestHandler* deleteTask(
@@ -80,7 +84,8 @@ class TaskResource {
 
   proxygen::RequestHandler* getResults(
       proxygen::HTTPMessage* message,
-      const std::vector<std::string>& pathMatch);
+      const std::vector<std::string>& pathMatch,
+      bool getDataSize);
 
   proxygen::RequestHandler* getTaskStatus(
       proxygen::HTTPMessage* message,
@@ -96,6 +101,7 @@ class TaskResource {
 
   folly::Executor* const httpSrvCpuExecutor_;
   velox::memory::MemoryPool* const pool_;
+  VeloxPlanValidator* const planValidator_;
 
   TaskManager& taskManager_;
 };

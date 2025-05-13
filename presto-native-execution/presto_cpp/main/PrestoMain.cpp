@@ -22,16 +22,18 @@
 DEFINE_string(etc_dir, ".", "etc directory for presto configuration");
 
 int main(int argc, char* argv[]) {
-  folly::init(&argc, &argv);
+  facebook::presto::util::installSignalHandler();
+  folly::Init init{&argc, &argv};
 
-  google::InstallFailureSignalHandler();
   PRESTO_STARTUP_LOG(INFO) << "Entering main()";
   facebook::presto::PrestoServer presto(FLAGS_etc_dir);
   presto.run();
   PRESTO_SHUTDOWN_LOG(INFO) << "Exiting main()";
 }
 
+#ifndef PRESTO_STATS_REPORTER_TYPE
 // Initialize singleton for the reporter.
 folly::Singleton<facebook::velox::BaseStatsReporter> reporter([]() {
   return new facebook::velox::DummyStatsReporter();
 });
+#endif

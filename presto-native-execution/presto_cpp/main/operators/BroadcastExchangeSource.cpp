@@ -17,6 +17,8 @@
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/operators/BroadcastExchangeSource.h"
 
+using namespace facebook::velox;
+
 namespace facebook::presto::operators {
 
 namespace {
@@ -33,7 +35,7 @@ std::optional<std::string> getBroadcastInfo(folly::Uri& uri) {
 folly::SemiFuture<BroadcastExchangeSource::Response>
 BroadcastExchangeSource::request(
     uint32_t /*maxBytes*/,
-    uint32_t /*maxWaitSeconds*/) {
+    std::chrono::microseconds /*maxWait*/) {
   if (atEnd_) {
     return folly::makeFuture(Response{0, true});
   }
@@ -66,6 +68,19 @@ BroadcastExchangeSource::request(
 
 folly::F14FastMap<std::string, int64_t> BroadcastExchangeSource::stats() const {
   return reader_->stats();
+}
+
+folly::SemiFuture<BroadcastExchangeSource::Response>
+BroadcastExchangeSource::requestDataSizes(
+    std::chrono::microseconds /*maxWait*/) {
+  std::vector<int64_t> remainingBytes;
+  if (!atEnd_) {
+    // Use default value of ExchangeClient::getAveragePageSize() for now.
+    //
+    // TODO: Change BroadcastFileReader to return the next batch size.
+    remainingBytes.push_back(1 << 20);
+  }
+  return folly::makeSemiFuture(Response{0, atEnd_, std::move(remainingBytes)});
 }
 
 // static
@@ -103,4 +118,4 @@ BroadcastExchangeSource::createExchangeSource(
       fileSystemBroadcast.createReader(std::move(broadcastFileInfo), pool),
       pool);
 }
-}; // namespace facebook::presto::operators
+} // namespace facebook::presto::operators

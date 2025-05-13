@@ -510,6 +510,7 @@ public class PinotConfig
     }
 
     @Config("pinot.grpc-tls-key-store-password")
+    @ConfigSecuritySensitive
     public PinotConfig setGrpcTlsKeyStorePassword(String grpcTlsKeyStorePassword)
     {
         this.grpcTlsKeyStorePassword = grpcTlsKeyStorePassword;
@@ -546,6 +547,7 @@ public class PinotConfig
     }
 
     @Config("pinot.grpc-tls-trust-store-password")
+    @ConfigSecuritySensitive
     public PinotConfig setGrpcTlsTrustStorePassword(String grpcTlsTrustStorePassword)
     {
         this.grpcTlsTrustStorePassword = grpcTlsTrustStorePassword;

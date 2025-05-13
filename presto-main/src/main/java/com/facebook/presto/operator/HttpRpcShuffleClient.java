@@ -37,7 +37,6 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URI;
 import java.util.List;
-import java.util.Optional;
 
 import static com.facebook.airlift.http.client.HttpStatus.familyForStatusCode;
 import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
@@ -67,25 +66,17 @@ public final class HttpRpcShuffleClient
 
     private final HttpClient httpClient;
     private final URI location;
-    private final Optional<URI> asyncPageTransportLocation;
 
     public HttpRpcShuffleClient(HttpClient httpClient, URI location)
     {
-        this(httpClient, location, Optional.empty());
-    }
-
-    public HttpRpcShuffleClient(HttpClient httpClient, URI location, Optional<URI> asyncPageTransportLocation)
-    {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.location = requireNonNull(location, "location is null");
-        this.asyncPageTransportLocation = requireNonNull(asyncPageTransportLocation, "asyncPageTransportLocation is null");
     }
 
     @Override
     public ListenableFuture<PagesResponse> getResults(long token, DataSize maxResponseSize)
     {
-        URI uriBase = asyncPageTransportLocation.orElse(location);
-        URI uri = uriBuilderFrom(uriBase).appendPath(String.valueOf(token)).build();
+        URI uri = uriBuilderFrom(location).appendPath(String.valueOf(token)).build();
         return httpClient.executeAsync(
                 prepareGet()
                         .setHeader(PRESTO_MAX_SIZE, maxResponseSize.toString())
@@ -174,9 +165,8 @@ public final class HttpRpcShuffleClient
                     }
                     throw new PageTransportErrorException(
                             HostAddress.fromUri(request.getUri()),
-                            format("Expected response code to be 200, but was %s %s:%n%s",
+                            format("Expected response code to be 200, but was %s:%n%s",
                                     response.getStatusCode(),
-                                    response.getStatusMessage(),
                                     body.toString()));
                 }
 

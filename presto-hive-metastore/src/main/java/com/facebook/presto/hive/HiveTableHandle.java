@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.ConnectorTableHandle;
-import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -26,11 +24,8 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class HiveTableHandle
-        implements ConnectorTableHandle
+        extends BaseHiveTableHandle
 {
-    private final String schemaName;
-    private final String tableName;
-
     private final Optional<List<List<String>>> analyzePartitionValues;
 
     @JsonCreator
@@ -39,8 +34,8 @@ public class HiveTableHandle
             @JsonProperty("tableName") String tableName,
             @JsonProperty("analyzePartitionValues") Optional<List<List<String>>> analyzePartitionValues)
     {
-        this.schemaName = requireNonNull(schemaName, "schemaName is null");
-        this.tableName = requireNonNull(tableName, "tableName is null");
+        super(schemaName, tableName);
+
         this.analyzePartitionValues = requireNonNull(analyzePartitionValues, "analyzePartitionValues is null");
     }
 
@@ -51,30 +46,13 @@ public class HiveTableHandle
 
     public HiveTableHandle withAnalyzePartitionValues(Optional<List<List<String>>> analyzePartitionValues)
     {
-        return new HiveTableHandle(schemaName, tableName, analyzePartitionValues);
-    }
-
-    @JsonProperty
-    public String getSchemaName()
-    {
-        return schemaName;
-    }
-
-    @JsonProperty
-    public String getTableName()
-    {
-        return tableName;
+        return new HiveTableHandle(getSchemaName(), getTableName(), analyzePartitionValues);
     }
 
     @JsonProperty
     public Optional<List<List<String>>> getAnalyzePartitionValues()
     {
         return analyzePartitionValues;
-    }
-
-    public SchemaTableName getSchemaTableName()
-    {
-        return new SchemaTableName(schemaName, tableName);
     }
 
     @Override
@@ -88,23 +66,23 @@ public class HiveTableHandle
         }
         HiveTableHandle that = (HiveTableHandle) o;
         // Do not include analyzePartitionValues in hashCode and equals comparison
-        return Objects.equals(schemaName, that.schemaName) &&
-                Objects.equals(tableName, that.tableName);
+        return Objects.equals(getSchemaName(), that.getSchemaName()) &&
+                Objects.equals(getTableName(), that.getTableName());
     }
 
     @Override
     public int hashCode()
     {
         // Do not include analyzePartitionValues in hashCode and equals comparison
-        return Objects.hash(schemaName, tableName);
+        return Objects.hash(getSchemaName(), getTableName());
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("schemaName", schemaName)
-                .add("tableName", tableName)
+                .add("schemaName", getSchemaName())
+                .add("tableName", getTableName())
                 .add("analyzePartitionValues", analyzePartitionValues)
                 .toString();
     }

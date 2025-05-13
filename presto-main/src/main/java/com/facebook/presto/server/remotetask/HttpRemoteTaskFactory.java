@@ -31,6 +31,8 @@ import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.RemoteTaskFactory;
+import com.facebook.presto.execution.SafeEventLoopGroup;
+import com.facebook.presto.execution.SchedulerStatsTracker;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManagerConfig;
@@ -48,19 +50,24 @@ import com.facebook.presto.server.TaskUpdateRequest;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.collect.Multimap;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.airlift.units.Duration;
+import io.netty.channel.EventLoop;
+import io.netty.util.concurrent.AbstractEventExecutorGroup;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
+import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.presto.server.remotetask.HttpRemoteTaskWithEventLoop.createHttpRemoteTaskWithEventLoop;
 import static com.facebook.presto.server.thrift.ThriftCodecWrapper.wrapThriftCodec;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -100,6 +107,8 @@ public class HttpRemoteTaskFactory
     private final MetadataManager metadataManager;
     private final QueryManager queryManager;
     private final DecayCounter taskUpdateRequestSize;
+    private final boolean taskUpdateSizeTrackingEnabled;
+    private final Optional<SafeEventLoopGroup> eventLoopGroup;
 
     @Inject
     public HttpRemoteTaskFactory(
@@ -183,6 +192,17 @@ public class HttpRemoteTaskFactory
         this.updateScheduledExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("task-info-update-scheduler-%s"));
         this.errorScheduledExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("remote-task-error-delay-%s"));
         this.taskUpdateRequestSize = new DecayCounter(ExponentialDecay.oneMinute());
+        this.taskUpdateSizeTrackingEnabled = taskConfig.isTaskUpdateSizeTrackingEnabled();
+
+        this.eventLoopGroup = taskConfig.isEventLoopEnabled() ? Optional.of(new SafeEventLoopGroup(config.getRemoteTaskMaxCallbackThreads(),
+                new ThreadFactoryBuilder().setNameFormat("task-event-loop-%s").setDaemon(true).build(), taskConfig.getSlowMethodThresholdOnEventLoop())
+        {
+            @Override
+            protected EventLoop newChild(Executor executor, Object... args)
+            {
+                return new SafeEventLoop(this, executor);
+            }
+        }) : Optional.empty();
     }
 
     @Managed
@@ -204,6 +224,8 @@ public class HttpRemoteTaskFactory
         coreExecutor.shutdownNow();
         updateScheduledExecutor.shutdownNow();
         errorScheduledExecutor.shutdownNow();
+
+        eventLoopGroup.map(AbstractEventExecutorGroup::shutdownGracefully);
     }
 
     @Override
@@ -216,8 +238,50 @@ public class HttpRemoteTaskFactory
             OutputBuffers outputBuffers,
             NodeTaskMap.NodeStatsTracker nodeStatsTracker,
             boolean summarizeTaskInfo,
-            TableWriteInfo tableWriteInfo)
+            TableWriteInfo tableWriteInfo,
+            SchedulerStatsTracker schedulerStatsTracker)
     {
+        if (eventLoopGroup.isPresent()) {
+            // Use event loop based HttpRemoteTask
+            return createHttpRemoteTaskWithEventLoop(
+                    session,
+                    taskId,
+                    node.getNodeIdentifier(),
+                    locationFactory.createLegacyTaskLocation(node, taskId),
+                    locationFactory.createTaskLocation(node, taskId),
+                    fragment,
+                    initialSplits,
+                    outputBuffers,
+                    httpClient,
+                    maxErrorDuration,
+                    taskStatusRefreshMaxWait,
+                    taskInfoRefreshMaxWait,
+                    taskInfoUpdateInterval,
+                    summarizeTaskInfo,
+                    taskStatusCodec,
+                    taskInfoCodec,
+                    taskInfoJsonCodec,
+                    taskUpdateRequestCodec,
+                    planFragmentCodec,
+                    metadataUpdatesCodec,
+                    nodeStatsTracker,
+                    stats,
+                    binaryTransportEnabled,
+                    thriftTransportEnabled,
+                    taskInfoThriftTransportEnabled,
+                    thriftProtocol,
+                    tableWriteInfo,
+                    maxTaskUpdateSizeInBytes,
+                    metadataManager,
+                    queryManager,
+                    taskUpdateRequestSize,
+                    taskUpdateSizeTrackingEnabled,
+                    handleResolver,
+                    connectorTypeSerdeManager,
+                    schedulerStatsTracker,
+                    (SafeEventLoopGroup.SafeEventLoop) eventLoopGroup.get().next());
+        }
+        // Use default executor based HttpRemoteTask
         return new HttpRemoteTask(
                 session,
                 taskId,
@@ -253,7 +317,9 @@ public class HttpRemoteTaskFactory
                 metadataManager,
                 queryManager,
                 taskUpdateRequestSize,
+                taskUpdateSizeTrackingEnabled,
                 handleResolver,
-                connectorTypeSerdeManager);
+                connectorTypeSerdeManager,
+                schedulerStatsTracker);
     }
 }

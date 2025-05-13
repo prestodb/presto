@@ -14,11 +14,12 @@
 package com.facebook.presto.hive.metastore.glue;
 
 import com.facebook.airlift.concurrent.BoundedExecutor;
+import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.presto.hive.ForCachingHiveMetastore;
-import com.facebook.presto.hive.metastore.CachingHiveMetastore;
+import com.facebook.presto.hive.HiveCommonClientConfig;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore;
 import com.google.inject.Binder;
-import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
@@ -27,6 +28,7 @@ import java.util.concurrent.Executor;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -34,7 +36,7 @@ import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class GlueMetastoreModule
-        implements Module
+        extends AbstractConfigurationAwareModule
 {
     private final String connectorId;
 
@@ -44,14 +46,15 @@ public class GlueMetastoreModule
     }
 
     @Override
-    public void configure(Binder binder)
+    public void setup(Binder binder)
     {
+        checkArgument(buildConfigObject(HiveCommonClientConfig.class).getCatalogName() == null, "'hive.metastore.catalog.name' should not be set for glue metastore");
         configBinder(binder).bindConfig(GlueHiveMetastoreConfig.class);
         binder.bind(GlueHiveMetastore.class).in(Scopes.SINGLETON);
         binder.bind(ExtendedHiveMetastore.class).annotatedWith(ForCachingHiveMetastore.class).to(GlueHiveMetastore.class).in(Scopes.SINGLETON);
-        binder.bind(ExtendedHiveMetastore.class).to(CachingHiveMetastore.class).in(Scopes.SINGLETON);
+        binder.bind(ExtendedHiveMetastore.class).to(InMemoryCachingHiveMetastore.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ExtendedHiveMetastore.class)
-                .as(generatedNameOf(CachingHiveMetastore.class, connectorId));
+                .as(generatedNameOf(InMemoryCachingHiveMetastore.class, connectorId));
         newExporter(binder).export(GlueHiveMetastore.class)
                 .as(generatedNameOf(GlueHiveMetastore.class, connectorId));
     }

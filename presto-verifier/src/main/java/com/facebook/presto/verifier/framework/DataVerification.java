@@ -20,6 +20,7 @@ import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.verifier.checksum.ChecksumResult;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
 import com.facebook.presto.verifier.event.DeterminismAnalysisDetails;
+import com.facebook.presto.verifier.event.DeterminismAnalysisRun;
 import com.facebook.presto.verifier.event.QueryInfo;
 import com.facebook.presto.verifier.prestoaction.QueryActions;
 import com.facebook.presto.verifier.prestoaction.SqlExceptionClassifier;
@@ -34,7 +35,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
+import static com.facebook.presto.verifier.framework.DataMatchResult.DataType.DATA;
 import static com.facebook.presto.verifier.framework.DataMatchResult.MatchType.MATCH;
 import static com.facebook.presto.verifier.framework.DataMatchResult.MatchType.SNAPSHOT_DOES_NOT_EXIST;
 import static com.facebook.presto.verifier.framework.DataVerificationUtil.getColumns;
@@ -52,11 +56,11 @@ import static java.util.Objects.requireNonNull;
 public class DataVerification
         extends AbstractVerification<QueryObjectBundle, DataMatchResult, Void>
 {
-    private final QueryRewriter queryRewriter;
-    private final DeterminismAnalyzer determinismAnalyzer;
-    private final FailureResolverManager failureResolverManager;
-    private final TypeManager typeManager;
-    private final ChecksumValidator checksumValidator;
+    protected final QueryRewriter queryRewriter;
+    protected final DeterminismAnalyzer determinismAnalyzer;
+    protected final FailureResolverManager failureResolverManager;
+    protected final TypeManager typeManager;
+    protected final ChecksumValidator checksumValidator;
 
     public DataVerification(
             QueryActions queryActions,
@@ -84,14 +88,17 @@ public class DataVerification
     @Override
     protected QueryObjectBundle getQueryRewrite(ClusterType clusterType)
     {
-        return queryRewriter.rewriteQuery(getSourceQuery().getQuery(clusterType), clusterType);
+        return queryRewriter.rewriteQuery(getSourceQuery().getQuery(clusterType), getSourceQuery().getQueryConfiguration(clusterType), clusterType,
+                getVerificationContext().getResubmissionCount() == 0);
     }
 
     @Override
     protected void updateQueryInfoWithQueryBundle(QueryInfo.Builder queryInfo, Optional<QueryObjectBundle> queryBundle)
     {
         super.updateQueryInfoWithQueryBundle(queryInfo, queryBundle);
-        queryInfo.setOutputTableName(queryBundle.map(QueryObjectBundle::getObjectName).map(QualifiedName::toString));
+        queryInfo.setQuery(queryBundle.map(bundle -> formatSql(bundle.getQuery(), bundle.getRewrittenFunctionCalls())))
+                .setOutputTableName(queryBundle.map(QueryObjectBundle::getObjectName).map(QualifiedName::toString))
+                .setIsReuseTable(queryBundle.map(QueryObjectBundle::isReuseTable).orElse(false));
     }
 
     @Override
@@ -104,7 +111,7 @@ public class DataVerification
             ChecksumQueryContext testChecksumQueryContext)
     {
         List<Column> testColumns = getColumns(getHelperAction(), typeManager, test.getObjectName());
-        Query testChecksumQuery = checksumValidator.generateChecksumQuery(test.getObjectName(), testColumns);
+        Query testChecksumQuery = checksumValidator.generateChecksumQuery(test.getObjectName(), testColumns, test.getPartitionsPredicate());
         testChecksumQueryContext.setChecksumQuery(formatSql(testChecksumQuery));
 
         List<Column> controlColumns = null;
@@ -112,7 +119,7 @@ public class DataVerification
 
         if (isControlEnabled()) {
             controlColumns = getColumns(getHelperAction(), typeManager, control.getObjectName());
-            Query controlChecksumQuery = checksumValidator.generateChecksumQuery(control.getObjectName(), controlColumns);
+            Query controlChecksumQuery = checksumValidator.generateChecksumQuery(control.getObjectName(), controlColumns, control.getPartitionsPredicate());
             controlChecksumQueryContext.setChecksumQuery(formatSql(controlChecksumQuery));
 
             QueryResult<ChecksumResult> controlChecksum = callAndConsume(
@@ -125,7 +132,9 @@ public class DataVerification
 
                 snapshotQueryConsumer.accept(new SnapshotQuery(getSourceQuery().getSuite(), getSourceQuery().getName(), isExplain, snapshot));
                 return new DataMatchResult(
+                        DATA,
                         MATCH,
+                        Optional.empty(),
                         Optional.empty(),
                         OptionalLong.empty(),
                         OptionalLong.empty(),
@@ -141,7 +150,14 @@ public class DataVerification
                 controlChecksumResult = ChecksumResult.fromJson(snapshotJson);
             }
             else {
-                return new DataMatchResult(SNAPSHOT_DOES_NOT_EXIST, Optional.empty(), OptionalLong.empty(), OptionalLong.empty(), Collections.emptyList());
+                return new DataMatchResult(
+                        DATA,
+                        SNAPSHOT_DOES_NOT_EXIST,
+                        Optional.empty(),
+                        Optional.empty(),
+                        OptionalLong.empty(),
+                        OptionalLong.empty(),
+                        Collections.emptyList());
             }
         }
 
@@ -150,13 +166,27 @@ public class DataVerification
                 stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(testChecksumQueryContext::setChecksumQueryId));
         ChecksumResult testChecksumResult = getOnlyElement(testChecksum.getResults());
 
-        return match(checksumValidator, controlColumns, testColumns, controlChecksumResult, testChecksumResult);
+        return match(DATA, checksumValidator, controlColumns, testColumns, controlChecksumResult, testChecksumResult);
     }
 
     @Override
-    protected DeterminismAnalysisDetails analyzeDeterminism(QueryObjectBundle control, DataMatchResult matchResult)
+    protected DeterminismAnalysisDetails analyzeDeterminism(QueryObjectBundle controlObject, QueryObjectBundle testObject, DataMatchResult matchResult)
     {
-        return determinismAnalyzer.analyze(control, matchResult.getControlChecksum());
+        if (isRunDeterminismAnalysisOnTest) {
+            DeterminismAnalysisDetails analysis = determinismAnalyzer.analyze(getTestAction(), testObject, matchResult.getTestChecksum());
+            if (!analysis.getDeterminismAnalysis().isNonDeterministic()) {
+                return analysis;
+            }
+            // In case we rerun determinism analysis on control, we keep the test runs for stats.
+            List<DeterminismAnalysisRun> runs = analysis.getRuns();
+            analysis = determinismAnalyzer.analyze(getControlAction(), controlObject, matchResult.getControlChecksum());
+            return new DeterminismAnalysisDetails(
+                    analysis.getDeterminismAnalysis(),
+                    Stream.concat(runs.stream(), analysis.getRuns().stream()).collect(Collectors.toList()),
+                    LimitQueryDeterminismAnalysis.valueOf(analysis.getLimitQueryAnalysis()),
+                    Optional.ofNullable(analysis.getLimitQueryAnalysisQueryId()));
+        }
+        return determinismAnalyzer.analyze(getControlAction(), controlObject, matchResult.getControlChecksum());
     }
 
     @Override
@@ -171,7 +201,7 @@ public class DataVerification
             checkState(control.isPresent(), "control is missing");
             return failureResolverManager.resolveResultMismatch((DataMatchResult) matchResult.get(), control.get());
         }
-        if (throwable.isPresent() && controlQueryContext.getState() == QueryState.SUCCEEDED) {
+        if (throwable.isPresent() && ImmutableList.of(QueryState.SUCCEEDED, QueryState.REUSE).contains(controlQueryContext.getState())) {
             checkState(controlQueryContext.getMainQueryStats().isPresent(), "controlQueryStats is missing");
             return failureResolverManager.resolveException(controlQueryContext.getMainQueryStats().get(), throwable.get(), test);
         }

@@ -25,6 +25,7 @@ import com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient;
 import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastore;
 import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastoreStats;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.constraints.NotNullConstraint;
 import com.facebook.presto.spi.constraints.PrimaryKeyConstraint;
 import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.constraints.UniqueConstraint;
@@ -35,6 +36,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 
@@ -81,8 +83,9 @@ public class TestHiveTableConstraints
     public void testTableConstraints()
     {
         List<TableConstraint<String>> expectedConstraints = ImmutableList.of(
-                new PrimaryKeyConstraint<>("", ImmutableSet.of("c1"), true, true),
-                new UniqueConstraint<>("", ImmutableSet.of("c2"), true, true));
+                new PrimaryKeyConstraint<>(Optional.of("pk"), new LinkedHashSet<>(ImmutableList.of("c1")), true, true, false),
+                new UniqueConstraint<>(Optional.of("uk"), new LinkedHashSet<>(ImmutableList.of("c2")), true, true, false),
+                new NotNullConstraint<>("c3"));
 
         List<TableConstraint<String>> tableConstraints = metastore.getTableConstraints(METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS);
         assertEquals(tableConstraints, expectedConstraints);

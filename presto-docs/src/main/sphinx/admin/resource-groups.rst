@@ -119,13 +119,20 @@ To set up a database-based resource group manager:
 .. code-block:: text
 
     resource-groups.configuration-manager=db
-    resource-groups.config-db-url=jdbc:mysql://localhost:3306/resource_groups
-    resource-groups.config-db-user=username
-    resource-groups.config-db-password=password
+    resource-groups.config-db-url=jdbc:mysql://localhost:3306/resource_groups?user=<user>&password=<password>
+
+Replace ``<user>`` and ``<password>`` with the actual username and password.
 
 With the Database Resource Group Manager, changes to the configuration in the database take effect immediately
 and do not require a restart of the Presto server. This allows for more flexibility and
 dynamic changes to the resource group configurations.
+
+The resource group configuration must be populated through tables
+``resource_groups_global_properties``, ``resource_groups``, and ``selectors``. If any of the tables
+do not exist when Presto starts, they are created automatically.
+
+The rules in the ``selectors`` table are processed in descending order of the values in the
+``priority`` field.
 
 Database Resource Group Manager Properties
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -140,19 +147,10 @@ Database Resource Group Manager Properties
    * - ``resource-groups.config-db-url``
      - Database URL to load configuration from.
      - ``none``
-   * - ``resource-groups.config-db-user``
-     - Database user to connect with.
-     - ``none``
-   * - ``resource-groups.config-db-password``
-     - Password for database user to connect with.
-     - ``none``
    * - ``resource-groups.max-refresh-interval``
      - The maximum time period for which the cluster will continue to accept
        queries after refresh failures, causing configuration to become stale.
      - ``1h``
-   * - ``resource-groups.refresh-interval``
-     -  How often the cluster reloads from the database
-     - ``1s``
    * - ``resource-groups.exact-match-selector-enabled``
      - Setting this flag enables usage of an additional
        ``exact_match_source_selectors`` table to configure resource group
@@ -213,6 +211,23 @@ Here are the key properties that can be set for a Resource Group:
 * ``jmxExport`` (optional):  If set to ``true``, the statistics of the resource group will be exported via JMX.
   Defaults to ``false``.
 
+* ``perQueryLimits`` (optional): specifies max resources that each query in a
+  resource group may consume before being killed. These limits are not inherited from parent groups.
+  May set three types of limits:
+
+  - ``executionTimeLimit`` (optional): Specify an absolute value (for example, ``1h``)
+    for the maximum time a query may take to execute.
+
+  - ``totalMemoryLimit`` (optional): Specify an absolute value (for example, ``1GB``)
+    for the maximum distributed memory a query may consume.
+
+  - ``cpuTimeLimit`` (optional): Specify Specify an absolute value (for example, ``1h``)
+    for the maximum CPU time a query may use.
+
+* ``workerPerQueryLimit`` (optional): specifies the minimum number of workers that have to
+  be available for each query. Intended to be used in elastic clusters where number of workers
+  varies over time.
+
 * ``subGroups`` (optional): list of sub-groups. A list of sub-groups within the resource group.
   Each sub-group can have its own set of properties.
 
@@ -248,8 +263,6 @@ Here are the key components of selector rules in PrestoDB:
 
 * ``user`` (optional): This is a regular expression that matches the user who is submitting the query.
 
-* ``userGroup`` (optional): Regex to match against every user group the user belongs to.
-
 * ``source`` (optional): This matches the source of the query, which is typically the
   application submitting the query.
 
@@ -268,6 +281,16 @@ Here are the key components of selector rules in PrestoDB:
 * ``clientTags`` (optional): List of tags. To match, every tag in this list must be in the list of
   client-provided tags associated with the query.
 
+* ``selectorResourceEstimate`` (optional): Resource Group Selection based on resource estimates.
+    - ``executionTime``
+    - ``peakMemory``
+    - ``cpuTime``
+
+* ``clientInfo`` (optional): String to match against client info.
+
+* ``principal`` (optional): This is a regular expression that matches the principal who is submitting the query.
+
+* ``schema`` (optional): This matches the session schema of the query.
 
 Selectors are processed sequentially and the first one that matches will be used.
 
@@ -321,30 +344,29 @@ There are four selectors, that define which queries run in which resource group:
 
 * The first selector matches queries from ``bob`` and places them in the admin group.
 
-* The second selector matches queries from ``admin`` user group and places them in the admin group.
-
-* The third selector matches all data definition (DDL) queries from a source name that includes ``pipeline``
+* The second selector matches all data definition (DDL) queries from a source name that includes ``pipeline``
   and places them in the ``global.data_definition`` group. This could help reduce queue times for this
   class of queries, since they are expected to be fast.
 
-* The fourth selector matches queries from a source name that includes ``pipeline``, and places them in a
+* The third selector matches queries from a source name that includes ``pipeline``, and places them in a
   dynamically-created per-user pipeline group under the ``global.pipeline`` group.
 
-* The fifth selector matches queries that come from BI tools which have a source matching the regular
-  expression ``jdbc#(?<toolname>.*)`` and have client provided tags that are a superset of ``hipri``.
-  These are placed in a dynamically-created sub-group under the ``global.adhoc`` group.
-  The dynamic sub-groups are created based on the values of named variables ``toolname`` and ``user``.
-  The values are derived from the source regular expression and the query user respectively.
-  Consider a query with a source ``jdbc#powerfulbi``, user ``kayla``, and client tags ``hipri`` and ``fast``.
-  This query is routed to the ``global.adhoc.bi-powerfulbi.kayla`` resource group.
+* The fourth selector matches queries that come from BI tools which have a source matching the regular
+  expression ``jdbc#(?<toolname>.*)``, and have client provided tags that are a superset of ``hi-pri``.
+  These are placed in a dynamically-created sub-group under the ``global.pipeline.tools`` group. The dynamic
+  sub-group is created based on the named variable ``toolname``, which is extracted from the
+  regular expression for source.
+
+  Consider a query with a source ``jdbc#powerfulbi``, user ``kayla``, and
+  client tags ``hipri`` and ``fast``. This query is routed to the ``global.pipeline.bi-powerfulbi.kayla``
+  resource group.
 
 * The last selector is a catch-all, which places all queries that have not yet been matched into a per-user
   adhoc group.
 
 Together, these selectors implement the following policy:
 
-* The user ``bob`` and any user belonging to user group ``admin``
-  is an admin and can run up to 50 concurrent queries.
+* The user ``bob`` is an admin and can run up to 50 concurrent queries.
   Queries will be run based on user-provided priority.
 
 For the remaining users:
@@ -371,26 +393,14 @@ File Resource Group Manager
 Database Resource Group Manager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This example is for a MySQL database.
-
-.. literalinclude:: resource-groups-example1.sql
-    :language: sql
-
 .. code-block:: sql
 
     -- global properties
+    INSERT INTO resource_groups_global_properties (name, value) VALUES ('cpu_quota_period', '1h');
 
-    -- get ID of 'other' group
-    SELECT resource_group_id FROM resource_groups WHERE name = 'other';  -- 4
-
-    -- create '${USER}' group with 'other' as parent.
-    INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued, environment, parent) VALUES ('${USER}', '10%', 1, 100, 'test_environment', 4);
-
-    -- create 'bi-${toolname}' group with 'adhoc' as parent
-    INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued, scheduling_weight, scheduling_policy, environment, parent) VALUES ('bi-${toolname}', '10%', 10, 100, 10, 'weighted_fair', 'test_environment', 3);
-
-    -- create 'pipeline' group with 'global' as parent
-    INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued, scheduling_weight, jmx_export, environment, parent) VALUES ('pipeline', '80%', 45, 100, 1, true, 'test_environment', 1);
+    -- Every row in resource_groups table indicates a resource group.
+    -- The enviroment name is 'test_environment', make sure it matches `node.environment` in your cluster.
+    -- The parent-child relationship is indicated by the ID in 'parent' column.
 
     -- create a root group 'global' with NULL parent
     INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued, scheduling_policy, jmx_export, environment) VALUES ('global', '80%', 100, 1000, 'weighted', true, 'test_environment');
@@ -403,9 +413,27 @@ This example is for a MySQL database.
 
     -- get ID of 'adhoc' group
     SELECT resource_group_id FROM resource_groups WHERE name = 'adhoc';   -- 3
-
     -- create 'other' group with 'adhoc' as parent
     INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued, scheduling_weight, scheduling_policy, environment, parent) VALUES ('other', '10%', 2, 1, 10, 'weighted_fair', 'test_environment', 3);
+
+    -- get ID of 'other' group
+    SELECT resource_group_id FROM resource_groups WHERE name = 'other';  -- 4
+    -- create '${USER}' group with 'other' as parent.
+    INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued, environment, parent) VALUES ('${USER}', '10%', 1, 100, 'test_environment', 4);
+
+    -- create 'bi-${toolname}' group with 'adhoc' as parent
+    INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued, scheduling_weight, scheduling_policy, environment, parent) VALUES ('bi-${toolname}', '10%', 10, 100, 10, 'weighted_fair', 'test_environment', 3);
+
+    -- create 'pipeline' group with 'global' as parent
+    INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued, scheduling_weight, jmx_export, environment, parent) VALUES ('pipeline', '80%', 45, 100, 1, true, 'test_environment', 1);
+
+    -- get ID of 'pipeline' group
+    SELECT resource_group_id FROM resource_groups WHERE name = 'pipeline'; -- 7
+    -- create 'pipeline_${USER}' group with 'pipeline' as parent
+    INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued,  environment, parent) VALUES ('pipeline_${USER}', '50%', 5, 100, 'test_environment', 7);
+
+    -- create a root group 'admin' with NULL parent
+    INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued, scheduling_policy, environment, jmx_export) VALUES ('admin', '100%', 50, 100, 'query_priority', 'test_environment', true);
 
 
     -- Selectors
@@ -413,11 +441,15 @@ This example is for a MySQL database.
     -- use ID of 'admin' resource group for selector
     INSERT INTO selectors (resource_group_id, user_regex, priority) VALUES ((SELECT resource_group_id FROM resource_groups WHERE name = 'admin'), 'bob', 6);
 
-    -- use ID of 'admin' resource group for selector
-    INSERT INTO selectors (resource_group_id, user_group_regex, priority) VALUES ((SELECT resource_group_id FROM resource_groups WHERE name = 'admin'), 'admin', 5);
-
     -- use ID of 'global.data_definition' resource group for selector
     INSERT INTO selectors (resource_group_id, source_regex, query_type, priority) VALUES ((SELECT resource_group_id FROM resource_groups WHERE name = 'data_definition'), '.*pipeline.*', 'DATA_DEFINITION', 4);
 
     -- use ID of 'global.pipeline.pipeline_${USER}' resource group for selector
     INSERT INTO selectors (resource_group_id, source_regex, priority) VALUES ((SELECT resource_group_id FROM resource_groups WHERE name = 'pipeline_${USER}'), '.*pipeline.*', 3);
+
+    -- get ID of 'global.adhoc.other.${USER}' resource group for by disambiguating group name using parent ID
+    SELECT A.resource_group_id self_id, B.resource_group_id parent_id, concat(B.name, '.', A.name) name_with_parent
+    FROM resource_groups A JOIN resource_groups B ON A.parent = B.resource_group_id
+    WHERE A.name = '${USER}' AND B.name = 'other';
+    -- |       5 |         4 | other.${USER}    |
+    INSERT INTO selectors (resource_group_id, priority) VALUES (5, 1);

@@ -23,7 +23,8 @@ class ShuffleWriter {
   virtual ~ShuffleWriter() = default;
 
   /// Write to the shuffle one row at a time.
-  virtual void collect(int32_t partition, std::string_view data) = 0;
+  virtual void
+  collect(int32_t partition, std::string_view key, std::string_view data) = 0;
 
   /// Tell the shuffle system the writer is done.
   /// @param success set to false to indicate aborted client.
@@ -37,11 +38,9 @@ class ShuffleReader {
  public:
   virtual ~ShuffleReader() = default;
 
-  /// Check by the reader to see if more blocks are available
-  virtual bool hasNext() = 0;
-
-  /// Read the next block of data.
-  virtual velox::BufferPtr next() = 0;
+  /// Reads the next block of data. The function returns null if it has read all
+  /// the data. The function throws if run into any error.
+  virtual folly::SemiFuture<velox::BufferPtr> next() = 0;
 
   /// Tell the shuffle system the reader is done. May be called with 'success'
   /// true before reading all the data. This happens when a query has a LIMIT or

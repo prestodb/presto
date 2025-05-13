@@ -1,6 +1,8 @@
-# docker-compose has a limited understanding of relative paths and interprets them relative to
+# docker compose has a limited understanding of relative paths and interprets them relative to
 # compose-file location. We can't guarantee the shape of the paths coming from env variables,
 # so we canonicalize them.
+
+set -euo pipefail
 function export_canonical_path() {
     # make the path start with '/' or './'. Otherwise the result for 'foo.txt' is an absolute path.
     local PATH_REFERENCE=$1
@@ -26,6 +28,8 @@ source "${BASH_SOURCE%/*}/../../../bin/locations.sh"
 
 export DOCKER_IMAGES_VERSION=${DOCKER_IMAGES_VERSION:-10}
 export HADOOP_BASE_IMAGE=${HADOOP_BASE_IMAGE:-"prestodb/hdp2.6-hive"}
+# This is the directory for the overriden JDK to use for starting Presto
+export OVERRIDE_JDK_DIR=${OVERRIDE_JDK_DIR:-"/dev/null"}
 
 # The following variables are defined to enable running product tests with arbitrary/downloaded jars
 # and without building the project. The `presto.env` file should only be sourced if any of the variables
@@ -33,7 +37,7 @@ export HADOOP_BASE_IMAGE=${HADOOP_BASE_IMAGE:-"prestodb/hdp2.6-hive"}
 
 if [[ -z "${PRESTO_SERVER_DIR:-}" ]]; then
     source "${PRODUCT_TESTS_ROOT}/target/classes/presto.env"
-    PRESTO_SERVER_DIR="${PROJECT_ROOT}/presto-server/target/presto-server-${PRESTO_VERSION}/presto-server-${PRESTO_VERSION}/"
+    PRESTO_SERVER_DIR="${PROJECT_ROOT}/presto-server/target/presto-server-${PRESTO_VERSION}/"
 fi
 export_canonical_path PRESTO_SERVER_DIR
 

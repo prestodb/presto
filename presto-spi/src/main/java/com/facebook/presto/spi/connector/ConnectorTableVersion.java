@@ -24,16 +24,24 @@ public class ConnectorTableVersion
         TIMESTAMP,
         VERSION
     }
+    public enum VersionOperator
+    {
+        EQUAL,
+        LESS_THAN
+    }
     private final VersionType versionType;
+    private final VersionOperator versionOperator;
     private final Type versionExpressionType;
     private final Object tableVersion;
 
-    public ConnectorTableVersion(VersionType versionType, Type versionExpressionType, Object tableVersion)
+    public ConnectorTableVersion(VersionType versionType, VersionOperator versionOperator, Type versionExpressionType, Object tableVersion)
     {
         requireNonNull(versionType, "versionType is null");
+        requireNonNull(versionOperator, "versionOperator is null");
         requireNonNull(versionExpressionType, "versionExpressionType is null");
         requireNonNull(tableVersion, "tableVersion is null");
         this.versionType = versionType;
+        this.versionOperator = versionOperator;
         this.versionExpressionType = versionExpressionType;
         this.tableVersion = tableVersion;
     }
@@ -41,6 +49,11 @@ public class ConnectorTableVersion
     public VersionType getVersionType()
     {
         return versionType;
+    }
+
+    public VersionOperator getVersionOperator()
+    {
+        return versionOperator;
     }
 
     public Type getVersionExpressionType()

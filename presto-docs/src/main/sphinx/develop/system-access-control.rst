@@ -29,6 +29,16 @@ name which is used by the administrator in a Presto configuration.
 The implementation of ``SystemAccessControl`` and ``SystemAccessControlFactory``
 must be wrapped as a plugin and installed on the Presto cluster.
 
+Row Filters and Column Masks
+----------------------------
+
+The access control implementation can optionally provide row filters and column masks to
+control viewing of specific rows or mask sensitive values in columns. The filters
+and masks are retrieved per table from the given ``Identity``, schema, table, and
+column names. The returned filters and masks will be in the form of a ``ViewExpression``
+that is then applied to the query plan before execution. Filters and masks can also be
+supplied at the connector level from a ``ConnectorAccessControl`` implementation.
+
 Configuration
 -------------
 

@@ -83,12 +83,6 @@ public class TestFileBuilder
         return this;
     }
 
-    public TestFileBuilder withWriterVersion(ParquetProperties.WriterVersion writerVersion)
-    {
-        this.writerVersion = writerVersion;
-        return this;
-    }
-
     public TestFileBuilder withPageSize(int pageSize)
     {
         this.pageSize = pageSize;

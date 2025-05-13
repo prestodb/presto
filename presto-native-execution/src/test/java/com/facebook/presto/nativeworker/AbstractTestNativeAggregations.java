@@ -16,8 +16,10 @@ package com.facebook.presto.nativeworker;
 import com.facebook.presto.Session;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SystemSessionProperties.NATIVE_MIN_COLUMNAR_ENCODING_CHANNELS_TO_PREFER_ROW_WISE_ENCODING;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_DISTINCT_AGGREGATIONS;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLineitem;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createNation;
@@ -42,87 +44,87 @@ public abstract class AbstractTestNativeAggregations
         createRegion(queryRunner);
     }
 
-    @Test
-    public void testAggregations()
+    @Test(dataProvider = "exchangeEncodingProvider")
+    public void testAggregations(String exchangeEncoding)
     {
-        assertQuery("SELECT count(*) FROM nation");
-        assertQuery("SELECT regionkey, count(*) FROM nation GROUP BY regionkey");
+        assertQuery(getSession(exchangeEncoding), "SELECT count(*) FROM nation");
+        assertQuery(getSession(exchangeEncoding), "SELECT regionkey, count(*) FROM nation GROUP BY regionkey");
 
-        assertQuery("SELECT avg(discount), avg(quantity) FROM lineitem");
-        assertQuery(
+        assertQuery(getSession(exchangeEncoding), "SELECT avg(discount), avg(quantity) FROM lineitem");
+        assertQuery(getSession(exchangeEncoding),
                 "SELECT linenumber, avg(discount), avg(quantity) FROM lineitem GROUP BY linenumber");
 
-        assertQuery("SELECT sum(totalprice) FROM orders");
-        assertQuery("SELECT orderpriority, sum(totalprice) FROM orders GROUP BY orderpriority");
+        assertQuery(getSession(exchangeEncoding), "SELECT sum(totalprice) FROM orders");
+        assertQuery(getSession(exchangeEncoding), "SELECT orderpriority, sum(totalprice) FROM orders GROUP BY orderpriority");
 
-        assertQuery("SELECT custkey, min(totalprice), max(orderkey) FROM orders GROUP BY custkey");
+        assertQuery(getSession(exchangeEncoding), "SELECT custkey, min(totalprice), max(orderkey) FROM orders GROUP BY custkey");
 
-        assertQuery("SELECT bitwise_and_agg(orderkey), bitwise_and_agg(suppkey), bitwise_or_agg(partkey), bitwise_or_agg(linenumber) FROM lineitem");
-        assertQuery("SELECT orderkey, bitwise_and_agg(orderkey), bitwise_and_agg(suppkey) FROM lineitem GROUP BY orderkey");
-        assertQuery("SELECT bitwise_and_agg(custkey), bitwise_or_agg(orderkey) FROM orders");
-        assertQuery("SELECT shippriority, bitwise_and_agg(orderkey), bitwise_or_agg(custkey) FROM orders GROUP BY shippriority");
+        assertQuery(getSession(exchangeEncoding), "SELECT bitwise_and_agg(orderkey), bitwise_and_agg(suppkey), bitwise_or_agg(partkey), bitwise_or_agg(linenumber) FROM lineitem");
+        assertQuery(getSession(exchangeEncoding), "SELECT orderkey, bitwise_and_agg(orderkey), bitwise_and_agg(suppkey) FROM lineitem GROUP BY orderkey");
+        assertQuery(getSession(exchangeEncoding), "SELECT bitwise_and_agg(custkey), bitwise_or_agg(orderkey) FROM orders");
+        assertQuery(getSession(exchangeEncoding), "SELECT shippriority, bitwise_and_agg(orderkey), bitwise_or_agg(custkey) FROM orders GROUP BY shippriority");
 
-        assertQuery("SELECT sum(custkey), clerk FROM orders GROUP BY clerk HAVING sum(custkey) > 10000");
+        assertQuery(getSession(exchangeEncoding), "SELECT sum(custkey), clerk FROM orders GROUP BY clerk HAVING sum(custkey) > 10000");
 
-        assertQuery("SELECT orderkey, array_sort(array_agg(linenumber)) FROM lineitem GROUP BY 1");
-        assertQuery("SELECT orderkey, map_agg(linenumber, discount) FROM lineitem GROUP BY 1");
+        assertQuery(getSession(exchangeEncoding), "SELECT orderkey, array_sort(array_agg(linenumber)) FROM lineitem GROUP BY 1");
+        assertQuery(getSession(exchangeEncoding), "SELECT orderkey, map_agg(linenumber, discount) FROM lineitem GROUP BY 1");
 
-        assertQuery("SELECT array_agg(nationkey ORDER BY name) FROM nation");
-        assertQuery("SELECT orderkey, array_agg(quantity ORDER BY linenumber DESC) FROM lineitem GROUP BY 1");
+        assertQuery(getSession(exchangeEncoding), "SELECT array_agg(nationkey ORDER BY name) FROM nation");
+        assertQuery(getSession(exchangeEncoding), "SELECT orderkey, array_agg(quantity ORDER BY linenumber DESC) FROM lineitem GROUP BY 1");
 
-        assertQuery("SELECT array_sort(map_keys(map_union(quantity_by_linenumber))) FROM orders_ex");
+        assertQuery(getSession(exchangeEncoding), "SELECT array_sort(map_keys(map_union(quantity_by_linenumber))) FROM orders_ex");
 
-        assertQuery("SELECT orderkey, count_if(linenumber % 2 > 0) FROM lineitem GROUP BY 1");
-        assertQuery("SELECT orderkey, bool_and(linenumber % 2 = 1) FROM lineitem GROUP BY 1");
-        assertQuery("SELECT orderkey, bool_or(linenumber % 2 = 0) FROM lineitem GROUP BY 1");
+        assertQuery(getSession(exchangeEncoding), "SELECT orderkey, count_if(linenumber % 2 > 0) FROM lineitem GROUP BY 1");
+        assertQuery(getSession(exchangeEncoding), "SELECT orderkey, bool_and(linenumber % 2 = 1) FROM lineitem GROUP BY 1");
+        assertQuery(getSession(exchangeEncoding), "SELECT orderkey, bool_or(linenumber % 2 = 0) FROM lineitem GROUP BY 1");
 
-        assertQuery("SELECT linenumber = 2 AND quantity > 10, sum(quantity / 7) FROM lineitem GROUP BY 1");
+        assertQuery(getSession(exchangeEncoding), "SELECT linenumber = 2 AND quantity > 10, sum(quantity / 7) FROM lineitem GROUP BY 1");
 
-        assertQuerySucceeds("SELECT approx_percentile(totalprice, 0.25) FROM orders");
-        assertQuerySucceeds("SELECT approx_percentile(totalprice, orderkey, 0.25) FROM orders");
-        assertQuerySucceeds("SELECT clerk, approx_percentile(totalprice, 0.25) FROM orders GROUP BY 1");
-        assertQuerySucceeds("SELECT approx_percentile(totalprice, 0.25, 0.005) FROM orders");
-        assertQuerySucceeds("SELECT approx_percentile(totalprice, orderkey, 0.25, 0.005) FROM orders");
-        assertQuerySucceeds("SELECT approx_percentile(totalprice, 0.25), approx_percentile(totalprice, 0.5) FROM orders");
-        assertQuerySucceeds("SELECT approx_percentile(totalprice, orderkey, 0.25), approx_percentile(totalprice, orderkey, 0.5) FROM orders");
-        assertQuerySucceeds("SELECT clerk, approx_percentile(totalprice, 0.25), approx_percentile(totalprice, 0.5) FROM orders GROUP BY 1");
-        assertQuerySucceeds("SELECT approx_percentile(totalprice, 0.25, 0.005), approx_percentile(totalprice, 0.5, 0.005) FROM orders");
-        assertQuerySucceeds("SELECT approx_percentile(totalprice, orderkey, 0.25, 0.005), approx_percentile(totalprice, orderkey, 0.5, 0.005) FROM orders");
-        assertQuerySucceeds("SELECT approx_percentile(totalprice, ARRAY[0.25, 0.5]) FROM orders");
-        assertQuerySucceeds("SELECT approx_percentile(totalprice, orderkey, ARRAY[0.25, 0.5]) FROM orders");
-        assertQuerySucceeds("SELECT clerk, approx_percentile(totalprice, ARRAY[0.25, 0.5]) FROM orders GROUP BY 1");
-        assertQuerySucceeds("SELECT approx_percentile(totalprice, ARRAY[0.25, 0.5], 0.005) FROM orders");
-        assertQuerySucceeds("SELECT approx_percentile(totalprice, orderkey, ARRAY[0.25, 0.5], 0.005) FROM orders");
+        assertQuerySucceeds(getSession(exchangeEncoding), "SELECT approx_percentile(totalprice, 0.25) FROM orders");
+        assertQuerySucceeds(getSession(exchangeEncoding), "SELECT approx_percentile(totalprice, orderkey, 0.25) FROM orders");
+        assertQuerySucceeds(getSession(exchangeEncoding), "SELECT clerk, approx_percentile(totalprice, 0.25) FROM orders GROUP BY 1");
+        assertQuerySucceeds(getSession(exchangeEncoding), "SELECT approx_percentile(totalprice, 0.25, 0.005) FROM orders");
+        assertQuerySucceeds(getSession(exchangeEncoding), "SELECT approx_percentile(totalprice, orderkey, 0.25, 0.005) FROM orders");
+        assertQuerySucceeds(getSession(exchangeEncoding), "SELECT approx_percentile(totalprice, 0.25), approx_percentile(totalprice, 0.5) FROM orders");
+        assertQuerySucceeds(getSession(exchangeEncoding), "SELECT approx_percentile(totalprice, orderkey, 0.25), approx_percentile(totalprice, orderkey, 0.5) FROM orders");
+        assertQuerySucceeds(getSession(exchangeEncoding), "SELECT clerk, approx_percentile(totalprice, 0.25), approx_percentile(totalprice, 0.5) FROM orders GROUP BY 1");
+        assertQuerySucceeds(getSession(exchangeEncoding), "SELECT approx_percentile(totalprice, 0.25, 0.005), approx_percentile(totalprice, 0.5, 0.005) FROM orders");
+        assertQuerySucceeds(getSession(exchangeEncoding), "SELECT approx_percentile(totalprice, orderkey, 0.25, 0.005), approx_percentile(totalprice, orderkey, 0.5, 0.005) FROM orders");
+        assertQuerySucceeds(getSession(exchangeEncoding), "SELECT approx_percentile(totalprice, ARRAY[0.25, 0.5]) FROM orders");
+        assertQuerySucceeds(getSession(exchangeEncoding), "SELECT approx_percentile(totalprice, orderkey, ARRAY[0.25, 0.5]) FROM orders");
+        assertQuerySucceeds(getSession(exchangeEncoding), "SELECT clerk, approx_percentile(totalprice, ARRAY[0.25, 0.5]) FROM orders GROUP BY 1");
+        assertQuerySucceeds(getSession(exchangeEncoding), "SELECT approx_percentile(totalprice, ARRAY[0.25, 0.5], 0.005) FROM orders");
+        assertQuerySucceeds(getSession(exchangeEncoding), "SELECT approx_percentile(totalprice, orderkey, ARRAY[0.25, 0.5], 0.005) FROM orders");
 
         // count is not using any channel or mask.
         // sum1 and sum3 are using different channels, but the same mask.
         // sum2 and sum1 are using the same channel, but different masks.
-        assertQuery("SELECT count(1), sum(IF(linenumber = 7, partkey)), sum(IF(linenumber = 5, partkey)), sum(IF(linenumber = 7, orderkey)) FROM lineitem");
-        assertQuery("SELECT count(1), sum(partkey) FILTER (where linenumber = 7), sum(partkey) FILTER (where linenumber = 5), sum(orderkey) FILTER (where linenumber = 7) FROM lineitem");
-        assertQuery("SELECT shipmode, count(1), sum(IF(linenumber = 7, partkey)), sum(IF(linenumber = 5, partkey)), sum(IF(linenumber = 7, orderkey)) FROM lineitem group by 1");
-        assertQuery("SELECT shipmode, count(1), sum(partkey) FILTER (where linenumber = 7), sum(partkey) FILTER (where linenumber = 5), sum(orderkey) FILTER (where linenumber = 7) FROM lineitem group by 1");
+        assertQuery(getSession(exchangeEncoding), "SELECT count(1), sum(IF(linenumber = 7, partkey)), sum(IF(linenumber = 5, partkey)), sum(IF(linenumber = 7, orderkey)) FROM lineitem");
+        assertQuery(getSession(exchangeEncoding), "SELECT count(1), sum(partkey) FILTER (where linenumber = 7), sum(partkey) FILTER (where linenumber = 5), sum(orderkey) FILTER (where linenumber = 7) FROM lineitem");
+        assertQuery(getSession(exchangeEncoding), "SELECT shipmode, count(1), sum(IF(linenumber = 7, partkey)), sum(IF(linenumber = 5, partkey)), sum(IF(linenumber = 7, orderkey)) FROM lineitem group by 1");
+        assertQuery(getSession(exchangeEncoding), "SELECT shipmode, count(1), sum(partkey) FILTER (where linenumber = 7), sum(partkey) FILTER (where linenumber = 5), sum(orderkey) FILTER (where linenumber = 7) FROM lineitem group by 1");
 
         // distinct limit
         assertQueryResultCount("SELECT orderkey FROM lineitem GROUP BY 1 LIMIT 17", 17);
 
         // aggregation with no grouping keys and no aggregates
-        assertQuery("with a as (select sum(nationkey) from nation) select x from a, unnest(array[1, 2,3]) as t(x)");
+        assertQuery(getSession(exchangeEncoding), "with a as (select sum(nationkey) from nation) select x from a, unnest(array[1, 2,3]) as t(x)");
     }
 
-    @Test
-    public void testGroupingSets()
+    @Test(dataProvider = "exchangeEncodingProvider")
+    public void testGroupingSets(String exchangeEncoding)
     {
-        assertQuery("SELECT orderstatus, orderpriority, count(1), min(orderkey) FROM orders GROUP BY GROUPING SETS ((orderstatus), (orderpriority))");
-        assertQuery("SELECT orderstatus, orderpriority, count(1), min(orderkey) FROM orders GROUP BY CUBE (orderstatus, orderpriority)");
+        assertQuery(getSession(exchangeEncoding), "SELECT orderstatus, orderpriority, count(1), min(orderkey) FROM orders GROUP BY GROUPING SETS ((orderstatus), (orderpriority))");
+        assertQuery(getSession(exchangeEncoding), "SELECT orderstatus, orderpriority, count(1), min(orderkey) FROM orders GROUP BY CUBE (orderstatus, orderpriority)");
         assertQuery("SELECT orderstatus, orderpriority, count(1), min(orderkey) FROM orders GROUP BY ROLLUP (orderstatus, orderpriority)");
 
         // With grouping expression.
-        assertQuery("SELECT orderstatus, orderpriority, grouping(orderstatus), grouping(orderpriority), grouping(orderstatus, orderpriority), count(1), min(orderkey) FROM orders GROUP BY GROUPING SETS ((orderstatus), (orderpriority))");
-        assertQuery("SELECT orderstatus, orderpriority, grouping(orderstatus), grouping(orderpriority), grouping(orderstatus, orderpriority), count(1), min(orderkey) FROM orders GROUP BY CUBE (orderstatus, orderpriority)");
-        assertQuery("SELECT orderstatus, orderpriority, grouping(orderstatus), grouping(orderpriority), grouping(orderstatus, orderpriority), count(1), min(orderkey) FROM orders GROUP BY ROLLUP (orderstatus, orderpriority)");
+        assertQuery(getSession(exchangeEncoding), "SELECT orderstatus, orderpriority, grouping(orderstatus), grouping(orderpriority), grouping(orderstatus, orderpriority), count(1), min(orderkey) FROM orders GROUP BY GROUPING SETS ((orderstatus), (orderpriority))");
+        assertQuery(getSession(exchangeEncoding), "SELECT orderstatus, orderpriority, grouping(orderstatus), grouping(orderpriority), grouping(orderstatus, orderpriority), count(1), min(orderkey) FROM orders GROUP BY CUBE (orderstatus, orderpriority)");
+        assertQuery(getSession(exchangeEncoding), "SELECT orderstatus, orderpriority, grouping(orderstatus), grouping(orderpriority), grouping(orderstatus, orderpriority), count(1), min(orderkey) FROM orders GROUP BY ROLLUP (orderstatus, orderpriority)");
 
         // With aliased columns.
-        assertQuery("SELECT lna, lnb, SUM(quantity) FROM (SELECT linenumber lna, linenumber lnb, CAST(quantity AS BIGINT) quantity FROM lineitem) GROUP BY GROUPING SETS ((lna, lnb), (lna), (lnb), ())");
+        assertQuery(getSession(exchangeEncoding), "SELECT lna, lnb, SUM(quantity) FROM (SELECT linenumber lna, linenumber lnb, CAST(quantity AS BIGINT) quantity FROM lineitem) GROUP BY GROUPING SETS ((lna, lnb), (lna), (lnb), ())");
     }
 
     @Test
@@ -135,27 +137,27 @@ public abstract class AbstractTestNativeAggregations
         assertQuery(session, "SELECT max(orderstatus), COUNT(orderkey), sum(DISTINCT orderkey) FROM orders");
     }
 
-    @Test
-    public void testEmptyGroupingSets()
+    @Test(dataProvider = "exchangeEncodingProvider")
+    public void testEmptyGroupingSets(String exchangeEncoding)
     {
         // Returns  a single row with the global aggregation.
-        assertQuery("SELECT count(orderkey) FROM orders WHERE orderkey < 0 GROUP BY GROUPING SETS (())");
+        assertQuery(getSession(exchangeEncoding), "SELECT count(orderkey) FROM orders WHERE orderkey < 0 GROUP BY GROUPING SETS (())");
 
         // Returns 2 rows with global aggregation for the global grouping sets.
-        assertQuery("SELECT count(orderkey) FROM orders WHERE orderkey < 0 GROUP BY GROUPING SETS ((), ())");
+        assertQuery(getSession(exchangeEncoding), "SELECT count(orderkey) FROM orders WHERE orderkey < 0 GROUP BY GROUPING SETS ((), ())");
 
         // Returns a single row with the global aggregation. There are no rows for the orderkey group.
-        assertQuery("SELECT count(orderkey) FROM orders WHERE orderkey < 0 GROUP BY GROUPING SETS ((orderkey), ())");
+        assertQuery(getSession(exchangeEncoding), "SELECT count(orderkey) FROM orders WHERE orderkey < 0 GROUP BY GROUPING SETS ((orderkey), ())");
 
         // This is a shorthand for the above query. Returns a single row with the global aggregation.
-        assertQuery("SELECT count(orderkey) FROM orders WHERE orderkey < 0 GROUP BY CUBE (orderkey)");
+        assertQuery(getSession(exchangeEncoding), "SELECT count(orderkey) FROM orders WHERE orderkey < 0 GROUP BY CUBE (orderkey)");
 
-        assertQuery("SELECT count(orderkey) FROM orders WHERE orderkey < 0 GROUP BY ROLLUP (orderkey)");
+        assertQuery(getSession(exchangeEncoding), "SELECT count(orderkey) FROM orders WHERE orderkey < 0 GROUP BY ROLLUP (orderkey)");
 
         // Returns a single row with NULL orderkey.
-        assertQuery("SELECT orderkey FROM orders WHERE orderkey < 0 GROUP BY CUBE (orderkey)");
+        assertQuery(getSession(exchangeEncoding), "SELECT orderkey FROM orders WHERE orderkey < 0 GROUP BY CUBE (orderkey)");
 
-        assertQuery("SELECT orderkey FROM orders WHERE orderkey < 0 GROUP BY ROLLUP (orderkey)");
+        assertQuery(getSession(exchangeEncoding), "SELECT orderkey FROM orders WHERE orderkey < 0 GROUP BY ROLLUP (orderkey)");
     }
 
     @Test
@@ -164,33 +166,33 @@ public abstract class AbstractTestNativeAggregations
         assertQuery("SELECT name, (SELECT max(name) FROM region WHERE regionkey = nation.regionkey AND length(name) > length(nation.name)) FROM nation");
     }
 
-    @Test
-    public void testApproxDistinct()
+    @Test(dataProvider = "exchangeEncodingProvider")
+    public void testApproxDistinct(String exchangeEncoding)
     {
         // low cardinality -> expect exact results
-        assertQuery("SELECT approx_distinct(linenumber) FROM lineitem");
-        assertQuery("SELECT orderkey, approx_distinct(linenumber) FROM lineitem GROUP BY 1");
+        assertQuery(getSession(exchangeEncoding), "SELECT approx_distinct(linenumber) FROM lineitem");
+        assertQuery(getSession(exchangeEncoding), "SELECT orderkey, approx_distinct(linenumber) FROM lineitem GROUP BY 1");
 
         // high cardinality -> results may not be exact
-        assertQuerySucceeds("SELECT approx_distinct(orderkey) FROM lineitem");
-        assertQuerySucceeds("SELECT linenumber, approx_distinct(orderkey) FROM lineitem GROUP BY 1");
+        assertQuerySucceeds(getSession(exchangeEncoding), "SELECT approx_distinct(orderkey) FROM lineitem");
+        assertQuerySucceeds(getSession(exchangeEncoding), "SELECT linenumber, approx_distinct(orderkey) FROM lineitem GROUP BY 1");
 
         // approx_set + cardinality
-        assertQuery("SELECT cardinality(approx_set(linenumber)) FROM lineitem");
-        assertQuery("SELECT orderkey, cardinality(approx_set(linenumber)) FROM lineitem GROUP BY 1");
+        assertQuery(getSession(exchangeEncoding), "SELECT cardinality(approx_set(linenumber)) FROM lineitem");
+        assertQuery(getSession(exchangeEncoding), "SELECT orderkey, cardinality(approx_set(linenumber)) FROM lineitem GROUP BY 1");
 
         // Verify that Velox can read HLL binaries written by Java Presto.
-        assertQuery("SELECT cardinality(cast(hll as hyperloglog)) FROM orders_hll");
-        assertQuery("SELECT cardinality(merge(cast(hll as hyperloglog))) FROM orders_hll");
+        assertQuery(getSession(exchangeEncoding), "SELECT cardinality(cast(hll as hyperloglog)) FROM orders_hll");
+        assertQuery(getSession(exchangeEncoding), "SELECT cardinality(merge(cast(hll as hyperloglog))) FROM orders_hll");
     }
 
-    @Test
-    public void testApproxMostFrequent()
+    @Test(dataProvider = "exchangeEncodingProvider")
+    public void testApproxMostFrequent(String exchangeEncoding)
     {
-        assertQuery("SELECT approx_most_frequent(3, linenumber, 1000) FROM lineitem");
-        assertQuerySucceeds("SELECT orderkey, approx_most_frequent(3, linenumber, 10) FROM lineitem GROUP BY 1");
-        assertQuerySucceeds("SELECT approx_most_frequent(3, orderkey, 1000) FROM lineitem");
-        assertQuerySucceeds("SELECT linenumber, approx_most_frequent(3, orderkey, 10) FROM lineitem GROUP BY 1");
+        assertQuery(getSession(exchangeEncoding), "SELECT approx_most_frequent(3, linenumber, 1000) FROM lineitem");
+        assertQuerySucceeds(getSession(exchangeEncoding), "SELECT orderkey, approx_most_frequent(3, linenumber, 10) FROM lineitem GROUP BY 1");
+        assertQuerySucceeds(getSession(exchangeEncoding), "SELECT approx_most_frequent(3, orderkey, 1000) FROM lineitem");
+        assertQuerySucceeds(getSession(exchangeEncoding), "SELECT linenumber, approx_most_frequent(3, orderkey, 10) FROM lineitem GROUP BY 1");
     }
 
     @Test
@@ -242,23 +244,23 @@ public abstract class AbstractTestNativeAggregations
                 ".*Aggregate function signature is not supported.*");
     }
 
-    @Test
-    public void testMinMaxBy()
+    @Test(dataProvider = "exchangeEncodingProvider")
+    public void testMinMaxBy(String exchangeEncoding)
     {
         // We use filters to make queries deterministic.
-        assertQuery("SELECT max_by(partkey, orderkey), max_by(quantity, orderkey), max_by(tax_as_real, orderkey) FROM lineitem where shipmode='MAIL'");
-        assertQuery("SELECT min_by(partkey, orderkey), min_by(quantity, orderkey), min_by(tax_as_real, orderkey) FROM lineitem where shipmode='MAIL'");
+        assertQuery(getSession(exchangeEncoding), "SELECT max_by(partkey, orderkey), max_by(quantity, orderkey), max_by(tax_as_real, orderkey) FROM lineitem where shipmode='MAIL'");
+        assertQuery(getSession(exchangeEncoding), "SELECT min_by(partkey, orderkey), min_by(quantity, orderkey), min_by(tax_as_real, orderkey) FROM lineitem where shipmode='MAIL'");
 
-        assertQuery("SELECT max_by(orderkey, extendedprice), max_by(orderkey, cast(extendedprice as REAL)) FROM lineitem");
-        assertQuery("SELECT min_by(orderkey, extendedprice), min_by(orderkey, cast(extendedprice as REAL)) FROM lineitem where shipmode='MAIL'");
+        assertQuery(getSession(exchangeEncoding), "SELECT max_by(orderkey, extendedprice), max_by(orderkey, cast(extendedprice as REAL)) FROM lineitem");
+        assertQuery(getSession(exchangeEncoding), "SELECT min_by(orderkey, extendedprice), min_by(orderkey, cast(extendedprice as REAL)) FROM lineitem where shipmode='MAIL'");
 
         // 3 argument variant of max_by, min_by
-        assertQuery("SELECT max_by(orderkey, linenumber, 5), min_by(orderkey, linenumber, 5) FROM lineitem GROUP BY orderkey");
+        assertQuery(getSession(exchangeEncoding), "SELECT max_by(orderkey, linenumber, 5), min_by(orderkey, linenumber, 5) FROM lineitem GROUP BY orderkey");
 
         // Non-numeric arguments
-        assertQuery("SELECT max_by(row(orderkey, custkey), orderkey, 5), min_by(row(orderkey, custkey), orderkey, 5) FROM orders");
-        assertQuery("SELECT max_by(row(orderkey, linenumber), linenumber, 5), min_by(row(orderkey, linenumber), linenumber, 5) FROM lineitem GROUP BY orderkey");
-        assertQuery("SELECT orderkey, MAX_BY(v, c, 5), MIN_BY(v, c, 5) FROM " +
+        assertQuery(getSession(exchangeEncoding), "SELECT max_by(row(orderkey, custkey), orderkey, 5), min_by(row(orderkey, custkey), orderkey, 5) FROM orders");
+        assertQuery(getSession(exchangeEncoding), "SELECT max_by(row(orderkey, linenumber), linenumber, 5), min_by(row(orderkey, linenumber), linenumber, 5) FROM lineitem GROUP BY orderkey");
+        assertQuery(getSession(exchangeEncoding), "SELECT orderkey, MAX_BY(v, c, 5), MIN_BY(v, c, 5) FROM " +
                 "(SELECT orderkey, 'This is a long line ' || CAST(orderkey AS VARCHAR) AS v, 'This is also a really long line ' || CAST(linenumber AS VARCHAR) AS c FROM lineitem) " +
                 "GROUP BY 1");
     }
@@ -325,6 +327,7 @@ public abstract class AbstractTestNativeAggregations
         assertQuery("SELECT checksum(quantity_by_linenumber) FROM orders_ex");
         assertQuery("SELECT shipmode, checksum(extendedprice) FROM lineitem GROUP BY shipmode");
         assertQuery("SELECT checksum(from_unixtime(orderkey, '+01:00')) FROM lineitem WHERE orderkey < 20");
+        assertQuery("SELECT checksum(cast(v as ipaddress)) FROM (VALUES '192.168.1.1', NULL ) as t (v)");
 
         // test DECIMAL data
         assertQuery("SELECT checksum(a), checksum(b) FROM (VALUES (DECIMAL '1.234', DECIMAL '611180549424.4633133')) AS t(a, b)");
@@ -333,16 +336,16 @@ public abstract class AbstractTestNativeAggregations
         assertQuery("SELECT checksum(a), checksum(b) FROM (VALUES (CAST('999999999999999999' AS DECIMAL(18, 0)), CAST('99999999999999999999999999999999999999' AS DECIMAL(38, 0))), (CAST('-999999999999999999' as DECIMAL(18, 0)), CAST('-99999999999999999999999999999999999999' AS DECIMAL(38, 0)))) AS t(a, b)");
     }
 
-    @Test
-    public void testArbitrary()
+    @Test(dataProvider = "exchangeEncodingProvider")
+    public void testArbitrary(String exchangeEncoding)
     {
         // Non-deterministic queries
-        assertQuerySucceeds("SELECT orderkey, any_value(comment) FROM lineitem GROUP BY 1");
-        assertQuerySucceeds("SELECT orderkey, arbitrary(discount) FROM lineitem GROUP BY 1");
-        assertQuerySucceeds("SELECT orderkey, any_value(linenumber) FROM lineitem GROUP BY 1");
-        assertQuerySucceeds("SELECT orderkey, arbitrary(linenumber_as_smallint) FROM lineitem GROUP BY 1");
-        assertQuerySucceeds("SELECT orderkey, any_value(linenumber_as_tinyint) FROM lineitem GROUP BY 1");
-        assertQuerySucceeds("SELECT orderkey, arbitrary(tax_as_real) FROM lineitem GROUP BY 1");
+        assertQuerySucceeds(getSession(exchangeEncoding), "SELECT orderkey, any_value(comment) FROM lineitem GROUP BY 1");
+        assertQuerySucceeds(getSession(exchangeEncoding), "SELECT orderkey, arbitrary(discount) FROM lineitem GROUP BY 1");
+        assertQuerySucceeds(getSession(exchangeEncoding), "SELECT orderkey, any_value(linenumber) FROM lineitem GROUP BY 1");
+        assertQuerySucceeds(getSession(exchangeEncoding), "SELECT orderkey, arbitrary(linenumber_as_smallint) FROM lineitem GROUP BY 1");
+        assertQuerySucceeds(getSession(exchangeEncoding), "SELECT orderkey, any_value(linenumber_as_tinyint) FROM lineitem GROUP BY 1");
+        assertQuerySucceeds(getSession(exchangeEncoding), "SELECT orderkey, arbitrary(tax_as_real) FROM lineitem GROUP BY 1");
     }
 
     @Test
@@ -351,11 +354,11 @@ public abstract class AbstractTestNativeAggregations
         assertQuery("SELECT orderkey, multimap_agg(linenumber % 3, discount) FROM lineitem GROUP BY 1");
     }
 
-    @Test
-    public void testMarkDistinct()
+    @Test(dataProvider = "exchangeEncodingProvider")
+    public void testMarkDistinct(String exchangeEncoding)
     {
-        assertQuery("SELECT count(distinct orderkey), count(distinct linenumber) FROM lineitem");
-        assertQuery("SELECT orderkey, count(distinct comment), sum(distinct linenumber) FROM lineitem GROUP BY 1");
+        assertQuery(getSession(exchangeEncoding), "SELECT count(distinct orderkey), count(distinct linenumber) FROM lineitem");
+        assertQuery(getSession(exchangeEncoding), "SELECT orderkey, count(distinct comment), sum(distinct linenumber) FROM lineitem GROUP BY 1");
     }
 
     @Test
@@ -370,16 +373,47 @@ public abstract class AbstractTestNativeAggregations
                 ".*Aggregations over sorted unique values are not supported yet");
     }
 
-    @Test
-    public void testReduceAgg()
+    @Test(dataProvider = "exchangeEncodingProvider")
+    public void testReduceAgg(String exchangeEncoding)
     {
-        assertQuery("SELECT reduce_agg(orderkey, 0, (x, y) -> x + y, (x, y) -> x + y) FROM orders");
-        assertQuery("SELECT orderkey, reduce_agg(linenumber, 0, (x, y) -> x + y, (x, y) -> x + y) FROM lineitem GROUP BY orderkey");
-        assertQuery("SELECT orderkey, array_sort(reduce_agg(linenumber, array[], (s, x) -> s || x, (s, s2) -> s || s2)) FROM lineitem GROUP BY orderkey");
+        assertQuery(getSession(exchangeEncoding), "SELECT reduce_agg(orderkey, 0, (x, y) -> x + y, (x, y) -> x + y) FROM orders");
+        assertQuery(getSession(exchangeEncoding), "SELECT orderkey, reduce_agg(linenumber, 0, (x, y) -> x + y, (x, y) -> x + y) FROM lineitem GROUP BY orderkey");
+        assertQuery(getSession(exchangeEncoding), "SELECT orderkey, array_sort(reduce_agg(linenumber, array[], (s, x) -> s || x, (s, s2) -> s || s2)) FROM lineitem GROUP BY orderkey");
+    }
+
+    @Test
+    public void testNaNValueAgg()
+    {
+        // Fix Velox to get these tests passed.
+        // See https://github.com/prestodb/presto/issues/20283
+        String notEqualRowsErrorMsg = "*.not equal.*";
+        assertQuery("SELECT a FROM (VALUES (ARRAY[nan(), 2e0, 3e0]), (ARRAY[nan(), 2e0, 3e0])) t(a) GROUP BY a");
+        assertQueryError("SELECT a, array_agg(a ORDER BY a) FROM (VALUES (0.0e0), (0.0e0), (nan()), (nan())) t(a) GROUP BY 1", notEqualRowsErrorMsg);
+        assertQueryError("SELECT DISTINCT a/a FROM (VALUES (0.0e0), (0.0e0)) x (a)", notEqualRowsErrorMsg);
+        assertQueryError("SELECT * FROM (VALUES nan(), nan(), nan()) GROUP BY 1", notEqualRowsErrorMsg);
+        assertQueryError("SELECT a, b, c FROM (VALUES ROW(nan(), 1, 2), ROW(nan(), 1, 2)) t(a, b, c) GROUP BY 1, 2, 3", notEqualRowsErrorMsg);
+        assertQueryError("SELECT a, SUM(b), SUM(c) FROM (VALUES ROW(nan(), 1, 2), ROW(nan(), 1, 2)) t(a, b, c) GROUP BY 1", notEqualRowsErrorMsg);
+        assertQueryError("SELECT MAP_KEYS(x)[1] FROM (VALUES MAP(ARRAY[nan()], ARRAY[ARRAY[1]]), MAP(ARRAY[nan()], ARRAY[ARRAY[2]])) t(x) GROUP BY 1", notEqualRowsErrorMsg);
     }
 
     private void assertQueryResultCount(String sql, int expectedResultCount)
     {
         assertEquals(getQueryRunner().execute(sql).getRowCount(), expectedResultCount);
+    }
+
+    @DataProvider(name = "exchangeEncodingProvider")
+    public Object[][] exchangeEncodingProvider()
+    {
+        return new Object[][] {
+                {"with_columnar_exchange_encoding"},
+                {"with_row_wise_exchange_encoding"},
+        };
+    }
+
+    private Session getSession(String encoding)
+    {
+        return Session.builder(getSession())
+                .setSystemProperty(NATIVE_MIN_COLUMNAR_ENCODING_CHANNELS_TO_PREFER_ROW_WISE_ENCODING, "with_row_wise_exchange_encoding".equals(encoding) ? "1" : "1000")
+                .build();
     }
 }

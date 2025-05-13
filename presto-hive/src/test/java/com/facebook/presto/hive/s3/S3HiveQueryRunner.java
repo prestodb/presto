@@ -13,17 +13,20 @@
  */
 package com.facebook.presto.hive.s3;
 
+import com.facebook.presto.hive.HiveCommonClientConfig;
 import com.facebook.presto.hive.HiveQueryRunner;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.metastore.HivePartitionMutator;
 import com.facebook.presto.hive.metastore.thrift.BridgingHiveMetastore;
 import com.facebook.presto.hive.metastore.thrift.TestingHiveCluster;
 import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastore;
+import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastoreConfig;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 
+import java.io.File;
 import java.util.Map;
 import java.util.Optional;
 
@@ -38,9 +41,23 @@ public final class S3HiveQueryRunner
             HostAndPort s3Endpoint,
             String s3AccessKey,
             String s3SecretKey,
-            Map<String, String> additionalHiveProperties)
+            Map<String, String> additionalHiveProperties,
+            Map<String, String> additionalHiveClientProperties)
             throws Exception
     {
+        MetastoreClientConfig metastoreClientConfig = new MetastoreClientConfig();
+        ThriftHiveMetastoreConfig thriftHiveMetastoreConfig = new ThriftHiveMetastoreConfig();
+        if (!additionalHiveClientProperties.isEmpty()) {
+            thriftHiveMetastoreConfig.setTlsEnabled(Boolean.parseBoolean(additionalHiveClientProperties.get("hive.metastore.thrift.client.tls.enabled")));
+            if (additionalHiveClientProperties.get("hive.metastore.thrift.client.tls.keystore-path") != null) {
+                thriftHiveMetastoreConfig.setKeystorePath(new File(additionalHiveClientProperties.get("hive.metastore.thrift.client.tls.keystore-path")));
+                thriftHiveMetastoreConfig.setKeystorePassword(additionalHiveClientProperties.get("hive.metastore.thrift.client.tls.keystore-password"));
+            }
+            if (additionalHiveClientProperties.get("hive.metastore.thrift.client.tls.truststore-path") != null) {
+                thriftHiveMetastoreConfig.setTruststorePath(new File(additionalHiveClientProperties.get("hive.metastore.thrift.client.tls.truststore-path")));
+                thriftHiveMetastoreConfig.setTrustStorePassword(additionalHiveClientProperties.get("hive.metastore.thrift.client.tls.truststore-password"));
+            }
+        }
         return HiveQueryRunner.createQueryRunner(ImmutableList.of(), ImmutableList.of(), ImmutableMap.of(),
                 ImmutableMap.of(), "sql-standard",
                 ImmutableMap.<String, String>builder()
@@ -54,12 +71,12 @@ public final class S3HiveQueryRunner
                 Optional.empty(),
                 Optional.of(new BridgingHiveMetastore(
                         new ThriftHiveMetastore(
-                                new TestingHiveCluster(
-                                        new MetastoreClientConfig(),
+                                new TestingHiveCluster(metastoreClientConfig,
+                                        thriftHiveMetastoreConfig,
                                         hiveEndpoint.getHost(),
-                                        hiveEndpoint.getPort()),
-                                new MetastoreClientConfig(),
+                                        hiveEndpoint.getPort(), new HiveCommonClientConfig()), metastoreClientConfig,
                                 HDFS_ENVIRONMENT),
-                        new HivePartitionMutator())));
+                        new HivePartitionMutator())),
+                ImmutableMap.of());
     }
 }

@@ -1,15 +1,20 @@
 *.iml
 *.ipr
 *.iws
-target/
+target
 /var
 /*/var/
 /presto-product-tests/**/var/
 pom.xml.versionsBackup
+dependency-reduced-pom.xml
 test-output/
 test-reports/
 /atlassian-ide-plugin.xml
-.idea
+.idea/*
+*/.idea
+!.idea/icon.png
+.run
+.vscode
 .DS_Store
 .classpath
 .settings
@@ -35,6 +40,8 @@ cmake-build-*/
 *.swp
 *~
 a.out
+presto-native-execution/deps-download
+presto-native-execution/deps-install
 
 # Compiled Object files
 *.slo
@@ -55,3 +62,7 @@ a.out
 *.pb.h
 *.pb.cc
 *_pb2.py
+
+# Compiled executables used for docker build
+/docker/presto-cli-*-executable.jar
+/docker/presto-server-*.tar.gz
