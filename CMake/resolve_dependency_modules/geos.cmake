@@ -35,11 +35,16 @@ set(CMAKE_BUILD_TYPE Release)
 set(PREVIOUS_CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -Wno-nonnull ")
 
+# This option defaults to on and adds warning flags that fail the build.
+set(GEOS_BUILD_DEVELOPER OFF)
+
 if("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -Wno-dangling-pointer")
 endif()
 
 FetchContent_MakeAvailable(geos)
+
+add_library(GEOS::geos ALIAS geos)
 
 unset(BUILD_SHARED_LIBS)
 set(CMAKE_CXX_FLAGS ${PREVIOUS_CMAKE_CXX_FLAGS})
