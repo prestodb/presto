@@ -3974,6 +3974,50 @@ TEST_F(VectorTest, pushDictionaryToRowVectorLeaves) {
     auto& c0c1 = c0->childAt(1);
     ASSERT_EQ(c0c1->encoding(), VectorEncoding::Simple::DICTIONARY);
   }
+  {
+    SCOPED_TRACE("Constant");
+    input = makeRowVector({
+        // c0: Constant primitive.
+        makeConstant<int64_t>(42, 10),
+        // c1: Constant ROW
+        BaseVector::wrapInConstant(
+            10,
+            0,
+            makeRowVector(
+                {makeFlatVector<int64_t>(1, [](auto) { return 43; })})),
+        // c2: Dictionary over constant
+        wrapInDictionary(
+            makeIndicesInReverse(10),
+            makeRowVector({
+                BaseVector::wrapInConstant(
+                    10,
+                    0,
+                    makeRowVector(
+                        {makeFlatVector<int64_t>(1, [](auto) { return 44; })})),
+            })),
+        // c3: Constant over dictionary
+        BaseVector::wrapInConstant(
+            10,
+            5,
+            makeRowVector({
+                wrapInDictionary(
+                    makeIndicesInReverse(10), makeRowVector({iota})),
+            })),
+    });
+    output = RowVector::pushDictionaryToRowVectorLeaves(input);
+    test::assertEqualVectors(input, output);
+    auto* outputRow = output->asChecked<RowVector>();
+    auto& c0 = outputRow->childAt(0);
+    ASSERT_EQ(c0->encoding(), VectorEncoding::Simple::CONSTANT);
+    auto* c1 = outputRow->childAt(1)->asChecked<RowVector>();
+    ASSERT_EQ(c1->childAt(0)->encoding(), VectorEncoding::Simple::DICTIONARY);
+    auto* c2 = outputRow->childAt(2)->asChecked<RowVector>();
+    auto* c2c0 = c2->childAt(0)->asChecked<RowVector>();
+    ASSERT_EQ(c2c0->childAt(0)->encoding(), VectorEncoding::Simple::DICTIONARY);
+    auto* c3 = outputRow->childAt(3)->asChecked<RowVector>();
+    auto* c3c0 = c3->childAt(0)->asChecked<RowVector>();
+    ASSERT_EQ(c3c0->childAt(0)->encoding(), VectorEncoding::Simple::DICTIONARY);
+  }
 }
 
 TEST_F(VectorTest, arrayCopyTargetNullOffsets) {

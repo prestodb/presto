@@ -679,30 +679,46 @@ void RowVector::resize(vector_size_t newSize, bool setNotNull) {
 
 namespace {
 
-struct Wrapper {
-  const VectorPtr& dictionary;
+// Represent a layer of wrapping (DICTIONARY or CONSTANT) in the vector tree,
+// from the point of a certain vector to the root vector (possibly cross many
+// RowVectors in between).
+struct EncodingWrapper {
+  // The encoded vector of the current layer.
+  const VectorPtr& encoded;
 
-  // Combined nulls and indices from this dictionary node to the root.
+  // Combined nulls and indices from this encoded node to the root.
   BufferPtr nulls;
   BufferPtr indices;
 };
 
 template <typename F>
 void forEachCombinedIndex(
-    const std::vector<Wrapper>& wrappers,
+    const std::vector<EncodingWrapper>& wrappers,
     vector_size_t size,
     F&& f) {
   std::vector<const vector_size_t*> sourceIndices(wrappers.size());
+  std::vector<std::vector<vector_size_t>> constantIndices;
   for (int i = 0; i < wrappers.size(); ++i) {
-    auto& wrapInfo = wrappers[i].dictionary->wrapInfo();
+    auto& encoded = wrappers[i].encoded;
+    auto& wrapInfo = encoded->wrapInfo();
     VELOX_CHECK_NOT_NULL(wrapInfo);
-    sourceIndices[i] = wrapInfo->as<vector_size_t>();
+    if (encoded->encoding() == VectorEncoding::Simple::DICTIONARY) {
+      sourceIndices[i] = wrapInfo->as<vector_size_t>();
+    } else {
+      VELOX_CHECK_EQ(encoded->encoding(), VectorEncoding::Simple::CONSTANT);
+      if (!encoded->mayHaveNulls()) {
+        auto& indices = constantIndices.emplace_back(encoded->size());
+        std::fill(
+            indices.begin(), indices.end(), *wrapInfo->as<vector_size_t>());
+        sourceIndices[i] = indices.data();
+      }
+    }
   }
   for (vector_size_t j = 0; j < size; ++j) {
     auto index = j;
     bool isNull = false;
     for (int i = 0; i < wrappers.size(); ++i) {
-      if (wrappers[i].dictionary->isNullAt(index)) {
+      if (wrappers[i].encoded->isNullAt(index)) {
         isNull = true;
         break;
       }
@@ -713,12 +729,12 @@ void forEachCombinedIndex(
 }
 
 void combineWrappers(
-    std::vector<Wrapper>& wrappers,
+    std::vector<EncodingWrapper>& wrappers,
     vector_size_t size,
     memory::MemoryPool* pool) {
   uint64_t* rawNulls = nullptr;
   for (int i = 0; i < wrappers.size(); ++i) {
-    if (!rawNulls && wrappers[i].dictionary->nulls()) {
+    if (!rawNulls && wrappers[i].encoded->mayHaveNulls()) {
       wrappers.back().nulls = allocateNulls(size, pool);
       rawNulls = wrappers.back().nulls->asMutable<uint64_t>();
       break;
@@ -739,12 +755,13 @@ void combineWrappers(
 }
 
 BufferPtr combineNulls(
-    const std::vector<Wrapper>& wrappers,
+    const std::vector<EncodingWrapper>& wrappers,
     vector_size_t size,
     const uint64_t* valueNulls,
     memory::MemoryPool* pool) {
-  if (wrappers.size() == 1 && !valueNulls) {
-    return wrappers[0].dictionary->nulls();
+  if (wrappers.size() == 1 && !valueNulls &&
+      wrappers[0].encoded->encoding() == VectorEncoding::Simple::DICTIONARY) {
+    return wrappers[0].encoded->nulls();
   }
   auto nulls = allocateNulls(size, pool);
   auto* rawNulls = nulls->asMutable<uint64_t>();
@@ -760,7 +777,7 @@ BufferPtr combineNulls(
 }
 
 VectorPtr wrapInDictionary(
-    std::vector<Wrapper>& wrappers,
+    std::vector<EncodingWrapper>& wrappers,
     vector_size_t size,
     const VectorPtr& values,
     memory::MemoryPool* pool) {
@@ -768,16 +785,19 @@ VectorPtr wrapInDictionary(
     VELOX_CHECK_LE(size, values->size());
     return values;
   }
-  VELOX_CHECK_LE(size, wrappers.front().dictionary->size());
+  VELOX_CHECK_LE(size, wrappers.front().encoded->size());
   if (wrappers.size() == 1) {
-    if (wrappers.front().dictionary->valueVector() == values) {
-      return wrappers.front().dictionary;
+    if (wrappers.front().encoded->valueVector() == values) {
+      return wrappers.front().encoded;
     }
-    return BaseVector::wrapInDictionary(
-        wrappers.front().dictionary->nulls(),
-        wrappers.front().dictionary->wrapInfo(),
-        size,
-        values);
+    if (wrappers.front().encoded->encoding() ==
+        VectorEncoding::Simple::DICTIONARY) {
+      return BaseVector::wrapInDictionary(
+          wrappers.front().encoded->nulls(),
+          wrappers.front().encoded->wrapInfo(),
+          size,
+          values);
+    }
   }
   if (!wrappers.back().indices) {
     VELOX_CHECK_NULL(wrappers.back().nulls);
@@ -788,7 +808,7 @@ VectorPtr wrapInDictionary(
 }
 
 VectorPtr pushDictionaryToRowVectorLeavesImpl(
-    std::vector<Wrapper>& wrappers,
+    std::vector<EncodingWrapper>& wrappers,
     vector_size_t size,
     const VectorPtr& values,
     memory::MemoryPool* pool) {
@@ -803,7 +823,7 @@ VectorPtr pushDictionaryToRowVectorLeavesImpl(
       VELOX_CHECK_EQ(values->typeKind(), TypeKind::ROW);
       auto nulls = values->nulls();
       for (auto& wrapper : wrappers) {
-        if (wrapper.dictionary->nulls()) {
+        if (wrapper.encoded->nulls()) {
           nulls = combineNulls(wrappers, size, values->rawNulls(), pool);
           break;
         }
@@ -818,8 +838,15 @@ VectorPtr pushDictionaryToRowVectorLeavesImpl(
       return std::make_shared<RowVector>(
           pool, values->type(), std::move(nulls), size, std::move(children));
     }
+    case VectorEncoding::Simple::CONSTANT:
     case VectorEncoding::Simple::DICTIONARY: {
-      Wrapper wrapper{values, nullptr, nullptr};
+      if (!values->valueVector()) {
+        // This is constant primitive and there is no need to descend into it.
+        // Just wrap this vector with all the known wrappers.
+        VELOX_CHECK_EQ(values->encoding(), VectorEncoding::Simple::CONSTANT);
+        return wrapInDictionary(wrappers, size, values, pool);
+      }
+      EncodingWrapper wrapper{values, nullptr, nullptr};
       wrappers.push_back(wrapper);
       auto result = pushDictionaryToRowVectorLeavesImpl(
           wrappers, size, values->valueVector(), pool);
@@ -834,7 +861,7 @@ VectorPtr pushDictionaryToRowVectorLeavesImpl(
 } // namespace
 
 VectorPtr RowVector::pushDictionaryToRowVectorLeaves(const VectorPtr& input) {
-  std::vector<Wrapper> wrappers;
+  std::vector<EncodingWrapper> wrappers;
   return pushDictionaryToRowVectorLeavesImpl(
       wrappers, input->size(), input, input->pool());
 }
