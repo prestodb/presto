@@ -66,7 +66,9 @@ option(PRESTO_ENABLE_JWT "Enable JWT (JSON Web Token) authentication" OFF)
 option(PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR "Enable Arrow Flight connector" OFF)
 
 # Set all Velox options below
-add_compile_definitions(FOLLY_HAVE_INT128_T=1)
+# Make sure that if we include folly headers or other dependency headers
+# that include folly headers we turn off the coroutines and turn on int128.
+add_compile_definitions(FOLLY_HAVE_INT128_T=1 FOLLY_CFG_NO_COROUTINES)
 
 if(PRESTO_ENABLE_S3)
   set(VELOX_ENABLE_S3
@@ -184,6 +186,7 @@ find_library(PROXYGEN proxygen)
 find_library(PROXYGEN_HTTP_SERVER proxygenhttpserver)
 find_library(FIZZ fizz)
 find_library(WANGLE wangle)
+find_library(MVFST_EXCEPTION mvfst_exception)
 
 find_library(RE2 re2)
 
@@ -192,7 +195,7 @@ find_package(wangle CONFIG)
 find_package(FBThrift)
 include_directories(SYSTEM ${FBTHRIFT_INCLUDE_DIR})
 
-set(PROXYGEN_LIBRARIES ${PROXYGEN_HTTP_SERVER} ${PROXYGEN} ${WANGLE} ${FIZZ})
+set(PROXYGEN_LIBRARIES ${PROXYGEN_HTTP_SERVER} ${PROXYGEN} ${WANGLE} ${FIZZ} ${MVFST_EXCEPTION})
 find_path(PROXYGEN_DIR NAMES include/proxygen)
 set(PROXYGEN_INCLUDE_DIR "${PROXYGEN_DIR}/include/proxygen")
 
