@@ -84,10 +84,13 @@ class MergeTDigestAggregate : public exec::Aggregate {
     extractAccumulators(groups, numGroups, result);
   }
 
+  // This method needs to be thread-safe as it may be called concurrently during
+  // spilling operations.
   void extractAccumulators(char** groups, int32_t numGroups, VectorPtr* result)
       override {
     VELOX_CHECK(result);
     auto* flatResult = (*result)->asFlatVector<StringView>();
+    std::vector<int16_t> positions;
     extract(
         groups,
         numGroups,
@@ -95,7 +98,7 @@ class MergeTDigestAggregate : public exec::Aggregate {
         [&](TDigestAccumulator* accumulator,
             FlatVector<StringView>* result,
             vector_size_t index) {
-          auto size = accumulator->serializedSize(positions_);
+          auto size = accumulator->serializedSize(positions);
           StringView serialized;
           if (StringView::isInline(size)) {
             std::string buffer(size, '\0');
@@ -124,6 +127,7 @@ class MergeTDigestAggregate : public exec::Aggregate {
       const std::vector<VectorPtr>& args,
       bool /*mayPushdown*/) override {
     decodedTDigest_.decode(*args[0], rows, true);
+    std::vector<int16_t> positions;
 
     rows.applyToSelected([&](auto row) {
       if (decodedTDigest_.isNullAt(row)) {
@@ -134,7 +138,7 @@ class MergeTDigestAggregate : public exec::Aggregate {
       auto tracker = trackRowSize(group);
       clearNull(group);
 
-      mergeToAccumulator(group, row, positions_);
+      mergeToAccumulator(group, row, positions);
     });
   }
 
@@ -153,6 +157,7 @@ class MergeTDigestAggregate : public exec::Aggregate {
       const std::vector<VectorPtr>& args,
       bool /*mayPushdown*/) override {
     decodedTDigest_.decode(*args[0], rows, true);
+    std::vector<int16_t> positions;
 
     auto tracker = trackRowSize(group);
     rows.applyToSelected([&](auto row) {
@@ -161,7 +166,7 @@ class MergeTDigestAggregate : public exec::Aggregate {
       }
 
       clearNull(group);
-      mergeToAccumulator(group, row, positions_);
+      mergeToAccumulator(group, row, positions);
     });
   }
 
@@ -220,7 +225,6 @@ class MergeTDigestAggregate : public exec::Aggregate {
     }
   }
   DecodedVector decodedTDigest_;
-  std::vector<int16_t> positions_;
 };
 
 inline std::unique_ptr<exec::Aggregate> createMergeTDigestAggregate(

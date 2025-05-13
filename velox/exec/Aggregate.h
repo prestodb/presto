@@ -272,6 +272,9 @@ class Aggregate {
   // @param result The result vector to store the results in.
   //
   // See comment on 'result' and side effects in extractValues().
+  //
+  // This method needs to be thread-safe as it may be called concurrently during
+  // spilling operations.
   virtual void
   extractAccumulators(char** groups, int32_t numGroups, VectorPtr* result) = 0;
 
