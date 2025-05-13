@@ -163,7 +163,7 @@ public class ArraySqlFunctions
     @SqlParameters({@SqlParameter(name = "input", type = "array(T)"), @SqlParameter(name = "n", type = "int")})
     @SqlType("array<T>")
     public static String arrayTopN()
-    { return "RETURN IF(n < 0, NULL, SLICE(ARRAY_SORT_DESC(input), 1, n))"; }
+    { return "RETURN IF(n < 0, fail('Parameter n: ' || cast(n as varchar) || ' to ARRAY_TOP_N is negative'), SLICE(ARRAY_SORT_DESC(input), 1, n))"; }
 
     @SqlInvokedScalarFunction(value = "array_top_n", deterministic = true, calledOnNullInput = true)
     @Description("Returns the top N values of the given map sorted using the provided lambda comparator.")
@@ -172,6 +172,6 @@ public class ArraySqlFunctions
     @SqlType("array<T>")
     public static String arrayTopNComparator()
     {
-        return "RETURN IF(n < 0, NULL, SLICE(REVERSE(ARRAY_SORT(input, f)), 1, n))";
+        return "RETURN IF(n < 0, fail('Parameter n: ' || cast(n as varchar) || ' to ARRAY_TOP_N is negative'), SLICE(REVERSE(ARRAY_SORT(input, f)), 1, n))";
     }
 }
