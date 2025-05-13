@@ -19,7 +19,7 @@ connection properties as appropriate for your setup:
 .. code-block:: none
 
     connector.name=redshift
-    connection-url=jdbc:postgresql://example.net:5439/database
+    connection-url=jdbc:redshift://example.net:5439/database
     connection-user=root
     connection-password=secret
 
