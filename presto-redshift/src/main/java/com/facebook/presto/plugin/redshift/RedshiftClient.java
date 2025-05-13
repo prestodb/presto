@@ -35,6 +35,7 @@ import java.util.Optional;
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static com.facebook.presto.plugin.jdbc.StandardReadMappings.varbinaryReadMapping;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 
 public class RedshiftClient
         extends BaseJdbcClient
@@ -82,5 +83,11 @@ public class RedshiftClient
         }
 
         return super.toPrestoType(session, typeHandle);
+    }
+
+    @Override
+    public String normalizeIdentifier(ConnectorSession session, String identifier)
+    {
+        return caseSensitiveNameMatchingEnabled ? identifier : identifier.toLowerCase(ENGLISH);
     }
 }
