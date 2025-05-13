@@ -519,7 +519,7 @@ public class SqlQueryExecution
         try {
             // time analysis phase
             stateMachine.beginAnalysis();
-
+//#todo:#record:analyzer.plan()生成逻辑执行计划
             PlanNode planNode = stateMachine.getSession()
                     .getRuntimeStats()
                     .profileNanos(
@@ -538,7 +538,7 @@ public class SqlQueryExecution
                     statsCalculator,
                     costCalculator,
                     false);
-
+//TODO:#RECORD:optimizer.validateAndOptimizePlan进行逻辑优化
             Plan plan = getSession().getRuntimeStats().profileNanos(
                     OPTIMIZER_TIME_NANOS,
                     () -> optimizer.validateAndOptimizePlan(planNode, OPTIMIZED_AND_VALIDATED));

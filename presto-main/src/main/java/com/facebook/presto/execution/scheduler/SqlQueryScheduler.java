@@ -318,22 +318,26 @@ public class SqlQueryScheduler
                     sectionExecutions.forEach(SectionExecution::abort);
                     break;
                 }
-
+                //将调度好的sectionExecution加入，为什么这样写？
                 sectionExecutions.forEach(sectionExecution -> scheduledStageExecutions.addAll(sectionExecution.getSectionStages()));
                 sectionExecutions.stream()
                         .map(SectionExecution::getSectionStages)
                         .map(stages -> executionPolicy.createExecutionSchedule(session, stages))
                         .forEach(executionSchedules::add);
-
+                //executionSchedules 非空且该存储的没有完成的ExecutionSchedule
                 while (!executionSchedules.isEmpty() && executionSchedules.stream().noneMatch(ExecutionSchedule::isFinished)) {
                     List<ListenableFuture<?>> blockedStages = new ArrayList<>();
-
+                    //上述操作获得了executionSchedules，下面对他进行进一步转换
                     List<StageExecutionAndScheduler> executionsToSchedule = executionSchedules.stream()
+                            //将stream中的元素作为操作单位，自动识别类型，对每个元素调用getStagesToSchedule，并将其转换成stream，最后合并起来
                             .flatMap(schedule -> schedule.getStagesToSchedule().stream())
-                            .collect(toImmutableList());
-
+                            .collect(toImmutableList());//将executionSchedules转换为Set<StageExecutionAndScheduler>
+                    //遍历StageExecutionAndSchedulers中的每一个executionAndScheduler
                     for (StageExecutionAndScheduler executionAndScheduler : executionsToSchedule) {
+                        //获取sqlStageExecution，再通过beginScheduling让stateMachine记录query状态为scheduling
                         executionAndScheduler.getStageExecution().beginScheduling();
+
+                        //TODO：LTR：？搞不懂这里获得了啥
 
                         // perform some scheduling work
                         ScheduleResult result = executionAndScheduler.getStageScheduler()
@@ -351,9 +355,13 @@ public class SqlQueryScheduler
                         if (result.isFinished()) {
                             executionAndScheduler.getStageExecution().schedulingComplete();
                         }
+                        //result未完成的时候判断其是否blocked，此处是listenableFutrue<>.isDone堵塞方法
                         else if (!result.getBlocked().isDone()) {
+                            //ctrl可知道blockedStages的定义位置，作用为汇总block，汇总这些此处是listenableFutrue有啥用？TODO
                             blockedStages.add(result.getBlocked());
                         }
+                        //获取stage的上下游stage并添加与上下游stage的联系，将他们连接，
+                        // parent以及其child，parent应该是往root节点方向去的那个stage
                         executionAndScheduler.getStageLinkage()
                                 .processScheduleResults(executionAndScheduler.getStageExecution().getState(), result.getNewTasks());
                         schedulerStats.getSplitsScheduledPerIteration().add(result.getSplitsScheduled());
@@ -381,6 +389,7 @@ public class SqlQueryScheduler
                     }
 
                     // make sure to update stage linkage at least once per loop to catch async state changes (e.g., partial cancel)
+                    //如上注释，catch async state changes
                     boolean stageFinishedExecution = false;
                     for (StageExecutionAndScheduler stageExecutionAndScheduler : scheduledStageExecutions) {
                         SqlStageExecution stageExecution = stageExecutionAndScheduler.getStageExecution();

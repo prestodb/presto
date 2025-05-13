@@ -146,6 +146,7 @@ public class PrestoServer
 
             ServerConfig serverConfig = injector.getInstance(ServerConfig.class);
 
+
             if (!serverConfig.isResourceManager()) {
                 injector.getInstance(StaticCatalogStore.class).loadCatalogs();
             }
@@ -243,7 +244,7 @@ public class PrestoServer
 
     private static void updateThriftServerPort(Announcer announcer, DriftServer driftServer)
     {
-        // get existing announcement
+        // get existing announcementø
         ServiceAnnouncement announcement = getPrestoAnnouncement(announcer.getServiceAnnouncements());
 
         // drift server::start can be called multiple times

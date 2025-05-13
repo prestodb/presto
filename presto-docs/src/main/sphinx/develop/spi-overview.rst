@@ -28,7 +28,7 @@ single line listing the name of the plugin class:
 
 .. code-block:: none
 
-    com.facebook.presto.example.ExamplePlugin
+    com.facebook.presto.example.ExamplePracPlugin
 
 For a built-in plugin that is included in the Presto source code,
 this resource file is created whenever the ``pom.xml`` file of a plugin

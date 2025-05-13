@@ -104,6 +104,7 @@ public class BuiltInQueryAnalyzer
                 metadata,
                 analyzerContext.getVariableAllocator(),
                 sqlParser);
+        //todo:#record:生成逻辑执行计划
         return logicalPlanner.plan(((BuiltInQueryAnalysis) queryAnalysis).getAnalysis());
     }
 }

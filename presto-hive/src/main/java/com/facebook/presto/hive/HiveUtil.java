@@ -277,7 +277,7 @@ public final class HiveUtil
             codecs.add(0, LzopCodec.class.getName());
         }
         jobConf.set("io.compression.codecs", codecs.stream().collect(joining(",")));
-
+//todo:#record:如何读parquet文件
         try {
             RecordReader<WritableComparable, Writable> recordReader = (RecordReader<WritableComparable, Writable>) inputFormat.getRecordReader(fileSplit, jobConf, Reporter.NULL);
 
@@ -298,7 +298,7 @@ public final class HiveUtil
             if (e instanceof TextLineLengthLimitExceededException) {
                 throw new PrestoException(HIVE_BAD_DATA, "Line too long in text file: " + path, e);
             }
-
+//#todo:#record:hive error opening 这个报错就在这里
             throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, format("Error opening Hive split %s (offset=%s, length=%s) using %s: %s",
                     path,
                     start,

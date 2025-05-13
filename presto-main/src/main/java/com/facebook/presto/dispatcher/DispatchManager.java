@@ -14,6 +14,7 @@
 package com.facebook.presto.dispatcher;
 
 import com.facebook.airlift.concurrent.BoundedExecutor;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.analyzer.PreparedQuery;
 import com.facebook.presto.common.resourceGroups.QueryType;
@@ -72,6 +73,8 @@ import static java.util.Objects.requireNonNull;
  */
 public class DispatchManager
 {
+    //TODO:#record:for debugging, add logging frame
+    private static final Logger log = Logger.get(DispatchManager.class);
     private final QueryIdGenerator queryIdGenerator;
     private final ResourceGroupManager<?> resourceGroupManager;
     private final WarningCollectorFactory warningCollectorFactory;
@@ -320,7 +323,8 @@ public class DispatchManager
                     queryType,
                     session.getWarningCollector(),
                     (dq) -> resourceGroupManager.submit(dq, selectionContext, queryExecutor));
-
+            //TODO:#record:for debugging,返回的是DispatchQuery，sqlQueryExecution在哪构造？
+            //log.info("DispatchQuery is: " + dispatchQuery.toString());
             boolean queryAdded = queryCreated(dispatchQuery);
             if (queryAdded && !dispatchQuery.isDone()) {
                 try {

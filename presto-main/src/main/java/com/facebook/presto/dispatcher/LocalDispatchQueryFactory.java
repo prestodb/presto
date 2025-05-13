@@ -157,7 +157,7 @@ public class LocalDispatchQueryFactory
 
         stateMachine.addStateChangeListener(new QueryStateTracingListener(stateMachine.getSession().getTracer().orElse(NoopTracerProvider.NOOP_TRACER)));
         queryMonitor.queryCreatedEvent(stateMachine.getBasicQueryInfo(Optional.empty()));
-
+        //TODO:record:1、获取queryExecutionFactory 2、createQueryExecution
         ListenableFuture<QueryExecution> queryExecutionFuture = executor.submit(() -> {
             QueryExecutionFactory<?> queryExecutionFactory = executionFactoriesManager.getExecutionFactory(preparedQuery);
             if (queryExecutionFactory == null) {

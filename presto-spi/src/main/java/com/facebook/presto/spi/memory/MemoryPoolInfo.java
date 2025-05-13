@@ -54,7 +54,7 @@ public final class MemoryPoolInfo
         this.queryMemoryAllocations = unmodifiableMap(new HashMap<>(queryMemoryAllocations));
         this.queryMemoryRevocableReservations = unmodifiableMap(new HashMap<>(queryMemoryRevocableReservations));
     }
-
+    //TODO：#record 如何知道这个maxbytes是怎么来的
     @ThriftField(1)
     @JsonProperty
     public long getMaxBytes()

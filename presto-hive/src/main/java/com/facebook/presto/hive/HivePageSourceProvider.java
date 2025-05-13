@@ -135,14 +135,14 @@ public class HivePageSourceProvider
             SplitContext splitContext)
     {
         HiveTableLayoutHandle hiveLayout = (HiveTableLayoutHandle) layout;
-
+        //todo:#record:涉及到的哪些列
         List<HiveColumnHandle> selectedColumns = columns.stream()
                 .map(HiveColumnHandle.class::cast)
                 .collect(toList());
-
+//todo:#record:涉及到的哪些split
         HiveSplit hiveSplit = (HiveSplit) split;
         Path path = new Path(hiveSplit.getFileSplit().getPath());
-
+//todo:#record:获取这些split的元数据信息
         Configuration configuration = hdfsEnvironment.getConfiguration(
                 new HdfsContext(
                         session,

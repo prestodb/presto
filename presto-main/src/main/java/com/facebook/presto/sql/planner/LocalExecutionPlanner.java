@@ -737,7 +737,9 @@ public class LocalExecutionPlanner
                 PipelineExecutionStrategy pipelineExecutionStrategy,
                 Optional<FragmentResultCacheContext> fragmentResultCacheContext)
         {
+            //TODO：#record：GROUPED_EXECUTION是啥
             if (pipelineExecutionStrategy == GROUPED_EXECUTION) {
+                //获取第一个factory
                 OperatorFactory firstOperatorFactory = operatorFactories.get(0);
                 if (inputDriver) {
                     checkArgument(firstOperatorFactory instanceof ScanFilterAndProjectOperatorFactory || firstOperatorFactory instanceof TableScanOperatorFactory);

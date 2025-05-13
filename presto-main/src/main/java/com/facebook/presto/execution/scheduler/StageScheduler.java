@@ -14,7 +14,7 @@
 package com.facebook.presto.execution.scheduler;
 
 import java.io.Closeable;
-
+//找出这个类在哪被调用然后debug
 public interface StageScheduler
         extends Closeable
 {

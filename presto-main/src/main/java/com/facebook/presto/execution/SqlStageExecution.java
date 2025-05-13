@@ -503,7 +503,7 @@ public final class SqlStageExecution
 
         ImmutableMultimap.Builder<PlanNodeId, Split> initialSplits = ImmutableMultimap.builder();
         initialSplits.putAll(sourceSplits);
-
+//??? 怎么产生的
         sourceTasks.forEach((planNodeId, task) -> {
             TaskStatus status = task.getTaskStatus();
             if (status.getState() != TaskState.FINISHED) {
@@ -514,6 +514,7 @@ public final class SqlStageExecution
         OutputBuffers outputBuffers = this.outputBuffers.get();
         checkState(outputBuffers != null, "Initial output buffers must be set before a task can be scheduled");
 
+        //创建tasks
         RemoteTask task = remoteTaskFactory.createRemoteTask(
                 session,
                 taskId,

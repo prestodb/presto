@@ -193,6 +193,7 @@ public class LocalDispatchQuery
     {
         ListenableFuture<?> minimumWorkerFuture = clusterSizeMonitor.waitForMinimumWorkers();
         // when worker requirement is met, wait for query execution to finish construction and then start the execution
+        //todo:#record:what's this
         addSuccessCallback(minimumWorkerFuture, () -> {
             // It's the time to end waiting for resources
             boolean isDispatching = stateMachine.transitionToDispatching();

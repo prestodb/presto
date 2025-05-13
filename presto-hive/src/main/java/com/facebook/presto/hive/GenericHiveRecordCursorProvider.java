@@ -59,12 +59,14 @@ public class GenericHiveRecordCursorProvider
             boolean s3SelectPushdownEnabled)
     {
         // make sure the FileSystem is created with the proper Configuration object
+        //todo:#record 获取split信息
         Path path = new Path(fileSplit.getPath());
         try {
             if (!fileSplit.getCustomSplitInfo().isEmpty()) {
                 if (configuration instanceof HiveCachingHdfsConfiguration.CachingJobConf) {
                     configuration = ((HiveCachingHdfsConfiguration.CachingJobConf) configuration).getConfig();
                 }
+                //todo:#record CopyOnFirstWriteConfiguration 这个类是什么？
                 if (configuration instanceof CopyOnFirstWriteConfiguration) {
                     configuration = ((CopyOnFirstWriteConfiguration) configuration).getConfig();
                 }

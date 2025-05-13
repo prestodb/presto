@@ -187,6 +187,7 @@ public class PluginManager
 
         for (File file : listFiles(installedPluginsDir)) {
             if (file.isDirectory()) {
+                //对该file对象代表的文件夹的路径调用loadPlugin方法，也就是有plugin目录的才会load，才会存在ConnectorFactory
                 loadPlugin(file.getAbsolutePath());
             }
         }

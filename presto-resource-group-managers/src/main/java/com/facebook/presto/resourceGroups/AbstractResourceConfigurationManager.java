@@ -46,7 +46,7 @@ public abstract class AbstractResourceConfigurationManager
     @GuardedBy("generalPoolMemoryFraction")
     private final Map<ResourceGroup, Double> generalPoolMemoryFraction = new HashMap<>();
     @GuardedBy("generalPoolMemoryFraction")
-    private long generalPoolBytes;
+    private long generalPoolBytes;//TODO：#record 这个如何计算
 
     protected abstract Optional<Duration> getCpuQuotaPeriod();
 
@@ -202,6 +202,7 @@ public abstract class AbstractResourceConfigurationManager
             synchronized (generalPoolMemoryFraction) {
                 double fraction = match.getSoftMemoryLimitFraction().get();
                 generalPoolMemoryFraction.put(group, fraction);
+                //TODO:#record resource group如何计算该组可用的内存大小
                 group.setSoftMemoryLimit(new DataSize(generalPoolBytes * fraction, BYTE));
             }
         }
