@@ -121,6 +121,11 @@ public interface QueryRunner
         throw new UnsupportedOperationException();
     }
 
+    default void loadPlanCheckerProviderManager(String planCheckerProviderName, Map<String, String> properties)
+    {
+        throw new UnsupportedOperationException();
+    }
+
     class MaterializedResultWithPlan
     {
         private final MaterializedResult materializedResult;
