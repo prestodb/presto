@@ -325,6 +325,29 @@ TEST_F(BroadcastTest, endToEndWithMultipleWriteNodes) {
   velox::exec::test::assertEqualResults(dataVector, broadcastReadResults);
 }
 
+TEST_F(BroadcastTest, cacheHit) {
+  auto data = makeRowVector({
+      makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6}),
+      makeFlatVector<int64_t>({10, 20, 30, 40, 50, 60}),
+  });
+  auto dataType = asRowType(data->type());
+
+  auto tempDirectoryPath = exec::test::TempDirectoryPath::create();
+
+  // Execute write.
+  auto broadcastFilePaths =
+      executeBroadcastWrite({data}, tempDirectoryPath->path);
+
+  for (auto times = 0; times < 5; ++times) {
+    // Read multiple times, so we to hit AsyncDataCache
+    executeBroadcastRead(
+        asRowType(dataType), tempDirectoryPath->path, broadcastFilePaths);
+  }
+  auto cacheStats = velox::cache::AsyncDataCache::getInstance()->refreshStats();
+  ASSERT_EQ(cacheStats.numNew, 1);
+  ASSERT_EQ(cacheStats.numHit, 4);
+}
+
 TEST_F(BroadcastTest, invalidFileSystem) {
   auto data = makeRowVector({
       makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6}),
