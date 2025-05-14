@@ -154,7 +154,7 @@ namespace facebook::presto::protocol::iceberg {
 struct PrestoIcebergPartitionSpec {
   int specId = {};
   PrestoIcebergSchema schema = {};
-  List<String> fields = {};
+  List<PartitionFieldWrapper> fields = {};
 };
 void to_json(json& j, const PrestoIcebergPartitionSpec& p);
 void from_json(const json& j, PrestoIcebergPartitionSpec& p);

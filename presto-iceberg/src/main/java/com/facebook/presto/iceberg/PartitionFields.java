@@ -22,6 +22,7 @@ import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.function.Consumer;
 import java.util.regex.MatchResult;
 import java.util.regex.Matcher;
@@ -29,7 +30,6 @@ import java.util.regex.Pattern;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Integer.parseInt;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.apache.iceberg.expressions.Expressions.bucket;
 import static org.apache.iceberg.expressions.Expressions.day;
@@ -83,6 +83,21 @@ public final class PartitionFields
         return builder.build();
     }
 
+    public static PartitionSpec parsePartitionFieldWrappers(Schema schema, List<PartitionFieldWrapper> fields)
+    {
+        PartitionSpec.Builder builder = PartitionSpec.builderFor(schema);
+
+        for (PartitionFieldWrapper field : fields) {
+            parsePartitionField(field.getTransform(), builder, field.getName(), field.getParameter());
+        }
+        return builder.build();
+    }
+
+    public static void parsePartitionField(PartitionSpec.Builder builder, PartitionFieldWrapper field)
+    {
+        parsePartitionField(builder, field.getName());
+    }
+
     public static void parsePartitionField(PartitionSpec.Builder builder, String field)
     {
         @SuppressWarnings("PointlessBooleanExpression")
@@ -99,6 +114,32 @@ public final class PartitionFields
         }
     }
 
+    public static void parsePartitionField(PartitionTransformType type, PartitionSpec.Builder builder, String field, OptionalInt parameter)
+    {
+        switch (type) {
+            case IDENTITY:
+                builder.identity(field);
+                break;
+            case YEAR:
+                builder.year(field);
+                break;
+            case MONTH:
+                builder.month(field);
+                break;
+            case DAY:
+                builder.day(field);
+                break;
+            case HOUR:
+                builder.hour(field);
+                break;
+            case BUCKET:
+                builder.bucket(field, parameter.getAsInt());
+                break;
+            case TRUNCATE:
+                builder.truncate(field, parameter.getAsInt());
+        }
+    }
+
     private static boolean tryMatch(CharSequence value, Pattern pattern, Consumer<MatchResult> match)
     {
         Matcher matcher = pattern.matcher(value);
@@ -109,7 +150,7 @@ public final class PartitionFields
         return false;
     }
 
-    public static List<String> toPartitionFields(PartitionSpec spec)
+    public static List<PartitionFieldWrapper> toPartitionFields(PartitionSpec spec)
     {
         return spec.fields().stream()
                 .map(field -> toPartitionField(spec, field))
@@ -170,32 +211,23 @@ public final class PartitionFields
         throw new UnsupportedOperationException("Unknown partition transform: " + transform);
     }
 
-    private static String toPartitionField(PartitionSpec spec, PartitionField field)
+    private static PartitionFieldWrapper toPartitionField(PartitionSpec spec, PartitionField field)
     {
         String name = spec.schema().findColumnName(field.sourceId());
         String transform = field.transform().toString();
-
-        switch (transform) {
-            case "identity":
-                return name;
-            case "year":
-            case "month":
-            case "day":
-            case "hour":
-                return format("%s(%s)", transform, name);
-        }
-
+        PartitionFieldWrapper.Builder builder = PartitionFieldWrapper.builder();
+        builder.setTransform(PartitionTransformType.fromStringOrFail(transform)).setFieldId(field.fieldId()).setSourceId(field.sourceId()).setName(name);
         Matcher matcher = ICEBERG_BUCKET_PATTERN.matcher(transform);
         if (matcher.matches()) {
-            return format("bucket(%s, %s)", name, matcher.group(1));
+            builder.setParameter(OptionalInt.of(Integer.parseInt(matcher.group(1))));
+            return builder.build();
         }
-
         matcher = ICEBERG_TRUNCATE_PATTERN.matcher(transform);
         if (matcher.matches()) {
-            return format("truncate(%s, %s)", name, matcher.group(1));
+            builder.setParameter(OptionalInt.of(Integer.parseInt(matcher.group(1))));
+            return builder.build();
         }
-
-        throw new UnsupportedOperationException("Unsupported partition transform: " + field);
+        return builder.build();
     }
 
     public static String quotedName(String name)
