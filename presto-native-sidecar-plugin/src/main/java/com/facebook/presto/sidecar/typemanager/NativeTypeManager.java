@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sidecar.typemanager;
 
-import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.type.DistinctTypeInfo;
 import com.facebook.presto.common.type.FunctionType;
 import com.facebook.presto.common.type.ParametricType;
@@ -74,8 +73,6 @@ import static java.util.Objects.requireNonNull;
 public class NativeTypeManager
         implements TypeManager
 {
-    private static final Logger log = Logger.get(NativeTypeManager.class);
-
     private static final Set<String> NATIVE_ENGINE_SUPPORTED_TYPES =
             ImmutableSet.of(
                     BIGINT,
