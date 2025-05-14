@@ -13,6 +13,7 @@
  */
 #include <gtest/gtest.h>
 
+#include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/tests/PlanBuilder.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include "velox/core/PlanNode.h"
@@ -71,13 +72,70 @@ class PlanNodeSerdeTest : public testing::Test,
 };
 
 TEST_F(PlanNodeSerdeTest, partitionAndSerializeNode) {
+  auto plan =
+      exec::test::PlanBuilder()
+          .values(data_, true)
+          .addNode(addPartitionAndSerializeNode(
+              4,
+              false,
+              {std::make_shared<core::FieldAccessTypedExpr>(INTEGER(), "c0")},
+              reverseColumns(asRowType(data_[0]->type()))))
+          .localPartition(std::vector<std::string>{})
+          .planNode();
+  testSerde(plan);
+}
+
+TEST_F(PlanNodeSerdeTest, partitionAndSerializeNodeWithSortKeyAndOrder) {
+  const std::vector<velox::core::SortOrder> sortOrder{
+      velox::core::SortOrder(velox::core::kAscNullsFirst)};
+  const std::vector<velox::core::FieldAccessTypedExprPtr> sortKey{
+      std::make_shared<core::FieldAccessTypedExpr>(INTEGER(), "c0")};
+  auto plan =
+      exec::test::PlanBuilder()
+          .values(data_, true)
+          .addNode(addPartitionAndSerializeNode(
+              4,
+              false,
+              {std::make_shared<core::FieldAccessTypedExpr>(INTEGER(), "c0")},
+              reverseColumns(asRowType(data_[0]->type())),
+              sortOrder,
+              sortKey))
+          .planNode();
+  testSerde(plan);
+
+  auto partitionAndSerializeNode = std::dynamic_pointer_cast<
+      const presto::operators::PartitionAndSerializeNode>(plan);
+  EXPECT_EQ(partitionAndSerializeNode->numPartitions(), 4);
+  EXPECT_EQ(partitionAndSerializeNode->sortingKeys().value().size(), 1);
+  EXPECT_EQ(partitionAndSerializeNode->sortingOrders().value().size(), 1);
+  EXPECT_EQ(partitionAndSerializeNode->sortingKeys().value()[0]->name(), "c0");
+  EXPECT_EQ(
+      partitionAndSerializeNode->sortingOrders().value()[0], sortOrder[0]);
+}
+
+TEST_F(PlanNodeSerdeTest, partitionAndSerializeNodeWithExpr) {
+  const std::vector<velox::core::SortOrder> sortOrder{
+      velox::core::SortOrder(velox::core::kAscNullsLast)};
+  const std::vector<velox::core::FieldAccessTypedExprPtr> sortKey{
+      std::make_shared<core::FieldAccessTypedExpr>(INTEGER(), "c0")};
   auto plan = exec::test::PlanBuilder()
                   .values(data_, true)
                   .addNode(addPartitionAndSerializeNode(
-                      4, false, reverseColumns(asRowType(data_[0]->type()))))
-                  .localPartition(std::vector<std::string>{})
+                      4,
+                      std::vector<std::string>{"c0"},
+                      std::vector<std::string>{"c0 ASC NULLS LAST"},
+                      pool()))
                   .planNode();
   testSerde(plan);
+
+  auto partitionAndSerializeNode = std::dynamic_pointer_cast<
+      const presto::operators::PartitionAndSerializeNode>(plan);
+  EXPECT_EQ(partitionAndSerializeNode->numPartitions(), 4);
+  EXPECT_EQ(partitionAndSerializeNode->sortingKeys().value().size(), 1);
+  EXPECT_EQ(partitionAndSerializeNode->sortingOrders().value().size(), 1);
+  EXPECT_EQ(partitionAndSerializeNode->sortingKeys().value()[0]->name(), "c0");
+  EXPECT_EQ(
+      partitionAndSerializeNode->sortingOrders().value()[0], sortOrder[0]);
 }
 
 TEST_F(PlanNodeSerdeTest, shuffleReadNode) {
@@ -101,7 +159,11 @@ TEST_F(PlanNodeSerdeTest, shuffleWriteNode) {
   auto plan =
       exec::test::PlanBuilder()
           .values(data_, true)
-          .addNode(addPartitionAndSerializeNode(numPartitions, false))
+          .addNode(addPartitionAndSerializeNode(
+              numPartitions,
+              false,
+              {std::make_shared<core::FieldAccessTypedExpr>(INTEGER(), "c0")},
+              {}))
           .localPartition(std::vector<std::string>{})
           .addNode(addShuffleWriteNode(numPartitions, shuffleName, shuffleInfo))
           .planNode();
