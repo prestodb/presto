@@ -221,4 +221,78 @@ TEST_F(BingTileTypeTest, bingTileFromQuadKey) {
       "1231234", std::nullopt, "Invalid QuadKey digit sequence: 1231234");
 }
 
+TEST_F(BingTileTypeTest, latitudeLongitudeToTile) {
+  const auto testLatitudeLongitudeToTile =
+      [&](double latitude,
+          double longitude,
+          uint8_t zoomLevel,
+          std::optional<uint32_t> expectedY = std::nullopt,
+          std::optional<uint32_t> expectedX = std::nullopt,
+          std::optional<std::string> errorMsg = std::nullopt) {
+        auto result = BingTileType::latitudeLongitudeToTile(
+            latitude, longitude, zoomLevel);
+        if (errorMsg.has_value()) {
+          ASSERT_TRUE(result.hasError());
+          ASSERT_EQ(errorMsg.value(), result.error());
+        } else {
+          ASSERT_TRUE(result.hasValue());
+          ASSERT_EQ(zoomLevel, BingTileType::bingTileZoom(result.value()));
+          if (expectedX.has_value()) {
+            ASSERT_EQ(
+                expectedX.value(), BingTileType::bingTileX(result.value()));
+          }
+          if (expectedY.has_value()) {
+            ASSERT_EQ(
+                expectedY.value(), BingTileType::bingTileY(result.value()));
+          }
+        }
+      };
+
+  testLatitudeLongitudeToTile(0, 50, 2, 2, 2);
+  testLatitudeLongitudeToTile(0, 50, 4, 8, 10);
+  testLatitudeLongitudeToTile(50, 0, 8, 86, 128);
+  testLatitudeLongitudeToTile(85, 180, 8, 0, 255);
+  testLatitudeLongitudeToTile(-85, -180, 8, 255, 0);
+  testLatitudeLongitudeToTile(-85, -180, 23, 8374868, 0);
+  testLatitudeLongitudeToTile(-85, -180, 0, 0, 0);
+  testLatitudeLongitudeToTile(0, 0, 0, 0, 0);
+
+  // Failure cases
+  testLatitudeLongitudeToTile(
+      0,
+      180.1,
+      20,
+      std::nullopt,
+      std::nullopt,
+      "Longitude 180.1 is outside of valid range [-180, 180]");
+  testLatitudeLongitudeToTile(
+      0,
+      -180.1,
+      20,
+      std::nullopt,
+      std::nullopt,
+      "Longitude -180.1 is outside of valid range [-180, 180]");
+  testLatitudeLongitudeToTile(
+      85.1,
+      0,
+      20,
+      std::nullopt,
+      std::nullopt,
+      "Latitude 85.1 is outside of valid range [-85.05112878, 85.05112878]");
+  testLatitudeLongitudeToTile(
+      -85.1,
+      0,
+      20,
+      std::nullopt,
+      std::nullopt,
+      "Latitude -85.1 is outside of valid range [-85.05112878, 85.05112878]");
+  testLatitudeLongitudeToTile(
+      0,
+      50.0,
+      24,
+      std::nullopt,
+      std::nullopt,
+      "Zoom level 24 is greater than max zoom 23");
+}
+
 } // namespace facebook::velox::test

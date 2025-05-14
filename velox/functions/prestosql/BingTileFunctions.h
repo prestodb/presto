@@ -202,4 +202,27 @@ struct BingTileToQuadKeyFunction {
   }
 };
 
+template <typename T>
+struct BingTileAtFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE Status call(
+      out_type<BingTile>& result,
+      const arg_type<double>& latitude,
+      const arg_type<double>& longitude,
+      const arg_type<int8_t>& zoomLevel) {
+    if (FOLLY_UNLIKELY(zoomLevel < 0)) {
+      return Status::UserError(
+          fmt::format("Bing tile zoom {} cannot be negative", zoomLevel));
+    }
+    auto latitudeLongitudeToTileResult = BingTileType::latitudeLongitudeToTile(
+        latitude, longitude, static_cast<uint8_t>(zoomLevel));
+    if (FOLLY_UNLIKELY(latitudeLongitudeToTileResult.hasError())) {
+      return Status::UserError(latitudeLongitudeToTileResult.error());
+    }
+    result = latitudeLongitudeToTileResult.value();
+    return Status::OK();
+  }
+};
+
 } // namespace facebook::velox::functions

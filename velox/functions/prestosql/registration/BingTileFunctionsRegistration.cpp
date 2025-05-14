@@ -50,6 +50,8 @@ void registerSimpleBingTileFunctions(const std::string& prefix) {
       {prefix + "bing_tile_children"});
   registerFunction<BingTileToQuadKeyFunction, Varchar, BingTile>(
       {prefix + "bing_tile_quadkey"});
+  registerFunction<BingTileAtFunction, BingTile, double, double, int8_t>(
+      {prefix + "bing_tile_at"});
 }
 
 } // namespace

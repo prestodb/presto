@@ -16,10 +16,96 @@
 
 #include "velox/functions/prestosql/types/BingTileType.h"
 #include <folly/Expected.h>
+#include <algorithm>
 #include <optional>
 #include <string>
 
 namespace facebook::velox {
+
+namespace {
+folly::Expected<int64_t, std::string> mapSize(uint8_t zoomLevel) {
+  if (FOLLY_UNLIKELY(zoomLevel > BingTileType::kBingTileMaxZoomLevel)) {
+    return folly::makeUnexpected(fmt::format(
+        "Zoom level {} is greater than max zoom {}",
+        zoomLevel,
+        BingTileType::kBingTileMaxZoomLevel));
+  }
+  return 256L << zoomLevel;
+}
+
+int32_t axisToCoordinates(double axis, long mapSize) {
+  int32_t tileAxis = std::clamp<int32_t>(
+      static_cast<int32_t>(axis * mapSize),
+      0,
+      static_cast<int32_t>(mapSize - 1));
+  return tileAxis / BingTileType::kTilePixels;
+}
+
+/**
+ * Given longitude in degrees, and the level of detail, the tile X coordinate
+ * can be calculated as follows: pixelX = ((longitude + 180) / 360) * 2**level
+ * The latitude and longitude are assumed to be on the WGS 84 datum. Even though
+ * Bing Maps uses a spherical projection, it’s important to convert all
+ * geographic coordinates into a common datum, and WGS 84 was chosen to be that
+ * datum. The longitude is assumed to range from -180 to +180 degrees. <p>
+ * reference: https://msdn.microsoft.com/en-us/library/bb259689.aspx
+ */
+folly::Expected<uint32_t, std::string> longitudeToTileX(
+    double longitude,
+    uint8_t zoomLevel) {
+  if (FOLLY_UNLIKELY(
+          longitude > BingTileType::kMaxLongitude ||
+          longitude < BingTileType::kMinLongitude)) {
+    return folly::makeUnexpected(fmt::format(
+        "Longitude {} is outside of valid range [{}, {}]",
+        longitude,
+        BingTileType::kMinLongitude,
+        BingTileType::kMaxLongitude));
+  }
+  double x = (longitude + 180) / 360;
+
+  folly::Expected<int64_t, std::string> mpSize = mapSize(zoomLevel);
+  if (FOLLY_UNLIKELY(mpSize.hasError())) {
+    return folly::makeUnexpected(mpSize.error());
+  }
+
+  return axisToCoordinates(x, mpSize.value());
+}
+
+/**
+ * Given latitude in degrees, and the level of detail, the tile Y coordinate can
+ * be calculated as follows: sinLatitude = sin(latitude * pi/180) pixelY = (0.5
+ * – log((1 + sinLatitude) / (1 – sinLatitude)) / (4 * pi)) * 2**level The
+ * latitude and longitude are assumed to be on the WGS 84 datum. Even though
+ * Bing Maps uses a spherical projection, it’s important to convert all
+ * geographic coordinates into a common datum, and WGS 84 was chosen to be that
+ * datum. The latitude must be clipped to range from -85.05112878
+ * to 85.05112878. This avoids a singularity at the poles, and it causes the
+ * projected map to be square. <p> reference:
+ * https://msdn.microsoft.com/en-us/library/bb259689.aspx
+ */
+folly::Expected<uint32_t, std::string> latitudeToTileY(
+    double latitude,
+    uint8_t zoomLevel) {
+  if (FOLLY_UNLIKELY(
+          latitude > BingTileType::kMaxLatitude ||
+          latitude < BingTileType::kMinLatitude)) {
+    return folly::makeUnexpected(fmt::format(
+        "Latitude {} is outside of valid range [{}, {}]",
+        latitude,
+        BingTileType::kMinLatitude,
+        BingTileType::kMaxLatitude));
+  }
+  double sinLatitude = sin(latitude * M_PI / 180);
+  double y = 0.5 - log((1 + sinLatitude) / (1 - sinLatitude)) / (4 * M_PI);
+  folly::Expected<int64_t, std::string> mpSize = mapSize(zoomLevel);
+  if (FOLLY_UNLIKELY(mpSize.hasError())) {
+    return folly::makeUnexpected(mpSize.error());
+  }
+
+  return axisToCoordinates(y, mpSize.value());
+}
+} // namespace
 
 std::optional<std::string> BingTileType::bingTileInvalidReason(uint64_t tile) {
   // TODO?: We are duplicating some logic in isBingTileIntValid; maybe we
@@ -166,6 +252,31 @@ std::string BingTileType::bingTileToQuadKey(uint64_t tile) {
     quadKey[zoomLevel - i] = digit;
   }
   return quadKey;
+}
+
+/**
+ * Returns a Bing tile at a given zoom level containing a point at a given
+ * latitude and longitude. Latitude must be within [-85.05112878, 85.05112878]
+ * range. Longitude must be within [-180, 180] range. Zoom levels from 1 to 23
+ * are supported. For latitude/longitude values on the border of multiple tiles,
+ * the southeastern tile is returned. For example, bing_tile_at(0,0,3) will
+ * return a Bing tile with coordinates (4,4)
+ */
+folly::Expected<uint64_t, std::string> BingTileType::latitudeLongitudeToTile(
+    double latitude,
+    double longitude,
+    uint8_t zoomLevel) {
+  auto tileX = longitudeToTileX(longitude, zoomLevel);
+  if (FOLLY_UNLIKELY(tileX.hasError())) {
+    return folly::makeUnexpected(tileX.error());
+  }
+
+  auto tileY = latitudeToTileY(latitude, zoomLevel);
+  if (FOLLY_UNLIKELY(tileY.hasError())) {
+    return folly::makeUnexpected(tileY.error());
+  }
+
+  return bingTileCoordsToInt(tileX.value(), tileY.value(), zoomLevel);
 }
 
 } // namespace facebook::velox

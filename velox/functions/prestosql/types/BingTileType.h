@@ -89,6 +89,11 @@ class BingTileType : public BigintType {
   static constexpr uint8_t kBingTileZoomOffset = 31 - kBingTileZoomBitWidth;
   static constexpr uint64_t kBits23Mask = (1 << 24) - 1;
   static constexpr uint64_t kBits5Mask = (1 << 6) - 1;
+  static constexpr double kMaxLatitude = 85.05112878;
+  static constexpr double kMinLatitude = -85.05112878;
+  static constexpr double kMaxLongitude = 180.0;
+  static constexpr double kMinLongitude = -180.0;
+  static constexpr uint16_t kTilePixels = 256;
 
   static inline uint64_t
   bingTileCoordsToInt(uint32_t x, uint32_t y, uint8_t zoom) {
@@ -144,6 +149,9 @@ class BingTileType : public BigintType {
       const std::string_view& quadKey);
 
   static std::string bingTileToQuadKey(uint64_t tile);
+
+  static folly::Expected<uint64_t, std::string>
+  latitudeLongitudeToTile(double latitude, double longitude, uint8_t zoomLevel);
 };
 
 inline bool isBingTileType(const TypePtr& type) {

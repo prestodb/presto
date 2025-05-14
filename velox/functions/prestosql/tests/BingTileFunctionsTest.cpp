@@ -406,3 +406,47 @@ TEST_F(BingTileFunctionsTest, bingTileChildrenZoom) {
   VELOX_ASSERT_USER_THROW(
       testBingTileChildren(0, 0, 2, 1), "Child zoom 1 must be >= tile zoom 2");
 }
+
+TEST_F(BingTileFunctionsTest, bingTileAt) {
+  const auto testBingTileAtFunc = [&](std::optional<double> latitude,
+                                      std::optional<double> longitude,
+                                      std::optional<int8_t> zoom,
+                                      std::optional<int64_t> expectedTile =
+                                          std::nullopt) {
+    std::optional<int64_t> tile = evaluateOnce<int64_t>(
+        "CAST(bing_tile_at(c0, c1, c2) AS BIGINT)", latitude, longitude, zoom);
+    if (latitude.has_value() && longitude.has_value() && zoom.has_value() &&
+        expectedTile.has_value()) {
+      ASSERT_TRUE(tile.has_value());
+      ASSERT_EQ(expectedTile.value(), tile.value());
+      ASSERT_EQ(zoom.value(), BingTileType::bingTileZoom(tile.value()));
+    } else {
+      ASSERT_FALSE(tile.has_value());
+    }
+  };
+  testBingTileAtFunc(0, 0, 0, 0);
+  testBingTileAtFunc(80, 80, 0, 0);
+  testBingTileAtFunc(80, 80, 5, 99119792131);
+  testBingTileAtFunc(-85, -180, 5, 335544351);
+  testBingTileAtFunc(0.0, 0.0, 3, 17381195780);
+  testBingTileAtFunc(0.0, -0.000001, 3, 13086228484);
+  testBingTileAtFunc(0.0, 0.000001, 3, 17381195780);
+  testBingTileAtFunc(-0.000001, 0.0, 3, 17381195780);
+  testBingTileAtFunc(0.000001, 0.0, 3, 17381195779);
+  testBingTileAtFunc(std::nullopt, 1, 1);
+  testBingTileAtFunc(1, std::nullopt, 1);
+  testBingTileAtFunc(1, 1, std::nullopt);
+
+  VELOX_ASSERT_USER_THROW(
+      testBingTileAtFunc(-86, -180, 5, std::nullopt),
+      "Latitude -86 is outside of valid range [-85.05112878, 85.05112878]");
+  VELOX_ASSERT_USER_THROW(
+      testBingTileAtFunc(-85, -181, 5, std::nullopt),
+      "Longitude -181 is outside of valid range [-180, 180]");
+  VELOX_ASSERT_USER_THROW(
+      testBingTileAtFunc(-85, -180, 24, 335544351),
+      "Zoom level 24 is greater than max zoom 23");
+  VELOX_ASSERT_USER_THROW(
+      testBingTileAtFunc(-85, -180, -1, 335544351),
+      "Bing tile zoom -1 cannot be negative");
+}
