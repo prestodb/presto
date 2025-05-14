@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/dwio/parquet/tests/ParquetTestBase.h"
 #include "velox/expression/ExprToSubfieldFilter.h"
 #include "velox/vector/tests/utils/VectorMaker.h"
@@ -1690,4 +1691,45 @@ TEST_F(ParquetReaderTest, parquet251) {
   auto rowType = ROW({"str"}, {VARCHAR()});
   assertReadWithFilters(
       "parquet-251.parquet", rowType, std::move(filters), expected);
+}
+
+TEST_F(ParquetReaderTest, fileColumnVarcharToMetadataColumnMismatchTest) {
+  const std::string sample(getExampleFilePath("nation.parquet"));
+
+  dwio::common::ReaderOptions readerOptions{leafPool_.get()};
+
+  auto runVarcharColTest = [&](const TypePtr& requestedType) {
+    // The type in the file is a BYTE_ARRAY resolving to VARCHAR.
+    // The requested type must match with what is requested as otherwise:
+    // - errors occur in the column readers
+    // - SIGSEGVs can be encountered during partitioning and subsequent
+    // operators following the table scan
+    auto outputRowType =
+        ROW({"nationkey", "name", "regionkey", "comment"},
+            {BIGINT(), requestedType, BIGINT(), VARCHAR()});
+
+    // Sets the metadata schema requested, for example from Hive, and not the
+    // schema from the file.
+    readerOptions.setFileSchema(outputRowType);
+    VELOX_ASSERT_THROW(
+        createReader(sample, readerOptions),
+        fmt::format(
+            "Converted type VARCHAR is not allowed for requested type {}",
+            requestedType->toString()));
+  };
+
+  auto types = std::vector<TypePtr>{
+      SMALLINT(),
+      INTEGER(),
+      BIGINT(),
+      DECIMAL(10, 2),
+      REAL(),
+      DOUBLE(),
+      TIMESTAMP(),
+      DATE(),
+      VARBINARY()};
+
+  for (const auto& type : types) {
+    runVarcharColTest(type);
+  }
 }
