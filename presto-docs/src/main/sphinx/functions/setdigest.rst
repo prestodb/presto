@@ -65,37 +65,37 @@ Functions
 
 Composes all input values of ``x`` into a ``setdigest``.
 
-    Examples::
+Examples:
 
-        Create a ``setdigest`` corresponding to a ``bigint`` array::
+Create a ``setdigest`` corresponding to a ``bigint`` array::
 
-        SELECT make_set_digest(value)
-        FROM (VALUES 1, 2, 3) T(value);
+    SELECT make_set_digest(value)
+    FROM (VALUES 1, 2, 3) T(value);
 
-        Create a ``setdigest`` corresponding to a ``varchar`` array::
+Create a ``setdigest`` corresponding to a ``varchar`` array::
 
-        SELECT make_set_digest(value)
-        FROM (VALUES 'Presto', 'SQL', 'on', 'everything') T(value);
+    SELECT make_set_digest(value)
+    FROM (VALUES 'Presto', 'SQL', 'on', 'everything') T(value);
 
 
 .. function:: merge_set_digest(setdigest) -> setdigest
 
 Returns the ``setdigest`` of the aggregate union of the individual ``setdigest`` structures.
 
-     Examples::
+Example::
 
-        SELECT merge_set_digest(a) from (SELECT make_set_digest(value) as a FROM (VALUES 4,3,2,1) T(value));
+    SELECT merge_set_digest(a) from (SELECT make_set_digest(value) as a FROM (VALUES 4,3,2,1) T(value));
 
 .. function:: cardinality(setdigest) -> bigint
 
 Returns the cardinality of the set digest from its internal
 ``HyperLogLog`` component.
 
-    Examples::
+Example::
 
-        SELECT cardinality(make_set_digest(value))
-        FROM (VALUES 1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 5) T(value);
-        -- 5
+    SELECT cardinality(make_set_digest(value))
+    FROM (VALUES 1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 5) T(value);
+    -- 5
 
 .. function:: intersection_cardinality(x,y) -> bigint
 
@@ -103,11 +103,11 @@ Returns the estimation for the cardinality of the intersection of the two set di
 
 ``x`` and ``y``  be of type  ``setdigest``
 
-    Examples::
+Example::
 
-        SELECT intersection_cardinality(make_set_digest(v1), make_set_digest(v2))
-        FROM (VALUES (1, 1), (NULL, 2), (2, 3), (3, 4)) T(v1, v2);
-        -- 3
+    SELECT intersection_cardinality(make_set_digest(v1), make_set_digest(v2))
+    FROM (VALUES (1, 1), (NULL, 2), (2, 3), (3, 4)) T(v1, v2);
+    -- 3
 
 .. function:: jaccard_index(x, y) -> double
 
@@ -116,11 +116,11 @@ the two set digests.
 
 ``x`` and ``y`` be of type  ``setdigest``.
 
-    Examples::
+Example::
 
-        SELECT jaccard_index(make_set_digest(v1), make_set_digest(v2))
-        FROM (VALUES (1, 1), (NULL,2), (2, 3), (NULL, 4)) T(v1, v2);
-        -- 0.5
+    SELECT jaccard_index(make_set_digest(v1), make_set_digest(v2))
+    FROM (VALUES (1, 1), (NULL,2), (2, 3), (NULL, 4)) T(v1, v2);
+    -- 0.5
 
 .. function:: hash_counts(x) -> map(bigint, smallint)
 
@@ -130,8 +130,8 @@ the internal ``MinHash`` structure belonging to ``x`` or varchar
 
 ``x`` must be of type  ``setdigest``.
 
-    Examples::
+Example::
 
-        SELECT hash_counts(make_set_digest(value))
-        FROM (VALUES 1, 1, 1, 2, 2) T(value);
-        -- {19144387141682250=3, -2447670524089286488=2}
+    SELECT hash_counts(make_set_digest(value))
+    FROM (VALUES 1, 1, 1, 2, 2) T(value);
+    -- {19144387141682250=3, -2447670524089286488=2}
