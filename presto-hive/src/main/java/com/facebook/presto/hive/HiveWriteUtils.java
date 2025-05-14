@@ -114,7 +114,6 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.isMapType;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isRowType;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isUserDefinedTypeEncodingEnabled;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.pathExists;
-import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyOnline;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
@@ -300,6 +299,7 @@ public final class HiveWriteUtils
         checkWritable(
                 partition.getSchemaTableName(),
                 Optional.of(partitionName),
+                true,
                 getProtectMode(partition),
                 partition.getParameters(),
                 partition.getStorage());
@@ -308,6 +308,7 @@ public final class HiveWriteUtils
     public static void checkWritable(
             SchemaTableName tableName,
             Optional<String> partitionName,
+            boolean isPartitioned,
             ProtectMode protectMode,
             Map<String, String> parameters,
             Storage storage)
@@ -316,9 +317,6 @@ public final class HiveWriteUtils
         if (partitionName.isPresent()) {
             tablePartitionDescription += " partition '" + partitionName.get() + "'";
         }
-
-        // verify online
-        verifyOnline(tableName, partitionName, protectMode, parameters);
 
         // verify not read only
         if (protectMode.readOnly) {
