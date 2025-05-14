@@ -114,10 +114,15 @@ void registerMathFunctions(const std::string& prefix) {
   registerTruncate({prefix + "truncate"});
 
   registerFunction<
-      CosineSimilarityFunction,
+      CosineSimilarityFunctionMap,
       double,
       Map<Varchar, double>,
       Map<Varchar, double>>({prefix + "cosine_similarity"});
+  registerFunction<
+      CosineSimilarityFunctionArray,
+      double,
+      Array<double>,
+      Array<double>>({prefix + "cosine_similarity"});
 }
 
 } // namespace

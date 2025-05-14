@@ -656,10 +656,10 @@ struct WilsonIntervalLowerFunction {
 };
 
 template <typename T>
-struct CosineSimilarityFunction {
+struct CosineSimilarityFunctionMap {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
-  double normalizeMap(const null_free_arg_type<Map<Varchar, double>>& map) {
+  double normalize(const null_free_arg_type<Map<Varchar, double>>& map) {
     double norm = 0.0;
     for (const auto& [key, value] : map) {
       norm += (value * value);
@@ -667,7 +667,7 @@ struct CosineSimilarityFunction {
     return std::sqrt(norm);
   }
 
-  double mapDotProduct(
+  double dotProduct(
       const null_free_arg_type<Map<Varchar, double>>& leftMap,
       const null_free_arg_type<Map<Varchar, double>>& rightMap) {
     double result = 0.0;
@@ -689,20 +689,67 @@ struct CosineSimilarityFunction {
       return;
     }
 
-    double normLeftMap = normalizeMap(leftMap);
+    double normLeftMap = normalize(leftMap);
     if (normLeftMap == 0.0) {
       result = std::numeric_limits<double>::quiet_NaN();
       return;
     }
 
-    double normRightMap = normalizeMap(rightMap);
+    double normRightMap = normalize(rightMap);
     if (normRightMap == 0.0) {
       result = std::numeric_limits<double>::quiet_NaN();
       return;
     }
 
-    double dotProduct = mapDotProduct(leftMap, rightMap);
-    result = dotProduct / (normLeftMap * normRightMap);
+    double product = dotProduct(leftMap, rightMap);
+    result = product / (normLeftMap * normRightMap);
+  }
+};
+
+template <typename T>
+struct CosineSimilarityFunctionArray {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  double normalize(const null_free_arg_type<Array<double>>& map) {
+    double norm = 0.0;
+    for (const auto value : map) {
+      norm += (value * value);
+    }
+    return std::sqrt(norm);
+  }
+
+  double dotProduct(
+      const null_free_arg_type<Array<double>>& leftArray,
+      const null_free_arg_type<Array<double>>& rightArray) {
+    double result = 0.0;
+    for (size_t i = 0; i < leftArray.size(); i++) {
+      result += leftArray[i] * rightArray[i];
+    }
+    return result;
+  }
+
+  void callNullFree(
+      out_type<double>& result,
+      const null_free_arg_type<Array<double>>& leftArray,
+      const null_free_arg_type<Array<double>>& rightArray) {
+    VELOX_USER_CHECK(
+        leftArray.size() == rightArray.size(),
+        "Both arrays need to have identical size");
+
+    double normLeftArray = normalize(leftArray);
+    if (normLeftArray == 0.0) {
+      result = std::numeric_limits<double>::quiet_NaN();
+      return;
+    }
+
+    double normRightArray = normalize(rightArray);
+    if (normRightArray == 0.0) {
+      result = std::numeric_limits<double>::quiet_NaN();
+      return;
+    }
+
+    double product = dotProduct(leftArray, rightArray);
+    result = product / (normLeftArray * normRightArray);
   }
 };
 

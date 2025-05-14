@@ -1088,5 +1088,32 @@ TEST_F(ArithmeticTest, cosineSimilarity) {
                    .has_value());
 }
 
+TEST_F(ArithmeticTest, cosineSimilarityArray) {
+  const auto cosineSimilarity = [&](const std::vector<double>& left,
+                                    const std::vector<double>& right) {
+    auto leftMap = makeArrayVector<double>({left});
+    auto rightMap = makeArrayVector<double>({right});
+    return evaluateOnce<double>(
+               "cosine_similarity(c0,c1)", makeRowVector({leftMap, rightMap}))
+        .value();
+  };
+
+  EXPECT_DOUBLE_EQ(
+      (1 * 1 * 1 + 2 * 3) / (std::sqrt(5.0) * std::sqrt(10.0)),
+      cosineSimilarity({{1, 2}}, {{1, 3}}));
+
+  EXPECT_DOUBLE_EQ(
+      (1 * 1 + 2 * 3 + (-1) * 5) /
+          (std::sqrt(1 + 4 + 1) * std::sqrt(1 + 9 + 25)),
+      cosineSimilarity({{1, 2, -1}}, {{1, 3, 5}}));
+
+  EXPECT_TRUE(std::isnan(cosineSimilarity({}, {})));
+  VELOX_ASSERT_THROW(
+      cosineSimilarity({1, 3}, {}), "Both arrays need to have identical size");
+  EXPECT_TRUE(std::isnan(cosineSimilarity({1, 3}, {0, 0})));
+  EXPECT_TRUE(std::isnan(cosineSimilarity({1, 3}, {kNan, 1})));
+  EXPECT_TRUE(std::isnan(cosineSimilarity({1, 3}, {kInf, 1})));
+}
+
 } // namespace
 } // namespace facebook::velox
