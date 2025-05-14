@@ -150,7 +150,7 @@ public class LeftJoinNullFilterToSemiJoin
                 || (semiJoinFilteringSource instanceof ProjectNode &&
                 ((ProjectNode) semiJoinFilteringSource).getSource() instanceof AggregationNode &&
                 AggregationNode.isDistinct((AggregationNode) ((ProjectNode) semiJoinFilteringSource).getSource())))) {
-            AggregationNode.GroupingSetDescriptor groupingSetDescriptor = new AggregationNode.GroupingSetDescriptor(ImmutableList.of(semiJoinFilteringSource.getOutputVariables().get(0)), 1, ImmutableSet.of());
+            AggregationNode.GroupingSetDescriptor groupingSetDescriptor = new AggregationNode.GroupingSetDescriptor(ImmutableList.of(rightKey), 1, ImmutableSet.of());
             semiJoinFilteringSource = new AggregationNode(
                     semiJoinFilteringSource.getSourceLocation(),
                     context.getIdAllocator().getNextId(),
