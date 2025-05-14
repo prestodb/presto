@@ -341,6 +341,13 @@ if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsigned-char")
 endif()
 
+# Ensure that we don't bring in headers that might have coroutines enabled. The
+# dependencies turn off coroutines in folly and the other FBOS dependencies. If
+# not explicitly turned off differences in the build using GCC cause libray
+# incompatibilities of the thrift server and the remote functions library
+# causing SEGVs in the tests.
+string(APPEND CMAKE_CXX_FLAGS " -DFOLLY_CFG_NO_COROUTINES")
+
 # Under Ninja, we are able to designate certain targets large enough to require
 # restricted parallelism.
 if("${MAX_HIGH_MEM_JOBS}")

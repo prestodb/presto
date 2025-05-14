@@ -55,7 +55,7 @@ BENCHMARK_RELATIVE(wideArray) {
 
 int main(int argc, char* argv[]) {
   folly::Init init{&argc, &argv};
-  gflags::ParseCommandLineFlags(&argc, &argv, true);
+  ::gflags::ParseCommandLineFlags(&argc, &argv, true);
   MergeTestBase test;
   test.seed(1);
   narrow = test.makeTestData(100'000'000, 7);

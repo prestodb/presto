@@ -13,10 +13,10 @@
 # limitations under the License.
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -456,14 +456,14 @@ target_link_libraries(folly_test_util
+@@ -500,14 +500,14 @@ target_link_libraries(folly_test_util
  apply_folly_compile_options_to_target(folly_test_util)
  list(APPEND FOLLY_INSTALL_TARGETS folly_test_util)
- 
+
 -install(TARGETS ${FOLLY_INSTALL_TARGETS}
 -  EXPORT folly
 -  RUNTIME DESTINATION bin
@@ -25,18 +25,18 @@
 -auto_install_files(folly ${FOLLY_DIR}
 -  ${hfiles}
 -)
-+# install(TARGETS ${FOLLY_INSTALL_TARGETS}
-+#   EXPORT folly
-+#   RUNTIME DESTINATION bin
-+#   LIBRARY DESTINATION ${LIB_INSTALL_DIR}
-+#   ARCHIVE DESTINATION ${LIB_INSTALL_DIR})
-+# auto_install_files(folly ${FOLLY_DIR}
-+#   ${hfiles}
-+# )
++#install(TARGETS ${FOLLY_INSTALL_TARGETS}
++#  EXPORT folly
++#  RUNTIME DESTINATION bin
++#  LIBRARY DESTINATION ${LIB_INSTALL_DIR}
++#  ARCHIVE DESTINATION ${LIB_INSTALL_DIR})
++#auto_install_files(folly ${FOLLY_DIR}
++#  ${hfiles}
++#)
  install(
    FILES ${CMAKE_CURRENT_BINARY_DIR}/folly/folly-config.h
    DESTINATION ${INCLUDE_INSTALL_DIR}/folly
-@@ -487,13 +487,13 @@ install(
+@@ -531,13 +531,13 @@ install(
    DESTINATION ${CMAKE_INSTALL_DIR}
    COMPONENT dev
  )
@@ -47,13 +47,13 @@
 -  FILE folly-targets.cmake
 -  COMPONENT dev
 -)
-+# install(
-+#   EXPORT folly
-+#   DESTINATION ${CMAKE_INSTALL_DIR}
-+#   NAMESPACE Folly::
-+#   FILE folly-targets.cmake
-+#   COMPONENT dev
-+# )
- 
++#install(
++#  EXPORT folly
++#  DESTINATION ${CMAKE_INSTALL_DIR}
++#  NAMESPACE Folly::
++#  FILE folly-targets.cmake
++#  COMPONENT dev
++#)
+
  # Generate a pkg-config file so that downstream projects that don't use
  # CMake can depend on folly using pkg-config.

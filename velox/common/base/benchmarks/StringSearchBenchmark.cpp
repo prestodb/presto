@@ -263,7 +263,7 @@ BENCHMARK_NAMED_PARAM(
 } // namespace facebook::velox
 
 int main(int argc, char** argv) {
-  gflags::ParseCommandLineFlags(&argc, &argv, true);
+  ::gflags::ParseCommandLineFlags(&argc, &argv, true);
   folly::runBenchmarks();
   return 0;
 }
