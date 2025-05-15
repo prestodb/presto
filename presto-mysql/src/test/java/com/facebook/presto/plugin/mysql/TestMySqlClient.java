@@ -16,7 +16,7 @@ package com.facebook.presto.plugin.mysql;
 import com.esri.core.geometry.Point;
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.esri.core.geometry.ogc.OGCPoint;
-import com.facebook.presto.plugin.jdbc.SliceReadFunction;
+import com.facebook.presto.plugin.jdbc.mapping.functions.SliceReadFunction;
 import com.facebook.presto.spi.PrestoException;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;

@@ -11,32 +11,45 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.plugin.jdbc;
+package com.facebook.presto.plugin.jdbc.mapping;
 
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.plugin.jdbc.mapping.functions.BooleanReadFunction;
+import com.facebook.presto.plugin.jdbc.mapping.functions.DoubleReadFunction;
+import com.facebook.presto.plugin.jdbc.mapping.functions.LongReadFunction;
+import com.facebook.presto.plugin.jdbc.mapping.functions.ObjectReadFunction;
+import com.facebook.presto.plugin.jdbc.mapping.functions.SliceReadFunction;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
+/*
+ * JDBC based connectors can control how data should be read from a ResultSet via ReadMapping definitions.
+ */
 public final class ReadMapping
 {
-    public static ReadMapping booleanReadMapping(Type prestoType, BooleanReadFunction readFunction)
+    public static ReadMapping createBooleanReadMapping(Type prestoType, BooleanReadFunction readFunction)
     {
         return new ReadMapping(prestoType, readFunction);
     }
 
-    public static ReadMapping longReadMapping(Type prestoType, LongReadFunction readFunction)
+    public static ReadMapping createLongReadMapping(Type prestoType, LongReadFunction readFunction)
     {
         return new ReadMapping(prestoType, readFunction);
     }
 
-    public static ReadMapping doubleReadMapping(Type prestoType, DoubleReadFunction readFunction)
+    public static ReadMapping createDoubleReadMapping(Type prestoType, DoubleReadFunction readFunction)
     {
         return new ReadMapping(prestoType, readFunction);
     }
 
-    public static ReadMapping sliceReadMapping(Type prestoType, SliceReadFunction readFunction)
+    public static ReadMapping createSliceReadMapping(Type prestoType, SliceReadFunction readFunction)
+    {
+        return new ReadMapping(prestoType, readFunction);
+    }
+
+    public static ReadMapping createObjectReadMapping(Type prestoType, ObjectReadFunction readFunction)
     {
         return new ReadMapping(prestoType, readFunction);
     }
@@ -50,7 +63,7 @@ public final class ReadMapping
         this.readFunction = requireNonNull(readFunction, "readFunction is null");
         checkArgument(
                 type.getJavaType() == readFunction.getJavaType(),
-                "Presto type %s is not compatible with read function %s returning %s",
+                "Presto type %s is not compatible with read function %s using %s",
                 type,
                 readFunction,
                 readFunction.getJavaType());
