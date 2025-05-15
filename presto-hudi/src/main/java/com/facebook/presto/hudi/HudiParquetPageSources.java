@@ -40,6 +40,15 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
+import org.apache.hudi.common.fs.FSUtils;
+import org.apache.hudi.common.table.HoodieTableMetaClient;
+import org.apache.hudi.common.table.TableSchemaResolver;
+import org.apache.hudi.common.util.InternalSchemaCache;
+import org.apache.hudi.common.util.Option;
+import org.apache.hudi.common.util.TablePathUtils;
+import org.apache.hudi.internal.schema.InternalSchema;
+import org.apache.hudi.internal.schema.action.InternalSchemaMerger;
+import org.apache.hudi.internal.schema.utils.InternalSchemaUtils;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.crypto.InternalFileDecryptor;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
@@ -103,6 +112,31 @@ class HudiParquetPageSources
         try {
             ExtendedFileSystem filesystem = hdfsEnvironment.getFileSystem(user, path, configuration);
             FileStatus fileStatus = filesystem.getFileStatus(path);
+
+            Option<Path> tablePath = TablePathUtils.getTablePath(filesystem, path);
+            HoodieTableMetaClient tableMetaClient = HoodieTableMetaClient.builder().setBasePath(tablePath.get().toString()).setConf(configuration).build();
+            Option<InternalSchema> internalSchemaOption;
+            try {
+                TableSchemaResolver schemaUtil = new TableSchemaResolver(tableMetaClient);
+                internalSchemaOption = schemaUtil.getTableInternalSchemaFromCommitMetadata();
+            }
+            catch (Exception e) {
+                internalSchemaOption = Option.empty();
+            }
+            List<String> requiredColumns = regularColumns.stream().map(hch -> hch.getName()).collect(toList());
+            if (internalSchemaOption.isPresent()) {
+                // reading hoodie schema evolution table
+                boolean disableSchemaEvolution =
+                        requiredColumns.isEmpty() || (requiredColumns.size() == 1 && requiredColumns.get(0).isEmpty());
+                if (!disableSchemaEvolution) {
+                    InternalSchema querySchema = InternalSchemaUtils.pruneInternalSchema(internalSchemaOption.get(), requiredColumns);
+                    Long commitTime = Long.valueOf(FSUtils.getCommitTime(path.getName()));
+                    InternalSchema fileSchema = InternalSchemaCache.searchSchemaAndCache(commitTime, tableMetaClient, false);
+                    InternalSchema mergedInternalSchema = new InternalSchemaMerger(fileSchema, querySchema, true,
+                            true).mergeSchema();
+                    requiredColumns = mergedInternalSchema.columns().stream().map(ft -> ft.name()).collect(toList());
+                }
+            }
             long fileSize = fileStatus.getLen();
             long modificationTime = fileStatus.getModificationTime();
             HiveFileContext hiveFileContext = new HiveFileContext(
@@ -122,8 +156,8 @@ class HudiParquetPageSources
             ParquetMetadata parquetMetadata = hdfsEnvironment.doAs(user, () -> MetadataReader.readFooter(parquetDataSource, fileSize, fileDecryptor, readMaskedValue).getParquetMetadata());
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
-            List<Type> parquetFields = regularColumns.stream()
-                    .map(column -> getParquetTypeByName(column.getName(), fileSchema))
+            List<Type> parquetFields = requiredColumns.stream()
+                    .map(column -> getParquetTypeByName(column, fileSchema))
                     .collect(toList());
 
             MessageType requestedSchema = new MessageType(fileSchema.getName(), parquetFields.stream().filter(Objects::nonNull).collect(toImmutableList()));
