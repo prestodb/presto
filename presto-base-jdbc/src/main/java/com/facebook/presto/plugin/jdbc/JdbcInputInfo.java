@@ -11,31 +11,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.iceberg;
+
+package com.facebook.presto.plugin.jdbc;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import java.util.Optional;
-
 import static java.util.Objects.requireNonNull;
 
-public class IcebergInputInfo
+public class JdbcInputInfo
 {
-    private final Optional<Long> snapshotId;
     private final String tableLocation;
 
-    public IcebergInputInfo(
-            @JsonProperty("snapshotId") Optional<Long> snapshotId,
+    public JdbcInputInfo(
             @JsonProperty("tableLocation") String tableLocation)
-    {
-        this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
-        this.tableLocation = requireNonNull(tableLocation, "tableLocation is null");
-    }
 
-    @JsonProperty
-    public Optional<Long> getSnapshotId()
     {
-        return snapshotId;
+        this.tableLocation = requireNonNull(tableLocation, "tableLocation is null");
     }
 
     @JsonProperty

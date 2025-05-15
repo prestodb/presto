@@ -23,8 +23,9 @@ import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.hive.HiveOutputInfo;
+import com.facebook.presto.hive.HiveOutputMetadata;
 import com.facebook.presto.hive.HivePartition;
-import com.facebook.presto.hive.HiveWrittenPartitions;
 import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.iceberg.changelog.ChangelogOperation;
 import com.facebook.presto.iceberg.changelog.ChangelogUtil;
@@ -570,9 +571,9 @@ public abstract class IcebergAbstractMetadata
             throw new PrestoException(ICEBERG_COMMIT_ERROR, "Failed to commit Iceberg update to table: " + writableTableHandle.getTableName(), e);
         }
 
-        return Optional.of(new HiveWrittenPartitions(commitTasks.stream()
+        return Optional.of(new HiveOutputMetadata(new HiveOutputInfo(commitTasks.stream()
                 .map(CommitTaskData::getPath)
-                .collect(toImmutableList())));
+                .collect(toImmutableList()), icebergTable.location())));
     }
 
     private Optional<ConnectorOutputMetadata> finishWrite(ConnectorSession session, IcebergWritableTableHandle writableTableHandle, Collection<Slice> fragments, ChangelogOperation operationType)
@@ -617,9 +618,9 @@ public abstract class IcebergAbstractMetadata
             throw new PrestoException(ICEBERG_COMMIT_ERROR, "Failed to commit Iceberg update to table: " + writableTableHandle.getTableName(), e);
         }
 
-        return Optional.of(new HiveWrittenPartitions(commitTasks.stream()
+        return Optional.of(new HiveOutputMetadata(new HiveOutputInfo(commitTasks.stream()
                 .map(CommitTaskData::getPath)
-                .collect(toImmutableList())));
+                .collect(toImmutableList()), icebergTable.location())));
     }
 
     private void handleInsertTask(CommitTaskData task, Table icebergTable, AppendFiles appendFiles, ImmutableSet.Builder<String> writtenFiles)
@@ -1322,5 +1323,18 @@ public abstract class IcebergAbstractMetadata
     protected Optional<String> getDataLocationBasedOnWarehouseDataDir(SchemaTableName schemaTableName)
     {
         return Optional.empty();
+    }
+
+    @Override
+    public Optional<Object> getInfo(ConnectorTableLayoutHandle tableHandle)
+    {
+        IcebergTableLayoutHandle icebergTableHandle = (IcebergTableLayoutHandle) tableHandle;
+        Optional<String> outputPath = icebergTableHandle.getTable().getOutputPath();
+        if (outputPath == null || !outputPath.isPresent()) {
+            return Optional.empty();
+        }
+        return Optional.of(new IcebergInputInfo(
+                icebergTableHandle.getTable().getIcebergTableName().getSnapshotId(),
+                outputPath.get()));
     }
 }
