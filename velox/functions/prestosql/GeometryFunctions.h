@@ -28,6 +28,8 @@
 
 namespace facebook::velox::functions {
 
+// Constructors and Serde
+
 template <typename T>
 struct StGeometryFromTextFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);

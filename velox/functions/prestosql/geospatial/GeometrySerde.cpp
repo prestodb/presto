@@ -25,7 +25,9 @@ std::unique_ptr<geos::geom::Geometry> deserializeGeometry(
     const StringView& geometryString) {
   std::istringstream inputString(geometryString);
   geos::io::WKBReader reader;
-  return reader.read(inputString);
+  std::unique_ptr<geos::geom::Geometry> geosGeometry = reader.read(inputString);
+  VELOX_DCHECK_NOT_NULL(geosGeometry);
+  return geosGeometry;
 }
 
 std::string serializeGeometry(const geos::geom::Geometry& geosGeometry) {

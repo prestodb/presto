@@ -2,12 +2,77 @@
 Geospatial Operators
 ====================
 
+Geometry Functions
+------------------
+
+Velox has a set of functions that operator on Geometries, conforming to the Open
+Geospatial Consortium's (OGC) `OpenGIS Specifications`_. These are
+piecewise-linear planar geometries that are 0-, 1-, or 2-dimensional and
+collections of such geometries. They support a variety of operations, including
+spatial relationship predicates (e.g., "do these geometries intersect?"), binary
+operations (e.g., "what is the union of these geometries?"), and unary
+operations (e.g., "what is the area of this geometry?"). The basis for the
+Geometry type is a plane. The shortest path between two points on the plane is a
+straight line. That means calculations on geometries (areas, distances, lengths,
+intersections, etc) can be calculated using cartesian mathematics and straight
+line vectors.
+
+Functions that begin with the ST_ prefix are compliant with the `SQL/MM Part 3:
+Spatial`_ specification`. As such, many Geometry functions assume that
+geometries that are operated on are both simple and valid. Functions may raise
+an exception or return an arbitrary value for non-simple or non-valid
+geometries. For example, it does not make sense to calculate the area of a
+polygon that has a hole defined outside of the polygon, or to construct a
+polygon from a non-simple boundary line.
+
+Geometries can be constructed in several ways. Two of the most common are
+``ST_GeometryFromText`` and ``ST_GeomFromBinary``.  ``ST_GeometryFromText``
+accepts the Well-Known Text (WKT) format::
+
+* POINT (0 0)
+* LINESTRING (0 0, 1 1, 1 2)
+* POLYGON ((0 0, 4 0, 4 4, 0 4, 0 0), (1 1, 2 1, 2 2, 1 2, 1 1))
+* MULTIPOINT (0 0, 1 2)
+* MULTILINESTRING ((0 0, 1 1, 1 2), (2 3, 3 2, 5 4))
+* MULTIPOLYGON (((0 0, 4 0, 4 4, 0 4, 0 0), (1 1, 2 1, 2 2, 1 2, 1 1)),
+  ((-1 -1, -1 -2, -2 -2, -2 -1, -1 -1)))
+* GEOMETRYCOLLECTION (POINT(2 3), LINESTRING (2 3, 3 4))
+
+``ST_GeomFromBinary`` accepts the Well-Known Binary (WKB) format. In WKT/WKB,
+the coordinate order is (x, y). The details of both WKT and WKB can be found
+`here
+<https://en.wikipedia.org/wiki/Well-known_text_representation_of_geometry>`_.
+
+.. _OpenGIS Specifications: https://www.ogc.org/standards/ogcapi-features/
+.. _SQL/MM Part 3: Spatial: https://www.iso.org/standard/31369.html
+
+Geometry Constructors
+---------------------
+
+.. function:: ST_GeometryFromText(wkt: varchar) -> geometry: Geometry
+
+    Creates a Geometry object from the Well-Known Text (WKT) formatted string.
+    Ill-formed strings will return a User Error.
+
+.. function:: ST_GeomFromBinary(wkb: varbinary) -> geometry: Geometry
+
+    Creates a Geometry object from the Well-Known Binary (WKB) formatted binary.
+    Ill-formed binary will return a User Error.
+
+.. function:: ST_AsText(geometry: Geometry) -> wkt: varchar
+
+    Returns the Well-Known Text (WKT) formatted string of the Geometry object.
+
+.. function:: ST_AsBinary(geometry: Geometry) -> wkb: varbinary
+
+    Returns the Well-Known Binary (WKB) formatted binary of the Geometry object.
+
 Bing Tile Functions
 -------------------
 
 Bing tiles are a convenient quad-tree representation of the WGS84 projection of
-Earth's surface.  They can be used to partition geospatial data, perform quick
-proximity or intersection checks, and more.  Each tile is defined by a `zoom`
+Earth's surface. They can be used to partition geospatial data, perform quick
+proximity or intersection checks, and more. Each tile is defined by a `zoom`
 level (how far down the quad-tree the tile lives), and an `x` and `y` coordinate
 specifying where it is in that `zoom` level.  Velox supports `zoom` levels from
 0 to 23.  For a given zoom level, `x` and `y` must be between 0 and `2**zoom -
@@ -26,8 +91,8 @@ for more details.
 
 .. function:: bing_tile(x: integer, y: integer, zoom_level: tinyint) -> tile: BingTile
 
-    Creates a Bing tile object from `x`, `y` coordinates and a `zoom_level`.
-    Zoom levels from 0 to 23 are supported, with valid `x` and `y` coordinates
+    Creates a Bing tile object from ``x``, ``y`` coordinates and a ``zoom_level``.
+    Zoom levels from 0 to 23 are supported, with valid ``x`` and ``y`` coordinates
     described above.  Invalid parameters will return a User Error.
 
 .. function:: bing_tile(quadKey: varchar) -> tile: BingTile
@@ -36,7 +101,7 @@ for more details.
 
 .. function:: bing_tile_coordinates(tile: BingTile) -> coords: row(integer,integer)
 
-    Returns the `x`, `y` coordinates of a given Bing tile as `row(x, y)`.
+    Returns the ``x``, ``y`` coordinates of a given Bing tile as ``row(x, y)``.
 
 .. function:: bing_tile_zoom_level(tile: BingTile) -> zoom_level: tinyint
 
@@ -51,7 +116,7 @@ for more details.
 
     Returns the parent of the Bing tile at the specified lower zoom level.
     Throws an exception if parentZoom is less than 0, or parentZoom is greater
-    than the tile’s zoom.
+    than the tile's zoom.
 
 .. function:: bing_tile_children(tile) -> children: array(BingTile)
 
@@ -62,7 +127,7 @@ for more details.
 
     Returns the children of the Bing tile at the specified higher zoom level.
     Throws an exception if childZoom is greater than the max zoom level, or
-    childZoom is less than the tile’s zoom.  The order is deterministic but not
+    childZoom is less than the tile's zoom.  The order is deterministic but not
     specified.
 
 .. function:: bing_tile_quadkey() -> quadKey: varchar
