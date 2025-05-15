@@ -31,38 +31,40 @@ import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.plugin.jdbc.mapping.WriteFunction;
+import com.facebook.presto.plugin.jdbc.mapping.functions.BooleanWriteFunction;
+import com.facebook.presto.plugin.jdbc.mapping.functions.DoubleWriteFunction;
+import com.facebook.presto.plugin.jdbc.mapping.functions.LongWriteFunction;
+import com.facebook.presto.plugin.jdbc.mapping.functions.ObjectWriteFunction;
+import com.facebook.presto.plugin.jdbc.mapping.functions.SliceWriteFunction;
 import com.facebook.presto.plugin.jdbc.optimization.JdbcExpression;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoException;
 import com.google.common.base.Joiner;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
-import org.joda.time.DateTimeZone;
 
 import java.sql.Connection;
-import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.sql.Time;
-import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.common.type.DateTimeEncoding.unpackMillisUtc;
+import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.getColumnMappingFromPrestoType;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static java.lang.Float.intBitsToFloat;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.stream.Collectors.joining;
-import static org.joda.time.DateTimeZone.UTC;
 
 public class QueryBuilder
 {
@@ -76,11 +78,13 @@ public class QueryBuilder
     {
         private final Type type;
         private final Object value;
+        private final JdbcTypeHandle typeHandle;
 
-        public TypeAndValue(Type type, Object value)
+        public TypeAndValue(Type type, Object value, JdbcTypeHandle typeHandle)
         {
             this.type = requireNonNull(type, "type is null");
             this.value = requireNonNull(value, "value is null");
+            this.typeHandle = typeHandle;
         }
 
         public Type getType()
@@ -91,6 +95,11 @@ public class QueryBuilder
         public Object getValue()
         {
             return value;
+        }
+
+        public JdbcTypeHandle getTypeHandle()
+        {
+            return typeHandle;
         }
     }
 
@@ -134,67 +143,51 @@ public class QueryBuilder
                     .addAll(clauses)
                     .add(additionalPredicate.get().getExpression())
                     .build();
+
+            /*  We are passing JdbcTypeHandle as null and later on getting the columnMapping based on presto type itself since there is no way of getting the JdbcTypeHandle at this place. JdbcTypeHandle can be fetched only from JdbcColumnHandle, and we do not have that object in this lambda. The accumulator has no good use since the corresponding function mapping is not rich enough currently and also addition of accumulator results in duplicate where clauses which does not solve any purpose (at least for [equals operator](https://github.com/prestodb/presto/blob/e1f8b4b7adcbec565215b4d81e688f76634db6ed/presto-base-jdbc/src/main/java/com/facebook/presto/plugin/jdbc/optimization/function/OperatorTranslators.java#L49) ).
+                The basic idea behind introducing ColumnMapping was to cater to requirements wherein we want to have control over the writeFunctions. This is particularly useful where we try to map some presto type to some other presto type (e.g array type mapped to json) or for mapping unsupported types to string. The visitFilter method in JdbcComputePushdown() is responsible for creating additionalPredicates. The where clause passed in the query ultimately needs to go through the functionMapping [here](https://github.com/prestodb/presto/blob/e1f8b4b7adcbec565215b4d81e688f76634db6ed/presto-expressions/src/main/java/com/facebook/presto/expressions/translator/FunctionTranslator.java#L49) as part of visitFilter execution.
+                The idea here is functionMapping contains standard operators on standard presto types (currently only bigint) and any new functions added will also mostly cater to other standard types, and it seems very unlikely that some user is trying to map array type to json type along with having where clause on this array type itself. Or some user is trying to map some unsupported type as string and trying to use this unsupported type in where clause as well. https://github.com/trinodb/trino/pull/186#issuecomment-462114999 also suggest that these non standard types are only supported to be able to fetch the data for analytics purpose, and we do not intend to have any additional support for them.
+                So the current code works well until any of above situations arises and more functions are added in presto which belong to these non standard types for row expression translation.
+            */
             accumulator.addAll(additionalPredicate.get().getBoundConstantValues().stream()
-                    .map(constantExpression -> new TypeAndValue(constantExpression.getType(), constantExpression.getValue()))
+                    .map(constantExpression -> new TypeAndValue(constantExpression.getType(), constantExpression.getValue(), null))
                     .collect(ImmutableList.toImmutableList()));
         }
         if (!clauses.isEmpty()) {
             sql.append(" WHERE ")
                     .append(Joiner.on(" AND ").join(clauses));
         }
-        sql.append(String.format("/* %s : %s */", session.getUser(), session.getQueryId()));
+        sql.append(format("/* %s : %s */", session.getUser(), session.getQueryId()));
         PreparedStatement statement = client.getPreparedStatement(session, connection, sql.toString());
 
         for (int i = 0; i < accumulator.size(); i++) {
             TypeAndValue typeAndValue = accumulator.get(i);
-            if (typeAndValue.getType().equals(BigintType.BIGINT)) {
-                statement.setLong(i + 1, (long) typeAndValue.getValue());
+            int parameterIndex = i + 1;
+            Type type = typeAndValue.getType();
+            WriteFunction writeFunction = getWriteFunction(typeAndValue.getTypeHandle(), client, session, type);
+            Class<?> javaType = type.getJavaType();
+            Object value = typeAndValue.getValue();
+            if (javaType == boolean.class) {
+                ((BooleanWriteFunction) writeFunction).set(statement, parameterIndex, (boolean) value);
             }
-            else if (typeAndValue.getType().equals(IntegerType.INTEGER)) {
-                statement.setInt(i + 1, ((Number) typeAndValue.getValue()).intValue());
+            else if (javaType == double.class) {
+                ((DoubleWriteFunction) writeFunction).set(statement, parameterIndex, (double) value);
             }
-            else if (typeAndValue.getType().equals(SmallintType.SMALLINT)) {
-                statement.setShort(i + 1, ((Number) typeAndValue.getValue()).shortValue());
+            else if (javaType == long.class) {
+                ((LongWriteFunction) writeFunction).set(statement, parameterIndex, (long) value);
             }
-            else if (typeAndValue.getType().equals(TinyintType.TINYINT)) {
-                statement.setByte(i + 1, ((Number) typeAndValue.getValue()).byteValue());
-            }
-            else if (typeAndValue.getType().equals(DoubleType.DOUBLE)) {
-                statement.setDouble(i + 1, (double) typeAndValue.getValue());
-            }
-            else if (typeAndValue.getType().equals(RealType.REAL)) {
-                statement.setFloat(i + 1, intBitsToFloat(((Number) typeAndValue.getValue()).intValue()));
-            }
-            else if (typeAndValue.getType().equals(BooleanType.BOOLEAN)) {
-                statement.setBoolean(i + 1, (boolean) typeAndValue.getValue());
-            }
-            else if (typeAndValue.getType().equals(DateType.DATE)) {
-                long millis = DAYS.toMillis((long) typeAndValue.getValue());
-                statement.setDate(i + 1, new Date(UTC.getMillisKeepLocal(DateTimeZone.getDefault(), millis)));
-            }
-            else if (typeAndValue.getType().equals(TimeType.TIME)) {
-                statement.setTime(i + 1, new Time((long) typeAndValue.getValue()));
-            }
-            else if (typeAndValue.getType().equals(TimeWithTimeZoneType.TIME_WITH_TIME_ZONE)) {
-                statement.setTime(i + 1, new Time(unpackMillisUtc((long) typeAndValue.getValue())));
-            }
-            else if (typeAndValue.getType().equals(TimestampType.TIMESTAMP)) {
-                statement.setTimestamp(i + 1, new Timestamp((long) typeAndValue.getValue()));
-            }
-            else if (typeAndValue.getType().equals(TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE)) {
-                statement.setTimestamp(i + 1, new Timestamp(unpackMillisUtc((long) typeAndValue.getValue())));
-            }
-            else if (typeAndValue.getType() instanceof VarcharType) {
-                statement.setString(i + 1, ((Slice) typeAndValue.getValue()).toStringUtf8());
-            }
-            else if (typeAndValue.getType() instanceof CharType) {
-                statement.setString(i + 1, ((Slice) typeAndValue.getValue()).toStringUtf8());
+            else if (javaType == Slice.class) {
+                ((SliceWriteFunction) writeFunction).set(statement, parameterIndex, (Slice) value);
             }
             else {
-                throw new UnsupportedOperationException("Can't handle type: " + typeAndValue.getType());
+                try {
+                    ((ObjectWriteFunction) writeFunction).set(statement, parameterIndex, value);
+                }
+                catch (SQLException e) {
+                    throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
+                }
             }
         }
-
         return statement;
     }
 
@@ -232,7 +225,7 @@ public class QueryBuilder
                 .collect(joining(", "));
     }
 
-    private static boolean isAcceptedType(Type type)
+    protected boolean isAcceptedType(Type type)
     {
         Type validType = requireNonNull(type, "type is null");
         return validType.equals(BigintType.BIGINT) ||
@@ -251,6 +244,18 @@ public class QueryBuilder
                 validType instanceof CharType;
     }
 
+    private WriteFunction getWriteFunction(JdbcTypeHandle typeHandle, JdbcClient client, ConnectorSession session, Type type)
+    {
+        if (typeHandle != null) {
+            return client.toPrestoType(session, typeHandle)
+                    .orElseThrow(() -> new VerifyException(format("Unsupported type %s with handle %s", type, typeHandle)))
+                    .getWriteFunction();
+        }
+        return getColumnMappingFromPrestoType(type)
+                .orElseThrow(() -> new VerifyException(format("Unsupported type %s for adding in accumulators", type)))
+                .getWriteFunction();
+    }
+
     private List<String> toConjuncts(List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> tupleDomain, List<TypeAndValue> accumulator)
     {
         ImmutableList.Builder<String> builder = ImmutableList.builder();
@@ -259,14 +264,14 @@ public class QueryBuilder
             if (isAcceptedType(type)) {
                 Domain domain = tupleDomain.getDomains().get().get(column);
                 if (domain != null) {
-                    builder.add(toPredicate(column.getColumnName(), domain, type, accumulator));
+                    builder.add(toPredicate(column.getColumnName(), domain, column, accumulator));
                 }
             }
         }
         return builder.build();
     }
 
-    private String toPredicate(String columnName, Domain domain, Type type, List<TypeAndValue> accumulator)
+    private String toPredicate(String columnName, Domain domain, JdbcColumnHandle columnHandle, List<TypeAndValue> accumulator)
     {
         checkArgument(domain.getType().isOrderable(), "Domain type must be orderable");
 
@@ -288,10 +293,10 @@ public class QueryBuilder
             else {
                 List<String> rangeConjuncts = new ArrayList<>();
                 if (!range.isLowUnbounded()) {
-                    rangeConjuncts.add(toPredicate(columnName, range.isLowInclusive() ? ">=" : ">", range.getLowBoundedValue(), type, accumulator));
+                    rangeConjuncts.add(toPredicate(columnName, range.isLowInclusive() ? ">=" : ">", range.getLowBoundedValue(), columnHandle, accumulator));
                 }
                 if (!range.isHighUnbounded()) {
-                    rangeConjuncts.add(toPredicate(columnName, range.isHighInclusive() ? "<=" : "<", range.getHighBoundedValue(), type, accumulator));
+                    rangeConjuncts.add(toPredicate(columnName, range.isHighInclusive() ? "<=" : "<", range.getHighBoundedValue(), columnHandle, accumulator));
                 }
                 // If rangeConjuncts is null, then the range was ALL, which should already have been checked for
                 checkState(!rangeConjuncts.isEmpty());
@@ -301,11 +306,11 @@ public class QueryBuilder
 
         // Add back all of the possible single values either as an equality or an IN predicate
         if (singleValues.size() == 1) {
-            disjuncts.add(toPredicate(columnName, "=", getOnlyElement(singleValues), type, accumulator));
+            disjuncts.add(toPredicate(columnName, "=", getOnlyElement(singleValues), columnHandle, accumulator));
         }
         else if (singleValues.size() > 1) {
             for (Object value : singleValues) {
-                bindValue(value, type, accumulator);
+                bindValue(value, columnHandle, accumulator);
             }
             String values = Joiner.on(",").join(nCopies(singleValues.size(), "?"));
             disjuncts.add(quote(columnName) + " IN (" + values + ")");
@@ -320,9 +325,9 @@ public class QueryBuilder
         return "(" + Joiner.on(" OR ").join(disjuncts) + ")";
     }
 
-    private String toPredicate(String columnName, String operator, Object value, Type type, List<TypeAndValue> accumulator)
+    private String toPredicate(String columnName, String operator, Object value, JdbcColumnHandle columnHandle, List<TypeAndValue> accumulator)
     {
-        bindValue(value, type, accumulator);
+        bindValue(value, columnHandle, accumulator);
         return quote(columnName) + " " + operator + " ?";
     }
 
@@ -337,9 +342,9 @@ public class QueryBuilder
         return identifierQuote + name + identifierQuote;
     }
 
-    private static void bindValue(Object value, Type type, List<TypeAndValue> accumulator)
+    private static void bindValue(Object value, JdbcColumnHandle columnHandle, List<TypeAndValue> accumulator)
     {
-        checkArgument(isAcceptedType(type), "Can't handle type: %s", type);
-        accumulator.add(new TypeAndValue(type, value));
+        Type type = columnHandle.getColumnType();
+        accumulator.add(new TypeAndValue(type, value, columnHandle.getJdbcTypeHandle()));
     }
 }
