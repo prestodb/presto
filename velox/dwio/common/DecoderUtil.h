@@ -105,7 +105,7 @@ inline void processFixedFilter(
     ; /* no values passed, no action*/
   } else if (word == simd::allSetBitMask<T>()) {
     loadIndices(0).store_unaligned(filterHits + numValues);
-    if (is16) {
+    if (is16 && width > kIndexLaneCount) {
       // If 16 values in 'values', copy the next 8x 32 bit indices.
       loadIndices(1).store_unaligned(filterHits + numValues + kIndexLaneCount);
     }
