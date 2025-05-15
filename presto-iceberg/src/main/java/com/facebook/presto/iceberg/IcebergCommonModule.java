@@ -35,6 +35,9 @@ import com.facebook.presto.hive.OrcFileWriterConfig;
 import com.facebook.presto.hive.OrcFileWriterFactory;
 import com.facebook.presto.hive.ParquetFileWriterConfig;
 import com.facebook.presto.hive.SortingFileWriterConfig;
+import com.facebook.presto.hive.azure.AzureConfigurationInitializer;
+import com.facebook.presto.hive.azure.HiveAzureConfig;
+import com.facebook.presto.hive.azure.HiveAzureConfigurationInitializer;
 import com.facebook.presto.hive.cache.HiveCachingHdfsConfiguration;
 import com.facebook.presto.hive.datasink.DataSinkFactory;
 import com.facebook.presto.hive.datasink.OutputStreamDataSinkFactory;
@@ -134,7 +137,9 @@ public class IcebergCommonModule
         configBinder(binder).bindConfig(FileMergeCacheConfig.class);
         binder.bind(CacheStats.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(HiveGcsConfig.class);
+        configBinder(binder).bindConfig(HiveAzureConfig.class);
         binder.bind(GcsConfigurationInitializer.class).to(HiveGcsConfigurationInitializer.class).in(Scopes.SINGLETON);
+        binder.bind(AzureConfigurationInitializer.class).to(HiveAzureConfigurationInitializer.class).in(Scopes.SINGLETON);
         binder.bind(HdfsConfiguration.class).annotatedWith(ForMetastoreHdfsEnvironment.class).to(HiveCachingHdfsConfiguration.class).in(Scopes.SINGLETON);
         binder.bind(HdfsConfiguration.class).annotatedWith(ForCachingFileSystem.class).to(HiveHdfsConfiguration.class).in(Scopes.SINGLETON);
 

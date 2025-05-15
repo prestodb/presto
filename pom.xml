@@ -216,6 +216,22 @@
         <module>presto-function-server</module>
     </modules>
 
+    <repositories>
+<!--        <repository>-->
+<!--            <id>central</id>-->
+<!--            <name>Central Repository</name>-->
+<!--            <url>https://repo.maven.apache.org/maven2</url>-->
+<!--            <layout>default</layout>-->
+<!--            <snapshots>-->
+<!--                <enabled>true</enabled>-->
+<!--            </snapshots>-->
+<!--        </repository>-->
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </repository>
+    </repositories>
+
     <dependencyManagement>
         <dependencies>
 
@@ -229,6 +245,12 @@
                 <groupId>org.codehaus.plexus</groupId>
                 <artifactId>plexus-utils</artifactId>
                 <version>3.6.0</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.github.imjalpreet</groupId>
+                <artifactId>presto-hadoop-apache2</artifactId>
+                <version>upgrade_3.4.1_15</version>
             </dependency>
 
             <dependency>
@@ -994,11 +1016,11 @@
                 <version>2.5.2</version>
             </dependency>
 
-            <dependency>
-                <groupId>com.facebook.presto.hadoop</groupId>
-                <artifactId>hadoop-apache2</artifactId>
-                <version>2.7.4-12</version>
-            </dependency>
+<!--            <dependency>-->
+<!--                <groupId>com.facebook.presto.hadoop</groupId>-->
+<!--                <artifactId>hadoop-apache2</artifactId>-->
+<!--                <version>2.7.4-12</version>-->
+<!--            </dependency>-->
 
             <dependency>
                 <groupId>com.facebook.presto.hive</groupId>
