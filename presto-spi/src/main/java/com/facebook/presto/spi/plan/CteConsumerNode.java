@@ -76,7 +76,7 @@ public final class CteConsumerNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         // this function expects a new instance
-        checkArgument(newChildren.size() == 0, "expected newChildren to contain 0 node");
+        checkArgument(newChildren.isEmpty(), "expected newChildren to contain 0 node");
         return new CteConsumerNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), originalOutputVariables, cteId, originalSource);
     }
 
