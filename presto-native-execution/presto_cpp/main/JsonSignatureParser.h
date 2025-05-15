@@ -25,7 +25,7 @@ namespace facebook::presto {
 
 /// Class to parse json signature files. It only parses the json and creates
 /// the FunctionSignature objects. It does not do the actual registration.
-/// It assumes the input json has the following format:
+/// It assumes the input json has one of the following formats:
 ///
 ///  {
 ///    "udfSignatureMap": {
@@ -43,7 +43,30 @@ namespace facebook::presto {
 ///      ]
 ///    }
 ///  }
-///
+
+/// Or
+
+///  {
+///   "dynamicUdfSignatureMap": {
+///     "sub_dir_name": {
+///       "my_function": [
+///         {
+///           "outputType": "integer",
+///           "entrypoint": "nameOfRegistryFnCall",
+///           "fileName": "nameOfFile",
+///           "paramTypes": [
+///             "integer"
+///           ],
+///           "nameSpace": "presto.default",
+///           "routineCharacteristics": {
+///             ...
+///           }
+///         },
+///       ]
+///     }
+///    }
+///  }
+
 /// TODO: This json definition only supports scalar signatures for now. It also
 /// does not support variadic arguments, type variables, or constant arguments
 /// yet.
@@ -53,17 +76,25 @@ namespace facebook::presto {
 ///   for (const auto& it : JsonSignatureParser(jsonString)) {
 ///     // registration code
 ///   }
+enum class JsonSignatureScope { RemoteUDF, DynamiclibrariesUdf };
+
 class JsonSignatureParser {
  public:
   struct FunctionSignatureItem {
     velox::exec::FunctionSignaturePtr signature;
     std::string schema;
+    std::string nameSpace;
+    std::string entrypoint;
+    std::string fileName;
+    std::string subDirectory;
   };
 
   using TContainer =
       std::unordered_map<std::string, std::vector<FunctionSignatureItem>>;
 
-  explicit JsonSignatureParser(const std::string& input);
+  explicit JsonSignatureParser(
+      const std::string& input,
+      JsonSignatureScope scope = JsonSignatureScope::RemoteUDF);
 
   // Iterator helpers.
   size_t size() const {
@@ -81,6 +112,12 @@ class JsonSignatureParser {
  private:
   /// Parses the top level json parsed.
   void parse(const folly::dynamic& input);
+
+  void parse(const folly::dynamic& input, JsonSignatureScope scope);
+
+  void parseHelper(
+      const folly::dynamic& input,
+      std::optional<std::string> subDirName = std::nullopt);
 
   TContainer signaturesMap_;
 };

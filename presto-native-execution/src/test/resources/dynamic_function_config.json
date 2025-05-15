@@ -1,0 +1,64 @@
+{
+  "udfSignatureMap": {
+    "dylib_sub_dir_name": {
+      "ceil": [
+        {
+          "docString": "",
+          "functionKind": "SCALAR",
+          "outputType": "INTEGER",
+          "entrypoint": "nameOfRegistryFnCall", 
+          "fileName": "nameOfFile",
+          "paramTypes": [
+            "INTEGER"
+          ],
+          "namespace": "presto.default",
+          "overwrite": true,
+          "constraints": "",
+          "routineCharacteristics": {
+            "language": "CPP",
+            "determinism": "DETERMINISTIC",
+            "nullCallClause": "CALLED_ON_NULL_INPUT"
+          }
+        },
+        {
+          "docString": "",
+          "functionKind": "SCALAR",
+          "outputType": "DOUBLE",
+          "entrypoint": "nameOfRegistryFnCall", 
+          "fileName": "nameOfFile2",
+          "paramTypes": [
+            "DOUBLE"
+          ],
+          "catalog": "catalog",
+          "overwrite": true,
+          "constraints": "",
+          "routineCharacteristics": {
+            "language": "CPP",
+            "determinism": "DETERMINISTIC",
+            "nullCallClause": "CALLED_ON_NULL_INPUT"
+          }
+        }
+      ],
+      "concat": [
+        {
+          "docString": "",
+          "functionKind": "SCALAR",
+          "outputType": "VARCHAR",
+          "fileName": "nameOfFile3",
+          "paramTypes": [
+            "VARCHAR",
+            "VARCHAR"
+          ],
+          "catalog": "catalog",
+          "overwrite": true,
+          "constraints": "",
+          "routineCharacteristics": {
+            "language": "CPP",
+            "determinism": "DETERMINISTIC",
+            "nullCallClause": "CALLED_ON_NULL_INPUT"
+          }
+        }
+      ]
+    }
+  }
+}

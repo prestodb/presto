@@ -700,6 +700,12 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kInternalCommunicationJwtExpirationSeconds{
       "internal-communication.jwt.expiration-seconds"};
 
+  /// Optional string containing the path to the plugin directory
+  static constexpr std::string_view kPluginDir{"plugin.dir"};
+  /// Optional string containing the path to the plugin validator config file
+  static constexpr std::string_view kDynamicLibraryValidatorConfig{
+      "plugin.config"};
+
   /// Below are the Presto properties from config.properties that get converted
   /// to their velox counterparts in BaseVeloxQueryConfig and used solely from
   /// BaseVeloxQueryConfig.
@@ -1000,6 +1006,10 @@ class SystemConfig : public ConfigBase {
   bool orderBySpillEnabled() const;
 
   int requestDataSizesMaxWaitSec() const;
+
+  std::string pluginDir() const;
+
+  std::string dynamicLibraryValidatorConfig() const;
 };
 
 /// Provides access to node properties defined in node.properties file.
