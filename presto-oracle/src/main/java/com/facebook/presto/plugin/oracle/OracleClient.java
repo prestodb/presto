@@ -167,4 +167,10 @@ public class OracleClient
         }
         return super.toPrestoType(session, typeHandle);
     }
+
+    @Override
+    public String normalizeIdentifier(ConnectorSession session, String identifier)
+    {
+        return caseSensitiveNameMatchingEnabled ? identifier : identifier.toLowerCase(ENGLISH);
+    }
 }
