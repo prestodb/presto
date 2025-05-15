@@ -33,6 +33,7 @@ import java.sql.SQLException;
 
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 
 public class SqlServerClient
         extends BaseJdbcClient
@@ -83,5 +84,11 @@ public class SqlServerClient
     private static String singleQuote(String literal)
     {
         return "\'" + literal + "\'";
+    }
+
+    @Override
+    public String normalizeIdentifier(ConnectorSession session, String identifier)
+    {
+        return caseSensitiveNameMatchingEnabled ? identifier : identifier.toLowerCase(ENGLISH);
     }
 }

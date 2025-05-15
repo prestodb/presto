@@ -55,6 +55,8 @@ public final class TestGroups
     public static final String HIVE_COERCION = "hive_coercion";
     public static final String CASSANDRA = "cassandra";
     public static final String SQL_SERVER = "sqlserver";
+    public static final String SQL_SERVER_MIXED_CASE_OFF = "sqlserver_mixed_case_off";
+    public static final String SQL_SERVER_MIXED_CASE_ON = "sqlserver-mixed-case-on";
     public static final String LDAP = "ldap";
     public static final String LDAP_CLI = "ldap_cli";
     public static final String SKIP_ON_CDH = "skip_on_cdh";

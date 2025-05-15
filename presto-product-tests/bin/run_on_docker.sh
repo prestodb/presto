@@ -145,6 +145,8 @@ trap terminate INT TERM EXIT
 
 if [[ "$ENVIRONMENT" == "singlenode-sqlserver" ]]; then
   EXTERNAL_SERVICES="hadoop-master sqlserver"
+elif [[ "$ENVIRONMENT" == "singlenode-sqlserver-mixed-case-on" ]]; then
+  EXTERNAL_SERVICES="hadoop-master sqlserver-mixed-case-on"
 elif [[ "$ENVIRONMENT" == "singlenode-ldap" ]]; then
   EXTERNAL_SERVICES="hadoop-master ldapserver"
 elif [[ "$ENVIRONMENT" == "singlenode-mysql" ]]; then
