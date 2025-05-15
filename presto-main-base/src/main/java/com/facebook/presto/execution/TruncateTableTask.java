@@ -47,7 +47,7 @@ public class TruncateTableTask
     public ListenableFuture<?> execute(TruncateTable statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector, String query)
     {
         MetadataResolver metadataResolver = metadata.getMetadataResolver(session);
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTableName());
+        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTableName(), metadata);
 
         if (metadataResolver.isMaterializedView(tableName)) {
             throw new SemanticException(NOT_SUPPORTED, statement, "Cannot truncate a materialized view");
