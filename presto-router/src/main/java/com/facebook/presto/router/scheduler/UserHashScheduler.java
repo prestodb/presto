@@ -14,6 +14,7 @@
 package com.facebook.presto.router.scheduler;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.router.cluster.RequestInfo;
 
 import java.net.URI;
 import java.util.List;
@@ -27,13 +28,13 @@ public class UserHashScheduler
     private static final Logger log = Logger.get(UserHashScheduler.class);
 
     @Override
-    public Optional<URI> getDestination(String user)
+    public Optional<URI> getDestination(RequestInfo requestInfo, String statement)
     {
         try {
-            return Optional.of(candidates.get(user.hashCode() % candidates.size()));
+            return Optional.of(candidates.get(requestInfo.getUser().hashCode() % candidates.size()));
         }
         catch (ArithmeticException e) {
-            log.warn(e, "Error getting destination for user " + user);
+            log.warn(e, "Error getting destination for user " + requestInfo.getUser());
             return Optional.empty();
         }
     }

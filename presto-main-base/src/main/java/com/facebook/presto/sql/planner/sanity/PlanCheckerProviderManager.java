@@ -65,8 +65,6 @@ public class PlanCheckerProviderManager
     public void loadPlanCheckerProviders(NodeManager nodeManager)
             throws IOException
     {
-        PlanCheckerProviderContext planCheckerProviderContext = new PlanCheckerProviderContext(simplePlanFragmentSerde, nodeManager);
-
         for (File file : listFiles(configDirectory)) {
             if (file.isFile() && file.getName().endsWith(".properties")) {
                 // unlike function namespaces and connectors, we don't have a concept of catalog
@@ -75,17 +73,23 @@ public class PlanCheckerProviderManager
                 Map<String, String> properties = new HashMap<>(loadProperties(file));
                 checkState(!isNullOrEmpty(properties.get(PLAN_CHECKER_PROVIDER_NAME)),
                         "Plan checker configuration %s does not contain %s",
-                        file.getAbsoluteFile(),
-                        PLAN_CHECKER_PROVIDER_NAME);
+                        file.getAbsoluteFile());
                 String planCheckerProviderName = properties.remove(PLAN_CHECKER_PROVIDER_NAME);
-                log.info("-- Loading plan checker provider [%s] --", planCheckerProviderName);
-                PlanCheckerProviderFactory providerFactory = providerFactories.get(planCheckerProviderName);
-                checkState(providerFactory != null,
-                        "No planCheckerProviderFactory found for '%s'. Available factories were %s", planCheckerProviderName, providerFactories.keySet());
-                providers.addIfAbsent(providerFactory.create(properties, planCheckerProviderContext));
-                log.info("-- Added plan checker provider [%s] --", planCheckerProviderName);
+                loadPlanCheckerProvider(planCheckerProviderName, nodeManager, properties);
             }
         }
+    }
+
+    public void loadPlanCheckerProvider(String planCheckerProviderName, NodeManager nodeManager, Map<String, String> properties)
+    {
+        PlanCheckerProviderContext planCheckerProviderContext = new PlanCheckerProviderContext(simplePlanFragmentSerde, nodeManager);
+        log.info("-- Loading plan checker provider [%s] --", planCheckerProviderName);
+        PlanCheckerProviderFactory providerFactory = providerFactories.get(planCheckerProviderName);
+
+        checkState(providerFactory != null,
+                "No planCheckerProviderFactory found for '%s'. Available factories were %s", planCheckerProviderName, providerFactories.keySet());
+        providers.addIfAbsent(providerFactory.create(properties, planCheckerProviderContext));
+        log.info("-- Added plan checker provider [%s] --", planCheckerProviderName);
     }
 
     private static List<File> listFiles(File dir)

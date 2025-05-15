@@ -2,7 +2,7 @@
   "groups": [
     {
       "name": "all",
-      "members": []
+      "members": ["http://localhost:8081"]
     }
   ],
   "selectors": [
@@ -10,5 +10,6 @@
       "targetGroup": "all"
     }
   ],
-  "scheduler": "RANDOM_CHOICE"
+  "scheduler": "TEST_SCHEDULER",
+  "validators": ["http://localhost:8081"]
 }

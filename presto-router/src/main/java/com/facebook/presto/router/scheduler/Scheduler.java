@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.router.scheduler;
 
+import com.facebook.presto.router.cluster.RequestInfo;
 import com.facebook.presto.spi.PrestoException;
 
 import java.net.URI;
@@ -28,8 +29,7 @@ public interface Scheduler
      * Schedules a request from a user to a concrete candidate. Returns the
      * URI of this candidate.
      */
-    Optional<URI> getDestination(String user);
-
+    Optional<URI> getDestination(RequestInfo requestInfo, String statement);
     /**
      * Sets the candidates with the list of URIs for scheduling.
      */

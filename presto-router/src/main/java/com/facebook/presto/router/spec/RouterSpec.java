@@ -36,6 +36,7 @@ public class RouterSpec
     private final Optional<SchedulerType> schedulerType;
     private final Optional<URI> predictorUri;
     private final Optional<String> userCredentials;
+    private final Optional<List<URI>> validatorUris;
 
     private static final Logger log = Logger.get(RouterSpec.class);
 
@@ -45,13 +46,15 @@ public class RouterSpec
             @JsonProperty("selectors") List<SelectorRuleSpec> selectors,
             @JsonProperty("scheduler") Optional<SchedulerType> schedulerType,
             @JsonProperty("predictor") Optional<URI> predictorUri,
-            @JsonProperty("user-credentials") Optional<String> userCredentials)
+            @JsonProperty("user-credentials") Optional<String> userCredentials,
+            @JsonProperty("validators") Optional<List<URI>> validatorUris)
     {
         this.groups = ImmutableList.copyOf(requireNonNull(groups, "groups is null"));
         this.selectors = ImmutableList.copyOf(requireNonNull(selectors, "selectors is null"));
         this.schedulerType = requireNonNull(schedulerType, "scheduleType is null");
         this.predictorUri = requireNonNull(predictorUri, "predictorUri is null");
         this.userCredentials = requireNonNull(userCredentials, "userCredentials are null");
+        this.validatorUris = requireNonNull(validatorUris, "validatorUris is null");
 
         // make sure no duplicate names in group definition
         checkArgument(groups.stream()
@@ -93,5 +96,11 @@ public class RouterSpec
     public Optional<String> getUserCredentials()
     {
         return userCredentials;
+    }
+
+    @JsonProperty
+    public Optional<List<URI>> getValidatorUris()
+    {
+        return validatorUris;
     }
 }

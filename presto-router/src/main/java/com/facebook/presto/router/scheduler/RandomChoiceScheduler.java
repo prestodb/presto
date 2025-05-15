@@ -14,6 +14,7 @@
 package com.facebook.presto.router.scheduler;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.router.cluster.RequestInfo;
 
 import java.net.URI;
 import java.util.List;
@@ -29,13 +30,13 @@ public class RandomChoiceScheduler
     private static final Logger log = Logger.get(RandomChoiceScheduler.class);
 
     @Override
-    public Optional<URI> getDestination(String user)
+    public Optional<URI> getDestination(RequestInfo requestInfo, String statement)
     {
         try {
             return Optional.of(candidates.get(RANDOM.nextInt(candidates.size())));
         }
         catch (IllegalArgumentException e) {
-            log.warn(e, "Error getting destination for user " + user);
+            log.warn(e, "Error getting destination for user " + requestInfo.getUser());
             return Optional.empty();
         }
     }
