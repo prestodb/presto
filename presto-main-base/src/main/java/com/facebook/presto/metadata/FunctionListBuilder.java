@@ -18,6 +18,7 @@ import com.facebook.presto.operator.scalar.annotations.ScalarFromAnnotationsPars
 import com.facebook.presto.operator.scalar.annotations.SqlInvokedScalarFromAnnotationsParser;
 import com.facebook.presto.operator.window.WindowAnnotationsParser;
 import com.facebook.presto.spi.function.SqlFunction;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.function.WindowFunction;
 import com.google.common.collect.ImmutableList;
 
@@ -29,6 +30,7 @@ import static java.util.Objects.requireNonNull;
 public class FunctionListBuilder
 {
     private final List<SqlFunction> functions = new ArrayList<>();
+    private final List<SqlInvokedFunction> scalarSqlInvokedFunctions = new ArrayList<>();
 
     public FunctionListBuilder window(Class<? extends WindowFunction> clazz)
     {
@@ -62,13 +64,13 @@ public class FunctionListBuilder
 
     public FunctionListBuilder sqlInvokedScalar(Class<?> clazz)
     {
-        functions.addAll(SqlInvokedScalarFromAnnotationsParser.parseFunctionDefinition(clazz));
+        scalarSqlInvokedFunctions.addAll(SqlInvokedScalarFromAnnotationsParser.parseFunctionDefinition(clazz));
         return this;
     }
 
     public FunctionListBuilder sqlInvokedScalars(Class<?> clazz)
     {
-        functions.addAll(SqlInvokedScalarFromAnnotationsParser.parseFunctionDefinitions(clazz));
+        scalarSqlInvokedFunctions.addAll(SqlInvokedScalarFromAnnotationsParser.parseFunctionDefinitions(clazz));
         return this;
     }
 
@@ -103,5 +105,10 @@ public class FunctionListBuilder
     public List<SqlFunction> getFunctions()
     {
         return ImmutableList.copyOf(functions);
+    }
+
+    public List<SqlInvokedFunction> getScalarSqlInvokedFunctions()
+    {
+        return ImmutableList.copyOf(scalarSqlInvokedFunctions);
     }
 }

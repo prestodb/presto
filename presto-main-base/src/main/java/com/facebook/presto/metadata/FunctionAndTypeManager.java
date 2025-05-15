@@ -462,6 +462,10 @@ public class FunctionAndTypeManager
                     .collect(toImmutableList()));
         }
 
+        // Add sql invoked scalar functions always
+        functions.addAll(
+                ImmutableList.copyOf(builtInTypeAndFunctionNamespaceManager.getSqlInvokedFunctions().values()));
+
         return functions.build().stream()
                 .filter(function -> function.getVisibility() == PUBLIC ||
                         (function.getVisibility() == EXPERIMENTAL && isExperimentalFunctionsEnabled(session)))
@@ -787,6 +791,12 @@ public class FunctionAndTypeManager
             return functionNamespaceManager.getFunctionHandle(transactionHandle, match.get());
         }
 
+        // All the sql invoked scalar functions will be resolved by the builtInTypeAndFunctionNamespaceManager
+        match = matchSqlInvokedScalarFunction(functionName, parameterTypes);
+        if (match.isPresent()) {
+            return builtInTypeAndFunctionNamespaceManager.getFunctionHandle(transactionHandle, match.get());
+        }
+
         if (functionName.getObjectName().startsWith(MAGIC_LITERAL_FUNCTION_PREFIX)) {
             // extract type from function functionName
             String typeName = functionName.getObjectName().substring(MAGIC_LITERAL_FUNCTION_PREFIX.length());
@@ -801,6 +811,18 @@ public class FunctionAndTypeManager
         }
 
         throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(functionName, parameterTypes, candidates));
+    }
+
+    private Optional<Signature> matchSqlInvokedScalarFunction(QualifiedObjectName functionName, List<TypeSignatureProvider> parameterTypes)
+    {
+        // All the sql invoked scalar functions reside in the JAVA_BUILTIN_NAMESPACE.
+        QualifiedObjectName name = QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, functionName.getObjectName());
+        if (builtInTypeAndFunctionNamespaceManager.getSqlInvokedFunctions().containsKey(name)) {
+            Collection<? extends SqlFunction> candidates =
+                    builtInTypeAndFunctionNamespaceManager.getSqlInvokedFunctions().get(name);
+            return functionSignatureMatcher.match(candidates, parameterTypes, true);
+        }
+        return Optional.empty();
     }
 
     private FunctionHandle resolveBuiltInFunction(QualifiedObjectName functionName, List<TypeSignatureProvider> parameterTypes)
@@ -844,16 +866,54 @@ public class FunctionAndTypeManager
             throw new PrestoException(FUNCTION_NOT_FOUND, format("Cannot find function namespace for signature '%s'", functionName));
         }
 
-        Collection<SqlFunction> candidates = (Collection<SqlFunction>) functionNamespaceManager.get().getFunctions(Optional.empty(), functionName);
+        Collection<? extends SqlFunction> candidates = functionNamespaceManager.get().getFunctions(Optional.empty(), functionName);
+        Optional<SpecializedFunctionKey> functionKey = getSpecializedFunctionKey(signature, candidates);
+        if (functionKey.isPresent()) {
+            return functionKey.get();
+        }
 
-        // search for exact match
+        // Have another pass for sql invoked scalar functions
+        if (builtInTypeAndFunctionNamespaceManager.getSqlInvokedFunctions().containsKey(signature.getName())) {
+            candidates =
+                    builtInTypeAndFunctionNamespaceManager.getSqlInvokedFunctions().get(signature.getName());
+            Optional<SpecializedFunctionKey> sqlInvokedScalarFunctionKey = getSpecializedFunctionKey(signature, candidates);
+            if (sqlInvokedScalarFunctionKey.isPresent()) {
+                return sqlInvokedScalarFunctionKey.get();
+            }
+        }
+
+        // One final check for magic literal functions.
+        // Magic literal functions are only present in the JAVA_BUILTIN_NAMESPACE function namespace.
+        if (!signature.getName().getCatalogSchemaName().equals(JAVA_BUILTIN_NAMESPACE)) {
+            throw new PrestoException(FUNCTION_IMPLEMENTATION_MISSING, format("%s not found", signature));
+        }
+        return builtInTypeAndFunctionNamespaceManager.doGetSpecializedFunctionKeyForMagicLiteralFunctions(signature, this);
+    }
+
+    public CatalogSchemaName configureDefaultNamespace(String defaultNamespacePrefixString)
+    {
+        if (!defaultNamespacePrefixString.matches(DEFAULT_NAMESPACE_PREFIX_PATTERN.pattern())) {
+            throw new PrestoException(GENERIC_USER_ERROR, format("Default namespace prefix string should be in the form of 'catalog.schema', found: %s", defaultNamespacePrefixString));
+        }
+        String[] catalogSchemaNameString = defaultNamespacePrefixString.split("\\.");
+        return new CatalogSchemaName(catalogSchemaNameString[0], catalogSchemaNameString[1]);
+    }
+
+    private Map<String, ParametricType> getServingTypeManagerParametricTypes()
+    {
+        return servingTypeManager.get().getParametricTypes().stream()
+                .collect(toImmutableMap(ParametricType::getName, parametricType -> parametricType));
+    }
+
+    private Optional<SpecializedFunctionKey> getSpecializedFunctionKey(Signature signature, Collection<? extends SqlFunction> candidates)
+    {
         Type returnType = getType(signature.getReturnType());
         List<TypeSignatureProvider> argumentTypeSignatureProviders = fromTypeSignatures(signature.getArgumentTypes());
         for (SqlFunction candidate : candidates) {
             Optional<BoundVariables> boundVariables = new SignatureBinder(this, candidate.getSignature(), false)
                     .bindVariables(argumentTypeSignatureProviders, returnType);
             if (boundVariables.isPresent()) {
-                return new SpecializedFunctionKey(candidate, boundVariables.get(), argumentTypeSignatureProviders.size());
+                return Optional.of(new SpecializedFunctionKey(candidate, boundVariables.get(), argumentTypeSignatureProviders.size()));
             }
         }
 
@@ -883,30 +943,9 @@ public class FunctionAndTypeManager
                 continue;
             }
 
-            return new SpecializedFunctionKey(candidate, boundVariables.get(), argumentTypes.size());
+            return Optional.of(new SpecializedFunctionKey(candidate, boundVariables.get(), argumentTypes.size()));
         }
-
-        // One final check for magic literal functions.
-        // Magic literal functions are only present in the JAVA_BUILTIN_NAMESPACE function namespace.
-        if (!signature.getName().getCatalogSchemaName().equals(JAVA_BUILTIN_NAMESPACE)) {
-            throw new PrestoException(FUNCTION_IMPLEMENTATION_MISSING, format("%s not found", signature));
-        }
-        return builtInTypeAndFunctionNamespaceManager.doGetSpecializedFunctionKeyForMagicLiteralFunctions(signature, this);
-    }
-
-    public CatalogSchemaName configureDefaultNamespace(String defaultNamespacePrefixString)
-    {
-        if (!defaultNamespacePrefixString.matches(DEFAULT_NAMESPACE_PREFIX_PATTERN.pattern())) {
-            throw new PrestoException(GENERIC_USER_ERROR, format("Default namespace prefix string should be in the form of 'catalog.schema', found: %s", defaultNamespacePrefixString));
-        }
-        String[] catalogSchemaNameString = defaultNamespacePrefixString.split("\\.");
-        return new CatalogSchemaName(catalogSchemaNameString[0], catalogSchemaNameString[1]);
-    }
-
-    private Map<String, ParametricType> getServingTypeManagerParametricTypes()
-    {
-        return servingTypeManager.get().getParametricTypes().stream()
-                .collect(toImmutableMap(ParametricType::getName, parametricType -> parametricType));
+        return Optional.empty();
     }
 
     private static class FunctionResolutionCacheKey
