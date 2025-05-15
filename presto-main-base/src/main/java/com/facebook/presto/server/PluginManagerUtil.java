@@ -14,6 +14,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.resolver.ArtifactResolver;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.CoordinatorPlugin;
 import com.facebook.presto.spi.Plugin;
@@ -21,9 +22,8 @@ import com.facebook.presto.spi.RouterPlugin;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
-import io.airlift.resolver.ArtifactResolver;
-import io.airlift.resolver.DefaultArtifact;
-import org.sonatype.aether.artifact.Artifact;
+import org.eclipse.aether.artifact.Artifact;
+import org.eclipse.aether.artifact.DefaultArtifact;
 
 import java.io.File;
 import java.io.IOException;
