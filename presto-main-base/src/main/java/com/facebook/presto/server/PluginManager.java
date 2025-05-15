@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.airlift.configuration.ConfigurationFactory;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.ClientRequestFilterManager;
@@ -70,10 +71,12 @@ import javax.inject.Inject;
 
 import java.io.File;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.server.PluginManagerUtil.SPI_PACKAGES;
+import static com.facebook.presto.server.PluginManagerUtil.isPluginEnabled;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -111,6 +114,7 @@ public class PluginManager
     private final PlanCheckerProviderManager planCheckerProviderManager;
     private final ExpressionOptimizerManager expressionOptimizerManager;
     private final PluginInstaller pluginInstaller;
+    private final Map<String, String> properties;
 
     @Inject
     public PluginManager(
@@ -136,7 +140,8 @@ public class PluginManager
             NodeStatusNotificationManager nodeStatusNotificationManager,
             ClientRequestFilterManager clientRequestFilterManager,
             PlanCheckerProviderManager planCheckerProviderManager,
-            ExpressionOptimizerManager expressionOptimizerManager)
+            ExpressionOptimizerManager expressionOptimizerManager,
+            ConfigurationFactory configurationFactory)
     {
         requireNonNull(nodeInfo, "nodeInfo is null");
         requireNonNull(config, "config is null");
@@ -173,6 +178,7 @@ public class PluginManager
         this.planCheckerProviderManager = requireNonNull(planCheckerProviderManager, "planCheckerProviderManager is null");
         this.expressionOptimizerManager = requireNonNull(expressionOptimizerManager, "expressionManager is null");
         this.pluginInstaller = new MainPluginInstaller(this);
+        this.properties = requireNonNull(configurationFactory.getProperties(), "configurationFactory is null");
     }
 
     public void loadPlugins()
@@ -194,6 +200,10 @@ public class PluginManager
 
     public void installPlugin(Plugin plugin)
     {
+        if (!isPluginEnabled(properties, plugin.getRequiredConfigs())) {
+            return;
+        }
+
         for (BlockEncoding blockEncoding : plugin.getBlockEncodings()) {
             log.info("Registering block encoding %s", blockEncoding.getName());
             blockEncodingManager.addBlockEncoding(blockEncoding);
@@ -311,6 +321,10 @@ public class PluginManager
 
     public void installCoordinatorPlugin(CoordinatorPlugin plugin)
     {
+        if (!isPluginEnabled(properties, plugin.getRequiredConfigs())) {
+            return;
+        }
+
         for (FunctionNamespaceManagerFactory functionNamespaceManagerFactory : plugin.getFunctionNamespaceManagerFactories()) {
             log.info("Registering function namespace manager %s", functionNamespaceManagerFactory.getName());
             metadata.getFunctionAndTypeManager().addFunctionNamespaceFactory(functionNamespaceManagerFactory);
