@@ -5185,6 +5185,24 @@ TEST_F(TableScanTest, readFlatMapAsStruct) {
   AssertQueryBuilder(plan).split(split).assertResults(expected);
 }
 
+TEST_F(TableScanTest, flatMapReadOffset) {
+  auto vector = makeRowVector(
+      {makeNullableMapVector<int64_t, int64_t>({std::nullopt, {{{1, 2}}}})});
+  auto schema = asRowType(vector->type());
+  auto config = std::make_shared<dwrf::Config>();
+  config->set(dwrf::Config::FLATTEN_MAP, true);
+  config->set<const std::vector<uint32_t>>(dwrf::Config::MAP_FLAT_COLS, {0});
+  auto file = TempFilePath::create();
+  writeToFile(file->getPath(), {vector}, config);
+  auto plan = PlanBuilder().tableScan(schema, {"c0 is not null"}).planNode();
+  auto split = makeHiveConnectorSplit(file->getPath());
+  auto expected = makeRowVector({makeMapVector<int64_t, int64_t>({{{1, 2}}})});
+  AssertQueryBuilder(plan)
+      .split(split)
+      .config(QueryConfig::kMaxOutputBatchRows, "1")
+      .assertResults(expected);
+}
+
 TEST_F(TableScanTest, dynamicFilters) {
   // Make sure filters on same column from multiple downstream operators are
   // merged properly without overwriting each other.

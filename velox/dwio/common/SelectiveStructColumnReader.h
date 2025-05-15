@@ -302,6 +302,8 @@ void SelectiveFlatMapColumnReaderHelper<T, KeyNode, FormatData>::read(
       for (auto* child : reader_.children_) {
         child->addParentNulls(offset, mapNulls, rows);
       }
+      reader_.lazyVectorReadOffset_ = offset;
+      reader_.readOffset_ = offset + rows.back() + 1;
       return;
     }
     activeRows = reader_.outputRows_;
