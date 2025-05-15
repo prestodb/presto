@@ -79,7 +79,7 @@ public class TestHealthChecks
                 new JaxrsModule(true),
                 new ServerSecurityModule(),
                 new ClientRequestFilterModule(),
-                new RouterModule());
+                new RouterModule(Optional.empty()));
 
         Injector injector = app.doNotInitializeLogging()
                 .setRequiredConfigurationProperty("router.config-file", tempFile.getAbsolutePath())
