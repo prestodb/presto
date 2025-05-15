@@ -11,23 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.plugin.jdbc;
+package com.facebook.presto.plugin.jdbc.mapping.functions;
 
-import io.airlift.slice.Slice;
+import com.facebook.presto.plugin.jdbc.mapping.WriteFunction;
 
-import java.sql.ResultSet;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
-@FunctionalInterface
-public interface SliceReadFunction
-        extends ReadFunction
+public interface BooleanWriteFunction
+        extends WriteFunction
 {
-    @Override
     default Class<?> getJavaType()
     {
-        return Slice.class;
+        return boolean.class;
     }
 
-    Slice readSlice(ResultSet resultSet, int columnIndex)
-            throws SQLException;
+    void set(PreparedStatement statement, int index, boolean value) throws SQLException;
 }
