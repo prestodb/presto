@@ -303,7 +303,7 @@ public class TableStatisticsMaker
                 intersection,
                 tableHandle.getPartitionSpecId(),
                 tableHandle.getEqualityFieldIds(),
-                session);
+                session.getRuntimeStats());
         CloseableIterable<ContentFile<?>> files = CloseableIterable.transform(deleteFiles, deleteFile -> deleteFile);
         return getSummaryFromFiles(files, idToTypeMapping, nonPartitionPrimitiveColumns, partitionFields);
     }

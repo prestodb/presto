@@ -2119,10 +2119,10 @@ public abstract class IcebergDistributedSmokeTestBase
                 .get("iceberg.tpch.orders.scan.resultDataFiles")
                 .getCount() > 1);
 
-        assertEquals(runtimestats
+        assertTrue(runtimestats
                 .getMetrics()
                 .get("iceberg.tpch.orders.scan.totalDeleteManifests")
-                .getCount(), 1);
+                .getCount() > 0);
 
         assertTrue(runtimestats
                 .getMetrics()

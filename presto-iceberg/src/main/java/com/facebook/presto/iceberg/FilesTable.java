@@ -14,6 +14,7 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.StandardTypes;
@@ -123,7 +124,8 @@ public class FilesTable
     private static List<Page> buildPages(ConnectorTableMetadata tableMetadata, Table icebergTable, Optional<Long> snapshotId, ConnectorSession session)
     {
         PageListBuilder pagesBuilder = forTable(tableMetadata);
-        TableScan tableScan = getTableScan(TupleDomain.all(), snapshotId, icebergTable, session).includeColumnStats();
+        RuntimeStats runtimeStats = session.getRuntimeStats();
+        TableScan tableScan = getTableScan(TupleDomain.all(), snapshotId, icebergTable, runtimeStats).includeColumnStats();
         Map<Integer, Type> idToTypeMap = getIdToTypeMap(icebergTable.schema());
 
         try (CloseableIterable<FileScanTask> fileScanTasks = tableScan.planFiles()) {

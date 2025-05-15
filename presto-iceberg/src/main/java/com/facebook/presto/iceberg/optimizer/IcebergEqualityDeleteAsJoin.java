@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.iceberg.optimizer;
 
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.BigintType;
@@ -281,8 +282,9 @@ public class IcebergEqualityDeleteAsJoin
         {
             // Delete schemas can repeat, so using a normal hashmap to dedup, will be converted to immutable at the end of the function.
             HashMap<Set<Integer>, DeleteSetInfo> deleteInformations = new HashMap<>();
+            RuntimeStats runtimeStats = session.getRuntimeStats();
             try (CloseableIterator<DeleteFile> files =
-                    getDeleteFiles(icebergTable, snapshotId, predicate, Optional.empty(), Optional.empty(), session).iterator()) {
+                    getDeleteFiles(icebergTable, snapshotId, predicate, Optional.empty(), Optional.empty(), runtimeStats).iterator()) {
                 files.forEachRemaining(delete -> {
                     if (fromIcebergFileContent(delete.content()) == EQUALITY_DELETES) {
                         ImmutableMap.Builder<Integer, PartitionFieldInfo> partitionFieldsBuilder = new ImmutableMap.Builder<>();

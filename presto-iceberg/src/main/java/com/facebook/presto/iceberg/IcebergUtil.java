@@ -15,6 +15,7 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.GenericInternalException;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
@@ -424,10 +425,10 @@ public final class IcebergUtil
         return '"' + name.replace("\"", "\"\"") + '"';
     }
 
-    public static TableScan getTableScan(TupleDomain<IcebergColumnHandle> predicates, Optional<Long> snapshotId, Table icebergTable, ConnectorSession session)
+    public static TableScan getTableScan(TupleDomain<IcebergColumnHandle> predicates, Optional<Long> snapshotId, Table icebergTable, RuntimeStats runtimeStats)
     {
         Expression expression = ExpressionConverter.toIcebergExpression(predicates);
-        TableScan tableScan = icebergTable.newScan().metricsReporter(new RuntimeStatsMetricsReporter(session.getRuntimeStats())).filter(expression);
+        TableScan tableScan = icebergTable.newScan().metricsReporter(new RuntimeStatsMetricsReporter(runtimeStats)).filter(expression);
         return snapshotId
                 .map(id -> isSnapshot(icebergTable, id) ? tableScan.useSnapshot(id) : tableScan.asOfTime(id))
                 .orElse(tableScan);
@@ -448,9 +449,9 @@ public final class IcebergUtil
         return locationsFor(tableLocation, storageProperties);
     }
 
-    public static TableScan buildTableScan(Table icebergTable, MetadataTableType metadataTableType, ConnectorSession session)
+    public static TableScan buildTableScan(Table icebergTable, MetadataTableType metadataTableType, RuntimeStats runtimeStats)
     {
-        return createMetadataTableInstance(icebergTable, metadataTableType).newScan().metricsReporter(new RuntimeStatsMetricsReporter(session.getRuntimeStats()));
+        return createMetadataTableInstance(icebergTable, metadataTableType).newScan().metricsReporter(new RuntimeStatsMetricsReporter(runtimeStats));
     }
 
     public static Map<String, Integer> columnNameToPositionInSchema(Schema schema)
@@ -608,7 +609,7 @@ public final class IcebergUtil
             Table icebergTable,
             Constraint<ColumnHandle> constraint,
             List<IcebergColumnHandle> partitionColumns,
-            ConnectorSession session)
+            RuntimeStats runtimeStats)
     {
         IcebergTableName name = ((IcebergTableHandle) tableHandle).getIcebergTableName();
         FileFormat fileFormat = getFileFormat(icebergTable);
@@ -619,7 +620,7 @@ public final class IcebergUtil
         }
 
         TableScan tableScan = icebergTable.newScan()
-                .metricsReporter(new RuntimeStatsMetricsReporter(session.getRuntimeStats()))
+                .metricsReporter(new RuntimeStatsMetricsReporter(runtimeStats))
                 .filter(toIcebergExpression(getNonMetadataColumnConstraints(constraint
                         .getSummary()
                         .simplify())))
@@ -895,10 +896,10 @@ public final class IcebergUtil
             TupleDomain<IcebergColumnHandle> filter,
             Optional<Set<Integer>> requestedPartitionSpec,
             Optional<Set<Integer>> requestedSchema,
-            ConnectorSession session)
+            RuntimeStats runtimeStats)
     {
         Expression filterExpression = toIcebergExpression(filter);
-        CloseableIterable<FileScanTask> fileTasks = table.newScan().metricsReporter(new RuntimeStatsMetricsReporter(session.getRuntimeStats())).useSnapshot(snapshot).filter(filterExpression).planFiles();
+        CloseableIterable<FileScanTask> fileTasks = table.newScan().metricsReporter(new RuntimeStatsMetricsReporter(runtimeStats)).useSnapshot(snapshot).filter(filterExpression).planFiles();
 
         return new CloseableIterable<DeleteFile>()
         {
