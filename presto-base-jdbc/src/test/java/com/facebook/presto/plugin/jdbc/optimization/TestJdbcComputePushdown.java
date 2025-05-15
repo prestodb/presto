@@ -102,7 +102,7 @@ public class TestJdbcComputePushdown
         DeterminismEvaluator determinismEvaluator = new RowExpressionDeterminismEvaluator(functionAndTypeManager);
 
         this.jdbcComputePushdown = new JdbcComputePushdown(
-                functionAndTypeManager,
+                functionAndTypeManager.getFunctionAndTypeResolver(),
                 functionResolution,
                 determinismEvaluator,
                 (ConnectorSession session) -> new RowExpressionOptimizer(METADATA),

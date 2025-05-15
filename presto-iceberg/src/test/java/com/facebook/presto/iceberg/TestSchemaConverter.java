@@ -42,7 +42,7 @@ public class TestSchemaConverter
     public void testToPrestoSchema()
     {
         // Create a test TypeManager
-        TypeManager typeManager = createTestFunctionAndTypeManager();
+        TypeManager typeManager = createTestFunctionAndTypeManager().getFunctionAndTypeResolver();
 
         // Create a mock Schema
         Schema mockSchema = schema();
@@ -62,7 +62,7 @@ public class TestSchemaConverter
     public void testToIcebergSchema()
     {
         // Create a test TypeManager
-        TypeManager typeManager = createTestFunctionAndTypeManager();
+        TypeManager typeManager = createTestFunctionAndTypeManager().getFunctionAndTypeResolver();
 
         // Create a mock Presto Iceberg Schema
         PrestoIcebergSchema prestoSchema = prestoIcebergSchema(typeManager);

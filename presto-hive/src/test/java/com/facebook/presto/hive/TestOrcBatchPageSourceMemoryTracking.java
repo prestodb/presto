@@ -106,7 +106,7 @@ import static com.facebook.presto.common.type.VarcharType.createUnboundedVarchar
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveFileContext.DEFAULT_HIVE_FILE_CONTEXT;
-import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_MANAGER;
+import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_RESOLVER;
 import static com.facebook.presto.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static com.facebook.presto.hive.HiveTestUtils.ROW_EXPRESSION_SERVICE;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
@@ -421,7 +421,7 @@ public class TestOrcBatchPageSourceMemoryTracking
 
                 ObjectInspector inspector = testColumn.getObjectInspector();
                 HiveType hiveType = HiveType.valueOf(inspector.getTypeName());
-                Type type = hiveType.getType(FUNCTION_AND_TYPE_MANAGER);
+                Type type = hiveType.getType(FUNCTION_AND_TYPE_RESOLVER);
 
                 columnsBuilder.add(new HiveColumnHandle(testColumn.getName(), hiveType, type.getTypeSignature(), columnIndex, testColumn.isPartitionKey() ? PARTITION_KEY : REGULAR, Optional.empty(), Optional.empty()));
                 typesBuilder.add(type);
@@ -455,7 +455,7 @@ public class TestOrcBatchPageSourceMemoryTracking
                     0);
 
             OrcBatchPageSourceFactory orcPageSourceFactory = new OrcBatchPageSourceFactory(
-                    FUNCTION_AND_TYPE_MANAGER,
+                    FUNCTION_AND_TYPE_RESOLVER,
                     false,
                     HDFS_ENVIRONMENT,
                     stats,
@@ -475,7 +475,7 @@ public class TestOrcBatchPageSourceMemoryTracking
                     ImmutableMap.of(),
                     partitionKeys,
                     DateTimeZone.UTC,
-                    FUNCTION_AND_TYPE_MANAGER,
+                    FUNCTION_AND_TYPE_RESOLVER,
                     new SchemaTableName("schema", "table"),
                     ImmutableList.of(),
                     ImmutableList.of(),

@@ -1281,13 +1281,13 @@ public class BuiltInTypeAndFunctionNamespaceManager
     @Override
     public Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters)
     {
-        throw new UnsupportedOperationException();
+        return functionAndTypeManager.getParameterizedType(baseTypeName, typeParameters);
     }
 
     @Override
     public boolean canCoerce(Type actualType, Type expectedType)
     {
-        throw new UnsupportedOperationException();
+        return functionAndTypeManager.canCoerce(actualType, expectedType);
     }
 
     public List<Type> getTypes()
@@ -1328,7 +1328,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
         List<TypeParameter> parameters = new ArrayList<>();
 
         for (TypeSignatureParameter parameter : signature.getParameters()) {
-            TypeParameter typeParameter = TypeParameter.of(parameter, functionAndTypeManager);
+            TypeParameter typeParameter = TypeParameter.of(parameter, functionAndTypeManager.getFunctionAndTypeResolver());
             parameters.add(typeParameter);
         }
 
