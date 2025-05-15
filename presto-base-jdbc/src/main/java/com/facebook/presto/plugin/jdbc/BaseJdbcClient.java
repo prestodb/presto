@@ -20,6 +20,12 @@ import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.UuidType;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.plugin.jdbc.mapping.ColumnMapping;
+import com.facebook.presto.plugin.jdbc.mapping.WriteMapping;
+import com.facebook.presto.plugin.jdbc.mapping.functions.BooleanWriteFunction;
+import com.facebook.presto.plugin.jdbc.mapping.functions.DoubleWriteFunction;
+import com.facebook.presto.plugin.jdbc.mapping.functions.LongWriteFunction;
+import com.facebook.presto.plugin.jdbc.mapping.functions.SliceWriteFunction;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
@@ -70,7 +76,25 @@ import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
-import static com.facebook.presto.plugin.jdbc.StandardReadMappings.jdbcTypeToPrestoType;
+import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.bigintColumnMapping;
+import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.booleanColumnMapping;
+import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.charColumnMapping;
+import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.dateColumnMapping;
+import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.decimalColumnMapping;
+import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.doubleColumnMapping;
+import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.integerColumnMapping;
+import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.jdbcTypeToPrestoType;
+import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.realColumnMapping;
+import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.smallintColumnMapping;
+import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.timeColumnMapping;
+import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.timestampColumnMapping;
+import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.tinyintColumnMapping;
+import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.uuidColumnMapping;
+import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.varbinaryColumnMapping;
+import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.varcharColumnMapping;
+import static com.facebook.presto.plugin.jdbc.mapping.WriteMapping.booleanMapping;
+import static com.facebook.presto.plugin.jdbc.mapping.WriteMapping.longMapping;
+import static com.facebook.presto.plugin.jdbc.mapping.WriteMapping.sliceMapping;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -94,21 +118,19 @@ public class BaseJdbcClient
 {
     private static final Logger log = Logger.get(BaseJdbcClient.class);
 
-    private static final Map<Type, String> SQL_TYPES = ImmutableMap.<Type, String>builder()
-            .put(BOOLEAN, "boolean")
-            .put(BIGINT, "bigint")
-            .put(INTEGER, "integer")
-            .put(SMALLINT, "smallint")
-            .put(TINYINT, "tinyint")
-            .put(DOUBLE, "double precision")
-            .put(REAL, "real")
-            .put(VARBINARY, "varbinary")
-            .put(DATE, "date")
-            .put(TIME, "time")
-            .put(TIME_WITH_TIME_ZONE, "time with timezone")
-            .put(TIMESTAMP, "timestamp")
-            .put(TIMESTAMP_WITH_TIME_ZONE, "timestamp with timezone")
-            .put(UuidType.UUID, "uuid")
+    private static final Map<Type, WriteMapping> TYPE_MAPPINGS = ImmutableMap.<Type, WriteMapping>builder()
+            .put(BOOLEAN, booleanMapping("boolean", (BooleanWriteFunction) booleanColumnMapping().getWriteFunction()))
+            .put(BIGINT, longMapping("bigint", (LongWriteFunction) bigintColumnMapping().getWriteFunction()))
+            .put(INTEGER, longMapping("integer", (LongWriteFunction) integerColumnMapping().getWriteFunction()))
+            .put(SMALLINT, longMapping("smallint", (LongWriteFunction) smallintColumnMapping().getWriteFunction()))
+            .put(TINYINT, longMapping("tinyint", (LongWriteFunction) tinyintColumnMapping().getWriteFunction()))
+            .put(DOUBLE, WriteMapping.doubleMapping("double precision", (DoubleWriteFunction) doubleColumnMapping().getWriteFunction()))
+            .put(REAL, longMapping("real", (LongWriteFunction) realColumnMapping().getWriteFunction()))
+            .put(VARBINARY, sliceMapping("varbinary", (SliceWriteFunction) varbinaryColumnMapping().getWriteFunction()))
+            .put(DATE, longMapping("date", (LongWriteFunction) dateColumnMapping().getWriteFunction()))
+            .put(TIME, longMapping("time", (LongWriteFunction) timeColumnMapping().getWriteFunction()))
+            .put(TIMESTAMP, longMapping("timestamp", (LongWriteFunction) timestampColumnMapping().getWriteFunction()))
+            .put(UuidType.UUID, sliceMapping("uuid", (SliceWriteFunction) uuidColumnMapping().getWriteFunction()))
             .build();
 
     protected final String connectorId;
@@ -241,7 +263,7 @@ public class BaseJdbcClient
                             resultSet.getString("TYPE_NAME"),
                             resultSet.getInt("COLUMN_SIZE"),
                             resultSet.getInt("DECIMAL_DIGITS"));
-                    Optional<ReadMapping> columnMapping = toPrestoType(session, typeHandle);
+                    Optional<ColumnMapping> columnMapping = toPrestoType(session, typeHandle);
                     // skip unsupported column types
                     if (columnMapping.isPresent()) {
                         String columnName = resultSet.getString("COLUMN_NAME");
@@ -267,7 +289,7 @@ public class BaseJdbcClient
     }
 
     @Override
-    public Optional<ReadMapping> toPrestoType(ConnectorSession session, JdbcTypeHandle typeHandle)
+    public Optional<ColumnMapping> toPrestoType(ConnectorSession session, JdbcTypeHandle typeHandle)
     {
         return jdbcTypeToPrestoType(typeHandle);
     }
@@ -403,7 +425,7 @@ public class BaseJdbcClient
         StringBuilder sb = new StringBuilder()
                 .append(quoted(columnName))
                 .append(" ")
-                .append(toSqlType(column.getType()));
+                .append(toWriteMapping(column.getType()));
         if (!column.isNullable()) {
             sb.append(" NOT NULL");
         }
@@ -737,28 +759,42 @@ public class BaseJdbcClient
         }
     }
 
-    protected String toSqlType(Type type)
+    public WriteMapping toWriteMapping(Type type)
     {
+        String dataType;
         if (isVarcharType(type)) {
             VarcharType varcharType = (VarcharType) type;
             if (varcharType.isUnbounded()) {
-                return "varchar";
+                dataType = "varchar";
             }
-            return "varchar(" + varcharType.getLengthSafe() + ")";
+            else {
+                dataType = "varchar(" + varcharType.getLengthSafe() + ")";
+            }
+            return sliceMapping(dataType, (SliceWriteFunction) varcharColumnMapping(varcharType).getWriteFunction());
         }
         if (type instanceof CharType) {
-            if (((CharType) type).getLength() == CharType.MAX_LENGTH) {
-                return "char";
+            CharType charType = (CharType) type;
+            if (charType.getLength() == CharType.MAX_LENGTH) {
+                dataType = "char";
             }
-            return "char(" + ((CharType) type).getLength() + ")";
+            else {
+                dataType = "char(" + ((CharType) type).getLength() + ")";
+            }
+            return sliceMapping(dataType, (SliceWriteFunction) charColumnMapping(charType).getWriteFunction());
         }
         if (type instanceof DecimalType) {
-            return format("decimal(%s, %s)", ((DecimalType) type).getPrecision(), ((DecimalType) type).getScale());
+            DecimalType decimalType = (DecimalType) type;
+            dataType = format("decimal(%s, %s)", ((DecimalType) type).getPrecision(), ((DecimalType) type).getScale());
+            if (decimalType.isShort()) {
+                return WriteMapping.longMapping(dataType, (LongWriteFunction) decimalColumnMapping(decimalType).getWriteFunction());
+            }
+            else {
+                return WriteMapping.sliceMapping(dataType, (SliceWriteFunction) decimalColumnMapping(decimalType).getWriteFunction());
+            }
         }
-
-        String sqlType = SQL_TYPES.get(type);
-        if (sqlType != null) {
-            return sqlType;
+        WriteMapping writeMapping = TYPE_MAPPINGS.get(type);
+        if (writeMapping != null) {
+            return writeMapping;
         }
         throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
