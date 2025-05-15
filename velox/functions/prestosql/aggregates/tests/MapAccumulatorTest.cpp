@@ -26,7 +26,7 @@ class MapAccumulatorTest : public testing::Test,
  protected:
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   // Takes a vector of unique keys and a matching vector of non-null values.

@@ -24,7 +24,7 @@ namespace facebook::velox::test {
 class VectorPrinterTest : public testing::Test, public VectorTestBase {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   static std::vector<std::string> summarizeToLines(

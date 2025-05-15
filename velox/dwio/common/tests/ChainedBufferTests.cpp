@@ -31,7 +31,7 @@ namespace common {
 class ChainedBufferTests : public Test {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   std::shared_ptr<memory::MemoryPool> pool_{

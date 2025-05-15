@@ -112,7 +112,7 @@ BENCHMARK(twoBigints) {
 
 int main(int argc, char** argv) {
   folly::init(&argc, &argv);
-  memory::MemoryManager::initialize({});
+  memory::MemoryManager::initialize(memory::MemoryManager::Options{});
 
   bm = std::make_unique<SetAccumulatorBenchmark>();
   bm->setup();

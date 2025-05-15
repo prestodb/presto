@@ -28,8 +28,9 @@ using namespace facebook::velox::common::testutil;
 class AllocationPoolTest : public testing::Test {
  protected:
   void SetUp() override {
-    manager_ = std::make_shared<memory::MemoryManager>(
-        memory::MemoryManagerOptions{.allocatorCapacity = 8L << 30});
+    memory::MemoryManager::Options options;
+    options.allocatorCapacity = 8L << 30;
+    manager_ = std::make_shared<memory::MemoryManager>(options);
 
     root_ = manager_->addRootPool("allocationPoolTestRoot");
     pool_ = root_->addLeafChild("leaf");

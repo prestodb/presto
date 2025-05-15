@@ -162,7 +162,7 @@ BENCHMARK_RELATIVE(bitwise_shift_left) {
 
 int main(int argc, char** argv) {
   folly::Init init{&argc, &argv};
-  memory::MemoryManager::initialize({});
+  memory::MemoryManager::initialize(memory::MemoryManager::Options{});
 
   folly::runBenchmarks();
   return 0;

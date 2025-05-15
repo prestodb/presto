@@ -51,7 +51,7 @@ std::unique_ptr<memory::MemoryManager> createMemoryManager(
     uint64_t maxArbitrationTimeMs,
     uint64_t fastExponentialGrowthCapacityLimit,
     double slowCapacityGrowPct) {
-  memory::MemoryManagerOptions options;
+  memory::MemoryManager::Options options;
   options.arbitratorCapacity = arbitratorCapacity;
   // Avoid allocation failure in unit tests.
   options.allocatorCapacity = arbitratorCapacity * 2;

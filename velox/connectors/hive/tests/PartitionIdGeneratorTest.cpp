@@ -26,7 +26,7 @@ class PartitionIdGeneratorTest : public ::testing::Test,
                                  public velox::test::VectorTestBase {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 };
 

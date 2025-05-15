@@ -88,7 +88,7 @@ void OperatorTestBase::setupMemory(
     asyncDataCache_->clear();
     asyncDataCache_.reset();
   }
-  MemoryManagerOptions options;
+  MemoryManager::Options options;
   options.allocatorCapacity = allocatorCapacity;
   options.arbitratorCapacity = arbitratorCapacity;
   options.arbitratorKind = "SHARED";

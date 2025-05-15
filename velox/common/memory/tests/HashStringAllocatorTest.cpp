@@ -37,7 +37,7 @@ struct Multipart {
 class HashStringAllocatorTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::initialize({});
+    memory::MemoryManager::initialize(memory::MemoryManager::Options{});
   }
 
   void SetUp() override {

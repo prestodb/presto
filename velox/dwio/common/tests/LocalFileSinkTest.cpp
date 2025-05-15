@@ -30,7 +30,7 @@ namespace facebook::velox::dwio::common {
 class LocalFileSinkTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
     velox::filesystems::registerLocalFileSystem();
   }
 

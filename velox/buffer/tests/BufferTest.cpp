@@ -242,7 +242,7 @@ TEST_F(BufferTest, testReallocateNoReuse) {
 
   auto test = [&](BufferResizeOption bufferResizeOption,
                   bool useMmapAllocator) {
-    memory::MemoryManagerOptions options;
+    memory::MemoryManager::Options options;
     options.useMmapAllocator = useMmapAllocator;
     options.allocatorCapacity = 1024 * 1024;
     memory::MemoryManager memoryManager(options);

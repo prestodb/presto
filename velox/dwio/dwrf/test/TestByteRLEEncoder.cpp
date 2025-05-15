@@ -113,7 +113,7 @@ void decodeAndVerifyBoolean(
 class ByteRleEncoderTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 };
 
@@ -162,7 +162,7 @@ TEST_F(ByteRleEncoderTest, random_chars_with_null) {
 class BooleanRleEncoderTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 };
 

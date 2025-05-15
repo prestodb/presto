@@ -125,7 +125,7 @@ std::optional<std::string> getNext(SeekableInputStream& input) {
 class TestBufferedInput : public testing::Test {
  protected:
   static void SetUpTestCase() {
-    MemoryManager::testingSetInstance({});
+    MemoryManager::testingSetInstance(MemoryManager::Options{});
   }
 
   const std::shared_ptr<MemoryPool> pool_ = memoryManager()->addLeafPool();

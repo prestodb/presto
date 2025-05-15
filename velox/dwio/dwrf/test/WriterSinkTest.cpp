@@ -28,7 +28,7 @@ using namespace facebook::velox::memory;
 class WriterSinkTest : public Test {
  protected:
   static void SetUpTestCase() {
-    MemoryManager::testingSetInstance({});
+    MemoryManager::testingSetInstance(MemoryManager::Options{});
   }
 
   void SetUp() override {

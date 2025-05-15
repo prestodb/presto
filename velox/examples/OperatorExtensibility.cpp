@@ -170,7 +170,7 @@ int main(int argc, char** argv) {
   // assert that the output results contain the dataset properly duplicated.
 
   // Create a new memory pool to in this example.
-  memory::MemoryManager::initialize({});
+  memory::MemoryManager::initialize(memory::MemoryManager::Options{});
   auto pool = memory::memoryManager()->addLeafPool();
 
   // VectorMaker is a test utility that helps you build vectors. Shouldn't be

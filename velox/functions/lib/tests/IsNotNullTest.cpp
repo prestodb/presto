@@ -35,7 +35,7 @@ class IsNotNullTest : public functions::test::FunctionBaseTest {
  public:
   static void SetUpTestCase() {
     functions::registerIsNotNull();
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   template <typename T>

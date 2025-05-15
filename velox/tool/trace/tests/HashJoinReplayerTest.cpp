@@ -58,7 +58,7 @@ namespace facebook::velox::tool::trace::test {
 class HashJoinReplayerTest : public HiveConnectorTestBase {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
     HiveConnectorTestBase::SetUpTestCase();
     registerFaultyFileSystem();
     if (!isRegisteredVectorSerde()) {

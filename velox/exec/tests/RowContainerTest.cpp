@@ -111,7 +111,7 @@ class RowContainerTestHelper {
 class RowContainerTest : public exec::test::RowContainerTestBase {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
     TestValue::enable();
   }
 

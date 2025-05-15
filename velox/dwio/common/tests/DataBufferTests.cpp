@@ -32,7 +32,7 @@ using MemoryPool = facebook::velox::memory::MemoryPool;
 class DataBufferTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
-    MemoryManager::testingSetInstance({});
+    MemoryManager::testingSetInstance(MemoryManager::Options{});
   }
 
   const std::shared_ptr<MemoryPool> pool_ = memoryManager()->addLeafPool();

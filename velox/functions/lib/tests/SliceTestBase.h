@@ -26,7 +26,7 @@ class SliceTestBase : public FunctionBaseTest {
  protected:
   static void SetUpTestCase() {
     parse::registerTypeResolver();
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   virtual void testSlice(

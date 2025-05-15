@@ -86,7 +86,7 @@ BENCHMARK(PrefixSort_algorithm_10000k) {
 
 int main(int argc, char** argv) {
   folly::Init init(&argc, &argv);
-  memory::MemoryManager::initialize({});
+  memory::MemoryManager::initialize(memory::MemoryManager::Options{});
   bm = std::make_unique<PrefixSortAlgorithmBenchmark>();
   bm->seed(FLAGS_sort_data_seed);
   data10k = bm->generateTestVector(10'000);

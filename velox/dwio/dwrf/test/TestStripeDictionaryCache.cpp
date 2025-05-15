@@ -58,7 +58,7 @@ void verifyRange(BufferPtr bufferPtr, int64_t begin, int64_t end) {
 class StripeDictionaryCacheTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   std::shared_ptr<velox::memory::MemoryPool> pool_{

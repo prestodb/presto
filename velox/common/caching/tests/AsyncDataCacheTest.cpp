@@ -116,7 +116,7 @@ class AsyncDataCacheTest : public ::testing::TestWithParam<TestParam> {
 
   void initializeMemoryManager(int64_t capacity) {
     if (!memory::MemoryManager::testInstance()) {
-      memory::MemoryManagerOptions options;
+      memory::MemoryManager::Options options;
       options.useMmapAllocator = true;
       options.allocatorCapacity = capacity;
       options.arbitratorCapacity = capacity;
@@ -163,7 +163,7 @@ class AsyncDataCacheTest : public ::testing::TestWithParam<TestParam> {
       }
     }
 
-    memory::MemoryManagerOptions options;
+    memory::MemoryManager::Options options;
     options.useMmapAllocator = true;
     options.allocatorCapacity = maxBytes;
     options.arbitratorCapacity = maxBytes;

@@ -24,7 +24,7 @@ using namespace facebook::velox::parquet;
 class SinkTest : public ParquetTestBase {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
     facebook::velox::filesystems::registerLocalFileSystem();
   }
 };

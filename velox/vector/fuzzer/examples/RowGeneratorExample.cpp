@@ -39,7 +39,7 @@ int main() {
   auto bernoulli = std::bernoulli_distribution(p);
 
   FuzzerGenerator rng;
-  memory::MemoryManager::initialize({});
+  memory::MemoryManager::initialize(memory::MemoryManager::Options{});
   auto pool = memory::memoryManager()->addLeafPool();
 
   GeneratorSpecPtr randomRow = RANDOM_ROW(

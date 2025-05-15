@@ -25,7 +25,7 @@ using namespace facebook::velox::test;
 class IsWritableVectorTest : public testing::Test, public VectorTestBase {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   // We use templates here to avoid the compiler automatically creating new

@@ -37,7 +37,7 @@ using namespace facebook::velox::exec::test;
 class ParquetTpchTest : public testing::Test {
  protected:
   static void SetUpTestSuite() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
 
     duckDb_ = std::make_shared<DuckDbQueryRunner>();
     tempDirectory_ = TempDirectoryPath::create();

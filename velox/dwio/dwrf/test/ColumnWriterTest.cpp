@@ -399,7 +399,7 @@ void testDataTypeWriter(
 class ColumnWriterTest : public Test {
  public:
   static void SetUpTestCase() {
-    MemoryManager::testingSetInstance({});
+    MemoryManager::testingSetInstance(MemoryManager::Options{});
   }
 
  protected:

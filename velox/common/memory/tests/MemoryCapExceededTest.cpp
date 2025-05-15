@@ -219,10 +219,11 @@ TEST_P(MemoryCapExceededTest, allocatorCapacityExceededError) {
            ".* reservation .used .*MB, reserved .*MB, min .*B. counters",
            ".*, frees .*, reserves .*, releases .*, collisions .*"}}};
   for (const auto& testData : testSettings) {
-    memory::MemoryManager manager(
-        {.allocatorCapacity = (int64_t)testData.allocatorCapacity,
-         .useMmapAllocator = testData.useMmap,
-         .arbitratorCapacity = (int64_t)testData.allocatorCapacity});
+    memory::MemoryManager::Options options;
+    options.allocatorCapacity = (int64_t)testData.allocatorCapacity;
+    options.useMmapAllocator = testData.useMmap;
+    options.arbitratorCapacity = (int64_t)testData.allocatorCapacity;
+    memory::MemoryManager manager(options);
 
     vector_size_t size = 1'024;
     // This limit ensures that only the Aggregation Operator fails.

@@ -33,7 +33,7 @@ DEFINE_int32(batch_size, 1000, "Batch size for benchmarks");
 
 int main(int argc, char** argv) {
   folly::Init init(&argc, &argv);
-  memory::MemoryManager::initialize({});
+  memory::MemoryManager::initialize(memory::MemoryManager::Options{});
 
   auto param = startLocalThriftServiceAndGetParams();
   RemoteVectorFunctionMetadata metadata;

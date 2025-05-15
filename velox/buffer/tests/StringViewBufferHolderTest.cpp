@@ -36,7 +36,7 @@ std::string inlinedString() {
 class StringViewBufferHolderTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::initialize({});
+    memory::MemoryManager::initialize(memory::MemoryManager::Options{});
   }
 
   StringViewBufferHolder makeHolder() {

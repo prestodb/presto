@@ -381,7 +381,7 @@ class ArbitrationParticipantTest : public testing::Test {
   void TearDown() override {}
 
   void setupMemory(int64_t memoryCapacity = kMemoryCapacity) {
-    MemoryManagerOptions options;
+    MemoryManager::Options options;
     options.allocatorCapacity = memoryCapacity;
     options.arbitratorKind = arbitratorKind;
     options.checkUsageLeak = true;

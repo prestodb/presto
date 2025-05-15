@@ -30,7 +30,7 @@ class SparkFunctionBaseTest : public FunctionBaseTest {
   static void SetUpTestCase() {
     parse::registerTypeResolver();
     sparksql::registerFunctions("");
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   void setSparkPartitionId(int32_t partitionId) {

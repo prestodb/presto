@@ -32,7 +32,7 @@ namespace facebook::velox::test {
 class DecodedVectorTest : public testing::Test, public VectorTestBase {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   DecodedVectorTest() : allSelected_(10010), halfSelected_(10010) {

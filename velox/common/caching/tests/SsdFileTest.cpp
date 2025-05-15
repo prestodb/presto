@@ -55,7 +55,7 @@ class SsdFileTest : public testing::Test {
   void SetUp() override {
     filesystems::registerLocalFileSystem();
     registerFaultyFileSystem();
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   void TearDown() override {
@@ -687,7 +687,7 @@ TEST_F(SsdFileTest, recoverFromCheckpointWithChecksum) {
       EXPECT_EQ(checkEntries(allEntries), 0);
     }
     cache_->shutdown();
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 }
 

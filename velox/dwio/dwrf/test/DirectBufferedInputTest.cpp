@@ -47,7 +47,7 @@ class DirectBufferedInputTest : public testing::Test {
   static constexpr int32_t kLoadQuantum = 8 << 20;
 
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   void SetUp() override {

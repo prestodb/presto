@@ -30,7 +30,7 @@ using namespace facebook::velox::tpch;
 class TpchGenTestNationTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   void SetUp() override {
@@ -137,7 +137,7 @@ TEST_F(TpchGenTestNationTest, reproducible) {
 class TpchGenTestRegionTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   void SetUp() override {
@@ -203,7 +203,7 @@ TEST_F(TpchGenTestRegionTest, reproducible) {
 class TpchGenTestOrdersTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   void SetUp() override {
@@ -313,7 +313,7 @@ TEST_F(TpchGenTestOrdersTest, reproducible) {
 class TpchGenTestLineItemTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   void SetUp() override {
@@ -431,7 +431,7 @@ TEST_F(TpchGenTestLineItemTest, reproducible) {
 class TpchGenTestSupplierTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   void SetUp() override {
@@ -527,7 +527,7 @@ TEST_F(TpchGenTestSupplierTest, reproducible) {
 class TpchGenTestPartTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   void SetUp() override {
@@ -616,7 +616,7 @@ TEST_F(TpchGenTestPartTest, reproducible) {
 class TpchGenTestPartSuppTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   void SetUp() override {
@@ -764,7 +764,7 @@ TEST_F(TpchGenTestPartSuppTest, reproducible) {
 class TpchGenTestCustomerTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   void SetUp() override {

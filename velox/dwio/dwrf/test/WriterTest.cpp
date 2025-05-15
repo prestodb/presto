@@ -33,7 +33,7 @@ namespace facebook::velox::dwrf {
 class WriterTest : public Test {
  public:
   static void SetUpTestCase() {
-    MemoryManager::testingSetInstance({});
+    MemoryManager::testingSetInstance(MemoryManager::Options{});
   }
 
   WriterTest() : pool_(memoryManager()->addLeafPool("WriterTest")) {}

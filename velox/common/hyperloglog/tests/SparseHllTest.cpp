@@ -31,7 +31,7 @@ uint64_t hashOne(T value) {
 class SparseHllTest : public ::testing::Test {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   template <typename T>
@@ -176,7 +176,7 @@ TEST_F(SparseHllTest, mergeWith) {
 class SparseHllToDenseTest : public ::testing::TestWithParam<int8_t> {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   std::string serialize(DenseHll& denseHll) {

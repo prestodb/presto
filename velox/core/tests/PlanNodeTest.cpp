@@ -27,7 +27,7 @@ namespace {
 class PlanNodeTest : public testing::Test, public test::VectorTestBase {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   PlanNodeTest() {

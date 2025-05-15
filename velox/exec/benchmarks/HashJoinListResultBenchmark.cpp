@@ -528,7 +528,7 @@ void combineResults(
 
 int main(int argc, char** argv) {
   folly::Init init{&argc, &argv};
-  memory::MemoryManagerOptions options;
+  memory::MemoryManager::Options options;
   options.useMmapAllocator = true;
   options.allocatorCapacity = 10UL << 30;
   options.useMmapArena = true;

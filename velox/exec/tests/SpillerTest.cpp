@@ -235,7 +235,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
 
   static void SetUpTestCase() {
     TestValue::enable();
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
     facebook::velox::tests::utils::registerFaultyFileSystem();
   }
 

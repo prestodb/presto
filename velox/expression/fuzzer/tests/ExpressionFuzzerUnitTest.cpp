@@ -26,7 +26,7 @@ class ExpressionFuzzerUnitTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
     registerTDigestType();
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   uint32_t countLevelOfNesting(core::TypedExprPtr expression) {

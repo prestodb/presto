@@ -79,7 +79,7 @@ class TestReaderP
       public VectorTestBase {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   folly::Executor* executor() {
@@ -101,7 +101,7 @@ class TestReaderP
 class TestReader : public testing::Test, public VectorTestBase {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   std::vector<VectorPtr> createBatches(
@@ -352,7 +352,7 @@ void verifyCachedIndexStreamReads(
 class TestFlatMapReader : public TestWithParam<bool>, public VectorTestBase {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 };
 
@@ -500,7 +500,7 @@ class TestFlatMapReaderFlatLayout
       public VectorTestBase {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 };
 

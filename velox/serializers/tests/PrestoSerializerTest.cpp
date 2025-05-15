@@ -81,7 +81,7 @@ class PrestoSerializerTest
     if (!isRegisteredVectorSerde()) {
       serializer::presto::PrestoVectorSerde::registerVectorSerde();
     }
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   void SetUp() override {
@@ -1942,7 +1942,7 @@ class PrestoSerializerBatchEstimateSizeTest : public testing::Test,
         getNamedVectorSerde(VectorSerde::Kind::kPresto)->kind(),
         VectorSerde::Kind::kPresto);
 
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   void SetUp() override {

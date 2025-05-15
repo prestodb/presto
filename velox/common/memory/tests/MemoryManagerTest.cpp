@@ -64,18 +64,21 @@ TEST_F(MemoryManagerTest, ctor) {
   }
   {
     const auto kCapacity = 8L * 1024 * 1024;
-    MemoryManager manager{
-        {.allocatorCapacity = kCapacity, .arbitratorCapacity = kCapacity}};
+    MemoryManager::Options options;
+    options.allocatorCapacity = kCapacity;
+    options.arbitratorCapacity = kCapacity;
+    MemoryManager manager{options};
     ASSERT_EQ(kCapacity, manager.capacity());
     ASSERT_EQ(manager.numPools(), 3);
     ASSERT_EQ(manager.testingDefaultRoot().alignment(), manager.alignment());
   }
   {
     const auto kCapacity = 8L * 1024 * 1024;
-    MemoryManager manager{
-        {.alignment = 0,
-         .allocatorCapacity = kCapacity,
-         .arbitratorCapacity = kCapacity}};
+    MemoryManager::Options options;
+    options.alignment = 0;
+    options.allocatorCapacity = kCapacity;
+    options.arbitratorCapacity = kCapacity;
+    MemoryManager manager{options};
 
     ASSERT_EQ(manager.alignment(), MemoryAllocator::kMinAlignment);
     ASSERT_EQ(manager.testingDefaultRoot().alignment(), manager.alignment());
@@ -86,7 +89,7 @@ TEST_F(MemoryManagerTest, ctor) {
     ASSERT_EQ(0, manager.getTotalBytes());
   }
   {
-    MemoryManagerOptions options;
+    MemoryManager::Options options;
     const auto kCapacity = 4L << 30;
     options.allocatorCapacity = kCapacity;
     options.arbitratorCapacity = kCapacity;
@@ -169,7 +172,7 @@ TEST_F(MemoryManagerTest, createWithCustomArbitrator) {
   MemoryArbitrator::registerFactory(kindString, factory);
   auto guard = folly::makeGuard(
       [&] { MemoryArbitrator::unregisterFactory(kindString); });
-  MemoryManagerOptions options;
+  MemoryManager::Options options;
   options.arbitratorKind = kindString;
   options.allocatorCapacity = 8L << 20;
   options.arbitratorCapacity = 256L << 20;
@@ -188,7 +191,7 @@ TEST_F(MemoryManagerTest, addPoolFailure) {
   MemoryArbitrator::registerFactory(kindString, factory);
   auto guard = folly::makeGuard(
       [&] { MemoryArbitrator::unregisterFactory(kindString); });
-  MemoryManagerOptions options;
+  MemoryManager::Options options;
   options.arbitratorKind = kindString;
   MemoryManager manager{options};
   VELOX_ASSERT_THROW(manager.addRootPool(), "Failed to add pool");
@@ -222,7 +225,7 @@ TEST_F(MemoryManagerTest, addPool) {
 }
 
 TEST_F(MemoryManagerTest, addPoolWithArbitrator) {
-  MemoryManagerOptions options;
+  MemoryManager::Options options;
   const auto kCapacity = 32L << 30;
   options.allocatorCapacity = kCapacity;
   options.arbitratorKind = arbitratorKind_;
@@ -367,7 +370,7 @@ TEST(MemoryHeaderTest, addDefaultLeafMemoryPool) {
 
 TEST_F(MemoryManagerTest, defaultMemoryUsageTracking) {
   for (bool trackDefaultMemoryUsage : {false, true}) {
-    MemoryManagerOptions options;
+    MemoryManager::Options options;
     options.trackDefaultUsage = trackDefaultMemoryUsage;
     MemoryManager manager{options};
     auto defaultPool = manager.addLeafPool("defaultMemoryUsageTracking");
@@ -385,7 +388,7 @@ TEST_F(MemoryManagerTest, defaultMemoryUsageTracking) {
 
 TEST_F(MemoryManagerTest, memoryPoolManagement) {
   const int alignment = 32;
-  MemoryManagerOptions options;
+  MemoryManager::Options options;
   options.alignment = alignment;
   MemoryManager manager{options};
   ASSERT_EQ(manager.numPools(), 3);
@@ -427,12 +430,12 @@ TEST_F(MemoryManagerTest, memoryPoolManagement) {
 // effects for other tests using process singleton memory manager. Might need to
 // use folly::Singleton for isolation by tag.
 TEST_F(MemoryManagerTest, globalMemoryManager) {
-  initializeMemoryManager({});
+  initializeMemoryManager(MemoryManager::Options{});
   auto* globalManager = memoryManager();
   ASSERT_TRUE(globalManager != nullptr);
-  VELOX_ASSERT_THROW(initializeMemoryManager({}), "");
+  VELOX_ASSERT_THROW(initializeMemoryManager(MemoryManager::Options{}), "");
   ASSERT_EQ(memoryManager(), globalManager);
-  MemoryManager::testingSetInstance({});
+  MemoryManager::testingSetInstance(MemoryManager::Options{});
   auto* manager = memoryManager();
   ASSERT_NE(manager, globalManager);
   ASSERT_EQ(manager, memoryManager());
@@ -497,7 +500,7 @@ TEST_F(MemoryManagerTest, alignmentOptionCheck) {
       {MemoryAllocator::kMaxAlignment * 2, false}};
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
-    MemoryManagerOptions options;
+    MemoryManager::Options options;
     options.alignment = testData.alignment;
     if (!testData.expectedSuccess) {
       ASSERT_THROW(MemoryManager{options}, VeloxRuntimeError);
@@ -603,7 +606,7 @@ TEST_F(MemoryManagerTest, quotaEnforcement) {
     for (const auto contiguousAlloc : contiguousAllocations) {
       SCOPED_TRACE(fmt::format("contiguousAlloc {}", contiguousAlloc));
       const int alignment = 32;
-      MemoryManagerOptions options;
+      MemoryManager::Options options;
       options.alignment = alignment;
       options.allocatorCapacity = testData.memoryQuotaBytes;
       options.arbitratorCapacity = testData.memoryQuotaBytes;
@@ -649,7 +652,7 @@ TEST_F(MemoryManagerTest, quotaEnforcement) {
 TEST_F(MemoryManagerTest, disableMemoryPoolTracking) {
   const std::string kSharedKind{"SHARED"};
   const std::string kNoopKind{""};
-  MemoryManagerOptions options;
+  MemoryManager::Options options;
   options.disableMemoryPoolTracking = true;
   options.allocatorCapacity = 64LL << 20;
   options.arbitratorCapacity = 64LL << 20;

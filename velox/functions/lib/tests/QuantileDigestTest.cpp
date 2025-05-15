@@ -34,7 +34,7 @@ class QuantileDigestTest : public QuantileDigestTestBase {
   }
 
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   std::string encodeBase64(std::string_view input) {

@@ -997,7 +997,7 @@ class TestParquetFileReader : public ::testing::Test {
     // Write the buffer to a temp file path
     auto filePath = exec::test::TempFilePath::create();
     writeToFile(filePath, buffer);
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
     std::shared_ptr<facebook::velox::memory::MemoryPool> rootPool =
         memory::memoryManager()->addRootPool("MetadataTest");
     std::shared_ptr<facebook::velox::memory::MemoryPool> leafPool =
@@ -1053,7 +1053,7 @@ TEST_F(TestParquetFileReader, IncompleteMetadata) {
   // Write the buffer to a temp file path
   auto filePath = exec::test::TempFilePath::create();
   writeToFile(filePath, buffer);
-  memory::MemoryManager::testingSetInstance({});
+  memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   std::shared_ptr<facebook::velox::memory::MemoryPool> rootPool =
       memory::memoryManager()->addRootPool("MetadataTest");
   std::shared_ptr<facebook::velox::memory::MemoryPool> leafPool =

@@ -52,14 +52,14 @@ class MemoryPoolAllocationBenchMark {
       size_t minSize,
       size_t maxSize)
       : type_(type), minSize_(minSize), maxSize_(maxSize) {
+    MemoryManager::Options options;
+    options.alignment = alignment;
     switch (type_) {
       case Type::kMmap:
-        manager_ = std::make_shared<MemoryManager>(
-            MemoryManagerOptions{.alignment = alignment});
+        manager_ = std::make_shared<MemoryManager>(options);
         break;
       case Type::kStd:
-        manager_ = std::make_shared<MemoryManager>(
-            MemoryManagerOptions{.alignment = alignment});
+        manager_ = std::make_shared<MemoryManager>(options);
         break;
       default:
         VELOX_USER_FAIL("Unknown allocator type: {}", static_cast<int>(type_));

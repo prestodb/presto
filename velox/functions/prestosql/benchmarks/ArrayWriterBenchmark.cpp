@@ -276,7 +276,8 @@ BENCHMARK_MULTI(std_reference) {
 
 int main(int argc, char** argv) {
   folly::Init init{&argc, &argv};
-  facebook::velox::memory::MemoryManager::initialize({});
+  facebook::velox::memory::MemoryManager::initialize(
+      facebook::velox::memory::MemoryManager::Options{});
 
   facebook::velox::exec::ArrayWriterBenchmark benchmark;
   benchmark.test();

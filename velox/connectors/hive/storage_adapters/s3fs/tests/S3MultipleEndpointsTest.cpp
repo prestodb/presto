@@ -38,7 +38,7 @@ namespace {
 class S3MultipleEndpoints : public S3Test, public ::test::VectorTestBase {
  public:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
   static void TearDownTestCase() {
     filesystems::finalizeS3FileSystem();

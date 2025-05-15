@@ -68,7 +68,7 @@ class MemoryAllocatorTest : public testing::TestWithParam<int> {
     enableReservation_ = GetParam() == 2;
     maxMallocBytes_ = 3072;
     if (useMmap_) {
-      MemoryManagerOptions options;
+      MemoryManager::Options options;
       options.useMmapAllocator = true;
       options.allocatorCapacity = kCapacityBytes;
       options.arbitratorCapacity = kCapacityBytes;
@@ -86,7 +86,7 @@ class MemoryAllocatorTest : public testing::TestWithParam<int> {
                   AllocationTraits::kPageSize,
               64 * memoryManager_->allocator()->sizeClasses().back()));
     } else {
-      MemoryManagerOptions options;
+      MemoryManager::Options options;
       options.allocatorCapacity = kCapacityBytes;
       options.arbitratorCapacity = kCapacityBytes;
       using ExtraConfig = SharedArbitrator::ExtraConfig;
@@ -1949,7 +1949,7 @@ class MmapConfigTest : public testing::Test {
  protected:
   void setupAllocator() {
     constexpr int64_t kCapacityBytes = 900LL << 20; // 900MB.
-    MemoryManagerOptions options;
+    MemoryManager::Options options;
     options.useMmapAllocator = true;
     options.allocatorCapacity = kCapacityBytes;
     options.largestSizeClassPages = 4096;

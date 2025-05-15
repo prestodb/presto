@@ -30,7 +30,7 @@ class GcsInsertTest : public testing::Test, public test::InsertTest {
  protected:
   static void SetUpTestSuite() {
     registerGcsFileSystem();
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   void SetUp() override {

@@ -269,7 +269,8 @@ void FuzzerRunner::runFromGtest(
     const std::shared_ptr<SpecialFormSignatureGenerator>&
         specialFormSignatureGenerator) {
   if (!memory::MemoryManager::testInstance()) {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(
+        velox::memory::MemoryManager::Options{});
   }
   auto signatures = facebook::velox::getFunctionSignatures();
   const auto options = getExpressionFuzzerVerifierOptions(

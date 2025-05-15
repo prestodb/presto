@@ -205,7 +205,7 @@ BENCHMARK_RELATIVE(GenerateAutoIdNew_64) {
 
 int32_t main(int32_t argc, char* argv[]) {
   folly::Init init{&argc, &argv};
-  memory::MemoryManager::initialize({});
+  memory::MemoryManager::initialize(memory::MemoryManager::Options{});
   folly::runBenchmarks();
   return 0;
 }

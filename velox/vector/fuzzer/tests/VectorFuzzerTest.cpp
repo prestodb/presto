@@ -37,7 +37,7 @@ using facebook::velox::fuzzer::SetConstrainedGenerator;
 class VectorFuzzerTest : public testing::Test {
  public:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
     registerJsonType();
   }
 

@@ -29,7 +29,7 @@ std::string cacheKeyFunc(
 class S3FileSystemRegistrationTest : public S3Test {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
     filesystems::registerS3FileSystem(cacheKeyFunc);
   }
 

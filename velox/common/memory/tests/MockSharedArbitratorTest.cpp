@@ -463,7 +463,7 @@ class MockSharedArbitrationTest : public testing::Test {
       // Set the globalArbitrationAbortTimeRatio to be very small so that the
       // query can be aborted sooner and the test would not timeout.
       double globalArbitrationAbortTimeRatio = 0.005) {
-    MemoryManagerOptions options;
+    MemoryManager::Options options;
     options.allocatorCapacity = memoryCapacity;
     std::string arbitratorKind = "SHARED";
     options.arbitratorKind = arbitratorKind;

@@ -31,7 +31,7 @@ static void mockRelease(ArrowSchema*) {}
 class ArrowBridgeSchemaExportTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   void testScalarType(
@@ -502,7 +502,7 @@ TEST_F(ArrowBridgeSchemaImportTest, unsupported) {
 class ArrowBridgeSchemaTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   void roundtripTest(

@@ -38,7 +38,7 @@ auto serial() {
 
 int main() {
   const int num_rows = 8;
-  memory::MemoryManager::initialize({});
+  memory::MemoryManager::initialize(memory::MemoryManager::Options{});
 
   /****************** Vector Writer **********************/
 

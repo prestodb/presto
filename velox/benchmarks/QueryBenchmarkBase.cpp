@@ -139,7 +139,7 @@ void QueryBenchmarkBase::printResults(
 
 void QueryBenchmarkBase::initialize() {
   if (FLAGS_cache_gb) {
-    memory::MemoryManagerOptions options;
+    memory::MemoryManager::Options options;
     int64_t memoryBytes = FLAGS_cache_gb * (1LL << 30);
     options.useMmapAllocator = true;
     options.allocatorCapacity = memoryBytes;
@@ -164,7 +164,7 @@ void QueryBenchmarkBase::initialize() {
         memory::memoryManager()->allocator(), std::move(ssdCache));
     cache::AsyncDataCache::setInstance(cache_.get());
   } else {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
   functions::prestosql::registerAllScalarFunctions();
   aggregate::prestosql::registerAllAggregateFunctions();

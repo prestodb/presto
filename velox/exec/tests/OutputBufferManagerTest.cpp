@@ -57,7 +57,7 @@ class OutputBufferManagerTest : public testing::Test {
   }
 
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   void SetUp() override {

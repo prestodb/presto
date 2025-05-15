@@ -29,7 +29,7 @@ using namespace facebook::velox;
 
 int main(int argc, char** argv) {
   folly::Init init(&argc, &argv);
-  memory::MemoryManager::initialize({});
+  memory::MemoryManager::initialize(memory::MemoryManager::Options{});
   facebook::velox::functions::prestosql::registerAllScalarFunctions();
 
   ExpressionBenchmarkBuilder benchmarkBuilder;

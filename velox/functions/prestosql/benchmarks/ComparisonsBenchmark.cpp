@@ -151,7 +151,8 @@ BENCHMARK_RELATIVE(simd_interval_year_month_eq) {
 int main(int argc, char** argv) {
   folly::Init init{&argc, &argv};
 
-  facebook::velox::memory::MemoryManager::initialize({});
+  facebook::velox::memory::MemoryManager::initialize(
+      facebook::velox::memory::MemoryManager::Options{});
 
   benchmark = std::make_unique<ComparisonsBechmark>();
   folly::runBenchmarks();

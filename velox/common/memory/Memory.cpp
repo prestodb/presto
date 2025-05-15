@@ -45,6 +45,36 @@ SingletonState& singletonState() {
 }
 
 std::shared_ptr<MemoryAllocator> createAllocator(
+    const MemoryManager::Options& options) {
+  if (options.useMmapAllocator) {
+    MmapAllocator::Options mmapOptions;
+    mmapOptions.capacity = options.allocatorCapacity;
+    mmapOptions.largestSizeClass = options.largestSizeClassPages;
+    mmapOptions.useMmapArena = options.useMmapArena;
+    mmapOptions.mmapArenaCapacityRatio = options.mmapArenaCapacityRatio;
+    return std::make_shared<MmapAllocator>(mmapOptions);
+  } else {
+    return std::make_shared<MallocAllocator>(
+        options.allocatorCapacity,
+        options.allocationSizeThresholdWithReservation);
+  }
+}
+
+std::unique_ptr<MemoryArbitrator> createArbitrator(
+    const MemoryManager::Options& options) {
+  // TODO: consider to reserve a small amount of memory to compensate for the
+  //  non-reclaimable cache memory which are pinned by query accesses if
+  //  enabled.
+
+  return MemoryArbitrator::create(
+      {.kind = options.arbitratorKind,
+       .capacity =
+           std::min(options.arbitratorCapacity, options.allocatorCapacity),
+       .arbitrationStateCheckCb = options.arbitrationStateCheckCb,
+       .extraConfigs = options.extraArbitratorConfigs});
+}
+
+std::shared_ptr<MemoryAllocator> createAllocator(
     const MemoryManagerOptions& options) {
   if (options.useMmapAllocator) {
     MmapAllocator::Options mmapOptions;
@@ -88,6 +118,50 @@ std::vector<std::shared_ptr<MemoryPool>> createSharedLeafMemoryPools(
   return leafPools;
 }
 } // namespace
+
+MemoryManager::MemoryManager(const MemoryManager::Options& options)
+    : allocator_{createAllocator(options)},
+      arbitrator_(createArbitrator(options)),
+      alignment_(std::max(MemoryAllocator::kMinAlignment, options.alignment)),
+      checkUsageLeak_(options.checkUsageLeak),
+      coreOnAllocationFailureEnabled_(options.coreOnAllocationFailureEnabled),
+      disableMemoryPoolTracking_(options.disableMemoryPoolTracking),
+      getPreferredSize_(options.getPreferredSize),
+      poolDestructionCb_([&](MemoryPool* pool) { dropPool(pool); }),
+      sysRoot_{std::make_shared<MemoryPoolImpl>(
+          this,
+          std::string(kSysRootName),
+          MemoryPool::Kind::kAggregate,
+          nullptr,
+          nullptr,
+          // NOTE: the default root memory pool has no capacity limit, and it is
+          // used for system usage in production such as disk spilling.
+          MemoryPool::Options{
+              .alignment = alignment_,
+              .maxCapacity = kMaxMemory,
+              .trackUsage = options.trackDefaultUsage,
+              .coreOnAllocationFailureEnabled =
+                  options.coreOnAllocationFailureEnabled,
+              .getPreferredSize = getPreferredSize_})},
+      spillPool_{addLeafPool("__sys_spilling__")},
+      cachePool_{addLeafPool("__sys_caching__")},
+      tracePool_{addLeafPool("__sys_tracing__")},
+      sharedLeafPools_(createSharedLeafMemoryPools(*sysRoot_)) {
+  VELOX_CHECK_NOT_NULL(allocator_);
+  VELOX_CHECK_NOT_NULL(arbitrator_);
+  VELOX_USER_CHECK_GE(capacity(), 0);
+  VELOX_CHECK_GE(allocator_->capacity(), arbitrator_->capacity());
+  MemoryAllocator::alignmentCheck(0, alignment_);
+  const bool ret = sysRoot_->grow(sysRoot_->maxCapacity(), 0);
+  VELOX_CHECK(
+      ret,
+      "Failed to set max capacity {} for {}",
+      succinctBytes(sysRoot_->maxCapacity()),
+      sysRoot_->name());
+  VELOX_CHECK_EQ(
+      sharedLeafPools_.size(),
+      std::max(1, FLAGS_velox_memory_num_shared_leaf_pools));
+}
 
 MemoryManager::MemoryManager(const MemoryManagerOptions& options)
     : allocator_{createAllocator(options)},
@@ -153,7 +227,7 @@ MemoryManager::~MemoryManager() {
 
 // static
 MemoryManager& MemoryManager::deprecatedGetInstance(
-    const MemoryManagerOptions& options) {
+    const MemoryManager::Options& options) {
   auto& state = singletonState();
   if (auto* instance = state.instance.load(std::memory_order_acquire)) {
     return *instance;
@@ -167,6 +241,19 @@ MemoryManager& MemoryManager::deprecatedGetInstance(
   instance = new MemoryManager(options);
   state.instance.store(instance, std::memory_order_release);
   return *instance;
+}
+
+// static
+void MemoryManager::initialize(const MemoryManager::Options& options) {
+  auto& state = singletonState();
+  std::lock_guard<std::mutex> l(state.mutex);
+  auto* instance = state.instance.load(std::memory_order_acquire);
+  VELOX_CHECK_NULL(
+      instance,
+      "The memory manager has already been set: {}",
+      instance->toString());
+  instance = new MemoryManager(options);
+  state.instance.store(instance, std::memory_order_release);
 }
 
 // static
@@ -196,6 +283,15 @@ bool MemoryManager::testInstance() {
 }
 
 // static.
+MemoryManager& MemoryManager::testingSetInstance(
+    const MemoryManager::Options& options) {
+  auto& state = singletonState();
+  std::lock_guard<std::mutex> l(state.mutex);
+  auto* instance = new MemoryManager(options);
+  delete state.instance.exchange(instance, std::memory_order_acq_rel);
+  return *instance;
+}
+
 MemoryManager& MemoryManager::testingSetInstance(
     const MemoryManagerOptions& options) {
   auto& state = singletonState();
@@ -370,6 +466,10 @@ std::vector<std::shared_ptr<MemoryPool>> MemoryManager::getAlivePools() const {
     }
   }
   return pools;
+}
+
+void initializeMemoryManager(const MemoryManager::Options& options) {
+  MemoryManager::initialize(options);
 }
 
 void initializeMemoryManager(const MemoryManagerOptions& options) {

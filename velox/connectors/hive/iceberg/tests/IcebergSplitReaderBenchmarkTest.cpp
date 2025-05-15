@@ -20,7 +20,7 @@
 namespace facebook::velox::iceberg::reader::test {
 namespace {
 TEST(IcebergSplitReaderBenchmarkTest, basic) {
-  memory::MemoryManager::testingSetInstance({});
+  memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   run(1, "BigInt", BIGINT(), 20, 0, 500);
   run(1, "BigInt", BIGINT(), 50, 20, 500);
   run(1, "BigInt", BIGINT(), 100, 20, 500);

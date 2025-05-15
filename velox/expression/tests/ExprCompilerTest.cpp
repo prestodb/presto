@@ -32,7 +32,7 @@ class ExprCompilerTest : public testing::Test,
   static void SetUpTestCase() {
     parse::registerTypeResolver();
     functions::prestosql::registerAllScalarFunctions();
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   void SetUp() override {

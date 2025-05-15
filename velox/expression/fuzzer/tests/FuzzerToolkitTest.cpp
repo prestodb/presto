@@ -25,7 +25,7 @@ class FuzzerToolKitTest : public testing::Test,
                           public facebook::velox::test::VectorTestBase {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   bool compareBuffers(const BufferPtr& lhs, const BufferPtr& rhs) {

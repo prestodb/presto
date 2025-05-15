@@ -303,7 +303,7 @@ int main(int argc, char** argv) {
   folly::Init init{&argc, &argv, false};
 
   // Initializes the process-wide memory-manager with the default options.
-  memory::initializeMemoryManager({});
+  memory::initializeMemoryManager(memory::MemoryManager::Options{});
 
   VeloxIn10MinDemo demo;
   demo.run();

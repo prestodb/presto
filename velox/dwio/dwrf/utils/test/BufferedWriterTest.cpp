@@ -35,7 +35,7 @@ class BufferedWriterTest : public testing::TestWithParam<bool> {
   void SetUp() override {}
 
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   // Indicates test with buffered writer interface which takes memory pool or

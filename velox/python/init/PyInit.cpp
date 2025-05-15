@@ -69,7 +69,8 @@ void initializeVeloxMemory() {
   if (not velox::memory::MemoryManager::testInstance()) {
     // Enable full Velox stack trace when exceptions are thrown.
     FLAGS_velox_exception_user_stacktrace_enabled = true;
-    velox::memory::initializeMemoryManager({});
+    velox::memory::initializeMemoryManager(
+        velox::memory::MemoryManager::Options{});
   }
 }
 

@@ -30,7 +30,7 @@ class VariantToVectorTest : public testing::Test {
 
  public:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   template <TypeKind KIND>

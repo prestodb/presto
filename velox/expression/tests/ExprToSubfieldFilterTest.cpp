@@ -44,7 +44,7 @@ class ExprToSubfieldFilterTest : public testing::Test {
   static void SetUpTestSuite() {
     functions::prestosql::registerAllScalarFunctions();
     parse::registerTypeResolver();
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   core::TypedExprPtr parseExpr(
@@ -318,7 +318,7 @@ class CustomExprToSubfieldFilterTest : public ExprToSubfieldFilterTest {
     functions::prestosql::registerAllScalarFunctions("custom_");
     functions::registerIsNullFunction("is_null");
     parse::registerTypeResolver();
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
     ExprToSubfieldFilterParser::registerParserFactory(
         []() { return std::make_unique<CustomExprToSubfieldFilterParser>(); });
   }

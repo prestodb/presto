@@ -50,7 +50,7 @@ void addStats(
 class EncryptedStatsTest : public Test {
  protected:
   static void SetUpTestCase() {
-    MemoryManager::testingSetInstance({});
+    MemoryManager::testingSetInstance(MemoryManager::Options{});
   }
 
   void SetUp() override {
@@ -220,7 +220,7 @@ std::unique_ptr<ReaderBase> createCorruptedFileReader(
 class ReaderBaseTest : public Test {
  protected:
   static void SetUpTestCase() {
-    MemoryManager::testingSetInstance({});
+    MemoryManager::testingSetInstance(MemoryManager::Options{});
   }
 };
 

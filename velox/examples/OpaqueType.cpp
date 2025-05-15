@@ -187,7 +187,7 @@ int main(int argc, char** argv) {
   VELOX_REGISTER_VECTOR_FUNCTION(
       udf_map_resolver_vector, "map_resolver_vector");
 
-  memory::MemoryManager::initialize({});
+  memory::MemoryManager::initialize(memory::MemoryManager::Options{});
   // Create memory pool and other query-related structures.
   auto queryCtx = core::QueryCtx::create();
   auto pool = memory::memoryManager()->addLeafPool();

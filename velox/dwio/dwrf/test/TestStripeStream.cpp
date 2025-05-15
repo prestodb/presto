@@ -135,7 +135,7 @@ StripeStreamsImpl createAndLoadStripeStreams(
 class StripeStreamTest : public testing::TestWithParam<DwrfFormat> {
  protected:
   static void SetUpTestCase() {
-    MemoryManager::testingSetInstance({});
+    MemoryManager::testingSetInstance(MemoryManager::Options{});
   }
   std::shared_ptr<MemoryPool> pool_{memoryManager()->addLeafPool()};
 };
@@ -143,7 +143,7 @@ class StripeStreamTest : public testing::TestWithParam<DwrfFormat> {
 class StripeStreamFormatTypeTest : public testing::TestWithParam<DwrfFormat> {
  protected:
   static void SetUpTestCase() {
-    MemoryManager::testingSetInstance({});
+    MemoryManager::testingSetInstance(MemoryManager::Options{});
   }
   std::shared_ptr<MemoryPool> pool_{memoryManager()->addLeafPool()};
   DwrfFormat testParamDwrfFormat_ = GetParam();

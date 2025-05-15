@@ -21,7 +21,7 @@ namespace facebook::velox::core::test {
 class QueryPlannerTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   void assertPlan(

@@ -173,7 +173,7 @@ void testHugeInts(const std::vector<int128_t>& vec) {
 class DirectTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 };
 

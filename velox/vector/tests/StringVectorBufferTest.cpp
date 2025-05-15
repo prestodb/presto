@@ -48,7 +48,8 @@ class StringVectorBufferTest : public ::testing::Test {
   }
 
   static void SetUpTestCase() {
-    velox::memory::MemoryManager::testingSetInstance({});
+    velox::memory::MemoryManager::testingSetInstance(
+        velox::memory::MemoryManager::Options{});
   }
 
   std::shared_ptr<velox::memory::MemoryPool> pool_ =

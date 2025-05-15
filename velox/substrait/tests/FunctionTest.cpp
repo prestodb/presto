@@ -32,7 +32,7 @@ namespace vestrait = facebook::velox::substrait;
 class FunctionTest : public ::testing::Test {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   std::shared_ptr<core::QueryCtx> queryCtx_ = core::QueryCtx::create();

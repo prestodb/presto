@@ -41,7 +41,7 @@ class ExchangeClientTest
       public testing::WithParamInterface<VectorSerde::Kind> {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
     if (!isRegisteredNamedVectorSerde(VectorSerde::Kind::kPresto)) {
       serializer::presto::PrestoVectorSerde::registerNamedVectorSerde();
     }

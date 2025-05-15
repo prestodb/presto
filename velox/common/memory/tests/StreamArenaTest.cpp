@@ -27,7 +27,7 @@ class StreamArenaTest : public testing::Test {
  protected:
   void SetUp() override {
     constexpr uint64_t kMaxMappedMemory = 64 << 20;
-    MemoryManagerOptions options;
+    MemoryManager::Options options;
     options.allocatorCapacity = kMaxMappedMemory;
     options.useMmapAllocator = true;
     memoryManager_ = std::make_unique<MemoryManager>(options);

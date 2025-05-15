@@ -282,7 +282,7 @@ int main(int argc, char** argv) {
     VELOX_CHECK(!sql.empty());
   }
 
-  memory::initializeMemoryManager({});
+  memory::initializeMemoryManager(memory::MemoryManager::Options{});
 
   filesystems::registerLocalFileSystem();
   connector::registerConnectorFactory(

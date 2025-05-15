@@ -58,7 +58,7 @@ void insertRandomData(int seed, int n, KllSketch<double>& kll, double* values) {
 class KllSketchTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 };
 

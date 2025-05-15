@@ -25,7 +25,7 @@ using facebook::velox::VeloxException;
 class DataBufferHolderTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
-    MemoryManager::testingSetInstance({});
+    MemoryManager::testingSetInstance(MemoryManager::Options{});
   }
 
   std::shared_ptr<MemoryPool> pool_{memoryManager()->addLeafPool()};

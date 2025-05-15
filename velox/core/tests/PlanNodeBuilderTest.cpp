@@ -30,7 +30,7 @@ namespace {
 class PlanNodeBuilderTest : public testing::Test, public test::VectorTestBase {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   // A default source node, these are frequently needed when construting

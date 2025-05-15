@@ -30,7 +30,7 @@ class ByteStreamTest : public testing::Test {
  protected:
   void SetUp() override {
     constexpr uint64_t kMaxMappedMemory = 3ULL << 30;
-    MemoryManagerOptions options;
+    MemoryManager::Options options;
     options.useMmapAllocator = true;
     options.allocatorCapacity = kMaxMappedMemory;
     options.arbitratorCapacity = kMaxMappedMemory;

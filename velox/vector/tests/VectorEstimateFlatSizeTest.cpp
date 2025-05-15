@@ -25,7 +25,7 @@ class VectorEstimateFlatSizeTest : public testing::Test,
   using velox::test::VectorTestBase::makeArrayVector;
 
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   ArrayVectorPtr makeArrayVector(

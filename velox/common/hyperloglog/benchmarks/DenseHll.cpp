@@ -103,7 +103,7 @@ BENCHMARK(mergeSerialized16) {
 int main(int argc, char** argv) {
   folly::Init init(&argc, &argv);
 
-  memory::MemoryManager::initialize({});
+  memory::MemoryManager::initialize(memory::MemoryManager::Options{});
   auto rootPool = memory::memoryManager()->addRootPool();
   auto pool = rootPool->addLeafChild("bm");
   benchmark = std::make_unique<DenseHllBenchmark>(pool.get());

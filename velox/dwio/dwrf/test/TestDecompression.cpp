@@ -40,7 +40,7 @@ const std::string simpleFile(getExampleFilePath("simple-file.binary"));
 class DecompressionTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   std::unique_ptr<SeekableInputStream> createTestDecompressor(
@@ -864,7 +864,7 @@ size_t compress(
 class TestSeek : public ::testing::Test {
  public:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   ~TestSeek() override {}

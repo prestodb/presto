@@ -481,7 +481,7 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
     // Write the buffer to a temp file
     auto filePath = exec::test::TempFilePath::create();
     writeToFile(filePath, buffer);
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
     std::shared_ptr<facebook::velox::memory::MemoryPool> rootPool =
         memory::memoryManager()->addRootPool("StatisticsTest");
     std::shared_ptr<facebook::velox::memory::MemoryPool> leafPool =
@@ -1017,7 +1017,7 @@ class TestStatisticsSortOrder : public ::testing::Test {
     // Write the pbuffer to a temp file
     auto filePath = exec::test::TempFilePath::create();
     writeToFile(filePath, pbuffer);
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
     std::shared_ptr<facebook::velox::memory::MemoryPool> rootPool =
         memory::memoryManager()->addRootPool("StatisticsTest");
     std::shared_ptr<facebook::velox::memory::MemoryPool> leafPool =
@@ -1290,7 +1290,7 @@ TEST_F(TestStatisticsSortOrderFLBA, decimalSortOrder) {
   // Write the pbuffer to a temp file
   auto filePath = exec::test::TempFilePath::create();
   writeToFile(filePath, pbuffer);
-  memory::MemoryManager::testingSetInstance({});
+  memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   std::shared_ptr<facebook::velox::memory::MemoryPool> rootPool =
       memory::memoryManager()->addRootPool("StatisticsTest");
   std::shared_ptr<facebook::velox::memory::MemoryPool> leafPool =

@@ -91,7 +91,7 @@ int main(int argc, char* argv[]) {
     LOG(INFO) << "Use generated random seed " << FLAGS_seed;
   }
 
-  memory::MemoryManager::initialize({});
+  memory::MemoryManager::initialize(memory::MemoryManager::Options{});
   auto pool = memory::memoryManager()->addLeafPool();
   std::default_random_engine gen(FLAGS_seed);
   auto base = generateBase(pool.get(), gen);

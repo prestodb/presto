@@ -32,7 +32,7 @@ using namespace facebook::velox::test;
 class UnsafeRowTest : public ::testing::Test, public VectorTestBase {
  public:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   template <typename T>

@@ -169,7 +169,7 @@ class StreamingAggregationBenchmark : public VectorTestBase {
 
 int main(int argc, char** argv) {
   folly::Init init(&argc, &argv);
-  memory::initializeMemoryManager({});
+  memory::initializeMemoryManager(memory::MemoryManager::Options{});
   aggregate::prestosql::registerAllAggregateFunctions();
 
   StreamingAggregationBenchmark bm;

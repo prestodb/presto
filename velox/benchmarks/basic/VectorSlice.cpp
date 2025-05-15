@@ -114,7 +114,7 @@ int main(int argc, char* argv[]) {
   using namespace facebook::velox;
   ::gflags::ParseCommandLineFlags(&argc, &argv, true);
   VELOX_CHECK_LE(FLAGS_slice_size, kVectorSize);
-  memory::MemoryManager::initialize({});
+  memory::MemoryManager::initialize(memory::MemoryManager::Options{});
   data = std::make_unique<BenchmarkData>();
   folly::runBenchmarks();
   data.reset();

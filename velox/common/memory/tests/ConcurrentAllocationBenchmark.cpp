@@ -215,14 +215,15 @@ class MemoryAllocationBenchMark {
   explicit MemoryAllocationBenchMark(const Options& options)
       : options_(options) {
     const int64_t maxMemory = options_.maxMemory + (256 << 20);
+    MemoryManager::Options memoryManagerOptions;
+    memoryManagerOptions.allocatorCapacity = maxMemory;
     switch (options_.allocatorType) {
       case Type::kMmap: {
-        manager_ = std::make_shared<MemoryManager>(MemoryManagerOptions{
-            .allocatorCapacity = maxMemory, .useMmapAllocator = true});
+        memoryManagerOptions.useMmapAllocator = true;
+        manager_ = std::make_shared<MemoryManager>(memoryManagerOptions);
       } break;
       case Type::kMalloc:
-        manager_ = std::make_shared<MemoryManager>(
-            MemoryManagerOptions{.allocatorCapacity = maxMemory});
+        manager_ = std::make_shared<MemoryManager>(memoryManagerOptions);
         break;
       default:
         VELOX_USER_FAIL(

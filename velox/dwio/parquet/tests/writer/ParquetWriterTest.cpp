@@ -42,7 +42,7 @@ using namespace facebook::velox::parquet;
 class ParquetWriterTest : public ParquetTestBase {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
     testutil::TestValue::enable();
     filesystems::registerLocalFileSystem();
     connector::registerConnectorFactory(

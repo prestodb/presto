@@ -28,7 +28,7 @@ using namespace facebook::velox::test;
 class EvalCtxTest : public testing::Test, public VectorTestBase {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   core::ExecCtx execCtx_{pool_.get(), nullptr};

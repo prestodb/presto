@@ -27,7 +27,7 @@ using namespace facebook::velox::dwrf;
 class BufferedOutputStreamTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
-    MemoryManager::testingSetInstance({});
+    MemoryManager::testingSetInstance(MemoryManager::Options{});
   }
 
   std::shared_ptr<MemoryPool> pool_ = memoryManager()->addLeafPool();
@@ -240,7 +240,7 @@ TEST_F(BufferedOutputStreamTest, recordPosition) {
 class AppendOnlyBufferedStreamTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
-    MemoryManager::testingSetInstance({});
+    MemoryManager::testingSetInstance(MemoryManager::Options{});
   }
 
   std::shared_ptr<MemoryPool> pool_ = memoryManager()->addLeafPool();

@@ -33,7 +33,7 @@ namespace {
 class OrcReaderTest : public testing::Test, public VectorTestBase {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 };
 
@@ -342,7 +342,7 @@ class OrcReaderTestP : public testing::TestWithParam<OrcFileDescription>,
                        public VectorTestBase {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   inline std::string getExamplesFilePath(const std::string& fileName) {

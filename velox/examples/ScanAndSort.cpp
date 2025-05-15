@@ -46,7 +46,7 @@ int main(int argc, char** argv) {
   folly::Init init{&argc, &argv};
 
   // Default memory allocator used throughout this example.
-  memory::MemoryManager::initialize({});
+  memory::MemoryManager::initialize(memory::MemoryManager::Options{});
   auto pool = memory::memoryManager()->addLeafPool();
 
   // For this example, the input dataset will be comprised of a single BIGINT

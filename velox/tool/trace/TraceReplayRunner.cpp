@@ -247,7 +247,7 @@ void TraceReplayRunner::init() {
   VELOX_USER_CHECK(!FLAGS_node_id.empty(), "--node_id must be provided");
 
   if (!memory::MemoryManager::testInstance()) {
-    memory::MemoryManagerOptions options;
+    memory::MemoryManager::Options options;
     options.arbitratorKind = FLAGS_memory_arbitrator_type;
     memory::initializeMemoryManager(options);
   }

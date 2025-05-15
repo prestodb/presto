@@ -186,7 +186,7 @@ class PrefixSortBenchmark {
 int main(int argc, char** argv) {
   folly::Init init(&argc, &argv);
 
-  memory::MemoryManager::initialize({});
+  memory::MemoryManager::initialize(memory::MemoryManager::Options{});
   auto rootPool = memory::memoryManager()->addRootPool();
   auto leafPool = rootPool->addLeafChild("leaf");
 

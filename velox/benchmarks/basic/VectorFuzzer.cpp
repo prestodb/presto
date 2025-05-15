@@ -134,7 +134,7 @@ BENCHMARK_RELATIVE_MULTI(flatMapArrayNested, n) {
 int main(int argc, char* argv[]) {
   folly::Init init{&argc, &argv};
   ::gflags::ParseCommandLineFlags(&argc, &argv, true);
-  memory::MemoryManager::initialize({});
+  memory::MemoryManager::initialize(memory::MemoryManager::Options{});
   folly::runBenchmarks();
   return 0;
 }

@@ -1072,7 +1072,7 @@ class CudaTest : public testing::Test {
       return;
     }
     inited = true;
-    memory::MemoryManagerOptions options;
+    memory::MemoryManager::Options options;
     options.useMmapAllocator = true;
     options.allocatorCapacity = capacity;
     memory::MemoryManager::initialize(options);

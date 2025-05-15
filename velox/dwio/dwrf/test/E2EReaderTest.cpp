@@ -101,7 +101,7 @@ class ValueTypes {
 class E2EReaderTest : public testing::TestWithParam<ValueTypes> {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 };
 } // namespace

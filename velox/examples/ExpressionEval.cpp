@@ -50,7 +50,7 @@ int main(int argc, char** argv) {
   // registered.
   registerFunction<TimesTwoFunction, int64_t, int64_t>({"times_two"});
 
-  memory::MemoryManager::initialize({});
+  memory::MemoryManager::initialize(memory::MemoryManager::Options{});
 
   // First of all, executing an expression in Velox will require us to create a
   // query context, a memory pool, and an execution context.

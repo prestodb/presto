@@ -30,7 +30,7 @@ class PlanBuilderTest : public testing::Test,
                         public velox::test::VectorTestBase {
  public:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   PlanBuilderTest() {

@@ -80,7 +80,8 @@ int main(int argc, char** argv) {
     FLAGS_seed = std::random_device{}();
     LOG(INFO) << "Use generated random seed " << FLAGS_seed;
   }
-  facebook::velox::memory::MemoryManager::initialize({});
+  facebook::velox::memory::MemoryManager::initialize(
+      facebook::velox::memory::MemoryManager::Options{});
   auto ioExecutor = folly::getGlobalIOExecutor();
   facebook::velox::exec::test::registerFactories(ioExecutor.get());
   return RUN_ALL_TESTS();

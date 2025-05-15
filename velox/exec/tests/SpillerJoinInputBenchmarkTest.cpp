@@ -23,7 +23,7 @@ using namespace facebook::velox;
 
 int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
-  memory::MemoryManager::initialize({});
+  memory::MemoryManager::initialize(memory::MemoryManager::Options{});
   serializer::presto::PrestoVectorSerde::registerVectorSerde();
   filesystems::registerLocalFileSystem();
   auto test = std::make_unique<exec::test::JoinSpillInputBenchmarkBase>();

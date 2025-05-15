@@ -91,7 +91,7 @@ BENCHMARK(randomDefs) {
 }
 
 int main(int /*argc*/, char** /*argv*/) {
-  memory::MemoryManager::initialize({});
+  memory::MemoryManager::initialize(memory::MemoryManager::Options{});
   folly::runBenchmarks();
   return 0;
 }

@@ -37,7 +37,7 @@ extern void registerSubscriptFunction(
 
 int main(int argc, char** argv) {
   folly::Init init(&argc, &argv);
-  memory::MemoryManager::testingSetInstance({});
+  memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
 
   ExpressionBenchmarkBuilder benchmarkBuilder;
   facebook::velox::functions::prestosql::registerAllScalarFunctions();

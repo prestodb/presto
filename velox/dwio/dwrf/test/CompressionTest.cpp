@@ -154,7 +154,7 @@ TestDecrypter testDecrypter;
 class CompressionTest : public TestWithParam<TestParams> {
  public:
   static void SetUpTestCase() {
-    MemoryManager::testingSetInstance({});
+    MemoryManager::testingSetInstance(MemoryManager::Options{});
   }
 
   void SetUp() override {
@@ -301,7 +301,7 @@ typedef std::tuple<CompressionKind, const Encrypter*> TestParams2;
 class RecordPositionTest : public TestWithParam<TestParams2> {
  public:
   static void SetUpTestCase() {
-    MemoryManager::testingSetInstance({});
+    MemoryManager::testingSetInstance(MemoryManager::Options{});
   }
 
   void SetUp() override {

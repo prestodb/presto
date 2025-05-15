@@ -45,7 +45,7 @@ struct VeloxToArrowType<Timestamp> {
 class ArrowBridgeArrayExportTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   template <typename T>

@@ -117,7 +117,7 @@ folly::Singleton<BaseStatsReporter> reporter([]() {
 class S3FileSystemMetricsTest : public S3Test {
  protected:
   static void SetUpTestSuite() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   void SetUp() override {

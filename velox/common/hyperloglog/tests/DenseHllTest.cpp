@@ -37,7 +37,7 @@ uint64_t hashOne(T value) {
 class DenseHllTest : public ::testing::TestWithParam<int8_t> {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   DenseHll roundTrip(DenseHll& hll) {

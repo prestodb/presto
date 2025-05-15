@@ -29,7 +29,7 @@ class NestedStructureDecoderTest : public testing::Test {
   static constexpr int32_t kMaxNumValues = 10'000;
 
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   void SetUp() override {

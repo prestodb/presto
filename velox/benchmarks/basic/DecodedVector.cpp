@@ -190,7 +190,7 @@ BENCHMARK(decodeDictionary5Nested) {
 int main(int argc, char* argv[]) {
   folly::Init init{&argc, &argv};
   ::gflags::ParseCommandLineFlags(&argc, &argv, true);
-  memory::MemoryManager::initialize({});
+  memory::MemoryManager::initialize(memory::MemoryManager::Options{});
   benchmark = std::make_unique<DecodedVectorBenchmark>(10'000);
   folly::runBenchmarks();
   benchmark.reset();

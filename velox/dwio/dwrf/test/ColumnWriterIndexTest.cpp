@@ -418,7 +418,7 @@ class TimestampWriterIndexTest : public testing::Test,
 
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   VectorPtr prepBatch(size_t size, MemoryPool* pool) override {
@@ -455,7 +455,7 @@ class IntegerColumnWriterDictionaryEncodingIndexTest
 
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   VectorPtr prepBatch(size_t size, MemoryPool* pool) override {
@@ -514,7 +514,7 @@ class BoolColumnWriterEncodingIndexTest : public testing::Test,
 
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   VectorPtr prepBatch(size_t size, MemoryPool* pool) override {
@@ -549,7 +549,7 @@ class ByteColumnWriterEncodingIndexTest : public testing::Test,
 
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   VectorPtr prepBatch(size_t size, MemoryPool* pool) override {
@@ -588,7 +588,7 @@ class BinaryColumnWriterEncodingIndexTest : public testing::Test,
 
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   VectorPtr prepBatch(size_t size, MemoryPool* pool) override {
@@ -652,7 +652,7 @@ class FloatColumnWriterEncodingIndexTest : public testing::Test,
 
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   VectorPtr prepBatch(size_t size, MemoryPool* pool) override {
@@ -698,7 +698,7 @@ class IntegerColumnWriterDirectEncodingIndexTest : public testing::Test {
 
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   void testForAllTypes(
@@ -912,7 +912,7 @@ class StringColumnWriterDictionaryEncodingIndexTest : public testing::Test {
 
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   VectorPtr prepBatch(
@@ -1022,7 +1022,7 @@ class StringColumnWriterDirectEncodingIndexTest : public testing::Test {
 
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   VectorPtr prepBatch(
@@ -1212,7 +1212,7 @@ class ListColumnWriterEncodingIndexTest : public testing::Test,
 
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   VectorPtr prepBatch(size_t size, MemoryPool* pool) override {
@@ -1282,7 +1282,7 @@ class MapColumnWriterEncodingIndexTest : public testing::Test,
 
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   VectorPtr prepBatch(size_t size, MemoryPool* pool) override {
@@ -1358,7 +1358,7 @@ class FlatMapColumnWriterEncodingIndexTest : public testing::Test,
 
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   VectorPtr prepBatch(size_t size, MemoryPool* pool) override {
@@ -1452,7 +1452,7 @@ class StructColumnWriterEncodingIndexTest : public testing::Test,
 
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   VectorPtr prepBatch(size_t size, MemoryPool* pool) override {

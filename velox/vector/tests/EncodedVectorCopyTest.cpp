@@ -98,7 +98,7 @@ class EncodedVectorCopyTest : public testing::TestWithParam<TestParams::Type>,
                               public test::VectorTestBase {
  protected:
   static void SetUpTestSuite() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   void copy(

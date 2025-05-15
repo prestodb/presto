@@ -266,7 +266,7 @@ class FilterProjectBenchmark : public VectorTestBase {
 
 int main(int argc, char** argv) {
   folly::Init init{&argc, &argv};
-  memory::initializeMemoryManager({});
+  memory::initializeMemoryManager(memory::MemoryManager::Options{});
   functions::prestosql::registerAllScalarFunctions();
   aggregate::prestosql::registerAllAggregateFunctions();
   parse::registerTypeResolver();

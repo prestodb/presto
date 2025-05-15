@@ -36,7 +36,7 @@ class FunctionCallToSpecialFormTest : public testing::Test,
  protected:
   static void SetUpTestCase() {
     registerFunctionCallToSpecialForms();
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
   const core::QueryConfig config_{{}};
 };
@@ -191,7 +191,7 @@ class FunctionCallToSpecialFormSanitizeNameTest : public testing::Test,
  protected:
   static void SetUpTestCase() {
     // This class does not pre-register the special forms.
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 };
 

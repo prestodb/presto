@@ -23,7 +23,7 @@ namespace facebook::velox::functions::test {
 void FunctionBaseTest::SetUpTestCase() {
   parse::registerTypeResolver();
   functions::prestosql::registerAllScalarFunctions();
-  memory::MemoryManager::testingSetInstance({});
+  memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
 }
 
 // static

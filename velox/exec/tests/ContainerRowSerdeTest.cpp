@@ -33,7 +33,7 @@ class ContainerRowSerdeTest : public testing::Test,
                               public velox::test::VectorTestBase {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   // Writes all rows together and returns a position at the start of this

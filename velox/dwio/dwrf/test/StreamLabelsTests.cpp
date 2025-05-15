@@ -25,7 +25,8 @@ using namespace facebook::velox::dwrf;
 class StreamLabelsTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
-    facebook::velox::memory::MemoryManager::testingSetInstance({});
+    facebook::velox::memory::MemoryManager::testingSetInstance(
+        facebook::velox::memory::MemoryManager::Options{});
   }
 };
 

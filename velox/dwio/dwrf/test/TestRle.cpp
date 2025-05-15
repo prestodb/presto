@@ -76,7 +76,7 @@ void checkResults(
 class RLEv2Test : public testing::Test {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 };
 
@@ -676,7 +676,7 @@ TEST_F(RLEv2Test, bitsLeftByPreviousStream) {
 class RLEv1Test : public testing::Test {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 };
 

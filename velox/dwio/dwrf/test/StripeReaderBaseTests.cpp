@@ -35,7 +35,7 @@ namespace facebook::velox::dwrf {
 class StripeLoadKeysTest : public Test {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   void SetUp() override {

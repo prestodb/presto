@@ -36,7 +36,7 @@ namespace facebook::velox::memory {
 class MemoryArbitrationTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   void SetUp() {
@@ -102,7 +102,7 @@ TEST_F(MemoryArbitrationTest, createWithDefaultConf) {
 TEST_F(MemoryArbitrationTest, queryMemoryCapacity) {
   {
     // Reserved memory is not enforced when no arbitrator is provided.
-    MemoryManagerOptions options;
+    MemoryManager::Options options;
     options.allocatorCapacity = 8L << 20;
     options.arbitratorCapacity = 4L << 20;
     using ExtraConfig = SharedArbitrator::ExtraConfig;
@@ -119,7 +119,7 @@ TEST_F(MemoryArbitrationTest, queryMemoryCapacity) {
   }
   {
     // Reserved memory is enforced when SharedMemoryArbitrator is used.
-    MemoryManagerOptions options;
+    MemoryManager::Options options;
     options.allocatorCapacity = 16L << 20;
     options.arbitratorCapacity = 6L << 20;
     options.arbitratorKind = "SHARED";
@@ -203,7 +203,7 @@ TEST_F(MemoryArbitrationTest, memoryPoolCapacityOnCreation) {
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
 
-    MemoryManagerOptions options;
+    MemoryManager::Options options;
     options.arbitratorKind = "SHARED";
     options.arbitratorCapacity =
         testData.freeReservedCapacity + testData.freeNonReservedCapacity;
@@ -225,7 +225,7 @@ TEST_F(MemoryArbitrationTest, memoryPoolCapacityOnCreation) {
 }
 
 TEST_F(MemoryArbitrationTest, reservedCapacityFreeByPoolRelease) {
-  MemoryManagerOptions options;
+  MemoryManager::Options options;
   options.arbitratorKind = "SHARED";
   options.arbitratorCapacity = 9 << 20;
   options.allocatorCapacity = options.arbitratorCapacity;
@@ -371,7 +371,7 @@ class MemoryArbitratorFactoryTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
     MemoryArbitrator::registerFactory(kind_, factory_);
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   static void TearDownTestCase() {
@@ -402,7 +402,7 @@ TEST_F(MemoryArbitratorFactoryTest, create) {
 class MemoryReclaimerTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   MemoryReclaimerTest() {

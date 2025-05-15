@@ -347,7 +347,7 @@ void setupMemory(
   FLAGS_velox_enable_memory_usage_track_in_default_memory_pool = true;
   FLAGS_velox_memory_leak_check_enabled = true;
   facebook::velox::memory::SharedArbitrator::registerFactory();
-  facebook::velox::memory::MemoryManagerOptions options;
+  facebook::velox::memory::MemoryManager::Options options;
   options.allocatorCapacity = allocatorCapacity;
   options.arbitratorCapacity = arbitratorCapacity;
   options.arbitratorKind = "SHARED";

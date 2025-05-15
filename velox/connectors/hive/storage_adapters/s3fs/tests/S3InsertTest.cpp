@@ -29,7 +29,7 @@ namespace {
 class S3InsertTest : public S3Test, public test::InsertTest {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   void SetUp() override {

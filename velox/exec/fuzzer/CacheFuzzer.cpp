@@ -351,7 +351,7 @@ void CacheFuzzer::initializeCache(bool restartCache) {
         enableChecksumReadVerification_ ? "enabled" : "disabled");
   }
 
-  memory::MemoryManagerOptions options;
+  memory::MemoryManager::Options options;
   options.useMmapAllocator = true;
   options.allocatorCapacity = memoryCacheBytes;
   options.arbitratorCapacity = memoryCacheBytes;

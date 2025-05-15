@@ -34,7 +34,7 @@ class FileInputStreamTest : public testing::Test {
 
   void SetUp() override {
     constexpr uint64_t kMaxMappedMemory = 64 << 20;
-    MemoryManagerOptions options;
+    MemoryManager::Options options;
     options.useMmapAllocator = true;
     options.allocatorCapacity = kMaxMappedMemory;
     options.arbitratorCapacity = kMaxMappedMemory;

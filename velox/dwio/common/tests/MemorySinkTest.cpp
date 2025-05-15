@@ -23,7 +23,7 @@ namespace facebook::velox::dwio::common {
 class MemorySinkTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   std::shared_ptr<velox::memory::MemoryPool> pool_{
