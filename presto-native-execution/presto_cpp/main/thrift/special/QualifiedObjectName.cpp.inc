@@ -12,17 +12,19 @@
  * limitations under the License.
  */
 
-void toThrift(const facebook::presto::protocol::HostAddress& proto, HostAddress& thrift) {
+void toThrift(const facebook::presto::protocol::QualifiedObjectName& proto, QualifiedObjectName& thrift) {
   std::vector<std::string> parts;
-  folly::split(":", proto, parts);
-  if (parts.size() == 2) {
-    thrift.host_ref() = parts[0];
-    thrift.port_ref() = std::stoi(parts[1]);
+  folly::split(".", proto, parts);
+  if (parts.size() == 3) {
+    thrift.catalogName_ref() = parts[0];
+    thrift.schemaName_ref()= parts[1];
+    thrift.objectName_ref() = parts[2];
   }
 }
-void fromThrift(const HostAddress& thrift, facebook::presto::protocol::HostAddress& proto) {
-  std::string hostAddressStr =
-    *thrift.host_ref() + "." +
-    std::to_string(*thrift.port_ref());
-  fromThrift(hostAddressStr, proto);
+void fromThrift(const QualifiedObjectName& thrift, facebook::presto::protocol::QualifiedObjectName& proto) {
+  std::string qualifiedObjectNameStr =
+    *thrift.catalogName_ref() + "." +
+    *thrift.schemaName_ref() + "." +
+    *thrift.objectName_ref();
+  fromThrift(qualifiedObjectNameStr, proto);
 }
