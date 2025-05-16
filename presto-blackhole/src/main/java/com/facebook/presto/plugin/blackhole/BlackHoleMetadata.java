@@ -97,7 +97,19 @@ public class BlackHoleMetadata
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         BlackHoleTableHandle blackHoleTableHandle = (BlackHoleTableHandle) tableHandle;
-        return blackHoleTableHandle.toTableMetadata();
+        return toTableMetadata(blackHoleTableHandle, session);
+    }
+
+    public ConnectorTableMetadata toTableMetadata(BlackHoleTableHandle blackHoleTableHandle, ConnectorSession session)
+    {
+        List<ColumnMetadata> columns = blackHoleTableHandle.getColumnHandles().stream()
+                .map(column -> {
+                    String normalizedName = normalizeIdentifier(session, column.getName());
+                    return column.toColumnMetadata(normalizedName);
+                })
+                .collect(toList());
+
+        return new ConnectorTableMetadata(blackHoleTableHandle.toSchemaTableName(), columns);
     }
 
     @Override
@@ -129,7 +141,7 @@ public class BlackHoleMetadata
     {
         return tables.values().stream()
                 .filter(table -> prefix.matches(table.toSchemaTableName()))
-                .collect(toMap(BlackHoleTableHandle::toSchemaTableName, handle -> handle.toTableMetadata().getColumns()));
+                .collect(toMap(BlackHoleTableHandle::toSchemaTableName, handle -> toTableMetadata(handle, session).getColumns()));
     }
 
     @Override

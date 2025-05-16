@@ -61,6 +61,14 @@ public final class BlackHoleColumnHandle
                 .build();
     }
 
+    public ColumnMetadata toColumnMetadata(String name)
+    {
+        return ColumnMetadata.builder()
+                .setName(name)
+                .setType(columnType)
+                .build();
+    }
+
     @Override
     public int hashCode()
     {
