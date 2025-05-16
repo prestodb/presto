@@ -39,6 +39,7 @@ jobs:
       GTest_SOURCE: BUNDLED
       simdjson_SOURCE: BUNDLED
       xsimd_SOURCE: BUNDLED
+      cudf_SOURCE: BUNDLED
       CUDA_VERSION: "12.8"
       USE_CLANG: "${{ inputs.use-clang && 'true' || 'false' }}"
     steps:
@@ -95,7 +96,8 @@ jobs:
             "-DVELOX_ENABLE_GCS=ON"
             "-DVELOX_ENABLE_ABFS=ON"
             "-DVELOX_ENABLE_REMOTE_FUNCTIONS=ON"
-            "-DVELOX_ENABLE_GPU=ON"
+            "-DVELOX_ENABLE_CUDF=ON"
+            "-DVELOX_ENABLE_WAVE=ON"
             "-DVELOX_MONO_LIBRARY=ON"
             "-DVELOX_BUILD_SHARED=ON"
           )
