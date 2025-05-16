@@ -14,8 +14,8 @@ add_library(presto_type_converter OBJECT TypeParser.cpp)
 target_link_libraries(presto_type_converter velox_type_parser)
 
 add_library(presto_velox_expr_conversion OBJECT PrestoToVeloxExpr.cpp)
-target_link_libraries(presto_velox_expr_conversion velox_presto_types
-                      velox_vector velox_exception)
+target_link_libraries(presto_velox_expr_conversion presto_functions_remote
+                      velox_presto_types velox_vector velox_exception)
 
 add_library(presto_types PrestoToVeloxQueryPlan.cpp VeloxPlanValidator.cpp
                          PrestoToVeloxSplit.cpp)

@@ -23,9 +23,8 @@
 #include "velox/vector/ConstantVector.h"
 #include "velox/vector/FlatVector.h"
 #ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
-#include "presto_cpp/main/JsonSignatureParser.h"
+#include "presto_cpp/main/functions/remote/client/Remote.h"
 #include "velox/expression/FunctionSignature.h"
-#include "velox/functions/remote/client/Remote.h"
 #endif
 
 using namespace facebook::velox::core;
@@ -186,7 +185,7 @@ TypedExprPtr registerRestRemoteFunction(
     const velox::TypePtr& returnType) {
   const auto* systemConfig = SystemConfig::instance();
 
-  velox::functions::RemoteVectorFunctionMetadata metadata;
+  functions::PrestoRemoteFunctionsMetadata metadata;
   const auto& serdeName = systemConfig->remoteFunctionServerSerde();
   if (serdeName == "presto_page") {
     metadata.serdeFormat = PageFormat::PRESTO_PAGE;
@@ -234,7 +233,7 @@ TypedExprPtr registerRestRemoteFunction(
   auto signature = signatureBuilder.build();
   std::vector<velox::exec::FunctionSignaturePtr> veloxSignatures = {signature};
 
-  velox::functions::registerRemoteFunction(
+  functions::registerPrestoRemoteFunction(
       getFunctionName(restFunctionHandle.functionId),
       veloxSignatures,
       metadata,
