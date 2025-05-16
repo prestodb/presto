@@ -112,6 +112,7 @@ using SqlFunctionId = std::string;
 
 using QualifiedObjectName = std::string;
 using TypeSignature = std::string;
+using HostAddress = std::string;
 
 using ConnectorId = std::string;
 using MemoryPoolId = std::string;
@@ -1243,11 +1244,6 @@ enum class ErrorCause {
 };
 extern void to_json(json& j, const ErrorCause& e);
 extern void from_json(const json& j, ErrorCause& e);
-} // namespace facebook::presto::protocol
-namespace facebook::presto::protocol {
-
-using HostAddress = std::string;
-
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 struct ExecutionFailureInfo {

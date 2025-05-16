@@ -12,17 +12,9 @@
  * limitations under the License.
  */
 
-void toThrift(const facebook::presto::protocol::HostAddress& proto, HostAddress& thrift) {
-  std::vector<std::string> parts;
-  folly::split(":", proto, parts);
-  if (parts.size() == 2) {
-    thrift.host_ref() = parts[0];
-    thrift.port_ref() = std::stoi(parts[1]);
-  }
+void toThrift(const facebook::presto::protocol::OutputBufferId& proto, OutputBufferId& thrift) {
+  toThrift(std::stoi(proto), *thrift.id_ref());
 }
-void fromThrift(const HostAddress& thrift, facebook::presto::protocol::HostAddress& proto) {
-  std::string hostAddressStr =
-    *thrift.host_ref() + "." +
-    std::to_string(*thrift.port_ref());
-  fromThrift(hostAddressStr, proto);
+void fromThrift(const OutputBufferId& thrift, facebook::presto::protocol::OutputBufferId& proto) {
+  fromThrift(std::to_string(*thrift.id_ref()), proto);
 }
