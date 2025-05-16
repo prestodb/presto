@@ -2447,7 +2447,7 @@ TpchPlan TpchQueryBuilder::getQ22Plan() const {
               "",
               {"c_acctbal", "c_phone"},
               core::JoinType::kAnti,
-              true /*nullAware*/)
+              false /*nullAware*/)
           .project({"substr(c_phone, 1, 2) AS country_code", "c_acctbal"})
           .partialAggregation(
               {"country_code"},
