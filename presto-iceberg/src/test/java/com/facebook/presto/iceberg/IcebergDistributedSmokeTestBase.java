@@ -2107,10 +2107,6 @@ public abstract class IcebergDistributedSmokeTestBase
 
         assertTrue(runtimestats
                 .getMetrics()
-                .containsKey("iceberg.tpch.orders.scan.totalPlanningDuration"));
-
-        assertTrue(runtimestats
-                .getMetrics()
                 .get("iceberg.tpch.orders.scan.totalPlanningDuration")
                 .getSum() > 0);
 

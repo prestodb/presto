@@ -283,6 +283,7 @@ public class TableStatisticsMaker
             List<PartitionField> partitionFields)
     {
         TableScan tableScan = icebergTable.newScan()
+                .metricsReporter(new RuntimeStatsMetricsReporter(session.getRuntimeStats()))
                 .filter(toIcebergExpression(intersection))
                 .select(selectedColumns.stream().map(IcebergColumnHandle::getName).collect(Collectors.toList()))
                 .useSnapshot(tableHandle.getIcebergTableName().getSnapshotId().get())
