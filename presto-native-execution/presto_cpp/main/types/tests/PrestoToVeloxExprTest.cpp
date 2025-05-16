@@ -17,7 +17,7 @@
 #include "presto_cpp/main/common/Configs.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/remote/client/Remote.h"
-#include "velox/functions/remote/server/RemoteFunctionThriftService.h"
+#include "velox/functions/remote/server/RemoteFunctionService.h"
 
 using namespace facebook::presto;
 using namespace facebook::velox;

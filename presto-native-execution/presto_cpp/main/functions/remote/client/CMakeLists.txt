@@ -12,13 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-velox_add_library(presto_functions_remote_client RestClient.cpp
+add_library(presto_functions_remote_client RestClient.cpp
                   RestRemoteClient.cpp)
-velox_link_libraries(presto_functions_remote_client
+target_link_libraries(presto_functions_remote_client
                      velox_functions_remote_get_serde Folly::folly cpr::cpr)
 
-velox_add_library(presto_functions_remote Remote.cpp)
-velox_link_libraries(
+add_library(presto_functions_remote Remote.cpp)
+target_link_libraries(
   presto_functions_remote
   PUBLIC
   velox_expression
