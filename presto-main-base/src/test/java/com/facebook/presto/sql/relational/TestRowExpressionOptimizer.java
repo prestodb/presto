@@ -13,16 +13,20 @@
  */
 package com.facebook.presto.sql.relational;
 
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.IntArrayBlock;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.metadata.BuiltInFunctionHandle;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -34,6 +38,7 @@ import static com.facebook.presto.common.function.OperatorType.ADD;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.JsonType.JSON;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -43,6 +48,7 @@ import static com.facebook.presto.metadata.CastType.JSON_TO_ARRAY_CAST;
 import static com.facebook.presto.metadata.CastType.JSON_TO_MAP_CAST;
 import static com.facebook.presto.metadata.CastType.JSON_TO_ROW_CAST;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
+import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IF;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -52,7 +58,9 @@ import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertThrows;
 
 public class TestRowExpressionOptimizer
 {
@@ -132,6 +140,27 @@ public class TestRowExpressionOptimizer
         assertEquals(
                 resultExpression,
                 call(JSON_TO_ROW_CAST.name(), functionAndTypeManager.lookupCast(JSON_TO_ROW_CAST, VARCHAR, functionAndTypeManager.getType(parseTypeSignature("row(varchar,bigint)"))), RowType.anonymous(ImmutableList.of(VARCHAR, BIGINT)), field(1, VARCHAR)));
+    }
+
+    @Test
+    public void testDefaultExpressionOptimizerUsesJavaNamespaceForBuiltInFunctions()
+    {
+        String nativePrefix = "native.default";
+        MetadataManager metadata = MetadataManager.createTestMetadataManager(new FunctionsConfig().setDefaultNamespacePrefix(nativePrefix));
+        RowExpressionOptimizer nativeOptimizer = new RowExpressionOptimizer(metadata);
+        RowExpression simpleAddition = call(
+                "sqrt",
+                new BuiltInFunctionHandle(
+                        new Signature(
+                                QualifiedObjectName.valueOf(format("%s.sqrt", nativePrefix)),
+                                SCALAR,
+                                BIGINT.getTypeSignature(),
+                                ImmutableList.of(BIGINT.getTypeSignature()))),
+                DOUBLE,
+                ImmutableList.of(
+                        constant(4L, BIGINT)));
+        assertEquals(nativeOptimizer.optimize(simpleAddition, OPTIMIZED, SESSION), constant(2.0, DOUBLE));
+        assertThrows(IllegalArgumentException.class, () -> optimizer.optimize(simpleAddition, OPTIMIZED, SESSION));
     }
 
     private static RowExpression ifExpression(RowExpression condition, long trueValue, long falseValue)
