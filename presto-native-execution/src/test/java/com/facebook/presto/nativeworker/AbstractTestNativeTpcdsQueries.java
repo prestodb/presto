@@ -32,8 +32,8 @@ import static org.testng.Assert.assertEquals;
 public abstract class AbstractTestNativeTpcdsQueries
         extends AbstractTestQueryFramework
 {
-    String storageFormat = "DWRF";
-    Session session;
+    protected String storageFormat = "DWRF";
+    protected Session session;
     String[] tpcdsTableNames = {"call_center", "catalog_page", "catalog_returns", "catalog_sales",
             "customer", "customer_address", "customer_demographics", "date_dim", "household_demographics",
             "income_band", "inventory", "item", "promotion", "reason", "ship_mode", "store",
