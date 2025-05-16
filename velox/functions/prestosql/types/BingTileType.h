@@ -94,6 +94,7 @@ class BingTileType : public BigintType {
   static constexpr double kMaxLongitude = 180.0;
   static constexpr double kMinLongitude = -180.0;
   static constexpr uint16_t kTilePixels = 256;
+  static constexpr double kEarthRadiusKm = 6371.01;
 
   static inline uint64_t
   bingTileCoordsToInt(uint32_t x, uint32_t y, uint8_t zoom) {
@@ -155,6 +156,12 @@ class BingTileType : public BigintType {
 
   static folly::Expected<std::vector<uint64_t>, std::string>
   bingTilesAround(double latitude, double longitude, uint8_t zoomLevel);
+
+  static folly::Expected<std::vector<uint64_t>, std::string> bingTilesAround(
+      double latitude,
+      double longitude,
+      uint8_t zoomLevel,
+      double radiusInKm);
 };
 
 inline bool isBingTileType(const TypePtr& type) {

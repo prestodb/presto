@@ -58,6 +58,13 @@ void registerSimpleBingTileFunctions(const std::string& prefix) {
       double,
       double,
       int8_t>({prefix + "bing_tiles_around"});
+  registerFunction<
+      BingTilesAroundFunction,
+      Array<BingTile>,
+      double,
+      double,
+      int8_t,
+      double>({prefix + "bing_tiles_around"});
 }
 
 } // namespace

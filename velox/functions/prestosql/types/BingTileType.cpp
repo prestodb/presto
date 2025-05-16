@@ -105,6 +105,114 @@ folly::Expected<uint32_t, std::string> latitudeToTileY(
 
   return axisToCoordinates(y, mpSize.value());
 }
+
+double toRadians(double degrees) {
+  return degrees * M_PI / 180.0;
+}
+double toDegrees(double radians) {
+  return radians * 180.0 / M_PI;
+}
+
+double addDistanceToLongitude(
+    double latitude,
+    double longitude,
+    double radiusInKm,
+    double bearing) {
+  double latitudeInRadians = toRadians(latitude);
+  double longitudeInRadians = toRadians(longitude);
+  double bearingInRadians = toRadians(bearing);
+  double radiusRatio = radiusInKm / BingTileType::kEarthRadiusKm;
+
+  // Haversine formula
+  double newLongitude = toDegrees(
+      longitudeInRadians +
+      atan2(
+          sin(bearingInRadians) * sin(radiusRatio) * cos(latitudeInRadians),
+          cos(radiusRatio) - sin(latitudeInRadians) * sin(latitudeInRadians)));
+
+  if (newLongitude > BingTileType::kMaxLongitude) {
+    return BingTileType::kMinLongitude +
+        (newLongitude - BingTileType::kMaxLongitude);
+  }
+
+  if (newLongitude < BingTileType::kMinLongitude) {
+    return BingTileType::kMaxLongitude +
+        (newLongitude - BingTileType::kMinLongitude);
+  }
+
+  return newLongitude;
+}
+
+double
+addDistanceToLatitude(double latitude, double radiusInKm, double bearing) {
+  double latitudeInRadians = toRadians(latitude);
+  double bearingInRadians = toRadians(bearing);
+  double radiusRatio = radiusInKm / BingTileType::kEarthRadiusKm;
+  // Haversine formula
+  double newLatitude = toDegrees(asin(
+      sin(latitudeInRadians) * cos(radiusRatio) +
+      cos(latitudeInRadians) * sin(radiusRatio) * cos(bearingInRadians)));
+  if (newLatitude > BingTileType::kMaxLatitude) {
+    return BingTileType::kMaxLatitude;
+  }
+  if (newLatitude < BingTileType::kMinLatitude) {
+    return BingTileType::kMinLatitude;
+  }
+  return newLatitude;
+}
+
+/**
+ * Return the longitude (in degrees) of the west edge of the tile.
+ */
+double tileXToLongitude(uint32_t tileX, uint8_t zoomLevel) {
+  int32_t mapTileSize = 1 << zoomLevel;
+  double x = (std::clamp<double>(tileX, 0, mapTileSize) / mapTileSize) - 0.5;
+  return 360 * x;
+}
+
+/**
+ * Return the latitude (in degrees) of the north edge of the tile.
+ */
+double tileYToLatitude(uint32_t tileY, uint8_t zoomLevel) {
+  int32_t mapTileSize = 1 << zoomLevel;
+  double y = 0.5 - (std::clamp<double>(tileY, 0, mapTileSize) / mapTileSize);
+  return 90 - 360 * atan(exp(-y * 2 * M_PI)) / M_PI;
+}
+
+struct GreatCircleDistanceToPoint {
+ public:
+  GreatCircleDistanceToPoint(double latitude, double longitude) {
+    double radianLatitude = toRadians(latitude);
+
+    sinLatitude = sin(radianLatitude);
+    cosLatitude = cos(radianLatitude);
+
+    radianLongitude = toRadians(longitude);
+  }
+
+  double sinLatitude;
+  double cosLatitude;
+  double radianLongitude;
+
+  double distance(double latitude2, double longitude2) {
+    double radianLatitude2 = toRadians(latitude2);
+    double sin2 = sin(radianLatitude2);
+    double cos2 = cos(radianLatitude2);
+
+    double deltaLongitude = radianLongitude - toRadians(longitude2);
+    double cosDeltaLongitude = cos(deltaLongitude);
+
+    double t1 = cos2 * sin(deltaLongitude);
+    double t2 = cosLatitude * sin2 - sinLatitude * cos2 * cosDeltaLongitude;
+    double t3 = sinLatitude * sin2 + cosLatitude * cos2 * cosDeltaLongitude;
+    return atan2(std::sqrt(t1 * t1 + t2 * t2), t3) *
+        BingTileType::kEarthRadiusKm;
+  }
+
+  bool withinDistance(double latitude, double longitude, double maxDistance) {
+    return distance(latitude, longitude) <= maxDistance;
+  }
+};
 } // namespace
 
 std::optional<std::string> BingTileType::bingTileInvalidReason(uint64_t tile) {
@@ -312,6 +420,185 @@ BingTileType::bingTilesAround(
     }
   }
   return tiles;
+}
+
+folly::Expected<std::vector<uint64_t>, std::string>
+BingTileType::bingTilesAround(
+    double latitude,
+    double longitude,
+    uint8_t zoomLevel,
+    double radiusInKm) {
+  if (FOLLY_UNLIKELY(radiusInKm < 0 || radiusInKm > 1000)) {
+    return folly::makeUnexpected(fmt::format(
+        "Radius in km must between 0 and 1000, got {}", radiusInKm));
+  }
+  auto tileX = longitudeToTileX(longitude, zoomLevel);
+  if (FOLLY_UNLIKELY(tileX.hasError())) {
+    return folly::makeUnexpected(tileX.error());
+  }
+  auto tileY = latitudeToTileY(latitude, zoomLevel);
+  if (FOLLY_UNLIKELY(tileY.hasError())) {
+    return folly::makeUnexpected(tileY.error());
+  }
+  auto mpSize = mapSize(zoomLevel);
+  if (FOLLY_UNLIKELY(mpSize.hasError())) {
+    return folly::makeUnexpected(mpSize.error());
+  }
+  uint32_t maxTileIndex =
+      static_cast<uint32_t>((mpSize.value() / kTilePixels) - 1);
+
+  // Find top, bottom, left and right tiles from center of circle
+  double topLatitude = addDistanceToLatitude(latitude, radiusInKm, 0);
+  auto topTileResult =
+      latitudeLongitudeToTile(topLatitude, longitude, zoomLevel);
+  if (FOLLY_UNLIKELY(topTileResult.hasError())) {
+    return folly::makeUnexpected(topTileResult.error());
+  }
+  uint64_t topTile = topTileResult.value();
+
+  double bottomLatitude = addDistanceToLatitude(latitude, radiusInKm, 180);
+  auto bottomTileResult =
+      latitudeLongitudeToTile(bottomLatitude, longitude, zoomLevel);
+  if (FOLLY_UNLIKELY(bottomTileResult.hasError())) {
+    return folly::makeUnexpected(bottomTileResult.error());
+  }
+  uint64_t bottomTile = bottomTileResult.value();
+
+  double leftLongitude =
+      addDistanceToLongitude(latitude, longitude, radiusInKm, 270);
+  auto leftTileResult =
+      latitudeLongitudeToTile(latitude, leftLongitude, zoomLevel);
+  if (FOLLY_UNLIKELY(leftTileResult.hasError())) {
+    return folly::makeUnexpected(leftTileResult.error());
+  }
+  uint64_t leftTile = leftTileResult.value();
+
+  double rightLongitude =
+      addDistanceToLongitude(latitude, longitude, radiusInKm, 90);
+  auto rightTileResult =
+      latitudeLongitudeToTile(latitude, rightLongitude, zoomLevel);
+  if (FOLLY_UNLIKELY(rightTileResult.hasError())) {
+    return folly::makeUnexpected(rightTileResult.error());
+  }
+  uint64_t rightTile = rightTileResult.value();
+
+  bool wrapAroundX =
+      BingTileType::bingTileX(rightTile) < BingTileType::bingTileX(leftTile);
+
+  uint32_t leftX = BingTileType::bingTileX(leftTile);
+  uint32_t rightX = BingTileType::bingTileX(rightTile);
+  uint32_t bottomY = BingTileType::bingTileY(bottomTile);
+  uint32_t topY = BingTileType::bingTileY(topTile);
+
+  uint32_t tileCountX =
+      wrapAroundX ? (rightX + maxTileIndex - leftX + 2) : (rightX - leftX + 1);
+
+  uint32_t tileCountY = bottomY - topY + 1;
+
+  uint32_t totalTileCount = tileCountX * tileCountY;
+  if (totalTileCount > 1000000) {
+    return folly::makeUnexpected(fmt::format(
+        "The number of tiles covering input rectangle exceeds the limit of 1M. Number of tiles: {}.",
+        totalTileCount));
+  }
+
+  std::vector<uint64_t> result;
+  result.reserve(totalTileCount);
+
+  for (int32_t i = 0; i < tileCountX; i++) {
+    uint32_t x = (leftX + i) % (maxTileIndex + 1);
+    result.push_back(bingTileCoordsToInt(x, tileY.value(), zoomLevel));
+  }
+
+  for (uint32_t y = topY; y <= bottomY; y++) {
+    if (y != tileY.value()) {
+      result.push_back(bingTileCoordsToInt(tileX.value(), y, zoomLevel));
+    }
+  }
+
+  GreatCircleDistanceToPoint distanceToCenter(latitude, longitude);
+
+  // Remove tiles from each corner if they are outside the radius
+
+  // Righthand corners
+  for (uint32_t x = BingTileType::bingTileX(rightTile); x != tileX.value();
+       x = (x == 0) ? maxTileIndex : x - 1) {
+    // Top right corner
+    bool include = false;
+    for (uint32_t y = BingTileType::bingTileY(topTile); y < tileY.value();
+         y++) {
+      uint64_t tile = bingTileCoordsToInt(x, y, zoomLevel);
+      if (include) {
+        result.push_back(tile);
+      } else {
+        double tileLatitude = tileYToLatitude(y + 1, zoomLevel);
+        double tileLongitude = tileXToLongitude(x, zoomLevel);
+        if (distanceToCenter.withinDistance(
+                tileLatitude, tileLongitude, radiusInKm)) {
+          include = true;
+          result.push_back(tile);
+        }
+      }
+    }
+    // Bottom right corner
+    include = false;
+    for (uint32_t y = BingTileType::bingTileY(bottomTile); y > tileY.value();
+         y--) {
+      uint64_t tile = bingTileCoordsToInt(x, y, zoomLevel);
+      if (include) {
+        result.push_back(tile);
+      } else {
+        double tileLatitude = tileYToLatitude(y, zoomLevel);
+        double tileLongitude = tileXToLongitude(x, zoomLevel);
+        if (distanceToCenter.withinDistance(
+                tileLatitude, tileLongitude, radiusInKm)) {
+          include = true;
+          result.push_back(tile);
+        }
+      }
+    }
+  }
+
+  // Lefthand corners
+  for (uint32_t x = BingTileType::bingTileX(leftTile); x != tileX.value();
+       x = (x + 1) % (maxTileIndex + 1)) {
+    // Top left corner
+    bool include = false;
+    for (uint32_t y = BingTileType::bingTileY(topTile); y < tileY.value();
+         y++) {
+      uint64_t tile = bingTileCoordsToInt(x, y, zoomLevel);
+      if (include) {
+        result.push_back(tile);
+      } else {
+        double tileLatitude = tileYToLatitude(y + 1, zoomLevel);
+        double tileLongitude = tileXToLongitude(x + 1, zoomLevel);
+        if (distanceToCenter.withinDistance(
+                tileLatitude, tileLongitude, radiusInKm)) {
+          include = true;
+          result.push_back(tile);
+        }
+      }
+    }
+    // Bottom left corner
+    include = false;
+    for (uint32_t y = BingTileType::bingTileY(bottomTile); y > tileY.value();
+         y--) {
+      uint64_t tile = bingTileCoordsToInt(x, y, zoomLevel);
+      if (include) {
+        result.push_back(tile);
+      } else {
+        double tileLatitude = tileYToLatitude(y, zoomLevel);
+        double tileLongitude = tileXToLongitude(x + 1, zoomLevel);
+        if (distanceToCenter.withinDistance(
+                tileLatitude, tileLongitude, radiusInKm)) {
+          include = true;
+          result.push_back(tile);
+        }
+      }
+    }
+  }
+
+  return result;
 }
 
 } // namespace facebook::velox
