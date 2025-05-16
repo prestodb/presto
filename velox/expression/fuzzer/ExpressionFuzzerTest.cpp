@@ -133,6 +133,15 @@ int main(int argc, char** argv) {
       "st_geomfrombinary",
       "st_astext",
       "st_asbinary",
+      "st_relate",
+      "st_contains",
+      "st_crosses",
+      "st_disjoint",
+      "st_equals",
+      "st_intersects",
+      "st_overlaps",
+      "st_touches",
+      "st_within",
   };
   size_t initialSeed = FLAGS_seed == 0 ? std::time(nullptr) : FLAGS_seed;
 

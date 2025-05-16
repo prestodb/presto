@@ -20,6 +20,32 @@
 #include "velox/functions/prestosql/types/GeometryRegistration.h"
 
 namespace facebook::velox::functions {
+
+namespace {
+void registerRelationPredicates(const std::string& prefix) {
+  registerFunction<StRelateFunction, bool, Geometry, Geometry, Varchar>(
+      {{prefix + "ST_Relate"}});
+
+  registerFunction<StContainsFunction, bool, Geometry, Geometry>(
+      {{prefix + "ST_Contains"}});
+  registerFunction<StCrossesFunction, bool, Geometry, Geometry>(
+      {{prefix + "ST_Crosses"}});
+  registerFunction<StDisjointFunction, bool, Geometry, Geometry>(
+      {{prefix + "ST_Disjoint"}});
+  registerFunction<StEqualsFunction, bool, Geometry, Geometry>(
+      {{prefix + "ST_Equals"}});
+  registerFunction<StIntersectsFunction, bool, Geometry, Geometry>(
+      {{prefix + "ST_Intersects"}});
+  registerFunction<StOverlapsFunction, bool, Geometry, Geometry>(
+      {{prefix + "ST_Overlaps"}});
+  registerFunction<StTouchesFunction, bool, Geometry, Geometry>(
+      {{prefix + "ST_Touches"}});
+  registerFunction<StWithinFunction, bool, Geometry, Geometry>(
+      {{prefix + "ST_Within"}});
+}
+
+} // namespace
+
 void registerGeometryFunctions(const std::string& prefix) {
   registerGeometryType();
   registerFunction<StGeometryFromTextFunction, Geometry, Varchar>(
@@ -33,6 +59,8 @@ void registerGeometryFunctions(const std::string& prefix) {
 
   registerFunction<StAsBinaryFunction, Varbinary, Geometry>(
       {{prefix + "ST_AsBinary"}});
+
+  registerRelationPredicates(prefix);
 }
 
 } // namespace facebook::velox::functions

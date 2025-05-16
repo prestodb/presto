@@ -109,4 +109,186 @@ struct StAsBinaryFunction {
   }
 };
 
+// Predicates
+
+template <typename T>
+struct StRelateFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE Status call(
+      out_type<bool>& result,
+      const arg_type<Geometry>& leftGeometry,
+      const arg_type<Geometry>& rightGeometry,
+      const arg_type<Varchar>& relation) {
+    std::unique_ptr<geos::geom::Geometry> leftGeosGeometry =
+        geospatial::deserializeGeometry(leftGeometry);
+    std::unique_ptr<geos::geom::Geometry> rightGeosGeometry =
+        geospatial::deserializeGeometry(rightGeometry);
+    GEOS_TRY(result = leftGeosGeometry->relate(*rightGeosGeometry, relation);
+             , "Failed to check geometry relation");
+
+    return Status::OK();
+  }
+};
+
+template <typename T>
+struct StContainsFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE Status call(
+      out_type<bool>& result,
+      const arg_type<Geometry>& leftGeometry,
+      const arg_type<Geometry>& rightGeometry) {
+    // TODO: When #12771 is merged, check envelopes and short-circuit
+    std::unique_ptr<geos::geom::Geometry> leftGeosGeometry =
+        geospatial::deserializeGeometry(leftGeometry);
+    std::unique_ptr<geos::geom::Geometry> rightGeosGeometry =
+        geospatial::deserializeGeometry(rightGeometry);
+    GEOS_TRY(result = leftGeosGeometry->contains(&*rightGeosGeometry);
+             , "Failed to check geometry contains");
+
+    return Status::OK();
+  }
+};
+
+template <typename T>
+struct StCrossesFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE Status call(
+      out_type<bool>& result,
+      const arg_type<Geometry>& leftGeometry,
+      const arg_type<Geometry>& rightGeometry) {
+    // TODO: When #12771 is merged, check envelopes and short-circuit
+    std::unique_ptr<geos::geom::Geometry> leftGeosGeometry =
+        geospatial::deserializeGeometry(leftGeometry);
+    std::unique_ptr<geos::geom::Geometry> rightGeosGeometry =
+        geospatial::deserializeGeometry(rightGeometry);
+    GEOS_TRY(result = leftGeosGeometry->crosses(&*rightGeosGeometry);
+             , "Failed to check geometry crosses");
+
+    return Status::OK();
+  }
+};
+
+template <typename T>
+struct StDisjointFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE Status call(
+      out_type<bool>& result,
+      const arg_type<Geometry>& leftGeometry,
+      const arg_type<Geometry>& rightGeometry) {
+    // TODO: When #12771 is merged, check envelopes and short-circuit
+    std::unique_ptr<geos::geom::Geometry> leftGeosGeometry =
+        geospatial::deserializeGeometry(leftGeometry);
+    std::unique_ptr<geos::geom::Geometry> rightGeosGeometry =
+        geospatial::deserializeGeometry(rightGeometry);
+    GEOS_TRY(result = leftGeosGeometry->disjoint(&*rightGeosGeometry);
+             , "Failed to check geometry disjoint");
+
+    return Status::OK();
+  }
+};
+
+template <typename T>
+struct StEqualsFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE Status call(
+      out_type<bool>& result,
+      const arg_type<Geometry>& leftGeometry,
+      const arg_type<Geometry>& rightGeometry) {
+    // TODO: When #12771 is merged, check envelopes and short-circuit
+    std::unique_ptr<geos::geom::Geometry> leftGeosGeometry =
+        geospatial::deserializeGeometry(leftGeometry);
+    std::unique_ptr<geos::geom::Geometry> rightGeosGeometry =
+        geospatial::deserializeGeometry(rightGeometry);
+    GEOS_TRY(result = leftGeosGeometry->equals(&*rightGeosGeometry);
+             , "Failed to check geometry equals");
+
+    return Status::OK();
+  }
+};
+
+template <typename T>
+struct StIntersectsFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE Status call(
+      out_type<bool>& result,
+      const arg_type<Geometry>& leftGeometry,
+      const arg_type<Geometry>& rightGeometry) {
+    // TODO: When #12771 is merged, check envelopes and short-circuit
+    std::unique_ptr<geos::geom::Geometry> leftGeosGeometry =
+        geospatial::deserializeGeometry(leftGeometry);
+    std::unique_ptr<geos::geom::Geometry> rightGeosGeometry =
+        geospatial::deserializeGeometry(rightGeometry);
+    GEOS_TRY(result = leftGeosGeometry->intersects(&*rightGeosGeometry);
+             , "Failed to check geometry intersects");
+
+    return Status::OK();
+  }
+};
+
+template <typename T>
+struct StOverlapsFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE Status call(
+      out_type<bool>& result,
+      const arg_type<Geometry>& leftGeometry,
+      const arg_type<Geometry>& rightGeometry) {
+    // TODO: When #12771 is merged, check envelopes and short-circuit
+    std::unique_ptr<geos::geom::Geometry> leftGeosGeometry =
+        geospatial::deserializeGeometry(leftGeometry);
+    std::unique_ptr<geos::geom::Geometry> rightGeosGeometry =
+        geospatial::deserializeGeometry(rightGeometry);
+    GEOS_TRY(result = leftGeosGeometry->overlaps(&*rightGeosGeometry);
+             , "Failed to check geometry overlaps");
+
+    return Status::OK();
+  }
+};
+
+template <typename T>
+struct StTouchesFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE Status call(
+      out_type<bool>& result,
+      const arg_type<Geometry>& leftGeometry,
+      const arg_type<Geometry>& rightGeometry) {
+    // TODO: When #12771 is merged, check envelopes and short-circuit
+    std::unique_ptr<geos::geom::Geometry> leftGeosGeometry =
+        geospatial::deserializeGeometry(leftGeometry);
+    std::unique_ptr<geos::geom::Geometry> rightGeosGeometry =
+        geospatial::deserializeGeometry(rightGeometry);
+    GEOS_TRY(result = leftGeosGeometry->touches(&*rightGeosGeometry);
+             , "Failed to check geometry touches");
+
+    return Status::OK();
+  }
+};
+
+template <typename T>
+struct StWithinFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE Status call(
+      out_type<bool>& result,
+      const arg_type<Geometry>& leftGeometry,
+      const arg_type<Geometry>& rightGeometry) {
+    // TODO: When #12771 is merged, check envelopes and short-circuit
+    std::unique_ptr<geos::geom::Geometry> leftGeosGeometry =
+        geospatial::deserializeGeometry(leftGeometry);
+    std::unique_ptr<geos::geom::Geometry> rightGeosGeometry =
+        geospatial::deserializeGeometry(rightGeometry);
+    GEOS_TRY(result = leftGeosGeometry->within(&*rightGeosGeometry);
+             , "Failed to check geometry within");
+
+    return Status::OK();
+  }
+};
+
 } // namespace facebook::velox::functions

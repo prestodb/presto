@@ -67,6 +67,65 @@ Geometry Constructors
 
     Returns the Well-Known Binary (WKB) formatted binary of the Geometry object.
 
+Spatial Predicates
+------------------
+
+Spatial Predicates are binary functions that return a boolean value indicating
+whether a given spatial relationship holds. These relations are defined by the
+`DE-9IM`_ intersection matrix model. The model defines intersection patterns such
+as "overlaps" or "touches." The exact conditions can be surprising (especially
+for empty geometries), so be sure to read the documentation for the specific
+function you are using.
+
+.. function:: ST_Contains(geometry1: Geometry, geometry2: Geometry) -> boolean
+
+    Returns ``true`` if and only if no points of the second geometry lie in the
+    exterior of the first geometry, and at least one point of the interior of
+    the first geometry lies in the interior of the second geometry.
+
+.. function:: ST_Crosses(geometry1: Geometry, geometry2: Geometry) -> boolean
+
+    Returns ``true`` if the supplied geometries have some, but not all, interior
+    points in common.
+
+.. function:: ST_Disjoint(geometry1: Geometry, geometry2: Geometry) -> boolean
+
+    Returns ``true`` if the give geometries do not spatially intersect -- if
+    they do not share any space together.
+
+.. function:: ST_Equals(geometry1: Geometry, geometry2: Geometry) -> boolean
+
+    Returns ``true`` if the given geometries represent the same geometry.
+
+.. function:: ST_Intersects(geometry1: Geometry, geometry2: Geometry) -> boolean
+
+    Returns ``true`` if the given geometries spatially intersect in two
+    dimensions (share any portion of space) and ``false``0 if they do not (they
+    are disjoint).
+
+.. function:: ST_Overlaps(geometry1: Geometry, geometry2: Geometry) -> boolean
+
+    Returns ``true`` if the given geometries share space, are of the same
+    dimension, but are not completely contained by each other.
+
+.. function:: ST_Relat(geometry1: Geometry, geometry2: Geometry, relation: varchar) -> boolean
+
+    Returns true if first geometry is spatially related to second geometry as
+    described by the relation.  The relation is a string like ``'"1*T***T**'``:
+    please see the description of DM-9IM for more details.
+
+.. function:: ST_Touches(geometry1: Geometry, geometry2: Geometry) -> boolean
+
+    Returns ``true`` if the given geometries have at least one point in common,
+    but their interiors do not intersect.
+
+.. function:: ST_Within(geometry1: Geometry, geometry2: Geometry) -> boolean
+
+    Returns true if first geometry is completely inside second geometry.
+
+
+.. _DE-9IM: https://en.wikipedia.org/wiki/DE-9IM
+
 Bing Tile Functions
 -------------------
 
