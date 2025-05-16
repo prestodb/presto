@@ -192,6 +192,17 @@ String Functions
 
         SELECT ltrim('ps', 'spark'); -- "ark"
 
+.. spark:function:: luhn_check(string) -> boolean
+
+    Returns true if ``string`` passes the Luhn algorithm check. Otherwise, returns false.
+    The Luhn algorithm is a simple check digit formula used to validate a variety of identification numbers,
+    defined in US patent 2950048A.
+    Returns NULL if ``string`` is NULL. ::
+
+        SELECT luhn_check('4111111111111111'); -- true
+        SELECT luhn_check('378282246310006'); -- false
+        SELECT luhn_check(NULL); -- NULL
+
 .. spark:function:: mask(string[, upperChar, lowerChar, digitChar, otherChar]) -> string
 
     Returns a masked version of the input ``string``.

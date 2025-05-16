@@ -46,6 +46,7 @@ add_executable(
   JsonArrayLengthTest.cpp
   JsonObjectKeysTest.cpp
   LeastGreatestTest.cpp
+  LuhnCheckTest.cpp
   MakeDecimalTest.cpp
   MakeTimestampTest.cpp
   MapConcatTest.cpp
