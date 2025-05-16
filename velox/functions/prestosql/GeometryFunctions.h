@@ -24,6 +24,7 @@
 #include <velox/type/StringView.h>
 #include "velox/functions/Macros.h"
 #include "velox/functions/prestosql/geospatial/GeometrySerde.h"
+#include "velox/functions/prestosql/geospatial/GeometryUtils.h"
 #include "velox/functions/prestosql/types/GeometryType.h"
 
 namespace facebook::velox::functions {
@@ -36,19 +37,14 @@ struct StGeometryFromTextFunction {
 
   FOLLY_ALWAYS_INLINE Status
   call(out_type<Geometry>& result, const arg_type<Varchar>& wkt) {
-    try {
-      geos::io::WKTReader reader;
-      std::unique_ptr<geos::geom::Geometry> geosGeometry = reader.read(wkt);
-      std::string output = geospatial::serializeGeometry(*geosGeometry);
-      result = output;
-    } catch (const geos::util::GEOSException& e) {
-      return Status::UserError(
-          fmt::format("Failed to parse WKT: {}", e.what()));
-    } catch (const std::exception& e) {
-      return Status::UserError(
-          fmt::format("Error converting WKT to Geometry: {}", e.what()));
-    }
-
+    std::unique_ptr<geos::geom::Geometry> geosGeometry;
+    GEOS_TRY(
+        {
+          geos::io::WKTReader reader;
+          geosGeometry = reader.read(wkt);
+        },
+        "Failed to parse WKT");
+    result = geospatial::serializeGeometry(*geosGeometry);
     return Status::OK();
   }
 };
@@ -59,20 +55,16 @@ struct StGeomFromBinaryFunction {
 
   FOLLY_ALWAYS_INLINE Status
   call(out_type<Geometry>& result, const arg_type<Varbinary>& wkb) {
-    try {
-      geos::io::WKBReader reader;
-      std::unique_ptr<geos::geom::Geometry> geosGeometry =
-          reader.read(reinterpret_cast<const uint8_t*>(wkb.data()), wkb.size());
-      std::string output = geospatial::serializeGeometry(*geosGeometry);
-      result = output;
-    } catch (const geos::util::GEOSException& e) {
-      return Status::UserError(
-          fmt::format("Failed to parse WKB: {}", e.what()));
-    } catch (const std::exception& e) {
-      return Status::UserError(
-          fmt::format("Error converting WKB to Geometry: {}", e.what()));
-    }
+    std::unique_ptr<geos::geom::Geometry> geosGeometry;
 
+    GEOS_TRY(
+        {
+          geos::io::WKBReader reader;
+          geosGeometry = reader.read(
+              reinterpret_cast<const uint8_t*>(wkb.data()), wkb.size());
+        },
+        "Failed to parse WKB");
+    result = geospatial::serializeGeometry(*geosGeometry);
     return Status::OK();
   }
 };
@@ -83,17 +75,16 @@ struct StAsTextFunction {
 
   FOLLY_ALWAYS_INLINE Status
   call(out_type<Varchar>& result, const arg_type<Geometry>& geometry) {
-    try {
-      std::unique_ptr<geos::geom::Geometry> geosGeometry =
-          geospatial::deserializeGeometry(geometry);
-      geos::io::WKTWriter writer;
-      writer.setTrim(true);
-      result = writer.write(geosGeometry.get());
-    } catch (const std::exception& e) {
-      return Status::UserError(fmt::format(
-          "Error deserializing Geometry for WKT conversion: {}", e.what()));
-    }
+    std::unique_ptr<geos::geom::Geometry> geosGeometry =
+        geospatial::deserializeGeometry(geometry);
 
+    GEOS_TRY(
+        {
+          geos::io::WKTWriter writer;
+          writer.setTrim(true);
+          result = writer.write(geosGeometry.get());
+        },
+        "Failed to write WKT");
     return Status::OK();
   }
 };
@@ -104,20 +95,16 @@ struct StAsBinaryFunction {
 
   FOLLY_ALWAYS_INLINE Status
   call(out_type<Varbinary>& result, const arg_type<Geometry>& geometry) {
-    try {
-      std::unique_ptr<geos::geom::Geometry> geosGeometry =
-          geospatial::deserializeGeometry(geometry);
-      std::ostringstream outputStream;
-      geos::io::WKBWriter writer;
-      writer.write(*geosGeometry, outputStream);
-      const std::string outputString = outputStream.str();
-      result.resize(outputString.size());
-      std::memcpy(result.data(), outputString.data(), outputString.size());
-    } catch (const std::exception& e) {
-      return Status::UserError(fmt::format(
-          "Error deserializing Geometry for WKB conversion: {}", e.what()));
-    }
-
+    std::unique_ptr<geos::geom::Geometry> geosGeometry =
+        geospatial::deserializeGeometry(geometry);
+    GEOS_TRY(
+        {
+          geos::io::WKBWriter writer;
+          std::ostringstream outputStream;
+          writer.write(*geosGeometry, outputStream);
+          result = outputStream.str();
+        },
+        "Failed to write WKB");
     return Status::OK();
   }
 };

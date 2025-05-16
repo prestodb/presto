@@ -21,9 +21,13 @@
 
 namespace facebook::velox::functions::geospatial {
 
+/// Deserialize Velox's internal format to a geometry.  Do not call this within
+/// GEOS_TRY macro: it will catch the exceptions that need to bubble up.
 std::unique_ptr<geos::geom::Geometry> deserializeGeometry(
     const StringView& geometryString);
 
+/// Serialize geometry into Velox's internal format.  Do not call this within
+/// GEOS_TRY macro: it will catch the exceptions that need to bubble up.
 std::string serializeGeometry(const geos::geom::Geometry& geosGeometry);
 
 } // namespace facebook::velox::functions::geospatial
