@@ -611,6 +611,14 @@ class ReaderOptions : public io::ReaderOptions {
     selectiveNimbleReaderEnabled_ = value;
   }
 
+  bool allowEmptyFile() const {
+    return allowEmptyFile_;
+  }
+
+  void setAllowEmptyFile(bool value) {
+    allowEmptyFile_ = value;
+  }
+
  private:
   uint64_t tailLocation_;
   FileFormat fileFormat_;
@@ -627,6 +635,7 @@ class ReaderOptions : public io::ReaderOptions {
   const tz::TimeZone* sessionTimezone_{nullptr};
   bool adjustTimestampToTimezone_{false};
   bool selectiveNimbleReaderEnabled_{false};
+  bool allowEmptyFile_{false};
 };
 
 struct WriterOptions {

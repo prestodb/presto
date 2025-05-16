@@ -1028,6 +1028,9 @@ std::unique_ptr<DwrfRowReader> DwrfReader::createDwrfRowReader(
 std::unique_ptr<DwrfReader> DwrfReader::create(
     std::unique_ptr<dwio::common::BufferedInput> input,
     const ReaderOptions& options) {
+  if (options.allowEmptyFile() && input->getReadFile()->size() == 0) {
+    return nullptr;
+  }
   return std::make_unique<DwrfReader>(options, std::move(input));
 }
 

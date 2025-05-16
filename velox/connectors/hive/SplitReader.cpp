@@ -279,6 +279,9 @@ void SplitReader::createReader() {
 
   baseReader_ = dwio::common::getReaderFactory(baseReaderOpts_.fileFormat())
                     ->createReader(std::move(baseFileInput), baseReaderOpts_);
+  if (!baseReader_) {
+    emptySplit_ = true;
+  }
 }
 
 RowTypePtr SplitReader::getAdaptedRowType() const {

@@ -1945,16 +1945,7 @@ TEST_F(TableScanTest, validFileNoData) {
 // An invalid (size = 0) file.
 TEST_F(TableScanTest, emptyFile) {
   auto filePath = TempFilePath::create();
-
-  try {
-    assertQuery(
-        tableScanNode(),
-        makeHiveConnectorSplit(filePath->getPath()),
-        "SELECT * FROM tmp");
-    ASSERT_FALSE(true) << "Function should throw.";
-  } catch (const VeloxException& e) {
-    EXPECT_EQ("ORC file is empty", e.message());
-  }
+  assertQuery(tableScanNode(), makeHiveConnectorSplit(filePath->getPath()), "");
 }
 
 TEST_F(TableScanTest, preloadEmptySplit) {
