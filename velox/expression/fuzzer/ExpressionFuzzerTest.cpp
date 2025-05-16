@@ -142,6 +142,10 @@ int main(int argc, char** argv) {
       "st_overlaps",
       "st_touches",
       "st_within",
+      "st_difference",
+      "st_intersection",
+      "st_symdifference",
+      "st_union",
   };
   size_t initialSeed = FLAGS_seed == 0 ? std::time(nullptr) : FLAGS_seed;
 

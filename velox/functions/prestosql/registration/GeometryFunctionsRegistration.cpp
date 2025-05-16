@@ -44,6 +44,17 @@ void registerRelationPredicates(const std::string& prefix) {
       {{prefix + "ST_Within"}});
 }
 
+void registerOverlayOperations(const std::string& prefix) {
+  registerFunction<StDifferenceFunction, Geometry, Geometry, Geometry>(
+      {{prefix + "ST_Difference"}});
+  registerFunction<StIntersectionFunction, Geometry, Geometry, Geometry>(
+      {{prefix + "ST_Intersection"}});
+  registerFunction<StSymDifferenceFunction, Geometry, Geometry, Geometry>(
+      {{prefix + "ST_SymDifference"}});
+  registerFunction<StUnionFunction, Geometry, Geometry, Geometry>(
+      {{prefix + "ST_Union"}});
+}
+
 } // namespace
 
 void registerGeometryFunctions(const std::string& prefix) {
@@ -61,6 +72,7 @@ void registerGeometryFunctions(const std::string& prefix) {
       {{prefix + "ST_AsBinary"}});
 
   registerRelationPredicates(prefix);
+  registerOverlayOperations(prefix);
 }
 
 } // namespace facebook::velox::functions

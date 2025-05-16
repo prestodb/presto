@@ -73,6 +73,29 @@ class GeometryFunctionsTest : public FunctionBaseTest {
       EXPECT_FALSE(actual.has_value());
     }
   };
+
+  void assertOverlay(
+      std::string_view overlay,
+      std::optional<std::string_view> leftWkt,
+      std::optional<std::string_view> rightWkt,
+      std::optional<std::string_view> expectedWkt) {
+    // We are forced to make expectedWkt optional based on type signature, but
+    // we always want to supply a value.
+    std::optional<bool> actual = evaluateOnce<bool>(
+        fmt::format(
+            "ST_Equals({}(ST_GeometryFromText(c0), ST_GeometryFromText(c1)), ST_GeometryFromText(c2))",
+            overlay),
+        leftWkt,
+        rightWkt,
+        expectedWkt);
+    if (leftWkt.has_value() && rightWkt.has_value()) {
+      assert(expectedWkt.has_value());
+      EXPECT_TRUE(actual.has_value());
+      EXPECT_TRUE(actual.value());
+    } else {
+      EXPECT_FALSE(actual.has_value());
+    }
+  }
 };
 
 TEST_F(GeometryFunctionsTest, wktAndWkb) {
@@ -744,4 +767,273 @@ TEST_F(GeometryFunctionsTest, testStWithin) {
           "MULTIPOLYGON ( ((0 0, 0 2, 2 2, 2 0, 0 0)), ((1 1, 1 3, 3 3, 3 1, 1 1)) )",
           false),
       "Failed to check geometry within: TopologyException: side location conflict at 1 2. This can occur if the input geometry is invalid.");
+}
+
+// Overlay operations
+
+TEST_F(GeometryFunctionsTest, testStDifference) {
+  assertOverlay("ST_Difference", std::nullopt, std::nullopt, std::nullopt);
+  assertOverlay(
+      "ST_Difference", "POINT (50 100)", "POINT (150 150)", "POINT (50 100)");
+  assertOverlay(
+      "ST_Difference",
+      "MULTIPOINT (50 100, 50 200)",
+      "POINT (50 100)",
+      "POINT (50 200)");
+  assertOverlay(
+      "ST_Difference",
+      "LINESTRING (50 100, 50 200)",
+      "LINESTRING (50 50, 50 150)",
+      "LINESTRING (50 150, 50 200)");
+  assertOverlay(
+      "ST_Difference",
+      "MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))",
+      "MULTILINESTRING ((2 1, 4 1), (3 3, 7 3))",
+      "MULTILINESTRING ((1 1, 2 1), (4 1, 5 1), (2 4, 4 4))");
+  assertOverlay(
+      "ST_Difference",
+      "POLYGON ((1 1, 1 4, 4 4, 4 1, 1 1))",
+      "POLYGON ((2 2, 2 5, 5 5, 5 2, 2 2))",
+      "POLYGON ((1 4, 2 4, 2 2, 4 2, 4 1, 1 1, 1 4))");
+  assertOverlay(
+      "ST_Difference",
+      "MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((0 0, 0 1, 1 1, 1 0, 0 0)))",
+      "POLYGON ((0 1, 3 1, 3 3, 0 3, 0 1))",
+      "POLYGON ((0 1, 1 1, 1 0, 0 0, 0 1))");
+
+  VELOX_ASSERT_USER_THROW(
+      assertOverlay(
+          "ST_Difference",
+          "LINESTRING (0 0, 1 1, 1 0, 0 1)",
+          "MULTIPOLYGON ( ((0 0, 0 2, 2 2, 2 0, 0 0)), ((1 1, 1 3, 3 3, 3 1, 1 1)) )",
+          "POINT EMPTY"),
+      "Failed to compute geometry difference: TopologyException: Input geom 1 is invalid: Self-intersection at 1 2");
+}
+
+TEST_F(GeometryFunctionsTest, testStIntersection) {
+  assertOverlay("ST_Intersection", std::nullopt, std::nullopt, std::nullopt);
+  assertOverlay(
+      "ST_Intersection", "POINT (50 100)", "POINT (150 150)", "POINT EMPTY");
+  assertOverlay(
+      "ST_Intersection",
+      "MULTIPOINT (50 100, 50 200)",
+      "POINT (50 100)",
+      "POINT (50 100)");
+  assertOverlay(
+      "ST_Intersection",
+      "LINESTRING (50 100, 50 200)",
+      "LINESTRING (20 150, 100 150)",
+      "POINT (50 150)");
+  assertOverlay(
+      "ST_Intersection",
+      "MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))",
+      "MULTILINESTRING ((3 4, 6 4), (5 0, 5 4))",
+      "GEOMETRYCOLLECTION (LINESTRING (3 4, 4 4), POINT (5 1))");
+  assertOverlay(
+      "ST_Intersection",
+      "POLYGON ((1 1, 1 3, 3 3, 3 1, 1 1))",
+      "POLYGON ((4 4, 4 5, 5 5, 5 4, 4 4))",
+      "POLYGON EMPTY");
+  assertOverlay(
+      "ST_Intersection",
+      "MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((0 0, 0 1, 1 1, 1 0, 0 0)))",
+      "POLYGON ((0 1, 3 1, 3 3, 0 3, 0 1))",
+      "GEOMETRYCOLLECTION (POLYGON ((1 3, 3 3, 3 1, 1 1, 1 3)), LINESTRING (0 1, 1 1))");
+  assertOverlay(
+      "ST_Intersection",
+      "POLYGON ((1 1, 1 4, 4 4, 4 1, 1 1))",
+      "LINESTRING (2 0, 2 3)",
+      "LINESTRING (2 1, 2 3)");
+  assertOverlay(
+      "ST_Intersection",
+      "POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0))",
+      "LINESTRING (0 0, 1 -1, 1 2)",
+      "GEOMETRYCOLLECTION (LINESTRING (1 1, 1 0), POINT (0 0))");
+
+  VELOX_ASSERT_USER_THROW(
+      assertOverlay(
+          "ST_Intersection",
+          "LINESTRING (0 0, 1 1, 1 0, 0 1)",
+          "MULTIPOLYGON ( ((0 0, 0 2, 2 2, 2 0, 0 0)), ((1 1, 1 3, 3 3, 3 1, 1 1)) )",
+          "POINT EMPTY"),
+      "Failed to compute geometry intersection: TopologyException: Input geom 1 is invalid: Self-intersection at 1 2");
+}
+
+TEST_F(GeometryFunctionsTest, testStSymDifference) {
+  assertOverlay("ST_SymDifference", std::nullopt, std::nullopt, std::nullopt);
+  assertOverlay(
+      "ST_SymDifference",
+      "POINT (50 100)",
+      "POINT (50 150)",
+      "MULTIPOINT (50 100, 50 150)");
+  assertOverlay(
+      "ST_SymDifference",
+      "MULTIPOINT (50 100, 60 200)",
+      "MULTIPOINT (60 200, 70 150)",
+      "MULTIPOINT (50 100, 70 150)");
+  assertOverlay(
+      "ST_SymDifference",
+      "LINESTRING (50 100, 50 200)",
+      "LINESTRING (50 50, 50 150)",
+      "MULTILINESTRING ((50 150, 50 200), (50 50, 50 100))");
+  assertOverlay(
+      "ST_SymDifference",
+      "MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))",
+      "MULTILINESTRING ((3 4, 6 4), (5 0, 5 4))",
+      "MULTILINESTRING ((1 1, 5 1), (2 4, 3 4), (4 4, 5 4), (5 4, 6 4), (5 0, 5 1), (5 1, 5 4))");
+  assertOverlay(
+      "ST_SymDifference",
+      "POLYGON ((1 1, 1 4, 4 4, 4 1, 1 1))",
+      "POLYGON ((2 2, 2 5, 5 5, 5 2, 2 2))",
+      "MULTIPOLYGON (((1 4, 2 4, 2 2, 4 2, 4 1, 1 1, 1 4)), ((4 4, 2 4, 2 5, 5 5, 5 2, 4 2, 4 4)))");
+  assertOverlay(
+      "ST_SymDifference",
+      "MULTIPOLYGON (((0 0, 0 2, 2 2, 2 0, 0 0)), ((2 2, 2 4, 4 4, 4 2, 2 2)))",
+      "POLYGON ((0 0, 0 3, 3 3, 3 0, 0 0))",
+      "MULTIPOLYGON (((0 2, 0 3, 2 3, 2 2, 0 2)), ((2 2, 3 2, 3 0, 2 0, 2 2)), ((2 4, 4 4, 4 2, 3 2, 3 3, 2 3, 2 4)))");
+
+  VELOX_ASSERT_USER_THROW(
+      assertOverlay(
+          "ST_SymDifference",
+          "LINESTRING (0 0, 1 1, 1 0, 0 1)",
+          "MULTIPOLYGON ( ((0 0, 0 2, 2 2, 2 0, 0 0)), ((1 1, 1 3, 3 3, 3 1, 1 1)) )",
+          "POINT EMPTY"),
+      "Failed to compute geometry symdifference: TopologyException: Input geom 1 is invalid: Self-intersection at 1 2");
+}
+
+TEST_F(GeometryFunctionsTest, testStUnion) {
+  std::array<std::string_view, 7> emptyWkts = {
+      "POINT EMPTY",
+      "MULTIPOINT EMPTY",
+      "LINESTRING EMPTY",
+      "MULTILINESTRING EMPTY",
+      "POLYGON EMPTY",
+      "MULTIPOLYGON EMPTY",
+      "GEOMETRYCOLLECTION EMPTY"};
+  std::array<std::string_view, 7> simpleWkts = {
+      "POINT (1 2)",
+      "MULTIPOINT (1 2, 3 4)",
+      "LINESTRING (0 0, 2 2, 4 4)",
+      "MULTILINESTRING ((0 0, 2 2, 4 4), (5 5, 7 7, 9 9))",
+      "POLYGON ((0 1, 1 1, 1 0, 0 0, 0 1))",
+      "MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((2 4, 2 6, 6 6, 6 4, 2 4)))",
+      "GEOMETRYCOLLECTION (LINESTRING (0 5, 5 5), POLYGON ((1 1, 1 3, 3 3, 3 1, 1 1)))"};
+
+  // empty geometry
+  for (std::string_view emptyWkt : emptyWkts) {
+    for (std::string_view simpleWkt : simpleWkts) {
+      assertOverlay("ST_Union", emptyWkt, simpleWkt, simpleWkt);
+    }
+  }
+
+  // self union
+  for (std::string_view simpleWkt : simpleWkts) {
+    assertOverlay("ST_Union", simpleWkt, simpleWkt, simpleWkt);
+  }
+
+  assertOverlay("ST_Union", std::nullopt, std::nullopt, std::nullopt);
+
+  // touching union
+  assertOverlay(
+      "ST_Union",
+      "POINT (1 2)",
+      "MULTIPOINT (1 2, 3 4)",
+      "MULTIPOINT (1 2, 3 4)");
+  assertOverlay(
+      "ST_Union",
+      "MULTIPOINT (1 2)",
+      "MULTIPOINT (1 2, 3 4)",
+      "MULTIPOINT (1 2, 3 4)");
+  assertOverlay(
+      "ST_Union",
+      "LINESTRING (0 1, 1 2)",
+      "LINESTRING (1 2, 3 4)",
+      "LINESTRING (0 1, 1 2, 3 4)");
+  assertOverlay(
+      "ST_Union",
+      "MULTILINESTRING ((0 0, 2 2, 4 4), (5 5, 7 7, 9 9))",
+      "MULTILINESTRING ((5 5, 7 7, 9 9), (11 11, 13 13, 15 15))",
+      "MULTILINESTRING ((0 0, 2 2, 4 4), (5 5, 7 7, 9 9), (11 11, 13 13, 15 15))");
+  assertOverlay(
+      "ST_Union",
+      "POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0))",
+      "POLYGON ((1 0, 2 0, 2 1, 1 1, 1 0))",
+      "POLYGON ((0 0, 0 1, 1 1, 2 1, 2 0, 1 0, 0 0))");
+  assertOverlay(
+      "ST_Union",
+      "MULTIPOLYGON (((0 0, 0 1, 1 1, 1 0, 0 0)))",
+      "MULTIPOLYGON (((1 0, 2 0, 2 1, 1 1, 1 0)))",
+      "POLYGON ((0 0, 0 1, 1 1, 2 1, 2 0, 1 0, 0 0))");
+  assertOverlay(
+      "ST_Union",
+      "GEOMETRYCOLLECTION (POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0)), POINT (1 2))",
+      "GEOMETRYCOLLECTION (POLYGON ((1 0, 2 0, 2 1, 1 1, 1 0)), MULTIPOINT ((1 2), (3 4)))",
+      "GEOMETRYCOLLECTION (POINT (1 2), POINT (3 4), POLYGON ((0 0, 0 1, 1 1, 2 1, 2 0, 1 0, 0 0)))");
+
+  // within union
+  assertOverlay(
+      "ST_Union",
+      "MULTIPOINT (20 20, 25 25)",
+      "POINT (25 25)",
+      "MULTIPOINT (20 20, 25 25)");
+  assertOverlay(
+      "ST_Union",
+      "LINESTRING (20 20, 30 30)",
+      "POINT (25 25)",
+      "LINESTRING (20 20, 30 30)");
+  assertOverlay(
+      "ST_Union",
+      "LINESTRING (20 20, 30 30)",
+      "LINESTRING (25 25, 27 27)",
+      "LINESTRING (20 20, 25 25, 27 27, 30 30)");
+  assertOverlay(
+      "ST_Union",
+      "POLYGON ((0 0, 0 4, 4 4, 4 0, 0 0))",
+      "POLYGON ((1 1, 1 2, 2 2, 2 1, 1 1))",
+      "POLYGON ((0 4, 4 4, 4 0, 0 0, 0 4))");
+  assertOverlay(
+      "ST_Union",
+      "MULTIPOLYGON (((0 0, 0 2, 2 2, 2 0, 0 0)), ((2 2, 2 4, 4 4, 4 2, 2 2)))",
+      "POLYGON ((2 2, 2 3, 3 3, 3 2, 2 2))",
+      "MULTIPOLYGON (((2 2, 2 3, 2 4, 4 4, 4 2, 3 2, 2 2)), ((0 0, 0 2, 2 2, 2 0, 0 0)))");
+  assertOverlay(
+      "ST_Union",
+      "GEOMETRYCOLLECTION (POLYGON ((0 0, 0 4, 4 4, 4 0, 0 0)), MULTIPOINT (20 20, 25 25))",
+      "GEOMETRYCOLLECTION (POLYGON ((1 1, 1 2, 2 2, 2 1, 1 1)), POINT (25 25))",
+      "GEOMETRYCOLLECTION (MULTIPOINT (20 20, 25 25), POLYGON ((0 0, 0 4, 4 4, 4 0, 0 0)))");
+
+  // overlap union
+  assertOverlay(
+      "ST_Union",
+      "LINESTRING (1 1, 3 1)",
+      "LINESTRING (2 1, 4 1)",
+      "LINESTRING (1 1, 2 1, 3 1, 4 1)");
+  assertOverlay(
+      "ST_Union",
+      "MULTILINESTRING ((1 1, 3 1))",
+      "MULTILINESTRING ((2 1, 4 1))",
+      "LINESTRING (1 1, 2 1, 3 1, 4 1)");
+  assertOverlay(
+      "ST_Union",
+      "POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1))",
+      "POLYGON ((2 2, 4 2, 4 4, 2 4, 2 2))",
+      "POLYGON ((1 1, 1 3, 2 3, 2 4, 4 4, 4 2, 3 2, 3 1, 1 1))");
+  assertOverlay(
+      "ST_Union",
+      "MULTIPOLYGON (((1 1, 3 1, 3 3, 1 3, 1 1)))",
+      "MULTIPOLYGON (((2 2, 4 2, 4 4, 2 4, 2 2)))",
+      "POLYGON ((1 1, 1 3, 2 3, 2 4, 4 4, 4 2, 3 2, 3 1, 1 1))");
+  assertOverlay(
+      "ST_Union",
+      "GEOMETRYCOLLECTION (POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1)), LINESTRING (1 1, 3 1))",
+      "GEOMETRYCOLLECTION (POLYGON ((2 2, 4 2, 4 4, 2 4, 2 2)), LINESTRING (2 1, 4 1))",
+      "GEOMETRYCOLLECTION (LINESTRING (3 1, 4 1), POLYGON ((1 1, 1 3, 2 3, 2 4, 4 4, 4 2, 3 2, 3 1, 2 1, 1 1)))");
+
+  VELOX_ASSERT_USER_THROW(
+      assertOverlay(
+          "ST_Union",
+          "LINESTRING (0 0, 1 1, 1 0, 0 1)",
+          "MULTIPOLYGON ( ((0 0, 0 2, 2 2, 2 0, 0 0)), ((1 1, 1 3, 3 3, 3 1, 1 1)) )",
+          "POINT EMPTY"),
+      "Failed to compute geometry union: TopologyException: Input geom 1 is invalid: Self-intersection at 1 2");
 }

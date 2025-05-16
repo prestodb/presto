@@ -126,6 +126,31 @@ function you are using.
 
 .. _DE-9IM: https://en.wikipedia.org/wiki/DE-9IM
 
+Spatial Operations
+------------------
+
+.. function:: ST_Difference(geometry1: Geometry, geometry2: Geometry) -> difference: Geometry
+
+    Returns the geometry that represents the portion of ``geometry1`` that is
+    not contained in ``geometry2``.
+
+.. function:: ST_Intersection(geometry1: Geometry, geometry2: Geometry) -> intersection: Geometry
+
+    Returns the geometry that represents the portion of ``geometry1`` that is
+    also contained in ``geometry2``.
+
+.. function:: ST_SymDifference(geometry1: Geometry, geometry2: Geometry) -> symdifference: Geometry
+
+    Returns the geometry that represents the portion of ``geometry1`` that is
+    not contained in ``geometry2`` as well as the portion of ``geometry1`` that
+    is not congtained in ``geometry1``.
+
+.. function:: ST_Union(geometry1: Geometry, geometry2: Geometry) -> intersection: Geometry
+
+    Returns the geometry that represents the all points in either ``geometry1``
+    or ``geometry2``.
+
+
 Bing Tile Functions
 -------------------
 

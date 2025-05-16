@@ -291,4 +291,104 @@ struct StWithinFunction {
   }
 };
 
+// Overlay operations
+
+template <typename T>
+struct StDifferenceFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE Status call(
+      out_type<Geometry>& result,
+      const arg_type<Geometry>& leftGeometry,
+      const arg_type<Geometry>& rightGeometry) {
+    // TODO: When #12771 is merged, check envelopes and short-circuit
+    // if envelopes are disjoint
+    std::unique_ptr<geos::geom::Geometry> leftGeosGeometry =
+        geospatial::deserializeGeometry(leftGeometry);
+    std::unique_ptr<geos::geom::Geometry> rightGeosGeometry =
+        geospatial::deserializeGeometry(rightGeometry);
+
+    std::unique_ptr<geos::geom::Geometry> outputGeometry;
+    GEOS_TRY(outputGeometry = leftGeosGeometry->difference(&*rightGeosGeometry);
+             , "Failed to compute geometry difference");
+
+    result = geospatial::serializeGeometry(*outputGeometry);
+    return Status::OK();
+  }
+};
+
+template <typename T>
+struct StIntersectionFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE Status call(
+      out_type<Geometry>& result,
+      const arg_type<Geometry>& leftGeometry,
+      const arg_type<Geometry>& rightGeometry) {
+    // TODO: When #12771 is merged, check envelopes and short-circuit
+    // if envelopes are disjoint
+    std::unique_ptr<geos::geom::Geometry> leftGeosGeometry =
+        geospatial::deserializeGeometry(leftGeometry);
+    std::unique_ptr<geos::geom::Geometry> rightGeosGeometry =
+        geospatial::deserializeGeometry(rightGeometry);
+
+    std::unique_ptr<geos::geom::Geometry> outputGeometry;
+    GEOS_TRY(
+        outputGeometry = leftGeosGeometry->intersection(&*rightGeosGeometry);
+        , "Failed to compute geometry intersection");
+
+    result = geospatial::serializeGeometry(*outputGeometry);
+    return Status::OK();
+  }
+};
+
+template <typename T>
+struct StSymDifferenceFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE Status call(
+      out_type<Geometry>& result,
+      const arg_type<Geometry>& leftGeometry,
+      const arg_type<Geometry>& rightGeometry) {
+    // TODO: When #12771 is merged, check envelopes and short-circuit
+    // if envelopes are disjoint
+    std::unique_ptr<geos::geom::Geometry> leftGeosGeometry =
+        geospatial::deserializeGeometry(leftGeometry);
+    std::unique_ptr<geos::geom::Geometry> rightGeosGeometry =
+        geospatial::deserializeGeometry(rightGeometry);
+
+    std::unique_ptr<geos::geom::Geometry> outputGeometry;
+    GEOS_TRY(
+        outputGeometry = leftGeosGeometry->symDifference(&*rightGeosGeometry);
+        , "Failed to compute geometry symdifference");
+
+    result = geospatial::serializeGeometry(*outputGeometry);
+    return Status::OK();
+  }
+};
+
+template <typename T>
+struct StUnionFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE Status call(
+      out_type<Geometry>& result,
+      const arg_type<Geometry>& leftGeometry,
+      const arg_type<Geometry>& rightGeometry) {
+    // TODO: When #12771 is merged, check envelopes and short-circuit if
+    // one/both are empty
+    std::unique_ptr<geos::geom::Geometry> leftGeosGeometry =
+        geospatial::deserializeGeometry(leftGeometry);
+    std::unique_ptr<geos::geom::Geometry> rightGeosGeometry =
+        geospatial::deserializeGeometry(rightGeometry);
+
+    std::unique_ptr<geos::geom::Geometry> outputGeometry;
+    GEOS_TRY(outputGeometry = leftGeosGeometry->Union(&*rightGeosGeometry);
+             , "Failed to compute geometry union");
+
+    result = geospatial::serializeGeometry(*outputGeometry);
+    return Status::OK();
+  }
+};
+
 } // namespace facebook::velox::functions
