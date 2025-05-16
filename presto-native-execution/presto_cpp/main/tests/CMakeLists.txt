@@ -48,6 +48,9 @@ target_link_libraries(
   velox_functions_prestosql
   velox_aggregates
   velox_hive_partition_function
+  presto_thrift-cpp2
+  presto_thrift_extra
+  ${THRIFT_LIBRARY}
   ${RE2}
   GTest::gmock
   GTest::gtest
