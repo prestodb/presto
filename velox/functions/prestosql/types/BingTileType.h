@@ -152,6 +152,9 @@ class BingTileType : public BigintType {
 
   static folly::Expected<uint64_t, std::string>
   latitudeLongitudeToTile(double latitude, double longitude, uint8_t zoomLevel);
+
+  static folly::Expected<std::vector<uint64_t>, std::string>
+  bingTilesAround(double latitude, double longitude, uint8_t zoomLevel);
 };
 
 inline bool isBingTileType(const TypePtr& type) {

@@ -295,4 +295,116 @@ TEST_F(BingTileTypeTest, latitudeLongitudeToTile) {
       "Zoom level 24 is greater than max zoom 23");
 }
 
+TEST_F(BingTileTypeTest, bingTilesAround) {
+  const auto testBingTilesAround =
+      [&](double latitude,
+          double longitude,
+          uint8_t zoom,
+          std::optional<std::vector<std::string>> expectedTileQuadKeys,
+          std::optional<std::string> errorMsg = std::nullopt) {
+        auto tilesAroundResult =
+            BingTileType::bingTilesAround(latitude, longitude, zoom);
+        if (errorMsg.has_value()) {
+          ASSERT_TRUE(tilesAroundResult.hasError());
+          ASSERT_EQ(errorMsg.value(), tilesAroundResult.error());
+        } else {
+          ASSERT_TRUE(tilesAroundResult.hasValue());
+          std::vector<uint64_t> tiles = tilesAroundResult.value();
+          ASSERT_LE(tiles.size(), 9);
+          std::vector<std::string> tileQuadKeys;
+          // Compare quadkeys instead of integer values for brevity and
+          // readability
+          tileQuadKeys.reserve(tiles.size());
+          for (uint64_t tile : tiles) {
+            tileQuadKeys.push_back(BingTileType::bingTileToQuadKey(tile));
+          }
+          ASSERT_EQ(expectedTileQuadKeys.value(), tileQuadKeys);
+        }
+      };
+
+  // General tests
+  testBingTilesAround(30.12, 60, 1, {{"0", "2", "1", "3"}});
+  testBingTilesAround(
+      30.12,
+      60,
+      15,
+      {{"123030123010102",
+        "123030123010120",
+        "123030123010122",
+        "123030123010103",
+        "123030123010121",
+        "123030123010123",
+        "123030123010112",
+        "123030123010130",
+        "123030123010132"}});
+  testBingTilesAround(
+      30.12,
+      60,
+      23,
+      {{"12303012301012121210122",
+        "12303012301012121210300",
+        "12303012301012121210302",
+        "12303012301012121210123",
+        "12303012301012121210301",
+        "12303012301012121210303",
+        "12303012301012121210132",
+        "12303012301012121210310",
+        "12303012301012121210312"}});
+
+  // Test around corner
+  testBingTilesAround(-85.05112878, -180, 1, {{"0", "2", "1", "3"}});
+  testBingTilesAround(-85.05112878, -180, 3, {{"220", "222", "221", "223"}});
+  testBingTilesAround(
+      -85.05112878,
+      -180,
+      15,
+      {{"222222222222220",
+        "222222222222222",
+        "222222222222221",
+        "222222222222223"}});
+
+  testBingTilesAround(-85.05112878, -180, 2, {{"20", "22", "21", "23"}});
+  testBingTilesAround(-85.05112878, 180, 2, {{"30", "32", "31", "33"}});
+  testBingTilesAround(85.05112878, -180, 2, {{"00", "02", "01", "03"}});
+  testBingTilesAround(85.05112878, 180, 2, {{"10", "12", "11", "13"}});
+
+  // Test around edge
+  testBingTilesAround(-85.05112878, 0, 1, {{"0", "2", "1", "3"}});
+  testBingTilesAround(
+      -85.05112878, 0, 3, {{"231", "233", "320", "322", "321", "323"}});
+  testBingTilesAround(
+      -85.05112878,
+      0,
+      15,
+      {{"233333333333331",
+        "233333333333333",
+        "322222222222220",
+        "322222222222222",
+        "322222222222221",
+        "322222222222223"}});
+
+  testBingTilesAround(
+      -85.05112878, 0, 2, {{"21", "23", "30", "32", "31", "33"}});
+  testBingTilesAround(
+      85.05112878, 0, 2, {{"01", "03", "10", "12", "11", "13"}});
+  testBingTilesAround(0, 180, 2, {{"12", "30", "32", "13", "31", "33"}});
+  testBingTilesAround(0, -180, 2, {{"02", "20", "22", "03", "21", "23"}});
+
+  // Test failure cases
+  testBingTilesAround(
+      0, 0, 25, std::nullopt, "Zoom level 25 is greater than max zoom 23");
+  testBingTilesAround(
+      -86,
+      -180,
+      5,
+      std::nullopt,
+      "Latitude -86 is outside of valid range [-85.05112878, 85.05112878]");
+  testBingTilesAround(
+      -85,
+      -181,
+      5,
+      std::nullopt,
+      "Longitude -181 is outside of valid range [-180, 180]");
+}
+
 } // namespace facebook::velox::test

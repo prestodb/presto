@@ -52,6 +52,12 @@ void registerSimpleBingTileFunctions(const std::string& prefix) {
       {prefix + "bing_tile_quadkey"});
   registerFunction<BingTileAtFunction, BingTile, double, double, int8_t>(
       {prefix + "bing_tile_at"});
+  registerFunction<
+      BingTilesAroundFunction,
+      Array<BingTile>,
+      double,
+      double,
+      int8_t>({prefix + "bing_tiles_around"});
 }
 
 } // namespace

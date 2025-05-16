@@ -225,4 +225,29 @@ struct BingTileAtFunction {
   }
 };
 
+template <typename T>
+struct BingTilesAroundFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE Status call(
+      out_type<Array<BingTile>>& result,
+      const arg_type<double>& latitude,
+      const arg_type<double>& longitude,
+      const arg_type<int8_t>& zoomLevel) {
+    if (FOLLY_UNLIKELY(zoomLevel < 0)) {
+      return Status::UserError(
+          fmt::format("Bing tile zoom {} cannot be negative", zoomLevel));
+    }
+    auto bingTilesAroundResult = BingTileType::bingTilesAround(
+        latitude, longitude, static_cast<uint8_t>(zoomLevel));
+    if (FOLLY_UNLIKELY(bingTilesAroundResult.hasError())) {
+      return Status::UserError(bingTilesAroundResult.error());
+    }
+    std::vector<uint64_t> tiles = bingTilesAroundResult.value();
+    result.reserve(static_cast<int32_t>(tiles.size()));
+    result.add_items(tiles);
+    return Status::OK();
+  }
+};
+
 } // namespace facebook::velox::functions
