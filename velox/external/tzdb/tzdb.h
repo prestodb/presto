@@ -51,7 +51,7 @@ struct tzdb {
     if (const time_zone* __result = __locate_zone(__name))
       return __result;
 
-    std::__throw_runtime_error("tzdb: requested time zone not found");
+    __throw_invalid_time_zone(std::string(__name));
   }
 
   [[nodiscard]] const time_zone* current_zone() const {

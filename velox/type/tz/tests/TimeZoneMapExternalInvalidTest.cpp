@@ -19,6 +19,7 @@
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/external/tzdb/exception.h"
+#include "velox/external/tzdb/tzdb_list.h"
 #include "velox/type/tz/TimeZoneMap.h"
 
 namespace facebook::velox::tz {
@@ -51,5 +52,15 @@ DEBUG_ONLY_TEST(TimeZoneMapExternalInvalidTest, externalInvalid) {
   EXPECT_EQ("Africa/Accra", getTimeZoneName(1682));
   EXPECT_EQ(1682, getTimeZoneID("Africa/Accra"));
 }
+
+DEBUG_ONLY_TEST(TimeZoneMapExternalInvalidTest, invalidTimeZone) {
+  auto locateZone = [](std::string_view name) {
+    return tzdb::locate_zone(name);
+  };
+
+  EXPECT_EQ("Africa/Abidjan", locateZone("Africa/Abidjan")->name());
+  EXPECT_THROW(locateZone("NoneExistentZone"), tzdb::invalid_time_zone);
+}
+
 } // namespace
 } // namespace facebook::velox::tz
