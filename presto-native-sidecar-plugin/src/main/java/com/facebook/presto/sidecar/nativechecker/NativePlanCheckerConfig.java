@@ -19,7 +19,7 @@ import com.facebook.airlift.configuration.ConfigDescription;
 public class NativePlanCheckerConfig
 {
     public static final String CONFIG_PREFIX = "native-plan-checker";
-    private boolean enabled;
+    private boolean enabled = true;
 
     public boolean isPlanValidationEnabled()
     {
