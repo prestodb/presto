@@ -14,6 +14,7 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Module;
@@ -45,9 +46,10 @@ public class StatsCalculatorModule
             StatsNormalizer normalizer,
             FilterStatsCalculator filterStatsCalculator,
             HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager,
-            FragmentStatsProvider fragmentStatsProvider)
+            FragmentStatsProvider fragmentStatsProvider,
+            ExpressionOptimizerManager expressionOptimizerManager)
     {
-        StatsCalculator delegate = createComposableStatsCalculator(metadata, scalarStatsCalculator, normalizer, filterStatsCalculator, fragmentStatsProvider);
+        StatsCalculator delegate = createComposableStatsCalculator(metadata, scalarStatsCalculator, normalizer, filterStatsCalculator, fragmentStatsProvider, expressionOptimizerManager);
         return historyBasedPlanStatisticsManager.getHistoryBasedPlanStatisticsCalculator(delegate);
     }
 
@@ -56,14 +58,15 @@ public class StatsCalculatorModule
             ScalarStatsCalculator scalarStatsCalculator,
             StatsNormalizer normalizer,
             FilterStatsCalculator filterStatsCalculator,
-            FragmentStatsProvider fragmentStatsProvider)
+            FragmentStatsProvider fragmentStatsProvider,
+            ExpressionOptimizerManager expressionOptimizerManager)
     {
         ImmutableList.Builder<ComposableStatsCalculator.Rule<?>> rules = ImmutableList.builder();
         rules.add(new OutputStatsRule());
         rules.add(new TableScanStatsRule(metadata, normalizer));
         rules.add(new SimpleFilterProjectSemiJoinStatsRule(normalizer, filterStatsCalculator, metadata.getFunctionAndTypeManager())); // this must be before FilterStatsRule
         rules.add(new FilterStatsRule(normalizer, filterStatsCalculator));
-        rules.add(new ValuesStatsRule(metadata));
+        rules.add(new ValuesStatsRule(metadata, expressionOptimizerManager));
         rules.add(new LimitStatsRule(normalizer));
         rules.add(new EnforceSingleRowStatsRule(normalizer));
         rules.add(new ProjectStatsRule(scalarStatsCalculator, normalizer));
