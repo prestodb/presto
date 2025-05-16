@@ -533,6 +533,12 @@ void QuantileDigest<T, Allocator>::add(T value, double weight) {
   auto previousCount = weightedCount_;
   insert(longToBits(processedValue), weight);
   auto compressionFactor = calculateCompressionFactor();
+
+  VELOX_USER_CHECK_LT(
+      weightedCount_,
+      std::numeric_limits<int64_t>::max(),
+      "Weighted count in digest is too large: {}",
+      weightedCount_);
   if (needsCompression ||
       checkedDivide(
           static_cast<int64_t>(previousCount),
