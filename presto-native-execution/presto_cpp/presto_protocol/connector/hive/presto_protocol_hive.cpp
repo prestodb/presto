@@ -791,6 +791,8 @@ namespace facebook::presto::protocol::hive {
 void to_json(json& j, const Table& p) {
   j = json::object();
   to_json_key(
+      j, "catalogName", p.catalogName, "Table", "String", "catalogName");
+  to_json_key(
       j, "databaseName", p.databaseName, "Table", "String", "databaseName");
   to_json_key(j, "tableName", p.tableName, "Table", "String", "tableName");
   to_json_key(j, "owner", p.owner, "Table", "String", "owner");
@@ -830,6 +832,8 @@ void to_json(json& j, const Table& p) {
 }
 
 void from_json(const json& j, Table& p) {
+  from_json_key(
+      j, "catalogName", p.catalogName, "Table", "String", "catalogName");
   from_json_key(
       j, "databaseName", p.databaseName, "Table", "String", "databaseName");
   from_json_key(j, "tableName", p.tableName, "Table", "String", "tableName");
