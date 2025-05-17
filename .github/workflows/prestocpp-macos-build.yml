@@ -40,6 +40,7 @@ jobs:
           git clone --depth 1 https://github.com/Homebrew/brew ~/deps
           PATH=~/deps/bin:${PATH} DEPENDENCY_DIR=~/deps-src INSTALL_PREFIX=~/deps PROMPT_ALWAYS_RESPOND=n ./presto-native-execution/scripts/setup-macos.sh
           # Calculate the prefix path before we delete brew's repos and taps.
+          nm -C ~/deps/lib/libfolly.a | grep F14LinkCheck
           rm -rf ~/deps/.git ~/deps/Library/Taps/  # Reduce cache size by 70%.
           rm -rf ~/deps-src
 
@@ -63,7 +64,7 @@ jobs:
           export PATH=~/deps/bin:$(brew --prefix m4)/bin:$(brew --prefix bison)/bin:${PATH}
           cd presto-native-execution
           cmake -B _build/debug -GNinja -DTREAT_WARNINGS_AS_ERRORS=1 -DENABLE_ALL_WARNINGS=1 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
-          ninja -C _build/debug
+          ninja -C _build/debug || nm -C _build/debug/velox/velox/connectors/hive/CMakeFiles/velox_hive_connector.dir/HiveConnector.cpp.o | grep F14LinkCheck
 
       - name: Ccache after
         run: ccache -s
