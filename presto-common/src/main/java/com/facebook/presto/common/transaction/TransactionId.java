@@ -23,16 +23,22 @@ import java.util.Objects;
 import java.util.UUID;
 
 import static java.util.Objects.requireNonNull;
+import static java.util.UUID.fromString;
 
 @ThriftStruct
 public final class TransactionId
 {
     private final UUID uuid;
 
-    @ThriftConstructor
     public TransactionId(UUID uuid)
     {
         this.uuid = requireNonNull(uuid, "uuid is null");
+    }
+
+    @ThriftConstructor
+    public TransactionId(String uuid)
+    {
+        this(fromString(uuid));
     }
 
     public static TransactionId create()
@@ -43,7 +49,7 @@ public final class TransactionId
     @JsonCreator
     public static TransactionId valueOf(String value)
     {
-        return new TransactionId(UUID.fromString(value));
+        return new TransactionId(fromString(value));
     }
 
     @Override
@@ -67,12 +73,12 @@ public final class TransactionId
 
     @Override
     @JsonValue
+    @ThriftField(value = 1, name = "uuid")
     public String toString()
     {
         return uuid.toString();
     }
 
-    @ThriftField(value = 1, name = "uuid")
     public UUID getUuid()
     {
         return uuid;

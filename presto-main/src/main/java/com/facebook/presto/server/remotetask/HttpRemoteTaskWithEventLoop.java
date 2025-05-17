@@ -58,6 +58,7 @@ import com.facebook.presto.server.SimpleHttpResponseCallback;
 import com.facebook.presto.server.SimpleHttpResponseHandler;
 import com.facebook.presto.server.TaskUpdateRequest;
 import com.facebook.presto.server.smile.BaseResponse;
+import com.facebook.presto.server.thrift.ThriftHttpResponseHandler;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SplitWeight;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -113,6 +114,8 @@ import static com.facebook.presto.execution.TaskStatus.failWith;
 import static com.facebook.presto.server.RequestErrorTracker.isExpectedError;
 import static com.facebook.presto.server.RequestErrorTracker.taskRequestErrorTracker;
 import static com.facebook.presto.server.RequestHelpers.setContentTypeHeaders;
+import static com.facebook.presto.server.RequestHelpers.setTaskInfoAcceptTypeHeaders;
+import static com.facebook.presto.server.RequestHelpers.setTaskUpdateRequestContentTypeHeaders;
 import static com.facebook.presto.server.TaskResourceUtils.convertFromThriftTaskInfo;
 import static com.facebook.presto.server.smile.AdaptingJsonResponseHandler.createAdaptingJsonResponseHandler;
 import static com.facebook.presto.server.smile.FullSmileResponseHandler.createFullSmileResponseHandler;
@@ -203,6 +206,7 @@ public final class HttpRemoteTaskWithEventLoop
     //Json codec required for TaskUpdateRequest endpoint which uses JSON and returns a TaskInfo
     private final Codec<TaskInfo> taskInfoJsonCodec;
     private final Codec<TaskUpdateRequest> taskUpdateRequestCodec;
+    private final Codec<TaskInfo> taskInfoResponseCodec;
     private final Codec<PlanFragment> planFragmentCodec;
 
     private final RequestErrorTracker updateErrorTracker;
@@ -218,6 +222,8 @@ public final class HttpRemoteTaskWithEventLoop
     private final boolean binaryTransportEnabled;
     private final boolean thriftTransportEnabled;
     private final boolean taskInfoThriftTransportEnabled;
+    private final boolean taskUpdateRequestThriftSerdeEnabled;
+    private final boolean taskInfoResponseThriftSerdeEnabled;
     private final Protocol thriftProtocol;
     private final ConnectorTypeSerdeManager connectorTypeSerdeManager;
     private final HandleResolver handleResolver;
@@ -253,6 +259,7 @@ public final class HttpRemoteTaskWithEventLoop
             Codec<TaskInfo> taskInfoCodec,
             Codec<TaskInfo> taskInfoJsonCodec,
             Codec<TaskUpdateRequest> taskUpdateRequestCodec,
+            Codec<TaskInfo> taskInfoResponseCodec,
             Codec<PlanFragment> planFragmentCodec,
             Codec<MetadataUpdates> metadataUpdatesCodec,
             NodeStatsTracker nodeStatsTracker,
@@ -260,6 +267,8 @@ public final class HttpRemoteTaskWithEventLoop
             boolean binaryTransportEnabled,
             boolean thriftTransportEnabled,
             boolean taskInfoThriftTransportEnabled,
+            boolean taskUpdateRequestThriftTransportEnabled,
+            boolean taskInfoResponseThriftTransportEnabled,
             Protocol thriftProtocol,
             TableWriteInfo tableWriteInfo,
             int maxTaskUpdateSizeInBytes,
@@ -290,6 +299,7 @@ public final class HttpRemoteTaskWithEventLoop
                 taskInfoCodec,
                 taskInfoJsonCodec,
                 taskUpdateRequestCodec,
+                taskInfoResponseCodec,
                 planFragmentCodec,
                 metadataUpdatesCodec,
                 nodeStatsTracker,
@@ -297,6 +307,8 @@ public final class HttpRemoteTaskWithEventLoop
                 binaryTransportEnabled,
                 thriftTransportEnabled,
                 taskInfoThriftTransportEnabled,
+                taskUpdateRequestThriftTransportEnabled,
+                taskInfoResponseThriftTransportEnabled,
                 thriftProtocol,
                 tableWriteInfo,
                 maxTaskUpdateSizeInBytes,
@@ -330,6 +342,7 @@ public final class HttpRemoteTaskWithEventLoop
             Codec<TaskInfo> taskInfoCodec,
             Codec<TaskInfo> taskInfoJsonCodec,
             Codec<TaskUpdateRequest> taskUpdateRequestCodec,
+            Codec<TaskInfo> taskInfoResponseCodec,
             Codec<PlanFragment> planFragmentCodec,
             Codec<MetadataUpdates> metadataUpdatesCodec,
             NodeStatsTracker nodeStatsTracker,
@@ -337,6 +350,8 @@ public final class HttpRemoteTaskWithEventLoop
             boolean binaryTransportEnabled,
             boolean thriftTransportEnabled,
             boolean taskInfoThriftTransportEnabled,
+            boolean taskUpdateRequestThriftSerdeEnabled,
+            boolean taskInfoResponseThriftSerdeEnabled,
             Protocol thriftProtocol,
             TableWriteInfo tableWriteInfo,
             int maxTaskUpdateSizeInBytes,
@@ -388,6 +403,7 @@ public final class HttpRemoteTaskWithEventLoop
         this.taskInfoCodec = taskInfoCodec;
         this.taskInfoJsonCodec = taskInfoJsonCodec;
         this.taskUpdateRequestCodec = taskUpdateRequestCodec;
+        this.taskInfoResponseCodec = taskInfoResponseCodec;
         this.planFragmentCodec = planFragmentCodec;
         this.updateErrorTracker = taskRequestErrorTracker(taskId, location, maxErrorDuration, taskEventLoop, "updating task");
         this.nodeStatsTracker = requireNonNull(nodeStatsTracker, "nodeStatsTracker is null");
@@ -396,6 +412,8 @@ public final class HttpRemoteTaskWithEventLoop
         this.binaryTransportEnabled = binaryTransportEnabled;
         this.thriftTransportEnabled = thriftTransportEnabled;
         this.taskInfoThriftTransportEnabled = taskInfoThriftTransportEnabled;
+        this.taskUpdateRequestThriftSerdeEnabled = taskUpdateRequestThriftSerdeEnabled;
+        this.taskInfoResponseThriftSerdeEnabled = taskInfoResponseThriftSerdeEnabled;
         this.thriftProtocol = thriftProtocol;
         this.connectorTypeSerdeManager = connectorTypeSerdeManager;
         this.handleResolver = handleResolver;
@@ -989,47 +1007,51 @@ public final class HttpRemoteTaskWithEventLoop
                     outputBuffers,
                     writeInfo);
             long serializeStartCpuTimeNanos = THREAD_MX_BEAN.getCurrentThreadCpuTime();
-            byte[] taskUpdateRequestJson = taskUpdateRequestCodec.toBytes(updateRequest);
+            Request.Builder requestBuilder;
+            HttpUriBuilder uriBuilder = getHttpUriBuilder(taskStatus);
+
+            byte[] taskUpdateRequestBytes = taskUpdateRequestCodec.toBytes(updateRequest);
             schedulerStatsTracker.recordTaskUpdateSerializedCpuTime(THREAD_MX_BEAN.getCurrentThreadCpuTime() - serializeStartCpuTimeNanos);
 
-            taskUpdateRequestSize.add(taskUpdateRequestJson.length);
-
-            if (taskUpdateRequestJson.length > maxTaskUpdateSizeInBytes) {
-                failTask(new PrestoException(EXCEEDED_TASK_UPDATE_SIZE_LIMIT, getExceededTaskUpdateSizeMessage(taskUpdateRequestJson)));
-                return;
+            if (taskUpdateRequestBytes.length > maxTaskUpdateSizeInBytes) {
+                failTask(new PrestoException(EXCEEDED_TASK_UPDATE_SIZE_LIMIT, getExceededTaskUpdateSizeMessage(taskUpdateRequestBytes)));
             }
 
             if (taskUpdateSizeTrackingEnabled) {
-                taskUpdateRequestSize.add(taskUpdateRequestJson.length);
+                taskUpdateRequestSize.add(taskUpdateRequestBytes.length);
 
                 if (fragment.isPresent()) {
-                    stats.updateWithPlanSize(taskUpdateRequestJson.length);
+                    stats.updateWithPlanSize(taskUpdateRequestBytes.length);
                 }
                 else {
                     if (ThreadLocalRandom.current().nextDouble() < UPDATE_WITHOUT_PLAN_STATS_SAMPLE_RATE) {
                         // This is to keep track of the task update size even when the plan fragment is NOT present
-                        stats.updateWithoutPlanSize(taskUpdateRequestJson.length);
+                        stats.updateWithoutPlanSize(taskUpdateRequestBytes.length);
                     }
                 }
             }
 
-            HttpUriBuilder uriBuilder = getHttpUriBuilder(taskStatus);
-            Request request = setContentTypeHeaders(binaryTransportEnabled, preparePost())
+            requestBuilder = setTaskUpdateRequestContentTypeHeaders(taskUpdateRequestThriftSerdeEnabled, binaryTransportEnabled, preparePost());
+            requestBuilder = setTaskInfoAcceptTypeHeaders(taskInfoResponseThriftSerdeEnabled, binaryTransportEnabled, requestBuilder);
+            Request request = requestBuilder
                     .setUri(uriBuilder.build())
-                    .setBodyGenerator(createStaticBodyGenerator(taskUpdateRequestJson))
+                    .setBodyGenerator(createStaticBodyGenerator(taskUpdateRequestBytes))
                     .build();
 
             ResponseHandler responseHandler;
-            if (binaryTransportEnabled) {
-                responseHandler = createFullSmileResponseHandler((SmileCodec<TaskInfo>) taskInfoCodec);
+            if (taskInfoResponseThriftSerdeEnabled) {
+                responseHandler = new ThriftResponseHandler(unwrapThriftCodec(taskInfoResponseCodec));
+            }
+            else if (binaryTransportEnabled) {
+                responseHandler = createFullSmileResponseHandler((SmileCodec<TaskInfo>) taskInfoResponseCodec);
             }
             else {
-                responseHandler = createAdaptingJsonResponseHandler((JsonCodec<TaskInfo>) taskInfoJsonCodec);
+                responseHandler = createAdaptingJsonResponseHandler((JsonCodec<TaskInfo>) taskInfoResponseCodec);
             }
 
             updateErrorTracker.startRequest();
 
-            ListenableFuture<BaseResponse<TaskInfo>> future = httpClient.executeAsync(request, responseHandler);
+            ListenableFuture<?> future = httpClient.executeAsync(request, responseHandler);
             currentRequest = future;
             currentRequestStartNanos = System.nanoTime();
             if (!taskUpdateTimeline.isEmpty()) {
@@ -1040,10 +1062,18 @@ public final class HttpRemoteTaskWithEventLoop
             // and does so without grabbing the instance lock.
             needsUpdate = false;
 
-            Futures.addCallback(
-                    future,
-                    new SimpleHttpResponseHandler<>(new UpdateResponseHandler(sources), request.getUri(), stats.getHttpResponseStats(), REMOTE_TASK_ERROR),
-                    taskEventLoop);
+            if (taskInfoResponseThriftSerdeEnabled) {
+                Futures.addCallback(
+                        (ListenableFuture<ThriftResponse<TaskInfo>>) future,
+                        new ThriftHttpResponseHandler<>(new UpdateResponseHandler(sources), request.getUri(), stats.getHttpResponseStats(), REMOTE_TASK_ERROR),
+                        taskEventLoop);
+            }
+            else {
+                Futures.addCallback(
+                        (ListenableFuture<BaseResponse<TaskInfo>>) future,
+                        new SimpleHttpResponseHandler<>(new UpdateResponseHandler(sources), request.getUri(), stats.getHttpResponseStats(), REMOTE_TASK_ERROR),
+                        taskEventLoop);
+            }
         }, "sendUpdate");
     }
 
