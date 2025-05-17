@@ -635,7 +635,7 @@ void to_json(json& j, const PrestoIcebergPartitionSpec& p) {
       "fields",
       p.fields,
       "PrestoIcebergPartitionSpec",
-      "List<String>",
+      "List<PartitionFieldWrapper>",
       "fields");
 }
 
@@ -654,7 +654,7 @@ void from_json(const json& j, PrestoIcebergPartitionSpec& p) {
       "fields",
       p.fields,
       "PrestoIcebergPartitionSpec",
-      "List<String>",
+      "List<PartitionFieldWrapper>",
       "fields");
 }
 } // namespace facebook::presto::protocol::iceberg
