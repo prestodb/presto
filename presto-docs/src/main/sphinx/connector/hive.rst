@@ -37,6 +37,30 @@ The following file types are supported for the Hive connector:
 * JSON
 * Text
 
+
+Hive Metastore
+--------------
+
+The Hive Metastore is a central metadata repository that Presto uses to access table definitions, partition information, 
+and other structural details about your Hive tables. It serves as the foundation for Presto's Hive connector operations.
+
+Key Concepts
+------------
+- Stores metadata about tables, columns, partitions, and storage locations
+- Enables schema-on-read functionality
+- Supports multiple metastore backends (Apache Hive Metastore Service, AWS Glue)
+
+
+Additional Resources for Metastore Configuration
+------------------------------------------------
+
+* `Metastore Configuration Properties`_ 
+* `How to invalidate metastore cache?`_
+* :ref:`installation/deployment:File-Based Metastore`
+* :doc:`/connector/hive-security`
+* `AWS Glue Catalog Configuration Properties`_
+
+
 Configuration
 -------------
 
