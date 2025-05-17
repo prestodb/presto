@@ -14,44 +14,79 @@
  * limitations under the License.
  */
 
-#include "velox/experimental/cudf/exec/NvtxHelper.h"
-#include "velox/experimental/cudf/exec/Utilities.h"
+#include "velox/experimental/cudf/exec/ToCudf.h"
 #include "velox/experimental/cudf/exec/VeloxCudfInterop.h"
 
 #include "velox/common/memory/Memory.h"
 #include "velox/type/Type.h"
 #include "velox/vector/BaseVector.h"
 #include "velox/vector/ComplexVector.h"
-#include "velox/vector/DictionaryVector.h"
-#include "velox/vector/FlatVector.h"
 #include "velox/vector/arrow/Bridge.h"
 
-#include <cudf/column/column.hpp>
-#include <cudf/column/column_factories.hpp>
-#include <cudf/detail/utilities/vector_factories.hpp>
 #include <cudf/interop.hpp>
-#include <cudf/strings/string_view.hpp>
 #include <cudf/table/table.hpp>
 #include <cudf/types.hpp>
 #include <cudf/utilities/error.hpp>
-#include <cudf/utilities/type_dispatcher.hpp>
 
 #include <rmm/cuda_stream_view.hpp>
-#include <rmm/device_buffer.hpp>
-#include <rmm/mr/device/per_device_resource.hpp>
-
-#include <nvtx3/nvtx3.hpp>
-#include <thrust/copy.h>
-#include <thrust/execution_policy.h>
 
 #include <arrow/c/bridge.h>
 #include <arrow/io/interfaces.h>
 #include <arrow/table.h>
 
-#include <functional>
-#include <numeric>
-
 namespace facebook::velox::cudf_velox {
+
+cudf::type_id veloxToCudfTypeId(const TypePtr& type) {
+  switch (type->kind()) {
+    case TypeKind::BOOLEAN:
+      return cudf::type_id::BOOL8;
+    case TypeKind::TINYINT:
+      return cudf::type_id::INT8;
+    case TypeKind::SMALLINT:
+      return cudf::type_id::INT16;
+    case TypeKind::INTEGER:
+      // TODO: handle interval types (durations?)
+      // if (type->isIntervalYearMonth()) {
+      //   return cudf::type_id::...;
+      // }
+      if (type->isDate()) {
+        return cudf::type_id::TIMESTAMP_DAYS;
+      }
+      return cudf::type_id::INT32;
+    case TypeKind::BIGINT:
+      return cudf::type_id::INT64;
+    case TypeKind::REAL:
+      return cudf::type_id::FLOAT32;
+    case TypeKind::DOUBLE:
+      return cudf::type_id::FLOAT64;
+    case TypeKind::VARCHAR:
+      return cudf::type_id::STRING;
+    case TypeKind::VARBINARY:
+      return cudf::type_id::STRING;
+    case TypeKind::TIMESTAMP:
+      return cudf::type_id::TIMESTAMP_NANOSECONDS;
+    // case TypeKind::HUGEINT: return cudf::type_id::DURATION_DAYS;
+    // TODO: DATE was converted to a logical type:
+    // https://github.com/facebookincubator/velox/commit/e480f5c03a6c47897ef4488bd56918a89719f908
+    // case TypeKind::DATE: return cudf::type_id::DURATION_DAYS;
+    // case TypeKind::INTERVAL_DAY_TIME: return cudf::type_id::EMPTY;
+    // TODO: Decimals are now logical types:
+    // https://github.com/facebookincubator/velox/commit/73d2f935b55f084d30557c7be94b9768efb8e56f
+    // case TypeKind::SHORT_DECIMAL: return cudf::type_id::DECIMAL64;
+    // case TypeKind::LONG_DECIMAL: return cudf::type_id::DECIMAL128;
+    // case TypeKind::ARRAY: return cudf::type_id::EMPTY;
+    // case TypeKind::MAP: return cudf::type_id::EMPTY;
+    case TypeKind::ROW:
+      return cudf::type_id::STRUCT;
+    // case TypeKind::UNKNOWN: return cudf::type_id::EMPTY;
+    // case TypeKind::FUNCTION: return cudf::type_id::EMPTY;
+    // case TypeKind::OPAQUE: return cudf::type_id::EMPTY;
+    // case TypeKind::INVALID: return cudf::type_id::EMPTY;
+    default:
+      CUDF_FAIL("Unsupported Velox type");
+      return cudf::type_id::EMPTY;
+  }
+}
 
 namespace with_arrow {
 

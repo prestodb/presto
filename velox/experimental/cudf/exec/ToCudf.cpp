@@ -15,6 +15,7 @@
  */
 
 #include "velox/experimental/cudf/exec/CudfConversion.h"
+#include "velox/experimental/cudf/exec/CudfHashAggregation.h"
 #include "velox/experimental/cudf/exec/CudfOrderBy.h"
 #include "velox/experimental/cudf/exec/ToCudf.h"
 #include "velox/experimental/cudf/exec/Utilities.h"
@@ -82,7 +83,7 @@ bool CompileState::compile() {
   };
 
   auto isSupportedGpuOperator = [](const exec::Operator* op) {
-    return isAnyOf<exec::OrderBy>(op);
+    return isAnyOf<exec::OrderBy, exec::HashAggregation>(op);
   };
 
   std::vector<bool> isSupportedGpuOperators(operators.size());
@@ -93,11 +94,11 @@ bool CompileState::compile() {
       isSupportedGpuOperator);
 
   auto acceptsGpuInput = [](const exec::Operator* op) {
-    return isAnyOf<exec::OrderBy>(op);
+    return isAnyOf<exec::OrderBy, exec::HashAggregation>(op);
   };
 
   auto producesGpuOutput = [](const exec::Operator* op) {
-    return isAnyOf<exec::OrderBy>(op);
+    return isAnyOf<exec::OrderBy, exec::HashAggregation>(op);
   };
 
   int32_t operatorsOffset = 0;
@@ -131,6 +132,13 @@ bool CompileState::compile() {
           getPlanNode(orderByOp->planNodeId()));
       VELOX_CHECK(planNode != nullptr);
       replaceOp.push_back(std::make_unique<CudfOrderBy>(id, ctx, planNode));
+      replaceOp.back()->initialize();
+    } else if (auto hashAggOp = dynamic_cast<exec::HashAggregation*>(oper)) {
+      auto planNode = std::dynamic_pointer_cast<const core::AggregationNode>(
+          getPlanNode(hashAggOp->planNodeId()));
+      VELOX_CHECK(planNode != nullptr);
+      replaceOp.push_back(
+          std::make_unique<CudfHashAggregation>(id, ctx, planNode));
       replaceOp.back()->initialize();
     }
 

@@ -17,12 +17,8 @@
 #include "velox/experimental/cudf/exec/CudfOrderBy.h"
 #include "velox/experimental/cudf/exec/NvtxHelper.h"
 #include "velox/experimental/cudf/exec/Utilities.h"
-#include "velox/experimental/cudf/exec/VeloxCudfInterop.h"
 
-#include <cudf/concatenate.hpp>
 #include <cudf/sorting.hpp>
-#include <cudf/table/table.hpp>
-#include <cudf/utilities/default_stream.hpp>
 
 namespace facebook::velox::cudf_velox {
 
@@ -36,7 +32,10 @@ CudfOrderBy::CudfOrderBy(
           operatorId,
           orderByNode->id(),
           "CudfOrderBy"),
-      NvtxHelper(nvtx3::rgb{64, 224, 208}, operatorId), // Turquoise
+      NvtxHelper(
+          nvtx3::rgb{64, 224, 208}, // Turquoise
+          operatorId,
+          fmt::format("[{}]", orderByNode->id())),
       orderByNode_(orderByNode) {
   sortKeys_.reserve(orderByNode->sortingKeys().size());
   columnOrder_.reserve(orderByNode->sortingKeys().size());

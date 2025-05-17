@@ -75,7 +75,10 @@ CudfFromVelox::CudfFromVelox(
           operatorId,
           planNodeId,
           "CudfFromVelox"),
-      NvtxHelper(nvtx3::rgb{255, 140, 0}, operatorId) {} // Orange
+      NvtxHelper(
+          nvtx3::rgb{255, 140, 0}, // Orange
+          operatorId,
+          fmt::format("[{}]", planNodeId)) {}
 
 void CudfFromVelox::addInput(RowVectorPtr input) {
   VELOX_NVTX_OPERATOR_FUNC_RANGE();
@@ -164,7 +167,10 @@ CudfToVelox::CudfToVelox(
           operatorId,
           planNodeId,
           "CudfToVelox"),
-      NvtxHelper(nvtx3::rgb{148, 0, 211}, operatorId) {} // Purple
+      NvtxHelper(
+          nvtx3::rgb{148, 0, 211}, // Purple
+          operatorId,
+          fmt::format("[{}]", planNodeId)) {}
 
 void CudfToVelox::addInput(RowVectorPtr input) {
   // Accumulate inputs

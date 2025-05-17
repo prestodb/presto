@@ -17,14 +17,19 @@
 #pragma once
 
 #include "velox/common/memory/Memory.h"
-#include "velox/vector/BaseVector.h"
 #include "velox/vector/ComplexVector.h"
 
-#include <cudf/column/column.hpp>
 #include <cudf/table/table.hpp>
 #include <cudf/types.hpp>
 
-namespace facebook::velox::cudf_velox::with_arrow {
+#include <rmm/cuda_stream_view.hpp>
+
+namespace facebook::velox::cudf_velox {
+
+cudf::type_id veloxToCudfTypeId(const TypePtr& type);
+
+namespace with_arrow {
+
 std::unique_ptr<cudf::table> toCudfTable(
     const facebook::velox::RowVectorPtr& veloxTable,
     facebook::velox::memory::MemoryPool* pool,
@@ -42,4 +47,6 @@ facebook::velox::RowVectorPtr toVeloxColumn(
     const std::vector<std::string>& columnNames,
     rmm::cuda_stream_view stream);
 
-} // namespace facebook::velox::cudf_velox::with_arrow
+} // namespace with_arrow
+
+} // namespace facebook::velox::cudf_velox
