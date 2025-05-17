@@ -43,6 +43,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -189,6 +190,40 @@ public class TestMySqlIntegrationSmokeTest
                 " CAST('2018-06-02 11:13:45.123' AS TIMESTAMP)");
         assertUpdate("DROP TABLE test_timestamp");
         assertUpdate("DROP TABLE test_timestamp2");
+    }
+
+    @Test
+    public void testMysqlGeometry()
+            throws SQLException
+    {
+        execute("CREATE TABLE tpch.test_geometry (g GEOMETRY)");
+
+        execute("INSERT INTO tpch.test_geometry VALUES (ST_GeomFromText('POINT(1 2)'))");
+        execute("INSERT INTO tpch.test_geometry VALUES (ST_GeomFromText('LINESTRING(0 0, 5 5, 10 10)'))");
+        execute("INSERT INTO tpch.test_geometry VALUES (ST_GeomFromText('POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))'))");
+
+        assertQuery(
+                "SELECT CAST(g AS VARCHAR) FROM test_geometry",
+                "VALUES " +
+                        "CAST('POINT (1 2)' AS VARCHAR), " +
+                        "CAST('LINESTRING (0 0, 5 5, 10 10)' AS VARCHAR), " +
+                        "CAST('POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0))' AS VARCHAR)");
+
+        assertUpdate("DROP TABLE tpch.test_geometry");
+    }
+
+    @Test
+    public void testInvalidGeometry()
+            throws SQLException
+    {
+        execute("CREATE TABLE tpch.test_invalid_wkb (g GEOMETRY)");
+
+        execute("INSERT INTO tpch.test_invalid_wkb VALUES (ST_GeomFromText('POINT(1 2)'))");
+
+        assertThatThrownBy(() -> execute("UPDATE tpch.test_invalid_wkb SET g = X'0001020304'"))
+                .hasMessageContaining("Cannot get geometry object from data");
+
+        execute("DROP TABLE tpch.test_invalid_wkb");
     }
 
     @Test
