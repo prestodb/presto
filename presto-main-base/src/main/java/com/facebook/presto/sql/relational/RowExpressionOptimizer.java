@@ -13,24 +13,33 @@
  */
 package com.facebook.presto.sql.relational;
 
+import com.facebook.presto.common.CatalogSchemaName;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.RowExpressionVisitor;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.planner.RowExpressionInterpreter;
 
 import java.util.function.Function;
 
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.sql.planner.LiteralEncoder.toRowExpression;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public final class RowExpressionOptimizer
         implements ExpressionOptimizer
 {
     private final FunctionAndTypeManager functionAndTypeManager;
+    private final CatalogSchemaName defaultNamespace;
+    private final RowExpressionVisitor<RowExpression, Void> namespaceNormalizer;
 
     public RowExpressionOptimizer(Metadata metadata)
     {
@@ -39,14 +48,21 @@ public final class RowExpressionOptimizer
 
     public RowExpressionOptimizer(FunctionAndTypeManager functionAndTypeManager)
     {
+        this.defaultNamespace = requireNonNull(functionAndTypeManager, "functionMetadataManager is null").getDefaultNamespace();
         this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionMetadataManager is null");
+        this.namespaceNormalizer = !JAVA_BUILTIN_NAMESPACE.equals(defaultNamespace) ? new BuiltInFunctionNamespaceOverride() : new IdentityRowExpressionVisitor();
     }
 
     @Override
     public RowExpression optimize(RowExpression rowExpression, Level level, ConnectorSession session)
     {
         if (level.ordinal() <= OPTIMIZED.ordinal()) {
-            return toRowExpression(rowExpression.getSourceLocation(), new RowExpressionInterpreter(rowExpression, functionAndTypeManager, session, level).optimize(), rowExpression.getType());
+            RowExpressionInterpreter rowExpressionInterpreter = new RowExpressionInterpreter(
+                    rowExpression.accept(namespaceNormalizer, null),
+                    functionAndTypeManager,
+                    session,
+                    level);
+            return toRowExpression(rowExpression.getSourceLocation(), rowExpressionInterpreter.optimize(), rowExpression.getType());
         }
         throw new IllegalArgumentException("Not supported optimization level: " + level);
     }
@@ -54,7 +70,56 @@ public final class RowExpressionOptimizer
     @Override
     public RowExpression optimize(RowExpression expression, Level level, ConnectorSession session, Function<VariableReferenceExpression, Object> variableResolver)
     {
-        RowExpressionInterpreter interpreter = new RowExpressionInterpreter(expression, functionAndTypeManager, session, level);
+        RowExpressionInterpreter interpreter = new RowExpressionInterpreter(
+                expression.accept(namespaceNormalizer, null),
+                functionAndTypeManager,
+                session,
+                level);
         return toRowExpression(expression.getSourceLocation(), interpreter.optimize(variableResolver::apply), expression.getType());
+    }
+
+    /**
+     * TODO: GIANT HACK
+     * This class is a hack and should eventually be removed.  It is used to ensure consistent constant folding behavior when the built-in
+     * function namespace has been switched (for example, to native.default. in the case of native functions).  This will no longer be needed
+     * when the native sidecar is capable of providing its own expression optimizer.
+     */
+    private class BuiltInFunctionNamespaceOverride
+            implements RowExpressionVisitor<RowExpression, Void>
+    {
+        @Override
+        public RowExpression visitExpression(RowExpression expression, Void context)
+        {
+            return expression;
+        }
+
+        @Override
+        public RowExpression visitCall(CallExpression call, Void context)
+        {
+            if (call.getFunctionHandle().getCatalogSchemaName().equals(defaultNamespace)) {
+                call = new CallExpression(
+                        call.getSourceLocation(),
+                        call.getDisplayName(),
+                        functionAndTypeManager.lookupFunction(
+                                QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, call.getDisplayName()),
+                                call.getArguments().stream()
+                                        .map(RowExpression::getType)
+                                        .map(x -> new TypeSignatureProvider(x.getTypeSignature()))
+                                        .collect(toImmutableList())),
+                        call.getType(),
+                        call.getArguments());
+            }
+            return call;
+        }
+    }
+
+    private class IdentityRowExpressionVisitor
+            implements RowExpressionVisitor<RowExpression, Void>
+    {
+        @Override
+        public RowExpression visitExpression(RowExpression expression, Void context)
+        {
+            return expression;
+        }
     }
 }
