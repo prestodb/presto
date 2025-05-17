@@ -696,7 +696,7 @@ struct DriverFactory {
   std::vector<std::shared_ptr<const core::PlanNode>> planNodes;
   /// Function that will generate the final operator of a driver being
   /// constructed.
-  OperatorSupplier consumerSupplier;
+  OperatorSupplier operatorSupplier;
   /// Maximum number of drivers that can be run concurrently in this pipeline.
   uint32_t maxDrivers;
   /// Number of drivers that will be run concurrently in this pipeline for one
