@@ -17,8 +17,7 @@ import com.facebook.presto.spi.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multiset;
-
-import javax.annotation.concurrent.Immutable;
+import com.google.errorprone.annotations.Immutable;
 
 import java.util.List;
 

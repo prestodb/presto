@@ -14,8 +14,8 @@
 package com.facebook.presto.server.remotetask;
 
 import com.facebook.airlift.testing.TestingTicker;
+import com.facebook.airlift.units.Duration;
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import static java.util.concurrent.TimeUnit.MICROSECONDS;

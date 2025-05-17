@@ -16,8 +16,7 @@ package com.facebook.presto.hive.security.ranger;
 import com.facebook.airlift.http.client.BasicAuthRequestFilter;
 import com.facebook.airlift.http.client.HttpRequestFilter;
 import com.facebook.airlift.http.client.Request;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import static java.util.Objects.requireNonNull;
 

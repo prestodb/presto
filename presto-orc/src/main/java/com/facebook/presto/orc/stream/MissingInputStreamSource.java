@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.orc.stream;
 
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import static java.util.Objects.requireNonNull;
 

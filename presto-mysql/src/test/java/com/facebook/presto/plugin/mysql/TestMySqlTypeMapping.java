@@ -28,7 +28,6 @@ import com.facebook.presto.tests.sql.JdbcSqlExecutor;
 import com.facebook.presto.tests.sql.PrestoSqlExecutor;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.Duration;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -56,7 +55,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.repeat;
 import static com.google.common.base.Verify.verify;
 import static java.lang.String.format;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 @Test
 public class TestMySqlTypeMapping
@@ -64,7 +62,6 @@ public class TestMySqlTypeMapping
 {
     private static final String CHARACTER_SET_UTF8 = "CHARACTER SET utf8";
     private static final MySqlOptions MY_SQL_OPTIONS = MySqlOptions.builder()
-            .setCommandTimeout(new Duration(90, SECONDS))
             .build();
 
     private final TestingMySqlServer mysqlServer;

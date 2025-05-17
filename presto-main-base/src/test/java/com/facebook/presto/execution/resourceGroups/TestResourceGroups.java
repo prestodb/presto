@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.execution.resourceGroups;
 
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.execution.MockManagedQueryExecution;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroup.RootInternalResourceGroup;
 import com.facebook.presto.metadata.InMemoryNodeManager;
@@ -22,8 +24,6 @@ import com.facebook.presto.server.QueryStateInfo;
 import com.facebook.presto.server.ResourceGroupInfo;
 import com.facebook.presto.spi.ConnectorId;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 import org.apache.commons.math3.distribution.BinomialDistribution;
 import org.testng.annotations.Test;
 
@@ -43,6 +43,9 @@ import java.util.TreeMap;
 import static com.facebook.airlift.testing.Assertions.assertBetweenInclusive;
 import static com.facebook.airlift.testing.Assertions.assertGreaterThan;
 import static com.facebook.airlift.testing.Assertions.assertLessThan;
+import static com.facebook.airlift.units.DataSize.Unit.BYTE;
+import static com.facebook.airlift.units.DataSize.Unit.GIGABYTE;
+import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
@@ -53,9 +56,6 @@ import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.QUERY_PRIO
 import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.WEIGHTED;
 import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.WEIGHTED_FAIR;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.airlift.units.DataSize.Unit.BYTE;
-import static io.airlift.units.DataSize.Unit.GIGABYTE;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Collections.reverse;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;

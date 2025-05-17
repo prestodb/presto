@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.type.Type;
@@ -29,7 +30,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -43,6 +43,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.orc.AbstractOrcRecordReader.getDecryptionKeyMetadata;
@@ -69,7 +70,6 @@ import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.STRUCT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_INDEX;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;

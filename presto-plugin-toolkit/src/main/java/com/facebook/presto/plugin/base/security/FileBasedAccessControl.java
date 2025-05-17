@@ -28,8 +28,7 @@ import com.facebook.presto.spi.security.ViewExpression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.nio.file.Paths;
 import java.util.List;

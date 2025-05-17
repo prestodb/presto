@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.execution.FragmentResultCacheContext;
 import com.facebook.presto.execution.ScheduledSplit;
@@ -30,9 +31,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import io.airlift.units.Duration;
-
-import javax.annotation.concurrent.GuardedBy;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 
 import java.io.Closeable;
 import java.util.ArrayList;

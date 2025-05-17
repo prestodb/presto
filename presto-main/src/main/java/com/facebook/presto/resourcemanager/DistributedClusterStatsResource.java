@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.resourcemanager;
 
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.metadata.InternalNodeManager;
@@ -22,15 +23,13 @@ import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.spi.NodeState;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.memory.MemoryPoolInfo;
-import io.airlift.units.Duration;
-
-import javax.annotation.security.RolesAllowed;
-import javax.inject.Inject;
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
+import jakarta.annotation.security.RolesAllowed;
+import jakarta.inject.Inject;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 
 import java.util.Map;
 import java.util.function.Supplier;

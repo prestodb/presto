@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.druid.zip;
 
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.EnumSet;
 

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.spi.PrestoException;
-import io.airlift.units.DataSize;
 
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_WRITTEN_INTERMEDIATE_BYTES_LIMIT;
 
