@@ -162,6 +162,7 @@ public class PartitionTable
             return new InMemoryRecordSet(resultTypes, ImmutableList.of()).cursor();
         }
         TableScan tableScan = icebergTable.newScan()
+                .metricsReporter(new RuntimeStatsMetricsReporter(session.getRuntimeStats()))
                 .useSnapshot(snapshotId.get())
                 .includeColumnStats();
         return buildRecordCursor(getPartitions(tableScan), icebergTable.spec().fields());

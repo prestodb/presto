@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.iceberg.optimizer;
 
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TypeManager;
@@ -154,13 +155,14 @@ public class IcebergFilterPushdown
 
             TupleDomain<ColumnHandle> partitionColumnPredicate = TupleDomain.withColumnDomains(Maps.filterKeys(
                     constraint.getSummary().getDomains().get(), Predicates.in(partitionColumns)));
-
+            RuntimeStats runtimeStats = session.getRuntimeStats();
             List<HivePartition> partitions = getPartitions(
                     typeManager,
                     tableHandle,
                     icebergTable,
                     constraint,
-                    partitionColumns);
+                    partitionColumns,
+                    runtimeStats);
 
             return new ConnectorPushdownFilterResult(
                     metadata.getTableLayout(

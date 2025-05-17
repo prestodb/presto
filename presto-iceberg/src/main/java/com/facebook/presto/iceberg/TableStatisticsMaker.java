@@ -168,14 +168,15 @@ public class TableStatisticsMaker
             Table icebergTable,
             List<IcebergColumnHandle> columns)
     {
-        return new TableStatisticsMaker(icebergTable, session, typeManager).makeTableStatistics(statisticsFileCache, tableHandle, currentPredicate, constraint, columns);
+        return new TableStatisticsMaker(icebergTable, session, typeManager).makeTableStatistics(statisticsFileCache, tableHandle, currentPredicate, constraint, columns, session);
     }
 
     private TableStatistics makeTableStatistics(StatisticsFileCache statisticsFileCache,
             IcebergTableHandle tableHandle,
             Optional<TupleDomain<IcebergColumnHandle>> currentPredicate,
             Constraint constraint,
-            List<IcebergColumnHandle> selectedColumns)
+            List<IcebergColumnHandle> selectedColumns,
+            ConnectorSession session)
     {
         if (!tableHandle.getIcebergTableName().getSnapshotId().isPresent() || constraint.getSummary().isNone()) {
             return TableStatistics.builder()
@@ -282,6 +283,7 @@ public class TableStatisticsMaker
             List<PartitionField> partitionFields)
     {
         TableScan tableScan = icebergTable.newScan()
+                .metricsReporter(new RuntimeStatsMetricsReporter(session.getRuntimeStats()))
                 .filter(toIcebergExpression(intersection))
                 .select(selectedColumns.stream().map(IcebergColumnHandle::getName).collect(Collectors.toList()))
                 .useSnapshot(tableHandle.getIcebergTableName().getSnapshotId().get())
@@ -301,7 +303,8 @@ public class TableStatisticsMaker
                 tableHandle.getIcebergTableName().getSnapshotId().get(),
                 intersection,
                 tableHandle.getPartitionSpecId(),
-                tableHandle.getEqualityFieldIds());
+                tableHandle.getEqualityFieldIds(),
+                session.getRuntimeStats());
         CloseableIterable<ContentFile<?>> files = CloseableIterable.transform(deleteFiles, deleteFile -> deleteFile);
         return getSummaryFromFiles(files, idToTypeMapping, nonPartitionPrimitiveColumns, partitionFields);
     }
