@@ -76,6 +76,7 @@ import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.FunctionsConfig;
+import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.type.TypeDeserializer;
@@ -132,6 +133,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
 import static com.facebook.presto.spi.TableLayoutFilterCoverage.NOT_APPLICABLE;
 import static com.facebook.presto.spi.analyzer.ViewDefinition.ViewColumn;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -319,6 +321,21 @@ public class MetadataManager
             }
         }
         return ImmutableList.copyOf(schemaNames.build());
+    }
+
+    @Override
+    public Map<String, Object> getSchemaProperties(Session session, CatalogSchemaName schemaName)
+    {
+        if (!getMetadataResolver(session).schemaExists(schemaName)) {
+            throw new SemanticException(MISSING_SCHEMA, format("Schema '%s' does not exist", schemaName));
+        }
+
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, transactionManager, schemaName.getCatalogName());
+        CatalogMetadata catalogMetadata = catalog.get();
+        ConnectorSession connectorSession = session.toConnectorSession(catalogMetadata.getConnectorId());
+        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogMetadata.getConnectorId());
+
+        return metadata.getSchemaProperties(connectorSession, schemaName);
     }
 
     @Override
