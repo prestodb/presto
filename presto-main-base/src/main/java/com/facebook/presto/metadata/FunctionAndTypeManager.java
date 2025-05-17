@@ -32,6 +32,10 @@ import com.facebook.presto.common.type.TypeSignatureBase;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.UserDefinedType;
+import com.facebook.presto.operator.table.ExcludeColumns;
+import com.facebook.presto.operator.table.ExcludeColumns.ExcludeColumnsFunctionHandle;
+import com.facebook.presto.operator.table.Sequence;
+import com.facebook.presto.operator.table.Sequence.SequenceFunctionHandle;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
@@ -52,6 +56,8 @@ import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlFunctionSupplier;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
+import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
+import com.facebook.presto.spi.function.table.TableFunctionProcessorProvider;
 import com.facebook.presto.spi.type.TypeManagerContext;
 import com.facebook.presto.spi.type.TypeManagerFactory;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -86,6 +92,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.regex.Pattern;
 
 import static com.facebook.presto.SystemSessionProperties.isExperimentalFunctionsEnabled;
@@ -129,6 +136,7 @@ public class FunctionAndTypeManager
 {
     private static final Pattern DEFAULT_NAMESPACE_PREFIX_PATTERN = Pattern.compile("[a-z]+\\.[a-z]+");
     private final TransactionManager transactionManager;
+    private final TableFunctionRegistry tableFunctionRegistry;
     private final BlockEncodingSerde blockEncodingSerde;
     private final BuiltInTypeAndFunctionNamespaceManager builtInTypeAndFunctionNamespaceManager;
     private final FunctionInvokerProvider functionInvokerProvider;
@@ -145,10 +153,12 @@ public class FunctionAndTypeManager
     private final CatalogSchemaName defaultNamespace;
     private final AtomicReference<TypeManager> servingTypeManager;
     private final AtomicReference<Supplier<Map<String, ParametricType>>> servingTypeManagerParametricTypesSupplier;
+    private Function<ConnectorTableFunctionHandle, TableFunctionProcessorProvider> tableFunctionProcessorProvider;
 
     @Inject
     public FunctionAndTypeManager(
             TransactionManager transactionManager,
+            TableFunctionRegistry tableFunctionRegistry,
             BlockEncodingSerde blockEncodingSerde,
             FeaturesConfig featuresConfig,
             FunctionsConfig functionsConfig,
@@ -156,6 +166,7 @@ public class FunctionAndTypeManager
             Set<Type> types)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+        this.tableFunctionRegistry = requireNonNull(tableFunctionRegistry, "tableFunctionRegistry is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.builtInTypeAndFunctionNamespaceManager = new BuiltInTypeAndFunctionNamespaceManager(blockEncodingSerde, functionsConfig, types, this);
         this.functionNamespaceManagers.put(JAVA_BUILTIN_NAMESPACE.getCatalogName(), builtInTypeAndFunctionNamespaceManager);
@@ -176,12 +187,14 @@ public class FunctionAndTypeManager
         this.defaultNamespace = configureDefaultNamespace(functionsConfig.getDefaultNamespacePrefix());
         this.servingTypeManager = new AtomicReference<>(builtInTypeAndFunctionNamespaceManager);
         this.servingTypeManagerParametricTypesSupplier = new AtomicReference<>(this::getServingTypeManagerParametricTypes);
+        this.tableFunctionProcessorProvider = defaultTableFunctionProcessorProvider();
     }
 
     public static FunctionAndTypeManager createTestFunctionAndTypeManager()
     {
         return new FunctionAndTypeManager(
                 createTestTransactionManager(),
+                new TableFunctionRegistry(),
                 new BlockEncodingManager(),
                 new FeaturesConfig(),
                 new FunctionsConfig(),
@@ -403,6 +416,11 @@ public class FunctionAndTypeManager
         handleResolver.addFunctionNamespace(factory.getName(), factory.getHandleResolver());
     }
 
+    public TableFunctionRegistry getTableFunctionRegistry()
+    {
+        return tableFunctionRegistry;
+    }
+
     public void loadTypeManager(String typeManagerName)
     {
         requireNonNull(typeManagerName, "typeManagerName is null");
@@ -430,6 +448,11 @@ public class FunctionAndTypeManager
         if (typeManagerFactories.putIfAbsent(factory.getName(), factory) != null) {
             throw new IllegalArgumentException(format("Type manager '%s' is already registered", factory.getName()));
         }
+    }
+
+    public TransactionManager getTransactionManager()
+    {
+        return transactionManager;
     }
 
     public void registerBuiltInFunctions(List<? extends SqlFunction> functions)
@@ -605,6 +628,29 @@ public class FunctionAndTypeManager
         Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionHandle.getCatalogSchemaName());
         checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for '%s'", functionHandle.getCatalogSchemaName());
         return functionNamespaceManager.get().getScalarFunctionImplementation(functionHandle);
+    }
+
+    public TableFunctionProcessorProvider getTableFunctionProcessorProvider(ConnectorTableFunctionHandle connectorTableFunctionHandle)
+    {
+        return tableFunctionProcessorProvider.apply(connectorTableFunctionHandle);
+    }
+
+    public Function<ConnectorTableFunctionHandle, TableFunctionProcessorProvider> defaultTableFunctionProcessorProvider()
+    {
+        return connectorTableFunctionHandle -> {
+            if (connectorTableFunctionHandle instanceof ExcludeColumnsFunctionHandle) {
+                return ExcludeColumns.getExcludeColumnsFunctionProcessorProvider();
+            }
+            else if (connectorTableFunctionHandle instanceof SequenceFunctionHandle) {
+                return Sequence.getSequenceFunctionProcessorProvider();
+            }
+            return null;
+        };
+    }
+
+    public void setTableFunctionProcessorProvider(Function<ConnectorTableFunctionHandle, TableFunctionProcessorProvider> tableFunctionProcessorProvider)
+    {
+        this.tableFunctionProcessorProvider = tableFunctionProcessorProvider;
     }
 
     public AggregationFunctionImplementation getAggregateFunctionImplementation(FunctionHandle functionHandle)
