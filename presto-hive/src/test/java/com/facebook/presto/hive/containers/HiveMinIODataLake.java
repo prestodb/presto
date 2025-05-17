@@ -26,9 +26,11 @@ import org.testcontainers.containers.Network;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.hive.containers.HiveHadoopContainer.HIVE3_IMAGE;
+import static com.facebook.presto.hive.containers.HiveHadoopContainer.HIVE4_IMAGE;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.Network.newNetwork;
 
@@ -47,10 +49,10 @@ public class HiveMinIODataLake
 
     public HiveMinIODataLake(String bucketName, Map<String, String> hiveHadoopFilesToMount)
     {
-        this(bucketName, hiveHadoopFilesToMount, HiveHadoopContainer.DEFAULT_IMAGE, false);
+        this(bucketName, hiveHadoopFilesToMount, HiveHadoopContainer.DEFAULT_IMAGE, false, false);
     }
 
-    public HiveMinIODataLake(String bucketName, Map<String, String> hiveHadoopFilesToMount, String hiveHadoopImage, boolean isSslEnabledTest)
+    public HiveMinIODataLake(String bucketName, Map<String, String> hiveHadoopFilesToMount, String hiveHadoopImage, boolean isSslEnabledTest, boolean isHttpEnabledTest)
     {
         this.bucketName = requireNonNull(bucketName, "bucketName is null");
         Network network = closer.register(newNetwork());
@@ -67,7 +69,8 @@ public class HiveMinIODataLake
                 .putAll(hiveHadoopFilesToMount);
 
         String hadoopCoreSitePath = "/etc/hadoop/conf/core-site.xml";
-        if (hiveHadoopImage == HIVE3_IMAGE) {
+
+        if (Objects.equals(hiveHadoopImage, HIVE3_IMAGE) || Objects.equals(hiveHadoopImage, HIVE4_IMAGE)) {
             hadoopCoreSitePath = "/opt/hadoop/etc/hadoop/core-site.xml";
             filesToMount.put("hive_s3_insert_overwrite/hive-site.xml", "/opt/hive/conf/hive-site.xml");
         }
@@ -76,6 +79,9 @@ public class HiveMinIODataLake
             filesToMount.put("hive_ssl_enable/hive-site.xml", "/opt/hive/conf/hive-site.xml");
             filesToMount.put("hive_ssl_enable/hive-metastore.jks", "/opt/hive/conf/hive-metastore.jks");
             filesToMount.put("hive_ssl_enable/hive-metastore-truststore.jks", "/opt/hive/conf/hive-metastore-truststore.jks");
+        }
+        if (isHttpEnabledTest) {
+            filesToMount.put("hive_http_enable/hive-site.xml", "/opt/hive/conf/hive-site.xml");
         }
         this.hiveHadoopContainer = closer.register(
                 HiveHadoopContainer.builder()
