@@ -15,13 +15,13 @@ package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
 import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.isEmpty;
 import static com.google.common.collect.Iterables.transform;
 import static java.util.Locale.ENGLISH;
@@ -81,12 +81,13 @@ public class QualifiedName
      */
     public Optional<QualifiedName> getPrefix()
     {
-        if (parts.size() == 1) {
+        if (originalParts.size() == 1) {
             return Optional.empty();
         }
 
+        List<String> originalSubList = originalParts.subList(0, originalParts.size() - 1);
         List<String> subList = parts.subList(0, parts.size() - 1);
-        return Optional.of(new QualifiedName(subList, subList));
+        return Optional.of(new QualifiedName(originalSubList, subList));
     }
 
     public boolean hasSuffix(QualifiedName suffix)
@@ -102,7 +103,12 @@ public class QualifiedName
 
     public String getSuffix()
     {
-        return Iterables.getLast(parts);
+        return getLast(parts);
+    }
+
+    public String getOriginalSuffix()
+    {
+        return getLast(originalParts);
     }
 
     @Override

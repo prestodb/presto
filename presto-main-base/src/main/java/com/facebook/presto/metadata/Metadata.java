@@ -535,4 +535,6 @@ public interface Metadata
     {
         return false;
     }
+
+    String normalizeIdentifier(Session session, String catalogName, String identifier);
 }

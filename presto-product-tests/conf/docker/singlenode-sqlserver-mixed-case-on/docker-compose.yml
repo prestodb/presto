@@ -1,0 +1,15 @@
+services:
+
+  sqlserver-mixed-case-on:
+    hostname: sqlserver
+    image: 'mcr.microsoft.com/mssql/server:2022-latest'
+    ports:
+      - '1433:1433'
+    environment:
+      ACCEPT_EULA: Y
+      SA_PASSWORD: SQLServerPass1
+      MSSQL_COLLATION: "SQL_Latin1_General_CP1_CS_AS"
+
+  presto-master:
+    volumes:
+      - ../../../conf/presto/etc/environment-specific-catalogs/singlenode-sqlserver-mixed-case-on/sqlserver.properties:/docker/volumes/conf/presto/etc/catalog/sqlserver.properties
