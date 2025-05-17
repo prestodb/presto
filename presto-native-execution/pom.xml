@@ -316,7 +316,7 @@
                             <groups>remote-function</groups>
                             <systemPropertyVariables>
                                 <PRESTO_SERVER>/root/project/build/debug/presto_cpp/main/presto_server</PRESTO_SERVER>
-                                <REMOTE_FUNCTION_SERVER>_build/debug/velox/velox/functions/remote/server/velox_functions_remote_server_main</REMOTE_FUNCTION_SERVER>
+                                <REMOTE_FUNCTION_SERVER>_build/debug/velox/velox/functions/remote/server/presto_functions_remote_server_main</REMOTE_FUNCTION_SERVER>
                                 <DATA_DIR>/tmp/velox</DATA_DIR>
                             </systemPropertyVariables>
                         </configuration>

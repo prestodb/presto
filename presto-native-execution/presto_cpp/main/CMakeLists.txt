@@ -15,6 +15,7 @@ add_subdirectory(http)
 add_subdirectory(common)
 add_subdirectory(thrift)
 add_subdirectory(connectors)
+add_subdirectory(functions)
 
 add_library(
   presto_server_lib
@@ -101,8 +102,10 @@ if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
                                             RemoteFunctionRegisterer.cpp)
 
   target_link_libraries(presto_server_remote_function velox_expression
-                        velox_functions_remote ${FOLLY_WITH_DEPENDENCIES})
+                        presto_functions_remote ${FOLLY_WITH_DEPENDENCIES})
   target_link_libraries(presto_server_lib presto_server_remote_function)
+  target_link_libraries(presto_server presto_thrift-cpp2 presto_thrift_extra
+                        ${THRIFT_LIBRARY})
 endif()
 
 set_property(TARGET presto_server_lib PROPERTY JOB_POOL_LINK
