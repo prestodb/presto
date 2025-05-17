@@ -22,7 +22,7 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.google.inject.Key;
 import io.airlift.slice.Slice;
-import org.apache.hadoop.hive.serde2.io.DateWritable;
+import org.apache.hadoop.hive.serde2.io.DateWritableV2;
 import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
 import org.apache.hadoop.hive.serde2.io.ShortWritable;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
@@ -110,7 +110,7 @@ public class TestObjectEncoders
 
         inspector = writableDateObjectInspector;
         encoder = createEncoder(DATE, inspector);
-        assertTrue(encoder.encode(new DateWritable(DateTimeUtils.createDate(18380L))) instanceof Long);
+        assertTrue(encoder.encode(new DateWritableV2(DateTimeUtils.createDate(18380L))) instanceof Long);
 
         inspector = writableHiveDecimalObjectInspector;
         encoder = createEncoder(createDecimalType(11, 10), inspector);
