@@ -22,6 +22,9 @@ import com.facebook.presto.plugin.jdbc.JdbcColumnHandle;
 import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
 import com.facebook.presto.plugin.jdbc.JdbcIdentity;
 import com.facebook.presto.plugin.jdbc.JdbcTableHandle;
+import com.facebook.presto.plugin.jdbc.mapping.WriteMapping;
+import com.facebook.presto.plugin.jdbc.mapping.functions.LongWriteFunction;
+import com.facebook.presto.plugin.jdbc.mapping.functions.SliceWriteFunction;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
@@ -47,6 +50,12 @@ import static com.facebook.presto.common.type.UuidType.UUID;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.realColumnMapping;
+import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.timestampColumnMapping;
+import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.varbinaryColumnMapping;
+import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.varcharColumnMapping;
+import static com.facebook.presto.plugin.jdbc.mapping.WriteMapping.longMapping;
+import static com.facebook.presto.plugin.jdbc.mapping.WriteMapping.sliceMapping;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -125,39 +134,36 @@ public class SingleStoreClient
     }
 
     @Override
-    protected String toSqlType(Type type)
+    public WriteMapping toWriteMapping(Type type)
     {
         if (REAL.equals(type)) {
-            return "float";
+            return longMapping("float", (LongWriteFunction) realColumnMapping().getWriteFunction());
         }
         if (TIME_WITH_TIME_ZONE.equals(type) ||
                 TIMESTAMP_WITH_TIME_ZONE.equals(type) || UUID.equals(type)) {
             throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
         }
         if (TIMESTAMP.equals(type)) {
-            return "datetime";
+            longMapping("datetime", (LongWriteFunction) timestampColumnMapping().getWriteFunction());
         }
         if (VARBINARY.equals(type)) {
-            return "mediumblob";
+            return sliceMapping("mediumblob", (SliceWriteFunction) varbinaryColumnMapping().getWriteFunction());
         }
         if (isVarcharType(type)) {
             VarcharType varcharType = (VarcharType) type;
-            if (varcharType.isUnbounded()) {
-                return "longtext";
-            }
+            String dataType = "longtext";
             if (varcharType.getLengthSafe() <= 255) {
-                return "tinytext";
+                dataType = "tinytext";
             }
             if (varcharType.getLengthSafe() <= 65535) {
-                return "text";
+                dataType = "text";
             }
             if (varcharType.getLengthSafe() <= 16777215) {
-                return "mediumtext";
+                dataType = "mediumtext";
             }
-            return "longtext";
+            return sliceMapping(dataType, (SliceWriteFunction) varcharColumnMapping(varcharType).getWriteFunction());
         }
-
-        return super.toSqlType(type);
+        return super.toWriteMapping(type);
     }
 
     @Override

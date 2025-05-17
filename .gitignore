@@ -18,6 +18,7 @@ test-reports/
 .DS_Store
 .classpath
 .settings
+.java-version
 .project
 temp-testng-customsuite.xml
 test-output
