@@ -1536,7 +1536,7 @@ public class TestExpressionCompiler
             case MINUTE:
                 return DateTimeFunctions.minuteFromTimestamp(session.getSqlFunctionProperties(), value);
             case SECOND:
-                return DateTimeFunctions.secondFromTimestamp(value);
+                return DateTimeFunctions.secondFromTimestamp(session.getSqlFunctionProperties(), value);
             case TIMEZONE_MINUTE:
                 return DateTimeFunctions.timeZoneMinuteFromTimestampWithTimeZone(packDateTimeWithZone(value, session.getSqlFunctionProperties().getTimeZoneKey()));
             case TIMEZONE_HOUR:
