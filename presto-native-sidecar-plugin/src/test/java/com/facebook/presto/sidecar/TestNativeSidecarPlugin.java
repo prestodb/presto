@@ -60,7 +60,10 @@ public class TestNativeSidecarPlugin
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.createQueryRunner(true, true, false, false);
+        DistributedQueryRunner queryRunner = (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.builder()
+                .setAddStorageFormatToPath(true)
+                .setCoordinatorSidecarEnabled(true)
+                .buildNativeHiveQueryRunner();
         setupNativeSidecarPlugin(queryRunner);
         return queryRunner;
     }
@@ -69,7 +72,9 @@ public class TestNativeSidecarPlugin
     protected QueryRunner createExpectedQueryRunner()
             throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createJavaQueryRunner();
+        return PrestoNativeQueryRunnerUtils.builder()
+                .setAddStorageFormatToPath(true)
+                .buildJavaHiveQueryRunner();
     }
 
     @Test

@@ -21,20 +21,25 @@ import org.testng.annotations.Test;
 public class TestPrestoNativeIcebergTpcdsQueriesOrcUsingThrift
         extends AbstractTestNativeTpcdsQueries
 {
+    private final String storageFormat = "ORC";
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.storageFormat = "ORC";
-        return PrestoNativeQueryRunnerUtils.createNativeIcebergQueryRunner(true, "ORC");
+        return PrestoNativeQueryRunnerUtils.builder()
+                .setStorageFormat(storageFormat)
+                .setUseThrift(true)
+                .buildNativeIcebergQueryRunner();
     }
 
     @Override
     protected ExpectedQueryRunner createExpectedQueryRunner()
             throws Exception
     {
-        this.storageFormat = "ORC";
-        return PrestoNativeQueryRunnerUtils.createJavaIcebergQueryRunner("ORC");
+        return PrestoNativeQueryRunnerUtils.builder()
+                .setStorageFormat(storageFormat)
+                .buildJavaIcebergQueryRunner();
     }
 
     @Test

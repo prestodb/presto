@@ -33,12 +33,17 @@ public class NativeSidecarPluginQueryRunner
         Logging.initialize();
 
         // Create tables before launching distributed runner.
-        QueryRunner javaQueryRunner = PrestoNativeQueryRunnerUtils.createJavaQueryRunner(false);
+        QueryRunner javaQueryRunner = PrestoNativeQueryRunnerUtils.builder()
+                .setSecurity("sql-standard")
+                .setAddStorageFormatToPath(false)
+                .buildJavaHiveQueryRunner();
         NativeQueryRunnerUtils.createAllTables(javaQueryRunner);
         javaQueryRunner.close();
 
         // Launch distributed runner.
-        DistributedQueryRunner queryRunner = (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.createQueryRunner(false, true, false, false);
+        DistributedQueryRunner queryRunner = (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.builder()
+                .setCoordinatorSidecarEnabled(true)
+                .buildNativeHiveQueryRunner();
         setupNativeSidecarPlugin(queryRunner);
         Thread.sleep(10);
         Logger log = Logger.get(DistributedQueryRunner.class);

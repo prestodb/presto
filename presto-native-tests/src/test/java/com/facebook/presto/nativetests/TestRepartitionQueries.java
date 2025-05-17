@@ -17,7 +17,6 @@ import com.facebook.presto.nativeworker.NativeQueryRunnerUtils;
 import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestRepartitionQueries;
-import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Parameters;
 
 public class TestRepartitionQueries
@@ -27,7 +26,11 @@ public class TestRepartitionQueries
     @Override
     protected QueryRunner createQueryRunner() throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(ImmutableMap.of(), System.getProperty("storageFormat"));
+        return PrestoNativeQueryRunnerUtils.builder()
+                .setStorageFormat(System.getProperty("storageFormat"))
+                .setAddStorageFormatToPath(true)
+                .setUseThrift(true)
+                .buildNativeHiveQueryRunner();
     }
 
     @Parameters("storageFormat")
@@ -36,7 +39,11 @@ public class TestRepartitionQueries
     {
         try {
             String storageFormat = System.getProperty("storageFormat");
-            QueryRunner javaQueryRunner = PrestoNativeQueryRunnerUtils.createJavaQueryRunner(storageFormat);
+            QueryRunner javaQueryRunner = PrestoNativeQueryRunnerUtils.builder()
+                    .setStorageFormat(storageFormat)
+                    .setSecurity("sql-standard")
+                    .setAddStorageFormatToPath(true)
+                    .buildJavaHiveQueryRunner();
             if (storageFormat.equals("DWRF")) {
                 NativeQueryRunnerUtils.createAllTables(javaQueryRunner, true);
             }
