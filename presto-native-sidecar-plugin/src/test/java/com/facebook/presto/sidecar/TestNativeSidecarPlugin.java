@@ -39,7 +39,6 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.fail;
 
-@Test(singleThreaded = true)
 public class TestNativeSidecarPlugin
         extends AbstractTestQueryFramework
 {

@@ -34,9 +34,11 @@ import com.facebook.presto.spi.tracing.TracerProvider;
 import com.facebook.presto.spi.ttl.ClusterTtlProviderFactory;
 import com.facebook.presto.spi.ttl.NodeTtlFetcherFactory;
 
+import java.util.Map;
 import java.util.Set;
 
 import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
 import static java.util.Collections.emptySet;
 
 public interface Plugin
@@ -152,5 +154,16 @@ public interface Plugin
     default Iterable<ClientRequestFilterFactory> getClientRequestFilterFactories()
     {
         return emptyList();
+    }
+
+    /**
+     * This method is used to declare the minimal set of configuration entries that must be present
+     * for the plugin to be eligible for loading.
+     *
+     * @return a map of required configuration keys and expected values for the plugin.
+     **/
+    default Map<String, String> getRequiredConfigs()
+    {
+        return emptyMap();
     }
 }

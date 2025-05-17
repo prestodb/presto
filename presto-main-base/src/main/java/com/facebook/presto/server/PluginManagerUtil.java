@@ -33,6 +33,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -174,6 +175,26 @@ public class PluginManagerUtil
                 log.warn("Unknown plugin type: %s", plugin.getClass().getName());
             }
         }
+    }
+
+    public static boolean isPluginEnabled(Map<String, String> actualProperties, Map<String, String> expectedProperties)
+    {
+        for (Map.Entry<String, String> entry : expectedProperties.entrySet()) {
+            String key = entry.getKey();
+            if (!actualProperties.containsKey(key)) {
+                log.info("Skipped loading plugin because properties do not contain `%s` config property", key);
+                return false;
+            }
+
+            String expectedValue = entry.getValue();
+            String actualValue = actualProperties.get(key);
+            if (!expectedValue.equalsIgnoreCase(actualValue)) {
+                log.info("Skipped loading plugin because expected value [%s] and actual value [%s]" +
+                        " does not match for config property: %s", expectedValue, actualValue, key);
+                return false;
+            }
+        }
+        return true;
     }
 
     private static URLClassLoader buildClassLoader(

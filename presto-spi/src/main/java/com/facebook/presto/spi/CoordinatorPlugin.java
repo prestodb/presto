@@ -19,7 +19,10 @@ import com.facebook.presto.spi.session.WorkerSessionPropertyProviderFactory;
 import com.facebook.presto.spi.sql.planner.ExpressionOptimizerFactory;
 import com.facebook.presto.spi.type.TypeManagerFactory;
 
+import java.util.Map;
+
 import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
 
 /**
  * The {@link CoordinatorPlugin} interface allows for plugins to provide additional functionality
@@ -51,5 +54,16 @@ public interface CoordinatorPlugin
     default Iterable<TypeManagerFactory> getTypeManagerFactories()
     {
         return emptyList();
+    }
+
+    /**
+     * This method is used to declare the minimal set of configuration entries that must be present
+     * for the plugin to be eligible for loading.
+     *
+     * @return a map of required configuration keys and expected values for the plugin.
+     **/
+    default Map<String, String> getRequiredConfigs()
+    {
+        return emptyMap();
     }
 }
