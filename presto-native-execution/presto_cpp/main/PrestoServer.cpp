@@ -1441,16 +1441,20 @@ void PrestoServer::checkOverload() {
         : 0;
     const bool isMemOverloaded =
         (currentUsedMemoryBytes > overloadedThresholdMemBytes);
-    if (isMemOverloaded) {
-      LOG(WARNING) << "Server memory is overloaded. Currently used: "
+    if (isMemOverloaded && !isMemOverloaded_) {
+      LOG(WARNING) << "OVERLOAD: Server memory is overloaded. Currently used: "
                    << velox::succinctBytes(currentUsedMemoryBytes)
+                   << ", including tracked: "
+                   << velox::succinctBytes(pool_->usedBytes())
                    << ", threshold: "
                    << velox::succinctBytes(overloadedThresholdMemBytes);
-    } else if (isMemOverloaded_) {
-      LOG(INFO) << "Server memory is no longer overloaded. Currently used: "
-                << velox::succinctBytes(currentUsedMemoryBytes)
-                << ", threshold: "
-                << velox::succinctBytes(overloadedThresholdMemBytes);
+    } else if (!isMemOverloaded && isMemOverloaded_) {
+      LOG(INFO)
+          << "OVERLOAD: Server memory is no longer overloaded. Currently used: "
+          << velox::succinctBytes(currentUsedMemoryBytes)
+          << ", including tracked: " << velox::succinctBytes(pool_->usedBytes())
+          << ", threshold: "
+          << velox::succinctBytes(overloadedThresholdMemBytes);
     }
     RECORD_METRIC_VALUE(kCounterOverloadedMem, isMemOverloaded ? 100 : 0);
     isMemOverloaded_ = isMemOverloaded;
@@ -1462,18 +1466,44 @@ void PrestoServer::checkOverload() {
     const auto currentUsedCpuPct = cpuMon_.getCPULoadPct();
     const bool isCpuOverloaded =
         (currentUsedCpuPct > overloadedThresholdCpuPct);
-    if (isCpuOverloaded) {
-      LOG(WARNING) << "Server CPU is overloaded. Currently used: "
+    if (isCpuOverloaded && !isCpuOverloaded_) {
+      LOG(WARNING) << "OVERLOAD: Server CPU is overloaded. Currently used: "
                    << currentUsedCpuPct
                    << "%, threshold: " << overloadedThresholdCpuPct << "%";
-    } else if (isCpuOverloaded_) {
-      LOG(INFO) << "Server CPU is no longer overloaded. Currently used: "
-                << currentUsedCpuPct
-                << "%, threshold: " << overloadedThresholdCpuPct << "%";
+    } else if (!isCpuOverloaded && isCpuOverloaded_) {
+      LOG(INFO)
+          << "OVERLOAD: Server CPU is no longer overloaded. Currently used: "
+          << currentUsedCpuPct << "%, threshold: " << overloadedThresholdCpuPct
+          << "%";
     }
     RECORD_METRIC_VALUE(kCounterOverloadedCpu, isCpuOverloaded ? 100 : 0);
     isCpuOverloaded_ = isCpuOverloaded;
   }
+
+  // Determine if the server is overloaded. We require both memory and CPU to be
+  // not overloaded for some time (continuous period) to consider the server as
+  // not overloaded.
+  const uint64_t currentTimeSeconds = velox::getCurrentTimeSec();
+  if (isMemOverloaded_ || isCpuOverloaded_) {
+    lastOverloadedTimeInSeconds_ = currentTimeSeconds;
+  }
+  const bool isServerOverloaded =
+      ((isCpuOverloaded_ || isMemOverloaded_) ||
+       ((currentTimeSeconds - lastOverloadedTimeInSeconds_) <
+        systemConfig->workerOverloadedCooldownPeriodSec()));
+
+  if (isServerOverloaded && !isServerOverloaded_) {
+    LOG(WARNING) << "OVERLOAD: Server is overloaded.";
+  } else if (!isServerOverloaded && isServerOverloaded_) {
+    LOG(INFO) << "OVERLOAD: Server is no longer overloaded.";
+  }
+  RECORD_METRIC_VALUE(kCounterOverloaded, isServerOverloaded ? 100 : 0);
+  isServerOverloaded_ = isServerOverloaded;
+
+  if (systemConfig->workerOverloadedTaskQueuingEnabled()) {
+    taskManager_->setIsServerOverloaded(isServerOverloaded_);
+  }
+  taskManager_->maybeStartNextQueuedTask();
 }
 
 static protocol::Duration getUptime(

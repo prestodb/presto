@@ -37,7 +37,7 @@ namespace {
     }                                                            \
   } while (0)
 
-protocol::TaskState toPrestoTaskState(exec::TaskState state) {
+protocol::TaskState toProtocolTaskState(exec::TaskState state) {
   switch (state) {
     case exec::TaskState::kRunning:
       return protocol::TaskState::RUNNING;
@@ -51,6 +51,25 @@ protocol::TaskState toPrestoTaskState(exec::TaskState state) {
       [[fallthrough]];
     default:
       return protocol::TaskState::ABORTED;
+  }
+}
+
+std::string prestoTaskStateString(PrestoTaskState state) {
+  switch (state) {
+    case PrestoTaskState::kRunning:
+      return "Running";
+    case PrestoTaskState::kFinished:
+      return "Finished";
+    case PrestoTaskState::kCanceled:
+      return "Canceled";
+    case PrestoTaskState::kAborted:
+      return "Aborted";
+    case PrestoTaskState::kFailed:
+      return "Failed";
+    case PrestoTaskState::kPlanned:
+      return "Planned";
+    default:
+      return fmt::format("UNKNOWN[{}]", static_cast<int>(state));
   }
 }
 
@@ -527,7 +546,7 @@ protocol::TaskStatus PrestoTask::updateStatusLocked() {
 
   const auto veloxTaskStats = task->taskStats();
 
-  info.taskStatus.state = toPrestoTaskState(task->state());
+  info.taskStatus.state = toProtocolTaskState(task->state());
 
   // Presto has a Driver per split. When splits represent partitions
   // of data, there is a queue of them per Task. We represent
@@ -856,14 +875,14 @@ void PrestoTask::updateExecutionInfoLocked(
 }
 
 /*static*/ std::string PrestoTask::taskStatesToString(
-    const std::array<size_t, 5>& taskStates) {
+    const std::array<size_t, 6>& taskStates) {
   std::string str;
   for (size_t i = 0; i < taskStates.size(); ++i) {
     if (taskStates[i] != 0) {
       folly::toAppend(
           fmt::format(
               "{}={} ",
-              velox::exec::taskStateString(velox::exec::TaskState(i)),
+              prestoTaskStateString(PrestoTaskState(i)),
               taskStates[i]),
           &str);
     }

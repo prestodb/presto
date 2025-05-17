@@ -25,6 +25,17 @@ struct RuntimeMetric;
 
 namespace facebook::presto {
 
+/// Velox Task does not have Planned state, so we add this enum to have this
+/// state. Note, that we reuse the enum values from Velox.
+enum class PrestoTaskState : int {
+  kRunning = static_cast<int>(velox::exec::TaskState::kRunning),
+  kFinished = static_cast<int>(velox::exec::TaskState::kFinished),
+  kCanceled = static_cast<int>(velox::exec::TaskState::kCanceled),
+  kAborted = static_cast<int>(velox::exec::TaskState::kAborted),
+  kFailed = static_cast<int>(velox::exec::TaskState::kFailed),
+  kPlanned = 5
+};
+
 template <typename T>
 struct PromiseHolder {
   explicit PromiseHolder(folly::Promise<T> p) : promise(std::move(p)) {}
@@ -169,7 +180,7 @@ struct PrestoTask {
 
   /// Turns the task numbers (per state) into a string.
   static std::string taskStatesToString(
-      const std::array<size_t, 5>& taskStates);
+      const std::array<size_t, 6>& taskStates);
 
   /// Invoked to update presto task status from the updated velox task stats.
   protocol::TaskStatus updateStatusLocked();

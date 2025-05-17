@@ -275,8 +275,16 @@ class PrestoServer {
   std::unique_ptr<PeriodicTaskManager> periodicTaskManager_;
   std::unique_ptr<PrestoServerOperations> prestoServerOperations_;
   std::unique_ptr<PeriodicMemoryChecker> memoryChecker_;
+
+  // Last known memory overloaded status.
   bool isMemOverloaded_{false};
+  // Last known CPU overloaded status.
   bool isCpuOverloaded_{false};
+  // Current worker overloaded status. It can still be true when memory and CPU
+  // overloaded flags are not due to cooldown period.
+  bool isServerOverloaded_{false};
+  // Last time point (in seconds) when the worker was overloaded.
+  uint64_t lastOverloadedTimeInSeconds_{0};
 
   // We update these members asynchronously and return in http requests w/o
   // delay.

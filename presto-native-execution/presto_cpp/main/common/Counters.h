@@ -68,6 +68,8 @@ constexpr folly::StringPiece kCounterNumTasksAborted{
     "presto_cpp.num_tasks_aborted"};
 constexpr folly::StringPiece kCounterNumTasksFailed{
     "presto_cpp.num_tasks_failed"};
+constexpr folly::StringPiece kCounterNumTasksPlanned{
+    "presto_cpp.num_tasks_planned"};
 constexpr folly::StringPiece kCounterNumZombieVeloxTasks{
     "presto_cpp.num_zombie_velox_tasks"};
 constexpr folly::StringPiece kCounterNumZombiePrestoTasks{
@@ -114,6 +116,13 @@ constexpr folly::StringPiece kCounterOverloadedMem{"presto_cpp.overloaded_mem"};
 /// Worker exports 0 or 100 for this counter. 0 meaning not CPU overloaded
 /// and 100 meaning CPU overloaded.
 constexpr folly::StringPiece kCounterOverloadedCpu{"presto_cpp.overloaded_cpu"};
+/// Worker exports 0 or 100 for this counter. 0 meaning not overloaded and 100
+/// meaning overloaded.
+constexpr folly::StringPiece kCounterOverloaded{"presto_cpp.overloaded"};
+/// Worker exports the average time tasks spend in the queue (considered
+/// planned) in milliseconds.
+constexpr folly::StringPiece kCounterTaskPlannedTimeMs{
+    "presto_cpp.task_planned_time_ms"};
 
 /// Number of total OutputBuffer managed by all
 /// OutputBufferManager

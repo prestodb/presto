@@ -51,6 +51,7 @@ void registerPrestoMetrics() {
   DEFINE_METRIC(kCounterNumTasksCancelled, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterNumTasksAborted, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterNumTasksFailed, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(kCounterNumTasksPlanned, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterNumZombieVeloxTasks, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterNumZombiePrestoTasks, facebook::velox::StatType::AVG);
   DEFINE_METRIC(
@@ -86,7 +87,9 @@ void registerPrestoMetrics() {
   DEFINE_METRIC(kCounterNumBlockedYieldDrivers, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterOverloadedMem, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterOverloadedCpu, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(kCounterOverloaded, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterNumStuckDrivers, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(kCounterTaskPlannedTimeMs, facebook::velox::StatType::AVG);
   DEFINE_METRIC(
       kCounterTotalPartitionedOutputBuffer, facebook::velox::StatType::AVG);
   DEFINE_METRIC(
