@@ -20,9 +20,9 @@
 
 namespace facebook::velox {
 
-static constexpr const char* kSymbolName = "registry";
-
-void loadDynamicLibrary(const std::string& fileName) {
+void loadDynamicLibrary(
+    const std::string& fileName,
+    const std::string& registrationFunctionName) {
   // Try to dynamically load the shared library.
   void* handler = dlopen(fileName.c_str(), RTLD_NOW);
 
@@ -31,9 +31,10 @@ void loadDynamicLibrary(const std::string& fileName) {
   }
 
   LOG(INFO) << "Loaded library " << fileName << ". Searching registry symbol "
-            << kSymbolName;
+            << registrationFunctionName;
+
   // Lookup the symbol.
-  void* registrySymbol = dlsym(handler, kSymbolName);
+  void* registrySymbol = dlsym(handler, registrationFunctionName.c_str());
   auto loadUserLibrary = reinterpret_cast<void (*)()>(registrySymbol);
   const char* error = dlerror();
 
@@ -45,13 +46,13 @@ void loadDynamicLibrary(const std::string& fileName) {
 
   if (loadUserLibrary == nullptr) {
     VELOX_USER_FAIL(
-        "Symbol '{}' resolved to a nullptr, unable to invoke it.", kSymbolName);
+        "Symbol '{}' resolved to a nullptr, unable to invoke it.",
+        registrationFunctionName);
   }
 
   // Invoke the registry function.
-  LOG(INFO) << "Found registry function. Invoking it.";
   loadUserLibrary();
-  LOG(INFO) << "Registration complete.";
+  LOG(INFO) << "Registered functions by " << registrationFunctionName;
 }
 
 } // namespace facebook::velox

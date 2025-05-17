@@ -38,6 +38,9 @@ namespace facebook::velox {
 ///
 /// Loading a library twice can cause a components to be registered twice.
 /// This can fail for certain Velox components.
-void loadDynamicLibrary(const std::string& fileName);
+
+void loadDynamicLibrary(
+    const std::string& fileName,
+    const std::string& entryPointSymbol = "registerExtensions");
 
 } // namespace facebook::velox

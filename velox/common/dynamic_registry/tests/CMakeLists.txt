@@ -26,6 +26,8 @@ add_library(velox_overload_int_function_dynamic SHARED
             DynamicIntFunctionOverload.cpp)
 add_library(velox_overload_varchar_function_dynamic SHARED
             DynamicVarcharFunctionOverload.cpp)
+add_library(velox_function_non_default_dynamic SHARED
+            DynamicFunctionNonDefault.cpp)
 
 set(CMAKE_DYLIB_TEST_LINK_LIBRARIES fmt::fmt Folly::folly glog::glog xsimd)
 
@@ -53,6 +55,10 @@ target_link_libraries(
   velox_overload_varchar_function_dynamic
   PRIVATE ${CMAKE_DYLIB_TEST_LINK_LIBRARIES})
 
+target_link_libraries(
+  velox_function_non_default_dynamic
+  PRIVATE ${CMAKE_DYLIB_TEST_LINK_LIBRARIES})
+
 if(APPLE)
   set(COMMON_LIBRARY_LINK_OPTIONS "-Wl,-undefined,dynamic_lookup")
 else()
@@ -73,6 +79,8 @@ target_link_options(velox_function_err_dynamic PRIVATE
 target_link_options(velox_overload_int_function_dynamic PRIVATE
                     ${COMMON_LIBRARY_LINK_OPTIONS})
 target_link_options(velox_overload_varchar_function_dynamic PRIVATE
+                    ${COMMON_LIBRARY_LINK_OPTIONS})
+target_link_options(velox_function_non_default_dynamic PRIVATE
                     ${COMMON_LIBRARY_LINK_OPTIONS})
 
 # Here's the actual test which will dynamically load the library defined above.

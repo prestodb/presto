@@ -203,4 +203,40 @@ TEST_F(DynamicLinkTest, dynamicLoadOverloadFunc) {
   EXPECT_EQ(TypeKind::BIGINT, resolvedAfterSecond->type()->kind());
 }
 
+TEST_F(DynamicLinkTest, dynamicLoadFuncNonDefaultRegistry) {
+  const auto dynamicFunction = [&]() {
+    return evaluateOnce<int64_t>(
+        "dynamic_non_default()", makeRowVector(ROW({}), 1));
+  };
+
+  const auto dynamicFunctionNestedCall = [&]() {
+    return evaluateOnce<int64_t>(
+        "mod(dynamic_non_default(), 10)", makeRowVector(ROW({}), 1));
+  };
+
+  VELOX_ASSERT_THROW(
+      dynamicFunction(), "Scalar function doesn't exist: dynamic_non_default.");
+
+  auto signaturesBefore = getFunctionSignatures().size();
+  std::string libraryPath =
+      getLibraryPath("libvelox_function_non_default_dynamic");
+  loadDynamicLibrary(libraryPath, "registerExtensionsNew");
+  auto signaturesAfter = getFunctionSignatures().size();
+  EXPECT_EQ(signaturesAfter, signaturesBefore + 1);
+  EXPECT_EQ(123, dynamicFunction());
+
+  auto& registry = exec::simpleFunctions();
+  auto resolved = registry.resolveFunction("dynamic_non_default", {});
+  EXPECT_EQ(TypeKind::BIGINT, resolved->type()->kind());
+
+  EXPECT_EQ(3, dynamicFunctionNestedCall());
+
+  // Testing missing default registry function name.
+  VELOX_ASSERT_THROW(
+      loadDynamicLibrary(libraryPath),
+      fmt::format(
+          "Couldn't find Velox registry symbol: {}: undefined symbol: registerExtensions",
+          libraryPath));
+}
+
 } // namespace facebook::velox::functions::test

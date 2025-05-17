@@ -28,9 +28,8 @@ namespace facebook::velox::common::dynamicRegistry {
 
 template <typename T>
 struct DynamicFunction {
-  VELOX_DEFINE_FUNCTION_TYPES(T);
-  FOLLY_ALWAYS_INLINE bool call(out_type<Varchar>& result) {
-    result = "123";
+  FOLLY_ALWAYS_INLINE bool call(int64_t& result) {
+    result = 123;
     return true;
   }
 };
@@ -38,10 +37,11 @@ struct DynamicFunction {
 } // namespace facebook::velox::common::dynamicRegistry
 
 extern "C" {
-
-void registerExtensions() {
+// In this case, we assume that facebook::velox::registerFunction
+// will be available and resolve when this library gets loaded.
+void registerExtensionsNew() {
   facebook::velox::registerFunction<
       facebook::velox::common::dynamicRegistry::DynamicFunction,
-      facebook::velox::Varchar>({"dynamic_overwrite"});
+      int64_t>({"dynamic_non_default"});
 }
 }
