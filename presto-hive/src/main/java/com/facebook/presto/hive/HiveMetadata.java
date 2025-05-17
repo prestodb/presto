@@ -794,7 +794,7 @@ public class HiveMetadata
                     tableLayoutHandle.getPartitions().get().stream()
                             .map(hivePartition -> hivePartition.getPartitionId().getPartitionName())
                             .collect(toList()),
-                    false));
+                    false, tableLayoutHandle.getTablePath()));
         }
 
         return Optional.empty();
@@ -1742,7 +1742,7 @@ public class HiveMetadata
         metastore.createTable(session, table, principalPrivileges, Optional.of(writeInfo.getWritePath()), false, tableStatistics, emptyList());
 
         if (handle.getPartitionedBy().isEmpty()) {
-            return Optional.of(new HiveWrittenPartitions(ImmutableList.of(UNPARTITIONED_ID.getPartitionName())));
+            return Optional.of(new HiveWrittenPartitions(new HiveConnectorOutputMetadata(ImmutableList.of(UNPARTITIONED_ID.getPartitionName()), writeInfo.getTargetPath().toString())));
         }
 
         if (isRespectTableFormat(session)) {
@@ -1771,10 +1771,10 @@ public class HiveMetadata
                     partitionStatistics);
         }
 
-        return Optional.of(new HiveWrittenPartitions(
+        return Optional.of(new HiveWrittenPartitions(new HiveConnectorOutputMetadata(
                 partitionUpdates.stream()
                         .map(PartitionUpdate::getName)
-                        .collect(toList())));
+                        .collect(toList()), writeInfo.getTargetPath().getName())));
     }
 
     public static boolean shouldCreateFilesForMissingBuckets(Table table, ConnectorSession session)
@@ -2182,11 +2182,11 @@ public class HiveMetadata
             }
         }
 
-        return Optional.of(new HiveWrittenPartitions(
+        return Optional.of(new HiveWrittenPartitions(new HiveConnectorOutputMetadata(
                 partitionUpdates.stream()
                         .map(PartitionUpdate::getName)
                         .map(name -> name.isEmpty() ? UNPARTITIONED_ID.getPartitionName() : name)
-                        .collect(toList())));
+                        .collect(toList()), table.getStorage().getLocation())));
     }
 
     /**

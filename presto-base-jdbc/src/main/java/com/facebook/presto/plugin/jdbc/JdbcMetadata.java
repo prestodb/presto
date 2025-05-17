@@ -55,14 +55,16 @@ public class JdbcMetadata
     private final JdbcMetadataCache jdbcMetadataCache;
     private final JdbcClient jdbcClient;
     private final boolean allowDropTable;
+    private final BaseJdbcConfig baseJdbcConfig;
 
     private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
 
-    public JdbcMetadata(JdbcMetadataCache jdbcMetadataCache, JdbcClient jdbcClient, boolean allowDropTable)
+    public JdbcMetadata(JdbcMetadataCache jdbcMetadataCache, JdbcClient jdbcClient, boolean allowDropTable, BaseJdbcConfig baseJdbcConfig)
     {
         this.jdbcMetadataCache = requireNonNull(jdbcMetadataCache, "jdbcMetadataCache is null");
         this.jdbcClient = requireNonNull(jdbcClient, "client is null");
         this.allowDropTable = allowDropTable;
+        this.baseJdbcConfig = requireNonNull(baseJdbcConfig, "baseJdbcConfig is null");
     }
 
     @Override
@@ -188,8 +190,9 @@ public class JdbcMetadata
     {
         JdbcOutputTableHandle handle = (JdbcOutputTableHandle) tableHandle;
         jdbcClient.commitCreateTable(session, JdbcIdentity.from(session), handle);
+        String url = baseJdbcConfig.getConnectionUrl();
         clearRollback();
-        return Optional.empty();
+        return Optional.of(new JdbcOutputMetaData(url));
     }
 
     private void setRollback(Runnable action)

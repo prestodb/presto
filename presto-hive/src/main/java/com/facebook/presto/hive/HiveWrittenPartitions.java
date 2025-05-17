@@ -16,26 +16,23 @@ package com.facebook.presto.hive;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
-
-import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
 public class HiveWrittenPartitions
         implements ConnectorOutputMetadata
 {
-    private final List<String> partitionNames;
+    private final HiveConnectorOutputMetadata connectorOutputInfo;
 
     @JsonCreator
-    public HiveWrittenPartitions(@JsonProperty("partitionNames") List<String> partitionNames)
+    public HiveWrittenPartitions(@JsonProperty("connectorOutputInfo") HiveConnectorOutputMetadata connectorOutputInfo)
     {
-        this.partitionNames = ImmutableList.copyOf(requireNonNull(partitionNames, "partitionNames is null"));
+        this.connectorOutputInfo = requireNonNull(connectorOutputInfo, "connectorOutputInfo is null");
     }
 
     @JsonProperty
-    public List<String> getInfo()
+    public HiveConnectorOutputMetadata getInfo()
     {
-        return partitionNames;
+        return connectorOutputInfo;
     }
 }

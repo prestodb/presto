@@ -11,35 +11,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.iceberg;
 
+package com.facebook.presto.plugin.jdbc;
+
+import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-
-import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class IcebergInputInfo
+public class JdbcOutputMetaData
+        implements ConnectorOutputMetadata
 {
-    private final Optional<Long> snapshotId;
     private final String tableLocation;
 
-    public IcebergInputInfo(
-            @JsonProperty("snapshotId") Optional<Long> snapshotId,
-            @JsonProperty("tableLocation") String tableLocation)
+    @JsonCreator
+    public JdbcOutputMetaData(@JsonProperty("tableLocation") String tableLocation)
     {
-        this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
         this.tableLocation = requireNonNull(tableLocation, "tableLocation is null");
     }
 
     @JsonProperty
-    public Optional<Long> getSnapshotId()
-    {
-        return snapshotId;
-    }
-
-    @JsonProperty
-    public String getTableLocation()
+    public String getInfo()
     {
         return tableLocation;
     }
