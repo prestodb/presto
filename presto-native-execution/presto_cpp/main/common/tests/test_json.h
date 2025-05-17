@@ -14,10 +14,13 @@
 #pragma once
 
 #include <fstream>
-#include <ios>
 #include <iosfwd>
+#include <boost/filesystem.hpp>
+#include <boost/algorithm/string.hpp>
 
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
+
+namespace fs = boost::filesystem;
 
 namespace nlohmann {
 
@@ -47,4 +50,20 @@ inline std::string slurp(const std::string& path) {
   std::ifstream input(path.c_str());
   buf << input.rdbuf();
   return buf.str();
+}
+
+inline std::string getDataPath(const std::string& dirUnderFbcode, const std::string& fileName) {
+  std::string currentPath = fs::current_path().c_str();
+  if (boost::algorithm::ends_with(currentPath, "fbcode")) {
+    return currentPath + dirUnderFbcode + fileName;
+  }
+
+  // CLion runs the tests from cmake-build-release/ or cmake-build-debug/
+  // directory. Hard-coded json files are not copied there and test fails with
+  // file not found. Fixing the path so that we can trigger these tests from
+  // CLion.
+  boost::algorithm::replace_all(currentPath, "cmake-build-release/", "");
+  boost::algorithm::replace_all(currentPath, "cmake-build-debug/", "");
+
+  return currentPath + "/data/" + fileName;
 }

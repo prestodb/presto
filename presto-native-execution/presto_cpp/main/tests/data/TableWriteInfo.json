@@ -1,0 +1,18 @@
+{
+    "analyzeTableHandle": {
+        "connectorId": "hive",
+        "transactionHandle": {
+            "@type": "hive",
+            "uuid": "8a4d6c83-60ee-46de-9715-bc91755619fa"
+        },
+        "connectorHandle": {
+            "@type": "hive",
+            "schemaName": "test_schema",
+            "tableName": "test_table",
+            "analyzePartitionValues": [
+                ["value1", "value2"],
+                ["value3", "value4"]
+            ]
+        }
+    }
+}

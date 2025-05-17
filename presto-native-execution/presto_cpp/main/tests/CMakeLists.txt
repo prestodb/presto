@@ -22,7 +22,10 @@ add_executable(
   ServerOperationTest.cpp
   SessionPropertiesTest.cpp
   TaskManagerTest.cpp
-  QueryContextManagerTest.cpp)
+  QueryContextManagerTest.cpp
+  TaskInfoTest.cpp
+  TaskStatusTest.cpp
+  TaskUpdateRequestTest.cpp)
 
 if(DEFINED PRESTO_MEMORY_CHECKER_TYPE AND PRESTO_MEMORY_CHECKER_TYPE STREQUAL
                                           "LINUX_MEMORY_CHECKER")
