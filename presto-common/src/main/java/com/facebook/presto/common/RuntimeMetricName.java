@@ -58,6 +58,7 @@ public class RuntimeMetricName
     public static final String GET_CANONICAL_INFO_TIME_NANOS = "getCanonicalInfoTimeNanos";
     public static final String FRAGMENT_PLAN_TIME_NANOS = "fragmentPlanTimeNanos";
     public static final String GET_LAYOUT_TIME_NANOS = "getLayoutTimeNanos";
+    public static final String GET_IDENTIFIER_NORMALIZATION_TIME_NANOS = "getIdentifierNormalizationTimeNanos";
     public static final String REWRITE_AGGREGATION_IF_TO_FILTER_APPLIED = "rewriteAggregationIfToFilterApplied";
     // Time between task creation and start.
     public static final String TASK_QUEUED_TIME_NANOS = "taskQueuedTimeNanos";
