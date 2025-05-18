@@ -122,6 +122,14 @@ public class TestPlanCheckerProvider
         {
             return false;
         }
+
+        @JsonProperty
+        @Override
+        public boolean isArbitrary()
+        {
+            // Mark this as arbitrary (system partitioning) so validation proceeds
+            return true;
+        }
     }
 
     private static class TestingPlanNode

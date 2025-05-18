@@ -2048,20 +2048,30 @@ public class HiveMetadata
             int bucketCount,
             Set<String> existingFileNames)
     {
-        if (existingFileNames.size() == bucketCount) {
-            // fast path for common case
+        // Extract unique bucket numbers from existing file names
+        Set<Integer> existingBuckets = existingFileNames.stream()
+                .map(HiveWriterFactory::getBucketNumber)
+                .filter(OptionalInt::isPresent)
+                .map(OptionalInt::getAsInt)
+                .collect(toImmutableSet());
+
+        if (existingBuckets.size() == bucketCount) {
+            // fast path for common case - all buckets have files
             return ImmutableList.of();
         }
+
         String fileExtension = getFileExtension(fromHiveStorageFormat(storageFormat), compressionCodec);
         ImmutableList.Builder<String> missingFileNamesBuilder = ImmutableList.builder();
         for (int i = 0; i < bucketCount; i++) {
-            String targetFileName = isFileRenamingEnabled(session) ? String.valueOf(i) : computeBucketedFileName(session.getQueryId(), i) + fileExtension;
-            if (!existingFileNames.contains(targetFileName)) {
+            if (!existingBuckets.contains(i)) {
+                String targetFileName = isFileRenamingEnabled(session) ? String.valueOf(i) : computeBucketedFileName(session.getQueryId(), i) + fileExtension;
                 missingFileNamesBuilder.add(targetFileName);
             }
         }
         List<String> missingFileNames = missingFileNamesBuilder.build();
-        verify(existingFileNames.size() + missingFileNames.size() == bucketCount);
+        verify(existingBuckets.size() + missingFileNames.size() == bucketCount,
+                "Expected %s buckets, but found %s existing and %s missing",
+                bucketCount, existingBuckets.size(), missingFileNames.size());
         return missingFileNames;
     }
 
