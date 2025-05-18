@@ -613,7 +613,7 @@ DEBUG_ONLY_TEST_F(
         .capturePlanNodeId(probeScanNodeId)
         .project({"c0 as x"});
     // Hash join.
-    core::PlanNodeId joinNodeId;
+    core::PlanNodePtr joinNode;
     auto planFragment = planBuilder
                             .hashJoin(
                                 {"x"},
@@ -625,7 +625,7 @@ DEBUG_ONLY_TEST_F(
                                     .planNode(),
                                 "",
                                 {"x", "y"})
-                            .capturePlanNodeId(joinNodeId)
+                            .capturePlanNode(joinNode)
                             .partitionedOutput({}, 1, {"x", "y"})
                             .planFragment();
 
@@ -688,7 +688,10 @@ DEBUG_ONLY_TEST_F(
 
     // 'numDriversPerGroup' drivers max to execute one group at a time.
     task->start(numDriversPerGroup, testData.groupConcurrency);
-    ASSERT_EQ(task->hasMixedExecutionGroup(), testData.mixedExecutionMode);
+    ASSERT_EQ(
+        task->hasMixedExecutionGroupJoin(
+            dynamic_cast<const core::HashJoinNode*>(joinNode.get())),
+        testData.mixedExecutionMode);
 
     // Add split(s) to the build scan.
     if (testData.mixedExecutionMode) {
@@ -730,7 +733,7 @@ DEBUG_ONLY_TEST_F(
     ASSERT_EQ(task->state(), exec::TaskState::kFinished);
 
     auto taskStats = exec::toPlanStats(task->taskStats());
-    auto& planStats = taskStats.at(joinNodeId);
+    auto& planStats = taskStats.at(joinNode->id());
     if (testData.expectedSpill) {
       ASSERT_GT(planStats.spilledBytes, 0);
     } else {
@@ -760,7 +763,7 @@ DEBUG_ONLY_TEST_F(
       .project({"c0 as x"});
 
   // Hash join.
-  core::PlanNodeId joinNodeId;
+  core::PlanNodePtr joinNode;
   auto planFragment = planBuilder
                           .hashJoin(
                               {"x"},
@@ -772,7 +775,7 @@ DEBUG_ONLY_TEST_F(
                                   .planNode(),
                               "",
                               {"x", "y"})
-                          .capturePlanNodeId(joinNodeId)
+                          .capturePlanNode(joinNode)
                           .partitionedOutput({}, 1, {"x", "y"})
                           .planFragment();
 
@@ -826,7 +829,10 @@ DEBUG_ONLY_TEST_F(
 
   // 'numDriversPerGroup' drivers max to execute one group at a time.
   task->start(numDriversPerGroup, 1);
-  ASSERT_EQ(task->hasMixedExecutionGroup(), true);
+  ASSERT_EQ(
+      task->hasMixedExecutionGroupJoin(
+          dynamic_cast<const core::HashJoinNode*>(joinNode.get())),
+      true);
 
   // Add split to both build and probe scans.
   task->addSplit(buildScanNodeId, makeHiveSplit(filePath->getPath()));
@@ -855,7 +861,7 @@ DEBUG_ONLY_TEST_F(
   ASSERT_EQ(task->state(), exec::TaskState::kRunning);
 
   auto taskStats = exec::toPlanStats(task->taskStats());
-  auto& planStats = taskStats.at(joinNodeId);
+  auto& planStats = taskStats.at(joinNode->id());
   ASSERT_GT(planStats.spilledBytes, 0);
 
   // Finalize the last probe split.

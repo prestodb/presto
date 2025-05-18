@@ -942,7 +942,7 @@ bool HashProbe::canSpill() const {
   if (!Operator::canSpill()) {
     return false;
   }
-  if (operatorCtx_->task()->hasMixedExecutionGroup()) {
+  if (operatorCtx_->task()->hasMixedExecutionGroupJoin(joinNode_.get())) {
     return operatorCtx_->driverCtx()
                ->queryConfig()
                .mixedGroupedModeHashJoinSpillEnabled() &&
@@ -1049,7 +1049,7 @@ RowVectorPtr HashProbe::getOutputInternal(bool toSpillOutput) {
       asyncWaitForHashTable();
     } else {
       if (lastProber_ && canSpill()) {
-        if (operatorCtx_->task()->hasMixedExecutionGroup()) {
+        if (operatorCtx_->task()->hasMixedExecutionGroupJoin(joinNode_.get())) {
           const bool isLastGroup = allProbeGroupFinished();
           if (isSpillInput()) {
             // Mixed group mode has triggered spilling, based on if current
@@ -1741,7 +1741,8 @@ bool HashProbe::isWaitingForPeers() const {
 }
 
 bool HashProbe::allProbeGroupFinished() const {
-  VELOX_CHECK(operatorCtx_->task()->hasMixedExecutionGroup());
+  VELOX_CHECK(
+      operatorCtx_->task()->hasMixedExecutionGroupJoin(joinNode_.get()));
   VELOX_CHECK_EQ(operatorCtx_->task()->concurrentSplitGroups(), 1);
   return operatorCtx_->task()->allSplitsConsumed(joinNode_.get());
 }

@@ -176,12 +176,12 @@ class Task : public std::enable_shared_from_this<Task> {
 
   bool isUngroupedExecution() const;
 
-  /// Returns true if this task has ungrouped execution split under grouped
-  /// execution mode.
+  /// Returns true if the provided 'joinNode' has probe side as grouped
+  /// execution mode and build side as ungrouped execution mode.
   ///
   /// NOTE: calls this function after task has been started as the number of
   /// ungrouped drivers is set during task startup.
-  bool hasMixedExecutionGroup() const;
+  bool hasMixedExecutionGroupJoin(const core::HashJoinNode* joinNode) const;
 
   /// If 'planNode' is a source node, returns true if all splits for 'planNode'
   /// are consumed and no more splits are expected. Otherwise, returns true if

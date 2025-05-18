@@ -1058,7 +1058,7 @@ bool HashBuild::canSpill() const {
   if (!Operator::canSpill()) {
     return false;
   }
-  if (operatorCtx_->task()->hasMixedExecutionGroup()) {
+  if (operatorCtx_->task()->hasMixedExecutionGroupJoin(joinNode_.get())) {
     return operatorCtx_->driverCtx()
                ->queryConfig()
                .mixedGroupedModeHashJoinSpillEnabled() &&

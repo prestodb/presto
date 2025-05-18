@@ -155,7 +155,7 @@ OperatorSupplier makeOperatorSupplier(
   if (auto join =
           std::dynamic_pointer_cast<const core::HashJoinNode>(planNode)) {
     return [join](int32_t operatorId, DriverCtx* ctx) {
-      if (ctx->task->hasMixedExecutionGroup() &&
+      if (ctx->task->hasMixedExecutionGroupJoin(join.get()) &&
           needRightSideJoin(join->joinType())) {
         VELOX_UNSUPPORTED(
             "Hash join currently does not support mixed grouped execution for join "

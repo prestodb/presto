@@ -771,6 +771,72 @@ TEST_F(TaskTest, allSplitsConsumedMultipleSources) {
   ASSERT_TRUE(task->allSplitsConsumed(projectNode.get()));
 }
 
+TEST_F(TaskTest, hasMixedExecutionGroupJoin) {
+  // Create data for all sources
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>(100, [](auto row) { return row; }),
+  });
+
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+
+  // Create a plan with two joins and three source nodes. One mixed grouped mode
+  // join and one non mixed grouped mode join.
+  core::PlanNodeId groupedScanNodeId1;
+  core::PlanNodeId groupedScanNodeId2;
+  core::PlanNodeId ungroupedScanNodeId1;
+  core::PlanNodePtr mixedGroupedModeJoinNode;
+  core::PlanNodePtr nonMixedGroupedModeJoinNode;
+
+  auto planFragment = PlanBuilder(planNodeIdGenerator)
+                          .tableScan(asRowType(data->type()))
+                          .capturePlanNodeId(groupedScanNodeId1)
+                          .project({"c0 as t0"})
+                          .hashJoin(
+                              {"t0"},
+                              {"c0"},
+                              PlanBuilder(planNodeIdGenerator)
+                                  .tableScan(asRowType(data->type()))
+                                  .capturePlanNodeId(groupedScanNodeId2)
+                                  .planNode(),
+                              "",
+                              {"c0"})
+                          .capturePlanNode(nonMixedGroupedModeJoinNode)
+                          .project({"c0 as u0"})
+                          .hashJoin(
+                              {"u0"},
+                              {"c0"},
+                              PlanBuilder(planNodeIdGenerator)
+                                  .tableScan(asRowType(data->type()))
+                                  .capturePlanNodeId(ungroupedScanNodeId1)
+                                  .planNode(),
+                              "",
+                              {"c0"})
+                          .capturePlanNode(mixedGroupedModeJoinNode)
+                          .planFragment();
+
+  planFragment.executionStrategy = core::ExecutionStrategy::kGrouped;
+  planFragment.groupedExecutionLeafNodeIds.emplace(groupedScanNodeId1);
+  planFragment.groupedExecutionLeafNodeIds.emplace(groupedScanNodeId2);
+  planFragment.numSplitGroups = 2;
+
+  auto task = Task::create(
+      "task-mixed-grouped-join",
+      std::move(planFragment),
+      0,
+      core::QueryCtx::create(driverExecutor_.get()),
+      Task::ExecutionMode::kParallel);
+
+  task->start(1);
+
+  ASSERT_FALSE(
+      task->hasMixedExecutionGroupJoin(dynamic_cast<const core::HashJoinNode*>(
+          nonMixedGroupedModeJoinNode.get())));
+  ASSERT_TRUE(task->hasMixedExecutionGroupJoin(
+      dynamic_cast<const core::HashJoinNode*>(mixedGroupedModeJoinNode.get())));
+
+  task->requestAbort();
+}
+
 // This test simulates the following execution sequence that potentially can
 // cause a deadlock:
 // 1. A join task comes in to execution.
