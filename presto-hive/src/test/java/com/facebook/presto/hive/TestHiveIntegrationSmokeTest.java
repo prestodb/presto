@@ -924,7 +924,7 @@ public class TestHiveIntegrationSmokeTest
 
     private void testBucketedTable(Session session, HiveStorageFormat storageFormat)
     {
-        testBucketedTable(session, storageFormat, true,  true);
+        testBucketedTable(session, storageFormat, true, true);
         testBucketedTable(session, storageFormat, true, false);
         testBucketedTable(session, storageFormat, false, true);
         testBucketedTable(session, storageFormat, false, false);
