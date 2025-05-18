@@ -50,7 +50,7 @@ public class TestHiveBucketedTables
     public static final HiveTableDefinition BUCKETED_PARTITIONED_NATION = bucketTableDefinition("bucket_partitioned_nation", true, true);
 
     @TableDefinitionsRepository.RepositoryTableDefinition
-    public static final HiveTableDefinition PARTITIONED_NATION = bucketTableDefinition("bucket_partitioned_nation", true, false);
+    public static final HiveTableDefinition PARTITIONED_NATION = bucketTableDefinition("partitioned_nation", true, false);
 
     private static HiveTableDefinition bucketTableDefinition(String tableName, boolean partitioned, boolean bucketed)
     {
