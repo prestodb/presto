@@ -60,7 +60,9 @@ maintainers of that component.
 
 ### Spark Functions
 
+* Chengcheng Jin - [jinchengchenghh](https://github.com/jinchengchenghh) / chengcheng.jin@ibm.com
 * Rui Mo - [rui-mo](https://github.com/rui-mo) / rui.mo@ibm.com
+* Zhen Li - [zhli1142015](https://github.com/zhli1142015) / zhli@microsoft.com
 
 ### Memory Management
 
