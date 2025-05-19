@@ -1,0 +1,145 @@
+{
+    "taskId": "20221102_214710_00000_5w3xj.123.456.789.10",
+    "taskStatus": {
+        "taskInstanceIdLeastSignificantBits": 123,
+        "taskInstanceIdMostSignificantBits": 456,
+        "version": 789,
+        "state": "RUNNING",
+        "self": "http://localhost:8080/v1/task/20221102_214710_00000_5w3xj.123.456.7",
+        "completedDriverGroups": ["TaskWide"],
+        "failures": [],
+        "queuedPartitionedDrivers": 1,
+        "runningPartitionedDrivers": 2,
+        "outputBufferUtilization": 3,
+        "outputBufferOverutilized": false,
+        "physicalWrittenDataSizeInBytes": 4,
+        "memoryReservationInBytes": 5,
+        "systemMemoryReservationInBytes": 6,
+        "fullGcCount": 7,
+        "fullGcTimeInMillis": 8,
+        "peakNodeTotalMemoryReservationInBytes": 9,
+        "totalCpuTimeInNanos": 10,
+        "taskAgeInMillis": 11,
+        "queuedPartitionedSplitsWeight": 12,
+        "runningPartitionedSplitsWeight": 13
+    },
+    "lastHeartbeatInMillis": 123,
+    "outputBuffers": {
+        "type": "PAGES",
+        "state": "OPEN",
+        "buffers": [
+            {
+                "bufferId": "100",
+                "finished": true,
+                "bufferedPages": 200,
+                "pagesSent": 300,
+                "pageBufferInfo": {
+                    "partition": 400,
+                    "bufferedPages": 500,
+                    "bufferedBytes": 600,
+                    "rowsAdded": 700,
+                    "pagesAdded": 800
+                }
+            },
+            {
+                "bufferId": "200",
+                "finished": true,
+                "bufferedPages": 100,
+                "pagesSent": 200,
+                "pageBufferInfo": {
+                    "partition": 300,
+                    "bufferedPages": 400,
+                    "bufferedBytes": 500,
+                    "rowsAdded": 600,
+                    "pagesAdded": 700
+                }
+            }
+        ],
+        "canAddBuffers": true,
+        "canAddPages": true,
+        "totalBufferedBytes": 123,
+        "totalBufferedPages": 456,
+        "totalRowsSent": 789,
+        "totalPagesSent": 101112
+    },
+    "noMoreSplits": [],
+    "stats": {
+        "createTimeInMillis": 123,
+        "firstStartTimeInMillis": 456,
+        "lastStartTimeInMillis": 789,
+        "lastEndTimeInMillis": 123,
+        "endTimeInMillis": 456,
+        "elapsedTimeInNanos": 789,
+        "queuedTimeInNanos": 123,
+        "totalDrivers": 456,
+        "queuedDrivers": 789,
+        "runningDrivers": 123,
+        "blockedDrivers": 456,
+        "completedDrivers": 789,
+        "cumulativeUserMemory": 123,
+        "cumulativeTotalMemory": 456,
+        "userMemoryReservationInBytes": 123,
+        "revocableMemoryReservationInBytes": 456,
+        "systemMemoryReservationInBytes": 789,
+        "peakUserMemoryInBytes": 123,
+        "peakTotalMemoryInBytes": 456,
+        "peakNodeTotalMemoryInBytes": 789,
+        "totalScheduledTimeInNanos": 123,
+        "totalCpuTimeInNanos": 456,
+        "totalBlockedTimeInNanos": 789,
+        "fullyBlocked": true,
+        "blockedReasons": [
+            "WAITING_FOR_MEMORY"
+        ],
+        "totalAllocationInBytes": 123,
+        "rawInputDataSizeInBytes": 456,
+        "rawInputPositions": 789,
+        "processedInputDataSizeInBytes": 123,
+        "processedInputPositions": 456,
+        "outputDataSizeInBytes": 789,
+        "outputPositions": 123,
+        "physicalWrittenDataSizeInBytes": 456,
+        "pipelines": [],
+        "queuedPartitionedDrivers": 123,
+        "queuedPartitionedSplitsWeight": 456,
+        "runningPartitionedDrivers": 789,
+        "runningPartitionedSplitsWeight": 123,
+        "fullGcCount": 456,
+        "fullGcTimeInMillis": 789,
+        "runtimeStats": {
+            "test_metric1": {
+                "name": "test_metric1",
+                "sum": 123,
+                "count": 456,
+                "max": 789,
+                "min": 123,
+                "unit": "NANO"
+            },
+            "test_metric2": {
+                "name": "test_metric2",
+                "sum": 234,
+                "count": 567,
+                "max": 890,
+                "min": 123,
+                "unit": "NANO"
+            }
+        }
+    },
+    "needsPlan": false,
+    "metadataUpdates": {
+        "connectorId": "hive",
+        "metadataUpdates": [
+            {
+                "@type": "hive",
+                "requestId": "a1b2c3d4-e5f6-7a8b-9c0d-ef1a2b3c4d5e",
+                "schemaTableName": {
+                    "schema": "test_schema",
+                    "table": "test_table"
+                },
+                "partitionName": "ds=2023-01-01",
+                "fileName": "test_file"
+            }
+        ]
+    },
+    "nodeId": "test_node"
+}

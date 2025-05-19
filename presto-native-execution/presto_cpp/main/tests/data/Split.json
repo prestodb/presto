@@ -1,0 +1,70 @@
+{
+    "connectorId": "hive",
+    "connectorSplit": {
+        "@type": "hive",
+        "nodeSelectionStrategy": "NO_PREFERENCE",
+        "addresses": [],
+        "database": "tpch",
+        "fileSize": 396036393,
+        "length": 33554432,
+        "partitionDataColumnCount": 148,
+        "cacheQuota": {"cacheQuotaScope": "TABLE"},
+        "fileSplit": {
+            "path": "test_path",
+            "start": 1,
+            "length": 2,
+            "fileSize": 3,
+            "fileModifiedTime": 4,
+            "customSplitInfo": {},
+            "affinitySchedulingFileSectionIndex": 5
+        },
+        "tableToPartitionMapping": {
+            "partitionSchemaDifference": {}
+        },
+        "redundantColumnDomains": [],
+        "splitWeight": 1,
+        "partitionKeys": [
+            {
+            "name": "attributed_ds",
+            "value": "2019-12-06"
+            },
+            {
+            "name": "experiment_id",
+            "value": "3"
+            },
+            {
+            "name": "ds",
+            "value": "2019-12-07"
+            },
+            {
+            "name": "universe",
+            "value": "qrt_group_ads_ranking_1"
+            }
+        ],
+        "partitionName": "test_partition",
+        "partitionSchemaDifference": {},
+        "path": "/test_path/test.orc",
+        "s3SelectPushdownEnabled": false,
+        "start": 301989888,
+        "storage": {
+            "location": "/test_path",
+            "serdeParameters": {},
+            "parameters": {},
+            "skewed": false,
+            "storageFormat": {
+            "inputFormat": "com.facebook.hive.orc.OrcInputFormat",
+            "outputFormat": "com.facebook.hive.orc.OrcOutputFormat",
+            "serDe": "com.facebook.hive.orc.OrcSerde"
+            }
+        },
+        "table": "test_table"
+    },
+    "lifespan": "TaskWide",
+    "splitContext": {
+        "cacheable": true
+    },
+    "transactionHandle": {
+        "@type": "hive",
+        "uuid": "8a4d6c83-60ee-46de-9715-bc91755619fa"
+    }
+}
