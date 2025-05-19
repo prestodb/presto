@@ -2386,9 +2386,9 @@
             </dependency>
 
             <dependency>
-                <groupId>io.prestodb.tempto</groupId>
+                <groupId>com.github.imjalpreet.tempto</groupId>
                 <artifactId>tempto-core</artifactId>
-                <version>${dep.tempto.version}</version>
+                <version>hive4-upgrade-imjalpreet-2</version>
                 <exclusions>
                     <exclusion>
                         <groupId>com.datastax.cassandra</groupId>
@@ -2418,9 +2418,9 @@
             </dependency>
 
             <dependency>
-                <groupId>io.prestodb.tempto</groupId>
+                <groupId>com.github.imjalpreet.tempto</groupId>
                 <artifactId>tempto-ldap</artifactId>
-                <version>${dep.tempto.version}</version>
+                <version>hive4-upgrade-imjalpreet-2</version>
                 <exclusions>
                     <exclusion>
                         <groupId>com.datastax.cassandra</groupId>
@@ -2438,9 +2438,9 @@
             </dependency>
 
             <dependency>
-                <groupId>io.prestodb.tempto</groupId>
+                <groupId>com.github.imjalpreet.tempto</groupId>
                 <artifactId>tempto-kafka</artifactId>
-                <version>${dep.tempto.version}</version>
+                <version>hive4-upgrade-imjalpreet-2</version>
                 <exclusions>
                     <exclusion>
                         <groupId>com.datastax.cassandra</groupId>
@@ -2462,9 +2462,9 @@
             </dependency>
 
             <dependency>
-                <groupId>io.prestodb.tempto</groupId>
+                <groupId>com.github.imjalpreet.tempto</groupId>
                 <artifactId>tempto-runner</artifactId>
-                <version>${dep.tempto.version}</version>
+                <version>hive4-upgrade-imjalpreet-2</version>
                 <exclusions>
                     <exclusion>
                         <groupId>com.datastax.cassandra</groupId>
