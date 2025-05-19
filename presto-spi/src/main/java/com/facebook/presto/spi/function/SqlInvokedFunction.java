@@ -208,7 +208,7 @@ public class SqlInvokedFunction
     }
 
     @Override
-    @ThriftField(1)
+    @ThriftField(6)
     @JsonProperty
     public Signature getSignature()
     {
@@ -241,28 +241,28 @@ public class SqlInvokedFunction
         return description;
     }
 
-    @ThriftField(3)
+    @ThriftField(1)
     @JsonProperty
     public List<Parameter> getParameters()
     {
         return parameters;
     }
 
-    @ThriftField(4)
+    @ThriftField(3)
     @JsonProperty
     public RoutineCharacteristics getRoutineCharacteristics()
     {
         return routineCharacteristics;
     }
 
-    @ThriftField(5)
+    @ThriftField(4)
     @JsonProperty
     public String getBody()
     {
         return body;
     }
 
-    @ThriftField(6)
+    @ThriftField(7)
     @JsonProperty
     public SqlFunctionId getFunctionId()
     {
@@ -284,6 +284,7 @@ public class SqlInvokedFunction
         return functionVersion;
     }
 
+    @ThriftField(5)
     public boolean getVariableArity()
     {
         return variableArity;

@@ -19,9 +19,9 @@ import com.facebook.drift.annotations.ThriftEnumValue;
 @ThriftEnum
 public enum FunctionKind
 {
-    SCALAR(1),
-    AGGREGATE(2),
-    WINDOW(3);
+    SCALAR(0),
+    AGGREGATE(1),
+    WINDOW(2);
 
     private final int value;
 

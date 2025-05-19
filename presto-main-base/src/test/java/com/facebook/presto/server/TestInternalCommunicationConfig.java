@@ -50,6 +50,8 @@ public class TestInternalCommunicationConfig
                 .setThriftProtocol(Protocol.BINARY)
                 .setMemoizeDeadNodesEnabled(false)
                 .setSharedSecret(null)
+                .setTaskUpdateRequestThriftSerdeEnabled(false)
+                .setTaskInfoResponseThriftSerdeEnabled(false)
                 .setInternalJwtEnabled(false));
     }
 
@@ -76,6 +78,8 @@ public class TestInternalCommunicationConfig
                 .put("internal-communication.memoize-dead-nodes-enabled", "true")
                 .put("internal-communication.shared-secret", "secret")
                 .put("internal-communication.jwt.enabled", "true")
+                .put("experimental.internal-communication.task-update-request-thrift-serde-enabled", "true")
+                .put("experimental.internal-communication.task-info-response-thrift-serde-enabled", "true")
                 .build();
 
         InternalCommunicationConfig expected = new InternalCommunicationConfig()
@@ -97,7 +101,9 @@ public class TestInternalCommunicationConfig
                 .setThriftProtocol(Protocol.COMPACT)
                 .setMemoizeDeadNodesEnabled(true)
                 .setSharedSecret("secret")
-                .setInternalJwtEnabled(true);
+                .setInternalJwtEnabled(true)
+                .setTaskUpdateRequestThriftSerdeEnabled(true)
+                .setTaskInfoResponseThriftSerdeEnabled(true);
 
         assertFullMapping(properties, expected);
     }

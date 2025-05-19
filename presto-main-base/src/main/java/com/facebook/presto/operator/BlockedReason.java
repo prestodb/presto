@@ -19,11 +19,18 @@ import com.facebook.drift.annotations.ThriftEnumValue;
 @ThriftEnum
 public enum BlockedReason
 {
-    WAITING_FOR_MEMORY;
+    WAITING_FOR_MEMORY(0);
+
+    private final int value;
+
+    BlockedReason(int value)
+    {
+        this.value = value;
+    }
 
     @ThriftEnumValue
     public int getValue()
     {
-        return 1;
+        return value;
     }
 }
