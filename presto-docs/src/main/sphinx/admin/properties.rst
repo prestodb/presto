@@ -95,6 +95,16 @@ session properties are included.
 
 .. _tuning-memory:
 
+``per-query-retry-limit``
+^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Minimum value:** ``0``
+* **Default value:** ``0``
+
+The number of times that a query is automatically retried in the case of a transient query or communications failure. 
+The default value ``0`` means that retries are disabled. 
+
 Memory Management Properties
 ----------------------------
 
