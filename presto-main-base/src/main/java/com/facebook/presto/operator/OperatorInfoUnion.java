@@ -20,8 +20,6 @@ import com.facebook.drift.annotations.ThriftUnionId;
 import com.facebook.presto.operator.exchange.LocalExchangeBufferInfo;
 import com.facebook.presto.operator.repartition.PartitionedOutputInfo;
 
-import static com.facebook.drift.annotations.ThriftField.Requiredness.OPTIONAL;
-
 @ThriftUnion
 public class OperatorInfoUnion
 {
@@ -54,7 +52,7 @@ public class OperatorInfoUnion
         this.id = 1;
     }
 
-    @ThriftField(value = 1, requiredness = OPTIONAL)
+    @ThriftField(1)
     public ExchangeClientStatus getExchangeClientStatus()
     {
         return exchangeClientStatus;
@@ -67,7 +65,7 @@ public class OperatorInfoUnion
         this.id = 2;
     }
 
-    @ThriftField(value = 2, requiredness = OPTIONAL)
+    @ThriftField(2)
     public LocalExchangeBufferInfo getLocalExchangeBufferInfo()
     {
         return localExchangeBufferInfo;
@@ -80,7 +78,7 @@ public class OperatorInfoUnion
         this.id = 3;
     }
 
-    @ThriftField(value = 3, requiredness = OPTIONAL)
+    @ThriftField(3)
     public TableFinishInfo getTableFinishInfo()
     {
         return tableFinishInfo;
@@ -93,7 +91,7 @@ public class OperatorInfoUnion
         this.id = 4;
     }
 
-    @ThriftField(value = 4, requiredness = OPTIONAL)
+    @ThriftField(4)
     public SplitOperatorInfo getSplitOperatorInfo()
     {
         return splitOperatorInfo;
@@ -106,7 +104,7 @@ public class OperatorInfoUnion
         this.id = 5;
     }
 
-    @ThriftField(value = 5, requiredness = OPTIONAL)
+    @ThriftField(5)
     public HashCollisionsInfo getHashCollisionsInfo()
     {
         return hashCollisionsInfo;
@@ -119,7 +117,7 @@ public class OperatorInfoUnion
         this.id = 6;
     }
 
-    @ThriftField(value = 6, requiredness = OPTIONAL)
+    @ThriftField(6)
     public PartitionedOutputInfo getPartitionedOutputInfo()
     {
         return partitionedOutputInfo;
@@ -132,7 +130,7 @@ public class OperatorInfoUnion
         this.id = 7;
     }
 
-    @ThriftField(value = 7, requiredness = OPTIONAL)
+    @ThriftField(7)
     public JoinOperatorInfo getJoinOperatorInfo()
     {
         return joinOperatorInfo;
@@ -145,7 +143,7 @@ public class OperatorInfoUnion
         this.id = 8;
     }
 
-    @ThriftField(value = 8, requiredness = OPTIONAL)
+    @ThriftField(8)
     public WindowInfo getWindowInfo()
     {
         return windowInfo;
@@ -158,7 +156,7 @@ public class OperatorInfoUnion
         this.id = 9;
     }
 
-    @ThriftField(value = 9, requiredness = OPTIONAL)
+    @ThriftField(9)
     public TableWriterOperator.TableWriterInfo getTableWriterInfo()
     {
         return tableWriterInfo;
@@ -171,7 +169,7 @@ public class OperatorInfoUnion
         this.id = 10;
     }
 
-    @ThriftField(value = 10, requiredness = OPTIONAL)
+    @ThriftField(10)
     public TableWriterMergeInfo getTableWriterMergeInfo()
     {
         return tableWriterMergeInfo;

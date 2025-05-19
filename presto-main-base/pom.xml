@@ -302,7 +302,6 @@
             <artifactId>jts-core</artifactId>
         </dependency>
 
-
         <dependency>
             <groupId>org.apache.datasketches</groupId>
             <artifactId>datasketches-memory</artifactId>

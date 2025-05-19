@@ -27,6 +27,7 @@ import com.facebook.drift.codec.guice.ThriftCodecModule;
 import com.facebook.drift.codec.utils.DataSizeToBytesThriftCodec;
 import com.facebook.drift.codec.utils.DurationToMillisThriftCodec;
 import com.facebook.drift.codec.utils.JodaDateTimeToEpochMillisThriftCodec;
+import com.facebook.drift.codec.utils.LocaleToLanguageTagCodec;
 import com.facebook.presto.SessionTestUtils;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.common.ErrorCode;
@@ -58,6 +59,9 @@ import com.facebook.presto.metadata.Split;
 import com.facebook.presto.server.ConnectorMetadataUpdateHandleJsonSerde;
 import com.facebook.presto.server.InternalCommunicationConfig;
 import com.facebook.presto.server.TaskUpdateRequest;
+import com.facebook.presto.server.thrift.MetadataUpdatesCodec;
+import com.facebook.presto.server.thrift.SplitCodec;
+import com.facebook.presto.server.thrift.TableWriteInfoCodec;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -371,10 +375,17 @@ public class TestHttpRemoteTask
                         jsonCodecBinder(binder).bindJsonCodec(TaskUpdateRequest.class);
                         jsonCodecBinder(binder).bindJsonCodec(PlanFragment.class);
                         jsonCodecBinder(binder).bindJsonCodec(MetadataUpdates.class);
+                        jsonCodecBinder(binder).bindJsonCodec(TableWriteInfo.class);
+                        jsonCodecBinder(binder).bindJsonCodec(Split.class);
                         jsonBinder(binder).addKeySerializerBinding(VariableReferenceExpression.class).to(Serialization.VariableReferenceExpressionSerializer.class);
                         jsonBinder(binder).addKeyDeserializerBinding(VariableReferenceExpression.class).to(Serialization.VariableReferenceExpressionDeserializer.class);
                         thriftCodecBinder(binder).bindThriftCodec(TaskStatus.class);
                         thriftCodecBinder(binder).bindThriftCodec(TaskInfo.class);
+                        thriftCodecBinder(binder).bindThriftCodec(TaskUpdateRequest.class);
+                        thriftCodecBinder(binder).bindCustomThriftCodec(MetadataUpdatesCodec.class);
+                        thriftCodecBinder(binder).bindCustomThriftCodec(SplitCodec.class);
+                        thriftCodecBinder(binder).bindCustomThriftCodec(TableWriteInfoCodec.class);
+                        thriftCodecBinder(binder).bindCustomThriftCodec(LocaleToLanguageTagCodec.class);
                         thriftCodecBinder(binder).bindCustomThriftCodec(JodaDateTimeToEpochMillisThriftCodec.class);
                         thriftCodecBinder(binder).bindCustomThriftCodec(DurationToMillisThriftCodec.class);
                         thriftCodecBinder(binder).bindCustomThriftCodec(DataSizeToBytesThriftCodec.class);
@@ -392,6 +403,7 @@ public class TestHttpRemoteTask
                             SmileCodec<TaskInfo> taskInfoSmileCodec,
                             JsonCodec<TaskUpdateRequest> taskUpdateRequestJsonCodec,
                             SmileCodec<TaskUpdateRequest> taskUpdateRequestSmileCodec,
+                            ThriftCodec<TaskUpdateRequest> taskUpdateRequestThriftCodec,
                             JsonCodec<PlanFragment> planFragmentJsonCodec,
                             SmileCodec<PlanFragment> planFragmentSmileCodec,
                             JsonCodec<MetadataUpdates> metadataUpdatesJsonCodec,
@@ -413,6 +425,7 @@ public class TestHttpRemoteTask
                                 taskInfoThriftCodec,
                                 taskUpdateRequestJsonCodec,
                                 taskUpdateRequestSmileCodec,
+                                taskUpdateRequestThriftCodec,
                                 planFragmentJsonCodec,
                                 planFragmentSmileCodec,
                                 metadataUpdatesJsonCodec,
