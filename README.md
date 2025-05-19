@@ -14,12 +14,19 @@ See [PrestoDB: Mission and Architecture](ARCHITECTURE.md).
 ## Requirements
 
 * Mac OS X or Linux
-* Java 17 64-bit. Both Oracle JDK and OpenJDK are supported.
+* Java 17 64-bit. Both Oracle JDK and OpenJDK are supported. **Within IBM Lakehouse, please use IBM RedhatOpenJDK build 17.0.13. For linux this can be installed from https://ibm.box.com/s/xo95zx1ddaf8aupip421qcwmq7msya1w**
 * Maven 3.6.3+ (for building)
 * Python 2.4+ (for running with the launcher script)
 
 <details> <!-- from: https://github.com/prestodb/presto/blob/master/README.md -->
   <summary><a id="building-presto"><h2>Building Presto</h2></a></summary>
+
+### Pre-build, IBM Lakehouse specific steps
+
+On a shell, navigate to source root and run
+```bash
+./update_settings.sh
+```
 
 ### Overview (Java)
 
