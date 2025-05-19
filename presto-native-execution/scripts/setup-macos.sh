@@ -53,8 +53,15 @@ else
   else
     echo "Skipping installation of build dependencies since INSTALL_PREREQUISITES is not set"
   fi
-  install_velox_deps
-  install_presto_deps
+#  install_velox_deps
+  install_velox_deps_from_brew
+  install_ranges_v3
+  install_double_conversion
+  install_re2
+  install_boost
+  install_fmt
+  export VERBOSE=1 && install_folly
+#  install_presto_deps
   echo "All dependencies for Prestissimo installed!"
   echo "To reuse the installed dependencies for subsequent builds, consider adding this to your ~/.zshrc"
   echo "export INSTALL_PREFIX=$INSTALL_PREFIX"
