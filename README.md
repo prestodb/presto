@@ -18,15 +18,14 @@ See [PrestoDB: Mission and Architecture](ARCHITECTURE.md).
 * Maven 3.6.3+ (for building)
 * Python 2.4+ (for running with the launcher script)
 
-<details> <!-- from: https://github.com/prestodb/presto/blob/master/README.md -->
-  <summary><a id="building-presto"><h2>Building Presto</h2></a></summary>
 
-### Pre-build, IBM Lakehouse specific steps
+### Pre-build, IBM Lakehouse specific steps (one-time setup)
 
 On a shell, navigate to source root and run
 ```bash
 ./update_settings.sh
 ```
+This installs IBM specifc maven repos for some IBM specific maven artifacts
 
 ### Overview (Java)
 
