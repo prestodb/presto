@@ -31,6 +31,7 @@ import static java.util.Objects.requireNonNull;
 public class IcebergHiveMetadataFactory
         implements IcebergMetadataFactory
 {
+    final IcebergCatalogName catalogName;
     final ExtendedHiveMetastore metastore;
     final HdfsEnvironment hdfsEnvironment;
     final TypeManager typeManager;
@@ -46,6 +47,7 @@ public class IcebergHiveMetadataFactory
 
     @Inject
     public IcebergHiveMetadataFactory(
+            IcebergCatalogName catalogName,
             ExtendedHiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
@@ -59,6 +61,7 @@ public class IcebergHiveMetadataFactory
             ManifestFileCache manifestFileCache,
             IcebergTableProperties tableProperties)
     {
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -76,6 +79,7 @@ public class IcebergHiveMetadataFactory
     public ConnectorMetadata create()
     {
         return new IcebergHiveMetadata(
+                catalogName,
                 metastore,
                 hdfsEnvironment,
                 typeManager,

@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.iceberg.IcebergCatalogName;
 import com.facebook.presto.iceberg.IcebergDistributedTestBase;
 import com.facebook.presto.iceberg.IcebergHiveMetadata;
 import com.facebook.presto.iceberg.IcebergHiveTableOperationsConfig;
@@ -197,6 +198,7 @@ public class TestIcebergDistributedHive
                 new IcebergHiveTableOperationsConfig(),
                 new ManifestFileCache(CacheBuilder.newBuilder().build(), false, 0, 1024 * 1024),
                 getQueryRunner().getDefaultSession().toConnectorSession(connectorId),
+                new IcebergCatalogName(ICEBERG_CATALOG),
                 SchemaTableName.valueOf("tpch." + tableName));
     }
 
