@@ -553,8 +553,8 @@ class LambdaTypedExpr : public ITypedExpr {
       : ITypedExpr(std::make_shared<FunctionType>(
             std::vector<TypePtr>(signature->children()),
             body->type())),
-        signature_(signature),
-        body_(body) {}
+        signature_(std::move(signature)),
+        body_(std::move(body)) {}
 
   const RowTypePtr& signature() const {
     return signature_;
@@ -590,21 +590,19 @@ class LambdaTypedExpr : public ITypedExpr {
       const ITypedExprVisitor& visitor,
       ITypedExprVisitorContext& context) const override;
 
-  friend bool operator==(
-      const LambdaTypedExpr& lhs,
-      const LambdaTypedExpr& rhs) {
-    if (*lhs.type() != *rhs.type()) {
-      return false;
-    }
-    return *lhs.signature_ == *rhs.signature_ && *lhs.body_ == *rhs.body_;
-  }
-
   bool operator==(const ITypedExpr& other) const override {
     const auto* casted = dynamic_cast<const LambdaTypedExpr*>(&other);
     if (!casted) {
       return false;
     }
-    return *this == *casted;
+    return operator==(*casted);
+  }
+
+  bool operator==(const LambdaTypedExpr& other) const {
+    if (*type() != *other.type()) {
+      return false;
+    }
+    return *signature_ == *other.signature_ && *body_ == *other.body_;
   }
 
   folly::dynamic serialize() const override;
