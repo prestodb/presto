@@ -458,6 +458,8 @@
                                                 <contextDir>${project.parent.basedir}/docker</contextDir>
                                                 <args>
                                                     <PRESTO_VERSION>${project.version}</PRESTO_VERSION>
+                                                    <PRESTO_PKG>presto-server-${project.version}.tar.gz</PRESTO_PKG>
+                                                    <PRESTO_CLI>presto-cli-${project.version}-executable.jar</PRESTO_CLI>
                                                 </args>
                                             </build>
                                         </image>
