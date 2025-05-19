@@ -415,9 +415,11 @@ void IndexLookupJoin::addInput(RowVectorPtr input) {
   auto& batch = nextInputBatch();
   VELOX_CHECK_LE(numInputBatches(), maxNumInputBatches_);
   batch.input = std::move(input);
-  ensureInputLoaded(batch);
-  prepareLookup(batch);
-  startLookup(batch);
+  if (numInputBatches() > 0) {
+    ensureInputLoaded(batch);
+    prepareLookup(batch);
+    startLookup(batch);
+  }
 }
 
 RowVectorPtr IndexLookupJoin::getOutput() {

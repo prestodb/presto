@@ -1916,7 +1916,7 @@ DEBUG_ONLY_TEST_P(IndexLookupJoinTest, runtimeStats) {
 }
 
 TEST_P(IndexLookupJoinTest, barrier) {
-  if (!GetParam().serialExecution || GetParam().numPrefetches > 0) {
+  if (!GetParam().serialExecution) {
     GTEST_SKIP();
   }
   SequenceTableData tableData;
