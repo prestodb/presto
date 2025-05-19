@@ -51,14 +51,15 @@ services:
     # Usage:
     #   docker compose build centos-native-runtime
     #   podman compose build centos-native-runtime
-    image: presto/prestissimo-runtime:centos9
+    image: presto/prestissimo-runtime:centos9-nag-test
     build:
       args:
           # A few files in Velox require significant memory to compile and link.
           # Build requires 18GB of memory for 2 threads.
-        - NUM_THREADS=2 # default value for NUM_THREADS
+        - NUM_THREADS=64 # default value for NUM_THREADS
         - EXTRA_CMAKE_FLAGS=-DPRESTO_ENABLE_TESTING=OFF
                             -DPRESTO_ENABLE_PARQUET=ON
                             -DPRESTO_ENABLE_S3=ON
+        - GPU=${GPU:-OFF}
       context: .
       dockerfile: scripts/dockerfiles/prestissimo-runtime.dockerfile
