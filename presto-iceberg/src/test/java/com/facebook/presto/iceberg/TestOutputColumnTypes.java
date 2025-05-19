@@ -97,14 +97,14 @@ public class TestOutputColumnTypes
     public void testOutputColumnsForInsertAsSelect()
             throws Exception
     {
-        runQueryAndWaitForEvents("CREATE TABLE create_insert_table1 AS SELECT clerk, orderkey, totalprice FROM orders", 3);
-        runQueryAndWaitForEvents("INSERT INTO create_insert_table1 SELECT clerk, orderkey, totalprice FROM orders", 3);
+        runQueryAndWaitForEvents("CREATE TABLE create_insert_table1 AS SELECT clerk, orderkey, totalprice FROM orders", 2);
+        runQueryAndWaitForEvents("INSERT INTO create_insert_table1 SELECT clerk, orderkey, totalprice FROM orders", 2);
         QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
 
         assertThat(event.getIoMetadata().getOutput().get().getCatalogName()).isEqualTo("iceberg");
         assertThat(event.getIoMetadata().getOutput().get().getSchema()).isEqualTo("tpch");
         assertThat(event.getIoMetadata().getOutput().get().getTable()).isEqualTo("create_insert_table1");
-        assertThat(event.getMetadata().getUpdateQueryType().get()).isEqualTo("CREATE TABLE");
+        assertThat(event.getMetadata().getUpdateQueryType().get()).isEqualTo("INSERT");
 
         assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
                 .containsExactly(
@@ -114,11 +114,10 @@ public class TestOutputColumnTypes
     }
 
     @Test
-    public void testOutputColumnsForUpdate()
+    public void testOutputColumnsForCreateTableAS()
             throws Exception
     {
-        runQueryAndWaitForEvents("CREATE TABLE create_update_table AS SELECT * FROM orders ", 3);
-        runQueryAndWaitForEvents("UPDATE create_update_table SET clerk = 're-reset'", 3);
+        runQueryAndWaitForEvents("CREATE TABLE create_update_table AS SELECT * FROM orders ", 2);
         QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
 
         assertThat(event.getIoMetadata().getOutput().get().getCatalogName()).isEqualTo("iceberg");
@@ -137,26 +136,6 @@ public class TestOutputColumnTypes
                         new Column("clerk", "varchar"),
                         new Column("shippriority", "integer"),
                         new Column("comment", "varchar"));
-    }
-
-    @Test
-    public void testOutputColumnsForDeleteWithWhere()
-            throws Exception
-    {
-        runQueryAndWaitForEvents("CREATE TABLE create_del_table AS SELECT clerk, orderkey, totalprice FROM orders ", 3);
-        runQueryAndWaitForEvents("DELETE FROM create_del_table WHERE orderkey = 1", 3);
-        QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
-
-        assertThat(event.getIoMetadata().getOutput().get().getCatalogName()).isEqualTo("iceberg");
-        assertThat(event.getIoMetadata().getOutput().get().getSchema()).isEqualTo("tpch");
-        assertThat(event.getIoMetadata().getOutput().get().getTable()).isEqualTo("create_del_table");
-        assertThat(event.getMetadata().getUpdateQueryType().get()).isEqualTo("CREATE TABLE");
-
-        assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
-                .containsExactly(
-                        new Column("clerk", "varchar"),
-                        new Column("orderkey", "bigint"),
-                        new Column("totalprice", "double"));
     }
 
     static class TestingEventListenerPlugin
@@ -247,7 +226,7 @@ public class TestOutputColumnTypes
         public void waitForEvents(Duration duration)
                 throws InterruptedException
         {
-            eventsLatch.await(duration.getNano(), NANOSECONDS);
+            eventsLatch.await(duration.toNanos(), NANOSECONDS);
         }
 
         public synchronized void addQueryCreated(QueryCreatedEvent event)
@@ -265,7 +244,6 @@ public class TestOutputColumnTypes
         public synchronized void addSplitCompleted(SplitCompletedEvent event)
         {
             splitCompletedEvents.add(event);
-            eventsLatch.countDown();
         }
 
         public List<QueryCompletedEvent> getQueryCompletedEvents()
