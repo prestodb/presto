@@ -43,11 +43,11 @@ import com.facebook.presto.execution.warnings.WarningCollectorModule;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.DiscoveryNodeManager;
-import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.metadata.StaticCatalogStore;
 import com.facebook.presto.metadata.StaticFunctionNamespaceStore;
+import com.facebook.presto.metadata.StaticTypeManagerStore;
 import com.facebook.presto.nodeManager.PluginNodeManager;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.security.AccessControlModule;
@@ -175,6 +175,7 @@ public class PrestoServer
                     injector.getInstance(DriftServer.class));
 
             injector.getInstance(StaticFunctionNamespaceStore.class).loadFunctionNamespaceManagers();
+            injector.getInstance(StaticTypeManagerStore.class).loadTypeManagers();
             injector.getInstance(SessionPropertyDefaults.class).loadConfigurationManager();
             injector.getInstance(ResourceGroupManager.class).loadConfigurationManager();
             if (!serverConfig.isResourceManager()) {
@@ -191,7 +192,6 @@ public class PrestoServer
             injector.getInstance(NodeStatusNotificationManager.class).loadNodeStatusNotificationProvider();
             injector.getInstance(GracefulShutdownHandler.class).loadNodeStatusNotification();
             injector.getInstance(SessionPropertyManager.class).loadSessionPropertyProviders();
-            injector.getInstance(FunctionAndTypeManager.class).loadTypeManagers();
             PlanCheckerProviderManager planCheckerProviderManager = injector.getInstance(PlanCheckerProviderManager.class);
             InternalNodeManager nodeManager = injector.getInstance(DiscoveryNodeManager.class);
             NodeInfo nodeInfo = injector.getInstance(NodeInfo.class);
