@@ -19,6 +19,7 @@
 #include "velox/common/base/RandomUtil.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/connectors/hive/FileHandle.h"
+#include "velox/connectors/hive/HivePartitionFunction.h"
 #include "velox/dwio/common/Options.h"
 #include "velox/dwio/common/Reader.h"
 
@@ -97,6 +98,8 @@ class SplitReader {
 
   void setConnectorQueryCtx(const ConnectorQueryCtx* connectorQueryCtx);
 
+  void setBucketConversion(std::vector<column_index_t> bucketChannels);
+
   const RowTypePtr& readerOutputType() const {
     return readerOutputType_;
   }
@@ -145,6 +148,17 @@ class SplitReader {
       std::shared_ptr<common::MetadataFilter> metadataFilter,
       RowTypePtr rowType);
 
+  const folly::F14FastSet<column_index_t>& bucketChannels() const {
+    return bucketChannels_;
+  }
+
+  std::vector<BaseVector::CopyRange> bucketConversionRows(
+      const RowVector& vector);
+
+  void applyBucketConversion(
+      VectorPtr& output,
+      const std::vector<BaseVector::CopyRange>& ranges);
+
  private:
   /// Different table formats may have different meatadata columns.
   /// This function will be used to update the scanSpec for these columns.
@@ -179,6 +193,11 @@ class SplitReader {
   dwio::common::ReaderOptions baseReaderOpts_;
   dwio::common::RowReaderOptions baseRowReaderOpts_;
   bool emptySplit_;
+
+ private:
+  folly::F14FastSet<column_index_t> bucketChannels_;
+  std::unique_ptr<HivePartitionFunction> partitionFunction_;
+  std::vector<uint32_t> partitions_;
 };
 
 } // namespace facebook::velox::connector::hive

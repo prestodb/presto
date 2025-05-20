@@ -221,7 +221,7 @@ std::unique_ptr<SplitReader> HiveDataSource::createSplitReader() {
       scanSpec_);
 }
 
-std::unique_ptr<HivePartitionFunction> HiveDataSource::setupBucketConversion() {
+std::vector<column_index_t> HiveDataSource::setupBucketConversion() {
   VELOX_CHECK_NE(
       split_->bucketConversion->tableBucketCount,
       split_->bucketConversion->partitionBucketCount);
@@ -269,8 +269,7 @@ std::unique_ptr<HivePartitionFunction> HiveDataSource::setupBucketConversion() {
     newScanSpec->moveAdaptationFrom(*scanSpec_);
     scanSpec_ = std::move(newScanSpec);
   }
-  return std::make_unique<HivePartitionFunction>(
-      split_->bucketConversion->tableBucketCount, std::move(bucketChannels));
+  return bucketChannels;
 }
 
 void HiveDataSource::setupRowIdColumn() {
@@ -310,60 +309,23 @@ void HiveDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
     splitReader_.reset();
   }
 
+  std::vector<column_index_t> bucketChannels;
   if (split_->bucketConversion.has_value()) {
-    partitionFunction_ = setupBucketConversion();
-  } else {
-    partitionFunction_.reset();
+    bucketChannels = setupBucketConversion();
   }
   if (specialColumns_.rowId.has_value()) {
     setupRowIdColumn();
   }
 
   splitReader_ = createSplitReader();
+  if (!bucketChannels.empty()) {
+    splitReader_->setBucketConversion(std::move(bucketChannels));
+  }
   // Split reader subclasses may need to use the reader options in prepareSplit
   // so we initialize it beforehand.
   splitReader_->configureReaderOptions(randomSkip_);
   splitReader_->prepareSplit(metadataFilter_, runtimeStats_);
   readerOutputType_ = splitReader_->readerOutputType();
-}
-
-vector_size_t HiveDataSource::applyBucketConversion(
-    const RowVectorPtr& rowVector,
-    BufferPtr& indices) {
-  partitions_.clear();
-  partitionFunction_->partition(*rowVector, partitions_);
-  const auto bucketToKeep = *split_->tableBucketNumber;
-  const auto partitionBucketCount =
-      split_->bucketConversion->partitionBucketCount;
-  for (vector_size_t i = 0; i < rowVector->size(); ++i) {
-    VELOX_CHECK_EQ((partitions_[i] - bucketToKeep) % partitionBucketCount, 0);
-  }
-
-  if (remainingFilterExprSet_) {
-    for (vector_size_t i = 0; i < rowVector->size(); ++i) {
-      if (partitions_[i] != bucketToKeep) {
-        filterRows_.setValid(i, false);
-      }
-    }
-    filterRows_.updateBounds();
-    return filterRows_.countSelected();
-  }
-  vector_size_t size = 0;
-  for (vector_size_t i = 0; i < rowVector->size(); ++i) {
-    size += partitions_[i] == bucketToKeep;
-  }
-  if (size == 0) {
-    return 0;
-  }
-  indices = allocateIndices(size, pool_);
-  size = 0;
-  auto* rawIndices = indices->asMutable<vector_size_t>();
-  for (vector_size_t i = 0; i < rowVector->size(); ++i) {
-    if (partitions_[i] == bucketToKeep) {
-      rawIndices[size++] = i;
-    }
-  }
-  return size;
 }
 
 std::optional<RowVectorPtr> HiveDataSource::next(
@@ -412,19 +374,7 @@ std::optional<RowVectorPtr> HiveDataSource::next(
   // or it passes on all rows, leave this as null and let exec::wrap skip
   // wrapping the results.
   BufferPtr remainingIndices;
-  if (remainingFilterExprSet_) {
-    if (numBucketConversion_ > 0) {
-      filterRows_.resizeFill(rowVector->size());
-    } else {
-      filterRows_.resize(rowVector->size());
-    }
-  }
-  if (partitionFunction_) {
-    rowsRemaining = applyBucketConversion(rowVector, remainingIndices);
-    if (rowsRemaining == 0) {
-      return getEmptyOutput();
-    }
-  }
+  filterRows_.resize(rowVector->size());
 
   if (remainingFilterExprSet_) {
     rowsRemaining = evaluateRemainingFilter(rowVector);
@@ -552,7 +502,6 @@ void HiveDataSource::setFromDataSource(
   fsStats_ = std::move(source->fsStats_);
 
   numBucketConversion_ += source->numBucketConversion_;
-  partitionFunction_ = std::move(source->partitionFunction_);
 }
 
 int64_t HiveDataSource::estimatedRowSize() {

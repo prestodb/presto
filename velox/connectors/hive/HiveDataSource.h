@@ -22,7 +22,6 @@
 #include "velox/connectors/hive/FileHandle.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/connectors/hive/HiveConnectorUtil.h"
-#include "velox/connectors/hive/HivePartitionFunction.h"
 #include "velox/connectors/hive/SplitReader.h"
 #include "velox/connectors/hive/TableHandle.h"
 #include "velox/dwio/common/Statistics.h"
@@ -127,10 +126,7 @@ class HiveDataSource : public DataSource {
   std::shared_ptr<filesystems::File::IoStats> fsStats_;
 
  private:
-  std::unique_ptr<HivePartitionFunction> setupBucketConversion();
-  vector_size_t applyBucketConversion(
-      const RowVectorPtr& rowVector,
-      BufferPtr& indices);
+  std::vector<column_index_t> setupBucketConversion();
 
   void setupRowIdColumn();
 
@@ -177,8 +173,6 @@ class HiveDataSource : public DataSource {
   std::shared_ptr<random::RandomSkipTracker> randomSkip_;
 
   int64_t numBucketConversion_ = 0;
-  std::unique_ptr<HivePartitionFunction> partitionFunction_;
-  std::vector<uint32_t> partitions_;
 
   // Reusable memory for remaining filter evaluation.
   VectorPtr filterResult_;
