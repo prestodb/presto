@@ -22,8 +22,9 @@ protocol::ExecutionFailureInfo VeloxToPrestoExceptionTranslator::translate(
   error.errorLocation.lineNumber = e.line() >= 1 ? e.line() : 1;
   error.errorLocation.columnNumber = 1;
   error.type = e.exceptionName();
+  const auto& errorMessage = e.message();
   std::stringstream msg;
-  msg << e.failingExpression() << " " << e.message();
+  msg << e.failingExpression() << " " << errorMessage;
   if (!e.context().empty()) {
     msg << " " << e.context();
   }
@@ -45,6 +46,10 @@ protocol::ExecutionFailureInfo VeloxToPrestoExceptionTranslator::translate(
     auto itrErrorCode = itrErrorCodesMap->second.find(errorCode);
     if (itrErrorCode != itrErrorCodesMap->second.end()) {
       error.errorCode = itrErrorCode->second;
+      if (errorMessage.find("Invalid Split index") != std::string::npos) {
+        error.message = "The table data doesn't exist";
+        error.stack = {};
+      }
       return error;
     }
   }

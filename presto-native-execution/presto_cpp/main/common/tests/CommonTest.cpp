@@ -101,6 +101,27 @@ TEST(VeloxToPrestoExceptionTranslatorTest, exceptionTranslation) {
     EXPECT_EQ(failureInfo.errorCode.type, protocol::ErrorType::INTERNAL_ERROR);
   }
 
+  VeloxRuntimeError noSplitException(
+    "file_name",
+    1,
+    "function_name()",
+    "operator()",
+    "(0 vs. 0) Invalid Split index",
+    "",
+    error_code::kInvalidState,
+    false);
+
+  EXPECT_THROW({ throw noSplitException; }, VeloxException);
+    try {
+    throw noSplitException;
+  } catch (const VeloxException& e) {
+  auto failureInfo = VeloxToPrestoExceptionTranslator::translate(e);
+    EXPECT_EQ(failureInfo.errorCode.name, "GENERIC_INTERNAL_ERROR");
+    EXPECT_EQ(failureInfo.errorCode.code, 0x00010000);
+    EXPECT_EQ(failureInfo.errorCode.type, protocol::ErrorType::INTERNAL_ERROR);
+    EXPECT_EQ(failureInfo.message, "The table data doesn't exist");
+}
+
   EXPECT_THROW(([]() { VELOX_USER_CHECK_EQ(1, 2); })(), VeloxException);
   try {
     VELOX_USER_CHECK_EQ(1, 2, "test user error message");
