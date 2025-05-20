@@ -377,8 +377,9 @@ class QueryConfig {
       "spark.legacy_date_formatter";
 
   /// If true, Spark statistical aggregation functions including skewness,
-  /// kurtosis, will return NaN instead of NULL when dividing by zero during
-  /// expression evaluation.
+  /// kurtosis, stddev, stddev_samp, variance, var_samp, covar_samp and corr
+  /// will return NaN instead of NULL when dividing by zero during expression
+  /// evaluation.
   static constexpr const char* kSparkLegacyStatisticalAggregate =
       "spark.legacy_statistical_aggregate";
 

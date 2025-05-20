@@ -81,6 +81,16 @@ General Aggregate Functions
         ) AS t(elements);
         -- ARRAY[ARRAY[1, 2], ARRAY[1, null]]
 
+.. spark:function:: corr(x, y) -> double
+
+    Returns Pearson coefficient of correlation between a set of number pairs. When the count of pairs is
+    greater than or equal to 2, a non-null output will be generated.
+
+.. spark:function:: covar_samp(x, y) -> double
+
+    Returns the sample covariance of a set of number pairs. When the count of pairs is
+    greater than or equal to 2, a non-null output will be generated.
+
 .. spark:function:: first(x) -> x
 
     Returns the first value of `x`.

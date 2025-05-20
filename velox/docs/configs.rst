@@ -957,8 +957,7 @@ Spark-specific Configuration
      - bool
      - false
      - If true, Spark statistical aggregation functions including skewness, kurtosis, stddev, stddev_samp, variance,
-       var_samp will return NaN instead of NULL when dividing by zero during expression evaluation. Please note that
-       Spark statistical aggregation functions including covar_samp and corr should be supported to respect this configuration.
+       var_samp, covar_samp and corr will return NaN instead of NULL when dividing by zero during expression evaluation.
 
 Tracing
 --------
