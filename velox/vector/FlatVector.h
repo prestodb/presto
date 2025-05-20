@@ -533,6 +533,7 @@ class FlatVector final : public SimpleVector<T> {
   }
 
   void unsafeSetSize(vector_size_t newSize) {
+    VELOX_CHECK_GE(newSize, 0, "Size must be non-negative.");
     this->length_ = newSize;
   }
 

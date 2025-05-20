@@ -242,6 +242,7 @@ class LazyVector : public BaseVector {
         vector_(std::move(vector)) {}
 
   void reset(std::unique_ptr<VectorLoader>&& loader, vector_size_t size) {
+    VELOX_CHECK_GE(size, 0, "Size must be non-negative.");
     BaseVector::length_ = size;
     loader_ = std::move(loader);
     allLoaded_ = false;

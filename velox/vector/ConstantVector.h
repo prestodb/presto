@@ -272,6 +272,7 @@ class ConstantVector final : public SimpleVector<T> {
   }
 
   void resize(vector_size_t newSize, bool /*setNotNull*/ = true) override {
+    VELOX_CHECK_GE(newSize, 0, "Size must be non-negative.");
     BaseVector::length_ = newSize;
     if constexpr (std::is_same_v<T, StringView>) {
       SimpleVector<StringView>::resizeIsAsciiIfNotEmpty(

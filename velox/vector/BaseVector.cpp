@@ -55,6 +55,10 @@ BaseVector::BaseVector(
       representedByteCount_(representedByteCount),
       storageByteCount_(storageByteCount) {
   VELOX_CHECK_NOT_NULL(type_, "Vector creation requires a non-null type.");
+  VELOX_CHECK_LE(
+      length,
+      std::numeric_limits<vector_size_t>::max(),
+      "Length must be smaller or equal to max(vector_size_t).");
 
   if (nulls_) {
     int32_t bytes = byteSize<bool>(length_);
@@ -107,6 +111,7 @@ uint64_t BaseVector::byteSize<bool>(vector_size_t count) {
 }
 
 void BaseVector::resize(vector_size_t size, bool setNotNull) {
+  VELOX_CHECK_GE(size, 0, "Size must be non-negative.");
   if (nulls_) {
     const auto bytes = byteSize<bool>(size);
     if (length_ < size || nulls_->isView()) {
