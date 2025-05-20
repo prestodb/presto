@@ -104,6 +104,7 @@
         <air.test.jvmsize>4g</air.test.jvmsize>
         <grpc.version>1.70.0</grpc.version>
         <air.javadoc.lint>-missing</air.javadoc.lint>
+        <presto.hard-link-includes>**/*.jar</presto.hard-link-includes>
     </properties>
 
     <modules>
