@@ -2820,6 +2820,28 @@
                     </execution>
                 </executions>
             </plugin>
+            <plugin>
+                <groupId>com.mycila</groupId>
+                <artifactId>license-maven-plugin</artifactId>
+                <!-- This execution re-binds the default check to child projects -->
+                <executions>
+                    <execution>
+                        <id>default</id>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <phase>validate</phase>
+                    </execution>
+                </executions>
+                <!-- this configuration skips license check on presto-root -->
+                <!-- without propagating it to child projects -->
+                <inherited>false</inherited>
+                <configuration>
+                    <excludes>
+                        <exclude>**/presto-*/**</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 
