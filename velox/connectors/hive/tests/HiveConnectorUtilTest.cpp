@@ -349,11 +349,11 @@ TEST_F(HiveConnectorUtilTest, configureRowReaderOptions) {
   float_features->setFlatMapFeatureSelection({"1", "3"});
 }
 
-TEST_F(HiveConnectorUtilTest, configureStoragePamatersRowReaderOptions) {
+TEST_F(HiveConnectorUtilTest, configureSstRowReaderOptions) {
   dwio::common::RowReaderOptions rowReaderOpts;
   auto hiveSplit =
       std::make_shared<hive::HiveConnectorSplit>("", "", FileFormat::SST);
-  hiveSplit->storageParameters = {
+  hiveSplit->serdeParameters = {
       {"key_col_indices", "0,1,2"},
       {"value_col_indices", "4,5"},
   };
@@ -367,7 +367,7 @@ TEST_F(HiveConnectorUtilTest, configureStoragePamatersRowReaderOptions) {
       /*sessionProperties=*/nullptr,
       /*rowReaderOptions=*/rowReaderOpts);
 
-  EXPECT_EQ(rowReaderOpts.storageParameters(), hiveSplit->storageParameters);
+  EXPECT_EQ(rowReaderOpts.serdeParameters(), hiveSplit->serdeParameters);
 }
 
 } // namespace facebook::velox::connector

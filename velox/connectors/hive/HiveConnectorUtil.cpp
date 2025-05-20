@@ -629,6 +629,7 @@ void configureRowReaderOptions(
         hiveConfig->readTimestampUnit(sessionProperties)));
   }
   rowReaderOptions.setStorageParameters(hiveSplit->storageParameters);
+  rowReaderOptions.setSerdeParameters(hiveSplit->serdeParameters);
 }
 
 namespace {
