@@ -129,6 +129,7 @@ import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
+import com.facebook.presto.testing.TestingConnectorContext;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.testing.TestingNodeManager;
 import com.google.common.base.Predicate;
@@ -1067,7 +1068,8 @@ public abstract class AbstractTestHiveClient
                 false,
                 new ConfigBasedCacheQuotaRequirementProvider(cacheConfig),
                 encryptionInformationProvider,
-                new HivePartitionSkippabilityChecker());
+                new HivePartitionSkippabilityChecker(),
+                new TestingConnectorContext().getConnectorSystemConfig());
         pageSinkProvider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(hiveClientConfig, metastoreClientConfig),
                 hdfsEnvironment,
