@@ -175,9 +175,9 @@ jobs:
         run: |
           source .venv/bin/activate
           python3 -m pip install deepdiff
-          python3 scripts/signature.py export --spark /tmp/signatures/spark_signatures_main.json
-          python3 scripts/signature.py export --presto /tmp/signatures/presto_signatures_main.json
-          python3 scripts/signature.py export_aggregates --presto /tmp/signatures/presto_aggregate_signatures_main.json
+          python3 scripts/ci/signature.py export --spark /tmp/signatures/spark_signatures_main.json
+          python3 scripts/ci/signature.py export --presto /tmp/signatures/presto_signatures_main.json
+          python3 scripts/ci/signature.py export_aggregates --presto /tmp/signatures/presto_aggregate_signatures_main.json
 
       - name: Save Function Signature Stash
         if: ${{ github.event_name == 'pull_request' && steps.get-sig.outputs.stash-hit != 'true' }}
@@ -234,9 +234,9 @@ jobs:
         run: |
           source .venv/bin/activate
           python3 -m pip install deepdiff
-          python3 scripts/signature.py gh_bias_check presto spark
-          python3 scripts/signature.py export_aggregates --presto /tmp/signatures/presto_aggregate_signatures_contender.json
-          python3 scripts/signature.py bias_aggregates  /tmp/signatures/presto_aggregate_signatures_main.json \
+          python3 scripts/ci/signature.py gh_bias_check presto spark
+          python3 scripts/ci/signature.py export_aggregates --presto /tmp/signatures/presto_aggregate_signatures_contender.json
+          python3 scripts/ci/signature.py bias_aggregates  /tmp/signatures/presto_aggregate_signatures_main.json \
            /tmp/signatures/presto_aggregate_signatures_contender.json /tmp/signatures/presto_aggregate_bias_functions \
            /tmp/signatures/presto_aggregate_errors
 
@@ -648,7 +648,7 @@ jobs:
       - name: Run Join Fuzzer
         run: |
           cd  velox
-          cp ./scripts/presto/etc/hive.properties $PRESTO_HOME/etc/catalog
+          cp ./scripts/ci/presto/etc/hive.properties $PRESTO_HOME/etc/catalog
           ls -lR $PRESTO_HOME/etc
           $PRESTO_HOME/bin/launcher run -v > /tmp/server.log 2>&1 &
           # Sleep for 60 seconds to allow Presto server to start.
@@ -749,7 +749,7 @@ jobs:
       - name: Run RowNumber Fuzzer
         run: |
           cd velox
-          cp ./scripts/presto/etc/hive.properties $PRESTO_HOME/etc/catalog
+          cp ./scripts/ci/presto/etc/hive.properties $PRESTO_HOME/etc/catalog
           ls -lR $PRESTO_HOME/etc
           $PRESTO_HOME/bin/launcher run -v > /tmp/server.log 2>&1 &
           # Sleep for 60 seconds to allow Presto server to start.
@@ -811,7 +811,7 @@ jobs:
       - name: Run TopNRowNumber Fuzzer
         run: |
           cd velox
-          cp ./scripts/presto/etc/hive.properties $PRESTO_HOME/etc/catalog
+          cp ./scripts/ci/presto/etc/hive.properties $PRESTO_HOME/etc/catalog
           ls -lR $PRESTO_HOME/etc
           $PRESTO_HOME/bin/launcher run -v > /tmp/server.log 2>&1 &
           # Sleep for 60 seconds to allow Presto server to start.
@@ -978,7 +978,7 @@ jobs:
       - name: "Run Aggregate Fuzzer"
         run: |
           cd  velox
-          cp ./scripts/presto/etc/hive.properties $PRESTO_HOME/etc/catalog
+          cp ./scripts/ci/presto/etc/hive.properties $PRESTO_HOME/etc/catalog
           ls -lR $PRESTO_HOME/etc
           $PRESTO_HOME/bin/launcher run -v > /tmp/server.log 2>&1 &
           # Sleep for 60 seconds to allow Presto server to start.
@@ -1049,7 +1049,7 @@ jobs:
       - name: Run Bias Expression Fuzzer
         run: |
           cd  velox
-          cp ./scripts/presto/etc/hive.properties $PRESTO_HOME/etc/catalog
+          cp ./scripts/ci/presto/etc/hive.properties $PRESTO_HOME/etc/catalog
           ls -lR $PRESTO_HOME/etc
           $PRESTO_HOME/bin/launcher run -v > /tmp/server.log 2>&1 &
           # Sleep for 60 seconds to allow Presto server to start.
@@ -1138,7 +1138,7 @@ jobs:
       - name: "Run Bias Aggregate Fuzzer"
         run: |
           cd  velox
-          cp ./scripts/presto/etc/hive.properties $PRESTO_HOME/etc/catalog
+          cp ./scripts/ci/presto/etc/hive.properties $PRESTO_HOME/etc/catalog
           ls -lR $PRESTO_HOME/etc
           $PRESTO_HOME/bin/launcher run -v > /tmp/server.log 2>&1 &
           # Sleep for 60 seconds to allow Presto server to start.
@@ -1231,7 +1231,7 @@ jobs:
       - name: "Run Window Fuzzer"
         run: |
           cd  velox
-          cp ./scripts/presto/etc/hive.properties $PRESTO_HOME/etc/catalog
+          cp ./scripts/ci/presto/etc/hive.properties $PRESTO_HOME/etc/catalog
           ls -lR $PRESTO_HOME/etc
           $PRESTO_HOME/bin/launcher run -v > /tmp/server.log 2>&1 &
           # Sleep for 60 seconds to allow Presto server to start.
@@ -1295,7 +1295,7 @@ jobs:
       - name: "Run Writer Fuzzer"
         run: |
           cd  velox
-          cp ./scripts/presto/etc/hive.properties $PRESTO_HOME/etc/catalog
+          cp ./scripts/ci/presto/etc/hive.properties $PRESTO_HOME/etc/catalog
           ls -lR $PRESTO_HOME/etc
           echo "jvm config content:"
           cat $PRESTO_HOME/etc/jvm.config

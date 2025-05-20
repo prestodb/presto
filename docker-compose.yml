@@ -24,14 +24,14 @@ services:
     image: ghcr.io/facebookincubator/velox-dev:ubuntu-22.04
     build:
       context: .
-      dockerfile: scripts/ubuntu-22.04-cpp.dockerfile
+      dockerfile: scripts/docker/ubuntu-22.04-cpp.dockerfile
     environment:
       NUM_THREADS: 8 # default value for NUM_THREADS
       VELOX_DEPENDENCY_SOURCE: BUNDLED # Build dependencies from source
       CCACHE_DIR: "/velox/.ccache"
     volumes:
       - .:/velox:delegated
-    command: scripts/docker-command.sh
+    command: scripts/docker/docker-command.sh
 
   adapters-cpp:
     # Usage:
@@ -41,12 +41,12 @@ services:
     #   or
     #   docker-compose run -e NUM_THREADS=<NUMBER_OF_THREADS_TO_USE> --rm adapters-cpp
     #   to set the number of threads used during compilation
-    # scripts/adapters.dockerfile uses SHELL which is not supported for OCI image format.
+    # scripts/docker/adapters.dockerfile uses SHELL which is not supported for OCI image format.
     # podman users must specify "--podman-build-args='--format docker'" argument.
     image: ghcr.io/facebookincubator/velox-dev:adapters
     build:
       context: .
-      dockerfile: scripts/adapters.dockerfile
+      dockerfile: scripts/docker/adapters.dockerfile
       args:
         image: ghcr.io/facebookincubator/velox-dev:centos9
     environment:
@@ -57,7 +57,7 @@ services:
     volumes:
       - .:/velox:delegated
     working_dir: /velox
-    command: /velox/scripts/docker-command.sh
+    command: /velox/scripts/docker/docker-command.sh
 
   adapters-cuda:
     # Usage:
@@ -67,12 +67,12 @@ services:
     #   or
     #   docker-compose run -e NUM_THREADS=<NUMBER_OF_THREADS_TO_USE> --rm adapters-cuda
     #   to set the number of threads used during compilation
-    # scripts/adapters.dockerfile uses SHELL which is not supported for OCI image format.
+    # scripts/docker/adapters.dockerfile uses SHELL which is not supported for OCI image format.
     # podman users must specify "--podman-build-args='--format docker'" argument.
     image: ghcr.io/facebookincubator/velox-dev:adapters
     build:
       context: .
-      dockerfile: scripts/adapters.dockerfile
+      dockerfile: scripts/docker/adapters.dockerfile
       args:
         image: ghcr.io/facebookincubator/velox-dev:centos9
     environment:
@@ -91,7 +91,7 @@ services:
     volumes:
       - .:/velox:delegated
     working_dir: /velox
-    command: /velox/scripts/docker-command.sh
+    command: /velox/scripts/docker/docker-command.sh
 
 
   centos-cpp:
@@ -104,7 +104,7 @@ services:
     image: ghcr.io/facebookincubator/velox-dev:centos9
     build:
       context: .
-      dockerfile: scripts/centos.dockerfile
+      dockerfile: scripts/docker/centos.dockerfile
       args:
         image: quay.io/centos/centos:stream9
     environment:
@@ -113,7 +113,7 @@ services:
     volumes:
       - .:/velox:delegated
     working_dir: /velox
-    command: /velox/scripts/docker-command.sh
+    command: /velox/scripts/docker/docker-command.sh
 
   presto-java:
   # Usage:
@@ -127,14 +127,14 @@ services:
       args:
         - PRESTO_VERSION=0.290
       context: .
-      dockerfile: scripts/prestojava-container.dockerfile
+      dockerfile: scripts/docker/prestojava-container.dockerfile
     environment:
       NUM_THREADS: 8 # default value for NUM_THREADS
       CCACHE_DIR: "/velox/.ccache"
     volumes:
       - .:/velox:delegated
     working_dir: /velox
-    command: /velox/scripts/docker-command.sh
+    command: /velox/scripts/docker/docker-command.sh
 
   spark-server:
   # Usage:
@@ -148,11 +148,11 @@ services:
       args:
         - SPARK_VERSION=3.5.1
       context: .
-      dockerfile: scripts/spark-container.dockerfile
+      dockerfile: scripts/docker/spark-container.dockerfile
     environment:
       NUM_THREADS: 8 # default value for NUM_THREADS
       CCACHE_DIR: "/velox/.ccache"
     volumes:
       - .:/velox:delegated
     working_dir: /velox
-    command: /velox/scripts/docker-command.sh
+    command: /velox/scripts/docker/docker-command.sh

@@ -18,7 +18,7 @@ on:
   pull_request:
       paths:
         - ".github/workflows/build-metrics.yml"
-        - "scripts/bm-report/**"
+        - "scripts/ci/bm-report/**"
 
   workflow_dispatch:
     inputs:
@@ -111,7 +111,7 @@ jobs:
       - name: "Install dependencies"
         run: |
           python3 -m pip install setuptools
-          python3 -m pip install -r scripts/benchmark-requirements.txt
+          python3 -m pip install -r scripts/ci/benchmark-requirements.txt
 
       - name: "Upload Metrics"
         # This disables the upload and report generation on fork PRs but allows it for forks from within the main repo.
@@ -126,7 +126,7 @@ jobs:
           CONBENCH_PROJECT_REPOSITORY: "${{ github.repository }}"
           CONBENCH_PROJECT_COMMIT: "${{ inputs.ref || github.sha }}"
         run: |
-          ./scripts/build-metrics.py upload \
+          ./scripts/ci/bm-report/build-metrics.py upload \
             --build_type "${{ matrix.link-type }}-${{ matrix.type }}" \
             --run_id "BM-${{ matrix.link-type }}-${{ matrix.type }}-${{ github.run_id }}-${{ github.run_attempt }}" \
             --pr_number "${{ github.event.number }}" \
@@ -156,7 +156,7 @@ jobs:
 
       - name: Build Environment
         run: |
-          cd scripts/bm-report
+          cd scripts/ci/bm-report
           nix-build
 
       - name: Build Documentation
@@ -165,14 +165,14 @@ jobs:
           CONBENCH_EMAIL: "${{ secrets.CONBENCH_EMAIL }}"
           CONBENCH_PASSWORD: "${{ secrets.CONBENCH_PASSWORD }}"
         run: |
-          cd scripts/bm-report
+          cd scripts/ci/bm-report
           nix-shell --run "quarto render report.qmd"
 
       - name: Upload Report Artifact
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
           name: report
-          path: scripts/bm-report/report.html
+          path: scripts/ci/bm-report/report.html
           retention-days: 5
 
       - name: Push Report
@@ -182,7 +182,7 @@ jobs:
         run: |
           git checkout gh-pages
           mkdir -p docs/bm-report
-          cp -R scripts/bm-report/report.html docs/bm-report/index.html
+          cp -R scripts/ci/bm-report/report.html docs/bm-report/index.html
           git add docs
 
           if [ -n "$(git status --porcelain --untracked-files=no)" ]

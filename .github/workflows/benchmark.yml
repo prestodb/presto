@@ -18,8 +18,8 @@ on:
   pull_request:
     paths:
       - '.github/workflows/benchmark.yml'
-      - 'scripts/benchmark-requirements.txt'
-      - 'scripts/setup-ubuntu.sh'
+      - 'scripts/ci/benchmark-requirements.txt'
+      - 'scripts/ci/setup-ubuntu.sh'
 
   push:
     branches: [main]
@@ -126,7 +126,7 @@ jobs:
 
       - name: Install benchmark dependencies
         run: |
-          python3 -m pip install -r velox/scripts/benchmark-requirements.txt
+          python3 -m pip install -r velox/scripts/ci/benchmark-requirements.txt
 
       - name: Run Benchmarks - Contender
         working-directory: 'velox'
@@ -168,7 +168,7 @@ jobs:
         cache-dependency-path: "velox/scripts/*"
 
     - name: Install dependencies
-      run: pip install -r velox/scripts/benchmark-requirements.txt
+      run: pip install -r velox/scripts/ci/benchmark-requirements.txt
 
     - name: Upload results
       env:
@@ -180,7 +180,7 @@ jobs:
         CONBENCH_PROJECT_COMMIT: "${{ github.sha }}"
         RUN_ID: "GHA-${{ github.run_id }}-${{ github.run_attempt }}"
       run: |
-        ./velox/scripts/benchmark-runner.py upload \
+        ./velox/scripts/ci/benchmark-runner.py upload \
           --run_id "$RUN_ID" \
           --sha "$CONBENCH_PROJECT_COMMIT" \
           --output_dir "/tmp/artifacts/contender/"
@@ -223,7 +223,7 @@ jobs:
         COMMIT_MESSAGE: "${{ github.event.head_commit.message }}"
         CONTENDER_SHA: "${{ github.sha }}"
       run: |
-        ./velox/scripts/benchmark-alert.py \
+        ./velox/scripts/ci/benchmark-alert.py \
           --contender-sha "$CONTENDER_SHA" \
           --merge-commit-message "$COMMIT_MESSAGE" \
           --z-score-threshold 50

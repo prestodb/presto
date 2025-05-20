@@ -37,9 +37,9 @@ RUN dnf install -y java-11-openjdk less procps python3 tzdata \
 # detailed here : https://github.com/facebookincubator/velox/issues/8127
 ENV TZ=America/Los_Angeles
 
-COPY scripts/spark/conf/spark-defaults.conf.example $SPARK_HOME/conf/spark-defaults.conf
-COPY scripts/spark/conf/spark-env.sh.example $SPARK_HOME/conf/spark-env.sh
-COPY scripts/spark/conf/workers.example $SPARK_HOME/conf/workers
-COPY scripts/spark/start-spark.sh /opt
+COPY scripts/ci/spark/conf/spark-defaults.conf.example $SPARK_HOME/conf/spark-defaults.conf
+COPY scripts/ci/spark/conf/spark-env.sh.example $SPARK_HOME/conf/spark-env.sh
+COPY scripts/ci/spark/conf/workers.example $SPARK_HOME/conf/workers
+COPY scripts/ci/spark/start-spark.sh /opt
 
 WORKDIR /velox
