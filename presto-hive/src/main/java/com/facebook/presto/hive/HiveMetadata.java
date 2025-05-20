@@ -217,6 +217,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.getTemporaryTableCo
 import static com.facebook.presto.hive.HiveSessionProperties.getTemporaryTableSchema;
 import static com.facebook.presto.hive.HiveSessionProperties.getTemporaryTableStorageFormat;
 import static com.facebook.presto.hive.HiveSessionProperties.getVirtualBucketCount;
+import static com.facebook.presto.hive.HiveSessionProperties.getWriteFormats;
 import static com.facebook.presto.hive.HiveSessionProperties.isBucketExecutionEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isCollectColumnStatisticsOnWrite;
 import static com.facebook.presto.hive.HiveSessionProperties.isCreateEmptyBucketFiles;
@@ -1982,6 +1983,12 @@ public class HiveMetadata
         SchemaTableName tableName = ((HiveTableHandle) tableHandle).getSchemaTableName();
         Table table = metastore.getTable(metastoreContext, tableName.getSchemaName(), tableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
+        HiveStorageFormat tableStorageFormat = extractHiveStorageFormat(table);
+        List<String> writeFormats = getWriteFormats(session);
+        if (!writeFormats.isEmpty() && !writeFormats.contains(tableStorageFormat.toString())) {
+            throw new PrestoException(NOT_SUPPORTED,
+                    format("File format %s not supported for write operation.", tableStorageFormat.toString()));
+        }
 
         tableWritabilityChecker.checkTableWritable(table);
 
@@ -2002,7 +2009,6 @@ public class HiveMetadata
                 .filter(columnHandle -> !columnHandle.isHidden())
                 .collect(toList());
 
-        HiveStorageFormat tableStorageFormat = extractHiveStorageFormat(table);
         LocationHandle locationHandle;
         boolean isTemporaryTable = table.getTableType().equals(TEMPORARY_TABLE);
         boolean tempPathRequired = isTempPathRequired(

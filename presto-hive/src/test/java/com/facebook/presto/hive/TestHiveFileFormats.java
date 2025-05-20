@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.RowType;
@@ -38,6 +39,7 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.session.PropertyMetadata;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -107,6 +109,7 @@ import static com.facebook.presto.hive.HiveTestUtils.ROW_EXPRESSION_SERVICE;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.getAllSessionProperties;
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
+import static com.facebook.presto.tests.QueryAssertions.assertQueryFails;
 import static com.facebook.presto.tests.StructuralTestUtil.arrayBlockOf;
 import static com.facebook.presto.tests.StructuralTestUtil.mapBlockOf;
 import static com.facebook.presto.tests.StructuralTestUtil.rowBlockOf;
@@ -961,6 +964,36 @@ public class TestHiveFileFormats
                 .withRowsCount(1)
                 .withSession(parquetPageSourceSession)
                 .isFailingForPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER), expectedErrorCode, expectedMessageRowLongNest);
+    }
+
+    @Test
+    public void testReadWriteFormats() throws Exception {
+        QueryRunner queryRunner = HiveQueryRunner.createQueryRunner(
+                ImmutableList.of(),
+                ImmutableMap.of(),
+                "sql-standard",
+                ImmutableMap.of("hive.read-formats", "ORC,PARQUET",
+                        "hive.write-formats", "DWRF,ORC"),
+                Optional.empty());
+        Session session = queryRunner.getDefaultSession();
+
+        // Writes to PARQUET table should fail, reads should succeed.
+        queryRunner.execute("DROP TABLE IF EXISTS t0");
+        queryRunner.execute("CREATE TABLE t0(a BIGINT, b DOUBLE) WITH (format = 'PARQUET')");
+        assertQueryFails(queryRunner, session, "INSERT INTO t0 VALUES (1, 0.5)", ".*File format PARQUET not supported for write operation.*");
+        queryRunner.execute("SELECT a FROM t0");
+
+        // Reads from DWRF table should fail, writes should succeed.
+        queryRunner.execute("DROP TABLE IF EXISTS t1");
+        queryRunner.execute("CREATE TABLE t1(a BIGINT, b DOUBLE) WITH (format = 'DWRF')");
+        queryRunner.execute("INSERT INTO t1 VALUES (1, 0.5)");
+        assertQueryFails(queryRunner, session, "SELECT b from t1", ".*File format DWRF not supported for read operation.*");
+
+        // Writes and reads to ORC table should succeed.
+        queryRunner.execute("DROP TABLE IF EXISTS t2");
+        queryRunner.execute(session, "CREATE TABLE t2(a BIGINT, b DOUBLE) WITH (format = 'ORC')");
+        queryRunner.execute(session, "INSERT INTO t2 VALUES (1, 0.5)");
+        queryRunner.execute(session, "SELECT * from t2");
     }
 
     private void testCursorProvider(HiveRecordCursorProvider cursorProvider,
