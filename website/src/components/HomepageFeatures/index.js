@@ -4,33 +4,6 @@ import styles from './styles.module.css';
 import useBaseUrl from "@docusaurus/useBaseUrl";
 
 const FeatureList = [
-  {
-    title: 'Efficiency',
-    description: (
-      <>
-        Velox democratizes runtime optimizations previously only implemented
-        in individual engines.
-      </>
-    ),
-  },
-  {
-    title: 'Consistency',
-    description: (
-      <>
-        By leveraging the same execution library, compute engines can expose
-        the exact same functions, data types, and semantics to their users.
-      </>
-    ),
-  },
-  {
-    title: 'Reusability',
-    description: (
-      <>
-        Features and runtime optimizations available in Velox are developed
-        and maintained once, reducing engineering duplication and promoting reusability. 
-      </>
-    ),
-  },
 ];
 
 function Feature({Svg, title, description}) {
@@ -54,7 +27,7 @@ export default function HomepageFeatures() {
           ))}
         </div>
         <div className="row">
-          <img src={useBaseUrl("img/stack_transform.png")}/>
+    
         </div>
       </div>
     </section>

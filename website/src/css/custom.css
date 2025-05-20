@@ -24,10 +24,12 @@
   --ifm-color-primary-lightest: #bcd1f1;
 }
 
+/* ========== Hero Section ========== */
+
 .jumbotron {
   background: url("../../static/img/dark_blue_dots.jpg") no-repeat center center;
-    background-size: cover;
-    color: white;
+  background-size: cover;
+  color: white;
 }
 
 .hero__title {
@@ -42,4 +44,12 @@
 .button-wrapper {
   text-align: left;
   margin-top: 2rem !important;
+}
+
+/* Cleaned up heroLogo definition: only one version */
+.heroLogo {
+  max-width: 200px;
+  height: auto;
+  margin-bottom: 2rem;
+  display: block;
 }

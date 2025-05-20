@@ -28,3 +28,466 @@
   padding: 2rem 0;
   width: 100%;
 }
+
+.heroLogo {
+  max-width: 240px;  /* Controls width on large screens */
+  width: 100%;
+  height: auto;
+  margin-bottom: 2rem;
+  display: block;
+}
+.heroSection {
+  background: #f7f9fc; /* subtle light background */
+  padding: 5rem 1rem;
+  text-align: center;
+}
+
+.heroContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.heroLogo {
+  height: 150px;
+  max-width: 100%;
+  margin-bottom: 2rem;
+}
+
+@media (max-width: 600px) {
+  .heroLogo {
+    height: 72px;
+  }
+}
+
+.heroTitle {
+  font-size: 2.75rem;
+  line-height: 1.3;
+  font-weight: 700;
+  color: #111827; /* dark neutral */
+  margin-bottom: 2rem;
+}
+
+.buttonGroup {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.primaryButton {
+  background-color: #2b4eff;
+  color: #fff;
+  border-radius: 2rem;
+  padding: 0.75rem 1.5rem;
+  font-weight: 500;
+  text-decoration: none;
+  border: none;
+}
+
+.secondaryButton {
+  background: transparent;
+  color: #2b4eff;
+  border: 1px solid #2b4eff;
+  border-radius: 2rem;
+  padding: 0.75rem 1.5rem;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+/* What is Velox Section */
+
+.whatIsVeloxSection {
+  padding: 4rem 0;
+  background-color: #f9f9f9;
+}
+
+.textColumn h2 {
+  font-size: 1.8rem; /* updated from previous smaller value */
+  margin-bottom: 1rem;
+}
+
+.contentRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+}
+
+.textColumn {
+  flex: 1 1 45%;
+  padding-right: 1rem;
+}
+
+.imageColumn {
+  flex: 1 1 50%;
+  text-align: center;
+}
+
+.architectureImage {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Ecosystem Section */
+
+.ecosystemRow {
+  margin-top: 3rem;
+}
+
+.ecosystemRow h2 {
+  font-size: 1.8rem;
+  margin-bottom: 0.5rem;
+  text-align: left;
+}
+
+.ecosystemDescription {
+  max-width: 100%;
+  margin-bottom: 2rem;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.ecosystemGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+  justify-content: space-between;
+}
+
+.ecosystemCard {
+  flex: 1 1 calc(33.333% - 2rem);
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  padding: 1.5rem;
+  border-radius: 8px;
+  text-align: left;
+}
+
+.ecosystemCard img {
+  max-width: 100px;
+  margin-bottom: 1rem;
+}
+
+.ecosystemCard h3 {
+  margin-bottom: 0.5rem;
+  font-size: 1.2rem;
+}
+
+.ecosystemCard p {
+  margin-bottom: 1rem;
+}
+
+.ecosystemCard a {
+  color: var(--ifm-color-primary);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+/* Key Features Section */
+
+.keyFeaturesSection {
+  padding: 4rem 0;
+  background-color: #ffffff;
+}
+
+.keyFeaturesSection h2 {
+  text-align: left;
+  font-size: 1.8rem;
+  margin-bottom: 2rem;
+}
+
+.featureGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+  justify-content: space-between;
+}
+
+.featureCard {
+  flex: 1 1 calc(33% - 2rem);
+  background-color: #f4f4f4;
+  padding: 2rem 1.5rem;
+  border-radius: 8px;
+  text-align: center;
+  min-width: 240px;
+}
+
+.featureCard img {
+  max-width: 100px;
+  height: auto;
+  margin-bottom: 1rem;
+}
+
+.featureCard h3 {
+  font-size: 1.2rem;
+  margin-bottom: 0.5rem;
+}
+
+.featureCard p {
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.usingSection {
+  padding: 4rem 0;
+  background-color: #f9f9f9;
+}
+
+.usingSection h2 {
+  text-align: left;
+  font-size: 1.8rem;
+  margin-bottom: 1.5rem;
+}
+
+/* Horizontal scroll container */
+.logoScroller {
+  overflow-x: auto;
+  white-space: nowrap;
+  padding: 1rem 0;
+  scrollbar-width: none; /* Firefox */
+}
+
+.logoScroller::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
+.logoTrack {
+  display: inline-flex;
+  gap: 2rem;
+  align-items: center;
+}
+
+.logoTrack img {
+  height: 40px;
+  width: auto;
+  flex-shrink: 0;
+  transition: transform 0.3s ease;
+}
+
+.logoTrack img:hover {
+  transform: scale(1.05);
+}
+
+.usingSection {
+  padding: 4rem 0;
+  background-color: #f9f9f9;
+}
+
+.usingSection h2 {
+  text-align: left;
+  font-size: 1.8rem;
+  margin-bottom: 1.5rem;
+}
+
+.logoScroller {
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+}
+
+.logoTrack {
+  display: flex;
+  width: max-content;
+  gap: 3rem;
+  align-items: center;
+  animation: scrollLeft 25s linear infinite;
+}
+
+.logoScroller:hover .logoTrack {
+  animation-play-state: paused;
+}
+
+.logoTrack img {
+  height: 60px;   /* 👈 Increase for bigger logos */
+  width: auto;
+  flex-shrink: 0;
+  opacity: 0.9;
+  transition: transform 0.3s ease;
+}
+
+.logoTrack img:hover {
+  transform: scale(1.1);
+}
+
+/* Auto-scroll animation */
+@keyframes scrollLeft {
+  from {
+    transform: translateX(0%);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.logoScrollerWrapper {
+  position: relative;
+}
+
+.logoScroller::before,
+.logoScroller::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  width: 60px;
+  height: 100%;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.logoScroller::before {
+  left: 0;
+  background: linear-gradient(to right, #f9f9f9 0%, transparent 100%);
+}
+
+.logoScroller::after {
+  right: 0;
+  background: linear-gradient(to left, #f9f9f9 0%, transparent 100%);
+}
+
+.metaLogo {
+  height: 130px !important;
+}
+
+.microsoftLogo {
+  height: 130px !important;
+}
+
+.googleLogo {
+  height: 130px !important;
+}
+
+.latestNewsSection {
+  padding: 4rem 0;
+  background-color: #ffffff;
+}
+
+.latestNewsSection h2 {
+  font-size: 1.8rem;
+  margin-bottom: 1.5rem;
+  text-align: left;
+}
+
+/* Inline stats */
+.statsInline {
+  display: flex;
+  gap: 2rem;
+  font-size: 0.95rem;
+  margin-bottom: 2rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.statsInline div {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.statsInline img {
+  height: 48px;
+  width: 48px;
+}
+
+/* Scrollable tile row */
+.tileScrollWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+.tileScroll {
+  display: flex;
+  overflow-x: auto;
+  gap: 1.5rem;
+  scroll-behavior: smooth;
+  padding: 1rem 0;
+}
+
+.tileScroll::-webkit-scrollbar {
+  display: none;
+}
+
+.newsTile {
+  flex: 0 0 320px; /* Adjust for 3 boxes across with spacing */
+  width: 320px;
+  background: #fafafa;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 1.5rem;
+  text-decoration: none;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow 0.2s ease;
+}
+
+.newsTile:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.newsTag {
+  font-size: 1rem;
+  font-weight: bold;
+  color: #2b4eff;
+  text-transform: uppercase;
+}
+
+.newsDate {
+  font-size: 0.75rem;
+  color: #666;
+  margin-top: auto;
+}
+
+.scrollButtonLeft,
+.scrollButtonRight {
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 50%;
+  font-size: 1.5rem;
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
+  z-index: 2;
+  transition: background 0.2s ease;
+}
+
+.scrollButtonLeft:hover,
+.scrollButtonRight:hover {
+  background: #f0f0f0;
+}
+
+.scrollButtonLeft {
+  margin-right: 0.5rem;
+}
+
+.scrollButtonRight {
+  margin-left: 0.5rem;
+}
+
+.linkedinMention {
+  margin-top: 1.5rem;
+  text-align: left;
+}
+
+.linkedinLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #0a66c2;
+  text-decoration: none;
+}
+
+.linkedinLink:hover {
+  text-decoration: underline;
+}
+
+.linkedinIcon {
+  height: 20px;
+  width: 20px;
+}
