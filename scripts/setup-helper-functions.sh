@@ -17,7 +17,8 @@
 # specified repo, checking out the requested version.
 
 DEPENDENCY_DIR=${DEPENDENCY_DIR:-$(pwd)/deps-download}
-OS_CXXFLAGS=""
+OS_CXXFLAGS=${OS_CXXFLAGS:-""}
+EXTRA_PKG_CXXFLAGS=${EXTRA_PKG_CXXFLAGS:-""}
 NPROC=${BUILD_THREADS:-$(getconf _NPROCESSORS_ONLN)}
 
 CURL_OPTIONS=${CURL_OPTIONS:-""}
@@ -209,6 +210,7 @@ function cmake_install {
   COMPILER_FLAGS=$(get_cxx_flags)
   # Add platform specific CXX flags if any
   COMPILER_FLAGS+=${OS_CXXFLAGS}
+  COMPILER_FLAGS+=${EXTRA_PKG_CXXFLAGS}
 
   # CMAKE_POSITION_INDEPENDENT_CODE is required so that Velox can be built into dynamic libraries \
   cmake -Wno-dev ${CMAKE_OPTIONS} -B"${BINARY_DIR}" \

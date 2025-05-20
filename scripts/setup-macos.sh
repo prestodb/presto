@@ -45,10 +45,6 @@ DEPENDENCY_DIR=${DEPENDENCY_DIR:-$(pwd)}
 MACOS_VELOX_DEPS="bison flex gflags glog googletest icu4c libevent libsodium lz4 lzo openssl protobuf@21 snappy xz xxhash zstd"
 MACOS_BUILD_DEPS="ninja cmake"
 
-# Folly Portability.h being used to decide whether or not support coroutines
-# causes issues (build, lin) if the selection is not consistent across users of folly.
-EXTRA_FBOS_FLAGS=" -DCMAKE_CXX_FLAGS=-DFOLLY_CFG_NO_COROUTINES"
-
 FB_OS_VERSION="v2025.04.28.00"
 FMT_VERSION="10.1.1"
 BOOST_VERSION="boost-1.84.0"
@@ -129,28 +125,43 @@ function install_fast_float {
 }
 
 function install_folly {
+  # Folly Portability.h being used to decide whether or not support coroutines
+  # causes issues (build, lin) if the selection is not consistent across users of folly.
+  EXTRA_PKG_CXXFLAGS=" -DFOLLY_CFG_NO_COROUTINES"
   wget_and_untar https://github.com/facebook/folly/archive/refs/tags/${FB_OS_VERSION}.tar.gz folly
-  cmake_install_dir folly -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS="$VELOX_BUILD_SHARED" -DFOLLY_HAVE_INT128_T=ON ${EXTRA_FBOS_FLAGS}
+  cmake_install_dir folly -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS="$VELOX_BUILD_SHARED" -DFOLLY_HAVE_INT128_T=ON
 }
 
 function install_fizz {
+  # Folly Portability.h being used to decide whether or not support coroutines
+  # causes issues (build, lin) if the selection is not consistent across users of folly.
+  EXTRA_PKG_CXXFLAGS=" -DFOLLY_CFG_NO_COROUTINES"
   wget_and_untar https://github.com/facebookincubator/fizz/archive/refs/tags/${FB_OS_VERSION}.tar.gz fizz
-  cmake_install_dir fizz/fizz -DBUILD_TESTS=OFF ${EXTRA_FBOS_FLAGS}
+  cmake_install_dir fizz/fizz -DBUILD_TESTS=OFF
 }
 
 function install_wangle {
+  # Folly Portability.h being used to decide whether or not support coroutines
+  # causes issues (build, lin) if the selection is not consistent across users of folly.
+  EXTRA_PKG_CXXFLAGS=" -DFOLLY_CFG_NO_COROUTINES"
   wget_and_untar https://github.com/facebook/wangle/archive/refs/tags/${FB_OS_VERSION}.tar.gz wangle
-  cmake_install_dir wangle/wangle -DBUILD_TESTS=OFF ${EXTRA_FBOS_FLAGS}
+  cmake_install_dir wangle/wangle -DBUILD_TESTS=OFF
 }
 
 function install_mvfst {
+  # Folly Portability.h being used to decide whether or not support coroutines
+  # causes issues (build, lin) if the selection is not consistent across users of folly.
+  EXTRA_PKG_CXXFLAGS=" -DFOLLY_CFG_NO_COROUTINES"
   wget_and_untar https://github.com/facebook/mvfst/archive/refs/tags/${FB_OS_VERSION}.tar.gz mvfst
-  cmake_install_dir mvfst -DBUILD_TESTS=OFF ${EXTRA_FBOS_FLAGS}
+  cmake_install_dir mvfst -DBUILD_TESTS=OFF
 }
 
 function install_fbthrift {
+  # Folly Portability.h being used to decide whether or not support coroutines
+  # causes issues (build, lin) if the selection is not consistent across users of folly.
+  EXTRA_PKG_CXXFLAGS=" -DFOLLY_CFG_NO_COROUTINES"
   wget_and_untar https://github.com/facebook/fbthrift/archive/refs/tags/${FB_OS_VERSION}.tar.gz fbthrift
-  cmake_install_dir fbthrift -Denable_tests=OFF -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=OFF ${EXTRA_FBOS_FLAGS}
+  cmake_install_dir fbthrift -Denable_tests=OFF -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=OFF
 }
 
 function install_double_conversion {

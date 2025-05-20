@@ -52,10 +52,6 @@ DUCKDB_VERSION="v0.8.1"
 GEOS_VERSION="3.10.2"
 FAST_FLOAT_VERSION="v8.0.2"
 
-# Folly Portability.h being used to decide whether or not support coroutines
-# causes issues (build, lin) if the selection is not consistent across users of folly.
-EXTRA_FBOS_FLAGS=" -DCMAKE_CXX_FLAGS=-DFOLLY_CFG_NO_COROUTINES"
-
 function dnf_install {
   dnf install -y -q --setopt=install_weak_deps=False "$@"
 }
@@ -157,8 +153,11 @@ function install_protobuf {
 }
 
 function install_fizz {
+  # Folly Portability.h being used to decide whether or not support coroutines
+  # causes issues (build, link) if the selection is not consistent across users of folly.
+  EXTRA_PKG_CXXFLAGS=" -DFOLLY_CFG_NO_COROUTINES"
   wget_and_untar https://github.com/facebookincubator/fizz/archive/refs/tags/${FB_OS_VERSION}.tar.gz fizz
-  cmake_install_dir fizz/fizz -DBUILD_TESTS=OFF ${EXTRA_FBOS_FLAGS}
+  cmake_install_dir fizz/fizz -DBUILD_TESTS=OFF
 }
 
 function install_fast_float {
@@ -167,23 +166,35 @@ function install_fast_float {
 }
 
 function install_folly {
+  # Folly Portability.h being used to decide whether or not support coroutines
+  # causes issues (build, link) if the selection is not consistent across users of folly.
+  EXTRA_PKG_CXXFLAGS=" -DFOLLY_CFG_NO_COROUTINES"
   wget_and_untar https://github.com/facebook/folly/archive/refs/tags/${FB_OS_VERSION}.tar.gz folly
-  cmake_install_dir folly -DBUILD_SHARED_LIBS="$VELOX_BUILD_SHARED" -DBUILD_TESTS=OFF -DFOLLY_HAVE_INT128_T=ON ${EXTRA_FBOS_FLAGS}
+  cmake_install_dir folly -DBUILD_SHARED_LIBS="$VELOX_BUILD_SHARED" -DBUILD_TESTS=OFF -DFOLLY_HAVE_INT128_T=ON
 }
 
 function install_wangle {
+  # Folly Portability.h being used to decide whether or not support coroutines
+  # causes issues (build, link) if the selection is not consistent across users of folly.
+  EXTRA_PKG_CXXFLAGS=" -DFOLLY_CFG_NO_COROUTINES"
   wget_and_untar https://github.com/facebook/wangle/archive/refs/tags/${FB_OS_VERSION}.tar.gz wangle
-  cmake_install_dir wangle/wangle -DBUILD_TESTS=OFF ${EXTRA_FBOS_FLAGS}
+  cmake_install_dir wangle/wangle -DBUILD_TESTS=OFF
 }
 
 function install_fbthrift {
+  # Folly Portability.h being used to decide whether or not support coroutines
+  # causes issues (build, link) if the selection is not consistent across users of folly.
+  EXTRA_PKG_CXXFLAGS=" -DFOLLY_CFG_NO_COROUTINES"
   wget_and_untar https://github.com/facebook/fbthrift/archive/refs/tags/${FB_OS_VERSION}.tar.gz fbthrift
-  cmake_install_dir fbthrift -Denable_tests=OFF -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=OFF ${EXTRA_FBOS_FLAGS}
+  cmake_install_dir fbthrift -Denable_tests=OFF -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=OFF
 }
 
 function install_mvfst {
+  # Folly Portability.h being used to decide whether or not support coroutines
+  # causes issues (build, link) if the selection is not consistent across users of folly.
+  EXTRA_PKG_CXXFLAGS=" -DFOLLY_CFG_NO_COROUTINES"
   wget_and_untar https://github.com/facebook/mvfst/archive/refs/tags/${FB_OS_VERSION}.tar.gz mvfst
-  cmake_install_dir mvfst -DBUILD_TESTS=OFF ${EXTRA_FBOS_FLAGS}
+  cmake_install_dir mvfst -DBUILD_TESTS=OFF
 }
 
 function install_duckdb {
