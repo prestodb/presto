@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.router.cluster;
 
-import com.facebook.airlift.bootstrap.LifeCycleManager;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.router.RouterConfig;
 import com.facebook.presto.router.scheduler.CustomSchedulerManager;
@@ -30,18 +29,20 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import com.google.common.io.Closer;
 import com.sun.nio.file.SensitivityWatchEventModifier;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
 
-import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
-import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.nio.file.ClosedWatchServiceException;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardWatchEventKinds;
 import java.nio.file.WatchEvent;
 import java.nio.file.WatchKey;
@@ -50,9 +51,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -70,12 +71,14 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class ClusterManager
+        implements AutoCloseable
 {
     private final AtomicReference<ClusterManagerConfig> currentConfig = new AtomicReference<>();
 
-    public final RouterConfig routerConfig;
+    private final Path configFile;
     private final Logger log = Logger.get(ClusterManager.class);
 
     // Cluster status
@@ -84,25 +87,76 @@ public class ClusterManager
 
     private final AtomicBoolean isWatchServiceStarted = new AtomicBoolean();
     private final RemoteInfoFactory remoteInfoFactory;
-    private final LifeCycleManager lifeCycleManager;
     private final HashMap<String, HashMap<URI, Integer>> serverWeights = new HashMap<>();
     private final CustomSchedulerManager schedulerManager;
+    private final ScheduledExecutorService scheduledExecutorService;
+    private final ScheduledFuture<?> configDetection;
+    private final WatchService watchService;
+    private final WatchKey watchKey;
+    private final Closer closer;
 
     @Inject
-    public ClusterManager(RouterConfig config, RemoteInfoFactory remoteInfoFactory, LifeCycleManager lifeCycleManager,
-                          CustomSchedulerManager schedulerManager)
+    public ClusterManager(RouterConfig config, RemoteInfoFactory remoteInfoFactory, CustomSchedulerManager schedulerManager)
+            throws IOException
     {
-        this.routerConfig = requireNonNull(config, "config is null");
+        this.configFile = Paths.get(requireNonNull(config, "config is null").getConfigFile());
         this.remoteInfoFactory = requireNonNull(remoteInfoFactory, "remoteInfoFactory is null");
-        this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifecycleManager is null");
         this.schedulerManager = schedulerManager;
-        onConfigChangeDetection();
-        this.initializeServerWeights();
+        reloadConfig();
+        initializeServerWeights();
+        closer = Closer.create();
+        watchService = closer.register(FileSystems.getDefault().newWatchService());
+        Path parentDir = configFile.getParent();
+        log.info("Router config watch service monitoring %s", parentDir);
+        watchKey = parentDir.register(
+                watchService,
+                new WatchEvent.Kind[] {
+                        StandardWatchEventKinds.ENTRY_MODIFY,
+                        StandardWatchEventKinds.ENTRY_CREATE,
+                        StandardWatchEventKinds.ENTRY_DELETE,
+                        StandardWatchEventKinds.OVERFLOW},
+                SensitivityWatchEventModifier.HIGH);
+        closer.register(watchKey::cancel);
+        log.info("Successfully registered watch service for %s", parentDir);
+        scheduledExecutorService = newSingleThreadScheduledExecutor();
+        configDetection = scheduledExecutorService.scheduleAtFixedRate(this::monitorConfig, 0, 3, SECONDS);
+        closer.register(() -> configDetection.cancel(true));
+        closer.register(scheduledExecutorService::shutdownNow);
     }
 
-    protected void onConfigChangeDetection()
+    protected void monitorConfig()
     {
-        RouterSpec newRouterSpec = parseRouterConfig(routerConfig)
+        try {
+            WatchKey key = watchService.poll(1, SECONDS);
+            if (key == null) {
+                return;
+            }
+            List<WatchEvent<?>> events = key.pollEvents();
+            log.info("Changes to router config directory detected");
+            for (WatchEvent<?> event : events) {
+                log.info("Event detected: %s, path: %s", event.kind().name(), event.context());
+                Path changed = (Path) event.context();
+                if (changed.endsWith(configFile.getFileName())) {
+                    reloadConfig();
+                }
+                else {
+                    log.info("Change to %s ignored by ClusterManager (config file is %s)", event.context(), configFile);
+                }
+            }
+            key.reset();
+        }
+        catch (ClosedWatchServiceException e) {
+            log.warn("Watch service closed. Future updates configuration changes will not be detected.");
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.warn("watch service interrupted while waiting for looking for configuration updates");
+        }
+    }
+
+    protected void reloadConfig()
+    {
+        RouterSpec newRouterSpec = parseRouterConfig(configFile)
                 .orElseThrow(() -> new PrestoException(CONFIGURATION_INVALID, "Failed to load router config"));
         Map<String, GroupSpec> newGroups = newRouterSpec.getGroups().stream().collect(toImmutableMap(GroupSpec::getName, group -> group));
         List<SelectorRuleSpec> newGroupSelectors = ImmutableList.copyOf(newRouterSpec.getSelectors());
@@ -132,54 +186,6 @@ public class ClusterManager
         currentConfig.set(new ClusterManagerConfig(newGroups, newGroupSelectors, newScheduler, newSchedulerType));
     }
 
-    @PostConstruct
-    public void startConfigReloadTaskFileWatcher()
-    {
-        CompletableFuture.supplyAsync(() -> {
-            try (WatchService watchService = FileSystems.getDefault().newWatchService()) {
-                File routerConfigFile = new File(routerConfig.getConfigFile());
-                log.info("Router config watch service monitoring %s", routerConfig.getConfigFile());
-                Path parentDir = routerConfigFile.toPath().getParent();
-                parentDir.register(
-                        watchService,
-                        new WatchEvent.Kind[] {
-                                StandardWatchEventKinds.ENTRY_MODIFY,
-                                StandardWatchEventKinds.ENTRY_CREATE,
-                                StandardWatchEventKinds.ENTRY_DELETE,
-                                StandardWatchEventKinds.OVERFLOW},
-                        SensitivityWatchEventModifier.HIGH);
-                isWatchServiceStarted.set(true);
-                log.info("Successfully registered watch service for %s", parentDir);
-
-                while (true) {
-                    WatchKey key = watchService.take();
-                    log.info("Changes to router config directory detected: %s", routerConfigFile);
-                    for (WatchEvent<?> event : key.pollEvents()) {
-                        log.debug("Event detected: %s, path: %s", event.kind().name(), event.context());
-                        Path changed = (Path) event.context();
-                        if (changed.endsWith(routerConfigFile.getName())) {
-                            try {
-                                onConfigChangeDetection();
-                            }
-                            catch (Exception e) {
-                                log.error("Exception in config reload");
-                            }
-                        }
-                        else {
-                            log.debug("Config change to %s ignored by ClusterManager (config file is %s)", event.context(), routerConfigFile.getName());
-                        }
-                    }
-                    key.reset();
-                }
-            }
-            catch (IOException | InterruptedException e) {
-                log.error("Exception in file watcher loop while monitoring %s, %s", routerConfig.getConfigFile(), e);
-                lifeCycleManager.stop();
-                throw new RuntimeException(e);
-            }
-        });
-    }
-
     public List<URI> getAllClusters()
     {
         return currentConfig.get().getGroups().values().stream()
@@ -199,9 +205,9 @@ public class ClusterManager
         GroupSpec groupSpec = config.getGroups().get(target.get());
 
         List<URI> healthyClusterURIs = groupSpec.getMembers().stream().filter((entry) ->
-                Optional.ofNullable(remoteClusterInfos.get(entry))
-                        .map(RemoteClusterInfo::isHealthy)
-                        .orElse(false))
+                        Optional.ofNullable(remoteClusterInfos.get(entry))
+                                .map(RemoteClusterInfo::isHealthy)
+                                .orElse(false))
                 .collect(Collectors.toList());
 
         if (healthyClusterURIs.isEmpty()) {
@@ -283,6 +289,14 @@ public class ClusterManager
     public boolean getIsWatchServiceStarted()
     {
         return isWatchServiceStarted.get();
+    }
+
+    @PreDestroy
+    @Override
+    public void close()
+            throws Exception
+    {
+        closer.close();
     }
 
     public static class ClusterStatusTracker
