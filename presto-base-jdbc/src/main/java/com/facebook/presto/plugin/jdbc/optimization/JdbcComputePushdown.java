@@ -16,6 +16,7 @@ package com.facebook.presto.plugin.jdbc.optimization;
 import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.expressions.translator.RowExpressionTranslator;
 import com.facebook.presto.expressions.translator.TranslatedExpression;
+import com.facebook.presto.plugin.jdbc.JdbcSessionProperties;
 import com.facebook.presto.plugin.jdbc.JdbcTableHandle;
 import com.facebook.presto.plugin.jdbc.JdbcTableLayoutHandle;
 import com.facebook.presto.plugin.jdbc.optimization.function.JoinOperatorTranslators;
@@ -141,7 +142,6 @@ public class JdbcComputePushdown
             if (!oldTableHandle.getLayout().isPresent()) {
                 return node;
             }
-
             RowExpression predicate = expressionOptimizerProvider.getExpressionOptimizer(session).optimize(node.getPredicate(), OPTIMIZED, session);
             predicate = logicalRowExpressions.convertToConjunctiveNormalForm(predicate);
 
@@ -157,50 +157,53 @@ public class JdbcComputePushdown
             if (translated.isPresent()) {
                 return createNewTableScanNode(oldTableScanNode, oldTableHandle, oldTableLayoutHandle, translated);
             }
-            /*
+            if (JdbcSessionProperties.isPartialPredicatePushDownEnabled(this.session)) {
+/*
                 Copied from the PR to enhance pushing part filters down to the tablehandle
                 - https://github.com/prestodb/presto/pull/16412/files.
                 This will find out which parts can be pushed down and able to translate by connector,
                 and the remaining part will keep in a new FilterNode.
              */
-            // Find out which parts can be pushed down
-            ImmutableList.Builder<RowExpression> remainingExpressionsBuilder = ImmutableList.builder();
-            ImmutableList.Builder<JdbcExpression> translatedExpressionsBuilder = ImmutableList.builder();
+                // Find out which parts can be pushed down
+                ImmutableList.Builder<RowExpression> remainingExpressionsBuilder = ImmutableList.builder();
+                ImmutableList.Builder<JdbcExpression> translatedExpressionsBuilder = ImmutableList.builder();
 
-            predicate = expressionOptimizerProvider.getExpressionOptimizer(session).optimize(node.getPredicate(), SERIALIZABLE, session);
-            List<RowExpression> rowExpressions = LogicalRowExpressions.extractConjuncts(predicate);
-            for (RowExpression expression : rowExpressions) {
-                TranslatedExpression<JdbcExpression> translatedExpression = translateWith(
-                        expression,
-                        translator,
-                        oldTableScanNode.getAssignments());
+                predicate = expressionOptimizerProvider.getExpressionOptimizer(session).optimize(node.getPredicate(), SERIALIZABLE, session);
+                List<RowExpression> rowExpressions = LogicalRowExpressions.extractConjuncts(predicate);
+                for (RowExpression expression : rowExpressions) {
+                    TranslatedExpression<JdbcExpression> translatedExpression = translateWith(
+                            expression,
+                            translator,
+                            oldTableScanNode.getAssignments());
 
-                if (!translatedExpression.getTranslated().isPresent()) {
-                    remainingExpressionsBuilder.add(expression);
+                    if (!translatedExpression.getTranslated().isPresent()) {
+                        remainingExpressionsBuilder.add(expression);
+                    }
+                    else {
+                        translatedExpressionsBuilder.add(translatedExpression.getTranslated().get());
+                    }
                 }
-                else {
-                    translatedExpressionsBuilder.add(translatedExpression.getTranslated().get());
+
+                List<RowExpression> remainingExpressions = remainingExpressionsBuilder.build();
+                List<JdbcExpression> translatedExpressions = translatedExpressionsBuilder.build();
+
+                // no filter can be pushed down
+                if (!remainingExpressions.isEmpty() && translatedExpressions.isEmpty()) {
+                    return node;
                 }
+
+                List<String> sqlBodies = mergeSqlBodies(translatedExpressions);
+                List<ConstantExpression> variableBindings = mergeVariableBindings(translatedExpressions);
+                translated = Optional.of(new JdbcExpression(format("%s", Joiner.on(" AND ").join(sqlBodies)), variableBindings));
+                TableScanNode newTableScanNode = createNewTableScanNode(oldTableScanNode, oldTableHandle, oldTableLayoutHandle, translated);
+
+                RowExpression remainingPredicates = logicalRowExpressions.combineConjuncts(remainingExpressions);
+                /// !!! For now, we only create a new FilterNode with the remaining predicates
+                // As per https://github.com/prestodb/presto/pull/16864, this is not sufficient and we should re-use the existing filter predicate for correctness
+                // We need to find a test case for jdbc pushdown that fails with this implementation
+                return new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), newTableScanNode, remainingPredicates);
             }
-
-            List<RowExpression> remainingExpressions = remainingExpressionsBuilder.build();
-            List<JdbcExpression> translatedExpressions = translatedExpressionsBuilder.build();
-
-            // no filter can be pushed down
-            if (!remainingExpressions.isEmpty() && translatedExpressions.isEmpty()) {
-                return node;
-            }
-
-            List<String> sqlBodies = mergeSqlBodies(translatedExpressions);
-            List<ConstantExpression> variableBindings = mergeVariableBindings(translatedExpressions);
-            translated = Optional.of(new JdbcExpression(format("%s", Joiner.on(" AND ").join(sqlBodies)), variableBindings));
-            TableScanNode newTableScanNode = createNewTableScanNode(oldTableScanNode, oldTableHandle, oldTableLayoutHandle, translated);
-
-            RowExpression remainingPredicates = logicalRowExpressions.combineConjuncts(remainingExpressions);
-            /// !!! For now, we only create a new FilterNode with the remaining predicates
-            // As per https://github.com/prestodb/presto/pull/16864, this is not sufficient and we should re-use the existing filter predicate for correctness
-            // We need to find a test case for jdbc pushdown that fails with this implementation
-            return new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), newTableScanNode, remainingPredicates);
+            return node;
         }
 
         private TableScanNode createNewTableScanNode(
