@@ -33,6 +33,7 @@ import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLine
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createNation;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrders;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrdersEx;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createRegion;
 import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
@@ -54,6 +55,7 @@ public class TestNativeSidecarPlugin
         createNation(queryRunner);
         createOrders(queryRunner);
         createOrdersEx(queryRunner);
+        createRegion(queryRunner);
     }
 
     @Override
@@ -228,6 +230,49 @@ public class TestNativeSidecarPlugin
                     "(DECIMAL '-542392.89', DECIMAL '-6723982392109.29'), (NULL, NULL), "
                     + "(NULL, DECIMAL'-6723982392109.29'),(DECIMAL'1.2', NULL)", tmpTableName));
             assertQuery(String.format("SHOW STATS for %s", tmpTableName));
+        }
+        finally {
+            dropTableIfExists(tmpTableName);
+        }
+    }
+
+    @Test
+    public void testAnalyzeStats()
+    {
+        assertUpdate("ANALYZE region", 5);
+
+        // Show stats returns the following stats for each column in region table:
+        // column_name | data_size | distinct_values_count | nulls_fraction | row_count | low_value | high_value
+        assertQuery("SHOW STATS FOR region",
+                "SELECT * FROM (VALUES" +
+                        "('regionkey', NULL, 5e0, 0e0, NULL, '0', '4', NULL)," +
+                        "('name', 5.4e1, 5e0, 0e0, NULL, NULL, NULL, NULL)," +
+                        "('comment', 3.5e2, 5e0, 0e0, NULL, NULL, NULL, NULL)," +
+                        "(NULL, NULL, NULL, NULL, 5e0, NULL, NULL, NULL))");
+
+        // Create a partitioned table and run analyze on it.
+        String tmpTableName = generateRandomTableName();
+        try {
+            getQueryRunner().execute(String.format("CREATE TABLE %s (name VARCHAR, regionkey BIGINT," +
+                    "nationkey BIGINT) WITH (partitioned_by = ARRAY['regionkey','nationkey'])", tmpTableName));
+            getQueryRunner().execute(
+                    String.format("INSERT INTO %s SELECT name, regionkey, nationkey FROM nation", tmpTableName));
+            assertQuery(String.format("SELECT * FROM %s", tmpTableName),
+                    "SELECT name, regionkey, nationkey FROM nation");
+            assertUpdate(String.format("ANALYZE %s", tmpTableName), 25);
+            assertQuery(String.format("SHOW STATS for %s", tmpTableName),
+                    "SELECT * FROM (VALUES" +
+                            "('name', 2.77e2, 1e0, 0e0, NULL, NULL, NULL, NULL)," +
+                            "('regionkey', NULL, 5e0, 0e0, NULL, '0', '4', NULL)," +
+                            "('nationkey', NULL, 2.5e1, 0e0, NULL, '0', '24', NULL)," +
+                            "(NULL, NULL, NULL, NULL, 2.5e1, NULL, NULL, NULL))");
+            assertUpdate(String.format("ANALYZE %s WITH (partitions = ARRAY[ARRAY['0','0'],ARRAY['4', '11']])", tmpTableName), 2);
+            assertQuery(String.format("SHOW STATS for (SELECT * FROM %s where regionkey=4 and nationkey=11)", tmpTableName),
+                    "SELECT * FROM (VALUES" +
+                            "('name', 8e0, 1e0, 0e0, NULL, NULL, NULL, NULL)," +
+                            "('regionkey', NULL, 1e0, 0e0, NULL, '4', '4', NULL)," +
+                            "('nationkey', NULL, 1e0, 0e0, NULL, '11', '11', NULL)," +
+                            "(NULL, NULL, NULL, NULL, 1e0, NULL, NULL, NULL))");
         }
         finally {
             dropTableIfExists(tmpTableName);
