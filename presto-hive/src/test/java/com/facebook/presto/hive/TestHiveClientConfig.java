@@ -166,7 +166,9 @@ public class TestHiveClientConfig
                 .setMaxConcurrentParquetQuickStatsCalls(500)
                 .setCteVirtualBucketCount(128)
                 .setSkipEmptyFilesEnabled(false)
-                .setLegacyTimestampBucketing(false));
+                .setLegacyTimestampBucketing(false)
+                .setReadFormats("")
+                .setWriteFormats(null));
     }
 
     @Test
@@ -293,6 +295,8 @@ public class TestHiveClientConfig
                 .put("hive.cte-virtual-bucket-count", "256")
                 .put("hive.skip-empty-files", "true")
                 .put("hive.legacy-timestamp-bucketing", "true")
+                .put("hive.read-formats", "DWRF,ORC,PARQUET")
+                .put("hive.write-formats", "DWRF,PARQUET")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -414,7 +418,9 @@ public class TestHiveClientConfig
                 .setMaxConcurrentQuickStatsCalls(101)
                 .setSkipEmptyFilesEnabled(true)
                 .setCteVirtualBucketCount(256)
-                .setLegacyTimestampBucketing(true);
+                .setLegacyTimestampBucketing(true)
+                .setReadFormats("DWRF,ORC,PARQUET")
+                .setWriteFormats("DWRF,PARQUET");
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
