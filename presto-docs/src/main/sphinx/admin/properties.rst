@@ -111,10 +111,11 @@ The default value ``0`` means that retries are disabled.
 * **Type:** ``data size``
 * **Default value:** ``8 kB``
 
-The maximum size of the request header from the HTTP server. Because Presto 
-sessions are encoded in the headers of all requests to Presto servers, 
-the default value can cause errors when large session properties or other 
-large session information is involved. If this happens, increase the value.
+The maximum size of the request header from the HTTP server. 
+
+Note: The default value can cause errors when large session properties 
+or other large session information is involved. 
+See :ref:`troubleshoot/query:\`\`Request Header Fields Too Large\`\``.
 
 Memory Management Properties
 ----------------------------
