@@ -215,7 +215,7 @@ std::shared_ptr<SerializedPage> SerializedPageSpillReader::unspillNextPage() {
   void* rawBuf = pool_->allocate(iobufBytes);
   curFileStream_->readBytes(reinterpret_cast<uint8_t*>(rawBuf), iobufBytes);
 
-  auto* userData = new FreeData(pool_->shared_from_this(), iobufBytes);
+  auto* userData = new FreeData{pool_->shared_from_this(), iobufBytes};
   auto iobuf =
       folly::IOBuf::takeOwnership(rawBuf, iobufBytes, freeFunc, userData, true);
 
