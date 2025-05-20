@@ -222,6 +222,19 @@ public class HiveClientConfig
     private int parquetQuickStatsMaxConcurrentCalls = 500;
     private int quickStatsMaxConcurrentCalls = 100;
     private boolean legacyTimestampBucketing;
+    private int configurationCacheMaxSize = 100;
+
+    public int getConfigurationCacheMaxSize()
+    {
+        return configurationCacheMaxSize;
+    }
+
+    @Config("hive.configuration-cache-max-size")
+    public HiveClientConfig setConfigurationCacheMaxSize(int configurationCacheMaxSize)
+    {
+        this.configurationCacheMaxSize = configurationCacheMaxSize;
+        return this;
+    }
 
     @Min(0)
     public int getMaxInitialSplits()
