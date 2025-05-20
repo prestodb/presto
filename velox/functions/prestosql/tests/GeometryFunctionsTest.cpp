@@ -1037,3 +1037,42 @@ TEST_F(GeometryFunctionsTest, testStUnion) {
           "POINT EMPTY"),
       "Failed to compute geometry union: TopologyException: Input geom 1 is invalid: Self-intersection at 1 2");
 }
+
+TEST_F(GeometryFunctionsTest, testStArea) {
+  const auto testStAreaFunc = [&](std::optional<std::string> wkt,
+                                  std::optional<double> expectedArea) {
+    std::optional<double> result =
+        evaluateOnce<double>("ST_Area(ST_GeometryFromText(c0))", wkt);
+
+    if (wkt.has_value()) {
+      ASSERT_TRUE(result.has_value());
+      ASSERT_TRUE(expectedArea.has_value());
+      ASSERT_EQ(result.value(), expectedArea.value());
+    } else {
+      ASSERT_FALSE(result.has_value());
+    }
+  };
+
+  testStAreaFunc("POLYGON ((2 2, 2 6, 6 6, 6 2, 2 2))", 16.0);
+  testStAreaFunc("POLYGON EMPTY", 0.0);
+  testStAreaFunc("LINESTRING (1 4, 2 5)", 0.0);
+  testStAreaFunc("LINESTRING EMPTY", 0.0);
+  testStAreaFunc("POINT (1 4)", 0.0);
+  testStAreaFunc("POINT EMPTY", 0.0);
+  testStAreaFunc("GEOMETRYCOLLECTION EMPTY", 0.0);
+
+  // Test basic geometry collection. Area is the area of the polygon.
+  testStAreaFunc(
+      "GEOMETRYCOLLECTION (POINT (8 8), LINESTRING (5 5, 6 6), POLYGON ((1 1, 3 1, 3 4, 1 4, 1 1)))",
+      6.0);
+
+  // Test overlapping geometries. Area is the sum of the individual elements
+  testStAreaFunc(
+      "GEOMETRYCOLLECTION (POLYGON ((0 0, 2 0, 2 2, 0 2, 0 0)), POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1)))",
+      8.0);
+
+  // Test nested geometry collection
+  testStAreaFunc(
+      "GEOMETRYCOLLECTION (POLYGON ((0 0, 2 0, 2 2, 0 2, 0 0)), POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1)), GEOMETRYCOLLECTION (POINT (8 8), LINESTRING (5 5, 6 6), POLYGON ((1 1, 3 1, 3 4, 1 4, 1 1))))",
+      14.0);
+}

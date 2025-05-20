@@ -71,6 +71,8 @@ void registerGeometryFunctions(const std::string& prefix) {
   registerFunction<StAsBinaryFunction, Varbinary, Geometry>(
       {{prefix + "ST_AsBinary"}});
 
+  registerFunction<StAreaFunction, double, Geometry>({{prefix + "ST_Area"}});
+
   registerRelationPredicates(prefix);
   registerOverlayOperations(prefix);
 }

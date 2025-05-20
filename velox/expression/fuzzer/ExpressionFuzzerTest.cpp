@@ -131,6 +131,7 @@ int main(int argc, char** argv) {
       // Geometry functions don't yet have a ValuesGenerator
       "st_geometryfromtext",
       "st_geomfrombinary",
+      "st_area",
       "st_astext",
       "st_asbinary",
       "st_relate",

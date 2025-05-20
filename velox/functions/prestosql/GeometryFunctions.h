@@ -391,4 +391,22 @@ struct StUnionFunction {
   }
 };
 
+template <typename T>
+struct StAreaFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE Status
+  call(out_type<double>& result, const arg_type<Geometry>& input) {
+    std::unique_ptr<geos::geom::Geometry> geosGeometry =
+        geospatial::deserializeGeometry(input);
+
+    std::unique_ptr<geos::geom::Geometry> outputGeometry;
+
+    GEOS_TRY(result = geosGeometry->getArea();
+             , "Failed to compute geometry area");
+
+    return Status::OK();
+  }
+};
+
 } // namespace facebook::velox::functions

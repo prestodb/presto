@@ -150,6 +150,16 @@ Spatial Operations
     Returns the geometry that represents the all points in either ``geometry1``
     or ``geometry2``.
 
+Accessors
+---------
+
+.. function:: ST_Area(geometry: Geometry) -> area: double
+
+    Returns the 2D Euclidean area of ``geometry``.
+    For Point and LineString types, returns 0.0. For GeometryCollection types,
+    returns the sum of the areas of the individual geometries. Empty geometries
+    return 0.
+
 
 Bing Tile Functions
 -------------------
