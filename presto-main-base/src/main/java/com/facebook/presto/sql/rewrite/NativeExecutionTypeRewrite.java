@@ -148,7 +148,8 @@ final class NativeExecutionTypeRewrite
                         argumentType = functionAndTypeResolver.getType(parseTypeSignature(((DereferenceExpression) argument).getBase().toString()));
                     }
                     else {
-                        // ENUM_KEY is only supported with Cast or DereferenceExpression for now, return node without rewriting
+                        // ENUM_KEY is only supported with Cast or DereferenceExpression for now.
+                        // Return node without rewriting.
                         return node;
                     }
                     argument = rewriteIfCastOrDereferenceExpression(argument);
@@ -177,7 +178,7 @@ final class NativeExecutionTypeRewrite
             List<WhenClause> whenClauses = node.getWhenClauses();
             Optional<Expression> defaultValue = node.getDefaultValue();
 
-            // Rewrite each component
+            // Rewrite each component.
             operand = rewriteIfCastOrDereferenceExpression(node.getOperand());
             List<WhenClause> newWhenClauses = new ArrayList<>();
             for (WhenClause when : whenClauses) {
@@ -276,7 +277,7 @@ final class NativeExecutionTypeRewrite
                     }
                 }
                 catch (IllegalArgumentException | UnknownTypeException e) {
-                    // return the original expression if rewrite fails
+                    // Returns the original expression if rewrite fails.
                     return argument;
                 }
             }
