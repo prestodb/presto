@@ -762,8 +762,17 @@ BigintValuesUsingBitmask::BigintValuesUsingBitmask(
     : Filter(true, nullAllowed, FilterKind::kBigintValuesUsingBitmask),
       min_(min),
       max_(max) {
-  VELOX_CHECK(min < max, "min must be less than max");
-  VELOX_CHECK(values.size() > 1, "values must contain at least 2 entries");
+  VELOX_CHECK_LT(
+      min,
+      max,
+      "BigintValuesUsingBitmask min must be less than max. min: {}, max: {}",
+      min,
+      max);
+  VELOX_CHECK_GT(
+      values.size(),
+      1,
+      "values must contain at least 2 entries, current size is {}",
+      values.size());
 
   bitmask_.resize(max - min + 1);
 
@@ -814,8 +823,17 @@ BigintValuesUsingHashTable::BigintValuesUsingHashTable(
       max_(max),
       values_(values) {
   constexpr int32_t kPaddingElements = 4;
-  VELOX_CHECK(min < max, "min must be less than max");
-  VELOX_CHECK(values.size() > 1, "values must contain at least 2 entries");
+  VELOX_CHECK_LT(
+      min,
+      max,
+      "BigintValuesUsingHashTable min must be less than max. min: {}, max: {}",
+      min,
+      max);
+  VELOX_CHECK_GT(
+      values.size(),
+      1,
+      "values must contain at least 2 entries, current size is {}",
+      values.size());
 
   // Size the hash table to be 2+x the entry count, e.g. 10 entries
   // gets 1 << log2 of 50 == 32. The filter is expected to fail often so we
@@ -999,7 +1017,12 @@ HugeintValuesUsingHashTable::HugeintValuesUsingHashTable(
       min_(min),
       max_(max) {
   VELOX_CHECK(!values.empty(), "values must not be empty");
-  VELOX_CHECK_LE(min_, max_, "min must not be greater than max");
+  VELOX_CHECK_LE(
+      min_,
+      max_,
+      "HugeintValuesUsingHashTable min must not be greater than max. min: {}, max: {}",
+      min_,
+      max_);
   for (auto value : values) {
     values_.insert(value);
   }
@@ -1036,7 +1059,12 @@ NegatedBigintValuesUsingBitmask::NegatedBigintValuesUsingBitmask(
     : Filter(true, nullAllowed, FilterKind::kNegatedBigintValuesUsingBitmask),
       min_(min),
       max_(max) {
-  VELOX_CHECK(min <= max, "min must be no greater than max");
+  VELOX_CHECK_LE(
+      min,
+      max,
+      "NegatedBigintValuesUsingBitmask min must be no greater than max. min: {}, max: {}",
+      min,
+      max);
 
   nonNegated_ = std::make_unique<BigintValuesUsingBitmask>(
       min, max, values, !nullAllowed);
@@ -1205,13 +1233,14 @@ BigintMultiRange::BigintMultiRange(
     : Filter(true, nullAllowed, FilterKind::kBigintMultiRange),
       ranges_(std::move(ranges)) {
   VELOX_CHECK(!ranges_.empty(), "ranges is empty");
-  VELOX_CHECK(ranges_.size() > 1, "should contain at least 2 ranges");
+  VELOX_CHECK_GT(ranges_.size(), 1, "should contain at least 2 ranges.");
   for (const auto& range : ranges_) {
     lowerBounds_.push_back(range->lower());
   }
   for (int i = 1; i < lowerBounds_.size(); i++) {
-    VELOX_CHECK(
-        lowerBounds_[i] >= ranges_[i - 1]->upper(),
+    VELOX_CHECK_GE(
+        lowerBounds_[i],
+        ranges_[i - 1]->upper(),
         "bigint ranges must not overlap");
   }
 }
@@ -2070,7 +2099,7 @@ std::unique_ptr<Filter> BigintValuesUsingHashTable::mergeWith(
     valuesToKeep.emplace_back(kEmptyMarker);
   }
 
-  for (int64_t v : hashTable_) {
+  for (int64_t v : values_) {
     if (v != kEmptyMarker && other->testInt64(v)) {
       valuesToKeep.emplace_back(v);
     }
