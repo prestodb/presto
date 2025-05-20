@@ -42,6 +42,7 @@ import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.TypeProvider;
@@ -73,6 +74,7 @@ import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static com.google.common.base.Preconditions.checkState;
@@ -87,10 +89,12 @@ public class TestJdbcComputePushdown
     private static final PlanNodeIdAllocator ID_ALLOCATOR = new PlanNodeIdAllocator();
     private static final String CATALOG_NAME = "Jdbc";
     private static final String CONNECTOR_ID = new ConnectorId(CATALOG_NAME).toString();
+    private static final String PARTIAL_PREDICATE_PUSH_DOWN = "partial_predicate_push_down";
 
     private final TestingRowExpressionTranslator sqlToRowExpressionTranslator;
 
     private final JdbcComputePushdown jdbcComputePushdown;
+    private final ImmutableList<PropertyMetadata<?>> sessionProperties;
 
     public TestJdbcComputePushdown()
     {
@@ -106,6 +110,12 @@ public class TestJdbcComputePushdown
                 (ConnectorSession session) -> new RowExpressionOptimizer(METADATA),
                 "'",
                 getFunctionTranslators());
+        this.sessionProperties = ImmutableList.of(
+                booleanProperty(
+                        PARTIAL_PREDICATE_PUSH_DOWN,
+                        "Push down predicates partially to underlying database",
+                        false,
+                        false));
     }
 
     @Test
@@ -121,7 +131,7 @@ public class TestJdbcComputePushdown
         PlanNode original = filter(jdbcTableScan(schema, table, BIGINT, "c1", "c2"), rowExpression);
 
         JdbcTableHandle jdbcTableHandle = new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName(schema, table), CATALOG_NAME, schema, table, Collections.emptyList(), Optional.empty());
-        ConnectorSession session = new TestingConnectorSession(ImmutableList.of());
+        ConnectorSession session = new TestingConnectorSession(sessionProperties);
         JdbcTableLayoutHandle jdbcTableLayoutHandle = new JdbcTableLayoutHandle(session.getSqlFunctionProperties(), jdbcTableHandle, TupleDomain.none(), Optional.of(new JdbcExpression("(('c1' + 'c2') - 'c2')")));
 
         PlanNode actual = this.jdbcComputePushdown.optimize(original, session, null, ID_ALLOCATOR);
@@ -143,7 +153,7 @@ public class TestJdbcComputePushdown
         PlanNode original = filter(jdbcTableScan(schema, table, BIGINT, "c1", "c2"), rowExpression);
 
         JdbcTableHandle jdbcTableHandle = new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName(schema, table), CATALOG_NAME, schema, table, Collections.emptyList(), Optional.empty());
-        ConnectorSession session = new TestingConnectorSession(ImmutableList.of());
+        ConnectorSession session = new TestingConnectorSession(sessionProperties);
         JdbcTableLayoutHandle jdbcTableLayoutHandle = new JdbcTableLayoutHandle(
                 session.getSqlFunctionProperties(),
                 jdbcTableHandle,
@@ -169,7 +179,7 @@ public class TestJdbcComputePushdown
         PlanNode original = filter(jdbcTableScan(schema, table, BIGINT, "c1", "c2"), rowExpression);
 
         JdbcTableHandle jdbcTableHandle = new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName(schema, table), CATALOG_NAME, schema, table, Collections.emptyList(), Optional.empty());
-        ConnectorSession session = new TestingConnectorSession(ImmutableList.of());
+        ConnectorSession session = new TestingConnectorSession(sessionProperties);
         // Test should expect an empty entry for translatedSql since > is an unsupported function currently in the optimizer
         JdbcTableLayoutHandle jdbcTableLayoutHandle = new JdbcTableLayoutHandle(session.getSqlFunctionProperties(), jdbcTableHandle, TupleDomain.none(), Optional.empty());
 
@@ -192,7 +202,7 @@ public class TestJdbcComputePushdown
         PlanNode original = filter(jdbcTableScan(schema, table, BIGINT, "c1", "c2"), rowExpression);
 
         JdbcTableHandle jdbcTableHandle = new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName(schema, table), CATALOG_NAME, schema, table, Collections.emptyList(), Optional.empty());
-        ConnectorSession session = new TestingConnectorSession(ImmutableList.of());
+        ConnectorSession session = new TestingConnectorSession(sessionProperties);
         JdbcTableLayoutHandle jdbcTableLayoutHandle = new JdbcTableLayoutHandle(
                 session.getSqlFunctionProperties(),
                 jdbcTableHandle,
@@ -216,7 +226,7 @@ public class TestJdbcComputePushdown
 
         Set<ColumnHandle> columns = Stream.of("c1", "c2").map(TestJdbcComputePushdown::booleanJdbcColumnHandle).collect(Collectors.toSet());
         JdbcTableHandle jdbcTableHandle = new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName(schema, table), CATALOG_NAME, schema, table, Collections.emptyList(), Optional.empty());
-        ConnectorSession session = new TestingConnectorSession(ImmutableList.of());
+        ConnectorSession session = new TestingConnectorSession(sessionProperties);
         JdbcTableLayoutHandle jdbcTableLayoutHandle = new JdbcTableLayoutHandle(
                 session.getSqlFunctionProperties(),
                 jdbcTableHandle,
@@ -248,7 +258,12 @@ public class TestJdbcComputePushdown
                 Optional.of(new JdbcExpression("((('c1' + 'c2') = ?))", ImmutableList.of(new ConstantExpression(3L, INTEGER)))),
                 "");
 
-        ConnectorSession session = new TestingConnectorSession(ImmutableList.of());
+        ConnectorSession session = new TestingConnectorSession(ImmutableList.of(
+                booleanProperty(
+                        PARTIAL_PREDICATE_PUSH_DOWN,
+                        "Push down predicates partially to underlying database",
+                        true,
+                        false)));
         PlanNode actual = this.jdbcComputePushdown.optimize(original, session, null, ID_ALLOCATOR);
         assertPlanMatch(actual, PlanMatchPattern.filter(
                 "CAST(c1 AS varchar(1024)) = '123'",
@@ -276,7 +291,12 @@ public class TestJdbcComputePushdown
                 Optional.of(new JdbcExpression("((((('c1' + 'c2') = ?)) OR (('c1' <> 'c2'))))", ImmutableList.of(new ConstantExpression(3L, INTEGER)))),
                 "");
 
-        ConnectorSession session = new TestingConnectorSession(ImmutableList.of());
+        ConnectorSession session = new TestingConnectorSession(ImmutableList.of(
+                booleanProperty(
+                        PARTIAL_PREDICATE_PUSH_DOWN,
+                        "Push down predicates partially to underlying database",
+                        true,
+                        false)));
         PlanNode actual = this.jdbcComputePushdown.optimize(original, session, null, ID_ALLOCATOR);
         assertPlanMatch(actual, PlanMatchPattern.filter(
                 "CAST(c1 AS varchar(1024)) = '123'",
@@ -304,7 +324,7 @@ public class TestJdbcComputePushdown
                 Optional.empty(),
                 "");
 
-        ConnectorSession session = new TestingConnectorSession(ImmutableList.of());
+        ConnectorSession session = new TestingConnectorSession(sessionProperties);
         PlanNode actual = this.jdbcComputePushdown.optimize(original, session, null, ID_ALLOCATOR);
         assertPlanMatch(actual, PlanMatchPattern.filter(
                 expression,

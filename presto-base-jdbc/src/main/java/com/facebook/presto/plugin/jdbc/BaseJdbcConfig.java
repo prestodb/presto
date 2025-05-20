@@ -32,6 +32,7 @@ public class BaseJdbcConfig
     private String passwordCredentialName;
     private boolean caseInsensitiveNameMatching;
     private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
+    private boolean partialPredicatePushDown;
 
     @NotNull
     public String getConnectionUrl()
@@ -122,6 +123,18 @@ public class BaseJdbcConfig
     public BaseJdbcConfig setCaseInsensitiveNameMatchingCacheTtl(Duration caseInsensitiveNameMatchingCacheTtl)
     {
         this.caseInsensitiveNameMatchingCacheTtl = caseInsensitiveNameMatchingCacheTtl;
+        return this;
+    }
+
+    public boolean isPartialPredicatePushDown()
+    {
+        return partialPredicatePushDown;
+    }
+
+    @Config("partial-predicate-push-down")
+    public BaseJdbcConfig setPartialPredicatePushDown(boolean partialPredicatePushDown)
+    {
+        this.partialPredicatePushDown = partialPredicatePushDown;
         return this;
     }
 }
