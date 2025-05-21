@@ -226,7 +226,7 @@ public class ContainerQueryRunner
     {
         ContainerQueryRunnerUtils.createJavaWorkerConfigProperties(coordinatorPort, nodeId);
         ContainerQueryRunnerUtils.createNativeWorkerTpchProperties(nodeId);
-        ContainerQueryRunnerUtils.createNativeWorkerEntryPointScript(nodeId);
+        ContainerQueryRunnerUtils.createJavaWorkerEntryPointScript(nodeId);
         ContainerQueryRunnerUtils.createNativeWorkerNodeProperties(nodeId);
         return new GenericContainer<>(PRESTO_COORDINATOR_IMAGE)
                 .withExposedPorts(port)
@@ -234,7 +234,7 @@ public class ContainerQueryRunner
                 .withNetworkAliases(nodeId)
                 .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/" + nodeId + "/etc"), "/opt/presto-server/etc")
                 .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/" + nodeId + "/entrypoint.sh"), "/opt/entrypoint.sh")
-                .waitingFor(Wait.forLogMessage(".*Announcement succeeded: HTTP 202.*", 1));
+                .waitingFor(Wait.forLogMessage("= SERVER STARTED =", 1));
     }
 
     private GenericContainer<?> createNativeWorker(int port, String nodeId)

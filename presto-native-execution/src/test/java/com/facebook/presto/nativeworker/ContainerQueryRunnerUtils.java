@@ -134,7 +134,6 @@ public class ContainerQueryRunnerUtils
         properties.setProperty("presto.version", "testversion");
         properties.setProperty("node-scheduler.include-coordinator", "false");
         properties.setProperty("http-server.http.port", "7777");
-        properties.setProperty("discovery-server.enabled", "false");
         properties.setProperty("discovery.uri", "http://presto-coordinator:" + coordinatorPort);
         createPropertiesFile("testcontainers/" + nodeId + "/etc/config.properties", properties);
     }
@@ -207,6 +206,15 @@ public class ContainerQueryRunnerUtils
         String scriptContent = "#!/bin/sh\n\n" +
                 "GLOG_logtostderr=1 presto_server \\\n" +
                 "    --etc-dir=/opt/presto-server/etc\n";
+        createScriptFile("testcontainers/" + nodeId + "/entrypoint.sh", scriptContent);
+    }
+
+    public static void createJavaWorkerEntryPointScript(String nodeId)
+            throws IOException
+    {
+        String scriptContent =  "#!/bin/sh\n" +
+                "set -e\n" +
+                "$PRESTO_HOME/bin/launcher run\n";
         createScriptFile("testcontainers/" + nodeId + "/entrypoint.sh", scriptContent);
     }
 
