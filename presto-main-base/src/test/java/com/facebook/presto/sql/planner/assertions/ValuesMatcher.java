@@ -26,6 +26,7 @@ import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -82,6 +83,9 @@ public class ValuesMatcher
                         .map(rowExpression -> {
                             ConstantExpression expression = (ConstantExpression) rowExpression;
                             if (expression.getType().getJavaType() == boolean.class) {
+                                if (expression.isNull()) {
+                                    return new NullLiteral();
+                                }
                                 return new BooleanLiteral(String.valueOf(expression.getValue()));
                             }
                             if (expression.getType() instanceof ShortDecimalType) {
