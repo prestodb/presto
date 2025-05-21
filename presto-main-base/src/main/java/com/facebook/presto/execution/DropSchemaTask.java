@@ -55,7 +55,7 @@ public class DropSchemaTask
             throw new PrestoException(NOT_SUPPORTED, "CASCADE is not yet supported for DROP SCHEMA");
         }
 
-        CatalogSchemaName schema = createCatalogSchemaName(session, statement, Optional.of(statement.getSchemaName()));
+        CatalogSchemaName schema = createCatalogSchemaName(session, statement, Optional.of(statement.getSchemaName()), metadata);
 
         if (!metadata.getMetadataResolver(session).schemaExists(schema)) {
             if (!statement.isExists()) {

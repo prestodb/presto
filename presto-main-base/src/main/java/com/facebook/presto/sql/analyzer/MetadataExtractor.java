@@ -189,7 +189,7 @@ public class MetadataExtractor
         @Override
         protected Void visitTable(Table table, MetadataExtractorContext context)
         {
-            QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName());
+            QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName(), metadata);
             if (tableName.getObjectName().isEmpty()) {
                 throw new SemanticException(MISSING_TABLE, table, "Table name is empty");
             }
@@ -207,7 +207,7 @@ public class MetadataExtractor
         @Override
         protected Void visitInsert(Insert insert, MetadataExtractorContext context)
         {
-            QualifiedObjectName tableName = createQualifiedObjectName(session, insert, insert.getTarget());
+            QualifiedObjectName tableName = createQualifiedObjectName(session, insert, insert.getTarget(), metadata);
             if (tableName.getObjectName().isEmpty()) {
                 throw new SemanticException(MISSING_TABLE, insert, "Table name is empty");
             }
@@ -224,7 +224,7 @@ public class MetadataExtractor
         protected Void visitDelete(Delete node, MetadataExtractorContext context)
         {
             Table table = node.getTable();
-            QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName());
+            QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName(), metadata);
             if (tableName.getObjectName().isEmpty()) {
                 throw new SemanticException(MISSING_TABLE, node, "Table name is empty");
             }
@@ -239,7 +239,7 @@ public class MetadataExtractor
         @Override
         protected Void visitAnalyze(Analyze node, MetadataExtractorContext context)
         {
-            QualifiedObjectName tableName = createQualifiedObjectName(session, node, node.getTableName());
+            QualifiedObjectName tableName = createQualifiedObjectName(session, node, node.getTableName(), metadata);
             if (tableName.getObjectName().isEmpty()) {
                 throw new SemanticException(MISSING_TABLE, node, "Table name is empty");
             }
