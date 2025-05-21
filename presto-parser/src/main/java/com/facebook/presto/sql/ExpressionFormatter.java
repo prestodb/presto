@@ -738,7 +738,7 @@ public final class ExpressionFormatter
         return "ORDER BY " + formatSortItems(orderBy.getSortItems(), parameters);
     }
 
-    static String formatSortItems(List<SortItem> sortItems, Optional<List<Expression>> parameters)
+    public static String formatSortItems(List<SortItem> sortItems, Optional<List<Expression>> parameters)
     {
         return Joiner.on(", ").join(sortItems.stream()
                 .map(sortItemFormatterFunction(parameters))
