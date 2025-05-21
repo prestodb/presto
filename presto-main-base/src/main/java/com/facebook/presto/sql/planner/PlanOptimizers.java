@@ -118,6 +118,7 @@ import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantSort;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantSortColumns;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantTopN;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantTopNColumns;
+import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantWindow;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveTrivialFilters;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveUnreferencedScalarApplyNodes;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveUnreferencedScalarLateralNodes;
@@ -417,6 +418,7 @@ public class PlanOptimizers
                                         new PushLimitThroughSemiJoin(),
                                         new PushLimitThroughUnion(),
                                         new RemoveTrivialFilters(),
+                                        new RemoveRedundantWindow(),
                                         new ImplementFilteredAggregations(metadata.getFunctionAndTypeManager()),
                                         new SingleDistinctAggregationToGroupBy(),
                                         new MultipleDistinctAggregationToMarkDistinct(),
