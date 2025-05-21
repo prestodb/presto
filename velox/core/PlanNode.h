@@ -329,7 +329,7 @@ class ValuesNode : public PlanNode {
     explicit Builder(const ValuesNode& other) {
       id_ = other.id();
       values_ = other.values();
-      parallelizable_ = other.isParallelizable();
+      parallelizable_ = other.testingIsParallelizable();
       repeatTimes_ = other.repeatTimes();
     }
 
@@ -343,7 +343,7 @@ class ValuesNode : public PlanNode {
       return *this;
     }
 
-    Builder& parallelizable(const bool parallelizable) {
+    Builder& testingParallelizable(const bool parallelizable) {
       parallelizable_ = parallelizable;
       return *this;
     }
@@ -382,7 +382,7 @@ class ValuesNode : public PlanNode {
   }
 
   // For testing only.
-  bool isParallelizable() const {
+  bool testingIsParallelizable() const {
     return parallelizable_;
   }
 

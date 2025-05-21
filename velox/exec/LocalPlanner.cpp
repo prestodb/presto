@@ -255,7 +255,7 @@ uint32_t maxDrivers(
     } else if (
         auto values = std::dynamic_pointer_cast<const core::ValuesNode>(node)) {
       // values node must run single-threaded, unless in test context
-      if (!values->isParallelizable()) {
+      if (!values->testingIsParallelizable()) {
         return 1;
       }
     } else if (std::dynamic_pointer_cast<const core::ArrowStreamNode>(node)) {

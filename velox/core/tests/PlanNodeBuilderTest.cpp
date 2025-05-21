@@ -70,7 +70,7 @@ TEST_F(PlanNodeBuilderTest, ValuesNode) {
   const auto verify = [&](const std::shared_ptr<const ValuesNode>& node) {
     EXPECT_EQ(node->id(), id);
     EXPECT_EQ(node->values(), values);
-    EXPECT_EQ(node->isParallelizable(), parallelizable);
+    EXPECT_EQ(node->testingIsParallelizable(), parallelizable);
     EXPECT_EQ(node->repeatTimes(), repeatTimes);
   };
 
@@ -78,7 +78,7 @@ TEST_F(PlanNodeBuilderTest, ValuesNode) {
   const auto node = ValuesNode::Builder()
                         .id(id)
                         .values(values)
-                        .parallelizable(parallelizable)
+                        .testingParallelizable(parallelizable)
                         .repeatTimes(repeatTimes)
                         .build();
   verify(node);

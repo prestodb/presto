@@ -41,7 +41,7 @@ void Values::initialize() {
   values_.reserve(valueNodes_->values().size());
   for (auto& vector : valueNodes_->values()) {
     if (vector->size() > 0) {
-      if (valueNodes_->isParallelizable()) {
+      if (valueNodes_->testingIsParallelizable()) {
         // If this is parallelizable, copy the values to prevent Vectors from
         // being shared across threads.  Note that the contract in ValuesNode is
         // that this should only be enabled for testing.
