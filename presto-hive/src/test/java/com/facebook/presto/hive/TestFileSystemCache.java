@@ -61,8 +61,7 @@ public class TestFileSystemCache
                         new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveClientConfig, new MetastoreClientConfig()), ImmutableSet.of(), hiveClientConfig),
                         new MetastoreClientConfig(),
                         new ImpersonatingHdfsAuthentication(new SimpleHadoopAuthentication()));
-        String filePath = Resources.getResource("test_file_system_cache/id.parquet").getPath();
-        Path path = new Path(filePath);
+        Path path = new Path(Files.createTempFile("id-", ".parquet").toUri());
 
         Configuration defaultConf = new Configuration(true);
         FileSystem fs1 = environment.getFileSystem("user", path, defaultConf);
