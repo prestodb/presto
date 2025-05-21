@@ -144,7 +144,7 @@ public class CoordinatorModule
             "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
             "font-src 'self' https://fonts.gstatic.com; frame-ancestors 'self'; img-src http: https: data:";
 
-    private HttpResourceBinding webUIBinder(Binder binder, String path, String classPathResourceBase)
+    public static HttpResourceBinding webUIBinder(Binder binder, String path, String classPathResourceBase)
     {
         return httpServerBinder(binder).bindResource(path, classPathResourceBase)
                 .withExtraHeader(HttpHeaders.X_CONTENT_TYPE_OPTIONS, "nosniff")
