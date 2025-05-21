@@ -82,7 +82,7 @@ jobs:
 
       # Folly is built with a new flag that the cache may not have. Ensure velox build and folly have
       # used the correct flags (disabled the coroutines)
-      - name: TEMP: Force folly rebuild and update cache
+      - name: 'TEMP: Force folly rebuild and update cache'
         run: |
             source velox/scripts/setup-ubuntu.sh
             run_and_time install_folly
