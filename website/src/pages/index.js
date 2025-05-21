@@ -7,6 +7,7 @@ import HomepageFeatures from '@site/src/components/HomepageFeatures';
 import VeloxConBanner from '@site/src/components/VeloxConBanner';
 import useBaseUrl from '@docusaurus/useBaseUrl';
 import styles from './index.module.css';
+import Head from '@docusaurus/Head';
 
 function HomepageHeader() {
   const { siteConfig } = useDocusaurusContext();
@@ -21,7 +22,9 @@ function HomepageHeader() {
         />
 
         <h1 className={styles.heroTitle}>
-          An open-source composable execution engine for data systems
+            An open-source composable
+            <br />
+            execution engine for data systems
         </h1>
 
         <div className={styles.buttonGroup}>
@@ -85,10 +88,10 @@ function WhatIsVeloxSection() {
               </a>
             </div>
             <div className={styles.ecosystemCard}>
-              <img src={useBaseUrl('img/logo-nvidia.png')} alt="NVIDIA CUDF" />
-              <h3>NVIDIA CUDF</h3>
+              <img src={useBaseUrl('img/logo-nvidia.png')} alt="NVIDIA cuDF" />
+              <h3>NVIDIA cuDF</h3>
               <p>Hardware-accelerated query execution with Velox + GPU acceleration.</p>
-              <a href="https://github.com/rapidsai/velox" target="_blank" rel="noopener">
+              <a href="https://github.com/facebookincubator/velox/tree/main/velox/experimental/cudf" target="_blank" rel="noopener">
                 Learn More →
               </a>
             </div>
@@ -302,21 +305,28 @@ function LatestCommunityNews() {
 export default function Home() {
   const { siteConfig } = useDocusaurusContext();
 
-  return (
-    <Layout
-  title={`Hello from ${siteConfig.title}`}
-  description="Composable execution engine for high-performance data systems"
->
-  <HomepageHeader />
-  <main>
-    <VeloxConBanner />
-    <WhatIsVeloxSection />
-    <KeyFeatures />
-    <TheVeloxCommunity />
-    <LatestCommunityNews />
-    <HomepageFeatures />
-  </main>
-</Layout>
+return (
+  <Layout
+    title=""
+    description="Composable execution engine for high-performance data systems"
+  >
+    <Head>
+      <title>Velox | Open-Source Composable Execution Engine</title>
+      <meta
+        name="description"
+        content="Composable execution engine for high-performance data systems"
+      />
+    </Head>
 
+    <HomepageHeader />
+    <main>
+      <VeloxConBanner />
+      <WhatIsVeloxSection />
+      <KeyFeatures />
+      <TheVeloxCommunity />
+      <LatestCommunityNews />
+      <HomepageFeatures />
+    </main>
+  </Layout>
   );
 }
