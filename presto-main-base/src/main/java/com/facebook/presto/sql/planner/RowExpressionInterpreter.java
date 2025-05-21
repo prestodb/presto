@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.client.FailureInfo;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.RowBlockBuilder;
 import com.facebook.presto.common.function.OperatorType;
@@ -71,6 +72,7 @@ import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.expressions.DynamicFilters.isDynamicFilter;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.metadata.CastType.JSON_TO_ARRAY_CAST;
 import static com.facebook.presto.metadata.CastType.JSON_TO_MAP_CAST;
@@ -721,7 +723,7 @@ public class RowExpressionInterpreter
             requireNonNull(exception, "Exception is null");
 
             String failureInfo = JsonCodec.jsonCodec(FailureInfo.class).toJson(Failures.toFailure(exception).toFailureInfo());
-            FunctionHandle jsonParse = functionAndTypeManager.lookupFunction("json_parse", fromTypes(VARCHAR));
+            FunctionHandle jsonParse = functionAndTypeManager.lookupFunction(QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "json_parse"), fromTypes(VARCHAR));
             Object json = functionInvoker.invoke(jsonParse, session.getSqlFunctionProperties(), utf8Slice(failureInfo));
             FunctionHandle cast = functionAndTypeManager.lookupCast(CAST, UNKNOWN, type);
             if (exception instanceof PrestoException) {
