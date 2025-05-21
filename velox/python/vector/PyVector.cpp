@@ -17,6 +17,7 @@
 #include "velox/python/vector/PyVector.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/VectorPrinter.h"
+#include "velox/vector/VectorSaver.h"
 
 namespace facebook::velox::py {
 
@@ -26,6 +27,18 @@ std::string PyVector::summarizeToText() const {
 
 std::string PyVector::printDetailed() const {
   return velox::printVector(*vector_);
+}
+
+void PyVector::saveToFile(const std::string& filePath) const {
+  saveVectorToFile(vector_.get(), filePath.data());
+}
+
+// static
+PyVector PyVector::restoreFromFile(
+    const std::string& filePath,
+    std::shared_ptr<memory::MemoryPool> pool) {
+  return PyVector{
+      restoreVectorFromFile(filePath.data(), pool.get()), std::move(pool)};
 }
 
 PyVector PyVector::childAt(vector_size_t idx) const {

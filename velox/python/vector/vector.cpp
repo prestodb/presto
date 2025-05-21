@@ -17,6 +17,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
+#include "velox/python/init/PyInit.h"
 #include "velox/python/vector/PyVector.h"
 
 namespace py = pybind11;
@@ -75,6 +76,14 @@ PYBIND11_MODULE(vector, m) {
         Returns a human-readable summarize of the Vector.
       )"))
       .def(
+          "save_to_file",
+          &velox::py::PyVector::saveToFile,
+          py::arg("file_path"),
+          py::doc(R"(
+        Serializes and writes the contents of the vector to a file in
+        filePath` using velox::VectorSaver.
+      )"))
+      .def(
           "compare",
           &velox::py::PyVector::compare,
           py::arg("other"),
@@ -91,4 +100,23 @@ PYBIND11_MODULE(vector, m) {
         Returns:
           0 if elements are the same, non-zero otherwise.
       )"));
+
+  velox::py::initializeVeloxMemory();
+
+  static auto rootPool = velox::memory::memoryManager()->addRootPool();
+  static auto leafPool = rootPool->addLeafChild("py_velox_restore_vector");
+
+  m.def(
+      "restore_from_file",
+      [&](const std::string& filePath) {
+        return velox::py::PyVector::restoreFromFile(filePath, leafPool);
+      },
+      py::doc(R"(
+    Builds a new vector by reading and deserializing the content on the file
+    `filePath`. The file must have been serialized using `vector.saveToFile()`.
+
+    saveToFile() and restoreFromFile() and meant to be used for debugging
+    purposes, and not for actual data storage. Use Parquet, DWRF or Nimble for
+    that.
+  )"));
 }

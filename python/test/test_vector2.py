@@ -14,11 +14,13 @@
 
 # pyre-unsafe
 
-import unittest
 import pyarrow
+import tempfile
+import unittest
 
 from pyvelox.arrow import to_velox, to_arrow
 from pyvelox.type import DOUBLE
+from pyvelox.vector import restore_from_file
 
 
 class TestPyVeloxVector(unittest.TestCase):
@@ -103,3 +105,20 @@ class TestPyVeloxVector(unittest.TestCase):
         data = [1.9, 2.45]
         vector = to_velox(pyarrow.array(data))
         self.assertEqual(vector.type(), DOUBLE())
+
+    def test_vector_save_restore(self):
+        input_vector = to_velox(
+            pyarrow.StructArray.from_arrays(
+                [
+                    pyarrow.array([1, 2, 3]),
+                    pyarrow.array(["a", "b", "c"]),
+                ],
+                names=["col1", "col2"],
+            )
+        )
+
+        temp_file = tempfile.NamedTemporaryFile()
+        input_vector.save_to_file(temp_file.name)
+
+        other_vector = restore_from_file(temp_file.name)
+        self.assertEqual(input_vector, other_vector)

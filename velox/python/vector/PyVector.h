@@ -66,6 +66,20 @@ class PyVector {
   /// Prints a human-readable summary of the vector.
   std::string summarizeToText() const;
 
+  /// Serializes and writes the contents of the vector to a file in
+  /// `filePath` using velox::VectorSaver.
+  void saveToFile(const std::string& filePath) const;
+
+  /// Builds a new vector by reading and deserializing the content on the file
+  /// `filePath`. The file must have been serialized using `saveToFile()`.
+  ///
+  /// saveToFile() and restoreFromFile() and meant to be used for debugging
+  /// purposes, and not for actual data storage. Use Parquet, DWRF or Nimble for
+  /// that.
+  static PyVector restoreFromFile(
+      const std::string& filePath,
+      std::shared_ptr<memory::MemoryPool> pool);
+
   size_t size() const {
     return vector_->size();
   }
