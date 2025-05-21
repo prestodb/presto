@@ -15,12 +15,15 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.output;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 
 public class TestUnaliasSymbolReferences
@@ -67,5 +70,16 @@ public class TestUnaliasSymbolReferences
                                 anyTree(values("RIGHT_BAR")))
                                 .withNumberOfOutputColumns(1)
                                 .withExactOutputs("LEFT_BAR")));
+    }
+
+    @Test
+    public void testJoinKeyOutput()
+    {
+        assertPlan("select o.orderkey, l.quantity from lineitem l join orders o on l.orderkey=o.orderkey",
+                output(
+                        ImmutableList.of("orderkey", "quantity"),
+                        join(INNER, ImmutableList.of(equiJoinClause("orderkey", "orderkey_0")),
+                                anyTree(tableScan("lineitem", ImmutableMap.of("orderkey", "orderkey", "quantity", "quantity"))),
+                                anyTree(tableScan("orders", ImmutableMap.of("orderkey_0", "orderkey"))))));
     }
 }
