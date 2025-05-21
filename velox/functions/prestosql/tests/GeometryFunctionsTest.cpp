@@ -236,6 +236,44 @@ TEST_F(GeometryFunctionsTest, wktAndWkb) {
       "Invalid number of points in LinearRing found 2 - must be 0 or >= 4");
 }
 
+// Constructors and accessors
+
+TEST_F(GeometryFunctionsTest, testStPoint) {
+  const auto assertPoint = [&](const std::optional<double>& x,
+                               const std::optional<double> y) {
+    std::optional<double> actualX =
+        evaluateOnce<double>("ST_X(ST_Point(c0, c1))", x, y);
+    std::optional<double> actualY =
+        evaluateOnce<double>("ST_Y(ST_Point(c0, c1))", x, y);
+    if (x.has_value() && y.has_value()) {
+      EXPECT_TRUE(actualX.has_value());
+      EXPECT_TRUE(actualY.has_value());
+      EXPECT_EQ(x.value(), actualX.value());
+      EXPECT_EQ(y.value(), actualY.value());
+    } else {
+      EXPECT_FALSE(actualX.has_value());
+      EXPECT_FALSE(actualY.has_value());
+    }
+  };
+
+  assertPoint(std::nullopt, 0.0);
+  assertPoint(0.0, 0.0);
+  assertPoint(1.0, -23.12344);
+  VELOX_ASSERT_THROW(
+      assertPoint(0.0, NAN),
+      "ST_Point requires finite coordinates, got x=0 y=nan");
+  VELOX_ASSERT_THROW(
+      assertPoint(INFINITY, 0.0),
+      "ST_Point requires finite coordinates, got x=inf y=0");
+
+  std::optional<double> nullX =
+      evaluateOnce<double>("ST_X(ST_GeometryFromText('POINT EMPTY'))");
+  EXPECT_FALSE(nullX.has_value());
+  std::optional<double> nullY =
+      evaluateOnce<double>("ST_Y(ST_GeometryFromText('POINT EMPTY'))");
+  EXPECT_FALSE(nullY.has_value());
+}
+
 // Relationship predicates
 
 TEST_F(GeometryFunctionsTest, testStRelate) {

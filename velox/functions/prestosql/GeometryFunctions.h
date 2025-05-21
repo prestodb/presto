@@ -16,10 +16,14 @@
 
 #pragma once
 
+#include <geos/geom/Coordinate.h>
 #include <geos/io/WKBReader.h>
 #include <geos/io/WKBWriter.h>
 #include <geos/io/WKTReader.h>
 #include <geos/io/WKTWriter.h>
+#include <geos/util/AssertionFailedException.h>
+#include <geos/util/UnsupportedOperationException.h>
+#include <cmath>
 
 #include <velox/type/StringView.h>
 #include "velox/functions/Macros.h"
@@ -105,6 +109,32 @@ struct StAsBinaryFunction {
           result = outputStream.str();
         },
         "Failed to write WKB");
+    return Status::OK();
+  }
+};
+
+template <typename T>
+struct StPointFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE Status call(
+      out_type<Geometry>& result,
+      const arg_type<double>& x,
+      const arg_type<double>& y) {
+    if (!std::isfinite(x) || !std::isfinite(y)) {
+      return Status::UserError(fmt::format(
+          "ST_Point requires finite coordinates, got x={} y={}", x, y));
+    }
+    GEOS_TRY(
+        {
+          geos::geom::GeometryFactory::Ptr factory =
+              geos::geom::GeometryFactory::create();
+          geos::geom::Point* point =
+              factory->createPoint(geos::geom::Coordinate(x, y));
+          result = geospatial::serializeGeometry(*point);
+          factory->destroyGeometry(point);
+        },
+        "Failed to create point geometry");
     return Status::OK();
   }
 };
@@ -391,6 +421,8 @@ struct StUnionFunction {
   }
 };
 
+// Accessors
+
 template <typename T>
 struct StAreaFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
@@ -406,6 +438,54 @@ struct StAreaFunction {
              , "Failed to compute geometry area");
 
     return Status::OK();
+  }
+};
+
+template <typename T>
+struct StXFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<double>& result,
+      const arg_type<Geometry>& geometry) {
+    std::unique_ptr<geos::geom::Geometry> geosGeometry =
+        geospatial::deserializeGeometry(geometry);
+    if (geosGeometry->getGeometryTypeId() !=
+        geos::geom::GeometryTypeId::GEOS_POINT) {
+      throw Status::UserError(fmt::format(
+          "ST_X requires a Point geometry, found {}",
+          geosGeometry->getGeometryType()));
+    }
+    if (geosGeometry->isEmpty()) {
+      return false;
+    }
+    auto coordinate = geosGeometry->getCoordinate();
+    result = coordinate->x;
+    return true;
+  }
+};
+
+template <typename T>
+struct StYFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<double>& result,
+      const arg_type<Geometry>& geometry) {
+    std::unique_ptr<geos::geom::Geometry> geosGeometry =
+        geospatial::deserializeGeometry(geometry);
+    if (geosGeometry->getGeometryTypeId() !=
+        geos::geom::GeometryTypeId::GEOS_POINT) {
+      throw Status::UserError(fmt::format(
+          "ST_Y requires a Point geometry, found {}",
+          geosGeometry->getGeometryType()));
+    }
+    if (geosGeometry->isEmpty()) {
+      return false;
+    }
+    auto coordinate = geosGeometry->getCoordinate();
+    result = coordinate->y;
+    return true;
   }
 };
 

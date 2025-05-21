@@ -22,6 +22,20 @@
 namespace facebook::velox::functions {
 
 namespace {
+
+void registerConstructors(const std::string& prefix) {
+  registerFunction<StGeometryFromTextFunction, Geometry, Varchar>(
+      {{prefix + "ST_GeometryFromText"}});
+  registerFunction<StGeomFromBinaryFunction, Geometry, Varbinary>(
+      {{prefix + "ST_GeomFromBinary"}});
+  registerFunction<StAsTextFunction, Varchar, Geometry>(
+      {{prefix + "ST_AsText"}});
+  registerFunction<StAsBinaryFunction, Varbinary, Geometry>(
+      {{prefix + "ST_AsBinary"}});
+  registerFunction<StPointFunction, Geometry, double, double>(
+      {{prefix + "ST_Point"}});
+}
+
 void registerRelationPredicates(const std::string& prefix) {
   registerFunction<StRelateFunction, bool, Geometry, Geometry, Varchar>(
       {{prefix + "ST_Relate"}});
@@ -55,26 +69,20 @@ void registerOverlayOperations(const std::string& prefix) {
       {{prefix + "ST_Union"}});
 }
 
+void registerAccessors(const std::string& prefix) {
+  registerFunction<StAreaFunction, double, Geometry>({{prefix + "ST_Area"}});
+  registerFunction<StXFunction, double, Geometry>({{prefix + "ST_X"}});
+  registerFunction<StYFunction, double, Geometry>({{prefix + "ST_Y"}});
+}
+
 } // namespace
 
 void registerGeometryFunctions(const std::string& prefix) {
   registerGeometryType();
-  registerFunction<StGeometryFromTextFunction, Geometry, Varchar>(
-      {{prefix + "ST_GeometryFromText"}});
-
-  registerFunction<StGeomFromBinaryFunction, Geometry, Varbinary>(
-      {{prefix + "ST_GeomFromBinary"}});
-
-  registerFunction<StAsTextFunction, Varchar, Geometry>(
-      {{prefix + "ST_AsText"}});
-
-  registerFunction<StAsBinaryFunction, Varbinary, Geometry>(
-      {{prefix + "ST_AsBinary"}});
-
-  registerFunction<StAreaFunction, double, Geometry>({{prefix + "ST_Area"}});
-
+  registerConstructors(prefix);
   registerRelationPredicates(prefix);
   registerOverlayOperations(prefix);
+  registerAccessors(prefix);
 }
 
 } // namespace facebook::velox::functions

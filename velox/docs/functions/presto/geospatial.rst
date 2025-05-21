@@ -67,6 +67,11 @@ Geometry Constructors
 
     Returns the Well-Known Binary (WKB) formatted binary of the Geometry object.
 
+.. function:: ST_Point(x: double, y: double) -> geometry: Geometry
+
+    Returns the Point geometry at the given coordinates.  This will raise an
+    error if ``x`` or ``y`` is ``NaN`` or ``infinity``.
+
 Spatial Predicates
 ------------------
 
@@ -160,6 +165,17 @@ Accessors
     returns the sum of the areas of the individual geometries. Empty geometries
     return 0.
 
+.. function:: ST_X(geometry: Geometry) -> x: double
+
+    Returns the ``x`` coordinate of the geometry if it is a Point.  Returns
+    ``null`` if the geometry is empty.  Raises an error if the geometry is
+    not a Point and not empty.
+
+.. function:: ST_Y(geometry: Geometry) -> x: double
+
+    Returns the ``y`` coordinate of the geometry if it is a Point.  Returns
+    ``null`` if the geometry is empty.  Raises an error if the geometry is
+    not a Point and not empty.
 
 Bing Tile Functions
 -------------------
