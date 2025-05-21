@@ -14,9 +14,9 @@
 package com.facebook.presto.server.thrift;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.drift.codec.CodecThriftType;
 import com.facebook.drift.codec.ThriftCodec;
 import com.facebook.drift.codec.metadata.ThriftCatalog;
-import com.facebook.drift.codec.metadata.ThriftStructMetadata;
 import com.facebook.drift.codec.metadata.ThriftType;
 import com.facebook.drift.protocol.TProtocolReader;
 import com.facebook.drift.protocol.TProtocolWriter;
@@ -35,26 +35,27 @@ public class TableWriteInfoCodec
     private static final short TABLE_WRITE_INFO_DATA_FIELD_ID = 1;
     private static final String TABLE_WRITE_INFO_DATA_FIELD_NAME = "tableWriteInfo";
     private static final String TABLE_WRITE_INFO_STRUCT_NAME = "TableWriteInfo";
+    private static final ThriftType SYNTHETIC_STRUCT_TYPE = ThriftType.struct(createSyntheticMetadata(TABLE_WRITE_INFO_DATA_FIELD_ID, TABLE_WRITE_INFO_DATA_FIELD_NAME, TableWriteInfo.class, String.class, ThriftType.STRING));
 
-    private final ThriftCatalog thriftCatalog;
-    private final ThriftType syntheticStructType;
     private final JsonCodec<TableWriteInfo> jsonCodec;
 
     @Inject
     public TableWriteInfoCodec(JsonCodec<TableWriteInfo> jsonCodec, ThriftCatalog thriftCatalog)
     {
         this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
-        this.thriftCatalog = requireNonNull(thriftCatalog, "thriftCatalog is null");
-
-        ThriftStructMetadata structMetadata = createSyntheticMetadata(thriftCatalog, TABLE_WRITE_INFO_DATA_FIELD_ID, TABLE_WRITE_INFO_DATA_FIELD_NAME, TableWriteInfo.class, String.class);
-        this.syntheticStructType = ThriftType.struct(structMetadata);
-
-        thriftCatalog.addThriftType(syntheticStructType);
+        thriftCatalog.addThriftType(SYNTHETIC_STRUCT_TYPE);
     }
 
+    @CodecThriftType
+    public static ThriftType getThriftType()
+    {
+        return SYNTHETIC_STRUCT_TYPE;
+    }
+
+    @Override
     public ThriftType getType()
     {
-        return syntheticStructType;
+        return SYNTHETIC_STRUCT_TYPE;
     }
 
     @Override

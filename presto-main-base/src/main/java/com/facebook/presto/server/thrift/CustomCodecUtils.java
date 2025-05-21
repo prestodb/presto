@@ -17,7 +17,6 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.drift.TException;
 import com.facebook.drift.codec.metadata.DefaultThriftTypeReference;
 import com.facebook.drift.codec.metadata.FieldKind;
-import com.facebook.drift.codec.metadata.ThriftCatalog;
 import com.facebook.drift.codec.metadata.ThriftFieldExtractor;
 import com.facebook.drift.codec.metadata.ThriftFieldMetadata;
 import com.facebook.drift.codec.metadata.ThriftStructMetadata;
@@ -34,7 +33,6 @@ import com.google.common.collect.ImmutableMap;
 import java.util.Optional;
 
 import static com.facebook.drift.annotations.ThriftField.Requiredness.NONE;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
 
 /***
@@ -44,12 +42,8 @@ public class CustomCodecUtils
 {
     private CustomCodecUtils() {}
 
-    public static ThriftStructMetadata createSyntheticMetadata(ThriftCatalog thriftCatalog, short fieldId, String fieldName, Class<?> originalType, Class<?> referencedType)
+    public static ThriftStructMetadata createSyntheticMetadata(short fieldId, String fieldName, Class<?> originalType, Class<?> referencedType, ThriftType thriftType)
     {
-        checkNotNull(thriftCatalog.getThriftType(referencedType), "Can not find corresponding thrift type for type %s", referencedType);
-
-        ThriftType thriftType = thriftCatalog.getThriftType(referencedType);
-
         ThriftFieldMetadata fieldMetaData = new ThriftFieldMetadata(
                 fieldId,
                 false, false, NONE, ImmutableMap.of(),
