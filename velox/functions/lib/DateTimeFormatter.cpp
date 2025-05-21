@@ -1221,17 +1221,16 @@ uint32_t DateTimeFormatter::maxResultSize(const tz::TimeZone* timezone) const {
         break;
       case DateTimeFormatSpecifier::TIMEZONE:
         if (token.pattern.minRepresentDigits <= 3) {
-          // The longest abbreviation according to here is 5, e.g. some time
-          // zones use the offset as the abbreviation, like +0530.
+          // The longest timezone abbreviation is 6 in the case of negative or
+          // explicitly positive numeric representations (e.g., +01:00, -08:00)
           // https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
-          size += 5;
+          size += 6;
         } else {
           // The longest time zone long name is 40, Australian Central Western
           // Standard Time.
           // https://www.timeanddate.com/time/zones/
           size += 50;
         }
-
         break;
       case DateTimeFormatSpecifier::TIMEZONE_OFFSET_ID:
         if (token.pattern.minRepresentDigits == 1) {

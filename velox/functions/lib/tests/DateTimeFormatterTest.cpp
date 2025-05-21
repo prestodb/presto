@@ -1345,6 +1345,15 @@ TEST_F(JodaDateTimeFormatterTest, formatResultSize) {
   EXPECT_EQ(getJodaDateTimeFormatter("C")->maxResultSize(timezone), 8);
   // Needs to pad to make result contain 9 digits.
   EXPECT_EQ(getJodaDateTimeFormatter("CCCCCCCCC")->maxResultSize(timezone), 9);
+
+  EXPECT_EQ(
+      getJodaDateTimeFormatter("yyyy-MM-dd z")->maxResultSize(timezone), 23);
+  EXPECT_EQ(
+      getJodaDateTimeFormatter("yyyy-MM-dd Z")->maxResultSize(timezone), 25);
+  EXPECT_EQ(
+      getJodaDateTimeFormatter("yyyy-MM-dd zzzz")->maxResultSize(timezone), 67);
+  EXPECT_EQ(
+      getJodaDateTimeFormatter("yyyy-MM-dd ZZZZ")->maxResultSize(timezone), 49);
 }
 
 TEST_F(JodaDateTimeFormatterTest, betterErrorMessaging) {

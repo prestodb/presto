@@ -3709,6 +3709,10 @@ TEST_F(DateTimeFunctionsTest, formatDateTime) {
       formatDatetime(parseTimestamp("-292275054-01-01 00:00:00.000"), "yyyy"));
 
   // Time zone test cases - 'Z'
+  setQueryTimeZone("America/Los_Angeles");
+  EXPECT_EQ("-08:00", formatDatetime(parseTimestamp("1970-01-01"), "ZZ"));
+  EXPECT_EQ("-0800", formatDatetime(parseTimestamp("1970-01-01"), "Z"));
+
   setQueryTimeZone("Asia/Kolkata");
   EXPECT_EQ(
       "Asia/Kolkata",
