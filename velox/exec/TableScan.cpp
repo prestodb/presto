@@ -117,6 +117,12 @@ RowVectorPtr TableScan::getOutput() {
       return nullptr;
     }
 
+    ExceptionContextSetter exceptionContext(
+        {[](VeloxException::Type /*exceptionType*/, auto* debugString) {
+           return *static_cast<std::string*>(debugString);
+         },
+         &debugString_});
+
     if (needNewSplit_) {
       const auto hasNewSplit = getSplit();
       if (!hasNewSplit) {
@@ -134,12 +140,6 @@ RowVectorPtr TableScan::getOutput() {
     }
     VELOX_CHECK(!needNewSplit_);
     VELOX_CHECK(!hasDrained());
-
-    ExceptionContextSetter exceptionContext(
-        {[](VeloxException::Type /*exceptionType*/, auto* debugString) {
-           return *static_cast<std::string*>(debugString);
-         },
-         &debugString_});
 
     int32_t readBatchSize = readBatchSize_;
     if (maxFilteringRatio_ > 0) {
