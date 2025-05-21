@@ -571,6 +571,8 @@ public class PrestoNativeQueryRunnerUtils
                         if (enableRuntimeMetricsCollection) {
                             configProperties = format("%s%n" +
                                     "runtime-metrics-collection-enabled=true%n", configProperties);
+                            configProperties = format("%s%n" +
+                                    "runtime-histogram-metrics-collection-enabled=true%n", configProperties);
                         }
 
                         if (enableSsdCache) {

@@ -251,6 +251,7 @@ SystemConfig::SystemConfig() {
           STR_PROP(kCacheVeloxTtlThreshold, "2d"),
           STR_PROP(kCacheVeloxTtlCheckInterval, "1h"),
           BOOL_PROP(kEnableRuntimeMetricsCollection, false),
+          BOOL_PROP(kEnableRuntimeHistogramMetricsCollection, false),
           BOOL_PROP(kPlanValidatorFailOnNestedLoopJoin, false),
           STR_PROP(kPrestoDefaultNamespacePrefix, "presto.default"),
           STR_PROP(kPoolType, "DEFAULT"),
@@ -878,6 +879,11 @@ int32_t SystemConfig::largestSizeClassPages() const {
 
 bool SystemConfig::enableRuntimeMetricsCollection() const {
   return optionalProperty<bool>(kEnableRuntimeMetricsCollection).value();
+}
+
+bool SystemConfig::enableRuntimeHistogramMetricsCollection() const {
+  return optionalProperty<bool>(kEnableRuntimeHistogramMetricsCollection)
+      .value();
 }
 
 std::string SystemConfig::prestoDefaultNamespacePrefix() const {
