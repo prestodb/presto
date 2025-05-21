@@ -902,9 +902,9 @@ void appendCounts(
   }
 }
 
-std::string truncate(const std::string& str, size_t maxLen = 50) {
-  if (str.size() > maxLen) {
-    return str.substr(0, maxLen) + "...";
+std::string truncate(const std::string& str, size_t maxLength = 50) {
+  if (str.size() > maxLength) {
+    return str.substr(0, maxLength) + "...";
   }
   return str;
 }
@@ -914,7 +914,8 @@ void appendProjections(
     const AbstractProjectNode& op,
     const std::vector<size_t>& projections,
     size_t cnt,
-    std::stringstream& stream) {
+    std::stringstream& stream,
+    size_t maxLength) {
   if (cnt == 0) {
     return;
   }
@@ -923,7 +924,7 @@ void appendProjections(
     const auto index = projections[i];
     const auto& expr = op.projections()[index];
     stream << indentation << op.outputType()->nameOf(index) << ": "
-           << truncate(expr->toString()) << std::endl;
+           << truncate(expr->toString(), maxLength) << std::endl;
   }
 
   if (cnt < projections.size()) {
@@ -936,7 +937,8 @@ void appendAggregations(
     const std::string& indentation,
     const AggregationNode& op,
     size_t cnt,
-    std::stringstream& stream) {
+    std::stringstream& stream,
+    size_t maxLength) {
   if (cnt == 0) {
     return;
   }
@@ -945,7 +947,7 @@ void appendAggregations(
     const auto& expr = op.aggregates().at(i).call;
     stream << indentation << i << ": "
            << (op.aggregates().at(i).distinct ? "DISTINCT" : "")
-           << truncate(expr->toString()) << std::endl;
+           << truncate(expr->toString(), maxLength) << std::endl;
   }
 
   if (cnt < op.aggregates().size()) {
@@ -1024,7 +1026,13 @@ void AbstractProjectNode::addSummaryDetails(
   {
     const auto cnt =
         std::min(options.project.maxProjections, projections.size());
-    appendProjections(indentation + "   ", *this, projections, cnt, stream);
+    appendProjections(
+        indentation + "   ",
+        *this,
+        projections,
+        cnt,
+        stream,
+        options.maxLength);
   }
 
   // dereferences: 2 out of 10
@@ -1033,7 +1041,13 @@ void AbstractProjectNode::addSummaryDetails(
   {
     const auto cnt =
         std::min(options.project.maxDereferences, dereferences.size());
-    appendProjections(indentation + "   ", *this, dereferences, cnt, stream);
+    appendProjections(
+        indentation + "   ",
+        *this,
+        dereferences,
+        cnt,
+        stream,
+        options.maxLength);
   }
 }
 
@@ -3000,7 +3014,7 @@ void PlanNode::addSummaryDetails(
   std::stringstream out;
   addDetails(out);
 
-  stream << indentation << truncate(out.str()) << std::endl;
+  stream << indentation << truncate(out.str(), options.maxLength) << std::endl;
 }
 
 namespace {
@@ -3107,7 +3121,8 @@ void FilterNode::addSummaryDetails(
 
   appendExprSummary(indentation, options, exprCtx, stream);
 
-  stream << indentation << "filter: " << truncate(filter_->toString())
+  stream << indentation
+         << "filter: " << truncate(filter_->toString(), options.maxLength)
          << std::endl;
 }
 
@@ -3141,7 +3156,8 @@ void AggregationNode::addSummaryDetails(
   {
     const auto cnt =
         std::min(options.aggregate.maxAggregations, aggregates().size());
-    appendAggregations(indentation + "   ", *this, cnt, stream);
+    appendAggregations(
+        indentation + "   ", *this, cnt, stream, options.maxLength);
   }
 }
 

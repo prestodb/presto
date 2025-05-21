@@ -140,6 +140,10 @@ struct PlanSummaryOptions {
   /// ROW(VARCHAR, ARRAY,...).
   size_t maxChildTypes = 0;
 
+  /// Controls the maximum length of a string that is included in the plan
+  /// summary.
+  size_t maxLength = 50;
+
   /// Options that apply specifically to AGGREGATION nodes.
   struct AggregateOptions {
     /// For a given AGGREGATION node, maximum number of aggregate expressions
