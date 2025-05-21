@@ -24,6 +24,8 @@ namespace py = pybind11;
 PYBIND11_MODULE(vector, m) {
   using namespace facebook;
 
+  py::module::import("pyvelox.type");
+
   py::class_<velox::py::PyVector>(m, "Vector")
       .def("__str__", &velox::py::PyVector::toString, py::doc(R"(
         Returns a summarized description of the Vector and its type.

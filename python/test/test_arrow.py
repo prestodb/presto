@@ -40,6 +40,36 @@ class TestPyVeloxArrow(unittest.TestCase):
         self.assertTrue(isinstance(array2, pyarrow.Array))
         self.assertEqual(array, array2)
 
+    def test_struct_roundtrip(self):
+        struct_array = pyarrow.StructArray.from_arrays(
+            [
+                pyarrow.array([1, 2, 3]),
+                pyarrow.array(["a", "b", "c"]),
+            ],
+            names=["col1", "col2"],
+        )
+        generated_array = to_arrow(to_velox(struct_array))
+
+        self.assertTrue(isinstance(struct_array, pyarrow.StructArray))
+        self.assertTrue(isinstance(generated_array, pyarrow.StructArray))
+
+        self.assertEqual(struct_array, generated_array)
+
+    def test_record_batch(self):
+        record_batch = pyarrow.RecordBatch.from_arrays(
+            [
+                pyarrow.array([1, 2, 3]),
+                pyarrow.array(["a", "b", "c"]),
+            ],
+            names=["col1", "col2"],
+        )
+        vector = to_velox(record_batch)
+        self.assertEqual(str(vector.type()), "ROW<col1:BIGINT,col2:VARCHAR>")
+
+        struct_array = to_arrow(vector)
+        self.assertTrue(isinstance(struct_array, pyarrow.StructArray))
+        self.assertEqual(struct_array, record_batch.to_struct_array())
+
     def test_empty(self):
         # TODO: Velox's arrow bridge does not allow missing buffers (even if
         # there are no rows):
