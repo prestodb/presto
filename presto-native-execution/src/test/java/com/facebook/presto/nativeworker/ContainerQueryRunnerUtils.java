@@ -94,6 +94,18 @@ public class ContainerQueryRunnerUtils
         createPropertiesFile("testcontainers/" + nodeId + "/etc/config.properties", properties);
     }
 
+    public static void createSidecarConfigProperties(int coordinatorPort, String nodeId)
+            throws IOException
+    {
+        Properties properties = new Properties();
+        properties.setProperty("presto.version", "testversion");
+        properties.setProperty("http-server.http.port", "7777");
+        properties.setProperty("discovery.uri", "http://presto-coordinator:" + coordinatorPort);
+        properties.setProperty("system-memory-gb", "2");
+        properties.setProperty("native.sidecar", "true");
+        createPropertiesFile("testcontainers/" + nodeId + "/etc/config.properties", properties);
+    }
+
     public static void createCoordinatorConfigProperties(int port)
             throws IOException
     {
@@ -112,6 +124,19 @@ public class ContainerQueryRunnerUtils
         }
 
         createPropertiesFile("testcontainers/coordinator/etc/config.properties", properties);
+    }
+
+    public static void createJavaWorkerConfigProperties(int coordinatorPort, String nodeId)
+            throws IOException
+    {
+        Properties properties = new Properties();
+        properties.setProperty("coordinator", "false");
+        properties.setProperty("presto.version", "testversion");
+        properties.setProperty("node-scheduler.include-coordinator", "false");
+        properties.setProperty("http-server.http.port", "7777");
+        properties.setProperty("discovery-server.enabled", "false");
+        properties.setProperty("discovery.uri", "http://presto-coordinator:" + coordinatorPort);
+        createPropertiesFile("testcontainers/" + nodeId + "/etc/config.properties", properties);
     }
 
     public static void createCoordinatorJvmConfig()
