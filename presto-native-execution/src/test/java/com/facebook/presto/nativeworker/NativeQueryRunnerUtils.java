@@ -58,6 +58,16 @@ public class NativeQueryRunnerUtils
     public static Map<String, String> getNativeSidecarProperties()
     {
         return ImmutableMap.<String, String>builder()
+                .put("native-execution-enabled", "true")
+                .put("optimizer.optimize-hash-generation", "false")
+                .put("regex-library", "RE2J")
+                .put("offset-clause-enabled", "true")
+                // When sidecar is enabled, the native engine function registry is reported to the coordinator.
+                // Because the Presto coordinator has access to the underlying native functions it should pick the native
+                // function implementation and if not expand the function into its SQL equivalent.
+                // To achieve that, we set inline-sql-functions to true.
+                .put("inline-sql-functions", "true")
+                .put("use-alternative-function-signatures", "true")
                 .put("coordinator-sidecar-enabled", "true")
                 .put("exclude-invalid-worker-session-properties", "true")
                 .put("presto.default-namespace", "native.default")

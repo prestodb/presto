@@ -38,12 +38,14 @@ import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.se
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
 public class TestNativeSidecarPlugin
         extends AbstractTestQueryFramework
 {
+    private static final String BUILTIN_REGEX_FUNCTION_NAMESPACE = "presto.default.*";
     private static final String REGEX_FUNCTION_NAMESPACE = "native.default.*";
     private static final String REGEX_SESSION_NAMESPACE = "Native Execution only.*";
 
@@ -111,18 +113,46 @@ public class TestNativeSidecarPlugin
         List<MaterializedRow> actualRows = actualResult.getMaterializedRows();
         for (MaterializedRow actualRow : actualRows) {
             List<Object> row = actualRow.getFields();
-            // No namespace should be present on the functionNames
             String functionName = row.get(0).toString();
-            if (Pattern.matches(REGEX_FUNCTION_NAMESPACE, functionName)) {
-                fail(format("Namespace match found for row: %s", row));
+            String functionLanguage = row.get(9).toString();
+            if (functionLanguage.equals("cpp")) {
+                // No namespace should be present on the functionNames
+                assertFalse(Pattern.matches(REGEX_FUNCTION_NAMESPACE, functionName));
+                // function namespace should be present.
+                String fullFunctionName = row.get(5).toString();
+                if (Pattern.matches(REGEX_FUNCTION_NAMESPACE, fullFunctionName)) {
+                    continue;
+                }
+                fail(format("No namespace match found for row: %s", row));
             }
+            else {
+                assertEquals(functionLanguage, "sql");
+                // function namespace should be present.
+                assertTrue(Pattern.matches(BUILTIN_REGEX_FUNCTION_NAMESPACE, functionName));
+            }
+        }
+    }
 
-            // function namespace should be present.
-            String fullFunctionName = row.get(5).toString();
-            if (Pattern.matches(REGEX_FUNCTION_NAMESPACE, fullFunctionName)) {
-                continue;
+    @Test
+    public void testShowFunctionsWithSqlInvokedScalarFunctions()
+    {
+        @Language("SQL") String sql = "show functions like '%map_remove_null_values%'";
+        MaterializedResult actualResult = computeActual(sql);
+        List<MaterializedRow> actualRows = actualResult.getMaterializedRows();
+        assertEquals(actualRows.size(), 2);
+        for (MaterializedRow actualRow : actualRows) {
+            List<Object> row = actualRow.getFields();
+            String functionName = row.get(0).toString();
+            String functionLanguage = row.get(9).toString();
+            if (functionLanguage.equals("cpp")) {
+                // No namespace should be present on the functionNames
+                assertFalse(Pattern.matches(REGEX_FUNCTION_NAMESPACE, functionName));
             }
-            fail(format("No namespace match found for row: %s", row));
+            else {
+                assertEquals(functionLanguage, "sql");
+                // function namespace should be present.
+                assertTrue(Pattern.matches(BUILTIN_REGEX_FUNCTION_NAMESPACE, functionName));
+            }
         }
     }
 
