@@ -322,7 +322,7 @@ void FlatVector<StringView>::copy(
 // need to perform a deep copy and reconstruct the string views against the
 // updated stringBuffers.
 template <>
-VectorPtr FlatVector<StringView>::copyPreserveEncodings(
+VectorPtr FlatVector<StringView>::testingCopyPreserveEncodings(
     velox::memory::MemoryPool* pool) const {
   const auto allocPool = pool ? pool : BaseVector::pool_;
   // If the backing memory pool is the same as the vector pool

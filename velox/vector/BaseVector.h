@@ -543,7 +543,7 @@ class BaseVector {
 
   /// This makes a deep copy of the Vector allocating new child Vectors and
   /// Buffers recursively.  Unlike copy, this preserves encodings recursively.
-  virtual VectorPtr copyPreserveEncodings(
+  virtual VectorPtr testingCopyPreserveEncodings(
       velox::memory::MemoryPool* pool = nullptr) const = 0;
 
   /// Construct a zero-copy slice of the vector with the indicated offset and

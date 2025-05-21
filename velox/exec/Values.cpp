@@ -15,7 +15,6 @@
  */
 #include "velox/exec/Values.h"
 #include "velox/common/testutil/TestValue.h"
-
 using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::exec {
@@ -47,7 +46,7 @@ void Values::initialize() {
         // being shared across threads.  Note that the contract in ValuesNode is
         // that this should only be enabled for testing.
         values_.emplace_back(std::static_pointer_cast<RowVector>(
-            vector->copyPreserveEncodings()));
+            vector->testingCopyPreserveEncodings()));
       } else {
         values_.emplace_back(vector);
       }

@@ -196,9 +196,10 @@ class FunctionVector : public BaseVector {
     VELOX_NYI();
   }
 
-  VectorPtr copyPreserveEncodings(
+  VectorPtr testingCopyPreserveEncodings(
       velox::memory::MemoryPool* /* pool */ = nullptr) const override {
-    VELOX_UNSUPPORTED("copyPreserveEncodings not defined for FunctionVector");
+    VELOX_UNSUPPORTED(
+        "testingCopyPreserveEncodings not defined for FunctionVector");
   }
 
  private:

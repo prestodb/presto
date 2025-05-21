@@ -1377,7 +1377,7 @@ DEBUG_ONLY_TEST_F(OrderByTest, orderByWithLazyInput) {
 
   std::vector<RowVectorPtr> lazyInputCopy;
   lazyInputCopy.push_back(std::dynamic_pointer_cast<RowVector>(
-      nonLazyVector->copyPreserveEncodings()));
+      nonLazyVector->testingCopyPreserveEncodings()));
   createDuckDbTable(lazyInputCopy);
 
   std::atomic_bool nonReclaimableSectionEntered{false};

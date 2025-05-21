@@ -271,7 +271,7 @@ class FlatVector final : public SimpleVector<T> {
       const BaseVector* source,
       const folly::Range<const BaseVector::CopyRange*>& ranges) override;
 
-  VectorPtr copyPreserveEncodings(
+  VectorPtr testingCopyPreserveEncodings(
       velox::memory::MemoryPool* pool = nullptr) const override {
     const auto allocPool = pool ? pool : BaseVector::pool_;
     return std::make_shared<FlatVector<T>>(
@@ -652,7 +652,7 @@ template <>
 void FlatVector<StringView>::prepareForReuse();
 
 template <>
-VectorPtr FlatVector<StringView>::copyPreserveEncodings(
+VectorPtr FlatVector<StringView>::testingCopyPreserveEncodings(
     velox::memory::MemoryPool* pool) const;
 
 template <typename T>

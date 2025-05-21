@@ -165,7 +165,7 @@ class EncodedVectorCopyTest : public testing::TestWithParam<TestParams::Type>,
       sourceCopy = source;
     } else {
       sourcePool = rootPool_->addLeafChild("SourcePool");
-      sourceCopy = source->copyPreserveEncodings(sourcePool.get());
+      sourceCopy = source->testingCopyPreserveEncodings(sourcePool.get());
     }
     f(sourceCopy);
   }

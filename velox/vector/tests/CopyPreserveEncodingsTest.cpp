@@ -204,7 +204,7 @@ class CopyPreserveEncodingsTest : public testing::Test {
 
 TEST_F(CopyPreserveEncodingsTest, biasHasNulls) {
   auto biasVector = vectorMaker_.biasVector(generateIntInputWithNulls());
-  auto copy = biasVector->copyPreserveEncodings();
+  auto copy = biasVector->testingCopyPreserveEncodings();
 
   assertEqualVectors(biasVector, copy);
   validateCopyPreserveEncodings(biasVector, copy);
@@ -212,7 +212,7 @@ TEST_F(CopyPreserveEncodingsTest, biasHasNulls) {
 
 TEST_F(CopyPreserveEncodingsTest, biasNoNulls) {
   auto biasVector = vectorMaker_.biasVector(generateIntInput());
-  auto copy = biasVector->copyPreserveEncodings();
+  auto copy = biasVector->testingCopyPreserveEncodings();
 
   assertEqualVectors(biasVector, copy);
   validateCopyPreserveEncodings(biasVector, copy);
@@ -220,7 +220,7 @@ TEST_F(CopyPreserveEncodingsTest, biasNoNulls) {
 
 TEST_F(CopyPreserveEncodingsTest, arrayHasNulls) {
   auto arrayVector = generateArrayVector({TestOptions::WITH_NULLS});
-  auto copy = arrayVector->copyPreserveEncodings();
+  auto copy = arrayVector->testingCopyPreserveEncodings();
 
   assertEqualVectors(arrayVector, copy);
   validateCopyPreserveEncodings(arrayVector, copy);
@@ -228,7 +228,7 @@ TEST_F(CopyPreserveEncodingsTest, arrayHasNulls) {
 
 TEST_F(CopyPreserveEncodingsTest, arrayNoNulls) {
   auto arrayVector = generateArrayVector();
-  auto copy = arrayVector->copyPreserveEncodings();
+  auto copy = arrayVector->testingCopyPreserveEncodings();
 
   assertEqualVectors(arrayVector, copy);
   validateCopyPreserveEncodings(arrayVector, copy);
@@ -236,7 +236,7 @@ TEST_F(CopyPreserveEncodingsTest, arrayNoNulls) {
 
 TEST_F(CopyPreserveEncodingsTest, mapHasNulls) {
   auto mapVector = generateMapVector({TestOptions::WITH_NULLS});
-  auto copy = mapVector->copyPreserveEncodings();
+  auto copy = mapVector->testingCopyPreserveEncodings();
 
   assertEqualVectors(mapVector, copy);
   validateCopyPreserveEncodings(mapVector, copy);
@@ -244,7 +244,7 @@ TEST_F(CopyPreserveEncodingsTest, mapHasNulls) {
 
 TEST_F(CopyPreserveEncodingsTest, mapNoNulls) {
   auto mapVector = generateMapVector();
-  auto copy = mapVector->copyPreserveEncodings();
+  auto copy = mapVector->testingCopyPreserveEncodings();
 
   assertEqualVectors(mapVector, copy);
   validateCopyPreserveEncodings(mapVector, copy);
@@ -257,7 +257,7 @@ TEST_F(CopyPreserveEncodingsTest, rowHasNulls) {
        generateMapVector()});
 
   rowVector->setNull(3, true);
-  auto copy = rowVector->copyPreserveEncodings();
+  auto copy = rowVector->testingCopyPreserveEncodings();
 
   assertEqualVectors(rowVector, copy);
   validateCopyPreserveEncodings(rowVector, copy);
@@ -268,7 +268,7 @@ TEST_F(CopyPreserveEncodingsTest, rowNoNulls) {
       {vectorMaker_.flatVectorNullable(generateIntInput()),
        generateArrayVector(),
        generateMapVector()});
-  auto copy = rowVector->copyPreserveEncodings();
+  auto copy = rowVector->testingCopyPreserveEncodings();
 
   assertEqualVectors(rowVector, copy);
   validateCopyPreserveEncodings(rowVector, copy);
@@ -276,7 +276,7 @@ TEST_F(CopyPreserveEncodingsTest, rowNoNulls) {
 
 TEST_F(CopyPreserveEncodingsTest, constantNull) {
   auto constantVector = vectorMaker_.constantVector<int32_t>({std::nullopt});
-  auto copy = constantVector->copyPreserveEncodings();
+  auto copy = constantVector->testingCopyPreserveEncodings();
 
   assertEqualVectors(constantVector, copy);
   validateCopyPreserveEncodings(constantVector, copy);
@@ -284,7 +284,7 @@ TEST_F(CopyPreserveEncodingsTest, constantNull) {
 
 TEST_F(CopyPreserveEncodingsTest, constantNoNulls) {
   auto constantVector = vectorMaker_.constantVector<int32_t>({1});
-  auto copy = constantVector->copyPreserveEncodings();
+  auto copy = constantVector->testingCopyPreserveEncodings();
 
   assertEqualVectors(constantVector, copy);
   validateCopyPreserveEncodings(constantVector, copy);
@@ -293,7 +293,7 @@ TEST_F(CopyPreserveEncodingsTest, constantNoNulls) {
 TEST_F(CopyPreserveEncodingsTest, dictionaryHasNulls) {
   auto dictionaryVector =
       vectorMaker_.dictionaryVector(generateIntInputWithNulls());
-  auto copy = dictionaryVector->copyPreserveEncodings();
+  auto copy = dictionaryVector->testingCopyPreserveEncodings();
 
   assertEqualVectors(dictionaryVector, copy);
   validateCopyPreserveEncodings(dictionaryVector, copy);
@@ -301,7 +301,7 @@ TEST_F(CopyPreserveEncodingsTest, dictionaryHasNulls) {
 
 TEST_F(CopyPreserveEncodingsTest, dictionaryNoNulls) {
   auto dictionaryVector = vectorMaker_.dictionaryVector(generateIntInput());
-  auto copy = dictionaryVector->copyPreserveEncodings();
+  auto copy = dictionaryVector->testingCopyPreserveEncodings();
 
   assertEqualVectors(dictionaryVector, copy);
   validateCopyPreserveEncodings(dictionaryVector, copy);
@@ -310,7 +310,7 @@ TEST_F(CopyPreserveEncodingsTest, dictionaryNoNulls) {
 TEST_F(CopyPreserveEncodingsTest, flatHasNulls) {
   auto flatVector =
       vectorMaker_.flatVectorNullable(generateIntInputWithNulls());
-  auto copy = flatVector->copyPreserveEncodings();
+  auto copy = flatVector->testingCopyPreserveEncodings();
 
   assertEqualVectors(flatVector, copy);
   validateCopyPreserveEncodings(flatVector, copy);
@@ -318,7 +318,7 @@ TEST_F(CopyPreserveEncodingsTest, flatHasNulls) {
 
 TEST_F(CopyPreserveEncodingsTest, flatNoNulls) {
   auto flatVector = vectorMaker_.flatVectorNullable(generateIntInput());
-  auto copy = flatVector->copyPreserveEncodings();
+  auto copy = flatVector->testingCopyPreserveEncodings();
 
   assertEqualVectors(flatVector, copy);
   validateCopyPreserveEncodings(flatVector, copy);
@@ -327,9 +327,9 @@ TEST_F(CopyPreserveEncodingsTest, flatNoNulls) {
 TEST_F(CopyPreserveEncodingsTest, lazyNoNulls) {
   auto lazyVector = vectorMaker_.lazyFlatVector<int32_t>(
       10, [](vector_size_t row) { return row; });
-  VELOX_ASSERT_THROW(lazyVector->copyPreserveEncodings(), "");
+  VELOX_ASSERT_THROW(lazyVector->testingCopyPreserveEncodings(), "");
 
-  auto copy = lazyVector->loadedVector()->copyPreserveEncodings();
+  auto copy = lazyVector->loadedVector()->testingCopyPreserveEncodings();
   assertEqualVectors(lazyVector, copy);
   ASSERT_EQ(copy->encoding(), VectorEncoding::Simple::FLAT);
   ASSERT_EQ(copy->nulls(), nullptr);
@@ -338,7 +338,7 @@ TEST_F(CopyPreserveEncodingsTest, lazyNoNulls) {
 TEST_F(CopyPreserveEncodingsTest, sequenceHasNulls) {
   auto sequenceVector =
       vectorMaker_.sequenceVector(generateIntInputWithNulls());
-  auto copy = sequenceVector->copyPreserveEncodings();
+  auto copy = sequenceVector->testingCopyPreserveEncodings();
 
   assertEqualVectors(sequenceVector, copy);
   validateCopyPreserveEncodings(sequenceVector, copy);
@@ -346,7 +346,7 @@ TEST_F(CopyPreserveEncodingsTest, sequenceHasNulls) {
 
 TEST_F(CopyPreserveEncodingsTest, sequenceNoNulls) {
   auto sequenceVector = vectorMaker_.sequenceVector(generateIntInput());
-  auto copy = sequenceVector->copyPreserveEncodings();
+  auto copy = sequenceVector->testingCopyPreserveEncodings();
 
   assertEqualVectors(sequenceVector, copy);
   validateCopyPreserveEncodings(sequenceVector, copy);
@@ -360,7 +360,7 @@ TEST_F(CopyPreserveEncodingsTest, newMemoryPool) {
   auto preCopySrcMemory = sourcePool->usedBytes();
   ASSERT_EQ(0, targetPool->usedBytes());
 
-  auto copy = dictionaryVector->copyPreserveEncodings(targetPool.get());
+  auto copy = dictionaryVector->testingCopyPreserveEncodings(targetPool.get());
   assertEqualVectors(dictionaryVector, copy);
   validateCopyPreserveEncodings(dictionaryVector, copy);
 

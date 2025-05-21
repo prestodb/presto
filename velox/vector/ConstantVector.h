@@ -373,7 +373,7 @@ class ConstantVector final : public SimpleVector<T> {
     }
   }
 
-  VectorPtr copyPreserveEncodings(
+  VectorPtr testingCopyPreserveEncodings(
       velox::memory::MemoryPool* pool = nullptr) const override {
     auto selfPool = pool ? pool : BaseVector::pool_;
     if (valueVector_) {
@@ -381,7 +381,7 @@ class ConstantVector final : public SimpleVector<T> {
           selfPool,
           BaseVector::length_,
           index_,
-          valueVector_->copyPreserveEncodings(pool),
+          valueVector_->testingCopyPreserveEncodings(pool),
           SimpleVector<T>::stats_);
     }
 

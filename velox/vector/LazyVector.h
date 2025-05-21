@@ -364,10 +364,10 @@ class LazyVector : public BaseVector {
 
   void validate(const VectorValidateOptions& options) const override;
 
-  VectorPtr copyPreserveEncodings(
+  VectorPtr testingCopyPreserveEncodings(
       velox::memory::MemoryPool* pool = nullptr) const override {
     VELOX_CHECK(isLoaded());
-    return loadedVector()->copyPreserveEncodings(pool);
+    return loadedVector()->testingCopyPreserveEncodings(pool);
   }
 
  private:

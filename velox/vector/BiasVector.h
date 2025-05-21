@@ -163,7 +163,7 @@ class BiasVector : public SimpleVector<T> {
     VELOX_NYI();
   }
 
-  VectorPtr copyPreserveEncodings(
+  VectorPtr testingCopyPreserveEncodings(
       velox::memory::MemoryPool* pool = nullptr) const override {
     auto selfPool = pool ? pool : BaseVector::pool_;
     return std::make_shared<BiasVector<T>>(
