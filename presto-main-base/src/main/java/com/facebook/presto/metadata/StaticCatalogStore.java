@@ -15,7 +15,10 @@ package com.facebook.presto.metadata;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.connector.ConnectorManager;
+import com.facebook.presto.server.security.crypto.CryptoUtils;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -23,6 +26,7 @@ import com.google.common.io.Files;
 import jakarta.inject.Inject;
 
 import java.io.File;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -41,20 +45,45 @@ public class StaticCatalogStore
     private final Set<String> disabledCatalogs;
     private final AtomicBoolean catalogsLoading = new AtomicBoolean();
     private final AtomicBoolean catalogsLoaded = new AtomicBoolean();
+    private final Map<String, String> allEnvProperties;
 
     @Inject
-    public StaticCatalogStore(ConnectorManager connectorManager, StaticCatalogStoreConfig config)
+    public StaticCatalogStore(ConnectorManager connectorManager, StaticCatalogStoreConfig config, FeaturesConfig featuresConfig)
     {
         this(connectorManager,
                 config.getCatalogConfigurationDir(),
-                firstNonNull(config.getDisabledCatalogs(), ImmutableList.of()));
+                firstNonNull(config.getDisabledCatalogs(), ImmutableList.of()),
+                // Load the secrets file in the environment variable map, in case we didn't restart cleanly with preset env variables
+                CryptoUtils.loadDecryptedProperties(featuresConfig.getIbmLhSecretPropsFile()));
     }
 
-    public StaticCatalogStore(ConnectorManager connectorManager, File catalogConfigurationDir, List<String> disabledCatalogs)
+    public StaticCatalogStore(ConnectorManager connectorManager, File catalogConfigurationDir, List<String> disabledCatalogs, Map<String, String> decryptedEnvProperties)
     {
         this.connectorManager = connectorManager;
         this.catalogConfigurationDir = catalogConfigurationDir;
         this.disabledCatalogs = ImmutableSet.copyOf(disabledCatalogs);
+        HashMap<String, String> mergedMap = new HashMap<>(System.getenv()); // Env variables are set by the crypto library + startup scripts with decrypted secrets
+        mergedMap.putAll(decryptedEnvProperties); // Add those from the explicit secret file. Duplicate keys overridden
+        this.allEnvProperties = ImmutableMap.copyOf(mergedMap);
+    }
+
+    @VisibleForTesting
+    static String substitutePlaceHolder(String propertyValue, Map<String, String> environmentMap)
+    {
+        if (propertyValue.startsWith("${") && propertyValue.endsWith("}")) {
+            String envVariable = propertyValue.substring(2, propertyValue.length() - 1);
+            log.info("Substituting [%s] property using the value of the [%s] environment variable", propertyValue, envVariable);
+
+            if (environmentMap.containsKey(envVariable)) {
+                propertyValue = environmentMap.get(envVariable);
+            }
+            else {
+                String errorMessage = String.format("Unable to find env variable [%s] corresponding to property value [%s]", envVariable, propertyValue);
+                log.error(errorMessage);
+                throw new RuntimeException(errorMessage);
+            }
+        }
+        return propertyValue;
     }
 
     public boolean areCatalogsLoaded()
@@ -103,7 +132,9 @@ public class StaticCatalogStore
                 connectorName = entry.getValue();
             }
             else {
-                connectorProperties.put(entry.getKey(), entry.getValue());
+                String propertyValue = entry.getValue();
+                propertyValue = substitutePlaceHolder(propertyValue, allEnvProperties);
+                connectorProperties.put(entry.getKey(), propertyValue);
             }
         }
 

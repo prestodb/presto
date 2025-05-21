@@ -92,7 +92,6 @@ public class CatalogResource
     private final QueryManager queryManager;
     private final Predicate<BasicQueryInfo> nonNull = Objects::nonNull;
     private final Predicate<BasicQueryInfo> isRunning = this::isRunning;
-    Map<String, String> decryptedSecretsEnvProperties;
 
     @Inject
     public CatalogResource(StaticCatalogStore catalogStore,
@@ -110,8 +109,6 @@ public class CatalogResource
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
         this.featuresConfig = requireNonNull(featuresConfig, "featuresConfig is null");
-        log.info("SECRETS_ENV_FILE ['%s']", featuresConfig.getIbmLhSecretPropsFile());
-        this.decryptedSecretsEnvProperties = CryptoUtils.loadDecryptedProperties(featuresConfig.getIbmLhSecretPropsFile());
     }
 
     @GET
@@ -174,8 +171,15 @@ public class CatalogResource
     private ConnectorId registerCatalog(String catalogName, Map<String, String> properties)
     {
         log.info("KEY_SET ['%s']", properties.keySet());
-        log.info("SECRETS_KEY_SET ['%s']", decryptedSecretsEnvProperties.keySet());
-        Map<String, String> updatedProperties = mergeInSecretProperties(properties, decryptedSecretsEnvProperties);
+        // We need to decrypt the secrets everytime before we call loadCatalog
+        // The Presto-rest-server updates the secrets file each time before calling Add or Update Catalog
+        // See https://github.ibm.com/lakehouse/ibm-open-lakehouse/blob/52fb6e8dd9b76d09e03a2b7add38445554c8dde1/images/presto/presto-rest-server/go/impl_catalog_service.go#L303-L318
+        // TODO : We actually only need to decrypt the full secret properties, only new ones.
+        // TODO : We only need to decrypt passed in properties if they match the property prefix/suffix form, i.e `${some_placeholder}`
+        Map<String, String> currentDecryptedSecrets = CryptoUtils.loadDecryptedProperties(featuresConfig.getIbmLhSecretPropsFile());
+        log.info("SECRETS_KEY_SET ['%s']", currentDecryptedSecrets.keySet());
+
+        Map<String, String> updatedProperties = mergeInSecretProperties(properties, currentDecryptedSecrets);
         return catalogStore.loadCatalog(catalogName, updatedProperties);
     }
 

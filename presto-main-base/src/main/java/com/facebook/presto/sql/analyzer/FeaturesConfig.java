@@ -308,7 +308,10 @@ public class FeaturesConfig
 
     private boolean restrictCatalogEndpointsLocally = true;
 
-    private String ibmLhSecretPropsFile;
+    // This usually points to '/opt/presto/etc/preload_secrets.env'
+    // See https://github.ibm.com/lakehouse/ibm-open-lakehouse/commit/7fc72b068306842fa53174446e5ec72b8657fd9d
+    // This property will also be set in config.properties, but this env variable is a sensible default
+    private String ibmLhSecretPropsFile = System.getenv("IBMLH_SECRET_PROPS_FILE");
     private boolean aclBaseFilteringEnabled;
 
     public enum PartitioningPrecisionStrategy
