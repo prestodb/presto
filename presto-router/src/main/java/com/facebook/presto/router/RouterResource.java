@@ -59,12 +59,20 @@ public class RouterResource
     @Produces(APPLICATION_JSON)
     public Response routeQuery(String statement, @Context HttpServletRequest servletRequest)
     {
-        RequestInfo requestInfo = new RequestInfo(servletRequest, statement);
-        URI coordinatorUri = clusterManager.getDestination(requestInfo).orElseThrow(() -> badRequest(BAD_GATEWAY, "No Presto cluster available"));
-        URI statementUri = uriBuilderFrom(coordinatorUri).replacePath("/v1/statement").build();
-        successRedirectRequests.update(1);
-        log.info("route query to %s", statementUri);
-        return Response.temporaryRedirect(statementUri).build();
+        try {
+            RequestInfo requestInfo = new RequestInfo(servletRequest, statement);
+            URI coordinatorUri = clusterManager.getDestination(requestInfo).orElseThrow(() -> badRequest(BAD_GATEWAY, "No Presto cluster available"));
+            URI statementUri = uriBuilderFrom(coordinatorUri).replacePath("/v1/statement").build();
+            successRedirectRequests.update(1);
+            log.info("route query to %s", statementUri);
+            return Response.temporaryRedirect(statementUri).build();
+        }
+        catch (RuntimeException e) {
+            return Response.status(Response.Status.OK)
+                    .entity(e.getMessage())
+                    .type(APPLICATION_JSON)
+                    .build();
+        }
     }
 
     @GET

@@ -199,7 +199,8 @@ public class TestScheduler
         testScheduler(weightSum, scheduler, weights);
     }
 
-    private void testScheduler(int weightSum, Scheduler scheduler, HashMap<URI, Integer> weights) throws URISyntaxException
+    private void testScheduler(int weightSum, Scheduler scheduler, HashMap<URI, Integer> weights)
+            throws URISyntaxException
     {
         int serverDiffCount = 0;
         int serverRepeatCount = 0;

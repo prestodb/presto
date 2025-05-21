@@ -91,6 +91,7 @@ public class TestSelectors
         List<SelectorRuleSpec> selectors = new ArrayList<>();
         Optional<SchedulerType> schedulerType = Optional.of(RANDOM_CHOICE);
         Optional<URI> predictorUri = Optional.empty();
+        Optional<List<URI>> validatorURIs = Optional.empty();
 
         for (int i = 0; i < prestoServers.size(); i++) {
             List<URI> members = new ArrayList<>();
@@ -178,7 +179,7 @@ public class TestSelectors
     @DataProvider(name = "headerDataMissingRules")
     public Object[][] provideHeaderDataMissingRules()
     {
-        return new Object[][]{
+        return new Object[][] {
                 {"user1", "source1", ""},
                 {"user2", "NA", "tag2"},
                 {"NA", "source3", "tag3"},
