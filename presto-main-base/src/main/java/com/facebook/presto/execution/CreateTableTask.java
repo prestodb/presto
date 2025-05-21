@@ -103,7 +103,7 @@ public class CreateTableTask
         checkArgument(!statement.getElements().isEmpty(), "no columns for table");
 
         Map<NodeRef<Parameter>, Expression> parameterLookup = parameterExtractor(statement, parameters);
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
+        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName(), metadata);
         Optional<TableHandle> tableHandle = metadata.getMetadataResolver(session).getTableHandle(tableName);
         if (tableHandle.isPresent()) {
             if (!statement.isNotExists()) {
@@ -158,7 +158,7 @@ public class CreateTableTask
             }
             else if (element instanceof LikeClause) {
                 LikeClause likeClause = (LikeClause) element;
-                QualifiedObjectName likeTableName = createQualifiedObjectName(session, statement, likeClause.getTableName());
+                QualifiedObjectName likeTableName = createQualifiedObjectName(session, statement, likeClause.getTableName(), metadata);
                 getConnectorIdOrThrow(session, metadata, likeTableName.getCatalogName(), statement, likeTableCatalogError);
                 if (!tableName.getCatalogName().equals(likeTableName.getCatalogName())) {
                     throw new SemanticException(NOT_SUPPORTED, statement, "LIKE table across catalogs is not supported");

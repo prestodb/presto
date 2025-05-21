@@ -15,6 +15,7 @@ package com.facebook.presto.tests;
 
 import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.CostCalculatorUsingExchanges;
@@ -28,6 +29,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.nodeManager.PluginNodeManager;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.security.AccessDeniedException;
+import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
@@ -643,5 +645,16 @@ public abstract class AbstractTestQueryFramework
     public static void dropTableIfExists(QueryRunner queryRunner, String catalogName, String schemaName, String tableName)
     {
         queryRunner.execute(format("DROP TABLE IF EXISTS %s.%s.%s", catalogName, schemaName, tableName));
+    }
+
+    protected String normalizeIdentifier(String name, String catalogName)
+    {
+        Metadata metadata = getQueryRunner().getMetadata();
+        TransactionId txid = getQueryRunner().getTransactionManager().beginTransaction(false);
+        Session session = getSession().beginTransactionId(txid, getQueryRunner().getTransactionManager(), new AllowAllAccessControl());
+
+        String result = metadata.normalizeIdentifier(session, catalogName, name);
+        getQueryRunner().getTransactionManager().asyncAbort(txid);
+        return result;
     }
 }

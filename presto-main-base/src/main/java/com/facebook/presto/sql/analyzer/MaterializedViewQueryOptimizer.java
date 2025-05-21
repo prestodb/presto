@@ -344,7 +344,7 @@ public class MaterializedViewQueryOptimizer
 
         List<QualifiedObjectName> referencedMaterializedViews = metadata.getReferencedMaterializedViews(
                 session,
-                createQualifiedObjectName(session, baseTable, baseTable.getName()));
+                createQualifiedObjectName(session, baseTable, baseTable.getName(), metadata));
 
         // TODO: Select the most compatible and efficient materialized view for query rewrite optimization https://github.com/prestodb/presto/issues/16431
         // TODO: Refactor query optimization code https://github.com/prestodb/presto/issues/16759
@@ -815,7 +815,7 @@ public class MaterializedViewQueryOptimizer
 
         private Scope extractScope(Table table, QuerySpecification node, Expression whereClause)
         {
-            QualifiedObjectName baseTableName = createQualifiedObjectName(session, table, table.getName());
+            QualifiedObjectName baseTableName = createQualifiedObjectName(session, table, table.getName(), metadata);
 
             Optional<TableHandle> tableHandle = metadata.getMetadataResolver(session).getTableHandle(baseTableName);
             if (!tableHandle.isPresent()) {

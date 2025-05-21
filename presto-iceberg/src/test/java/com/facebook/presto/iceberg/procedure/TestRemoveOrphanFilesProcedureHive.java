@@ -89,6 +89,7 @@ public class TestRemoveOrphanFilesProcedureHive
     @Override
     Table loadTable(String tableName)
     {
+        tableName = normalizeIdentifier(tableName, ICEBERG_CATALOG);
         CatalogManager catalogManager = getDistributedQueryRunner().getCoordinator().getCatalogManager();
         ConnectorId connectorId = catalogManager.getCatalog(ICEBERG_CATALOG).get().getConnectorId();
 
