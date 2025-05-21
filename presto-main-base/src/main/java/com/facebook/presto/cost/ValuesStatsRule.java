@@ -30,6 +30,7 @@ import java.util.OptionalDouble;
 import java.util.stream.DoubleStream;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.SystemSessionProperties.isRewriteExpressionWithConstantEnabled;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.cost.StatsUtil.toStatsRepresentation;
 import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel.FACT;
@@ -63,10 +64,12 @@ public class ValuesStatsRule
         statsBuilder.setOutputRowCount(node.getRows().size())
                 .setConfidence(FACT);
 
-        for (int variableId = 0; variableId < node.getOutputVariables().size(); ++variableId) {
-            VariableReferenceExpression variable = node.getOutputVariables().get(variableId);
-            List<Object> symbolValues = getVariableValues(node, variableId, session, variable.getType());
-            statsBuilder.addVariableStatistics(variable, buildVariableStatistics(symbolValues, session, variable.getType()));
+        if (isRewriteExpressionWithConstantEnabled(session)) {
+            for (int variableId = 0; variableId < node.getOutputVariables().size(); ++variableId) {
+                VariableReferenceExpression variable = node.getOutputVariables().get(variableId);
+                List<Object> symbolValues = getVariableValues(node, variableId, session, variable.getType());
+                statsBuilder.addVariableStatistics(variable, buildVariableStatistics(symbolValues, session, variable.getType()));
+            }
         }
 
         return Optional.of(statsBuilder.build());
