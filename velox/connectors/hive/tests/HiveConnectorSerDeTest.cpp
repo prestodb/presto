@@ -247,8 +247,6 @@ TEST_F(HiveConnectorSerDeTest, hiveConnectorSplit) {
   const auto extraFileInfo = std::make_shared<std::string>("testSerdeFileInfo");
   const std::unordered_map<std::string, std::string> serdeParameters{
       {"k1", "1"}, {"k2", "v2"}};
-  const std::unordered_map<std::string, std::string> storageParameters{
-      {"k3", "3"}, {"k5", "v4"}};
   const std::unordered_map<std::string, std::string> infoColumns{
       {"c0", "0"}, {"c1", "1"}};
   FileProperties fileProperties{
@@ -267,7 +265,6 @@ TEST_F(HiveConnectorSerDeTest, hiveConnectorSplit) {
       customSplitInfo,
       extraFileInfo,
       serdeParameters,
-      storageParameters,
       splitWeight,
       cacheable,
       infoColumns,
@@ -286,7 +283,6 @@ TEST_F(HiveConnectorSerDeTest, hiveConnectorSplit) {
       tableBucketNumber,
       customSplitInfo,
       nullptr,
-      {},
       {},
       splitWeight,
       !cacheable,

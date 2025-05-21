@@ -391,16 +391,6 @@ class RowReaderOptions {
     serdeParameters_ = std::move(serdeParameters);
   }
 
-  const std::unordered_map<std::string, std::string>& storageParameters()
-      const {
-    return storageParameters_;
-  }
-
-  void setStorageParameters(
-      std::unordered_map<std::string, std::string> storageParameters) {
-    storageParameters_ = std::move(storageParameters);
-  }
-
  private:
   uint64_t dataStart_;
   uint64_t dataLength_;
