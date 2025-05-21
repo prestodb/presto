@@ -20,6 +20,8 @@ import com.facebook.presto.tests.AbstractTestRepartitionQueries;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Parameters;
 
+import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
+
 public class TestRepartitionQueries
         extends AbstractTestRepartitionQueries
 {
@@ -27,7 +29,9 @@ public class TestRepartitionQueries
     @Override
     protected QueryRunner createQueryRunner() throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(ImmutableMap.of(), System.getProperty("storageFormat"));
+        QueryRunner queryRunner = PrestoNativeQueryRunnerUtils.createNativeQueryRunner(ImmutableMap.of(), System.getProperty("storageFormat"), true);
+        setupNativeSidecarPlugin(queryRunner);
+        return queryRunner;
     }
 
     @Parameters("storageFormat")

@@ -21,6 +21,8 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
+
 public class TestWindowQueries
         extends AbstractTestWindowQueries
 {
@@ -30,7 +32,9 @@ public class TestWindowQueries
     @Override
     protected QueryRunner createQueryRunner() throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(ImmutableMap.of(), System.getProperty("storageFormat"));
+        QueryRunner queryRunner = PrestoNativeQueryRunnerUtils.createNativeQueryRunner(ImmutableMap.of(), System.getProperty("storageFormat"), true);
+        setupNativeSidecarPlugin(queryRunner);
+        return queryRunner;
     }
 
     @Parameters("storageFormat")
