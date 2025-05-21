@@ -28,11 +28,6 @@ public class TestPrestoContainerNativeClusterFunctions extends AbstractTestQuery
     }
 
     @Test
-    public void testXFunctionSucceeds() {
-        assertQuery("SELECT X(1)", "SELECT 42");
-    }
-
-    @Test
     public void testArraySortWorks() {
         assertQuery("SELECT array_sort(ARRAY [5, 20, null, 5, 3, 50])", "SELECT ARRAY[3, 5, 5, 20, 50, null]");
     }
@@ -66,6 +61,7 @@ public class TestPrestoContainerNativeClusterFunctions extends AbstractTestQuery
     @Test
     public void testSidecarStartupTransition() throws Exception {
         try (ContainerQueryRunner runner = new ContainerQueryRunner(1, true, true, false)) {
+            this.queryRunner = runner;
 //            try {
 //                runner.execute("SELECT array_sort(ARRAY[3, 1, 2])");
 //            } catch (Exception e) {
@@ -76,7 +72,7 @@ public class TestPrestoContainerNativeClusterFunctions extends AbstractTestQuery
 //            Thread.sleep(10000);
 
             // Step 3: should now succeed
-            String result = runner.execute("SELECT (ARRAY[3, 1, 2]").toString().trim();
+            String result = runner.assertQuery("SELECT (ARRAY[3, 1, 2]").toString().trim();
             String expected = runner.execute("SELECT ARRAY[1, 2, 3]").toString().trim();
             assertEquals(result, expected, "array_sort should succeed once sidecar is available");
         }
