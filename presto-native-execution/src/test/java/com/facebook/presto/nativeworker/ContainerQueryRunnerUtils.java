@@ -415,6 +415,10 @@ public class ContainerQueryRunnerUtils
             case java.sql.Types.VARBINARY:
             case java.sql.Types.LONGVARBINARY:
                 return VarbinaryType.VARBINARY;
+            case java.sql.Types.NULL:
+                // Log or comment that this happens in fail() or similar cases
+                // You can map it to a generic type just for testing
+                return VarcharType.createUnboundedVarcharType();
             case java.sql.Types.OTHER:
                 // Attempt to map based on type name
                 return mapSqlTypeNameToType(typeName);

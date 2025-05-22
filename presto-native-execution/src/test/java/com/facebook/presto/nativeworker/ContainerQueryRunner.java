@@ -425,7 +425,7 @@ public class ContainerQueryRunner
             return ContainerQueryRunnerUtils.toMaterializedResult(resultSet);
         }
         catch (SQLException e) {
-            throw new RuntimeException("Error executing query: " + sql, e);
+            throw new RuntimeException("Error executing query: " + sql + " \n " + e.getMessage(), e);
         }
     }
 }

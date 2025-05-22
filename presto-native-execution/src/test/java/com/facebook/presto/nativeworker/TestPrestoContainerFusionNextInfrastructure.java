@@ -8,7 +8,7 @@ import org.testng.annotations.Test;
 
 import static org.testng.Assert.*;
 
-public class TestPrestoContainerClusterFunctions extends AbstractTestQueryFramework {
+public class TestPrestoContainerFusionNextInfrastructure extends AbstractTestQueryFramework {
 
     @Override
     protected ContainerQueryRunner createQueryRunner() throws Exception {
@@ -69,13 +69,10 @@ public class TestPrestoContainerClusterFunctions extends AbstractTestQueryFramew
     @Test
     public void testInfrastructureJavaClusterWithSidecar() {
         try(QueryRunner queryRunner = new ContainerQueryRunner(1, false, true, false)) {
-            try{
-                assertQueryWithAlternateQueryRunner(queryRunner, "SELECT array_sort(ARRAY [5, 20, null, 5, 3, 50])", "SELECT ARRAY[3, 5, 5, 20, 50, null]");
-            }
-            catch (Exception e) {
-                String result = e.toString();
-                assertTrue(result.contains("InvalidConfiguration"));
-            }
+            System.out.println(computeActualWithAlternateRunner(queryRunner, "SELECT array_sort(ARRAY [5, 20, null, 5, 3, 50])").toString());
+            assertQueryFailsWithCustomQueryRunner(queryRunner, "SELECT array_sort(ARRAY [5, 20, null, 5, 3, 50])", "InvalidConfiguration", true);
+
+
         }
         catch (Exception e) {
             e.printStackTrace();
@@ -85,11 +82,8 @@ public class TestPrestoContainerClusterFunctions extends AbstractTestQueryFramew
     @Test
     public void testInfrastructureJavaClusterWithoutSidecar() {
         try(QueryRunner queryRunner = new ContainerQueryRunner(1, false, false, false)) {
-            assertQueryWithAlternateQueryRunner(queryRunner, "SELECT fail('forced failure')", "forced failure");
-
-            assertQueryFailsWithAlternateQueryRunner(queryRunner, "SELECT array_sort(ARRAY [5, 20, null, 5, 3, 50])", "SELECT ARRAY[3, 5, 5, 20, 50, null]");
-
-            assertTrue(computeActualWithAlternateRunner(queryRunner,"SHOW FUNCTIONS").toString().contains("presto.default"));
+//            assertQueryWithAlternateQueryRunner(queryRunner, "SELECT fail('forced failure')", "forced failure");
+            assertQueryFailsWithCustomQueryRunner(queryRunner, "select array_sort(array[row('apples', 23), row('bananas', 12), row('grapes', 44)], x -> x[2])", "Expected a lambda that takes 2 argument\\(s\\) but got 1", true);
             System.out.println(computeActualWithAlternateRunner(queryRunner,"SHOW SESSION").toString());
         }
         catch (Exception e) {

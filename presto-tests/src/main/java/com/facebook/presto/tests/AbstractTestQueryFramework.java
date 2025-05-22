@@ -336,9 +336,9 @@ public abstract class AbstractTestQueryFramework
         QueryAssertions.assertQueryFails(queryRunner, session, sql, expectedMessageRegExp);
     }
 
-    protected void assertQueryFailsWithAlternateQueryRunner(QueryRunner queryRunner, @Language("SQL") String actual, @Language("RegExp") String expectedMessageRegExp)
+    protected void assertQueryFailsWithCustomQueryRunner(QueryRunner queryRunner, @Language("SQL") String actual, @Language("RegExp") String expectedMessageRegExp, boolean usePatternMatcher)
     {
-        QueryAssertions.assertQueryFails(queryRunner, queryRunner.getDefaultSession(), actual, expectedMessageRegExp);
+        QueryAssertions.assertQueryFails(queryRunner, queryRunner.getDefaultSession(), actual, expectedMessageRegExp, usePatternMatcher);
     }
 
     protected void assertQueryError(QueryRunner queryRunner, Session session, @Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
