@@ -34,4 +34,6 @@ public @interface ScalarFunction
     boolean deterministic() default true;
 
     boolean calledOnNullInput() default false;
+
+    int pushdownSubfieldArgIndex() default -1;
 }

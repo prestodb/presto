@@ -166,6 +166,15 @@ public class CodegenScalarFromAnnotationsParser
             {
                 return codegenScalarFunction.calledOnNullInput();
             }
+
+            @Override
+            public Optional<Integer> getPushdownSubfieldArgIndex()
+            {
+                if (codegenScalarFunction.pushdownSubfieldArgIndex() < 0) {
+                    return Optional.empty();
+                }
+                return Optional.of(codegenScalarFunction.pushdownSubfieldArgIndex());
+            }
         };
     }
 }

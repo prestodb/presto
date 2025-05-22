@@ -208,6 +208,7 @@ class TranslatorAnnotationParser
         private final Optional<OperatorType> operatorType;
         private final boolean deterministic;
         private final boolean calledOnNullInput;
+        private final int pushdownSubfieldArgIndex;
 
         public static List<ScalarTranslationHeader> fromAnnotatedElement(AnnotatedElement annotated)
         {
@@ -218,15 +219,15 @@ class TranslatorAnnotationParser
 
             if (scalarFunction != null) {
                 String baseName = scalarFunction.value().isEmpty() ? camelToSnake(annotatedName(annotated)) : scalarFunction.value();
-                builder.add(new ScalarTranslationHeader(baseName, scalarFunction.deterministic(), scalarFunction.calledOnNullInput()));
+                builder.add(new ScalarTranslationHeader(baseName, scalarFunction.deterministic(), scalarFunction.calledOnNullInput(), scalarFunction.pushdownSubfieldArgIndex()));
 
                 for (String alias : scalarFunction.alias()) {
-                    builder.add(new ScalarTranslationHeader(alias, scalarFunction.deterministic(), scalarFunction.calledOnNullInput()));
+                    builder.add(new ScalarTranslationHeader(alias, scalarFunction.deterministic(), scalarFunction.calledOnNullInput(), scalarFunction.pushdownSubfieldArgIndex()));
                 }
             }
 
             if (scalarOperator != null) {
-                builder.add(new ScalarTranslationHeader(scalarOperator.value(), true, scalarOperator.value().isCalledOnNullInput()));
+                builder.add(new ScalarTranslationHeader(scalarOperator.value(), true, scalarOperator.value().isCalledOnNullInput(), -1));
             }
 
             List<ScalarTranslationHeader> result = builder.build();
@@ -234,21 +235,23 @@ class TranslatorAnnotationParser
             return result;
         }
 
-        private ScalarTranslationHeader(String name, boolean deterministic, boolean calledOnNullInput)
+        private ScalarTranslationHeader(String name, boolean deterministic, boolean calledOnNullInput, int pushdownSubfieldArgIndex)
         {
             // TODO This is a hack. Engine should provide an API for connectors to overwrite functions. Connector should not hard code the builtin function namespace.
             this.name = requireNonNull(QualifiedObjectName.valueOf("presto", "default", name));
             this.operatorType = Optional.empty();
             this.deterministic = deterministic;
             this.calledOnNullInput = calledOnNullInput;
+            this.pushdownSubfieldArgIndex = pushdownSubfieldArgIndex;
         }
 
-        private ScalarTranslationHeader(OperatorType operatorType, boolean deterministic, boolean calledOnNullInput)
+        private ScalarTranslationHeader(OperatorType operatorType, boolean deterministic, boolean calledOnNullInput, int pushdownSubfieldArgIndex)
         {
             this.name = operatorType.getFunctionName();
             this.operatorType = Optional.of(operatorType);
             this.deterministic = deterministic;
             this.calledOnNullInput = calledOnNullInput;
+            this.pushdownSubfieldArgIndex = pushdownSubfieldArgIndex;
         }
 
         private static String annotatedName(AnnotatedElement annotatedElement)

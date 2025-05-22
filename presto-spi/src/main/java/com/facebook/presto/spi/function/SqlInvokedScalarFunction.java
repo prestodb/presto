@@ -31,4 +31,6 @@ public @interface SqlInvokedScalarFunction
     boolean deterministic();
 
     boolean calledOnNullInput();
+
+    int pushdownSubfieldArgIndex() default -1;
 }
