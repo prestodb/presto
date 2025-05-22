@@ -38,6 +38,7 @@ import org.testcontainers.utility.MountableFile;
 
 import java.io.IOException;
 import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -50,46 +51,48 @@ import java.util.concurrent.locks.Lock;
 import java.util.logging.Logger;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static java.sql.DriverManager.getConnection;
 
 public class ContainerQueryRunner
         implements QueryRunner
 {
-    private static final Network network = Network.newNetwork();
-    private static final String PRESTO_COORDINATOR_IMAGE = System.getProperty("coordinatorImage", "presto-coordinator:latest");
-    private static final String PRESTO_WORKER_IMAGE = System.getProperty("workerImage", "presto-worker:latest");
-    private static final String CONTAINER_TIMEOUT = System.getProperty("containerTimeout", "120");
-    private static final String CLUSTER_SHUTDOWN_TIMEOUT = System.getProperty("clusterShutDownTimeout", "10");
-    private static final String BASE_DIR = System.getProperty("user.dir");
-    private static final int DEFAULT_COORDINATOR_PORT = 8080;
-    private static final String TPCH_CATALOG = "tpch";
-    private static final String TINY_SCHEMA = "tiny";
-    private static final int DEFAULT_NUMBER_OF_WORKERS = 4;
-    private static final Logger logger = Logger.getLogger(ContainerQueryRunner.class.getName());
-    private final GenericContainer<?> coordinator;
-    private final List<GenericContainer<?>> workers = new ArrayList<>();
-    private final int coordinatorPort;
-    private final String catalog;
-    private final String schema;
-    private final int numberOfWorkers;
-    private Connection connection;
+    protected static final Network network = Network.newNetwork();
+    protected static final String PRESTO_COORDINATOR_IMAGE = System.getProperty("coordinatorImage", "presto-coordinator:latest");
+    protected static final String PRESTO_WORKER_IMAGE = System.getProperty("workerImage", "presto-worker:latest");
+    protected static final String CONTAINER_TIMEOUT = System.getProperty("containerTimeout", "120");
+    protected static final String CLUSTER_SHUTDOWN_TIMEOUT = System.getProperty("clusterShutDownTimeout", "10");
+    protected static final String BASE_DIR = System.getProperty("user.dir");
+    protected static final int DEFAULT_COORDINATOR_PORT = 8080;
+    protected static final int DEFAULT_FUNCTION_SERVER_PORT = 1122;
+    protected static final String TPCH_CATALOG = "tpch";
+    protected static final String TINY_SCHEMA = "tiny";
+    protected static final int DEFAULT_NUMBER_OF_WORKERS = 4;
+
+    protected static final Logger logger = Logger.getLogger(ContainerQueryRunner.class.getName());
+
+    protected final GenericContainer<?> coordinator;
+    protected final List<GenericContainer<?>> workers = new ArrayList<>();
+
+    protected final int coordinatorPort;
+    protected final String catalog;
+    protected final String schema;
+    protected int functionServerPort;
+    protected Connection connection;
 
     public ContainerQueryRunner()
             throws InterruptedException, IOException
     {
-        this(DEFAULT_COORDINATOR_PORT, TPCH_CATALOG, TINY_SCHEMA, DEFAULT_NUMBER_OF_WORKERS);
+        this(DEFAULT_COORDINATOR_PORT, TPCH_CATALOG, TINY_SCHEMA, DEFAULT_NUMBER_OF_WORKERS, DEFAULT_FUNCTION_SERVER_PORT);
     }
 
-    public ContainerQueryRunner(int coordinatorPort, String catalog, String schema, int numberOfWorkers)
+    public ContainerQueryRunner(int coordinatorPort, String catalog, String schema, int numberOfWorkers, int functionServerPort)
             throws InterruptedException, IOException
     {
         this.coordinatorPort = coordinatorPort;
         this.catalog = catalog;
         this.schema = schema;
-        this.numberOfWorkers = numberOfWorkers;
+        this.functionServerPort = functionServerPort;
 
-        // The container details can be added as properties in VM options for testing in IntelliJ.
-        coordinator = createCoordinator();
+        this.coordinator = createCoordinator();
         for (int i = 0; i < numberOfWorkers; i++) {
             workers.add(createNativeWorker(7777 + i, "native-worker-" + i));
         }
@@ -99,6 +102,11 @@ public class ContainerQueryRunner
 
         TimeUnit.SECONDS.sleep(5);
 
+        postStartContainers();
+    }
+
+    protected void postStartContainers()
+    {
         String dockerHostIp = coordinator.getHost();
         logger.info("Presto UI is accessible at http://" + dockerHostIp + ":" + coordinator.getMappedPort(coordinatorPort));
 
@@ -110,7 +118,7 @@ public class ContainerQueryRunner
                 "timeZoneId=UTC");
 
         try {
-            connection = getConnection(url, "test", null);
+            this.connection = DriverManager.getConnection(url, "test", null);
         }
         catch (SQLException e) {
             throw new RuntimeException(e);
@@ -118,12 +126,18 @@ public class ContainerQueryRunner
 
         // Delete the temporary files once the containers are started.
         ContainerQueryRunnerUtils.deleteDirectory(BASE_DIR + "/testcontainers/coordinator");
-        for (int i = 0; i < numberOfWorkers; i++) {
-            ContainerQueryRunnerUtils.deleteDirectory(BASE_DIR + "/testcontainers/native-worker-" + i);
+        for (GenericContainer<?> worker : workers) {
+            String alias = worker.getNetworkAliases().get(1);
+            ContainerQueryRunnerUtils.deleteDirectory(BASE_DIR + "/testcontainers/" + alias);
         }
     }
 
-    private GenericContainer<?> createCoordinator()
+    protected Connection getConnection()
+    {
+        return connection;
+    }
+
+    protected GenericContainer<?> createCoordinator()
             throws IOException
     {
         ContainerQueryRunnerUtils.createCoordinatorTpchProperties();
@@ -144,7 +158,7 @@ public class ContainerQueryRunner
                 .withStartupTimeout(Duration.ofSeconds(Long.parseLong(CONTAINER_TIMEOUT)));
     }
 
-    private GenericContainer<?> createNativeWorker(int port, String nodeId)
+    protected GenericContainer<?> createNativeWorker(int port, String nodeId)
             throws IOException
     {
         ContainerQueryRunnerUtils.createNativeWorkerConfigProperties(coordinatorPort, nodeId);
