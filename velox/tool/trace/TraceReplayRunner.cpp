@@ -92,7 +92,7 @@ DEFINE_int32(
     "Specify the shuffle serialization format, 0: presto columnar, 1: compact row, 2: spark unsafe row.");
 DEFINE_string(
     memory_arbitrator_type,
-    "shared",
+    "SHARED",
     "Specify the memory arbitrator type.");
 DEFINE_uint64(
     query_memory_capacity_mb,
