@@ -326,7 +326,8 @@ std::vector<core::TypedExprPtr> TDigestArgValuesGenerator::generate(
       "values_at_quantiles",
       "scale_tdigest",
       "quantile_at_value",
-      "destructure_tdigest"};
+      "destructure_tdigest",
+      "trimmed_mean"};
   if (std::find(functionNames.begin(), functionNames.end(), functionName_) !=
       functionNames.end()) {
     // Handle first argument (TDigest)

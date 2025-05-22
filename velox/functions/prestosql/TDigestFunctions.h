@@ -200,4 +200,34 @@ struct DestructureTDigestFunction {
     return true;
   }
 };
+
+template <typename T>
+struct TrimmedMeanFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<double>& result,
+      const arg_type<SimpleTDigest<double>>& input,
+      const arg_type<double>& lowerQuantileBound,
+      const arg_type<double>& upperQuantileBound) {
+    VELOX_USER_CHECK(
+        0 <= lowerQuantileBound && lowerQuantileBound <= 1,
+        "Lower quantile bound must be between 0 and 1");
+    VELOX_USER_CHECK(
+        0 <= upperQuantileBound && upperQuantileBound <= 1,
+        "Upper quantile bound must be between 0 and 1");
+    VELOX_USER_CHECK(
+        lowerQuantileBound <= upperQuantileBound,
+        "Lower quantile bound must be less than or equal to upper quantile bound");
+    // Deserialize the TDigest
+    auto digest = TDigest<>::fromSerialized(input.data());
+    if (digest.size() == 0) {
+      return false;
+    }
+    result = digest.trimmedMean(lowerQuantileBound, upperQuantileBound);
+    if (std::isnan(result)) {
+      return false;
+    }
+    return true;
+  }
+};
 } // namespace facebook::velox::functions

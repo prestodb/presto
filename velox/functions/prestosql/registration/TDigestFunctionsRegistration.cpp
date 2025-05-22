@@ -65,5 +65,11 @@ void registerTDigestFunctions(const std::string& prefix) {
           double,
           int64_t>,
       SimpleTDigest<double>>({prefix + "destructure_tdigest"});
+  registerFunction<
+      TrimmedMeanFunction,
+      double,
+      SimpleTDigest<double>,
+      double,
+      double>({prefix + "trimmed_mean"});
 }
 } // namespace facebook::velox::functions

@@ -120,6 +120,13 @@ class TDigest {
   /// Returns the total sum of all values added to this digest.
   double sum() const;
 
+  /// Calculate the trimmed mean of the digest.
+  /// @param lowerQuantileBound Lower quantile bound in [0, 1].
+  /// @param upperQuantileBound Upper quantile bound in [0, 1].
+  /// @return The trimmed mean of the digest.
+  double trimmedMean(double lowerQuantileBound, double upperQuantileBound)
+      const;
+
   /// Returns the compression parameter.
   double compression() const {
     return compression_;
@@ -687,6 +694,73 @@ double TDigest<A>::sum() const {
     result += weights_[i] * means_[i];
   }
   return result;
+}
+
+template <typename A>
+double TDigest<A>::trimmedMean(
+    double lowerQuantileBound,
+    double upperQuantileBound) const {
+  VELOX_CHECK(
+      0 <= lowerQuantileBound && lowerQuantileBound <= 1,
+      "Lower quantile bound must be between 0 and 1");
+  VELOX_CHECK(
+      0 <= upperQuantileBound && upperQuantileBound <= 1,
+      "Upper quantile bound must be between 0 and 1");
+  VELOX_CHECK(
+      lowerQuantileBound <= upperQuantileBound,
+      "Lower quantile bound must be less than or equal to upper quantile bound");
+
+  if (weights_.size() == 0) {
+    return std::numeric_limits<double>::quiet_NaN();
+  }
+
+  // Special case for full range
+  if (lowerQuantileBound == 0 && upperQuantileBound == 1) {
+    return sum() / totalWeight();
+  }
+
+  // Calculate the trimmed mean
+  double totalWeightVal = totalWeight();
+  double lowerIndex = lowerQuantileBound * totalWeightVal;
+  double upperIndex = upperQuantileBound * totalWeightVal;
+
+  double weightSoFar = 0;
+  double sumInBounds = 0;
+  double weightInBounds = 0;
+
+  for (size_t i = 0; i < weights_.size(); i++) {
+    // Check if lower and upper bounds are in the same weight interval
+    if (weightSoFar < lowerIndex && (lowerIndex - weightSoFar) <= weights_[i] &&
+        (upperIndex - weightSoFar) <= weights_[i]) {
+      return means_[i];
+    }
+    // Check if the lower bound is between our current point and the next point
+    else if (
+        weightSoFar < lowerIndex && (lowerIndex - weightSoFar) <= weights_[i]) {
+      double addedWeight = weightSoFar + weights_[i] - lowerIndex;
+      sumInBounds += means_[i] * addedWeight;
+      weightInBounds += addedWeight;
+    }
+    // Check if the upper bound is between our current point and the next point
+    else if (
+        upperIndex > weightSoFar && upperIndex - weightSoFar <= weights_[i]) {
+      double addedWeight = upperIndex - weightSoFar;
+      sumInBounds += means_[i] * addedWeight;
+      weightInBounds += addedWeight;
+      return sumInBounds / weightInBounds;
+    }
+    // Check if we are somewhere in between the lower and upper bounds
+    else if (lowerIndex <= weightSoFar && weightSoFar <= upperIndex) {
+      sumInBounds += means_[i] * weights_[i];
+      weightInBounds += weights_[i];
+    }
+    weightSoFar += weights_[i];
+  }
+  if (weightInBounds > 0) {
+    return sumInBounds / weightInBounds;
+  }
+
+  return std::numeric_limits<double>::quiet_NaN();
 }
 
 } // namespace facebook::velox::functions

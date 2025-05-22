@@ -644,3 +644,71 @@ TEST_F(TDigestFunctionsTest, testConstructTDigestInverse) {
       constructResult->asFlatVector<StringView>()->valueAt(0).str(),
       reconstructResult->asFlatVector<StringView>()->valueAt(0).str());
 }
+
+TEST_F(TDigestFunctionsTest, testTrimmedMean) {
+  const auto trimmedMean = [&](const std::optional<std::string>& input,
+                               const std::optional<double>& lowQuantile,
+                               const std::optional<double>& highQuantile) {
+    return evaluateOnce<double>(
+        "trimmed_mean(c0, c1, c2)",
+        TDIGEST_DOUBLE,
+        input,
+        lowQuantile,
+        highQuantile);
+  };
+
+  // Create TDigest with uniform distribution (matching Java)
+  facebook::velox::functions::TDigest<> tDigest;
+  std::vector<int16_t> positions;
+  std::vector<double> values;
+
+  std::mt19937 gen(42);
+  std::uniform_real_distribution<double> distribution(0.0, NUMBER_OF_ENTRIES);
+
+  for (int i = 0; i < NUMBER_OF_ENTRIES; i++) {
+    double value = distribution(gen);
+    tDigest.add(positions, value);
+    values.push_back(value);
+  }
+  tDigest.compress(positions);
+
+  // Serialize TDigest
+  int serializedSize = tDigest.serializedByteSize();
+  std::vector<char> buffer(serializedSize);
+  tDigest.serialize(buffer.data());
+  std::string serializedDigest(buffer.begin(), buffer.end());
+
+  // Test quantile pairs
+  std::vector<std::pair<double, double>> quantilePairs = {
+      {0.1, 0.9}, // wide range
+      {0.25, 0.75}, // interquartile range
+      {0.4, 0.6}, // narrow range
+      {0.1, 0.3}, // low range
+      {0.7, 0.9} // high range
+  };
+
+  for (const auto& pair : quantilePairs) {
+    double lowQuantile = pair.first;
+    double highQuantile = pair.second;
+
+    // Calculate trimmed mean
+    std::sort(values.begin(), values.end());
+    int lowIndex = static_cast<int>(NUMBER_OF_ENTRIES * lowQuantile);
+    int highIndex = static_cast<int>(NUMBER_OF_ENTRIES * highQuantile);
+
+    double sum = 0;
+    int count = 0;
+    for (int k = lowIndex; k < highIndex; k++) {
+      sum += values[k];
+      count++;
+    }
+    double expectedMean = count > 0 ? sum / count : 0;
+    // Get trimmed mean
+    auto result = trimmedMean(serializedDigest, lowQuantile, highQuantile);
+    // Verify within error bounds
+    double standardDeviation = sqrt(
+        distribution.max() * distribution.max() /
+        12); // Uniform distribution variance is (b-a)^2/12
+    ASSERT_TRUE(abs(result.value() - expectedMean) / standardDeviation <= 0.05);
+  }
+}
