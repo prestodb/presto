@@ -18,4 +18,6 @@ import com.facebook.presto.spi.connector.ConnectorMetadata;
 public interface IcebergMetadataFactory
 {
     ConnectorMetadata create();
+
+    ConnectorMetadata create(boolean autoCommitContext);
 }
