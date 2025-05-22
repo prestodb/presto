@@ -15,6 +15,7 @@
  */
 #include <folly/base64.h>
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/functions/lib/TDigest.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/functions/prestosql/types/TDigestRegistration.h"
 #include "velox/functions/prestosql/types/TDigestType.h"
@@ -48,6 +49,45 @@ class TDigestFunctionsTest : public FunctionBaseTest {
   // Digest 12 Scaled By 2
   const std::string digest12Scale2String = decodeBase64(
       "AQCamZmZmZm5P5qZmZmZmck/NDMzMzMz0z8AAAAAAABZQAAAAAAAABBAAgAAAAAAAAAAAABAAAAAAAAAAECamZmZmZm5P5qZmZmZmck/");
+
+  double getLowerBoundQuantile(double quantile, double error) {
+    return std::max(0.0, quantile - error);
+  }
+
+  double getUpperBoundQuantile(double quantile, double error) {
+    return std::min(1.0, quantile + error);
+  }
+  double getUpperBoundValue(
+      double quantile,
+      double error,
+      const std::vector<double>& values) {
+    int index = static_cast<int>(std::min(
+        NUMBER_OF_ENTRIES * (quantile + error),
+        static_cast<double>(values.size() - 1)));
+    return values[index];
+  }
+  int NUMBER_OF_ENTRIES = 1000000;
+  double ERROR = 0.01;
+  double quantiles[19] = {
+      0.0001,
+      0.0200,
+      0.0300,
+      0.04000,
+      0.0500,
+      0.1000,
+      0.2000,
+      0.3000,
+      0.4000,
+      0.5000,
+      0.6000,
+      0.7000,
+      0.8000,
+      0.9000,
+      0.9500,
+      0.9600,
+      0.9700,
+      0.9800,
+      0.9999};
 };
 
 TEST_F(TDigestFunctionsTest, valueAtQuantile) {
@@ -185,4 +225,210 @@ TEST_F(TDigestFunctionsTest, testScaleNegative) {
       "AQAAAAAAAADwPwAAAAAAABRAAAAAAAAALkAAAAAAAABZQAAAAAAAABRABQAAAAAAAAAAAPA/AAAAAAAA8D8AAAAAAADwPwAAAAAAAPA/AAAAAAAA8D8AAAAAAADwPwAAAAAAAABAAAAAAAAACEAAAAAAAAAQQAAAAAAAABRA");
   VELOX_ASSERT_THROW(
       scaleTDigest(input, -1.0), "Scale factor should be positive.");
+}
+
+TEST_F(TDigestFunctionsTest, nullTDigestGetQuantileAtValue) {
+  const auto quantileAtValue = [&](const std::optional<std::string>& input,
+                                   const std::optional<double>& value) {
+    return evaluateOnce<double>(
+        "quantile_at_value(c0, c1)", TDIGEST_DOUBLE, input, value);
+  };
+  ASSERT_EQ(std::nullopt, quantileAtValue(std::nullopt, 0.3));
+}
+
+TEST_F(TDigestFunctionsTest, quantileAtValueOutsideRange) {
+  const auto quantileAtValue = [&](const std::optional<std::string>& input,
+                                   const std::optional<double>& value) {
+    return evaluateOnce<double>(
+        "quantile_at_value(c0, c1)", TDIGEST_DOUBLE, input, value);
+  };
+  facebook::velox::functions::TDigest<> tDigest;
+  std::vector<int16_t> positions;
+  for (int i = 0; i < NUMBER_OF_ENTRIES; ++i) {
+    double value = static_cast<double>(rand()) / RAND_MAX * NUMBER_OF_ENTRIES;
+    tDigest.add(positions, value);
+  }
+  tDigest.compress(positions);
+  int serializedSize = tDigest.serializedByteSize();
+  std::vector<char> buffer(serializedSize);
+  tDigest.serialize(buffer.data());
+  std::string serializedDigest(buffer.begin(), buffer.end());
+  ASSERT_EQ(1.0, quantileAtValue(serializedDigest, 1000000000.0));
+  ASSERT_EQ(0.0, quantileAtValue(serializedDigest, -500.0));
+}
+
+// Test quantile_at_value with normal distribution (high variance)
+TEST_F(TDigestFunctionsTest, quantileAtValueNormalDistributionHighVariance) {
+  const auto quantileAtValue = [&](const std::optional<std::string>& input,
+                                   const std::optional<double>& value) {
+    return evaluateOnce<double>(
+        "quantile_at_value(c0, c1)", TDIGEST_DOUBLE, input, value);
+  };
+
+  facebook::velox::functions::TDigest<> tDigest;
+  std::vector<int16_t> positions;
+  std::vector<double> values;
+
+  std::mt19937 gen(42);
+  std::normal_distribution<double> normal(0, 1);
+
+  for (int i = 0; i < NUMBER_OF_ENTRIES; ++i) {
+    double value = normal(gen);
+    tDigest.add(positions, value);
+    values.push_back(value);
+  }
+  tDigest.compress(positions);
+
+  int serializedSize = tDigest.serializedByteSize();
+  std::vector<char> buffer(serializedSize);
+  tDigest.serialize(buffer.data());
+  std::string serializedDigest(buffer.begin(), buffer.end());
+
+  std::sort(values.begin(), values.end());
+
+  for (auto q : quantiles) {
+    int index = static_cast<int>(NUMBER_OF_ENTRIES * q);
+    if (index < values.size()) {
+      double value = values[index];
+      auto quantileValue = quantileAtValue(serializedDigest, value);
+      ASSERT_TRUE(quantileValue.has_value());
+
+      double lowerBound = getLowerBoundQuantile(q, ERROR);
+      double upperBound = getUpperBoundQuantile(q, ERROR);
+      ASSERT_LE(quantileValue.value(), upperBound);
+      ASSERT_GE(quantileValue.value(), lowerBound);
+    }
+  }
+}
+
+// Test quantile_at_value with normal distribution (low variance)
+TEST_F(TDigestFunctionsTest, quantileAtValueNormalDistributionLowVariance) {
+  const auto quantileAtValue = [&](const std::optional<std::string>& input,
+                                   const std::optional<double>& value) {
+    return evaluateOnce<double>(
+        "quantile_at_value(c0, c1)", TDIGEST_DOUBLE, input, value);
+  };
+
+  facebook::velox::functions::TDigest<> tDigest;
+  std::vector<int16_t> positions;
+  std::vector<double> values;
+
+  std::mt19937 gen(42);
+  std::normal_distribution<double> normal(1000, 1);
+
+  for (int i = 0; i < NUMBER_OF_ENTRIES; ++i) {
+    double value = normal(gen);
+    tDigest.add(positions, value);
+    values.push_back(value);
+  }
+  tDigest.compress(positions);
+
+  int serializedSize = tDigest.serializedByteSize();
+  std::vector<char> buffer(serializedSize);
+  tDigest.serialize(buffer.data());
+  std::string serializedDigest(buffer.begin(), buffer.end());
+
+  std::sort(values.begin(), values.end());
+
+  for (auto q : quantiles) {
+    int index = static_cast<int>(NUMBER_OF_ENTRIES * q);
+    if (index < values.size()) {
+      double value = values[index];
+      auto quantileValue = quantileAtValue(serializedDigest, value);
+      ASSERT_TRUE(quantileValue.has_value());
+
+      double lowerBound = getLowerBoundQuantile(q, ERROR);
+      double upperBound = getUpperBoundQuantile(q, ERROR);
+      ASSERT_LE(quantileValue.value(), upperBound);
+      ASSERT_GE(quantileValue.value(), lowerBound);
+    }
+  }
+}
+
+// Test quantile_at_value with uniform distribution
+TEST_F(TDigestFunctionsTest, quantileAtValueUniformDistribution) {
+  const auto quantileAtValue = [&](const std::optional<std::string>& input,
+                                   const std::optional<double>& value) {
+    return evaluateOnce<double>(
+        "quantile_at_value(c0, c1)", TDIGEST_DOUBLE, input, value);
+  };
+
+  facebook::velox::functions::TDigest<> tDigest;
+  std::vector<int16_t> positions;
+  std::vector<double> values;
+
+  std::mt19937 gen(42);
+  std::uniform_real_distribution<double> uniform(0, NUMBER_OF_ENTRIES);
+
+  for (int i = 0; i < NUMBER_OF_ENTRIES; ++i) {
+    double value = uniform(gen);
+    tDigest.add(positions, value);
+    values.push_back(value);
+  }
+  tDigest.compress(positions);
+
+  int serializedSize = tDigest.serializedByteSize();
+  std::vector<char> buffer(serializedSize);
+  tDigest.serialize(buffer.data());
+  std::string serializedDigest(buffer.begin(), buffer.end());
+
+  std::sort(values.begin(), values.end());
+
+  for (auto q : quantiles) {
+    int index = static_cast<int>(NUMBER_OF_ENTRIES * q);
+    if (index < values.size()) {
+      double value = values[index];
+      auto quantileValue = quantileAtValue(serializedDigest, value);
+      ASSERT_TRUE(quantileValue.has_value());
+
+      double lowerBound = getLowerBoundQuantile(q, ERROR);
+      double upperBound = getUpperBoundQuantile(q, ERROR);
+      ASSERT_LE(quantileValue.value(), upperBound);
+      ASSERT_GE(quantileValue.value(), lowerBound);
+    }
+  }
+}
+
+// Test quantile_at_value with exponential distribution (which is skewed)
+TEST_F(TDigestFunctionsTest, quantileAtValueExponentialDistribution) {
+  const auto quantileAtValue = [&](const std::optional<std::string>& input,
+                                   const std::optional<double>& value) {
+    return evaluateOnce<double>(
+        "quantile_at_value(c0, c1)", TDIGEST_DOUBLE, input, value);
+  };
+
+  facebook::velox::functions::TDigest<> tDigest;
+  std::vector<int16_t> positions;
+  std::vector<double> values;
+
+  std::mt19937 gen(42);
+  std::exponential_distribution<double> exponential(0.1);
+
+  for (int i = 0; i < NUMBER_OF_ENTRIES; ++i) {
+    double value = exponential(gen);
+    tDigest.add(positions, value);
+    values.push_back(value);
+  }
+  tDigest.compress(positions);
+
+  int serializedSize = tDigest.serializedByteSize();
+  std::vector<char> buffer(serializedSize);
+  tDigest.serialize(buffer.data());
+  std::string serializedDigest(buffer.begin(), buffer.end());
+
+  std::sort(values.begin(), values.end());
+
+  for (auto q : quantiles) {
+    int index = static_cast<int>(NUMBER_OF_ENTRIES * q);
+    if (index < values.size()) {
+      double value = values[index];
+      auto quantileValue = quantileAtValue(serializedDigest, value);
+      ASSERT_TRUE(quantileValue.has_value());
+
+      double lowerBound = getLowerBoundQuantile(q, ERROR);
+      double upperBound = getUpperBoundQuantile(q, ERROR);
+      ASSERT_LE(quantileValue.value(), upperBound);
+      ASSERT_GE(quantileValue.value(), lowerBound);
+    }
+  }
 }

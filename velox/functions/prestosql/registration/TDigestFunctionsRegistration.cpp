@@ -40,5 +40,10 @@ void registerTDigestFunctions(const std::string& prefix) {
       SimpleTDigest<double>,
       SimpleTDigest<double>,
       double>({prefix + "scale_tdigest"});
+  registerFunction<
+      QuantileAtValueFunction,
+      double,
+      SimpleTDigest<double>,
+      double>({prefix + "quantile_at_value"});
 }
 } // namespace facebook::velox::functions

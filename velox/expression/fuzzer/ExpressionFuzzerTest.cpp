@@ -179,7 +179,9 @@ int main(int argc, char** argv) {
           {"value_at_quantile",
            std::make_shared<TDigestArgValuesGenerator>("value_at_quantile")},
           {"scale_tdigest",
-           std::make_shared<TDigestArgValuesGenerator>("scale_tdigest")}};
+           std::make_shared<TDigestArgValuesGenerator>("scale_tdigest")},
+          {"quantile_at_value",
+           std::make_shared<TDigestArgValuesGenerator>("quantile_at_value")}};
 
   std::shared_ptr<facebook::velox::memory::MemoryPool> rootPool{
       facebook::velox::memory::memoryManager()->addRootPool()};

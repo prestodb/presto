@@ -450,5 +450,111 @@ TEST_F(TDigestTest, largeScalePreservesWeights) {
   }
 }
 
+TEST_F(TDigestTest, quantileAtValue) {
+  // Test small range.
+  {
+    TDigest digest;
+    std::vector<int16_t> positions;
+
+    // Add values from 10 to 20
+    for (int i = 10; i <= 20; ++i) {
+      digest.add(positions, i);
+    }
+    digest.compress(positions);
+
+    ASSERT_NEAR(digest.getCdf(5), 0.0, 0.001); // Below min
+    ASSERT_NEAR(digest.getCdf(25), 1.0, 0.001); // Above max
+    ASSERT_NEAR(digest.getCdf(10), 0.05, 0.01); // Min value
+    ASSERT_NEAR(digest.getCdf(20), 0.95, 0.01); // Max value
+    ASSERT_NEAR(digest.getCdf(15), 0.5, 0.01); // Median
+  }
+  std::vector<int16_t> positions;
+
+  // Test with uniform distribution
+  {
+    TDigest digest;
+    std::vector<double> values;
+    constexpr int N = 1000;
+
+    // Add values from 1 to N
+    for (int i = 1; i <= N; ++i) {
+      digest.add(positions, i);
+      values.push_back(i);
+    }
+    digest.compress(positions);
+
+    ASSERT_NEAR(digest.getCdf(1), 0.0005, 0.001); // Min value
+    ASSERT_NEAR(digest.getCdf(250), 0.25, 0.01); // 25th percentile
+    ASSERT_NEAR(digest.getCdf(500), 0.5, 0.01); // Median
+    ASSERT_NEAR(digest.getCdf(750), 0.75, 0.01); // 75th percentile
+    ASSERT_NEAR(digest.getCdf(1000), 0.9995, 0.001); // Max value
+    // Check values outside the range
+    ASSERT_NEAR(digest.getCdf(0), 0.0, 0.001); // Below min
+    ASSERT_NEAR(digest.getCdf(1001), 1.0, 0.001); // Above max
+  }
+
+  // Test with normal distribution
+  {
+    TDigest digest;
+    std::default_random_engine gen(common::testutil::getRandomSeed(42));
+    std::normal_distribution<double> normal(100, 10);
+    constexpr int N = 10000;
+    std::vector<double> values;
+    for (int i = 0; i < N; ++i) {
+      double value = normal(gen);
+      digest.add(positions, value);
+      values.push_back(value);
+    }
+    digest.compress(positions);
+
+    ASSERT_NEAR(digest.getCdf(90), 0.16, 0.02);
+    ASSERT_NEAR(digest.getCdf(100), 0.5, 0.02);
+    ASSERT_NEAR(digest.getCdf(110), 0.84, 0.02);
+  }
+
+  // Test with skewed distribution (exponential)
+  {
+    TDigest digest;
+    std::default_random_engine gen(common::testutil::getRandomSeed(42));
+    std::exponential_distribution<double> exp(0.1); // lambda = 0.1
+    constexpr int N = 10000;
+    for (int i = 0; i < N; ++i) {
+      double value = exp(gen);
+      digest.add(positions, value);
+    }
+    digest.compress(positions);
+
+    // For exponential distribution with lambda=0.1:
+    // CDF(x) = 1 - e^(-0.1x)
+    ASSERT_NEAR(digest.getCdf(0), 0.0, 0.01);
+    ASSERT_NEAR(digest.getCdf(6.93), 0.5, 0.02); // median = ln(2)/lambda
+    ASSERT_NEAR(digest.getCdf(10), 0.63, 0.02); // 1 - e^(-1) ≈ 0.63
+    ASSERT_NEAR(digest.getCdf(20), 0.86, 0.02); // 1 - e^(-2) ≈ 0.86
+    ASSERT_NEAR(digest.getCdf(30), 0.95, 0.02); // 1 - e^(-3) ≈ 0.95
+  }
+
+  // Test with edge cases
+  {
+    TDigest digest;
+
+    // Add a mix of values including extremes
+    digest.add(positions, -1000);
+    digest.add(positions, -100);
+    for (int i = 0; i < 98; ++i) {
+      digest.add(positions, i);
+    }
+    digest.add(positions, 1000);
+    digest.compress(positions);
+
+    // Check CDF at extremes
+    ASSERT_NEAR(digest.getCdf(-1000), 0.005, 0.01); // Minimum value (1/100)
+    ASSERT_NEAR(digest.getCdf(1000), 0.995, 0.01); // Maximum value (99/100)
+
+    // Check CDF at values outside the range
+    ASSERT_NEAR(digest.getCdf(-2000), 0.0, 0.001);
+    ASSERT_NEAR(digest.getCdf(2000), 1.0, 0.001);
+  }
+}
+
 } // namespace
 } // namespace facebook::velox::functions

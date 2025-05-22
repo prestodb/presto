@@ -322,7 +322,10 @@ std::vector<core::TypedExprPtr> TDigestArgValuesGenerator::generate(
   std::vector<core::TypedExprPtr> inputExpressions;
   VELOX_CHECK_GE(signature.args.size(), 2);
   std::unordered_set<std::string> functions = {
-      "value_at_quantile", "values_at_quantiles", "scale_tdigest"};
+      "value_at_quantile",
+      "values_at_quantiles",
+      "scale_tdigest",
+      "quantile_at_value"};
   if (functions.find(functionName_) != functions.end()) {
     // First input: TDigest
     state.customInputGenerators_.emplace_back(
