@@ -140,6 +140,22 @@ class TDigest {
     return max_;
   }
 
+  /// Returns the weights of the centroids.
+  const double* weights() const {
+    return weights_.data();
+  }
+
+  /// Returns the size of the centroids.
+  size_t size() const {
+    VELOX_DCHECK_EQ(weights_.size(), means_.size());
+    return weights_.size();
+  }
+
+  /// Returns the means of the centroids.
+  const double* means() const {
+    return means_.data();
+  }
+
   static constexpr int8_t kSerializationVersion = 1;
   static constexpr double kEpsilon = 1e-3;
   static constexpr double kRelativeErrorEpsilon = 1e-4;

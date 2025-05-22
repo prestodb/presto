@@ -316,28 +316,40 @@ std::vector<core::TypedExprPtr> TDigestArgValuesGenerator::generate(
     const VectorFuzzer::Options& options,
     FuzzerGenerator& rng,
     ExpressionFuzzerState& state) {
+  VELOX_CHECK_GE(signature.args.size(), 1);
   populateInputTypesAndNames(signature, state);
   const auto seed = rand<uint32_t>(rng);
   const auto nullRatio = options.nullRatio;
   std::vector<core::TypedExprPtr> inputExpressions;
-  VELOX_CHECK_GE(signature.args.size(), 2);
-  std::unordered_set<std::string> functions = {
+  const std::vector<std::string> functionNames = {
       "value_at_quantile",
       "values_at_quantiles",
       "scale_tdigest",
-      "quantile_at_value"};
-  if (functions.find(functionName_) != functions.end()) {
-    // First input: TDigest
+      "quantile_at_value",
+      "destructure_tdigest"};
+  if (std::find(functionNames.begin(), functionNames.end(), functionName_) !=
+      functionNames.end()) {
+    // Handle first argument (TDigest)
     state.customInputGenerators_.emplace_back(
         std::make_shared<fuzzer::TDigestInputGenerator>(
             seed, signature.args[0], nullRatio));
-    VELOX_CHECK_GE(state.inputRowNames_.size(), 2);
+    VELOX_CHECK_GE(state.inputRowNames_.size(), signature.args.size());
     inputExpressions.emplace_back(std::make_shared<core::FieldAccessTypedExpr>(
         signature.args[0],
-        state.inputRowNames_[state.inputRowNames_.size() - 2]));
-    // Second input: Quantile(s)
-    state.customInputGenerators_.emplace_back(nullptr);
-    inputExpressions.emplace_back(nullptr);
+        signature.args.size() == 1
+            ? state.inputRowNames_.back()
+            : state.inputRowNames_
+                  [state.inputRowNames_.size() - signature.args.size()]));
+    // Add null generators for remaining arguments
+    for (size_t i = 1; i < signature.args.size(); i++) {
+      state.customInputGenerators_.emplace_back(nullptr);
+      VELOX_CHECK_GE(state.inputRowNames_.size(), signature.args.size() - i);
+      inputExpressions.emplace_back(
+          std::make_shared<core::FieldAccessTypedExpr>(
+              signature.args[i],
+              state.inputRowNames_
+                  [state.inputRowNames_.size() + i - signature.args.size()]));
+    }
   }
   return inputExpressions;
 }

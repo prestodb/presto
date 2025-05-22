@@ -432,3 +432,215 @@ TEST_F(TDigestFunctionsTest, quantileAtValueExponentialDistribution) {
     }
   }
 }
+
+TEST_F(TDigestFunctionsTest, testConstructTDigest) {
+  // Create arrays for centroid means and weights
+  std::vector<std::vector<double>> means = {
+      {0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0}};
+  auto meansArg = makeArrayVector<double>(means);
+  std::vector<std::vector<double>> weights = {
+      {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0}};
+  auto weightsArg = makeArrayVector<double>(weights);
+
+  // Set compression, min, max, sum, and count
+  std::vector<double> compression = {100.0};
+  auto compressionArg = makeFlatVector<double>(compression);
+  std::vector<double> min = {0.0};
+  auto minArg = makeFlatVector<double>(min);
+  std::vector<double> max = {9.0};
+  auto maxArg = makeFlatVector<double>(max);
+  std::vector<double> sum = {45.0}; // sum of 0-9
+  auto sumArg = makeFlatVector<double>(sum);
+  std::vector<int64_t> count = {10};
+  auto countArg = makeFlatVector<int64_t>(count);
+
+  evaluate(
+      "construct_tdigest(c0, c1, c2, c3, c4, c5, c6)",
+      makeRowVector(
+          {meansArg,
+           weightsArg,
+           compressionArg,
+           minArg,
+           maxArg,
+           sumArg,
+           countArg}));
+}
+
+TEST_F(TDigestFunctionsTest, testConstructTDigestLarge) {
+  std::vector<std::vector<double>> means = {{}};
+  std::vector<std::vector<double>> weights = {{}};
+  means[0].reserve(100);
+  weights[0].reserve(100);
+  double sum = 0;
+  for (int i = 0; i < 100; i++) {
+    means[0].push_back(static_cast<double>(i));
+    weights[0].push_back(1.0);
+    sum += i;
+  }
+  auto meansArg = makeArrayVector<double>(means);
+  auto weightsArg = makeArrayVector<double>(weights);
+  std::vector<double> compression = {100.0};
+  auto compressionArg = makeFlatVector<double>(compression);
+  std::vector<double> min = {0.0};
+  auto minArg = makeFlatVector<double>(min);
+  std::vector<double> max = {99.0};
+  auto maxArg = makeFlatVector<double>(max);
+  std::vector<double> sumVec = {sum};
+  auto sumArg = makeFlatVector<double>(sumVec);
+  std::vector<int64_t> countVec = {100};
+  auto countArg = makeFlatVector<int64_t>(countVec);
+  evaluate(
+      "construct_tdigest(c0, c1, c2, c3, c4, c5, c6)",
+      makeRowVector(
+          {meansArg,
+           weightsArg,
+           compressionArg,
+           minArg,
+           maxArg,
+           sumArg,
+           countArg}));
+}
+
+TEST_F(TDigestFunctionsTest, testDestructureTDigest) {
+  std::vector<std::vector<double>> means = {
+      {0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0}};
+  auto meansArg = makeArrayVector<double>(means);
+  std::vector<std::vector<double>> weights = {
+      {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0}};
+  auto weightsArg = makeArrayVector<double>(weights);
+
+  std::vector<double> compression = {100.0};
+  auto compressionArg = makeFlatVector<double>(compression);
+  std::vector<double> min = {0.0};
+  auto minArg = makeFlatVector<double>(min);
+  std::vector<double> max = {9.0};
+  auto maxArg = makeFlatVector<double>(max);
+  std::vector<double> sum = {45.0};
+  auto sumArg = makeFlatVector<double>(sum);
+  std::vector<int64_t> count = {10};
+  auto countArg = makeFlatVector<int64_t>(count);
+
+  // Construct the TDigest
+  auto constructResult = evaluate(
+      "construct_tdigest(c0, c1, c2, c3, c4, c5, c6)",
+      makeRowVector(
+          {meansArg,
+           weightsArg,
+           compressionArg,
+           minArg,
+           maxArg,
+           sumArg,
+           countArg}));
+
+  // Destructure the TDigest
+  auto result =
+      evaluate("destructure_tdigest(c0)", makeRowVector({constructResult}));
+  auto rowVector = result->as<RowVector>();
+
+  // Verify components match original values
+  auto resultMeans = rowVector->childAt(0)->as<ArrayVector>();
+  auto resultWeights = rowVector->childAt(1)->as<ArrayVector>();
+  auto resultCompression = rowVector->childAt(2)->as<FlatVector<double>>();
+  auto resultMin = rowVector->childAt(3)->as<FlatVector<double>>();
+  auto resultMax = rowVector->childAt(4)->as<FlatVector<double>>();
+  auto resultSum = rowVector->childAt(5)->as<FlatVector<double>>();
+  auto resultCount = rowVector->childAt(6)->as<FlatVector<int64_t>>();
+
+  ASSERT_EQ(resultMeans->size(), 1);
+  ASSERT_EQ(resultWeights->size(), 1);
+  ASSERT_NEAR(resultCompression->valueAt(0), 100.0, 0.001);
+  ASSERT_NEAR(resultMin->valueAt(0), 0.0, 0.001);
+  ASSERT_NEAR(resultMax->valueAt(0), 9.0, 0.001);
+  ASSERT_NEAR(resultSum->valueAt(0), 45.0, 0.001);
+  ASSERT_EQ(resultCount->valueAt(0), 10);
+}
+
+TEST_F(TDigestFunctionsTest, testDestructureTDigestLarge) {
+  // Create the TDigest
+  facebook::velox::functions::TDigest<> tDigest;
+  std::vector<int16_t> positions;
+  double sum = 0;
+  for (int i = 0; i < NUMBER_OF_ENTRIES; i++) {
+    double value = static_cast<double>(i);
+    tDigest.add(positions, value);
+    sum += value;
+  }
+  tDigest.compress(positions);
+  // Serialize the TDigest
+  int serializedSize = tDigest.serializedByteSize();
+  std::vector<char> buffer(serializedSize);
+  tDigest.serialize(buffer.data());
+  std::string serializedDigest(buffer.begin(), buffer.end());
+  // Destructure the TDigest
+  auto input = makeFlatVector<std::string>({serializedDigest}, TDIGEST_DOUBLE);
+  auto result = evaluate("destructure_tdigest(c0)", makeRowVector({input}));
+  auto rowVector = result->as<RowVector>();
+
+  // Verify basic components
+  auto resultCompression = rowVector->childAt(2)->as<FlatVector<double>>();
+  auto resultMin = rowVector->childAt(3)->as<FlatVector<double>>();
+  auto resultMax = rowVector->childAt(4)->as<FlatVector<double>>();
+  auto resultSum = rowVector->childAt(5)->as<FlatVector<double>>();
+  auto resultCount = rowVector->childAt(6)->as<FlatVector<int64_t>>();
+
+  ASSERT_NEAR(resultCompression->valueAt(0), 100.0, 0.001);
+  ASSERT_NEAR(resultMin->valueAt(0), 0.0, 0.001);
+  ASSERT_NEAR(resultMax->valueAt(0), NUMBER_OF_ENTRIES - 1, 0.001);
+  ASSERT_NEAR(resultSum->valueAt(0), sum, 0.001);
+  ASSERT_EQ(resultCount->valueAt(0), NUMBER_OF_ENTRIES);
+}
+
+TEST_F(TDigestFunctionsTest, testConstructTDigestInverse) {
+  // Create initial values (matching Java)
+  std::vector<std::vector<double>> means = {
+      {0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0}};
+  auto meansArg = makeArrayVector<double>(means);
+  std::vector<std::vector<double>> weights = {
+      {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0}};
+  auto weightsArg = makeArrayVector<double>(weights);
+
+  std::vector<double> compression = {100.0};
+  auto compressionArg = makeFlatVector<double>(compression);
+  std::vector<double> min = {0.0};
+  auto minArg = makeFlatVector<double>(min);
+  std::vector<double> max = {9.0};
+  auto maxArg = makeFlatVector<double>(max);
+  std::vector<double> sum = {45.0};
+  auto sumArg = makeFlatVector<double>(sum);
+  std::vector<int64_t> count = {10};
+  auto countArg = makeFlatVector<int64_t>(count);
+
+  // Construct TDigest
+  auto constructResult = evaluate(
+      "construct_tdigest(c0, c1, c2, c3, c4, c5, c6)",
+      makeRowVector(
+          {meansArg,
+           weightsArg,
+           compressionArg,
+           minArg,
+           maxArg,
+           sumArg,
+           countArg}));
+
+  // Destructure TDigest
+  auto destructResult =
+      evaluate("destructure_tdigest(c0)", makeRowVector({constructResult}));
+
+  // Construct again with destructured values
+  auto rowVector = destructResult->as<RowVector>();
+  auto reconstructResult = evaluate(
+      "construct_tdigest(c0, c1, c2, c3, c4, c5, c6)",
+      makeRowVector(
+          {rowVector->childAt(0),
+           rowVector->childAt(1),
+           rowVector->childAt(2),
+           rowVector->childAt(3),
+           rowVector->childAt(4),
+           rowVector->childAt(5),
+           rowVector->childAt(6)}));
+
+  // Verify matches original
+  ASSERT_EQ(
+      constructResult->asFlatVector<StringView>()->valueAt(0).str(),
+      reconstructResult->asFlatVector<StringView>()->valueAt(0).str());
+}

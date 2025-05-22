@@ -114,4 +114,90 @@ struct QuantileAtValueFunction {
   }
 };
 
+template <typename T>
+struct ConstructTDigestFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<SimpleTDigest<double>>& result,
+      const arg_type<Array<double>>& centroidMeans,
+      const arg_type<Array<double>>& centroidWeights,
+      const arg_type<double>& compression,
+      const arg_type<double>& min,
+      const arg_type<double>& max,
+      const arg_type<double>& sum,
+      const arg_type<int64_t>& count) {
+    VELOX_USER_CHECK(
+        !std::isnan(compression), "Compression factor must not be NaN.");
+    VELOX_USER_CHECK_LE(
+        compression, 1000, "Compression factor cannot exceed 1000");
+    // Ensure compression is at least 10.
+    double compressionValue = std::max(compression, 10.0);
+    TDigest<> digest;
+    digest.setCompression(compressionValue);
+    // Copy centroid means and weights
+    std::vector<int16_t> positions;
+    std::vector<double> means(centroidMeans.size());
+    std::vector<double> weights(centroidWeights.size());
+    for (size_t i = 0; i < centroidMeans.size(); i++) {
+      means[i] = centroidMeans[i].value();
+      weights[i] = centroidWeights[i].value();
+    }
+    // Merge the centroids
+    for (size_t i = 0; i < means.size(); i++) {
+      digest.add(positions, means[i], weights[i]);
+    }
+    // Compress and Serialize
+    digest.compress(positions);
+    int64_t size = digest.serializedByteSize();
+    result.resize(size);
+    digest.serialize(result.data());
+    return true;
+  }
+};
+
+template <typename T>
+struct DestructureTDigestFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<
+          Row<Array<double>,
+              Array<int32_t>,
+              double,
+              double,
+              double,
+              double,
+              int64_t>>& result,
+      const arg_type<SimpleTDigest<double>>& input) {
+    // Deserialize the TDigest
+    auto digest = TDigest<>::fromSerialized(input.data());
+    // Extract the components
+    double min = digest.min();
+    double max = digest.max();
+    double sum = digest.sum();
+    double compression = digest.compression();
+    int64_t count = 0;
+    // Get the centroids from the TDigest
+    std::vector<double> means;
+    std::vector<int32_t> weights;
+    const double* tDigestWeights = digest.weights();
+    const double* tDigestMeans = digest.means();
+    size_t numCentroids = digest.size();
+    for (int i = 0; i < numCentroids; i++) {
+      means.push_back(tDigestMeans[i]);
+      weights.push_back(static_cast<int32_t>(tDigestWeights[i]));
+      count += tDigestWeights[i];
+    }
+    // Create the result row
+    result.copy_from(std::make_tuple(
+        std::move(means),
+        std::move(weights),
+        compression,
+        min,
+        max,
+        sum,
+        count));
+
+    return true;
+  }
+};
 } // namespace facebook::velox::functions

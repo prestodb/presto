@@ -89,12 +89,13 @@ int main(int argc, char** argv) {
       "cardinality",
       "element_at",
       "width_bucket",
-      // Fuzzer and the underlying engine are confused about TDigest functions
+      // Fuzzer and the underlying engine are confused about TDigest output
       // (since TDigest is a user defined type), and tries to pass a
       // VARBINARY (since TDigest's implementation uses an
       // alias to VARBINARY).
       "values_at_quantiles",
       "merge_tdigest",
+      "construct_tdigest",
       // Fuzzer cannot generate valid 'comparator' lambda.
       "array_sort(array(T),constant function(T,T,bigint)) -> array(T)",
       "split_to_map(varchar,varchar,varchar,function(varchar,varchar,varchar,varchar)) -> map(varchar,varchar)",
@@ -181,7 +182,9 @@ int main(int argc, char** argv) {
           {"scale_tdigest",
            std::make_shared<TDigestArgValuesGenerator>("scale_tdigest")},
           {"quantile_at_value",
-           std::make_shared<TDigestArgValuesGenerator>("quantile_at_value")}};
+           std::make_shared<TDigestArgValuesGenerator>("quantile_at_value")},
+          {"destructure_tdigest",
+           std::make_shared<TDigestArgValuesGenerator>("destructure_tdigest")}};
 
   std::shared_ptr<facebook::velox::memory::MemoryPool> rootPool{
       facebook::velox::memory::memoryManager()->addRootPool()};
