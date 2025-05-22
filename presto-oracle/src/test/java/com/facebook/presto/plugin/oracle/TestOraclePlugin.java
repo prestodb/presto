@@ -28,6 +28,6 @@ public class TestOraclePlugin
     {
         Plugin plugin = new OraclePlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        factory.create("test", ImmutableMap.of("connection-url", "jdbc:oracle:thin//test"), new TestingConnectorContext());
+        factory.create("test", ImmutableMap.of("connection-url", "jdbc:oracle:thin//test", "connection-user", "admin", "connection-password", "password"), new TestingConnectorContext());
     }
 }
