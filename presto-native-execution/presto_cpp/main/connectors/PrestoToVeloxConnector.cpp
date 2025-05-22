@@ -1130,11 +1130,6 @@ HivePrestoToVeloxConnector::toVeloxSplit(
   for (const auto& [key, value] : hiveSplit->storage.serdeParameters) {
     serdeParameters[key] = value;
   }
-  std::unordered_map<std::string, std::string> storageParameters;
-  storageParameters.reserve(hiveSplit->storage.parameters.size());
-  for (const auto& [key, value] : hiveSplit->storage.parameters) {
-    storageParameters[key] = value;
-  }
   std::unordered_map<std::string, std::string> infoColumns = {
       {"$path", hiveSplit->fileSplit.path},
       {"$file_size", std::to_string(hiveSplit->fileSplit.fileSize)},
@@ -1158,7 +1153,6 @@ HivePrestoToVeloxConnector::toVeloxSplit(
           customSplitInfo,
           extraFileInfo,
           serdeParameters,
-          storageParameters,
           hiveSplit->splitWeight,
           splitContext->cacheable,
           infoColumns);
