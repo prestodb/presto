@@ -29,6 +29,7 @@ add_library(
   QueryAssertions.cpp
   SumNonPODAggregate.cpp
   TableWriterTestBase.cpp
+  TableScanTestBase.cpp
   TestIndexStorageConnector.cpp
   TpchQueryBuilder.cpp
   VectorTestUtil.cpp
