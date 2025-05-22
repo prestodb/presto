@@ -39,6 +39,7 @@ import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
+import com.facebook.presto.spi.ConnectorSystemConfig;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.PrestoException;
@@ -96,6 +97,8 @@ import static com.facebook.presto.hive.HiveSessionProperties.getLeaseDuration;
 import static com.facebook.presto.hive.HiveSessionProperties.isDynamicSplitSizesEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isOfflineDataDebugModeEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isPartitionStatisticsBasedOptimizationEnabled;
+import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
+import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;
 import static com.facebook.presto.hive.HiveStorageFormat.getHiveStorageFormat;
 import static com.facebook.presto.hive.HiveType.getPrimitiveType;
@@ -151,6 +154,7 @@ public class HiveSplitManager
     private final CacheQuotaRequirementProvider cacheQuotaRequirementProvider;
     private final HiveEncryptionInformationProvider encryptionInformationProvider;
     private final PartitionSkippabilityChecker partitionSkippabilityChecker;
+    private final ConnectorSystemConfig connectorSystemConfig;
 
     @Inject
     public HiveSplitManager(
@@ -163,7 +167,8 @@ public class HiveSplitManager
             @ForHiveClient ExecutorService executorService,
             CoercionPolicy coercionPolicy,
             HiveEncryptionInformationProvider encryptionInformationProvider,
-            PartitionSkippabilityChecker partitionSkippabilityChecker)
+            PartitionSkippabilityChecker partitionSkippabilityChecker,
+            ConnectorSystemConfig connectorSystemConfig)
     {
         this(
                 hiveTransactionManager,
@@ -181,7 +186,8 @@ public class HiveSplitManager
                 hiveClientConfig.getRecursiveDirWalkerEnabled(),
                 cacheQuotaRequirementProvider,
                 encryptionInformationProvider,
-                partitionSkippabilityChecker);
+                partitionSkippabilityChecker,
+                connectorSystemConfig);
     }
 
     public HiveSplitManager(
@@ -200,7 +206,8 @@ public class HiveSplitManager
             boolean recursiveDfsWalkerEnabled,
             CacheQuotaRequirementProvider cacheQuotaRequirementProvider,
             HiveEncryptionInformationProvider encryptionInformationProvider,
-            PartitionSkippabilityChecker partitionSkippabilityChecker)
+            PartitionSkippabilityChecker partitionSkippabilityChecker,
+            ConnectorSystemConfig connectorSystemConfig)
     {
         this.hiveTransactionManager = requireNonNull(hiveTransactionManager, "hiveTransactionManager is null");
         this.namenodeStats = requireNonNull(namenodeStats, "namenodeStats is null");
@@ -219,6 +226,7 @@ public class HiveSplitManager
         this.cacheQuotaRequirementProvider = requireNonNull(cacheQuotaRequirementProvider, "cacheQuotaRequirementProvider is null");
         this.encryptionInformationProvider = requireNonNull(encryptionInformationProvider, "encryptionInformationProvider is null");
         this.partitionSkippabilityChecker = requireNonNull(partitionSkippabilityChecker, "partitionSkippabilityChecker is null");
+        this.connectorSystemConfig = requireNonNull(connectorSystemConfig, "connectorSystemConfig is null");
     }
 
     @Override
@@ -249,6 +257,16 @@ public class HiveSplitManager
                 session.getWarningCollector(),
                 session.getRuntimeStats());
         Table table = layout.getTable(metastore, metastoreContext);
+
+        if (connectorSystemConfig.isNativeExecution()) {
+            StorageFormat storageFormat = table.getStorage().getStorageFormat();
+            Optional<HiveStorageFormat> hiveStorageFormat = getHiveStorageFormat(storageFormat);
+            if (hiveStorageFormat.isPresent() && !(hiveStorageFormat.equals(Optional.of(DWRF))
+                    || hiveStorageFormat.equals(Optional.of(ORC)) || hiveStorageFormat.equals(Optional.of(PARQUET)))) {
+                throw new HiveNotReadableException(tableName, Optional.empty(),
+                        format("FileFormat %s unsupported in Presto C++.", hiveStorageFormat.get()));
+            }
+        }
 
         if (!isOfflineDataDebugModeEnabled(session)) {
             // verify table is not marked as non-readable

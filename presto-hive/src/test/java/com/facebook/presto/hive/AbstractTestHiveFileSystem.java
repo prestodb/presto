@@ -63,6 +63,7 @@ import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.TestingConnectorContext;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.testing.TestingNodeManager;
 import com.google.common.collect.ImmutableList;
@@ -247,7 +248,8 @@ public abstract class AbstractTestHiveFileSystem
                 config.getRecursiveDirWalkerEnabled(),
                 new ConfigBasedCacheQuotaRequirementProvider(cacheConfig),
                 new HiveEncryptionInformationProvider(ImmutableSet.of()),
-                new HivePartitionSkippabilityChecker());
+                new HivePartitionSkippabilityChecker(),
+                new TestingConnectorContext().getConnectorSystemConfig());
         pageSinkProvider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(config, metastoreClientConfig),
                 hdfsEnvironment,

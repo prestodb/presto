@@ -42,6 +42,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingContext;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.testing.TestingConnectorContext;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -552,7 +553,8 @@ public class TestHiveSplitManager
                 false,
                 new ConfigBasedCacheQuotaRequirementProvider(new CacheConfig()),
                 new HiveEncryptionInformationProvider(ImmutableList.of()),
-                new HivePartitionSkippabilityChecker());
+                new HivePartitionSkippabilityChecker(),
+                new TestingConnectorContext().getConnectorSystemConfig());
 
         HiveColumnHandle partitionColumn = new HiveColumnHandle(
                 "ds",
@@ -700,7 +702,8 @@ public class TestHiveSplitManager
                 false,
                 new ConfigBasedCacheQuotaRequirementProvider(new CacheConfig()),
                 encryptionInformationProvider,
-                new HivePartitionSkippabilityChecker());
+                new HivePartitionSkippabilityChecker(),
+                new TestingConnectorContext().getConnectorSystemConfig());
 
         HiveColumnHandle partitionColumn = new HiveColumnHandle(
                 "ds",

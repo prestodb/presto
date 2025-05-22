@@ -68,6 +68,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.TestingConnectorContext;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
@@ -199,7 +200,8 @@ public class S3SelectTestHelper
                 config.getRecursiveDirWalkerEnabled(),
                 new ConfigBasedCacheQuotaRequirementProvider(cacheConfig),
                 new HiveEncryptionInformationProvider(ImmutableSet.of()),
-                new HivePartitionSkippabilityChecker());
+                new HivePartitionSkippabilityChecker(),
+                new TestingConnectorContext().getConnectorSystemConfig());
         pageSourceProvider = new HivePageSourceProvider(
                 config,
                 hdfsEnvironment,
