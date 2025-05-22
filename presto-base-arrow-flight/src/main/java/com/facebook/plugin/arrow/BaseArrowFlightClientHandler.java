@@ -13,6 +13,7 @@
  */
 package com.facebook.plugin.arrow;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import org.apache.arrow.flight.CallOption;
@@ -30,11 +31,15 @@ import java.io.InputStream;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.nio.file.Paths;
+import java.security.InvalidKeyException;
+import java.security.cert.CertificateException;
 import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.plugin.arrow.ArrowErrorCode.ARROW_FLIGHT_CLIENT_ERROR;
 import static com.facebook.plugin.arrow.ArrowErrorCode.ARROW_FLIGHT_INFO_ERROR;
+import static com.facebook.plugin.arrow.ArrowErrorCode.ARROW_FLIGHT_INVALID_CERT_ERROR;
+import static com.facebook.plugin.arrow.ArrowErrorCode.ARROW_FLIGHT_INVALID_KEY_ERROR;
 import static com.facebook.plugin.arrow.ArrowErrorCode.ARROW_FLIGHT_METADATA_ERROR;
 import static java.nio.file.Files.newInputStream;
 import static java.util.Objects.requireNonNull;
@@ -43,6 +48,7 @@ public abstract class BaseArrowFlightClientHandler
 {
     private final ArrowFlightConfig config;
     private final BufferAllocator allocator;
+    private static final Logger logger = Logger.get(BaseArrowFlightClientHandler.class);
 
     public BaseArrowFlightClientHandler(BufferAllocator allocator, ArrowFlightConfig config)
     {
@@ -64,24 +70,60 @@ public abstract class BaseArrowFlightClientHandler
 
     protected FlightClient createFlightClient(Location location)
     {
+        Optional<InputStream> trustedCertificate = Optional.empty();
+        Optional<InputStream> clientCertificate = Optional.empty();
+        Optional<InputStream> clientKey = Optional.empty();
         try {
-            Optional<InputStream> trustedCertificate = Optional.empty();
             FlightClient.Builder flightClientBuilder = FlightClient.builder(allocator, location);
             flightClientBuilder.verifyServer(config.getVerifyServer());
             if (config.getFlightServerSSLCertificate() != null) {
                 trustedCertificate = Optional.of(newInputStream(Paths.get(config.getFlightServerSSLCertificate())));
                 flightClientBuilder.trustedCertificates(trustedCertificate.get()).useTls();
             }
-
-            FlightClient flightClient = flightClientBuilder.build();
-            if (trustedCertificate.isPresent()) {
-                trustedCertificate.get().close();
+            if (config.getFlightClientSSLCertificate() != null && config.getFlightClientSSLKey() != null) {
+                clientCertificate = Optional.of(newInputStream(Paths.get(config.getFlightClientSSLCertificate())));
+                clientKey = Optional.of(newInputStream(Paths.get(config.getFlightClientSSLKey())));
+                flightClientBuilder.clientCertificate(clientCertificate.get(), clientKey.get()).useTls();
             }
 
-            return flightClient;
+            return flightClientBuilder.build();
         }
         catch (Exception e) {
-            throw new ArrowException(ARROW_FLIGHT_CLIENT_ERROR, "Error creating flight client: " + e.getMessage(), e);
+            if (e.getCause() instanceof InvalidKeyException) {
+                throw new ArrowException(ARROW_FLIGHT_INVALID_KEY_ERROR, "Error creating flight client, invalid key file: " + e.getMessage(), e);
+            }
+            else if (e.getCause() instanceof CertificateException) {
+                throw new ArrowException(ARROW_FLIGHT_INVALID_CERT_ERROR, "Error creating flight client, invalid certificate file: " + e.getMessage(), e);
+            }
+            else {
+                throw new ArrowException(ARROW_FLIGHT_CLIENT_ERROR, "Error creating flight client: " + e.getMessage(), e);
+            }
+        }
+        finally {
+            if (trustedCertificate.isPresent()) {
+                try {
+                    trustedCertificate.get().close();
+                }
+                catch (IOException e) {
+                    logger.error("Error closing input stream for server certificate", e);
+                }
+            }
+            if (clientCertificate.isPresent()) {
+                try {
+                    clientCertificate.get().close();
+                }
+                catch (IOException e) {
+                    logger.error("Error closing input stream for client certificate", e);
+                }
+            }
+            if (clientKey.isPresent()) {
+                try {
+                    clientKey.get().close();
+                }
+                catch (IOException e) {
+                    logger.error("Error closing input stream for client key", e);
+                }
+            }
         }
     }
 
