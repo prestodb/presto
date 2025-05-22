@@ -14,12 +14,15 @@
 package com.facebook.plugin.arrow;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigDescription;
 
 public class ArrowFlightConfig
 {
     private String server;
     private boolean verifyServer = true;
     private String flightServerSSLCertificate;
+    private String flightClientSSLCertificate;
+    private String flightClientSSLKey;
     private boolean arrowFlightServerSslEnabled;
     private Integer arrowFlightPort;
 
@@ -80,6 +83,32 @@ public class ArrowFlightConfig
     public ArrowFlightConfig setArrowFlightServerSslEnabled(boolean arrowFlightServerSslEnabled)
     {
         this.arrowFlightServerSslEnabled = arrowFlightServerSslEnabled;
+        return this;
+    }
+
+    public String getFlightClientSSLCertificate()
+    {
+        return flightClientSSLCertificate;
+    }
+
+    @ConfigDescription("Path to the client SSL certificate used for mTLS authentication with Flight server")
+    @Config("arrow-flight.client-ssl-certificate")
+    public ArrowFlightConfig setFlightClientSSLCertificate(String flightClientSSLCertificate)
+    {
+        this.flightClientSSLCertificate = flightClientSSLCertificate;
+        return this;
+    }
+
+    public String getFlightClientSSLKey()
+    {
+        return flightClientSSLKey;
+    }
+
+    @ConfigDescription("Path to the client SSL key used for mTLS authentication with Flight server")
+    @Config("arrow-flight.client-ssl-key")
+    public ArrowFlightConfig setFlightClientSSLKey(String flightClientSSLKey)
+    {
+        this.flightClientSSLKey = flightClientSSLKey;
         return this;
     }
 }
