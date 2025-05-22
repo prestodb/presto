@@ -103,6 +103,7 @@ public class ContainerQueryRunnerUtils
         properties.setProperty("discovery.uri", "http://presto-coordinator:" + coordinatorPort);
         properties.setProperty("system-memory-gb", "2");
         properties.setProperty("native.sidecar", "true");
+        properties.setProperty("presto.default-namespace", "native.default");
         createPropertiesFile("testcontainers/" + nodeId + "/etc/config.properties", properties);
     }
 
@@ -125,6 +126,34 @@ public class ContainerQueryRunnerUtils
 
         createPropertiesFile("testcontainers/coordinator/etc/config.properties", properties);
     }
+
+    public static void createCoordinatorConfigProperties(int port, boolean isNativeCluster, boolean isSidecarEnabled)
+            throws IOException
+    {
+        Properties properties = new Properties();
+        properties.setProperty("coordinator", "true");
+        properties.setProperty("presto.version", "testversion");
+        properties.setProperty("node-scheduler.include-coordinator", "false");
+        properties.setProperty("http-server.http.port", Integer.toString(port));
+        properties.setProperty("discovery-server.enabled", "true");
+        properties.setProperty("discovery.uri", "http://presto-coordinator:" + port);
+
+        if (isNativeCluster) {
+            // Get native worker system properties and add them to the coordinator properties
+            Map<String, String> nativeWorkerProperties = NativeQueryRunnerUtils.getNativeWorkerSystemProperties();
+            for (Map.Entry<String, String> entry : nativeWorkerProperties.entrySet()) {
+                properties.setProperty(entry.getKey(), entry.getValue());
+            }
+            if (isSidecarEnabled) {
+                properties.setProperty("presto.default-namespace", "native.default"); //pass all three only when sidecar enabled
+                properties.setProperty("coordinator-sidecar-enabled", "true");
+                properties.setProperty("exclude-invalid-worker-session-properties", "true");
+            }
+        }
+
+        createPropertiesFile("testcontainers/coordinator/etc/config.properties", properties);
+    }
+
 
     public static void createJavaWorkerConfigProperties(int coordinatorPort, String nodeId)
             throws IOException
