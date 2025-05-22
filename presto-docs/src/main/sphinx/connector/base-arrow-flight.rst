@@ -52,7 +52,9 @@ Property Name                               Description
 ========================================== ==============================================================
 ``arrow-flight.server``                     Endpoint of the Flight server
 ``arrow-flight.server.port``                Flight server port
-``arrow-flight.server-ssl-certificate``     Pass ssl certificate
+``arrow-flight.server-ssl-certificate``     Path to SSL certificate of Flight server
+``arrow-flight.client-ssl-certificate``     Path to SSL certificate that Flight clients will use for mTLS authentication with the Flight server
+``arrow-flight.client-ssl-key``             Path to SSL key that Flight clients will use for mTLS authentication with the Flight server
 ``arrow-flight.server.verify``              To verify server
 ``arrow-flight.server-ssl-enabled``         Port is ssl enabled
 ========================================== ==============================================================
