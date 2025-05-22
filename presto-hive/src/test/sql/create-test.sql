@@ -67,7 +67,7 @@ COMMENT 'Presto test bucketed table'
 PARTITIONED BY (ds STRING)
 CLUSTERED BY (t_string, t_int) INTO 32 BUCKETS
 STORED AS RCFILE
-TBLPROPERTIES ('RETENTION'='-1')
+TBLPROPERTIES ('bucketing_version'='1')
 ;
 
 CREATE TABLE presto_test_bucketed_by_bigint_boolean (
@@ -84,7 +84,7 @@ COMMENT 'Presto test bucketed table'
 PARTITIONED BY (ds STRING)
 CLUSTERED BY (t_bigint, t_boolean) INTO 32 BUCKETS
 STORED AS RCFILE
-TBLPROPERTIES ('RETENTION'='-1')
+TBLPROPERTIES ('bucketing_version'='1')
 ;
 
 CREATE TABLE presto_test_bucketed_by_double_float (
