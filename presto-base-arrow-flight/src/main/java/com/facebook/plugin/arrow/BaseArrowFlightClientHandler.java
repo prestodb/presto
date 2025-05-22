@@ -73,9 +73,23 @@ public abstract class BaseArrowFlightClientHandler
                 flightClientBuilder.trustedCertificates(trustedCertificate.get()).useTls();
             }
 
+            Optional<InputStream> clientCertificate = Optional.empty();
+            Optional<InputStream> clientKey = Optional.empty();
+            if (config.getFlightClientSSLCertificate() != null && config.getFlightClientSSLKey() != null) {
+                clientCertificate = Optional.of(newInputStream(Paths.get(config.getFlightClientSSLCertificate())));
+                clientKey = Optional.of(newInputStream(Paths.get(config.getFlightClientSSLKey())));
+                flightClientBuilder.clientCertificate(clientCertificate.get(), clientKey.get()).useTls();
+            }
+
             FlightClient flightClient = flightClientBuilder.build();
             if (trustedCertificate.isPresent()) {
                 trustedCertificate.get().close();
+            }
+            if (clientCertificate.isPresent()) {
+                clientCertificate.get().close();
+            }
+            if (clientKey.isPresent()) {
+                clientKey.get().close();
             }
 
             return flightClient;
