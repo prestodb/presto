@@ -582,6 +582,15 @@ public class PushdownSubfields
                 if (expression instanceof VariableReferenceExpression) {
                     return Optional.of(new Subfield(((VariableReferenceExpression) expression).getName(), elements.build().reverse()));
                 }
+                if (expression instanceof CallExpression) {
+                    Optional<Integer> pushdownSubfieldArgIndex = functionAndTypeManager.getFunctionMetadata(((CallExpression) expression).getFunctionHandle()).getPushdownSubfieldArgIndex();
+                    if (pushdownSubfieldArgIndex.isPresent() &&
+                            ((CallExpression) expression).getArguments().size() > pushdownSubfieldArgIndex.get() &&
+                            ((CallExpression) expression).getArguments().get(pushdownSubfieldArgIndex.get()).getType() instanceof RowType) {
+                        expression = ((CallExpression) expression).getArguments().get(pushdownSubfieldArgIndex.get());
+                        continue;
+                    }
+                }
 
                 if (expression instanceof SpecialFormExpression && ((SpecialFormExpression) expression).getForm() == DEREFERENCE) {
                     SpecialFormExpression dereference = (SpecialFormExpression) expression;

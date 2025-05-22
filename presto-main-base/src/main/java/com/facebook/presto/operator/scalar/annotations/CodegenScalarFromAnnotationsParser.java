@@ -36,6 +36,7 @@ import com.facebook.presto.spi.function.SqlInvokedScalarFunction;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
+import com.facebook.presto.spi.function.TypeVariableConstraint;
 import com.facebook.presto.sql.gen.lambda.BinaryFunctionInterface;
 import com.facebook.presto.sql.gen.lambda.UnaryFunctionInterface;
 import com.google.common.collect.ImmutableList;
@@ -44,7 +45,9 @@ import com.google.common.collect.ImmutableSet;
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Method;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -122,6 +125,8 @@ public class CodegenScalarFromAnnotationsParser
                 Arrays.stream(method.getParameters()).map(p -> parseTypeSignature(p.getAnnotation(SqlType.class).value())).collect(toImmutableList()),
                 false);
 
+        checkPushdownSubfieldArgIndex(signature, codegenScalarFunction.pushdownSubfieldArgIndex(), method);
+
         return new SqlScalarFunction(signature)
         {
             @Override
@@ -166,6 +171,28 @@ public class CodegenScalarFromAnnotationsParser
             {
                 return codegenScalarFunction.calledOnNullInput();
             }
+
+            @Override
+            public Optional<Integer> getPushdownSubfieldArgIndex()
+            {
+                if (codegenScalarFunction.pushdownSubfieldArgIndex() < 0) {
+                    return Optional.empty();
+                }
+                return Optional.of(codegenScalarFunction.pushdownSubfieldArgIndex());
+            }
         };
+    }
+
+    private static void checkPushdownSubfieldArgIndex(Signature signature, int pushdownSubfieldArgIndex, Method method)
+    {
+        if (pushdownSubfieldArgIndex >= 0) {
+            Map<String, String> typeConstraintMapping = new HashMap<>();
+            for (TypeVariableConstraint constraint : signature.getTypeVariableConstraints()) {
+                typeConstraintMapping.put(constraint.getName(), constraint.getVariadicBound());
+            }
+            checkCondition(signature.getArgumentTypes().size() > pushdownSubfieldArgIndex, FUNCTION_IMPLEMENTATION_ERROR, "Method [%s] has out of range pushdown subfield arg index", method);
+            String typeVariableName = signature.getArgumentTypes().get(pushdownSubfieldArgIndex).toString();
+            checkCondition(typeVariableName.equals(com.facebook.presto.common.type.StandardTypes.ROW) || typeConstraintMapping.get(typeVariableName).equals(com.facebook.presto.common.type.StandardTypes.ROW), FUNCTION_IMPLEMENTATION_ERROR, "Method [%s] does not have a struct or row type as pushdown subfield arg", method);
+        }
     }
 }

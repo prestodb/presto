@@ -68,6 +68,12 @@ public class ParametricScalar
     }
 
     @Override
+    public Optional<Integer> getPushdownSubfieldArgIndex()
+    {
+        return details.getPushdownSubfieldArgIndex();
+    }
+
+    @Override
     public String getDescription()
     {
         return details.getDescription().isPresent() ? details.getDescription().get() : "";

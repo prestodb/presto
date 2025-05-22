@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi.function;
 
+import java.util.Optional;
+
 import static com.facebook.presto.spi.function.ComplexTypeFunctionDescriptor.defaultFunctionDescriptor;
 
 public interface SqlFunction
@@ -24,6 +26,11 @@ public interface SqlFunction
     boolean isDeterministic();
 
     boolean isCalledOnNullInput();
+
+    default Optional<Integer> getPushdownSubfieldArgIndex()
+    {
+        return Optional.empty();
+    }
 
     String getDescription();
 

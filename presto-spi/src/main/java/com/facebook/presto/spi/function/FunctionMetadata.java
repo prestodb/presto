@@ -40,6 +40,7 @@ public class FunctionMetadata
     private final FunctionImplementationType implementationType;
     private final boolean deterministic;
     private final boolean calledOnNullInput;
+    private final Optional<Integer> pushdownSubfieldArgIndex;
     private final FunctionVersion version;
     private final ComplexTypeFunctionDescriptor descriptor;
 
@@ -63,9 +64,23 @@ public class FunctionMetadata
             FunctionImplementationType implementationType,
             boolean deterministic,
             boolean calledOnNullInput,
+            Optional<Integer> pushdownSubfieldArgIndex,
             ComplexTypeFunctionDescriptor functionDescriptor)
     {
-        this(name, Optional.empty(), argumentTypes, Optional.empty(), returnType, functionKind, Optional.empty(), implementationType, deterministic, calledOnNullInput, notVersioned(), functionDescriptor);
+        this(
+                name,
+                Optional.empty(),
+                argumentTypes,
+                Optional.empty(),
+                returnType,
+                functionKind,
+                Optional.empty(),
+                implementationType,
+                deterministic,
+                calledOnNullInput,
+                pushdownSubfieldArgIndex,
+                notVersioned(),
+                functionDescriptor);
     }
 
     public FunctionMetadata(
@@ -97,7 +112,7 @@ public class FunctionMetadata
             ComplexTypeFunctionDescriptor functionDescriptor)
     {
         this(name, Optional.empty(), argumentTypes, Optional.of(argumentNames), returnType, functionKind, Optional.of(language), implementationType, deterministic,
-                calledOnNullInput, version, functionDescriptor);
+                calledOnNullInput, Optional.empty(), version, functionDescriptor);
     }
 
     public FunctionMetadata(
@@ -122,7 +137,7 @@ public class FunctionMetadata
             boolean calledOnNullInput,
             ComplexTypeFunctionDescriptor functionDescriptor)
     {
-        this(operatorType.getFunctionName(), Optional.of(operatorType), argumentTypes, Optional.empty(), returnType, functionKind, Optional.empty(), implementationType, deterministic, calledOnNullInput, notVersioned(), functionDescriptor);
+        this(operatorType.getFunctionName(), Optional.of(operatorType), argumentTypes, Optional.empty(), returnType, functionKind, Optional.empty(), implementationType, deterministic, calledOnNullInput, Optional.empty(), notVersioned(), functionDescriptor);
     }
 
     private FunctionMetadata(
@@ -149,6 +164,7 @@ public class FunctionMetadata
                 implementationType,
                 deterministic,
                 calledOnNullInput,
+                Optional.empty(),
                 version,
                 defaultFunctionDescriptor());
     }
@@ -164,6 +180,7 @@ public class FunctionMetadata
             FunctionImplementationType implementationType,
             boolean deterministic,
             boolean calledOnNullInput,
+            Optional<Integer> pushdownSubfieldArgIndex,
             FunctionVersion version,
             ComplexTypeFunctionDescriptor functionDescriptor)
     {
@@ -177,6 +194,7 @@ public class FunctionMetadata
         this.implementationType = requireNonNull(implementationType, "implementationType is null");
         this.deterministic = deterministic;
         this.calledOnNullInput = calledOnNullInput;
+        this.pushdownSubfieldArgIndex = requireNonNull(pushdownSubfieldArgIndex, "pushdownSubfieldArgIndex is null");
         this.version = requireNonNull(version, "version is null");
         requireNonNull(functionDescriptor, "functionDescriptor is null");
         this.descriptor = new ComplexTypeFunctionDescriptor(
@@ -186,6 +204,7 @@ public class FunctionMetadata
                 functionDescriptor.getOutputToInputTransformationFunction(),
                 argumentTypes);
     }
+
     public FunctionKind getFunctionKind()
     {
         return functionKind;
@@ -234,6 +253,11 @@ public class FunctionMetadata
     public boolean isCalledOnNullInput()
     {
         return calledOnNullInput;
+    }
+
+    public Optional<Integer> getPushdownSubfieldArgIndex()
+    {
+        return pushdownSubfieldArgIndex;
     }
 
     public FunctionVersion getVersion()

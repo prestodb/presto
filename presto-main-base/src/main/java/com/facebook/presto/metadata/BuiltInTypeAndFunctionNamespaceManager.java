@@ -1187,6 +1187,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                     JAVA,
                     function.isDeterministic(),
                     function.isCalledOnNullInput(),
+                    function.getPushdownSubfieldArgIndex(),
                     function.getComplexTypeFunctionDescriptor());
         }
     }
