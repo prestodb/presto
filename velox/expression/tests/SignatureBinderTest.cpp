@@ -34,7 +34,7 @@ void testSignatureBinder(
 
   auto returnType = binder.tryResolveReturnType();
   ASSERT_TRUE(returnType != nullptr);
-  ASSERT_TRUE(expectedReturnType->equivalent(*returnType));
+  ASSERT_EQ(*expectedReturnType, *returnType);
 }
 
 void assertCannotResolve(
@@ -971,6 +971,15 @@ TEST(SignatureBinderTest, namedRows) {
         signature,
         {ROW({{"my_map", MAP(BIGINT(), ROW({{"bla", VARCHAR()}}))}})},
         VARCHAR());
+  }
+
+  // Return named row.
+  {
+    auto signature = exec::FunctionSignatureBuilder()
+                         .returnType("row(foo bigint)")
+                         .argumentType("varchar")
+                         .build();
+    testSignatureBinder(signature, {VARCHAR()}, ROW({{"foo", BIGINT()}}));
   }
 }
 

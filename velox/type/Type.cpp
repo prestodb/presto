@@ -1305,12 +1305,16 @@ class RowParametricType {
     }
 
     std::vector<TypePtr> argumentTypes;
+    std::vector<std::string> argumentNames;
+
     argumentTypes.reserve(parameters.size());
+    argumentNames.reserve(parameters.size());
+
     for (const auto& parameter : parameters) {
       argumentTypes.push_back(parameter.type);
+      argumentNames.push_back(parameter.rowFieldName.value_or(""));
     }
-
-    return ROW(std::move(argumentTypes));
+    return ROW(std::move(argumentNames), std::move(argumentTypes));
   }
 };
 

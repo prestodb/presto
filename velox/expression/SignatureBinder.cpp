@@ -21,8 +21,8 @@
 #include "velox/type/Type.h"
 
 namespace facebook::velox::exec {
-
 namespace {
+
 bool isAny(const TypeSignature& typeSignature) {
   return typeSignature.baseName() == "any";
 }
@@ -254,6 +254,7 @@ TypePtr SignatureBinder::tryResolveType(
 
   const auto& params = typeSignature.parameters();
   std::vector<TypeParameter> typeParameters;
+
   for (auto& param : params) {
     auto literal =
         tryResolveLongLiteral(param, variables, integerVariablesBindings);
@@ -267,7 +268,7 @@ TypePtr SignatureBinder::tryResolveType(
     if (!type) {
       return nullptr;
     }
-    typeParameters.push_back(TypeParameter(type));
+    typeParameters.push_back(TypeParameter(type, param.rowFieldName()));
   }
 
   try {
