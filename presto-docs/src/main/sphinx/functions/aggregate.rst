@@ -101,7 +101,7 @@ General Aggregate Functions
            (INTERVAL '20' DAY),
            (INTERVAL '30' DAY)
         ) AS t(timediff);
-        --(20 00:00:00.000)
+        --(20 00:00:00.000)//INTERVAL '20' DAY
 
 .. function:: bool_and(boolean) -> boolean
 
@@ -147,7 +147,7 @@ General Aggregate Functions
            ('Charlie', 22,'female'),
            ('Lucy', 20,'female')
         ) AS t(name, age, gender);
-        --(C0ACD56CF866E759)
+        --(C0ACD56CF866E759)//hex format
 
        SELECT checksum(name)
        FROM 
@@ -158,7 +158,7 @@ General Aggregate Functions
            ('Lucy', 20,'female'),
            ('Charlie', 22,'female')
         ) AS t(name, age, gender);
-        --(C0ACD56CF866E759)        
+        --(C0ACD56CF866E759)//hex format       
 
 .. function:: count(*) -> bigint
 
@@ -489,7 +489,7 @@ Bitwise Aggregate Functions
             (3),   -- 0b0011
             (1)    -- 0b0001
         ) AS t(flags);
-        --(1) 0b0001
+        --(1) //0b0001
 
 .. function:: bitwise_or_agg(x) -> bigint
 
@@ -503,7 +503,7 @@ Bitwise Aggregate Functions
             (3),   -- 0b0011
             (1)    -- 0b0001
         ) AS t(flags);
-        --(7) 0b0111
+        --(7) //0b0111
 
 .. function:: bitwise_xor_agg(x) -> bigint
 
@@ -517,7 +517,7 @@ Bitwise Aggregate Functions
             (3),   -- 0b0011
             (1)    -- 0b0001
         ) AS t(flags);
-        --(5) 0b0101
+        --(5) //0b0101
 
 Map Aggregate Functions
 -----------------------
@@ -537,7 +537,7 @@ Map Aggregate Functions
             (25),
             (30)
         ) AS t(age);
-        --{22=1, 25=2, 30=3}
+        --{22->1, 25->2, 30->3}
 
 .. function:: map_agg(key, value) -> map(K,V)
 
@@ -551,7 +551,7 @@ Map Aggregate Functions
             ('Bob', 25),
             ('Lucy', 22)
         ) AS t(name, age);
-        --{Bob=25, Alice=30, Lucy=22}
+        --{Bob->25, Alice->30, Lucy->22}
 
 .. function:: map_union(x(K,V)) -> map(K,V)
 
@@ -566,7 +566,7 @@ Map Aggregate Functions
             (MAP(ARRAY['b', 'c'], ARRAY[3, 4])),
             (MAP(ARRAY['d'], ARRAY[5]))
         ) AS t(maps);
-        --{a=1, b=2, c=4, d=5}
+        --{a->1, b->2, c->4, d->5}
 
 .. function:: map_union_sum(x(K,V)) -> map(K,V)
 
@@ -581,7 +581,7 @@ Map Aggregate Functions
                 (MAP(ARRAY['b', 'c'], ARRAY[3, 4])),
                 (MAP(ARRAY['a', 'd'], ARRAY[5, 6]))
             ) AS t(maps);
-            --{'a':6,'b':5,'c':4,'d':6}
+            --{'a'->6,'b'->5,'c'->4,'d'->6}
 
 .. function:: multimap_agg(key, value) -> map(K,array(V))
 
@@ -599,7 +599,7 @@ Map Aggregate Functions
             ('Lucy', 22),
             ('Bob', 28)
         ) AS t(name, age);
-        --{Bob=[25, 28], Alice=[30, 32], Lucy=[22]}
+        --{Bob->[25, 28], Alice->[30, 32], Lucy->[22]}
 
 Approximate Aggregate Functions
 -------------------------------
@@ -639,6 +639,18 @@ Approximate Aggregate Functions
     over all possible sets. It does not guarantee an upper bound on the error
     for any specific input set. The current implementation of this function
     requires that ``e`` be in the range of ``[0.0040625, 0.26000]``.
+    ::
+
+        SELECT approx_distinct(gender, 0.01) AS estimated_distinct_gender
+        FROM (
+        VALUES 
+            ('Alice', 30, 'female'),
+            ('Bob', 25, 'male'),
+            ('Lucy', 22, 'female'),
+            ('Tom', 40, 'male'),
+            ('Amy', 35, 'female')
+        ) AS t(name, age, gender);
+        --(2)
 
 .. function:: approx_percentile(x, percentage) -> [same as x]
 
@@ -812,7 +824,7 @@ Approximate Aggregate Functions
             (1001),
             (1004)
         ) AS t(user_id);
-        --(020C0400401E4D1D4081707280E083BD444759E9)
+        --(020C0400401E4D1D4081707280E083BD444759E9)//hex format
 
 .. function:: merge(x) -> HyperLogLog
     :noindex:
@@ -886,7 +898,7 @@ Approximate Aggregate Functions
                 (25),
                 (30)
         ) AS t(v);
-        --{30.0=1.0, 22.5=2.0, 12.5=2.0}
+        --{30.0->1.0, 22.5->2.0, 12.5->2.0}
 
 .. function:: numeric_histogram(buckets, value) -> map<double, double>
 
@@ -900,7 +912,7 @@ Approximate Aggregate Functions
         FROM (
         VALUES (10.0), (15.0), (20.0), (25.0), (30.0)
         ) AS t(v);
-        --{30.0=1.0, 22.5=2.0, 12.5=2.0}
+        --{30.0->1.0, 22.5->2.0, 12.5->2.0}
 
 Statistical Aggregate Functions
 -------------------------------
@@ -1091,7 +1103,7 @@ Statistical Aggregate Functions
     value. ``x`` is the independent value.
     ::
 
-        SELECT regr_count(salary, age)
+        SELECT regr_r2(salary, age)
         FROM (
         VALUES 
             (25, 3000),
@@ -1140,7 +1152,7 @@ Statistical Aggregate Functions
 
     Returns the sum of the squares of the independent values in a group. ``y`` is the dependent
     value. ``x`` is the independent value.
-        ::
+    ::
 
         SELECT regr_sxx(salary, age)
         FROM (
@@ -1254,7 +1266,7 @@ Statistical Aggregate Functions
     Returns the sample variance of all input values.
     ::
 
-        SELECT variance(salary)
+        SELECT var_samp(salary)
         FROM (
         VALUES 
             (3000),
