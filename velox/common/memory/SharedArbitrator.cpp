@@ -561,6 +561,24 @@ std::optional<ArbitrationCandidate> SharedArbitrator::findAbortCandidate(
     return std::nullopt;
   }
 
+  // Returns if other candidate should be chosen for abort.
+  // With the same capacity size bucket, we favor highest priority followed
+  // by oldest participant to not to be killed. This allows long running
+  // highest priority query to proceed first.
+  auto chooseAnotherCandidateForAbort = [&](const ArbitrationCandidate& current,
+                                            const ArbitrationCandidate& other) {
+    if (current.participant->poolPriority() <
+        other.participant->poolPriority()) {
+      return false;
+    } else if (
+        current.participant->poolPriority() ==
+            other.participant->poolPriority() &&
+        current.participant->id() > other.participant->id()) {
+      return false;
+    }
+    return true;
+  };
+
   for (uint64_t capacityLimit : globalArbitrationAbortCapacityLimits_) {
     int32_t candidateIdx{-1};
     for (int32_t i = 0; i < candidates.size(); ++i) {
@@ -575,10 +593,9 @@ std::optional<ArbitrationCandidate> SharedArbitrator::findAbortCandidate(
         candidateIdx = i;
         continue;
       }
-      // With the same capacity size bucket, we favor the old participant to not
-      // to be killed, to let long running query proceed first.
-      if (candidates[candidateIdx].participant->id() <
-          candidates[i].participant->id()) {
+
+      if (chooseAnotherCandidateForAbort(
+              candidates[candidateIdx], candidates[i])) {
         candidateIdx = i;
       }
     }
@@ -592,15 +609,14 @@ std::optional<ArbitrationCandidate> SharedArbitrator::findAbortCandidate(
     return std::nullopt;
   }
 
-  // Can't find an eligible abort candidate and then return the youngest
-  // candidate which has the largest participant id.
+  // Can't find an eligible abort candidate and then return the lowest priority
+  // youngest candidate which has the largest participant id.
   int32_t candidateIdx{-1};
   for (auto i = 0; i < candidates.size(); ++i) {
     if (candidateIdx == -1) {
       candidateIdx = i;
-    } else if (
-        candidates[i].participant->id() >
-        candidates[candidateIdx].participant->id()) {
+    } else if (chooseAnotherCandidateForAbort(
+                   candidates[candidateIdx], candidates[i])) {
       candidateIdx = i;
     }
   }
@@ -1213,9 +1229,10 @@ uint64_t SharedArbitrator::reclaimUsedMemoryByAbort(bool force) {
     VELOX_MEM_POOL_ABORTED(fmt::format(
         "Memory pool aborted to reclaim used memory, current capacity {}, "
         "requesting capacity from global arbitration {} memory pool "
-        "stats:\n{}\n{}",
+        "priority:{}\nstats:\n{}\n{}",
         succinctBytes(currentCapacity),
         succinctBytes(victim.participant->globalArbitrationGrowCapacity()),
+        victim.participant->pool()->poolPriority(),
         victim.participant->pool()->toString(),
         victim.participant->pool()->treeMemoryUsage()));
   } catch (VeloxRuntimeError&) {
