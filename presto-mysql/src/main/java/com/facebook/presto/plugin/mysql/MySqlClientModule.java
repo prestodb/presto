@@ -32,6 +32,9 @@ public class MySqlClientModule
     protected void setup(Binder binder)
     {
         binder.bind(JdbcClient.class).to(MySqlClient.class).in(Scopes.SINGLETON);
+        configBinder(binder).bindConfigDefaults(BaseJdbcConfig.class, baseJdbcConfig -> {
+            baseJdbcConfig.setlistSchemasIgnoredSchemas("information_schema,mysql");
+        });
         ensureCatalogIsEmpty(buildConfigObject(BaseJdbcConfig.class).getConnectionUrl());
         configBinder(binder).bindConfig(MySqlConfig.class);
     }
