@@ -1118,6 +1118,24 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testOffsetLimitOrderByConsistency()
+    {
+        Session localSession = Session.builder(getSession())
+                .setSystemProperty(OFFSET_CLAUSE_ENABLED, "true")
+                .build();
+
+        String query = "SELECT name FROM customer ORDER BY name OFFSET 1 LIMIT 256";
+        MaterializedResult expectedResults = computeActual(localSession, query).toTestTypes();
+        List<MaterializedRow> expectedRows = expectedResults.getMaterializedRows();
+
+        for (int i = 0; i < 5; i++) {
+            MaterializedResult actualResults = computeActual(localSession, query).toTestTypes();
+            List<MaterializedRow> actualRows = actualResults.getMaterializedRows();
+            assertEquals(actualRows, expectedRows, "Mismatched results on run " + i);
+        }
+    }
+
+    @Test
     public void testRepeatedAggregations()
     {
         assertQuery("SELECT SUM(orderkey), SUM(orderkey) FROM orders");
