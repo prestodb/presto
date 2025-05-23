@@ -19,15 +19,25 @@ import com.facebook.presto.testing.QueryRunner;
 public class TestPrestoNativeTpchQueriesDwrfUsingThrift
         extends AbstractTestNativeTpchQueries
 {
+    private final String storageFormat = "DWRF";
+
     @Override
     protected QueryRunner createQueryRunner() throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(true, "DWRF");
+        return PrestoNativeQueryRunnerUtils.builder()
+                .setStorageFormat(storageFormat)
+                .setAddStorageFormatToPath(true)
+                .setUseThrift(true)
+                .buildNativeHiveQueryRunner();
     }
 
     @Override
     protected ExpectedQueryRunner createExpectedQueryRunner() throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createJavaQueryRunner("DWRF");
+        return PrestoNativeQueryRunnerUtils.builder()
+                .setStorageFormat(storageFormat)
+                .setSecurity("sql-standard")
+                .setAddStorageFormatToPath(true)
+                .buildJavaHiveQueryRunner();
     }
 }

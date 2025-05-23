@@ -16,18 +16,25 @@ package com.facebook.presto.nativeworker;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 
+import java.util.Optional;
+
 public class TestPrestoNativeRemoteFunctions
         extends AbstractTestNativeRemoteFunctions
 {
     @Override
     protected QueryRunner createQueryRunner() throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(remoteFunctionServerUds);
+        return PrestoNativeQueryRunnerUtils.builder()
+                .setRemoteFunctionServerUds(Optional.of(remoteFunctionServerUds))
+                .buildNativeHiveQueryRunner();
     }
 
     @Override
     protected ExpectedQueryRunner createExpectedQueryRunner() throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createJavaQueryRunner();
+        return PrestoNativeQueryRunnerUtils.builder()
+                .setSecurity("sql-standard")
+                .setAddStorageFormatToPath(true)
+                .buildJavaHiveQueryRunner();
     }
 }

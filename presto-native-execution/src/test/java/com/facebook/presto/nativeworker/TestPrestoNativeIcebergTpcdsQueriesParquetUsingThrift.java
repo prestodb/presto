@@ -26,7 +26,10 @@ public class TestPrestoNativeIcebergTpcdsQueriesParquetUsingThrift
             throws Exception
     {
         this.storageFormat = "PARQUET";
-        return PrestoNativeQueryRunnerUtils.createNativeIcebergQueryRunner(true, "PARQUET");
+        return PrestoNativeQueryRunnerUtils.builder()
+                .setStorageFormat(this.storageFormat)
+                .setUseThrift(true)
+                .buildNativeIcebergQueryRunner();
     }
 
     @Override
@@ -34,7 +37,9 @@ public class TestPrestoNativeIcebergTpcdsQueriesParquetUsingThrift
             throws Exception
     {
         this.storageFormat = "PARQUET";
-        return PrestoNativeQueryRunnerUtils.createJavaIcebergQueryRunner("PARQUET");
+        return PrestoNativeQueryRunnerUtils.builder()
+                .setStorageFormat(this.storageFormat)
+                .buildJavaIcebergQueryRunner();
     }
 
     @Test

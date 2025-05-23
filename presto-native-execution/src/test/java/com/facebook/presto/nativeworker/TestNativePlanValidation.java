@@ -19,6 +19,9 @@ public class TestNativePlanValidation
 {
     protected QueryRunner createQueryRunner() throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(false, true);
+        return PrestoNativeQueryRunnerUtils.builder()
+                .setAddStorageFormatToPath(true)
+                .setFailOnNestedLoopJoin(true)
+                .buildNativeHiveQueryRunner();
     }
 }
