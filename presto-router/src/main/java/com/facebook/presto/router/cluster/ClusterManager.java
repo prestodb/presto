@@ -192,6 +192,11 @@ public class ClusterManager
     public Optional<URI> getDestination(RequestInfo requestInfo)
     {
         ClusterManagerConfig config = currentConfig.get();
+        Optional<List<String>> extraClientTags = config.getScheduler().getExtraClientTags(requestInfo.getQuery(), requestInfo.getServletRequest());
+        if (extraClientTags.isPresent()) {
+            requestInfo =
+                    new RequestInfo(requestInfo.getServletRequest(), requestInfo.getQuery(), requestInfo.getClientTags());
+        }
         Optional<String> target = matchGroup(requestInfo);
         if (!target.isPresent()) {
             return Optional.empty();

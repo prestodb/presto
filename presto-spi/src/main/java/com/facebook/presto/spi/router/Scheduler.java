@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi.router;
 
+import javax.servlet.http.HttpServletRequest;
+
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
@@ -34,7 +36,9 @@ public interface Scheduler
     default Optional<URI> getDestination(String user, String query)
     {
         return Optional.empty();
-    };
+    }
+
+    ;
 
     /**
      * Sets the candidates with the list of URIs for scheduling.
@@ -55,4 +59,9 @@ public interface Scheduler
      * Sets the weights of candidates with a hash map object.
      */
     default void setWeights(Map<URI, Integer> weights) {}
+
+    default Optional<List<String>> getExtraClientTags(String statement, HttpServletRequest httpServletRequest)
+    {
+        return Optional.empty();
+    }
 }

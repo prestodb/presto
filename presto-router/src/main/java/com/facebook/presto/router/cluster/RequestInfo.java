@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 
 import javax.servlet.http.HttpServletRequest;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -36,12 +37,19 @@ public class RequestInfo
     private final Optional<String> source;
     private final List<String> clientTags;
     private final String query;
+    private final HttpServletRequest servletRequest;
 
     public RequestInfo(HttpServletRequest servletRequest, String query)
     {
+        this(servletRequest, query, ImmutableList.of());
+    }
+
+    public RequestInfo(HttpServletRequest servletRequest, String query, List<String> extraClientTags)
+    {
+        this.servletRequest = requireNonNull(servletRequest, "servletRequest is null");
         this.user = parseHeader(servletRequest, PRESTO_USER);
         this.source = Optional.ofNullable(parseHeader(servletRequest, PRESTO_SOURCE));
-        this.clientTags = requireNonNull(parseClientTags(servletRequest), "clientTags is null");
+        this.clientTags = setClientTags(extraClientTags);
         this.query = query;
     }
 
@@ -63,6 +71,19 @@ public class RequestInfo
     public List<String> getClientTags()
     {
         return clientTags;
+    }
+
+    public HttpServletRequest getServletRequest()
+    {
+        return servletRequest;
+    }
+
+    private List<String> setClientTags(List<String> extraClientTags)
+    {
+        List<String> parsedClientTags = new ArrayList<>();
+        parsedClientTags.addAll(extraClientTags);
+        parsedClientTags.addAll(requireNonNull(parseClientTags(servletRequest), "clientTags is null"));
+        return ImmutableList.copyOf(parsedClientTags);
     }
 
     private static List<String> parseClientTags(HttpServletRequest servletRequest)

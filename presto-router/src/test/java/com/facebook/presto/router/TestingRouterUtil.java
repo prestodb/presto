@@ -49,10 +49,10 @@ public class TestingRouterUtil
                 .map(TestingPrestoServer::getBaseUrl)
                 .collect(Collectors.toList());
         RouterSpec spec = new RouterSpec(ImmutableList.of(new GroupSpec("all", serverURIs, Optional.empty(), Optional.empty())),
-                    ImmutableList.of(new SelectorRuleSpec(Optional.empty(), Optional.empty(), Optional.empty(), "all")),
-                    Optional.of(ROUND_ROBIN),
-                    Optional.empty(),
-                    Optional.empty());
+                ImmutableList.of(new SelectorRuleSpec(Optional.empty(), Optional.empty(), Optional.empty(), "all")),
+                Optional.of(ROUND_ROBIN),
+                Optional.empty(),
+                Optional.empty());
         JsonCodec<RouterSpec> codec = jsonCodec(RouterSpec.class);
         Files.write(tempFile.toPath(), codec.toBytes(spec));
         return tempFile;
