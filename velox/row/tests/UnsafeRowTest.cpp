@@ -19,7 +19,6 @@
 #include <folly/Random.h>
 #include <folly/init/Init.h>
 
-#include "velox/row/UnsafeRowDeserializers.h"
 #include "velox/row/UnsafeRowFast.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
@@ -35,7 +34,6 @@ class UnsafeRowTest : public ::testing::Test, public VectorTestBase {
     memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
-  template <typename T>
   void doFuzzTest(const RowTypePtr& rowType) {
     VectorFuzzer::Options opts;
     opts.vectorSize = 100;
@@ -62,7 +60,7 @@ class UnsafeRowTest : public ::testing::Test, public VectorTestBase {
 
       fuzzer.reSeed(seed);
       const auto& inputVector = fuzzer.fuzzInputRow(rowType);
-      testRoundTrip<T>(inputVector);
+      testRoundTrip(inputVector);
 
       if (Test::HasFailure()) {
         break;
@@ -70,7 +68,6 @@ class UnsafeRowTest : public ::testing::Test, public VectorTestBase {
     }
   }
 
-  template <typename T>
   void testRoundTrip(const RowVectorPtr& data) {
     SCOPED_TRACE(data->toString());
 
@@ -113,7 +110,7 @@ class UnsafeRowTest : public ::testing::Test, public VectorTestBase {
     BufferPtr buffer = AlignedBuffer::allocate<char>(totalSize, pool_.get(), 0);
     auto* rawBuffer = buffer->asMutable<char>();
     size_t offset = 0;
-    std::vector<T> serialized;
+    std::vector<char*> serialized;
     for (auto i = 0; i < numRows; ++i) {
       auto size = row.serialize(i, rawBuffer + offset);
       serialized.push_back(rawBuffer + offset);
@@ -121,19 +118,11 @@ class UnsafeRowTest : public ::testing::Test, public VectorTestBase {
 
       VELOX_CHECK_EQ(size, row.rowSize(i), "Row {}: {}", i, data->toString(i));
     }
-
     VELOX_CHECK_EQ(offset, totalSize);
 
-    if constexpr (std::is_same_v<T, std::optional<std::string_view>>) {
-      // Deserialize previous bytes back to row vector
-      VectorPtr outputVector =
-          UnsafeRowDeserializer::deserialize(serialized, rowType, pool_.get());
-      assertEqualVectors(data, outputVector);
-    } else {
-      VectorPtr outputVector =
-          UnsafeRowFast::deserialize(serialized, rowType, pool_.get());
-      assertEqualVectors(data, outputVector);
-    }
+    VectorPtr outputVector =
+        UnsafeRowFast::deserialize(serialized, rowType, pool_.get());
+    assertEqualVectors(data, outputVector);
   }
 
   std::shared_ptr<memory::MemoryPool> pool_ =
@@ -206,8 +195,7 @@ TEST_F(UnsafeRowTest, fuzz) {
       MAP(BIGINT(), ROW({BOOLEAN(), TINYINT(), REAL()})),
   });
 
-  doFuzzTest<std::optional<std::string_view>>(rowType);
-  doFuzzTest<char*>(rowType);
+  doFuzzTest(rowType);
 }
 
 TEST_F(UnsafeRowTest, nestedMaps) {
@@ -225,7 +213,7 @@ TEST_F(UnsafeRowTest, nestedMaps) {
   auto keys = makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6});
   auto values = makeMapVector({0, 2, 2, 3, 4, 5}, keys, innerMaps, {1});
   auto data = makeRowVector({values});
-  testRoundTrip<char*>(data);
+  testRoundTrip(data);
 }
 
 } // namespace
