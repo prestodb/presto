@@ -56,6 +56,9 @@ option(PRESTO_ENABLE_ABFS "Build ABFS support" OFF)
 # Forwards user input to VELOX_ENABLE_PARQUET.
 option(PRESTO_ENABLE_PARQUET "Enable Parquet support" OFF)
 
+# Forwards user input to VELOX_ENABLE_CUDF.
+option(PRESTO_ENABLE_CUDF "Enable cuDF support" OFF)
+
 # Forwards user input to VELOX_ENABLE_REMOTE_FUNCTIONS.
 option(PRESTO_ENABLE_REMOTE_FUNCTIONS "Enable remote function support" OFF)
 
@@ -105,6 +108,16 @@ if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
       ON
       CACHE BOOL "Enable remote function support in Velox")
   add_compile_definitions(PRESTO_ENABLE_REMOTE_FUNCTIONS)
+endif()
+
+if(PRESTO_ENABLE_CUDF)
+  set(VELOX_ENABLE_CUDF
+      ON
+      CACHE BOOL "Enable cuDF support")
+  add_compile_definitions(PRESTO_ENABLE_CUDF)
+  enable_language(CUDA)
+  # Determine CUDA_ARCHITECTURES automatically.
+  cmake_policy(SET CMP0104 NEW)
 endif()
 
 set(VELOX_BUILD_TESTING
