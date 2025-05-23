@@ -34,29 +34,14 @@ class GcsInsertTest : public testing::Test, public test::InsertTest {
   }
 
   void SetUp() override {
-    connector::registerConnectorFactory(
-        std::make_shared<connector::hive::HiveConnectorFactory>());
     emulator_ = std::make_shared<GcsEmulator>();
     emulator_->bootstrap();
-    auto hiveConnector =
-        connector::getConnectorFactory(
-            connector::hive::HiveConnectorFactory::kHiveConnectorName)
-            ->newConnector(
-                exec::test::kHiveConnectorId,
-                emulator_->hiveConfig(),
-                ioExecutor_.get());
-    connector::registerConnector(hiveConnector);
-    parquet::registerParquetReaderFactory();
-    parquet::registerParquetWriterFactory();
+    InsertTest::SetUp(emulator_->hiveConfig(), ioExecutor_.get());
     ioExecutor_ = std::make_unique<folly::IOThreadPoolExecutor>(3);
   }
 
   void TearDown() override {
-    parquet::unregisterParquetReaderFactory();
-    parquet::unregisterParquetWriterFactory();
-    connector::unregisterConnectorFactory(
-        connector::hive::HiveConnectorFactory::kHiveConnectorName);
-    connector::unregisterConnector(exec::test::kHiveConnectorId);
+    InsertTest::TearDown();
   }
 
   std::shared_ptr<GcsEmulator> emulator_;

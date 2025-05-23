@@ -29,7 +29,31 @@
 namespace facebook::velox::test {
 
 class InsertTest : public velox::test::VectorTestBase {
- public:
+ protected:
+  void SetUp(
+      std::shared_ptr<const config::ConfigBase> hiveConfig,
+      folly::Executor* ioExecutor) {
+    connector::registerConnectorFactory(
+        std::make_shared<connector::hive::HiveConnectorFactory>());
+    auto hiveConnector =
+        connector::getConnectorFactory(
+            connector::hive::HiveConnectorFactory::kHiveConnectorName)
+            ->newConnector(
+                exec::test::kHiveConnectorId, hiveConfig, ioExecutor);
+    connector::registerConnector(hiveConnector);
+
+    parquet::registerParquetReaderFactory();
+    parquet::registerParquetWriterFactory();
+  }
+
+  void TearDown() {
+    parquet::unregisterParquetReaderFactory();
+    parquet::unregisterParquetWriterFactory();
+    connector::unregisterConnectorFactory(
+        connector::hive::HiveConnectorFactory::kHiveConnectorName);
+    connector::unregisterConnector(exec::test::kHiveConnectorId);
+  }
+
   void runInsertTest(
       std::string_view outputDirectory,
       int numRows,

@@ -20,8 +20,6 @@
 #include "velox/connectors/hive/storage_adapters/s3fs/RegisterS3FileSystem.h"
 #include "velox/connectors/hive/storage_adapters/s3fs/tests/S3Test.h"
 #include "velox/connectors/hive/storage_adapters/test_common/InsertTest.h"
-#include "velox/dwio/parquet/RegisterParquetReader.h"
-#include "velox/dwio/parquet/RegisterParquetWriter.h"
 
 namespace facebook::velox::filesystems {
 namespace {
@@ -35,27 +33,12 @@ class S3InsertTest : public S3Test, public test::InsertTest {
   void SetUp() override {
     S3Test::SetUp();
     filesystems::registerS3FileSystem();
-    connector::registerConnectorFactory(
-        std::make_shared<connector::hive::HiveConnectorFactory>());
-    auto hiveConnector =
-        connector::getConnectorFactory(
-            connector::hive::HiveConnectorFactory::kHiveConnectorName)
-            ->newConnector(
-                ::exec::test::kHiveConnectorId,
-                minioServer_->hiveConfig(),
-                ioExecutor_.get());
-    connector::registerConnector(hiveConnector);
-    parquet::registerParquetReaderFactory();
-    parquet::registerParquetWriterFactory();
+    InsertTest::SetUp(minioServer_->hiveConfig(), ioExecutor_.get());
   }
 
   void TearDown() override {
-    parquet::unregisterParquetReaderFactory();
-    parquet::unregisterParquetWriterFactory();
-    connector::unregisterConnectorFactory(
-        connector::hive::HiveConnectorFactory::kHiveConnectorName);
-    connector::unregisterConnector(::exec::test::kHiveConnectorId);
     S3Test::TearDown();
+    InsertTest::TearDown();
     filesystems::finalizeS3FileSystem();
   }
 };
