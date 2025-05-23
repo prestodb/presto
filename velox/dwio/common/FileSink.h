@@ -169,6 +169,14 @@ class LocalFileSink : public FileSink {
 
   static void registerFactory();
 
+  // TODO: Hack to make Alpha writer work with Velox.  To be removed after Alpha
+  // writer takes DataSink directly.
+  // TODO revisit after T225172934
+  std::unique_ptr<WriteFile> toWriteFile() {
+    markClosed();
+    return std::move(writeFile_);
+  }
+
  protected:
   // 'initializeWriter' is false if it is used by FaultyFileSink which setups
   // the write file through the fault filesystem.
