@@ -654,7 +654,6 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new SimplifyCountOverConstant(metadata.getFunctionAndTypeManager()))),
                 new LimitPushDown(), // Run LimitPushDown before WindowFilterPushDown
-                new WindowFilterPushDown(metadata), // This must run after PredicatePushDown and LimitPushDown so that it squashes any successive filter nodes and limits
                 prefilterForLimitingAggregation,
                 new IterativeOptimizer(
                         metadata,
@@ -886,6 +885,7 @@ public class PlanOptimizers
                         // Run RemoveEmptyDelete and EliminateEmptyJoins after table scan is removed by PickTableLayout/AddExchanges
                         ImmutableSet.of(new RemoveEmptyDelete())));
         builder.add(predicatePushDown); // Run predicate push down one more time in case we can leverage new information from layouts' effective predicate
+        builder.add(new WindowFilterPushDown(metadata)); // This must run after PredicatePushDown and LimitPushDown so that it squashes any successive filter nodes and limits
         builder.add(new RemoveUnsupportedDynamicFilters(metadata.getFunctionAndTypeManager()));
         builder.add(simplifyRowExpressionOptimizer); // Should be always run after PredicatePushDown
         builder.add(projectionPushDown);
