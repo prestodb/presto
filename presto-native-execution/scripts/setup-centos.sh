@@ -19,7 +19,6 @@ export CC=/opt/rh/gcc-toolset-12/root/bin/gcc
 export CXX=/opt/rh/gcc-toolset-12/root/bin/g++
 
 WGET_OPTIONS=${WGET_OPTIONS:-""}
-TAR_OPTIONS=${TAR_OPTIONS:-"-v"}
 
 CPU_TARGET="${CPU_TARGET:-avx}"
 SCRIPT_DIR=$(readlink -f "$(dirname "${BASH_SOURCE[0]}")")
@@ -38,7 +37,7 @@ function install_presto_deps_from_package_managers {
 
 function install_gperf {
   wget ${WGET_OPTIONS} http://ftp.gnu.org/pub/gnu/gperf/gperf-3.1.tar.gz &&
-  tar ${TAR_OPTIONS} -xzf gperf-3.1.tar.gz &&
+  tar -xzf gperf-3.1.tar.gz &&
   cd gperf-3.1 &&
   ./configure --prefix=/usr/local/gperf/3_1 &&
   make "-j$(nproc)" &&
