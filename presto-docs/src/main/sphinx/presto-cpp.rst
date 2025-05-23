@@ -84,3 +84,5 @@ TPCH Connector
 ^^^^^^^^^^^^^^
 
 * TPCH connector, with ``tpch.naming=standard`` catalog property.
+
+* TPCDS connector.

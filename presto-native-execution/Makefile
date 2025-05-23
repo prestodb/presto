@@ -39,6 +39,9 @@ endif
 ifeq ($(PRESTO_ENABLE_JWT), ON)
   EXTRA_CMAKE_FLAGS += -DPRESTO_ENABLE_JWT=ON
 endif
+ifeq ($(PRESTO_ENABLE_TPCDS_CONNECTOR), ON)
+  EXTRA_CMAKE_FLAGS += -PRESTO_ENABLE_TPCDS_CONNECTOR=ON
+endif
 ifneq ($(PRESTO_STATS_REPORTER_TYPE),)
   EXTRA_CMAKE_FLAGS += -DPRESTO_STATS_REPORTER_TYPE=$(PRESTO_STATS_REPORTER_TYPE)
 endif
@@ -73,8 +76,8 @@ clean:					#: Delete all build artifacts
 	rm -rf $(BUILD_BASE_DIR)
 
 velox-submodule:		#: Check out code for velox submodule
-	git submodule sync --recursive
-	git submodule update --init --recursive
+#	git submodule sync --recursive
+#	git submodule update --init --recursive
 
 submodules: velox-submodule
 
