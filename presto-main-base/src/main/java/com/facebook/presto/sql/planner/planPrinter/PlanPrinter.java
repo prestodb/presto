@@ -92,6 +92,7 @@ import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
+import com.facebook.presto.sql.planner.plan.OffsetNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
@@ -1304,6 +1305,14 @@ public class PlanPrinter
         public Void visitLateralJoin(LateralJoinNode node, Void context)
         {
             addNode(node, "Lateral", format("[%s]", node.getCorrelation()));
+
+            return processChildren(node, context);
+        }
+
+        @Override
+        public Void visitOffset(OffsetNode node, Void context)
+        {
+            addNode(node, "Offset", format("[%s]", node.getCount()));
 
             return processChildren(node, context);
         }
