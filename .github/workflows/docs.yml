@@ -2,8 +2,6 @@ name: docs
 
 on:
   pull_request:
-    paths:
-      - 'presto-docs/**'
 
 env:
   # An envar that signals to tests we are executing in the CI environment
