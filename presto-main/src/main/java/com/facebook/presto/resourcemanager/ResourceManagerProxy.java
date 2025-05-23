@@ -17,18 +17,17 @@ import com.facebook.airlift.http.client.BodyGenerator;
 import com.facebook.airlift.http.client.HeaderName;
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.Request;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import io.airlift.units.Duration;
-
-import javax.inject.Inject;
-import javax.servlet.http.HttpServletRequest;
-import javax.ws.rs.container.AsyncResponse;
-import javax.ws.rs.core.Response;
+import jakarta.inject.Inject;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.ws.rs.container.AsyncResponse;
+import jakarta.ws.rs.core.Response;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -48,14 +47,14 @@ import static com.google.common.net.HttpHeaders.COOKIE;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_FOR;
 import static com.google.common.util.concurrent.Futures.transform;
+import static jakarta.ws.rs.core.MediaType.TEXT_PLAIN;
+import static jakarta.ws.rs.core.Response.Status.GATEWAY_TIMEOUT;
+import static jakarta.ws.rs.core.Response.status;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.list;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static javax.ws.rs.core.MediaType.TEXT_PLAIN;
-import static javax.ws.rs.core.Response.Status.GATEWAY_TIMEOUT;
-import static javax.ws.rs.core.Response.status;
 
 @SuppressWarnings("UnstableApiUsage")
 public class ResourceManagerProxy

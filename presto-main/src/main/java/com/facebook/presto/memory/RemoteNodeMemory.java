@@ -22,14 +22,13 @@ import com.facebook.airlift.json.Codec;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.smile.SmileCodec;
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.server.smile.BaseResponse;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
-import io.airlift.units.Duration;
-
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.ThreadSafe;
+import com.google.errorprone.annotations.ThreadSafe;
+import jakarta.annotation.Nullable;
 
 import java.net.URI;
 import java.util.Optional;
@@ -40,12 +39,12 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.facebook.airlift.http.client.HttpStatus.OK;
 import static com.facebook.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static com.facebook.airlift.http.client.Request.Builder.preparePost;
+import static com.facebook.airlift.units.Duration.nanosSince;
 import static com.facebook.presto.server.RequestHelpers.setContentTypeHeaders;
 import static com.facebook.presto.server.smile.AdaptingJsonResponseHandler.createAdaptingJsonResponseHandler;
 import static com.facebook.presto.server.smile.FullSmileResponseHandler.createFullSmileResponseHandler;
 import static com.facebook.presto.server.smile.SmileBodyGenerator.smileBodyGenerator;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.airlift.units.Duration.nanosSince;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 

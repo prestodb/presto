@@ -14,10 +14,9 @@
 package com.facebook.presto.server;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.spi.NodePoolType;
-import io.airlift.units.Duration;
-
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 import static com.facebook.presto.spi.NodePoolType.DEFAULT;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;

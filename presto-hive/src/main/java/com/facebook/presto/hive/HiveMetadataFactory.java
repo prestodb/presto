@@ -26,9 +26,8 @@ import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import jakarta.inject.Inject;
 import org.joda.time.DateTimeZone;
-
-import javax.inject.Inject;
 
 import java.util.function.Supplier;
 

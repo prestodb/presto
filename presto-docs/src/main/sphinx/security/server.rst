@@ -47,8 +47,6 @@ In addition, the Presto coordinator needs a `keytab file
 
 .. include:: ktadd-note.fragment
 
-.. include:: jce-policy.fragment
-
 Java Keystore File for TLS
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 When using Kerberos authentication, access to the Presto coordinator should be

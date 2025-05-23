@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.spiller;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.ExceededSpillLimitException;
-import io.airlift.units.DataSize;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)

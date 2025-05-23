@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.StatementClient;
@@ -22,7 +23,6 @@ import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.SettableFuture;
-import io.airlift.units.Duration;
 import okhttp3.OkHttpClient;
 import org.testng.annotations.Test;
 

@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.Duration;
 import org.h2.Driver;
 
 import java.sql.Connection;

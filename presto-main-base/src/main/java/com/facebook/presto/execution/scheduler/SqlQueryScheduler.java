@@ -16,6 +16,7 @@ package com.facebook.presto.execution.scheduler;
 import com.facebook.airlift.concurrent.SetThreadName;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.TimeStat;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.BasicStageExecutionStats;
@@ -53,7 +54,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.sun.management.ThreadMXBean;
-import io.airlift.units.Duration;
 import org.apache.http.client.utils.URIBuilder;
 
 import java.lang.management.ManagementFactory;

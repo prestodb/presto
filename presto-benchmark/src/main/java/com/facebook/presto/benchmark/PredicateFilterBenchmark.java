@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.benchmark;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.OperatorFactory;
@@ -23,12 +24,12 @@ import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.DataSize;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+import static com.facebook.airlift.units.DataSize.Unit.BYTE;
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.common.function.OperatorType.GREATER_THAN_OR_EQUAL;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -37,7 +38,6 @@ import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.field;
-import static io.airlift.units.DataSize.Unit.BYTE;
 
 public class PredicateFilterBenchmark
         extends AbstractSimpleOperatorBenchmark

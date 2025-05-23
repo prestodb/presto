@@ -23,8 +23,7 @@ import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.verifier.framework.Column;
 import com.facebook.presto.verifier.framework.VerifierConfig;
 import com.google.common.collect.ImmutableList;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.List;
 import java.util.Objects;

@@ -18,10 +18,9 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkMutableRow;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SliceOutput;
+import jakarta.annotation.Nullable;
 import org.openjdk.jol.info.ClassLayout;
 import scala.Tuple2;
-
-import javax.annotation.Nullable;
 
 import java.nio.Buffer;
 import java.nio.ByteBuffer;

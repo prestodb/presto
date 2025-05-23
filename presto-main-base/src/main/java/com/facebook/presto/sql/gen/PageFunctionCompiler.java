@@ -65,11 +65,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Primitives;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import jakarta.annotation.Nullable;
+import jakarta.inject.Inject;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.annotation.Nullable;
-import javax.inject.Inject;
 
 import java.util.Collection;
 import java.util.HashSet;

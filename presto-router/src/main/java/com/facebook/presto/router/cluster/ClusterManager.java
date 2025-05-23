@@ -14,6 +14,7 @@
 package com.facebook.presto.router.cluster;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.router.RouterConfig;
 import com.facebook.presto.router.scheduler.CustomSchedulerManager;
 import com.facebook.presto.router.scheduler.SchedulerFactory;
@@ -30,11 +31,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.sun.nio.file.SensitivityWatchEventModifier;
-import io.airlift.units.Duration;
+import jakarta.annotation.PreDestroy;
+import jakarta.inject.Inject;
 import org.weakref.jmx.Managed;
-
-import javax.annotation.PreDestroy;
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.net.URI;

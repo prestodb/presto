@@ -14,6 +14,7 @@
 package com.facebook.presto.spark.node;
 
 import com.facebook.airlift.stats.CounterStat;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.dispatcher.NoOpQueryManager;
 import com.facebook.presto.execution.NodeTaskMap;
@@ -28,7 +29,6 @@ import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.ttl.nodettlfetchermanagers.ThrowingNodeTtlFetcherManager;
 import com.facebook.presto.util.FinalizerService;
-import io.airlift.units.Duration;
 
 import java.util.Map;
 

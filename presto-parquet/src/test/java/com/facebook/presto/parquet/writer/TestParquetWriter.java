@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.parquet.writer;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.DecimalType;
@@ -25,7 +26,6 @@ import com.facebook.presto.parquet.FileParquetDataSource;
 import com.facebook.presto.parquet.cache.MetadataReader;
 import com.facebook.presto.parquet.reader.ParquetReader;
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.DataSize;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.io.ColumnIOConverter;
@@ -44,6 +44,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 
+import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static com.facebook.presto.common.block.MethodHandleUtil.nativeValueGetter;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -61,7 +62,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.UUID.randomUUID;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
