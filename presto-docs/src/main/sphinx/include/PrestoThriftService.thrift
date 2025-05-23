@@ -1,7 +1,7 @@
 enum PrestoThriftBound {
-  BELOW = 1;
-  EXACTLY = 2;
-  ABOVE = 3;
+  BELOW = 1,
+  EXACTLY = 2,
+  ABOVE = 3,
 }
 
 exception PrestoThriftServiceException {
