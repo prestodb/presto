@@ -47,10 +47,10 @@ public class Conversions
                 field.getDescription());
     }
 
-    static ColumnMetadata toColumnMetadata(Field field)
+    static ColumnMetadata toColumnMetadata(Field field, String name)
     {
         return ColumnMetadata.builder()
-                .setName(field.getName())
+                .setName(name)
                 .setType(adapt(field).getPrestoType())
                 .setNullable(getMode(field) == NULLABLE)
                 .setComment(field.getDescription())

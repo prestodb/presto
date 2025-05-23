@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
@@ -60,11 +61,13 @@ public class PredicateStitcher
 {
     private final Map<SchemaTableName, Expression> predicates;
     private final Session session;
+    private final Metadata metadata;
 
-    public PredicateStitcher(Session session, Map<SchemaTableName, Expression> predicates)
+    public PredicateStitcher(Session session, Map<SchemaTableName, Expression> predicates, Metadata metadata)
     {
         this.session = requireNonNull(session, "session is null");
         this.predicates = requireNonNull(predicates, "predicates is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
     @Override
@@ -185,7 +188,7 @@ public class PredicateStitcher
     @Override
     protected Node visitTable(Table table, PredicateStitcherContext context)
     {
-        SchemaTableName schemaTableName = toSchemaTableName(createQualifiedObjectName(session, table, table.getName()));
+        SchemaTableName schemaTableName = toSchemaTableName(createQualifiedObjectName(session, table, table.getName(), metadata));
         if (!predicates.containsKey(schemaTableName)) {
             return table;
         }
