@@ -161,6 +161,59 @@ class AggregationReplayerTest : public HiveConnectorTestBase {
     return plans;
   }
 
+  std::vector<PlanWithName> streamingAggregatePlans(
+      const RowTypePtr& rowType,
+      const std::string& prefix = "") {
+    const std::vector<std::string> aggregates{
+        fmt::format("{}count(1)", prefix),
+        fmt::format("{}min(c1)", prefix),
+        fmt::format("{}count(c2),", prefix)};
+    std::vector<PlanWithName> plans;
+    // Single aggregation plan.
+    plans.emplace_back(
+        "Single",
+        PlanBuilder()
+            .tableScan(rowType)
+            .streamingAggregation(
+                groupingKeys_,
+                aggregates,
+                {},
+                core::AggregationNode::Step::kSingle,
+                false)
+            .capturePlanNodeId(traceNodeId_)
+            .planNode());
+    // Partial -> final aggregation plan.
+    plans.emplace_back(
+        "Partial-Final",
+        PlanBuilder()
+            .tableScan(rowType)
+            .streamingAggregation(
+                groupingKeys_,
+                aggregates,
+                {},
+                core::AggregationNode::Step::kPartial,
+                false)
+            .capturePlanNodeId(traceNodeId_)
+            .finalAggregation()
+            .planNode());
+    // Partial -> intermediate -> final aggregation plan.
+    plans.emplace_back(
+        "Partial-Intermediate-Final",
+        PlanBuilder()
+            .tableScan(rowType)
+            .streamingAggregation(
+                groupingKeys_,
+                aggregates,
+                {},
+                core::AggregationNode::Step::kPartial,
+                false)
+            .capturePlanNodeId(traceNodeId_)
+            .intermediateAggregation()
+            .finalAggregation()
+            .planNode());
+    return plans;
+  }
+
   int32_t randInt(int32_t min, int32_t max) {
     return boost::random::uniform_int_distribution<int32_t>(min, max)(rng_);
   }
@@ -182,11 +235,77 @@ class AggregationReplayerTest : public HiveConnectorTestBase {
       makeNames("c", keyTypes_.size())};
 };
 
-TEST_F(AggregationReplayerTest, test) {
+TEST_F(AggregationReplayerTest, hashAggregationTest) {
   for (const auto& prefix : std::vector<std::string>{"", "test."}) {
     const auto data = generateInput(groupingKeys_, keyTypes_);
     const auto planWithNames =
         aggregatePlans(asRowType(data[0]->type()), prefix);
+    const auto sourceFilePath = TempFilePath::create();
+    writeToFile(sourceFilePath->getPath(), data);
+
+    if (!prefix.empty()) {
+      functions::prestosql::registerAllScalarFunctions(prefix);
+      aggregate::prestosql::registerAllAggregateFunctions(prefix);
+      FLAGS_function_prefix = prefix;
+    }
+
+    for (const auto& planWithName : planWithNames) {
+      SCOPED_TRACE(planWithName.name);
+      const auto& plan = planWithName.plan;
+      const auto testDir = TempDirectoryPath::create();
+      const auto traceRoot =
+          fmt::format("{}/{}", testDir->getPath(), "traceRoot");
+      std::shared_ptr<Task> task;
+      auto results =
+          AssertQueryBuilder(plan)
+              .config(core::QueryConfig::kQueryTraceEnabled, true)
+              .config(core::QueryConfig::kQueryTraceDir, traceRoot)
+              .config(core::QueryConfig::kQueryTraceMaxBytes, 100UL << 30)
+              .config(core::QueryConfig::kQueryTraceTaskRegExp, ".*")
+              .config(core::QueryConfig::kQueryTraceNodeIds, traceNodeId_)
+              .split(makeHiveConnectorSplit(sourceFilePath->getPath()))
+              .copyResults(pool(), task);
+
+      const auto replayingResult = AggregationReplayer(
+                                       traceRoot,
+                                       task->queryCtx()->queryId(),
+                                       task->taskId(),
+                                       traceNodeId_,
+                                       "Aggregation",
+                                       "",
+                                       0,
+                                       executor_.get())
+                                       .run();
+      assertEqualResults({results}, {replayingResult});
+
+      FLAGS_root_dir = traceRoot;
+      FLAGS_query_id = task->queryCtx()->queryId();
+      FLAGS_task_id = task->taskId();
+      FLAGS_node_id = traceNodeId_;
+      FLAGS_summary = true;
+      {
+        TraceReplayRunner runner;
+        runner.init();
+        runner.run();
+      }
+
+      FLAGS_task_id = task->taskId();
+      FLAGS_driver_ids = "";
+      FLAGS_summary = false;
+      {
+        TraceReplayRunner runner;
+        runner.init();
+        runner.run();
+      }
+    }
+  }
+}
+
+TEST_F(AggregationReplayerTest, streamingAggregateTest) {
+  for (const auto& prefix : std::vector<std::string>{"", "test."}) {
+    const auto data = generateInput(groupingKeys_, keyTypes_);
+    const auto planWithNames =
+        streamingAggregatePlans(asRowType(data[0]->type()), prefix);
     const auto sourceFilePath = TempFilePath::create();
     writeToFile(sourceFilePath->getPath(), data);
 
