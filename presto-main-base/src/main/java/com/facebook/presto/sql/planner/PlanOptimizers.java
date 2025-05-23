@@ -732,14 +732,6 @@ public class PlanOptimizers
         builder.add(new SimplifyPlanWithEmptyInput(),
                 new PruneUnreferencedOutputs());
 
-        // Run columnPruningRules one more time to optimize the ProjectNode generated in SimplifyPlanWithEmptyInput.
-        builder.add(new IterativeOptimizer(
-                metadata,
-                ruleStats,
-                statsCalculator,
-                estimatedExchangesCostCalculator,
-                columnPruningRules));
-
         builder.add(new IterativeOptimizer(
                         metadata,
                         ruleStats,
