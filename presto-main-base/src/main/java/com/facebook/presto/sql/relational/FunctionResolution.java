@@ -324,6 +324,16 @@ public final class FunctionResolution
         return functionAndTypeResolver.lookupFunction("count", fromTypes(valueType));
     }
 
+    public boolean isMaxByFunction(FunctionHandle functionHandle)
+    {
+        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(functionAndTypeResolver.qualifyObjectName(QualifiedName.of("max_by")));
+    }
+
+    public boolean isMinByFunction(FunctionHandle functionHandle)
+    {
+        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(functionAndTypeResolver.qualifyObjectName(QualifiedName.of("min_by")));
+    }
+
     @Override
     public boolean isMaxFunction(FunctionHandle functionHandle)
     {
