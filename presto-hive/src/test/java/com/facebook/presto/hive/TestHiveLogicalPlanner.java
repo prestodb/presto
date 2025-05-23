@@ -84,6 +84,7 @@ import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_METADATA_QUER
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_METADATA_QUERIES_IGNORE_STATS;
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_DEREFERENCE_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.SIMPLIFY_PLAN_WITH_EMPTY_INPUT;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.predicate.Domain.create;
 import static com.facebook.presto.common.predicate.Domain.multipleValues;
@@ -164,6 +165,27 @@ public class TestHiveLogicalPlanner
                 ImmutableMap.of("experimental.pushdown-subfields-enabled", "true",
                         "pushdown-subfields-from-lambda-enabled", "true"),
                 Optional.empty());
+    }
+
+    @Test
+    public void testExchangeWithEmptyInput()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        Session session = Session.builder(pushdownFilterEnabled())
+                .setSystemProperty(SIMPLIFY_PLAN_WITH_EMPTY_INPUT, "true")
+                .build();
+        try {
+            queryRunner.execute("CREATE TABLE t1 with (partitioned_by = ARRAY['ds']) as select * from (values (1, '2024-01-05')) t(col1, ds)");
+            queryRunner.execute("CREATE TABLE t2 with (partitioned_by = ARRAY['ds']) as select * from (values (1, '2024-01-05')) t(col1, ds)");
+            queryRunner.execute("create table t3 with (partitioned_by = ARRAY['col2']) as select * from (values (1, '2024-01-05')) t(col1, col2)");
+            assertPlan(session, "SELECT e.col1 FROM t1 e INNER JOIN t2 m ON e.col1 = m.col1 AND e.ds = '2024-01-05' RIGHT JOIN t3 b ON b.col2 = 'xxx'",
+                    output(anyTree(strictTableScan("t3", identityMap("col2")))));
+        }
+        finally {
+            queryRunner.execute("DROP TABLE t1");
+            queryRunner.execute("DROP TABLE t2");
+            queryRunner.execute("DROP TABLE t3");
+        }
     }
 
     @Test

@@ -36,6 +36,7 @@ import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.OffsetNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
@@ -154,7 +155,7 @@ public class SimplifyPlanWithEmptyInput
 
         private static boolean isEmptyNode(PlanNode planNode)
         {
-            return planNode instanceof ValuesNode && ((ValuesNode) planNode).getRows().size() == 0;
+            return planNode instanceof ValuesNode && ((ValuesNode) planNode).getRows().isEmpty();
         }
 
         public boolean isPlanChanged()
@@ -205,6 +206,23 @@ public class SimplifyPlanWithEmptyInput
                     break;
             }
             return node.replaceChildren(ImmutableList.of(rewrittenLeft, rewrittenRight));
+        }
+
+        @Override
+        public PlanNode visitExchange(ExchangeNode node, RewriteContext<Void> context)
+        {
+            List<PlanNode> newSources = node.getSources().stream().map(context::rewrite).collect(toImmutableList());
+            boolean isEmptyNode = newSources.stream()
+                    .map(Rewriter::isEmptyNode)
+                    .reduce((leftFlag, rightFlag) -> leftFlag && rightFlag)
+                    .orElse(true);
+
+            if (isEmptyNode) {
+                return convertToEmptyValuesNode(node);
+            }
+            else {
+                return node.replaceChildren(newSources);
+            }
         }
 
         @Override
