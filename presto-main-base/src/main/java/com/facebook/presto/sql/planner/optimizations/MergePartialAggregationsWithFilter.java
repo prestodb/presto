@@ -36,12 +36,16 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.isMergeAggregationsWithAndWithoutFilter;
+import static com.facebook.presto.expressions.LogicalRowExpressions.or;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
@@ -123,11 +127,13 @@ public class MergePartialAggregationsWithFilter
     {
         private final Map<VariableReferenceExpression, VariableReferenceExpression> partialResultToMask;
         private final Map<VariableReferenceExpression, VariableReferenceExpression> partialOutputMapping;
+        private final List<VariableReferenceExpression> newAggregationOutput;
 
         public Context()
         {
             partialResultToMask = new HashMap<>();
             partialOutputMapping = new HashMap<>();
+            newAggregationOutput = new LinkedList<>();
         }
 
         public boolean isEmpty()
@@ -139,6 +145,7 @@ public class MergePartialAggregationsWithFilter
         {
             partialResultToMask.clear();
             partialOutputMapping.clear();
+            newAggregationOutput.clear();
         }
 
         public Map<VariableReferenceExpression, VariableReferenceExpression> getPartialOutputMapping()
@@ -149,6 +156,11 @@ public class MergePartialAggregationsWithFilter
         public Map<VariableReferenceExpression, VariableReferenceExpression> getPartialResultToMask()
         {
             return partialResultToMask;
+        }
+
+        public List<VariableReferenceExpression> getNewAggregationOutput()
+        {
+            return newAggregationOutput;
         }
     }
 
@@ -218,17 +230,60 @@ public class MergePartialAggregationsWithFilter
         private AggregationNode createPartialAggregationNode(AggregationNode node, PlanNode rewrittenSource, RewriteContext<Context> context)
         {
             checkState(context.get().isEmpty(), "There should be no partial aggregation left unmerged for a partial aggregation node");
+
             Map<AggregationNode.Aggregation, VariableReferenceExpression> aggregationsWithoutMaskToOutput = node.getAggregations().entrySet().stream()
                     .filter(x -> !x.getValue().getMask().isPresent())
-                    .collect(toImmutableMap(x -> x.getValue(), x -> x.getKey(), (a, b) -> a));
+                    .collect(toImmutableMap(Map.Entry::getValue, Map.Entry::getKey, (a, b) -> a));
             Map<AggregationNode.Aggregation, VariableReferenceExpression> aggregationsToMergeOutput = node.getAggregations().entrySet().stream()
                     .filter(x -> x.getValue().getMask().isPresent() && aggregationsWithoutMaskToOutput.containsKey(removeFilterAndMask(x.getValue())))
-                    .collect(toImmutableMap(x -> x.getValue(), x -> x.getKey()));
+                    .collect(toImmutableMap(Map.Entry::getValue, Map.Entry::getKey));
 
-            context.get().getPartialResultToMask().putAll(aggregationsToMergeOutput.entrySet().stream()
-                    .collect(toImmutableMap(x -> x.getValue(), x -> x.getKey().getMask().get())));
-            context.get().getPartialOutputMapping().putAll(aggregationsToMergeOutput.entrySet().stream()
-                    .collect(toImmutableMap(x -> x.getValue(), x -> aggregationsWithoutMaskToOutput.get(removeFilterAndMask(x.getKey())))));
+            ImmutableMap.Builder<AggregationNode.Aggregation, VariableReferenceExpression> partialAggregationToOutputBuilder = ImmutableMap.builder();
+            partialAggregationToOutputBuilder.putAll(aggregationsToMergeOutput.keySet().stream().collect(toImmutableMap(Function.identity(), x -> aggregationsWithoutMaskToOutput.get(removeFilterAndMask(x)))));
+
+            List<List<AggregationNode.Aggregation>> candidateAggregationsWithMaskNotMatched = node.getAggregations().entrySet().stream().map(Map.Entry::getValue)
+                    .filter(x -> x.getMask().isPresent() && !aggregationsToMergeOutput.containsKey(x))
+                    .collect(Collectors.groupingBy(AggregationNodeUtils::removeFilterAndMask)).values()
+                    .stream().filter(x -> x.size() > 1).collect(toImmutableList());
+
+            Map<AggregationNode.Aggregation, VariableReferenceExpression> aggregationsWithMaskToMerge = node.getAggregations().entrySet().stream()
+                    .filter(x -> aggregationsToMergeOutput.containsKey(x.getValue()) || candidateAggregationsWithMaskNotMatched.stream().anyMatch(aggregations -> aggregations.contains(x.getValue())))
+                    .collect(toImmutableMap(Map.Entry::getValue, Map.Entry::getKey));
+            ImmutableMap.Builder<VariableReferenceExpression, RowExpression> newMaskAssignmentsBuilder = ImmutableMap.builder();
+            ImmutableMap.Builder<VariableReferenceExpression, AggregationNode.Aggregation> aggregationsAddedBuilder = ImmutableMap.builder();
+            List<AggregationNode.Aggregation> newAggregationAdded = candidateAggregationsWithMaskNotMatched.stream()
+                    .map(aggregations ->
+                    {
+                        List<VariableReferenceExpression> maskVariables = aggregations.stream().map(x -> x.getMask().get()).collect(toImmutableList());
+                        RowExpression orMaskVariables = or(maskVariables);
+                        VariableReferenceExpression newMaskVariable = variableAllocator.newVariable(orMaskVariables);
+                        newMaskAssignmentsBuilder.put(newMaskVariable, orMaskVariables);
+                        AggregationNode.Aggregation newAggregation = new AggregationNode.Aggregation(
+                                aggregations.get(0).getCall(),
+                                Optional.empty(),
+                                aggregations.get(0).getOrderBy(),
+                                aggregations.get(0).isDistinct(),
+                                Optional.of(newMaskVariable));
+                        VariableReferenceExpression newAggregationVariable = variableAllocator.newVariable(newAggregation.getCall());
+                        aggregationsAddedBuilder.put(newAggregationVariable, newAggregation);
+                        aggregations.forEach(x -> partialAggregationToOutputBuilder.put(x, newAggregationVariable));
+                        return newAggregation;
+                    })
+                    .collect(toImmutableList());
+            Map<VariableReferenceExpression, RowExpression> newMaskAssignments = newMaskAssignmentsBuilder.build();
+            Map<VariableReferenceExpression, AggregationNode.Aggregation> aggregationsAdded = aggregationsAddedBuilder.build();
+            Map<AggregationNode.Aggregation, VariableReferenceExpression> partialAggregationToOutput = partialAggregationToOutputBuilder.build();
+
+            Map<AggregationNode.Aggregation, VariableReferenceExpression> aggregationsToMergeOutputCombined =
+                    node.getAggregations().entrySet().stream()
+                            .filter(x -> x.getValue().getMask().isPresent() && aggregationsToMergeOutput.containsKey(x.getValue()) || candidateAggregationsWithMaskNotMatched.stream().anyMatch(aggregations -> aggregations.contains(x.getValue())))
+                            .collect(toImmutableMap(Map.Entry::getValue, Map.Entry::getKey));
+
+            context.get().getNewAggregationOutput().addAll(aggregationsAdded.keySet());
+            context.get().getPartialResultToMask().putAll(aggregationsWithMaskToMerge.entrySet().stream()
+                    .collect(toImmutableMap(Map.Entry::getValue, x -> x.getKey().getMask().get())));
+            context.get().getPartialOutputMapping().putAll(aggregationsWithMaskToMerge.entrySet().stream()
+                    .collect(toImmutableMap(Map.Entry::getValue, x -> partialAggregationToOutput.get(x.getKey()))));
 
             Set<VariableReferenceExpression> maskVariables = new HashSet<>(context.get().getPartialResultToMask().values());
             if (maskVariables.isEmpty()) {
@@ -242,14 +297,21 @@ public class MergePartialAggregationsWithFilter
             AggregationNode.GroupingSetDescriptor partialGroupingSetDescriptor = new AggregationNode.GroupingSetDescriptor(
                     groupingVariables.build(), groupingSetDescriptor.getGroupingSetCount(), groupingSetDescriptor.getGlobalGroupingSets());
 
-            Set<VariableReferenceExpression> partialResultToMerge = new HashSet<>(aggregationsToMergeOutput.values());
-            Map<VariableReferenceExpression, AggregationNode.Aggregation> newAggregations = node.getAggregations().entrySet().stream()
+            Set<VariableReferenceExpression> partialResultToMerge = new HashSet<>(aggregationsToMergeOutputCombined.values());
+            Map<VariableReferenceExpression, AggregationNode.Aggregation> aggregationsRemained = node.getAggregations().entrySet().stream()
                     .filter(x -> !partialResultToMerge.contains(x.getKey())).collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+            Map<VariableReferenceExpression, AggregationNode.Aggregation> newAggregations = ImmutableMap.<VariableReferenceExpression, AggregationNode.Aggregation>builder()
+                    .putAll(aggregationsRemained).putAll(aggregationsAdded).build();
+
+            PlanNode newChild = rewrittenSource;
+            if (!newMaskAssignments.isEmpty()) {
+                newChild = addProjections(newChild, planNodeIdAllocator, newMaskAssignments);
+            }
 
             return new AggregationNode(
                     node.getSourceLocation(),
                     node.getId(),
-                    rewrittenSource,
+                    newChild,
                     newAggregations,
                     partialGroupingSetDescriptor,
                     node.getPreGroupedVariables(),
@@ -265,7 +327,7 @@ public class MergePartialAggregationsWithFilter
                 return (AggregationNode) node.replaceChildren(ImmutableList.of(rewrittenSource));
             }
             List<VariableReferenceExpression> intermediateVariables = node.getAggregations().values().stream()
-                    .map(x -> (VariableReferenceExpression) x.getArguments().get(0)).collect(Collectors.toList());
+                    .map(x -> (VariableReferenceExpression) x.getArguments().get(0)).collect(toImmutableList());
             checkState(intermediateVariables.containsAll(context.get().partialResultToMask.keySet()));
 
             ImmutableList.Builder<RowExpression> projectionsFromPartialAgg = ImmutableList.builder();
@@ -331,6 +393,7 @@ public class MergePartialAggregationsWithFilter
                         .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
                 assignments.putAll(excludeMergedAssignments);
                 assignments.putAll(identityAssignments(context.get().getPartialResultToMask().values()));
+                assignments.putAll(identityAssignments(context.get().getNewAggregationOutput()));
                 return new ProjectNode(
                         node.getSourceLocation(),
                         node.getId(),
