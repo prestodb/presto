@@ -418,13 +418,6 @@ public class FunctionAndTypeManager
         servingTypeManagerParametricTypesSupplier.set(this::getServingTypeManagerParametricTypes);
     }
 
-    public void loadTypeManagers()
-    {
-        for (String typeManagerName : typeManagerFactories.keySet()) {
-            loadTypeManager(typeManagerName);
-        }
-    }
-
     public void addTypeManagerFactory(TypeManagerFactory factory)
     {
         if (typeManagerFactories.putIfAbsent(factory.getName(), factory) != null) {
