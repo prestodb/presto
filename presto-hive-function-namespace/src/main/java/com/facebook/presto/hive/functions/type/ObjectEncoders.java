@@ -118,7 +118,7 @@ public final class ObjectEncoders
                 return compose(primitive(inspector), o -> (Double) o);
             case TIMESTAMP:
                 checkArgument(inspector instanceof PrimitiveObjectInspector);
-                return compose(primitive(inspector), o -> ((Timestamp) o).toSqlTimestamp().getTime());
+                return compose(primitive(inspector), o -> ((Timestamp) o).toEpochMilli());
             case VARBINARY:
                 if (inspector instanceof BinaryObjectInspector) {
                     return compose(primitive(inspector), o -> Slices.wrappedBuffer(((byte[]) o)));

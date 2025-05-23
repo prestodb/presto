@@ -25,12 +25,12 @@ import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.Stripe;
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import com.facebook.presto.orc.stream.InputStreamSources;
-import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -59,15 +59,14 @@ public class MapSelectiveStreamReader
             Map<Subfield, TupleDomainFilter> filters,
             List<Subfield> requiredSubfields,
             Optional<Type> outputType,
-            DateTimeZone hiveStorageTimeZone,
             OrcRecordReaderOptions options,
             OrcAggregatedMemoryContext systemMemoryContext,
             boolean isLowMemory)
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
-        directReader = new MapDirectSelectiveStreamReader(streamDescriptor, filters, requiredSubfields, outputType, hiveStorageTimeZone, options, systemMemoryContext, isLowMemory);
+        directReader = new MapDirectSelectiveStreamReader(streamDescriptor, filters, requiredSubfields, outputType, options, systemMemoryContext, isLowMemory);
         if (streamDescriptor.getSequence() == DEFAULT_SEQUENCE_ID) {
-            flatReader = new MapFlatSelectiveStreamReader(streamDescriptor, filters, requiredSubfields, outputType, hiveStorageTimeZone, options, systemMemoryContext);
+            flatReader = new MapFlatSelectiveStreamReader(streamDescriptor, filters, requiredSubfields, outputType, options, systemMemoryContext);
         }
         else {
             // When sequence id is not DEFAULT_SEQUENCE_ID, this map is inside a flat map.
@@ -77,7 +76,7 @@ public class MapSelectiveStreamReader
     }
 
     @Override
-    public void startStripe(Stripe stripe)
+    public void startStripe(ZoneId timezone, Stripe stripe)
             throws IOException
     {
         ColumnEncodingKind kind = stripe.getColumnEncodings().get(streamDescriptor.getStreamId())
@@ -96,7 +95,7 @@ public class MapSelectiveStreamReader
             throw new IllegalArgumentException("Unsupported encoding " + kind);
         }
 
-        currentReader.startStripe(stripe);
+        currentReader.startStripe(timezone, stripe);
     }
 
     @Override

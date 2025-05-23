@@ -35,6 +35,7 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.time.ZoneId;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.IN_DICTIONARY;
@@ -203,7 +204,7 @@ public class LongDictionaryBatchStreamReader
     }
 
     @Override
-    public void startStripe(Stripe stripe)
+    public void startStripe(ZoneId timezone, Stripe stripe)
     {
         dictionaryProvider = stripe.getLongDictionaryProvider();
         dictionarySize = stripe.getColumnEncodings().get(streamDescriptor.getStreamId())
