@@ -1347,6 +1347,27 @@ TEST_F(JsonCastTest, toRowDuplicateKey) {
   expected->setNull(2, true);
 
   testCast(data, expected, true /*try_cast*/);
+
+  // Duplicate keys with strings
+  jsonStrings = {
+      R"({"c0": "abc", "c1": "xyz", "c0": "mno"})",
+      R"({"c0": "123", "c1": "hjk"})",
+  };
+
+  expected = makeRowVector({
+      makeFlatVector<std::string>({"", "123"}),
+      makeFlatVector<std::string>({"", "hjk"}),
+  });
+  expected->setNull(0, true);
+
+  data = makeNullableFlatVector<std::string>(jsonStrings, JSON());
+  testCast(data, expected, true);
+
+  testThrow<std::string>(
+      JSON(),
+      ROW({"c0", "c1"}, {VARCHAR(), VARCHAR()}),
+      jsonStrings,
+      "Duplicate field: c0");
 }
 
 TEST_F(JsonCastTest, toRow) {

@@ -1229,21 +1229,25 @@ void JsonCastOperator::castFromJson(
     maxSize = std::max(maxSize, input.size());
   });
   paddedInput_.resize(maxSize + simdjson::SIMDJSON_PADDING);
-  context.applyToSelectedNoThrow(rows, [&](auto row) {
-    writer.setOffset(row);
-    if (inputVector->isNullAt(row)) {
-      writer.commitNull();
-      return;
-    }
-    auto& input = inputVector->valueAt(row);
-    memcpy(paddedInput_.data(), input.data(), input.size());
-    simdjson::padded_string_view paddedInput(
-        paddedInput_.data(), input.size(), paddedInput_.size());
-    if (auto error = castFromJsonOneRow<kind>(paddedInput, writer)) {
-      context.setVeloxExceptionError(row, errors_[error]);
-      writer.commitNull();
-    }
-  });
+  context.applyToSelectedNoThrow(
+      rows,
+      [&](auto row) INLINE_LAMBDA {
+        writer.setOffset(row);
+        if (inputVector->isNullAt(row)) {
+          writer.commitNull();
+          return;
+        }
+        auto& input = inputVector->valueAt(row);
+        memcpy(paddedInput_.data(), input.data(), input.size());
+        simdjson::padded_string_view paddedInput(
+            paddedInput_.data(), input.size(), paddedInput_.size());
+        if (auto error = castFromJsonOneRow<kind>(paddedInput, writer)) {
+          context.setVeloxExceptionError(row, errors_[error]);
+          writer.commitNull();
+        }
+      },
+      [&](vector_size_t row) INLINE_LAMBDA { writer.commitNull(); });
+
   writer.finish();
 }
 
