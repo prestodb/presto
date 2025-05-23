@@ -17,9 +17,7 @@ jobs:
   prestocpp-linux-build-for-test:
     runs-on: ubuntu-22.04
     container:
-      # TODO: Presto release team must build and use an official dependency image
-      # after PR:25146 lands.
-      image: ghcr.io/czentgr/prestissimo-deps:centos9
+      image: prestodb/presto-native-dependency:0.293-20250522140509-484b00e
     env:
       CCACHE_DIR: "${{ github.workspace }}/ccache"
     steps:
@@ -96,9 +94,7 @@ jobs:
     needs: prestocpp-linux-build-for-test
     runs-on: ubuntu-22.04
     container:
-      # TODO: Presto release team must build and use an official dependency image
-      # after PR:25146 lands.
-      image: ghcr.io/czentgr/prestissimo-deps:centos9
+      image: prestodb/presto-native-dependency:0.293-20250522140509-484b00e
     env:
       MAVEN_OPTS: "-Xmx4G -XX:+ExitOnOutOfMemoryError"
       MAVEN_FAST_INSTALL: "-B -V --quiet -T 1C -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true"
@@ -177,9 +173,7 @@ jobs:
       matrix:
         storage-format: [ "PARQUET", "DWRF" ]
     container:
-      # TODO: Presto release team must build and use an official dependency image
-      # after PR:25146 lands.
-      image: ghcr.io/czentgr/prestissimo-deps:centos9
+      image: prestodb/presto-native-dependency:0.293-20250522140509-484b00e
     env:
       MAVEN_OPTS: "-Xmx4G -XX:+ExitOnOutOfMemoryError"
       MAVEN_FAST_INSTALL: "-B -V --quiet -T 1C -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true"
@@ -251,9 +245,7 @@ jobs:
     needs: prestocpp-linux-build-for-test
     runs-on: ubuntu-22.04
     container:
-      # TODO: Presto release team must build and use an official dependency image
-      # after PR:25146 lands.
-      image: ghcr.io/czentgr/prestissimo-deps:centos9
+      image: prestodb/presto-native-dependency:0.293-20250522140509-484b00e
     env:
       MAVEN_OPTS: "-Xmx4G -XX:+ExitOnOutOfMemoryError"
       MAVEN_FAST_INSTALL: "-B -V --quiet -T 1C -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true"
