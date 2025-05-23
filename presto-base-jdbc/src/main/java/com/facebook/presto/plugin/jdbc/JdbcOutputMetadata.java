@@ -11,31 +11,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.iceberg;
+
+package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
-
-import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
-public class IcebergWrittenPartitions
+public class JdbcOutputMetadata
         implements ConnectorOutputMetadata
 {
-    private final List<String> partitionNames;
+    private final String tableLocation;
 
     @JsonCreator
-    public IcebergWrittenPartitions(@JsonProperty("partitionNames") List<String> partitionNames)
+    public JdbcOutputMetadata(@JsonProperty("tableLocation") String tableLocation)
     {
-        this.partitionNames = ImmutableList.copyOf(requireNonNull(partitionNames, "partitionNames is null"));
+        this.tableLocation = requireNonNull(tableLocation, "tableLocation is null");
     }
 
     @JsonProperty
-    public List<String> getInfo()
+    @Override
+    public String getInfo()
     {
-        return partitionNames;
+        return tableLocation;
     }
 }

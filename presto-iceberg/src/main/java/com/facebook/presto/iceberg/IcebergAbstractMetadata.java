@@ -23,6 +23,7 @@ import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.hive.HiveOutputInfo;
 import com.facebook.presto.hive.HivePartition;
 import com.facebook.presto.hive.HiveWrittenPartitions;
 import com.facebook.presto.hive.NodeVersion;
@@ -570,9 +571,9 @@ public abstract class IcebergAbstractMetadata
             throw new PrestoException(ICEBERG_COMMIT_ERROR, "Failed to commit Iceberg update to table: " + writableTableHandle.getTableName(), e);
         }
 
-        return Optional.of(new HiveWrittenPartitions(commitTasks.stream()
+        return Optional.of(new HiveWrittenPartitions(new HiveOutputInfo(commitTasks.stream()
                 .map(CommitTaskData::getPath)
-                .collect(toImmutableList())));
+                .collect(toImmutableList()), icebergTable.location())));
     }
 
     private Optional<ConnectorOutputMetadata> finishWrite(ConnectorSession session, IcebergWritableTableHandle writableTableHandle, Collection<Slice> fragments, ChangelogOperation operationType)
@@ -617,9 +618,9 @@ public abstract class IcebergAbstractMetadata
             throw new PrestoException(ICEBERG_COMMIT_ERROR, "Failed to commit Iceberg update to table: " + writableTableHandle.getTableName(), e);
         }
 
-        return Optional.of(new HiveWrittenPartitions(commitTasks.stream()
+        return Optional.of(new HiveWrittenPartitions(new HiveOutputInfo(commitTasks.stream()
                 .map(CommitTaskData::getPath)
-                .collect(toImmutableList())));
+                .collect(toImmutableList()), icebergTable.location())));
     }
 
     private void handleInsertTask(CommitTaskData task, Table icebergTable, AppendFiles appendFiles, ImmutableSet.Builder<String> writtenFiles)
@@ -1322,5 +1323,30 @@ public abstract class IcebergAbstractMetadata
     protected Optional<String> getDataLocationBasedOnWarehouseDataDir(SchemaTableName schemaTableName)
     {
         return Optional.empty();
+    }
+
+    @Override
+    public Optional<Object> getInfo(ConnectorTableLayoutHandle tableHandle)
+    {
+        if (tableHandle == null) {
+            return Optional.empty();
+        }
+
+        if (!(tableHandle instanceof IcebergTableLayoutHandle)) {
+            return Optional.empty();
+        }
+
+        IcebergTableLayoutHandle icebergTableHandle = (IcebergTableLayoutHandle) tableHandle;
+        if (icebergTableHandle.getTable() == null) {
+            return Optional.empty();
+        }
+
+        if (icebergTableHandle.getTable().getIcebergTableName() == null || !icebergTableHandle.getTable().getOutputPath().isPresent()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(new IcebergInputInfo(
+                icebergTableHandle.getTable().getIcebergTableName().getSnapshotId(),
+                icebergTableHandle.getTable().getOutputPath().get()));
     }
 }
