@@ -489,6 +489,20 @@ SessionProperties::SessionProperties() {
       10,
       QueryConfig::kRequestDataSizesMaxWaitSec,
       std::to_string(c.requestDataSizesMaxWaitSec()));
+
+  addSessionProperty(
+      kDebugLambdaFunctionEvaluationBatchSize,
+      "Some lambda functions over arrays and maps are evaluated in batches of "
+      "the underlying elements that comprise the arrays/maps. This is done "
+      "to make the batch size manageable as array vectors can have thousands "
+      "of elements each and hit scaling limits as implementations typically "
+      "expect BaseVectors to be a couple of thousand entries. This lets us "
+      "tune those batch sizes. Setting this to zero will set an unlimited "
+      "batch size. Default is 10,000",
+      INTEGER(),
+      true,
+      QueryConfig::kDebugLambdaFunctionEvaluationBatchSize,
+      std::to_string(c.debugLambdaFunctionEvaluationBatchSize()));
 }
 
 const std::unordered_map<std::string, std::shared_ptr<SessionProperty>>&
