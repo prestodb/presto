@@ -295,6 +295,7 @@ public class FeaturesConfig
     private int eagerPlanValidationThreadPoolSize = 20;
     private boolean innerJoinPushdownEnabled;
     private boolean inEqualityJoinPushdownEnabled;
+    private boolean rewriteMinMaxByToTopNEnabled;
 
     private boolean prestoSparkExecutionEnvironment;
     private boolean singleNodeExecutionEnabled;
@@ -2906,6 +2907,19 @@ public class FeaturesConfig
     public FeaturesConfig setInEqualityJoinPushdownEnabled(boolean inEqualityJoinPushdownEnabled)
     {
         this.inEqualityJoinPushdownEnabled = inEqualityJoinPushdownEnabled;
+        return this;
+    }
+
+    public boolean isRewriteMinMaxByToTopNEnabled()
+    {
+        return rewriteMinMaxByToTopNEnabled;
+    }
+
+    @Config("optimizer.rewrite-minBy-maxBy-to-topN-enabled")
+    @ConfigDescription("Rewrite min_by and max_by to topN")
+    public FeaturesConfig setRewriteMinMaxByToTopNEnabled(boolean rewriteMinMaxByToTopNEnabled)
+    {
+        this.rewriteMinMaxByToTopNEnabled = rewriteMinMaxByToTopNEnabled;
         return this;
     }
 
