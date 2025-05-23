@@ -33,6 +33,9 @@ import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveHdfsConfiguration;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.PartitionMutator;
+import com.facebook.presto.hive.azure.AzureConfigurationInitializer;
+import com.facebook.presto.hive.azure.HiveAzureConfig;
+import com.facebook.presto.hive.azure.HiveAzureConfigurationInitializer;
 import com.facebook.presto.hive.cache.HiveCachingHdfsConfiguration;
 import com.facebook.presto.hive.gcs.GcsConfigurationInitializer;
 import com.facebook.presto.hive.gcs.HiveGcsConfig;
@@ -113,7 +116,8 @@ public class DeltaModule
 
         configBinder(binder).bindConfig(HiveGcsConfig.class);
         binder.bind(GcsConfigurationInitializer.class).to(HiveGcsConfigurationInitializer.class).in(Scopes.SINGLETON);
-
+        configBinder(binder).bindConfig(HiveAzureConfig.class);
+        binder.bind(AzureConfigurationInitializer.class).to(HiveAzureConfigurationInitializer.class).in(Scopes.SINGLETON);
         binder.bind(HdfsConfigurationInitializer.class).in(Scopes.SINGLETON);
         newSetBinder(binder, DynamicConfigurationProvider.class);
         binder.bind(HdfsEnvironment.class).in(Scopes.SINGLETON);
