@@ -76,6 +76,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -363,9 +364,12 @@ public class DistributedQueryRunner
         prestoClients = prestoClientsBuilder.build();
 
         long start = nanoTime();
-        while (!allNodesGloballyVisible()) {
-            Assertions.assertLessThan(nanosSince(start), new Duration(100, SECONDS));
-            MILLISECONDS.sleep(10);
+        try {
+            waitForAllNodesGloballyVisible(start);
+        }
+        catch (TimeoutException e) {
+            closer.close();
+            throw e;
         }
         log.info("Announced servers in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
 
@@ -517,22 +521,35 @@ public class DistributedQueryRunner
         return server;
     }
 
-    private boolean allNodesGloballyVisible()
+    private void waitForAllNodesGloballyVisible(long startTimeInMs)
+            throws Exception
     {
-        int expectedActiveNodesForRm = externalWorkers.size() + servers.size();
-        int expectedActiveNodesForCoordinator = externalWorkers.size() + servers.size();
+        int expectedActiveNodes = externalWorkers.size() + servers.size();
+        Duration timeout = new Duration(100, SECONDS);
 
-        for (TestingPrestoServer server : servers) {
-            AllNodes allNodes = server.refreshNodes();
-            int activeNodeCount = allNodes.getActiveNodes().size();
+        while (true) {
+            for (TestingPrestoServer server : servers) {
+                AllNodes allNodes = server.refreshNodes();
+                int activeNodeCount = allNodes.getActiveNodes().size();
 
-            if (!allNodes.getInactiveNodes().isEmpty() ||
-                    (server.isCoordinator() && activeNodeCount != expectedActiveNodesForCoordinator) ||
-                    (server.isResourceManager() && activeNodeCount != expectedActiveNodesForRm)) {
-                return false;
+                if (!allNodes.getInactiveNodes().isEmpty()) {
+                    if (nanosSince(startTimeInMs).compareTo(timeout) >= 0) {
+                        throw new TimeoutException(format("Timed out waiting for all nodes to be globally visible. Inactive nodes: %s", allNodes.getInactiveNodes()));
+                    }
+                    break;
+                }
+                else if ((server.isCoordinator() || server.isResourceManager()) && activeNodeCount != expectedActiveNodes) {
+                    if (nanosSince(startTimeInMs).compareTo(timeout) >= 0) {
+                        throw new TimeoutException(format(
+                                "Timed out waiting for all nodes to be globally visible. Node count: %s, expected: %s",
+                                activeNodeCount, expectedActiveNodes));
+                    }
+                    break;
+                }
+                return;
             }
+            MILLISECONDS.sleep(10);
         }
-        return true;
     }
 
     public TestingPrestoClient getRandomClient()
