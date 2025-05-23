@@ -584,7 +584,9 @@ public class PushdownSubfields
                 }
                 if (expression instanceof CallExpression) {
                     Optional<Integer> pushdownSubfieldArgIndex = functionAndTypeManager.getFunctionMetadata(((CallExpression) expression).getFunctionHandle()).getPushdownSubfieldArgIndex();
-                    if (pushdownSubfieldArgIndex.isPresent()) {
+                    if (pushdownSubfieldArgIndex.isPresent() &&
+                            ((CallExpression) expression).getArguments().size() > pushdownSubfieldArgIndex.get() &&
+                            ((CallExpression) expression).getArguments().get(pushdownSubfieldArgIndex.get()).getType() instanceof RowType) {
                         expression = ((CallExpression) expression).getArguments().get(pushdownSubfieldArgIndex.get());
                         continue;
                     }
