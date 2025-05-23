@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.iceberg.hive;
 
+import com.facebook.presto.FullConnectorSession;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.iceberg.IcebergCatalogName;
 import com.facebook.presto.iceberg.IcebergConfig;
 import com.facebook.presto.iceberg.IcebergDistributedSmokeTestBase;
 import com.facebook.presto.iceberg.IcebergHiveTableOperationsConfig;
@@ -64,11 +66,13 @@ public class TestIcebergSmokeHive
     @Override
     protected Table getIcebergTable(ConnectorSession session, String schema, String tableName)
     {
+        String defaultCatalog = ((FullConnectorSession) session).getSession().getCatalog().get();
         return IcebergUtil.getHiveIcebergTable(getFileHiveMetastore(),
                 getHdfsEnvironment(),
                 new IcebergHiveTableOperationsConfig(),
                 new ManifestFileCache(CacheBuilder.newBuilder().build(), false, 0, 1024),
                 session,
+                new IcebergCatalogName(defaultCatalog),
                 SchemaTableName.valueOf(schema + "." + tableName));
     }
 

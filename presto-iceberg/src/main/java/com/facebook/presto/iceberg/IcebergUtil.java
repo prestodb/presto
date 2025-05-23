@@ -71,6 +71,7 @@ import org.apache.iceberg.Table;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.catalog.Catalog;
+import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.catalog.ViewCatalog;
 import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.hive.HiveSchemaUtil;
@@ -101,7 +102,6 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -211,7 +211,6 @@ import static org.apache.iceberg.types.Type.TypeID.FIXED;
 
 public final class IcebergUtil
 {
-    private static final Pattern SIMPLE_NAME = Pattern.compile("[a-z][a-z0-9]*");
     private static final Logger log = Logger.get(IcebergUtil.class);
     public static final int MIN_FORMAT_VERSION_FOR_DELETE = 2;
 
@@ -246,7 +245,7 @@ public final class IcebergUtil
         return new PrestoIcebergTableForMetricsConfig(schema, spec, properties, sortOrder);
     }
 
-    public static Table getHiveIcebergTable(ExtendedHiveMetastore metastore, HdfsEnvironment hdfsEnvironment, IcebergHiveTableOperationsConfig config, ManifestFileCache manifestFileCache, ConnectorSession session, SchemaTableName table)
+    public static Table getHiveIcebergTable(ExtendedHiveMetastore metastore, HdfsEnvironment hdfsEnvironment, IcebergHiveTableOperationsConfig config, ManifestFileCache manifestFileCache, ConnectorSession session, IcebergCatalogName catalogName, SchemaTableName table)
     {
         HdfsContext hdfsContext = new HdfsContext(session, table.getSchemaName(), table.getTableName());
         TableOperations operations = new HiveTableOperations(
@@ -258,7 +257,7 @@ public final class IcebergUtil
                 manifestFileCache,
                 table.getSchemaName(),
                 table.getTableName());
-        return new BaseTable(operations, quotedTableName(table));
+        return new BaseTable(operations, fullTableName(catalogName.getCatalogName(), TableIdentifier.of(table.getSchemaName(), table.getTableName())));
     }
 
     public static Table getNativeIcebergTable(IcebergNativeCatalogFactory catalogFactory, ConnectorSession session, SchemaTableName table)
@@ -409,19 +408,6 @@ public final class IcebergUtil
     public static Optional<String> getViewComment(View view)
     {
         return Optional.ofNullable(view.properties().get(TABLE_COMMENT));
-    }
-
-    private static String quotedTableName(SchemaTableName name)
-    {
-        return quotedName(name.getSchemaName()) + "." + quotedName(name.getTableName());
-    }
-
-    private static String quotedName(String name)
-    {
-        if (SIMPLE_NAME.matcher(name).matches()) {
-            return name;
-        }
-        return '"' + name.replace("\"", "\"\"") + '"';
     }
 
     public static TableScan getTableScan(TupleDomain<IcebergColumnHandle> predicates, Optional<Long> snapshotId, Table icebergTable)
@@ -1328,5 +1314,31 @@ public final class IcebergUtil
     public static DataSize getTargetSplitSize(ConnectorSession session, Scan<?, ?, ?> scan)
     {
         return getTargetSplitSize(IcebergSessionProperties.getTargetSplitSize(session), scan.targetSplitSize());
+    }
+
+    // This code is copied from Iceberg
+    private static String fullTableName(String catalogName, TableIdentifier identifier)
+    {
+        StringBuilder sb = new StringBuilder();
+
+        if (catalogName.contains("/") || catalogName.contains(":")) {
+            // use / for URI-like names: thrift://host:port/db.table
+            sb.append(catalogName);
+            if (!catalogName.endsWith("/")) {
+                sb.append("/");
+            }
+        }
+        else {
+            // use . for non-URI named catalogs: prod.db.table
+            sb.append(catalogName).append(".");
+        }
+
+        for (String level : identifier.namespace().levels()) {
+            sb.append(level).append(".");
+        }
+
+        sb.append(identifier.name());
+
+        return sb.toString();
     }
 }
