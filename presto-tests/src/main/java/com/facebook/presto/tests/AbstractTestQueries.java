@@ -145,6 +145,8 @@ public abstract class AbstractTestQueries
             .window(CustomRank.class)
             .scalars(CustomAdd.class)
             .scalars(CreateHll.class)
+            .scalars(CustomStructWithPassthrough.class)
+            .scalars(CustomStructWithoutPassthrough.class)
             .functions(APPLY_FUNCTION, INVOKE_FUNCTION, STATEFUL_SLEEPING_SUM)
             .getFunctions();
 

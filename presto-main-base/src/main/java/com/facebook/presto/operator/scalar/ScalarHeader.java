@@ -23,13 +23,15 @@ public class ScalarHeader
     private final SqlFunctionVisibility visibility;
     private final boolean deterministic;
     private final boolean calledOnNullInput;
+    private final int pushdownSubfieldArgIndex;
 
-    public ScalarHeader(Optional<String> description, SqlFunctionVisibility visibility, boolean deterministic, boolean calledOnNullInput)
+    public ScalarHeader(Optional<String> description, SqlFunctionVisibility visibility, boolean deterministic, boolean calledOnNullInput, int pushdownSubfieldArgIndex)
     {
         this.description = description;
         this.visibility = visibility;
         this.deterministic = deterministic;
         this.calledOnNullInput = calledOnNullInput;
+        this.pushdownSubfieldArgIndex = pushdownSubfieldArgIndex;
     }
 
     public Optional<String> getDescription()
@@ -50,5 +52,13 @@ public class ScalarHeader
     public boolean isCalledOnNullInput()
     {
         return calledOnNullInput;
+    }
+
+    public Optional<Integer> getPushdownSubfieldArgIndex()
+    {
+        if (pushdownSubfieldArgIndex < 0) {
+            return Optional.empty();
+        }
+        return Optional.of(pushdownSubfieldArgIndex);
     }
 }
