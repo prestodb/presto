@@ -64,6 +64,11 @@ public final class QueryCardinalityUtil
         return Range.closed(0L, maxCardinality).encloses(extractCardinality(node, lookup));
     }
 
+    public static boolean isEmpty(PlanNode node, Lookup lookup)
+    {
+        return isAtMost(node, lookup, 0);
+    }
+
     public static Range<Long> extractCardinality(PlanNode node)
     {
         return extractCardinality(node, noLookup());
