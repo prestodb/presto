@@ -51,7 +51,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
@@ -64,14 +63,10 @@ public class TestPlanCheckerProvider
     public void testGetPlanChecker()
     {
         NativePlanCheckerConfig config = new NativePlanCheckerConfig();
-        assertFalse(config.isPlanValidationEnabled());
+        assertTrue(config.isPlanValidationEnabled());
         NativePlanCheckerProvider provider = new NativePlanCheckerProvider(new TestingNodeManager(URI.create("localhost")), PLAN_FRAGMENT_JSON_CODEC, config);
         assertTrue(provider.getIntermediatePlanCheckers().isEmpty());
         assertTrue(provider.getFinalPlanCheckers().isEmpty());
-        assertTrue(provider.getFragmentPlanCheckers().isEmpty());
-
-        // Enable the native plan checker, should appear in fragment plan checkers
-        config.setPlanValidationEnabled(true);
         assertEquals(provider.getFragmentPlanCheckers().size(), 1);
     }
 
