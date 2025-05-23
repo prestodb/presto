@@ -780,5 +780,21 @@ TEST_F(LogNTest, log) {
   EXPECT_EQ(log(-kInf, kInf), std::nullopt);
 }
 
+class SqrtTest : public SparkFunctionBaseTest {
+ protected:
+  std::optional<double> sqrt(std::optional<double> a) {
+    return evaluateOnce<double>("sqrt(c0)", a);
+  }
+};
+
+TEST_F(SqrtTest, sqrt) {
+  const double kInf = std::numeric_limits<double>::infinity();
+  EXPECT_EQ(sqrt(std::nullopt), std::nullopt);
+  EXPECT_EQ(sqrt(4), 2.0);
+  EXPECT_EQ(sqrt(0), 0.0);
+  EXPECT_EQ(sqrt(kInf), kInf);
+  EXPECT_TRUE(std::isnan(sqrt(-1).value()));
+}
+
 } // namespace
 } // namespace facebook::velox::functions::sparksql::test

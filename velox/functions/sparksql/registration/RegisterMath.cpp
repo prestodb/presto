@@ -85,6 +85,7 @@ void registerMathFunctions(const std::string& prefix) {
   registerFunction<sparksql::Log10Function, double, double>({prefix + "log10"});
   registerFunction<sparksql::LogarithmFunction, double, double, double>(
       {prefix + "log"});
+  registerFunction<SqrtFunction, double, double>({prefix + "sqrt"});
   registerFunction<
       WidthBucketFunction,
       int64_t,

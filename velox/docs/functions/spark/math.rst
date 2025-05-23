@@ -199,6 +199,10 @@ Mathematical Functions
 
     Returns the logarithm of ``x`` with base 10. Return null for zero and non-positive input.
 
+.. spark:function:: sqrt(x) -> double
+
+    Returns the square root of ``x``.
+
 .. spark:function:: multiply(x, y) -> [same as x]
 
     Returns the result of multiplying x by y. The types of x and y must be the same.
