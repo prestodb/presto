@@ -57,6 +57,6 @@ public class TestParquetTimestampUtils
         NanoTime nanoTime = getNanoTime(timestamp, ZoneId.of("UTC"), false);
         ByteBuffer buffer = ByteBuffer.wrap(nanoTime.toBinary().getBytes());
         long decodedTimestampMillis = getTimestampMillis(fromConstantByteBuffer(buffer));
-        assertEquals(decodedTimestampMillis, timestamp.toSqlTimestamp().getTime());
+        assertEquals(decodedTimestampMillis, timestamp.toEpochMilli());
     }
 }

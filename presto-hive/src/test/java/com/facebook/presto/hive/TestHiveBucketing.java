@@ -38,7 +38,6 @@ import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils;
 import org.testng.annotations.Test;
 
-import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -291,9 +290,8 @@ public class TestHiveBucketing
                 assertEquals(daysSinceEpochInLocalZone, DateWritableV2.dateToDays((Date) hiveValue));
                 return daysSinceEpochInLocalZone;
             case StandardTypes.TIMESTAMP:
-                Instant instant = ((Timestamp) hiveValue).toSqlTimestamp().toInstant();
-                long epochSecond = instant.getEpochSecond();
-                int nano = instant.getNano();
+                long epochSecond = ((Timestamp) hiveValue).toEpochSecond();
+                int nano = ((Timestamp) hiveValue).getNanos();
                 assertEquals(nano % 1_000_000, 0);
                 return epochSecond * 1000 + nano / 1_000_000;
             default:

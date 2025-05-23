@@ -50,11 +50,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.management.ManagementFactory;
 import java.math.BigDecimal;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
+import java.util.TimeZone;
 import java.util.stream.IntStream;
 
 import static com.facebook.airlift.units.DataSize.Unit.GIGABYTE;
@@ -69,6 +71,7 @@ import static com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion.ORIG
 import static com.facebook.presto.orc.metadata.statistics.ColumnStatistics.createColumnStatistics;
 import static com.facebook.presto.orc.metadata.statistics.ShortDecimalStatisticsBuilder.SHORT_DECIMAL_VALUE_BYTES;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
@@ -196,7 +199,12 @@ public class OrcMetadataReader
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         OrcProto.StripeFooter stripeFooter = OrcProto.StripeFooter.parseFrom(input);
         runtimeStats.addMetricValue("OrcReadStripeFooterTimeNanos", RuntimeUnit.NANO, THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
-        return new StripeFooter(toStream(stripeFooter.getStreamsList()), toColumnEncoding(stripeFooter.getColumnsList()), ImmutableList.of());
+        return new StripeFooter(
+                toStream(stripeFooter.getStreamsList()),
+                toColumnEncoding(stripeFooter.getColumnsList()),
+                ImmutableList.of(),
+                Optional.ofNullable(emptyToNull(stripeFooter.getWriterTimezone()))
+                        .map(timezone -> TimeZone.getTimeZone(ZoneId.of(timezone)).toZoneId()));
     }
 
     private static Stream toStream(OrcProto.Stream stream)

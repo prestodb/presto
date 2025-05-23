@@ -321,7 +321,7 @@ public class GenericHiveRecordCursor<K, V extends Writable>
             // time zone. We need to convert it to the configured time zone.
 
             // the timestamp that Hive parsed using the JVM time zone
-            long parsedJvmMillis = ((Timestamp) value).toSqlTimestamp().getTime();
+            long parsedJvmMillis = ((Timestamp) value).toEpochMilli();
 
             // remove the JVM time zone correction from the timestamp
             long hiveMillis = JVM_TIME_ZONE.convertUTCToLocal(parsedJvmMillis);

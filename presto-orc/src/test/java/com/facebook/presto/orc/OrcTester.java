@@ -1970,7 +1970,7 @@ public class OrcTester
 
         Reader reader = OrcFile.createReader(
                 new Path(tempFile.getFile().getAbsolutePath()),
-                new ReaderOptions(configuration));
+                new ReaderOptions(configuration).useUTCTimestamp(false));
         org.apache.hadoop.hive.ql.io.orc.RecordReader recordReader = reader.rows();
 
         StructObjectInspector rowInspector = (StructObjectInspector) reader.getObjectInspector();
@@ -2093,7 +2093,7 @@ public class OrcTester
         }
         else if (actualValue instanceof TimestampWritableV2) {
             TimestampWritableV2 timestamp = (TimestampWritableV2) actualValue;
-            actualValue = sqlTimestampOf((timestamp.getSeconds() * 1000) + (timestamp.getNanos() / 1000000L), SESSION);
+            actualValue = sqlTimestampOf(timestamp.getTimestamp().toEpochMilli(), SESSION);
         }
         else if (actualValue instanceof OrcStruct) {
             List<Object> fields = new ArrayList<>();

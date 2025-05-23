@@ -68,7 +68,7 @@ public class TestApacheHiveTimestampDecoder
 
     private static void test(long seconds, long nanos, boolean microsecondsPrecision, Timestamp expected)
     {
-        long tsAsLong = decodeTimestamp(seconds, nanos, new DecodeTimestampOptions(UTC, microsecondsPrecision));
+        long tsAsLong = decodeTimestamp(seconds, nanos, new DecodeTimestampOptions(UTC.toTimeZone().toZoneId(), microsecondsPrecision));
         TimeUnit unit = microsecondsPrecision ? MICROSECONDS : MILLISECONDS;
         long unitsPerSec = unit.convert(1, TimeUnit.SECONDS);
         Timestamp ts = Timestamp.ofEpochMilli(1000 * (tsAsLong / unitsPerSec));

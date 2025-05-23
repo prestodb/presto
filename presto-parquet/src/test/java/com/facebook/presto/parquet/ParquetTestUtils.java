@@ -463,7 +463,7 @@ public class ParquetTestUtils
         }
 
         if (type.equals(TIMESTAMP)) {
-            return Timestamp.ofEpochMilli((Long) value).toSqlTimestamp();
+            return Timestamp.ofEpochMilli((Long) value);
         }
 
         if (type instanceof VarcharType) {

@@ -203,7 +203,7 @@ public class TestOrcBloomFilters
                 bloomFilter.addString(((Slice) o).toStringUtf8());
             }
             else if (o instanceof Timestamp) {
-                bloomFilter.addLong(((Timestamp) o).toSqlTimestamp().getTime());
+                bloomFilter.addLong(((Timestamp) o).toEpochMilli());
             }
             else if (o instanceof Double) {
                 bloomFilter.addDouble((Double) o);
