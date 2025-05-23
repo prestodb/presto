@@ -233,6 +233,8 @@ String Functions
     Returns the last ``N`` characters of the input ``string`` up to at most the length of ``string``.
 
 .. function:: substr(string, start) -> varchar
+.. function:: substring(string, start) -> varchar
+    :noindex:
 
     Returns the rest of ``string`` from the starting position ``start``.
     Positions start with ``1``. A negative starting position is interpreted
@@ -240,6 +242,8 @@ String Functions
     value of ``start`` is greater then length of the ``string``.
 
 .. function:: substr(string, start, length) -> varchar
+    :noindex:
+.. function:: substring(string, start, length) -> varchar
     :noindex:
 
     Returns a substring from ``string`` of length ``length`` from the starting

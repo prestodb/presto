@@ -91,13 +91,23 @@ class StringFunctionsTest : public FunctionBaseTest {
       int stringVectorIndex = 0) {
     auto row = makeRowVector(args);
     auto stringVector = args[stringVectorIndex];
-    int refCountBeforeEval =
-        bufferRefCounts(stringVector->asFlatVector<StringView>());
+    auto flatStringArg = stringVector->asFlatVector<StringView>();
+
+    int refCountBeforeEval = bufferRefCounts(flatStringArg);
     auto result = evaluate<FlatVector<StringView>>(query, row);
 
-    int refCountAfterEval =
-        bufferRefCounts(stringVector->asFlatVector<StringView>());
-    EXPECT_EQ(refCountAfterEval, 2 * refCountBeforeEval) << "at " << query;
+    int refCountAfterEval = bufferRefCounts(flatStringArg);
+
+    int numNonNullBuffersInStringArg = 0;
+    for (const auto& buf : flatStringArg->stringBuffers()) {
+      if (buf != nullptr) {
+        numNonNullBuffersInStringArg++;
+      }
+    }
+
+    EXPECT_EQ(
+        refCountAfterEval, refCountBeforeEval + numNonNullBuffersInStringArg)
+        << "at " << query;
 
     return result;
   }
@@ -359,6 +369,7 @@ TEST_F(StringFunctionsTest, substrConstant) {
  */
 TEST_F(StringFunctionsTest, substrVariable) {
   std::shared_ptr<FlatVector<StringView>> result;
+  std::shared_ptr<FlatVector<StringView>> substringResult;
   vector_size_t size = 100;
   std::vector<std::string> ref_strings(size);
 
@@ -378,29 +389,55 @@ TEST_F(StringFunctionsTest, substrVariable) {
 
   auto stringVector = makeStrings(size, strings);
 
+  // Test substr function
   result = evaluateSubstr(
       "substr(c0, c1, c2)", {stringVector, startVector, lengthVector});
+
+  // Test substring alias function with the same arguments
+  substringResult = evaluateSubstr(
+      "substring(c0, c1, c2)", {stringVector, startVector, lengthVector});
+
   EXPECT_EQ(stringVector.use_count(), 1);
   // Destroying string vector
   stringVector = nullptr;
 
-  for (int i = 0; i < size; ++i) {
-    // Checking the null results
-    if (expectNullString(i) || expectNullStart(i) || expectNullLength(i)) {
-      EXPECT_TRUE(result->isNullAt(i)) << "expected null at " << i;
-    } else {
-      if (expectedStart(i) != 0) {
-        EXPECT_EQ(result->valueAt(i).size(), expectedLength(i)) << "at " << i;
-        for (int l = 0; l < expectedLength(i); l++) {
-          EXPECT_EQ(
-              result->valueAt(i).data()[l],
-              strings[i][expectedStart(i) - 1 + l])
-              << "at " << i;
+  auto validateResult =
+      [&strings](
+          const std::shared_ptr<FlatVector<StringView>>& vector,
+          const std::string& funcName) {
+        for (int i = 0; i < vector->size(); ++i) {
+          // Checking the null results
+          if (expectNullString(i) || expectNullStart(i) ||
+              expectNullLength(i)) {
+            EXPECT_TRUE(vector->isNullAt(i))
+                << "expected null at " << i << " for " << funcName;
+          } else {
+            if (expectedStart(i) != 0) {
+              EXPECT_EQ(vector->valueAt(i).size(), expectedLength(i))
+                  << "at " << i << " for " << funcName;
+              for (int l = 0; l < expectedLength(i); l++) {
+                EXPECT_EQ(
+                    vector->valueAt(i).data()[l],
+                    strings[i][expectedStart(i) - 1 + l])
+                    << "at " << i << " for " << funcName;
+              }
+            } else {
+              EXPECT_EQ(vector->valueAt(i).size(), 0)
+                  << "at " << i << " for " << funcName;
+            }
+          }
         }
-      } else {
-        // Special test for start = 0. The Presto semantic expect empty string
-        EXPECT_EQ(result->valueAt(i).size(), 0);
-      }
+      };
+
+  validateResult(result, "substr");
+  validateResult(substringResult, "substring");
+
+  for (int i = 0; i < size; ++i) {
+    if (!expectNullString(i) && !expectNullStart(i) && !expectNullLength(i)) {
+      EXPECT_EQ(
+          result->valueAt(i).getString(),
+          substringResult->valueAt(i).getString())
+          << "at " << i << ": substr and substring results should match";
     }
   }
 }
