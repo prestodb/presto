@@ -307,11 +307,10 @@ public class AddLocalExchanges
             }
 
             // final limit requires that all data be in one stream
-            // also, a final changes the input organization completely, so we do not pass through parent preferences
             return planAndEnforceChildren(
                     node,
                     singleStream(),
-                    defaultParallelism(session));
+                    parentPreferences.withDefaultParallelism(session));
         }
 
         @Override
