@@ -721,7 +721,13 @@ class BigintRange final : public Filter {
         upper32_(std::min<int64_t>(upper, std::numeric_limits<int32_t>::max())),
         lower16_(std::max<int64_t>(lower, std::numeric_limits<int16_t>::min())),
         upper16_(std::min<int64_t>(upper, std::numeric_limits<int16_t>::max())),
-        isSingleValue_(upper_ == lower_) {}
+        isSingleValue_(upper_ == lower_),
+        inInt32Range_(
+            lower <= std::numeric_limits<int32_t>::max() &&
+            upper >= std::numeric_limits<int32_t>::min()),
+        inInt16Range_(
+            lower <= std::numeric_limits<int16_t>::max() &&
+            upper >= std::numeric_limits<int16_t>::min()) {}
 
   folly::dynamic serialize() const override;
 
@@ -752,6 +758,9 @@ class BigintRange final : public Filter {
 
   xsimd::batch_bool<int32_t> testValues(
       xsimd::batch<int32_t> values) const final {
+    if (!inInt32Range_) {
+      return xsimd::batch_bool<int32_t>(false);
+    }
     if (isSingleValue_) {
       if (UNLIKELY(lower32_ != lower_)) {
         return xsimd::batch_bool<int32_t>(false);
@@ -764,6 +773,9 @@ class BigintRange final : public Filter {
 
   xsimd::batch_bool<int16_t> testValues(
       xsimd::batch<int16_t> values) const final {
+    if (!inInt16Range_) {
+      return xsimd::batch_bool<int16_t>(false);
+    }
     if (isSingleValue_) {
       if (UNLIKELY(lower16_ != lower_)) {
         return xsimd::batch_bool<int16_t>(false);
@@ -814,6 +826,8 @@ class BigintRange final : public Filter {
   const int16_t lower16_;
   const int16_t upper16_;
   const bool isSingleValue_;
+  const bool inInt32Range_;
+  const bool inInt16Range_;
 };
 
 class NegatedBigintRange final : public Filter {

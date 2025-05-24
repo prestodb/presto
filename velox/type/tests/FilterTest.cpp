@@ -183,6 +183,32 @@ TEST(FilterTest, bigIntRange) {
   EXPECT_TRUE(filter->testInt64Range(-100, -10, true));
   EXPECT_TRUE(filter->testInt64Range(-100, 10, false));
   EXPECT_TRUE(filter->testInt64Range(-100, 10, true));
+
+  {
+    SCOPED_TRACE("Filter range outside of smaller type");
+    filter = between(2147483747ll, 2147483847ll);
+    int32_t n8[] = {
+        1, 100, 200, 201, 2147483647, -1000, 1000000000, -2000000000};
+    checkSimd(filter.get(), n8, testInt64);
+    int16_t n16[] = {
+        1,
+        100,
+        200,
+        201,
+        32767,
+        2,
+        32000,
+        -1000,
+        -32000,
+        1111,
+        1000,
+        -1000,
+        1,
+        1,
+        0,
+        1111};
+    checkSimd(filter.get(), n16, testInt64);
+  }
 }
 
 TEST(FilterTest, negatedBigintRange) {
