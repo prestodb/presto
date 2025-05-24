@@ -28,6 +28,7 @@ class SelectiveListColumnReader
     : public dwio::common::SelectiveListColumnReader {
  public:
   SelectiveListColumnReader(
+      const dwio::common::ColumnReaderOptions& columnReaderOptions,
       const TypePtr& requestedType,
       const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
       DwrfParams& params,
@@ -61,6 +62,7 @@ class SelectiveListColumnReader
 class SelectiveMapColumnReader : public dwio::common::SelectiveMapColumnReader {
  public:
   SelectiveMapColumnReader(
+      const dwio::common::ColumnReaderOptions& columnReaderOptions,
       const TypePtr& requestedType,
       const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
       DwrfParams& params,

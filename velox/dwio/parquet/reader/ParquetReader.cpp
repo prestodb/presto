@@ -67,6 +67,10 @@ class ReaderBase {
     return FileMetaDataPtr(reinterpret_cast<const void*>(fileMetaData_.get()));
   }
 
+  const dwio::common::ReaderOptions& options() const {
+    return options_;
+  }
+
   const std::shared_ptr<const RowType>& schema() const {
     return schema_;
   }
@@ -1062,6 +1066,7 @@ class ParquetRowReader::Impl {
     requestedType_ = options_.requestedType() ? options_.requestedType()
                                               : readerBase_->schema();
     columnReader_ = ParquetColumnReader::build(
+        columnReaderOptions_,
         requestedType_,
         readerBase_->schemaWithId(), // Id is schema id
         params,
@@ -1075,6 +1080,9 @@ class ParquetRowReader::Impl {
       // table scan.
       advanceToNextRowGroup();
     }
+
+    columnReaderOptions_ =
+        dwio::common::makeColumnReaderOptions(readerBase_->options());
   }
 
   void filterRowGroups() {
@@ -1209,6 +1217,7 @@ class ParquetRowReader::Impl {
   memory::MemoryPool& pool_;
   const std::shared_ptr<ReaderBase> readerBase_;
   const dwio::common::RowReaderOptions options_;
+  dwio::common::ColumnReaderOptions columnReaderOptions_;
 
   // All row groups from file metadata.
   std::vector<thrift::RowGroup>& rowGroups_;

@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "velox/dwio/common/Options.h"
 #include "velox/dwio/common/SelectiveStructColumnReader.h"
 #include "velox/dwio/parquet/common/LevelConversion.h"
 
@@ -32,6 +33,7 @@ class ParquetParams;
 class StructColumnReader : public dwio::common::SelectiveStructColumnReader {
  public:
   StructColumnReader(
+      const dwio::common::ColumnReaderOptions& columnReaderOptions,
       const TypePtr& requestedType,
       const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
       ParquetParams& params,

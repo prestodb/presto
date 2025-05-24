@@ -24,6 +24,7 @@ namespace facebook::velox::dwrf {
 using namespace dwio::common;
 
 SelectiveStructColumnReader::SelectiveStructColumnReader(
+    const dwio::common::ColumnReaderOptions& columnReaderOptions,
     const TypePtr& requestedType,
     const std::shared_ptr<const TypeWithId>& fileType,
     DwrfParams& params,
@@ -86,7 +87,11 @@ SelectiveStructColumnReader::SelectiveStructColumnReader(
             .inMapDecoder = nullptr,
             .keySelectionCallback = nullptr});
     addChild(SelectiveDwrfReader::build(
-        childRequestedType, childFileType, childParams, *childSpec));
+        columnReaderOptions,
+        childRequestedType,
+        childFileType,
+        childParams,
+        *childSpec));
     childSpec->setSubscript(children_.size() - 1);
   }
 }

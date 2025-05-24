@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "velox/dwio/common/Options.h"
 #include "velox/dwio/parquet/reader/ParquetData.h"
 
 namespace facebook::velox::parquet {
@@ -42,6 +43,7 @@ class ParquetColumnReader {
   /// Builds a reader tree producing 'fileType'. The metadata is in 'params'.
   /// The filters and pruning are in 'scanSpec'.
   static std::unique_ptr<dwio::common::SelectiveColumnReader> build(
+      const dwio::common::ColumnReaderOptions& columnReaderOptions,
       const TypePtr& requestedType,
       const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
       ParquetParams& params,

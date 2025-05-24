@@ -144,7 +144,9 @@ class ColumnReaderTestBase {
         scanSpec = scanSpec_.get();
       }
       makeFieldSpecs("", 0, rowType, scanSpec);
+      dwio::common::ColumnReaderOptions columnReaderOptions;
       selectiveColumnReader_ = SelectiveDwrfReader::build(
+          columnReaderOptions,
           cs.getSchema(),
           fileTypeWithId,
           streams_,

@@ -27,6 +27,7 @@ class ScanSpec;
 namespace facebook::velox::parquet {
 
 StructColumnReader::StructColumnReader(
+    const dwio::common::ColumnReaderOptions& columnReaderOptions,
     const TypePtr& requestedType,
     const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
     ParquetParams& params,
@@ -46,7 +47,11 @@ StructColumnReader::StructColumnReader(
     auto childRequestedType =
         requestedType_->asRow().findChild(childSpec->fieldName());
     addChild(ParquetColumnReader::build(
-        childRequestedType, childFileType, params, *childSpec));
+        columnReaderOptions,
+        childRequestedType,
+        childFileType,
+        params,
+        *childSpec));
 
     childSpecs[i]->setSubscript(children_.size() - 1);
   }

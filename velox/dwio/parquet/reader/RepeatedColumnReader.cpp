@@ -110,6 +110,7 @@ void ensureRepDefs(
 }
 
 MapColumnReader::MapColumnReader(
+    const dwio::common::ColumnReaderOptions& columnReaderOptions,
     const TypePtr& requestedType,
     const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
     ParquetParams& params,
@@ -123,9 +124,17 @@ MapColumnReader::MapColumnReader(
   auto& keyChildType = requestedType->childAt(0);
   auto& elementChildType = requestedType->childAt(1);
   keyReader_ = ParquetColumnReader::build(
-      keyChildType, fileType_->childAt(0), params, *scanSpec.children()[0]);
+      columnReaderOptions,
+      keyChildType,
+      fileType_->childAt(0),
+      params,
+      *scanSpec.children()[0]);
   elementReader_ = ParquetColumnReader::build(
-      elementChildType, fileType_->childAt(1), params, *scanSpec.children()[1]);
+      columnReaderOptions,
+      elementChildType,
+      fileType_->childAt(1),
+      params,
+      *scanSpec.children()[1]);
   reinterpret_cast<const ParquetTypeWithId*>(fileType.get())
       ->makeLevelInfo(levelInfo_);
   children_ = {keyReader_.get(), elementReader_.get()};
@@ -219,6 +228,7 @@ void MapColumnReader::filterRowGroups(
 }
 
 ListColumnReader::ListColumnReader(
+    const dwio::common::ColumnReaderOptions& columnReaderOptions,
     const TypePtr& requestedType,
     const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
     ParquetParams& params,
@@ -230,7 +240,11 @@ ListColumnReader::ListColumnReader(
           scanSpec) {
   auto& childType = requestedType->childAt(0);
   child_ = ParquetColumnReader::build(
-      childType, fileType_->childAt(0), params, *scanSpec.children()[0]);
+      columnReaderOptions,
+      childType,
+      fileType_->childAt(0),
+      params,
+      *scanSpec.children()[0]);
   reinterpret_cast<const ParquetTypeWithId*>(fileType.get())
       ->makeLevelInfo(levelInfo_);
   children_ = {child_.get()};

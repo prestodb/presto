@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "velox/dwio/common/Options.h"
 #include "velox/dwio/common/SelectiveRepeatedColumnReader.h"
 #include "velox/dwio/parquet/reader/ParquetData.h"
 
@@ -56,6 +57,7 @@ class RepeatedLengths {
 class MapColumnReader : public dwio::common::SelectiveMapColumnReader {
  public:
   MapColumnReader(
+      const dwio::common::ColumnReaderOptions& columnReaderOptions,
       const TypePtr& requestedType,
       const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
       ParquetParams& params,
@@ -112,6 +114,7 @@ class MapColumnReader : public dwio::common::SelectiveMapColumnReader {
 class ListColumnReader : public dwio::common::SelectiveListColumnReader {
  public:
   ListColumnReader(
+      const dwio::common::ColumnReaderOptions& columnReaderOptions,
       const TypePtr& requestedType,
       const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
       ParquetParams& params,

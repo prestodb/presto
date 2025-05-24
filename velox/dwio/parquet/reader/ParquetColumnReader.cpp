@@ -34,6 +34,7 @@ namespace facebook::velox::parquet {
 
 // static
 std::unique_ptr<dwio::common::SelectiveColumnReader> ParquetColumnReader::build(
+    const dwio::common::ColumnReaderOptions& columnReaderOptions,
     const TypePtr& requestedType,
     const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
     ParquetParams& params,
@@ -58,7 +59,7 @@ std::unique_ptr<dwio::common::SelectiveColumnReader> ParquetColumnReader::build(
 
     case TypeKind::ROW:
       return std::make_unique<StructColumnReader>(
-          requestedType, fileType, params, scanSpec);
+          columnReaderOptions, requestedType, fileType, params, scanSpec);
 
     case TypeKind::VARBINARY:
     case TypeKind::VARCHAR:
@@ -66,11 +67,11 @@ std::unique_ptr<dwio::common::SelectiveColumnReader> ParquetColumnReader::build(
 
     case TypeKind::ARRAY:
       return std::make_unique<ListColumnReader>(
-          requestedType, fileType, params, scanSpec);
+          columnReaderOptions, requestedType, fileType, params, scanSpec);
 
     case TypeKind::MAP:
       return std::make_unique<MapColumnReader>(
-          requestedType, fileType, params, scanSpec);
+          columnReaderOptions, requestedType, fileType, params, scanSpec);
 
     case TypeKind::BOOLEAN:
       return std::make_unique<BooleanColumnReader>(
