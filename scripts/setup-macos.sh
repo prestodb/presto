@@ -30,28 +30,18 @@ set -x # Print commands that are executed.
 
 SCRIPTDIR=$(dirname "${BASH_SOURCE[0]}")
 export INSTALL_PREFIX=${INSTALL_PREFIX:-"$(pwd)/deps-install"}
-source $SCRIPTDIR/setup-helper-functions.sh
+source $SCRIPTDIR/setup-common.sh
 PYTHON_VENV=${PYTHON_VENV:-"${SCRIPTDIR}/../.venv"}
 # Allow installed package headers to be picked up before brew package headers
 # by tagging the brew packages to be system packages.
 # This is used during package builds.
 export OS_CXXFLAGS=" -isystem $(brew --prefix)/include "
-NPROC=${BUILD_THREADS:-$(getconf _NPROCESSORS_ONLN)}
 
-BUILD_DUCKDB="${BUILD_DUCKDB:-true}"
-BUILD_GEOS="${BUILD_GEOS:-true}"
-VELOX_BUILD_SHARED=${VELOX_BUILD_SHARED:-"OFF"} #Build folly shared for use in libvelox.so.
 DEPENDENCY_DIR=${DEPENDENCY_DIR:-$(pwd)}
-MACOS_VELOX_DEPS="bison flex gflags glog googletest icu4c libevent libsodium lz4 lzo openssl protobuf@21 snappy xz xxhash zstd"
-MACOS_BUILD_DEPS="ninja cmake"
+MACOS_VELOX_DEPS="bison flex gflags glog googletest icu4c libevent libsodium lz4 lzo openssl protobuf@21 simdjson snappy xz zstd"
+MACOS_BUILD_DEPS="ninja cmake ccache"
 
-FB_OS_VERSION="v2025.04.28.00"
-FMT_VERSION="10.1.1"
-BOOST_VERSION="boost-1.84.0"
-STEMMER_VERSION="2.2.0"
-DUCKDB_VERSION="v0.8.1"
-GEOS_VERSION="3.10.2"
-FAST_FLOAT_VERSION="v8.0.2"
+SUDO="${SUDO:-""}"
 
 function update_brew {
   DEFAULT_BREW_PATH=/usr/local/bin/brew
@@ -105,113 +95,31 @@ function install_velox_deps_from_brew {
   done
 }
 
-function install_boost {
-  wget_and_untar https://github.com/boostorg/boost/releases/download/${BOOST_VERSION}/${BOOST_VERSION}.tar.gz boost
-  (
-    cd ${DEPENDENCY_DIR}/boost
-    ./bootstrap.sh --prefix=${INSTALL_PREFIX}
-    ${SUDO} ./b2 "-j${NPROC}" -d0 install threading=multi --without-python
-  )
+function install_s3 {
+  install_aws_deps
+
+  local MINIO_OS="darwin"
+  install_minio ${MINIO_OS}
 }
 
-function install_fmt {
-  wget_and_untar https://github.com/fmtlib/fmt/archive/${FMT_VERSION}.tar.gz fmt
-  cmake_install_dir fmt -DFMT_TEST=OFF
+function install_gcs {
+  install_gcs-sdk-cpp
 }
 
-function install_fast_float {
-  wget_and_untar https://github.com/fastfloat/fast_float/archive/refs/tags/${FAST_FLOAT_VERSION}.tar.gz fast_float
-  cmake_install_dir fast_float -DBUILD_TESTS=OFF
+function install_abfs {
+  install_azure-storage-sdk-cpp
 }
 
-function install_folly {
-  # Folly Portability.h being used to decide whether or not support coroutines
-  # causes issues (build, lin) if the selection is not consistent across users of folly.
-  EXTRA_PKG_CXXFLAGS=" -DFOLLY_CFG_NO_COROUTINES"
-  wget_and_untar https://github.com/facebook/folly/archive/refs/tags/${FB_OS_VERSION}.tar.gz folly
-  cmake_install_dir folly -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS="$VELOX_BUILD_SHARED" -DFOLLY_HAVE_INT128_T=ON
+function install_hdfs {
+  brew install libxml2 gsasl
+  install_hdfs_deps
 }
 
-function install_fizz {
-  # Folly Portability.h being used to decide whether or not support coroutines
-  # causes issues (build, lin) if the selection is not consistent across users of folly.
-  EXTRA_PKG_CXXFLAGS=" -DFOLLY_CFG_NO_COROUTINES"
-  wget_and_untar https://github.com/facebookincubator/fizz/archive/refs/tags/${FB_OS_VERSION}.tar.gz fizz
-  cmake_install_dir fizz/fizz -DBUILD_TESTS=OFF
-}
-
-function install_wangle {
-  # Folly Portability.h being used to decide whether or not support coroutines
-  # causes issues (build, lin) if the selection is not consistent across users of folly.
-  EXTRA_PKG_CXXFLAGS=" -DFOLLY_CFG_NO_COROUTINES"
-  wget_and_untar https://github.com/facebook/wangle/archive/refs/tags/${FB_OS_VERSION}.tar.gz wangle
-  cmake_install_dir wangle/wangle -DBUILD_TESTS=OFF
-}
-
-function install_mvfst {
-  # Folly Portability.h being used to decide whether or not support coroutines
-  # causes issues (build, lin) if the selection is not consistent across users of folly.
-  EXTRA_PKG_CXXFLAGS=" -DFOLLY_CFG_NO_COROUTINES"
-  wget_and_untar https://github.com/facebook/mvfst/archive/refs/tags/${FB_OS_VERSION}.tar.gz mvfst
-  cmake_install_dir mvfst -DBUILD_TESTS=OFF
-}
-
-function install_fbthrift {
-  # Folly Portability.h being used to decide whether or not support coroutines
-  # causes issues (build, lin) if the selection is not consistent across users of folly.
-  EXTRA_PKG_CXXFLAGS=" -DFOLLY_CFG_NO_COROUTINES"
-  wget_and_untar https://github.com/facebook/fbthrift/archive/refs/tags/${FB_OS_VERSION}.tar.gz fbthrift
-  cmake_install_dir fbthrift -Denable_tests=OFF -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=OFF
-}
-
-function install_double_conversion {
-  wget_and_untar https://github.com/google/double-conversion/archive/refs/tags/v3.1.5.tar.gz double-conversion
-  cmake_install_dir double-conversion -DBUILD_TESTING=OFF
-}
-
-function install_ranges_v3 {
-  wget_and_untar https://github.com/ericniebler/range-v3/archive/refs/tags/0.12.0.tar.gz ranges_v3
-  cmake_install_dir ranges_v3 -DRANGES_ENABLE_WERROR=OFF -DRANGE_V3_TESTS=OFF -DRANGE_V3_EXAMPLES=OFF
-}
-
-function install_re2 {
-  wget_and_untar https://github.com/google/re2/archive/refs/tags/2022-02-01.tar.gz re2
-  cmake_install_dir re2 -DRE2_BUILD_TESTING=OFF
-}
-
-function install_duckdb {
-  if [[ "$BUILD_DUCKDB" == "true" ]]; then
-    echo 'Building DuckDB'
-    wget_and_untar https://github.com/duckdb/duckdb/archive/refs/tags/${DUCKDB_VERSION}.tar.gz duckdb
-    # The warning -Wno-missing-template-arg-list-after-template-kw can likely be removed when upgrading to
-    # the latest duckDB version. This code has changed quite significantly and likely isn't a problem anymore.
-    cmake_install_dir duckdb -DBUILD_UNITTESTS=OFF -DENABLE_SANITIZER=OFF -DENABLE_UBSAN=OFF -DBUILD_SHELL=OFF -DEXPORT_DLL_SYMBOLS=OFF -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-Wno-missing-template-arg-list-after-template-kw"
-  fi
-}
-
-function install_stemmer {
-  wget_and_untar https://snowballstem.org/dist/libstemmer_c-${STEMMER_VERSION}.tar.gz stemmer
-  (
-    cd ${DEPENDENCY_DIR}/stemmer
-    sed -i '/CPPFLAGS=-Iinclude/ s/$/ -fPIC/' Makefile
-    make clean && make "-j${NPROC}"
-    ${SUDO} cp libstemmer.a ${INSTALL_PREFIX}/lib/
-    ${SUDO} cp include/libstemmer.h ${INSTALL_PREFIX}/include/
-  )
-}
-
-function install_geos {
-  if [[ "$BUILD_GEOS" == "true" ]]; then
-    ABSOLUTE_SCRIPTDIR=$(realpath ${SCRIPTDIR})
-    wget_and_untar https://github.com/libgeos/geos/archive/${GEOS_VERSION}.tar.gz geos
-    (
-      # Adopted from the bundled patching needed for macOS.
-      cd ${DEPENDENCY_DIR}/geos
-      git apply "${ABSOLUTE_SCRIPTDIR}/../CMake/resolve_dependency_modules/geos/geos-cmakelists.patch"
-      git apply "${ABSOLUTE_SCRIPTDIR}/../CMake/resolve_dependency_modules/geos/geos-build.patch"
-    )
-    cmake_install_dir geos -DBUILD_TESTING=OFF
-  fi
+function install_adapters {
+  run_and_time install_s3
+  run_and_time install_gcs
+  run_and_time install_abfs
+  run_and_time install_hdfs
 }
 
 function install_velox_deps {
@@ -227,8 +135,11 @@ function install_velox_deps {
   run_and_time install_wangle
   run_and_time install_mvfst
   run_and_time install_fbthrift
+  run_and_time install_xsimd
   run_and_time install_duckdb
   run_and_time install_stemmer
+  run_and_time install_thrift
+  run_and_time install_arrow
   run_and_time install_geos
 }
 

@@ -16,6 +16,8 @@ ARG image=quay.io/centos/centos:stream9
 FROM $image
 
 COPY scripts/setup-helper-functions.sh /
+COPY scripts/setup-versions.sh /
+COPY scripts/setup-common.sh /
 COPY scripts/setup-centos9.sh /
 
 # Building libvelox.so requires folly and gflags to be built shared as well for now

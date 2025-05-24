@@ -28,17 +28,8 @@
 # Minimal setup for Ubuntu 22.04.
 set -eufx -o pipefail
 SCRIPTDIR=$(dirname "${BASH_SOURCE[0]}")
-source $SCRIPTDIR/setup-helper-functions.sh
+source $SCRIPTDIR/setup-common.sh
 
-# Folly must be built with the same compiler flags so that some low level types
-# are the same size.
-COMPILER_FLAGS=$(get_cxx_flags)
-export COMPILER_FLAGS
-NPROC=${BUILD_THREADS:-$(getconf _NPROCESSORS_ONLN)}
-BUILD_DUCKDB="${BUILD_DUCKDB:-true}"
-BUILD_GEOS="${BUILD_GEOS:-true}"
-export CMAKE_BUILD_TYPE=Release
-VELOX_BUILD_SHARED=${VELOX_BUILD_SHARED:-"OFF"} #Build folly shared for use in libvelox.so.
 SUDO="${SUDO:-"sudo --preserve-env"}"
 USE_CLANG="${USE_CLANG:-false}"
 export INSTALL_PREFIX=${INSTALL_PREFIX:-"/usr/local"}
@@ -72,17 +63,6 @@ function install_gcc11_if_needed {
     ${SUDO} apt install gcc-11 g++-11 -y
   fi
 }
-
-FB_OS_VERSION="v2025.04.28.00"
-FMT_VERSION="10.1.1"
-BOOST_VERSION="boost-1.84.0"
-THRIFT_VERSION="v0.21.0"
-# Note: when updating arrow check if thrift needs an update as well.
-ARROW_VERSION="15.0.0"
-STEMMER_VERSION="2.2.0"
-DUCKDB_VERSION="v0.8.1"
-GEOS_VERSION="3.10.2"
-FAST_FLOAT_VERSION="v8.0.2"
 
 # Install packages required for build.
 function install_build_prerequisites {
@@ -138,6 +118,7 @@ function install_velox_deps_from_apt {
     libgoogle-glog-dev \
     libbz2-dev \
     libgflags-dev \
+    libgtest-dev \
     libgmock-dev \
     libevent-dev \
     liblz4-dev \
@@ -153,79 +134,6 @@ function install_velox_deps_from_apt {
     libfl-dev \
     tzdata \
     libxxhash-dev
-}
-
-function install_fmt {
-  wget_and_untar https://github.com/fmtlib/fmt/archive/${FMT_VERSION}.tar.gz fmt
-  cmake_install_dir fmt -DFMT_TEST=OFF
-}
-
-function install_boost {
-  wget_and_untar https://github.com/boostorg/boost/releases/download/${BOOST_VERSION}/${BOOST_VERSION}.tar.gz boost
-  (
-    cd ${DEPENDENCY_DIR}/boost
-    if [[ ${USE_CLANG} != "false" ]]; then
-      ./bootstrap.sh --prefix=${INSTALL_PREFIX} --with-toolset="clang-15"
-      # Switch the compiler from the clang-15 toolset which doesn't exist (clang-15.jam) to
-      # clang of version 15 when toolset clang-15 is used.
-      # This reconciles the project-config.jam generation with what the b2 build system allows for customization.
-      sed -i 's/using clang-15/using clang : 15/g' project-config.jam
-      ${SUDO} ./b2 "-j${NPROC}" -d0 install threading=multi toolset=clang-15 --without-python
-    else
-      ./bootstrap.sh --prefix=${INSTALL_PREFIX}
-      ${SUDO} ./b2 "-j${NPROC}" -d0 install threading=multi --without-python
-    fi
-  )
-}
-
-function install_protobuf {
-  wget_and_untar https://github.com/protocolbuffers/protobuf/releases/download/v21.8/protobuf-all-21.8.tar.gz protobuf
-  cmake_install_dir protobuf -Dprotobuf_BUILD_TESTS=OFF
-}
-
-function install_fast_float {
-  wget_and_untar https://github.com/fastfloat/fast_float/archive/refs/tags/${FAST_FLOAT_VERSION}.tar.gz fast_float
-  cmake_install_dir fast_float -DBUILD_TESTS=OFF
-}
-
-function install_folly {
-  # Folly Portability.h being used to decide whether or not support coroutines
-  # causes issues (build, link) if the selection is not consistent across users of folly.
-  EXTRA_PKG_CXXFLAGS=" -DFOLLY_CFG_NO_COROUTINES"
-  wget_and_untar https://github.com/facebook/folly/archive/refs/tags/${FB_OS_VERSION}.tar.gz folly
-  cmake_install_dir folly -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS="$VELOX_BUILD_SHARED" -DFOLLY_HAVE_INT128_T=ON
-}
-
-function install_fizz {
-  # Folly Portability.h being used to decide whether or not support coroutines
-  # causes issues (build, link) if the selection is not consistent across users of folly.
-  EXTRA_PKG_CXXFLAGS=" -DFOLLY_CFG_NO_COROUTINES"
-  wget_and_untar https://github.com/facebookincubator/fizz/archive/refs/tags/${FB_OS_VERSION}.tar.gz fizz
-  cmake_install_dir fizz/fizz -DBUILD_TESTS=OFF
-}
-
-function install_wangle {
-  # Folly Portability.h being used to decide whether or not support coroutines
-  # causes issues (build, link) if the selection is not consistent across users of folly.
-  EXTRA_PKG_CXXFLAGS=" -DFOLLY_CFG_NO_COROUTINES"
-  wget_and_untar https://github.com/facebook/wangle/archive/refs/tags/${FB_OS_VERSION}.tar.gz wangle
-  cmake_install_dir wangle/wangle -DBUILD_TESTS=OFF
-}
-
-function install_mvfst {
-  # Folly Portability.h being used to decide whether or not support coroutines
-  # causes issues (build, link) if the selection is not consistent across users of folly.
-  EXTRA_PKG_CXXFLAGS=" -DFOLLY_CFG_NO_COROUTINES"
-  wget_and_untar https://github.com/facebook/mvfst/archive/refs/tags/${FB_OS_VERSION}.tar.gz mvfst
-  cmake_install_dir mvfst -DBUILD_TESTS=OFF
-}
-
-function install_fbthrift {
-  # Folly Portability.h being used to decide whether or not support coroutines
-  # causes issues (build, link) if the selection is not consistent across users of folly.
-  EXTRA_PKG_CXXFLAGS=" -DFOLLY_CFG_NO_COROUTINES"
-  wget_and_untar https://github.com/facebook/fbthrift/archive/refs/tags/${FB_OS_VERSION}.tar.gz fbthrift
-  cmake_install_dir fbthrift -Denable_tests=OFF -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=OFF
 }
 
 function install_conda {
@@ -246,72 +154,6 @@ function install_conda {
   )
 }
 
-function install_duckdb {
-  if [[ "$BUILD_DUCKDB" == "true" ]]; then
-    echo 'Building DuckDB'
-    wget_and_untar https://github.com/duckdb/duckdb/archive/refs/tags/${DUCKDB_VERSION}.tar.gz duckdb
-    cmake_install_dir duckdb -DBUILD_UNITTESTS=OFF -DENABLE_SANITIZER=OFF -DENABLE_UBSAN=OFF -DBUILD_SHELL=OFF -DEXPORT_DLL_SYMBOLS=OFF -DCMAKE_BUILD_TYPE=Release
-  fi
-}
-
-function install_stemmer {
-  wget_and_untar https://snowballstem.org/dist/libstemmer_c-${STEMMER_VERSION}.tar.gz stemmer
-  (
-    cd ${DEPENDENCY_DIR}/stemmer
-    sed -i '/CPPFLAGS=-Iinclude/ s/$/ -fPIC/' Makefile
-    make clean && make "-j${NPROC}"
-    ${SUDO} cp libstemmer.a ${INSTALL_PREFIX}/lib/
-    ${SUDO} cp include/libstemmer.h ${INSTALL_PREFIX}/include/
-  )
-}
-
-function install_thrift {
-  wget_and_untar https://github.com/apache/thrift/archive/${THRIFT_VERSION}.tar.gz thrift
-
-  EXTRA_CXXFLAGS="-O3 -fPIC"
-  # Clang will generate warnings and they need to be suppressed, otherwise the build will fail.
-  if [[ ${USE_CLANG} != "false" ]]; then
-    EXTRA_CXXFLAGS="-O3 -fPIC -Wno-inconsistent-missing-override -Wno-unused-but-set-variable"
-  fi
-
-  CXX_FLAGS="$EXTRA_CXXFLAGS" cmake_install_dir thrift \
-    -DBUILD_SHARED_LIBS=OFF \
-    -DBUILD_COMPILER=ON \
-    -DBUILD_EXAMPLES=OFF \
-    -DBUILD_TUTORIALS=OFF \
-    -DCMAKE_DEBUG_POSTFIX= \
-    -DWITH_AS3=OFF \
-    -DWITH_CPP=ON \
-    -DWITH_C_GLIB=OFF \
-    -DWITH_JAVA=OFF \
-    -DWITH_JAVASCRIPT=OFF \
-    -DWITH_LIBEVENT=OFF \
-    -DWITH_NODEJS=OFF \
-    -DWITH_PYTHON=OFF \
-    -DWITH_QT5=OFF \
-    -DWITH_ZLIB=OFF
-}
-
-function install_arrow {
-  wget_and_untar https://github.com/apache/arrow/archive/apache-arrow-${ARROW_VERSION}.tar.gz arrow
-  cmake_install_dir arrow/cpp \
-    -DARROW_PARQUET=OFF \
-    -DARROW_WITH_THRIFT=ON \
-    -DARROW_WITH_LZ4=ON \
-    -DARROW_WITH_SNAPPY=ON \
-    -DARROW_WITH_ZLIB=ON \
-    -DARROW_WITH_ZSTD=ON \
-    -DARROW_JEMALLOC=OFF \
-    -DARROW_SIMD_LEVEL=NONE \
-    -DARROW_RUNTIME_SIMD_LEVEL=NONE \
-    -DARROW_WITH_UTF8PROC=OFF \
-    -DARROW_TESTING=ON \
-    -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DARROW_BUILD_STATIC=ON \
-    -DBOOST_ROOT=${INSTALL_PREFIX}
-}
-
 function install_cuda {
   # See https://developer.nvidia.com/cuda-downloads
   if ! dpkg -l cuda-keyring 1>/dev/null; then
@@ -328,11 +170,35 @@ function install_cuda {
     cuda-nvrtc-dev-$dashed
 }
 
-function install_geos {
-  if [[ "$BUILD_GEOS" == "true" ]]; then
-    wget_and_untar https://github.com/libgeos/geos/archive/${GEOS_VERSION}.tar.gz geos
-    cmake_install_dir geos -DBUILD_TESTING=OFF
-  fi
+function install_s3 {
+  install_aws_deps
+
+  local MINIO_OS="linux"
+  install_minio ${MINIO_OS}
+}
+
+function install_gcs {
+  # Dependencies of GCS, probably a workaround until the docker image is rebuilt
+  apt install -y --no-install-recommends libc-ares-dev libcurl4-openssl-dev
+  install_gcs-sdk-cpp
+}
+
+function install_abfs {
+  # Dependencies of Azure Storage Blob cpp
+  apt install -y openssl libxml2-dev
+  install_azure-storage-sdk-cpp
+}
+
+function install_hdfs {
+  apt install -y --no-install-recommends libxml2-dev libgsasl7-dev uuid-dev openjdk-8-jdk
+  install_hdfs_deps
+}
+
+function install_adapters {
+  run_and_time install_s3
+  run_and_time install_gcs
+  run_and_time install_abfs
+  run_and_time install_hdfs
 }
 
 function install_velox_deps {
@@ -351,6 +217,8 @@ function install_velox_deps {
   run_and_time install_stemmer
   run_and_time install_thrift
   run_and_time install_arrow
+  run_and_time install_xsimd
+  run_and_time install_simdjson
   run_and_time install_geos
 }
 

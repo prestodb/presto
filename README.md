@@ -176,11 +176,13 @@ libraries. Once you have checked out Velox, you can setup and build like so:
 
 ```shell
 $ ./scripts/setup-centos9.sh
-$ ./scripts/setup-adapters.sh
+$ ./scripts/setup-centos9.sh install_adapters
 $ make
 ```
 
-Note that `setup-adapters.sh` supports macOS and Ubuntu 20.04 or later.
+Note that the `install_adapters` command is available for the supported MacOS and
+Ubuntu (20.04 or later) scripts. Individual adapters can be installed by specifying
+the individual install command, e.g. `setup-centos9.sh install_aws`.
 
 ### Using Clang on Linux
 

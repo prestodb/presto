@@ -23,6 +23,8 @@ on:
       - "CMake/**"
       - "third_party/**"
       - "scripts/setup-ubuntu.sh"
+      - "scripts/setup-common.sh"
+      - "scripts/setup-versions.sh"
       - "scripts/setup-helper-functions.sh"
       - ".github/workflows/scheduled.yml"
       - "setup.py"
@@ -37,6 +39,8 @@ on:
       - "CMake/**"
       - "third_party/**"
       - "scripts/setup-ubuntu.sh"
+      - "scripts/setup-common.sh"
+      - "scripts/setup-versions.sh"
       - "scripts/setup-helper-functions.sh"
       - ".github/workflows/scheduled.yml"
 
