@@ -22,6 +22,7 @@ ENV SUDO=" "
 # are required to avoid tzdata installation
 # to prompt for region selection.
 ENV TZ=${tz}
+ENV LDFLAGS="-no-pie"
 
 RUN mkdir -p /scripts /velox/scripts
 COPY scripts /scripts
