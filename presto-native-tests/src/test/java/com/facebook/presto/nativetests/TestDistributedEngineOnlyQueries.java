@@ -28,18 +28,21 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Objects;
 
+import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
 import static com.google.common.base.Preconditions.checkState;
 
 public class TestDistributedEngineOnlyQueries
         extends AbstractTestEngineOnlyQueries
 {
-    private static final String timeTypeUnsupportedError = ".*Failed to parse type \\[time.*";
+    private static final String timeTypeUnsupportedError = "^Unknown type time.*";
 
     @Parameters("storageFormat")
     @Override
     protected QueryRunner createQueryRunner() throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(ImmutableMap.of(), System.getProperty("storageFormat"));
+        QueryRunner queryRunner = PrestoNativeQueryRunnerUtils.createNativeQueryRunner(ImmutableMap.of(), System.getProperty("storageFormat"), true);
+        setupNativeSidecarPlugin(queryRunner);
+        return queryRunner;
     }
 
     @Parameters("storageFormat")

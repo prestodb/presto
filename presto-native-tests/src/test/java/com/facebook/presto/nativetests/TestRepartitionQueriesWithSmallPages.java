@@ -20,6 +20,8 @@ import com.facebook.presto.tests.AbstractTestRepartitionQueries;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Parameters;
 
+import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
+
 public class TestRepartitionQueriesWithSmallPages
         extends AbstractTestRepartitionQueries
 {
@@ -27,10 +29,13 @@ public class TestRepartitionQueriesWithSmallPages
     @Override
     protected QueryRunner createQueryRunner() throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(
+        QueryRunner queryRunner = PrestoNativeQueryRunnerUtils.createNativeQueryRunner(
                 // Use small SerializedPages to force flushing
                 ImmutableMap.of("driver.max-page-partitioning-buffer-size", "200B"),
-                System.getProperty("storageFormat"));
+                System.getProperty("storageFormat"),
+                true);
+        setupNativeSidecarPlugin(queryRunner);
+        return queryRunner;
     }
 
     @Parameters("storageFormat")
