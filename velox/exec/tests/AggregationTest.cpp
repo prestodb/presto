@@ -549,6 +549,47 @@ TEST_F(AggregationTest, missingLambdaFunction) {
       readCursor(params), "Aggregate function not registered: missing-lambda");
 }
 
+TEST_F(AggregationTest, resultTypeMismatch) {
+  using Step = core::AggregationNode::Step;
+
+  registerAggregateFunction(
+      "test_aggregate",
+      {AggregateFunctionSignatureBuilder()
+           .returnType("bigint")
+           .intermediateType("bigint")
+           .argumentType("bigint")
+           .build()},
+      [&](Step /*step*/,
+          const std::vector<TypePtr>& /*argTypes*/,
+          const TypePtr& /*resultType*/,
+          const core::QueryConfig& /*config*/)
+          -> std::unique_ptr<exec::Aggregate> { VELOX_UNREACHABLE(); },
+      false /*registerCompanionFunctions*/,
+      true /*overwrite*/);
+
+  for (auto step : {Step::kIntermediate, Step::kPartial}) {
+    VELOX_ASSERT_THROW(
+        Aggregate::create(
+            "test_aggregate",
+            step,
+            std::vector<TypePtr>{BIGINT()},
+            INTEGER(),
+            core::QueryConfig{{}}),
+        "Intermediate type mismatch");
+  }
+
+  for (auto step : {Step::kFinal, Step::kSingle}) {
+    VELOX_ASSERT_THROW(
+        Aggregate::create(
+            "test_aggregate",
+            step,
+            std::vector<TypePtr>{BIGINT()},
+            INTEGER(),
+            core::QueryConfig{{}}),
+        "Final type mismatch");
+  }
+}
+
 TEST_F(AggregationTest, global) {
   auto vectors = makeVectors(rowType_, 10, 100);
   createDuckDbTable(vectors);

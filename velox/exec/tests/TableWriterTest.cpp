@@ -1840,7 +1840,7 @@ TEST_P(AllTableWriterTest, columnStatsDataTypes) {
   auto maxCallExpr = std::make_shared<const core::CallTypedExpr>(
       SMALLINT(), std::vector<core::TypedExprPtr>{intInputField}, "max");
   auto distinctCountCallExpr = std::make_shared<const core::CallTypedExpr>(
-      VARCHAR(),
+      VARBINARY(),
       std::vector<core::TypedExprPtr>{intInputField},
       "approx_distinct");
 

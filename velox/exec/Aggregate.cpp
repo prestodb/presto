@@ -244,6 +244,32 @@ std::vector<CompanionSignatureEntry> getCompanionSignaturesWithSuffix(
   return entries;
 }
 
+// Selects the signature by name and argument types. Returns the resolved result
+// type for the type signature retrieved by the callback. Throws a user
+// exception if the corresponding signature isn't found.
+TypePtr resolveResultType(
+    const std::string& name,
+    const std::vector<TypePtr>& argTypes,
+    const std::function<const TypeSignature&(
+        const AggregateFunctionSignature&)>& getResultType) {
+  auto signatures = exec::getAggregateFunctionSignatures(name);
+  if (!signatures.has_value()) {
+    VELOX_USER_FAIL("Aggregate function not registered: {}", name);
+  }
+  for (auto& signature : signatures.value()) {
+    SignatureBinder binder(*signature, argTypes);
+    if (binder.tryBind()) {
+      return binder.tryResolveType(getResultType(*signature));
+    }
+  }
+
+  std::stringstream error;
+  error << "Aggregate function signature is not supported: "
+        << toString(name, argTypes)
+        << ". Supported signatures: " << toString(signatures.value()) << ".";
+  VELOX_USER_FAIL(error.str());
+}
+
 } // namespace
 
 std::optional<CompanionFunctionSignatureMap> getCompanionFunctionSignatures(
@@ -295,6 +321,22 @@ std::unique_ptr<Aggregate> Aggregate::create(
     const std::vector<TypePtr>& argTypes,
     const TypePtr& resultType,
     const core::QueryConfig& config) {
+  // Validate the result type.
+  if (isPartialOutput(step)) {
+    auto intermediateType = Aggregate::intermediateType(name, argTypes);
+    VELOX_CHECK(
+        resultType->equivalent(*intermediateType),
+        "Intermediate type mismatch. Expected: {}, actual: {}",
+        intermediateType->toString(),
+        resultType->toString());
+  } else {
+    auto finalType = Aggregate::finalType(name, argTypes);
+    VELOX_CHECK(
+        resultType->equivalent(*finalType),
+        "Final type mismatch. Expected: {}, actual: {}",
+        finalType->toString(),
+        resultType->toString());
+  }
   // Lookup the function in the new registry first.
   if (auto func = getAggregateFunctionEntry(name)) {
     return func->factory(step, argTypes, resultType, config);
@@ -307,27 +349,34 @@ std::unique_ptr<Aggregate> Aggregate::create(
 TypePtr Aggregate::intermediateType(
     const std::string& name,
     const std::vector<TypePtr>& argTypes) {
-  auto signatures = getAggregateFunctionSignatures(name);
-  if (!signatures.has_value()) {
-    VELOX_USER_FAIL("Aggregate function not registered: {}", name);
-  }
-  for (auto& signature : signatures.value()) {
-    SignatureBinder binder(*signature, argTypes);
-    if (binder.tryBind()) {
-      auto type = binder.tryResolveType(signature->intermediateType());
-      VELOX_USER_CHECK(
-          type,
-          "Cannot resolve intermediate type for aggregate function {}",
-          toString(name, argTypes));
-      return type;
-    }
-  }
+  auto type = resolveResultType(
+      name,
+      argTypes,
+      [](const AggregateFunctionSignature& signature) -> const TypeSignature& {
+        return signature.intermediateType();
+      });
+  VELOX_USER_CHECK(
+      type,
+      "Cannot resolve intermediate type for aggregate function {}",
+      toString(name, argTypes));
+  return type;
+}
 
-  std::stringstream error;
-  error << "Aggregate function signature is not supported: "
-        << toString(name, argTypes)
-        << ". Supported signatures: " << toString(signatures.value()) << ".";
-  VELOX_USER_FAIL(error.str());
+// static
+TypePtr Aggregate::finalType(
+    const std::string& name,
+    const std::vector<TypePtr>& argTypes) {
+  auto type = resolveResultType(
+      name,
+      argTypes,
+      [](const AggregateFunctionSignature& signature) -> const TypeSignature& {
+        return signature.returnType();
+      });
+  VELOX_USER_CHECK(
+      type,
+      "Cannot resolve final type for aggregate function {}",
+      toString(name, argTypes));
+  return type;
 }
 
 void Aggregate::setLambdaExpressions(

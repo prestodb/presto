@@ -347,6 +347,12 @@ class Aggregate {
       const std::string& name,
       const std::vector<TypePtr>& argTypes);
 
+  // Returns the final type for 'name' with signature
+  // 'argTypes'. Throws if cannot resolve.
+  static TypePtr finalType(
+      const std::string& name,
+      const std::vector<TypePtr>& argTypes);
+
  protected:
   virtual void setAllocatorInternal(HashStringAllocator* allocator);
 
