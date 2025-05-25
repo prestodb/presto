@@ -294,7 +294,7 @@ public final class SerDeUtils
     private static long formatTimestampAsLong(Object object, TimestampObjectInspector inspector, DateTimeZone hiveStorageTimeZone)
     {
         Timestamp timestamp = getTimestamp(object, inspector);
-        long parsedJvmMillis = timestamp.toSqlTimestamp().getTime();
+        long parsedJvmMillis = timestamp.toEpochMilli();
 
         // remove the JVM time zone correction from the timestamp
         long hiveMillis = JVM_TIME_ZONE.convertUTCToLocal(parsedJvmMillis);

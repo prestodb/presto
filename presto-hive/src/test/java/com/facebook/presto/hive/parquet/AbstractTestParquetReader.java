@@ -37,6 +37,7 @@ import com.google.common.collect.DiscreteDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
 import com.google.common.primitives.Shorts;
+import org.apache.hadoop.hive.common.type.Date;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
@@ -54,8 +55,6 @@ import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.sql.Date;
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -2149,7 +2148,7 @@ public abstract class AbstractTestParquetReader
         if (input == null) {
             return null;
         }
-        return Date.valueOf(LocalDate.ofEpochDay(input));
+        return Date.ofEpochDay(input);
     }
 
     private static SqlDate intToSqlDate(Integer input)
