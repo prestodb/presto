@@ -710,6 +710,8 @@ uint64_t SharedArbitrator::shrinkCapacity(
     totalReclaimedCapacity += reclaimUsedMemoryBySpill(targetBytes);
   }
 
+  totalReclaimedCapacity += reclaimUnusedCapacity();
+
   if ((totalReclaimedCapacity < targetBytes) && allowAbort) {
     for (;;) {
       const uint64_t reclaimedCapacity =

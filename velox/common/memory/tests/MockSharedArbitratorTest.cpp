@@ -1018,9 +1018,11 @@ TEST_F(MockSharedArbitrationTest, shrinkPools) {
   };
 
   struct {
+    std::string testName;
     std::vector<TestTask> testTasks;
     uint64_t memoryPoolInitCapacity;
     uint64_t targetBytes;
+    uint64_t expectedReclaimedCapacity;
     uint64_t expectedReclaimedUsedBytes;
     bool allowSpill;
     bool allowAbort;
@@ -1033,16 +1035,19 @@ TEST_F(MockSharedArbitrationTest, shrinkPools) {
         tasksOss << "], \n";
       }
       return fmt::format(
-          "testTasks: \n[{}], \ntargetBytes: {}, expectedReclaimedUsedBytes: {}, "
+          "\ntestName: {}\n testTasks: \n[{}], \ntargetBytes: {}, expectedReclaimedCapacity: {}, expectedReclaimedUsedBytes: {}, "
           "allowSpill: {}, allowAbort: {}",
+          testName,
           tasksOss.str(),
           succinctBytes(targetBytes),
+          succinctBytes(expectedReclaimedCapacity),
           succinctBytes(expectedReclaimedUsedBytes),
           allowSpill,
           allowAbort);
     }
   } testSettings[] = {
-      {{{memoryPoolCapacity,
+      {"test-0",
+       {{memoryPoolCapacity,
          false,
          memoryPoolCapacity,
          memoryPoolCapacity,
@@ -1069,18 +1074,24 @@ TEST_F(MockSharedArbitrationTest, shrinkPools) {
        memoryPoolCapacity,
        0,
        0,
+       0,
        true,
        false},
-      {{{memoryPoolCapacity, true, memoryPoolCapacity, 0, 0, false},
+
+      {"test-1",
+       {{memoryPoolCapacity, true, memoryPoolCapacity, 0, 0, false},
         {memoryPoolCapacity, true, memoryPoolCapacity, 0, 0, false},
         {memoryPoolCapacity, true, memoryPoolCapacity, 0, 0, false},
         {memoryPoolCapacity, true, memoryPoolCapacity, 0, 0, false}},
        memoryPoolCapacity,
        0,
        memoryCapacity,
+       memoryCapacity,
        true,
        false},
-      {{{memoryPoolCapacity, true, memoryPoolCapacity, 0, 0, false},
+
+      {"test-2",
+       {{memoryPoolCapacity, true, memoryPoolCapacity, 0, 0, false},
         {memoryPoolCapacity,
          false,
          memoryPoolCapacity,
@@ -1097,9 +1108,12 @@ TEST_F(MockSharedArbitrationTest, shrinkPools) {
        memoryPoolCapacity,
        0,
        memoryCapacity / 2,
+       memoryCapacity / 2,
        true,
        false},
-      {{{memoryPoolCapacity, true, memoryPoolCapacity / 2, 0, 0, false},
+
+      {"test-3",
+       {{memoryPoolCapacity, true, memoryPoolCapacity / 2, 0, 0, false},
         {memoryPoolCapacity,
          false,
          memoryPoolCapacity,
@@ -1116,65 +1130,80 @@ TEST_F(MockSharedArbitrationTest, shrinkPools) {
        memoryPoolCapacity,
        0,
        memoryCapacity / 2,
+       memoryCapacity / 2,
        true,
        false},
-      {{{memoryPoolCapacity, true, memoryPoolCapacity, 0, 0, false},
+
+      {"test-4",
+       {{memoryPoolCapacity, true, memoryPoolCapacity, 0, 0, false},
         {memoryPoolCapacity, true, memoryPoolCapacity, 0, 0, false},
         {memoryPoolCapacity, true, memoryPoolCapacity / 2, 0, 0, false},
         {memoryPoolCapacity, true, memoryPoolCapacity / 2, 0, 0, false}},
        memoryPoolCapacity,
        memoryCapacity,
        memoryCapacity,
+       memoryCapacity,
        true,
        false},
-      {{{memoryPoolCapacity, true, memoryPoolCapacity, 0, 0, false},
+
+      {"test-5",
+       {{memoryPoolCapacity, true, memoryPoolCapacity, 0, 0, false},
         {memoryPoolCapacity, true, memoryPoolCapacity, 0, 0, false},
         {memoryPoolCapacity,
          true,
          memoryPoolCapacity / 2,
-         memoryPoolCapacity,
+         memoryPoolCapacity / 2,
          memoryPoolCapacity / 2,
          false},
         {memoryPoolCapacity,
          true,
          memoryPoolCapacity / 2,
-         memoryPoolCapacity,
+         memoryPoolCapacity / 2,
          memoryPoolCapacity / 2,
          false}},
        memoryPoolCapacity,
        memoryCapacity / 2,
+       memoryCapacity / 4 * 3,
        memoryCapacity / 2,
        true,
        false},
-      {{{memoryPoolCapacity, true, memoryPoolCapacity, 0, 0, false},
+
+      {"test-6",
+       {{memoryPoolCapacity, true, memoryPoolCapacity, 0, 0, false},
         {memoryPoolCapacity, true, memoryPoolCapacity, 0, 0, false},
         {memoryPoolCapacity,
          true,
          memoryPoolCapacity / 2,
-         memoryPoolCapacity,
+         memoryPoolCapacity / 2,
          memoryPoolCapacity / 2,
          false},
         {memoryPoolCapacity,
          true,
          memoryPoolCapacity / 2,
-         memoryPoolCapacity,
+         memoryPoolCapacity / 2,
          memoryPoolCapacity / 2,
          false}},
        memoryPoolCapacity,
        memoryCapacity / 2,
+       memoryCapacity / 4 * 3,
        memoryCapacity / 2,
        true,
        true},
-      {{{memoryPoolCapacity, true, memoryPoolCapacity, 0, 0, false},
+
+      {"test-7",
+       {{memoryPoolCapacity, true, memoryPoolCapacity, 0, 0, false},
         {memoryPoolCapacity, true, memoryPoolCapacity, 0, 0, false},
         {memoryPoolCapacity, true, memoryPoolCapacity, 0, 0, false},
         {memoryPoolCapacity, true, memoryPoolCapacity, 0, 0, false}},
        memoryPoolCapacity,
        0,
        memoryCapacity,
+       memoryCapacity,
        true,
        true},
-      {{{memoryPoolCapacity,
+
+      {"test-8",
+       {{memoryPoolCapacity,
          false,
          memoryPoolCapacity,
          memoryPoolCapacity,
@@ -1191,9 +1220,12 @@ TEST_F(MockSharedArbitrationTest, shrinkPools) {
        memoryPoolCapacity,
        memoryCapacity / 2,
        memoryCapacity / 2,
+       memoryCapacity / 2,
        true,
        true},
-      {{{memoryPoolCapacity,
+
+      {"test-9",
+       {{memoryPoolCapacity,
          false,
          memoryPoolCapacity,
          memoryPoolCapacity,
@@ -1207,26 +1239,34 @@ TEST_F(MockSharedArbitrationTest, shrinkPools) {
        memoryPoolCapacity,
        memoryCapacity / 2 + memoryPoolCapacity,
        memoryCapacity / 2 + memoryPoolCapacity,
-       true,
-       true},
-      {{{memoryPoolCapacity, true, memoryPoolCapacity, 0, 0, false},
-        {memoryPoolCapacity, true, memoryPoolCapacity, 0, 0, false},
-        {memoryPoolCapacity,
-         false,
-         memoryPoolCapacity / 2,
-         memoryPoolCapacity,
-         memoryPoolCapacity / 2,
-         false},
-        // Global arbitration choose to abort the younger participant with same
-        // capacity bucket.
-        {memoryPoolCapacity, false, memoryPoolCapacity / 2, 0, 0, true}},
-       memoryPoolCapacity,
-       memoryCapacity / 2 + memoryPoolCapacity / 2,
        memoryCapacity / 2 + memoryPoolCapacity,
        true,
        true},
 
-      {{{memoryPoolCapacity,
+      {"test-10",
+       {{memoryPoolCapacity, true, memoryPoolCapacity, 0, 0, false},
+        {memoryPoolCapacity, true, memoryPoolCapacity, 0, 0, false},
+        {memoryPoolCapacity,
+         false,
+         memoryPoolCapacity / 2,
+         memoryPoolCapacity / 2,
+         memoryPoolCapacity / 2,
+         false},
+        {memoryPoolCapacity,
+         false,
+         memoryPoolCapacity / 2,
+         memoryPoolCapacity / 2,
+         memoryPoolCapacity / 2,
+         false}},
+       memoryPoolCapacity,
+       memoryCapacity / 2 + memoryPoolCapacity / 2,
+       memoryCapacity / 2 + memoryPoolCapacity,
+       memoryCapacity / 2,
+       true,
+       true},
+
+      {"test-11",
+       {{memoryPoolCapacity,
          true,
          memoryPoolCapacity,
          memoryPoolCapacity,
@@ -1240,9 +1280,12 @@ TEST_F(MockSharedArbitrationTest, shrinkPools) {
        memoryPoolCapacity,
        memoryCapacity / 2 + memoryPoolCapacity / 2,
        memoryCapacity / 2 + memoryPoolCapacity,
+       memoryCapacity / 2,
        false,
        true},
-      {{{memoryPoolCapacity, true, memoryPoolCapacity, 0, 0, true},
+
+      {"test-12",
+       {{memoryPoolCapacity, true, memoryPoolCapacity, 0, 0, true},
         {memoryPoolCapacity, true, memoryPoolCapacity, 0, 0, true},
         {memoryPoolCapacity, false, memoryPoolCapacity / 2, 0, 0, true},
         // Global arbitration choose to abort the younger participant with same
@@ -1251,6 +1294,7 @@ TEST_F(MockSharedArbitrationTest, shrinkPools) {
        memoryPoolCapacity,
        0,
        memoryCapacity,
+       memoryCapacity - memoryPoolCapacity,
        false,
        true}};
 
@@ -1293,7 +1337,7 @@ TEST_F(MockSharedArbitrationTest, shrinkPools) {
     ASSERT_EQ(
         manager_->shrinkPools(
             testData.targetBytes, testData.allowSpill, testData.allowAbort),
-        testData.expectedReclaimedUsedBytes);
+        testData.expectedReclaimedCapacity);
     ASSERT_EQ(
         arbitrator_->stats().reclaimedUsedBytes,
         testData.expectedReclaimedUsedBytes);
@@ -1320,30 +1364,29 @@ TEST_F(MockSharedArbitrationTest, shrinkPoolsDelayedAbort) {
   setupMemory(memoryCapacity);
 
   // Create first task using half the memory
-  auto task1 = addTask(memoryCapacity / 2);
+  auto task1 = addTask(128 * MB);
   auto* op1 = task1->addMemoryOp(false); // non-reclaimable
   op1->setAbortHook([&](MockMemoryOperator* /*unused*/) { return true; });
-  auto* buf = op1->allocate(memoryCapacity / 2);
+  auto* buf = op1->allocate(128 * MB);
   op1->free(buf);
-  op1->allocate(memoryCapacity / 4);
-  ASSERT_EQ(task1->capacity(), memoryCapacity / 2);
+  op1->allocate(64 * MB);
+  ASSERT_EQ(task1->capacity(), 128 * MB);
 
   // Create second task using the other half of memory
-  auto task2 = addTask(memoryCapacity / 2);
+  auto task2 = addTask(128 * MB);
   auto* op2 = task2->addMemoryOp(false); // non-reclaimable
   op2->setAbortHook([&](MockMemoryOperator* /*unused*/) { return true; });
-  buf = op2->allocate(memoryCapacity / 2);
+  buf = op2->allocate(128 * MB);
   op2->free(buf);
-  op2->allocate(memoryCapacity / 4);
-  ASSERT_EQ(task2->capacity(), memoryCapacity / 2);
+  op2->allocate(64 * MB);
+  ASSERT_EQ(task2->capacity(), 128 * MB);
 
   // Now try to shrink pools to reclaim half the memory
   // This should abort one of the tasks (the younger one)
-  uint64_t reclaimedBytes =
-      manager_->shrinkPools(memoryCapacity / 2, false, true);
+  uint64_t reclaimedBytes = manager_->shrinkPools(192 * MB, false, true);
 
   // Verify the amount reclaimed matches what we expected
-  ASSERT_EQ(reclaimedBytes, memoryCapacity / 2);
+  ASSERT_EQ(reclaimedBytes, 192 * MB);
 
   // Verify that one task was aborted (should be task2 as it's younger)
   ASSERT_FALSE(task1->pool()->aborted());
@@ -1352,7 +1395,8 @@ TEST_F(MockSharedArbitrationTest, shrinkPoolsDelayedAbort) {
 
   // Verify the arbitrator stats
   auto stats = arbitrator_->stats();
-  ASSERT_EQ(stats.reclaimedUsedBytes, memoryCapacity / 4);
+  ASSERT_EQ(stats.reclaimedUsedBytes, 0);
+  ASSERT_EQ(stats.reclaimedFreeBytes, 128 * MB);
   ASSERT_EQ(stats.numAborted, 1);
 }
 
