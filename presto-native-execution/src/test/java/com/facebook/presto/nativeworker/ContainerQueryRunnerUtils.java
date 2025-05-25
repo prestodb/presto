@@ -144,11 +144,12 @@ public class ContainerQueryRunnerUtils
             for (Map.Entry<String, String> entry : nativeWorkerProperties.entrySet()) {
                 properties.setProperty(entry.getKey(), entry.getValue());
             }
-            if (isSidecarEnabled) {
-                properties.setProperty("presto.default-namespace", "native.default"); //pass all three only when sidecar enabled
-                properties.setProperty("coordinator-sidecar-enabled", "true");
-                properties.setProperty("exclude-invalid-worker-session-properties", "true");
-            }
+        }
+
+        if (isSidecarEnabled) {
+            properties.setProperty("presto.default-namespace", "native.default");
+            properties.setProperty("coordinator-sidecar-enabled", "true");
+            properties.setProperty("exclude-invalid-worker-session-properties", "true");
         }
 
         createPropertiesFile("testcontainers/coordinator/etc/config.properties", properties);
