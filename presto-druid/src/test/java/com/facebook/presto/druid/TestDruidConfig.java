@@ -45,15 +45,18 @@ public class TestDruidConfig
                 .setBasicAuthenticationPassword(null)
                 .setIngestionStoragePath(StandardSystemProperty.JAVA_IO_TMPDIR.value())
                 .setCaseInsensitiveNameMatching(false)
-                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES)));
+                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES))
+                .setTlsEnabled(false)
+                .setTrustStorePath(null)
+                .setTrustStorePassword(null));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("druid.broker-url", "http://druid.broker:1234")
-                .put("druid.coordinator-url", "http://druid.coordinator:4321")
+                .put("druid.broker-url", "https://druid.broker:1234")
+                .put("druid.coordinator-url", "https://druid.coordinator:4321")
                 .put("druid.schema-name", "test")
                 .put("druid.compute-pushdown-enabled", "true")
                 .put("druid.hadoop.config.resources", "/etc/core-site.xml,/etc/hdfs-site.xml")
@@ -63,6 +66,9 @@ public class TestDruidConfig
                 .put("druid.ingestion.storage.path", "hdfs://foo/bar/")
                 .put("druid.case-insensitive-name-matching", "true")
                 .put("druid.case-insensitive-name-matching.cache-ttl", "1s")
+                .put("druid.tls.enabled", "true")
+                .put("druid.tls.truststore-path", "/tmp/truststore")
+                .put("druid.tls.truststore-password", "truststore-password")
                 .build();
 
         DruidConfig expected = new DruidConfig()
@@ -76,7 +82,10 @@ public class TestDruidConfig
                 .setBasicAuthenticationPassword("http_basic_password")
                 .setIngestionStoragePath("hdfs://foo/bar/")
                 .setCaseInsensitiveNameMatching(true)
-                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, SECONDS));
+                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, SECONDS))
+                .setTlsEnabled(true)
+                .setTrustStorePath(("/tmp/truststore"))
+                .setTrustStorePassword("truststore-password");
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

@@ -33,17 +33,19 @@ public class DruidAuthenticationModule
     @Override
     protected void setup(Binder binder)
     {
+        DruidConfig druidConfig = buildConfigObject(DruidConfig.class);
+
         bindAuthenticationModule(
                 config -> config.getDruidAuthenticationType() == NONE,
                 noneAuthenticationModule());
 
         bindAuthenticationModule(
                 config -> config.getDruidAuthenticationType() == BASIC,
-                basicAuthenticationModule());
+                basicAuthenticationModule(druidConfig));
 
         bindAuthenticationModule(
                 config -> config.getDruidAuthenticationType() == KERBEROS,
-                kerberosbAuthenticationModule());
+                kerberosbAuthenticationModule(druidConfig));
     }
 
     private void bindAuthenticationModule(Predicate<DruidConfig> predicate, Module module)
@@ -56,19 +58,31 @@ public class DruidAuthenticationModule
         return binder -> httpClientBinder(binder).bindHttpClient("druid-client", ForDruidClient.class);
     }
 
-    private static Module basicAuthenticationModule()
+    private static Module basicAuthenticationModule(DruidConfig druidConfig)
     {
         return binder -> httpClientBinder(binder).bindHttpClient("druid-client", ForDruidClient.class)
                 .withConfigDefaults(
-                        config -> config.setAuthenticationEnabled(false) //disable Kerberos auth
+                        config -> {
+                            config.setAuthenticationEnabled(false); //disable Kerberos auth
+                            if (druidConfig.isTlsEnabled()) {
+                                config.setTrustStorePath(druidConfig.getTrustStorePath());
+                                config.setTrustStorePassword(druidConfig.getTrustStorePassword());
+                            }
+                        }
                 ).withFilter(
                         DruidBasicAuthHttpRequestFilter.class);
     }
 
-    private static Module kerberosbAuthenticationModule()
+    private static Module kerberosbAuthenticationModule(DruidConfig druidConfig)
     {
         return binder -> httpClientBinder(binder).bindHttpClient("druid-client", ForDruidClient.class)
                 .withConfigDefaults(
-                        config -> config.setAuthenticationEnabled(true));
+                        config -> {
+                            config.setAuthenticationEnabled(true);
+                            if (druidConfig.isTlsEnabled()) {
+                                config.setTrustStorePath(druidConfig.getTrustStorePath());
+                                config.setTrustStorePassword(druidConfig.getTrustStorePassword());
+                            }
+                        });
     }
 }
