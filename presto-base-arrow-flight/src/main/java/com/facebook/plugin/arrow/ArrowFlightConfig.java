@@ -20,6 +20,8 @@ public class ArrowFlightConfig
     private String server;
     private boolean verifyServer = true;
     private String flightServerSSLCertificate;
+    private String flightClientSSLCertificate;
+    private String flightClientSSLKey;
     private boolean arrowFlightServerSslEnabled;
     private Integer arrowFlightPort;
 
@@ -80,6 +82,30 @@ public class ArrowFlightConfig
     public ArrowFlightConfig setArrowFlightServerSslEnabled(boolean arrowFlightServerSslEnabled)
     {
         this.arrowFlightServerSslEnabled = arrowFlightServerSslEnabled;
+        return this;
+    }
+
+    public String getFlightClientSSLCertificate()
+    {
+        return flightClientSSLCertificate;
+    }
+
+    @Config("arrow-flight.client-ssl-certificate")
+    public ArrowFlightConfig setFlightClientSSLCertificate(String flightClientSSLCertificate)
+    {
+        this.flightClientSSLCertificate = flightClientSSLCertificate;
+        return this;
+    }
+
+    public String getFlightClientSSLKey()
+    {
+        return flightClientSSLKey;
+    }
+
+    @Config("arrow-flight.client-ssl-key")
+    public ArrowFlightConfig setFlightClientSSLKey(String flightClientSSLKey)
+    {
+        this.flightClientSSLKey = flightClientSSLKey;
         return this;
     }
 }

@@ -64,10 +64,15 @@ public class ArrowFlightQueryRunner
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher)
             throws Exception
     {
-        return createQueryRunner(extraProperties, ImmutableMap.of("arrow-flight.server.port", String.valueOf(flightServerPort)), coordinatorProperties, externalWorkerLauncher);
+        ImmutableMap.Builder<String, String> catalogProperties = ImmutableMap.<String, String>builder()
+                .put("arrow-flight.server.port", String.valueOf(flightServerPort))
+                .put("arrow-flight.server", "localhost")
+                .put("arrow-flight.server-ssl-enabled", "true")
+                .put("arrow-flight.server-ssl-certificate", "src/test/resources/server.crt");
+        return createQueryRunner(extraProperties, catalogProperties.build(), coordinatorProperties, externalWorkerLauncher);
     }
 
-    private static DistributedQueryRunner createQueryRunner(
+    public static DistributedQueryRunner createQueryRunner(
             Map<String, String> extraProperties,
             Map<String, String> catalogProperties,
             Map<String, String> coordinatorProperties,
@@ -92,13 +97,7 @@ public class ArrowFlightQueryRunner
             boolean nativeExecution = externalWorkerLauncher.isPresent();
             queryRunner.installPlugin(new TestingArrowFlightPlugin(nativeExecution));
 
-            ImmutableMap.Builder<String, String> properties = ImmutableMap.<String, String>builder()
-                    .putAll(catalogProperties)
-                    .put("arrow-flight.server", "localhost")
-                    .put("arrow-flight.server-ssl-enabled", "true")
-                    .put("arrow-flight.server-ssl-certificate", "src/test/resources/server.crt");
-
-            queryRunner.createCatalog(ARROW_FLIGHT_CATALOG, ARROW_FLIGHT_CONNECTOR, properties.build());
+            queryRunner.createCatalog(ARROW_FLIGHT_CATALOG, ARROW_FLIGHT_CONNECTOR, catalogProperties);
 
             return queryRunner;
         }
@@ -140,8 +139,8 @@ public class ArrowFlightQueryRunner
         log.info("Server listening on port " + server.getPort());
 
         DistributedQueryRunner queryRunner = createQueryRunner(
+                9443,
                 ImmutableMap.of("http-server.http.port", "8080"),
-                ImmutableMap.of("arrow-flight.server.port", String.valueOf(9443)),
                 ImmutableMap.of(),
                 Optional.empty());
         Thread.sleep(10);
