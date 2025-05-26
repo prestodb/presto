@@ -20,6 +20,11 @@ public class TestPrestoContainerNativeClusterSidecarInfrastructure
 
     @Test
     public void Test1(){
+//        assertQuery("SHOW FUNCTIONS");
+//        assertQuery("SHOW SESSION");
+//        assertQuery("SELECT 1");
+        assertQuery("SELECT array_sort(ARRAY [5, 20, null, 5, 3, 50])","SELECT ARRAY [3, 5, 5, 20, 50, null]");
+
         assertQuery("SELECT array_sort(ARRAY [5, 20, null, 5, 3, 50])");
     }
 
