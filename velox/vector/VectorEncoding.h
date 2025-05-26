@@ -21,14 +21,11 @@
 
 namespace facebook::velox {
 
-/**
- * Contains the types of vector encodings available for various classes of
- * vectors.
- */
+/// Contains the types of vector encodings available for various classes of
+/// vectors.
 namespace VectorEncoding {
-/**
- * Provides an enumeration of vector encoding types.
- */
+
+/// Provides an enumeration of vector encoding types.
 enum class Simple {
   BIASED,
   CONSTANT,
@@ -37,6 +34,7 @@ enum class Simple {
   SEQUENCE,
   ROW,
   MAP,
+  FLAT_MAP,
   ARRAY,
   LAZY,
   FUNCTION
@@ -60,6 +58,8 @@ inline std::ostream& operator<<(
       return out << "ROW";
     case VectorEncoding::Simple::MAP:
       return out << "MAP";
+    case VectorEncoding::Simple::FLAT_MAP:
+      return out << "FLAT_MAP";
     case VectorEncoding::Simple::ARRAY:
       return out << "ARRAY";
     case VectorEncoding::Simple::LAZY:
@@ -93,5 +93,6 @@ inline bool isDictionary(VectorEncoding::Simple encoding) {
 }
 
 VectorEncoding::Simple mapNameToSimple(const std::string& name);
+
 } // namespace VectorEncoding
 } // namespace facebook::velox

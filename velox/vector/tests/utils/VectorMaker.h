@@ -19,6 +19,7 @@
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/ConstantVector.h"
 #include "velox/vector/DictionaryVector.h"
+#include "velox/vector/FlatMapVector.h"
 #include "velox/vector/FlatVector.h"
 #include "velox/vector/SequenceVector.h"
 #include "velox/vector/SimpleVector.h"
@@ -797,61 +798,127 @@ class VectorMaker {
   ///  {} - empty map
   ///  null - null map
   ///
-  /// @tparam K Type of map keys. Must be a std::string or an integer: int8_t,
-  /// int16_t, int32_t, int64_t.
-  /// @tparam V Type of map value. Can be an integer or a floating point
+  /// @tparam TKey Type of map keys. Must be a std::string or an integer:
+  /// int8_t, int16_t, int32_t, int64_t.
+  /// @tparam TValue Type of map value. Can be an integer or a floating point
   /// number.
   /// @param jsonMaps A list of JSON maps. JSON map cannot be an empty
   /// string.
-  template <typename K, typename V>
+  template <typename TKey, typename TValue>
   MapVectorPtr mapVectorFromJson(
       const std::vector<std::string>& jsonMaps,
       const TypePtr& mapType =
-          MAP(CppToType<K>::create(), CppToType<V>::create())) {
-    static_assert(
-        std::is_same_v<K, int8_t> || std::is_same_v<K, int16_t> ||
-        std::is_same_v<K, int32_t> || std::is_same_v<K, int64_t> ||
-        std::is_same_v<K, float> || std::is_same_v<K, double> ||
-        std::is_same_v<K, std::string>);
-
-    std::vector<std::optional<std::vector<std::pair<K, std::optional<V>>>>>
-        maps;
-    for (const auto& jsonMap : jsonMaps) {
-      VELOX_CHECK(!jsonMap.empty());
-
-      folly::json::serialization_opts options;
-      options.convert_int_keys = true;
-      options.allow_non_string_keys = true;
-      options.allow_nan_inf = true;
-      folly::dynamic mapObject = folly::parseJson(jsonMap, options);
-      if (mapObject.isNull()) {
-        // Null map.
-        maps.push_back(std::nullopt);
-        continue;
-      }
-
-      std::vector<std::pair<K, std::optional<V>>> pairs;
-      for (const auto& item : mapObject.items()) {
-        auto key = detail::jsonValue<K>(item.first);
-
-        if (item.second.isNull()) {
-          // Null value.
-          pairs.push_back({key, std::nullopt});
-        } else {
-          pairs.push_back({key, detail::jsonValue<V>(item.second)});
-        }
-      }
-
-      maps.push_back(pairs);
-    }
-
-    return mapVector<K, V>(maps, mapType);
+          MAP(CppToType<TKey>::create(), CppToType<TValue>::create())) {
+    return mapVector<TKey, TValue>(
+        jsonMapToVectorOfPairs<TKey, TValue>(jsonMaps), mapType);
   }
 
   MapVectorPtr allNullMapVector(
       vector_size_t size,
       const TypePtr& keyType,
       const TypePtr& valueType);
+
+  /// Creates a FlatMapVector from a list of key value pairs.
+  template <typename TKey, typename TValue>
+  FlatMapVectorPtr flatMapVector(
+      const std::vector<std::vector<std::pair<TKey, std::optional<TValue>>>>&
+          maps,
+      const TypePtr& mapType =
+          MAP(CppToType<TKey>::create(), CppToType<TValue>::create())) {
+    std::vector<
+        std::optional<std::vector<std::pair<TKey, std::optional<TValue>>>>>
+        nullableMaps;
+    nullableMaps.reserve(maps.size());
+
+    for (const auto& m : maps) {
+      nullableMaps.push_back(m);
+    }
+    return flatMapVectorNullable<TKey, TValue>(nullableMaps, mapType, false);
+  }
+
+  /// Creates a FlatMapVector from a list of key value pairs where the list of
+  /// key values pairs (the maps) are nullable. This is the case when the entire
+  /// map for a particular row is null. Alternatively, individual values for
+  /// keys can also be nulls, but not keys (map keys are non-nullable by
+  /// design).
+  template <typename TKey, typename TValue>
+  FlatMapVectorPtr flatMapVectorNullable(
+      const std::vector<std::optional<
+          std::vector<std::pair<TKey, std::optional<TValue>>>>>& maps,
+      const TypePtr& mapType =
+          MAP(CppToType<TKey>::create(), CppToType<TValue>::create()),
+      bool hasNulls = true) {
+    std::unordered_map<TKey, vector_size_t> keysMap;
+    vector_size_t keyChannel = 0;
+    vector_size_t index = 0;
+
+    std::vector<TKey> flatKeys;
+    std::vector<std::vector<std::optional<TValue>>> flatValues;
+    std::vector<BufferPtr> inMaps;
+
+    std::vector<std::optional<TValue>>* curValues;
+    uint64_t* curInMaps;
+
+    BufferPtr nulls = allocateNulls(maps.size(), pool_);
+    auto rawNulls = nulls->asMutable<uint64_t>();
+
+    for (const auto& map : maps) {
+      if (map.has_value()) {
+        for (const auto& [key, value] : map.value()) {
+          auto it = keysMap.find(key);
+
+          // First time we see this key.
+          if (it == keysMap.end()) {
+            keysMap.insert({key, keyChannel++});
+            flatKeys.push_back(key);
+            flatValues.push_back({});
+
+            // We allocate a new inMaps buffer, setting "not in map" by default.
+            // Then set the current key to in map.
+            inMaps.push_back(
+                AlignedBuffer::allocate<bool>(maps.size(), pool_, 0));
+            curInMaps = inMaps.back()->asMutable<uint64_t>();
+
+            curValues = &flatValues.back();
+            curValues->resize(maps.size());
+          } else {
+            curValues = &flatValues[it->second];
+            curInMaps = inMaps[it->second]->template asMutable<uint64_t>();
+          }
+          (*curValues)[index] = value;
+          bits::setBit(curInMaps, index);
+        }
+      } else {
+        bits::setNull(rawNulls, index, true);
+      }
+      ++index;
+    }
+
+    // Build the vectors containing map value for each distinct key.
+    std::vector<VectorPtr> mapValues;
+    mapValues.reserve(flatValues.size());
+
+    for (const auto& values : flatValues) {
+      mapValues.push_back(flatVectorNullable(values));
+    }
+    return std::make_shared<FlatMapVector>(
+        pool_,
+        mapType,
+        hasNulls ? nulls : nullptr,
+        maps.size(),
+        flatKeys.empty() ? nullptr : flatVector(flatKeys),
+        std::move(mapValues),
+        std::move(inMaps));
+  }
+
+  template <typename TKey, typename TValue>
+  FlatMapVectorPtr flatMapVectorFromJson(
+      const std::vector<std::string>& jsonMaps,
+      const TypePtr& mapType =
+          MAP(CppToType<TKey>::create(), CppToType<TValue>::create())) {
+    return flatMapVectorNullable<TKey, TValue>(
+        jsonMapToVectorOfPairs<TKey, TValue>(jsonMaps), mapType);
+  }
 
   /// Create a FlatVector from a variant containing a scalar value.
   template <TypeKind kind>
@@ -937,6 +1004,53 @@ class VectorMaker {
         elements.push_back(detail::jsonValue<T>(element));
       }
     }
+  }
+
+  // Helper function to convert a string json into a std::vector of pairs to
+  // contruct map vectors.
+  template <typename TKey, typename TValue>
+  auto jsonMapToVectorOfPairs(const std::vector<std::string>& jsonMaps) {
+    static_assert(
+        std::is_same_v<TKey, int8_t> || std::is_same_v<TKey, int16_t> ||
+        std::is_same_v<TKey, int32_t> || std::is_same_v<TKey, int64_t> ||
+        std::is_same_v<TKey, float> || std::is_same_v<TKey, double> ||
+        std::is_same_v<TKey, std::string>);
+
+    std::vector<
+        std::optional<std::vector<std::pair<TKey, std::optional<TValue>>>>>
+        maps;
+
+    for (const auto& jsonMap : jsonMaps) {
+      VELOX_CHECK(!jsonMap.empty());
+
+      folly::json::serialization_opts options;
+      options.convert_int_keys = true;
+      options.allow_non_string_keys = true;
+      options.allow_nan_inf = true;
+      folly::dynamic mapObject = folly::parseJson(jsonMap, options);
+
+      if (mapObject.isNull()) {
+        // Null map.
+        maps.push_back(std::nullopt);
+        continue;
+      }
+
+      std::vector<std::pair<TKey, std::optional<TValue>>> pairs;
+      pairs.reserve(mapObject.size());
+
+      for (const auto& item : mapObject.items()) {
+        auto key = detail::jsonValue<TKey>(item.first);
+
+        if (item.second.isNull()) {
+          // Null value.
+          pairs.push_back({key, std::nullopt});
+        } else {
+          pairs.push_back({key, detail::jsonValue<TValue>(item.second)});
+        }
+      }
+      maps.push_back(pairs);
+    }
+    return maps;
   }
 
   memory::MemoryPool* pool_;

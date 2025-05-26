@@ -597,12 +597,31 @@ class VectorTestBase {
   /// @tparam V Type of map value. Can be an integer or a floating point number.
   /// @param jsonMaps A list of JSON maps. JSON map cannot be an empty
   /// string.
-  template <typename K, typename V>
+  template <typename TKey, typename TValue>
   MapVectorPtr makeMapVectorFromJson(
       const std::vector<std::string>& jsonMaps,
       const TypePtr& mapType =
-          MAP(CppToType<K>::create(), CppToType<V>::create())) {
-    return vectorMaker_.mapVectorFromJson<K, V>(jsonMaps, mapType);
+          MAP(CppToType<TKey>::create(), CppToType<TValue>::create())) {
+    return vectorMaker_.mapVectorFromJson<TKey, TValue>(jsonMaps, mapType);
+  }
+
+  /// Same as above but constructs a FlatMapVector instead of a MapVector.
+  template <typename TKey, typename TValue>
+  FlatMapVectorPtr makeFlatMapVector(
+      const std::vector<std::vector<std::pair<TKey, std::optional<TValue>>>>&
+          maps,
+      const TypePtr& mapType =
+          MAP(CppToType<TKey>::create(), CppToType<TValue>::create())) {
+    return vectorMaker_.flatMapVector(maps, mapType);
+  }
+
+  /// Same as above but constructs a FlatMapVector instead of a MapVector.
+  template <typename TKey, typename TValue>
+  FlatMapVectorPtr makeFlatMapVectorFromJson(
+      const std::vector<std::string>& jsonMaps,
+      const TypePtr& mapType =
+          MAP(CppToType<TKey>::create(), CppToType<TValue>::create())) {
+    return vectorMaker_.flatMapVectorFromJson<TKey, TValue>(jsonMaps, mapType);
   }
 
   // Convenience function to create vector from vectors of keys and values.

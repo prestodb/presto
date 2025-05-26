@@ -18,6 +18,7 @@ velox_add_library(
   ConstantVector.cpp
   DecodedVector.cpp
   EncodedVectorCopy.cpp
+  FlatMapVector.cpp
   FlatVector.cpp
   LazyVector.cpp
   SelectivityVector.cpp

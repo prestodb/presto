@@ -17,6 +17,7 @@
 #include "velox/vector/FlatVector.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/ConstantVector.h"
+#include "velox/vector/FlatMapVector.h"
 #include "velox/vector/TypeAliases.h"
 
 namespace facebook::velox {
@@ -189,6 +190,15 @@ void FlatVector<StringView>::acquireSharedStringBuffersRecursive(
           source->asUnchecked<MapVector>()->mapKeys().get());
       acquireSharedStringBuffersRecursive(
           source->asUnchecked<MapVector>()->mapValues().get());
+      return;
+    }
+
+    case VectorEncoding::Simple::FLAT_MAP: {
+      acquireSharedStringBuffersRecursive(
+          source->asUnchecked<FlatMapVector>()->distinctKeys().get());
+      for (auto& mapValue : source->asUnchecked<FlatMapVector>()->mapValues()) {
+        acquireSharedStringBuffersRecursive(mapValue.get());
+      }
       return;
     }
 

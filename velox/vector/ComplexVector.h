@@ -178,7 +178,7 @@ class RowVector : public BaseVector {
         type_,
         AlignedBuffer::copy(selfPool, nulls_),
         length_,
-        copiedChildren,
+        std::move(copiedChildren),
         nullCount_);
   }
 

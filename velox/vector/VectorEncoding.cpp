@@ -32,6 +32,7 @@ Simple mapNameToSimple(const std::string& name) {
       {"SEQUENCE", Simple::SEQUENCE},
       {"ROW", Simple::ROW},
       {"MAP", Simple::MAP},
+      {"FLAT_MAP", Simple::FLAT_MAP},
       {"ARRAY", Simple::ARRAY}};
 
   if (vecNameMap.find(name) == vecNameMap.end()) {

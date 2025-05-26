@@ -433,7 +433,12 @@ TEST_F(VectorCompareTest, compareNullAsIndeterminateNullMap) {
                   const std::string& map2,
                   CompareFlags flags,
                   std::optional<int32_t> expected) {
-    auto vector = makeMapVectorFromJson<int64_t, int64_t>({map1, map2});
+    // First test regular map.
+    VectorPtr vector = makeMapVectorFromJson<int64_t, int64_t>({map1, map2});
+    testCompare(vector, 0, 1, flags, expected);
+
+    // Then test a flat map.
+    vector = makeFlatMapVectorFromJson<int64_t, int64_t>({map1, map2});
     testCompare(vector, 0, 1, flags, expected);
   };
 
