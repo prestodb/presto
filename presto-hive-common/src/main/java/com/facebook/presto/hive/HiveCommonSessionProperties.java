@@ -57,6 +57,7 @@ public class HiveCommonSessionProperties
     private static final String ORC_STREAM_BUFFER_SIZE = "orc_stream_buffer_size";
     private static final String ORC_TINY_STRIPE_THRESHOLD = "orc_tiny_stripe_threshold";
     private static final String ORC_ZSTD_JNI_DECOMPRESSION_ENABLED = "orc_zstd_jni_decompression_enabled";
+    private static final String ORC_USE_COLUMN_NAMES = "orc_use_column_names";
     private static final String PARQUET_BATCH_READER_VERIFICATION_ENABLED = "parquet_batch_reader_verification_enabled";
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
     private static final String PARQUET_USE_COLUMN_NAMES = "parquet_use_column_names";
@@ -154,6 +155,11 @@ public class HiveCommonSessionProperties
                         "use JNI based zstd decompression for reading ORC files",
                         hiveCommonClientConfig.isZstdJniDecompressionEnabled(),
                         true),
+                booleanProperty(
+                        ORC_USE_COLUMN_NAMES,
+                        "Access ORC columns using names from the file first, and fallback to Hive schema column names if not found to ensure backward compatibility with old data",
+                        hiveCommonClientConfig.isUseOrcColumnNames(),
+                        false),
                 booleanProperty(
                         PARQUET_BATCH_READ_OPTIMIZATION_ENABLED,
                         "Is Parquet batch read optimization enabled",
@@ -261,6 +267,11 @@ public class HiveCommonSessionProperties
     public static boolean isOrcZstdJniDecompressionEnabled(ConnectorSession session)
     {
         return session.getProperty(ORC_ZSTD_JNI_DECOMPRESSION_ENABLED, Boolean.class);
+    }
+
+    public static boolean isUseOrcColumnNames(ConnectorSession session)
+    {
+        return session.getProperty(ORC_USE_COLUMN_NAMES, Boolean.class);
     }
 
     public static boolean isParquetBatchReadsEnabled(ConnectorSession session)
