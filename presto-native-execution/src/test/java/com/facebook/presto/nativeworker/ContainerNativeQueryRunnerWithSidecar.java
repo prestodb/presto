@@ -120,22 +120,23 @@ public class ContainerNativeQueryRunnerWithSidecar
         }
 
         // Delete the temporary files once the containers are started.
-        ContainerQueryRunnerUtils.deleteDirectory(BASE_DIR + "/testcontainers/coordinator");
+        ContainerNativeQueryRunnerWithSidecarUtils.deleteDirectory(BASE_DIR + "/testcontainers/coordinator");
         for (int i = 0; i < numberOfWorkers; i++) {
-            ContainerQueryRunnerUtils.deleteDirectory(BASE_DIR + "/testcontainers/native-worker-" + i);
+            ContainerNativeQueryRunnerWithSidecarUtils.deleteDirectory(BASE_DIR + "/testcontainers/native-worker-" + i);
         }
+        ContainerNativeQueryRunnerWithSidecarUtils.deleteDirectory(BASE_DIR + "/testcontainers/sidecar");
     }
 
     private GenericContainer<?> createCoordinator()
             throws IOException
     {
-        ContainerQueryRunnerUtils.createCoordinatorTpchProperties();
-        ContainerQueryRunnerUtils.createCoordinatorTpcdsProperties();
-        ContainerQueryRunnerUtils.createCoordinatorConfigProperties(coordinatorPort);
-        ContainerQueryRunnerUtils.createCoordinatorJvmConfig();
-        ContainerQueryRunnerUtils.createCoordinatorLogProperties();
-        ContainerQueryRunnerUtils.createCoordinatorNodeProperties();
-        ContainerQueryRunnerUtils.createCoordinatorEntryPointScript();
+        ContainerNativeQueryRunnerWithSidecarUtils.createCoordinatorTpchProperties();
+        ContainerNativeQueryRunnerWithSidecarUtils.createCoordinatorTpcdsProperties();
+        ContainerNativeQueryRunnerWithSidecarUtils.createCoordinatorConfigProperties(coordinatorPort);
+        ContainerNativeQueryRunnerWithSidecarUtils.createCoordinatorJvmConfig();
+        ContainerNativeQueryRunnerWithSidecarUtils.createCoordinatorLogProperties();
+        ContainerNativeQueryRunnerWithSidecarUtils.createCoordinatorNodeProperties();
+        ContainerNativeQueryRunnerWithSidecarUtils.createCoordinatorEntryPointScript();
 
         return new GenericContainer<>(PRESTO_COORDINATOR_IMAGE)
                 .withExposedPorts(coordinatorPort)
@@ -150,10 +151,10 @@ public class ContainerNativeQueryRunnerWithSidecar
     private GenericContainer<?> createSidecar(int port, String nodeId)
             throws IOException
     {
-        ContainerQueryRunnerUtils.createSidecarConfigProperties(coordinatorPort, nodeId);
-        ContainerQueryRunnerUtils.createNativeWorkerEntryPointScript(nodeId);
-        ContainerQueryRunnerUtils.createNativeWorkerNodeProperties(nodeId);
-        ContainerQueryRunnerUtils.createNativeWorkerVeloxProperties(nodeId);
+        ContainerNativeQueryRunnerWithSidecarUtils.createSidecarConfigProperties(coordinatorPort, nodeId);
+        ContainerNativeQueryRunnerWithSidecarUtils.createNativeWorkerEntryPointScript(nodeId);
+        ContainerNativeQueryRunnerWithSidecarUtils.createNativeWorkerNodeProperties(nodeId);
+        ContainerNativeQueryRunnerWithSidecarUtils.createNativeWorkerVeloxProperties(nodeId);
         return new GenericContainer<>(PRESTO_WORKER_IMAGE)
                 .withExposedPorts(port)
                 .withNetwork(network)
@@ -166,11 +167,11 @@ public class ContainerNativeQueryRunnerWithSidecar
     private GenericContainer<?> createNativeWorker(int port, String nodeId)
             throws IOException
     {
-        ContainerQueryRunnerUtils.createNativeWorkerConfigProperties(coordinatorPort, nodeId);
-        ContainerQueryRunnerUtils.createNativeWorkerTpchProperties(nodeId);
-        ContainerQueryRunnerUtils.createNativeWorkerEntryPointScript(nodeId);
-        ContainerQueryRunnerUtils.createNativeWorkerNodeProperties(nodeId);
-        ContainerQueryRunnerUtils.createNativeWorkerVeloxProperties(nodeId);
+        ContainerNativeQueryRunnerWithSidecarUtils.createNativeWorkerConfigProperties(coordinatorPort, nodeId);
+        ContainerNativeQueryRunnerWithSidecarUtils.createNativeWorkerTpchProperties(nodeId);
+        ContainerNativeQueryRunnerWithSidecarUtils.createNativeWorkerEntryPointScript(nodeId);
+        ContainerNativeQueryRunnerWithSidecarUtils.createNativeWorkerNodeProperties(nodeId);
+        ContainerNativeQueryRunnerWithSidecarUtils.createNativeWorkerVeloxProperties(nodeId);
         return new GenericContainer<>(PRESTO_WORKER_IMAGE)
                 .withExposedPorts(port)
                 .withNetwork(network)
@@ -328,7 +329,7 @@ public class ContainerNativeQueryRunnerWithSidecar
         try {
             Statement statement = connection.createStatement();
             ResultSet resultSet = statement.executeQuery(sql);
-            return ContainerQueryRunnerUtils.toMaterializedResult(resultSet);
+            return ContainerNativeQueryRunnerWithSidecarUtils.toMaterializedResult(resultSet);
         }
         catch (SQLException e) {
             throw new RuntimeException("Error executing query: " + sql + " \n " + e.getMessage());
