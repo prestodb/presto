@@ -9,7 +9,6 @@
             <include>README.txt</include>
         </directory>
     </fileSet>
-
     <!-- Launcher -->
     <artifactSet to="bin">
         <artifact id="com.facebook.airlift:launcher:tar.gz:bin:${dep.packaging.version}">
@@ -271,6 +270,12 @@
 
     <artifactSet to="plugin/clickhouse">
         <artifact id="${project.groupId}:presto-clickhouse:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/native-sidecar-plugin">
+        <artifact id="${project.groupId}:presto-native-sidecar-plugin:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>
