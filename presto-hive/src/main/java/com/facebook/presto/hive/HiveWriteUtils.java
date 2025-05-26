@@ -98,7 +98,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.TimeZone;
 
 import static com.facebook.presto.common.type.Chars.isCharType;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_DATABASE_LOCATION_ERROR;
@@ -878,7 +877,7 @@ public final class HiveWriteUtils
         public void setField(Block block, int position)
         {
             long millisUtc = TimestampType.TIMESTAMP.getLong(block, position);
-            value.set(Timestamp.ofEpochMilli(millisUtc, TimeZone.getDefault().toZoneId()));
+            value.set(Timestamp.ofEpochMilli(millisUtc));
             rowInspector.setStructFieldData(row, field, value);
         }
     }
