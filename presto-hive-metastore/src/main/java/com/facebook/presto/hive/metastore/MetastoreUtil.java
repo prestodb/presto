@@ -97,7 +97,6 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Properties;
 import java.util.Set;
-import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -682,7 +681,7 @@ public class MetastoreUtil
         }
         if (TimestampType.TIMESTAMP.equals(type)) {
             long millisUtc = type.getLong(block, position);
-            return Timestamp.ofEpochMilli(millisUtc, TimeZone.getDefault().toZoneId());
+            return Timestamp.ofEpochMilli(millisUtc);
         }
         if (type instanceof DecimalType) {
             DecimalType decimalType = (DecimalType) type;

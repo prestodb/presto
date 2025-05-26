@@ -58,6 +58,7 @@ import org.apache.parquet.internal.filter2.columnindex.RowRanges;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.io.PrimitiveColumnIO;
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
+import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.Closeable;
@@ -118,6 +119,7 @@ public class ParquetReader
     private final List<RowRanges> blockRowRanges;
     private final Map<ColumnPath, ColumnDescriptor> paths = new HashMap<>();
     private final boolean columnIndexFilterEnabled;
+    private final DateTimeZone timezone;
     private BlockMetaData currentBlockMetadata;
     /**
      * Index in the Parquet file of the first row of the current group
@@ -146,7 +148,8 @@ public class ParquetReader
             Predicate parquetPredicate,
             List<ColumnIndexStore> blockIndexStores,
             boolean columnIndexFilterEnabled,
-            Optional<InternalFileDecryptor> fileDecryptor)
+            Optional<InternalFileDecryptor> fileDecryptor,
+            DateTimeZone timezone)
     {
         this.blocks = blocks;
         this.firstRowsOfBlocks = requireNonNull(firstRowsOfBlocks, "firstRowsOfBlocks is null");
@@ -164,6 +167,7 @@ public class ParquetReader
         maxBytesPerCell = new long[columns.size()];
         this.blockIndexStores = blockIndexStores;
         this.blockRowRanges = listWithNulls(this.blocks.size());
+        this.timezone = requireNonNull(timezone, "timezone is null");
 
         firstRowsOfBlocks.ifPresent(firstRows -> {
             checkArgument(blocks.size() == firstRows.size(), "elements of firstRowsOfBlocks must correspond to blocks");
@@ -522,10 +526,10 @@ public class ParquetReader
     {
         for (PrimitiveColumnIO columnIO : columns) {
             RichColumnDescriptor column = new RichColumnDescriptor(columnIO.getColumnDescriptor(), columnIO.getType().asPrimitiveType());
-            columnReaders[columnIO.getId()] = ColumnReaderFactory.createReader(column, batchReadEnabled);
+            columnReaders[columnIO.getId()] = ColumnReaderFactory.createReader(column, batchReadEnabled, timezone);
 
             if (enableVerification) {
-                verificationColumnReaders[columnIO.getId()] = ColumnReaderFactory.createReader(column, false);
+                verificationColumnReaders[columnIO.getId()] = ColumnReaderFactory.createReader(column, false, timezone);
             }
         }
     }

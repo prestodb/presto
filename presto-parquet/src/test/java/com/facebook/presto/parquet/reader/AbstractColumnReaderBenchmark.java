@@ -22,6 +22,7 @@ import com.facebook.presto.parquet.PrimitiveField;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.apache.parquet.column.values.ValuesWriter;
+import org.joda.time.DateTimeZone;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
@@ -126,12 +127,12 @@ public abstract class AbstractColumnReaderBenchmark<T>
     public int read()
             throws IOException
     {
-        ColumnReader columnReader = ColumnReaderFactory.createReader(field.getDescriptor(), getBatchReaderEnabled());
+        ColumnReader columnReader = ColumnReaderFactory.createReader(field.getDescriptor(), getBatchReaderEnabled(), DateTimeZone.forID("America/Bahia_Banderas"));
         columnReader.init(new PageReader(UNCOMPRESSED, new LinkedList<>(dataPages).listIterator(), MAX_VALUES, null, null, Optional.empty(), null, -1, -1), field, null);
 
         ColumnReader reader = null;
         if (ENABLE_VERIFICATION) {
-            reader = ColumnReaderFactory.createReader(field.getDescriptor(), false);
+            reader = ColumnReaderFactory.createReader(field.getDescriptor(), false, DateTimeZone.forID("America/Bahia_Banderas"));
             reader.init(new PageReader(UNCOMPRESSED, new LinkedList<>(dataPages).listIterator(), MAX_VALUES, null, null, Optional.empty(), null, -1, -1), field, null);
         }
 
