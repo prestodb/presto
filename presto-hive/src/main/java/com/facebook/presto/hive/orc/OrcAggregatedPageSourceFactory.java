@@ -19,7 +19,6 @@ import com.facebook.presto.hive.EncryptionInformation;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveAggregatedPageSourceFactory;
-import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.hive.HiveFileSplit;
@@ -49,6 +48,7 @@ import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcMaxMerg
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcMaxReadBlockSize;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcTinyStripeThreshold;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isOrcZstdJniDecompressionEnabled;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.isUseOrcColumnNames;
 import static com.facebook.presto.hive.HiveUtil.getPhysicalHiveColumnHandles;
 import static com.facebook.presto.hive.orc.OrcPageSourceFactoryUtils.getOrcDataSource;
 import static com.facebook.presto.hive.orc.OrcPageSourceFactoryUtils.getOrcReader;
@@ -62,7 +62,6 @@ public class OrcAggregatedPageSourceFactory
 {
     private final TypeManager typeManager;
     private final StandardFunctionResolution functionResolution;
-    private final boolean useOrcColumnNames;
     private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats stats;
     private final OrcFileTailSource orcFileTailSource;
@@ -72,26 +71,6 @@ public class OrcAggregatedPageSourceFactory
     public OrcAggregatedPageSourceFactory(
             TypeManager typeManager,
             StandardFunctionResolution functionResolution,
-            HiveClientConfig config,
-            HdfsEnvironment hdfsEnvironment,
-            FileFormatDataSourceStats stats,
-            OrcFileTailSource orcFileTailSource,
-            StripeMetadataSourceFactory stripeMetadataSourceFactory)
-    {
-        this(
-                typeManager,
-                functionResolution,
-                requireNonNull(config, "hiveClientConfig is null").isUseOrcColumnNames(),
-                hdfsEnvironment,
-                stats,
-                orcFileTailSource,
-                stripeMetadataSourceFactory);
-    }
-
-    public OrcAggregatedPageSourceFactory(
-            TypeManager typeManager,
-            StandardFunctionResolution functionResolution,
-            boolean useOrcColumnNames,
             HdfsEnvironment hdfsEnvironment,
             FileFormatDataSourceStats stats,
             OrcFileTailSource orcFileTailSource,
@@ -99,7 +78,6 @@ public class OrcAggregatedPageSourceFactory
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
-        this.useOrcColumnNames = useOrcColumnNames;
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.orcFileTailSource = requireNonNull(orcFileTailSource, "orcFileTailCache is null");
@@ -132,7 +110,7 @@ public class OrcAggregatedPageSourceFactory
                 configuration,
                 fileSplit,
                 columns,
-                useOrcColumnNames,
+                isUseOrcColumnNames(session),
                 typeManager,
                 functionResolution,
                 stats,
