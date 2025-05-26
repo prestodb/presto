@@ -456,7 +456,6 @@ public class TestOrcBatchPageSourceMemoryTracking
 
             OrcBatchPageSourceFactory orcPageSourceFactory = new OrcBatchPageSourceFactory(
                     FUNCTION_AND_TYPE_MANAGER,
-                    false,
                     HDFS_ENVIRONMENT,
                     stats,
                     100,

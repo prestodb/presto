@@ -161,7 +161,6 @@ public enum FileFormat
         {
             HiveBatchPageSourceFactory pageSourceFactory = new OrcBatchPageSourceFactory(
                     FUNCTION_AND_TYPE_MANAGER,
-                    false,
                     hdfsEnvironment,
                     new FileFormatDataSourceStats(),
                     100,
