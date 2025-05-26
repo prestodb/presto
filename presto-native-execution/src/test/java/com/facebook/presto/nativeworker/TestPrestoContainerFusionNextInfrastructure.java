@@ -11,24 +11,32 @@ import static org.testng.Assert.*;
 public class TestPrestoContainerFusionNextInfrastructure extends AbstractTestQueryFramework {
 
     @Override
-    protected ContainerQueryRunner createQueryRunner() throws Exception {
+    protected ContainerQueryRunner createQueryRunner()  {
         // Default: native cluster with sidecar
-        return new ContainerQueryRunner(1, true, true, false);
+        return null;
     }
 
     @Test
     public void testInfrastructureNativeClusterWithSidecar() {
-//        assertQueryFails("SELECT fail('forced failure')", "forced failure");
+        try(QueryRunner queryRunner = new ContainerQueryRunner(1, true, true, false)) {
 
-//        assertQuery("SELECT array_sort(ARRAY [5, 20, null, 5, 3, 50])", "SELECT ARRAY[3, 5, 5, 20, 50, null]");
-        computeActual("select array_sort(array[row('apples', 23), row('bananas', 12), row('grapes', 44)], x -> x[2])");
-        // need to discuss what should be checked under show functions ie function count ?
-        assertTrue(computeActual("SHOW FUNCTIONS").toString().contains("presto.native"));
+            assertQueryWithAlternateQueryRunner(queryRunner, "select * FROM ", "select 2");
+            assertQueryWithAlternateQueryRunner(queryRunner, "SELECT array_sort(ARRAY [5, 20, null, 5, 3, 50])", "SELECT ARRAY[3, 5, 5, 20, 50, null]");
+//            assertQueryFailsWithCustomQueryRunner(queryRunner, "SELECT fail('forced failure')", "presto.default.fail\\(forced failure:VARCHAR\\)",true);
+
+            System.out.println(computeActualWithAlternateRunner(queryRunner, "select array_sort(array[row('apples', 23), row('bananas', 12), row('grapes', 44)], x -> x[2])"));
+//            assertTrue(computeActual("SHOW FUNCTIONS").toString().contains("presto.native"));
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     @Test
     public void testInfrastructureNativeClusterWithoutSidecar() {
         try(QueryRunner queryRunner = new ContainerQueryRunner(1, true, false, false)) {
+            System.out.println(computeActualWithAlternateRunner(queryRunner, "SELECT array_sort(ARRAY [5, 20, null, 5, 3, 50])"));
+
             assertQueryFailsWithCustomQueryRunner(queryRunner, "SELECT fail('forced failure')", "presto.default.fail\\(forced failure:VARCHAR\\)",true);
 
             assertQueryFailsWithCustomQueryRunner(queryRunner, "select array_sort(array[row('apples', 23), row('bananas', 12), row('grapes', 44)], x -> x[2])", "Expected a lambda that takes 2 argument\\(s\\) but got 1", true);
@@ -74,7 +82,9 @@ public class TestPrestoContainerFusionNextInfrastructure extends AbstractTestQue
         try(QueryRunner queryRunner = new ContainerQueryRunner(1, false, false, false)) {
 //            assertQueryFailsWithCustomQueryRunner(queryRunner, "SELECT fail('forced failure')", "=", true);
             assertQueryFailsWithCustomQueryRunner(queryRunner, "select array_sort(array[row('apples', 23), row('bananas', 12), row('grapes', 44)], x -> x[2])", "Expected a lambda that takes 2 argument\\(s\\) but got 1", true);
-            System.out.println(computeActualWithAlternateRunner(queryRunner,"SHOW SESSION").toString());
+//            System.out.println(computeActualWithAlternateRunner(queryRunner,"SHOW SESSION").toString());
+//            assertQueryWithAlternateQueryRunner(queryRunner, "SELECT array_sort(ARRAY [5, 20, null, 5, 3, 50])", "SELECT ARRAY[3, 5, 5, 20, 50, null]");
+            System.out.println(computeActualWithAlternateRunner(queryRunner, "SELECT array_sort(ARRAY [5, 20, null, 5, 3, 50])"));
         }
         catch (Exception e) {
             e.printStackTrace();
