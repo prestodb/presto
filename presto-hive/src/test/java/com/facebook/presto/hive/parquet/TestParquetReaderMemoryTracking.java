@@ -39,6 +39,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.airlift.testing.Assertions.assertBetweenInclusive;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.hive.parquet.ParquetTester.HIVE_STORAGE_TIME_ZONE;
 import static com.facebook.presto.hive.parquet.ParquetTester.writeParquetFileFromPresto;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getColumnIO;
@@ -122,7 +123,8 @@ public class TestParquetReaderMemoryTracking
                 null,
                 null,
                 false,
-                Optional.empty());
+                Optional.empty(),
+                HIVE_STORAGE_TIME_ZONE);
     }
 
     @AfterClass(alwaysRun = true)

@@ -369,7 +369,7 @@ public class TestDataWritableWriter
                 break;
             case TIMESTAMP:
                 Timestamp ts = ((TimestampObjectInspector) inspector).getPrimitiveJavaObject(value);
-                recordConsumer.addBinary(NanoTimeUtils.getNanoTime(ts, ZoneId.of("UTC"), false).toBinary());
+                recordConsumer.addBinary(NanoTimeUtils.getNanoTime(ts, ZoneId.of("America/Bahia_Banderas"), false).toBinary());
                 break;
             case DECIMAL:
                 HiveDecimal vDecimal = ((HiveDecimal) inspector.getPrimitiveJavaObject(value));

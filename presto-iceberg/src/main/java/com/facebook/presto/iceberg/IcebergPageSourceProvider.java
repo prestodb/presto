@@ -241,7 +241,7 @@ public class IcebergPageSourceProvider
         this.sortParameters = requireNonNull(sortParameters, "sortParameters is null");
     }
 
-    private static ConnectorPageSourceWithRowPositions createParquetPageSource(
+    private ConnectorPageSourceWithRowPositions createParquetPageSource(
             HdfsEnvironment hdfsEnvironment,
             ConnectorSession session,
             Configuration configuration,
@@ -344,7 +344,8 @@ public class IcebergPageSourceProvider
                     parquetPredicate,
                     blockIndexStores,
                     false,
-                    fileDecryptor);
+                    fileDecryptor,
+                    hiveClientConfig.getDateTimeZone());
 
             ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
             ImmutableList.Builder<Type> prestoTypes = ImmutableList.builder();

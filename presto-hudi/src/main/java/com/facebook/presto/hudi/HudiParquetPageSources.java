@@ -49,6 +49,7 @@ import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.Type;
+import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -93,7 +94,8 @@ class HudiParquetPageSources
             long length,
             List<HudiColumnHandle> regularColumns,
             TupleDomain<HudiColumnHandle> effectivePredicate,
-            FileFormatDataSourceStats fileFormatDataSourceStats)
+            FileFormatDataSourceStats fileFormatDataSourceStats,
+            DateTimeZone timezone)
     {
         AggregatedMemoryContext systemMemoryContext = newSimpleAggregatedMemoryContext();
 
@@ -161,7 +163,8 @@ class HudiParquetPageSources
                     parquetPredicate,
                     blockIndexStores,
                     false,
-                    fileDecryptor);
+                    fileDecryptor,
+                    timezone);
 
             ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
             ImmutableList.Builder<com.facebook.presto.common.type.Type> prestoTypes = ImmutableList.builder();

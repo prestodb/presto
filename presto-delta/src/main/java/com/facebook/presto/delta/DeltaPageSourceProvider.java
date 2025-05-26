@@ -25,6 +25,7 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
+import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.hive.parquet.ParquetPageSource;
@@ -63,6 +64,7 @@ import org.apache.parquet.io.ColumnIO;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.MessageType;
+import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
@@ -120,16 +122,19 @@ public class DeltaPageSourceProvider
     private final HdfsEnvironment hdfsEnvironment;
     private final TypeManager typeManager;
     private final FileFormatDataSourceStats fileFormatDataSourceStats;
+    private final DateTimeZone timezone;
 
     @Inject
     public DeltaPageSourceProvider(
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
-            FileFormatDataSourceStats fileFormatDataSourceStats)
+            FileFormatDataSourceStats fileFormatDataSourceStats,
+            HiveClientConfig hiveClientConfig)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
+        this.timezone = requireNonNull(hiveClientConfig, "hiveClientConfig is null").getDateTimeZone();
     }
 
     @Override
@@ -201,7 +206,7 @@ public class DeltaPageSourceProvider
                         }));
     }
 
-    private static ConnectorPageSource createParquetPageSource(
+    private ConnectorPageSource createParquetPageSource(
             HdfsEnvironment hdfsEnvironment,
             ConnectorSession session,
             Configuration configuration,
@@ -292,7 +297,8 @@ public class DeltaPageSourceProvider
                     parquetPredicate,
                     blockIndexStores,
                     false,
-                    fileDecryptor);
+                    fileDecryptor,
+                    timezone);
 
             ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
             ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();
