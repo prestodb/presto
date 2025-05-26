@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftIdlAnnotation;
 import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.client.ErrorLocation;
 import com.facebook.presto.client.FailureInfo;
@@ -99,7 +100,8 @@ public class ExecutionFailureInfo
 
     @Nullable
     @JsonProperty
-    @ThriftField(value = 3, isRecursive = TRUE, requiredness = OPTIONAL)
+    @ThriftField(value = 3, isRecursive = TRUE, requiredness = OPTIONAL, idlAnnotations = {
+            @ThriftIdlAnnotation(key = "cpp.ref_type", value = "\"shared\"")})
     public ExecutionFailureInfo getCause()
     {
         return cause;

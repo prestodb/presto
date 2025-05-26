@@ -9,3 +9,4 @@ and are grouped by topic.
     :maxdepth: 1
 
     troubleshoot/deploy
+    troubleshoot/query

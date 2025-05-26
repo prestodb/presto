@@ -17,6 +17,14 @@ queries that are saved in a session with a given name. The statement can
 include parameters in place of literals to be replaced at execution time.
 Parameters are represented by question marks.
 
+Note: If a query that includes ``PREPARE`` returns an error similar to the following: 
+
+.. code-block:: none
+
+    Request Header Fields Too Large
+
+see :ref:`troubleshoot/query:\`\`Request Header Fields Too Large\`\``.
+
 Examples
 --------
 

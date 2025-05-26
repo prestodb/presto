@@ -261,6 +261,7 @@ public class TestIcebergHiveStatistics
         // partitioned table should have stats partially filtered since data should span > 1 file
         assertTrue(statsWithPartition.getRowCount().getValue() < statsNoPartition.getRowCount().getValue());
 
+        getQueryRunner().getTransactionManager().asyncAbort(txid);
         assertQuerySucceeds("DROP TABLE statsNoPartitionAnalyze");
         assertQuerySucceeds("DROP TABLE statsWithPartitionAnalyze");
     }
@@ -325,6 +326,8 @@ public class TestIcebergHiveStatistics
         assertNotNull(statsNoPartition.getColumnStatistics().get(noPartColumns.get("orderkey")));
         // partitioned table should have stats partially filtered since data should span > 1 file
         assertTrue(statsWithPartition.getRowCount().getValue() < statsNoPartition.getRowCount().getValue());
+
+        getQueryRunner().getTransactionManager().asyncAbort(txid);
         assertQuerySucceeds("DROP TABLE statsNoPartition");
         assertQuerySucceeds("DROP TABLE statsWithPartition");
     }
@@ -485,7 +488,10 @@ public class TestIcebergHiveStatistics
         Session txnSession = session.beginTransactionId(txid, queryRunner.getTransactionManager(), new AllowAllAccessControl());
         Map<String, ColumnHandle> columnHandles = getColumnHandles(queryRunner, table, txnSession);
         List<ColumnHandle> columnHandleList = new ArrayList<>(columnHandles.values());
-        return meta.getTableStatistics(txnSession, getAnalyzeTableHandle(queryRunner, table, txnSession), columnHandleList, Constraint.alwaysTrue());
+        TableStatistics tableStatistics = meta.getTableStatistics(txnSession, getAnalyzeTableHandle(queryRunner, table, txnSession), columnHandleList, Constraint.alwaysTrue());
+
+        queryRunner.getTransactionManager().asyncAbort(txid);
+        return tableStatistics;
     }
 
     private TableStatistics getTableStatistics(Session session, String table)

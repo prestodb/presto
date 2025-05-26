@@ -54,6 +54,9 @@ constexpr folly::StringPiece kCounterExchangeRequestNumTries{
 
 constexpr folly::StringPiece kCounterNumQueryContexts{
     "presto_cpp.num_query_contexts"};
+/// Export total bytes used by memory manager (in queries' memory pools).
+constexpr folly::StringPiece kCounterMemoryManagerTotalBytes{
+    "presto_cpp.memory_manager_total_bytes"};
 
 constexpr folly::StringPiece kCounterNumTasks{"presto_cpp.num_tasks"};
 constexpr folly::StringPiece kCounterNumTasksBytesProcessed{
@@ -68,6 +71,13 @@ constexpr folly::StringPiece kCounterNumTasksAborted{
     "presto_cpp.num_tasks_aborted"};
 constexpr folly::StringPiece kCounterNumTasksFailed{
     "presto_cpp.num_tasks_failed"};
+/// Number of the created but not yet started tasks, including queued tasks.
+constexpr folly::StringPiece kCounterNumTasksPlanned{
+    "presto_cpp.num_tasks_planned"};
+/// Number of the created tasks in the task queue.
+constexpr folly::StringPiece kCounterNumTasksQueued{
+    "presto_cpp.num_tasks_queued"};
+
 constexpr folly::StringPiece kCounterNumZombieVeloxTasks{
     "presto_cpp.num_zombie_velox_tasks"};
 constexpr folly::StringPiece kCounterNumZombiePrestoTasks{
@@ -108,12 +118,16 @@ constexpr folly::StringPiece kCounterNumBlockedYieldDrivers{
 constexpr folly::StringPiece kCounterNumStuckDrivers{
     "presto_cpp.num_stuck_drivers"};
 
-/// Worker exports 0 or 100 for this counter. 0 meaning not memory overloaded
-/// and 100 meaning memory overloaded.
+/// Export 100 if worker is overloaded in terms of memory, 0 otherwise.
 constexpr folly::StringPiece kCounterOverloadedMem{"presto_cpp.overloaded_mem"};
-/// Worker exports 0 or 100 for this counter. 0 meaning not CPU overloaded
-/// and 100 meaning CPU overloaded.
+/// Export 100 if worker is overloaded in terms of CPU, 0 otherwise.
 constexpr folly::StringPiece kCounterOverloadedCpu{"presto_cpp.overloaded_cpu"};
+/// Export 100 if worker is overloaded in terms of memory or CPU, 0 otherwise.
+constexpr folly::StringPiece kCounterOverloaded{"presto_cpp.overloaded"};
+/// Worker exports the average time tasks spend in the queue (considered
+/// planned) in milliseconds.
+constexpr folly::StringPiece kCounterTaskPlannedTimeMs{
+    "presto_cpp.task_planned_time_ms"};
 
 /// Number of total OutputBuffer managed by all
 /// OutputBufferManager

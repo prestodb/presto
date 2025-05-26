@@ -31,6 +31,7 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.net.URI;
+import java.nio.file.Paths;
 import java.util.Optional;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -71,7 +72,7 @@ public abstract class RemoteState
         this.isHealthy = new AtomicBoolean(true);
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.remoteUri = requireNonNull(remoteUri, "remoteUri is null");
-        RouterSpec routerSpec = parseRouterConfig(routerConfig)
+        RouterSpec routerSpec = parseRouterConfig(Paths.get(routerConfig.getConfigFile()))
                 .orElseThrow(() -> new PrestoException(CONFIGURATION_INVALID, "Failed to load router config"));
         this.routerUserCredentials = routerSpec.getUserCredentials();
         this.clusterUnhealthyTimeout = remoteStateConfig.getClusterUnhealthyTimeout();

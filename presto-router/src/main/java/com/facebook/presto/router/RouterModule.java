@@ -26,6 +26,7 @@ import com.facebook.presto.router.predictor.ForQueryCpuPredictor;
 import com.facebook.presto.router.predictor.ForQueryMemoryPredictor;
 import com.facebook.presto.router.predictor.PredictorManager;
 import com.facebook.presto.router.predictor.RemoteQueryFactory;
+import com.facebook.presto.router.scheduler.CustomSchedulerManager;
 import com.facebook.presto.server.PluginManagerConfig;
 import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.server.WebUiResource;
@@ -34,14 +35,15 @@ import com.google.inject.Scopes;
 import io.airlift.units.Duration;
 
 import java.lang.annotation.Annotation;
+import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder;
-import static com.facebook.airlift.http.server.HttpServerBinder.httpServerBinder;
 import static com.facebook.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static com.facebook.presto.router.cluster.ClusterManager.ClusterStatusTracker;
+import static com.facebook.presto.server.CoordinatorModule.webUIBinder;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -57,14 +59,28 @@ public class RouterModule
     private static final String UI_PATH = "/ui";
     private static final String ROUTER_UI = "router_ui";
     private static final String INDEX_HTML = "index.html";
+    private final Optional<CustomSchedulerManager> customSchedulerManager;
+
+    public RouterModule(Optional<CustomSchedulerManager> customSchedulerManager)
+    {
+        this.customSchedulerManager = customSchedulerManager;
+    }
 
     @Override
     protected void setup(Binder binder)
     {
         ServerConfig serverConfig = buildConfigObject(ServerConfig.class);
 
-        httpServerBinder(binder).bindResource(UI_PATH, ROUTER_UI).withWelcomeFile(INDEX_HTML);
+        binder.bind(RouterPluginManager.class).in(Scopes.SINGLETON);
+        webUIBinder(binder, UI_PATH, ROUTER_UI).withWelcomeFile(INDEX_HTML);
         configBinder(binder).bindConfig(RouterConfig.class);
+
+        if (customSchedulerManager.isPresent()) {
+            binder.bind(CustomSchedulerManager.class).toInstance(customSchedulerManager.get());
+        }
+        else {
+            binder.bind(CustomSchedulerManager.class).in(Scopes.SINGLETON);
+        }
 
         configBinder(binder).bindConfig(RemoteStateConfig.class);
         binder.bind(ScheduledExecutorService.class).annotatedWith(ForClusterManager.class).toInstance(newSingleThreadScheduledExecutor(threadsNamed("cluster-config")));

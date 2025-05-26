@@ -21,7 +21,8 @@ import java.util.Collections;
 
 import static com.facebook.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.getNativeQueryRunnerParameters;
-import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
+import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
+import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
@@ -67,10 +68,13 @@ public abstract class AbstractTestNativeSystemQueries
                 anyTree(
                         aggregation(
                                 Collections.emptyMap(),
-                                SINGLE,
+                                FINAL,
                                 exchange(LOCAL, GATHER,
-                                        exchange(REMOTE_STREAMING, GATHER,
-                                                tableScan("tasks"))))));
+                                        aggregation(
+                                                Collections.emptyMap(),
+                                                PARTIAL,
+                                                exchange(REMOTE_STREAMING, GATHER,
+                                                        tableScan("tasks")))))));
     }
 
     @Test

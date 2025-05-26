@@ -39,6 +39,7 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.router.TestingRouterUtil.getConfigFile;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
@@ -75,7 +76,7 @@ public class TestPredictorManager
                 new TestingHttpServerModule(),
                 new JsonModule(),
                 new JaxrsModule(true),
-                new RouterModule());
+                new RouterModule(Optional.empty()));
 
         Injector injector = app
                 .doNotInitializeLogging()

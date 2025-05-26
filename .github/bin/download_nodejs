@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-NODE_VERSION="18.20.2"
+NODE_VERSION="22.15.1"
 YARN_VERSION="1.22.22"
 
 wget_retry() {

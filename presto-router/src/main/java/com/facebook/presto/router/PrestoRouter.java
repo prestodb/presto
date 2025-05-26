@@ -34,6 +34,8 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import org.weakref.jmx.guice.MBeanModule;
 
+import java.util.Optional;
+
 public class PrestoRouter
 {
     private PrestoRouter()
@@ -55,14 +57,13 @@ public class PrestoRouter
                 .add(new TraceTokenModule())
                 .add(new EventModule())
                 .add(new RouterSecurityModule())
-                .add(new RouterModule())
+                .add(new RouterModule(Optional.empty()))
                 .add(extraModules)
                 .build());
 
         Logger log = Logger.get(RouterModule.class);
         try {
             Injector injector = app.initialize();
-            injector.getInstance(RouterPluginManager.class).loadPlugins();
             injector.getInstance(ClientRequestFilterManager.class).loadClientRequestFilters();
             injector.getInstance(PasswordAuthenticatorManager.class).loadPasswordAuthenticator();
             injector.getInstance(PrestoAuthenticatorManager.class).loadPrestoAuthenticator();

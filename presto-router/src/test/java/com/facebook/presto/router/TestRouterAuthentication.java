@@ -50,6 +50,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.Base64;
+import java.util.Optional;
 
 import static com.facebook.presto.router.TestingRouterUtil.createPrestoServer;
 import static com.facebook.presto.router.TestingRouterUtil.getConfigFile;
@@ -123,7 +124,7 @@ public class TestRouterAuthentication
                 new JsonModule(),
                 new JaxrsModule(true),
                 new RouterSecurityModule(),
-                new RouterModule());
+                new RouterModule(Optional.empty()));
 
         Injector injector = app.doNotInitializeLogging()
                 .setRequiredConfigurationProperty("router.config-file", configFile.getAbsolutePath())

@@ -7447,6 +7447,10 @@ public abstract class AbstractTestQueries
         assertQuery(enableOptimization, sql, "values 3, 3");
         assertNotEquals(computeActual("EXPLAIN(TYPE DISTRIBUTED) " + sql).getOnlyValue().toString().indexOf("Aggregate"), -1);
 
+        // filter in right child of join
+        sql = "with t1 as (select * from (values (1, 2), (2, 3), (1, 0)) t(k1, k2)), t2 as (select * from (values (1, 2), (2, 3)) t(k1, k2)) select t1.k1, t1.k2 from t1 left join t2 on t1.k2=t2.k2 and t2.k1 > 1 where t2.k2 is null";
+        assertQuery(enableOptimization, sql, "values (1, 2), (1, 0)");
+
         // null in left side
         sql = "with t1 as (select * from (values 1, 1, 2, 2, 3, 3, null) t(k)), t2 as (select * from (values 1, 1, 2, 2) t(k)) select t1.* from t1 left join t2 on t1.k=t2.k where t2.k is null";
         assertQuery(enableOptimization, sql, "values 3, 3, null");

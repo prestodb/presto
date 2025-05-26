@@ -14,6 +14,7 @@
 package com.facebook.presto.router.scheduler;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.spi.router.Scheduler;
 
 import javax.annotation.concurrent.GuardedBy;
 
@@ -57,6 +58,7 @@ public class RoundRobinScheduler
         }
     }
 
+    @Override
     public void setCandidates(List<URI> candidates)
     {
         this.candidates = candidates;

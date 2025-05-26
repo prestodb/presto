@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -24,6 +27,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public class TaskSource
 {
     private final PlanNodeId planNodeId;
@@ -32,6 +36,7 @@ public class TaskSource
     private final boolean noMoreSplits;
 
     @JsonCreator
+    @ThriftConstructor
     public TaskSource(
             @JsonProperty("planNodeId") PlanNodeId planNodeId,
             @JsonProperty("splits") Set<ScheduledSplit> splits,
@@ -50,24 +55,28 @@ public class TaskSource
     }
 
     @JsonProperty
+    @ThriftField(1)
     public PlanNodeId getPlanNodeId()
     {
         return planNodeId;
     }
 
     @JsonProperty
+    @ThriftField(2)
     public Set<ScheduledSplit> getSplits()
     {
         return splits;
     }
 
     @JsonProperty
+    @ThriftField(3)
     public Set<Lifespan> getNoMoreSplitsForLifespan()
     {
         return noMoreSplitsForLifespan;
     }
 
     @JsonProperty
+    @ThriftField(value = 4, name = "noMoreSplits")
     public boolean isNoMoreSplits()
     {
         return noMoreSplits;

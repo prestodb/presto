@@ -69,7 +69,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_REMAINING_B
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CURRENT_STATE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
 import static com.facebook.presto.server.TaskResourceUtils.convertToThriftTaskInfo;
-import static com.facebook.presto.server.TaskResourceUtils.isThriftRequest;
+import static com.facebook.presto.server.TaskResourceUtils.isThriftAcceptable;
 import static com.facebook.presto.server.security.RoleType.INTERNAL;
 import static com.facebook.presto.util.TaskUtils.randomizeWaitTime;
 import static com.google.common.collect.Iterables.transform;
@@ -129,9 +129,11 @@ public class TaskResource
 
     @POST
     @Path("{taskId}")
-    @Consumes({APPLICATION_JSON, APPLICATION_JACKSON_SMILE})
-    @Produces({APPLICATION_JSON, APPLICATION_JACKSON_SMILE})
-    public Response createOrUpdateTask(@PathParam("taskId") TaskId taskId, TaskUpdateRequest taskUpdateRequest, @Context UriInfo uriInfo)
+    @Consumes({APPLICATION_JSON, APPLICATION_JACKSON_SMILE, APPLICATION_THRIFT_BINARY})
+    @Produces({APPLICATION_JSON, APPLICATION_JACKSON_SMILE, APPLICATION_THRIFT_BINARY})
+    public Response createOrUpdateTask(@PathParam("taskId") TaskId taskId,
+            TaskUpdateRequest taskUpdateRequest,
+            @Context UriInfo uriInfo)
     {
         requireNonNull(taskUpdateRequest, "taskUpdateRequest is null");
 
@@ -146,7 +148,6 @@ public class TaskResource
         if (shouldSummarize(uriInfo)) {
             taskInfo = taskInfo.summarize();
         }
-
         return Response.ok().entity(taskInfo).build();
     }
 
@@ -164,7 +165,7 @@ public class TaskResource
     {
         requireNonNull(taskId, "taskId is null");
 
-        boolean isThriftRequest = isThriftRequest(httpHeaders);
+        boolean isThriftRequest = isThriftAcceptable(httpHeaders);
 
         if (currentState == null || maxWait == null) {
             TaskInfo taskInfo = taskManager.getTaskInfo(taskId);
@@ -272,7 +273,7 @@ public class TaskResource
             taskInfo = taskInfo.summarize();
         }
 
-        if (isThriftRequest(httpHeaders)) {
+        if (isThriftAcceptable(httpHeaders)) {
             taskInfo = convertToThriftTaskInfo(taskInfo, connectorTypeSerdeManager, handleResolver);
         }
 

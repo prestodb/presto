@@ -47,6 +47,7 @@ This chapter describes the SQL syntax used in Presto.
     sql/show-catalogs
     sql/show-columns
     sql/show-create-function
+    sql/show-create-schema
     sql/show-create-table
     sql/show-create-view
     sql/show-functions

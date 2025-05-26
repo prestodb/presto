@@ -17,7 +17,7 @@ jobs:
   prestocpp-linux-build-for-test:
     runs-on: ubuntu-22.04
     container:
-      image: prestodb/presto-native-dependency:0.292-20250204112033-cf8ba84
+      image: prestodb/presto-native-dependency:0.293-20250522140509-484b00e
     env:
       CCACHE_DIR: "${{ github.workspace }}/ccache"
     steps:
@@ -94,7 +94,7 @@ jobs:
     needs: prestocpp-linux-build-for-test
     runs-on: ubuntu-22.04
     container:
-      image: prestodb/presto-native-dependency:0.292-20250204112033-cf8ba84
+      image: prestodb/presto-native-dependency:0.293-20250522140509-484b00e
     env:
       MAVEN_OPTS: "-Xmx4G -XX:+ExitOnOutOfMemoryError"
       MAVEN_FAST_INSTALL: "-B -V --quiet -T 1C -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true"
@@ -173,7 +173,7 @@ jobs:
       matrix:
         storage-format: [ "PARQUET", "DWRF" ]
     container:
-      image: prestodb/presto-native-dependency:0.292-20250204112033-cf8ba84
+      image: prestodb/presto-native-dependency:0.293-20250522140509-484b00e
     env:
       MAVEN_OPTS: "-Xmx4G -XX:+ExitOnOutOfMemoryError"
       MAVEN_FAST_INSTALL: "-B -V --quiet -T 1C -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true"
@@ -245,7 +245,7 @@ jobs:
     needs: prestocpp-linux-build-for-test
     runs-on: ubuntu-22.04
     container:
-      image: prestodb/presto-native-dependency:0.292-20250204112033-cf8ba84
+      image: prestodb/presto-native-dependency:0.293-20250522140509-484b00e
     env:
       MAVEN_OPTS: "-Xmx4G -XX:+ExitOnOutOfMemoryError"
       MAVEN_FAST_INSTALL: "-B -V --quiet -T 1C -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true"

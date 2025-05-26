@@ -23,7 +23,7 @@ import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
-import java.nio.file.Paths;
+import java.nio.file.Path;
 import java.util.Optional;
 
 import static com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
@@ -37,11 +37,11 @@ public final class RouterUtil
 
     private RouterUtil() {}
 
-    public static Optional<RouterSpec> parseRouterConfig(RouterConfig config)
+    public static Optional<RouterSpec> parseRouterConfig(Path configFile)
     {
         Optional<RouterSpec> routerSpec;
         try {
-            routerSpec = Optional.of(CODEC.fromJson(Files.readAllBytes(Paths.get(config.getConfigFile()))));
+            routerSpec = Optional.of(CODEC.fromJson(Files.readAllBytes(configFile)));
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);

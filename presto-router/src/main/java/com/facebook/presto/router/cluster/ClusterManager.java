@@ -13,33 +13,35 @@
  */
 package com.facebook.presto.router.cluster;
 
-import com.facebook.airlift.bootstrap.LifeCycleManager;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.router.RouterConfig;
-import com.facebook.presto.router.scheduler.Scheduler;
+import com.facebook.presto.router.scheduler.CustomSchedulerManager;
 import com.facebook.presto.router.scheduler.SchedulerFactory;
 import com.facebook.presto.router.scheduler.SchedulerType;
 import com.facebook.presto.router.spec.GroupSpec;
 import com.facebook.presto.router.spec.RouterSpec;
 import com.facebook.presto.router.spec.SelectorRuleSpec;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.router.Scheduler;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.sun.nio.file.SensitivityWatchEventModifier;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
 
-import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
-import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.nio.file.ClosedWatchServiceException;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
-import java.nio.file.StandardWatchEventKinds;
+import java.nio.file.Paths;
 import java.nio.file.WatchEvent;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
@@ -47,15 +49,16 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.presto.router.RouterUtil.parseRouterConfig;
+import static com.facebook.presto.router.scheduler.SchedulerType.CUSTOM_PLUGIN_SCHEDULER;
 import static com.facebook.presto.router.scheduler.SchedulerType.ROUND_ROBIN;
 import static com.facebook.presto.router.scheduler.SchedulerType.WEIGHTED_RANDOM_CHOICE;
 import static com.facebook.presto.router.scheduler.SchedulerType.WEIGHTED_ROUND_ROBIN;
@@ -63,15 +66,19 @@ import static com.facebook.presto.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.nio.file.StandardWatchEventKinds.ENTRY_CREATE;
+import static java.nio.file.StandardWatchEventKinds.ENTRY_MODIFY;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class ClusterManager
+        implements AutoCloseable
 {
     private final AtomicReference<ClusterManagerConfig> currentConfig = new AtomicReference<>();
 
-    public final RouterConfig routerConfig;
+    private final Path configFile;
     private final Logger log = Logger.get(ClusterManager.class);
 
     // Cluster status
@@ -80,26 +87,76 @@ public class ClusterManager
 
     private final AtomicBoolean isWatchServiceStarted = new AtomicBoolean();
     private final RemoteInfoFactory remoteInfoFactory;
-    private final LifeCycleManager lifeCycleManager;
     private final HashMap<String, HashMap<URI, Integer>> serverWeights = new HashMap<>();
+    private final CustomSchedulerManager schedulerManager;
+    private final ScheduledExecutorService scheduledExecutorService;
+    private final ScheduledFuture<?> configDetection;
+    private final WatchService watchService;
+    private final WatchKey watchKey;
 
     @Inject
-    public ClusterManager(RouterConfig config, RemoteInfoFactory remoteInfoFactory, LifeCycleManager lifeCycleManager)
+    public ClusterManager(RouterConfig config, RemoteInfoFactory remoteInfoFactory, CustomSchedulerManager schedulerManager)
+            throws IOException
     {
-        this.routerConfig = requireNonNull(config, "config is null");
+        this.configFile = Paths.get(requireNonNull(config, "config is null").getConfigFile());
         this.remoteInfoFactory = requireNonNull(remoteInfoFactory, "remoteInfoFactory is null");
-        this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifecycleManager is null");
-        onConfigChangeDetection();
-        this.initializeServerWeights();
+        this.schedulerManager = schedulerManager;
+        reloadConfig();
+        initializeServerWeights();
+        watchService = FileSystems.getDefault().newWatchService();
+        Path parentDir = configFile.getParent();
+        log.info("Router config watch service monitoring %s", parentDir);
+        watchKey = parentDir.register(watchService,
+                new WatchEvent.Kind[] {ENTRY_CREATE, ENTRY_MODIFY},
+                SensitivityWatchEventModifier.HIGH);
+        log.info("Successfully registered watch service for %s", parentDir);
+        scheduledExecutorService = newSingleThreadScheduledExecutor();
+        configDetection = scheduledExecutorService.scheduleAtFixedRate(this::monitorConfig, 0, 3, SECONDS);
     }
 
-    protected void onConfigChangeDetection()
+    protected void monitorConfig()
     {
-        RouterSpec newRouterSpec = parseRouterConfig(routerConfig)
+        boolean reload = false;
+        try {
+            WatchKey key = watchService.poll(1, SECONDS);
+            if (key == null) {
+                return;
+            }
+            List<WatchEvent<?>> events = key.pollEvents();
+            log.debug("Changes to router config directory detected");
+            for (WatchEvent<?> event : events) {
+                log.debug("Event detected: %s, path: %s", event.kind().name(), event.context());
+                Path changed = (Path) event.context();
+                if (changed.endsWith(configFile.getFileName())) {
+                    reload = true;
+                    break;
+                }
+                else {
+                    log.debug("Change to %s ignored by ClusterManager (config file is %s)", event.context(), configFile);
+                }
+            }
+            key.reset();
+        }
+        catch (ClosedWatchServiceException e) {
+            log.warn("Watch service closed. Future updates configuration changes will not be detected.");
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.warn("Watch service interrupted while waiting for configuration updates");
+        }
+
+        if (reload) {
+            reloadConfig();
+        }
+    }
+
+    protected void reloadConfig()
+    {
+        RouterSpec newRouterSpec = parseRouterConfig(configFile)
                 .orElseThrow(() -> new PrestoException(CONFIGURATION_INVALID, "Failed to load router config"));
         Map<String, GroupSpec> newGroups = newRouterSpec.getGroups().stream().collect(toImmutableMap(GroupSpec::getName, group -> group));
         List<SelectorRuleSpec> newGroupSelectors = ImmutableList.copyOf(newRouterSpec.getSelectors());
-        Scheduler newScheduler = new SchedulerFactory(newRouterSpec.getSchedulerType()).create();
+        Scheduler newScheduler = new SchedulerFactory(newRouterSpec.getSchedulerType(), schedulerManager).create();
         SchedulerType newSchedulerType = newRouterSpec.getSchedulerType();
 
         List<URI> updatedAllClusters = newGroups.values().stream()
@@ -125,54 +182,6 @@ public class ClusterManager
         currentConfig.set(new ClusterManagerConfig(newGroups, newGroupSelectors, newScheduler, newSchedulerType));
     }
 
-    @PostConstruct
-    public void startConfigReloadTaskFileWatcher()
-    {
-        CompletableFuture.supplyAsync(() -> {
-            try (WatchService watchService = FileSystems.getDefault().newWatchService()) {
-                File routerConfigFile = new File(routerConfig.getConfigFile());
-                log.info("Router config watch service monitoring %s", routerConfig.getConfigFile());
-                Path parentDir = routerConfigFile.toPath().getParent();
-                parentDir.register(
-                        watchService,
-                        new WatchEvent.Kind[] {
-                                StandardWatchEventKinds.ENTRY_MODIFY,
-                                StandardWatchEventKinds.ENTRY_CREATE,
-                                StandardWatchEventKinds.ENTRY_DELETE,
-                                StandardWatchEventKinds.OVERFLOW},
-                        SensitivityWatchEventModifier.HIGH);
-                isWatchServiceStarted.set(true);
-                log.info("Successfully registered watch service for %s", parentDir);
-
-                while (true) {
-                    WatchKey key = watchService.take();
-                    log.info("Changes to router config directory detected: %s", routerConfigFile);
-                    for (WatchEvent<?> event : key.pollEvents()) {
-                        log.debug("Event detected: %s, path: %s", event.kind().name(), event.context());
-                        Path changed = (Path) event.context();
-                        if (changed.endsWith(routerConfigFile.getName())) {
-                            try {
-                                onConfigChangeDetection();
-                            }
-                            catch (Exception e) {
-                                log.error("Exception in config reload");
-                            }
-                        }
-                        else {
-                            log.debug("Config change to %s ignored by ClusterManager (config file is %s)", event.context(), routerConfigFile.getName());
-                        }
-                    }
-                    key.reset();
-                }
-            }
-            catch (IOException | InterruptedException e) {
-                log.error("Exception in file watcher loop while monitoring %s, %s", routerConfig.getConfigFile(), e);
-                lifeCycleManager.stop();
-                throw new RuntimeException(e);
-            }
-        });
-    }
-
     public List<URI> getAllClusters()
     {
         return currentConfig.get().getGroups().values().stream()
@@ -192,9 +201,9 @@ public class ClusterManager
         GroupSpec groupSpec = config.getGroups().get(target.get());
 
         List<URI> healthyClusterURIs = groupSpec.getMembers().stream().filter((entry) ->
-                Optional.ofNullable(remoteClusterInfos.get(entry))
-                        .map(RemoteClusterInfo::isHealthy)
-                        .orElse(false))
+                        Optional.ofNullable(remoteClusterInfos.get(entry))
+                                .map(RemoteClusterInfo::isHealthy)
+                                .orElse(false))
                 .collect(Collectors.toList());
 
         if (healthyClusterURIs.isEmpty()) {
@@ -206,6 +215,19 @@ public class ClusterManager
         config.getScheduler().setCandidates(healthyClusterURIs);
         if (config.getSchedulerType() == WEIGHTED_RANDOM_CHOICE || config.getSchedulerType() == WEIGHTED_ROUND_ROBIN) {
             config.getScheduler().setWeights(config.getServerWeights().get(groupSpec.getName()));
+        }
+        else if (config.getSchedulerType() == CUSTOM_PLUGIN_SCHEDULER) {
+            try {
+                //Set remote cluster infos in the custom plugin scheduler
+                Map<URI, RemoteClusterInfo> healthyRemoteClusterInfos = Maps.filterValues(remoteClusterInfos, RemoteState::isHealthy);
+                config.getScheduler().setClusterInfos(ImmutableMap.copyOf(healthyRemoteClusterInfos));
+
+                return config.getScheduler().getDestination(requestInfo.getUser(), requestInfo.getQuery());
+            }
+            catch (Exception e) {
+                log.error("Custom Plugin Scheduler failed to schedule the query!", e);
+                return Optional.empty();
+            }
         }
 
         if (config.getSchedulerType() == ROUND_ROBIN || config.getSchedulerType() == WEIGHTED_ROUND_ROBIN) {
@@ -263,6 +285,21 @@ public class ClusterManager
     public boolean getIsWatchServiceStarted()
     {
         return isWatchServiceStarted.get();
+    }
+
+    @PreDestroy
+    @Override
+    public void close()
+            throws Exception
+    {
+        try {
+            watchKey.cancel();
+            watchService.close();
+        }
+        finally {
+            configDetection.cancel(true);
+            scheduledExecutorService.shutdownNow();
+        }
     }
 
     public static class ClusterStatusTracker

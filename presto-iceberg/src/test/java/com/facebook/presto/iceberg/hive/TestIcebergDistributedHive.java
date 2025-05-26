@@ -15,6 +15,7 @@ package com.facebook.presto.iceberg.hive;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.iceberg.IcebergDistributedTestBase;
 import com.facebook.presto.iceberg.IcebergHiveMetadata;
@@ -99,8 +100,9 @@ public class TestIcebergDistributedHive
                 .build();
         assertQuerySucceeds(session, "CREATE SCHEMA IF NOT EXISTS default");
         assertQuerySucceeds(session, "CREATE TABLE test_manifest_file_cache(i int)");
+        TransactionId transactionId = getQueryRunner().getTransactionManager().beginTransaction(false);
         Session txnSession = Session.builder(session)
-                .setTransactionId(getQueryRunner().getTransactionManager().beginTransaction(false))
+                .setTransactionId(transactionId)
                 .build();
         Optional<TableHandle> handle = MetadataUtil.getOptionalTableHandle(txnSession,
                 getQueryRunner().getTransactionManager(),
@@ -133,6 +135,7 @@ public class TestIcebergDistributedHive
         CacheStats thirdQuery = manifestFileCache.stats();
         assertTrue(secondQuery.missCount() < thirdQuery.missCount());
 
+        getQueryRunner().getTransactionManager().asyncAbort(transactionId);
         assertQuerySucceeds(session, "DROP TABLE test_manifest_file_cache");
         assertQuerySucceeds(session, "DROP SCHEMA default");
     }
@@ -152,8 +155,10 @@ public class TestIcebergDistributedHive
         assertQuerySucceeds(session, "CREATE SCHEMA IF NOT EXISTS default");
         assertQuerySucceeds(session, "CREATE TABLE test_manifest_file_cache_disabled(i int)");
         assertUpdate(session, "INSERT INTO test_manifest_file_cache_disabled VALUES 1, 2, 3, 4, 5", 5);
+
+        TransactionId transactionId = getQueryRunner().getTransactionManager().beginTransaction(false);
         Session metadataSession = Session.builder(session)
-                .setTransactionId(getQueryRunner().getTransactionManager().beginTransaction(false))
+                .setTransactionId(transactionId)
                 .build();
         Optional<TableHandle> handle = MetadataUtil.getOptionalTableHandle(metadataSession,
                 getQueryRunner().getTransactionManager(),
@@ -176,6 +181,7 @@ public class TestIcebergDistributedHive
         assertEquals(secondQuery.minus(firstQuery).hitCount(), 0);
         assertEquals(manifestFileCache.size(), 0);
 
+        getQueryRunner().getTransactionManager().asyncAbort(transactionId);
         assertQuerySucceeds(session, "DROP TABLE test_manifest_file_cache_disabled");
         assertQuerySucceeds(session, "DROP SCHEMA default");
     }

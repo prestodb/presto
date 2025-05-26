@@ -95,6 +95,28 @@ session properties are included.
 
 .. _tuning-memory:
 
+``per-query-retry-limit``
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Minimum value:** ``0``
+* **Default value:** ``0``
+
+The number of times that a query is automatically retried in the case of a transient query or communications failure. 
+The default value ``0`` means that retries are disabled. 
+
+``http-server.max-request-header-size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``data size``
+* **Default value:** ``8 kB``
+
+The maximum size of the request header from the HTTP server. 
+
+Note: The default value can cause errors when large session properties 
+or other large session information is involved. 
+See :ref:`troubleshoot/query:\`\`Request Header Fields Too Large\`\``.
+
 Memory Management Properties
 ----------------------------
 

@@ -50,9 +50,23 @@
                         <configuration>
                             <classes>
                                 <class>com.facebook.presto.execution.TaskStatus</class>
+                                <class>com.facebook.presto.execution.TaskInfo</class>
+                                <class>com.facebook.presto.server.TaskUpdateRequest</class>
                             </classes>
+                            <customCodecs>
+                                <codec>com.facebook.presto.server.thrift.SplitCodec</codec>
+                                <codec>com.facebook.presto.server.thrift.TableWriteInfoCodec</codec>
+                                <codec>com.facebook.presto.server.thrift.MetadataUpdatesCodec</codec>
+                                <codec>com.facebook.drift.codec.utils.DurationToMillisThriftCodec</codec>
+                                <codec>com.facebook.drift.codec.utils.DataSizeToBytesThriftCodec</codec>
+                                <codec>com.facebook.drift.codec.utils.JodaDateTimeToEpochMillisThriftCodec</codec>
+                                <codec>com.facebook.drift.codec.utils.LocaleToLanguageTagCodec</codec>
+                                <codec>com.facebook.drift.codec.internal.builtin.OptionalIntThriftCodec</codec>
+                                <codec>com.facebook.drift.codec.internal.builtin.OptionalLongThriftCodec</codec>
+                                <codec>com.facebook.drift.codec.internal.builtin.OptionalDoubleThriftCodec</codec>
+                            </customCodecs>
                             <recursive>true</recursive>
-                            <outputFile>target/thrift/presto-internal-${project.version}.thrift</outputFile>
+                            <outputFile>target/thrift/presto-thrift-protocol.thrift</outputFile>
                         </configuration>
                     </execution>
                 </executions>
@@ -70,7 +84,7 @@
                         <configuration>
                             <artifacts>
                                 <artifact>
-                                    <file>target/thrift/presto-internal-${project.version}.thrift</file>
+                                    <file>target/thrift/presto-thrift-protocol.thrift</file>
                                     <type>thrift</type>
                                 </artifact>
                             </artifacts>
