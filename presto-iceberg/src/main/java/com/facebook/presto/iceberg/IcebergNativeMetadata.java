@@ -303,6 +303,18 @@ public class IcebergNativeMetadata
         ((ViewCatalog) catalog).dropView(toIcebergTableIdentifier(viewName, catalogFactory.isNestedNamespaceEnabled()));
     }
 
+    @Override
+    public void renameView(ConnectorSession session, SchemaTableName source, SchemaTableName target)
+    {
+        Catalog catalog = catalogFactory.getCatalog(session);
+        if (!(catalog instanceof ViewCatalog)) {
+            throw new PrestoException(NOT_SUPPORTED, "This connector does not support renaming views");
+        }
+        ((ViewCatalog) catalog).renameView(
+                toIcebergTableIdentifier(source, catalogFactory.isNestedNamespaceEnabled()),
+                toIcebergTableIdentifier(target, catalogFactory.isNestedNamespaceEnabled()));
+    }
+
     private void verifyAndPopulateViews(View view, SchemaTableName schemaTableName, String viewData, ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> views)
     {
         views.put(schemaTableName, new ConnectorViewDefinition(
