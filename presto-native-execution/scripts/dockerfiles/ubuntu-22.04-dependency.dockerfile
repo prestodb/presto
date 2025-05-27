@@ -30,6 +30,5 @@ COPY velox/scripts /velox/scripts
 RUN mkdir build && \
     (cd build && ../scripts/setup-ubuntu.sh && \
                          apt install -y rpm && \
-                 ../velox/scripts/setup-adapters.sh && \
                  ../scripts/setup-adapters.sh ) && \
     rm -rf build

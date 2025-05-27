@@ -90,7 +90,7 @@ public class ContainerNativeQueryRunnerWithSidecarUtils
         properties.setProperty("http-server.http.port", "7777");
         properties.setProperty("discovery.uri", "http://presto-coordinator:" + coordinatorPort);
         properties.setProperty("system-memory-gb", "2");
-        properties.setProperty("native.sidecar", "true");
+        properties.setProperty("native-sidecar", "true");
         properties.setProperty("presto.default-namespace", "native.default");
         createPropertiesFile("testcontainers/" + nodeId + "/etc/config.properties", properties);
     }
@@ -103,7 +103,7 @@ public class ContainerNativeQueryRunnerWithSidecarUtils
         properties.setProperty("http-server.http.port", "7777");
         properties.setProperty("discovery.uri", "http://presto-coordinator:" + coordinatorPort);
         properties.setProperty("system-memory-gb", "2");
-        properties.setProperty("native.sidecar", "false");
+        properties.setProperty("native-sidecar", "false");
         createPropertiesFile("testcontainers/" + nodeId + "/etc/config.properties", properties);
     }
 
@@ -129,6 +129,30 @@ public class ContainerNativeQueryRunnerWithSidecarUtils
 
 
         createPropertiesFile("testcontainers/coordinator/etc/config.properties", properties);
+    }
+
+    public static void createCoordinatorSidecarProperties()
+            throws IOException
+    {
+        Properties properties1 = new Properties();
+        properties1.setProperty("function-namespace-manager.name", "native");
+        properties1.setProperty("function-implementation-type", "CPP");
+        properties1.setProperty("supported-function-languages", "CPP");
+
+        createPropertiesFile("testcontainers/coordinator/etc/function-namespace/native.properties", properties1);
+
+        Properties properties2 = new Properties();
+        properties2.setProperty("session-property-provider.name", "native");
+        createPropertiesFile("testcontainers/coordinator/etc/session-property-provider/native.properties", properties2);
+
+        Properties properties3 = new Properties();
+        properties3.setProperty("type-manager.name", "native");
+        createPropertiesFile("testcontainers/coordinator/etc/type-managers/native.properties", properties3);
+
+        Properties properties4 = new Properties();
+        properties4.setProperty("plan-checker-provider.name", "native");
+        createPropertiesFile("testcontainers/coordinator/etc/plan-checker-providers/native.properties", properties4);
+
     }
 
     public static void createCoordinatorJvmConfig()
