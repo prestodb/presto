@@ -14,6 +14,7 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.TimeZoneKey;
@@ -101,7 +102,8 @@ public class SnapshotsTable
     private static List<Page> buildPages(ConnectorTableMetadata tableMetadata, ConnectorSession session, Table icebergTable)
     {
         PageListBuilder pagesBuilder = PageListBuilder.forTable(tableMetadata);
-        TableScan tableScan = buildTableScan(icebergTable, SNAPSHOTS);
+        RuntimeStats runtimeStats = session.getRuntimeStats();
+        TableScan tableScan = buildTableScan(icebergTable, SNAPSHOTS, runtimeStats);
         TimeZoneKey timeZoneKey = session.getTimeZoneKey();
 
         Map<String, Integer> columnNameToPosition = columnNameToPositionInSchema(tableScan.schema());

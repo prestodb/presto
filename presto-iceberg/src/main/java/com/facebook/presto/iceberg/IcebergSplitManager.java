@@ -14,6 +14,7 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.concurrent.ThreadPoolExecutorMBean;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.iceberg.changelog.ChangelogSplitSource;
@@ -96,16 +97,19 @@ public class IcebergSplitManager
             return new ChangelogSplitSource(session, typeManager, icebergTable, scan);
         }
         else if (table.getIcebergTableName().getTableType() == EQUALITY_DELETES) {
+            RuntimeStats runtimeStats = session.getRuntimeStats();
             CloseableIterable<DeleteFile> deleteFiles = IcebergUtil.getDeleteFiles(icebergTable,
                     table.getIcebergTableName().getSnapshotId().get(),
                     predicate,
                     table.getPartitionSpecId(),
-                    table.getEqualityFieldIds());
+                    table.getEqualityFieldIds(),
+                    runtimeStats);
 
             return new EqualityDeletesSplitSource(session, icebergTable, deleteFiles);
         }
         else {
             TableScan tableScan = icebergTable.newScan()
+                    .metricsReporter(new RuntimeStatsMetricsReporter(session.getRuntimeStats()))
                     .filter(toIcebergExpression(predicate))
                     .useSnapshot(table.getIcebergTableName().getSnapshotId().get())
                     .planWith(executor);
