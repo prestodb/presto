@@ -120,6 +120,11 @@ class SliceFunction : public exec::VectorFunction {
 
     const auto fillResultVectorFunc = [&](vector_size_t row,
                                           vector_size_t adjustedStart) {
+      auto length = decodedLength->valueAt<T>(row);
+      if (length < 0) {
+        VELOX_USER_FAIL(
+            "The value of length argument of slice() function should not be negative");
+      }
       auto arraySize = baseRawSizes[arrayIndices[row]];
       auto index = getIndex(adjustedStart, arraySize);
       if (index != -1) {
@@ -201,10 +206,6 @@ class SliceFunction : public exec::VectorFunction {
       const vector_size_t* rawSizes,
       const vector_size_t* rawOffsets,
       const vector_size_t* indices) const {
-    if (length < 0) {
-      VELOX_USER_FAIL(
-          "The value of length argument of slice() function should not be negative");
-    }
     int64_t endIndex = rawOffsets[indices[row]] + rawSizes[indices[row]];
     return static_cast<vector_size_t>(std::min(endIndex - start, length));
   }

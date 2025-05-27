@@ -280,6 +280,15 @@ TEST_F(SliceTest, negativeSliceLength) {
           {arrayVector, startsVector, lengthsVector},
           expectedArrayVector),
       "The value of length argument of slice() function should not be negative");
+
+  auto mixedStartsVector = makeFlatVector<int64_t>(
+      kVectorSize, [](vector_size_t /*row*/) { return -2000; });
+  VELOX_ASSERT_THROW(
+      testSlice(
+          "slice(C0, C1, C2)",
+          {arrayVector, mixedStartsVector, lengthsVector},
+          expectedArrayVector),
+      "The value of length argument of slice() function should not be negative");
 }
 
 TEST_F(SliceTest, constantArrayNonConstantLength) {
