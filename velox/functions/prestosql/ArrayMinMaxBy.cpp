@@ -32,7 +32,7 @@ class ArrayMinMaxByFunction : public exec::VectorFunction {
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
-      const TypePtr& /*outputType*/,
+      const TypePtr& outputType,
       exec::EvalCtx& context,
       VectorPtr& result) const override {
     VELOX_CHECK_EQ(args.size(), 2);
@@ -42,6 +42,15 @@ class ArrayMinMaxByFunction : public exec::VectorFunction {
 
     // Flatten input array.
     auto flatArray = flattenArray(rows, args[0], decodedArray);
+
+    // If flatArray is empty, return null constant instead of a dictionary with
+    // all null elements.
+    if (flatArray->elements()->size() == 0) {
+      auto localResult = BaseVector::createNullConstant(
+          outputType, rows.end(), context.pool());
+      context.moveOrCopyResult(localResult, rows, result);
+      return;
+    }
 
     std::vector<VectorPtr> lambdaArgs = {flatArray->elements()};
     auto newNumElements = flatArray->elements()->size();
@@ -79,14 +88,18 @@ class ArrayMinMaxByFunction : public exec::VectorFunction {
     BufferPtr resultIndices = allocateIndices(rows.size(), context.pool());
     auto* rawResultIndices = resultIndices->asMutable<vector_size_t>();
 
-    BufferPtr resultNulls = allocateNulls(rows.size(), context.pool());
+    BufferPtr resultNulls = addNullsForUnselectedRows(flatArray, rows);
     auto* mutableNulls = resultNulls->asMutable<uint64_t>();
 
     // Get the max/min value out of the output of the lambda
     auto decodedIndices = decodedElements->indices();
     const auto* baseElementsVector = decodedElements->base();
 
-    CompareFlags flags{.nullsFirst = false, .ascending = isMaxBy};
+    CompareFlags flags{
+        .nullsFirst = false,
+        .ascending = isMaxBy,
+        .nullHandlingMode =
+            CompareFlags::NullHandlingMode::kNullAsIndeterminate};
     auto compareLogic = [&](vector_size_t a, vector_size_t b) {
       if (a == b) {
         return false;
@@ -101,8 +114,9 @@ class ArrayMinMaxByFunction : public exec::VectorFunction {
       }
       std::optional<int32_t> result = baseElementsVector->compare(
           baseElementsVector, decodedIndices[a], decodedIndices[b], flags);
-      // If lambda returns the same value, then return the last element
-      return result.value() <= 0;
+      // If lambda returns the same value, return the first element if
+      // array_min_by, else return last element
+      return isMaxBy ? result.value() <= 0 : result.value() < 0;
     };
 
     context.applyToSelectedNoThrow(rows, [&](vector_size_t row) {
@@ -112,14 +126,17 @@ class ArrayMinMaxByFunction : public exec::VectorFunction {
 
       int minMaxIndex =
           *std::max_element(range.begin(), range.end(), compareLogic);
-      if (decodedElements->isNullAt(minMaxIndex)) {
-        bits::setNull(mutableNulls, row);
-      }
-      rawResultIndices[row] = minMaxIndex;
-    });
 
+      if (range.begin() == range.end() ||
+          decodedElements->isNullAt(minMaxIndex)) {
+        bits::setNull(mutableNulls, row);
+      } else {
+        rawResultIndices[row] = minMaxIndex;
+      }
+    });
     auto localResult = BaseVector::wrapInDictionary(
         resultNulls, resultIndices, rows.end(), flatArray->elements());
+
     context.moveOrCopyResult(localResult, rows, result);
   }
 };
@@ -130,7 +147,7 @@ class ArrayMinByFunction : public ArrayMinMaxByFunction<false> {};
 std::vector<std::shared_ptr<exec::FunctionSignature>> signature() {
   return {exec::FunctionSignatureBuilder()
               .typeVariable("T")
-              .typeVariable("U")
+              .orderableTypeVariable("U")
               .returnType("T")
               .argumentType("array(T)")
               .argumentType("function(T, U)")

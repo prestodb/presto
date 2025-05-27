@@ -125,8 +125,6 @@ int main(int argc, char** argv) {
       "array_join(array(real),varchar,varchar) -> varchar",
       "array_join(array(double),varchar) -> varchar",
       "array_join(array(double),varchar,varchar) -> varchar",
-      "array_min_by", // https://github.com/facebookincubator/velox/issues/12934
-      "array_max_by", // https://github.com/facebookincubator/velox/issues/12934
       // https://github.com/facebookincubator/velox/issues/13047
       "inverse_poisson_cdf",
       // Geometry functions don't yet have a ValuesGenerator

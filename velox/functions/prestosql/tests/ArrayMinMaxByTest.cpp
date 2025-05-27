@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
@@ -122,19 +123,68 @@ TEST_F(ArrayMinMaxByTest, maxByBasic) {
 
   // array of strings
   auto stringInput = makeRowVector({makeNullableArrayVector<StringView>({
-      {"1", "2"},
-      {"a", "bb", "c"},
+      {"1", "2", "22"},
+      {"aa", "bb", "cc"},
       {"abc", std::nullopt},
       {std::nullopt},
   })});
   std::vector<std::optional<StringView>> stringExpected1{
-      "2",
-      "bb",
+      "22",
+      "cc",
       std::nullopt,
       std::nullopt,
   };
   testArrayMinMaxBy<StringView>(
       stringExpected1, "array_max_by(c0, i -> LENGTH(i))", stringInput);
+
+  testArrayMinMaxBy<StringView>(
+      stringExpected1, "array_max_by(c0, i -> 2)", stringInput);
+
+  testArrayMinMaxBy<StringView>(
+      stringExpected1, "array_max_by(c0, i -> array[2, 1])", stringInput);
+
+  // Throw user error when lambda returns a complex type with null elements
+  VELOX_ASSERT_THROW(
+      testArrayMinMaxBy<StringView>(
+          stringExpected1,
+          "array_max_by(c0, i -> array[null, 1])",
+          stringInput),
+      "Ordering nulls is not supported");
+
+  std::vector<std::optional<StringView>> stringExpected2{
+      std::nullopt,
+      std::nullopt,
+      std::nullopt,
+      std::nullopt,
+  };
+  testArrayMinMaxBy<StringView>(
+      stringExpected2, "array_max_by(c0, i -> null)", stringInput);
+
+  // Different combinations of empty/null inputs
+  std::vector<std::optional<int8_t>> emptyExpected{std::nullopt};
+
+  auto arrayVector = makeNullableArrayVector(
+      std::vector<std::vector<std::optional<int8_t>>>{{}});
+  auto emptyInput = makeRowVector({arrayVector});
+  testArrayMinMaxBy<int8_t>(
+      emptyExpected, "array_max_by(c0, i ->i * 2)", emptyInput);
+
+  auto arrayVector2 = makeNullableArrayVector(
+      std::vector<std::vector<std::optional<int8_t>>>{0});
+  auto emptyInput2 = makeRowVector({arrayVector});
+  testArrayMinMaxBy<int8_t>(
+      emptyExpected, "array_max_by(c0, i ->i / 2)", emptyInput2);
+
+  std::optional<std::vector<std::optional<StringView>>> optionalInputArray = {
+      std::vector<std::optional<StringView>>{"abc", std::nullopt}};
+  std::vector<std::optional<std::vector<std::optional<StringView>>>>
+      optionalInputs = {optionalInputArray, std::nullopt};
+  auto optionalArrayVector = makeNullableArrayVector(optionalInputs);
+  auto optionalInput = makeRowVector({optionalArrayVector});
+  std::vector<std::optional<StringView>> optionalExpected{
+      std::nullopt, std::nullopt};
+  testArrayMinMaxBy<StringView>(
+      optionalExpected, "array_max_by(c0, i -> LENGTH(i))", optionalInput);
 }
 
 TEST_F(ArrayMinMaxByTest, maxByComplexTypes) {
@@ -191,7 +241,44 @@ TEST_F(ArrayMinMaxByTest, maxByComplexTypes) {
 
   testArrayMinMaxByComplexType<RowVectorPtr>(
       ArrayOfRows, "array_max_by(c0,r -> r)", resultVector);
-} // namespace
+
+  // higher order arrays
+  auto intArray = makeArrayVector<int64_t>({{1, 5, 2, 4, 3}, {4, 5, 4, 5}});
+  auto nestedIntArray = makeArrayVector({0, 1}, intArray);
+  auto doubleNestedArray = makeArrayVector({0, 1}, nestedIntArray);
+  auto intNestedArrayResult =
+      makeArrayVectorFromJson<int64_t>({"[1, 5, 2, 4, 3]", "[4, 5, 4, 5]"});
+  testArrayMinMaxByComplexType<ArrayVectorPtr>(
+      doubleNestedArray,
+      "array_max_by(array_max_by(c0, i -> (i)), i->2)",
+      intNestedArrayResult);
+
+  std::vector<std::optional<int64_t>> intExpected2{3, 5};
+  auto doubleNestedArrayRow = makeRowVector({doubleNestedArray});
+  testArrayMinMaxBy(
+      intExpected2,
+      "array_max_by(array_max_by(array_max_by(c0, i -> (i)), i->2), i->3)",
+      doubleNestedArrayRow);
+
+  auto emptyInnerArray = makeArrayVector<int64_t>({{}});
+  auto nestedEmptyArray = makeArrayVector({0}, emptyInnerArray);
+  auto doubleNestedEmptyArray = makeArrayVector({0}, nestedEmptyArray);
+  auto emptyArrayResult = makeArrayVectorFromJson<int64_t>({"[]"});
+  testArrayMinMaxByComplexType<ArrayVectorPtr>(
+      doubleNestedEmptyArray,
+      "array_max_by(array_max_by(c0, i -> (i)), i -> 3)",
+      emptyArrayResult);
+
+  auto nullInnerArray =
+      makeNullableArrayVector<int64_t>({std::nullopt, std::nullopt});
+  auto nestedNullArray = makeArrayVector({0, 0}, nullInnerArray);
+  auto doubleNestedNullArray = makeArrayVector({0, 0}, nestedNullArray);
+  auto nullResult = makeArrayVectorFromJson<int64_t>({"null", "null"});
+  testArrayMinMaxByComplexType<ArrayVectorPtr>(
+      doubleNestedNullArray,
+      "array_max_by(array_max_by(c0, i -> (i)), i -> 3)",
+      nullResult);
+}
 
 TEST_F(ArrayMinMaxByTest, minByBasic) {
   // array of integers
@@ -215,6 +302,19 @@ TEST_F(ArrayMinMaxByTest, minByBasic) {
   };
   testArrayMinMaxBy<int32_t>(
       intExpected1, "array_min_by(c0, i -> (i))", intInput);
+
+  std::vector<std::optional<int32_t>> intExpected11{
+      1,
+      -3,
+      -3,
+      3,
+      7,
+      7,
+      std::nullopt,
+  };
+  testArrayMinMaxBy<int32_t>(
+      intExpected11, "array_min_by(c0, i -> 3)", intInput);
+
   std::vector<std::optional<int32_t>> intExpected2{
       2,
       2,
@@ -246,6 +346,7 @@ TEST_F(ArrayMinMaxByTest, minByBasic) {
   };
   testArrayMinMaxBy<double>(
       doubleExpected1, "array_min_by(c0, i -> (i))", doubleInput);
+
   std::vector<std::optional<double>> doubleExpected2{
       1.0,
       2.0,
@@ -256,6 +357,7 @@ TEST_F(ArrayMinMaxByTest, minByBasic) {
   };
   testArrayMinMaxBy<double>(
       doubleExpected2, "array_min_by(c0, i -> (i * i))", doubleInput);
+
   std::vector<std::optional<double>> doubleExpected3{
       2.0,
       2.0,
@@ -269,19 +371,73 @@ TEST_F(ArrayMinMaxByTest, minByBasic) {
 
   // array of strings
   auto stringInput = makeRowVector({makeNullableArrayVector<StringView>({
-      {"1", "2"},
-      {"a", "bb", "c"},
+      {"1", "2", "22"},
+      {"aa", "bb", "cc"},
       {"abc", std::nullopt},
       {std::nullopt},
   })});
   std::vector<std::optional<StringView>> stringExpected1{
-      "2",
-      "c",
+      "1",
+      "aa",
       std::nullopt,
       std::nullopt,
   };
   testArrayMinMaxBy<StringView>(
       stringExpected1, "array_min_by(c0, i -> LENGTH(i))", stringInput);
+  std::vector<std::optional<StringView>> stringExpected2{
+      "1",
+      "aa",
+      "abc",
+      std::nullopt,
+  };
+  testArrayMinMaxBy<StringView>(
+      stringExpected2, "array_min_by(c0, i -> 2)", stringInput);
+
+  testArrayMinMaxBy<StringView>(
+      stringExpected2, "array_min_by(c0, i -> array[2, 1])", stringInput);
+
+  // Throw user error when lambda returns a complex type with null elements
+  VELOX_ASSERT_THROW(
+      testArrayMinMaxBy<StringView>(
+          stringExpected1,
+          "array_max_by(c0, i -> array[2, null])",
+          stringInput),
+      "Ordering nulls is not supported");
+
+  std::vector<std::optional<StringView>> stringExpected3{
+      std::nullopt,
+      std::nullopt,
+      std::nullopt,
+      std::nullopt,
+  };
+  testArrayMinMaxBy<StringView>(
+      stringExpected3, "array_min_by(c0, i -> null)", stringInput);
+
+  // Different combinations of empty/null inputs
+  std::vector<std::optional<int8_t>> emptyExpected{std::nullopt};
+
+  auto arrayVector = makeNullableArrayVector(
+      std::vector<std::vector<std::optional<int8_t>>>{{}});
+  auto emptyInput = makeRowVector({arrayVector});
+  testArrayMinMaxBy<int8_t>(
+      emptyExpected, "array_min_by(c0, i ->i * 2)", emptyInput);
+
+  auto arrayVector2 = makeNullableArrayVector(
+      std::vector<std::vector<std::optional<int8_t>>>{0});
+  auto emptyInput2 = makeRowVector({arrayVector});
+  testArrayMinMaxBy<int8_t>(
+      emptyExpected, "array_min_by(c0, i ->i / 2)", emptyInput2);
+
+  std::optional<std::vector<std::optional<StringView>>> optionalInputArray = {
+      std::vector<std::optional<StringView>>{"abc", std::nullopt}};
+  std::vector<std::optional<std::vector<std::optional<StringView>>>>
+      optionalInputs = {optionalInputArray, std::nullopt};
+  auto optionalArrayVector = makeNullableArrayVector(optionalInputs);
+  auto optionalInput = makeRowVector({optionalArrayVector});
+  std::vector<std::optional<StringView>> optionalExpected{
+      std::nullopt, std::nullopt};
+  testArrayMinMaxBy<StringView>(
+      optionalExpected, "array_min_by(c0, i -> LENGTH(i))", optionalInput);
 }
 
 TEST_F(ArrayMinMaxByTest, minByComplexTypes) {
@@ -292,9 +448,10 @@ TEST_F(ArrayMinMaxByTest, minByComplexTypes) {
        "[[1, 1], [3, 3], [4, 4], [5, 5]]",
        "[[1, 1], [3, 3], [4, 4], [5, 5], [null]]",
        "[[1, 1], [3, 3, 3], [null, null, null], [4, 4, 4], [5, 5, 5]]",
-       "[[], []]"});
+       "[[], []]",
+       "[]"});
   auto intArrayResult = makeArrayVectorFromJson<int64_t>(
-      {"[1, 2, 3]", "[5, 5]", "[5, 5]", "[null]", "[1, 1]", "[]"});
+      {"[1, 2, 3]", "[3, 3]", "[1, 1]", "[null]", "[1, 1]", "[]", "null"});
   testArrayMinMaxByComplexType<ArrayVectorPtr>(
       intArrayInput, "array_min_by(c0, i -> CARDINALITY(i))", intArrayResult);
 
@@ -333,5 +490,78 @@ TEST_F(ArrayMinMaxByTest, minByComplexTypes) {
 
   testArrayMinMaxByComplexType<RowVectorPtr>(
       ArrayOfRows, "array_min_by(c0, r -> r)", resultVector);
+
+  // higher order arrays
+  auto intArray = makeArrayVector<int64_t>({{1, 5, 2, 4, 3}, {4, 5, 4, 5}});
+  auto nestedIntArray = makeArrayVector({0, 1}, intArray);
+  auto doubleNestedArray = makeArrayVector({0, 1}, nestedIntArray);
+  auto intNestedArrayResult =
+      makeArrayVectorFromJson<int64_t>({"[1, 5, 2, 4, 3]", "[4, 5, 4, 5]"});
+  testArrayMinMaxByComplexType<ArrayVectorPtr>(
+      doubleNestedArray,
+      "array_min_by(array_min_by(c0, i -> (i)), i->2)",
+      intNestedArrayResult);
+
+  std::vector<std::optional<int64_t>> intExpected2{1, 4};
+  auto doubleNestedArrayRow = makeRowVector({doubleNestedArray});
+  testArrayMinMaxBy(
+      intExpected2,
+      "array_min_by(array_min_by(array_min_by(c0, i -> (i)), i->2), i->3)",
+      doubleNestedArrayRow);
+
+  auto emptyInnerArray = makeArrayVector<int64_t>({{}});
+  auto nestedEmptyArray = makeArrayVector({0}, emptyInnerArray);
+  auto doubleNestedEmptyArray = makeArrayVector({0}, nestedEmptyArray);
+  auto emptyArrayResult = makeArrayVectorFromJson<int64_t>({"[]"});
+  testArrayMinMaxByComplexType<ArrayVectorPtr>(
+      doubleNestedEmptyArray,
+      "array_min_by(array_min_by(c0, i -> (i)), i -> 3)",
+      emptyArrayResult);
+
+  auto nullInnerArray =
+      makeNullableArrayVector<int64_t>({std::nullopt, std::nullopt});
+  auto nestedNullArray = makeArrayVector({0, 0}, nullInnerArray);
+  auto doubleNestedNullArray = makeArrayVector({0, 0}, nestedNullArray);
+  auto nullResult = makeArrayVectorFromJson<int64_t>({"null", "null"});
+  testArrayMinMaxByComplexType<ArrayVectorPtr>(
+      doubleNestedNullArray,
+      "array_min_by(array_min_by(c0, i -> (i)), i -> 3)",
+      nullResult);
+}
+
+TEST_F(ArrayMinMaxByTest, differentEncodings) {
+  // constant encoding
+  auto constantArray = makeConstantArray<int32_t>(1, {-4, 1, 5, 0});
+  auto constArrayVector = makeRowVector({constantArray});
+  std::vector<std::optional<int32_t>> constantExpected{-4};
+  testArrayMinMaxBy<int32_t>(
+      constantExpected, "array_max_by(c0, i -> ((-1) * i))", constArrayVector);
+
+  auto constantArray2 = makeConstantArray<int32_t>(3, {-4, 1, 5, 0});
+  auto constArrayVector2 = makeRowVector({constantArray});
+  std::vector<std::optional<int32_t>> constantExpected2{5};
+  testArrayMinMaxBy<int32_t>(
+      constantExpected2,
+      "array_min_by(c0, i -> ((-1) * i))",
+      constArrayVector2);
+
+  // dictionary encoding
+  auto values =
+      makeNullableFlatVector<int32_t>({1, 2, -3, 3, 0, 7, 7, std::nullopt});
+  auto dictIndices = makeIndices({0, 1, 2, 3, 4, 5, 6, 7});
+  auto dictElements = wrapInDictionary(dictIndices, values);
+
+  auto dictArray = makeArrayVector({0, 3, 5}, dictElements);
+  auto dictInput = makeRowVector({dictArray});
+  std::vector<std::optional<int32_t>> dictExpected{-3, 0, std::nullopt};
+  testArrayMinMaxBy<int32_t>(
+      dictExpected, "array_min_by(c0, i -> (i))", dictInput);
+
+  auto dictArray2 = makeArrayVector({0, 1, 2, 3, 4, 5, 6, 7}, dictElements);
+  auto dictInput2 = makeRowVector({dictArray2});
+  std::vector<std::optional<int32_t>> dictExpected2{
+      1, 2, -3, 3, 0, 7, 7, std::nullopt};
+  testArrayMinMaxBy<int32_t>(
+      dictExpected2, "array_max_by(c0, i -> (i))", dictInput2);
 } // namespace
 } // namespace
