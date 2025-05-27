@@ -747,6 +747,9 @@ class Task : public std::enable_shared_from_this<Task> {
     return cancellationSource_.getToken();
   }
 
+  /// Returns the number of created tasks from velox runtime.
+  static size_t numCreatedTasks();
+
   /// Returns the number of running tasks from velox runtime.
   static size_t numRunningTasks();
 
@@ -1145,6 +1148,8 @@ class Task : public std::enable_shared_from_this<Task> {
   const bool supportBarrier_;
 
   const std::optional<TraceConfig> traceConfig_;
+
+  inline static std::atomic_uint64_t numCreatedTasks_;
 
   // Hook in the system wide task list.
   TaskListEntry taskListEntry_;

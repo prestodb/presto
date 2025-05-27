@@ -551,6 +551,25 @@ TEST_F(TaskTest, toJson) {
   ASSERT_NO_THROW(task->toShortJson());
 }
 
+TEST_F(TaskTest, createdCount) {
+  const auto createdCount = Task::numCreatedTasks();
+  auto plan = PlanBuilder()
+                  .tableScan(ROW({"a", "b"}, {INTEGER(), DOUBLE()}))
+                  .project({"a * a", "b + b"})
+                  .planFragment();
+
+  auto task = Task::create(
+      "task-1",
+      std::move(plan),
+      0,
+      core::QueryCtx::create(driverExecutor_.get()),
+      Task::ExecutionMode::kParallel);
+  task->start(2);
+  task->noMoreSplits("0");
+  waitForTaskCompletion(task.get());
+  ASSERT_EQ(Task::numCreatedTasks(), createdCount + 1);
+}
+
 TEST_F(TaskTest, wrongPlanNodeForSplit) {
   auto connectorSplit = std::make_shared<connector::hive::HiveConnectorSplit>(
       "test",

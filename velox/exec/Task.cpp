@@ -311,6 +311,7 @@ Task::Task(
       onError_(std::move(onError)),
       splitsStates_(buildSplitStates(planFragment_.planNode)),
       bufferManager_(OutputBufferManager::getInstanceRef()) {
+  ++numCreatedTasks_;
   // NOTE: the executor must not be folly::InlineLikeExecutor for parallel
   // execution.
   if (mode_ == Task::ExecutionMode::kParallel) {
@@ -379,6 +380,10 @@ Task::TaskList& Task::taskList() {
 folly::SharedMutex& Task::taskListLock() {
   static folly::SharedMutex lock;
   return lock;
+}
+
+size_t Task::numCreatedTasks() {
+  return numCreatedTasks_;
 }
 
 size_t Task::numRunningTasks() {
