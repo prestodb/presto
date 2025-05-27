@@ -171,8 +171,8 @@ FOLLY_ALWAYS_INLINE Timestamp addToTimestamp(
           std::chrono::duration_cast<date::days>(inTimestamp.time_since_epoch())
               .count();
       const int32_t outDate = addToDate(inDate, unit, value);
-
-      outTimestamp = inTimestamp + date::days(outDate - inDate);
+      outTimestamp =
+          inTimestamp + date::days(checkedMinus<int32_t>(outDate, inDate));
       break;
     }
     case DateTimeUnit::kHour: {
