@@ -26,10 +26,10 @@ ENV TZ=${tz}
 RUN mkdir -p /scripts /velox/scripts
 COPY scripts /scripts
 COPY velox/scripts /velox/scripts
-# setup-adapters.sh does not install rpm needed for minio install.
+# install rpm needed for minio install.
 RUN mkdir build && \
     (cd build && ../scripts/setup-ubuntu.sh && \
                          apt install -y rpm && \
-                 ../velox/scripts/setup-adapters.sh && \
+                 ../velox/scripts/setup-ubuntu.sh install_adapters && \
                  ../scripts/setup-adapters.sh ) && \
     rm -rf build

@@ -21,7 +21,7 @@ COPY scripts /scripts
 COPY velox/scripts /velox/scripts
 RUN mkdir build && \
     (cd build && ../scripts/setup-centos.sh && \
-                 ../velox/scripts/setup-adapters.sh && \
+                 ../velox/scripts/setup-centos9.sh install_adapters && \
                  ../scripts/setup-adapters.sh && \
                  ../velox/scripts/setup-centos9.sh install_clang15) && \
     rm -rf build
