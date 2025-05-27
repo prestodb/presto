@@ -32,6 +32,16 @@ class FlatMapVectorTest : public testing::Test, public VectorTestBase {
     memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
+  template <typename TKey, typename TValue>
+  void testFlatMapToMap(
+      const std::vector<
+          std::optional<std::vector<std::pair<TKey, std::optional<TValue>>>>>&
+          mapData) {
+    auto mapVector = maker_.mapVector<TKey, TValue>(mapData);
+    auto flatMapVector = maker_.flatMapVectorNullable<TKey, TValue>(mapData);
+    assertEqualVectors(mapVector, flatMapVector->toMapVector());
+  }
+
   std::shared_ptr<memory::MemoryPool> pool_{
       memory::memoryManager()->addLeafPool()};
   VectorMaker maker_{pool_.get()};
@@ -493,6 +503,27 @@ TEST_F(FlatMapVectorTest, slice) {
   EXPECT_EQ(slicedVector->compare(vector.get(), 2, 3), 0);
 
   EXPECT_NE(slicedVector->compare(vector.get(), 0, 0), 0);
+}
+
+TEST_F(FlatMapVectorTest, toMapVector) {
+  testFlatMapToMap<int64_t, int64_t>({});
+  testFlatMapToMap<int64_t, int64_t>({
+      {{{0, 0}}},
+  });
+  testFlatMapToMap<int32_t, StringView>({
+      {{{0, "0"}}},
+      {{{1, "1"}}},
+      {{{2, "2"}}},
+      {{{3, std::nullopt}}},
+  });
+
+  testFlatMapToMap<int64_t, int64_t>({
+      {{{101, 1}, {102, 2}, {103, 3}}},
+      {{{105, 0}, {106, 0}}},
+      {std::nullopt},
+      {{{101, 11}, {103, 13}, {105, std::nullopt}}},
+      {{{101, 1}, {102, 2}, {103, 3}}},
+  });
 }
 
 } // namespace

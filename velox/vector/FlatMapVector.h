@@ -274,6 +274,16 @@ class FlatMapVector : public BaseVector {
 
   std::unique_ptr<SimpleVector<uint64_t>> hashAll() const override;
 
+  /// Converts and copies `this` into a MapVector.
+  ///
+  /// It does so by wrapping the distinctKeys_ vector into a dictionary to
+  /// increase its cardinality accordingly, and copying each map values vector
+  /// into a single vector containing all flattened elements.
+  ///
+  /// This is an expensive operation that should be used mostly for
+  /// testing/validation purposes, and not for performance critical paths.
+  MapVectorPtr toMapVector() const;
+
  private:
   void setDistinctKeysImpl(VectorPtr distinctKeys) {
     VELOX_CHECK(distinctKeys != nullptr);

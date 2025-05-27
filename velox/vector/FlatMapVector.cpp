@@ -389,4 +389,97 @@ std::optional<int32_t> FlatMapVector::compare(
   return flags.ascending ? result : result * -1;
 }
 
+// This function will copy map value elements from the individual mapValues_
+// std::vector into a single flattened one that can be used by a MapVector.
+//
+// It does so by copying map values in a columnar fashion, using a
+// scatter-like operation. This prevents the lack of cache locality for reads in
+// a gather-like operation.
+MapVectorPtr FlatMapVector::toMapVector() const {
+  // We first need to count how many key/value pairs per row. We do so by
+  // couting how many "full" maps we have (when inMap buffers are not
+  // materialized), then counting the ones that have inMap buffers.
+  size_t partialKeyCount = 0;
+  for (vector_size_t i = 0; i < numDistinctKeys(); i++) {
+    if (i < inMaps_.size() && inMaps_[i] != nullptr) {
+      ++partialKeyCount;
+    }
+  }
+  size_t fullKeys = numDistinctKeys() - partialKeyCount;
+
+  // Allocate the sizes vector with the minimum size of each record (the number
+  // of `fullKeys`).
+  auto sizes = AlignedBuffer::allocate<vector_size_t>(length_, pool_, fullKeys);
+  auto* rawSizes = sizes->asMutable<vector_size_t>();
+
+  // Then add the remaining ones.
+  for (vector_size_t i = 0; i < inMaps_.size(); i++) {
+    if (inMaps_[i] != nullptr) {
+      bits::forEachBit(
+          inMaps_[i]->as<uint64_t>(),
+          0,
+          length_,
+          true,
+          [rawSizes](int32_t idx) { ++rawSizes[idx]; });
+    }
+  }
+
+  // At this point we have the accurate size for each record. Allocate and
+  // populate the offsets buffer, and count how many elements the flattened
+  // vectors will have (the total number of key/value pairs).
+  auto offsets = allocateIndices(length_, pool_);
+  auto* rawOffsets = offsets->asMutable<vector_size_t>();
+
+  vector_size_t totalElements = 0;
+  for (vector_size_t i = 0; i < length_; i++) {
+    rawOffsets[i] = totalElements;
+    totalElements += rawSizes[i];
+  }
+
+  // We now zero out the sizes buffer again. The sizes buffer will be used to
+  // count how many elements have been added to each row, to offset the scatter
+  // operation.
+  std::fill(rawSizes, rawSizes + length_, 0);
+
+  auto mapValues = BaseVector::create(valueType(), totalElements, pool_);
+
+  // We also populate the indices that will wrap the distinct keys vector, to
+  // increase its cardinality.
+  auto keyDictIndices = allocateIndices(totalElements, pool_);
+  auto* rawKeyDictIndices = keyDictIndices->asMutable<vector_size_t>();
+
+  // The main scatter loop. Scan each map values vector, and copy the elements
+  // to the right offsets in the flattened output.
+  for (vector_size_t i = 0; i < mapValues_.size(); i++) {
+    if (mapValues_[i] != nullptr) {
+      for (vector_size_t j = 0; j < length_; j++) {
+        // If needed, this check could be unrolled out of the loop (in many
+        // cases the inMap buffer doesn't exist).
+        if (isInMap(i, j)) {
+          mapValues->copy(
+              mapValues_[i].get(), rawOffsets[j] + rawSizes[j], j, 1);
+          rawKeyDictIndices[rawOffsets[j] + rawSizes[j]] = i;
+          ++rawSizes[j];
+        }
+      }
+    }
+  }
+
+  auto mapKeys = distinctKeys_
+      ? BaseVector::wrapInDictionary(
+            nullptr, keyDictIndices, totalElements, distinctKeys_)
+      : nullptr;
+  return std::make_shared<MapVector>(
+      pool_,
+      type_,
+      nulls_,
+      length_,
+      offsets,
+      sizes,
+      std::move(mapKeys),
+      std::move(mapValues),
+      nullCount_,
+      sortedKeys_);
+}
+
 } // namespace facebook::velox
