@@ -76,10 +76,13 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.SchemaPropertyManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.metadata.SessionPropertyProviderConfig;
 import com.facebook.presto.metadata.StaticCatalogStore;
 import com.facebook.presto.metadata.StaticCatalogStoreConfig;
 import com.facebook.presto.metadata.StaticFunctionNamespaceStore;
 import com.facebook.presto.metadata.StaticFunctionNamespaceStoreConfig;
+import com.facebook.presto.metadata.StaticTypeManagerStore;
+import com.facebook.presto.metadata.StaticTypeManagerStoreConfig;
 import com.facebook.presto.metadata.TablePropertyManager;
 import com.facebook.presto.nodeManager.PluginNodeManager;
 import com.facebook.presto.operator.FileFragmentResultCacheConfig;
@@ -276,6 +279,8 @@ public class PrestoSparkModule
         configBinder(binder).bindConfig(CompilerConfig.class);
         configBinder(binder).bindConfig(SqlEnvironmentConfig.class);
         configBinder(binder).bindConfig(StaticFunctionNamespaceStoreConfig.class);
+        configBinder(binder).bindConfig(StaticTypeManagerStoreConfig.class);
+        configBinder(binder).bindConfig(SessionPropertyProviderConfig.class);
         configBinder(binder).bindConfig(PrestoSparkConfig.class);
         configBinder(binder).bindConfig(TracingConfig.class);
         configBinder(binder).bindConfig(NativeExecutionVeloxConfig.class);
@@ -370,6 +375,7 @@ public class PrestoSparkModule
         binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
         binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
         binder.bind(StaticFunctionNamespaceStore.class).in(Scopes.SINGLETON);
+        binder.bind(StaticTypeManagerStore.class).in(Scopes.SINGLETON);
 
         // type
         newSetBinder(binder, Type.class);
