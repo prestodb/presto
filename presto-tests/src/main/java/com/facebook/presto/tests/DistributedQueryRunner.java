@@ -1018,6 +1018,7 @@ public class DistributedQueryRunner
         for (TestingPrestoServer server : servers) {
             server.getMetadata().getSessionPropertyManager().loadSessionPropertyProvider(
                     sessionPropertyProviderName,
+                    ImmutableMap.of(),
                     Optional.ofNullable(server.getMetadata().getFunctionAndTypeManager()),
                     Optional.ofNullable(server.getPluginNodeManager()));
         }
