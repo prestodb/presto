@@ -51,20 +51,25 @@ VectorPtr RowReader::projectColumns(
   for (auto& childSpec : spec.children()) {
     VELOX_CHECK_NULL(childSpec->deltaUpdate());
     VectorPtr child;
+    TypePtr childType;
     if (childSpec->isConstant()) {
       child = BaseVector::wrapInConstant(
           input->size(), 0, childSpec->constantValue());
+      childType = child->type();
     } else {
-      child =
-          inputRow->childAt(inputRowType.getChildIdx(childSpec->fieldName()));
-      childSpec->applyFilter(*child, passed.data());
+      auto childIdx = inputRowType.getChildIdx(childSpec->fieldName());
+      childType = inputRowType.childAt(childIdx);
+      child = inputRow->childAt(childIdx);
+      if (child) {
+        childSpec->applyFilter(*child, passed.data());
+      }
     }
     if (!childSpec->projectOut()) {
       continue;
     }
     auto i = childSpec->channel();
     names[i] = childSpec->fieldName();
-    types[i] = child->type();
+    types[i] = childType;
     children[i] = std::move(child);
   }
   auto rowType = ROW(std::move(names), std::move(types));
@@ -79,6 +84,9 @@ VectorPtr RowReader::projectColumns(
     bits::forEachSetBit(
         passed.data(), 0, input->size(), [&](auto i) { rawIndices[j++] = i; });
     for (auto& child : children) {
+      if (!child) {
+        continue;
+      }
       child->disableMemo();
       child = BaseVector::wrapInDictionary(
           nullptr, indices, size, std::move(child));
