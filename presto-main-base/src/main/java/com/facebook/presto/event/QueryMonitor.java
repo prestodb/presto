@@ -94,6 +94,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.units.DataSize.succinctBytes;
+import static io.airlift.units.Duration.succinctNanos;
 import static java.lang.Double.NaN;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
@@ -380,8 +381,8 @@ public class QueryMonitor
                         operatorSummary.getOperatorType(),
                         operatorSummary.getTotalDrivers(),
                         operatorSummary.getAddInputCalls(),
-                        operatorSummary.getAddInputWall(),
-                        operatorSummary.getAddInputCpu(),
+                        succinctNanos(operatorSummary.getAddInputWallInNanos()),
+                        succinctNanos(operatorSummary.getAddInputCpuInNanos()),
                         succinctBytes(operatorSummary.getAddInputAllocationInBytes()),
                         succinctBytes(operatorSummary.getRawInputDataSizeInBytes()),
                         operatorSummary.getRawInputPositions(),
@@ -389,16 +390,16 @@ public class QueryMonitor
                         operatorSummary.getInputPositions(),
                         operatorSummary.getSumSquaredInputPositions(),
                         operatorSummary.getGetOutputCalls(),
-                        operatorSummary.getGetOutputWall(),
-                        operatorSummary.getGetOutputCpu(),
+                        succinctNanos(operatorSummary.getGetOutputWallInNanos()),
+                        succinctNanos(operatorSummary.getGetOutputCpuInNanos()),
                         succinctBytes(operatorSummary.getGetOutputAllocationInBytes()),
                         succinctBytes(operatorSummary.getOutputDataSizeInBytes()),
                         operatorSummary.getOutputPositions(),
                         succinctBytes(operatorSummary.getPhysicalWrittenDataSizeInBytes()),
-                        operatorSummary.getBlockedWall(),
+                        succinctNanos(operatorSummary.getBlockedWallInNanos()),
                         operatorSummary.getFinishCalls(),
-                        operatorSummary.getFinishWall(),
-                        operatorSummary.getFinishCpu(),
+                        succinctNanos(operatorSummary.getFinishWallInNanos()),
+                        succinctNanos(operatorSummary.getFinishCpuInNanos()),
                         succinctBytes(operatorSummary.getFinishAllocationInBytes()),
                         succinctBytes(operatorSummary.getUserMemoryReservationInBytes()),
                         succinctBytes(operatorSummary.getRevocableMemoryReservationInBytes()),
