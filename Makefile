@@ -166,7 +166,7 @@ benchmarks-build:
 					    -DVELOX_BUILD_RUNNER=OFF"
 
 benchmarks-basic-run:
-	scripts/benchmark-runner.py run \
+	scripts/ci/benchmark-runner.py run \
 			--bm_estimate_time \
 			--bm_max_secs 10 \
 			--bm_max_trials 10000 \

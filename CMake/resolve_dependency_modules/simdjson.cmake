@@ -34,5 +34,3 @@ if(${VELOX_SIMDJSON_SKIPUTF8VALIDATION})
 endif()
 
 FetchContent_MakeAvailable(simdjson)
-target_compile_definitions(simdjson
-                           PUBLIC SIMDJSON_EXPERIMENTAL_ALLOW_INCOMPLETE_JSON)
