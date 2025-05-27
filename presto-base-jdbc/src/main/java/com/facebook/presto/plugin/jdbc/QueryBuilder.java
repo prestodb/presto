@@ -49,6 +49,7 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.DateTimeEncoding.unpackMillisUtc;
@@ -108,12 +109,13 @@ public class QueryBuilder
             String table,
             List<ConnectorTableHandle> joinPushdownTables,
             List<JdbcColumnHandle> columns,
+            Map<String, String> columnExpressions,
             TupleDomain<ColumnHandle> tupleDomain,
             Optional<JdbcExpression> additionalPredicate)
             throws SQLException
     {
         StringBuilder sql = new StringBuilder();
-        buildSelectClause(columns, sql);
+        buildSelectClause(columns, sql, columnExpressions);
 
         if (!joinPushdownTables.isEmpty()) {
             buildFromClause(sql, joinPushdownTables);
@@ -135,7 +137,7 @@ public class QueryBuilder
         return statement;
     }
 
-    private void buildSelectClause(List<JdbcColumnHandle> columns, StringBuilder sql)
+    private void buildSelectClause(List<JdbcColumnHandle> columns, StringBuilder sql, Map<String, String> columnExpressions)
     {
         sql.append("SELECT ");
         sql.append(addColumns(columns, columnExpressions));
@@ -235,12 +237,13 @@ public class QueryBuilder
             String catalog,
             String schema,
             String table,
+            List<ConnectorTableHandle> joinPushdownTables,
             List<JdbcColumnHandle> columns,
             TupleDomain<ColumnHandle> tupleDomain,
             Optional<JdbcExpression> additionalPredicate)
             throws SQLException
     {
-        return buildSql(client, session, connection, catalog, schema, table, columns, ImmutableMap.of(), tupleDomain, additionalPredicate);
+        return buildSql(client, session, connection, catalog, schema, table, joinPushdownTables, columns, ImmutableMap.of(), tupleDomain, additionalPredicate);
     }
 
     private String addColumns(List<JdbcColumnHandle> columns, Map<String, String> columnExpressions)
@@ -252,7 +255,7 @@ public class QueryBuilder
         return columns.stream()
                 .map(jdbcColumnHandle -> {
                     String columnName = jdbcColumnHandle.getColumnName();
-                    String columnAlias = quote(columnName);
+                    String columnAlias = getColumnIdentifier(jdbcColumnHandle);
                     String expression = columnExpressions.get(columnName);
                     if (expression == null) {
                         return columnAlias;

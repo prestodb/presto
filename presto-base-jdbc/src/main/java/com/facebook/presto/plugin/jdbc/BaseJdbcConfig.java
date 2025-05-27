@@ -141,8 +141,9 @@ public class BaseJdbcConfig
     public BaseJdbcConfig setlistSchemasIgnoredSchemas(String listSchemasIgnoredSchemas)
     {
         this.listSchemasIgnoredSchemas = ImmutableSet.copyOf(Splitter.on(",").trimResults().omitEmptyStrings().split(listSchemasIgnoredSchemas.toLowerCase(ENGLISH)));
+        return this;
     }
-    
+
     public boolean isPartialPredicatePushDown()
     {
         return partialPredicatePushDown;

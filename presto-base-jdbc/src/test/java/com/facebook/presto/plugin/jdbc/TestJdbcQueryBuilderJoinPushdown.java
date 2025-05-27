@@ -130,7 +130,7 @@ public class TestJdbcQueryBuilderJoinPushdown
         Optional<JdbcExpression> additionalPredicate = Optional.of(new JdbcExpression(joinCondition));
 
         PreparedStatement preparedStatement = new QueryBuilder("\"")
-                .buildSql(jdbcClient, session, connection, "test_catalog", "test_schema", "test_table_1", joinTablesList, selectColumns, tupleDomain, additionalPredicate);
+                .buildSql(jdbcClient, session, connection, "test_catalog", "test_schema", "test_table_1", joinTablesList, selectColumns, ImmutableMap.of(), tupleDomain, additionalPredicate);
 
         String actualSql = preparedStatement.toString();
 
