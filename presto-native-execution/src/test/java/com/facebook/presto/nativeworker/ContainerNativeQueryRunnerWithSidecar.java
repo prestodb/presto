@@ -133,6 +133,7 @@ public class ContainerNativeQueryRunnerWithSidecar
         ContainerNativeQueryRunnerWithSidecarUtils.createCoordinatorTpchProperties();
         ContainerNativeQueryRunnerWithSidecarUtils.createCoordinatorTpcdsProperties();
         ContainerNativeQueryRunnerWithSidecarUtils.createCoordinatorConfigProperties(coordinatorPort);
+        ContainerNativeQueryRunnerWithSidecarUtils.createCoordinatorSidecarProperties();
         ContainerNativeQueryRunnerWithSidecarUtils.createCoordinatorJvmConfig();
         ContainerNativeQueryRunnerWithSidecarUtils.createCoordinatorLogProperties();
         ContainerNativeQueryRunnerWithSidecarUtils.createCoordinatorNodeProperties();

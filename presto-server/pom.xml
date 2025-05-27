@@ -27,6 +27,16 @@
         <skipTakariLifecyclePlugin>false</skipTakariLifecyclePlugin>
     </properties>
 
+    <dependencies>
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-native-sidecar-plugin</artifactId>
+            <version>${project.version}</version>
+            <type>zip</type>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+
     <build>
         <plugins>
             <plugin>
