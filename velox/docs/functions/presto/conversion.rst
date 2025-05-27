@@ -1117,10 +1117,12 @@ Full form:
 
 Compressed form:
 ::
+
    2001:DB8::8:800:200C:417A
 
 Alternate form:
 ::
+
    0:0:0:0:0:0:13.1.68.3
    ::13.1.68.3
 

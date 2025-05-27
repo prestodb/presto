@@ -5,6 +5,7 @@ Monthly Updates
 .. toctree::
     :maxdepth: 1
 
+    monthly-updates/august-2024
     monthly-updates/july-2024
     monthly-updates/june-2024
     monthly-updates/may-2024
