@@ -150,7 +150,16 @@ function get_cxx_flags {
         elif [ "$ARM_CPU_PRODUCT" = "$Neoverse_V1" ]; then
           echo -n "-mcpu=neoverse-v1 "
         elif [ "$ARM_CPU_PRODUCT" = "$Neoverse_V2" ]; then
-          echo -n "-mcpu=neoverse-v2 "
+          # Read the JEDEC JEP-106 manufacturer ID to distinguish different Neoverse V2 cores
+          # https://developer.arm.com/documentation/ka001301/latest/
+          SOC_ID_FILE="/sys/devices/soc0/soc_id"
+          GRACE_SOC_ID="jep106:036b:0241"
+          # Check for NVIDIA Grace which has various extensions
+          if [ -f "$SOC_ID_FILE" ] && [ "$(cat $SOC_ID_FILE)" = "$GRACE_SOC_ID" ]; then
+            echo -n "-mcpu=neoverse-v2+crypto+sha3+sm4+sve2-aes+sve2-sha3+sve2-sm4"
+          else
+            echo -n "-mcpu=neoverse-v2 "
+          fi
         else
           echo -n "-march=armv8-a+crc+crypto "
         fi
