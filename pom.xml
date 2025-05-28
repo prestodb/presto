@@ -1025,7 +1025,7 @@
             <dependency>
                 <groupId>com.github.imjalpreet</groupId>
                 <artifactId>presto-hive-apache</artifactId>
-                <version>hive4-upgrade-imjalpreet-4</version>
+                <version>hive4-upgrade-imjalpreet-5</version>
             </dependency>
 
             <dependency>
