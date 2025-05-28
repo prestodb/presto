@@ -315,6 +315,48 @@ class UnpartitionedTableWriterTest
   }
 };
 
+class BucketedUnpartitionedTableWriterTest
+    : public TableWriterTestBase,
+      public testing::WithParamInterface<uint64_t> {
+ public:
+  BucketedUnpartitionedTableWriterTest() : TableWriterTestBase(GetParam()) {}
+
+  static std::vector<uint64_t> getTestParams() {
+    std::vector<uint64_t> testParams;
+    const std::vector<bool> multiDriverOptions = {false, true};
+    std::vector<FileFormat> fileFormats = {FileFormat::DWRF};
+    if (hasWriterFactory(FileFormat::PARQUET)) {
+      fileFormats.push_back(FileFormat::PARQUET);
+    }
+    const std::vector<TestMode> bucketModes = {TestMode::kOnlyBucketed};
+    for (bool multiDrivers : multiDriverOptions) {
+      for (FileFormat fileFormat : fileFormats) {
+        testParams.push_back(TestParam{
+            fileFormat,
+            TestMode::kOnlyBucketed,
+            CommitStrategy::kNoCommit,
+            HiveBucketProperty::Kind::kHiveCompatible,
+            true,
+            multiDrivers,
+            facebook::velox::common::CompressionKind_ZSTD,
+            /*scaleWriter=*/false}
+                                 .value);
+        testParams.push_back(TestParam{
+            fileFormat,
+            TestMode::kOnlyBucketed,
+            CommitStrategy::kTaskCommit,
+            HiveBucketProperty::Kind::kHiveCompatible,
+            true,
+            multiDrivers,
+            facebook::velox::common::CompressionKind_NONE,
+            /*scaleWriter=*/false}
+                                 .value);
+      }
+    }
+    return testParams;
+  }
+};
+
 class BucketedTableOnlyWriteTest
     : public TableWriterTestBase,
       public testing::WithParamInterface<uint64_t> {
@@ -1553,6 +1595,37 @@ TEST_P(UnpartitionedTableWriterTest, immutableSettings) {
   }
 }
 
+TEST_P(BucketedUnpartitionedTableWriterTest, bucketNonPartitioned) {
+  SCOPED_TRACE(testParam_.toString());
+  auto input = makeVectors(1, 100);
+  createDuckDbTable(input);
+
+  auto outputDirectory = TempDirectoryPath::create();
+  setBucketProperty(
+      bucketProperty_->kind(),
+      bucketProperty_->bucketCount(),
+      bucketProperty_->bucketedBy(),
+      bucketProperty_->bucketedTypes(),
+      bucketProperty_->sortedBy());
+  auto plan = createInsertPlan(
+      PlanBuilder().values({input}),
+      rowType_,
+      outputDirectory->getPath(),
+      {},
+      bucketProperty_,
+      compressionKind_,
+      getNumWriters(),
+      connector::hive::LocationHandle::TableType::kExisting,
+      commitStrategy_);
+  assertQueryWithWriterConfigs(plan, "SELECT count(*) FROM tmp");
+
+  assertQuery(
+      PlanBuilder().tableScan(rowType_).planNode(),
+      makeHiveConnectorSplits(outputDirectory),
+      "SELECT * FROM tmp");
+  verifyTableWriterOutput(outputDirectory->getPath(), rowType_);
+}
+
 TEST_P(BucketedTableOnlyWriteTest, bucketCountLimit) {
   SCOPED_TRACE(testParam_.toString());
   auto input = makeVectors(1, 100);
@@ -2602,6 +2675,11 @@ VELOX_INSTANTIATE_TEST_SUITE_P(
     TableWriterTest,
     UnpartitionedTableWriterTest,
     testing::ValuesIn(UnpartitionedTableWriterTest::getTestParams()));
+
+VELOX_INSTANTIATE_TEST_SUITE_P(
+    TableWriterTest,
+    BucketedUnpartitionedTableWriterTest,
+    testing::ValuesIn(BucketedUnpartitionedTableWriterTest::getTestParams()));
 
 VELOX_INSTANTIATE_TEST_SUITE_P(
     TableWriterTest,

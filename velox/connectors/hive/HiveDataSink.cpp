@@ -1012,9 +1012,6 @@ HiveWriterParameters::UpdateMode HiveDataSink::getUpdateMode() const {
                   insertBehavior));
       }
     } else {
-      if (insertTableHandle_->isBucketed()) {
-        VELOX_USER_FAIL("Cannot insert into bucketed unpartitioned Hive table");
-      }
       if (hiveConfig_->immutablePartitions()) {
         VELOX_USER_FAIL("Unpartitioned Hive tables are immutable.");
       }
