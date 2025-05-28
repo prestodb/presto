@@ -369,10 +369,10 @@ public class HiveSplitManager
     }
 
     private HiveSplitSource computeSplitSource(SplitSchedulingContext splitSchedulingContext,
-                                               Table table,
-                                               ConnectorSession session,
-                                               HiveSplitLoader hiveSplitLoader,
-                                               double splitScanRatio)
+            Table table,
+            ConnectorSession session,
+            HiveSplitLoader hiveSplitLoader,
+            double splitScanRatio)
     {
         HiveSplitSource splitSource;
         CacheQuotaRequirement cacheQuotaRequirement = cacheQuotaRequirementProvider.getCacheQuotaRequirement(table.getDatabaseName(), table.getTableName());
@@ -498,16 +498,16 @@ public class HiveSplitManager
     }
 
     private Iterable<List<HivePartitionMetadata>> computePartitionMetadata(Iterable<List<HivePartition>> partitionNameBatches,
-                                                                           ConnectorSession session,
-                                                                           Table table,
-                                                                           SemiTransactionalHiveMetastore metastore,
-                                                                           SchemaTableName tableName,
-                                                                           Map<String, HiveColumnHandle> predicateColumns,
-                                                                           Optional<Map<Subfield, Domain>> domains,
-                                                                           Optional<Set<HiveColumnHandle>> allRequestedColumns,
-                                                                           Optional<HiveBucketHandle> hiveBucketHandle,
-                                                                           Optional<HiveStorageFormat> resolvedHiveStorageFormat,
-                                                                           WarningCollector warningCollector)
+            ConnectorSession session,
+            Table table,
+            SemiTransactionalHiveMetastore metastore,
+            SchemaTableName tableName,
+            Map<String, HiveColumnHandle> predicateColumns,
+            Optional<Map<Subfield, Domain>> domains,
+            Optional<Set<HiveColumnHandle>> allRequestedColumns,
+            Optional<HiveBucketHandle> hiveBucketHandle,
+            Optional<HiveStorageFormat> resolvedHiveStorageFormat,
+            WarningCollector warningCollector)
     {
         Iterable<List<HivePartitionMetadata>> partitionBatches = transform(partitionNameBatches, partitionBatch -> {
             Map<String, PartitionSplitInfo> partitionSplitInfo = getPartitionSplitInfo(session, metastore, tableName, partitionBatch, predicateColumns, domains);
@@ -778,7 +778,7 @@ public class HiveSplitManager
         Map<String, String> partitionNameToLocation = new HashMap<>();
         ImmutableMap.Builder<String, PartitionSplitInfo> partitionSplitInfoBuilder = ImmutableMap.builder();
         for (Map.Entry<String, Optional<Partition>> entry : partitions.entrySet()) {
-            ImmutableSet.Builder<ColumnHandle> redundantColumnDomainsBuilder = ImmutableSet.builder();
+            ImmutableSet.Builder<HiveColumnHandle> redundantColumnDomainsBuilder = ImmutableSet.builder();
             if (!entry.getValue().isPresent()) {
                 throw new PrestoException(HIVE_PARTITION_DROPPED_DURING_QUERY, format("Partition no longer exists: %s.%s/%s", tableName.getSchemaName(), tableName.getTableName(), entry.getKey()));
             }
@@ -937,9 +937,9 @@ public class HiveSplitManager
     {
         private final Partition partition;
         private final boolean pruned;
-        private final Set<ColumnHandle> redundantColumnDomains;
+        private final Set<HiveColumnHandle> redundantColumnDomains;
 
-        public PartitionSplitInfo(Partition partition, boolean pruned, Set<ColumnHandle> redundantColumnDomains)
+        public PartitionSplitInfo(Partition partition, boolean pruned, Set<HiveColumnHandle> redundantColumnDomains)
         {
             this.partition = requireNonNull(partition, "partition is null");
             this.pruned = pruned;
@@ -956,7 +956,7 @@ public class HiveSplitManager
             return pruned;
         }
 
-        public Set<ColumnHandle> getRedundantColumnDomains()
+        public Set<HiveColumnHandle> getRedundantColumnDomains()
         {
             return redundantColumnDomains;
         }

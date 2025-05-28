@@ -29,7 +29,6 @@ import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.HandleResolver;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.SplitWeight;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -71,7 +70,7 @@ public class TestHiveSplit
         ImmutableList<HivePartitionKey> partitionKeys = ImmutableList.of(new HivePartitionKey("a", Optional.of("apple")), new HivePartitionKey("b", Optional.of("42")));
         ImmutableList<HostAddress> addresses = ImmutableList.of(HostAddress.fromParts("127.0.0.1", 44), HostAddress.fromParts("127.0.0.1", 45));
         Map<String, String> customSplitInfo = ImmutableMap.of("key", "value");
-        Set<ColumnHandle> redundantColumnDomains = ImmutableSet.of(new HiveColumnHandle(
+        Set<HiveColumnHandle> redundantColumnDomains = ImmutableSet.of(new HiveColumnHandle(
                 "test_column",
                 HIVE_LONG,
                 HIVE_LONG.getTypeSignature(),

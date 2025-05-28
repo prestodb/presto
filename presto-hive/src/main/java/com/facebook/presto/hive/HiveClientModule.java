@@ -47,6 +47,9 @@ import com.facebook.presto.hive.s3.PrestoS3ClientFactory;
 import com.facebook.presto.hive.s3select.S3SelectRecordCursorProvider;
 import com.facebook.presto.hive.statistics.ParquetQuickStatsBuilder;
 import com.facebook.presto.hive.statistics.QuickStatsProvider;
+import com.facebook.presto.hive.thrift.BucketConversionThriftCodec;
+import com.facebook.presto.hive.thrift.HiveBucketPropertyThriftCodec;
+import com.facebook.presto.hive.thrift.HiveColumnHandleThriftCodec;
 import com.facebook.presto.orc.CachingStripeMetadataSource;
 import com.facebook.presto.orc.DwrfAwareStripeMetadataSourceFactory;
 import com.facebook.presto.orc.EncryptionLibrary;
@@ -75,6 +78,7 @@ import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
+import com.facebook.presto.spi.connector.ConnectorThriftCodecProvider;
 import com.facebook.presto.spi.connector.ConnectorTypeSerdeProvider;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -179,9 +183,23 @@ public class HiveClientModule
         binder.bind(ConnectorPlanOptimizerProvider.class).to(HivePlanOptimizerProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorMetadataUpdaterProvider.class).to(HiveMetadataUpdaterProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorTypeSerdeProvider.class).to(HiveConnectorTypeSerdeProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorThriftCodecProvider.class).to(HiveThriftCodecProvider.class).in(Scopes.SINGLETON);
         binder.install(new ThriftCodecModule());
         binder.install(new DefaultThriftCodecsModule());
         thriftCodecBinder(binder).bindThriftCodec(HiveMetadataUpdateHandle.class);
+
+        // splits
+        thriftCodecBinder(binder).bindThriftCodec(HiveSplit.class);
+        thriftCodecBinder(binder).bindThriftCodec(HiveTransactionHandle.class);
+        thriftCodecBinder(binder).bindCustomThriftCodec(HiveBucketPropertyThriftCodec.class);
+        thriftCodecBinder(binder).bindCustomThriftCodec(BucketConversionThriftCodec.class);
+        thriftCodecBinder(binder).bindCustomThriftCodec(HiveColumnHandleThriftCodec.class);
+
+        jsonCodecBinder(binder).bindJsonCodec(HiveSplit.class);
+        jsonCodecBinder(binder).bindJsonCodec(HiveTransactionHandle.class);
+        jsonCodecBinder(binder).bindJsonCodec(HiveColumnHandle.class);
+        jsonCodecBinder(binder).bindJsonCodec(HiveBucketProperty.class);
+        jsonCodecBinder(binder).bindJsonCodec(HiveSplit.BucketConversion.class);
 
         jsonCodecBinder(binder).bindJsonCodec(PartitionUpdate.class);
         smileCodecBinder(binder).bindSmileCodec(PartitionUpdate.class);

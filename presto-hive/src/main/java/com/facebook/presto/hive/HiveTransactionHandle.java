@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -22,6 +25,7 @@ import java.util.UUID;
 
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public class HiveTransactionHandle
         implements ConnectorTransactionHandle
 {
@@ -33,12 +37,14 @@ public class HiveTransactionHandle
     }
 
     @JsonCreator
+    @ThriftConstructor
     public HiveTransactionHandle(@JsonProperty("uuid") UUID uuid)
     {
         this.uuid = requireNonNull(uuid, "uuid is null");
     }
 
     @JsonProperty
+    @ThriftField(1)
     public UUID getUuid()
     {
         return uuid;
