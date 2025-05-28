@@ -32,8 +32,8 @@ target_link_libraries(
 target_compile_options(velox_hdfs_file_test
                        PRIVATE -Wno-deprecated-declarations)
 
-add_executable(velox_hdfs_insert_test InsertIntoHdfsTest.cpp
-                                      HdfsMiniCluster.cpp HdfsUtilTest.cpp)
+add_executable(velox_hdfs_insert_test HdfsInsertTest.cpp HdfsMiniCluster.cpp
+                                      HdfsUtilTest.cpp)
 
 add_test(velox_hdfs_insert_test velox_hdfs_insert_test)
 
