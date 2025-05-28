@@ -121,6 +121,8 @@ int main(int argc, char** argv) {
       // https://github.com/prestodb/presto/pull/21793
       "min_by",
       "max_by",
+      // Skip non-deterministic functions.
+      "noisy_count_if_gaussian",
   };
 
   // Functions whose results verification should be skipped. These can be
