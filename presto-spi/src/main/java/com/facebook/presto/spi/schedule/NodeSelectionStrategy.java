@@ -13,9 +13,27 @@
  */
 package com.facebook.presto.spi.schedule;
 
+import com.facebook.drift.annotations.ThriftEnum;
+import com.facebook.drift.annotations.ThriftEnumValue;
+
+@ThriftEnum
 public enum NodeSelectionStrategy
 {
-    HARD_AFFINITY,
-    SOFT_AFFINITY,
-    NO_PREFERENCE
+    HARD_AFFINITY(0),
+    SOFT_AFFINITY(1),
+    NO_PREFERENCE(2),
+    /**/;
+
+    private final int value;
+
+    NodeSelectionStrategy(int value)
+    {
+        this.value = value;
+    }
+
+    @ThriftEnumValue
+    public int getValue()
+    {
+        return value;
+    }
 }

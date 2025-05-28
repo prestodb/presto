@@ -29,7 +29,6 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.DecayCounter;
 import com.facebook.drift.transport.netty.codec.Protocol;
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorTypeSerdeManager;
 import com.facebook.presto.execution.FutureStateChange;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.NodeTaskMap.NodeStatsTracker;
@@ -50,7 +49,6 @@ import com.facebook.presto.execution.buffer.PageBufferInfo;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.server.RequestErrorTracker;
@@ -227,7 +225,6 @@ public final class HttpRemoteTask
     private final boolean taskUpdateRequestThriftSerdeEnabled;
     private final boolean taskInfoResponseThriftSerdeEnabled;
     private final Protocol thriftProtocol;
-    private final ConnectorTypeSerdeManager connectorTypeSerdeManager;
     private final HandleResolver handleResolver;
     private final long maxTaskUpdateSizeInBytes;
     private final int maxUnacknowledgedSplits;
@@ -262,7 +259,6 @@ public final class HttpRemoteTask
             Codec<TaskUpdateRequest> taskUpdateRequestCodec,
             Codec<TaskInfo> taskInfoResponseCodec,
             Codec<PlanFragment> planFragmentCodec,
-            Codec<MetadataUpdates> metadataUpdatesCodec,
             NodeStatsTracker nodeStatsTracker,
             RemoteTaskStats stats,
             boolean binaryTransportEnabled,
@@ -278,7 +274,6 @@ public final class HttpRemoteTask
             DecayCounter taskUpdateRequestSize,
             boolean taskUpdateSizeTrackingEnabled,
             HandleResolver handleResolver,
-            ConnectorTypeSerdeManager connectorTypeSerdeManager,
             SchedulerStatsTracker schedulerStatsTracker)
     {
         requireNonNull(session, "session is null");
@@ -303,7 +298,6 @@ public final class HttpRemoteTask
         requireNonNull(queryManager, "queryManager is null");
         requireNonNull(thriftProtocol, "thriftProtocol is null");
         requireNonNull(handleResolver, "handleResolver is null");
-        requireNonNull(connectorTypeSerdeManager, "connectorTypeSerdeManager is null");
         requireNonNull(taskUpdateRequestSize, "taskUpdateRequestSize cannot be null");
         requireNonNull(schedulerStatsTracker, "schedulerStatsTracker is null");
 
@@ -334,7 +328,6 @@ public final class HttpRemoteTask
             this.taskUpdateRequestThriftSerdeEnabled = taskUpdateRequestThriftSerdeEnabled;
             this.taskInfoResponseThriftSerdeEnabled = taskInfoResponseThriftSerdeEnabled;
             this.thriftProtocol = thriftProtocol;
-            this.connectorTypeSerdeManager = connectorTypeSerdeManager;
             this.handleResolver = handleResolver;
             this.tableWriteInfo = tableWriteInfo;
             this.maxTaskUpdateSizeInBytes = maxTaskUpdateSizeInBytes;
@@ -394,7 +387,6 @@ public final class HttpRemoteTask
                     taskInfoUpdateInterval,
                     taskInfoRefreshMaxWait,
                     taskInfoCodec,
-                    metadataUpdatesCodec,
                     maxErrorDuration,
                     summarizeTaskInfo,
                     executor,
@@ -407,7 +399,6 @@ public final class HttpRemoteTask
                     metadataManager,
                     queryManager,
                     handleResolver,
-                    connectorTypeSerdeManager,
                     thriftProtocol);
 
             taskStatusFetcher.addStateChangeListener(newStatus -> {

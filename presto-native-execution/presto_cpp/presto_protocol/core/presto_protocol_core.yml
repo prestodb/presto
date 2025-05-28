@@ -108,11 +108,6 @@ AbstractClasses:
       - { name: SystemTableLayoutHandle,  key: $system@system }
       - { name: ArrowTableLayoutHandle,   key: arrow-flight }
 
-  ConnectorMetadataUpdateHandle:
-    super: JsonEncodedSubclass
-    subclasses:
-      - { name: HiveMetadataUpdateHandle, key: hive }
-
   ConnectorSplit:
     super: JsonEncodedSubclass
     subclasses:
@@ -320,14 +315,12 @@ JavaClasses:
   - presto-common/src/main/java/com/facebook/presto/common/predicate/ValueSet.java
   - presto-spi/src/main/java/com/facebook/presto/spi/relation/VariableReferenceExpression.java
   - presto-main-base/src/main/java/com/facebook/presto/cost/VariableStatsEstimate.java
-  - presto-main-base/src/main/java/com/facebook/presto/metadata/MetadataUpdates.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/JoinNode.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/SemiJoinNode.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/MergeJoinNode.java
   - presto-main-base/src/main/java/com/facebook/presto/sql/planner/plan/IndexJoinNode.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/IndexSourceNode.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/TopNNode.java
-  - presto-spi/src/main/java/com/facebook/presto/spi/ConnectorMetadataUpdateHandle.java
   - presto-main-base/src/main/java/com/facebook/presto/split/EmptySplit.java
   - presto-spi/src/main/java/com/facebook/presto/spi/relation/LambdaDefinitionExpression.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/SortNode.java

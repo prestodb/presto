@@ -20,7 +20,7 @@ AbstractClasses:
   ConnectorPartitioningHandle:
     super: JsonEncodedSubclass
     subclasses:
-      - { name: HivePartitioningHandle,   key: hive}
+      - { name: HivePartitioningHandle,   key: hive }
 
   ConnectorTableHandle:
     super: JsonEncodedSubclass
@@ -41,11 +41,6 @@ AbstractClasses:
     super: JsonEncodedSubclass
     subclasses:
       - { name: IcebergTableLayoutHandle, key: hive-iceberg }
-
-  ConnectorMetadataUpdateHandle:
-    super: JsonEncodedSubclass
-    subclasses:
-      - { name: HiveMetadataUpdateHandle, key: hive}
 
   ConnectorSplit:
     super: JsonEncodedSubclass
