@@ -24,9 +24,9 @@ import com.facebook.presto.metadata.MetadataUpdates;
 
 import javax.inject.Inject;
 
-import static com.facebook.presto.server.thrift.CustomCodecUtils.createSyntheticMetadata;
-import static com.facebook.presto.server.thrift.CustomCodecUtils.readSingleJsonField;
-import static com.facebook.presto.server.thrift.CustomCodecUtils.writeSingleJsonField;
+import static com.facebook.presto.server.thrift.ThriftCodecUtils.createSyntheticMetadata;
+import static com.facebook.presto.server.thrift.ThriftCodecUtils.readSingleJsonField;
+import static com.facebook.presto.server.thrift.ThriftCodecUtils.writeSingleJsonField;
 import static java.util.Objects.requireNonNull;
 
 public class MetadataUpdatesCodec

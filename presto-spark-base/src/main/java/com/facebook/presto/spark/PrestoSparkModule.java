@@ -19,6 +19,7 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.smile.SmileCodec;
 import com.facebook.airlift.node.NodeConfig;
 import com.facebook.airlift.node.NodeInfo;
+import com.facebook.drift.codec.ThriftCodecManager;
 import com.facebook.presto.ClientRequestFilterManager;
 import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.PagesIndexPageSorter;
@@ -33,6 +34,7 @@ import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.connector.ConnectorManager;
+import com.facebook.presto.connector.ConnectorThriftCodecManager;
 import com.facebook.presto.connector.ConnectorTypeSerdeManager;
 import com.facebook.presto.connector.system.SystemConnectorModule;
 import com.facebook.presto.cost.CostCalculator;
@@ -437,6 +439,10 @@ public class PrestoSparkModule
 
         // connector metadata update handle serde manager
         binder.bind(ConnectorTypeSerdeManager.class).in(Scopes.SINGLETON);
+
+        // for thrift serde
+        binder.bind(ThriftCodecManager.class).toInstance(new ThriftCodecManager());
+        binder.bind(ConnectorThriftCodecManager.class).in(Scopes.SINGLETON);
 
         // connector metadata update handle json serde
         binder.bind(new TypeLiteral<ConnectorTypeSerde<ConnectorMetadataUpdateHandle>>() {})

@@ -15,13 +15,17 @@ package com.facebook.presto.server.thrift;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.drift.TException;
+import com.facebook.drift.codec.ThriftCodec;
 import com.facebook.drift.codec.metadata.DefaultThriftTypeReference;
 import com.facebook.drift.codec.metadata.FieldKind;
 import com.facebook.drift.codec.metadata.ThriftFieldExtractor;
 import com.facebook.drift.codec.metadata.ThriftFieldMetadata;
 import com.facebook.drift.codec.metadata.ThriftStructMetadata;
 import com.facebook.drift.codec.metadata.ThriftType;
+import com.facebook.drift.protocol.TBinaryProtocol;
 import com.facebook.drift.protocol.TField;
+import com.facebook.drift.protocol.TMemoryBuffer;
+import com.facebook.drift.protocol.TMemoryBufferWriteOnly;
 import com.facebook.drift.protocol.TProtocolException;
 import com.facebook.drift.protocol.TProtocolReader;
 import com.facebook.drift.protocol.TProtocolWriter;
@@ -35,13 +39,13 @@ import java.util.Optional;
 import static com.facebook.drift.annotations.ThriftField.Requiredness.NONE;
 import static java.lang.String.format;
 
-/***
- * When we need a custom codec for a primitive type, we need a wrapper to pass the needsCodec check within ThriftCodecByteCodeGenerator.java
- */
-public class CustomCodecUtils
+public class ThriftCodecUtils
 {
-    private CustomCodecUtils() {}
+    private ThriftCodecUtils() {}
 
+    /***
+     * When we need a custom codec for a primitive type, we need a wrapper to pass the needsCodec check within ThriftCodecByteCodeGenerator.java
+     */
     public static ThriftStructMetadata createSyntheticMetadata(short fieldId, String fieldName, Class<?> originalType, Class<?> referencedType, ThriftType thriftType)
     {
         ThriftFieldMetadata fieldMetaData = new ThriftFieldMetadata(
@@ -105,5 +109,33 @@ public class CustomCodecUtils
 
         protocol.writeFieldStop();
         protocol.writeStructEnd();
+    }
+
+    public static <T> T fromThrift(byte[] bytes, ThriftCodec<T> thriftCodec)
+            throws TProtocolException
+    {
+        try {
+            TMemoryBuffer transport = new TMemoryBuffer(bytes.length);
+            transport.write(bytes);
+            TBinaryProtocol protocol = new TBinaryProtocol(transport);
+            return thriftCodec.read(protocol);
+        }
+        catch (Exception e) {
+            throw new TProtocolException("Can not deserialize the data", e);
+        }
+    }
+
+    public static <T> byte[] toThrift(T value, ThriftCodec<T> thriftCodec)
+            throws TProtocolException
+    {
+        TMemoryBufferWriteOnly transport = new TMemoryBufferWriteOnly(1024);
+        TBinaryProtocol protocol = new TBinaryProtocol(transport);
+        try {
+            thriftCodec.write(value, protocol);
+            return transport.getBytes();
+        }
+        catch (Exception e) {
+            throw new TProtocolException("Can not serialize the data", e);
+        }
     }
 }

@@ -70,7 +70,8 @@ import static org.testng.Assert.assertTrue;
 
 public class PrestoNativeQueryRunnerUtils
 {
-    public enum QueryRunnerType {
+    public enum QueryRunnerType
+    {
         JAVA,
         NATIVE
     }
@@ -176,8 +177,8 @@ public class PrestoNativeQueryRunnerUtils
 
         public HiveQueryRunnerBuilder setUseThrift(boolean useThrift)
         {
-            this.extraProperties
-                    .put("experimental.internal-communication.thrift-transport-enabled", String.valueOf(useThrift));
+            this.extraProperties.put("experimental.internal-communication.thrift-transport-enabled", String.valueOf(useThrift));
+            this.extraProperties.put("experimental.internal-communication.task-info-thrift-transport-enabled", String.valueOf(useThrift));
             return this;
         }
 

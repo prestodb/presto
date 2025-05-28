@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.hive.metastore.Column;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -28,6 +31,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.sizeOfObjectArray;
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public class TableToPartitionMapping
 {
     public static TableToPartitionMapping empty()
@@ -49,6 +53,7 @@ public class TableToPartitionMapping
     private final Map<Integer, Column> partitionSchemaDifference;
 
     @JsonCreator
+    @ThriftConstructor
     public TableToPartitionMapping(
             @JsonProperty("tableToPartitionColumns") Optional<Map<Integer, Integer>> tableToPartitionColumns,
             @JsonProperty("partitionSchemaDifference") Map<Integer, Column> partitionSchemaDifference)
@@ -75,12 +80,14 @@ public class TableToPartitionMapping
     }
 
     @JsonProperty
+    @ThriftField(1)
     public Optional<Map<Integer, Integer>> getTableToPartitionColumns()
     {
         return tableToPartitionColumns;
     }
 
     @JsonProperty
+    @ThriftField(2)
     public Map<Integer, Column> getPartitionSchemaDifference()
     {
         return partitionSchemaDifference;

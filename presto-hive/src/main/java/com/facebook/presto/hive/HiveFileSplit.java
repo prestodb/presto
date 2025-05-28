@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
@@ -29,6 +32,7 @@ import static java.util.Objects.requireNonNull;
  * This class does not check whether the file exists, or, if it exists, that it is long enough to
  * contain all the indicated bytes.
  */
+@ThriftStruct
 public class HiveFileSplit
 {
     private final String path;
@@ -50,6 +54,7 @@ public class HiveFileSplit
      * @throws IllegalArgumentException if any numeric parameter is less than zero
      */
     @JsonCreator
+    @ThriftConstructor
     public HiveFileSplit(
             @JsonProperty("path") String path,
             @JsonProperty("start") long start,
@@ -79,48 +84,56 @@ public class HiveFileSplit
     }
 
     @JsonProperty
+    @ThriftField(1)
     public String getPath()
     {
         return path;
     }
 
     @JsonProperty
+    @ThriftField(2)
     public long getStart()
     {
         return start;
     }
 
     @JsonProperty
+    @ThriftField(3)
     public long getLength()
     {
         return length;
     }
 
     @JsonProperty
+    @ThriftField(4)
     public long getFileSize()
     {
         return fileSize;
     }
 
     @JsonProperty
+    @ThriftField(5)
     public long getFileModifiedTime()
     {
         return fileModifiedTime;
     }
 
     @JsonProperty
+    @ThriftField(6)
     public Optional<byte[]> getExtraFileInfo()
     {
         return extraFileInfo;
     }
 
     @JsonProperty
+    @ThriftField(7)
     public Map<String, String> getCustomSplitInfo()
     {
         return customSplitInfo;
     }
 
     @JsonProperty
+    @ThriftField(8)
     public long getAffinitySchedulingFileSectionIndex()
     {
         return affinitySchedulingFileSectionIndex;
