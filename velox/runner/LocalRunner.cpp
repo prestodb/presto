@@ -25,21 +25,7 @@ std::shared_ptr<exec::RemoteConnectorSplit> remoteSplit(
     const std::string& taskId) {
   return std::make_shared<exec::RemoteConnectorSplit>(taskId);
 }
-} // namespace
 
-RowVectorPtr LocalRunner::next() {
-  if (!cursor_) {
-    start();
-  }
-  bool hasNext = cursor_->moveNext();
-  if (!hasNext) {
-    state_ = State::kFinished;
-    return nullptr;
-  }
-  return cursor_->current();
-}
-
-namespace {
 std::vector<exec::Split> listAllSplits(std::shared_ptr<SplitSource> source) {
   std::vector<exec::Split> result;
   for (;;) {
@@ -55,12 +41,81 @@ std::vector<exec::Split> listAllSplits(std::shared_ptr<SplitSource> source) {
   }
   VELOX_UNREACHABLE();
 }
+
+void getTopologicalOrder(
+    const std::vector<ExecutableFragment>& fragments,
+    int32_t index,
+    const std::unordered_map<std::string, int32_t>& taskPrefixToIndex,
+    std::vector<bool>& visited,
+    std::stack<int32_t>& indices) {
+  visited[index] = true;
+  for (const auto& input : fragments.at(index).inputStages) {
+    if (!visited[taskPrefixToIndex.at(input.producerTaskPrefix)]) {
+      getTopologicalOrder(
+          fragments,
+          taskPrefixToIndex.at(input.producerTaskPrefix),
+          taskPrefixToIndex,
+          visited,
+          indices);
+    }
+  }
+  indices.push(index);
+}
+
+std::vector<ExecutableFragment> topologicalSort(
+    const std::vector<ExecutableFragment>& fragments) {
+  std::unordered_map<std::string, int32_t> taskPrefixToIndex;
+  for (auto i = 0; i < fragments.size(); ++i) {
+    taskPrefixToIndex[fragments[i].taskPrefix] = i;
+  }
+
+  std::stack<int32_t> indices;
+  std::vector<bool> visited(fragments.size(), false);
+  for (auto i = 0; i < fragments.size(); ++i) {
+    if (!visited[i]) {
+      getTopologicalOrder(fragments, i, taskPrefixToIndex, visited, indices);
+    }
+  }
+
+  auto size = indices.size();
+  VELOX_CHECK_EQ(size, fragments.size());
+  std::vector<ExecutableFragment> result(size);
+  auto i = size - 1;
+  while (!indices.empty()) {
+    result[i--] = fragments[indices.top()];
+    indices.pop();
+  }
+  VELOX_CHECK_EQ(result.size(), fragments.size());
+  return result;
+}
 } // namespace
+
+LocalRunner::LocalRunner(
+    const MultiFragmentPlanPtr& plan,
+    std::shared_ptr<core::QueryCtx> queryCtx,
+    std::shared_ptr<SplitSourceFactory> splitSourceFactory)
+    : fragments_(topologicalSort(plan->fragments())),
+      options_(plan->options()),
+      splitSourceFactory_(std::move(splitSourceFactory)) {
+  params_.queryCtx = std::move(queryCtx);
+}
+
+RowVectorPtr LocalRunner::next() {
+  if (!cursor_) {
+    start();
+  }
+  bool hasNext = cursor_->moveNext();
+  if (!hasNext) {
+    state_ = State::kFinished;
+    return nullptr;
+  }
+  return cursor_->current();
+}
 
 void LocalRunner::start() {
   VELOX_CHECK_EQ(state_, State::kInitialized);
   auto lastStage = makeStages();
-  params_.planNode = plan_->fragments().back().fragment.planNode;
+  params_.planNode = fragments_.back().fragment.planNode;
   auto cursor = exec::TaskCursor::create(params_);
   stages_.push_back({cursor->task()});
   // Add table scan splits to the final gathere stage.

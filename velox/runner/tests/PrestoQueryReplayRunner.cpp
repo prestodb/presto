@@ -177,8 +177,7 @@ struct PlanFragmentInfo {
 };
 
 std::vector<ExecutableFragment> createExecutableFragments(
-    const std::map<std::string, PlanFragmentInfo, std::greater<std::string>>&
-        planFragments) {
+    const std::unordered_map<std::string, PlanFragmentInfo>& planFragments) {
   std::vector<ExecutableFragment> executableFragments;
   for (const auto& [taskPrefix, planFragmentInfo] : planFragments) {
     ExecutableFragment executableFragment{taskPrefix};
@@ -229,8 +228,7 @@ MultiFragmentPlanPtr PrestoQueryReplayRunner::deserializePlan(
   // LocalRunner implicitly expect the last plan fragment to be the
   // root stage.
   // TODO: extend this logic to be more general.
-  std::map<std::string, PlanFragmentInfo, std::greater<std::string>>
-      planFragments;
+  std::unordered_map<std::string, PlanFragmentInfo> planFragments;
   for (auto i = 0; i < serializedPlanFragments.size(); ++i) {
     auto& taskPrefix = taskPrefixes[i];
     VELOX_CHECK_EQ(planFragments.count(taskPrefix), 0);

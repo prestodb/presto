@@ -63,15 +63,9 @@ class LocalRunner : public Runner,
                     public std::enable_shared_from_this<LocalRunner> {
  public:
   LocalRunner(
-      MultiFragmentPlanPtr plan,
+      const MultiFragmentPlanPtr& plan,
       std::shared_ptr<core::QueryCtx> queryCtx,
-      std::shared_ptr<SplitSourceFactory> splitSourceFactory)
-      : plan_(std::move(plan)),
-        fragments_(plan_->fragments()),
-        options_(plan_->options()),
-        splitSourceFactory_(std::move(splitSourceFactory)) {
-    params_.queryCtx = std::move(queryCtx);
-  }
+      std::shared_ptr<SplitSourceFactory> splitSourceFactory);
 
   RowVectorPtr next() override;
 
@@ -96,9 +90,8 @@ class LocalRunner : public Runner,
   // Serializes 'cursor_' and 'error_'.
   mutable std::mutex mutex_;
 
-  const MultiFragmentPlanPtr plan_;
   const std::vector<ExecutableFragment> fragments_;
-  const MultiFragmentPlan::Options& options_;
+  const MultiFragmentPlan::Options options_;
 
   exec::CursorParameters params_;
 
