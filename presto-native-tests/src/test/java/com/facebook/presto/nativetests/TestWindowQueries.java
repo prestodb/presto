@@ -15,22 +15,41 @@ package com.facebook.presto.nativetests;
 
 import com.facebook.presto.nativeworker.NativeQueryRunnerUtils;
 import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
+import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestWindowQueries;
 import com.google.common.collect.ImmutableMap;
+import org.testng.SkipException;
 import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
+
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.VarcharType.createVarcharType;
+import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
+import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static java.lang.Boolean.parseBoolean;
 
 public class TestWindowQueries
         extends AbstractTestWindowQueries
 {
     private static final String frameTypeDiffersError = ".*Window frame of type RANGE does not match types of the ORDER BY and frame column.*";
 
-    @Parameters("storageFormat")
+    @Parameters({"storageFormat", "sidecarEnabled"})
     @Override
-    protected QueryRunner createQueryRunner() throws Exception
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(ImmutableMap.of(), System.getProperty("storageFormat"));
+        if (parseBoolean(System.getProperty("sidecarEnabled"))) {
+            QueryRunner queryRunner =
+                    PrestoNativeQueryRunnerUtils.createNativeQueryRunner(
+                            ImmutableMap.of(),
+                            System.getProperty("storageFormat"),
+                            true);
+            setupNativeSidecarPlugin(queryRunner);
+            return queryRunner;
+        }
+        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(ImmutableMap.of(), System.getProperty("storageFormat"), false);
     }
 
     @Parameters("storageFormat")
@@ -177,13 +196,13 @@ public class TestWindowQueries
                         "(3, ARRAY[DATE '2222-01-01', DATE '3333-01-01'], 5.5)");
 
         assertQueryFails("SELECT x, array_agg(a) OVER(ORDER BY x RANGE BETWEEN 2 PRECEDING AND CURRENT ROW), array_agg(a) OVER(ORDER BY x RANGE BETWEEN CURRENT ROW AND 2 FOLLOWING) " +
-                        "FROM (VALUES " +
-                        "(1.0, 1), " +
-                        "(2.0, 2), " +
-                        "(3.0, 3), " +
-                        "(4.0, 4), " +
-                        "(5.0, 5), " +
-                        "(6.0, 6)) T(x, a)", frameTypeDiffersError);
+                "FROM (VALUES " +
+                "(1.0, 1), " +
+                "(2.0, 2), " +
+                "(3.0, 3), " +
+                "(4.0, 4), " +
+                "(5.0, 5), " +
+                "(6.0, 6)) T(x, a)", frameTypeDiffersError);
     }
 
     /// The first query in this test fails because the Window's ORDER BY column type differs from the frame bound type.
@@ -229,5 +248,28 @@ public class TestWindowQueries
                         "(INTERVAL '1' month, ARRAY[INTERVAL '1' month, INTERVAL '2' month]), " +
                         "(INTERVAL '2' month, ARRAY[INTERVAL '1' month, INTERVAL '2' month]), " +
                         "(INTERVAL '5' year, ARRAY[INTERVAL '5' year])");
+    }
+
+    // Todo: Enable this test case when support for varchar(N) is added in native execution.
+    // The return types do not match on the native query runner : types=[varchar, bigint] and the java query runner:  types=[varchar(3), bigint].
+    @Override
+    @Parameters("sidecarEnabled")
+    @Test
+    public void testWindowFunctionWithGroupBy()
+    {
+        if (parseBoolean(System.getProperty("sidecarEnabled"))) {
+            throw new SkipException("Skipping this test because sidecar is enabled");
+        }
+
+        MaterializedResult actual = computeActual("" +
+                "SELECT *, rank() OVER (PARTITION BY x)\n" +
+                "FROM (SELECT 'foo' x)\n" +
+                "GROUP BY 1");
+
+        MaterializedResult expected = resultBuilder(getSession(), createVarcharType(3), BIGINT)
+                .row("foo", 1L)
+                .build();
+
+        assertEquals(actual, expected);
     }
 }

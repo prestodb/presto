@@ -28,18 +28,33 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Objects;
 
+import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Boolean.parseBoolean;
 
 public class TestDistributedEngineOnlyQueries
         extends AbstractTestEngineOnlyQueries
 {
-    private static final String timeTypeUnsupportedError = ".*Failed to parse type \\[time.*";
+    private static final String timeTypeUnsupportedErrorWithSidecarDisabled = ".*Failed to parse type \\[time.*";
+    private static final String timeTypeUnsupportedErrorWithSidecarEnabled = "^Unknown type time.*";
+    private String timeTypeUnsupportedError;
 
-    @Parameters("storageFormat")
+    @Parameters({"storageFormat", "sidecarEnabled"})
     @Override
     protected QueryRunner createQueryRunner() throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(ImmutableMap.of(), System.getProperty("storageFormat"));
+        if (parseBoolean(System.getProperty("sidecarEnabled"))) {
+            timeTypeUnsupportedError = timeTypeUnsupportedErrorWithSidecarEnabled;
+            QueryRunner queryRunner =
+                    PrestoNativeQueryRunnerUtils.createNativeQueryRunner(
+                            ImmutableMap.of(),
+                            System.getProperty("storageFormat"),
+                            true);
+            setupNativeSidecarPlugin(queryRunner);
+            return queryRunner;
+        }
+        timeTypeUnsupportedError = timeTypeUnsupportedErrorWithSidecarDisabled;
+        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(ImmutableMap.of(), System.getProperty("storageFormat"), false);
     }
 
     @Parameters("storageFormat")

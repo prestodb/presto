@@ -424,7 +424,7 @@ public class PrestoNativeQueryRunnerUtils
         return createNativeQueryRunner(false, DEFAULT_STORAGE_FORMAT, Optional.ofNullable(remoteFunctionServerUds), false, false, false, false, false);
     }
 
-    public static QueryRunner createNativeQueryRunner(Map<String, String> extraProperties, String storageFormat)
+    public static QueryRunner createNativeQueryRunner(Map<String, String> extraProperties, String storageFormat, boolean isCoordinatorSidecarEnabled)
             throws Exception
     {
         int cacheMaxSize = 0;
@@ -439,7 +439,7 @@ public class PrestoNativeQueryRunnerUtils
                 storageFormat,
                 true,
                 false,
-                false,
+                isCoordinatorSidecarEnabled,
                 false,
                 false,
                 false,
