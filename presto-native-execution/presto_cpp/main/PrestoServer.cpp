@@ -540,6 +540,16 @@ void PrestoServer::run() {
     taskManager_->setBaseUri(taskUri);
   };
 
+  httpServer_->registerPost(
+      R"(/v1/catalog/([^/]+))",
+      [server = this, &catalogNames](
+          proxygen::HTTPMessage* message,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+          proxygen::ResponseHandler* downstream) {
+        LOG(INFO) << "Received catalog POST";
+        server->registerCatalogFromJson(message, body, downstream, catalogNames);
+      });
+
   auto startAnnouncerAndHeartbeatManagerCb = [&](bool useHttps, int port) {
     if (coordinatorDiscoverer_ != nullptr) {
       announcer_ = std::make_unique<Announcer>(
@@ -1174,8 +1184,21 @@ std::vector<std::string> PrestoServer::registerVeloxConnectors(
   for (const auto& entry :
        fs::directory_iterator(configDirectoryPath / "catalog")) {
     if (entry.path().extension() == kPropertiesExtension) {
+      catalogNames.emplace_back(registerCatalog(entry));
+    }
+  }
+  return catalogNames;
+}
+
+std::string PrestoServer::registerCatalog(
+  const fs::path& configPath) {
+    static const std::string kPropertiesExtension = ".properties";
+
+    std::string catalogName;
+    const std::filesystem::directory_entry entry(configPath);
+    if (entry.path().extension() == kPropertiesExtension) {
       auto fileName = entry.path().filename().string();
-      auto catalogName =
+      catalogName =
           fileName.substr(0, fileName.size() - kPropertiesExtension.size());
 
       auto connectorConf = util::readConfig(entry.path());
@@ -1188,8 +1211,6 @@ std::vector<std::string> PrestoServer::registerVeloxConnectors(
               std::move(connectorConf));
 
       auto connectorName = util::requiredProperty(*properties, kConnectorName);
-
-      catalogNames.emplace_back(catalogName);
 
       PRESTO_STARTUP_LOG(INFO) << "Registering catalog " << catalogName
                                << " using connector " << connectorName;
@@ -1206,8 +1227,7 @@ std::vector<std::string> PrestoServer::registerVeloxConnectors(
                   connectorCpuExecutor_.get());
       velox::connector::registerConnector(connector);
     }
-  }
-  return catalogNames;
+    return catalogName;
 }
 
 void PrestoServer::registerSystemConnector() {
@@ -1564,6 +1584,75 @@ void PrestoServer::handleGracefulShutdown(
   } else {
     LOG(ERROR) << "Bad Request. Received body content: " << bodyContent;
     http::sendErrorResponse(downstream, "Bad Request", http::kHttpBadRequest);
+  }
+}
+
+void PrestoServer::registerCatalogFromJson(
+    proxygen::HTTPMessage* message,
+    const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+    proxygen::ResponseHandler* downstream,
+    std::vector<std::string>& catalogNames) {
+
+  static const std::string kPropertiesExtension = ".properties";
+
+  try {
+    const auto path = message->getPath();
+    const auto lastSlash = path.find_last_of('/');
+    const std::string catalogName = path.substr(lastSlash + 1);
+
+    if(find(catalogNames.begin(), catalogNames.end(), catalogName) != catalogNames.end()) {
+      throw std::invalid_argument(fmt::format("Catalog ['%s'] is already present in Prestissimo", catalogName));
+    }
+
+    std::string jsonBody;
+    for (const auto& buf : body) {
+      jsonBody += std::string(reinterpret_cast<const char*>(buf->data()), buf->length());
+    }
+
+    folly::dynamic json = folly::parseJson(jsonBody);
+    if (!json.isObject()) {
+      throw std::invalid_argument("Not a JSON object.");
+    }
+
+    std::ostringstream propertiesString;
+    for (const auto& pair : json.items()) {
+      if (!pair.first.isString()) {
+        throw std::invalid_argument("All JSON keys must be strings.");
+      }
+      if (!pair.second.isString()) {
+        throw std::invalid_argument(
+            fmt::format("Value for key '{}' must be a string, but got: {}",
+                        pair.first.asString(),
+                        folly::toJson(pair.second)));
+      }
+      propertiesString << pair.first.asString() << "=" << pair.second.asString() << "\n";
+    }
+
+    const fs::path propertyFile = configDirectoryPath_ + "/catalog/" + catalogName + kPropertiesExtension;
+
+    std::ofstream out(propertyFile);
+    if (!out.is_open()) {
+      throw std::runtime_error("Failed to open file: " + propertyFile.string());
+    }
+    out << propertiesString.str();
+    out.close();
+
+    registerCatalog(propertyFile);
+    catalogNames.push_back(catalogName);
+
+    // Update and force an announcement to let the coordinator know about the new catalog
+    announcer_->updateConnectorIds(catalogNames);
+    announcer_->sendRequest();
+
+    proxygen::ResponseBuilder(downstream)
+        .status(200, "OK")
+        .body("Registered catalog: " + catalogName)
+        .sendWithEOM();
+  } catch (const std::exception& ex) {
+    proxygen::ResponseBuilder(downstream)
+        .status(400, "Bad Request")
+        .body(std::string("Catalog registration failed: ") + ex.what())
+        .sendWithEOM();
   }
 }
 

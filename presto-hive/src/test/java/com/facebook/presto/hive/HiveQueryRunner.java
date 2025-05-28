@@ -77,6 +77,7 @@ public final class HiveQueryRunner
     }
 
     public static final String HIVE_CATALOG = "hive";
+    public static final String HIVE_CATALOG_2 = "hive2";
     public static final String HIVE_BUCKETED_CATALOG = "hive_bucketed";
     public static final String TPCH_SCHEMA = "tpch";
     public static final String TPCH_BUCKETED_SCHEMA = "tpch_bucketed";
@@ -274,6 +275,7 @@ public final class HiveQueryRunner
             hiveBucketedProperties = ImmutableMap.copyOf(hiveBucketedProperties);
 
             queryRunner.createCatalog(HIVE_CATALOG, HIVE_CATALOG, hiveProperties);
+            queryRunner.createCatalog(HIVE_CATALOG_2, HIVE_CATALOG, hiveProperties);
             queryRunner.createCatalog(HIVE_BUCKETED_CATALOG, HIVE_CATALOG, hiveBucketedProperties);
 
             List<String> tpchTableNames = getTpchTableNames(tpchTables);

@@ -160,7 +160,7 @@ public class PrestoNativeQueryRunnerUtils
     public static QueryRunner createJavaQueryRunner(Optional<Path> dataDirectory, String storageFormat, boolean addStorageFormatToPath)
             throws Exception
     {
-        return createJavaQueryRunner(dataDirectory, "sql-standard", storageFormat, addStorageFormatToPath);
+        return createJavaQueryRunner(dataDirectory, "legacy", storageFormat, addStorageFormatToPath);
     }
 
     public static QueryRunner createJavaQueryRunner(Optional<Path> baseDataDirectory, String security, String storageFormat, boolean addStorageFormatToPath)

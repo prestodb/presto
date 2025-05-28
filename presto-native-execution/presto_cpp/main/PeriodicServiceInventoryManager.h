@@ -39,6 +39,8 @@ class PeriodicServiceInventoryManager {
   /// If disabled then won't send any requests, but keeps itself running.
   void enableRequest(bool enable);
 
+  void sendRequest();
+
  protected:
   // Denotes whether we retry failed requests due to network errors.
   virtual bool retryFailed() {
@@ -53,8 +55,6 @@ class PeriodicServiceInventoryManager {
   }
 
   virtual std::tuple<proxygen::HTTPMessage, std::string> httpRequest() = 0;
-
-  void sendRequest();
 
   void scheduleNext();
 
