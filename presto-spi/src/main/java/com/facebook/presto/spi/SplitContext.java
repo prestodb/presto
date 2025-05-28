@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -22,6 +25,7 @@ import java.util.Optional;
 import static java.util.Objects.requireNonNull;
 
 // TODO: Use builder pattern for SplitContext if we are to add optional field
+@ThriftStruct
 public class SplitContext
 {
     public static final SplitContext NON_CACHEABLE = new SplitContext(false);
@@ -31,6 +35,7 @@ public class SplitContext
     private final Optional<TupleDomain<ColumnHandle>> dynamicFilterPredicate;
 
     @JsonCreator
+    @ThriftConstructor
     public SplitContext(@JsonProperty boolean cacheable)
     {
         this(cacheable, Optional.empty());
@@ -48,6 +53,7 @@ public class SplitContext
     }
 
     @JsonProperty
+    @ThriftField(1)
     public boolean isCacheable()
     {
         return cacheable;

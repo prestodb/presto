@@ -11,29 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.schedule;
+package com.facebook.presto.spi.connector;
 
-import com.facebook.drift.annotations.ThriftEnum;
-import com.facebook.drift.annotations.ThriftEnumValue;
+import com.facebook.presto.spi.ConnectorSpecificCodec;
+import com.facebook.presto.spi.ConnectorSplit;
 
-@ThriftEnum
-public enum NodeSelectionStrategy
+public interface ConnectorSpecificCodecProvider
 {
-    HARD_AFFINITY(1),
-    SOFT_AFFINITY(2),
-    NO_PREFERENCE(3),
-    /**/;
+    ConnectorSpecificCodec<ConnectorSplit> getConnectorSplitCodec();
 
-    private final int value;
-
-    NodeSelectionStrategy(int value)
-    {
-        this.value = value;
-    }
-
-    @ThriftEnumValue
-    public int getValue()
-    {
-        return value;
-    }
+    ConnectorSpecificCodec<ConnectorTransactionHandle> getConnectorTransactionHandleCodec();
 }

@@ -74,6 +74,7 @@ import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
+import com.facebook.presto.spi.connector.ConnectorSpecificCodecProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTypeSerdeProvider;
 import com.google.common.cache.Cache;
@@ -179,6 +180,7 @@ public class HiveClientModule
         binder.bind(ConnectorPlanOptimizerProvider.class).to(HivePlanOptimizerProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorMetadataUpdaterProvider.class).to(HiveMetadataUpdaterProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorTypeSerdeProvider.class).to(HiveConnectorTypeSerdeProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorSpecificCodecProvider.class).to(HiveConnectorCodecProvider.class).in(Scopes.SINGLETON);
         binder.install(new ThriftCodecModule());
         binder.install(new DefaultThriftCodecsModule());
         thriftCodecBinder(binder).bindThriftCodec(HiveMetadataUpdateHandle.class);

@@ -30,6 +30,11 @@
 
         <dependency>
             <groupId>com.facebook.drift</groupId>
+            <artifactId>drift-protocol</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.drift</groupId>
             <artifactId>drift-codec-utils</artifactId>
         </dependency>
 
