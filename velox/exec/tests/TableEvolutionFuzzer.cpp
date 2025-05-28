@@ -16,6 +16,7 @@
 
 #include "velox/exec/tests/TableEvolutionFuzzer.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
+#include "velox/dwio/common/tests/utils/FilterGenerator.h"
 #include "velox/exec/Cursor.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
@@ -210,6 +211,24 @@ void checkResultsEqual(
   VELOX_CHECK_EQ(expectedVectorIndex, expected.size());
 }
 
+common::SubfieldFilters generateSubfieldFilters(
+    RowTypePtr& rowType,
+    const RowVectorPtr& finalExpectedData) {
+  dwio::common::MutationSpec mutations;
+  std::vector<uint64_t> hitRows;
+
+  std::unique_ptr<velox::dwio::common::FilterGenerator> filterGenerator =
+      std::make_unique<velox::dwio::common::FilterGenerator>(rowType, 0);
+
+  auto subfieldsVector = filterGenerator->makeFilterables(rowType->size(), 100);
+
+  const auto& filterSpecs =
+      filterGenerator->makeRandomSpecs(subfieldsVector, 100);
+
+  return filterGenerator->makeSubfieldFilters(
+      filterSpecs, {finalExpectedData}, &mutations, hitRows);
+}
+
 } // namespace
 
 VectorPtr TableEvolutionFuzzer::liftToType(
@@ -327,6 +346,7 @@ void TableEvolutionFuzzer::run() {
   auto tableOutputRootDir = TempDirectoryPath::create();
   std::vector<std::unique_ptr<TaskCursor>> writeTasks(
       2 * config_.evolutionCount - 1);
+  RowVectorPtr finalExpectedData;
   for (int i = 0; i < config_.evolutionCount; ++i) {
     auto data = vectorFuzzer_.fuzzRow(testSetups[i].schema, kVectorSize, false);
     for (auto& child : data->children()) {
@@ -337,7 +357,9 @@ void TableEvolutionFuzzer::run() {
     VELOX_CHECK(std::filesystem::create_directory(actualDir));
     writeTasks[2 * i] =
         makeWriteTask(testSetups[i], data, actualDir, bucketColumnIndices);
+
     if (i == config_.evolutionCount - 1) {
+      finalExpectedData = std::move(data);
       continue;
     }
     auto expectedDir =
@@ -345,6 +367,7 @@ void TableEvolutionFuzzer::run() {
     VELOX_CHECK(std::filesystem::create_directory(expectedDir));
     auto expectedData = std::static_pointer_cast<RowVector>(
         liftToType(data, testSetups.back().schema));
+
     writeTasks[2 * i + 1] = makeWriteTask(
         testSetups.back(), expectedData, expectedDir, bucketColumnIndices);
   }
@@ -359,6 +382,7 @@ void TableEvolutionFuzzer::run() {
   }
 
   std::vector<Split> actualSplits, expectedSplits;
+
   for (int i = 0; i < config_.evolutionCount; ++i) {
     auto* result = &writeResults[2 * i];
     buildScanSplitFromTableWriteResult(
@@ -370,6 +394,7 @@ void TableEvolutionFuzzer::run() {
         testSetups[i].fileFormat,
         *result,
         actualSplits);
+
     if (i < config_.evolutionCount - 1) {
       result = &writeResults[2 * i + 1];
     }
@@ -383,12 +408,23 @@ void TableEvolutionFuzzer::run() {
         *result,
         expectedSplits);
   }
+
+  auto rowType = testSetups.back().schema;
+
+  PushdownConfig subfieldFilterConfig;
+
+  subfieldFilterConfig.subfieldFiltersMap =
+      generateSubfieldFilters(rowType, finalExpectedData);
+
   std::vector<std::unique_ptr<TaskCursor>> scanTasks(2);
-  scanTasks[0] =
-      makeScanTask(testSetups.back().schema, std::move(actualSplits));
-  scanTasks[1] =
-      makeScanTask(testSetups.back().schema, std::move(expectedSplits));
+
+  scanTasks[0] = makeScanTask(
+      rowType, std::move(actualSplits), true, subfieldFilterConfig);
+  scanTasks[1] = makeScanTask(
+      rowType, std::move(expectedSplits), true, subfieldFilterConfig);
+
   auto scanResults = runTaskCursors(scanTasks, *executor);
+
   checkResultsEqual(scanResults[0], scanResults[1]);
 }
 
@@ -557,16 +593,20 @@ VectorPtr TableEvolutionFuzzer::liftToPrimitiveType(
 
 std::unique_ptr<TaskCursor> TableEvolutionFuzzer::makeScanTask(
     const RowTypePtr& tableSchema,
-    std::vector<Split> splits) {
+    std::vector<Split> splits,
+    bool hasPushDown,
+    const PushdownConfig& pushdownConfig) {
   CursorParameters params;
   params.serialExecution = true;
   // TODO: Mix in filter and aggregate pushdowns.
   params.planNode = PlanBuilder()
                         .tableScan(
                             tableSchema,
-                            /*subfieldFilters=*/{},
+                            hasPushDown,
+                            /*pushdownConfig=*/pushdownConfig,
                             /*remainingFilter=*/"",
-                            tableSchema)
+                            tableSchema,
+                            {})
                         .planNode();
   auto cursor = TaskCursor::create(params);
   for (auto& split : splits) {
