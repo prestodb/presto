@@ -112,7 +112,7 @@ follow these steps:
 
 ```
 runtime-metrics-collection-enabled=true
-runtime-histogram-metrics-collection-enabled=true
+prometheus-histogram-metrics-collection-enabled=true
 ```
 
 * After installing the above dependencies, from the

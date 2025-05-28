@@ -33,6 +33,7 @@ public class TestPrestoNativeSystemQueriesSingleNode
                 false,
                 true,
                 false,
+                false,
                 false);
     }
 

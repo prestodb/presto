@@ -16,7 +16,8 @@
 find_package(prometheus-cpp CONFIG REQUIRED)
 
 # Prepare a static library to link with prometheus_reporter_test
-add_library(presto_prometheus_reporter OBJECT PrometheusStatsReporter.cpp)
+add_library(presto_prometheus_reporter OBJECT PrometheusStatsReporter.cpp
+                                              PrometheusConfig.cpp)
 target_link_libraries(presto_prometheus_reporter presto_common
                       prometheus-cpp::core)
 

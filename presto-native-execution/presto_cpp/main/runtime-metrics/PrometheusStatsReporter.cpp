@@ -13,6 +13,7 @@
  */
 
 #include "presto_cpp/main/runtime-metrics/PrometheusStatsReporter.h"
+#include "presto_cpp/main/runtime-metrics/PrometheusConfig.h"
 
 #include <prometheus/collectable.h>
 #include <prometheus/counter.h>
@@ -27,8 +28,10 @@ namespace facebook::presto::prometheus {
 // Initialize singleton for the reporter
 folly::Singleton<facebook::velox::BaseStatsReporter> reporter(
     []() -> facebook::velox::BaseStatsReporter* {
-      PrometheusStatsReporter::enableHistogramMetricCollection =
-          SystemConfig::instance()->enableRuntimeHistogramMetricsCollection();
+      auto prometheusConfig = PrometheusConfig::instance();
+      prometheusConfig->initialize(SystemConfig::instance()->file_path());
+      PrometheusStatsReporter::enablePrometheusHistogramMetricCollection =
+          prometheusConfig->enablePrometheusHistogramMetricsCollection();
       return facebook::presto::prometheus::PrometheusStatsReporter::
           createPrometheusReporter()
               .release();
@@ -36,7 +39,7 @@ folly::Singleton<facebook::velox::BaseStatsReporter> reporter(
 
 static constexpr std::string_view kSummarySuffix("_summary");
 
-bool PrometheusStatsReporter::enableHistogramMetricCollection = false;
+bool PrometheusStatsReporter::enablePrometheusHistogramMetricCollection = false;
 
 struct PrometheusStatsReporter::PrometheusImpl {
   explicit PrometheusImpl(const ::prometheus::Labels& labels) {
@@ -103,7 +106,8 @@ void PrometheusStatsReporter::registerHistogramMetricExportType(
     int64_t min,
     int64_t max,
     const std::vector<int32_t>& pcts) const {
-  if (!enableHistogramMetricCollection) {
+  if (!enablePrometheusHistogramMetricCollection) {
+    VLOG(1) << "Prometheus histogram metrics collection is disabled";
     return;
   }
   if (registeredMetricsMap_.count(key)) {
@@ -215,7 +219,7 @@ void PrometheusStatsReporter::addHistogramMetricValue(
 void PrometheusStatsReporter::addHistogramMetricValue(
     const char* key,
     size_t value) const {
-  if (!enableHistogramMetricCollection) {
+  if (!enablePrometheusHistogramMetricCollection) {
     return;
   }
   auto metricIterator = registeredMetricsMap_.find(key);

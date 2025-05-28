@@ -121,13 +121,12 @@ The configuration properties of Presto C++ workers are described here, in alphab
 
   Enables collection of worker level metrics.
 
-``runtime-histogram-metrics-collection-enabled``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``prometheus-histogram-metrics-collection-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 * **Type:** ``boolean``
 * **Default value:** ``false``
 
-  Enables collection of worker level histogram metrics. This property is only valid when
-  ``runtime-metrics-collection-enabled`` is set to ``true``.
+  When Prometheus-based metrics collection is enabled, this property allows collection of worker-level histogram metrics.
 
 ``task.max-drivers-per-task``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

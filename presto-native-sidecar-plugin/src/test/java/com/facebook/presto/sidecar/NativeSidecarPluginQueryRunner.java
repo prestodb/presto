@@ -38,7 +38,7 @@ public class NativeSidecarPluginQueryRunner
         javaQueryRunner.close();
 
         // Launch distributed runner.
-        DistributedQueryRunner queryRunner = (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.createQueryRunner(false, true, false, false);
+        DistributedQueryRunner queryRunner = (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.createQueryRunner(false, true, false, false, false);
         setupNativeSidecarPlugin(queryRunner);
         Thread.sleep(10);
         Logger log = Logger.get(DistributedQueryRunner.class);

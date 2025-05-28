@@ -140,6 +140,10 @@ class ConfigBase {
     return config_->rawConfigsCopy();
   }
 
+  std::string file_path() const {
+    return filePath_;
+  }
+
   virtual ~ConfigBase() = default;
 
  protected:
@@ -402,9 +406,6 @@ class SystemConfig : public ConfigBase {
 
   static constexpr std::string_view kEnableRuntimeMetricsCollection{
       "runtime-metrics-collection-enabled"};
-
-  static constexpr std::string_view kEnableRuntimeHistogramMetricsCollection{
-      "runtime-histogram-metrics-collection-enabled"};
 
   /// Specifies the total amount of memory in GB that the queries can use on a
   /// single worker node. It should be configured to be less than the total
@@ -722,7 +723,7 @@ class SystemConfig : public ConfigBase {
 
   // Specifies the type of worker pool
   static constexpr std::string_view kPoolType{"pool-type"};
-  
+
   // Spill related configs
   static constexpr std::string_view kSpillEnabled{"spill-enabled"};
   static constexpr std::string_view kJoinSpillEnabled{"join-spill-enabled"};
@@ -733,7 +734,7 @@ class SystemConfig : public ConfigBase {
 
   // Max wait time for exchange request in seconds.
   static constexpr std::string_view kRequestDataSizesMaxWaitSec{
-    "exchange.http-client.request-data-sizes-max-wait-sec"};
+      "exchange.http-client.request-data-sizes-max-wait-sec"};
 
   SystemConfig();
 
@@ -988,15 +989,13 @@ class SystemConfig : public ConfigBase {
 
   bool enableRuntimeMetricsCollection() const;
 
-  bool enableRuntimeHistogramMetricsCollection() const;
-
   bool prestoNativeSidecar() const;
-  
+
   std::string prestoDefaultNamespacePrefix() const;
 
   std::string poolType() const;
 
-  bool spillEnabled() const; 
+  bool spillEnabled() const;
 
   bool joinSpillEnabled() const;
 
