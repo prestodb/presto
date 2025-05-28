@@ -52,7 +52,7 @@ class LoggedException : public velox::VeloxException {
   explicit LoggedException(
       const std::string& errorMessage,
       const std::string& errorSource =
-          ::facebook::velox::error_source::kErrorSourceRuntime,
+          ::facebook::velox::error_source::kErrorSourceExternal,
       const std::string& errorCode = ::facebook::velox::error_code::kUnknown,
       const bool isRetriable = false)
       : VeloxException(
@@ -181,7 +181,7 @@ containing information about the file, line, and function where it happened.
 #define DWIO_RAISE(...)                                          \
   DWIO_EXCEPTION_CUSTOM(                                         \
       facebook::velox::dwio::common::exception::LoggedException, \
-      ::facebook::velox::error_source::kErrorSourceRuntime,      \
+      ::facebook::velox::error_source::kErrorSourceExternal,     \
       ::facebook::velox::error_code::kUnknown,                   \
       ##__VA_ARGS__)
 
@@ -189,7 +189,7 @@ containing information about the file, line, and function where it happened.
   DWIO_ENFORCE_CUSTOM(                                           \
       facebook::velox::dwio::common::exception::LoggedException, \
       expr,                                                      \
-      ::facebook::velox::error_source::kErrorSourceRuntime,      \
+      ::facebook::velox::error_source::kErrorSourceExternal,     \
       ::facebook::velox::error_code::kUnknown,                   \
       ##__VA_ARGS__)
 
