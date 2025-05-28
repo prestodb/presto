@@ -22,8 +22,10 @@ namespace facebook::velox::runner {
 
 extern const int32_t kDefaultWidth;
 extern const int32_t kDefaultMaxDrivers;
+extern const int32_t kWaitTimeoutUs;
 
 typedef std::string (*TaskPrefixExtractor)(const std::string&);
+using ConnectorSplitPtr = std::shared_ptr<connector::ConnectorSplit>;
 
 class PrestoQueryReplayRunner {
  public:
@@ -46,7 +48,8 @@ class PrestoQueryReplayRunner {
   /// 'queryId'.
   std::vector<RowVectorPtr> run(
       const std::string& queryId,
-      const std::vector<std::string>& serializedPlanFragments);
+      const std::vector<std::string>& serializedPlanFragments,
+      const std::vector<std::string>& serializedConnectorSplits);
 
  private:
   std::shared_ptr<core::QueryCtx> makeQueryCtx(
@@ -62,6 +65,9 @@ class PrestoQueryReplayRunner {
   MultiFragmentPlanPtr deserializePlan(
       const std::string& queryId,
       const std::vector<std::string>& serializedPlanFragments);
+
+  std::unordered_map<core::PlanNodeId, std::vector<ConnectorSplitPtr>>
+  deserializeConnectorSplits(const std::vector<std::string>& serializedSplits);
 
   memory::MemoryPool* pool_{nullptr};
   TaskPrefixExtractor taskPrefixExtractor_;

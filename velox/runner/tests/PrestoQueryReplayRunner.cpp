@@ -16,13 +16,9 @@
 
 #include "velox/runner/tests/PrestoQueryReplayRunner.h"
 
+#include "velox/connectors/hive/HiveConnectorSplit.h"
+
 namespace facebook::velox::runner {
-
-const std::string kHiveConnectorId = "test-hive";
-const int32_t kWaitTimeoutUs = 5'000'000;
-const int32_t kDefaultWidth = 2;
-const int32_t kDefaultMaxDrivers = 4;
-
 namespace {
 std::shared_ptr<memory::MemoryPool> makeRootPool(const std::string& queryId) {
   static std::atomic_uint64_t poolId{0};
@@ -33,8 +29,8 @@ std::shared_ptr<memory::MemoryPool> makeRootPool(const std::string& queryId) {
 std::vector<RowVectorPtr> readCursor(
     std::shared_ptr<runner::LocalRunner>& runner,
     memory::MemoryPool* pool) {
-  // We'll check the result after tasks are deleted, so copy the result vectors
-  // to 'pool' that has longer lifetime.
+  // We'll check the result after tasks are deleted, so copy the result
+  // vectors to 'pool' that has longer lifetime.
   std::vector<RowVectorPtr> result;
   while (auto rows = runner->next()) {
     result.push_back(
@@ -43,6 +39,11 @@ std::vector<RowVectorPtr> readCursor(
   return result;
 }
 } // namespace
+
+const std::string kHiveConnectorId = "test-hive";
+const int32_t kWaitTimeoutUs = 5'000'000;
+const int32_t kDefaultWidth = 2;
+const int32_t kDefaultMaxDrivers = 4;
 
 PrestoQueryReplayRunner::PrestoQueryReplayRunner(
     memory::MemoryPool* pool,
@@ -111,37 +112,38 @@ std::vector<core::TableScanNodePtr> getScanNodes(
   return result;
 }
 
-// If 'plan' is a broadcast partitioned output node, return the number of
-// broadcast destinations. Otherwise return 0.
-int getNumBroadcastDestinations(const core::PlanNodePtr& plan) {
-  if (auto partitionedOutput =
-          std::dynamic_pointer_cast<const core::PartitionedOutputNode>(plan)) {
-    if (partitionedOutput->isBroadcast()) {
-      return partitionedOutput->numPartitions();
-    }
-  }
-  return 0;
-}
-
 // Return true if 'node' is a gathering PartitionedOutput node.
 bool isGatheringPartition(const core::PlanNodePtr& node) {
   if (auto partitionedOutput =
           std::dynamic_pointer_cast<const core::PartitionedOutputNode>(node)) {
-    return partitionedOutput->keys().empty();
+    return partitionedOutput->keys().empty() &&
+        !partitionedOutput->isBroadcast();
   }
   return false;
 }
 
-// Return a new plan tree with the same structure as 'plan' but with the number
-// of partitions of the root PartitionedOutputNode updated to 'numPartitions'.
-// This method throws if the root node of 'plan' is not a PartitionedOutputNode
-// or if it's a gathering PartitionedOutputNode.
+bool isBroadcastPartition(const core::PlanNodePtr& node) {
+  if (auto partitionedOutput =
+          std::dynamic_pointer_cast<const core::PartitionedOutputNode>(node)) {
+    return partitionedOutput->isBroadcast();
+  }
+  return false;
+}
+
+// Return a new plan tree with the same structure as 'plan' but with the
+// number of partitions of the root PartitionedOutputNode updated to
+// 'numPartitions'. This method throws if the root node of 'plan' is not a
+// PartitionedOutputNode or if it's a gathering PartitionedOutputNode.
 core::PlanNodePtr updateNumOfPartitions(
     const core::PlanNodePtr& plan,
     int numPartitions) {
   auto partitionedOutput =
       std::dynamic_pointer_cast<const core::PartitionedOutputNode>(plan);
   VELOX_CHECK(partitionedOutput != nullptr);
+  if (partitionedOutput->isBroadcast()) {
+    return plan;
+  }
+
   VELOX_CHECK(!partitionedOutput->keys().empty());
   return core::PartitionedOutputNode::Builder(*partitionedOutput)
       .numPartitions(numPartitions)
@@ -223,8 +225,8 @@ MultiFragmentPlanPtr PrestoQueryReplayRunner::deserializePlan(
   VELOX_CHECK_EQ(jsonRecords.size(), serializedPlanFragments.size());
   VELOX_CHECK_EQ(taskPrefixes.size(), serializedPlanFragments.size());
 
-  // Assuming that the plan fragment of the root stage comes with the least task
-  // prefix, put the this root plan fragment at the end. This is because
+  // Assuming that the plan fragment of the root stage comes with the least
+  // task prefix, put the this root plan fragment at the end. This is because
   // LocalRunner implicitly expect the last plan fragment to be the
   // root stage.
   // TODO: extend this logic to be more general.
@@ -235,8 +237,6 @@ MultiFragmentPlanPtr PrestoQueryReplayRunner::deserializePlan(
 
     const auto plan = getDeserializedPlan(jsonRecords[i], pool_);
     planFragments[taskPrefix].scans = getScanNodes(plan);
-    planFragments[taskPrefix].numBroadcastDestinations =
-        getNumBroadcastDestinations(plan);
     planFragments[taskPrefix].plan = plan;
   }
 
@@ -260,8 +260,12 @@ MultiFragmentPlanPtr PrestoQueryReplayRunner::deserializePlan(
             planFragments[taskPrefix].numWorkers = 1;
           } else {
             planFragments[taskPrefix].numWorkers = width_;
-            planFragments[remoteTaskPrefix].plan = updateNumOfPartitions(
-                planFragments[remoteTaskPrefix].plan, width_);
+            if (isBroadcastPartition(planFragments[remoteTaskPrefix].plan)) {
+              planFragments[remoteTaskPrefix].numBroadcastDestinations = width_;
+            } else {
+              planFragments[remoteTaskPrefix].plan = updateNumOfPartitions(
+                  planFragments[remoteTaskPrefix].plan, width_);
+            }
           }
         } else {
           // If remoteTaskPrefix already exists in the remoteTaskIdPrefixSet,
@@ -287,17 +291,42 @@ MultiFragmentPlanPtr PrestoQueryReplayRunner::deserializePlan(
       std::move(executableFragments), std::move(options));
 }
 
+std::unordered_map<core::PlanNodeId, std::vector<ConnectorSplitPtr>>
+PrestoQueryReplayRunner::deserializeConnectorSplits(
+    const std::vector<std::string>& serializedSplits) {
+  std::unordered_map<core::PlanNodeId, std::vector<ConnectorSplitPtr>>
+      nodeSplitsMap;
+  for (auto& serializedSplit : serializedSplits) {
+    auto json = folly::parseJson(serializedSplit);
+    VELOX_CHECK(json.isObject());
+    if (json.empty()) {
+      continue;
+    }
+
+    for (auto& [key, value] : json.items()) {
+      auto planNodeId = key.asString();
+      VELOX_CHECK(value.isArray());
+      std::vector<ConnectorSplitPtr> nodeSplits;
+      for (auto& split : value) {
+        nodeSplits.push_back(
+            connector::hive::HiveConnectorSplit::create(split));
+      }
+      nodeSplitsMap[planNodeId].insert(
+          nodeSplitsMap[planNodeId].end(),
+          nodeSplits.begin(),
+          nodeSplits.end());
+    }
+  }
+  return nodeSplitsMap;
+}
+
 std::vector<RowVectorPtr> PrestoQueryReplayRunner::run(
     const std::string& queryId,
-    const std::vector<std::string>& serializedPlanFragments) {
+    const std::vector<std::string>& serializedPlanFragments,
+    const std::vector<std::string>& serializedConnectorSplits) {
   auto queryRootPool = makeRootPool(queryId);
   auto multiFragmentPlan = deserializePlan(queryId, serializedPlanFragments);
-  // TODO: Populate nodeSplitMap with serialized connector splits for TableScan
-  // nodes.
-  std::unordered_map<
-      core::PlanNodeId,
-      std::vector<std::shared_ptr<connector::ConnectorSplit>>>
-      nodeSplitMap;
+  auto nodeSplitMap = deserializeConnectorSplits(serializedConnectorSplits);
   auto localRunner = std::make_shared<LocalRunner>(
       std::move(multiFragmentPlan),
       makeQueryCtx(queryId, queryRootPool),
