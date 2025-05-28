@@ -599,7 +599,7 @@ public class TestHiveSplitManager
                 new TestingConnectorSession(getAllSessionProperties(hiveClientConfig, new HiveCommonClientConfig())),
                 layoutHandle,
                 SPLIT_SCHEDULING_CONTEXT);
-        List<Set<ColumnHandle>> actualRedundantColumnDomains = splitSource.getNextBatch(NOT_PARTITIONED, 100).get().getSplits().stream()
+        List<Set<HiveColumnHandle>> actualRedundantColumnDomains = splitSource.getNextBatch(NOT_PARTITIONED, 100).get().getSplits().stream()
                 .map(HiveSplit.class::cast)
                 .map(HiveSplit::getRedundantColumnDomains)
                 .collect(toImmutableList());
@@ -814,11 +814,11 @@ public class TestHiveSplitManager
         {
             try {
                 return ImmutableList.of(
-                        createHiveFileInfo(
-                                new LocatedFileStatus(
-                                        new FileStatus(0, false, 1, 0, 0, new Path(path.toString() + "/" + "test_file_name")),
-                                        new BlockLocation[] {}),
-                                Optional.empty()))
+                                createHiveFileInfo(
+                                        new LocatedFileStatus(
+                                                new FileStatus(0, false, 1, 0, 0, new Path(path.toString() + "/" + "test_file_name")),
+                                                new BlockLocation[] {}),
+                                        Optional.empty()))
                         .iterator();
             }
             catch (IOException e) {
