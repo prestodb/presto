@@ -521,6 +521,11 @@ Each query can override the config by setting corresponding query session proper
      - integer
      - 100
      - Maximum number of (bucketed) partitions per a single table writer instance.
+   * - hive.max-bucket-count
+     - hive.max_bucket_count
+     - integer
+     - 100000
+     - Maximum number of buckets that a table writer is allowed to write to.
    * - insert-existing-partitions-behavior
      - insert_existing_partitions_behavior
      - string

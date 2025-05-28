@@ -74,7 +74,8 @@ TEST(HiveConfigTest, overrideConfig) {
       {HiveConfig::kSortWriterMaxOutputBytes, "100MB"},
       {HiveConfig::kSortWriterFinishTimeSliceLimitMs, "400"},
       {HiveConfig::kReadStatsBasedFilterReorderDisabled, "true"},
-      {HiveConfig::kLoadQuantum, std::to_string(4 << 20)}};
+      {HiveConfig::kLoadQuantum, std::to_string(4 << 20)},
+      {HiveConfig::kMaxBucketCount, std::to_string(100'000)}};
   HiveConfig hiveConfig(
       std::make_shared<config::ConfigBase>(std::move(configFromFile)));
   auto emptySession = std::make_shared<config::ConfigBase>(
@@ -104,6 +105,7 @@ TEST(HiveConfigTest, overrideConfig) {
   ASSERT_TRUE(
       hiveConfig.readStatsBasedFilterReorderDisabled(emptySession.get()));
   ASSERT_EQ(hiveConfig.loadQuantum(emptySession.get()), 4 << 20);
+  ASSERT_EQ(hiveConfig.maxBucketCount(emptySession.get()), 100'000);
 }
 
 TEST(HiveConfigTest, overrideSession) {
