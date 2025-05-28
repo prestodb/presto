@@ -80,7 +80,7 @@ TEST_F(AssertQueryBuilderTest, config) {
 }
 
 TEST_F(AssertQueryBuilderTest, hiveSplits) {
-  auto data = makeRowVector({makeFlatVector<int32_t>({1, 2, 3})});
+  auto data = makeRowVector({"c0"}, {makeFlatVector<int32_t>({1, 2, 3})});
 
   auto file = TempFilePath::create();
   writeToFile(file->getPath(), {data});
@@ -91,6 +91,38 @@ TEST_F(AssertQueryBuilderTest, hiveSplits) {
       duckDbQueryRunner_)
       .split(makeHiveConnectorSplit(file->getPath()))
       .assertResults("VALUES (1), (2), (3)");
+
+  // Single leaf node with two splits.
+  auto makeSplits = [](const std::string& path, size_t numRepeats = 1) {
+    std::vector<std::shared_ptr<connector::ConnectorSplit>> splits(
+        numRepeats, makeHiveConnectorSplit(path));
+    return splits;
+  };
+
+  for (const auto withSequence : {false, true}) {
+    AssertQueryBuilder(
+        PlanBuilder().tableScan(asRowType(data->type())).planNode(),
+        duckDbQueryRunner_)
+        .splits(makeSplits(file->getPath(), 2))
+        .addSplitWithSequence(withSequence)
+        .assertResults("VALUES (1), (2), (3), (1), (2), (3)");
+  }
+
+  // Single leaf node with two splits and barrier execution.
+  for (const auto withSequence : {false, true}) {
+    auto splits = makeSplits(file->getPath(), 2);
+    AssertQueryBuilder(
+        PlanBuilder()
+            .tableScan(asRowType(data->type()))
+            .project({"c0 + 1"})
+            .planNode(),
+        duckDbQueryRunner_)
+        .splits(splits)
+        .addSplitWithSequence(withSequence)
+        .barrierExecution(true)
+        .serialExecution(true)
+        .assertResults("VALUES (2), (3), (4), (2), (3), (4)");
+  }
 
   // Split with partition key.
   ColumnHandleMap assignments = {

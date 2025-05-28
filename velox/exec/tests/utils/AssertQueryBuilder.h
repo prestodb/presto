@@ -117,6 +117,10 @@ class AssertQueryBuilder {
       const std::vector<std::shared_ptr<connector::ConnectorSplit>>&
           connectorSplits);
 
+  /// Indicate that the splits should be added with sequence numbers to the task
+  /// when the query runs.
+  AssertQueryBuilder& addSplitWithSequence(bool addWithSequence);
+
   /// Sets the QueryCtx.
   AssertQueryBuilder& queryCtx(const std::shared_ptr<core::QueryCtx>& ctx) {
     params_.queryCtx = ctx;
@@ -207,6 +211,9 @@ class AssertQueryBuilder {
   std::unordered_map<std::string, std::unordered_map<std::string, std::string>>
       connectorSessionProperties_;
   std::unordered_map<core::PlanNodeId, std::vector<Split>> splits_;
+  bool addSplitWithSequence_{false};
+  // The sequence Id to be used when addSplitWithSequence_ is true.
+  int32_t sequenceId_{0};
 };
 
 } // namespace facebook::velox::exec::test

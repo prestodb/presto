@@ -178,6 +178,12 @@ AssertQueryBuilder& AssertQueryBuilder::splits(
   return *this;
 }
 
+AssertQueryBuilder& AssertQueryBuilder::addSplitWithSequence(
+    bool addWithSequence) {
+  addSplitWithSequence_ = addWithSequence;
+  return *this;
+}
+
 std::shared_ptr<Task> AssertQueryBuilder::assertResults(
     const std::string& duckDbSql,
     const std::optional<std::vector<uint32_t>>& sortingKeys) {
@@ -318,7 +324,13 @@ AssertQueryBuilder::readCursor() {
           continue;
         }
         ++numSplits;
-        task->addSplit(nodeId, std::move(nodeSplits[0]));
+        if (addSplitWithSequence_) {
+          task->addSplitWithSequence(
+              nodeId, std::move(nodeSplits[0]), ++sequenceId_);
+          task->setMaxSplitSequenceId(nodeId, sequenceId_);
+        } else {
+          task->addSplit(nodeId, std::move(nodeSplits[0]));
+        }
         nodeSplits.erase(nodeSplits.begin());
       }
       if (numSplits > 0) {
@@ -333,7 +345,12 @@ AssertQueryBuilder::readCursor() {
     } else {
       for (auto& [nodeId, nodeSplits] : splits_) {
         for (auto& split : nodeSplits) {
-          task->addSplit(nodeId, std::move(split));
+          if (addSplitWithSequence_) {
+            task->addSplitWithSequence(nodeId, std::move(split), ++sequenceId_);
+            task->setMaxSplitSequenceId(nodeId, sequenceId_);
+          } else {
+            task->addSplit(nodeId, std::move(split));
+          }
         }
         task->noMoreSplits(nodeId);
       }
