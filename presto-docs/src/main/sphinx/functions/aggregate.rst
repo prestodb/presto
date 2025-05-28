@@ -851,11 +851,11 @@ Approximate Aggregate Functions
     See :doc:`khyperloglog`.
     ::
 
-        SELECT cardinality(khyperloglog_agg(user_id)) AS approx_distinct_users
+        SELECT cardinality(khyperloglog_agg(x,y))
         FROM (
-        VALUES (101), (102), (103), (101), (104)
-        ) AS t(user_id);
-        --(4)
+        VALUES (1,101), (2,102), (3,103), (4,101), (5,104)
+        ) AS t(x,y);
+        --(5)
 
 .. function:: merge(qdigest(T)) -> qdigest(T)
     :noindex:
