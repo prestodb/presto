@@ -18,15 +18,19 @@
 
 namespace facebook::velox {
 
-CpuWallTimer::CpuWallTimer(CpuWallTiming& timing) : timing_(timing) {
+CpuWallTimer::CpuWallTimer(CpuWallTiming& timing)
+    : wallTimeStart_(std::chrono::steady_clock::now()),
+      cpuTimeStart_(process::threadCpuNanos()),
+      timing_(timing) {
   ++timing_.count;
-  cpuTimeStart_ = process::threadCpuNanos();
-  wallTimeStart_ = std::chrono::steady_clock::now();
 }
 
 CpuWallTimer::~CpuWallTimer() {
+  // NOTE: End the cpu-time timing first, and then end the wall-time timing,
+  // so as to avoid the counter-intuitive phenomenon that the final calculated
+  // cpu-time is slightly larger than the wall-time.
   timing_.cpuNanos += process::threadCpuNanos() - cpuTimeStart_;
-  auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(
+  const auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(
       std::chrono::steady_clock::now() - wallTimeStart_);
   timing_.wallNanos += duration.count();
 }

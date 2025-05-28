@@ -23,7 +23,7 @@
 
 namespace facebook::velox {
 
-// Tracks call count and elapsed CPU and wall time for a repeating operation.
+/// Tracks call count and elapsed CPU and wall time for a repeating operation.
 struct CpuWallTiming {
   uint64_t count = 0;
   uint64_t wallNanos = 0;
@@ -50,15 +50,17 @@ struct CpuWallTiming {
   }
 };
 
-// Adds elapsed CPU and wall time to a CpuWallTiming.
+/// Adds elapsed CPU and wall time to a CpuWallTiming.
 class CpuWallTimer {
  public:
   explicit CpuWallTimer(CpuWallTiming& timing);
   ~CpuWallTimer();
 
  private:
-  uint64_t cpuTimeStart_;
-  std::chrono::steady_clock::time_point wallTimeStart_;
+  // NOTE: Put `wallTimeStart_` before `cpuTimeStart_`, so that wall-time starts
+  // counting earlier than cpu-time.
+  const std::chrono::steady_clock::time_point wallTimeStart_;
+  const uint64_t cpuTimeStart_;
   CpuWallTiming& timing_;
 };
 
@@ -73,8 +75,8 @@ class DeltaCpuWallTimeStopWatch {
     // NOTE: End the cpu-time timing first, and then end the wall-time timing,
     // so as to avoid the counter-intuitive phenomenon that the final calculated
     // cpu-time is slightly larger than the wall-time.
-    uint64_t cpuTimeDuration = process::threadCpuNanos() - cpuTimeStart_;
-    uint64_t wallTimeDuration =
+    const uint64_t cpuTimeDuration = process::threadCpuNanos() - cpuTimeStart_;
+    const uint64_t wallTimeDuration =
         std::chrono::duration_cast<std::chrono::nanoseconds>(
             std::chrono::steady_clock::now() - wallTimeStart_)
             .count();
