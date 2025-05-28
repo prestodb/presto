@@ -30,6 +30,7 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.collect.ImmutableList;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -63,6 +64,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Collections.emptyMap;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 public class TestCursorProcessorCompiler
@@ -167,6 +169,50 @@ public class TestCursorProcessorCompiler
         Page pageFromNoCSE = pageBuilder.build();
 
         checkPageEqual(pageFromCSE, pageFromNoCSE);
+    }
+
+    @DataProvider(name = "projectionCounts")
+    public Object[][] projectionCounts()
+    {
+        return new Object[][] {
+                {1},
+                {10},
+                {1000},
+                {1500},
+                {5000}
+        };
+    }
+
+    @Test(dataProvider = "projectionCounts")
+    public void testProjectionBatching(int projectionCount)
+    {
+        PageFunctionCompiler functionCompiler = new PageFunctionCompiler(METADATA, 0);
+        ExpressionCompiler expressionCompiler = new ExpressionCompiler(METADATA, functionCompiler);
+
+        List<RowExpression> projections = IntStream.range(0, projectionCount)
+                .mapToObj(i -> field(i % 2, BIGINT))
+                .collect(toImmutableList());
+
+        Supplier<CursorProcessor> cursorProcessorSupplier = expressionCompiler.compileCursorProcessor(
+                SESSION.getSqlFunctionProperties(),
+                Optional.empty(),
+                projections,
+                "testProjectionBatching_" + projectionCount,
+                false);
+
+        CursorProcessor processor = cursorProcessorSupplier.get();
+        assertNotNull(processor, "CursorProcessor should be created successfully for projectionCount = " + projectionCount);
+
+        Page input = createLongBlockPage(2, 1L, 2L, 3L, 4L, 5L);
+        List<Type> types = ImmutableList.of(BIGINT, BIGINT);
+        PageBuilder pageBuilder = new PageBuilder(projections.stream().map(RowExpression::getType).collect(toList()));
+        RecordSet recordSet = new PageRecordSet(types, input);
+
+        processor.process(SESSION.getSqlFunctionProperties(), new DriverYieldSignal(), recordSet.cursor(), pageBuilder);
+        Page result = pageBuilder.build();
+
+        assertEquals(result.getChannelCount(), projectionCount, "Mismatch in projected column count");
+        assertEquals(result.getPositionCount(), input.getPositionCount(), "Mismatch in row count");
     }
 
     private static Page createLongBlockPage(int blockCount, long... values)
