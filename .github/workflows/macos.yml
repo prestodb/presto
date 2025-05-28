@@ -74,7 +74,6 @@ jobs:
           install_double_conversion
 
           echo "NJOBS=`sysctl -n hw.ncpu`" >> $GITHUB_ENV
-          brew unlink protobuf || echo "protobuf not installed"
           brew link --force protobuf@21
           brew uninstall cmake
           pipx install --force cmake==3.31
