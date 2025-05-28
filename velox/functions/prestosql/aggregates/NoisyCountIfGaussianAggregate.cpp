@@ -175,7 +175,16 @@ class NoisyCountIfGaussianAggregate : public exec::Aggregate {
       if (decodedValue_.valueAt<bool>(i)) {
         accumulator->increaseCount(1);
       }
-      accumulator->checkAndSetNoiseScale(decodedNoiseScale_.valueAt<double>(i));
+
+      double noiseScaleValue = 0.0;
+      auto noiseScaleType = args[1]->typeKind();
+      if (noiseScaleType == TypeKind::DOUBLE) {
+        noiseScaleValue = decodedNoiseScale_.valueAt<double>(i);
+      } else if (noiseScaleType == TypeKind::BIGINT) {
+        noiseScaleValue =
+            static_cast<double>(decodedNoiseScale_.valueAt<uint64_t>(i));
+      }
+      accumulator->checkAndSetNoiseScale(noiseScaleValue);
     });
   }
 
@@ -224,7 +233,16 @@ class NoisyCountIfGaussianAggregate : public exec::Aggregate {
       if (decodedValue_.valueAt<bool>(i)) {
         accumulator->increaseCount(1);
       }
-      accumulator->checkAndSetNoiseScale(decodedNoiseScale_.valueAt<double>(i));
+      double noiseScaleValue = 0.0;
+      auto noiseScaleType = args[1]->typeKind();
+      if (noiseScaleType == TypeKind::DOUBLE) {
+        noiseScaleValue = decodedNoiseScale_.valueAt<double>(i);
+      } else if (noiseScaleType == TypeKind::BIGINT) {
+        noiseScaleValue =
+            static_cast<double>(decodedNoiseScale_.valueAt<uint64_t>(i));
+      }
+
+      accumulator->checkAndSetNoiseScale(noiseScaleValue);
     });
   }
 
@@ -277,6 +295,12 @@ void registerNoisyCountIfGaussianAggregate(
           .intermediateType("varbinary")
           .argumentType("boolean")
           .argumentType("double")
+          .build(),
+      exec::AggregateFunctionSignatureBuilder()
+          .returnType("bigint")
+          .intermediateType("varbinary")
+          .argumentType("boolean")
+          .argumentType("bigint") // support BIGINT noise scale
           .build(),
   };
 
