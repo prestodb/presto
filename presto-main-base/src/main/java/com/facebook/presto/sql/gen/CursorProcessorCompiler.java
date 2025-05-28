@@ -78,6 +78,7 @@ import static java.lang.String.format;
 public class CursorProcessorCompiler
         implements BodyCompiler
 {
+    private static final int PROJECT_LIST_BATCH_SIZE = 1000;
     private static Logger log = Logger.get(CursorProcessorCompiler.class);
 
     private final Metadata metadata;
@@ -255,29 +256,74 @@ public class CursorProcessorCompiler
                 .getVariable(pageBuilder)
                 .invokeVirtual(PageBuilder.class, "declarePosition", void.class);
 
-        // this.project_43(properties, cursor, pageBuilder.getBlockBuilder(42)));
-        for (int projectionIndex = 0; projectionIndex < projections; projectionIndex++) {
+        // Call batch methods instead of inlining all projections. The is to prevent against MethodTooLargeException
+        // Define all the batch methods
+        generateProjectBatchMethods(classDefinition, projections);
+
+        int batchCount = (projections + PROJECT_LIST_BATCH_SIZE - 1) / PROJECT_LIST_BATCH_SIZE;
+        for (int batchNumber = 0; batchNumber < batchCount; batchNumber++) {
             ifStatement.ifTrue()
                     .append(method.getThis())
                     .getVariable(properties)
-                    .getVariable(cursor);
-
-            // pageBuilder.getBlockBuilder(0)
-            ifStatement.ifTrue()
+                    .getVariable(cursor)
                     .getVariable(pageBuilder)
-                    .push(projectionIndex)
-                    .invokeVirtual(PageBuilder.class, "getBlockBuilder", BlockBuilder.class, int.class);
-
-            // project(block..., blockBuilder)gen
-            ifStatement.ifTrue()
+                    .push(batchNumber)
                     .invokeVirtual(classDefinition.getType(),
-                            "project_" + projectionIndex,
+                            "processBatch_" + batchNumber,
                             type(void.class),
                             type(SqlFunctionProperties.class),
                             type(RecordCursor.class),
-                            type(BlockBuilder.class));
+                            type(PageBuilder.class),
+                            type(int.class));
         }
+
         return ifStatement;
+    }
+
+    private static void generateProjectBatchMethods(
+            ClassDefinition classDefinition,
+            int projections)
+    {
+        int batchCount = (projections + PROJECT_LIST_BATCH_SIZE - 1) / PROJECT_LIST_BATCH_SIZE;
+
+        for (int batchNumber = 0; batchNumber < batchCount; batchNumber++) {
+            Parameter properties = arg("properties", SqlFunctionProperties.class);
+            Parameter cursor = arg("cursor", RecordCursor.class);
+            Parameter pageBuilder = arg("pageBuilder", PageBuilder.class);
+            Parameter batchIndex = arg("batchIndex", int.class);
+
+            MethodDefinition batchMethod = classDefinition.declareMethod(
+                    a(PRIVATE),
+                    "processBatch_" + batchNumber,
+                    type(void.class),
+                    properties, cursor, pageBuilder, batchIndex);
+
+            BytecodeBlock body = batchMethod.getBody();
+
+            int startProjection = batchNumber * PROJECT_LIST_BATCH_SIZE;
+            int endProjection = Math.min(projections, (batchNumber + 1) * PROJECT_LIST_BATCH_SIZE);
+
+            for (int projectionIndex = startProjection; projectionIndex < endProjection; projectionIndex++) {
+                body.append(batchMethod.getThis())
+                        .getVariable(properties)
+                        .getVariable(cursor)
+
+                        // pageBuilder.getBlockBuilder(projectionIndex)
+                        .getVariable(pageBuilder)
+                        .push(projectionIndex)
+                        .invokeVirtual(PageBuilder.class, "getBlockBuilder", BlockBuilder.class, int.class)
+
+                        // project_X(properties, cursor, blockBuilder)
+                        .invokeVirtual(classDefinition.getType(),
+                                "project_" + projectionIndex,
+                                type(void.class),
+                                type(SqlFunctionProperties.class),
+                                type(RecordCursor.class),
+                                type(BlockBuilder.class));
+            }
+
+            body.ret();
+        }
     }
 
     private void generateFilterMethod(
