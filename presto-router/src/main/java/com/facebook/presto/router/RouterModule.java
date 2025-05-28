@@ -69,10 +69,13 @@ public class RouterModule
     @Override
     protected void setup(Binder binder)
     {
+        //webUIBinder(binder, UI_PATH, ROUTER_UI).withWelcomeFile(INDEX_HTML);
+        webUIBinder(binder, "/ui/router", "webapp/router").withWelcomeFile(INDEX_HTML);
+        webUIBinder(binder, "/ui", "webapp").withWelcomeFile(INDEX_HTML);
+
         ServerConfig serverConfig = buildConfigObject(ServerConfig.class);
 
         binder.bind(RouterPluginManager.class).in(Scopes.SINGLETON);
-        webUIBinder(binder, UI_PATH, ROUTER_UI).withWelcomeFile(INDEX_HTML);
         configBinder(binder).bindConfig(RouterConfig.class);
 
         if (customSchedulerManager.isPresent()) {
