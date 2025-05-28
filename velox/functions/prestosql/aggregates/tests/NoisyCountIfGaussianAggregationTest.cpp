@@ -175,4 +175,17 @@ TEST_F(
       "SELECT c0 % 11, SUM(if(c1, 1, 0)), SUM(if(c2, 1, 0)) FROM tmp WHERE c0 % 2 = 0 GROUP BY 1");
 }
 
+// Test that the aggregation works with zero rows, multiple groups and a
+// constant noise scale.
+TEST_F(NoisyCountIfGaussianAggregationTest, zeroRowsMultipleGroupsNoNoise) {
+  auto vectors = makeVectors(rowType_, 0, 5);
+  createDuckDbTable(vectors);
+
+  testAggregations(
+      vectors,
+      {"c0"},
+      {"noisy_count_if_gaussian(c1, 0.0)", "noisy_count_if_gaussian(c2, 0.0)"},
+      "SELECT c0, sum(if(c1, 1, 0)), sum(if(c2, 1, 0)) FROM tmp group by c0, c1");
+}
+
 } // namespace facebook::velox::aggregate::test
