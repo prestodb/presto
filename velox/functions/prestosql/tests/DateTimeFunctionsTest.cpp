@@ -5370,26 +5370,6 @@ TEST_F(DateTimeFunctionsTest, toMilliseconds) {
           std::optional<int64_t>(123)));
 }
 
-TEST_F(DateTimeFunctionsTest, xxHash64FunctionDate) {
-  const auto xxhash64 = [&](std::optional<int32_t> date) {
-    return evaluateOnce<int64_t>("xxhash64_internal(c0)", DATE(), date);
-  };
-
-  EXPECT_EQ(std::nullopt, xxhash64(std::nullopt));
-
-  // Epoch
-  EXPECT_EQ(3803688792395291579, xxhash64(parseDate("1970-01-01")));
-  EXPECT_EQ(3734916545851684445, xxhash64(parseDate("2024-10-07")));
-  EXPECT_EQ(1385444150471264300, xxhash64(parseDate("2025-01-10")));
-  EXPECT_EQ(-6977822845260490347, xxhash64(parseDate("1970-01-02")));
-  // Leap date
-  EXPECT_EQ(-5306598937769828126, xxhash64(parseDate("2020-02-29")));
-  // Max supported date
-  EXPECT_EQ(3856043376106280085, xxhash64(parseDate("9999-12-31")));
-  // Y2K
-  EXPECT_EQ(-7612541860844473816, xxhash64(parseDate("2000-01-01")));
-}
-
 TEST_F(DateTimeFunctionsTest, parseDuration) {
   const auto parseDuration = [&](std::optional<std::string> amountUnit) {
     return evaluateOnce<int64_t>(
@@ -5465,4 +5445,52 @@ TEST_F(DateTimeFunctionsTest, parseDuration) {
   // Unit format
   VELOX_ASSERT_THROW(parseDuration("3.81a"), "Unknown time unit: a");
   VELOX_ASSERT_THROW(parseDuration("3.81as"), "Unknown time unit: as");
+}
+
+TEST_F(DateTimeFunctionsTest, xxHash64FunctionDate) {
+  const auto xxhash64 = [&](std::optional<int32_t> date) {
+    return evaluateOnce<int64_t>("xxhash64_internal(c0)", DATE(), date);
+  };
+
+  EXPECT_EQ(std::nullopt, xxhash64(std::nullopt));
+
+  // Epoch
+  EXPECT_EQ(3803688792395291579, xxhash64(parseDate("1970-01-01")));
+  EXPECT_EQ(3734916545851684445, xxhash64(parseDate("2024-10-07")));
+  EXPECT_EQ(1385444150471264300, xxhash64(parseDate("2025-01-10")));
+  EXPECT_EQ(-6977822845260490347, xxhash64(parseDate("1970-01-02")));
+  // Leap date
+  EXPECT_EQ(-5306598937769828126, xxhash64(parseDate("2020-02-29")));
+  // Max supported date
+  EXPECT_EQ(3856043376106280085, xxhash64(parseDate("9999-12-31")));
+  // Y2K
+  EXPECT_EQ(-7612541860844473816, xxhash64(parseDate("2000-01-01")));
+}
+
+TEST_F(DateTimeFunctionsTest, xxHash64FunctionTimestamp) {
+  const auto xxhash64 = [&](std::optional<Timestamp> timestamp) {
+    return evaluateOnce<int64_t>(
+        "xxhash64_internal(c0)", TIMESTAMP(), timestamp);
+  };
+
+  EXPECT_EQ(std::nullopt, xxhash64(std::nullopt));
+
+  // Epoch
+  EXPECT_EQ(
+      3803688792395291579, xxhash64(parseTimestamp("1970-01-01 00:00:00.000")));
+  EXPECT_EQ(
+      -6977822845260490347,
+      xxhash64(parseTimestamp("1970-01-01 00:00:00.001")));
+  EXPECT_EQ(
+      1480120953668144074, xxhash64(parseTimestamp("2023-05-15 12:30:45.123")));
+  EXPECT_EQ(
+      -204179099607410674, xxhash64(parseTimestamp("2023-05-15 12:30:45.456")));
+  // Current time
+  EXPECT_NE(std::nullopt, xxhash64(Timestamp::now()));
+  // Future time
+  EXPECT_EQ(
+      2784427479311108994, xxhash64(parseTimestamp("2050-12-31 23:59:59.999")));
+  // Past time
+  EXPECT_EQ(
+      7585368295023641328, xxhash64(parseTimestamp("1900-01-01 00:00:00.000")));
 }

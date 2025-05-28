@@ -61,12 +61,14 @@ add_executable(
   ElementAtTest.cpp
   FailTest.cpp
   FindFirstTest.cpp
+  FloatingPointFunctionsTest.cpp
   FromUtf8Test.cpp
   GeometryFunctionsTest.cpp
   GreatestLeastTest.cpp
   HyperLogLogCastTest.cpp
   HyperLogLogFunctionsTest.cpp
   InPredicateTest.cpp
+  IntegerFunctionsTest.cpp
   IPAddressCastTest.cpp
   IPPrefixCastTest.cpp
   JsonCastTest.cpp

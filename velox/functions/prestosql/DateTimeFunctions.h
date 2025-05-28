@@ -1726,6 +1726,20 @@ struct XxHash64DateFunction {
   }
 };
 
+/// xxhash64(Timestamp) → bigint
+/// Return a xxhash64 of input Timestamp
+template <typename T>
+struct XxHash64TimestampFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE
+  void call(out_type<int64_t>& result, const arg_type<Timestamp>& input) {
+    // Use the milliseconds representation of the timestamp
+    auto timestamp_millis = input.toMillis();
+    result = XXH64(&timestamp_millis, sizeof(timestamp_millis), 0);
+  }
+};
+
 template <typename T>
 struct ParseDurationFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);

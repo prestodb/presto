@@ -28,6 +28,7 @@ velox_add_library(
   GeometryFunctionsRegistration.cpp
   HyperLogFunctionsRegistration.cpp
   IntegerFunctionsRegistration.cpp
+  FloatingPointFunctionsRegistration.cpp
   JsonFunctionsRegistration.cpp
   MapFunctionsRegistration.cpp
   MathematicalFunctionsRegistration.cpp

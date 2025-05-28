@@ -15,27 +15,20 @@
  */
 
 #include "velox/functions/Registerer.h"
-#include "velox/functions/prestosql/IntegerFunctions.h"
+#include "velox/functions/prestosql/FloatingPointFunctions.h"
 
 namespace facebook::velox::functions {
 namespace {
 
 void registerSimpleFunctions(const std::string& prefix) {
-  registerFunction<XxHash64BigIntFunction, int64_t, int64_t>(
+  registerFunction<XxHash64RealFunction, int64_t, float>(
       {prefix + "xxhash64_internal"});
-  registerFunction<XxHash64IntegerFunction, int64_t, int32_t>(
+  registerFunction<XxHash64DoubleFunction, int64_t, double>(
       {prefix + "xxhash64_internal"});
-  registerFunction<XxHash64SmallIntFunction, int64_t, int16_t>(
-      {prefix + "xxhash64_internal"});
-  registerFunction<XxHash64TinyIntFunction, int64_t, int8_t>(
-      {prefix + "xxhash64_internal"});
-
-  registerFunction<CombineHashFunction, int64_t, int64_t, int64_t>(
-      {prefix + "combine_hash_internal"});
 }
 } // namespace
 
-void registerIntegerFunctions(const std::string& prefix) {
+void registerFloatingPointFunctions(const std::string& prefix) {
   registerSimpleFunctions(prefix);
 }
 

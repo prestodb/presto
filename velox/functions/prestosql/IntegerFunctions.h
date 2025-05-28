@@ -24,7 +24,7 @@
 namespace facebook::velox::functions {
 
 /// xxhash64(bigint) → bigint
-/// Return a xxhash64 of input Date
+/// Return a xxhash64 of input BigInt
 template <typename T>
 struct XxHash64BigIntFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
@@ -32,6 +32,45 @@ struct XxHash64BigIntFunction {
   FOLLY_ALWAYS_INLINE
   void call(out_type<int64_t>& result, const arg_type<int64_t>& input) {
     result = XXH64(&input, sizeof(input), 0);
+  }
+};
+
+/// xxhash64(integer) → bigint
+/// Return a xxhash64 of input Integer
+template <typename T>
+struct XxHash64IntegerFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE
+  void call(out_type<int64_t>& result, const arg_type<int32_t>& input) {
+    int64_t castedInput = static_cast<int64_t>(input);
+    result = XXH64(&castedInput, sizeof(castedInput), 0);
+  }
+};
+
+/// xxhash64(smallint) → bigint
+/// Return a xxhash64 of input SmallInt
+template <typename T>
+struct XxHash64SmallIntFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE
+  void call(out_type<int64_t>& result, const arg_type<int16_t>& input) {
+    int64_t castedInput = static_cast<int64_t>(input);
+    result = XXH64(&castedInput, sizeof(castedInput), 0);
+  }
+};
+
+/// xxhash64(tinyint) → bigint
+/// Return a xxhash64 of input TinyInt
+template <typename T>
+struct XxHash64TinyIntFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE
+  void call(out_type<int64_t>& result, const arg_type<int8_t>& input) {
+    int64_t castedInput = static_cast<int64_t>(input);
+    result = XXH64(&castedInput, sizeof(castedInput), 0);
   }
 };
 

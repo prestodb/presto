@@ -286,6 +286,8 @@ void registerSimpleFunctions(const std::string& prefix) {
 
   registerFunction<XxHash64DateFunction, int64_t, Date>(
       {prefix + "xxhash64_internal"});
+  registerFunction<XxHash64TimestampFunction, int64_t, Timestamp>(
+      {prefix + "xxhash64_internal"});
 
   registerFunction<ParseDurationFunction, IntervalDayTime, Varchar>(
       {prefix + "parse_duration"});
