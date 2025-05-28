@@ -23,3 +23,21 @@ target_link_libraries(
   velox_parse_parser
   velox_parse_expression
   GTest::gtest)
+
+add_library(velox_presto_query_replay_runner PrestoQueryReplayRunner.cpp)
+
+target_link_libraries(
+  velox_presto_query_replay_runner velox_local_runner velox_hive_connector)
+
+add_executable(velox_presto_query_replay_runner_test
+               PrestoQueryReplayRunnerTest.cpp Main.cpp)
+
+add_test(velox_presto_query_replay_runner_test
+         velox_presto_query_replay_runner_test)
+
+target_link_libraries(
+  velox_presto_query_replay_runner_test
+  velox_presto_query_replay_runner
+  velox_exec_test_lib
+  velox_exec
+  GTest::gtest)
