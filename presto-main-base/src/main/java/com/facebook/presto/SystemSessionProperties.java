@@ -330,6 +330,7 @@ public final class SystemSessionProperties
     public static final String SINGLE_NODE_EXECUTION_ENABLED = "single_node_execution_enabled";
     public static final String EXPRESSION_OPTIMIZER_NAME = "expression_optimizer_name";
     public static final String ADD_EXCHANGE_BELOW_PARTIAL_AGGREGATION_OVER_GROUP_ID = "add_exchange_below_partial_aggregation_over_group_id";
+    public static final String QUERY_CLIENT_TIMEOUT = "query_client_timeout";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_AGGREGATION_SPILL_ALL = "native_aggregation_spill_all";
@@ -1890,7 +1891,16 @@ public final class SystemSessionProperties
                 booleanProperty(ADD_EXCHANGE_BELOW_PARTIAL_AGGREGATION_OVER_GROUP_ID,
                         "Enable adding an exchange below partial aggregation over a GroupId node to improve partial aggregation performance",
                         featuresConfig.getAddExchangeBelowPartialAggregationOverGroupId(),
-                        false));
+                        false),
+                new PropertyMetadata<>(
+                        QUERY_CLIENT_TIMEOUT,
+                        "Configures how long the query runs without contact from the client application, such as the CLI, before it's abandoned",
+                        VARCHAR,
+                        Duration.class,
+                        queryManagerConfig.getClientTimeout(),
+                        false,
+                        value -> Duration.valueOf((String) value),
+                        Duration::toString));
     }
 
     public static boolean isSpoolingOutputBufferEnabled(Session session)
@@ -3220,5 +3230,10 @@ public final class SystemSessionProperties
     public static boolean isCanonicalizedJsonExtract(Session session)
     {
         return session.getSystemProperty(CANONICALIZED_JSON_EXTRACT, Boolean.class);
+    }
+
+    public static Duration getQueryClientTimeout(Session session)
+    {
+        return session.getSystemProperty(QUERY_CLIENT_TIMEOUT, Duration.class);
     }
 }
