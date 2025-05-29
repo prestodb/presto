@@ -33,6 +33,8 @@
 #include "velox/functions/prestosql/fuzzer/MapUnionSumInputGenerator.h"
 #include "velox/functions/prestosql/fuzzer/MinMaxByResultVerifier.h"
 #include "velox/functions/prestosql/fuzzer/MinMaxInputGenerator.h"
+#include "velox/functions/prestosql/fuzzer/QDigestAggInputGenerator.h"
+#include "velox/functions/prestosql/fuzzer/QDigestAggResultVerifier.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/prestosql/window/WindowFunctionsRegistration.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
@@ -78,6 +80,7 @@ getCustomInputGenerators() {
       {"approx_distinct", std::make_shared<ApproxDistinctInputGenerator>()},
       {"approx_set", std::make_shared<ApproxDistinctInputGenerator>()},
       {"approx_percentile", std::make_shared<ApproxPercentileInputGenerator>()},
+      {"qdigest_agg", std::make_shared<QDigestAggInputGenerator>()},
       {"map_union_sum", std::make_shared<MapUnionSumInputGenerator>()},
   };
 }
@@ -133,6 +136,7 @@ int main(int argc, char** argv) {
 
   static const std::unordered_set<std::string> functionsRequireSortedInput = {
       "tdigest_agg",
+      "qdigest_agg",
   };
 
   using facebook::velox::exec::test::ApproxDistinctResultVerifier;
@@ -140,6 +144,7 @@ int main(int argc, char** argv) {
   using facebook::velox::exec::test::ArbitraryResultVerifier;
   using facebook::velox::exec::test::AverageResultVerifier;
   using facebook::velox::exec::test::MinMaxByResultVerifier;
+  using facebook::velox::exec::test::QDigestAggResultVerifier;
   using facebook::velox::exec::test::setupReferenceQueryRunner;
   using facebook::velox::exec::test::TransformResultVerifier;
 
@@ -168,6 +173,7 @@ int main(int argc, char** argv) {
           {"approx_set", std::make_shared<ApproxDistinctResultVerifier>(true)},
           {"approx_percentile",
            std::make_shared<ApproxPercentileResultVerifier>()},
+          {"qdigest_agg", std::make_shared<QDigestAggResultVerifier>()},
           {"arbitrary", std::make_shared<ArbitraryResultVerifier>()},
           {"any_value", nullptr},
           {"array_agg", makeArrayVerifier()},

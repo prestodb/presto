@@ -891,7 +891,7 @@ bool AggregationFuzzer::verifySortedAggregation(
 
   if (customVerification &&
       (!aggregateOrderSensitive || customVerifier == nullptr ||
-       customVerifier->supportsVerify())) {
+       customVerifier->supportsVerify() || customVerifier->supportsCompare())) {
     // We have custom verification enabled and:
     // 1) the aggregate function is not order sensitive (sorting the input won't
     //    have an effect on the output) or
@@ -899,13 +899,12 @@ bool AggregationFuzzer::verifySortedAggregation(
     //    verification of this aggregation) or
     // 3) the custom verifier supports verification (it can't compare the
     //    results of the aggregation with the reference DB)
+    // 4) the custom verifier supports compare.
     // keep the custom verifier enabled.
     return compareEquivalentPlanResults(
         plans, customVerification, input, customVerifier, 1);
   } else {
-    // If custom verification is not enabled or the custom verifier is used for
-    // compare and the aggregation is order sensitive (the result shoudl be
-    // deterministic if the input is sorted), then compare the results directly.
+    // If custom verification is not enabled, then compare the results directly.
     return compareEquivalentPlanResults(plans, false, input, nullptr, 1);
   }
 }

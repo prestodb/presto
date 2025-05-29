@@ -606,10 +606,12 @@ void AggregationFuzzerBase::compare(
       VELOX_CHECK(
           verifier->compare(expected.result, actual.result),
           "Logically equivalent plans produced different results");
+      LOG(INFO) << "Verified through custom verifier.";
     } else if (verifier->supportsVerify()) {
       VELOX_CHECK(
           verifier->verify(actual.result),
           "Result of a logically equivalent plan failed custom verification");
+      LOG(INFO) << "Verified through custom verifier.";
     } else {
       VELOX_UNREACHABLE(
           "Custom verifier must support either 'compare' or 'verify' API.");

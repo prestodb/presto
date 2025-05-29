@@ -4451,6 +4451,10 @@ class WindowNode : public PlanNode {
     return "Window";
   }
 
+  const std::vector<std::string>& windowColumnNames() const {
+    return windowColumnNames_;
+  }
+
   folly::dynamic serialize() const override;
 
   static PlanNodePtr create(const folly::dynamic& obj, void* context);

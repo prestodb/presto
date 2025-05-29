@@ -27,6 +27,8 @@
 #include "velox/functions/prestosql/fuzzer/ApproxPercentileResultVerifier.h"
 #include "velox/functions/prestosql/fuzzer/AverageResultVerifier.h"
 #include "velox/functions/prestosql/fuzzer/MinMaxInputGenerator.h"
+#include "velox/functions/prestosql/fuzzer/QDigestAggInputGenerator.h"
+#include "velox/functions/prestosql/fuzzer/QDigestAggResultVerifier.h"
 #include "velox/functions/prestosql/fuzzer/WindowOffsetInputGenerator.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/prestosql/window/WindowFunctionsRegistration.h"
@@ -73,6 +75,7 @@ getCustomInputGenerators() {
       {"approx_distinct", std::make_shared<ApproxDistinctInputGenerator>()},
       {"approx_set", std::make_shared<ApproxDistinctInputGenerator>()},
       {"approx_percentile", std::make_shared<ApproxPercentileInputGenerator>()},
+      {"qdigest_agg", std::make_shared<QDigestAggInputGenerator>()},
       {"lead", std::make_shared<WindowOffsetInputGenerator>(1)},
       {"lag", std::make_shared<WindowOffsetInputGenerator>(1)},
       {"nth_value", std::make_shared<WindowOffsetInputGenerator>(1)},
@@ -132,6 +135,7 @@ int main(int argc, char** argv) {
   using facebook::velox::exec::test::ApproxDistinctResultVerifier;
   using facebook::velox::exec::test::ApproxPercentileResultVerifier;
   using facebook::velox::exec::test::AverageResultVerifier;
+  using facebook::velox::exec::test::QDigestAggResultVerifier;
 
   static const std::unordered_map<
       std::string,
@@ -143,6 +147,7 @@ int main(int argc, char** argv) {
           {"approx_percentile",
            std::make_shared<ApproxPercentileResultVerifier>()},
           {"approx_most_frequent", nullptr},
+          {"qdigest_agg", std::make_shared<QDigestAggResultVerifier>()},
           {"merge", nullptr},
           // Semantically inconsistent functions
           {"skewness", nullptr},
@@ -179,6 +184,7 @@ int main(int argc, char** argv) {
       "max_by",
       "min_by",
       "multimap_agg",
+      "qdigest_agg",
   };
 
   using Runner = facebook::velox::exec::test::WindowFuzzerRunner;

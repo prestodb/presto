@@ -203,7 +203,7 @@ TEST_F(PrestoQueryRunnerTest, toSql) {
     EXPECT_EQ(
         queryRunner->toSql(plan),
         fmt::format(
-            "SELECT c0, c1, c2, first_value(c0) OVER (PARTITION BY c1 ORDER BY c2 ASC NULLS LAST {}) FROM (tmp)",
+            "SELECT c0, c1, c2, first_value(c0) OVER (PARTITION BY c1 ORDER BY c2 ASC NULLS LAST {}) as w0 FROM (tmp)",
             frameClause));
 
     const auto firstValueFrame =
@@ -222,7 +222,7 @@ TEST_F(PrestoQueryRunnerTest, toSql) {
     EXPECT_EQ(
         queryRunner->toSql(plan),
         fmt::format(
-            "SELECT c0, c1, c2, first_value(c0) OVER (PARTITION BY c1 ORDER BY c2 DESC NULLS FIRST {}), last_value(c0) OVER (PARTITION BY c1 ORDER BY c2 DESC NULLS FIRST {}) FROM (tmp)",
+            "SELECT c0, c1, c2, first_value(c0) OVER (PARTITION BY c1 ORDER BY c2 DESC NULLS FIRST {}) as w0, last_value(c0) OVER (PARTITION BY c1 ORDER BY c2 DESC NULLS FIRST {}) as w1 FROM (tmp)",
             firstValueFrame,
             lastValueFrame));
   }

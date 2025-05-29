@@ -344,7 +344,7 @@ void PrestoQueryRunnerToSqlPlanNodeVisitor::visit(
   std::stringstream sql;
   sql << "SELECT ";
 
-  const auto& inputType = node.sources()[0]->outputType();
+  const auto& inputType = node.inputType();
   for (auto i = 0; i < inputType->size(); ++i) {
     appendComma(i, sql);
     sql << inputType->nameOf(i);
@@ -380,7 +380,7 @@ void PrestoQueryRunnerToSqlPlanNodeVisitor::visit(
     }
 
     sql << " " << queryRunnerContext_->windowFrames_.at(node.id()).at(i);
-    sql << ")";
+    sql << ") as " << node.windowColumnNames()[i];
   }
 
   // WindowNode should have a single source.
