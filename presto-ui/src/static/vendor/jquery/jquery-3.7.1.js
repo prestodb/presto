@@ -8842,9 +8842,7 @@ var
 	r20 = /%20/g,
 	rhash = /#.*$/,
 	rantiCache = /([?&])_=[^&]*/,
-	rheaders = /^([^\n\r:]*):[ \t]*([^\r\n]*)$/mg
-
-
+	rheaders = /^(.*?):[ \t]*([^\r\n]*)$/mg,
 
 	// trac-7653, trac-8125, trac-8152: local protocol detection
 	rlocalProtocol = /^(?:about|app|app-storage|.+-extension|file|res|widget):$/,
