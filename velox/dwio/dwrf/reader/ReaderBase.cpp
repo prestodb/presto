@@ -329,7 +329,7 @@ std::shared_ptr<const Type> ReaderBase::convertType(
     const FooterWrapper& footer,
     uint32_t index,
     bool fileColumnNamesReadAsLowerCase) {
-  VELOX_CHECK_LT(
+  VELOX_USER_CHECK_LT(
       index,
       folly::to<uint32_t>(footer.typesSize()),
       "Corrupted file, invalid types");
