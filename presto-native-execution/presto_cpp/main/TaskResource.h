@@ -33,6 +33,8 @@ class TaskResource {
         taskManager_(taskManager) {}
 
   void registerUris(http::HttpServer& server);
+  void visitPlan(const std::shared_ptr<protocol::PlanNode> plan, std::stringstream& ss);
+  std::optional<std::string> getIdentifier(std::shared_ptr<protocol::CanonicalPlanFragment> canonicalPlanFragment);
 
  private:
   proxygen::RequestHandler* abortResults(

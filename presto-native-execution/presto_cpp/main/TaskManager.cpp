@@ -467,12 +467,14 @@ std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateTask(
     const protocol::TaskId& taskId,
     const protocol::TaskUpdateRequest& updateRequest,
     const velox::core::PlanFragment& planFragment,
+    const std::optional<std::string> planIdentifier,
     bool summarize,
     std::shared_ptr<velox::core::QueryCtx> queryCtx,
     long startProcessCpuTime) {
   return createOrUpdateTaskImpl(
       taskId,
       planFragment,
+      planIdentifier,
       updateRequest.sources,
       updateRequest.outputIds,
       summarize,
@@ -484,6 +486,7 @@ std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateBatchTask(
     const protocol::TaskId& taskId,
     const protocol::BatchTaskUpdateRequest& batchUpdateRequest,
     const velox::core::PlanFragment& planFragment,
+    const std::optional<std::string> planIdentifier,
     bool summarize,
     std::shared_ptr<velox::core::QueryCtx> queryCtx,
     long startProcessCpuTime) {
@@ -494,6 +497,7 @@ std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateBatchTask(
   return createOrUpdateTaskImpl(
       taskId,
       planFragment,
+      planIdentifier,
       updateRequest.sources,
       updateRequest.outputIds,
       summarize,
@@ -504,6 +508,7 @@ std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateBatchTask(
 std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
     const TaskId& taskId,
     const velox::core::PlanFragment& planFragment,
+    const std::optional<std::string> planIdentifier,
     const std::vector<protocol::TaskSource>& sources,
     const protocol::OutputBuffers& outputBuffers,
     bool summarize,
@@ -532,6 +537,8 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
       auto newExecTask = exec::Task::create(
           taskId,
           planFragment,
+          planIdentifier,
+          fragmentResultCacheManager_,
           prestoTask->id.id(),
           std::move(queryCtx),
           exec::Task::ExecutionMode::kParallel,

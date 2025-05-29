@@ -67,6 +67,7 @@ class TaskManager {
       const protocol::TaskId& taskId,
       const protocol::TaskUpdateRequest& updateRequest,
       const velox::core::PlanFragment& planFragment,
+      const std::optional<std::string> planIdentifier,
       bool summarize,
       std::shared_ptr<velox::core::QueryCtx> queryCtx,
       long startProcessCpuTime);
@@ -75,6 +76,7 @@ class TaskManager {
       const protocol::TaskId& taskId,
       const protocol::BatchTaskUpdateRequest& batchUpdateRequest,
       const velox::core::PlanFragment& planFragment,
+      const std::optional<std::string> planIdentifier,
       bool summarize,
       std::shared_ptr<velox::core::QueryCtx> queryCtx,
       long startProcessCpuTime);
@@ -182,6 +184,7 @@ class TaskManager {
   std::unique_ptr<protocol::TaskInfo> createOrUpdateTaskImpl(
       const protocol::TaskId& taskId,
       const velox::core::PlanFragment& planFragment,
+      const std::optional<std::string> planIdentifier,
       const std::vector<protocol::TaskSource>& sources,
       const protocol::OutputBuffers& outputBuffers,
       bool summarize,
@@ -203,6 +206,7 @@ class TaskManager {
   folly::Synchronized<TaskMap> taskMap_;
   std::unique_ptr<QueryContextManager> queryContextManager_;
   folly::Executor* httpSrvCpuExecutor_;
+  std::shared_ptr<velox::exec::FragmentResultCacheManager> fragmentResultCacheManager_ = std::make_shared<velox::exec::FragmentResultCacheManager>();
 };
 
 } // namespace facebook::presto

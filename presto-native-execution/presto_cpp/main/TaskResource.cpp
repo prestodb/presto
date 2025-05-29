@@ -332,10 +332,33 @@ proxygen::RequestHandler* TaskResource::createOrUpdateBatchTask(
             taskId,
             batchUpdateRequest,
             planFragment,
+            nullptr,
             summarize,
             std::move(queryCtx),
             startProcessCpuTime);
       });
+}
+
+std::optional<std::string> TaskResource::getIdentifier(std::shared_ptr<protocol::CanonicalPlanFragment> canonicalPlanFragment) {
+  std::stringstream ss;
+  for (auto output : canonicalPlanFragment->partitionScheme.outputLayout) {
+    ss << output.name << ",";
+    ss << output.type.c_str() << ",";
+  }
+  auto plan = canonicalPlanFragment->plan.plan;
+  if (auto aggregation =
+            std::dynamic_pointer_cast<const protocol::AggregationNode>(plan)) {
+    ss << "aggregation id" << aggregation->aggregationId << ",";
+    if (aggregation->groupIdVariable != nullptr) {
+      ss << "aggregation groupIdVariable name" << aggregation->groupIdVariable->name << ",";
+      ss << "aggregation groupIdVariable type" << aggregation->groupIdVariable->type.c_str() << ",";
+    }
+    if (auto canonicalTableScan = std::dynamic_pointer_cast<const protocol::CanonicalTableScanNode>(aggregation->source)) {
+      ss << "canonicalTableScan id" << canonicalTableScan->id.c_str();
+      return ss.str();
+    }
+  }
+  return std::nullopt;
 }
 
 proxygen::RequestHandler* TaskResource::createOrUpdateTask(
@@ -359,8 +382,14 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTask(
         }
         velox::core::PlanFragment planFragment;
         std::shared_ptr<velox::core::QueryCtx> queryCtx;
+        protocol::PlanFragment prestoPlan;
+        std::optional<std::string> planIdentifier;
         if (updateRequest.fragment) {
-          protocol::PlanFragment prestoPlan = json::parse(receiveThrift ? *updateRequest.fragment : velox::encoding::Base64::decode(*updateRequest.fragment));
+          prestoPlan = json::parse(receiveThrift ? *updateRequest.fragment : velox::encoding::Base64::decode(*updateRequest.fragment));
+
+          if (prestoPlan.canonicalPlanFragment.get() != nullptr) {
+            planIdentifier = getIdentifier(prestoPlan.canonicalPlanFragment);
+          }
 
           queryCtx =
               taskManager_.getQueryContextManager()->findOrCreateQueryCtx(
@@ -376,6 +405,7 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTask(
             taskId,
             updateRequest,
             planFragment,
+            planIdentifier,
             summarize,
             std::move(queryCtx),
             startProcessCpuTime);
