@@ -1,0 +1,88 @@
+{
+  "dynamicUdfSignatureMap": {
+    "default_registrations": {
+      "dynamic": [
+        {
+          "docString": "",
+          "functionKind": "SCALAR",
+          "outputType": "bigint",
+          "entrypoint": "registerExtensions", 
+          "fileName": "libfunction_dynamic",
+          "paramTypes": [
+            "bigint",
+            "bigint"
+          ],
+          "nameSpace": "native.default",
+          "overwrite": true,
+          "constraints": "",
+          "routineCharacteristics": {
+            "language": "CPP",
+            "determinism": "DETERMINISTIC",
+            "nullCallClause": "CALLED_ON_NULL_INPUT"
+          }
+        }
+      ],
+      "dynamic_array": [
+        {
+          "docString": "",
+          "functionKind": "SCALAR",
+          "outputType": "bigint",
+          "fileName": "libfunction_dynamic",
+          "paramTypes": [
+            "array(bigint)"
+          ],
+          "nameSpace": "native.default",
+          "overwrite": true,
+          "constraints": "",
+          "routineCharacteristics": {
+            "language": "CPP",
+            "determinism": "DETERMINISTIC",
+            "nullCallClause": "CALLED_ON_NULL_INPUT"
+          }
+        }
+      ],
+      "dynamic_varchar": [
+        {
+          "docString": "",
+          "functionKind": "SCALAR",
+          "outputType": "varchar",
+          "fileName": "libvarchar_function_dynamic",
+          "paramTypes": [
+            "varchar",
+            "varchar"
+          ],
+          "nameSpace": "native.default",
+          "overwrite": true,
+          "constraints": "",
+          "routineCharacteristics": {
+            "language": "CPP",
+            "determinism": "DETERMINISTIC",
+            "nullCallClause": "CALLED_ON_NULL_INPUT"
+          }
+        }
+      ]
+    },
+    "non_default_registrations": {
+      "dynamic_non_default": [
+        {
+          "docString": "",
+          "functionKind": "SCALAR",
+          "outputType": "bigint",
+          "fileName": "libnon_default_function_dynamic",
+          "paramTypes": [
+            "bigint",
+            "bigint"            
+          ],
+          "nameSpace": "new.namespace",
+          "overwrite": true,
+          "constraints": "",
+          "routineCharacteristics": {
+            "language": "CPP",
+            "determinism": "DETERMINISTIC",
+            "nullCallClause": "CALLED_ON_NULL_INPUT"
+          }
+        }
+      ]
+    }
+  }
+}

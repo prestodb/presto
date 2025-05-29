@@ -27,6 +27,7 @@
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/connectors/Registration.h"
 #include "presto_cpp/main/connectors/SystemConnector.h"
+#include "presto_cpp/main/dynamic_registry/DynamicLibraryLoader.h"
 #include "presto_cpp/main/http/HttpConstants.h"
 #include "presto_cpp/main/http/filters/AccessLogFilter.h"
 #include "presto_cpp/main/http/filters/HttpEndpointLatencyFilter.h"
@@ -369,6 +370,7 @@ void PrestoServer::run() {
   registerRemoteFunctions();
   registerVectorSerdes();
   registerPrestoPlanNodeSerDe();
+  registerDynamicFunctions();
 
   const auto numExchangeHttpClientIoThreads = std::max<size_t>(
       systemConfig->exchangeHttpClientNumIoThreadsHwMultiplier() *
@@ -1632,6 +1634,42 @@ protocol::NodeStatus PrestoServer::fetchNodeStatus() {
       nonHeapUsed};
 
   return nodeStatus;
+}
+
+void PrestoServer::registerDynamicFunctions() {
+  auto systemConfig = SystemConfig::instance();
+  std::error_code ec;
+  if ((systemConfig->dynamicLibraryValidatorConfig()).empty()) {
+    PRESTO_STARTUP_LOG(INFO)
+        << "Config file path not set in properties. Dynamic libraries will not be loaded on this worker run.";
+    return;
+  }
+  const fs::path configPath(systemConfig->dynamicLibraryValidatorConfig());
+  if (!fs::exists(configPath, ec)) {
+    PRESTO_STARTUP_LOG(INFO)
+        << "Config file not found in path: " << configPath
+        << ". Dynamic libraries will not be loaded on this worker run.";
+    return;
+  }
+  if (fs::is_empty(configPath)) {
+    PRESTO_STARTUP_LOG(INFO)
+        << "Config file in path: " << configPath
+        << " is empty. Dynamic libraries will not be loaded on this worker run.";
+    return;
+  }
+  if (systemConfig->pluginDir().empty()) {
+    PRESTO_STARTUP_LOG(INFO) << "plugin.dir configuration not set up.";
+    return;
+  }
+  const fs::path path(systemConfig->pluginDir());
+  if (!fs::is_directory(path, ec)) {
+    PRESTO_STARTUP_LOG(INFO)
+        << "Plugin directory path provided: " << systemConfig->pluginDir()
+        << "is invalid.";
+  }
+  PRESTO_STARTUP_LOG(INFO) << "Loading dynamic libraries from in " << path;
+  DynamicLibraryLoader dLoad(configPath, systemConfig->pluginDir());
+  dLoad.loadDynamicFunctions();
 }
 
 } // namespace facebook::presto

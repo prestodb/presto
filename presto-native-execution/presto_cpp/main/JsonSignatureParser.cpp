@@ -18,6 +18,15 @@
 
 namespace facebook::presto {
 namespace {
+const std::string jsonSignatureScopeToString(JsonSignatureScope scope) {
+  switch (scope) {
+    case JsonSignatureScope::RemoteUDF:
+      return "udfSignatureMap";
+    case JsonSignatureScope::DynamiclibrariesUdf:
+      return "dynamicUdfSignatureMap";
+  }
+  VELOX_UNREACHABLE("Unknown JsonSignatureScope");
+}
 
 // Parse a single type signature.
 velox::exec::TypeSignature parseTypeSignature(const folly::dynamic& input) {
@@ -46,7 +55,8 @@ std::vector<velox::exec::TypeSignature> parseTypeSignatures(
 
 // Parses a single signature.
 JsonSignatureParser::FunctionSignatureItem parseSignature(
-    const folly::dynamic& input) {
+    const folly::dynamic& input,
+    const std::optional<std::string>& subDirectoryName = std::nullopt) {
   VELOX_USER_CHECK(
       input.isObject(),
       "Function signature should be an object. Got: {}",
@@ -59,6 +69,9 @@ JsonSignatureParser::FunctionSignatureItem parseSignature(
       "`outputType` and `paramTypes` are mandatory in a signature.");
 
   auto* schema = input.get_ptr("schema");
+  auto* nameSpace = input.get_ptr("nameSpace");
+  auto* entrypoint = input.get_ptr("entrypoint");
+  auto* fileName = input.get_ptr("fileName");
 
   auto paramTypeSignatures = parseTypeSignatures(*paramTypes);
   std::vector<bool> constantArguments(paramTypeSignatures.size(), false);
@@ -70,12 +83,19 @@ JsonSignatureParser::FunctionSignatureItem parseSignature(
           std::move(paramTypeSignatures),
           std::move(constantArguments),
           /*variableArity=*/false),
-      (schema != nullptr) ? schema->asString() : ""};
+      (schema != nullptr) ? schema->asString() : "",
+      (nameSpace != nullptr) ? nameSpace->asString() : "",
+      (entrypoint != nullptr)
+          ? entrypoint->asString()
+          : (subDirectoryName.has_value() ? "registerExtensions" : ""),
+      (fileName != nullptr) ? fileName->asString() : "",
+      (subDirectoryName.value_or(""))};
 }
 
 // Parses a list of signatures for a function.
 std::vector<JsonSignatureParser::FunctionSignatureItem> parseSignatures(
-    const folly::dynamic& input) {
+    const folly::dynamic& input,
+    const std::optional<std::string>& subDirectoryName = std::nullopt) {
   VELOX_USER_CHECK(
       input.isArray(),
       "The value for a function item should be an array of signatures. Got: {}",
@@ -84,15 +104,18 @@ std::vector<JsonSignatureParser::FunctionSignatureItem> parseSignatures(
   signatures.reserve(input.size());
 
   for (const auto& signature : input) {
-    signatures.emplace_back(parseSignature(signature));
+    signatures.emplace_back(parseSignature(signature, subDirectoryName));
   }
   return signatures;
 }
 
 } // namespace
 
-JsonSignatureParser::JsonSignatureParser(const std::string& input) {
+JsonSignatureParser::JsonSignatureParser(
+    const std::string& input,
+    JsonSignatureScope scope) {
   folly::dynamic topLevelJson;
+  auto topLevelKey = jsonSignatureScopeToString(scope);
   try {
     topLevelJson = folly::parseJson(input);
   } catch (const std::exception& e) {
@@ -106,14 +129,16 @@ JsonSignatureParser::JsonSignatureParser(const std::string& input) {
       topLevelJson.typeName());
 
   // Search for the top-level key.
-  if (auto* found = topLevelJson.get_ptr("udfSignatureMap")) {
-    parse(*found);
+  if (auto* found = topLevelJson.get_ptr(topLevelKey)) {
+    parse(*found, scope);
   } else {
-    VELOX_USER_FAIL("Unable to find top level 'udfSignatureMap' key.");
+    VELOX_USER_FAIL("Unable to find top level '{}' key.", topLevelKey);
   }
 }
 
-void JsonSignatureParser::parse(const folly::dynamic& input) {
+void JsonSignatureParser::parseHelper(
+    const folly::dynamic& input,
+    const std::optional<std::string>& subDirName) {
   VELOX_USER_CHECK(
       input.isObject(),
       "Input signatures should be an object. Got: {}",
@@ -129,7 +154,29 @@ void JsonSignatureParser::parse(const folly::dynamic& input) {
         key.asString());
 
     // Check and parse list of signatures.
-    signaturesMap_.emplace(key.getString(), parseSignatures(it.second));
+    signaturesMap_.emplace(
+        key.getString(), parseSignatures(it.second, subDirName));
+  }
+}
+
+void JsonSignatureParser::parse(
+    const folly::dynamic& input,
+    JsonSignatureScope scope) {
+  VELOX_USER_CHECK(
+      input.isObject(),
+      "Input signatures should be an object. Got: {}",
+      input.typeName());
+  switch (scope) {
+    case JsonSignatureScope::DynamiclibrariesUdf: {
+      for (const auto& it : input.items()) {
+        const std::string subDirName =
+            it.first.asString(); // Ensure conversion to std::string.
+        parseHelper(it.second, subDirName);
+      }
+      break;
+    }
+    default:
+      parseHelper(input);
   }
 }
 
