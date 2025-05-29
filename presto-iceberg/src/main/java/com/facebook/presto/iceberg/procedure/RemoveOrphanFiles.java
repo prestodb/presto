@@ -225,7 +225,7 @@ public class RemoveOrphanFiles
             case DATA:
                 return ManifestFiles.read(manifest, table.io());
             case DELETES:
-                ManifestFiles.readDeleteManifest(manifest, table.io(), table.specs());
+                return ManifestFiles.readDeleteManifest(manifest, table.io(), table.specs());
             default:
                 throw new PrestoException(ICEBERG_UNKNOWN_MANIFEST_TYPE, "Unknown manifest file content: " + manifest.content());
         }
