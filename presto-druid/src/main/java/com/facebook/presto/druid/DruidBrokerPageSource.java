@@ -60,7 +60,6 @@ public class DruidBrokerPageSource
     private BufferedReader responseStream;
     private final PageBuilder pageBuilder;
     private List<Type> columnTypes;
-
     public DruidBrokerPageSource(
             GeneratedDql brokerDql,
             List<ColumnHandle> columnHandles,
@@ -151,7 +150,7 @@ public class DruidBrokerPageSource
                             type.writeLong(blockBuilder, dateTime.getMillis());
                         }
                         else {
-                            Slice slice = Slices.utf8Slice(value.textValue());
+                            Slice slice = checkNullValue(value);
                             type.writeSlice(blockBuilder, slice);
                         }
                     }
@@ -187,6 +186,13 @@ public class DruidBrokerPageSource
         }
     }
 
+    private Slice checkNullValue(JsonNode value)
+    {
+        if (value != null && value.textValue() != null) {
+            return Slices.utf8Slice(value.textValue());
+        }
+        return Slices.EMPTY_SLICE;
+    }
     @Override
     public long getSystemMemoryUsage()
     {

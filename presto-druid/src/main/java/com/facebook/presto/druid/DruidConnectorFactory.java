@@ -18,6 +18,7 @@ import com.facebook.airlift.json.JsonModule;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.druid.authentication.DruidAuthenticationModule;
 import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
@@ -35,6 +36,13 @@ import static java.util.Objects.requireNonNull;
 public class DruidConnectorFactory
         implements ConnectorFactory
 {
+    private final ClassLoader classLoader;
+
+    public DruidConnectorFactory(ClassLoader classLoader)
+    {
+        this.classLoader = classLoader;
+    }
+
     @Override
     public String getName()
     {
@@ -51,7 +59,7 @@ public class DruidConnectorFactory
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
         requireNonNull(config, "config is null");
-        try {
+        try (ThreadContextClassLoader ignore = new ThreadContextClassLoader(classLoader)) {
             Bootstrap app = new Bootstrap(
                     new JsonModule(),
                     new DruidModule(),
