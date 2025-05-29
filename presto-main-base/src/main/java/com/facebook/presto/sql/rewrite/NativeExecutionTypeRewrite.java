@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.rewrite;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.UnknownTypeException;
@@ -32,19 +33,18 @@ import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.ExpressionRewriter;
+import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.StringLiteral;
-import com.facebook.presto.sql.tree.WhenClause;
 import com.google.common.collect.ImmutableList;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -70,6 +70,8 @@ import static java.util.Objects.requireNonNull;
 final class NativeExecutionTypeRewrite
         implements StatementRewrite.Rewrite
 {
+    private static final Logger LOG = Logger.get(ExpressionRewriter.class);
+
     private static final String FUNCTION_ENUM_KEY = "enum_key";
     private static final String FUNCTION_ELEMENT_AT = "element_at";
     private static final String FUNCTION_MAP = "map";
@@ -94,19 +96,76 @@ final class NativeExecutionTypeRewrite
         return node;
     }
 
-    private static final class Rewriter
-            extends DefaultTreeRewriter<Void>
+    public static Expression rewriteEnumExpressions(Expression expression, FunctionAndTypeResolver functionAndTypeResolver)
+    {
+        return ExpressionTreeRewriter.rewriteWith(new EnumExpressionRewriter(functionAndTypeResolver), expression);
+    }
+
+    private static class EnumExpressionRewriter
+        extends ExpressionRewriter<Void>
     {
         private final FunctionAndTypeResolver functionAndTypeResolver;
 
-        public Rewriter(FunctionAndTypeResolver functionAndTypeResolver)
+        public EnumExpressionRewriter(FunctionAndTypeResolver functionAndTypeResolver)
         {
-            this.functionAndTypeResolver = requireNonNull(functionAndTypeResolver, "functionAndTypeResolver is null");
+            this.functionAndTypeResolver = functionAndTypeResolver;
+        }
+
+        private Expression convertEnumTypeToLiteral(DereferenceExpression key, Type type)
+        {
+            String enumKey = key.getField().getValue().toUpperCase();
+            if (type instanceof BigintEnumType) {
+                Map<String, Long> enumMap = ((EnumType) type).getEnumMap();
+                Long enumValue = enumMap.get(enumKey);
+                if (enumValue == null) {
+                    throw new SemanticException(TYPE_MISMATCH, "No value " + enumKey + " in enum BigintEnum");
+                }
+                return new LongLiteral(enumValue.toString());
+            }
+            else if (type instanceof VarcharEnumType) {
+                Map<String, String> enumMap = ((EnumType) type).getEnumMap();
+                String enumValue = enumMap.get(enumKey);
+                if (enumValue == null) {
+                    throw new SemanticException(TYPE_MISMATCH, "No value " + enumKey + " in enum VarcharEnum");
+                }
+                return new StringLiteral(enumValue);
+            }
+            return key;
         }
 
         @Override
-        protected Node visitCast(Cast node, Void context)
+        public Expression rewriteExpression(Expression expression, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
+            return treeRewriter.defaultRewrite(expression, null);
+        }
+
+        @Override
+        public Expression rewriteDereferenceExpression(DereferenceExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        {
+            try {
+                Type argumentType = functionAndTypeResolver.getType(parseTypeSignature(node.getBase().toString()));
+                if (argumentType instanceof TypeWithName) {
+                    argumentType = ((TypeWithName) argumentType).getType();
+                    if (argumentType instanceof EnumType) {
+                        return convertEnumTypeToLiteral(node, argumentType);
+                    }
+                }
+            }
+            catch (IllegalArgumentException | UnknownTypeException e) {
+                // Returns the original expression if rewrite fails.
+                LOG.warn(e.getMessage());
+                return node;
+            }
+            return node;
+        }
+
+        @Override
+        public Expression rewriteCast(Cast node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        {
+            // Rewrite any enum types to their values.
+            node = treeRewriter.defaultRewrite(node, null);
+
+            // Rewrite type to base type.
             try {
                 Type type = functionAndTypeResolver.getType(parseTypeSignature(node.getType()));
                 if (type instanceof TypeWithName) {
@@ -125,79 +184,6 @@ final class NativeExecutionTypeRewrite
             catch (IllegalArgumentException | UnknownTypeException e) {
                 throw new SemanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
             }
-
-            Expression expression = node.getExpression();
-            expression = peelIfDereferenceExpression(expression);
-            return new Cast(node.getLocation(), expression, node.getType(), node.isSafe(), node.isTypeOnly());
-        }
-
-        @Override
-        protected Node visitFunctionCall(FunctionCall node, Void context)
-        {
-            QualifiedName functionName = node.getName();
-            List<Expression> arguments = node.getArguments();
-            if (node.getArguments().size() == 1) {
-                Expression argument = arguments.get(0);
-                if (isValidEnumKeyFunctionCall(node)) {
-                    functionName = QualifiedName.of(FUNCTION_ELEMENT_AT);
-                    Type argumentType;
-                    if (argument instanceof Cast) {
-                        argumentType = functionAndTypeResolver.getType(parseTypeSignature(((Cast) argument).getType()));
-                    }
-                    else if (argument instanceof DereferenceExpression) {
-                        argumentType = functionAndTypeResolver.getType(parseTypeSignature(((DereferenceExpression) argument).getBase().toString()));
-                    }
-                    else {
-                        // ENUM_KEY is only supported with Cast or DereferenceExpression for now.
-                        // Return node without rewriting.
-                        return node;
-                    }
-                    argument = rewriteIfCastOrDereferenceExpression(argument);
-                    if (argumentType instanceof TypeWithName) {
-                        // Peel user defined type name.
-                        argumentType = ((TypeWithName) argumentType).getType();
-                        if (argumentType instanceof EnumType) {
-                            arguments = ImmutableList.of(convertEnumTypeToMapExpression(argumentType), argument);
-                        }
-                    }
-                }
-                else {
-                    arguments.set(0, rewriteIfCastOrDereferenceExpression(argument));
-                }
-            }
-            return node.getLocation().isPresent()
-                ? new FunctionCall(node.getLocation().get(), functionName, node.getWindow(), node.getFilter(), node.getOrderBy(), node.isDistinct(), node.isIgnoreNulls(), arguments)
-                : new FunctionCall(functionName, node.getWindow(), node.getFilter(), node.getOrderBy(), node.isDistinct(), node.isIgnoreNulls(), arguments);
-        }
-
-        @Override
-        protected Node visitSimpleCaseExpression(SimpleCaseExpression node, Void context)
-        {
-            // SimpleCaseExpression has 3 parts: operand, whenClauses, and defaultValue.
-            Expression operand = node.getOperand();
-            List<WhenClause> whenClauses = node.getWhenClauses();
-            Optional<Expression> defaultValue = node.getDefaultValue();
-
-            // Rewrite each component.
-            operand = rewriteIfCastOrDereferenceExpression(node.getOperand());
-            List<WhenClause> newWhenClauses = new ArrayList<>();
-            for (WhenClause when : whenClauses) {
-                Expression whenOperand = rewriteIfCastOrDereferenceExpression(when.getOperand());
-                Expression result = rewriteIfCastOrDereferenceExpression(when.getResult());
-                newWhenClauses.add(new WhenClause(whenOperand, result));
-            }
-            if (defaultValue.isPresent()) {
-                defaultValue = Optional.of(rewriteIfCastOrDereferenceExpression(defaultValue.get()));
-            }
-
-            return node.getLocation().isPresent()
-                ? new SimpleCaseExpression(node.getLocation().get(), operand, newWhenClauses, defaultValue)
-                : new SimpleCaseExpression(operand, newWhenClauses, defaultValue);
-        }
-
-        @Override
-        protected Node visitExpression(Expression node, Void context)
-        {
             return node;
         }
 
@@ -232,56 +218,59 @@ final class NativeExecutionTypeRewrite
                             new ArrayConstructor(keys.build()),
                             new ArrayConstructor(values.build())));
         }
-
-        private Expression convertEnumTypeToLiteral(DereferenceExpression key, Type type)
+        @Override
+        public Expression rewriteFunctionCall(FunctionCall node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
-            String enumKey = key.getField().getValue().toUpperCase();
-            if (type instanceof BigintEnumType) {
-                Map<String, Long> enumMap = ((EnumType) type).getEnumMap();
-                Long enumValue = enumMap.get(enumKey);
-                if (enumValue == null) {
-                    throw new SemanticException(TYPE_MISMATCH, "No value " + enumKey + " in enum BigintEnum");
+            QualifiedName functionName = node.getName();
+            List<Expression> arguments = node.getArguments();
+            if (isValidEnumKeyFunctionCall(node)) {
+                Expression argument = arguments.get(0);
+                functionName = QualifiedName.of(FUNCTION_ELEMENT_AT);
+                Type argumentType;
+                if (argument instanceof Cast) {
+                    argumentType = functionAndTypeResolver.getType(parseTypeSignature(((Cast) argument).getType()));
                 }
-                return new LongLiteral(enumValue.toString());
-            }
-            else if (type instanceof VarcharEnumType) {
-                Map<String, String> enumMap = ((EnumType) type).getEnumMap();
-                String enumValue = enumMap.get(enumKey);
-                if (enumValue == null) {
-                    throw new SemanticException(TYPE_MISMATCH, "No value " + enumKey + " in enum VarcharEnum");
+                else if (argument instanceof DereferenceExpression) {
+                    argumentType = functionAndTypeResolver.getType(parseTypeSignature(((DereferenceExpression) argument).getBase().toString()));
                 }
-                return new StringLiteral(enumValue);
-            }
-            return key;
-        }
-
-        private Expression rewriteIfCastOrDereferenceExpression(Expression argument)
-        {
-            if (argument instanceof Cast) {
-                argument = (Expression) visitCast((Cast) argument, null);
-            }
-            return peelIfDereferenceExpression(argument);
-        }
-
-        private Expression peelIfDereferenceExpression(Expression argument)
-        {
-            if (argument instanceof DereferenceExpression) {
-                try {
-                    DereferenceExpression arg = (DereferenceExpression) argument;
-                    Type argumentType = functionAndTypeResolver.getType(parseTypeSignature(arg.getBase().toString()));
-                    if (argumentType instanceof TypeWithName) {
-                        argumentType = ((TypeWithName) argumentType).getType();
-                        if (argumentType instanceof EnumType) {
-                            return convertEnumTypeToLiteral(arg, argumentType);
-                        }
+                else {
+                    // ENUM_KEY is only supported with Cast or DereferenceExpression for now.
+                    // Return node without rewriting.
+                    return node;
+                }
+                if (argumentType instanceof TypeWithName) {
+                    // Rewrite ENUM_KEY(EnumType<T>) -> ELEMENT_AT(MAP(<T>, VARCHAR))
+                    argumentType = ((TypeWithName) argumentType).getType();
+                    Expression enumMapExpression = convertEnumTypeToMapExpression(argumentType);
+                    Expression enumValue = treeRewriter.rewrite(argument, null);
+                    if (argumentType instanceof EnumType) {
+                        arguments = ImmutableList.of(enumMapExpression, enumValue);
                     }
-                }
-                catch (IllegalArgumentException | UnknownTypeException e) {
-                    // Returns the original expression if rewrite fails.
-                    return argument;
-                }
+                }        
+            } else {
+                node = treeRewriter.defaultRewrite(node, null);
             }
-            return argument;
+
+            return node.getLocation().isPresent()
+                ? new FunctionCall(node.getLocation().get(), functionName, node.getWindow(), node.getFilter(), node.getOrderBy(), node.isDistinct(), node.isIgnoreNulls(), arguments)
+                : new FunctionCall(functionName, node.getWindow(), node.getFilter(), node.getOrderBy(), node.isDistinct(), node.isIgnoreNulls(), arguments);
+        }
+    }
+
+    private static final class Rewriter
+            extends DefaultTreeRewriter<Void>
+    {
+        private final FunctionAndTypeResolver functionAndTypeResolver;
+
+        public Rewriter(FunctionAndTypeResolver functionAndTypeResolver)
+        {
+            this.functionAndTypeResolver = requireNonNull(functionAndTypeResolver, "functionAndTypeResolver is null");
+        }
+
+        @Override
+        protected Node visitExpression(Expression node, Void context)
+        {
+            return rewriteEnumExpressions(node, this.functionAndTypeResolver);
         }
     }
 }
