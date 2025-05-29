@@ -43,9 +43,6 @@ the coordinate order is (x, y). The details of both WKT and WKB can be found
 `here
 <https://en.wikipedia.org/wiki/Well-known_text_representation_of_geometry>`_.
 
-.. _OpenGIS Specifications: https://www.ogc.org/standards/ogcapi-features/
-.. _SQL/MM Part 3: Spatial: https://www.iso.org/standard/31369.html
-
 Geometry Constructors
 ---------------------
 
@@ -157,6 +154,17 @@ Spatial Operations
 
 Accessors
 ---------
+.. function:: ST_IsValid(geometry: Geometry) -> valid: bool
+
+    Returns if ``geometry`` is valid, according to `SQL/MM Part 3: Spatial`_.
+    Examples of non-valid geometries include Polygons with self-intersecting shells.
+
+.. function:: ST_IsSimple(geometry: Geometry) -> simple: bool
+
+    Returns if ``geometry`` is simple, according to `SQL/MM Part 3: Spatial`_.
+    Examples of non-simple geometries include LineStrings with self-intersections,
+    Polygons with empty rings for holes, and more.
+
 
 .. function:: ST_Area(geometry: Geometry) -> area: double
 
@@ -243,3 +251,7 @@ for more details.
 .. function:: bing_tile_quadkey() -> quadKey: varchar
 
     Returns the quadkey representing the provided bing tile.
+
+
+.. _OpenGIS Specifications: https://www.ogc.org/standards/ogcapi-features/
+.. _SQL/MM Part 3: Spatial: https://www.iso.org/standard/31369.html

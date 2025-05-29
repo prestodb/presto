@@ -149,6 +149,8 @@ int main(int argc, char** argv) {
       "st_point",
       "st_x",
       "st_y",
+      "st_isvalid",
+      "st_issimple",
   };
   size_t initialSeed = FLAGS_seed == 0 ? std::time(nullptr) : FLAGS_seed;
 

@@ -1076,6 +1076,123 @@ TEST_F(GeometryFunctionsTest, testStUnion) {
       "Failed to compute geometry union: TopologyException: Input geom 1 is invalid: Self-intersection at 1 2");
 }
 
+// Accessors
+
+TEST_F(GeometryFunctionsTest, testStIsSimpleValid) {
+  const auto assertStIsValidSimpleFunc = [&](std::optional<std::string> wkt,
+                                             bool expectedValid,
+                                             bool expectedSimple) {
+    std::optional<bool> validResult =
+        evaluateOnce<bool>("ST_IsValid(ST_GeometryFromText(c0))", wkt);
+    std::optional<bool> simpleResult =
+        evaluateOnce<bool>("ST_IsSimple(ST_GeometryFromText(c0))", wkt);
+
+    if (wkt.has_value()) {
+      ASSERT_TRUE(validResult.has_value());
+      ASSERT_TRUE(simpleResult.has_value());
+      ASSERT_EQ(validResult.value(), expectedValid)
+          << " from WKT: " << wkt.value();
+      ASSERT_EQ(simpleResult.value(), expectedSimple)
+          << " from WKT: " << wkt.value();
+    } else {
+      ASSERT_FALSE(validResult.has_value());
+      ASSERT_FALSE(simpleResult.has_value());
+    }
+  };
+
+  assertStIsValidSimpleFunc(std::nullopt, true, true);
+  assertStIsValidSimpleFunc("POINT EMPTY", true, true);
+  assertStIsValidSimpleFunc("MULTIPOINT EMPTY", true, true);
+  assertStIsValidSimpleFunc("LINESTRING EMPTY", true, true);
+  assertStIsValidSimpleFunc("MULTILINESTRING EMPTY", true, true);
+  assertStIsValidSimpleFunc("POLYGON EMPTY", true, true);
+  assertStIsValidSimpleFunc("MULTIPOLYGON EMPTY", true, true);
+  assertStIsValidSimpleFunc("GEOMETRYCOLLECTION EMPTY", true, true);
+
+  // valid geometries
+  assertStIsValidSimpleFunc("POINT (1.5 2.5)", true, true);
+
+  assertStIsValidSimpleFunc("MULTIPOINT (1 2, 3 4)", true, true);
+  assertStIsValidSimpleFunc("MULTIPOINT (1 2, 2 4, 3 6, 4 8)", true, true);
+  // Repeated point
+  assertStIsValidSimpleFunc(
+      "MULTIPOINT ((0 0), (0 1), (0 1), (1 1))", true, false);
+  // Duplicate point
+  assertStIsValidSimpleFunc("MULTIPOINT (1 2, 2 4, 3 6, 1 2)", true, false);
+
+  assertStIsValidSimpleFunc("LINESTRING (0 0, 1 2, 3 4)", true, true);
+  // Geos/JTS considers LineStrings with repeated points valid/simple (it drops
+  // the dupes), even though ISO says they should be invalid.
+  assertStIsValidSimpleFunc(
+      "LINESTRING (0 0, 0 1, 0 1, 1 1, 1 0, 0 0)", true, true);
+  // Valid but not simple: Self-intersection at (0, 1) (vertex)
+  assertStIsValidSimpleFunc(
+      "LINESTRING (0 0, -1 0.5, 0 1, 1 1, 1 0, 0 1, 0 0)", true, false);
+  assertStIsValidSimpleFunc("LINESTRING (8 4, 5 7)", true, true);
+  assertStIsValidSimpleFunc("LINESTRING (1 1, 2 2, 1 3, 1 1)", true, true);
+  // Valid but not simple: Self-intersection at (0.5, 0.5) (in segment)
+  assertStIsValidSimpleFunc("LINESTRING (0 0, 1 1, 1 0, 0 1)", true, false);
+
+  assertStIsValidSimpleFunc(
+      "MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))", true, true);
+  // Valid but not simple: Self-intersection at (2, 1)
+  assertStIsValidSimpleFunc(
+      "MULTILINESTRING ((1 1, 5 1), (2 4, 4 0))", true, false);
+
+  assertStIsValidSimpleFunc("POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0))", true, true);
+  // Self-intersection at (0.5, 0.5)
+  assertStIsValidSimpleFunc(
+      "POLYGON ((0 0, 1 1, 0 1, 1 0, 0 0))", false, false);
+  // Hole outside of shell
+  assertStIsValidSimpleFunc(
+      "POLYGON ((0 0, 0 1, 0 1, 1 1, 1 0, 0 0), (2 2, 2 3, 3 3, 3 2, 2 2))",
+      false,
+      true);
+  // Hole outside of shell
+  assertStIsValidSimpleFunc(
+      "POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0), (2 2, 2 3, 3 3, 3 2, 2 2))",
+      false,
+      true);
+  // Backtrack from (2, 1) to (1, 1)
+  assertStIsValidSimpleFunc(
+      "POLYGON ((0 0, 0 1, 2 1, 1 1, 1 0, 0 0))", false, false);
+  // Hole segment (0 1, 1 1) overlaps shell segment
+  assertStIsValidSimpleFunc(
+      "POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0), (0 1, 1 1, 0.5 0.5, 0 1))",
+      false,
+      true);
+  // Hole intersects shell at two points (0, 0) and (1, 1)
+  assertStIsValidSimpleFunc(
+      "POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0), (0 0, 0.5 0.7, 1 1, 0.5 0.4, 0 0))",
+      false,
+      true);
+  // Shell intersects self at (0, 1)
+  assertStIsValidSimpleFunc(
+      "POLYGON ((0 0, -1 0.5, 0 1, 1 1, 1 0, 0 1, 0 0))", false, false);
+  assertStIsValidSimpleFunc("POLYGON ((2 0, 2 1, 3 1, 2 0))", true, true);
+
+  assertStIsValidSimpleFunc(
+      "MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((2 4, 2 6, 6 6, 6 4, 2 4)))",
+      true,
+      true);
+  // Overlapping rectangles.  This is invalid but simple because multipolygon
+  // rules are weird.
+  assertStIsValidSimpleFunc(
+      "MULTIPOLYGON (((0 0, 0 1, 1 1, 1 0, 0 0)), ((0.5 0.5, 0.5 2, 2 2, 2 0.5, 0.5 0.5)))",
+      false,
+      true);
+
+  assertStIsValidSimpleFunc(
+      "GEOMETRYCOLLECTION (POINT (1 2), LINESTRING (0 0, 1 2, 3 4), POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0))) ",
+      true,
+      true);
+  // Invalid Polygon
+  assertStIsValidSimpleFunc(
+      "GEOMETRYCOLLECTION (POINT (1 2), POLYGON ((0 0, 0 1, 2 1, 1 1, 1 0, 0 0)))",
+      false,
+      false);
+}
+
 TEST_F(GeometryFunctionsTest, testStArea) {
   const auto testStAreaFunc = [&](std::optional<std::string> wkt,
                                   std::optional<double> expectedArea) {

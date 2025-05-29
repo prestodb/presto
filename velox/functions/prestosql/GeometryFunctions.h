@@ -424,6 +424,38 @@ struct StUnionFunction {
 // Accessors
 
 template <typename T>
+struct StIsValidFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE Status
+  call(out_type<bool>& result, const arg_type<Geometry>& input) {
+    std::unique_ptr<geos::geom::Geometry> geosGeometry =
+        geospatial::deserializeGeometry(input);
+
+    GEOS_TRY(result = geosGeometry->isValid();
+             , "Failed to check geometry isValid");
+
+    return Status::OK();
+  }
+};
+
+template <typename T>
+struct StIsSimpleFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE Status
+  call(out_type<bool>& result, const arg_type<Geometry>& input) {
+    std::unique_ptr<geos::geom::Geometry> geosGeometry =
+        geospatial::deserializeGeometry(input);
+
+    GEOS_TRY(result = geosGeometry->isSimple();
+             , "Failed to check geometry isSimple");
+
+    return Status::OK();
+  }
+};
+
+template <typename T>
 struct StAreaFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
