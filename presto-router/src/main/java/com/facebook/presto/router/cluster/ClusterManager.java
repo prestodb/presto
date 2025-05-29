@@ -22,6 +22,7 @@ import com.facebook.presto.router.spec.GroupSpec;
 import com.facebook.presto.router.spec.RouterSpec;
 import com.facebook.presto.router.spec.SelectorRuleSpec;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.router.RequestInfo;
 import com.facebook.presto.spi.router.Scheduler;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -222,7 +223,7 @@ public class ClusterManager
                 Map<URI, RemoteClusterInfo> healthyRemoteClusterInfos = Maps.filterValues(remoteClusterInfos, RemoteState::isHealthy);
                 config.getScheduler().setClusterInfos(ImmutableMap.copyOf(healthyRemoteClusterInfos));
 
-                return config.getScheduler().getDestination(requestInfo.getUser(), requestInfo.getQuery());
+                return config.getScheduler().getDestination(requestInfo);
             }
             catch (Exception e) {
                 log.error("Custom Plugin Scheduler failed to schedule the query!", e);
@@ -234,7 +235,7 @@ public class ClusterManager
             config.getScheduler().setCandidateGroupName(target.get());
         }
 
-        return config.getScheduler().getDestination(requestInfo.getUser());
+        return config.getScheduler().getDestination(requestInfo);
     }
 
     private Optional<String> matchGroup(RequestInfo requestInfo)

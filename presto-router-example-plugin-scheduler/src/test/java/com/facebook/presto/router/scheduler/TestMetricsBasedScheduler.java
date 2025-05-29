@@ -14,14 +14,19 @@
 
 package com.facebook.presto.router.scheduler;
 
+import com.facebook.presto.server.MockHttpServletRequest;
 import com.facebook.presto.spi.router.ClusterInfo;
+import com.facebook.presto.spi.router.RequestInfo;
 import com.facebook.presto.spi.router.Scheduler;
+import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ListMultimap;
 import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
 
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static org.testng.Assert.assertEquals;
 
 public class TestMetricsBasedScheduler
@@ -85,25 +90,39 @@ public class TestMetricsBasedScheduler
         clusterInfos.put(uri2, new MockRemoteClusterInfo(20, 20));
         clusterInfos.put(uri3, new MockRemoteClusterInfo(30, 30));
         scheduler.setClusterInfos(clusterInfos);
-        URI target = scheduler.getDestination("test", null).orElseThrow(AssertionError::new);
+        URI target = scheduler.getDestination(
+                        getMockRequestInfo(ImmutableListMultimap.of(PRESTO_USER, "test")))
+                .orElseThrow(AssertionError::new);
         assertEquals(target, uri1);
 
         clusterInfos.put(uri1, new MockRemoteClusterInfo(20, 20));
         clusterInfos.put(uri2, new MockRemoteClusterInfo(10, 10));
         clusterInfos.put(uri3, new MockRemoteClusterInfo(30, 30));
         scheduler.setClusterInfos(clusterInfos);
-        target = scheduler.getDestination("test", null).orElseThrow(AssertionError::new);
+        target = scheduler.getDestination(
+                        getMockRequestInfo(ImmutableListMultimap.of(PRESTO_USER, "test")))
+                .orElseThrow(AssertionError::new);
         assertEquals(target, uri2);
 
         clusterInfos.put(uri1, new MockRemoteClusterInfo(20, 20));
         clusterInfos.put(uri2, new MockRemoteClusterInfo(30, 30));
         clusterInfos.put(uri3, new MockRemoteClusterInfo(10, 10));
         scheduler.setClusterInfos(clusterInfos);
-        target = scheduler.getDestination("test", null).orElseThrow(AssertionError::new);
+        target = scheduler.getDestination(
+                        getMockRequestInfo(
+                                ImmutableListMultimap.of(PRESTO_USER, "test")))
+                .orElseThrow(AssertionError::new);
         assertEquals(target, uri3);
 
         scheduler.setClusterInfos(new HashMap<>());
-        target = scheduler.getDestination("test", null).orElse(new URI("invalid"));
+        target = scheduler.getDestination(
+                        getMockRequestInfo(ImmutableListMultimap.of(PRESTO_USER, "test")))
+                .orElse(new URI("invalid"));
         assertEquals(target, new URI("invalid"));
+    }
+
+    private static RequestInfo getMockRequestInfo(ListMultimap<String, String> headers)
+    {
+        return new RequestInfo(new MockHttpServletRequest(headers), "");
     }
 }

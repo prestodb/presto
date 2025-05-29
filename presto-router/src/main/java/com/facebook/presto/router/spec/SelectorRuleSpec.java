@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.router.spec;
 
-import com.facebook.presto.router.cluster.RequestInfo;
+import com.facebook.presto.spi.router.RequestInfo;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
