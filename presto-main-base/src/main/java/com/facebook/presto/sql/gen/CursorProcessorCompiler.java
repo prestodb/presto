@@ -84,6 +84,8 @@ public class CursorProcessorCompiler
 {
     private static final int PROJECT_LIST_BATCH_SIZE = 1000;
     private static final int DYNAMIC_INVOCATION_THRESHOLD = 500;
+    // New constant for projection warning threshold
+    private static final int HIGH_PROJECTION_WARNING_THRESHOLD = 2000;
     private static Logger log = Logger.get(CursorProcessorCompiler.class);
 
     private final Metadata metadata;
@@ -100,6 +102,7 @@ public class CursorProcessorCompiler
     @Override
     public void generateMethods(SqlFunctionProperties sqlFunctionProperties, ClassDefinition classDefinition, CallSiteBinder callSiteBinder, RowExpression filter, List<RowExpression> projections)
     {
+        checkHighProjectionCount(projections.size());
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
 
         List<RowExpression> rowExpressions = ImmutableList.<RowExpression>builder()
@@ -168,6 +171,22 @@ public class CursorProcessorCompiler
         constructorBody.ret();
     }
 
+    /**
+     * Check if the number of projections exceeds the warning threshold and log a warning.
+     * This helps customers understand when they're approaching JVM limits.
+     *
+     * @param projectionCount Number of projections in the query
+     */
+    private void checkHighProjectionCount(int projectionCount)
+    {
+        if (projectionCount >= HIGH_PROJECTION_WARNING_THRESHOLD) {
+            log.warn("Query contains %d projections, which exceeds the recommended threshold of %d. " +
+                            "Queries with very high projection counts may encounter JVM constant pool limits " +
+                            "or performance issues. Consider reducing the number of projected columns if possible.",
+                    projectionCount, HIGH_PROJECTION_WARNING_THRESHOLD);
+        }
+    }
+
     List<RowExpression> rewriteRowExpressionsWithCSE(
             List<RowExpression> rows,
             Map<RowExpression, VariableReferenceExpression> commonSubExpressions)
@@ -204,7 +223,6 @@ public class CursorProcessorCompiler
                 .comment("boolean finished = false;")
                 .putVariable(finishedVariable, false);
 
-        // while loop body
         LabelNode done = new LabelNode("done");
 
         BytecodeBlock whileFunctionBlock = new BytecodeBlock()
@@ -221,13 +239,12 @@ public class CursorProcessorCompiler
                                 .putVariable(finishedVariable, true)
                                 .gotoLabel(done)));
 
-        // reset the CSE evaluatedField = false for every row
         cseFields.values().forEach(field -> whileFunctionBlock.append(scope.getThis().setField(field.getEvaluatedField(), constantBoolean(false))));
 
         whileFunctionBlock.comment("do the projection")
-            .append(createProjectIfStatement(classDefinition, method, properties, cursor, pageBuilder, projections))
-            .comment("completedPositions++;")
-            .incrementVariable(completedPositionsVariable, (byte) 1);
+                .append(createProjectIfStatement(classDefinition, method, properties, cursor, pageBuilder, projections))
+                .comment("completedPositions++;")
+                .incrementVariable(completedPositionsVariable, (byte) 1);
 
         WhileLoop whileLoop = new WhileLoop()
                 .condition(constantTrue())
@@ -371,16 +388,16 @@ public class CursorProcessorCompiler
 
         LabelNode end = new LabelNode("end");
         body.comment("boolean wasNull = false;")
-            .putVariable(wasNullVariable, false)
-            .comment("evaluate filter: " + filter)
-            .append(compiler.compile(filter, scope, Optional.empty()))
-            .comment("if (wasNull) return false;")
-            .getVariable(wasNullVariable)
-            .ifFalseGoto(end)
-            .pop(boolean.class)
-            .push(false)
-            .visitLabel(end)
-            .retBoolean();
+                .putVariable(wasNullVariable, false)
+                .comment("evaluate filter: " + filter)
+                .append(compiler.compile(filter, scope, Optional.empty()))
+                .comment("if (wasNull) return false;")
+                .getVariable(wasNullVariable)
+                .ifFalseGoto(end)
+                .pop(boolean.class)
+                .push(false)
+                .visitLabel(end)
+                .retBoolean();
     }
 
     private void generateProjectMethod(

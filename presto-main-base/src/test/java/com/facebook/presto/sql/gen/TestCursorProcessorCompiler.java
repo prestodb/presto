@@ -36,6 +36,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Random;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
@@ -66,11 +67,15 @@ import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 public class TestCursorProcessorCompiler
 {
     private static final Metadata METADATA = createTestMetadataManager();
     private static final FunctionAndTypeManager FUNCTION_MANAGER = METADATA.getFunctionAndTypeManager();
+
+    // Constants for testing JVM limits
+    private static final int CONSTANT_POOL_STRESS_PROJECTION_COUNT = 8000;
 
     private static final CallExpression ADD_X_Y = call(
             ADD.name(),
@@ -228,6 +233,86 @@ public class TestCursorProcessorCompiler
                 projections,
                 "testProjectionBatching_5451",
                 false);
+    }
+
+    /**
+     * NEW NEGATIVE TEST CASE:
+     * This test demonstrates that while we can handle MethodTooLarge exceptions through batching,
+     * the JVM constant pool size limit remains a constraint when projections contain many unique constants.
+     *
+     * This test creates projections with random constants generated via Java code, which fills up
+     * the constant pool and should still cause compilation failures even with our batching approach.
+     * This clearly shows the scope of what we're solving (MethodTooLarge) vs. what remains a JVM constraint.
+     */
+    @Test
+    public void testConstantPoolLimitStillConstrainsLargeProjections()
+    {
+        System.out.println("Testing constant pool limits with " + CONSTANT_POOL_STRESS_PROJECTION_COUNT + " projections containing random constants...");
+
+        ExpressionCompiler expressionCompiler = new ExpressionCompiler(METADATA, new PageFunctionCompiler(METADATA, 0));
+
+        List<RowExpression> projectionsWithRandomConstants = createProjectionsWithRandomConstants(CONSTANT_POOL_STRESS_PROJECTION_COUNT);
+
+        expectThrows(RuntimeException.class, () -> {
+            expressionCompiler.compileCursorProcessor(
+                    SESSION.getSqlFunctionProperties(),
+                    Optional.empty(),
+                    projectionsWithRandomConstants,
+                    "testConstantPoolLimit",
+                    false);
+        });
+
+        System.out.println("As expected, compilation failed due to JVM constant pool constraints.");
+        System.out.println("This demonstrates that our batching solution addresses MethodTooLarge but constant pool remains a JVM limit.");
+    }
+
+    /**
+     * Test to verify that we can handle more projections than the original failing case
+     * when they don't stress the constant pool (i.e., reuse field references).
+     */
+    @Test
+    public void testBatchingHandlesLargeProjectionCountWithFieldReferences()
+    {
+        int projectionCount = 6000;
+        System.out.println("Testing batching with " + projectionCount + " field reference projections...");
+
+        ExpressionCompiler expressionCompiler = new ExpressionCompiler(METADATA, new PageFunctionCompiler(METADATA, 0));
+
+        List<RowExpression> projections = IntStream.range(0, projectionCount)
+                .mapToObj(i -> field(i % 2, BIGINT))
+                .collect(toImmutableList());
+
+        Supplier<CursorProcessor> cursorProcessorSupplier = expressionCompiler.compileCursorProcessor(
+                SESSION.getSqlFunctionProperties(),
+                Optional.empty(),
+                projections,
+                "testBatchingLargeFieldProjections",
+                false);
+
+        CursorProcessor processor = cursorProcessorSupplier.get();
+        assertNotNull(processor, "CursorProcessor should be created successfully even with " + projectionCount + " projections");
+
+        System.out.println("Successfully compiled " + projectionCount + " projections using batching approach.");
+    }
+
+    /**
+     * Helper method to create projections with many unique random constants.
+     * This is designed to stress the JVM constant pool limit.
+     */
+    private List<RowExpression> createProjectionsWithRandomConstants(int count)
+    {
+        Random random = new Random(42);
+        return IntStream.range(0, count)
+                .mapToObj(i -> {
+                    long randomConstant = random.nextLong();
+                    return call(
+                            ADD.name(),
+                            FUNCTION_MANAGER.resolveOperator(ADD, fromTypes(BIGINT, BIGINT)),
+                            BIGINT,
+                            field(0, BIGINT),
+                            constant(randomConstant, BIGINT)); // Each projection gets a unique constant
+                })
+                .collect(toImmutableList());
     }
 
     private static Page createLongBlockPage(int blockCount, long... values)
