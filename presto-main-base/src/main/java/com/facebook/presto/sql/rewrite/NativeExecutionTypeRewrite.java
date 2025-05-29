@@ -102,7 +102,7 @@ final class NativeExecutionTypeRewrite
     }
 
     private static class EnumExpressionRewriter
-        extends ExpressionRewriter<Void>
+            extends ExpressionRewriter<Void>
     {
         private final FunctionAndTypeResolver functionAndTypeResolver;
 
@@ -246,8 +246,9 @@ final class NativeExecutionTypeRewrite
                     if (argumentType instanceof EnumType) {
                         arguments = ImmutableList.of(enumMapExpression, enumValue);
                     }
-                }        
-            } else {
+                }
+            }
+            else {
                 node = treeRewriter.defaultRewrite(node, null);
             }
 
