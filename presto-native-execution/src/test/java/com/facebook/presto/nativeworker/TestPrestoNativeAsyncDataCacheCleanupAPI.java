@@ -19,6 +19,7 @@ import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -43,7 +44,7 @@ public class TestPrestoNativeAsyncDataCacheCleanupAPI
     @Override
     protected QueryRunner createQueryRunner() throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createQueryRunner(true, false, true, true);
+        return PrestoNativeQueryRunnerUtils.createQueryRunner(true, false, true, true, ImmutableMap.of());
     }
 
     @Override
