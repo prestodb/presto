@@ -1552,6 +1552,73 @@ DEBUG_ONLY_TEST_F(ArbitrationParticipantTest, abortedCheck) {
   VELOX_ASSERT_THROW(task->allocate(MB), "test abort1");
 }
 
+DEBUG_ONLY_TEST_F(ArbitrationParticipantTest, concurrentAbort) {
+  auto task = createTask(kMemoryCapacity);
+  const auto config = arbitrationConfig();
+  auto participant = ArbitrationParticipant::create(10, task->pool(), &config);
+  task->allocate(32 * MB);
+  auto scopedParticipant = participant->lock().value();
+
+  std::atomic_bool firstAbortStarted{false};
+  std::atomic_bool secondAbortWaitFlag{true};
+  folly::EventCount secondAbortWait;
+  std::atomic_bool firstAbortWaitFlag{false};
+  folly::EventCount firstAbortWait;
+
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::memory::ArbitrationParticipant::reclaim",
+      std::function<void(ArbitrationParticipant*)>(
+          ([&](ArbitrationParticipant* /*unused*/) {
+            VELOX_FAIL("reclaim abort message");
+          })));
+
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::memory::ArbitrationParticipant::abortLocked",
+      std::function<void(ArbitrationParticipant*)>(
+          ([&](ArbitrationParticipant* /*unused*/) {
+            if (!firstAbortStarted.exchange(true)) {
+              // First abort thread signals it started and waits for second
+              // abort to finish
+              secondAbortWaitFlag = false;
+              secondAbortWait.notifyAll();
+              firstAbortWait.await(
+                  [&]() { return !firstAbortWaitFlag.load(); });
+            }
+          })));
+
+  // First abort thread through reclaim - will wait at the test value
+  std::thread reclaimAbortThread([&]() {
+    memory::MemoryReclaimer::Stats stats;
+    scopedParticipant->reclaim(32 * MB, 1'000'000'000'000, stats);
+  });
+
+  // Wait for first abort to start
+  secondAbortWait.await([&]() { return !secondAbortWaitFlag.load(); });
+
+  // Second abort uses main thread.
+  try {
+    VELOX_FAIL("test abort 2");
+  } catch (const VeloxRuntimeError& e) {
+    ASSERT_EQ(scopedParticipant->abort(std::current_exception()), 0);
+  }
+
+  // Signal first abort to continue
+  firstAbortWaitFlag = false;
+  firstAbortWait.notifyAll();
+
+  // Wait for first abort thread to complete
+  reclaimAbortThread.join();
+
+  // Verify the pool is aborted
+  ASSERT_TRUE(task->pool()->aborted());
+  ASSERT_TRUE(scopedParticipant->aborted());
+  ASSERT_EQ(scopedParticipant->capacity(), 0);
+
+  // Verify the error message is from the first abort
+  VELOX_ASSERT_THROW(
+      std::rethrow_exception(task->abortError()), "reclaim abort message");
+}
+
 TEST_F(ArbitrationParticipantTest, capacityCheck) {
   auto task = createTask(256 << 20);
   const auto config = arbitrationConfig(512 << 20);
