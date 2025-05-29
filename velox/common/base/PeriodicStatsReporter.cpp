@@ -113,20 +113,21 @@ void PeriodicStatsReporter::reportAllocatorStats() {
       kMetricMemoryAllocatorMappedBytes,
       (velox::memory::AllocationTraits::pageBytes(allocator_->numMapped())));
   RECORD_METRIC_VALUE(
+      kMetricMemoryAllocatorExternalMappedBytes,
+      (velox::memory::AllocationTraits::pageBytes(
+          allocator_->numExternalMapped())));
+  RECORD_METRIC_VALUE(
       kMetricMemoryAllocatorAllocatedBytes,
       (velox::memory::AllocationTraits::pageBytes(allocator_->numAllocated())));
   RECORD_METRIC_VALUE(
       kMetricMemoryAllocatorTotalUsedBytes, (allocator_->totalUsedBytes()));
+
   // TODO(jtan6): Remove condition after T150019700 is done
   if (auto* mmapAllocator =
           dynamic_cast<const velox::memory::MmapAllocator*>(allocator_)) {
     RECORD_METRIC_VALUE(
         kMetricMmapAllocatorDelegatedAllocatedBytes,
         (mmapAllocator->numMallocBytes()));
-    RECORD_METRIC_VALUE(
-        kMetricMmapAllocatorExternalMappedBytes,
-        velox::memory::AllocationTraits::pageBytes(
-            (mmapAllocator->numExternalMapped())));
   }
   // TODO(xiaoxmeng): add memory allocation size stats.
 }

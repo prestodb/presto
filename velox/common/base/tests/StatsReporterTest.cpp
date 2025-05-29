@@ -468,7 +468,7 @@ TEST_F(PeriodicStatsReporterTest, basic) {
     ASSERT_EQ(
         counterMap.count(kMetricMmapAllocatorDelegatedAllocatedBytes.str()), 1);
     ASSERT_EQ(
-        counterMap.count(kMetricMmapAllocatorExternalMappedBytes.str()), 1);
+        counterMap.count(kMetricMemoryAllocatorExternalMappedBytes.str()), 1);
     ASSERT_EQ(counterMap.count(kMetricSpillMemoryBytes.str()), 1);
     ASSERT_EQ(counterMap.count(kMetricSpillPeakMemoryBytes.str()), 1);
     ASSERT_EQ(counterMap.count(kMetricMemoryAllocatorTotalUsedBytes.str()), 1);

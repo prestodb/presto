@@ -77,6 +77,10 @@ class MallocAllocator : public MemoryAllocator {
     return numMapped_;
   }
 
+  MachinePageCount numExternalMapped() const override {
+    return numExternalMapped_;
+  }
+
   bool checkConsistency() const override;
 
   std::string toString() const override;

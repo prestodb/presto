@@ -243,15 +243,14 @@ Memory Management
        the bytes that are either currently being allocated or were in the past
        allocated, not yet been returned back to the operating system, in the
        form of 'Allocation' or 'ContiguousAllocation'.
-   * - memory_allocator_alloc_bytes
+   * - memory_allocator_allocated_bytes
      - Avg
      - Number of bytes currently allocated (used) from MemoryAllocator in the form
        of 'Allocation' or 'ContiguousAllocation'.
-   * - mmap_allocator_external_mapped_bytes
+   * - memory_allocator_external_mapped_bytes
      - Avg
-     - Number of bytes currently mapped in MmapAllocator, in the form of
+     - Number of bytes currently mapped in MemoryAllocator, in the form of
        'ContiguousAllocation'.
-       NOTE: This applies only to MmapAllocator
    * - mmap_allocator_delegated_alloc_bytes
      - Avg
      - Number of bytes currently allocated from MmapAllocator directly from raw

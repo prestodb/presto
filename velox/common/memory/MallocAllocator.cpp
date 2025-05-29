@@ -150,6 +150,7 @@ bool MallocAllocator::allocateContiguousImpl(
     }
     numMapped_.fetch_sub(numContiguousCollateralPages);
     numAllocated_.fetch_sub(numContiguousCollateralPages);
+    numExternalMapped_.fetch_sub(numContiguousCollateralPages);
     decrementUsage(AllocationTraits::pageBytes(numContiguousCollateralPages));
     allocation.clear();
   }
@@ -171,6 +172,7 @@ bool MallocAllocator::allocateContiguousImpl(
   }
   numAllocated_.fetch_add(numPages);
   numMapped_.fetch_add(numPages);
+  numExternalMapped_.fetch_add(numPages);
   void* data = ::mmap(
       nullptr,
       AllocationTraits::pageBytes(maxPages),
@@ -228,6 +230,7 @@ void MallocAllocator::freeContiguousImpl(ContiguousAllocation& allocation) {
   }
   numMapped_.fetch_sub(numPages);
   numAllocated_.fetch_sub(numPages);
+  numExternalMapped_.fetch_sub(numPages);
   decrementUsage(bytes);
   allocation.clear();
 }
@@ -248,6 +251,7 @@ bool MallocAllocator::growContiguousWithoutRetry(
   }
   numAllocated_ += increment;
   numMapped_ += increment;
+  numExternalMapped_ += increment;
   allocation.set(
       allocation.data(),
       allocation.size() + AllocationTraits::kPageSize * increment,

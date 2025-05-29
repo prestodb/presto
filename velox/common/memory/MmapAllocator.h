@@ -145,7 +145,7 @@ class MmapAllocator : public MemoryAllocator {
     return numMapped_;
   }
 
-  MachinePageCount numExternalMapped() const {
+  MachinePageCount numExternalMapped() const override {
     return numExternalMapped_;
   }
 
@@ -381,14 +381,6 @@ class MmapAllocator : public MemoryAllocator {
 
   // Serializes moving capacity between size classes
   std::mutex sizeClassBalanceMutex_;
-
-  // Number of pages allocated and explicitly mmap'd by the
-  // application via allocateContiguous, outside of
-  // 'sizeClasses'. These pages are counted in 'numAllocated_' and
-  // 'numMapped_'. Allocation requests are decided against
-  // 'numAllocated_' and 'numMapped_'. This counter is informational
-  // only.
-  std::atomic<MachinePageCount> numExternalMapped_{0};
 
   // Allocations smaller than 'maxMallocBytes' will be delegated to
   // std::malloc().
