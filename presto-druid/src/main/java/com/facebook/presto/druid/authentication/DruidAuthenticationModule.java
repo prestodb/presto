@@ -14,6 +14,7 @@
 package com.facebook.presto.druid.authentication;
 
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
+import com.facebook.airlift.http.client.HttpClientConfig;
 import com.facebook.presto.druid.DruidConfig;
 import com.facebook.presto.druid.ForDruidClient;
 import com.google.inject.Binder;
@@ -22,10 +23,12 @@ import com.google.inject.Module;
 import java.util.function.Predicate;
 
 import static com.facebook.airlift.configuration.ConditionalModule.installModuleIf;
+import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static com.facebook.presto.druid.DruidConfig.DruidAuthenticationType.BASIC;
 import static com.facebook.presto.druid.DruidConfig.DruidAuthenticationType.KERBEROS;
 import static com.facebook.presto.druid.DruidConfig.DruidAuthenticationType.NONE;
+import static java.util.Objects.requireNonNull;
 
 public class DruidAuthenticationModule
         extends AbstractConfigurationAwareModule
@@ -44,6 +47,20 @@ public class DruidAuthenticationModule
         bindAuthenticationModule(
                 config -> config.getDruidAuthenticationType() == KERBEROS,
                 kerberosbAuthenticationModule());
+
+        bindTLSModule(binder);
+    }
+
+    private void bindTLSModule(Binder binder)
+    {
+        DruidConfig druidConfig = buildConfigObject(DruidConfig.class);
+        configBinder(binder).bindConfigGlobalDefaults(HttpClientConfig.class, config -> {
+            if (druidConfig.isTlsEnabled()) {
+                requireNonNull(druidConfig.getTrustStorePath(), "TrustStorePath is null");
+                config.setTrustStorePath(druidConfig.getTrustStorePath());
+                config.setTrustStorePassword(druidConfig.getTrustStorePassword());
+            }
+        });
     }
 
     private void bindAuthenticationModule(Predicate<DruidConfig> predicate, Module module)
