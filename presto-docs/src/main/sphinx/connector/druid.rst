@@ -32,9 +32,9 @@ Configuration Properties
 
 The following configuration properties are available:
 
-================================== ===================================================
+================================== ============================================================
 Property Name                       Description
-================================== ===================================================
+================================== ============================================================
 ``druid.coordinator-url``           Druid coordinator url.
 ``druid.broker-url``                Druid broker url.
 ``druid.schema-name``               Druid schema name.
@@ -43,7 +43,10 @@ Property Name                       Description
                                     table, and column names for the connector. When disabled,
                                     names are matched case-insensitively using lowercase
                                     normalization. Default is ``false``.
-================================== ===================================================
+``druid.tls.enabled``               Enable TLS when connecting to Druid.
+``druid.tls.truststore-path``       Path to the trust certificate file.
+``druid.tls.truststore-password``   Password for the trust certificate file.
+================================== ============================================================
 
 ``druid.coordinator-url``
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -68,6 +71,23 @@ This property is optional; the default is ``druid``.
 Whether to pushdown all query processing to Druid.
 
 the default is ``false``.
+
+``druid.tls.enabled``
+^^^^^^^^^^^^^^^^^^^^^
+
+Enable TLS when connecting to Druid.
+
+The default is ``false``.
+
+``druid.tls.truststore-path``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Path to the trust certificate file.
+
+``druid.tls.truststore-password``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Password for the trust certificate file.
 
 Data Types
 ----------

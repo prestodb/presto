@@ -15,6 +15,7 @@ package com.facebook.presto.druid;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
+import com.facebook.airlift.configuration.ConfigSecuritySensitive;
 import com.facebook.airlift.configuration.LegacyConfig;
 import com.google.common.base.Splitter;
 import com.google.common.base.StandardSystemProperty;
@@ -40,6 +41,10 @@ public class DruidConfig
     private String basicAuthenticationPassword;
     private String ingestionStoragePath = StandardSystemProperty.JAVA_IO_TMPDIR.value();
     private boolean caseSensitiveNameMatchingEnabled;
+
+    private boolean tlsEnabled;
+    private String trustStorePath;
+    private String trustStorePassword;
 
     public enum DruidAuthenticationType
     {
@@ -209,6 +214,43 @@ public class DruidConfig
     public DruidConfig setCaseSensitiveNameMatchingEnabled(boolean caseSensitiveNameMatchingEnabled)
     {
         this.caseSensitiveNameMatchingEnabled = caseSensitiveNameMatchingEnabled;
+        return this;
+    }
+
+    public boolean isTlsEnabled()
+    {
+        return tlsEnabled;
+    }
+
+    @Config("druid.tls.enabled")
+    public DruidConfig setTlsEnabled(boolean tlsEnabled)
+    {
+        this.tlsEnabled = tlsEnabled;
+        return this;
+    }
+
+    public String getTrustStorePath()
+    {
+        return trustStorePath;
+    }
+
+    @Config("druid.tls.truststore-path")
+    public DruidConfig setTrustStorePath(String path)
+    {
+        this.trustStorePath = path;
+        return this;
+    }
+
+    public String getTrustStorePassword()
+    {
+        return trustStorePassword;
+    }
+
+    @Config("druid.tls.truststore-password")
+    @ConfigSecuritySensitive
+    public DruidConfig setTrustStorePassword(String password)
+    {
+        this.trustStorePassword = password;
         return this;
     }
 }
