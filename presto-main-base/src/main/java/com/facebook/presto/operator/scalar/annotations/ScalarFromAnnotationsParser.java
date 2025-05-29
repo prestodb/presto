@@ -16,6 +16,7 @@ package com.facebook.presto.operator.scalar.annotations;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.operator.ParametricImplementationsGroup;
 import com.facebook.presto.operator.annotations.FunctionsParserHelper;
+import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.ParametricScalar;
 import com.facebook.presto.operator.scalar.annotations.ParametricScalarImplementation.SpecializedSignature;
 import com.facebook.presto.spi.function.CodegenScalarFunction;
@@ -162,16 +163,22 @@ public final class ScalarFromAnnotationsParser
     {
         Optional<Integer> pushdownSubfieldArgIndex = header.getHeader().getPushdownSubfieldArgIndex();
         if (pushdownSubfieldArgIndex.isPresent()) {
-            Map<String, String> typeConstraintMapping = new HashMap<>();
             Signature signature = implementation.getSignature();
+            Map<String, TypeVariableConstraint> typeConstraintMapping = new HashMap<>();
             for (TypeVariableConstraint constraint : signature.getTypeVariableConstraints()) {
-                typeConstraintMapping.put(constraint.getName(), constraint.getVariadicBound());
+                typeConstraintMapping.put(constraint.getName(), constraint);
             }
-
-            checkCondition(pushdownSubfieldArgIndex.get() >= 0, FUNCTION_IMPLEMENTATION_ERROR, "Method [%s] has negative pushdown subfield arg index", method);
             checkCondition(signature.getArgumentTypes().size() > pushdownSubfieldArgIndex.get(), FUNCTION_IMPLEMENTATION_ERROR, "Method [%s] has out of range pushdown subfield arg index", method);
             String typeVariableName = signature.getArgumentTypes().get(pushdownSubfieldArgIndex.get()).toString();
-            checkCondition(typeVariableName.equals(com.facebook.presto.common.type.StandardTypes.ROW) || typeConstraintMapping.get(typeVariableName).equals(com.facebook.presto.common.type.StandardTypes.ROW), FUNCTION_IMPLEMENTATION_ERROR, "Method [%s] does not have a struct or row type as pushdown subfield arg", method);
+
+            // The type variable must be directly a ROW type
+            // or (it is a type alias that is not bounded by a type)
+            // or (it is a type alias that maps to a row type)
+            boolean meetsTypeConstraint = (!typeConstraintMapping.containsKey(typeVariableName) && typeVariableName.equals(com.facebook.presto.common.type.StandardTypes.ROW)) ||
+                    (typeConstraintMapping.containsKey(typeVariableName) && typeConstraintMapping.get(typeVariableName).getVariadicBound() == null && !typeConstraintMapping.get(typeVariableName).isNonDecimalNumericRequired()) ||
+                    (typeConstraintMapping.containsKey(typeVariableName) && typeConstraintMapping.get(typeVariableName).getVariadicBound().equals(com.facebook.presto.common.type.StandardTypes.ROW));
+
+            checkCondition(meetsTypeConstraint, FUNCTION_IMPLEMENTATION_ERROR, "Method [%s] does not have a struct or row type as pushdown subfield arg", method);
         }
     }
 }
