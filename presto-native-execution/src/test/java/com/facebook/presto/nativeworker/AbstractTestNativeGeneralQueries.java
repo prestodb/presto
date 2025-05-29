@@ -916,6 +916,9 @@ public abstract class AbstractTestNativeGeneralQueries
         // crc32.
         assertQuery("SELECT crc32(cast(comment as varbinary)) FROM orders");
 
+        // from_base32, to_base32.
+        assertQuery("SELECT from_base32(to_base32(cast(comment as varbinary))) FROM orders");
+
         // from_base64, to_base64.
         assertQuery("SELECT from_base64(to_base64(cast(comment as varbinary))) FROM orders");
 
