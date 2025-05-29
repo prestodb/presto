@@ -315,19 +315,31 @@ TEST_F(BingTileFunctionsTest, bingTileParentZoom) {
         y,
         zoom,
         parentZoom);
-    if (x.has_value() && y.has_value() && zoom.has_value() &&
-        parentZoom.has_value()) {
-      ASSERT_TRUE(tile.has_value());
-      int32_t shift = *zoom - *parentZoom;
-      ASSERT_EQ(
-          BingTileType::bingTileCoordsToInt(
-              static_cast<uint32_t>(*x) >> shift,
-              static_cast<uint32_t>(*y) >> shift,
-              *parentZoom),
-          *tile);
-    } else {
-      ASSERT_FALSE(tile.has_value());
-    }
+    auto validate = [&]() {
+      if (x.has_value() && y.has_value() && zoom.has_value() &&
+          parentZoom.has_value()) {
+        ASSERT_TRUE(tile.has_value());
+        int32_t shift = *zoom - *parentZoom;
+        ASSERT_EQ(
+            BingTileType::bingTileCoordsToInt(
+                static_cast<uint32_t>(*x) >> shift,
+                static_cast<uint32_t>(*y) >> shift,
+                *parentZoom),
+            *tile);
+      } else {
+        ASSERT_FALSE(tile.has_value());
+      }
+    };
+
+    validate();
+
+    tile = evaluateOnce<int64_t>(
+        "CAST(bing_tile_parent(bing_tile(c0, c1, c2), cast(c3 as integer)) AS BIGINT)",
+        x,
+        y,
+        zoom,
+        parentZoom);
+    validate();
   };
 
   testBingTileParent(0, 0, 0, 0);

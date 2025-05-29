@@ -143,6 +143,13 @@ struct BingTileParentFunction {
     result = parent.value();
     return Status::OK();
   }
+
+  FOLLY_ALWAYS_INLINE Status call(
+      out_type<BingTile>& result,
+      const arg_type<BingTile>& tile,
+      const arg_type<int32_t>& parentZoom) {
+    return call(result, tile, static_cast<int8_t>(parentZoom));
+  }
 };
 
 template <typename T>
