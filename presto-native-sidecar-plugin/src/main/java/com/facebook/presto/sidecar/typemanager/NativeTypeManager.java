@@ -162,13 +162,13 @@ public class NativeTypeManager
     @Override
     public Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters)
     {
-        throw new UnsupportedOperationException();
+        return typeManager.getParameterizedType(baseTypeName, typeParameters);
     }
 
     @Override
     public boolean canCoerce(Type actualType, Type expectedType)
     {
-        throw new UnsupportedOperationException();
+        return typeManager.canCoerce(actualType, expectedType);
     }
 
     private void addAllTypes(List<Type> typesList, List<ParametricType> parametricTypesList)

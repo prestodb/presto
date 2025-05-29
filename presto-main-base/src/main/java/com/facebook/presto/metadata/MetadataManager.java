@@ -206,7 +206,7 @@ public class MetadataManager
         this.analyzePropertyManager = requireNonNull(analyzePropertyManager, "analyzePropertyManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
-        this.procedures = new ProcedureRegistry(functionAndTypeManager);
+        this.procedures = new ProcedureRegistry(functionAndTypeManager.getFunctionAndTypeResolver());
 
         verifyComparableOrderableContract();
     }
@@ -1534,7 +1534,7 @@ public class MetadataManager
     private static JsonCodec<ViewDefinition> createTestingViewCodec(FunctionAndTypeManager functionAndTypeManager)
     {
         JsonObjectMapperProvider provider = new JsonObjectMapperProvider();
-        provider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(functionAndTypeManager)));
+        provider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(functionAndTypeManager.getFunctionAndTypeResolver())));
         return new JsonCodecFactory(provider).jsonCodec(ViewDefinition.class);
     }
 

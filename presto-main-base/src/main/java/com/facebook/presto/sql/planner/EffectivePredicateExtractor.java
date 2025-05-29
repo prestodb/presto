@@ -101,7 +101,7 @@ public class EffectivePredicateExtractor
             this.domainTranslator = requireNonNull(domainTranslator, "domainTranslator is null");
             this.functionManger = requireNonNull(functionAndTypeManager);
             this.determinismEvaluator = new RowExpressionDeterminismEvaluator(functionAndTypeManager);
-            this.logicalRowExpressions = new LogicalRowExpressions(determinismEvaluator, new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver()), functionAndTypeManager);
+            this.logicalRowExpressions = new LogicalRowExpressions(determinismEvaluator, new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver()), functionAndTypeManager.getFunctionAndTypeResolver());
         }
 
         @Override

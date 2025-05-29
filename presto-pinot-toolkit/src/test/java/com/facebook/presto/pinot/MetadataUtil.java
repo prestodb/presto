@@ -68,7 +68,7 @@ public final class MetadataUtil
 
     static {
         JsonObjectMapperProvider objectMapperProvider = new JsonObjectMapperProvider();
-        objectMapperProvider.setJsonDeserializers(ImmutableMap.<Class<?>, JsonDeserializer<?>>of(Type.class, new TestingTypeDeserializer(createTestFunctionAndTypeManager())));
+        objectMapperProvider.setJsonDeserializers(ImmutableMap.<Class<?>, JsonDeserializer<?>>of(Type.class, new TestingTypeDeserializer(createTestFunctionAndTypeManager().getFunctionAndTypeResolver())));
         JsonCodecFactory codecFactory = new JsonCodecFactory(objectMapperProvider);
         CATALOG_CODEC = codecFactory.mapJsonCodec(String.class, listJsonCodec(PinotTable.class));
         TABLE_CODEC = codecFactory.jsonCodec(PinotTable.class);

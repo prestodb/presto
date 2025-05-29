@@ -90,7 +90,7 @@ public class TestArrowBlockBuilder
         // Initialize the Arrow allocator
         allocator = new RootAllocator(Integer.MAX_VALUE);
         logger.debug("Allocator initialized: %s", allocator.getName());
-        arrowBlockBuilder = new ArrowBlockBuilder(FUNCTION_AND_TYPE_MANAGER);
+        arrowBlockBuilder = new ArrowBlockBuilder(FUNCTION_AND_TYPE_MANAGER.getFunctionAndTypeResolver());
     }
 
     @AfterClass

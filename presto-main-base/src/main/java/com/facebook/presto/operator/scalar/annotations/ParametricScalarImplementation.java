@@ -166,7 +166,7 @@ public class ParametricScalarImplementation
                     choice.nullable,
                     choice.argumentProperties,
                     choice.returnPlaceConvention,
-                    boundMethodHandle.asType(javaMethodType(choice, boundSignature, functionAndTypeManager)),
+                    boundMethodHandle.asType(javaMethodType(choice, boundSignature, functionAndTypeManager.getFunctionAndTypeResolver())),
                     boundConstructor));
         }
         return Optional.of(new BuiltInScalarFunctionImplementation(implementationChoices));

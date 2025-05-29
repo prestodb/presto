@@ -23,6 +23,7 @@ import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.analyzer.FunctionAndTypeResolver;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
@@ -76,11 +77,11 @@ public class DynamicFilterMatcher
         checkState(this.filterNode == null, "filterNode must be null at this point");
         this.filterNode = filterNode;
         this.symbolAliases = symbolAliases;
-
+        FunctionAndTypeResolver functionAndTypeResolver = metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver();
         LogicalRowExpressions logicalRowExpressions = new LogicalRowExpressions(
                 new RowExpressionDeterminismEvaluator(metadata.getFunctionAndTypeManager()),
-                new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver()),
-                metadata.getFunctionAndTypeManager());
+                new FunctionResolution(functionAndTypeResolver),
+                functionAndTypeResolver);
         boolean staticFilterMatches = expectedStaticFilter.map(filter -> {
             RowExpressionVerifier verifier = new RowExpressionVerifier(symbolAliases, metadata, session);
             RowExpression staticFilter = logicalRowExpressions.combineConjuncts(extractDynamicFilters(filterNode.getPredicate()).getStaticConjuncts());

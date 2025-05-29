@@ -66,7 +66,7 @@ public class TestPinotSplitManager
         SessionHolder sessionHolder = new SessionHolder(pinotConfig);
         PlanBuilder planBuilder = createPlanBuilder(sessionHolder);
         PlanNode plan = tableScan(planBuilder, table, regionId, city, fare, secondsSinceEpoch);
-        PinotQueryGenerator.PinotQueryGeneratorResult pinotQueryGeneratorResult = new PinotQueryGenerator(pinotConfig, functionAndTypeManager, functionAndTypeManager, standardFunctionResolution).generate(plan, sessionHolder.getConnectorSession()).get();
+        PinotQueryGenerator.PinotQueryGeneratorResult pinotQueryGeneratorResult = new PinotQueryGenerator(pinotConfig, functionAndTypeResolver, functionAndTypeResolver, standardFunctionResolution).generate(plan, sessionHolder.getConnectorSession()).get();
         List<PinotColumnHandle> expectedHandles = ImmutableList.copyOf(pinotQueryGeneratorResult.getContext().getAssignments().values());
         PinotQueryGenerator.GeneratedPinotQuery generatedSql = pinotQueryGeneratorResult.getGeneratedPinotQuery();
         PinotTableHandle pinotTableHandle = new PinotTableHandle(table.getConnectorId(), table.getSchemaName(), table.getTableName(), Optional.of(false), Optional.of(expectedHandles), Optional.of(generatedSql));
@@ -81,7 +81,7 @@ public class TestPinotSplitManager
         SessionHolder sessionHolder = new SessionHolder(pinotConfig);
         PlanBuilder planBuilder = createPlanBuilder(sessionHolder);
         PlanNode plan = filter(planBuilder, tableScan(planBuilder, table, regionId, city, fare, secondsSinceEpoch), getRowExpression("city = 'Boston'", sessionHolder));
-        PinotQueryGenerator.PinotQueryGeneratorResult pinotQueryGeneratorResult = new PinotQueryGenerator(pinotConfig, functionAndTypeManager, functionAndTypeManager, standardFunctionResolution).generate(plan, sessionHolder.getConnectorSession()).get();
+        PinotQueryGenerator.PinotQueryGeneratorResult pinotQueryGeneratorResult = new PinotQueryGenerator(pinotConfig, functionAndTypeResolver, functionAndTypeResolver, standardFunctionResolution).generate(plan, sessionHolder.getConnectorSession()).get();
         List<PinotColumnHandle> expectedHandles = ImmutableList.copyOf(pinotQueryGeneratorResult.getContext().getAssignments().values());
         PinotQueryGenerator.GeneratedPinotQuery generatedSql = pinotQueryGeneratorResult.getGeneratedPinotQuery();
         PinotTableHandle pinotTableHandle = new PinotTableHandle(table.getConnectorId(), table.getSchemaName(), table.getTableName(), Optional.of(false), Optional.of(expectedHandles), Optional.of(generatedSql));
@@ -103,12 +103,12 @@ public class TestPinotSplitManager
         ConnectorSession session = createSessionWithLimitLarge(sessionLimitLarge, pinotConfig);
         PlanBuilder planBuilder = createPlanBuilder(sessionHolder);
         PlanNode plan = tableScan(planBuilder, table, regionId, city, fare, secondsSinceEpoch);
-        PinotQueryGenerator.PinotQueryGeneratorResult pinotQueryGeneratorResult = new PinotQueryGenerator(pinotConfig, functionAndTypeManager, functionAndTypeManager, standardFunctionResolution).generate(plan, session).get();
+        PinotQueryGenerator.PinotQueryGeneratorResult pinotQueryGeneratorResult = new PinotQueryGenerator(pinotConfig, functionAndTypeResolver, functionAndTypeResolver, standardFunctionResolution).generate(plan, session).get();
         String[] limits = pinotQueryGeneratorResult.getGeneratedPinotQuery().getQuery().split("LIMIT ");
         assertEquals(Integer.parseInt(limits[1]), sessionLimitLarge);
 
         plan = tableScan(planBuilder, table, regionId, city, fare, secondsSinceEpoch);
-        pinotQueryGeneratorResult = new PinotQueryGenerator(pinotConfig, functionAndTypeManager, functionAndTypeManager, standardFunctionResolution).generate(plan, sessionHolder.getConnectorSession()).get();
+        pinotQueryGeneratorResult = new PinotQueryGenerator(pinotConfig, functionAndTypeResolver, functionAndTypeResolver, standardFunctionResolution).generate(plan, sessionHolder.getConnectorSession()).get();
         limits = pinotQueryGeneratorResult.getGeneratedPinotQuery().getQuery().split("LIMIT ");
         assertEquals(Integer.parseInt(limits[1]), configLimitLarge);
     }
@@ -134,7 +134,7 @@ public class TestPinotSplitManager
                         .addAggregation(planBuilder.variable("sum_fare"), getRowExpression("sum(fare)", sessionHolder))
                         .addAggregation(planBuilder.variable("count_regionid"), getRowExpression("count(regionid)", sessionHolder)));
 
-        PinotQueryGenerator.PinotQueryGeneratorResult pinotQueryGeneratorResult = new PinotQueryGenerator(pinotConfig, functionAndTypeManager, functionAndTypeManager, standardFunctionResolution).generate(aggregationNode, session).get();
+        PinotQueryGenerator.PinotQueryGeneratorResult pinotQueryGeneratorResult = new PinotQueryGenerator(pinotConfig, functionAndTypeResolver, functionAndTypeResolver, standardFunctionResolution).generate(aggregationNode, session).get();
         String[] limits = pinotQueryGeneratorResult.getGeneratedPinotQuery().getQuery().split(LIMIT_KEYWORD_SPLITTER);
         assertEquals(Integer.parseInt(limits[1]), sessionTopNLarge);
 
@@ -144,7 +144,7 @@ public class TestPinotSplitManager
                         .singleGroupingSet(variable("city"), variable("regionid"))
                         .addAggregation(planBuilder.variable("sum_fare"), getRowExpression("sum(fare)", sessionHolder))
                         .addAggregation(planBuilder.variable("count_regionid"), getRowExpression("count(regionid)", sessionHolder)));
-        pinotQueryGeneratorResult = new PinotQueryGenerator(pinotConfig, functionAndTypeManager, functionAndTypeManager, standardFunctionResolution).generate(aggregationNode, sessionHolder.getConnectorSession()).get();
+        pinotQueryGeneratorResult = new PinotQueryGenerator(pinotConfig, functionAndTypeResolver, functionAndTypeResolver, standardFunctionResolution).generate(aggregationNode, sessionHolder.getConnectorSession()).get();
         limits = pinotQueryGeneratorResult.getGeneratedPinotQuery().getQuery().split(LIMIT_KEYWORD_SPLITTER);
         assertEquals(Integer.parseInt(limits[1]), configTopNLarge);
     }

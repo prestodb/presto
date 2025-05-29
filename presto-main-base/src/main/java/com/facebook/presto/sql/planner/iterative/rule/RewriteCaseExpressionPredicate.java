@@ -124,7 +124,7 @@ public class RewriteCaseExpressionPredicate
             this.logicalRowExpressions = new LogicalRowExpressions(
                     new RowExpressionDeterminismEvaluator(functionAndTypeManager),
                     functionResolution,
-                    functionAndTypeManager);
+                    functionAndTypeManager.getFunctionAndTypeResolver());
         }
 
         @Override

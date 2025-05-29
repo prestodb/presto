@@ -50,7 +50,7 @@ public class TestPartitionSpecConverter
     public void testToPrestoPartitionSpec(String transform, String name)
     {
         // Create a test TypeManager
-        TypeManager typeManager = createTestFunctionAndTypeManager();
+        TypeManager typeManager = createTestFunctionAndTypeManager().getFunctionAndTypeResolver();
 
         // Create a mock PartitionSpec
         PartitionSpec partitionSpec = partitionSpec(transform, name);
@@ -70,7 +70,7 @@ public class TestPartitionSpecConverter
     public void testToIcebergPartitionSpec(String transform, String name)
     {
         // Create a test TypeManager
-        TypeManager typeManager = createTestFunctionAndTypeManager();
+        TypeManager typeManager = createTestFunctionAndTypeManager().getFunctionAndTypeResolver();
 
         // Create a mock PartitionSpec
         PrestoIcebergPartitionSpec prestoPartitionSpec = prestoIcebergPartitionSpec(transform, name, typeManager);
@@ -90,7 +90,7 @@ public class TestPartitionSpecConverter
     public void validateConversion(String transform, String name)
     {
         // Create a test TypeManager
-        TypeManager typeManager = createTestFunctionAndTypeManager();
+        TypeManager typeManager = createTestFunctionAndTypeManager().getFunctionAndTypeResolver();
 
         // Original Iceberg PartitionSpec
         PartitionSpec originalPartitionSpec = partitionSpec(transform, name);

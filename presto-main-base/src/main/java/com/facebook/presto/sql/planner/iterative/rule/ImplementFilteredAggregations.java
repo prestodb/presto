@@ -74,7 +74,7 @@ public class ImplementFilteredAggregations
         logicalRowExpressions = new LogicalRowExpressions(
                 new RowExpressionDeterminismEvaluator(functionAndTypeManager),
                 new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver()),
-                functionAndTypeManager);
+                functionAndTypeManager.getFunctionAndTypeResolver());
     }
 
     private static boolean hasFilters(AggregationNode aggregation)

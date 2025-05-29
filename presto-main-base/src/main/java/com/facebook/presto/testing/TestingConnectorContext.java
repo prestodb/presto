@@ -80,13 +80,13 @@ public class TestingConnectorContext
     @Override
     public TypeManager getTypeManager()
     {
-        return functionAndTypeManager;
+        return functionAndTypeManager.getFunctionAndTypeResolver();
     }
 
     @Override
     public FunctionMetadataManager getFunctionMetadataManager()
     {
-        return functionAndTypeManager;
+        return functionAndTypeManager.getFunctionAndTypeResolver();
     }
 
     @Override

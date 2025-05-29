@@ -89,7 +89,7 @@ public final class SessionPropertyManager
             FunctionAndTypeManager functionAndTypeManager,
             NodeManager nodeManager)
     {
-        this(systemSessionProperties.getSessionProperties(), workerSessionPropertyProviders, Optional.ofNullable(functionAndTypeManager), Optional.ofNullable(nodeManager));
+        this(systemSessionProperties.getSessionProperties(), workerSessionPropertyProviders, Optional.ofNullable(functionAndTypeManager.getFunctionAndTypeResolver()), Optional.ofNullable(nodeManager));
     }
 
     public SessionPropertyManager(

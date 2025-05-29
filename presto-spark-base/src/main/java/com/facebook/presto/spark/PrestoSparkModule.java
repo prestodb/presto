@@ -171,6 +171,7 @@ import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparerProvider;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.ForMetadataExtractor;
+import com.facebook.presto.sql.analyzer.FunctionAndTypeResolver;
 import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.analyzer.JavaFeaturesConfig;
 import com.facebook.presto.sql.analyzer.MetadataExtractor;
@@ -373,7 +374,7 @@ public class PrestoSparkModule
 
         // type
         newSetBinder(binder, Type.class);
-        binder.bind(TypeManager.class).to(FunctionAndTypeManager.class).in(Scopes.SINGLETON);
+        binder.bind(TypeManager.class).to(FunctionAndTypeResolver.class).in(Scopes.SINGLETON);
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
 
         // PageSorter
@@ -590,5 +591,12 @@ public class PrestoSparkModule
                     newFixedThreadPool(1, daemonThreadsNamed("fragment-result-cache-remover-%s")));
         }
         return new NoOpFragmentResultCacheManager();
+    }
+
+    @Provides
+    @Singleton
+    public static FunctionAndTypeResolver createFunctionAndTypeResolver(FunctionAndTypeManager functionAndTypeManager)
+    {
+        return functionAndTypeManager.getFunctionAndTypeResolver();
     }
 }

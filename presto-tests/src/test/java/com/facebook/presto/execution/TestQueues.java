@@ -107,7 +107,7 @@ public class TestQueues
         objectMapper.registerModule(new SimpleModule()
         {
             {
-                addKeyDeserializer(VariableReferenceExpression.class, new Serialization.VariableReferenceExpressionDeserializer(createTestFunctionAndTypeManager()));
+                addKeyDeserializer(VariableReferenceExpression.class, new Serialization.VariableReferenceExpressionDeserializer(createTestFunctionAndTypeManager().getFunctionAndTypeResolver()));
             }
         });
     }

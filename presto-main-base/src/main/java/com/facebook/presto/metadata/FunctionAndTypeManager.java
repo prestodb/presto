@@ -39,7 +39,6 @@ import com.facebook.presto.spi.function.AggregationFunctionImplementation;
 import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
-import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.FunctionNamespaceManager;
 import com.facebook.presto.spi.function.FunctionNamespaceManagerContext;
 import com.facebook.presto.spi.function.FunctionNamespaceManagerFactory;
@@ -119,13 +118,8 @@ import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.HOURS;
 
-/**
- * TODO: This should not extend from FunctionMetadataManager and TypeManager
- * Functionalities relying on TypeManager and FunctionMetadataManager interfaces should rely on FunctionAndTypeResolver
- */
 @ThreadSafe
 public class FunctionAndTypeManager
-        implements FunctionMetadataManager, TypeManager
 {
     private static final Pattern DEFAULT_NAMESPACE_PREFIX_PATTERN = Pattern.compile("[a-z]+\\.[a-z]+");
     private final TransactionManager transactionManager;
@@ -320,7 +314,8 @@ public class FunctionAndTypeManager
         requireNonNull(functionNamespaceManagerName, "functionNamespaceManagerName is null");
         FunctionNamespaceManagerFactory factory = functionNamespaceManagerFactories.get(functionNamespaceManagerName);
         checkState(factory != null, "No factory for function namespace manager %s", functionNamespaceManagerName);
-        FunctionNamespaceManager<?> functionNamespaceManager = factory.create(catalogName, properties, new FunctionNamespaceManagerContext(this, nodeManager, this));
+        FunctionAndTypeResolver functionAndTypeResolver = getFunctionAndTypeResolver();
+        FunctionNamespaceManager<?> functionNamespaceManager = factory.create(catalogName, properties, new FunctionNamespaceManagerContext(functionAndTypeResolver, nodeManager, functionAndTypeResolver));
         functionNamespaceManager.setBlockEncodingSerde(blockEncodingSerde);
 
         transactionManager.registerFunctionNamespaceManager(catalogName, functionNamespaceManager);
@@ -338,7 +333,6 @@ public class FunctionAndTypeManager
         }
     }
 
-    @Override
     public FunctionMetadata getFunctionMetadata(FunctionHandle functionHandle)
     {
         if (functionHandle.getCatalogSchemaName().equals(SESSION_NAMESPACE)) {
@@ -349,7 +343,6 @@ public class FunctionAndTypeManager
         return functionNamespaceManager.get().getFunctionMetadata(functionHandle);
     }
 
-    @Override
     public Type instantiateParametricType(TypeSignature typeSignature)
     {
         return builtInTypeAndFunctionNamespaceManager.instantiateParametricType(
@@ -358,7 +351,6 @@ public class FunctionAndTypeManager
                 servingTypeManagerParametricTypesSupplier.get().get());
     }
 
-    @Override
     public Type getType(TypeSignature signature)
     {
         if (signature.getTypeSignatureBase().hasStandardType()) {
@@ -378,13 +370,11 @@ public class FunctionAndTypeManager
         return getUserDefinedType(signature);
     }
 
-    @Override
     public Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters)
     {
         return getType(new TypeSignature(baseTypeName, typeParameters));
     }
 
-    @Override
     public boolean canCoerce(Type actualType, Type expectedType)
     {
         return typeCoercer.canCoerce(actualType, expectedType);
@@ -408,7 +398,7 @@ public class FunctionAndTypeManager
         requireNonNull(typeManagerName, "typeManagerName is null");
         TypeManagerFactory factory = typeManagerFactories.get(typeManagerName);
         checkState(factory != null, "No factory for type manager %s", typeManagerName);
-        TypeManager typeManager = factory.create(new TypeManagerContext(this));
+        TypeManager typeManager = factory.create(new TypeManagerContext(getFunctionAndTypeResolver()));
 
         if (typeManagers.putIfAbsent(typeManagerName, typeManager) != null) {
             throw new IllegalArgumentException(format("Type manager [%s] is already registered", typeManager));
@@ -611,14 +601,14 @@ public class FunctionAndTypeManager
     {
         Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionHandle.getCatalogSchemaName());
         checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for '%s'", functionHandle.getCatalogSchemaName());
-        return functionNamespaceManager.get().getAggregateFunctionImplementation(functionHandle, this);
+        return functionNamespaceManager.get().getAggregateFunctionImplementation(functionHandle, getFunctionAndTypeResolver());
     }
 
     public CompletableFuture<SqlFunctionResult> executeFunction(String source, FunctionHandle functionHandle, Page inputPage, List<Integer> channels)
     {
         Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionHandle.getCatalogSchemaName());
         checkState(functionNamespaceManager.isPresent(), format("FunctionHandle %s should have a serving function namespace", functionHandle));
-        return functionNamespaceManager.get().executeFunction(source, functionHandle, inputPage, channels, this);
+        return functionNamespaceManager.get().executeFunction(source, functionHandle, inputPage, channels, getFunctionAndTypeResolver());
     }
 
     public WindowFunctionSupplier getWindowFunctionImplementation(FunctionHandle functionHandle)
@@ -834,7 +824,6 @@ public class FunctionAndTypeManager
         return Optional.ofNullable(functionNamespaceManagers.get(typeSignatureBase.getTypeName().getCatalogName()));
     }
 
-    @Override
     @SuppressWarnings("unchecked")
     public SpecializedFunctionKey getSpecializedFunctionKey(Signature signature)
     {

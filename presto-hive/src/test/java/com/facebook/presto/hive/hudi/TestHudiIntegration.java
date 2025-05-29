@@ -17,7 +17,6 @@ package com.facebook.presto.hive.hudi;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.HivePlugin;
 import com.facebook.presto.hive.metastore.Column;
-import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableList;
@@ -65,7 +64,7 @@ public class TestHudiIntegration
                         "('stock_ticks_morn_only_log_ro')," +
                         "('stock_ticks_morn_only_log_rt')");
 
-        FunctionAndTypeManager typeManager = getQueryRunner().getMetadata().getFunctionAndTypeManager();
+        TypeManager typeManager = getQueryRunner().getMetadata().getFunctionAndTypeManager().getFunctionAndTypeResolver();
 
         // partition tables
         @Language("SQL") String sql = generateDescribeIdenticalQuery(typeManager, HUDI_META_COLUMNS, DATA_COLUMNS, PARTITION_COLUMNS);

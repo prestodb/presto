@@ -24,6 +24,7 @@ import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.analyzer.FunctionAndTypeResolver;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.relational.FunctionResolution;
@@ -59,8 +60,9 @@ public class SimpleFilterProjectSemiJoinStatsRule
         super(normalizer);
         this.filterStatsCalculator = requireNonNull(filterStatsCalculator, "filterStatsCalculator can not be null");
         requireNonNull(functionAndTypeManager, "functionManager can not be null");
-        this.logicalRowExpressions = new LogicalRowExpressions(new RowExpressionDeterminismEvaluator(functionAndTypeManager), new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver()), functionAndTypeManager);
-        this.functionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
+        FunctionAndTypeResolver functionAndTypeResolver = functionAndTypeManager.getFunctionAndTypeResolver();
+        this.logicalRowExpressions = new LogicalRowExpressions(new RowExpressionDeterminismEvaluator(functionAndTypeManager), new FunctionResolution(functionAndTypeResolver), functionAndTypeResolver);
+        this.functionResolution = new FunctionResolution(functionAndTypeResolver);
     }
 
     @Override

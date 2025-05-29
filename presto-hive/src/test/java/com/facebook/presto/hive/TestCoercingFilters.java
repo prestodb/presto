@@ -40,7 +40,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestCoercingFilters
 {
-    private final TypeManager typeManager = MetadataManager.createTestMetadataManager().getFunctionAndTypeManager();
+    private final TypeManager typeManager = MetadataManager.createTestMetadataManager().getFunctionAndTypeManager().getFunctionAndTypeResolver();
 
     @Test
     public void testIntegerToVarchar()

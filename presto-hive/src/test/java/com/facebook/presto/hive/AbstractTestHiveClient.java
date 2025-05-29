@@ -252,7 +252,7 @@ import static com.facebook.presto.hive.HiveTableProperties.SORTED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.HiveTestUtils.DO_NOTHING_DIRECTORY_LISTER;
 import static com.facebook.presto.hive.HiveTestUtils.FILTER_STATS_CALCULATOR_SERVICE;
-import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_MANAGER;
+import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_RESOLVER;
 import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_RESOLUTION;
 import static com.facebook.presto.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static com.facebook.presto.hive.HiveTestUtils.METADATA;
@@ -1009,7 +1009,7 @@ public abstract class AbstractTestHiveClient
 
         setupHive(connectorId.toString(), databaseName, hiveClientConfig.getTimeZone());
 
-        hivePartitionManager = new HivePartitionManager(FUNCTION_AND_TYPE_MANAGER, hiveClientConfig);
+        hivePartitionManager = new HivePartitionManager(FUNCTION_AND_TYPE_RESOLVER, hiveClientConfig);
         metastoreClient = hiveMetastore;
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveClientConfig, metastoreClientConfig), ImmutableSet.of(), hiveClientConfig);
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
@@ -1028,7 +1028,7 @@ public abstract class AbstractTestHiveClient
                 getHiveClientConfig().getMaxPartitionsPerScan(),
                 false,
                 10_000,
-                FUNCTION_AND_TYPE_MANAGER,
+                FUNCTION_AND_TYPE_RESOLVER,
                 locationService,
                 FUNCTION_RESOLUTION,
                 ROW_EXPRESSION_SERVICE,
@@ -1057,7 +1057,7 @@ public abstract class AbstractTestHiveClient
                 hdfsEnvironment,
                 new CachingDirectoryLister(new HadoopDirectoryLister(), new HiveClientConfig()),
                 directExecutor(),
-                new HiveCoercionPolicy(FUNCTION_AND_TYPE_MANAGER),
+                new HiveCoercionPolicy(FUNCTION_AND_TYPE_RESOLVER),
                 new CounterStat(),
                 100,
                 hiveClientConfig.getMaxOutstandingSplitsSize(),
@@ -1074,7 +1074,7 @@ public abstract class AbstractTestHiveClient
                 PAGE_SORTER,
                 metastoreClient,
                 new GroupByHashPageIndexerFactory(JOIN_COMPILER),
-                FUNCTION_AND_TYPE_MANAGER,
+                FUNCTION_AND_TYPE_RESOLVER,
                 getHiveClientConfig(),
                 getMetastoreClientConfig(),
                 getSortingFileWriterConfig(),
@@ -1094,7 +1094,7 @@ public abstract class AbstractTestHiveClient
                 getDefaultHiveBatchPageSourceFactories(hiveClientConfig, metastoreClientConfig),
                 getDefaultHiveSelectivePageSourceFactories(hiveClientConfig, metastoreClientConfig),
                 getDefaultHiveAggregatedPageSourceFactories(hiveClientConfig, metastoreClientConfig),
-                FUNCTION_AND_TYPE_MANAGER,
+                FUNCTION_AND_TYPE_RESOLVER,
                 ROW_EXPRESSION_SERVICE);
     }
 
@@ -1576,7 +1576,7 @@ public abstract class AbstractTestHiveClient
                         ROW_EXPRESSION_SERVICE,
                         FUNCTION_RESOLUTION,
                         hivePartitionManager,
-                        METADATA.getFunctionAndTypeManager(),
+                        METADATA.getFunctionAndTypeManager().getFunctionAndTypeResolver(),
                         tableHandle,
                         predicate,
                         Optional.empty()).getLayout().getHandle();
@@ -2323,7 +2323,7 @@ public abstract class AbstractTestHiveClient
                         ROW_EXPRESSION_SERVICE,
                         FUNCTION_RESOLUTION,
                         hivePartitionManager,
-                        METADATA.getFunctionAndTypeManager(),
+                        METADATA.getFunctionAndTypeManager().getFunctionAndTypeResolver(),
                         tableHandle,
                         predicate,
                         Optional.empty()).getLayout().getHandle();
@@ -2681,7 +2681,7 @@ public abstract class AbstractTestHiveClient
                     ROW_EXPRESSION_SERVICE,
                     FUNCTION_RESOLUTION,
                     hivePartitionManager,
-                    METADATA.getFunctionAndTypeManager(),
+                    METADATA.getFunctionAndTypeManager().getFunctionAndTypeResolver(),
                     tableHandle,
                     TRUE_CONSTANT,
                     Optional.empty()).getLayout();

@@ -72,7 +72,7 @@ public class ScalarAggregationToJoinRewriter
         LogicalRowExpressions logicalRowExpressions = new LogicalRowExpressions(
                 new RowExpressionDeterminismEvaluator(functionAndTypeManager),
                 new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver()),
-                functionAndTypeManager);
+                functionAndTypeManager.getFunctionAndTypeResolver());
         this.planNodeDecorrelator = new PlanNodeDecorrelator(idAllocator, variableAllocator, lookup, logicalRowExpressions);
     }
 

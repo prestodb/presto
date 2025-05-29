@@ -39,7 +39,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.predicate.TupleDomain.withColumnDomains;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
-import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_MANAGER;
+import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_RESOLVER;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.s3select.TestS3SelectRecordCursor.ARTICLE_COLUMN;
 import static com.facebook.presto.hive.s3select.TestS3SelectRecordCursor.AUTHOR_COLUMN;
@@ -137,7 +137,7 @@ public class TestS3SelectRecordCursorProvider
                 columns,
                 effectivePredicate,
                 DateTimeZone.forID(SESSION.getSqlFunctionProperties().getTimeZoneKey().getId()),
-                FUNCTION_AND_TYPE_MANAGER,
+                FUNCTION_AND_TYPE_RESOLVER,
                 s3SelectPushdownEnabled);
     }
 

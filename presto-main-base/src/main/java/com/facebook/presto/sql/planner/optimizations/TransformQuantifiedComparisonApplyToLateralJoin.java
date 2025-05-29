@@ -83,7 +83,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
         this.logicalRowExpressions = new LogicalRowExpressions(
                 new RowExpressionDeterminismEvaluator(functionAndTypeManager),
                 new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver()),
-                functionAndTypeManager);
+                functionAndTypeManager.getFunctionAndTypeResolver());
     }
 
     @Override
