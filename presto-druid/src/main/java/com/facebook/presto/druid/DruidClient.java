@@ -14,11 +14,14 @@
 package com.facebook.presto.druid;
 
 import com.facebook.airlift.http.client.HttpClient;
+import com.facebook.airlift.http.client.HttpClientConfig;
 import com.facebook.airlift.http.client.HttpUriBuilder;
 import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.http.client.ResponseHandler;
+import com.facebook.airlift.http.client.jetty.JettyHttpClient;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.units.Duration;
+import com.facebook.presto.druid.authentication.DruidBasicAuthHttpRequestFilter;
 import com.facebook.presto.druid.ingestion.DruidIngestTask;
 import com.facebook.presto.druid.metadata.DruidColumnInfo;
 import com.facebook.presto.druid.metadata.DruidSegmentIdWrapper;
@@ -93,11 +96,11 @@ public class DruidClient
     protected final boolean caseInsensitiveNameMatching;
     private final Cache<SchemaTableName, Optional<RemoteTableObject>> remoteTables;
 
+    private final HttpClientConfig httpClientConfig;
     @Inject
     public DruidClient(DruidConfig config, @ForDruidClient HttpClient httpClient)
     {
         requireNonNull(config, "config is null");
-        this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.druidCoordinator = URI.create(config.getDruidCoordinatorUrl());
         this.druidBroker = URI.create(config.getDruidBrokerUrl());
         this.druidSchema = config.getDruidSchema();
@@ -107,6 +110,17 @@ public class DruidClient
         CacheBuilder<Object, Object> remoteTableNamesCacheBuilder = CacheBuilder.newBuilder()
                 .expireAfterWrite(caseInsensitiveNameMatchingCacheTtl.toMillis(), MILLISECONDS);
         this.remoteTables = remoteTableNamesCacheBuilder.build();
+        this.httpClientConfig = new HttpClientConfig();
+        if (config.isTlsEnabled()) {
+            requireNonNull(config.getTrustStorePath(), "TrustStorePath is null");
+            HttpClientConfig httpClientConfig = new HttpClientConfig();
+            httpClientConfig.setTrustStorePath(config.getTrustStorePath());
+            httpClientConfig.setTrustStorePassword(config.getTruststorePassword());
+            this.httpClient = new JettyHttpClient("myclient", httpClientConfig, null, ImmutableList.of(new DruidBasicAuthHttpRequestFilter(config)));
+        }
+        else {
+            this.httpClient = requireNonNull(httpClient, "httpClient is null");
+        }
     }
 
     Optional<RemoteTableObject> toRemoteTable(SchemaTableName schemaTableName)
@@ -184,7 +198,6 @@ public class DruidClient
         Request request = setContentTypeHeaders(prepareGet())
                 .setUri(uri)
                 .build();
-
         return httpClient.execute(request, createJsonResponseHandler(SEGMENT_INFO_CODEC));
     }
 

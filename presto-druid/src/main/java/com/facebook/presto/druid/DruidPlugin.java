@@ -23,6 +23,15 @@ public class DruidPlugin
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new DruidConnectorFactory());
+        return ImmutableList.of(new DruidConnectorFactory(getClassLoader()));
+    }
+
+    private static ClassLoader getClassLoader()
+    {
+        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+        if (classLoader == null) {
+            classLoader = DruidPlugin.class.getClassLoader();
+        }
+        return classLoader;
     }
 }
