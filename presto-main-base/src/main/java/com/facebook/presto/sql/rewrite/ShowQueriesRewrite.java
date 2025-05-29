@@ -721,7 +721,7 @@ final class ShowQueriesRewrite
                 boolean current = signature.getName().getCatalogSchemaName().equals(
                         metadata.getFunctionAndTypeManager().getDefaultNamespace());
                 rows.add(row(
-                        builtIn || temporary || current ? new StringLiteral(signature.getNameSuffix()) : new StringLiteral(signature.getName().toString()),
+                        temporary || current ? new StringLiteral(signature.getNameSuffix()) : new StringLiteral(signature.getName().toString()),
                         new StringLiteral(signature.getReturnType().toString()),
                         new StringLiteral(Joiner.on(", ").join(signature.getArgumentTypes())),
                         new StringLiteral(getFunctionType(function)),

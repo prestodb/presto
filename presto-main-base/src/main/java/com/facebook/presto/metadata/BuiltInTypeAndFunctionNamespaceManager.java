@@ -550,6 +550,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
     private final MagicLiteralFunction magicLiteralFunction;
 
     private volatile FunctionMap functions = new FunctionMap();
+    private final Multimap<QualifiedObjectName, SqlInvokedFunction> scalarSqlInvokedFunctions;
 
     public BuiltInTypeAndFunctionNamespaceManager(
             BlockEncodingSerde blockEncodingSerde,
@@ -609,7 +610,9 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .expireAfterWrite(1, HOURS)
                 .build(CacheLoader.from(this::instantiateParametricType));
 
-        registerBuiltInFunctions(getBuiltInFunctions(functionsConfig));
+        FunctionListBuilder functionListBuilder = getBuiltInFunctions(functionsConfig);
+        scalarSqlInvokedFunctions = buildScalarInvokedFunctionsMultiMap(functionListBuilder.getScalarSqlInvokedFunctions());
+        registerBuiltInFunctions(functionListBuilder.getFunctions());
         registerBuiltInTypes(functionsConfig);
 
         for (Type type : requireNonNull(types, "types is null")) {
@@ -675,7 +678,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
         addParametricType(VARCHAR_ENUM);
     }
 
-    private List<? extends SqlFunction> getBuiltInFunctions(FunctionsConfig functionsConfig)
+    private FunctionListBuilder getBuiltInFunctions(FunctionsConfig functionsConfig)
     {
         FunctionListBuilder builder = new FunctionListBuilder()
                 .window(RowNumberFunction.class)
@@ -1057,7 +1060,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
             builder.aggregates(KHyperLogLogAggregationFunction.class);
         }
 
-        return builder.getFunctions();
+        return builder;
     }
 
     public synchronized void registerBuiltInFunctions(List<? extends SqlFunction> functions)
@@ -1207,6 +1210,11 @@ public class BuiltInTypeAndFunctionNamespaceManager
     public Optional<UserDefinedType> getUserDefinedType(QualifiedObjectName typeName)
     {
         throw new UnsupportedOperationException("User defined type is not supported");
+    }
+
+    public Multimap<QualifiedObjectName, SqlInvokedFunction> getSqlInvokedFunctions()
+    {
+        return scalarSqlInvokedFunctions;
     }
 
     public WindowFunctionSupplier getWindowFunctionImplementation(FunctionHandle functionHandle)
@@ -1389,6 +1397,16 @@ public class BuiltInTypeAndFunctionNamespaceManager
                     1);
         }
         throw new PrestoException(FUNCTION_IMPLEMENTATION_MISSING, format("%s not found", signature));
+    }
+
+    private Multimap<QualifiedObjectName, SqlInvokedFunction> buildScalarInvokedFunctionsMultiMap(
+            List<SqlInvokedFunction> sqlInvokedFunctions)
+    {
+        ImmutableListMultimap.Builder<QualifiedObjectName, SqlInvokedFunction> builder = ImmutableListMultimap.builder();
+        for (SqlInvokedFunction function : sqlInvokedFunctions) {
+            builder.put(function.getFunctionId().getFunctionName(), function);
+        }
+        return builder.build();
     }
 
     private static class EmptyTransactionHandle
