@@ -45,6 +45,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -92,7 +93,12 @@ public class PrestoNativeQueryRunnerUtils
 
     private PrestoNativeQueryRunnerUtils() {}
 
-    public static QueryRunner createQueryRunner(boolean addStorageFormatToPath, boolean isCoordinatorSidecarEnabled, boolean enableRuntimeMetricsCollection, boolean enableSsdCache)
+    public static QueryRunner createQueryRunner(
+            boolean addStorageFormatToPath,
+            boolean isCoordinatorSidecarEnabled,
+            boolean enableRuntimeMetricsCollection,
+            boolean enableSsdCache,
+            Map<String, String> extraProperties)
             throws Exception
     {
         int cacheMaxSize = 4096; // 4GB size cache
@@ -106,7 +112,8 @@ public class PrestoNativeQueryRunnerUtils
                 addStorageFormatToPath,
                 isCoordinatorSidecarEnabled,
                 enableRuntimeMetricsCollection,
-                enableSsdCache);
+                enableSsdCache,
+                extraProperties);
     }
 
     public static QueryRunner createQueryRunner(
@@ -118,7 +125,8 @@ public class PrestoNativeQueryRunnerUtils
             boolean addStorageFormatToPath,
             boolean isCoordinatorSidecarEnabled,
             boolean enableRuntimeMetricsCollection,
-            boolean enableSsdCache)
+            boolean enableSsdCache,
+            Map<String, String> extraProperties)
             throws Exception
     {
         QueryRunner defaultQueryRunner = createJavaQueryRunner(dataDirectory, storageFormat, addStorageFormatToPath);
@@ -130,7 +138,7 @@ public class PrestoNativeQueryRunnerUtils
         defaultQueryRunner.close();
 
         return createNativeQueryRunner(dataDirectory.get().toString(), prestoServerPath.get(), workerCount, cacheMaxSize, true, Optional.empty(),
-                storageFormat, addStorageFormatToPath, false, isCoordinatorSidecarEnabled, false, enableRuntimeMetricsCollection, enableSsdCache, Collections.emptyMap());
+                storageFormat, addStorageFormatToPath, false, isCoordinatorSidecarEnabled, false, enableRuntimeMetricsCollection, enableSsdCache, extraProperties);
     }
 
     public static QueryRunner createJavaQueryRunner()
@@ -354,11 +362,12 @@ public class PrestoNativeQueryRunnerUtils
         }
 
         // Make query runner with external workers for tests
+        extraProperties = new HashMap<>(extraProperties);
+        extraProperties.putIfAbsent("http-server.http.port", "8081");
         return HiveQueryRunner.createQueryRunner(
                 ImmutableList.of(),
                 ImmutableList.of(),
                 ImmutableMap.<String, String>builder()
-                        .put("http-server.http.port", "8081")
                         .put("experimental.internal-communication.thrift-transport-enabled", String.valueOf(useThrift))
                         .putAll(getNativeWorkerSystemProperties())
                         .putAll(isCoordinatorSidecarEnabled ? getNativeSidecarProperties() : ImmutableMap.of())
