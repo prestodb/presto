@@ -283,6 +283,7 @@ public class TestPhasedExecutionSchedule
                 StageExecutionDescriptor.ungroupedExecution(),
                 false,
                 Optional.of(StatsAndCosts.empty()),
+                Optional.empty(),
                 Optional.empty());
     }
 }

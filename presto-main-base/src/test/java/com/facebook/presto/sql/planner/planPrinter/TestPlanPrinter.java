@@ -104,6 +104,7 @@ public class TestPlanPrinter
                 StageExecutionDescriptor.ungroupedExecution(),
                 false,
                 Optional.of(StatsAndCosts.empty()),
+                Optional.empty(),
                 Optional.empty());
 
         return PlanPrinter.textPlanFragment(testFragment, FUNCTION_AND_TYPE_MANAGER, TEST_SESSION, false);

@@ -93,7 +93,7 @@ public class FragmentResultCacheContext
         }
     }
 
-    private static boolean isEligibleForFragmentResultCaching(PlanNode root)
+    public static boolean isEligibleForFragmentResultCaching(PlanNode root)
     {
         if (!(root instanceof AggregationNode) || ((AggregationNode) root).getStep() != PARTIAL) {
             return false;

@@ -1199,7 +1199,8 @@ public class QueryStateMachine
                         plan.getStageExecutionDescriptor(),
                         plan.isOutputTableWriterFragment(),
                         plan.getStatsAndCosts().map(QueryStateMachine::pruneHistogramsFromStatsAndCosts),
-                        plan.getJsonRepresentation())), // Remove the plan
+                        plan.getJsonRepresentation(),
+                        plan.getCanonicalPlanFragment())), // Remove the plan
                 stage.getLatestAttemptExecutionInfo(),
                 stage.getPreviousAttemptsExecutionInfos(), // Remove failed attempts
                 stage.getSubStages().stream()

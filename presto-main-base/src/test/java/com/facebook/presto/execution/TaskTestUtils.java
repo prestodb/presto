@@ -130,6 +130,7 @@ public final class TaskTestUtils
                 StageExecutionDescriptor.ungroupedExecution(),
                 false,
                 Optional.of(StatsAndCosts.empty()),
+                Optional.empty(),
                 Optional.empty());
     }
 

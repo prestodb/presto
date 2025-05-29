@@ -518,6 +518,7 @@ public class TestSourcePartitionedScheduler
                 StageExecutionDescriptor.ungroupedExecution(),
                 false,
                 Optional.of(StatsAndCosts.empty()),
+                Optional.empty(),
                 Optional.empty());
 
         return new SubPlan(testFragment, ImmutableList.of());

@@ -193,6 +193,7 @@ public class TestLocalExecutionPlanner
                 StageExecutionDescriptor.ungroupedExecution(),
                 false,
                 Optional.of(StatsAndCosts.empty()),
+                Optional.empty(),
                 Optional.empty());
         return createTestingPlanner().plan(
                 createTaskContext(EXECUTOR, SCHEDULED_EXECUTOR, session),

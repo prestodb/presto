@@ -15,6 +15,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.PartitioningMetadata;
@@ -48,6 +49,7 @@ import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -62,12 +64,14 @@ import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
 import static com.facebook.presto.SystemSessionProperties.isSingleNodeExecutionEnabled;
+import static com.facebook.presto.execution.FragmentResultCacheContext.isEligibleForFragmentResultCaching;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.TemporaryTableUtil.assignPartitioningVariables;
 import static com.facebook.presto.sql.TemporaryTableUtil.assignTemporaryTableColumnNames;
 import static com.facebook.presto.sql.TemporaryTableUtil.createTemporaryTableScan;
 import static com.facebook.presto.sql.TemporaryTableUtil.createTemporaryTableWriteWithExchanges;
 import static com.facebook.presto.sql.planner.BasePlanFragmenter.FragmentProperties;
+import static com.facebook.presto.sql.planner.CanonicalPlanGenerator.generateCanonicalPlanFragment;
 import static com.facebook.presto.sql.planner.PlanFragmenterUtils.isCoordinatorOnlyDistribution;
 import static com.facebook.presto.sql.planner.SchedulingOrderVisitor.scheduleOrder;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
@@ -151,6 +155,10 @@ public abstract class BasePlanFragmenter
                     tableWriterNodeIds);
         }
 
+        Optional<CanonicalPlanFragment> canonicalPlanFragment = Optional.empty();
+        if (SystemSessionProperties.isFragmentResultCachingEnabled(session) && isEligibleForFragmentResultCaching(root)) {
+            canonicalPlanFragment = generateCanonicalPlanFragment(root, properties.getPartitioningScheme(), new ObjectMapper(), session);
+        }
         PlanFragment fragment = new PlanFragment(
                 fragmentId,
                 root,
@@ -161,7 +169,8 @@ public abstract class BasePlanFragmenter
                 StageExecutionDescriptor.ungroupedExecution(),
                 outputTableWriterFragment,
                 Optional.of(statsAndCosts.getForSubplan(root)),
-                Optional.of(jsonFragmentPlan(root, fragmentVariableTypes, statsAndCosts.getForSubplan(root), metadata.getFunctionAndTypeManager(), session)));
+                Optional.of(jsonFragmentPlan(root, fragmentVariableTypes, statsAndCosts.getForSubplan(root), metadata.getFunctionAndTypeManager(), session)),
+                canonicalPlanFragment);
 
         planChecker.validatePlanFragment(fragment, session, metadata, warningCollector);
 

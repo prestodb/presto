@@ -162,6 +162,7 @@ public class TestAdaptivePhasedExecutionPolicy
                 StageExecutionDescriptor.ungroupedExecution(),
                 false,
                 Optional.of(StatsAndCosts.empty()),
+                Optional.empty(),
                 Optional.empty());
     }
 

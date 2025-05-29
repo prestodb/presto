@@ -59,6 +59,7 @@ public class PlanFragment
     private final boolean outputTableWriterFragment;
     private final Optional<StatsAndCosts> statsAndCosts;
     private final Optional<String> jsonRepresentation;
+    private final Optional<CanonicalPlanFragment> canonicalPlanFragment;
 
     // This is ensured to be lazily populated on the first successful call to #toBytes
     @GuardedBy("this")
@@ -77,7 +78,8 @@ public class PlanFragment
             @JsonProperty("stageExecutionDescriptor") StageExecutionDescriptor stageExecutionDescriptor,
             @JsonProperty("outputTableWriterFragment") boolean outputTableWriterFragment,
             @JsonProperty("statsAndCosts") Optional<StatsAndCosts> statsAndCosts,
-            @JsonProperty("jsonRepresentation") Optional<String> jsonRepresentation)
+            @JsonProperty("jsonRepresentation") Optional<String> jsonRepresentation,
+            @JsonProperty("canonicalPlanFragment") Optional<CanonicalPlanFragment> canonicalPlanFragment)
     {
         this.id = requireNonNull(id, "id is null");
         this.root = requireNonNull(root, "root is null");
@@ -88,6 +90,7 @@ public class PlanFragment
         this.outputTableWriterFragment = outputTableWriterFragment;
         this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
         this.jsonRepresentation = requireNonNull(jsonRepresentation, "jsonRepresentation is null");
+        this.canonicalPlanFragment = requireNonNull(canonicalPlanFragment, "canonicalPlanFragment is null");
 
         checkArgument(root.getOutputVariables().containsAll(partitioningScheme.getOutputLayout()),
                 "Root node outputs (%s) does not include all fragment outputs (%s)", root.getOutputVariables(), partitioningScheme.getOutputLayout());
@@ -163,6 +166,12 @@ public class PlanFragment
         return jsonRepresentation;
     }
 
+    @JsonProperty
+    public Optional<CanonicalPlanFragment> getCanonicalPlanFragment()
+    {
+        return canonicalPlanFragment;
+    }
+
     // Serialize this plan fragment with the provided codec, caching the results
     // This should be used when serializing the fragment to send to worker nodes.
     public synchronized byte[] bytesForTaskSerialization(Codec<PlanFragment> codec)
@@ -191,7 +200,8 @@ public class PlanFragment
                 stageExecutionDescriptor,
                 outputTableWriterFragment,
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                canonicalPlanFragment);
     }
 
     public List<Type> getTypes()
@@ -250,7 +260,8 @@ public class PlanFragment
                 stageExecutionDescriptor,
                 outputTableWriterFragment,
                 statsAndCosts,
-                jsonRepresentation);
+                jsonRepresentation,
+                canonicalPlanFragment);
     }
 
     public PlanFragment withFixedLifespanScheduleGroupedExecution(List<PlanNodeId> capableTableScanNodes, int totalLifespans)
@@ -265,7 +276,8 @@ public class PlanFragment
                 StageExecutionDescriptor.fixedLifespanScheduleGroupedExecution(capableTableScanNodes, totalLifespans),
                 outputTableWriterFragment,
                 statsAndCosts,
-                jsonRepresentation);
+                jsonRepresentation,
+                canonicalPlanFragment);
     }
 
     public PlanFragment withDynamicLifespanScheduleGroupedExecution(List<PlanNodeId> capableTableScanNodes, int totalLifespans)
@@ -280,7 +292,8 @@ public class PlanFragment
                 StageExecutionDescriptor.dynamicLifespanScheduleGroupedExecution(capableTableScanNodes, totalLifespans),
                 outputTableWriterFragment,
                 statsAndCosts,
-                jsonRepresentation);
+                jsonRepresentation,
+                canonicalPlanFragment);
     }
 
     public PlanFragment withRecoverableGroupedExecution(List<PlanNodeId> capableTableScanNodes, int totalLifespans)
@@ -295,7 +308,8 @@ public class PlanFragment
                 StageExecutionDescriptor.recoverableGroupedExecution(capableTableScanNodes, totalLifespans),
                 outputTableWriterFragment,
                 statsAndCosts,
-                jsonRepresentation);
+                jsonRepresentation,
+                canonicalPlanFragment);
     }
 
     public PlanFragment withSubPlan(PlanNode subPlan)
@@ -310,7 +324,8 @@ public class PlanFragment
                 stageExecutionDescriptor,
                 outputTableWriterFragment,
                 statsAndCosts,
-                jsonRepresentation);
+                jsonRepresentation,
+                canonicalPlanFragment);
     }
 
     @Override
