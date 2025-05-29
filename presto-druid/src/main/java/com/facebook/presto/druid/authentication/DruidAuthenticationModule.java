@@ -14,6 +14,7 @@
 package com.facebook.presto.druid.authentication;
 
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
+import com.facebook.airlift.http.client.HttpClientConfig;
 import com.facebook.presto.druid.DruidConfig;
 import com.facebook.presto.druid.ForDruidClient;
 import com.google.inject.Binder;
@@ -26,6 +27,7 @@ import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder
 import static com.facebook.presto.druid.DruidConfig.DruidAuthenticationType.BASIC;
 import static com.facebook.presto.druid.DruidConfig.DruidAuthenticationType.KERBEROS;
 import static com.facebook.presto.druid.DruidConfig.DruidAuthenticationType.NONE;
+import static java.util.Objects.requireNonNull;
 
 public class DruidAuthenticationModule
         extends AbstractConfigurationAwareModule
@@ -33,17 +35,19 @@ public class DruidAuthenticationModule
     @Override
     protected void setup(Binder binder)
     {
+        DruidConfig druidConfig = buildConfigObject(DruidConfig.class);
+
         bindAuthenticationModule(
                 config -> config.getDruidAuthenticationType() == NONE,
-                noneAuthenticationModule());
+                noneAuthenticationModule(druidConfig));
 
         bindAuthenticationModule(
                 config -> config.getDruidAuthenticationType() == BASIC,
-                basicAuthenticationModule());
+                basicAuthenticationModule(druidConfig));
 
         bindAuthenticationModule(
                 config -> config.getDruidAuthenticationType() == KERBEROS,
-                kerberosbAuthenticationModule());
+                kerberosbAuthenticationModule(druidConfig));
     }
 
     private void bindAuthenticationModule(Predicate<DruidConfig> predicate, Module module)
@@ -51,24 +55,40 @@ public class DruidAuthenticationModule
         install(installModuleIf(DruidConfig.class, predicate, module));
     }
 
-    private static Module noneAuthenticationModule()
+    private static Module noneAuthenticationModule(DruidConfig druidConfig)
     {
-        return binder -> httpClientBinder(binder).bindHttpClient("druid-client", ForDruidClient.class);
+        return binder -> httpClientBinder(binder).bindHttpClient("druid-client", ForDruidClient.class)
+                .withConfigDefaults(config -> applyTlsConfig(config, druidConfig));
     }
 
-    private static Module basicAuthenticationModule()
+    private static Module basicAuthenticationModule(DruidConfig druidConfig)
     {
         return binder -> httpClientBinder(binder).bindHttpClient("druid-client", ForDruidClient.class)
                 .withConfigDefaults(
-                        config -> config.setAuthenticationEnabled(false) //disable Kerberos auth
+                        config -> {
+                            config.setAuthenticationEnabled(false); //disable Kerberos auth
+                            applyTlsConfig(config, druidConfig);
+                        }
                 ).withFilter(
                         DruidBasicAuthHttpRequestFilter.class);
     }
 
-    private static Module kerberosbAuthenticationModule()
+    private static Module kerberosbAuthenticationModule(DruidConfig druidConfig)
     {
         return binder -> httpClientBinder(binder).bindHttpClient("druid-client", ForDruidClient.class)
                 .withConfigDefaults(
-                        config -> config.setAuthenticationEnabled(true));
+                        config -> {
+                            config.setAuthenticationEnabled(true);
+                            applyTlsConfig(config, druidConfig);
+                        });
+    }
+
+    private static void applyTlsConfig(HttpClientConfig config, DruidConfig druidConfig)
+    {
+        if (druidConfig.isTlsEnabled()) {
+            requireNonNull(druidConfig.getTrustStorePath(), "druid.tls.truststore-path is null");
+            config.setTrustStorePath(druidConfig.getTrustStorePath());
+            config.setTrustStorePassword(druidConfig.getTrustStorePassword()); // Not adding null check for truststore password as it can be null for self-signed certs
+        }
     }
 }
