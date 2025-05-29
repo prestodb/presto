@@ -84,10 +84,10 @@ public class ArrowMetadata
         return new ArrowTableHandle(tableName.getSchemaName(), tableName.getTableName());
     }
 
-    public List<Field> getColumnsList(String schema, String table, ConnectorSession connectorSession)
+    public List<Field> getColumnsList(ConnectorSession connectorSession, String schema, String table)
     {
         try {
-            Schema flightSchema = clientHandler.getSchemaForTable(schema, table, connectorSession);
+            Schema flightSchema = clientHandler.getSchemaForTable(connectorSession, schema, table);
             return flightSchema.getFields();
         }
         catch (Exception e) {
@@ -102,7 +102,7 @@ public class ArrowMetadata
 
         String schemaValue = ((ArrowTableHandle) tableHandle).getSchema();
         String tableValue = ((ArrowTableHandle) tableHandle).getTable();
-        List<Field> columnList = getColumnsList(schemaValue, tableValue, session);
+        List<Field> columnList = getColumnsList(session, schemaValue, tableValue);
 
         for (Field field : columnList) {
             String columnName = field.getName();
@@ -143,7 +143,7 @@ public class ArrowMetadata
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
         List<ColumnMetadata> meta = new ArrayList<>();
-        List<Field> columnList = getColumnsList(((ArrowTableHandle) table).getSchema(), ((ArrowTableHandle) table).getTable(), session);
+        List<Field> columnList = getColumnsList(session, ((ArrowTableHandle) table).getSchema(), ((ArrowTableHandle) table).getTable());
 
         for (Field field : columnList) {
             String columnName = field.getName();
