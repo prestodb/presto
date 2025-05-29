@@ -87,7 +87,7 @@ public abstract class BaseArrowFlightClientHandler
 
     public abstract CallOption[] getCallOptions(ConnectorSession connectorSession);
 
-    protected FlightInfo getFlightInfo(FlightDescriptor flightDescriptor, ConnectorSession connectorSession)
+    protected FlightInfo getFlightInfo(ConnectorSession connectorSession, FlightDescriptor flightDescriptor)
     {
         try (FlightClient client = createFlightClient()) {
             CallOption[] callOptions = getCallOptions(connectorSession);
@@ -98,7 +98,7 @@ public abstract class BaseArrowFlightClientHandler
         }
     }
 
-    protected ClientClosingFlightStream getFlightStream(ArrowSplit split, ConnectorSession connectorSession)
+    protected ClientClosingFlightStream getFlightStream(ConnectorSession connectorSession, ArrowSplit split)
     {
         ByteBuffer endpointBytes = ByteBuffer.wrap(split.getFlightEndpointBytes());
         try {
@@ -116,7 +116,7 @@ public abstract class BaseArrowFlightClientHandler
         }
     }
 
-    public Schema getSchema(FlightDescriptor flightDescriptor, ConnectorSession connectorSession)
+    public Schema getSchema(ConnectorSession connectorSession, FlightDescriptor flightDescriptor)
     {
         try (FlightClient client = createFlightClient()) {
             CallOption[] callOptions = this.getCallOptions(connectorSession);
@@ -135,15 +135,15 @@ public abstract class BaseArrowFlightClientHandler
 
     protected abstract FlightDescriptor getFlightDescriptorForTableScan(ArrowTableLayoutHandle tableLayoutHandle);
 
-    public Schema getSchemaForTable(String schemaName, String tableName, ConnectorSession connectorSession)
+    public Schema getSchemaForTable(ConnectorSession connectorSession, String schemaName, String tableName)
     {
-        FlightDescriptor flightDescriptor = getFlightDescriptorForSchema(schemaName, tableName);
-        return getSchema(flightDescriptor, connectorSession);
+        FlightDescriptor flightDescriptor = getFlightDescriptorForSchema(connectorSession, schemaName, tableName);
+        return getSchema(connectorSession, flightDescriptor);
     }
 
-    public FlightInfo getFlightInfoForTableScan(ArrowTableLayoutHandle tableLayoutHandle, ConnectorSession session)
+    public FlightInfo getFlightInfoForTableScan(ConnectorSession session, ArrowTableLayoutHandle tableLayoutHandle)
     {
-        FlightDescriptor flightDescriptor = getFlightDescriptorForTableScan(tableLayoutHandle);
-        return getFlightInfo(flightDescriptor, session);
+        FlightDescriptor flightDescriptor = getFlightDescriptorForTableScan(session, tableLayoutHandle);
+        return getFlightInfo(session, flightDescriptor);
     }
 }

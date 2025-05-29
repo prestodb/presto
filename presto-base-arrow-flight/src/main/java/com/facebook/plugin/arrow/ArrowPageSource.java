@@ -48,7 +48,7 @@ public class ArrowPageSource
         this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
         requireNonNull(clientHandler, "clientHandler is null");
         this.arrowBlockBuilder = requireNonNull(arrowBlockBuilder, "arrowBlockBuilder is null");
-        this.flightStreamAndClient = clientHandler.getFlightStream(split, connectorSession);
+        this.flightStreamAndClient = clientHandler.getFlightStream(connectorSession, split);
     }
 
     @Override
