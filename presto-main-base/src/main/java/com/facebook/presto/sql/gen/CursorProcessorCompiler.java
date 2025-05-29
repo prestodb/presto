@@ -22,6 +22,7 @@ import com.facebook.presto.bytecode.MethodDefinition;
 import com.facebook.presto.bytecode.Parameter;
 import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.bytecode.Variable;
+import com.facebook.presto.bytecode.control.ForLoop;
 import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.control.WhileLoop;
 import com.facebook.presto.bytecode.instruction.LabelNode;
@@ -31,6 +32,7 @@ import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.DriverYieldSignal;
+import com.facebook.presto.operator.project.CursorProcessor;
 import com.facebook.presto.operator.project.CursorProcessorOutput;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.function.SqlFunctionId;
@@ -60,7 +62,9 @@ import static com.facebook.presto.bytecode.Parameter.arg;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantBoolean;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantTrue;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.lessThan;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newInstance;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.or;
 import static com.facebook.presto.bytecode.instruction.JumpInstruction.jump;
@@ -79,6 +83,7 @@ public class CursorProcessorCompiler
         implements BodyCompiler
 {
     private static final int PROJECT_LIST_BATCH_SIZE = 1000;
+    private static final int DYNAMIC_INVOCATION_THRESHOLD = 500;
     private static Logger log = Logger.get(CursorProcessorCompiler.class);
 
     private final Metadata metadata;
@@ -249,34 +254,56 @@ public class CursorProcessorCompiler
                 .append(method.getThis())
                 .getVariable(properties)
                 .getVariable(cursor)
-                .invokeVirtual(classDefinition.getType(), "filter", type(boolean.class), type(SqlFunctionProperties.class), type(RecordCursor.class));
+                .invokeVirtual(classDefinition.getType(), "filter", type(boolean.class),
+                        type(SqlFunctionProperties.class), type(RecordCursor.class));
 
         // pageBuilder.declarePosition();
         ifStatement.ifTrue()
                 .getVariable(pageBuilder)
                 .invokeVirtual(PageBuilder.class, "declarePosition", void.class);
 
-        // Call batch methods instead of inlining all projections. The is to prevent against MethodTooLargeException
-        // Define all the batch methods
-        generateProjectBatchMethods(classDefinition, projections);
+        if (projections <= DYNAMIC_INVOCATION_THRESHOLD) {
+            generateProjectBatchMethods(classDefinition, projections);
 
-        int batchCount = (projections + PROJECT_LIST_BATCH_SIZE - 1) / PROJECT_LIST_BATCH_SIZE;
-        for (int batchNumber = 0; batchNumber < batchCount; batchNumber++) {
-            ifStatement.ifTrue()
-                    .append(method.getThis())
-                    .getVariable(properties)
-                    .getVariable(cursor)
-                    .getVariable(pageBuilder)
-                    .push(batchNumber)
-                    .invokeVirtual(classDefinition.getType(),
-                            "processBatch_" + batchNumber,
-                            type(void.class),
-                            type(SqlFunctionProperties.class),
-                            type(RecordCursor.class),
-                            type(PageBuilder.class),
-                            type(int.class));
+            int batchCount = (projections + PROJECT_LIST_BATCH_SIZE - 1) / PROJECT_LIST_BATCH_SIZE;
+            for (int batchNumber = 0; batchNumber < batchCount; batchNumber++) {
+                ifStatement.ifTrue()
+                        .append(method.getThis())
+                        .getVariable(properties)
+                        .getVariable(cursor)
+                        .getVariable(pageBuilder)
+                        .push(batchNumber)
+                        .invokeVirtual(classDefinition.getType(),
+                                "processBatch_" + batchNumber,
+                                type(void.class),
+                                type(SqlFunctionProperties.class),
+                                type(RecordCursor.class),
+                                type(PageBuilder.class),
+                                type(int.class));
+            }
         }
+        else {
+            Variable projectionIndex = method.getScope().declareVariable(int.class, "projectionIndex");
 
+            ForLoop forLoop = new ForLoop("int projectionIndex = 0; projectionIndex < projections; projectionIndex++")
+                    .initialize(projectionIndex.set(constantInt(0)))
+                    .condition(lessThan(projectionIndex, constantInt(projections)))
+                    .update(projectionIndex.increment())
+                    .body(new BytecodeBlock()
+                            .comment("Dynamically invoke project method")
+                            .append(method.getThis())
+                            .getVariable(projectionIndex)
+                            .getVariable(properties)
+                            .getVariable(cursor)
+                            .getVariable(pageBuilder)
+                            .invokeInterface(type(CursorProcessor.class), "invokeMethod", type(void.class),
+                                    type(int.class),
+                                    type(SqlFunctionProperties.class),
+                                    type(RecordCursor.class),
+                                    type(PageBuilder.class)));
+
+            ifStatement.ifTrue().append(forLoop);
+        }
         return ifStatement;
     }
 

@@ -215,6 +215,21 @@ public class TestCursorProcessorCompiler
         assertEquals(result.getPositionCount(), input.getPositionCount(), "Mismatch in row count");
     }
 
+    // this test is failing with "Query results in large bytecode exceeding the limits imposed by JVM" when projectionCount > 5451
+    @Test
+    public void testFailsAtLargeProjection()
+    {
+        int projectionCount = 5451;
+        List<? extends RowExpression> projections = createIfProjectionList(projectionCount);
+        ExpressionCompiler expressionCompiler = new ExpressionCompiler(METADATA, new PageFunctionCompiler(METADATA, 0));
+        expressionCompiler.compileCursorProcessor(
+                SESSION.getSqlFunctionProperties(),
+                Optional.empty(),
+                projections,
+                "testProjectionBatching_5451",
+                false);
+    }
+
     private static Page createLongBlockPage(int blockCount, long... values)
     {
         Block[] blocks = new Block[blockCount];
