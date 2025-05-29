@@ -74,7 +74,7 @@ public class TestingArrowFlightClientHandler
     }
 
     @Override
-    public FlightDescriptor getFlightDescriptorForSchema(String schemaName, String tableName)
+    public FlightDescriptor getFlightDescriptorForSchema(ConnectorSession session, String schemaName, String tableName)
     {
         TestingArrowFlightRequest request = TestingArrowFlightRequest.createDescribeTableRequest(schemaName, tableName);
         return FlightDescriptor.command(requestCodec.toBytes(request));
@@ -139,7 +139,7 @@ public class TestingArrowFlightClientHandler
     }
 
     @Override
-    public FlightDescriptor getFlightDescriptorForTableScan(ArrowTableLayoutHandle tableLayoutHandle)
+    public FlightDescriptor getFlightDescriptorForTableScan(ConnectorSession session, ArrowTableLayoutHandle tableLayoutHandle)
     {
         ArrowTableHandle tableHandle = tableLayoutHandle.getTable();
         String query = new TestingArrowQueryBuilder().buildSql(

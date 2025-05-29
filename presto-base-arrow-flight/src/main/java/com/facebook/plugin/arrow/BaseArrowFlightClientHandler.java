@@ -131,9 +131,9 @@ public abstract class BaseArrowFlightClientHandler
 
     public abstract List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName);
 
-    protected abstract FlightDescriptor getFlightDescriptorForSchema(String schemaName, String tableName);
+    protected abstract FlightDescriptor getFlightDescriptorForSchema(ConnectorSession session, String schemaName, String tableName);
 
-    protected abstract FlightDescriptor getFlightDescriptorForTableScan(ArrowTableLayoutHandle tableLayoutHandle);
+    protected abstract FlightDescriptor getFlightDescriptorForTableScan(ConnectorSession session, ArrowTableLayoutHandle tableLayoutHandle);
 
     public Schema getSchemaForTable(ConnectorSession connectorSession, String schemaName, String tableName)
     {
