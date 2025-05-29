@@ -232,6 +232,7 @@ TEST_F(CustomTypeTest, getCustomTypeNames) {
           "IPPREFIX",
           "BINGTILE",
           "TDIGEST",
+          "QDIGEST",
           "GEOMETRY"}),
       names);
 
@@ -250,6 +251,7 @@ TEST_F(CustomTypeTest, getCustomTypeNames) {
           "BINGTILE",
           "FANCY_INT",
           "TDIGEST",
+          "QDIGEST",
           "GEOMETRY"}),
       names);
 
@@ -275,6 +277,13 @@ TEST_F(CustomTypeTest, nullConstant) {
     if (name == "TDIGEST") {
       auto type = getCustomType(name, {TypeParameter(DOUBLE())});
       checkNullConstant(type, "TDIGEST(DOUBLE)");
+    } else if (name == "QDIGEST") {
+      for (const auto& parameter :
+           std::vector<TypePtr>{BIGINT(), DOUBLE(), REAL()}) {
+        auto type = getCustomType(name, {TypeParameter(parameter)});
+        checkNullConstant(
+            type, fmt::format("QDIGEST({})", parameter->toString()));
+      }
     } else {
       auto type = getCustomType(name, {});
       checkNullConstant(type, type->toString());

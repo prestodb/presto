@@ -44,6 +44,7 @@ add_executable(
   MultiMapAggTest.cpp
   NoisyCountIfGaussianAggregationTest.cpp
   PrestoHasherTest.cpp
+  QDigestAggTest.cpp
   ReduceAggTest.cpp
   SetAggTest.cpp
   SetUnionTest.cpp
