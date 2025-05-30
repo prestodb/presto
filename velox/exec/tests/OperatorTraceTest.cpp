@@ -1135,6 +1135,7 @@ TEST_F(OperatorTraceTest, canTrace) {
       {"PartitionedOutput", true},
       {"HashBuild", true},
       {"HashProbe", true},
+      {"IndexLookupJoin", true},
       {"RowNumber", false},
       {"OrderBy", false},
       {"PartialAggregation", true},
