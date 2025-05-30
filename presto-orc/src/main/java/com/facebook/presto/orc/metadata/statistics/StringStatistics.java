@@ -36,13 +36,19 @@ public class StringStatistics
     private final Slice minimum;
     @Nullable
     private final Slice maximum;
+    @Nullable
+    private final boolean lowerBoundSet;
+    @Nullable
+    private final boolean upperBoundSet;
     private final long sum;
 
-    public StringStatistics(@Nullable Slice minimum, @Nullable Slice maximum, long sum)
+    public StringStatistics(@Nullable Slice minimum, @Nullable Slice maximum, boolean lowerBoundSet, boolean upperBoundSet, long sum)
     {
         checkArgument(minimum == null || maximum == null || minimum.compareTo(maximum) <= 0, "minimum is not less than maximum");
         this.minimum = minimum;
         this.maximum = maximum;
+        this.lowerBoundSet = lowerBoundSet;
+        this.upperBoundSet = upperBoundSet;
         this.sum = sum;
     }
 
@@ -56,6 +62,16 @@ public class StringStatistics
     public Slice getMax()
     {
         return maximum;
+    }
+
+    public boolean isLowerBoundSet()
+    {
+        return lowerBoundSet;
+    }
+
+    public boolean isUpperBoundSet()
+    {
+        return upperBoundSet;
     }
 
     public long getSum()
@@ -81,13 +97,15 @@ public class StringStatistics
         StringStatistics that = (StringStatistics) o;
         return Objects.equals(minimum, that.minimum) &&
                 Objects.equals(maximum, that.maximum) &&
+                Objects.equals(lowerBoundSet, that.lowerBoundSet) &&
+                Objects.equals(upperBoundSet, that.upperBoundSet) &&
                 Objects.equals(sum, that.sum);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(minimum, maximum, sum);
+        return Objects.hash(minimum, maximum, lowerBoundSet, upperBoundSet, sum);
     }
 
     @Override
@@ -96,6 +114,8 @@ public class StringStatistics
         return toStringHelper(this)
                 .add("min", minimum == null ? "<null>" : minimum.toStringUtf8())
                 .add("max", maximum == null ? "<null>" : maximum.toStringUtf8())
+                .add("lowerBound", lowerBoundSet)
+                .add("upperBound", upperBoundSet)
                 .add("sum", sum)
                 .toString();
     }
@@ -105,6 +125,8 @@ public class StringStatistics
     {
         hasher.putOptionalSlice(minimum)
                 .putOptionalSlice(maximum)
+                .putBoolean(lowerBoundSet)
+                .putBoolean(upperBoundSet)
                 .putLong(sum);
     }
 }
