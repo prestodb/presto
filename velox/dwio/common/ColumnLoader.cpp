@@ -92,16 +92,19 @@ void addToHookImpl(
     const DecodedVector& decoded,
     const RowSet& rows,
     ValueHook& hook) {
-  if (decoded.isIdentityMapping()) {
+  if (decoded.isIdentityMapping() && rows.size() == rows.back() + 1) {
     auto* values = decoded.data<T>();
     hook.addValues(rows.data(), values, rows.size());
     return;
   }
-  for (auto i : rows) {
+  // Masked aggregate is not pushed down for now, so the input row set is
+  // guaranteed to be dense.  Just make sure it works with sparse input for
+  // future proof.
+  for (vector_size_t i = 0; i < rows.size(); ++i) {
     if (!decoded.isNullAt(i)) {
-      hook.addValueTyped(i, decoded.valueAt<T>(i));
+      hook.addValueTyped(rows[i], decoded.valueAt<T>(i));
     } else if (hook.acceptsNulls()) {
-      hook.addNull(i);
+      hook.addNull(rows[i]);
     }
   }
 }
@@ -197,7 +200,7 @@ void DeltaUpdateColumnLoader::loadInternal(
   scanSpec->deltaUpdate()->update(effectiveRows, *result);
   if (hook) {
     DecodedVector decoded(**result);
-    addToHook(decoded, effectiveRows, *hook);
+    addToHook(decoded, rows, *hook);
   } else if (
       rows.back() + 1 < resultSize ||
       rows.size() != structReader_->outputRows().size()) {
