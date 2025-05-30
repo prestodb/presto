@@ -419,14 +419,6 @@ Cache Properties
 
 The configuration properties of AsyncDataCache and SSD cache are described here.
 
-``async-cache-persistence-interval``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-* **Type:** ``string``
-* **Default value:** ``0s``
-
-  The interval for persisting in-memory cache to SSD. Set this
-  to a non-zero value to activate periodic cache persistence.
-
 ``async-data-cache-enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
