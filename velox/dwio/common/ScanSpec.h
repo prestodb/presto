@@ -38,7 +38,7 @@ namespace common {
 // Describes the filtering and value extraction for a
 // SelectiveColumnReader. This is owned by the TableScan Operator and
 // is passed to SelectiveColumnReaders at construction.  This is
-// mutable by readers to reflect filter order and other adaptation.
+// mutable by readers to reflect filter order and other adaptations.
 class ScanSpec {
  public:
   enum class ColumnType : int8_t {
@@ -437,6 +437,7 @@ class ScanSpec {
   SelectivityInfo selectivity_;
 
   std::vector<std::shared_ptr<ScanSpec>> children_;
+
   // Read-only copy of children, not subject to reordering. Used when
   // asynchronously constructing reader trees for read-ahead, while
   // 'children_' is reorderable by a running scan.

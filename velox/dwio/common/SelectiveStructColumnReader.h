@@ -115,11 +115,13 @@ class SelectiveStructColumnReaderBase : public SelectiveColumnReader {
       const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
       FormatParams& params,
       velox::common::ScanSpec& scanSpec,
-      bool isRoot = false)
+      bool isRoot = false,
+      bool generateLazyChildren = true)
       : SelectiveColumnReader(requestedType, fileType, params, scanSpec),
         debugString_(
             getExceptionContext().message(VeloxException::Type::kSystem)),
         isRoot_(isRoot),
+        generateLazyChildren_(generateLazyChildren),
         rows_(memoryPool_) {}
 
   bool hasDeletion() const final {
@@ -136,16 +138,16 @@ class SelectiveStructColumnReaderBase : public SelectiveColumnReader {
         isChildMissing(childSpec);
   }
 
-  std::vector<SelectiveColumnReader*> children_;
-
- private:
-  void fillOutputRowsFromMutation(vector_size_t size);
-
   /// Records the number of nulls added by 'this' between the end position of
   /// each child reader and the end of the range of 'read(). This must be done
   /// also if a child is not read so that we know how much to skip when seeking
   /// forward within the row group.
   void recordParentNullsInChildren(int64_t offset, const RowSet& rows);
+
+  std::vector<SelectiveColumnReader*> children_;
+
+ private:
+  void fillOutputRowsFromMutation(vector_size_t size);
 
   void setOutputRowsForLazy(const RowSet& rows) {
     if (useOutputRows() && rows.size() != outputRows_.size()) {
@@ -163,6 +165,9 @@ class SelectiveStructColumnReaderBase : public SelectiveColumnReader {
   // Whether or not this is the root Struct that represents entire rows of the
   // table.
   const bool isRoot_;
+
+  // Whether or not this should produce lazy vectors for children.
+  const bool generateLazyChildren_;
 
   // Dense set of rows to read in next().
   raw_vector<vector_size_t> rows_;

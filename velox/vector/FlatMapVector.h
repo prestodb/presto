@@ -233,12 +233,29 @@ class FlatMapVector : public BaseVector {
     return mapValues_[index];
   }
 
-  /// Get the in map buffer for a given a map key channel.
+  /// Get the in map buffer for a given a map key channel. Throws if in maps
+  /// does not exist for this channel.
   const BufferPtr& inMapsAt(column_index_t index) const {
     VELOX_CHECK_LT(
         index,
         inMaps_.size(),
         "Trying to access non-existing key channel in FlatMapVector.");
+    return inMaps_[index];
+  }
+
+  /// Get the in map buffer reference for a given map key channel. If `resize`
+  /// is true, may resize up to `numDistinctKeys()` to ensure that the inMaps
+  /// vector has the appropriate length.
+  BufferPtr& inMapsAt(column_index_t index, bool resize = false) {
+    if (index < inMaps_.size()) {
+      return inMaps_[index];
+    } else if (!resize || index >= numDistinctKeys()) {
+      VELOX_CHECK_LT(
+          index,
+          inMaps_.size(),
+          "Trying to access non-existing key channel in FlatMapVector.");
+    }
+    inMaps_.resize(index + 1);
     return inMaps_[index];
   }
 

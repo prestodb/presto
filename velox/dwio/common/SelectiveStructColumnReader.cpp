@@ -20,7 +20,6 @@
 #include "velox/dwio/common/ColumnLoader.h"
 
 namespace facebook::velox::dwio::common {
-
 namespace {
 
 bool testFilterOnConstant(const velox::common::ScanSpec& spec) {
@@ -339,8 +338,8 @@ void SelectiveStructColumnReaderBase::read(
     activeRows = outputRows_;
   }
 
-  const uint64_t* structNulls =
-      nullsInReadRange_ ? nullsInReadRange_->as<uint64_t>() : nullptr;
+  const uint64_t* structNulls = nulls();
+
   // A struct reader may have a null/non-null filter
   if (scanSpec_->filter()) {
     const auto kind = scanSpec_->filter()->kind();
@@ -385,7 +384,7 @@ void SelectiveStructColumnReaderBase::read(
     const auto fieldIndex = childSpec->subscript();
     auto* reader = children_.at(fieldIndex);
     if (reader->isTopLevel() && childSpec->projectOut() &&
-        !childSpec->hasFilter()) {
+        !childSpec->hasFilter() && generateLazyChildren_) {
       // Will make a LazyVector.
       continue;
     }
@@ -441,10 +440,7 @@ void SelectiveStructColumnReaderBase::recordParentNullsInChildren(
 
     const auto fieldIndex = childSpec->subscript();
     auto* reader = children_.at(fieldIndex);
-    reader->addParentNulls(
-        offset,
-        nullsInReadRange_ ? nullsInReadRange_->as<uint64_t>() : nullptr,
-        rows);
+    reader->addParentNulls(offset, nulls(), rows);
   }
 }
 
@@ -543,7 +539,8 @@ void SelectiveStructColumnReaderBase::getValues(
       continue;
     }
 
-    if (childSpec->hasFilter() || !children_[index]->isTopLevel()) {
+    if (childSpec->hasFilter() || !children_[index]->isTopLevel() ||
+        !generateLazyChildren_) {
       children_[index]->getValues(rows, &childResult);
       continue;
     }

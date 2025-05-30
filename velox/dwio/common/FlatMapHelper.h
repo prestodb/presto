@@ -122,6 +122,7 @@ class KeyValue {
   const T& get() const {
     return value_;
   }
+
   std::size_t hash() const {
     return h_;
   }

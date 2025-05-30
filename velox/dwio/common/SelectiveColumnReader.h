@@ -161,12 +161,11 @@ class SelectiveColumnReader {
   // from a downstream operator.
   virtual void resetFilterCaches();
 
-  // Seeks to offset and reads the rows in 'rows' and applies
-  // filters and value processing as given by 'scanSpec supplied at
-  // construction. 'offset' is relative to start of stripe. 'rows' are
-  // relative to 'offset', so that row 0 is the 'offset'th row from
-  // start of stripe. 'rows' is expected to stay constant
-  // between this and the next call to read.
+  // Seeks to offset and reads the rows in 'rows' and applies filters and value
+  // processing as given by 'scanSpec supplied at construction. 'offset' is
+  // relative to start of stripe. 'rows' are relative to 'offset', so that row 0
+  // is the 'offset'th row from start of stripe. 'rows' is expected to stay
+  // constant between this and the next call to read.
   virtual void
   read(int64_t offset, const RowSet& rows, const uint64_t* incomingNulls) = 0;
 

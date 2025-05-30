@@ -615,6 +615,16 @@ class VectorTestBase {
     return vectorMaker_.flatMapVector(maps, mapType);
   }
 
+  // Create nullabe flat map vector from nested std::vector representation.
+  template <typename TKey, typename TValue>
+  FlatMapVectorPtr makeNullableFlatMapVector(
+      const std::vector<std::optional<
+          std::vector<std::pair<TKey, std::optional<TValue>>>>>& maps,
+      const TypePtr& mapType =
+          MAP(CppToType<TKey>::create(), CppToType<TValue>::create())) {
+    return vectorMaker_.flatMapVectorNullable(maps, mapType);
+  }
+
   /// Same as above but constructs a FlatMapVector instead of a MapVector.
   template <typename TKey, typename TValue>
   FlatMapVectorPtr makeFlatMapVectorFromJson(
