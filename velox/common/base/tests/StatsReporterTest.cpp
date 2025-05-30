@@ -193,7 +193,7 @@ class TestStatsReportMmapAllocator : public memory::MmapAllocator {
     return numMallocBytes_;
   }
 
-  memory::MachinePageCount numExternalMapped() const {
+  memory::MachinePageCount numExternalMapped() const override {
     return numExternalMapped_;
   }
 
