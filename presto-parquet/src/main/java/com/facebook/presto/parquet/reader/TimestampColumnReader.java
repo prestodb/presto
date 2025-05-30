@@ -20,34 +20,33 @@ import com.facebook.presto.parquet.RichColumnDescriptor;
 import org.apache.parquet.io.api.Binary;
 import org.joda.time.DateTimeZone;
 
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
+
 import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.parquet.ParquetTimestampUtils.getTimestampMillis;
-import static java.util.Objects.requireNonNull;
 
 public class TimestampColumnReader
         extends AbstractColumnReader
 {
-    private final DateTimeZone timezone;
-
-    public TimestampColumnReader(RichColumnDescriptor descriptor, DateTimeZone timezone)
+    public TimestampColumnReader(RichColumnDescriptor descriptor)
     {
         super(descriptor);
-        this.timezone = requireNonNull(timezone, "timezone is null");
     }
 
     @Override
-    protected void readValue(BlockBuilder blockBuilder, Type type)
+    protected void readValue(BlockBuilder blockBuilder, Type type, Optional<DateTimeZone> timezone)
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
             Binary binary = valuesReader.readBytes();
-            long utcMillis = getTimestampMillis(binary);
+            AtomicLong utcMillis = new AtomicLong(getTimestampMillis(binary));
             if (type instanceof TimestampWithTimeZoneType) {
-                type.writeLong(blockBuilder, packDateTimeWithZone(utcMillis, UTC_KEY));
+                type.writeLong(blockBuilder, packDateTimeWithZone(utcMillis.get(), UTC_KEY));
             }
             else {
-                utcMillis = timezone.convertUTCToLocal(utcMillis);
-                type.writeLong(blockBuilder, utcMillis);
+                timezone.ifPresent(tz -> utcMillis.set(tz.convertUTCToLocal(utcMillis.get())));
+                type.writeLong(blockBuilder, utcMillis.get());
             }
         }
         else if (isValueNull()) {

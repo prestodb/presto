@@ -25,7 +25,6 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
-import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.hive.parquet.ParquetPageSource;
@@ -122,19 +121,16 @@ public class DeltaPageSourceProvider
     private final HdfsEnvironment hdfsEnvironment;
     private final TypeManager typeManager;
     private final FileFormatDataSourceStats fileFormatDataSourceStats;
-    private final DateTimeZone timezone;
 
     @Inject
     public DeltaPageSourceProvider(
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
-            FileFormatDataSourceStats fileFormatDataSourceStats,
-            HiveClientConfig hiveClientConfig)
+            FileFormatDataSourceStats fileFormatDataSourceStats)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
-        this.timezone = requireNonNull(hiveClientConfig, "hiveClientConfig is null").getDateTimeZone();
     }
 
     @Override
@@ -285,6 +281,9 @@ public class DeltaPageSourceProvider
                 }
             }
             MessageColumnIO messageColumnIO = getColumnIO(fileSchema, requestedSchema);
+
+            Optional<DateTimeZone> timezone = Optional.ofNullable(fileMetaData.getKeyValueMetaData().get("writer.time.zone")).map(DateTimeZone::forID);
+
             ParquetReader parquetReader = new ParquetReader(
                     messageColumnIO,
                     blocks.build(),

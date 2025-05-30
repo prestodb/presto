@@ -541,6 +541,6 @@ public class TestEncryption
                 null,
                 false,
                 fileDecryptor,
-                DateTimeZone.forID("America/Bahia_Banderas"));
+                Optional.of(DateTimeZone.forID("America/Bahia_Banderas")));
     }
 }

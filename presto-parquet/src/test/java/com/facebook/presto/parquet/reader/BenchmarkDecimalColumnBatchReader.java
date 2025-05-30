@@ -442,7 +442,7 @@ public class BenchmarkDecimalColumnBatchReader
                     null,
                     false,
                     Optional.empty(),
-                    DateTimeZone.forID("America/Bahia_Banderas"));
+                    Optional.of(DateTimeZone.forID("America/Bahia_Banderas")));
         }
 
         protected abstract List<?> generateValues();

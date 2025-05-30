@@ -24,7 +24,6 @@ import com.facebook.presto.hive.EncryptionInformation;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveBatchPageSourceFactory;
-import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.hive.HiveFileSplit;
@@ -152,7 +151,6 @@ public class ParquetPageSourceFactory
     private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats stats;
     private final ParquetMetadataSource parquetMetadataSource;
-    private final DateTimeZone timezone;
 
     @Inject
     public ParquetPageSourceFactory(
@@ -160,15 +158,13 @@ public class ParquetPageSourceFactory
             StandardFunctionResolution functionResolution,
             HdfsEnvironment hdfsEnvironment,
             FileFormatDataSourceStats stats,
-            ParquetMetadataSource parquetMetadataSource,
-            HiveClientConfig hiveClientConfig)
+            ParquetMetadataSource parquetMetadataSource)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.parquetMetadataSource = requireNonNull(parquetMetadataSource, "parquetMetadataSource is null");
-        this.timezone = requireNonNull(hiveClientConfig, "hiveClientConfig is null").getDateTimeZone();
     }
 
     public ConnectorPageSource createParquetPageSource(
@@ -259,6 +255,9 @@ public class ParquetPageSourceFactory
                 nextStart += block.getRowCount();
             }
             MessageColumnIO messageColumnIO = getColumnIO(fileSchema, requestedSchema);
+
+            Optional<DateTimeZone> timezone = Optional.ofNullable(fileMetaData.getKeyValueMetaData().get("writer.time.zone")).map(DateTimeZone::forID);
+
             ParquetReader parquetReader = new ParquetReader(
                     messageColumnIO,
                     blocks.build(),

@@ -116,7 +116,7 @@ public class ParquetReader
     private final List<RowRanges> blockRowRanges;
     private final Map<ColumnPath, ColumnDescriptor> paths = new HashMap<>();
     private final boolean columnIndexFilterEnabled;
-    private final DateTimeZone timezone;
+    private final Optional<DateTimeZone> timezone;
     private BlockMetaData currentBlockMetadata;
     /**
      * Index in the Parquet file of the first row of the current group
@@ -146,7 +146,7 @@ public class ParquetReader
             List<ColumnIndexStore> blockIndexStores,
             boolean columnIndexFilterEnabled,
             Optional<InternalFileDecryptor> fileDecryptor,
-            DateTimeZone timezone)
+            Optional<DateTimeZone> timezone)
     {
         this.blocks = blocks;
         this.firstRowsOfBlocks = requireNonNull(firstRowsOfBlocks, "firstRowsOfBlocks is null");
@@ -352,7 +352,7 @@ public class ParquetReader
                         Optional.of(filteredOffsetIndex),
                         pageReaderMemoryContext);
 
-                columnReader.init(pageReader, field, currentGroupRowRanges);
+                columnReader.init(pageReader, field, currentGroupRowRanges, timezone);
 
                 if (enableVerification) {
                     ColumnReader verificationColumnReader = verificationColumnReaders[field.getId()];
@@ -363,7 +363,7 @@ public class ParquetReader
                             columnDescriptor,
                             Optional.of(filteredOffsetIndex),
                             verificationPageReaderMemoryContext);
-                    verificationColumnReader.init(pageReaderVerification, field, currentGroupRowRanges);
+                    verificationColumnReader.init(pageReaderVerification, field, currentGroupRowRanges, timezone);
                 }
             }
             else {
@@ -374,7 +374,7 @@ public class ParquetReader
                         columnDescriptor,
                         Optional.empty(),
                         pageReaderMemoryContext);
-                columnReader.init(pageReader, field, null);
+                columnReader.init(pageReader, field, null, timezone);
 
                 if (enableVerification) {
                     ColumnReader verificationColumnReader = verificationColumnReaders[field.getId()];
@@ -385,17 +385,17 @@ public class ParquetReader
                             columnDescriptor,
                             Optional.empty(),
                             verificationPageReaderMemoryContext);
-                    verificationColumnReader.init(pageReaderVerification, field, null);
+                    verificationColumnReader.init(pageReaderVerification, field, null, timezone);
                 }
             }
         }
 
-        ColumnChunk columnChunk = columnReader.readNext();
+        ColumnChunk columnChunk = columnReader.readNext(timezone);
         columnChunk = typeCoercion(columnChunk, field.getDescriptor().getPrimitiveType().getPrimitiveTypeName(), field.getType());
 
         if (enableVerification) {
             ColumnReader verificationColumnReader = verificationColumnReaders[field.getId()];
-            ColumnChunk expected = verificationColumnReader.readNext();
+            ColumnChunk expected = verificationColumnReader.readNext(timezone);
             ParquetResultVerifierUtils.verifyColumnChunks(columnChunk, expected, columnDescriptor.getPath().length > 1, field, dataSource.getId());
         }
 
@@ -523,10 +523,10 @@ public class ParquetReader
     {
         for (PrimitiveColumnIO columnIO : columns) {
             RichColumnDescriptor column = new RichColumnDescriptor(columnIO.getColumnDescriptor(), columnIO.getType().asPrimitiveType());
-            columnReaders[columnIO.getId()] = ColumnReaderFactory.createReader(column, batchReadEnabled, timezone);
+            columnReaders[columnIO.getId()] = ColumnReaderFactory.createReader(column, batchReadEnabled);
 
             if (enableVerification) {
-                verificationColumnReaders[columnIO.getId()] = ColumnReaderFactory.createReader(column, false, timezone);
+                verificationColumnReaders[columnIO.getId()] = ColumnReaderFactory.createReader(column, false);
             }
         }
     }

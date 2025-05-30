@@ -94,8 +94,7 @@ class HudiParquetPageSources
             long length,
             List<HudiColumnHandle> regularColumns,
             TupleDomain<HudiColumnHandle> effectivePredicate,
-            FileFormatDataSourceStats fileFormatDataSourceStats,
-            DateTimeZone timezone)
+            FileFormatDataSourceStats fileFormatDataSourceStats)
     {
         AggregatedMemoryContext systemMemoryContext = newSimpleAggregatedMemoryContext();
 
@@ -151,6 +150,9 @@ class HudiParquetPageSources
             }
 
             MessageColumnIO messageColumnIO = getColumnIO(fileSchema, requestedSchema);
+
+            Optional<DateTimeZone> timezone = Optional.ofNullable(fileMetaData.getKeyValueMetaData().get("writer.time.zone")).map(DateTimeZone::forID);
+
             ParquetReader parquetReader = new ParquetReader(
                     messageColumnIO,
                     blocks,

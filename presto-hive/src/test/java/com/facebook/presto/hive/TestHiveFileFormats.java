@@ -385,7 +385,7 @@ public class TestHiveFileFormats
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
                 .withFileWriterFactory(new ParquetFileWriterFactory(HDFS_ENVIRONMENT, FUNCTION_AND_TYPE_MANAGER, new NodeVersion("test"), HIVE_STORAGE_TIME_ZONE))
-                .isReadableByPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER, new HiveClientConfig().setTimeZone(HIVE_STORAGE_TIME_ZONE.getID())));
+                .isReadableByPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER));
     }
 
     @Test(dataProvider = "rowCount")
@@ -460,7 +460,7 @@ public class TestHiveFileFormats
                 .withColumns(testColumns)
                 .withSession(parquetPageSourceSession)
                 .withRowsCount(rowCount)
-                .isReadableByPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER, new HiveClientConfig().setTimeZone(HIVE_STORAGE_TIME_ZONE.getID())));
+                .isReadableByPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER));
     }
 
     @Test(dataProvider = "rowCount")
@@ -473,7 +473,7 @@ public class TestHiveFileFormats
                 .withSession(parquetPageSourceSession)
                 .withCompressionCodec(HiveCompressionCodec.GZIP)
                 .withRowsCount(rowCount)
-                .isReadableByPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER, new HiveClientConfig().setTimeZone(HIVE_STORAGE_TIME_ZONE.getID())));
+                .isReadableByPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER));
     }
 
     @Test(dataProvider = "rowCount")
@@ -496,7 +496,7 @@ public class TestHiveFileFormats
                 .withReadColumns(readColumns)
                 .withSession(parquetPageSourceSession)
                 .withRowsCount(rowCount)
-                .isReadableByPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER, new HiveClientConfig().setTimeZone(HIVE_STORAGE_TIME_ZONE.getID())));
+                .isReadableByPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER));
 
         // test name-based access
         readColumns = Lists.reverse(writeColumns);
@@ -504,7 +504,7 @@ public class TestHiveFileFormats
                 .withWriteColumns(writeColumns)
                 .withReadColumns(readColumns)
                 .withSession(parquetPageSourceSessionUseName)
-                .isReadableByPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER, new HiveClientConfig().setTimeZone(HIVE_STORAGE_TIME_ZONE.getID())));
+                .isReadableByPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER));
     }
 
     @Test
@@ -634,7 +634,7 @@ public class TestHiveFileFormats
                 .withWriteColumns(ImmutableList.of(writeColumn))
                 .withReadColumns(ImmutableList.of(readColumn))
                 .withSession(parquetPageSourceSession)
-                .isReadableByPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER, new HiveClientConfig().setTimeZone(HIVE_STORAGE_TIME_ZONE.getID())));
+                .isReadableByPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER));
 
         assertThatFileFormat(AVRO)
                 .withWriteColumns(ImmutableList.of(writeColumn))
@@ -681,7 +681,7 @@ public class TestHiveFileFormats
         assertThatFileFormat(PARQUET)
                 .withColumns(columns)
                 .withSession(parquetPageSourceSession)
-                .isFailingForPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER, new HiveClientConfig().setTimeZone(HIVE_STORAGE_TIME_ZONE.getID())), expectedErrorCode, expectedMessage);
+                .isFailingForPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER), expectedErrorCode, expectedMessage);
 
         assertThatFileFormat(SEQUENCEFILE)
                 .withColumns(columns)
@@ -742,20 +742,20 @@ public class TestHiveFileFormats
                 .withWriteColumns(ImmutableList.of(longColumn))
                 .withReadColumns(ImmutableList.of(timestampColumn))
                 .withSession(parquetPageSourceSession)
-                .isReadableByPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER, new HiveClientConfig().setTimeZone(HIVE_STORAGE_TIME_ZONE.getID())));
+                .isReadableByPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER));
 
         // make sure INT64 (declared in Hive schema) stored as INT32 in file is still readable
         assertThatFileFormat(PARQUET)
                 .withWriteColumns(ImmutableList.of(longStoredAsIntColumn))
                 .withReadColumns(ImmutableList.of(longColumn))
                 .withSession(parquetPageSourceSession)
-                .isReadableByPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER, new HiveClientConfig().setTimeZone(HIVE_STORAGE_TIME_ZONE.getID())));
+                .isReadableByPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER));
 
         assertThatFileFormat(PARQUET)
                 .withWriteColumns(ImmutableList.of(floatColumn))
                 .withReadColumns(ImmutableList.of(doubleColumn))
                 .withSession(parquetPageSourceSession)
-                .isReadableByPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER, new HiveClientConfig().setTimeZone(HIVE_STORAGE_TIME_ZONE.getID())));
+                .isReadableByPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER));
 
         String expectedMessageDoubleLong = "The column column_name of table schema.table is declared as type bigint, but the Parquet file ((.*?)) declares the column as type DOUBLE";
 
@@ -763,7 +763,7 @@ public class TestHiveFileFormats
                 .withWriteColumns(ImmutableList.of(doubleColumn))
                 .withReadColumns(ImmutableList.of(longColumn))
                 .withSession(parquetPageSourceSession)
-                .isFailingForPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER, new HiveClientConfig().setTimeZone(HIVE_STORAGE_TIME_ZONE.getID())), expectedErrorCode, expectedMessageDoubleLong);
+                .isFailingForPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER), expectedErrorCode, expectedMessageDoubleLong);
 
         String expectedMessageFloatInt = "The column column_name of table schema.table is declared as type int, but the Parquet file ((.*?)) declares the column as type FLOAT";
 
@@ -771,7 +771,7 @@ public class TestHiveFileFormats
                 .withWriteColumns(ImmutableList.of(floatColumn))
                 .withReadColumns(ImmutableList.of(intColumn))
                 .withSession(parquetPageSourceSession)
-                .isFailingForPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER, new HiveClientConfig()), expectedErrorCode, expectedMessageFloatInt);
+                .isFailingForPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER), expectedErrorCode, expectedMessageFloatInt);
 
         String expectedMessageIntBoolean = "The column column_name of table schema.table is declared as type boolean, but the Parquet file ((.*?)) declares the column as type INT32";
 
@@ -779,7 +779,7 @@ public class TestHiveFileFormats
                 .withWriteColumns(ImmutableList.of(intColumn))
                 .withReadColumns(ImmutableList.of(booleanColumn))
                 .withSession(parquetPageSourceSession)
-                .isFailingForPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER, new HiveClientConfig().setTimeZone(HIVE_STORAGE_TIME_ZONE.getID())), expectedErrorCode, expectedMessageIntBoolean);
+                .isFailingForPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER), expectedErrorCode, expectedMessageIntBoolean);
 
         String expectedMessageStringLong = "The column column_name of table schema.table is declared as type string, but the Parquet file ((.*?)) declares the column as type INT64";
 
@@ -787,7 +787,7 @@ public class TestHiveFileFormats
                 .withWriteColumns(ImmutableList.of(longColumn))
                 .withReadColumns(ImmutableList.of(stringColumn))
                 .withSession(parquetPageSourceSession)
-                .isFailingForPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER, new HiveClientConfig().setTimeZone(HIVE_STORAGE_TIME_ZONE.getID())), expectedErrorCode, expectedMessageStringLong);
+                .isFailingForPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER), expectedErrorCode, expectedMessageStringLong);
 
         String expectedMessageIntString = "The column column_name of table schema.table is declared as type int, but the Parquet file ((.*?)) declares the column as type BINARY";
 
@@ -795,7 +795,7 @@ public class TestHiveFileFormats
                 .withWriteColumns(ImmutableList.of(stringColumn))
                 .withReadColumns(ImmutableList.of(intColumn))
                 .withSession(parquetPageSourceSession)
-                .isFailingForPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER, new HiveClientConfig().setTimeZone(HIVE_STORAGE_TIME_ZONE.getID())), expectedErrorCode, expectedMessageIntString);
+                .isFailingForPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER), expectedErrorCode, expectedMessageIntString);
 
         String expectedMessageMapLongLong = "The column column_name of table schema.table is declared as type map<bigint,bigint>, but the Parquet file ((.*?)) declares the column as type INT64";
 
@@ -803,7 +803,7 @@ public class TestHiveFileFormats
                 .withWriteColumns(ImmutableList.of(longColumn))
                 .withReadColumns(ImmutableList.of(mapLongColumn))
                 .withSession(parquetPageSourceSession)
-                .isFailingForPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER, new HiveClientConfig().setTimeZone(HIVE_STORAGE_TIME_ZONE.getID())), expectedErrorCode, expectedMessageMapLongLong);
+                .isFailingForPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER), expectedErrorCode, expectedMessageMapLongLong);
 
         String expectedMessageMapLongMapDouble = "The column column_name of table schema.table is declared as type map<bigint,bigint>, but the Parquet file ((.*?)) declares the column as type optional group column_name \\(MAP\\) \\{\n"
                 + "  repeated group key_value \\(MAP_KEY_VALUE\\) \\{\n"
@@ -816,7 +816,7 @@ public class TestHiveFileFormats
                 .withWriteColumns(ImmutableList.of(mapDoubleColumn))
                 .withReadColumns(ImmutableList.of(mapLongColumn))
                 .withSession(parquetPageSourceSession)
-                .isFailingForPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER, new HiveClientConfig().setTimeZone(HIVE_STORAGE_TIME_ZONE.getID())), expectedErrorCode, expectedMessageMapLongMapDouble);
+                .isFailingForPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER), expectedErrorCode, expectedMessageMapLongMapDouble);
 
         String expectedMessageArrayStringArrayBoolean = "The column column_name of table schema.table is declared as type array<string>, but the Parquet file ((.*?)) declares the column as type optional group column_name \\(LIST\\) \\{\n"
                 + "  repeated group bag \\{\n"
@@ -828,7 +828,7 @@ public class TestHiveFileFormats
                 .withWriteColumns(ImmutableList.of(arrayBooleanColumn))
                 .withReadColumns(ImmutableList.of(arrayStringColumn))
                 .withSession(parquetPageSourceSession)
-                .isFailingForPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER, new HiveClientConfig().setTimeZone(HIVE_STORAGE_TIME_ZONE.getID())), expectedErrorCode, expectedMessageArrayStringArrayBoolean);
+                .isFailingForPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER), expectedErrorCode, expectedMessageArrayStringArrayBoolean);
 
         String expectedMessageBooleanArrayBoolean = "The column column_name of table schema.table is declared as type array<boolean>, but the Parquet file ((.*?)) declares the column as type BOOLEAN";
 
@@ -836,7 +836,7 @@ public class TestHiveFileFormats
                 .withWriteColumns(ImmutableList.of(booleanColumn))
                 .withReadColumns(ImmutableList.of(arrayBooleanColumn))
                 .withSession(parquetPageSourceSession)
-                .isFailingForPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER, new HiveClientConfig().setTimeZone(HIVE_STORAGE_TIME_ZONE.getID())), expectedErrorCode, expectedMessageBooleanArrayBoolean);
+                .isFailingForPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER), expectedErrorCode, expectedMessageBooleanArrayBoolean);
 
         String expectedMessageRowLongLong = "The column column_name of table schema.table is declared as type bigint, but the Parquet file ((.*?)) declares the column as type optional group column_name \\{\n"
                 + "  optional int64 s_bigint;\n"
@@ -846,7 +846,7 @@ public class TestHiveFileFormats
                 .withWriteColumns(ImmutableList.of(rowLongColumn))
                 .withReadColumns(ImmutableList.of(longColumn))
                 .withSession(parquetPageSourceSession)
-                .isFailingForPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER, new HiveClientConfig().setTimeZone(HIVE_STORAGE_TIME_ZONE.getID())), expectedErrorCode, expectedMessageRowLongLong);
+                .isFailingForPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER), expectedErrorCode, expectedMessageRowLongLong);
 
         TestColumn rowLongColumnReadOnMap = new TestColumn("column_name",
                 getStandardStructObjectInspector(ImmutableList.of("s_bigint"), ImmutableList.of(javaLongObjectInspector)),
@@ -856,7 +856,7 @@ public class TestHiveFileFormats
                 .withWriteColumns(ImmutableList.of(mapLongColumn))
                 .withReadColumns(ImmutableList.of(rowLongColumnReadOnMap))
                 .withSession(parquetPageSourceSession)
-                .isReadableByPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER, new HiveClientConfig().setTimeZone(HIVE_STORAGE_TIME_ZONE.getID())));
+                .isReadableByPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER));
 
         String expectedMessageRowLongNest = "The column column_name of table schema.table is declared as type map<string,array<struct<s_int:int>>>, but the Parquet file ((.*?)) declares the column as type optional group column_name \\{\n"
                 + "  optional int64 s_bigint;\n"
@@ -866,7 +866,7 @@ public class TestHiveFileFormats
                 .withWriteColumns(ImmutableList.of(rowLongColumn))
                 .withReadColumns(ImmutableList.of(nestColumn))
                 .withSession(parquetPageSourceSession)
-                .isFailingForPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER, new HiveClientConfig().setTimeZone(HIVE_STORAGE_TIME_ZONE.getID())), expectedErrorCode, expectedMessageRowLongNest);
+                .isFailingForPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER), expectedErrorCode, expectedMessageRowLongNest);
     }
 
     @Test
@@ -897,7 +897,7 @@ public class TestHiveFileFormats
                 .withReadColumns(ImmutableList.of(readColumn))
                 .withRowsCount(1)
                 .withSession(parquetPageSourceSession)
-                .isReadableByPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER, new HiveClientConfig().setTimeZone(HIVE_STORAGE_TIME_ZONE.getID())));
+                .isReadableByPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER));
 
         //test add/remove sub-fields
         readColumn = new TestColumn("column_name",
@@ -915,7 +915,7 @@ public class TestHiveFileFormats
                 .withReadColumns(ImmutableList.of(readColumn))
                 .withRowsCount(1)
                 .withSession(parquetPageSourceSession)
-                .isReadableByPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER, new HiveClientConfig().setTimeZone(HIVE_STORAGE_TIME_ZONE.getID())));
+                .isReadableByPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER));
 
         //test field name case sensitivity in nested Row type
         readColumn = new TestColumn("column_name",
@@ -932,7 +932,7 @@ public class TestHiveFileFormats
                 .withReadColumns(ImmutableList.of(readColumn))
                 .withRowsCount(1)
                 .withSession(parquetPageSourceSession)
-                .isReadableByPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER, new HiveClientConfig().setTimeZone(HIVE_STORAGE_TIME_ZONE.getID())));
+                .isReadableByPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER));
 
         //test sub-field type mismatch in nested Row type
         readColumn = new TestColumn("column_name",
@@ -960,7 +960,7 @@ public class TestHiveFileFormats
                 .withReadColumns(ImmutableList.of(readColumn))
                 .withRowsCount(1)
                 .withSession(parquetPageSourceSession)
-                .isFailingForPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER, new HiveClientConfig().setTimeZone(HIVE_STORAGE_TIME_ZONE.getID())), expectedErrorCode, expectedMessageRowLongNest);
+                .isFailingForPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER), expectedErrorCode, expectedMessageRowLongNest);
     }
 
     private void testCursorProvider(HiveRecordCursorProvider cursorProvider,

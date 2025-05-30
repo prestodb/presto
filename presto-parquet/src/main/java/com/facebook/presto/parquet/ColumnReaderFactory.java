@@ -43,7 +43,6 @@ import com.facebook.presto.parquet.reader.ShortDecimalColumnReader;
 import com.facebook.presto.parquet.reader.TimestampColumnReader;
 import com.facebook.presto.spi.PrestoException;
 import org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
-import org.joda.time.DateTimeZone;
 
 import java.util.Optional;
 
@@ -62,7 +61,7 @@ public class ColumnReaderFactory
     {
     }
 
-    public static ColumnReader createReader(RichColumnDescriptor descriptor, boolean batchReadEnabled, DateTimeZone timezone)
+    public static ColumnReader createReader(RichColumnDescriptor descriptor, boolean batchReadEnabled)
     {
         final boolean isNested = descriptor.getPath().length > 1;
         if (batchReadEnabled && (!(isNested && isDecimalType(descriptor)))) {
@@ -126,7 +125,7 @@ public class ColumnReaderFactory
                 }
                 return createDecimalColumnReader(descriptor).orElseGet(() -> new LongColumnReader(descriptor));
             case INT96:
-                return new TimestampColumnReader(descriptor, timezone);
+                return new TimestampColumnReader(descriptor);
             case FLOAT:
                 return new FloatColumnReader(descriptor);
             case DOUBLE:

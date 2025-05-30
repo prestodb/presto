@@ -21,7 +21,6 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
-import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -36,7 +35,6 @@ import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
@@ -59,19 +57,16 @@ public class HudiPageSourceProvider
     private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats fileFormatDataSourceStats;
     private final TypeManager typeManager;
-    private final DateTimeZone timezone;
 
     @Inject
     public HudiPageSourceProvider(
             HdfsEnvironment hdfsEnvironment,
             FileFormatDataSourceStats fileFormatDataSourceStats,
-            TypeManager typeManager,
-            HiveClientConfig hiveClientConfig)
+            TypeManager typeManager)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.timezone = requireNonNull(hiveClientConfig, "hiveClientConfig is null").getDateTimeZone();
     }
 
     @Override
@@ -112,8 +107,7 @@ public class HudiPageSourceProvider
                     baseFile.getLength(),
                     dataColumns,
                     TupleDomain.all(), // TODO: predicates
-                    fileFormatDataSourceStats,
-                    timezone);
+                    fileFormatDataSourceStats);
         }
         else if (tableType == HudiTableType.MOR) {
             Properties schema = getHiveSchema(

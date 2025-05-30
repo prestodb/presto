@@ -16,10 +16,12 @@ package com.facebook.presto.parquet.batchreader.decoders.rle;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.TimestampValuesDecoder;
 import com.facebook.presto.parquet.batchreader.dictionary.TimestampDictionary;
 import org.apache.parquet.io.ParquetDecodingException;
+import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -40,7 +42,7 @@ public class TimestampRLEDictionaryValuesDecoder
     }
 
     @Override
-    public void readNext(long[] values, int offset, int length)
+    public void readNext(long[] values, int offset, int length, Optional<DateTimeZone> timezone)
             throws IOException
     {
         int destinationIndex = offset;
