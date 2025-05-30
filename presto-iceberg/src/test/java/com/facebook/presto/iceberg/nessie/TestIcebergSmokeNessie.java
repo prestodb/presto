@@ -82,7 +82,7 @@ public class TestIcebergSmokeNessie
         Path dataDirectory = ((DistributedQueryRunner) queryRunner).getCoordinator().getDataDirectory();
         Path icebergDataDirectory = getIcebergDataDirectoryPath(dataDirectory, NESSIE.name(), new IcebergConfig().getFileFormat(), false);
         Optional<File> tempTableLocation = Arrays.stream(requireNonNull(icebergDataDirectory.resolve(schema).toFile().listFiles()))
-                .filter(file -> file.toURI().toString().contains(table)).findFirst();
+                .filter(file -> endsWithTableUUID(table, file.toURI().toString())).findFirst();
 
         String dataLocation = icebergDataDirectory.toFile().toURI().toString();
         String relativeTableLocation = tempTableLocation.get().toURI().toString().replace(dataLocation, "");
@@ -118,5 +118,10 @@ public class TestIcebergSmokeNessie
         return IcebergUtil.getNativeIcebergTable(catalogFactory,
                 session,
                 SchemaTableName.valueOf(schema + "." + tableName));
+    }
+
+    private static boolean endsWithTableUUID(String tableName, String tablePath)
+    {
+        return tablePath.matches(format(".*%s_[-a-fA-F0-9]{36}/$", tableName));
     }
 }
