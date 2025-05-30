@@ -8,9 +8,14 @@ Map Functions
 
 .. spark:function:: map(K, V, K, V, ...) -> map(K,V)
 
-    Returns a map created using the given key/value pairs. Keys are not allowed to be null. ::
+    Returns a map created using the given key/value pairs. If there is duplicate key, by default that
+    key's value comes from last value for that key in the arguments.
+    If configuration `throw_exception_on_duplicate_map_keys` is set true,
+    throws exception for duplicate keys. Keys are not allowed to be null. ::
 
         SELECT map(1, 2, 3, 4); -- {1 -> 2, 3 -> 4}
+        SELECT map(1, 2, 3, 4, 1, 5); -- {1 -> 5, 3 -> 4} (LAST_WIN behavior)
+        SELECT map(1, 2, 3, 4, 1, 5); -- "Duplicate map key (1) was found" (EXCEPTION behavior)
 
         SELECT map(array(1, 2), array(3, 4)); -- {[1, 2] -> [3, 4]}
 
