@@ -304,6 +304,13 @@ TEST(FilterTest, bigintValuesUsingHashTable) {
   EXPECT_TRUE(filter->testInt64Range(0, 1, false));
 }
 
+TEST(FilterTest, negatedBigintValuesUsingHashTableOverflow) {
+  auto filter = createNegatedBigintValues(
+      {-9074444101981834051, 7013258837215469735}, false);
+  EXPECT_TRUE(
+      filter->testInt64Range(-9074444101981834051, 7013258837215469735, false));
+}
+
 TEST(FilterTest, negatedBigintValuesUsingHashTable) {
   auto filter = createNegatedBigintValues({1, 6, 10'000, 8, 9, 100, 10}, false);
   auto castedFilter =

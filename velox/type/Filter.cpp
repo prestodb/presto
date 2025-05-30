@@ -1129,7 +1129,7 @@ bool NegatedBigintValuesUsingHashTable::testInt64Range(
   // of things between min and max
   // if distance is any less, then we are missing an element => something
   // in the range is accepted
-  return (std::distance(lo, hi) != max - min);
+  return std::distance(lo, hi) != static_cast<int128_t>(max) - min;
 }
 
 namespace {
