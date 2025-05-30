@@ -132,6 +132,8 @@ int main(int argc, char** argv) {
       "reduce_agg",
       "max_data_size_for_stats",
       "any_value",
+      // Skip non-deterministic functions.
+      "noisy_count_if_gaussian",
   };
 
   static const std::unordered_set<std::string> functionsRequireSortedInput = {
