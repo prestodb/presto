@@ -20,6 +20,8 @@ using namespace facebook::velox::dwio::common;
 
 namespace facebook::velox::text {
 
+using dwio::common::ReaderOptions; // clarify ambiguity
+
 namespace {
 
 class TextRowReader : public RowReader {
@@ -68,6 +70,45 @@ class TextRowReader : public RowReader {
   memory::MemoryPool& pool_;
   std::unique_ptr<BaseVector> batch_;
   std::shared_ptr<common::ScanSpec> scanSpec_;
+};
+
+class TextReader : public Reader {
+ public:
+  TextReader(
+      const ReaderOptions& options,
+      const std::shared_ptr<ReadFile>& readFile)
+      : options_(options), readFile_(readFile) {
+    return;
+  }
+
+  std::optional<uint64_t> numberOfRows() const override {
+    return std::nullopt;
+  }
+
+  std::unique_ptr<ColumnStatistics> columnStatistics(
+      uint32_t /*index*/) const override {
+    return nullptr;
+  }
+
+  const RowTypePtr& rowType() const override {
+    static RowTypePtr dummy;
+    return dummy;
+  }
+
+  const std::shared_ptr<const TypeWithId>& typeWithId() const override {
+    static std::shared_ptr<const TypeWithId> dummy;
+    return dummy;
+  }
+
+  std::unique_ptr<RowReader> createRowReader(
+      const RowReaderOptions& /*options*/) const override {
+    return nullptr;
+  }
+
+ private:
+  ReaderOptions options_;
+  std::shared_ptr<ReadFile> readFile_;
+  mutable std::shared_ptr<const TypeWithId> typeWithId_;
 };
 
 } // namespace
