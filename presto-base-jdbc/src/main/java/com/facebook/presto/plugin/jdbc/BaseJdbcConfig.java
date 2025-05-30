@@ -30,6 +30,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class BaseJdbcConfig
 {
+    private int fetchSize = 20000;
     private String connectionUrl;
     private String connectionUser;
     private String connectionPassword;
@@ -39,6 +40,18 @@ public class BaseJdbcConfig
     private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
     private Set<String> listSchemasIgnoredSchemas = ImmutableSet.of("information_schema");
     private boolean caseSensitiveNameMatchingEnabled;
+
+    public int getFetchSize()
+    {
+        return fetchSize;
+    }
+
+    @Config("jdbc-fetch-size")
+    public BaseJdbcConfig setFetchSize(int fetchSize)
+    {
+        this.fetchSize = fetchSize;
+        return this;
+    }
 
     @NotNull
     public String getConnectionUrl()

@@ -27,6 +27,11 @@ public class OracleConfig
     private int timestampDefaultPrecision = 6;
     private int numberDefaultScale = 10;
     private RoundingMode numberRoundingMode = RoundingMode.HALF_UP;
+    private boolean tlsEnabled;
+    private String keystorePath;
+    private String truststorePath;
+    private String keystorePassword;
+    private String truststorePassword;
 
     @NotNull
     public boolean isSynonymsEnabled()
@@ -92,6 +97,66 @@ public class OracleConfig
     public OracleConfig setTimestampDefaultPrecision(int timestampDefaultPrecision)
     {
         this.timestampDefaultPrecision = timestampDefaultPrecision;
+        return this;
+    }
+
+    public boolean isTlsEnabled()
+    {
+        return tlsEnabled;
+    }
+
+    @Config("oracle.tls.enabled")
+    public OracleConfig setTlsEnabled(boolean tlsEnabled)
+    {
+        this.tlsEnabled = tlsEnabled;
+        return this;
+    }
+
+    public String getKeystorePath()
+    {
+        return keystorePath;
+    }
+
+    @Config("oracle.tls.keystore-path")
+    public OracleConfig setKeystorePath(String path)
+    {
+        this.keystorePath = path;
+        return this;
+    }
+
+    public String getTruststorePath()
+    {
+        return truststorePath;
+    }
+
+    @Config("oracle.tls.truststore-path")
+    public OracleConfig setTruststorePath(String path)
+    {
+        this.truststorePath = path;
+        return this;
+    }
+
+    public String getKeystorePassword()
+    {
+        return keystorePassword;
+    }
+
+    @Config("oracle.tls.keystore-password")
+    public OracleConfig setKeystorePassword(String password)
+    {
+        this.keystorePassword = password;
+        return this;
+    }
+
+    public String getTruststorePassword()
+    {
+        return truststorePassword;
+    }
+
+    @Config("oracle.tls.truststore-password")
+    public OracleConfig setTruststorePassword(String password)
+    {
+        this.truststorePassword = password;
         return this;
     }
 }

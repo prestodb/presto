@@ -25,11 +25,11 @@ import com.google.inject.Singleton;
 import oracle.jdbc.OracleConnection;
 import oracle.jdbc.OracleDriver;
 
-import java.sql.SQLException;
 import java.util.Optional;
 import java.util.Properties;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static java.util.Objects.requireNonNull;
 
 public class OracleClientModule
         implements Module
@@ -46,11 +46,21 @@ public class OracleClientModule
     @Provides
     @Singleton
     public static ConnectionFactory connectionFactory(BaseJdbcConfig config, OracleConfig oracleConfig)
-            throws SQLException
     {
+        requireNonNull(oracleConfig, "oracle config is null");
+        requireNonNull(config, "BaseJdbc config  is null");
         Properties connectionProperties = new Properties();
+        if (config.getConnectionUser() != null && config.getConnectionPassword() != null) {
+            connectionProperties.setProperty("user", config.getConnectionUser());
+            connectionProperties.setProperty("password", config.getConnectionPassword());
+        }
+        if (oracleConfig.getTruststorePath() != null) {
+            connectionProperties.setProperty("javax.net.ssl.trustStore", oracleConfig.getTruststorePath());
+        }
+        if (oracleConfig.getTruststorePassword() != null) {
+            connectionProperties.setProperty("javax.net.ssl.trustStorePassword", oracleConfig.getTruststorePassword());
+        }
         connectionProperties.setProperty(OracleConnection.CONNECTION_PROPERTY_INCLUDE_SYNONYMS, String.valueOf(oracleConfig.isSynonymsEnabled()));
-
         return new DriverConnectionFactory(
                 new OracleDriver(),
                 config.getConnectionUrl(),
