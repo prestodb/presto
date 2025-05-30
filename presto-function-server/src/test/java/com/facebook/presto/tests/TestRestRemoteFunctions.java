@@ -41,13 +41,22 @@ import static org.testng.Assert.assertFalse;
 public class TestRestRemoteFunctions
         extends AbstractTestQueryFramework
 {
-    private TestingFunctionServer functionServer;
     private static final Session session = testSessionBuilder()
             .setSource("test")
             .setCatalog("tpch")
             .setSchema("tiny")
             .setSystemProperty("remote_functions_enabled", "true")
             .build();
+    private TestingFunctionServer functionServer;
+
+    private static int findRandomPort()
+            throws IOException
+    {
+        try (ServerSocket socket = new ServerSocket(0)) {
+            return socket.getLocalPort();
+        }
+    }
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
@@ -106,6 +115,14 @@ public class TestRestRemoteFunctions
                 "false");
     }
 
+    @Test
+    public void testRemoteFunctionAppliedToColumn()
+    {
+        MaterializedResult totalOrdersResult = computeActual(session, "SELECT rest.default.floor(totalprice) FROM orders");
+        List<MaterializedRow> totalOrdersRows = totalOrdersResult.getMaterializedRows();
+        assertFalse(totalOrdersRows.isEmpty(), "Expected rows from rest.default.floor(totalprice) on orders table");
+    }
+
     private static final class DummyPlugin
             implements Plugin
     {
@@ -124,14 +141,6 @@ public class TestRestRemoteFunctions
         public static boolean isPositive(@SqlType(BIGINT) long input)
         {
             return input > 0;
-        }
-    }
-
-    private static int findRandomPort()
-            throws IOException
-    {
-        try (ServerSocket socket = new ServerSocket(0)) {
-            return socket.getLocalPort();
         }
     }
 }

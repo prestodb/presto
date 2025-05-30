@@ -223,26 +223,37 @@ public class FunctionResource
         SerializedPage serializedPage = readSerializedPage(new BasicSliceInput(slice));
         Page inputPage = pagesSerde.deserialize(serializedPage);
 
-        // Use functionId to retrieve argument types
         List<TypeSignatureProvider> argumentTypeSignatures = extractArgumentTypeSignatures(functionId);
-
         FunctionHandle functionHandle = manager.lookupFunction(functionName, argumentTypeSignatures);
         BuiltInScalarFunctionImplementation functionImplementation = (BuiltInScalarFunctionImplementation) manager.getJavaScalarFunctionImplementation(functionHandle);
 
-        Object[] inputValues = new Object[inputPage.getChannelCount()];
-        for (int i = 0; i < inputPage.getChannelCount(); i++) {
-            TypeSignatureProvider typeSignatureProvider = argumentTypeSignatures.get(i);
-            Type type = manager.getType(typeSignatureProvider.getTypeSignature());
+        int positionCount = inputPage.getPositionCount();
+        int channelCount = inputPage.getChannelCount();
+        Type returnType = manager.getType(manager.getFunctionMetadata(functionHandle).getReturnType());
+        PageBuilder pageBuilder = new PageBuilder(Collections.singletonList(returnType));
 
-            inputValues[i] = deserializeBlock(type, inputPage.getBlock(i));
+        for (int position = 0; position < positionCount; position++) {
+            Object[] inputValues = new Object[channelCount];
+            for (int i = 0; i < channelCount; i++) {
+                TypeSignatureProvider typeSignatureProvider = argumentTypeSignatures.get(i);
+                Type type = manager.getType(typeSignatureProvider.getTypeSignature());
+                Block block = inputPage.getBlock(i);
+                if (block.isNull(position)) {
+                    inputValues[i] = null;
+                }
+                else {
+                    inputValues[i] = deserializeBlock(type, block.getRegion(position, 1));
+                }
+            }
+            Object result = executeFunction(functionImplementation, inputValues);
+            pageBuilder.declarePosition();
+            BlockBuilder output = pageBuilder.getBlockBuilder(0);
+            createResultBlock(output, returnType, result);
         }
 
-        Object result = executeFunction(functionImplementation, inputValues);
-        Type returnType = manager.getType(manager.getFunctionMetadata(functionHandle).getReturnType());
-        Page outputPage = createResultPage(returnType, result);
+        Page outputPage = pageBuilder.build();
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput((int) outputPage.getRetainedSizeInBytes());
         writeSerializedPage(sliceOutput, pagesSerde.serialize(outputPage));
-
         return sliceOutput.slice().byteArray();
     }
 
@@ -310,11 +321,8 @@ public class FunctionResource
                 Optional.empty());
     }
 
-    private Page createResultPage(Type type, Object result)
+    private void createResultBlock(BlockBuilder output, Type type, Object result)
     {
-        PageBuilder pageBuilder = new PageBuilder(Collections.singletonList(type));
-        pageBuilder.declarePosition();
-        BlockBuilder output = pageBuilder.getBlockBuilder(0);
         switch (type.getTypeSignature().getBase()) {
             case "integer":
             case "bigint":
@@ -358,7 +366,6 @@ public class FunctionResource
                 type.writeObject(output, result);
                 break;
         }
-        return pageBuilder.build();
     }
 
     @HEAD
