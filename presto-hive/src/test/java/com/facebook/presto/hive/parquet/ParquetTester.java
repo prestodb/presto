@@ -833,7 +833,9 @@ public class ParquetTester
                         .setMaxBlockSize(DataSize.succinctBytes(100000))
                         .setWriterVersion(writerVersion)
                         .build(),
-                compressionCodecName.getHadoopCompressionCodecClassName());
+                compressionCodecName.getHadoopCompressionCodecClassName(),
+                HIVE_STORAGE_TIME_ZONE,
+                "test_version");
 
         PageBuilder pageBuilder = new PageBuilder(types);
         for (int i = 0; i < types.size(); ++i) {
@@ -864,7 +866,7 @@ public class ParquetTester
                 new HiveCommonClientConfig().setUseParquetColumnNames(false)
                         .setParquetMaxReadBlockSize(new DataSize(1_000, DataSize.Unit.BYTE))));
 
-        HiveBatchPageSourceFactory pageSourceFactory = new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, new FileFormatDataSourceStats(), parquetMetadataSource, new HiveClientConfig().setHiveStorageFormat(HiveStorageFormat.PARQUET).setTimeZone(HIVE_STORAGE_TIME_ZONE.getID()));
+        HiveBatchPageSourceFactory pageSourceFactory = new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, new FileFormatDataSourceStats(), parquetMetadataSource);
         ConnectorPageSource connectorPageSource = createPageSource(pageSourceFactory, session, dataFile, columnNames, columnTypes, HiveStorageFormat.PARQUET, modificationTime);
 
         Iterator<?>[] expectedValues = stream(readValues).map(Iterable::iterator).toArray(size -> new Iterator<?>[size]);

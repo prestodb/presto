@@ -127,24 +127,24 @@ public abstract class AbstractColumnReaderBenchmark<T>
     public int read()
             throws IOException
     {
-        ColumnReader columnReader = ColumnReaderFactory.createReader(field.getDescriptor(), getBatchReaderEnabled(), DateTimeZone.forID("America/Bahia_Banderas"));
-        columnReader.init(new PageReader(UNCOMPRESSED, new LinkedList<>(dataPages).listIterator(), MAX_VALUES, null, null, Optional.empty(), null, -1, -1), field, null);
+        ColumnReader columnReader = ColumnReaderFactory.createReader(field.getDescriptor(), getBatchReaderEnabled());
+        columnReader.init(new PageReader(UNCOMPRESSED, new LinkedList<>(dataPages).listIterator(), MAX_VALUES, null, null, Optional.empty(), null, -1, -1), field, null, Optional.of(DateTimeZone.forID("America/Bahia_Banderas")));
 
         ColumnReader reader = null;
         if (ENABLE_VERIFICATION) {
-            reader = ColumnReaderFactory.createReader(field.getDescriptor(), false, DateTimeZone.forID("America/Bahia_Banderas"));
-            reader.init(new PageReader(UNCOMPRESSED, new LinkedList<>(dataPages).listIterator(), MAX_VALUES, null, null, Optional.empty(), null, -1, -1), field, null);
+            reader = ColumnReaderFactory.createReader(field.getDescriptor(), false);
+            reader.init(new PageReader(UNCOMPRESSED, new LinkedList<>(dataPages).listIterator(), MAX_VALUES, null, null, Optional.empty(), null, -1, -1), field, null, Optional.of(DateTimeZone.forID("America/Bahia_Banderas")));
         }
 
         int rowsRead = 0;
         while (rowsRead < dataPositions) {
             int remaining = dataPositions - rowsRead;
             columnReader.prepareNextRead(Math.min(READ_BATCH_SIZE, remaining));
-            ColumnChunk columnChunk = columnReader.readNext();
+            ColumnChunk columnChunk = columnReader.readNext(Optional.of(DateTimeZone.forID("America/Bahia_Banderas")));
             rowsRead += columnChunk.getBlock().getPositionCount();
             if (ENABLE_VERIFICATION) {
                 reader.prepareNextRead(Math.min(READ_BATCH_SIZE, remaining));
-                ColumnChunk expected = reader.readNext();
+                ColumnChunk expected = reader.readNext(Optional.of(DateTimeZone.forID("America/Bahia_Banderas")));
                 verifyColumnChunks(columnChunk, expected, false, field, null);
             }
         }

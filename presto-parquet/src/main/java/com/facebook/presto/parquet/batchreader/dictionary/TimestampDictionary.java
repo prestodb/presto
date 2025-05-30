@@ -15,7 +15,11 @@ package com.facebook.presto.parquet.batchreader.dictionary;
 
 import com.facebook.presto.parquet.DictionaryPage;
 import com.facebook.presto.parquet.dictionary.Dictionary;
+import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
+
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.parquet.ParquetTimestampUtils.getTimestampMillis;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -29,7 +33,7 @@ public class TimestampDictionary
 
     private final long[] dictionary;
 
-    public TimestampDictionary(DictionaryPage dictionaryPage)
+    public TimestampDictionary(DictionaryPage dictionaryPage, Optional<DateTimeZone> timezone)
     {
         super(dictionaryPage.getEncoding());
         requireNonNull(dictionaryPage, "dictionaryPage is null");
@@ -42,7 +46,9 @@ public class TimestampDictionary
 
         int offset = 0;
         for (int i = 0; i < dictionarySize; i++) {
-            dictionary[i] = getTimestampMillis(pageBuffer, offset);
+            AtomicLong utcMillis = new AtomicLong(getTimestampMillis(pageBuffer, offset));
+            timezone.ifPresent(tz -> utcMillis.set(tz.convertUTCToLocal(utcMillis.get())));
+            dictionary[i] = utcMillis.get();
             offset += 12;
         }
         this.dictionary = dictionary;

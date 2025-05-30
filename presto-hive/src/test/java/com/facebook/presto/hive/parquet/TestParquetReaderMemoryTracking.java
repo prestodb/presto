@@ -124,7 +124,7 @@ public class TestParquetReaderMemoryTracking
                 null,
                 false,
                 Optional.empty(),
-                HIVE_STORAGE_TIME_ZONE);
+                Optional.of(HIVE_STORAGE_TIME_ZONE));
     }
 
     @AfterClass(alwaysRun = true)
