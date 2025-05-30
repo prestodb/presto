@@ -28,6 +28,9 @@ public class SingleStoreClientModule
     protected void setup(Binder binder)
     {
         binder.bind(JdbcClient.class).to(SingleStoreClient.class).in(Scopes.SINGLETON);
+        configBinder(binder).bindConfigDefaults(BaseJdbcConfig.class, baseJdbcConfig -> {
+            baseJdbcConfig.setlistSchemasIgnoredSchemas("information_schema,memsql");
+        });
         configBinder(binder).bindConfig(BaseJdbcConfig.class);
     }
 }

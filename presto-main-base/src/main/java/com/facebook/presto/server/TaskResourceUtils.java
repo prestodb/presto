@@ -40,7 +40,7 @@ public class TaskResourceUtils
     {
     }
 
-    public static boolean isThriftRequest(HttpHeaders httpHeaders)
+    public static boolean isThriftAcceptable(HttpHeaders httpHeaders)
     {
         return httpHeaders.getAcceptableMediaTypes().stream()
                 .anyMatch(mediaType -> mediaType.toString().contains("application/x-thrift"));

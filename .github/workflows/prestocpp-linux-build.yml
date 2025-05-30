@@ -32,7 +32,7 @@ jobs:
   prestocpp-linux-build-engine:
     runs-on: ubuntu-22.04
     container:
-      image: prestodb/presto-native-dependency:0.292-20250204112033-cf8ba84
+      image: prestodb/presto-native-dependency:0.293-20250522140509-484b00e
     env:
       CCACHE_DIR: "${{ github.workspace }}/ccache"
       CC: /usr/bin/clang-15

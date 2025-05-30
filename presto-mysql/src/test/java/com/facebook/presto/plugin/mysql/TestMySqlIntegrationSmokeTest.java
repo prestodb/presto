@@ -107,6 +107,13 @@ public class TestMySqlIntegrationSmokeTest
     }
 
     @Test
+    public void testIgnoredSchemas()
+    {
+        MaterializedResult actual = computeActual("SHOW SCHEMAS");
+        assertFalse(actual.getMaterializedRows().stream().anyMatch(schemaResult -> schemaResult.getField(0).equals("mysql")));
+    }
+
+    @Test
     public void testViews()
             throws SQLException
     {
@@ -189,6 +196,26 @@ public class TestMySqlIntegrationSmokeTest
                 " CAST('2018-06-02 11:13:45.123' AS TIMESTAMP)");
         assertUpdate("DROP TABLE test_timestamp");
         assertUpdate("DROP TABLE test_timestamp2");
+    }
+
+    @Test
+    public void testMysqlGeometry()
+            throws SQLException
+    {
+        execute("CREATE TABLE tpch.test_geometry (g GEOMETRY)");
+
+        execute("INSERT INTO tpch.test_geometry VALUES (ST_GeomFromText('POINT(1 2)'))");
+        execute("INSERT INTO tpch.test_geometry VALUES (ST_GeomFromText('LINESTRING(0 0, 5 5, 10 10)'))");
+        execute("INSERT INTO tpch.test_geometry VALUES (ST_GeomFromText('POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))'))");
+
+        assertQuery(
+                "SELECT CAST(g AS VARCHAR) FROM test_geometry",
+                "VALUES " +
+                        "CAST('POINT (1 2)' AS VARCHAR), " +
+                        "CAST('LINESTRING (0 0, 5 5, 10 10)' AS VARCHAR), " +
+                        "CAST('POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0))' AS VARCHAR)");
+
+        assertUpdate("DROP TABLE tpch.test_geometry");
     }
 
     @Test

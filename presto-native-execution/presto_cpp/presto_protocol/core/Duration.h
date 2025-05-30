@@ -86,6 +86,10 @@ class Duration {
     }
   }
 
+  bool operator==(const Duration& other) const {
+    return value_ == other.value_ && timeUnit_ == other.timeUnit_;
+  }
+
  private:
   double value_ = 0;
   TimeUnit timeUnit_ = TimeUnit::SECONDS;

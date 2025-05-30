@@ -43,8 +43,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.shouldOptimizerUseHistograms;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
@@ -180,7 +182,17 @@ public class StatisticsAggregationPlanner
         FunctionMetadata functionMeta = functionAndTypeResolver.getFunctionMetadata(functionHandle);
         Type inputType = functionAndTypeResolver.getType(getOnlyElement(functionMeta.getArgumentTypes()));
         Type outputType = functionAndTypeResolver.getType(functionMeta.getReturnType());
-        verify(inputType.equals(input.getType()) || input.getType().equals(UNKNOWN), "resolved function input type does not match the input type: %s != %s", inputType, input.getType());
+
+        // todo: fix this hack
+        // In native clusters, we do not support parameterized varchar,
+        // hence if its a varchar type, we just compare the type signature base.
+        boolean isVarcharType = input.getType().getTypeSignature().getBase().equals(VARCHAR);
+        boolean isTypeSignatureBaseMatching = inputType.getTypeSignature().getBase().equals(input.getType().getTypeSignature().getBase());
+        verify(
+                inputType.equals(input.getType()) ||
+                        input.getType().equals(UNKNOWN) ||
+                        isNativeExecutionEnabled(session) && isVarcharType && isTypeSignatureBaseMatching,
+                "resolved function input type does not match the input type: %s != %s", inputType, input.getType());
         return new ColumnStatisticsAggregation(
                 new AggregationNode.Aggregation(
                         new CallExpression(

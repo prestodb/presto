@@ -197,6 +197,13 @@ public class TestSingleStoreIntegrationSmokeTest
     }
 
     @Test
+    public void testIgnoredSchemas()
+    {
+        MaterializedResult actual = computeActual("SHOW SCHEMAS");
+        assertFalse(actual.getMaterializedRows().stream().anyMatch(schemaResult -> schemaResult.getField(0).equals("memsql")));
+    }
+
+    @Test
     public void testColumnComment()
             throws Exception
     {

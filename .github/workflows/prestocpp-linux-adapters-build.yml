@@ -15,7 +15,7 @@ jobs:
   prestocpp-linux-adapters-build:
     runs-on: ubuntu-22.04
     container:
-      image: prestodb/presto-native-dependency:0.292-20250204112033-cf8ba84
+      image: prestodb/presto-native-dependency:0.293-20250522140509-484b00e
     env:
       CCACHE_DIR: "${{ github.workspace }}/ccache"
     steps:
@@ -40,7 +40,7 @@ jobs:
           cd presto-native-execution
           export DEPENDENCY_DIR=${GITHUB_WORKSPACE}/adapter-deps/download
           export INSTALL_PREFIX=${GITHUB_WORKSPACE}/adapter-deps/install
-          PROMPT_ALWAYS_RESPOND=n ./velox/scripts/setup-adapters.sh
+          PROMPT_ALWAYS_RESPOND=n ./velox/scripts/setup-centos9.sh install_adapters
           PROMPT_ALWAYS_RESPOND=n ./scripts/setup-adapters.sh
 
       - name: Install Github CLI for using apache/infrastructure-actions/stash

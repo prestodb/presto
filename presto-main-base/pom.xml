@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.293-SNAPSHOT</version>
+        <version>0.294-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-main-base</artifactId>
@@ -301,7 +301,6 @@
             <groupId>org.locationtech.jts</groupId>
             <artifactId>jts-core</artifactId>
         </dependency>
-
 
         <dependency>
             <groupId>org.apache.datasketches</groupId>

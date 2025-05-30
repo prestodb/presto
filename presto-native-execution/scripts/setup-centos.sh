@@ -51,9 +51,12 @@ function install_gperf {
 }
 
 function install_proxygen {
-  git clone https://github.com/facebook/proxygen &&
-  cd proxygen &&
-  git checkout $FB_OS_VERSION &&
+  git clone https://github.com/facebook/proxygen
+  cd proxygen
+  git checkout $FB_OS_VERSION
+  # Folly Portability.h being used to decide whether or not support coroutines
+  # causes issues (build, lin) if the selection is not consistent across users of folly.
+  EXTRA_PKG_CXXFLAGS=" -DFOLLY_CFG_NO_COROUTINES"
   cmake_install -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON
 }
 

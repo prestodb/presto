@@ -88,8 +88,8 @@ public class RoutineCharacteristics
     @ThriftEnum
     public enum Determinism
     {
-        DETERMINISTIC(1),
-        NOT_DETERMINISTIC(2);
+        DETERMINISTIC(0),
+        NOT_DETERMINISTIC(1);
         private final int value;
 
         private Determinism(int value)
@@ -107,8 +107,8 @@ public class RoutineCharacteristics
     @ThriftEnum
     public enum NullCallClause
     {
-        RETURNS_NULL_ON_NULL_INPUT(1),
-        CALLED_ON_NULL_INPUT(2);
+        RETURNS_NULL_ON_NULL_INPUT(0),
+        CALLED_ON_NULL_INPUT(1);
         private final int value;
 
         private NullCallClause(int value)

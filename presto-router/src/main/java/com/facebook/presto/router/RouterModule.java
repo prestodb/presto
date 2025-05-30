@@ -41,9 +41,9 @@ import java.util.concurrent.ScheduledExecutorService;
 import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder;
-import static com.facebook.airlift.http.server.HttpServerBinder.httpServerBinder;
 import static com.facebook.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static com.facebook.presto.router.cluster.ClusterManager.ClusterStatusTracker;
+import static com.facebook.presto.server.CoordinatorModule.webUIBinder;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -72,7 +72,7 @@ public class RouterModule
         ServerConfig serverConfig = buildConfigObject(ServerConfig.class);
 
         binder.bind(RouterPluginManager.class).in(Scopes.SINGLETON);
-        httpServerBinder(binder).bindResource(UI_PATH, ROUTER_UI).withWelcomeFile(INDEX_HTML);
+        webUIBinder(binder, UI_PATH, ROUTER_UI).withWelcomeFile(INDEX_HTML);
         configBinder(binder).bindConfig(RouterConfig.class);
 
         if (customSchedulerManager.isPresent()) {
@@ -104,8 +104,6 @@ public class RouterModule
         binder.bind(RemoteQueryFactory.class).in(Scopes.SINGLETON);
 
         binder.bind(RouterPluginManager.class).in(Scopes.SINGLETON);
-        configBinder(binder).bindConfig(PluginManagerConfig.class);
-
         configBinder(binder).bindConfig(PluginManagerConfig.class);
 
         bindHttpClient(binder, QUERY_PREDICTOR, ForQueryCpuPredictor.class, IDLE_TIMEOUT_SECOND, PREDICTOR_REQUEST_TIMEOUT_SECOND);

@@ -95,6 +95,28 @@ session properties are included.
 
 .. _tuning-memory:
 
+``per-query-retry-limit``
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Minimum value:** ``0``
+* **Default value:** ``0``
+
+The number of times that a query is automatically retried in the case of a transient query or communications failure. 
+The default value ``0`` means that retries are disabled. 
+
+``http-server.max-request-header-size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``data size``
+* **Default value:** ``8 kB``
+
+The maximum size of the request header from the HTTP server. 
+
+Note: The default value can cause errors when large session properties 
+or other large session information is involved. 
+See :ref:`troubleshoot/query:\`\`Request Header Fields Too Large\`\``.
+
 Memory Management Properties
 ----------------------------
 
@@ -1069,3 +1091,15 @@ system will keep logs for the past 15 days.
 * **Default value:** ``100MB``
 
 The maximum file size for the log file of the HTTP server.
+
+Query Manager Properties
+------------------------
+
+``query.client.timeout``
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``Duration``
+* **Default value:** ``5m``
+
+This property can be used to configure how long a query runs without contact
+from the client application, such as the CLI, before it's abandoned.

@@ -419,14 +419,6 @@ Cache Properties
 
 The configuration properties of AsyncDataCache and SSD cache are described here.
 
-``async-cache-persistence-interval``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-* **Type:** ``string``
-* **Default value:** ``0s``
-
-  The interval for persisting in-memory cache to SSD. Set this
-  to a non-zero value to activate periodic cache persistence.
-
 ``async-data-cache-enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -616,6 +608,25 @@ memory use. Ignored if zero.
 
 CPU threshold in % above which the worker is considered overloaded in terms of
 CPU use. Ignored if zero.
+
+``worker-overloaded-cooldown-period-sec``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``5``
+
+Specifies how many seconds worker has to be not overloaded (in terms of
+memory and CPU) before its status changes to not overloaded.
+This is to prevent spiky fluctuation of the overloaded status.
+
+``worker-overloaded-task-queuing-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+If true, the worker starts queuing new tasks when overloaded, and
+starts them gradually when it stops being overloaded.
 
 Environment Variables As Values For Worker Properties
 -----------------------------------------------------

@@ -15,6 +15,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonCodecFactory;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.block.BlockBuilder;
@@ -52,6 +53,8 @@ import com.google.common.collect.Maps;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 
+import java.io.File;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -59,14 +62,18 @@ import java.util.Optional;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.common.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
+import static com.facebook.presto.util.PropertiesUtil.loadProperties;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.io.Files.getNameWithoutExtension;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.HOURS;
@@ -74,6 +81,9 @@ import static java.util.concurrent.TimeUnit.HOURS;
 public final class SessionPropertyManager
 {
     private static final JsonCodecFactory JSON_CODEC_FACTORY = new JsonCodecFactory();
+    private static final Logger log = Logger.get(SessionPropertyManager.class);
+    private static final String SESSION_PROPERTY_PROVIDER_NAME = "session-property-provider.name";
+
     private final ConcurrentMap<String, PropertyMetadata<?>> systemSessionProperties = new ConcurrentHashMap<>();
     private final ConcurrentMap<ConnectorId, Map<String, PropertyMetadata<?>>> connectorSessionProperties = new ConcurrentHashMap<>();
     private final Map<String, WorkerSessionPropertyProvider> workerSessionPropertyProviders;
@@ -81,28 +91,33 @@ public final class SessionPropertyManager
     private final Supplier<Map<String, PropertyMetadata<?>>> memoizedWorkerSessionProperties;
     private final Optional<NodeManager> nodeManager;
     private final Optional<TypeManager> functionAndTypeManager;
+    private final File configDir;
+    private final AtomicBoolean sessionPropertyProvidersLoading = new AtomicBoolean();
 
     @Inject
     public SessionPropertyManager(
             SystemSessionProperties systemSessionProperties,
             Map<String, WorkerSessionPropertyProvider> workerSessionPropertyProviders,
             FunctionAndTypeManager functionAndTypeManager,
-            NodeManager nodeManager)
+            NodeManager nodeManager,
+            SessionPropertyProviderConfig config)
     {
-        this(systemSessionProperties.getSessionProperties(), workerSessionPropertyProviders, Optional.ofNullable(functionAndTypeManager), Optional.ofNullable(nodeManager));
+        this(systemSessionProperties.getSessionProperties(), workerSessionPropertyProviders, Optional.ofNullable(functionAndTypeManager), Optional.ofNullable(nodeManager), config);
     }
 
     public SessionPropertyManager(
             List<PropertyMetadata<?>> sessionProperties,
             Map<String, WorkerSessionPropertyProvider> workerSessionPropertyProviders,
             Optional<TypeManager> functionAndTypeManager,
-            Optional<NodeManager> nodeManager)
+            Optional<NodeManager> nodeManager,
+            SessionPropertyProviderConfig config)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
         this.memoizedWorkerSessionProperties = Suppliers.memoizeWithExpiration(this::getWorkerSessionProperties,
                 1, HOURS);
         this.workerSessionPropertyProviders = new ConcurrentHashMap<>(workerSessionPropertyProviders);
+        this.configDir = requireNonNull(config, "config is null").getSessionPropertyProvidersConfigurationDir();
         addSystemSessionProperties(sessionProperties);
     }
 
@@ -135,24 +150,42 @@ public final class SessionPropertyManager
                                 javaFeaturesConfig,
                                 nodeSpillConfig)),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                new SessionPropertyProviderConfig());
     }
 
-    public void loadSessionPropertyProvider(String sessionPropertyProviderName, Optional<TypeManager> typeManager, Optional<NodeManager> nodeManager)
+    public void loadSessionPropertyProviders()
+            throws Exception
     {
+        if (!sessionPropertyProvidersLoading.compareAndSet(false, true)) {
+            return;
+        }
+
+        for (File file : listFiles(configDir)) {
+            if (file.isFile() && file.getName().endsWith(".properties")) {
+                String sessionPropertyProviderName = getNameWithoutExtension(file.getName());
+                Map<String, String> properties = loadProperties(file);
+                checkState(!isNullOrEmpty(properties.get(SESSION_PROPERTY_PROVIDER_NAME)),
+                        "Session property manager configuration %s does not contain %s",
+                        file.getAbsoluteFile(),
+                        SESSION_PROPERTY_PROVIDER_NAME);
+                properties = new HashMap<>(properties);
+                properties.remove(SESSION_PROPERTY_PROVIDER_NAME);
+                loadSessionPropertyProvider(sessionPropertyProviderName, properties, functionAndTypeManager, nodeManager);
+            }
+        }
+    }
+
+    public void loadSessionPropertyProvider(String sessionPropertyProviderName, Map<String, String> properties, Optional<TypeManager> typeManager, Optional<NodeManager> nodeManager)
+    {
+        log.info("-- Loading %s session property provider --", sessionPropertyProviderName);
         WorkerSessionPropertyProviderFactory factory = workerSessionPropertyProviderFactories.get(sessionPropertyProviderName);
         checkState(factory != null, "No factory for session property provider : " + sessionPropertyProviderName);
         WorkerSessionPropertyProvider sessionPropertyProvider = factory.create(new SessionPropertyContext(typeManager, nodeManager));
         if (workerSessionPropertyProviders.putIfAbsent(sessionPropertyProviderName, sessionPropertyProvider) != null) {
             throw new IllegalArgumentException("System session property provider is already registered for property provider : " + sessionPropertyProviderName);
         }
-    }
-
-    public void loadSessionPropertyProviders()
-    {
-        for (String sessionPropertyProviderName : workerSessionPropertyProviderFactories.keySet()) {
-            loadSessionPropertyProvider(sessionPropertyProviderName, functionAndTypeManager, nodeManager);
-        }
+        log.info("-- Added session property provider [%s] --", sessionPropertyProviderName);
     }
 
     public void addSessionPropertyProviderFactory(WorkerSessionPropertyProviderFactory factory)
@@ -222,6 +255,17 @@ public final class SessionPropertyManager
             workerSessionProperties.put(sessionProperty.getName(), sessionProperty);
         });
         return workerSessionProperties;
+    }
+
+    private static List<File> listFiles(File dir)
+    {
+        if (dir != null && dir.isDirectory()) {
+            File[] files = dir.listFiles();
+            if (files != null) {
+                return ImmutableList.copyOf(files);
+            }
+        }
+        return ImmutableList.of();
     }
 
     public List<SessionPropertyValue> getAllSessionProperties(Session session, Map<String, ConnectorId> catalogs)

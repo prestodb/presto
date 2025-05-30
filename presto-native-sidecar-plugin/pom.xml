@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.293-SNAPSHOT</version>
+        <version>0.294-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-native-sidecar-plugin</artifactId>
@@ -158,7 +158,7 @@
             <artifactId>presto-tests</artifactId>
             <scope>test</scope>
             <type>test-jar</type>
-            <version>0.293-SNAPSHOT</version>
+            <version>0.294-SNAPSHOT</version>
         </dependency>
 
         <dependency>
@@ -172,7 +172,7 @@
             <artifactId>presto-native-execution</artifactId>
             <scope>test</scope>
             <type>test-jar</type>
-            <version>0.293-SNAPSHOT</version>
+            <version>0.294-SNAPSHOT</version>
         </dependency>
 
         <dependency>
@@ -265,6 +265,18 @@
                          We add it here to keep it in compile scope while only using it directly in tests.-->
                         <ignoredUnusedDeclaredDependency>org.jetbrains:annotations</ignoredUnusedDeclaredDependency>
                     </ignoredUnusedDeclaredDependencies>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <forkCount>1</forkCount>
+                    <reuseForks>false</reuseForks>
+                    <systemPropertyVariables>
+                        <PRESTO_SERVER>/root/project/build/debug/presto_cpp/main/presto_server</PRESTO_SERVER>
+                        <DATA_DIR>/tmp/velox</DATA_DIR>
+                    </systemPropertyVariables>
                 </configuration>
             </plugin>
         </plugins>

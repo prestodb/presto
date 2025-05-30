@@ -25,6 +25,9 @@ function install_proxygen {
   ${SUDO} apt update
   ${SUDO} apt install -y gperf python3
   github_checkout facebook/proxygen "${FB_OS_VERSION}"
+  # Folly Portability.h being used to decide whether or not support coroutines
+  # causes issues (build, lin) if the selection is not consistent across users of folly.
+  EXTRA_PKG_CXXFLAGS=" -DFOLLY_CFG_NO_COROUTINES"
   cmake_install -DBUILD_TESTS=OFF
 }
 

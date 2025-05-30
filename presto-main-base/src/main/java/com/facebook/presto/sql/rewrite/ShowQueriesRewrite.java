@@ -53,6 +53,7 @@ import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.ConstraintSpecification;
 import com.facebook.presto.sql.tree.CreateFunction;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
+import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.DoubleLiteral;
@@ -113,10 +114,12 @@ import static com.facebook.presto.metadata.MetadataListing.listSchemas;
 import static com.facebook.presto.metadata.MetadataUtil.createCatalogSchemaName;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedName;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
+import static com.facebook.presto.metadata.MetadataUtil.getConnectorIdOrThrow;
 import static com.facebook.presto.metadata.SessionFunctionHandle.SESSION_NAMESPACE;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.QueryUtil.aliased;
@@ -151,6 +154,7 @@ import static com.facebook.presto.sql.tree.RoutineCharacteristics.Determinism;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.Language;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause;
 import static com.facebook.presto.sql.tree.ShowCreate.Type.MATERIALIZED_VIEW;
+import static com.facebook.presto.sql.tree.ShowCreate.Type.SCHEMA;
 import static com.facebook.presto.sql.tree.ShowCreate.Type.TABLE;
 import static com.facebook.presto.sql.tree.ShowCreate.Type.VIEW;
 import static com.facebook.presto.util.AnalyzerUtil.createParsingOptions;
@@ -457,6 +461,22 @@ final class ShowQueriesRewrite
         @Override
         protected Node visitShowCreate(ShowCreate node, Void context)
         {
+            if (node.getType() == SCHEMA) {
+                CatalogSchemaName catalogSchemaName = createCatalogSchemaName(session, node, Optional.of(node.getName()));
+                if (!metadataResolver.schemaExists(catalogSchemaName)) {
+                    throw new SemanticException(MISSING_SCHEMA, node, "Schema '%s' does not exist", catalogSchemaName);
+                }
+
+                Map<String, Object> properties = metadata.getSchemaProperties(session, catalogSchemaName);
+                Map<String, PropertyMetadata<?>> allSchemaProperties = metadata.getSchemaPropertyManager().getAllProperties().get(getConnectorIdOrThrow(session, metadata, catalogSchemaName.getCatalogName()));
+                List<Property> propertyNodes = buildProperties("schema " + catalogSchemaName, INVALID_SCHEMA_PROPERTY, properties, allSchemaProperties);
+                CreateSchema createSchema = new CreateSchema(
+                        node.getName(),
+                        false,
+                        propertyNodes);
+                return singleValueQuery("Create Schema", formatSql(createSchema, Optional.of(parameters)).trim());
+            }
+
             QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName());
             Optional<ViewDefinition> viewDefinition = metadataResolver.getView(objectName);
             Optional<MaterializedViewDefinition> materializedViewDefinition = metadataResolver.getMaterializedView(objectName);
@@ -496,7 +516,7 @@ final class ShowQueriesRewrite
                 ConnectorTableMetadata connectorTableMetadata = metadata.getTableMetadata(session, tableHandle.get()).getMetadata();
                 Map<String, Object> properties = connectorTableMetadata.getProperties();
                 Map<String, PropertyMetadata<?>> allTableProperties = metadata.getTablePropertyManager().getAllProperties().get(tableHandle.get().getConnectorId());
-                List<Property> propertyNodes = buildProperties(objectName, Optional.empty(), INVALID_TABLE_PROPERTY, properties, allTableProperties);
+                List<Property> propertyNodes = buildProperties("materialized view " + objectName, INVALID_TABLE_PROPERTY, properties, allTableProperties);
 
                 CreateMaterializedView createMaterializedView = new CreateMaterializedView(
                         Optional.empty(),
@@ -533,7 +553,7 @@ final class ShowQueriesRewrite
                 List<TableElement> columns = connectorTableMetadata.getColumns().stream()
                         .filter(column -> !column.isHidden())
                         .map(column -> {
-                            List<Property> propertyNodes = buildProperties(objectName, Optional.of(column.getName()), INVALID_COLUMN_PROPERTY, column.getProperties(), allColumnProperties);
+                            List<Property> propertyNodes = buildProperties(toQualifiedName(objectName, Optional.of(column.getName())), INVALID_COLUMN_PROPERTY, column.getProperties(), allColumnProperties);
                             return new ColumnDefinition(
                                     QueryUtil.quotedIdentifier(column.getName()),
                                     column.getType().getDisplayName(),
@@ -545,7 +565,7 @@ final class ShowQueriesRewrite
 
                 Map<String, Object> properties = connectorTableMetadata.getProperties();
                 Map<String, PropertyMetadata<?>> allTableProperties = metadata.getTablePropertyManager().getAllProperties().get(tableHandle.get().getConnectorId());
-                List<Property> propertyNodes = buildProperties(objectName, Optional.empty(), INVALID_TABLE_PROPERTY, properties, allTableProperties);
+                List<Property> propertyNodes = buildProperties("table " + objectName, INVALID_TABLE_PROPERTY, properties, allTableProperties);
 
                 columns.addAll(connectorTableMetadata.getTableConstraintsHolder().getTableConstraints()
                         .stream()
@@ -647,7 +667,6 @@ final class ShowQueriesRewrite
 
         private List<Property> buildProperties(
                 Object objectName,
-                Optional<String> columnName,
                 StandardErrorCode errorCode,
                 Map<String, Object> properties,
                 Map<String, PropertyMetadata<?>> allProperties)
@@ -662,7 +681,7 @@ final class ShowQueriesRewrite
                 String propertyName = propertyEntry.getKey();
                 Object value = propertyEntry.getValue();
                 if (value == null) {
-                    throw new PrestoException(errorCode, format("Property %s for %s cannot have a null value", propertyName, toQualifiedName(objectName, columnName)));
+                    throw new PrestoException(errorCode, format("Property %s for %s cannot have a null value", propertyName, objectName));
                 }
 
                 PropertyMetadata<?> property = allProperties.get(propertyName);
@@ -670,7 +689,7 @@ final class ShowQueriesRewrite
                     throw new PrestoException(errorCode, format(
                             "Property %s for %s should have value of type %s, not %s",
                             propertyName,
-                            toQualifiedName(objectName, columnName),
+                            objectName,
                             property.getJavaType().getName(),
                             value.getClass().getName()));
                 }

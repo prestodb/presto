@@ -100,10 +100,14 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.metadata.SchemaPropertyManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.metadata.SessionPropertyProviderConfig;
+import com.facebook.presto.metadata.Split;
 import com.facebook.presto.metadata.StaticCatalogStore;
 import com.facebook.presto.metadata.StaticCatalogStoreConfig;
 import com.facebook.presto.metadata.StaticFunctionNamespaceStore;
 import com.facebook.presto.metadata.StaticFunctionNamespaceStoreConfig;
+import com.facebook.presto.metadata.StaticTypeManagerStore;
+import com.facebook.presto.metadata.StaticTypeManagerStoreConfig;
 import com.facebook.presto.metadata.TablePropertyManager;
 import com.facebook.presto.nodeManager.PluginNodeManager;
 import com.facebook.presto.operator.ExchangeClientConfig;
@@ -140,10 +144,14 @@ import com.facebook.presto.resourcemanager.ResourceManagerInconsistentException;
 import com.facebook.presto.resourcemanager.ResourceManagerResourceGroupService;
 import com.facebook.presto.server.remotetask.HttpLocationFactory;
 import com.facebook.presto.server.thrift.FixedAddressSelector;
+import com.facebook.presto.server.thrift.MetadataUpdatesCodec;
+import com.facebook.presto.server.thrift.SplitCodec;
+import com.facebook.presto.server.thrift.TableWriteInfoCodec;
 import com.facebook.presto.server.thrift.ThriftServerInfoClient;
 import com.facebook.presto.server.thrift.ThriftServerInfoService;
 import com.facebook.presto.server.thrift.ThriftTaskClient;
 import com.facebook.presto.server.thrift.ThriftTaskService;
+import com.facebook.presto.server.thrift.ThriftTaskUpdateRequestBodyReader;
 import com.facebook.presto.sessionpropertyproviders.JavaWorkerSessionPropertyProvider;
 import com.facebook.presto.sessionpropertyproviders.NativeWorkerSessionPropertyProvider;
 import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
@@ -417,6 +425,8 @@ public class ServerMainModule
 
         // task execution
         jaxrsBinder(binder).bind(TaskResource.class);
+        jaxrsBinder(binder).bind(ThriftTaskUpdateRequestBodyReader.class);
+
         newExporter(binder).export(TaskResource.class).withGeneratedName();
         jaxrsBinder(binder).bind(TaskExecutorResource.class);
         newExporter(binder).export(TaskExecutorResource.class).withGeneratedName();
@@ -425,6 +435,9 @@ public class ServerMainModule
         install(new DefaultThriftCodecsModule());
         thriftCodecBinder(binder).bindCustomThriftCodec(SqlInvokedFunctionCodec.class);
         thriftCodecBinder(binder).bindCustomThriftCodec(SqlFunctionIdCodec.class);
+        thriftCodecBinder(binder).bindCustomThriftCodec(MetadataUpdatesCodec.class);
+        thriftCodecBinder(binder).bindCustomThriftCodec(SplitCodec.class);
+        thriftCodecBinder(binder).bindCustomThriftCodec(TableWriteInfoCodec.class);
 
         jsonCodecBinder(binder).bindListJsonCodec(TaskMemoryReservationSummary.class);
         binder.bind(SqlTaskManager.class).in(Scopes.SINGLETON);
@@ -558,6 +571,7 @@ public class ServerMainModule
         jsonCodecBinder(binder).bindJsonCodec(TableCommitContext.class);
         jsonCodecBinder(binder).bindJsonCodec(SqlInvokedFunction.class);
         jsonCodecBinder(binder).bindJsonCodec(TaskSource.class);
+        jsonCodecBinder(binder).bindJsonCodec(Split.class);
         jsonCodecBinder(binder).bindJsonCodec(TableWriteInfo.class);
         smileCodecBinder(binder).bindSmileCodec(TaskStatus.class);
         smileCodecBinder(binder).bindSmileCodec(TaskInfo.class);
@@ -633,6 +647,9 @@ public class ServerMainModule
         configBinder(binder).bindConfig(StaticCatalogStoreConfig.class);
         binder.bind(StaticFunctionNamespaceStore.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(StaticFunctionNamespaceStoreConfig.class);
+        binder.bind(StaticTypeManagerStore.class).in(Scopes.SINGLETON);
+        configBinder(binder).bindConfig(StaticTypeManagerStoreConfig.class);
+        configBinder(binder).bindConfig(SessionPropertyProviderConfig.class);
         binder.bind(FunctionAndTypeManager.class).in(Scopes.SINGLETON);
         binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
 
@@ -704,6 +721,7 @@ public class ServerMainModule
         jsonBinder(binder).addSerializerBinding(Expression.class).to(ExpressionSerializer.class);
         jsonBinder(binder).addDeserializerBinding(Expression.class).to(ExpressionDeserializer.class);
         jsonBinder(binder).addDeserializerBinding(FunctionCall.class).to(FunctionCallDeserializer.class);
+        thriftCodecBinder(binder).bindThriftCodec(TaskUpdateRequest.class);
 
         // metadata updates
         jsonCodecBinder(binder).bindJsonCodec(MetadataUpdates.class);

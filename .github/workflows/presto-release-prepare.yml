@@ -15,8 +15,11 @@ on:
         required: false
 
 env:
-  JAVA_VERSION: '11'
-  JAVA_DISTRIBUTION: 'temurin'
+  JAVA_VERSION: ${{ vars.JAVA_VERSION || '17' }}
+  JAVA_DISTRIBUTION: ${{ vars.JAVA_DISTRIBUTION || 'temurin' }}
+  MAVEN_OPTS: ${{ vars.MAVEN_OPTS }}
+  GIT_CI_USER: ${{ vars.GIT_CI_USER || 'prestodb-ci' }}
+  GIT_CI_EMAIL: ${{ vars.GIT_CI_EMAIL || 'ci@lists.prestodb.io' }}
 
 jobs:
   prepare-release-branch:
@@ -27,19 +30,14 @@ jobs:
       contents: write
 
     steps:
-      - name: Check for master branch
-        if: ${{ github.ref != 'refs/heads/master' }}
-        run: echo "Invalid branch. This action can only be run on the master branch." && exit 1
-
       - name: Checkout presto source
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.PRESTODB_CI_TOKEN }}
-          ref: master
           show-progress: false
           fetch-depth: 5
 
-      - name: Set up JDK
+      - name: Set up JDK ${{ env.JAVA_DISTRIBUTION }}/${{ env.JAVA_VERSION }}
         uses: actions/setup-java@v4
         with:
           java-version: ${{ env.JAVA_VERSION }}
@@ -48,8 +46,8 @@ jobs:
       - name: Configure git
         run: |
           git config --global --add safe.directory ${{github.workspace}}
-          git config --global user.email "ci@lists.prestodb.io"
-          git config --global user.name "prestodb-ci"
+          git config --global user.email "${{ env.GIT_CI_EMAIL }}"
+          git config --global user.name "${{ env.GIT_CI_USER }}"
           git config --global alias.ls 'log --pretty=format:"%cd %h %ce: %s" --date=short --no-merges'
           git config pull.rebase false
 
@@ -74,7 +72,7 @@ jobs:
             -DdevelopmentVersion=${{ env.PRESTO_RELEASE_VERSION }} \
             -DreleaseVersion=${{ env.PRESTO_RELEASE_VERSION }}
           grep -m 2 "<version>" pom.xml
-          echo "commits on master branch"
+          echo "commits on branch ${{ github.ref_name }}"
           git ls -5
 
       - name: Push release tag, branch and commits
@@ -90,15 +88,15 @@ jobs:
           echo -e "\nPushed release tag to: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ env.PRESTO_RELEASE_VERSION }}"
           echo "Pushed release branch to: ${{ github.server_url }}/${{ github.repository }}/tree/release-${{ env.PRESTO_RELEASE_VERSION }}"
 
-          echo "Pushing master branch"
-          git checkout master
-          echo "commits on master branch"
+          echo "Pushing to branch ${{ github.ref_name }}"
+          git checkout ${{ github.ref_name }}
+          echo "commits on branch ${{ github.ref_name }}"
           git ls -5
-          git push origin master
+          git push origin ${{ github.ref_name }}
 
   prepare-release-notes:
     needs: prepare-release-branch
-    if: ${{ inputs.prepare_release_notes && always() && (needs.prepare-release-branch.result == 'success' || !inputs.prepare_release) }}
+    if: (!failure() && !cancelled()) && github.event.inputs.prepare_release_notes == 'true'
     runs-on: ubuntu-latest
     environment: release
     permissions:
@@ -108,10 +106,9 @@ jobs:
       - name: Checkout presto source
         uses: actions/checkout@v4
         with:
-          ref: master
           show-progress: false
 
-      - name: Set up JDK
+      - name: Set up JDK ${{ env.JAVA_DISTRIBUTION }}/${{ env.JAVA_VERSION }}
         uses: actions/setup-java@v4
         with:
           java-version: ${{ env.JAVA_VERSION }}
@@ -120,8 +117,8 @@ jobs:
       - name: Configure git
         run: |
           git config --global --add safe.directory ${{github.workspace}}
-          git config --global user.email "ci@lists.prestodb.io"
-          git config --global user.name "prestodb-ci"
+          git config --global user.email "${{ env.GIT_CI_EMAIL }}"
+          git config --global user.name "${{ env.GIT_CI_USER }}"
           git config pull.rebase false
 
       - name: Add git upstream
@@ -131,6 +128,8 @@ jobs:
           git remote -v
 
       - name: Create release notes pull request
+        env:
+          JVM_OPTS: ${{ env.MAVEN_OPTS }}
         run: |
           echo "In case this job failed, please delete the release notes branch(e.g. release-notes-0.292) in repository ${{ github.repository }}, and re-run the job"
           ./src/release/release-notes.sh ${{ github.repository_owner }} ${{ secrets.PRESTODB_CI_TOKEN }}

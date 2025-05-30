@@ -34,7 +34,7 @@ public class SelectedRole
     @ThriftEnum
     public enum Type
     {
-        ROLE(1), ALL(2), NONE(3);
+        ROLE(0), ALL(1), NONE(2);
 
         private final int value;
 

@@ -858,6 +858,10 @@ public final class SqlFormatter
                 builder.append("SHOW CREATE TABLE ")
                         .append(formatName(node.getName()));
             }
+            else if (node.getType() == ShowCreate.Type.SCHEMA) {
+                builder.append("SHOW CREATE SCHEMA ")
+                        .append(formatName(node.getName()));
+            }
             else if (node.getType() == ShowCreate.Type.VIEW) {
                 builder.append("SHOW CREATE VIEW ")
                         .append(formatName(node.getName()));

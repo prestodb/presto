@@ -14,25 +14,76 @@
  */
 #pragma once
 
-// This file is generated DO NOT EDIT @generated
-// This file is generated DO NOT EDIT @generated
-
-#include "presto_cpp/main/thrift/gen-cpp2/PrestoThrift.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
+#include "presto_cpp/main/thrift/gen-cpp2/presto_thrift_types.h"
 
-namespace facebook::presto {
+namespace facebook::presto::thrift {
 
-void toThrift(protocol::TaskState& proto, thrift::TaskState& thrift);
-void toThrift(protocol::ErrorType& proto, thrift::ErrorType& thrift);
-void toThrift(const protocol::Lifespan& proto, thrift::Lifespan& thrift);
-void toThrift(
-    const protocol::ErrorLocation& proto,
-    thrift::ErrorLocation& thrift);
-void toThrift(const protocol::HostAddress& proto, thrift::HostAddress& thrift);
-void toThrift(const protocol::TaskStatus& proto, thrift::TaskStatus& thrift);
-void toThrift(const protocol::ErrorCode& proto, thrift::ErrorCode& thrift);
-void toThrift(
-    const protocol::ExecutionFailureInfo& proto,
-    thrift::ExecutionFailureInfo& thrift);
+void toThrift(const std::string& proto, std::string& thrift);
+void toThrift(const bool& proto, bool& thrift);
+void toThrift(const int32_t& proto, int32_t& thrift);
+void toThrift(const int64_t& proto, int64_t& thrift);
+void toThrift(const double& proto, double& thrift);
+void toThrift(const facebook::presto::protocol::Duration& duration, double& thrift);
+
+void toThrift(const facebook::presto::protocol::TaskStatus& taskStatus, TaskStatus& thriftTaskStatus);
+void toThrift(const facebook::presto::protocol::Lifespan& lifespan, Lifespan& thriftLifeSpan);
+void toThrift(const facebook::presto::protocol::ExecutionFailureInfo& executionFailureInfo, ExecutionFailureInfo& thriftExecutionFailureInfo);
+void toThrift(const facebook::presto::protocol::ErrorLocation& errorLocation, ErrorLocation& thriftErrorLocation);
+void toThrift(const facebook::presto::protocol::ErrorCode& errorCode, ErrorCode& thriftErrorCode);
+void toThrift(const facebook::presto::protocol::HostAddress& hostAddress, HostAddress& thriftHostAddress);
+
+void toThrift(const facebook::presto::protocol::TaskInfo& taskInfo, TaskInfo& thriftTaskInfo);
+void toThrift(const facebook::presto::protocol::MetadataUpdates& metadataUpdates, MetadataUpdatesWrapper& thriftMetadataUpdatesWrapper);
+void toThrift(const facebook::presto::protocol::MetadataUpdates& metadataUpdates, std::string& thriftMetadataUpdates);
+void toThrift(const facebook::presto::protocol::TaskId& taskId, TaskId& thriftTaskId);
+void toThrift(const facebook::presto::protocol::OutputBufferInfo& outputBufferInfo, OutputBufferInfo& thriftOutputBufferInfo);
+void toThrift(const facebook::presto::protocol::BufferInfo& bufferInfo, BufferInfo& thriftBufferInfo);
+void toThrift(const facebook::presto::protocol::PageBufferInfo& pageBufferInfo, PageBufferInfo& thriftPageBufferInfo);
+void toThrift(const facebook::presto::protocol::TaskStats& taskStats, TaskStats& thriftTaskStats);
+void toThrift(const facebook::presto::protocol::RuntimeStats& runtimeStats, RuntimeStats& thriftRuntimeStats);
+void toThrift(const facebook::presto::protocol::RuntimeMetric& runtimeMetric, RuntimeMetric& thriftRuntimeMetric);
+void toThrift(const facebook::presto::protocol::PipelineStats& pipelineStats, PipelineStats& thriftPipelineStats);
+void toThrift(const facebook::presto::protocol::DistributionSnapshot& distributionSnapshot, DistributionSnapshot& thriftDistributionSnapshot);
+void toThrift(const facebook::presto::protocol::PlanNodeId& planNodeId, PlanNodeId& thriftPlanNodeId);
+void toThrift(const facebook::presto::protocol::OperatorStats& operatorStats, OperatorStats& thriftOperatorStats);
+void toThrift(const facebook::presto::protocol::DriverStats& driverStats, DriverStats& thriftDriverStats);
+void toThrift(const facebook::presto::protocol::DynamicFilterStats& dynamicFilterStats, DynamicFilterStats& thriftDynamicFilterStats);
+
+void fromThrift(const std::string& thrift, std::string& proto);
+void fromThrift(const bool& thrift, bool& proto);
+void fromThrift(const int32_t& thrift, int32_t& proto);
+void fromThrift(const int64_t& thrift, int64_t& proto);
+void fromThrift(const double& thrift, double& proto);
+void fromThrift(const double& thrift, facebook::presto::protocol::Duration& duration);
+void fromThrift(const double& thrift, facebook::presto::protocol::DataSize& dataSize);
+
+void fromThrift(const TaskUpdateRequest& thriftTaskUpdateRequest, facebook::presto::protocol::TaskUpdateRequest& taskUpdateRequest);
+void fromThrift(const SessionRepresentation& thriftSessionRepresentation, facebook::presto::protocol::SessionRepresentation& sessionRepresentation);
+void fromThrift(const ConnectorId& thriftConnectorId, facebook::presto::protocol::ConnectorId& connectorId);
+void fromThrift(const QualifiedObjectName& thriftQualifiedObjectName, facebook::presto::protocol::QualifiedObjectName& qualifiedObjectName);
+void fromThrift(const SelectedRole& thriftSelectedRole, facebook::presto::protocol::SelectedRole& selectedRole);
+void fromThrift(const TransactionId& thriftTransactionId, facebook::presto::protocol::TransactionId& transactionId);
+void fromThrift(const TimeZoneKey& thriftTimeZoneKey, facebook::presto::protocol::TimeZoneKey& timeZoneKey);
+void fromThrift(const ResourceEstimates& thriftResourceEstimates, facebook::presto::protocol::ResourceEstimates& resourceEstimates);
+void fromThrift(const TaskSource& thriftTaskSource, facebook::presto::protocol::TaskSource& taskSource);
+void fromThrift(const ScheduledSplit& thriftScheduledSplit, facebook::presto::protocol::ScheduledSplit& scheduledSplit);
+void fromThrift(const OutputBuffers& thriftOutputBuffers, facebook::presto::protocol::OutputBuffers& outputBuffers);
+void fromThrift(const PlanNodeId& thriftPlanNodeId, facebook::presto::protocol::PlanNodeId& planNodeId);
+void fromThrift(const Lifespan& thriftLifeSpan, facebook::presto::protocol::Lifespan& lifespan);
+void fromThrift(const OutputBufferId& thriftOutputBufferId, facebook::presto::protocol::OutputBufferId& outputBufferId);
+void fromThrift(const SqlFunctionId& thriftSqlFunctionId, facebook::presto::protocol::SqlFunctionId& sqlFunctionId);
+void fromThrift(const RoutineCharacteristics& thriftRoutineCharacteristics, facebook::presto::protocol::RoutineCharacteristics& routineCharacteristics);
+void fromThrift(const Parameter& thriftParameter, facebook::presto::protocol::Parameter& parameter);
+void fromThrift(const SqlInvokedFunction& thriftSqlInvokedFunction, facebook::presto::protocol::SqlInvokedFunction& sqlInvokedFunction);
+void fromThrift(const Language& thriftLanguage, facebook::presto::protocol::Language& language);
+void fromThrift(const TypeVariableConstraint& thriftTypeVariableConstraint, facebook::presto::protocol::TypeVariableConstraint& typeVariableConstraint);
+void fromThrift(const LongVariableConstraint& thriftLongVariableConstraint, facebook::presto::protocol::LongVariableConstraint& longVariableConstraint);
+void fromThrift(const Signature& thriftSignature, facebook::presto::protocol::Signature& signature);
+void fromThrift(const TypeSignature& thriftTypeSignature, facebook::presto::protocol::TypeSignature& typeSignature);
+void fromThrift(const TableWriteInfoWrapper& thriftTableWriteInfoWrapper, facebook::presto::protocol::TableWriteInfo& tableWriteInfo);
+void fromThrift(const std::string& thriftTableWriteInfo, facebook::presto::protocol::TableWriteInfo& tableWriteInfo);
+void fromThrift(const SplitWrapper& thriftSplitWrapper, facebook::presto::protocol::Split& split);
+void fromThrift(const std::string& thriftSplit, facebook::presto::protocol::Split& split);
 
 } // namespace facebook::presto
