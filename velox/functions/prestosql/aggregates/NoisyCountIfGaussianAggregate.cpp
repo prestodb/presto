@@ -108,10 +108,26 @@ class NoisyCountIfGaussianAggregate : public exec::Aggregate {
       return;
     }
 
-    // Generate a cryptographically secure random byte string as the seed for
-    // random generator
     folly::Random::DefaultGenerator rng;
-    rng.seed(folly::Random::secureRand32());
+
+    // Check if random seed is provided. If so, use it to seed the random
+    bool seedFound = false;
+    for (auto i = 0; i < numGroups && !seedFound; i++) {
+      auto group = groups[i];
+      if (!isNull(group)) {
+        auto* accumulator = value<AccumulatorType>(group);
+        if (accumulator->randomSeed != std::nullopt) {
+          rng.seed(*accumulator->randomSeed);
+          seedFound = true;
+        }
+      }
+    }
+
+    // Otherwise, generate a cryptographically secure random byte string as the
+    // seed for random generator
+    if (!seedFound) {
+      rng.seed(folly::Random::secureRand32());
+    }
 
     // This is to deal with the case when noiseScale == 0, which means we do not
     // need to add noise. We assume noiseScale = 0, thus no need to add noise,
@@ -135,9 +151,11 @@ class NoisyCountIfGaussianAggregate : public exec::Aggregate {
 
         int64_t noise = 0;
         if (addNoise) {
+          double rawNoise = dist(rng);
+
           noise = static_cast<int64_t>(
-              std::round(dist(rng))); // Need to round back to int64_t because
-                                      // we want to return int64_t
+              std::round(rawNoise)); // Need to round back to int64_t because
+                                     // we want to return int64_t
         }
 
         // Check and make sure the count is within int64_t range
@@ -164,6 +182,11 @@ class NoisyCountIfGaussianAggregate : public exec::Aggregate {
     decodedValue_.decode(*args[0], rows);
     decodedNoiseScale_.decode(*args[1], rows);
 
+    // If intput has random seed, decode it
+    if (args.size() == 3) {
+      decodedRandomSeed_.decode(*args[2], rows);
+    }
+
     rows.applyToSelected([&](vector_size_t i) {
       if (decodedValue_.isNullAt(i) || decodedNoiseScale_.isNullAt(i)) {
         return;
@@ -185,6 +208,10 @@ class NoisyCountIfGaussianAggregate : public exec::Aggregate {
             static_cast<double>(decodedNoiseScale_.valueAt<uint64_t>(i));
       }
       accumulator->checkAndSetNoiseScale(noiseScaleValue);
+
+      if (args.size() == 3 && !decodedRandomSeed_.isNullAt(i)) {
+        accumulator->setRandomSeed(decodedRandomSeed_.valueAt<uint32_t>(i));
+      }
     });
   }
 
@@ -211,6 +238,11 @@ class NoisyCountIfGaussianAggregate : public exec::Aggregate {
           otherAccumulator.noiseScale >= 0) {
         accumulator->checkAndSetNoiseScale(otherAccumulator.noiseScale);
       }
+
+      if (otherAccumulator.randomSeed != std::nullopt) {
+        accumulator->setRandomSeed(*otherAccumulator.randomSeed);
+      }
+
       accumulator->increaseCount(otherAccumulator.count);
     });
   }
@@ -224,6 +256,11 @@ class NoisyCountIfGaussianAggregate : public exec::Aggregate {
     decodedValue_.decode(*args[0], rows);
     decodedNoiseScale_.decode(*args[1], rows);
 
+    // Check if input has random seed and make sure it's constant for each row.
+    if (args.size() == 3 && args[2]->isConstantEncoding()) {
+      decodedRandomSeed_.decode(*args[2], rows);
+    }
+
     auto* accumulator = value<AccumulatorType>(group);
 
     rows.applyToSelected([&](vector_size_t i) {
@@ -233,6 +270,7 @@ class NoisyCountIfGaussianAggregate : public exec::Aggregate {
       if (decodedValue_.valueAt<bool>(i)) {
         accumulator->increaseCount(1);
       }
+
       double noiseScaleValue = 0.0;
       auto noiseScaleType = args[1]->typeKind();
       if (noiseScaleType == TypeKind::DOUBLE) {
@@ -241,8 +279,11 @@ class NoisyCountIfGaussianAggregate : public exec::Aggregate {
         noiseScaleValue =
             static_cast<double>(decodedNoiseScale_.valueAt<uint64_t>(i));
       }
-
       accumulator->checkAndSetNoiseScale(noiseScaleValue);
+
+      if (args.size() == 3 && !decodedRandomSeed_.isNullAt(i)) {
+        accumulator->setRandomSeed(decodedRandomSeed_.valueAt<uint32_t>(i));
+      }
     });
   }
 
@@ -264,6 +305,11 @@ class NoisyCountIfGaussianAggregate : public exec::Aggregate {
           otherAccumulator.noiseScale >= 0) {
         accumulator->checkAndSetNoiseScale(otherAccumulator.noiseScale);
       }
+
+      if (otherAccumulator.randomSeed != std::nullopt) {
+        accumulator->setRandomSeed(*otherAccumulator.randomSeed);
+      }
+
       accumulator->increaseCount(otherAccumulator.count);
     });
   }
@@ -281,6 +327,7 @@ class NoisyCountIfGaussianAggregate : public exec::Aggregate {
  private:
   DecodedVector decodedValue_;
   DecodedVector decodedNoiseScale_;
+  DecodedVector decodedRandomSeed_;
 };
 
 } // namespace
@@ -302,6 +349,20 @@ void registerNoisyCountIfGaussianAggregate(
           .argumentType("boolean")
           .argumentType("bigint") // support BIGINT noise scale
           .build(),
+      exec::AggregateFunctionSignatureBuilder()
+          .returnType("bigint")
+          .intermediateType("varbinary")
+          .argumentType("boolean")
+          .argumentType("double")
+          .argumentType("bigint") // support random seed
+          .build(),
+      exec::AggregateFunctionSignatureBuilder()
+          .returnType("bigint")
+          .intermediateType("varbinary")
+          .argumentType("boolean")
+          .argumentType("bigint")
+          .argumentType("bigint") // support random seed
+          .build(),
   };
 
   auto name = prefix + kNoisyCountIfGaussian;
@@ -314,7 +375,8 @@ void registerNoisyCountIfGaussianAggregate(
           const TypePtr& /*resultType*/,
           const core::QueryConfig& /*config*/)
           -> std::unique_ptr<exec::Aggregate> {
-        VELOX_CHECK_EQ(argTypes.size(), 2, "{} takes 2 arguments", name);
+        VELOX_CHECK_LE(argTypes.size(), 3, "{} takes 2 or 3 arguments", name);
+        VELOX_CHECK_GE(argTypes.size(), 2, "{} takes 2 or 3 arguments", name);
 
         if (exec::isPartialOutput(step)) {
           VELOX_CHECK_EQ(

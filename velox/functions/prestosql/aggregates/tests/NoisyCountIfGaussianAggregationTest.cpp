@@ -201,4 +201,47 @@ TEST_F(NoisyCountIfGaussianAggregationTest, bigIntNoiseScaleTypeNoNoise) {
       "SELECT sum(if(c1, 1, 0)), sum(if(c2, 1, 0)) FROM tmp");
 }
 
+// Test that the aggregation random seed as input
+TEST_F(NoisyCountIfGaussianAggregationTest, randomSeedNoNoise) {
+  auto vectors = makeVectors(rowType_, 10, 4);
+  createDuckDbTable(vectors);
+
+  testAggregations(
+      vectors,
+      {},
+      {"noisy_count_if_gaussian(c1, 0.0, 456)",
+       "noisy_count_if_gaussian(c2, 0.0, 456)"},
+      "SELECT sum(if(c1, 1, 0)), sum(if(c2, 1, 0)) FROM tmp");
+}
+
+// Test that given a random seed, the aggregation is deterministic.
+TEST_F(NoisyCountIfGaussianAggregationTest, randomSeedDeterminism) {
+  auto vectors = {
+      makeRowVector({
+          makeFlatVector<int64_t>(
+              20, [](vector_size_t row) { return row / 3; }),
+          makeConstant(true, 20),
+          makeConstant(false, 20),
+      }),
+  };
+
+  // Now run the aggregation with the given random seed and extract the result
+  auto expectedResult =
+      AssertQueryBuilder(
+          PlanBuilder()
+              .values(vectors)
+              .singleAggregation(
+                  {}, {"noisy_count_if_gaussian(c1, 3.0, 456)"}, {})
+              .planNode(),
+          duckDbQueryRunner_)
+          .copyResults(pool());
+
+  // The result should be the same for the same input, noise scale, and seed
+  int numRuns = 10;
+  for (int i = 0; i < numRuns; i++) {
+    testAggregations(
+        vectors, {}, {"noisy_count_if_gaussian(c1, 3, 456)"}, {expectedResult});
+  }
+}
+
 } // namespace facebook::velox::aggregate::test
