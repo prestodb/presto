@@ -41,13 +41,22 @@ import static org.testng.Assert.assertFalse;
 public class TestRestRemoteFunctions
         extends AbstractTestQueryFramework
 {
-    private TestingFunctionServer functionServer;
     private static final Session session = testSessionBuilder()
             .setSource("test")
             .setCatalog("tpch")
             .setSchema("tiny")
             .setSystemProperty("remote_functions_enabled", "true")
             .build();
+    private TestingFunctionServer functionServer;
+
+    private static int findRandomPort()
+            throws IOException
+    {
+        try (ServerSocket socket = new ServerSocket(0)) {
+            return socket.getLocalPort();
+        }
+    }
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
@@ -57,6 +66,12 @@ public class TestRestRemoteFunctions
         return FunctionServerQueryRunner.createQueryRunner(
                 functionServerPort,
                 ImmutableMap.of("list-built-in-functions-only", "false"));
+    }
+
+    @Override
+    protected Session getSession()
+    {
+        return session;
     }
 
     @Test
@@ -106,6 +121,19 @@ public class TestRestRemoteFunctions
                 "false");
     }
 
+    @Test
+    public void testRemoteFunctionAppliedToColumn()
+    {
+        assertQueryWithSameQueryRunner(
+                "SELECT rest.default.floor(totalprice) FROM orders",
+                "SELECT floor(totalprice) FROM orders");
+        assertQueryWithSameQueryRunner(
+                "SELECT rest.default.abs(discount) FROM tpch.sf1.lineitem",
+                "SELECT abs(discount) FROM tpch.sf1.lineitem");
+        assertEquals(computeActual("SELECT rest.default.length(CAST(comment AS VARBINARY)) FROM tpch.sf1.orders")
+                .getMaterializedRows().size(), 1500000);
+    }
+
     private static final class DummyPlugin
             implements Plugin
     {
@@ -124,14 +152,6 @@ public class TestRestRemoteFunctions
         public static boolean isPositive(@SqlType(BIGINT) long input)
         {
             return input > 0;
-        }
-    }
-
-    private static int findRandomPort()
-            throws IOException
-    {
-        try (ServerSocket socket = new ServerSocket(0)) {
-            return socket.getLocalPort();
         }
     }
 }
