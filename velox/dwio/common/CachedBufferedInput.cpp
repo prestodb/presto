@@ -48,20 +48,20 @@ std::unique_ptr<SeekableInputStream> CachedBufferedInput::enqueue(
   }
   VELOX_CHECK_LE(region.offset + region.length, fileSize_);
   requests_.emplace_back(
-      RawFileCacheKey{fileNum_, region.offset}, region.length, id);
+      RawFileCacheKey{fileNum_.id(), region.offset}, region.length, id);
   if (tracker_ != nullptr) {
-    tracker_->recordReference(id, region.length, fileNum_, groupId_);
+    tracker_->recordReference(id, region.length, fileNum_.id(), groupId_.id());
   }
   auto stream = std::make_unique<CacheInputStream>(
       this,
       ioStats_.get(),
       region,
       input_,
-      fileNum_,
+      fileNum_.id(),
       options_.noCacheRetention(),
       tracker_,
       id,
-      groupId_,
+      groupId_.id(),
       options_.loadQuantum());
   requests_.back().stream = stream.get();
   return stream;
@@ -166,7 +166,7 @@ void CachedBufferedInput::load(const LogType /*unused*/) {
   cache::SsdFile* ssdFile{nullptr};
   auto* ssdCache = cache_->ssdCache();
   if (ssdCache != nullptr) {
-    ssdFile = &ssdCache->file(fileNum_);
+    ssdFile = &ssdCache->file(fileNum_.id());
   }
 
   // Extra requests made for pre-loadable regions that are larger than
@@ -467,14 +467,14 @@ void CachedBufferedInput::readRegion(
   std::shared_ptr<cache::CoalescedLoad> load;
   if (!requests[0]->ssdPin.empty()) {
     load = std::make_shared<SsdLoad>(
-        *cache_, ioStats_, fsStats_, groupId_, requests);
+        *cache_, ioStats_, fsStats_, groupId_.id(), requests);
   } else {
     load = std::make_shared<DwioCoalescedLoad>(
         *cache_,
         input_,
         ioStats_,
         fsStats_,
-        groupId_,
+        groupId_.id(),
         requests,
         options_.maxCoalesceDistance());
   }
@@ -553,7 +553,7 @@ std::unique_ptr<SeekableInputStream> CachedBufferedInput::read(
       ioStats_.get(),
       Region{offset, length},
       input_,
-      fileNum_,
+      fileNum_.id(),
       options_.noCacheRetention(),
       nullptr,
       TrackingId(),

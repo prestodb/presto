@@ -51,17 +51,17 @@ std::unique_ptr<SeekableInputStream> DirectBufferedInput::enqueue(
   VELOX_CHECK_LE(region.offset + region.length, fileSize_);
   requests_.emplace_back(region, id);
   if (tracker_) {
-    tracker_->recordReference(id, region.length, fileNum_, groupId_);
+    tracker_->recordReference(id, region.length, fileNum_.id(), groupId_.id());
   }
   auto stream = std::make_unique<DirectInputStream>(
       this,
       ioStats_.get(),
       region,
       input_,
-      fileNum_,
+      fileNum_.id(),
       tracker_,
       id,
-      groupId_,
+      groupId_.id(),
       options_.loadQuantum());
   requests_.back().stream = stream.get();
   return stream;
@@ -189,7 +189,7 @@ void DirectBufferedInput::readRegion(
       input_,
       ioStats_,
       fsStats_,
-      groupId_,
+      groupId_.id(),
       requests,
       pool_,
       options_.loadQuantum());
@@ -254,7 +254,7 @@ std::unique_ptr<SeekableInputStream> DirectBufferedInput::read(
       ioStats_.get(),
       Region{offset, length},
       input_,
-      fileNum_,
+      fileNum_.id(),
       nullptr,
       TrackingId(),
       0,

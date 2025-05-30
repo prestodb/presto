@@ -15,6 +15,7 @@
  */
 
 #include <gtest/gtest.h>
+#include "velox/common/caching/AsyncDataCache.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 
 #include <folly/init/Init.h>
@@ -1314,6 +1315,38 @@ TEST_F(HiveDataSinkTest, ensureFilesUnsupported) {
           ),
       "ensureFiles is not supported with bucketing");
 }
+
+TEST_F(HiveDataSinkTest, raceWithCacheEviction) {
+  /// This test ensures that LRU cache staleness and StringIdMap cache
+  /// eviction do not cause issues with file reads.
+  std::atomic<bool> stop{false};
+  auto cacheCleaner = std::async(std::launch::async, [&] {
+    auto cache = cache::AsyncDataCache::getInstance();
+    auto hiveConnector = std::dynamic_pointer_cast<HiveConnector>(
+        getConnector(exec::test::kHiveConnectorId));
+    while (!stop) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      cache->clear();
+      hiveConnector->clearFileHandleCache();
+    }
+  });
+
+  const auto outputDirectory = TempDirectoryPath::create();
+  auto dataSink = createDataSink(rowType_, outputDirectory->getPath());
+  const auto vectors = createVectors(500 /*vectorSize*/, 10 /*numVectors*/);
+  for (const auto& vector : vectors) {
+    dataSink->appendData(vector);
+  }
+  ASSERT_TRUE(dataSink->finish());
+  ASSERT_FALSE(dataSink->close().empty());
+
+  createDuckDbTable(vectors);
+  verifyWrittenData(outputDirectory->getPath());
+
+  stop = true;
+  cacheCleaner.get();
+}
+
 } // namespace
 } // namespace facebook::velox::connector::hive
 

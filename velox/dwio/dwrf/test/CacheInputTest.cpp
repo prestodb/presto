@@ -187,25 +187,23 @@ class CacheTest : public ::testing::Test {
     return lease.id();
   }
 
-  std::shared_ptr<TestReadFile>
-  inputByPath(const std::string& path, uint64_t& fileId, uint64_t& groupId) {
+  std::shared_ptr<TestReadFile> inputByPath(
+      const std::string& path,
+      StringIdLease& fileId,
+      StringIdLease& groupId) {
     std::lock_guard<std::mutex> l(mutex_);
-    StringIdLease fileLease(fileIds(), path);
-    fileId = fileLease.id();
-    StringIdLease groupLease(fileIds(), fmt::format("group{}", fileId / 2));
-    groupId = groupLease.id();
-    auto it = pathToInput_.find(fileId);
+    fileId = StringIdLease{fileIds(), path};
+    groupId = StringIdLease{fileIds(), fmt::format("group{}", fileId.id() / 2)};
+    auto it = pathToInput_.find(fileId.id());
     if (it != pathToInput_.end()) {
       return it->second;
     }
-    fileIds_.push_back(fileLease);
-    fileIds_.push_back(groupLease);
+    fileIds_.push_back(fileId);
+    fileIds_.push_back(groupId);
     // Creates an extremely large read file for test.
     auto stream = std::make_shared<TestReadFile>(
-        fileLease.id(),
-        1UL << 63,
-        std::make_shared<filesystems::File::IoStats>());
-    pathToInput_[fileLease.id()] = stream;
+        fileId.id(), 1UL << 63, std::make_shared<filesystems::File::IoStats>());
+    pathToInput_[fileId.id()] = stream;
     return stream;
   }
 
@@ -215,8 +213,8 @@ class CacheTest : public ::testing::Test {
       std::shared_ptr<TestReadFile> readFile,
       int32_t numColumns,
       std::shared_ptr<ScanTracker> tracker,
-      uint64_t fileId,
-      uint64_t groupId,
+      const StringIdLease& fileId,
+      const StringIdLease& groupId,
       int64_t offset,
       bool noCacheRetention,
       const IoStatisticsPtr& ioStats,
@@ -356,11 +354,11 @@ class CacheTest : public ::testing::Test {
         io::ReaderOptions::kDefaultLoadQuantum,
         groupStats_);
     std::vector<std::unique_ptr<StripeData>> stripes;
-    uint64_t fileId;
-    uint64_t groupId;
+    StringIdLease fileId;
+    StringIdLease groupId;
     auto readFile = inputByPath(filename, fileId, groupId);
     if (groupStats_) {
-      groupStats_->recordFile(fileId, groupId, numStripes);
+      groupStats_->recordFile(fileId.id(), groupId.id(), numStripes);
     }
     for (auto stripeIndex = 0; stripeIndex < numStripes; ++stripeIndex) {
       const auto firstPrefetchStripe = stripeIndex + stripes.size();
@@ -473,8 +471,8 @@ TEST_F(CacheTest, window) {
       nullptr,
       io::ReaderOptions::kDefaultLoadQuantum,
       groupStats_);
-  uint64_t fileId;
-  uint64_t groupId;
+  StringIdLease fileId;
+  StringIdLease groupId;
   auto file = inputByPath("test_for_window", fileId, groupId);
   auto input = std::make_unique<CachedBufferedInput>(
       file,
@@ -737,10 +735,10 @@ class FileWithReadAhead {
     bufferedInput_ = std::make_unique<CachedBufferedInput>(
         file_,
         MetricsLog::voidLog(),
-        fileId_->id(),
+        *fileId_,
         cache,
         nullptr,
-        0,
+        StringIdLease{},
         stats,
         fsStats,
         executor,
@@ -935,19 +933,19 @@ TEST_F(CacheTest, noCacheRetention) {
 
 TEST_F(CacheTest, loadQuotumTooLarge) {
   initializeCache(64 << 20, 256 << 20);
-  auto fileId = std::make_unique<StringIdLease>(fileIds(), "foo");
+  StringIdLease fileId{fileIds(), "foo"};
   auto readFile =
-      std::make_shared<TestReadFile>(fileId->id(), 10 << 20, nullptr);
+      std::make_shared<TestReadFile>(fileId.id(), 10 << 20, nullptr);
   auto readOptions = io::ReaderOptions(pool_.get());
   readOptions.setLoadQuantum(9 << 20 /*9MB*/);
   VELOX_ASSERT_THROW(
       std::make_unique<CachedBufferedInput>(
           readFile,
           MetricsLog::voidLog(),
-          fileId->id(),
+          fileId,
           cache_.get(),
           nullptr,
-          0,
+          StringIdLease{},
           nullptr,
           nullptr,
           executor_.get(),
@@ -961,8 +959,8 @@ TEST_F(CacheTest, ssdReadVerification) {
   // 32 RAM, 256MB SSD, with checksumWrite/checksumReadVerification enabled.
   initializeCache(kMemoryBytes, kSsdBytes, true);
 
-  uint64_t fileId;
-  uint64_t groupId;
+  StringIdLease fileId;
+  StringIdLease groupId;
   auto file = inputByPath("test_file", fileId, groupId);
   auto tracker = std::make_shared<ScanTracker>(
       "testTracker", nullptr, io::ReaderOptions::kDefaultLoadQuantum);

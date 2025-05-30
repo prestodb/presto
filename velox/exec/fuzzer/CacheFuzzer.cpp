@@ -383,10 +383,10 @@ void CacheFuzzer::initializeInputs() {
     inputs_.emplace_back(std::make_unique<CachedBufferedInput>(
         std::move(readFile),
         MetricsLog::voidLog(),
-        fileIds_[i].id(), // NOLINT
+        fileIds_[i], // NOLINT
         cache_.get(),
         tracker,
-        fileIds_[i].id(), // NOLINT
+        fileIds_[i], // NOLINT
         ioStats,
         fsStats,
         withExecutor ? executor_.get() : nullptr,

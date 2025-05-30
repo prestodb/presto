@@ -758,11 +758,11 @@ std::unique_ptr<dwio::common::BufferedInput> createBufferedInput(
     return std::make_unique<dwio::common::CachedBufferedInput>(
         fileHandle.file,
         dwio::common::MetricsLog::voidLog(),
-        fileHandle.uuid.id(),
+        fileHandle.uuid,
         connectorQueryCtx->cache(),
         Connector::getTracker(
             connectorQueryCtx->scanId(), readerOpts.loadQuantum()),
-        fileHandle.groupId.id(),
+        fileHandle.groupId,
         ioStats,
         std::move(fsStats),
         executor,
@@ -771,10 +771,10 @@ std::unique_ptr<dwio::common::BufferedInput> createBufferedInput(
   return std::make_unique<dwio::common::DirectBufferedInput>(
       fileHandle.file,
       dwio::common::MetricsLog::voidLog(),
-      fileHandle.uuid.id(),
+      fileHandle.uuid,
       Connector::getTracker(
           connectorQueryCtx->scanId(), readerOpts.loadQuantum()),
-      fileHandle.groupId.id(),
+      fileHandle.groupId,
       std::move(ioStats),
       std::move(fsStats),
       executor,
