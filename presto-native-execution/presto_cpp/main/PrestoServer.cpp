@@ -839,7 +839,7 @@ void PrestoServer::initializeVeloxMemory() {
   PRESTO_STARTUP_LOG(INFO) << "Starting with node memory " << memoryGb << "GB";
 
   // Set up velox memory manager.
-  velox::memory::MemoryManagerOptions options;
+  velox::memory::MemoryManager::Options options;
   options.allocatorCapacity = memoryGb << 30;
   if (systemConfig->useMmapAllocator()) {
     options.useMmapAllocator = true;

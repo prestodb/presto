@@ -25,7 +25,7 @@ int main(int argc, char** argv) {
 class HttpsBasicTest : public ::testing::Test {
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance(memory::MemoryManagerOptions{});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 };
 
@@ -64,7 +64,7 @@ class HttpTestSuite : public ::testing::TestWithParam<bool> {
 
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance(memory::MemoryManagerOptions{});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   std::unique_ptr<http::HttpServer> getServer(
