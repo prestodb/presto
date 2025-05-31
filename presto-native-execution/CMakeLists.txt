@@ -65,6 +65,8 @@ option(PRESTO_ENABLE_JWT "Enable JWT (JSON Web Token) authentication" OFF)
 
 option(PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR "Enable Arrow Flight connector" OFF)
 
+option(PRESTO_ENABLE_TPCDS_CONNECTOR "Enable TPC-DS connector" OFF)
+
 # Set all Velox options below
 # Make sure that if we include folly headers or other dependency headers
 # that include folly headers we turn off the coroutines and turn on int128.

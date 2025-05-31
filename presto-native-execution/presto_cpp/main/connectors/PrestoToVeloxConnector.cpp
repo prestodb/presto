@@ -18,6 +18,7 @@
 #include "presto_cpp/presto_protocol/connector/hive/HiveConnectorProtocol.h"
 #include "presto_cpp/presto_protocol/connector/iceberg/IcebergConnectorProtocol.h"
 #include "presto_cpp/presto_protocol/connector/tpch/TpchConnectorProtocol.h"
+#include "presto_cpp/presto_protocol/connector/tpcds/TpcdsConnectorProtocol.h"
 
 #include <velox/type/fbhive/HiveTypeParser.h>
 #include "velox/connectors/hive/HiveConnector.h"
@@ -28,6 +29,8 @@
 #include "velox/connectors/hive/iceberg/IcebergSplit.h"
 #include "velox/connectors/tpch/TpchConnector.h"
 #include "velox/connectors/tpch/TpchConnectorSplit.h"
+#include "velox/connectors/tpcds/TpcdsConnector.h"
+#include "velox/connectors/tpcds/TpcdsConnectorSplit.h"
 #include "velox/type/Filter.h"
 
 namespace facebook::presto {
@@ -1547,5 +1550,59 @@ TpchPrestoToVeloxConnector::toVeloxTableHandle(
 std::unique_ptr<protocol::ConnectorProtocol>
 TpchPrestoToVeloxConnector::createConnectorProtocol() const {
   return std::make_unique<protocol::tpch::TpchConnectorProtocol>();
+}
+
+std::unique_ptr<velox::connector::ConnectorSplit>
+TpcdsPrestoToVeloxConnector::toVeloxSplit(
+    const protocol::ConnectorId& catalogId,
+    const protocol::ConnectorSplit* connectorSplit,
+    const protocol::SplitContext* splitContext) const {
+  auto tpcdsSplit =
+      dynamic_cast<const protocol::tpcds::TpcdsSplit*>(connectorSplit);
+  VELOX_CHECK_NOT_NULL(
+      tpcdsSplit, "Unexpected split type {}", connectorSplit->_type);
+  return std::make_unique<connector::tpcds::TpcdsConnectorSplit>(
+      catalogId,
+      splitContext->cacheable,
+      tpcdsSplit->totalParts,
+      tpcdsSplit->partNumber);
+}
+
+std::unique_ptr<velox::connector::ColumnHandle>
+TpcdsPrestoToVeloxConnector::toVeloxColumnHandle(
+    const protocol::ColumnHandle* column,
+    const TypeParser& typeParser) const {
+  auto tpcdsColumn =
+      dynamic_cast<const protocol::tpcds::TpcdsColumnHandle*>(column);
+  VELOX_CHECK_NOT_NULL(
+      tpcdsColumn, "Unexpected column handle type {}", column->_type);
+  return std::make_unique<connector::tpcds::TpcdsColumnHandle>(
+      tpcdsColumn->columnName);
+}
+
+std::unique_ptr<velox::connector::ConnectorTableHandle>
+TpcdsPrestoToVeloxConnector::toVeloxTableHandle(
+    const protocol::TableHandle& tableHandle,
+    const VeloxExprConverter& exprConverter,
+    const TypeParser& typeParser,
+    std::unordered_map<
+        std::string,
+        std::shared_ptr<velox::connector::ColumnHandle>>& assignments) const {
+  auto tpcdsLayout =
+      std::dynamic_pointer_cast<const protocol::tpcds::TpcdsTableLayoutHandle>(
+          tableHandle.connectorTableLayout);
+  VELOX_CHECK_NOT_NULL(
+      tpcdsLayout,
+      "Unexpected layout type {}",
+      tableHandle.connectorTableLayout->_type);
+  return std::make_unique<connector::tpcds::TpcdsTableHandle>(
+      tableHandle.connectorId,
+      tpcds::fromTableName(tpcdsLayout->table.tableName),
+      tpcdsLayout->table.scaleFactor);
+}
+
+std::unique_ptr<protocol::ConnectorProtocol>
+TpcdsPrestoToVeloxConnector::createConnectorProtocol() const {
+  return std::make_unique<protocol::tpcds::TpcdsConnectorProtocol>();
 }
 } // namespace facebook::presto
