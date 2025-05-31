@@ -113,11 +113,10 @@ class TextReader : public Reader {
 
 } // namespace
 
-/// TODO: Add implementation
 std::unique_ptr<Reader> TextReaderFactory::createReader(
-    std::unique_ptr<BufferedInput> /*input*/,
-    const dwio::common::ReaderOptions& /*options*/) {
-  return nullptr;
+    std::unique_ptr<BufferedInput> input,
+    const dwio::common::ReaderOptions& options) {
+  return std::make_unique<TextReader>(options, input->getReadFile());
 }
 
 void registerTextReaderFactory() {
