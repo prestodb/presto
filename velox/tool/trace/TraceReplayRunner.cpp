@@ -44,6 +44,7 @@
 #include "velox/tool/trace/AggregationReplayer.h"
 #include "velox/tool/trace/FilterProjectReplayer.h"
 #include "velox/tool/trace/HashJoinReplayer.h"
+#include "velox/tool/trace/IndexLookupJoinReplayer.h"
 #include "velox/tool/trace/OperatorReplayerBase.h"
 #include "velox/tool/trace/PartitionedOutputReplayer.h"
 #include "velox/tool/trace/TableScanReplayer.h"
@@ -388,6 +389,16 @@ TraceReplayRunner::createReplayer() const {
         cpuExecutor_.get());
   } else if (traceNodeName == "HashJoin") {
     replayer = std::make_unique<tool::trace::HashJoinReplayer>(
+        FLAGS_root_dir,
+        FLAGS_query_id,
+        FLAGS_task_id,
+        FLAGS_node_id,
+        traceNodeName,
+        FLAGS_driver_ids,
+        queryCapacityBytes,
+        cpuExecutor_.get());
+  } else if (traceNodeName == "IndexLookupJoin") {
+    replayer = std::make_unique<tool::trace::IndexLookupJoinReplayer>(
         FLAGS_root_dir,
         FLAGS_query_id,
         FLAGS_task_id,

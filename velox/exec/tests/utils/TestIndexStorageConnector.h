@@ -74,6 +74,9 @@ class TestIndexTableHandle : public connector::ConnectorTableHandle {
     obj["name"] = name();
     obj["connectorId"] = connectorId();
     obj["asyncLookup"] = asyncLookup_;
+    // For testing purpose only, we serialize the index table pointer as an
+    // long integer.
+    obj["indexTable"] = reinterpret_cast<int64_t>(indexTable_.get());
     return obj;
   }
 
@@ -82,8 +85,12 @@ class TestIndexTableHandle : public connector::ConnectorTableHandle {
       void* context) {
     // NOTE: this is only for testing purpose so we don't support to serialize
     // the table.
+    auto ptr_value = obj["indexTable"].asInt();
+    auto indexTablePtr = reinterpret_cast<TestIndexTable*>(ptr_value);
     return std::make_shared<TestIndexTableHandle>(
-        obj["connectorId"].getString(), nullptr, obj["asyncLookup"].asBool());
+        obj["connectorId"].getString(),
+        std::shared_ptr<TestIndexTable>(indexTablePtr, [](TestIndexTable*) {}),
+        obj["asyncLookup"].asBool());
   }
 
   static void registerSerDe() {

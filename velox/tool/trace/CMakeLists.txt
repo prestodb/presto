@@ -17,6 +17,7 @@ add_library(
   AggregationReplayer.cpp
   FilterProjectReplayer.cpp
   HashJoinReplayer.cpp
+  IndexLookupJoinReplayer.cpp
   OperatorReplayerBase.cpp
   PartitionedOutputReplayer.cpp
   TableScanReplayer.cpp
