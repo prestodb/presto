@@ -43,7 +43,7 @@ public class TestPrestoNativeAsyncDataCacheCleanupAPI
     @Override
     protected QueryRunner createQueryRunner() throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createQueryRunner(true, false, true, true);
+        return PrestoNativeQueryRunnerUtils.createQueryRunner(true, false, true, true, true);
     }
 
     @Override
