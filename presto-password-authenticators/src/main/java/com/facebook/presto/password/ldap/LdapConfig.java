@@ -15,10 +15,9 @@ package com.facebook.presto.password.ldap;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
-import io.airlift.units.Duration;
-
-import javax.validation.constraints.NotNull;
-import javax.validation.constraints.Pattern;
+import com.facebook.airlift.units.Duration;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 
 import java.util.concurrent.TimeUnit;
 

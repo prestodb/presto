@@ -15,9 +15,9 @@ package com.facebook.presto.plugin.base.security;
 
 import com.facebook.airlift.configuration.ConfigurationFactory;
 import com.facebook.airlift.configuration.testing.ConfigAssertions;
+import com.facebook.airlift.units.Duration;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.ConfigurationException;
-import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -59,7 +59,7 @@ public class TestFileBasedAccessControlConfig
     {
         assertThatThrownBy(() -> newInstance(ImmutableMap.of(SECURITY_REFRESH_PERIOD, "1ms")))
                 .isInstanceOf(ConfigurationException.class)
-                .hasMessageContaining("security.config-file: may not be null ");
+                .hasMessageContaining("security.config-file: must not be null ");
 
         assertThatThrownBy(() -> newInstance(ImmutableMap.of(
                 SECURITY_CONFIG_FILE, "/test.json",

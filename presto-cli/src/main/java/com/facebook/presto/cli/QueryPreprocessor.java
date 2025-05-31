@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.cli;
 
+import com.facebook.airlift.units.Duration;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.CharStreams;
-import io.airlift.units.Duration;
 import sun.misc.Signal;
 import sun.misc.SignalHandler;
 

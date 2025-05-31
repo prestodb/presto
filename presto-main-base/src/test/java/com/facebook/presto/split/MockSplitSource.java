@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.split;
 
+import com.facebook.airlift.concurrent.NotThreadSafe;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ConnectorId;
@@ -26,8 +27,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-
-import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.Collections;
 import java.util.List;

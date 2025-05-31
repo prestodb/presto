@@ -15,6 +15,7 @@ package com.facebook.presto.cache.filemerge;
 
 import alluxio.collections.ConcurrentHashSet;
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.cache.CacheManager;
 import com.facebook.presto.cache.CacheResult;
@@ -31,11 +32,9 @@ import com.google.common.collect.Range;
 import com.google.common.collect.RangeMap;
 import com.google.common.collect.TreeRangeMap;
 import io.airlift.slice.Slice;
-import io.airlift.units.DataSize;
+import jakarta.annotation.PreDestroy;
+import jakarta.inject.Inject;
 import org.apache.hadoop.fs.Path;
-
-import javax.annotation.PreDestroy;
-import javax.inject.Inject;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -59,10 +58,10 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 
+import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterators.getOnlyElement;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.StrictMath.toIntExact;
 import static java.nio.file.StandardOpenOption.APPEND;
 import static java.nio.file.StandardOpenOption.CREATE_NEW;

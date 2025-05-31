@@ -13,9 +13,8 @@
  */
 package com.facebook.presto.execution;
 
-import io.airlift.units.Duration;
-
-import javax.annotation.concurrent.NotThreadSafe;
+import com.facebook.airlift.concurrent.NotThreadSafe;
+import com.facebook.airlift.units.Duration;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;

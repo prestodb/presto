@@ -15,7 +15,7 @@ on:
         required: false
 
 env:
-  JAVA_VERSION: ${{ vars.JAVA_VERSION || '17' }}
+  JAVA_VERSION: ${{ vars.JAVA_VERSION || '17.0.13' }}
   JAVA_DISTRIBUTION: ${{ vars.JAVA_DISTRIBUTION || 'temurin' }}
   MAVEN_OPTS: ${{ vars.MAVEN_OPTS }}
   GIT_CI_USER: ${{ vars.GIT_CI_USER || 'prestodb-ci' }}

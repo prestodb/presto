@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.orc;
 
-import io.airlift.units.DataSize;
+import com.facebook.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
+import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static com.facebook.presto.orc.metadata.DwrfStripeCacheMode.INDEX_AND_FOOTER;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static org.testng.Assert.assertEquals;
 
 public class TestDwrfStripeCacheOptions

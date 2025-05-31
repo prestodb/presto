@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spark.execution;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
@@ -32,7 +33,6 @@ import com.facebook.presto.sql.planner.OutputPartitioning;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.SliceOutput;
-import io.airlift.units.DataSize;
 
 import java.util.List;
 import java.util.Optional;
