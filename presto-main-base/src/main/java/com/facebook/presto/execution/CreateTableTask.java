@@ -48,7 +48,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -103,7 +102,7 @@ public class CreateTableTask
         checkArgument(!statement.getElements().isEmpty(), "no columns for table");
 
         Map<NodeRef<Parameter>, Expression> parameterLookup = parameterExtractor(statement, parameters);
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
+        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName(), metadata);
         Optional<TableHandle> tableHandle = metadata.getMetadataResolver(session).getTableHandle(tableName);
         if (tableHandle.isPresent()) {
             if (!statement.isNotExists()) {
@@ -121,7 +120,8 @@ public class CreateTableTask
         for (TableElement element : statement.getElements()) {
             if (element instanceof ColumnDefinition) {
                 ColumnDefinition column = (ColumnDefinition) element;
-                String name = column.getName().getValue().toLowerCase(Locale.ENGLISH);
+                String columnName = column.getName().getValue();
+                String name = metadata.normalizeIdentifier(session, tableName.getCatalogName(), columnName);
                 Type type;
                 try {
                     type = metadata.getType(parseTypeSignature(column.getType()));
@@ -158,7 +158,7 @@ public class CreateTableTask
             }
             else if (element instanceof LikeClause) {
                 LikeClause likeClause = (LikeClause) element;
-                QualifiedObjectName likeTableName = createQualifiedObjectName(session, statement, likeClause.getTableName());
+                QualifiedObjectName likeTableName = createQualifiedObjectName(session, statement, likeClause.getTableName(), metadata);
                 getConnectorIdOrThrow(session, metadata, likeTableName.getCatalogName(), statement, likeTableCatalogError);
                 if (!tableName.getCatalogName().equals(likeTableName.getCatalogName())) {
                     throw new SemanticException(NOT_SUPPORTED, statement, "LIKE table across catalogs is not supported");
@@ -180,10 +180,10 @@ public class CreateTableTask
                 likeTableMetadata.getColumns().stream()
                         .filter(column -> !column.isHidden())
                         .forEach(column -> {
-                            if (columns.containsKey(column.getName().toLowerCase(Locale.ENGLISH))) {
+                            if (columns.containsKey(column.getName())) {
                                 throw new SemanticException(DUPLICATE_COLUMN_NAME, element, "Column name '%s' specified more than once", column.getName());
                             }
-                            columns.put(column.getName().toLowerCase(Locale.ENGLISH), column);
+                            columns.put(column.getName(), column);
                         });
             }
             else if (element instanceof ConstraintSpecification) {
