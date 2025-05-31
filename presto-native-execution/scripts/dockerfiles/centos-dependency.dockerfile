@@ -23,5 +23,14 @@ RUN mkdir build && \
     (cd build && ../scripts/setup-centos.sh && \
                  ../velox/scripts/setup-centos9.sh install_adapters && \
                  ../scripts/setup-adapters.sh && \
-                 ../velox/scripts/setup-centos9.sh install_clang15) && \
+                 source ../velox/scripts/setup-centos9.sh && \
+                 install_clang15 && \
+                 install_cuda 12.8) && \
     rm -rf build
+
+# put CUDA binaries on the PATH
+ENV PATH=/usr/local/cuda/bin:${PATH}
+
+# configuration for nvidia-container-toolkit
+ENV NVIDIA_VISIBLE_DEVICES=all
+ENV NVIDIA_DRIVER_CAPABILITIES="compute,utility"
