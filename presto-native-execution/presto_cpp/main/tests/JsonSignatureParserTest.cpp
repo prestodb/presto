@@ -197,5 +197,133 @@ TEST_F(JsonSignatureParserTest, multiple) {
   EXPECT_EQ(signature1->argumentTypes()[1].baseName(), "varchar");
 }
 
+TEST_F(JsonSignatureParserTest, dynamic) {
+  auto input = R"(
+  {
+    "dynamicUdfSignatureMap": {
+      "subdir_name": {
+      "mock1": [
+        {
+          "entrypoint": "registry123",
+          "fileName" : "test123",
+          "outputType": "varchar",
+          "paramTypes": [
+            "varchar"
+          ]
+        }
+      ],
+      "mock2": [
+        {
+          "fileName" : "test123",
+          "outputType": "boolean",
+          "paramTypes": []
+        }
+      ]
+    }
+    }
+  })";
+
+  JsonSignatureParser parser(input, JsonSignatureScope::DynamiclibrariesUdf);
+  EXPECT_EQ(2, parser.size());
+  bool seenMock1, seenMock2 = false;
+  for (auto it = parser.begin(); it != parser.end(); ++it) {
+    if (it->first == "mock1") {
+      if (seenMock1) {
+        continue;
+      }
+      EXPECT_EQ(it->second.size(), 1);
+
+      const auto& signature0 = it->second[0].signature;
+      EXPECT_EQ(signature0->returnType().baseName(), "varchar");
+      EXPECT_EQ(it->second[0].entrypoint, "registry123");
+      EXPECT_EQ(signature0->argumentTypes().size(), 1);
+      EXPECT_EQ(signature0->argumentTypes()[0].baseName(), "varchar");
+      seenMock1 = true;
+    } else if (it->first == "mock2") {
+      if (seenMock2) {
+        continue;
+      }
+      EXPECT_EQ(it->second.size(), 1);
+
+      const auto& signature1 = it->second[0].signature;
+      EXPECT_EQ(signature1->returnType().baseName(), "boolean");
+      EXPECT_EQ(signature1->argumentTypes().size(), 0);
+      seenMock2 = true;
+    } else {
+      FAIL() << "Unknown key found: " << it->first;
+    }
+  }
+  EXPECT_TRUE(seenMock1);
+  EXPECT_TRUE(seenMock2);
+}
+
+TEST_F(JsonSignatureParserTest, dynamicComplex) {
+  auto input = R"json(
+    {
+      "dynamicUdfSignatureMap": {
+        "subdir_name": {
+          "mock1": [
+            {
+              "entrypoint": "registry123",
+              "fileName" : "test123",
+              "outputType": "array(array(varchar))",
+              "paramTypes": [
+                "varchar"
+              ]
+            }
+          ],
+          "mock2": [
+            {
+              "fileName" : "test123",
+              "outputType": "array(array(date))",
+              "paramTypes": []
+            }
+          ]
+        }
+      }
+    }
+    )json";
+  JsonSignatureParser parser(input, JsonSignatureScope::DynamiclibrariesUdf);
+  EXPECT_EQ(2, parser.size());
+  bool seenMock1, seenMock2 = false;
+  for (auto it = parser.begin(); it != parser.end(); ++it) {
+    if (it->first == "mock1") {
+      if (seenMock1) {
+        continue;
+      }
+      EXPECT_EQ(it->second.size(), 1);
+
+      const auto& signature0 = it->second[0].signature;
+      EXPECT_EQ(signature0->returnType().baseName(), "array");
+      EXPECT_EQ(signature0->returnType().parameters()[0].baseName(), "array");
+      EXPECT_EQ(
+          signature0->returnType().parameters()[0].parameters()[0].baseName(),
+          "varchar");
+      EXPECT_EQ(it->second[0].entrypoint, "registry123");
+      EXPECT_EQ(signature0->argumentTypes().size(), 1);
+      EXPECT_EQ(signature0->argumentTypes()[0].baseName(), "varchar");
+      seenMock1 = true;
+    } else if (it->first == "mock2") {
+      if (seenMock2) {
+        continue;
+      }
+      EXPECT_EQ(it->second.size(), 1);
+
+      const auto& signature1 = it->second[0].signature;
+      EXPECT_EQ(signature1->returnType().baseName(), "array");
+      EXPECT_EQ(signature1->returnType().parameters()[0].baseName(), "array");
+      EXPECT_EQ(
+          signature1->returnType().parameters()[0].parameters()[0].baseName(),
+          "date");
+      EXPECT_EQ(signature1->argumentTypes().size(), 0);
+      seenMock2 = true;
+    } else {
+      FAIL() << "Unknown key found: " << it->first;
+    }
+  }
+  EXPECT_TRUE(seenMock1);
+  EXPECT_TRUE(seenMock2);
+}
+
 } // namespace
 } // namespace facebook::presto::test

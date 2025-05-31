@@ -259,6 +259,8 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kAggregationSpillEnabled, true),
           BOOL_PROP(kOrderBySpillEnabled, true),
           NUM_PROP(kRequestDataSizesMaxWaitSec, 10),
+          STR_PROP(kPluginDir, ""),
+          STR_PROP(kDynamicLibraryValidatorConfig, ""),
       };
 }
 
@@ -882,6 +884,14 @@ bool SystemConfig::enableRuntimeMetricsCollection() const {
 
 std::string SystemConfig::prestoDefaultNamespacePrefix() const {
   return optionalProperty(kPrestoDefaultNamespacePrefix).value().append(".");
+}
+
+std::string SystemConfig::pluginDir() const {
+  return optionalProperty(kPluginDir).value();
+}
+
+std::string SystemConfig::dynamicLibraryValidatorConfig() const {
+  return optionalProperty(kDynamicLibraryValidatorConfig).value();
 }
 
 NodeConfig::NodeConfig() {

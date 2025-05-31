@@ -23,9 +23,8 @@ add_executable(
   SessionPropertiesTest.cpp
   TaskManagerTest.cpp
   QueryContextManagerTest.cpp
-  TaskInfoTest.cpp
-  TaskStatusTest.cpp
-  TaskUpdateRequestTest.cpp)
+  JsonSignatureParserTest.cpp
+  DynamicFunctionRegistererTest.cpp)
 
 if(DEFINED PRESTO_MEMORY_CHECKER_TYPE AND PRESTO_MEMORY_CHECKER_TYPE STREQUAL
                                           "LINUX_MEMORY_CHECKER")
@@ -56,6 +55,14 @@ target_link_libraries(
   GTest::gtest
   GTest::gtest_main)
 
+if(APPLE)
+  target_compile_definitions(presto_server_test
+                             PUBLIC DYNAMIC_LIB_FILE_EXT=".dylib")
+else()
+  target_compile_definitions(presto_server_test
+                             PUBLIC DYNAMIC_LIB_FILE_EXT=".so")
+endif()
+
 # Clang requires explicit linking with libatomic.
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang"
    AND "${CMAKE_CXX_COMPILER_VERSION}" VERSION_GREATER_EQUAL 15)
@@ -67,7 +74,7 @@ set_property(TARGET presto_server_test PROPERTY JOB_POOL_LINK
 
 if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
   add_executable(presto_server_remote_function_test
-                 JsonSignatureParserTest.cpp RemoteFunctionRegistererTest.cpp)
+                 RemoteFunctionRegistererTest.cpp)
 
   add_test(
     NAME presto_server_remote_function_test
