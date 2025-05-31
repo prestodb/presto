@@ -135,3 +135,29 @@ target_link_libraries(
   velox_exec_test_lib
   GTest::gtest
   GTest::gtest_main)
+
+# RemoteFunctionTest.cpp only contains tests cases related to
+# RestFunctionHandle, therefore it is only enabled when remote functions are
+# enabled.
+if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
+  add_executable(presto_to_remote_function_test RemoteFunctionTest.cpp)
+
+  add_test(
+    NAME presto_to_remote_function_test
+    COMMAND presto_to_remote_function_test
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+  add_dependencies(presto_to_remote_function_test presto_server_test)
+
+  target_link_libraries(
+    presto_to_remote_function_test
+    presto_protocol
+    presto_operators
+    presto_type_converter
+    presto_types
+    velox_dwio_common
+    velox_hive_connector
+    velox_tpch_connector
+    GTest::gtest
+    GTest::gtest_main)
+endif()
