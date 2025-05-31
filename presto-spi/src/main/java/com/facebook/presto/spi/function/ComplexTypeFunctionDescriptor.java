@@ -44,7 +44,8 @@ public class ComplexTypeFunctionDescriptor
             true,
             emptyList(),
             Optional.of(emptySet()),
-            Optional.of(ComplexTypeFunctionDescriptor::allSubfieldsRequired));
+            Optional.of(ComplexTypeFunctionDescriptor::allSubfieldsRequired),
+            Optional.empty());
 
     /**
      * Indicates whether the function accessing subfields.
@@ -74,6 +75,12 @@ public class ComplexTypeFunctionDescriptor
      */
     private final List<LambdaDescriptor> lambdaDescriptors;
 
+    /**
+     * pushdownSubfieldArgIndex is used to specify which parameter in the scalar function corresponds to the parameter that should have its subfields pushed down to filter plan nodes during query planning and optimization
+     * This is helpful to reduce the amount of scanning done for queries involving structs, and it ensures that only utilized subfields of the struct scanned and unused subfields can be pruned from the query plan
+     */
+    private final Optional<Integer> pushdownSubfieldArgIndex;
+
     public ComplexTypeFunctionDescriptor(
             boolean isAccessingInputValues,
             List<LambdaDescriptor> lambdaDescriptors,
@@ -83,6 +90,7 @@ public class ComplexTypeFunctionDescriptor
     {
         this(isAccessingInputValues, lambdaDescriptors, argumentIndicesContainingMapOrArray, outputToInputTransformationFunction, signature.getArgumentTypes());
     }
+
     public ComplexTypeFunctionDescriptor(
             boolean isAccessingInputValues,
             List<LambdaDescriptor> lambdaDescriptors,
@@ -90,7 +98,18 @@ public class ComplexTypeFunctionDescriptor
             Optional<Function<Set<Subfield>, Set<Subfield>>> outputToInputTransformationFunction,
             List<TypeSignature> argumentTypes)
     {
-        this(isAccessingInputValues, lambdaDescriptors, argumentIndicesContainingMapOrArray, outputToInputTransformationFunction);
+        this(isAccessingInputValues, lambdaDescriptors, argumentIndicesContainingMapOrArray, outputToInputTransformationFunction, argumentTypes, Optional.empty());
+    }
+
+    public ComplexTypeFunctionDescriptor(
+            boolean isAccessingInputValues,
+            List<LambdaDescriptor> lambdaDescriptors,
+            Optional<Set<Integer>> argumentIndicesContainingMapOrArray,
+            Optional<Function<Set<Subfield>, Set<Subfield>>> outputToInputTransformationFunction,
+            List<TypeSignature> argumentTypes,
+            Optional<Integer> pushdownSubfieldArgIndex)
+    {
+        this(isAccessingInputValues, lambdaDescriptors, argumentIndicesContainingMapOrArray, outputToInputTransformationFunction, pushdownSubfieldArgIndex);
         if (argumentIndicesContainingMapOrArray.isPresent()) {
             checkArgument(argumentIndicesContainingMapOrArray.get().stream().allMatch(index -> index >= 0 &&
                     index < argumentTypes.size() &&
@@ -116,6 +135,16 @@ public class ComplexTypeFunctionDescriptor
             Optional<Set<Integer>> argumentIndicesContainingMapOrArray,
             Optional<Function<Set<Subfield>, Set<Subfield>>> outputToInputTransformationFunction)
     {
+        this(isAccessingInputValues, lambdaDescriptors, argumentIndicesContainingMapOrArray, outputToInputTransformationFunction, Optional.empty());
+    }
+
+    public ComplexTypeFunctionDescriptor(
+            boolean isAccessingInputValues,
+            List<LambdaDescriptor> lambdaDescriptors,
+            Optional<Set<Integer>> argumentIndicesContainingMapOrArray,
+            Optional<Function<Set<Subfield>, Set<Subfield>>> outputToInputTransformationFunction,
+            Optional<Integer> pushdownSubfieldArgIndex)
+    {
         requireNonNull(argumentIndicesContainingMapOrArray, "argumentIndicesContainingMapOrArray is null");
         this.isAccessingInputValues = isAccessingInputValues;
         this.lambdaDescriptors = unmodifiableList(requireNonNull(lambdaDescriptors, "lambdaDescriptors is null"));
@@ -123,6 +152,7 @@ public class ComplexTypeFunctionDescriptor
                 Optional.of(unmodifiableSet(argumentIndicesContainingMapOrArray.get())) :
                 Optional.empty();
         this.outputToInputTransformationFunction = requireNonNull(outputToInputTransformationFunction, "outputToInputTransformationFunction is null");
+        this.pushdownSubfieldArgIndex = requireNonNull(pushdownSubfieldArgIndex, "pushdownSubfieldArgIndex is null");
     }
 
     public static ComplexTypeFunctionDescriptor defaultFunctionDescriptor()
@@ -153,6 +183,11 @@ public class ComplexTypeFunctionDescriptor
     public Optional<Function<Set<Subfield>, Set<Subfield>>> getOutputToInputTransformationFunction()
     {
         return outputToInputTransformationFunction;
+    }
+
+    public Optional<Integer> getPushdownSubfieldArgIndex()
+    {
+        return pushdownSubfieldArgIndex;
     }
 
     @Override

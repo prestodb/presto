@@ -16,6 +16,7 @@ package com.facebook.presto.operator.scalar.annotations;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.operator.scalar.ScalarHeader;
+import com.facebook.presto.spi.function.ComplexTypeFunctionDescriptor;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
@@ -28,6 +29,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.operator.annotations.FunctionsParserHelper.parseDescription;
+import static com.facebook.presto.operator.annotations.FunctionsParserHelper.parseFunctionDescriptor;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.LOWER_UNDERSCORE;
@@ -76,20 +78,21 @@ public class ScalarImplementationHeader
         ScalarFunction scalarFunction = annotated.getAnnotation(ScalarFunction.class);
         ScalarOperator scalarOperator = annotated.getAnnotation(ScalarOperator.class);
         Optional<String> description = parseDescription(annotated);
+        ComplexTypeFunctionDescriptor descriptor = parseFunctionDescriptor(annotated);
 
         ImmutableList.Builder<ScalarImplementationHeader> builder = ImmutableList.builder();
 
         if (scalarFunction != null) {
             String baseName = scalarFunction.value().isEmpty() ? camelToSnake(annotatedName(annotated)) : scalarFunction.value();
-            builder.add(new ScalarImplementationHeader(baseName, new ScalarHeader(description, scalarFunction.visibility(), scalarFunction.deterministic(), scalarFunction.calledOnNullInput())));
+            builder.add(new ScalarImplementationHeader(baseName, new ScalarHeader(description, scalarFunction.visibility(), scalarFunction.deterministic(), scalarFunction.calledOnNullInput(), descriptor)));
 
             for (String alias : scalarFunction.alias()) {
-                builder.add(new ScalarImplementationHeader(alias, new ScalarHeader(description, scalarFunction.visibility(), scalarFunction.deterministic(), scalarFunction.calledOnNullInput())));
+                builder.add(new ScalarImplementationHeader(alias, new ScalarHeader(description, scalarFunction.visibility(), scalarFunction.deterministic(), scalarFunction.calledOnNullInput(), descriptor)));
             }
         }
 
         if (scalarOperator != null) {
-            builder.add(new ScalarImplementationHeader(scalarOperator.value(), new ScalarHeader(description, HIDDEN, true, scalarOperator.value().isCalledOnNullInput())));
+            builder.add(new ScalarImplementationHeader(scalarOperator.value(), new ScalarHeader(description, HIDDEN, true, scalarOperator.value().isCalledOnNullInput(), descriptor)));
         }
 
         List<ScalarImplementationHeader> result = builder.build();

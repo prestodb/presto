@@ -65,7 +65,19 @@ public class FunctionMetadata
             boolean calledOnNullInput,
             ComplexTypeFunctionDescriptor functionDescriptor)
     {
-        this(name, Optional.empty(), argumentTypes, Optional.empty(), returnType, functionKind, Optional.empty(), implementationType, deterministic, calledOnNullInput, notVersioned(), functionDescriptor);
+        this(
+                name,
+                Optional.empty(),
+                argumentTypes,
+                Optional.empty(),
+                returnType,
+                functionKind,
+                Optional.empty(),
+                implementationType,
+                deterministic,
+                calledOnNullInput,
+                notVersioned(),
+                functionDescriptor);
     }
 
     public FunctionMetadata(
@@ -184,8 +196,10 @@ public class FunctionMetadata
                 functionDescriptor.getLambdaDescriptors(),
                 functionDescriptor.getArgumentIndicesContainingMapOrArray(),
                 functionDescriptor.getOutputToInputTransformationFunction(),
-                argumentTypes);
+                argumentTypes,
+                functionDescriptor.getPushdownSubfieldArgIndex());
     }
+
     public FunctionKind getFunctionKind()
     {
         return functionKind;
