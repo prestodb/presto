@@ -1299,3 +1299,64 @@ TEST_F(GeometryFunctionsTest, testGeometryInvalidReason) {
   assertInvalidReason(
       "GEOMETRYCOLLECTION (MULTIPOINT (1 0, 1 1, 0 1, 0 0))", std::nullopt);
 }
+
+TEST_F(GeometryFunctionsTest, testSimplifyGeometry) {
+  const auto assertSimplifyGeometry = [&](const std::optional<std::string>& wkt,
+                                          std::optional<double> tolerance,
+                                          const std::optional<std::string>&
+                                              expectedWkt) {
+    std::optional<bool> result = evaluateOnce<bool>(
+        "ST_Equals(simplify_geometry(ST_GeometryFromText(c0), c1), ST_GeometryFromText(c2))",
+        wkt,
+        tolerance,
+        expectedWkt);
+
+    if (wkt.has_value() && tolerance.has_value() && expectedWkt.has_value()) {
+      ASSERT_TRUE(result.has_value());
+      ASSERT_TRUE(result.value()) << " from WKT: " << wkt.value();
+    } else {
+      ASSERT_FALSE(result.has_value());
+    }
+  };
+
+  assertSimplifyGeometry("POLYGON EMPTY", 1.0, "POLYGON EMPTY");
+  assertSimplifyGeometry(
+      "POLYGON ((1 0, 2 1, 3 1, 3 1, 4 1, 1 0))",
+      1.5,
+      "POLYGON ((1 0, 2 1, 4 1, 1 0))");
+  // Simplifying by 0.0 leaves the geometry unchanged
+  assertSimplifyGeometry(
+      "POLYGON ((1 0, 2 1, 3 1, 3 1, 4 1, 1 0))",
+      0.0,
+      "POLYGON ((1 0, 2 1, 3 1, 3 1, 4 1, 1 0))");
+
+  // Check different tolerance produce different answers
+  assertSimplifyGeometry(
+      "POLYGON ((1 0, 1 1, 2 1, 2 3, 3 3, 3 1, 4 1, 4 0, 1 0))",
+      1.0,
+      "POLYGON ((1 0, 2 3, 3 3, 4 0, 1 0))");
+  assertSimplifyGeometry(
+      "POLYGON ((1 0, 1 1, 2 1, 2 3, 3 3, 3 1, 4 1, 4 0, 1 0))",
+      0.5,
+      "POLYGON ((1 0, 1 1, 2 1, 2 3, 3 3, 3 1, 4 1, 4 0, 1 0))");
+
+  assertSimplifyGeometry(
+      "POLYGON ((1 0, 2 1, 3 1, 3 1, 4 1, 1 0))",
+      std::nullopt,
+      "POLYGON ((1 0, 2 1, 4 1, 1 0))");
+  assertSimplifyGeometry(std::nullopt, 1.0, "POLYGON ((1 0, 2 1, 4 1, 1 0))");
+
+  VELOX_ASSERT_USER_THROW(
+      assertSimplifyGeometry(
+          "POLYGON ((1 0, 1 1, 2 1, 2 3, 3 3, 3 1, 4 1, 4 0, 1 0))",
+          -0.5,
+          "POLYGON ((1 0, 1 1, 2 1, 2 3, 3 3, 3 1, 4 1, 4 0, 1 0))"),
+      "simplification tolerance must be a non-negative finite number");
+
+  VELOX_ASSERT_USER_THROW(
+      assertSimplifyGeometry(
+          "POLYGON ((1 0, 1 1, 2 1, 2 3, 3 3, 3 1, 4 1, 4 0, 1 0))",
+          std::nan("1"),
+          "POLYGON ((1 0, 1 1, 2 1, 2 3, 3 3, 3 1, 4 1, 4 0, 1 0))"),
+      "simplification tolerance must be a non-negative finite number");
+}

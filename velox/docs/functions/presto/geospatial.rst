@@ -190,6 +190,14 @@ Accessors
     ``null`` if the geometry is empty.  Raises an error if the geometry is
     not a Point and not empty.
 
+.. function:: simplify_geometry(geometry: Geometry, tolerance: double) -> output: Geometry
+
+    Returns a "simplified" version of the input geometry using the
+    Douglas-Peucker algorithm. Will avoid creating geometries (polygons in
+    particular) that are invalid. Tolerance must be a non-negative finite value.
+    Using tolerance of 0 will return the original geometry.  Empty geometries
+    will also be returned as-is.
+
 Bing Tile Functions
 -------------------
 
