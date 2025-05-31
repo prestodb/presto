@@ -2169,6 +2169,10 @@ class LocalMergeNode : public PlanNode {
     return sortingKeys_;
   }
 
+  bool canSpill(const QueryConfig& queryConfig) const override {
+    return !sortingKeys_.empty() && queryConfig.localMergeSpillEnabled();
+  }
+
   const std::vector<SortOrder>& sortingOrders() const {
     return sortingOrders_;
   }

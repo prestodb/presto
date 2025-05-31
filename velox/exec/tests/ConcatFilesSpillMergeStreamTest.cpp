@@ -15,6 +15,7 @@
  */
 
 #include "velox/common/file/FileSystems.h"
+#include "velox/exec/Merge.h"
 #include "velox/exec/SortBuffer.h"
 #include "velox/exec/Spill.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
@@ -67,13 +68,8 @@ class ConcatFilesSpillMergeStreamTest : public OperatorTestBase {
 
   SpillFiles generateSortedSpillFiles(
       const std::vector<RowVectorPtr>& sortedVectors) {
-    const auto spiller = std::make_unique<NoRowContainerSpiller>(
-        inputType_,
-        std::nullopt,
-        HashBitRange{},
-        sortingKeys_,
-        &spillConfig_,
-        &spillStats_);
+    const auto spiller = std::make_unique<MergeSpiller>(
+        inputType_, HashBitRange{}, sortingKeys_, &spillConfig_, &spillStats_);
     for (const auto& vector : sortedVectors) {
       spiller->spill(SpillPartitionId(0), vector);
     }

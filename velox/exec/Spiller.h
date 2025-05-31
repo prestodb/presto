@@ -206,14 +206,6 @@ class NoRowContainerSpiller : public SpillerBase {
       RowTypePtr rowType,
       std::optional<SpillPartitionId> parentId,
       HashBitRange bits,
-      const std::vector<SpillSortKey>& sortingKeys,
-      const common::SpillConfig* spillConfig,
-      folly::Synchronized<common::SpillStats>* spillStats);
-
-  NoRowContainerSpiller(
-      RowTypePtr rowType,
-      std::optional<SpillPartitionId> parentId,
-      HashBitRange bits,
       const common::SpillConfig* spillConfig,
       folly::Synchronized<common::SpillStats>* spillStats);
 
@@ -226,6 +218,15 @@ class NoRowContainerSpiller : public SpillerBase {
       state_.setPartitionSpilled(id);
     }
   }
+
+ protected:
+  NoRowContainerSpiller(
+      RowTypePtr rowType,
+      std::optional<SpillPartitionId> parentId,
+      HashBitRange bits,
+      const std::vector<SpillSortKey>& sortingKeys,
+      const common::SpillConfig* spillConfig,
+      folly::Synchronized<common::SpillStats>* spillStats);
 
  private:
   std::string type() const override {
