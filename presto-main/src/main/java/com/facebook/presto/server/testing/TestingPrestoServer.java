@@ -61,6 +61,7 @@ import com.facebook.presto.server.GracefulShutdownHandler;
 import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.server.ServerInfoResource;
 import com.facebook.presto.server.ServerMainModule;
+import com.facebook.presto.server.SessionPropertyDefaults;
 import com.facebook.presto.server.ShutdownAction;
 import com.facebook.presto.server.security.ServerSecurityModule;
 import com.facebook.presto.spi.ClientRequestFilterFactory;
@@ -159,6 +160,7 @@ public class TestingPrestoServer
     private final TestingAccessControlManager accessControl;
     private final ProcedureTester procedureTester;
     private final Optional<InternalResourceGroupManager<?>> resourceGroupManager;
+    private final SessionPropertyDefaults sessionPropertyDefaults;
     private final SplitManager splitManager;
     private final PageSourceManager pageSourceManager;
     private final NodePartitioningManager nodePartitioningManager;
@@ -388,6 +390,7 @@ public class TestingPrestoServer
             if (!skipLoadingResourceGroupConfigurationManager) {
                 resourceGroupManager.loadConfigurationManager();
             }
+            sessionPropertyDefaults = injector.getInstance(SessionPropertyDefaults.class);
             nodePartitioningManager = injector.getInstance(NodePartitioningManager.class);
             planOptimizerManager = injector.getInstance(ConnectorPlanOptimizerManager.class);
             clusterMemoryManager = injector.getInstance(ClusterMemoryManager.class);
@@ -403,6 +406,7 @@ public class TestingPrestoServer
             resourceGroupManager = Optional.empty();
             nodePartitioningManager = injector.getInstance(NodePartitioningManager.class);
             planOptimizerManager = injector.getInstance(ConnectorPlanOptimizerManager.class);
+            sessionPropertyDefaults = null;
             clusterMemoryManager = null;
             statsCalculator = null;
             eventListenerManager = ((TestingEventListenerManager) injector.getInstance(EventListenerManager.class));
@@ -414,6 +418,7 @@ public class TestingPrestoServer
             queryManager = null;
             resourceGroupManager = Optional.empty();
             nodePartitioningManager = null;
+            sessionPropertyDefaults = null;
             planOptimizerManager = null;
             clusterMemoryManager = null;
             statsCalculator = null;
@@ -426,6 +431,7 @@ public class TestingPrestoServer
             queryManager = null;
             resourceGroupManager = Optional.empty();
             nodePartitioningManager = null;
+            sessionPropertyDefaults = null;
             planOptimizerManager = null;
             clusterMemoryManager = null;
             statsCalculator = null;
@@ -437,6 +443,7 @@ public class TestingPrestoServer
             dispatchManager = null;
             queryManager = null;
             resourceGroupManager = Optional.empty();
+            sessionPropertyDefaults = null;
             nodePartitioningManager = null;
             planOptimizerManager = null;
             clusterMemoryManager = null;
@@ -657,6 +664,11 @@ public class TestingPrestoServer
     public Optional<InternalResourceGroupManager<?>> getResourceGroupManager()
     {
         return resourceGroupManager;
+    }
+
+    public SessionPropertyDefaults getSessionPropertyDefaults()
+    {
+        return sessionPropertyDefaults;
     }
 
     public InternalNodeManager getNodeManager()
