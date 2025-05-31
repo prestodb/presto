@@ -51,6 +51,10 @@ public class QueryProgressStats
     private final int runningDrivers;
     private final int completedDrivers;
 
+    private final int queuedSplits;
+    private final int runningSplits;
+    private final int completedSplits;
+
     @JsonCreator
     @ThriftConstructor
     public QueryProgressStats(
@@ -72,7 +76,11 @@ public class QueryProgressStats
             @JsonProperty("progressPercentage") OptionalDouble progressPercentage,
             @JsonProperty("queuedDrivers") int queuedDrivers,
             @JsonProperty("runningDrivers") int runningDrivers,
-            @JsonProperty("completedDrivers") int completedDrivers)
+            @JsonProperty("completedDrivers") int completedDrivers,
+            @JsonProperty("queuedSplits") int queuedSplits,
+            @JsonProperty("runningSplits") int runningSplits,
+            @JsonProperty("completedSplits") int completedSplits)
+
     {
         this.elapsedTimeMillis = elapsedTimeMillis;
         this.queuedTimeMillis = queuedTimeMillis;
@@ -93,6 +101,9 @@ public class QueryProgressStats
         this.queuedDrivers = queuedDrivers;
         this.runningDrivers = runningDrivers;
         this.completedDrivers = completedDrivers;
+        this.queuedSplits = queuedSplits;
+        this.runningSplits = runningSplits;
+        this.completedSplits = completedSplits;
     }
 
     public static QueryProgressStats createQueryProgressStats(BasicQueryStats queryStats)
@@ -116,7 +127,10 @@ public class QueryProgressStats
                 queryStats.getProgressPercentage(),
                 queryStats.getQueuedDrivers(),
                 queryStats.getRunningDrivers(),
-                queryStats.getCompletedDrivers());
+                queryStats.getCompletedDrivers(),
+                queryStats.getQueuedSplits(),
+                queryStats.getRunningSplits(),
+                queryStats.getCompletedSplits());
     }
 
     @ThriftField(1)
@@ -250,5 +264,26 @@ public class QueryProgressStats
     public int getCompletedDrivers()
     {
         return completedDrivers;
+    }
+
+    @ThriftField(20)
+    @JsonProperty
+    public int getQueuedSplits()
+    {
+        return queuedSplits;
+    }
+
+    @ThriftField(21)
+    @JsonProperty
+    public int getRunningSplits()
+    {
+        return runningSplits;
+    }
+
+    @ThriftField(22)
+    @JsonProperty
+    public int getCompletedSplits()
+    {
+        return completedSplits;
     }
 }
