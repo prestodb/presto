@@ -14,6 +14,7 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.spi.function.FunctionDescriptor;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
@@ -24,8 +25,9 @@ public final class CustomStructWithPassthrough
 {
     private CustomStructWithPassthrough() {}
 
-    @ScalarFunction(value = "custom_struct_with_passthrough", pushdownSubfieldArgIndex = 0)
+    @ScalarFunction(value = "custom_struct_with_passthrough")
     @TypeParameter(value = "T", boundedBy = ROW)
+    @FunctionDescriptor(pushdownSubfieldArgIndex = 0)
     @SqlType("T")
     public static Block customStructWithPassthrough(@SqlType("T") Block struct)
     {

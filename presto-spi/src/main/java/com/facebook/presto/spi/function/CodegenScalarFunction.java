@@ -33,6 +33,4 @@ public @interface CodegenScalarFunction
     boolean deterministic() default true;
 
     boolean calledOnNullInput() default false;
-
-    int pushdownSubfieldArgIndex() default -1;
 }

@@ -16,16 +16,15 @@ package com.facebook.presto.operator.scalar.annotations;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.operator.ParametricImplementationsGroup;
 import com.facebook.presto.operator.annotations.FunctionsParserHelper;
-import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.ParametricScalar;
 import com.facebook.presto.operator.scalar.annotations.ParametricScalarImplementation.SpecializedSignature;
 import com.facebook.presto.spi.function.CodegenScalarFunction;
+import com.facebook.presto.spi.function.FunctionDescriptor;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlInvokedScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.function.TypeVariableConstraint;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -37,6 +36,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.operator.annotations.FunctionsParserHelper.checkPushdownSubfieldArgIndex;
 import static com.facebook.presto.operator.scalar.annotations.OperatorValidator.validateOperator;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static com.facebook.presto.util.Failures.checkCondition;
@@ -90,7 +90,7 @@ public final class ScalarFromAnnotationsParser
         ImmutableList.Builder<ScalarHeaderAndMethods> builder = ImmutableList.builder();
         for (Method method : FunctionsParserHelper.findPublicMethods(
                 annotated,
-                ImmutableSet.of(SqlType.class, ScalarFunction.class, ScalarOperator.class),
+                ImmutableSet.of(SqlType.class, ScalarFunction.class, ScalarOperator.class, FunctionDescriptor.class),
                 ImmutableSet.of(SqlInvokedScalarFunction.class, CodegenScalarFunction.class))) {
             checkCondition((method.getAnnotation(ScalarFunction.class) != null) || (method.getAnnotation(ScalarOperator.class) != null),
                     FUNCTION_IMPLEMENTATION_ERROR, "Method [%s] annotated with @SqlType is missing @ScalarFunction or @ScalarOperator", method);
@@ -108,7 +108,7 @@ public final class ScalarFromAnnotationsParser
         Map<SpecializedSignature, ParametricScalarImplementation.Builder> signatures = new HashMap<>();
         for (Method method : scalar.getMethods()) {
             ParametricScalarImplementation implementation = ParametricScalarImplementation.Parser.parseImplementation(header, method, constructor);
-            checkPushdownSubfieldArgIndex(implementation, header, method);
+            checkPushdownSubfieldArgIndex(method, implementation.getSignature(), header.getHeader().getComplexTypeFunctionDescriptor().getPushdownSubfieldArgIndex());
             if (!signatures.containsKey(implementation.getSpecializedSignature())) {
                 ParametricScalarImplementation.Builder builder = new ParametricScalarImplementation.Builder(
                         implementation.getSignature(),
@@ -156,29 +156,6 @@ public final class ScalarFromAnnotationsParser
         public Set<Method> getMethods()
         {
             return methods;
-        }
-    }
-
-    private static void checkPushdownSubfieldArgIndex(ParametricScalarImplementation implementation, ScalarImplementationHeader header, Method method)
-    {
-        Optional<Integer> pushdownSubfieldArgIndex = header.getHeader().getPushdownSubfieldArgIndex();
-        if (pushdownSubfieldArgIndex.isPresent()) {
-            Signature signature = implementation.getSignature();
-            Map<String, TypeVariableConstraint> typeConstraintMapping = new HashMap<>();
-            for (TypeVariableConstraint constraint : signature.getTypeVariableConstraints()) {
-                typeConstraintMapping.put(constraint.getName(), constraint);
-            }
-            checkCondition(signature.getArgumentTypes().size() > pushdownSubfieldArgIndex.get(), FUNCTION_IMPLEMENTATION_ERROR, "Method [%s] has out of range pushdown subfield arg index", method);
-            String typeVariableName = signature.getArgumentTypes().get(pushdownSubfieldArgIndex.get()).toString();
-
-            // The type variable must be directly a ROW type
-            // or (it is a type alias that is not bounded by a type)
-            // or (it is a type alias that maps to a row type)
-            boolean meetsTypeConstraint = (!typeConstraintMapping.containsKey(typeVariableName) && typeVariableName.equals(com.facebook.presto.common.type.StandardTypes.ROW)) ||
-                    (typeConstraintMapping.containsKey(typeVariableName) && typeConstraintMapping.get(typeVariableName).getVariadicBound() == null && !typeConstraintMapping.get(typeVariableName).isNonDecimalNumericRequired()) ||
-                    (typeConstraintMapping.containsKey(typeVariableName) && typeConstraintMapping.get(typeVariableName).getVariadicBound().equals(com.facebook.presto.common.type.StandardTypes.ROW));
-
-            checkCondition(meetsTypeConstraint, FUNCTION_IMPLEMENTATION_ERROR, "Method [%s] does not have a struct or row type as pushdown subfield arg", method);
         }
     }
 }

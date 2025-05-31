@@ -16,22 +16,13 @@ package com.facebook.presto.spi.function;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
-import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
 import static java.lang.annotation.ElementType.METHOD;
-import static java.lang.annotation.ElementType.TYPE;
+import static java.lang.annotation.ElementType.PARAMETER;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
 @Retention(RUNTIME)
-@Target({METHOD, TYPE})
-public @interface ScalarFunction
+@Target({METHOD, PARAMETER})
+public @interface FunctionDescriptor
 {
-    String value() default "";
-
-    String[] alias() default {};
-
-    SqlFunctionVisibility visibility() default PUBLIC;
-
-    boolean deterministic() default true;
-
-    boolean calledOnNullInput() default false;
+    int pushdownSubfieldArgIndex() default -1;
 }
