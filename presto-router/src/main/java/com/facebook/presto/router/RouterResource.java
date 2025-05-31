@@ -16,7 +16,7 @@ package com.facebook.presto.router;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.router.cluster.ClusterManager;
-import com.facebook.presto.router.cluster.RequestInfo;
+import com.facebook.presto.spi.router.RequestInfo;
 import com.google.inject.Inject;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -60,7 +60,16 @@ public class RouterResource
     public Response routeQuery(String statement, @Context HttpServletRequest servletRequest)
     {
         RequestInfo requestInfo = new RequestInfo(servletRequest, statement);
-        URI coordinatorUri = clusterManager.getDestination(requestInfo).orElseThrow(() -> badRequest(BAD_GATEWAY, "No Presto cluster available"));
+        URI coordinatorUri;
+        try {
+            coordinatorUri = clusterManager.getDestination(requestInfo).orElseThrow(() -> badRequest(BAD_GATEWAY, "No Presto cluster available"));
+        }
+        catch (RuntimeException e) {
+            return Response.status(Response.Status.OK)
+                    .entity(e.getMessage())
+                    .type(APPLICATION_JSON)
+                    .build();
+        }
         URI statementUri = uriBuilderFrom(coordinatorUri).replacePath("/v1/statement").build();
         successRedirectRequests.update(1);
         log.info("route query to %s", statementUri);

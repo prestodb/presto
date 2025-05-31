@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.router.cluster;
+package com.facebook.presto.spi.router;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -21,24 +21,26 @@ import javax.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_TAGS;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.nullToEmpty;
 import static java.util.Objects.requireNonNull;
 
 public class RequestInfo
 {
+    private static final String PRESTO_CLIENT_TAGS = "X-Presto-Client-Tags";
+    private static final String PRESTO_USER = "X-Presto-User";
+    private static final String PRESTO_SOURCE = "X-Presto-Source";
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
     private final String user;
     private final Optional<String> source;
     private final List<String> clientTags;
     private final String query;
+    private final HttpServletRequest servletRequest;
 
     public RequestInfo(HttpServletRequest servletRequest, String query)
     {
+        this.servletRequest = requireNonNull(servletRequest, "servletRequest is null");
         this.user = parseHeader(servletRequest, PRESTO_USER);
         this.source = Optional.ofNullable(parseHeader(servletRequest, PRESTO_SOURCE));
         this.clientTags = requireNonNull(parseClientTags(servletRequest), "clientTags is null");
@@ -63,6 +65,11 @@ public class RequestInfo
     public List<String> getClientTags()
     {
         return clientTags;
+    }
+
+    public HttpServletRequest getServletRequest()
+    {
+        return servletRequest;
     }
 
     private static List<String> parseClientTags(HttpServletRequest servletRequest)

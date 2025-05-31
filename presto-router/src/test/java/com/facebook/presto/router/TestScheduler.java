@@ -18,7 +18,11 @@ import com.facebook.presto.router.scheduler.RoundRobinScheduler;
 import com.facebook.presto.router.scheduler.UserHashScheduler;
 import com.facebook.presto.router.scheduler.WeightedRandomChoiceScheduler;
 import com.facebook.presto.router.scheduler.WeightedRoundRobinScheduler;
+import com.facebook.presto.server.MockHttpServletRequest;
+import com.facebook.presto.spi.router.RequestInfo;
 import com.facebook.presto.spi.router.Scheduler;
+import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ListMultimap;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -29,6 +33,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -59,7 +64,7 @@ public class TestScheduler
         HashMap<URI, Integer> hitCounter = new HashMap<>();
 
         for (int i = 0; i < 10_000; i++) {
-            URI target = scheduler.getDestination("test").orElse(new URI("invalid"));
+            URI target = scheduler.getDestination(getMockRequestInfo("test")).orElse(new URI("invalid"));
             assertTrue(servers.contains(target));
             hitCounter.put(target, hitCounter.getOrDefault(target, 0) + 1);
         }
@@ -84,13 +89,22 @@ public class TestScheduler
         Scheduler scheduler = new UserHashScheduler();
         scheduler.setCandidates(servers);
 
-        URI target1 = scheduler.getDestination(user).orElse(new URI("invalid"));
+        URI target1 = scheduler.getDestination(
+                        getMockRequestInfo(
+                                ImmutableListMultimap.of(PRESTO_USER, user), ""))
+                .orElse(new URI("invalid"));
         assertTrue(servers.contains(target1));
 
-        URI target2 = scheduler.getDestination(user).orElse(new URI("invalid"));
+        URI target2 = scheduler.getDestination(
+                        getMockRequestInfo(
+                                ImmutableListMultimap.of(PRESTO_USER, user), ""))
+                .orElse(new URI("invalid"));
         assertTrue(servers.contains(target2));
 
-        URI target3 = scheduler.getDestination(user).orElse(new URI("invalid"));
+        URI target3 = scheduler.getDestination(
+                        getMockRequestInfo(
+                                ImmutableListMultimap.of(PRESTO_USER, user), ""))
+                .orElse(new URI("invalid"));
         assertTrue(servers.contains(target3));
 
         assertEquals(target2, target1);
@@ -113,7 +127,7 @@ public class TestScheduler
         HashMap<URI, Integer> hitCounter = new HashMap<>();
 
         for (int i = 0; i < 100_000; i++) {
-            URI target = scheduler.getDestination("test").orElse(new URI("invalid"));
+            URI target = scheduler.getDestination(getMockRequestInfo("test")).orElse(new URI("invalid"));
             assertTrue(servers.contains(target));
             assertTrue(weights.containsKey(target));
             hitCounter.put(target, hitCounter.getOrDefault(target, 0) + 1);
@@ -139,7 +153,7 @@ public class TestScheduler
 
         scheduler.setCandidates(servers);
 
-        URI target = scheduler.getDestination("test").orElse(new URI("invalid"));
+        URI target = scheduler.getDestination(getMockRequestInfo("test")).orElse(new URI("invalid"));
         assertEquals(target.getPath(), "192.168.0.1");
     }
 
@@ -151,19 +165,19 @@ public class TestScheduler
         scheduler.setCandidates(servers);
         scheduler.setCandidateGroupName("");
 
-        URI target1 = scheduler.getDestination("test").orElse(new URI("invalid"));
+        URI target1 = scheduler.getDestination(getMockRequestInfo("test")).orElse(new URI("invalid"));
         assertTrue(servers.contains(target1));
         assertEquals(target1.getPath(), "192.168.0.1");
 
-        URI target2 = scheduler.getDestination("test").orElse(new URI("invalid"));
+        URI target2 = scheduler.getDestination(getMockRequestInfo("test")).orElse(new URI("invalid"));
         assertTrue(servers.contains(target2));
         assertEquals(target2.getPath(), "192.168.0.2");
 
-        URI target3 = scheduler.getDestination("test").orElse(new URI("invalid"));
+        URI target3 = scheduler.getDestination(getMockRequestInfo("test")).orElse(new URI("invalid"));
         assertTrue(servers.contains(target3));
         assertEquals(target3.getPath(), "192.168.0.3");
 
-        URI target4 = scheduler.getDestination("test").orElse(new URI("invalid"));
+        URI target4 = scheduler.getDestination(getMockRequestInfo("test")).orElse(new URI("invalid"));
         assertTrue(servers.contains(target4));
         assertEquals(target4.getPath(), "192.168.0.1");
     }
@@ -199,13 +213,14 @@ public class TestScheduler
         testScheduler(weightSum, scheduler, weights);
     }
 
-    private void testScheduler(int weightSum, Scheduler scheduler, HashMap<URI, Integer> weights) throws URISyntaxException
+    private void testScheduler(int weightSum, Scheduler scheduler, HashMap<URI, Integer> weights)
+            throws URISyntaxException
     {
         int serverDiffCount = 0;
         int serverRepeatCount = 0;
         URI priorURI = null;
         for (int i = 0; i < weightSum; i++) {
-            URI target = scheduler.getDestination("test").orElse(new URI("invalid"));
+            URI target = scheduler.getDestination(getMockRequestInfo("test")).orElse(new URI("invalid"));
             assertTrue(servers.contains(target));
             assertTrue(weights.containsKey(target));
             if (!target.equals(priorURI)) {
@@ -219,5 +234,15 @@ public class TestScheduler
             }
         }
         assertEquals(serverDiffCount, servers.size());
+    }
+
+    private static RequestInfo getMockRequestInfo(String query)
+    {
+        return getMockRequestInfo(ImmutableListMultimap.of(), query);
+    }
+
+    private static RequestInfo getMockRequestInfo(ListMultimap<String, String> headers, String query)
+    {
+        return new RequestInfo(new MockHttpServletRequest(headers), query);
     }
 }

@@ -31,6 +31,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import static com.facebook.presto.util.PropertiesUtil.loadProperties;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.lang.String.format;
@@ -65,27 +66,36 @@ public class PlanCheckerProviderManager
     public void loadPlanCheckerProviders(NodeManager nodeManager)
             throws IOException
     {
-        PlanCheckerProviderContext planCheckerProviderContext = new PlanCheckerProviderContext(simplePlanFragmentSerde, nodeManager);
-
         for (File file : listFiles(configDirectory)) {
             if (file.isFile() && file.getName().endsWith(".properties")) {
                 // unlike function namespaces and connectors, we don't have a concept of catalog
                 // name here (conventionally config file name without the extension)
                 // because plan checkers are never referenced by name.
                 Map<String, String> properties = new HashMap<>(loadProperties(file));
-                checkState(!isNullOrEmpty(properties.get(PLAN_CHECKER_PROVIDER_NAME)),
+                String planCheckerProviderName = properties.remove(PLAN_CHECKER_PROVIDER_NAME);
+                checkState(!isNullOrEmpty(planCheckerProviderName),
                         "Plan checker configuration %s does not contain %s",
                         file.getAbsoluteFile(),
                         PLAN_CHECKER_PROVIDER_NAME);
-                String planCheckerProviderName = properties.remove(PLAN_CHECKER_PROVIDER_NAME);
-                log.info("-- Loading plan checker provider [%s] --", planCheckerProviderName);
-                PlanCheckerProviderFactory providerFactory = providerFactories.get(planCheckerProviderName);
-                checkState(providerFactory != null,
-                        "No planCheckerProviderFactory found for '%s'. Available factories were %s", planCheckerProviderName, providerFactories.keySet());
-                providers.addIfAbsent(providerFactory.create(properties, planCheckerProviderContext));
-                log.info("-- Added plan checker provider [%s] --", planCheckerProviderName);
+                loadPlanCheckerProvider(planCheckerProviderName, properties, nodeManager);
             }
         }
+    }
+
+    public void loadPlanCheckerProvider(String planCheckerProviderName, Map<String, String> properties, NodeManager nodeManager)
+    {
+        checkArgument(!isNullOrEmpty(planCheckerProviderName), "Plan checker provider name is null or empty");
+        requireNonNull(properties, "properties is null");
+        requireNonNull(nodeManager, "nodeManager is null");
+
+        PlanCheckerProviderContext planCheckerProviderContext = new PlanCheckerProviderContext(simplePlanFragmentSerde, nodeManager);
+
+        log.info("-- Loading plan checker provider [%s] --", planCheckerProviderName);
+        PlanCheckerProviderFactory providerFactory = providerFactories.get(planCheckerProviderName);
+        checkState(providerFactory != null,
+                "No planCheckerProviderFactory found for '%s'. Available factories were %s", planCheckerProviderName, providerFactories.keySet());
+        providers.addIfAbsent(providerFactory.create(properties, planCheckerProviderContext));
+        log.info("-- Added plan checker provider [%s] --", planCheckerProviderName);
     }
 
     private static List<File> listFiles(File dir)

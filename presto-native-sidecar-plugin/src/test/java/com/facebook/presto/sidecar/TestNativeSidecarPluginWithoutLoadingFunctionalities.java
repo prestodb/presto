@@ -17,6 +17,7 @@ import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLineitem;
@@ -39,7 +40,7 @@ public class TestNativeSidecarPluginWithoutLoadingFunctionalities
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.createQueryRunner(true, false, false, false);
+        DistributedQueryRunner queryRunner = (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.createQueryRunner(true, false, false, false, ImmutableMap.of());
         // Installing the native sidecar plugin on a native cluster does not load the plugin functionalities because
         // we aren't loading the individual functionalities.
         queryRunner.installCoordinatorPlugin(new NativeSidecarPlugin());
