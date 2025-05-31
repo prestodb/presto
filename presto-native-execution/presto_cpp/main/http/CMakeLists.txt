@@ -25,6 +25,7 @@ target_link_libraries(
   presto_common
   velox_memory
   velox_exception
+  sodium
   ${PROXYGEN_LIBRARIES}
   ${LIBSODIUM_LIBRARY}
   ${OPENSSL_SSL_LIBRARY}
