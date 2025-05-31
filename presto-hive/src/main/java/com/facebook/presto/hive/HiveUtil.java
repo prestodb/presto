@@ -439,7 +439,7 @@ public final class HiveUtil
 
     public static long parseHiveTimestamp(String value, DateTimeZone timeZone)
     {
-        return HIVE_TIMESTAMP_PARSER.withZone(timeZone).parseMillis(value);
+        return HIVE_TIMESTAMP_PARSER.parseMillis(value);
     }
 
     public static boolean isSplittable(InputFormat<?, ?> inputFormat, FileSystem fileSystem, String path)
