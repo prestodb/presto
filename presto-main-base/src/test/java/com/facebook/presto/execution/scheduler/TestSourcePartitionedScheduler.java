@@ -519,6 +519,7 @@ public class TestSourcePartitionedScheduler
                 false,
                 Optional.of(StatsAndCosts.empty()),
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
 
         return new SubPlan(testFragment, ImmutableList.of());

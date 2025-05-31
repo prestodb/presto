@@ -235,7 +235,8 @@ public class PlanFragmenterUtils
                 fragment.isOutputTableWriterFragment(),
                 fragment.getStatsAndCosts(),
                 fragment.getJsonRepresentation(),
-                fragment.getCanonicalPlanFragment());
+                fragment.getCanonicalPlanFragmentHash(),
+                fragment.getCanonicalPlanFragmentStr());
 
         ImmutableList.Builder<SubPlan> childrenBuilder = ImmutableList.builder();
         for (SubPlan child : subPlan.getChildren()) {

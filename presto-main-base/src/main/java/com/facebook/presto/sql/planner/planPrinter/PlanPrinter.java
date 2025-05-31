@@ -469,6 +469,7 @@ public class PlanPrinter
                 false,
                 Optional.of(estimatedStatsAndCosts),
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
         return GraphvizPrinter.printLogical(ImmutableList.of(fragment), functionAndTypeManager, session);
     }

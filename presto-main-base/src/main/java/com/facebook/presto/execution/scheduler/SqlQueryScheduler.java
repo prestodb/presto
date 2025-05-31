@@ -669,7 +669,8 @@ public class SqlQueryScheduler
                             fragment.isOutputTableWriterFragment(),
                             estimatedStatsAndCosts,
                             Optional.of(jsonFragmentPlan(newRoot, fragment.getVariables(), estimatedStatsAndCosts.orElse(StatsAndCosts.empty()), functionAndTypeManager, session)),
-                            fragment.getCanonicalPlanFragment()));
+                            fragment.getCanonicalPlanFragmentHash(),
+                            fragment.getCanonicalPlanFragmentStr()));
         }
         return Optional.empty();
     }

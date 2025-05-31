@@ -156,8 +156,15 @@ public abstract class BasePlanFragmenter
         }
 
         Optional<CanonicalPlanFragment> canonicalPlanFragment = Optional.empty();
+        Optional<Integer> canonicalPlanFragmentHash = Optional.empty();
+        Optional<String> canonicalPlanFragmentStr = Optional.empty();
         if (SystemSessionProperties.isFragmentResultCachingEnabled(session) && isEligibleForFragmentResultCaching(root)) {
             canonicalPlanFragment = generateCanonicalPlanFragment(root, properties.getPartitioningScheme(), new ObjectMapper(), session);
+            if (canonicalPlanFragment.isPresent()) {
+                canonicalPlanFragmentHash = Optional.of(canonicalPlanFragment.get().getPlan().hashCode());
+                canonicalPlanFragmentStr = Optional.of(canonicalPlanFragment.get().getPlan().toString());
+            }
+
         }
         PlanFragment fragment = new PlanFragment(
                 fragmentId,
@@ -170,7 +177,8 @@ public abstract class BasePlanFragmenter
                 outputTableWriterFragment,
                 Optional.of(statsAndCosts.getForSubplan(root)),
                 Optional.of(jsonFragmentPlan(root, fragmentVariableTypes, statsAndCosts.getForSubplan(root), metadata.getFunctionAndTypeManager(), session)),
-                canonicalPlanFragment);
+                canonicalPlanFragmentHash,
+                canonicalPlanFragmentStr);
 
         planChecker.validatePlanFragment(fragment, session, metadata, warningCollector);
 

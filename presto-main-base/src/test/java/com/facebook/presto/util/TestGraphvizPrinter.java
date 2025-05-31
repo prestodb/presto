@@ -204,6 +204,7 @@ public class TestGraphvizPrinter
                 false,
                 Optional.of(StatsAndCosts.empty()),
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
     }
 }

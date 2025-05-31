@@ -284,6 +284,7 @@ public class TestPhasedExecutionSchedule
                 false,
                 Optional.of(StatsAndCosts.empty()),
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
     }
 }

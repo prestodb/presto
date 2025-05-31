@@ -59,7 +59,8 @@ public class PlanFragment
     private final boolean outputTableWriterFragment;
     private final Optional<StatsAndCosts> statsAndCosts;
     private final Optional<String> jsonRepresentation;
-    private final Optional<CanonicalPlanFragment> canonicalPlanFragment;
+    private final Optional<Integer> canonicalPlanFragmentHash;
+    private final Optional<String> canonicalPlanFragmentStr;
 
     // This is ensured to be lazily populated on the first successful call to #toBytes
     @GuardedBy("this")
@@ -79,7 +80,8 @@ public class PlanFragment
             @JsonProperty("outputTableWriterFragment") boolean outputTableWriterFragment,
             @JsonProperty("statsAndCosts") Optional<StatsAndCosts> statsAndCosts,
             @JsonProperty("jsonRepresentation") Optional<String> jsonRepresentation,
-            @JsonProperty("canonicalPlanFragment") Optional<CanonicalPlanFragment> canonicalPlanFragment)
+            @JsonProperty("canonicalPlanFragmentHash") Optional<Integer> canonicalPlanFragmentHash,
+            @JsonProperty("canonicalPlanFragmentStr") Optional<String> canonicalPlanFragmentStr)
     {
         this.id = requireNonNull(id, "id is null");
         this.root = requireNonNull(root, "root is null");
@@ -90,7 +92,8 @@ public class PlanFragment
         this.outputTableWriterFragment = outputTableWriterFragment;
         this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
         this.jsonRepresentation = requireNonNull(jsonRepresentation, "jsonRepresentation is null");
-        this.canonicalPlanFragment = requireNonNull(canonicalPlanFragment, "canonicalPlanFragment is null");
+        this.canonicalPlanFragmentHash = requireNonNull(canonicalPlanFragmentHash, "canonicalPlanFragmentHash is null");
+        this.canonicalPlanFragmentStr = requireNonNull(canonicalPlanFragmentStr, "canonicalPlanFragmentStr is null");
 
         checkArgument(root.getOutputVariables().containsAll(partitioningScheme.getOutputLayout()),
                 "Root node outputs (%s) does not include all fragment outputs (%s)", root.getOutputVariables(), partitioningScheme.getOutputLayout());
@@ -167,9 +170,13 @@ public class PlanFragment
     }
 
     @JsonProperty
-    public Optional<CanonicalPlanFragment> getCanonicalPlanFragment()
-    {
-        return canonicalPlanFragment;
+    public Optional<Integer> getCanonicalPlanFragmentHash() {
+        return canonicalPlanFragmentHash;
+    }
+
+    @JsonProperty
+    public Optional<String> getCanonicalPlanFragmentStr() {
+        return canonicalPlanFragmentStr;
     }
 
     // Serialize this plan fragment with the provided codec, caching the results
@@ -201,7 +208,8 @@ public class PlanFragment
                 outputTableWriterFragment,
                 Optional.empty(),
                 Optional.empty(),
-                canonicalPlanFragment);
+                canonicalPlanFragmentHash,
+                canonicalPlanFragmentStr);
     }
 
     public List<Type> getTypes()
@@ -261,7 +269,8 @@ public class PlanFragment
                 outputTableWriterFragment,
                 statsAndCosts,
                 jsonRepresentation,
-                canonicalPlanFragment);
+                canonicalPlanFragmentHash,
+                canonicalPlanFragmentStr);
     }
 
     public PlanFragment withFixedLifespanScheduleGroupedExecution(List<PlanNodeId> capableTableScanNodes, int totalLifespans)
@@ -277,7 +286,8 @@ public class PlanFragment
                 outputTableWriterFragment,
                 statsAndCosts,
                 jsonRepresentation,
-                canonicalPlanFragment);
+                canonicalPlanFragmentHash,
+                canonicalPlanFragmentStr);
     }
 
     public PlanFragment withDynamicLifespanScheduleGroupedExecution(List<PlanNodeId> capableTableScanNodes, int totalLifespans)
@@ -293,7 +303,8 @@ public class PlanFragment
                 outputTableWriterFragment,
                 statsAndCosts,
                 jsonRepresentation,
-                canonicalPlanFragment);
+                canonicalPlanFragmentHash,
+                canonicalPlanFragmentStr);
     }
 
     public PlanFragment withRecoverableGroupedExecution(List<PlanNodeId> capableTableScanNodes, int totalLifespans)
@@ -309,7 +320,8 @@ public class PlanFragment
                 outputTableWriterFragment,
                 statsAndCosts,
                 jsonRepresentation,
-                canonicalPlanFragment);
+                canonicalPlanFragmentHash,
+                canonicalPlanFragmentStr);
     }
 
     public PlanFragment withSubPlan(PlanNode subPlan)
@@ -325,7 +337,8 @@ public class PlanFragment
                 outputTableWriterFragment,
                 statsAndCosts,
                 jsonRepresentation,
-                canonicalPlanFragment);
+                canonicalPlanFragmentHash,
+                canonicalPlanFragmentStr);
     }
 
     @Override
