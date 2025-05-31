@@ -170,12 +170,14 @@ public class PlanFragment
     }
 
     @JsonProperty
-    public Optional<Integer> getCanonicalPlanFragmentHash() {
+    public Optional<Integer> getCanonicalPlanFragmentHash()
+    {
         return canonicalPlanFragmentHash;
     }
 
     @JsonProperty
-    public Optional<String> getCanonicalPlanFragmentStr() {
+    public Optional<String> getCanonicalPlanFragmentStr()
+    {
         return canonicalPlanFragmentStr;
     }
 

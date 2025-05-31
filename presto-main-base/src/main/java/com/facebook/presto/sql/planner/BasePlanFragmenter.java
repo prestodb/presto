@@ -164,7 +164,6 @@ public abstract class BasePlanFragmenter
                 canonicalPlanFragmentHash = Optional.of(canonicalPlanFragment.get().getPlan().hashCode());
                 canonicalPlanFragmentStr = Optional.of(canonicalPlanFragment.get().getPlan().toString());
             }
-
         }
         PlanFragment fragment = new PlanFragment(
                 fragmentId,
