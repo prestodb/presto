@@ -94,7 +94,7 @@ endif()
 
 if(PRESTO_ENABLE_PARQUET)
   set(VELOX_ENABLE_PARQUET
-      ON
+      OFF
       CACHE BOOL "Enable Parquet support")
 endif()
 
