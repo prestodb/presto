@@ -75,6 +75,10 @@ public class ComplexTypeFunctionDescriptor
      */
     private final List<LambdaDescriptor> lambdaDescriptors;
 
+    /**
+     * pushdownSubfieldArgIndex is used to specify which parameter in the scalar function corresponds to the parameter that should have its subfields pushed down to filter plan nodes during query planning and optimization
+     * This is helpful to reduce the amount of scanning done for queries involving structs, and it ensures that only utilized subfields of the struct scanned and unused subfields can be pruned from the query plan
+     */
     private final Optional<Integer> pushdownSubfieldArgIndex;
 
     public ComplexTypeFunctionDescriptor(

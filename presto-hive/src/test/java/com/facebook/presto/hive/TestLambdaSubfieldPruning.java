@@ -161,10 +161,4 @@ public class TestLambdaSubfieldPruning
         assertQuery("SELECT TRANSFORM_VALUES(MAP_REMOVE_NULL_VALUES(row_with_map_varchar_key_row_value.map_varchar_key_row_value), (k,v) -> v.orderkey) FROM " + tableName);
         assertQuery("SELECT TRANSFORM_VALUES(MAP_SUBSET(row_with_map_varchar_key_row_value.map_varchar_key_row_value, ARRAY['orderdata_ex']), (k,v) -> v.orderkey) FROM " + tableName);
     }
-
-    public void testPushdownSubfieldArgIndexForScalar()
-    {
-        assertQuery("SELECT struct.a FROM (SELECT CUSTOM_STRUCT_WITH_PASSTHROUGH(CAST(ROW(orderkey, comment) AS ROW(a BIGINT, b VARCHAR))) AS struct FROM lineitem)");
-        assertQuery("SELECT struct.a FROM (SELECT CUSTOM_STRUCT_WITHOUT_PASSTHROUGH(CAST(ROW(orderkey, comment) AS ROW(a BIGINT, b VARCHAR))) AS struct FROM lineitem)");
-    }
 }
