@@ -92,7 +92,9 @@ public class UseTask
         String catalog = statement.getCatalog()
                 .map(Identifier::getValueLowerCase)
                 .orElseGet(() -> session.getCatalog().map(String::toLowerCase).get());
-        String schema = statement.getSchema().getValueLowerCase();
+
+        Identifier schemaIdentifier = statement.getSchema();
+        String schema = metadata.normalizeIdentifier(session, catalog, schemaIdentifier.getValue());
         if (!metadata.getMetadataResolver(session).schemaExists(new CatalogSchemaName(catalog, schema))) {
             throw new SemanticException(MISSING_SCHEMA, format("Schema does not exist: %s.%s", catalog, schema));
         }

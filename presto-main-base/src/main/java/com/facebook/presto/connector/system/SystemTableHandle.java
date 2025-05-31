@@ -21,8 +21,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
-import static com.facebook.presto.metadata.MetadataUtil.checkSchemaName;
-import static com.facebook.presto.metadata.MetadataUtil.checkTableName;
 import static java.util.Objects.requireNonNull;
 
 public class SystemTableHandle
@@ -39,8 +37,8 @@ public class SystemTableHandle
             @JsonProperty("tableName") String tableName)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
-        this.schemaName = checkSchemaName(schemaName);
-        this.tableName = checkTableName(tableName);
+        this.schemaName = requireNonNull(schemaName, "schemaName is null");
+        this.tableName = requireNonNull(tableName, "tableName is null");
     }
 
     public static SystemTableHandle fromSchemaTableName(ConnectorId connectorId, SchemaTableName tableName)
