@@ -710,10 +710,6 @@ void to_json(json& j, const std::shared_ptr<PlanNode>& p) {
     j = *std::static_pointer_cast<TableScanNode>(p);
     return;
   }
-  if (type == "com.facebook.presto.sql.planner.CanonicalTableScanNode") {
-    j = *std::static_pointer_cast<CanonicalTableScanNode>(p);
-    return;
-  }
   if (type == ".TableWriterNode") {
     j = *std::static_pointer_cast<TableWriterNode>(p);
     return;
@@ -880,12 +876,6 @@ void from_json(const json& j, std::shared_ptr<PlanNode>& p) {
   }
   if (type == ".TableScanNode") {
     std::shared_ptr<TableScanNode> k = std::make_shared<TableScanNode>();
-    j.get_to(*k);
-    p = std::static_pointer_cast<PlanNode>(k);
-    return;
-  }
-  if (type == "com.facebook.presto.sql.planner.CanonicalTableScanNode") {
-    std::shared_ptr<CanonicalTableScanNode> k = std::make_shared<CanonicalTableScanNode>();
     j.get_to(*k);
     p = std::static_pointer_cast<PlanNode>(k);
     return;
@@ -6803,121 +6793,6 @@ void from_json(const json& j, MemoryPoolInfo& p) {
 } // namespace facebook::presto::protocol
 
 namespace facebook::presto::protocol {
-void to_json(json& j, const CanonicalTableHandle& p) {
-  j = json::object();
-  to_json_key(j, "connectorId", p.connectorId, "CanonicalTableHandle", "ConnectorId", "connectorId");
-  to_json_key(j, "tableHandle", p.tableHandle, "CanonicalTableHandle", "ConnectorTableHandle", "tableHandle");
-  to_json_key(j, "layoutHandle", p.layoutHandle, "CanonicalTableHandle", "ConnectorTableLayoutHandle", "layoutHandle");
-}
-
-void from_json(const json& j, CanonicalTableHandle& p) {
-  from_json_key(j, "connectorId", p.connectorId, "CanonicalTableHandle", "ConnectorId", "connectorId");
-  from_json_key(j, "tableHandle", p.tableHandle, "CanonicalTableHandle", "ConnectorTableHandle", "tableHandle");
-  from_json_key(j, "layoutHandle", p.layoutHandle, "CanonicalTableHandle", "ConnectorTableLayoutHandle", "layoutHandle");
-}
-} // namespace facebook::presto::protocol
-
-namespace facebook::presto::protocol {
-CanonicalTableScanNode::CanonicalTableScanNode() noexcept {
-  _type = "com.facebook.presto.sql.planner.CanonicalTableScanNode";
-}
-
-void to_json(json& j, const CanonicalTableScanNode& p) {
-  j = json::object();
-  j["@type"] = "com.facebook.presto.sql.planner.CanonicalTableScanNode";
-  to_json_key(j, "id", p.id, "CanonicalTableScanNode", "PlanNodeId", "id");
-  to_json_key(j, "table", p.table, "CanonicalTableScanNode", "CanonicalTableHandle", "table");
-  to_json_key(j, "outputVariables", p.outputVariables, "CanonicalTableScanNode", "List<VariableReferenceExpression>", "outputVariables");
-  to_json_key(j, "assignments", p.assignments, "CanonicalTableScanNode", "Map<VariableReferenceExpression, ColumnHandle>", "assignments");
-}
-
-void from_json(const json& j, CanonicalTableScanNode& p) {
-  p._type = j["@type"];
-  from_json_key(j, "id", p.id, "CanonicalTableScanNode", "PlanNodeId", "id");
-  from_json_key(j, "table", p.table, "CanonicalTableScanNode", "CanonicalTableHandle", "table");
-  from_json_key(j, "outputVariables", p.outputVariables, "CanonicalTableScanNode", "List<VariableReferenceExpression>", "outputVariables");
-  from_json_key(j, "assignments", p.assignments, "CanonicalTableScanNode", "Map<VariableReferenceExpression, ColumnHandle>", "assignments");
-}
-} // namespace facebook::presto::protocol
-
-namespace facebook::presto::protocol {
-// NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
-static const std::pair<facebook::presto::protocol::PlanCanonicalizationStrategy, json> Canonocal_strategy_enum_table[] =
-    { // NOLINT: cert-err58-cpp
-  {facebook::presto::protocol::PlanCanonicalizationStrategy::DEFAULT, "DEFAULT"},
-  {facebook::presto::protocol::PlanCanonicalizationStrategy::CONNECTOR, "CONNECTOR"},
-  {facebook::presto::protocol::PlanCanonicalizationStrategy::IGNORE_SAFE_CONSTANTS, "IGNORE_SAFE_CONSTANTS"},
-  {facebook::presto::protocol::PlanCanonicalizationStrategy::IGNORE_SCAN_CONSTANTS, "IGNORE_SCAN_CONSTANTS"}};
-void to_json(json& j, const facebook::presto::protocol::PlanCanonicalizationStrategy& e) {
-  static_assert(std::is_enum<facebook::presto::protocol::PlanCanonicalizationStrategy>::value, "JoinType must be an enum!");
-  const auto* it = std::find_if(
-      std::begin(Canonocal_strategy_enum_table),
-      std::end(Canonocal_strategy_enum_table),
-      [e](const std::pair<facebook::presto::protocol::PlanCanonicalizationStrategy, json>& ej_pair) -> bool {
-        return ej_pair.first == e;
-      });
-  j = ((it != std::end(Canonocal_strategy_enum_table)) ? it
-                                             : std::begin(Canonocal_strategy_enum_table))
-          ->second;
-}
-void from_json(const json& j, facebook::presto::protocol::PlanCanonicalizationStrategy& e) {
-  static_assert(std::is_enum<facebook::presto::protocol::PlanCanonicalizationStrategy>::value, "PlanCanonicalizationStrategy must be an enum!");
-  const auto* it = std::find_if(
-      std::begin(Canonocal_strategy_enum_table),
-      std::end(Canonocal_strategy_enum_table),
-      [&j](const std::pair<facebook::presto::protocol::PlanCanonicalizationStrategy, json>& ej_pair) -> bool {
-        return ej_pair.second == j;
-      });
-  e = ((it != std::end(Canonocal_strategy_enum_table)) ? it
-                                             : std::begin(Canonocal_strategy_enum_table))
-          ->first;
-}
-} // namespace facebook::presto::protocol
-
-namespace facebook::presto::protocol {
-void to_json(json& j, const CanonicalPlan& p) {
-  j = json::object();
-  to_json_key(j, "plan", p.plan, "CanonicalPlan", "PlanNode", "plan");
-  to_json_key(j, "strategy", p.strategy, "CanonicalPlan", "PlanCanonicalizationStrategy", "strategy");
-}
-
-void from_json(const json& j, CanonicalPlan& p) {
-  from_json_key(j, "plan", p.plan, "CanonicalPlan", "PlanNode", "plan");
-  from_json_key(j, "strategy", p.strategy, "CanonicalPlan", "PlanCanonicalizationStrategy", "strategy");
-}
-} // namespace facebook::presto::protocol
-
-namespace facebook::presto::protocol {
-void to_json(json& j, const CanonicalPartitioningScheme& p) {
-  j = json::object();
-  to_json_key(j, "connectorId", p.connectorId, "CanonicalPartitioningScheme", "ConnectorId", "connectorId");
-  to_json_key(j, "connectorHandle", p.connectorHandle, "CanonicalPartitioningScheme", "ConnectorPartitioningHandle", "connectorHandle");
-  to_json_key(j, "arguments", p.arguments, "CanonicalPartitioningScheme", "List<std::shared_ptr<RowExpression>>", "arguments");
-  to_json_key(j, "outputLayout", p.outputLayout, "CanonicalPartitioningScheme", "List<VariableReferenceExpression>", "outputLayout");
-}
-
-void from_json(const json& j, CanonicalPartitioningScheme& p) {
-  from_json_key(j, "connectorId", p.connectorId, "CanonicalPartitioningScheme", "ConnectorId", "connectorId");
-  from_json_key(j, "connectorHandle", p.connectorHandle, "CanonicalPartitioningScheme", "ConnectorPartitioningHandle", "connectorHandle");
-  from_json_key(j, "arguments", p.arguments, "CanonicalPartitioningScheme", "List<std::shared_ptr<RowExpression>>", "arguments");
-  from_json_key(j, "outputLayout", p.outputLayout, "CanonicalPartitioningScheme", "List<VariableReferenceExpression>", "outputLayout");
-}
-}// namespace facebook::presto::protocol
-
-namespace facebook::presto::protocol {
-void to_json(json& j, const CanonicalPlanFragment& p) {
-  j = json::object();
-  to_json_key(j, "plan", p.plan, "CanonicalPlanFragment", "CanonicalPlan", "plan");
-  to_json_key(j, "partitionScheme", p.partitionScheme, "CanonicalPlanFragment", "CanonicalPartitioningScheme", "partitionScheme");
-}
-
-void from_json(const json& j, CanonicalPlanFragment& p) {
-  from_json_key(j, "plan", p.plan, "CanonicalPlanFragment", "CanonicalPlan", "plan");
-  from_json_key(j, "partitionScheme", p.partitionScheme, "CanonicalPlanFragment", "CanonicalPartitioningScheme", "partitionScheme");
-}
-} // namespace facebook::presto::protocol
-
-namespace facebook::presto::protocol {
 
 void to_json(json& j, const MemoryInfo& p) {
   j = json::object();
@@ -8554,11 +8429,18 @@ void to_json(json& j, const PlanFragment& p) {
       "jsonRepresentation");
   to_json_key(
       j,
-      "canonicalPlanFragment",
-      p.canonicalPlanFragment,
+      "canonicalPlanFragmentHash",
+      p.canonicalPlanFragmentHash,
       "PlanFragment",
-      "CanonicalPlanFragment",
-      "canonicalPlanFragment");
+      "Integer",
+      "canonicalPlanFragmentHash");
+  to_json_key(
+      j,
+      "canonicalPlanFragmentStr",
+      p.canonicalPlanFragmentStr,
+      "PlanFragment",
+      "String",
+      "canonicalPlanFragmentStr");
 }
 
 void from_json(const json& j, PlanFragment& p) {
@@ -8615,11 +8497,18 @@ void from_json(const json& j, PlanFragment& p) {
       "jsonRepresentation");
   from_json_key(
       j,
-      "canonicalPlanFragment",
-      p.canonicalPlanFragment,
+      "canonicalPlanFragmentHash",
+      p.canonicalPlanFragmentHash,
       "PlanFragment",
-      "CanonicalPlanFragment",
-      "canonicalPlanFragment");
+      "Integer",
+      "canonicalPlanFragmentHash");
+  from_json_key(
+      j,
+      "canonicalPlanFragmentStr",
+      p.canonicalPlanFragmentStr,
+      "PlanFragment",
+      "String",
+      "canonicalPlanFragmentStr");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {

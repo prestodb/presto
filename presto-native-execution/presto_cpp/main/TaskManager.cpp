@@ -467,14 +467,14 @@ std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateTask(
     const protocol::TaskId& taskId,
     const protocol::TaskUpdateRequest& updateRequest,
     const velox::core::PlanFragment& planFragment,
-    const std::optional<std::string> planIdentifier,
+    const std::shared_ptr<int> canonicalPlanFragmentHash,
     bool summarize,
     std::shared_ptr<velox::core::QueryCtx> queryCtx,
     long startProcessCpuTime) {
   return createOrUpdateTaskImpl(
       taskId,
       planFragment,
-      planIdentifier,
+      canonicalPlanFragmentHash,
       updateRequest.sources,
       updateRequest.outputIds,
       summarize,
@@ -486,7 +486,7 @@ std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateBatchTask(
     const protocol::TaskId& taskId,
     const protocol::BatchTaskUpdateRequest& batchUpdateRequest,
     const velox::core::PlanFragment& planFragment,
-    const std::optional<std::string> planIdentifier,
+    const std::shared_ptr<int> canonicalPlanFragmentHash,
     bool summarize,
     std::shared_ptr<velox::core::QueryCtx> queryCtx,
     long startProcessCpuTime) {
@@ -497,7 +497,7 @@ std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateBatchTask(
   return createOrUpdateTaskImpl(
       taskId,
       planFragment,
-      planIdentifier,
+      canonicalPlanFragmentHash,
       updateRequest.sources,
       updateRequest.outputIds,
       summarize,
@@ -508,7 +508,7 @@ std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateBatchTask(
 std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
     const TaskId& taskId,
     const velox::core::PlanFragment& planFragment,
-    const std::optional<std::string> planIdentifier,
+    const std::shared_ptr<int> canonicalPlanFragmentHash,
     const std::vector<protocol::TaskSource>& sources,
     const protocol::OutputBuffers& outputBuffers,
     bool summarize,
@@ -537,7 +537,7 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
       auto newExecTask = exec::Task::create(
           taskId,
           planFragment,
-          planIdentifier,
+          canonicalPlanFragmentHash,
           fragmentResultCacheManager_,
           prestoTask->id.id(),
           std::move(queryCtx),

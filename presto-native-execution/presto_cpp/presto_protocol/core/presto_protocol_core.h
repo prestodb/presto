@@ -1916,58 +1916,6 @@ void to_json(json& j, const StatsAndCosts& p);
 void from_json(const json& j, StatsAndCosts& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-struct CanonicalTableHandle {
-  ConnectorId connectorId = {};
-  std::shared_ptr<ConnectorTableHandle> tableHandle = {};
-  std::shared_ptr<ConnectorTableLayoutHandle> layoutHandle;
-};
-void to_json(json& j, const CanonicalTableHandle& p);
-void from_json(const json& j, CanonicalTableHandle& p);
-} // namespace facebook::presto::protocol
-namespace facebook::presto::protocol {
-struct CanonicalTableScanNode : public PlanNode {
-  PlanNodeId id = {};
-  CanonicalTableHandle table = {};
-  List<VariableReferenceExpression> outputVariables = {};
-  Map<VariableReferenceExpression, std::shared_ptr<ColumnHandle>> assignments = {};
-
-  CanonicalTableScanNode() noexcept;
-};
-void to_json(json& j, const CanonicalTableScanNode& p);
-void from_json(const json& j, CanonicalTableScanNode& p);
-} // namespace facebook::presto::protocol
-namespace facebook::presto::protocol {
-enum class PlanCanonicalizationStrategy { DEFAULT, CONNECTOR, IGNORE_SAFE_CONSTANTS, IGNORE_SCAN_CONSTANTS};
-extern void to_json(json& j, const PlanCanonicalizationStrategy& e);
-extern void from_json(const json& j, PlanCanonicalizationStrategy& e);
-} // namespace facebook::presto::protocol
-namespace facebook::presto::protocol {
-struct CanonicalPlan {
-  std::shared_ptr<PlanNode> plan = {};
-  PlanCanonicalizationStrategy strategy = {};
-};
-void to_json(json& j, const CanonicalPlan& p);
-void from_json(const json& j, CanonicalPlan& p);
-} // namespace facebook::presto::protocol
-namespace facebook::presto::protocol {
-struct CanonicalPartitioningScheme {
-  std::shared_ptr<ConnectorId> connectorId = {};
-  std::shared_ptr<ConnectorPartitioningHandle> connectorHandle = {};
-  List<std::shared_ptr<RowExpression>> arguments = {};
-  List<VariableReferenceExpression> outputLayout = {};
-};
-void to_json(json& j, const CanonicalPartitioningScheme& p);
-void from_json(const json& j, CanonicalPartitioningScheme& p);
-} // namespace facebook::presto::protocol
-namespace facebook::presto::protocol {
-struct CanonicalPlanFragment {
-  CanonicalPlan plan = {};
-  CanonicalPartitioningScheme partitionScheme = {};
-};
-void to_json(json& j, const CanonicalPlanFragment& p);
-void from_json(const json& j, CanonicalPlanFragment& p);
-} // namespace facebook::presto::protocol
-namespace facebook::presto::protocol {
 struct PlanFragment {
   PlanFragmentId id = {};
   std::shared_ptr<PlanNode> root = {};
@@ -1978,7 +1926,8 @@ struct PlanFragment {
   StageExecutionDescriptor stageExecutionDescriptor = {};
   bool outputTableWriterFragment = {};
   std::shared_ptr<String> jsonRepresentation = {};
-  std::shared_ptr<CanonicalPlanFragment> canonicalPlanFragment = {};
+  std::shared_ptr<Integer> canonicalPlanFragmentHash = {};
+  std::shared_ptr<String> canonicalPlanFragmentStr = {};
 };
 void to_json(json& j, const PlanFragment& p);
 void from_json(const json& j, PlanFragment& p);
