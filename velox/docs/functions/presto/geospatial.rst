@@ -165,6 +165,11 @@ Accessors
     Examples of non-simple geometries include LineStrings with self-intersections,
     Polygons with empty rings for holes, and more.
 
+.. function:: geometry_invalid_reason(geometry: Geometry) -> reason: varchar
+
+    If ``geometry`` is not valid or not simple, return a description of the
+    reason. If the geometry is valid and simple (or ``NULL``), return ``NULL``.
+    This function is relatively expensive.
 
 .. function:: ST_Area(geometry: Geometry) -> area: double
 

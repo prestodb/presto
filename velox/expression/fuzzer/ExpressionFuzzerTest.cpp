@@ -151,6 +151,7 @@ int main(int argc, char** argv) {
       "st_y",
       "st_isvalid",
       "st_issimple",
+      "geometry_invalid_reason",
   };
   size_t initialSeed = FLAGS_seed == 0 ? std::time(nullptr) : FLAGS_seed;
 

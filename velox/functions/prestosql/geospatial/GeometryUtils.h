@@ -16,8 +16,10 @@
 
 #pragma once
 
+#include <geos/geom/Geometry.h>
 #include <geos/util/AssertionFailedException.h>
 #include <geos/util/UnsupportedOperationException.h>
+#include <optional>
 
 #include "velox/common/base/Status.h"
 
@@ -38,5 +40,8 @@ namespace facebook::velox::functions::geospatial {
     return Status::UserError(                                    \
         fmt::format("{}: {}", user_error_message, e.what()));    \
   }
+
+std::optional<std::string> geometryInvalidReason(
+    const geos::geom::Geometry* geometry);
 
 } // namespace facebook::velox::functions::geospatial

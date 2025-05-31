@@ -74,6 +74,9 @@ void registerAccessors(const std::string& prefix) {
       {{prefix + "ST_IsValid"}});
   registerFunction<StIsSimpleFunction, bool, Geometry>(
       {{prefix + "ST_IsSimple"}});
+  registerFunction<GeometryInvalidReasonFunction, Varchar, Geometry>(
+      {{prefix + "geometry_invalid_reason"}});
+
   registerFunction<StAreaFunction, double, Geometry>({{prefix + "ST_Area"}});
   registerFunction<StXFunction, double, Geometry>({{prefix + "ST_X"}});
   registerFunction<StYFunction, double, Geometry>({{prefix + "ST_Y"}});

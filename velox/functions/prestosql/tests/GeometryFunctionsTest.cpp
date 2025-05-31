@@ -1231,3 +1231,71 @@ TEST_F(GeometryFunctionsTest, testStArea) {
       "GEOMETRYCOLLECTION (POLYGON ((0 0, 2 0, 2 2, 0 2, 0 0)), POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1)), GEOMETRYCOLLECTION (POINT (8 8), LINESTRING (5 5, 6 6), POLYGON ((1 1, 3 1, 3 4, 1 4, 1 1))))",
       14.0);
 }
+
+TEST_F(GeometryFunctionsTest, testGeometryInvalidReason) {
+  const auto assertInvalidReason =
+      [&](const std::optional<std::string>& wkt,
+          const std::optional<std::string>& expectedMessage) {
+        std::optional<std::string> result = evaluateOnce<std::string>(
+            "geometry_invalid_reason(ST_GeometryFromText(c0))", wkt);
+
+        if (wkt.has_value() && expectedMessage.has_value()) {
+          ASSERT_TRUE(result.has_value()) << " from WKT: " << wkt.value();
+          ASSERT_EQ(result.value(), expectedMessage.value())
+              << " from WKT: " << wkt.value();
+        } else {
+          ASSERT_FALSE(result.has_value()) << " from WKT: " << wkt.value();
+        }
+      };
+
+  // Invalid geometries
+  assertInvalidReason(
+      "POLYGON ((0 0, 1 1, 0 1, 1 0, 0 0))",
+      "Invalid Polygon: Self-intersection");
+  assertInvalidReason(
+      "POLYGON ((0 0, 0 1, 0 1, 1 1, 1 0, 0 0), (2 2, 2 3, 3 3, 3 2, 2 2))",
+      "Invalid Polygon: Hole lies outside shell");
+  assertInvalidReason(
+      "POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0), (2 2, 2 3, 3 3, 3 2, 2 2))",
+      "Invalid Polygon: Hole lies outside shell");
+  assertInvalidReason(
+      "POLYGON ((0 0, 0 1, 2 1, 1 1, 1 0, 0 0))",
+      "Invalid Polygon: Ring Self-intersection");
+  assertInvalidReason(
+      "POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0), (0 1, 1 1, 0.5 0.5, 0 1))",
+      "Invalid Polygon: Self-intersection");
+  assertInvalidReason(
+      "POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0), (0 0, 0.5 0.7, 1 1, 0.5 0.4, 0 0))",
+      "Invalid Polygon: Interior is disconnected");
+  assertInvalidReason(
+      "POLYGON ((0 0, -1 0.5, 0 1, 1 1, 1 0, 0 1, 0 0))",
+      "Invalid Polygon: Ring Self-intersection");
+  assertInvalidReason(
+      "MULTIPOLYGON (((0 0, 0 1, 1 1, 1 0, 0 0)), ((0.5 0.5, 0.5 2, 2 2, 2 0.5, 0.5 0.5)))",
+      "Invalid MultiPolygon: Self-intersection");
+  assertInvalidReason(
+      "GEOMETRYCOLLECTION (POINT (1 2), POLYGON ((0 0, 0 1, 2 1, 1 1, 1 0, 0 0)))",
+      "Invalid GeometryCollection: Ring Self-intersection");
+
+  // non-simple geometries
+  assertInvalidReason(
+      "LINESTRING (0 0, -1 0.5, 0 1, 1 1, 1 0, 0 1, 0 0)",
+      "Non-simple LineString: Self-intersection at or near (0 1)");
+  assertInvalidReason(
+      "MULTIPOINT (1 2, 2 4, 3 6, 1 2)",
+      "Non-simple MultiPoint: Repeated point (1 2)");
+  assertInvalidReason(
+      "LINESTRING (0 0, 1 1, 1 0, 0 1)",
+      "Non-simple LineString: Self-intersection at or near (0.5 0.5)");
+  assertInvalidReason(
+      "MULTILINESTRING ((1 1, 5 1), (2 4, 4 0))",
+      "Non-simple MultiLineString: Self-intersection at or near (3.5 1)");
+
+  // valid geometries
+  assertInvalidReason(std::nullopt, std::nullopt);
+  assertInvalidReason("LINESTRING EMPTY", std::nullopt);
+  assertInvalidReason("POINT (1 2)", std::nullopt);
+  assertInvalidReason("POLYGON ((0 0, 1 0, 1 1, 0 1, 0 0))", std::nullopt);
+  assertInvalidReason(
+      "GEOMETRYCOLLECTION (MULTIPOINT (1 0, 1 1, 0 1, 0 0))", std::nullopt);
+}

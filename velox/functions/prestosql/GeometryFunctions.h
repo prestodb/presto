@@ -456,6 +456,26 @@ struct StIsSimpleFunction {
 };
 
 template <typename T>
+struct GeometryInvalidReasonFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<Varchar>& result,
+      const arg_type<Geometry>& input) {
+    std::unique_ptr<geos::geom::Geometry> geosGeometry =
+        geospatial::deserializeGeometry(input);
+
+    std::optional<std::string> message_opt =
+        geospatial::geometryInvalidReason(geosGeometry.get());
+
+    if (message_opt.has_value()) {
+      result = message_opt.value();
+    }
+    return message_opt.has_value();
+  }
+};
+
+template <typename T>
 struct StAreaFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
