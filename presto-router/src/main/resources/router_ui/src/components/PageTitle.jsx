@@ -45,9 +45,7 @@ export class PageTitle extends React.Component<Props, State> {
     refreshLoop() {
         clearTimeout(this.timeoutId);
         fetch("/v1/info")
-            .then(response => {
-                return response.json()
-            })
+            .then(response => response.json())
             .then(info => {
                 this.setState({
                     info: info,
@@ -56,7 +54,7 @@ export class PageTitle extends React.Component<Props, State> {
                     modalShown: false,
                 });
                 //$FlowFixMe$ Bootstrap 3 plugin
-                $('#no-connection-modal').modal('hide');
+                $('#no-connection-modal').hide();
                 this.resetTimer();
             })
             .catch(error => {
@@ -69,7 +67,7 @@ export class PageTitle extends React.Component<Props, State> {
 
                 if (!this.state.modalShown && (error || (Date.now() - this.state.lastSuccess) > 30 * 1000)) {
                     //$FlowFixMe$ Bootstrap 3 plugin
-                    $('#no-connection-modal').modal();
+                    $('#no-connection-modal').hide();
                     this.setState({modalShown: true});
                 }
         });
@@ -104,7 +102,7 @@ export class PageTitle extends React.Component<Props, State> {
 
         return (
             <div>
-                <nav className="navbar">
+                <nav className="navbar navbar-expand-lg navbar-dark bg-dark">
                     <div className="container-fluid">
                         <div className="navbar-header">
                             <table>
@@ -121,8 +119,11 @@ export class PageTitle extends React.Component<Props, State> {
                                 </tbody>
                             </table>
                         </div>
+                        <button className="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
+                            <span className="navbar-toggler-icon"></span>
+                            </button>
                         <div id="navbar" className="navbar-collapse collapse">
-                            <ul className="nav navbar-nav navbar-cluster-info-right">
+                            <ul className="nav navbar-nav navbar-right">
                                 <li>
                                     <span className="navbar-cluster-info">
                                         <span className="uppercase">Environment</span><br/>
@@ -142,7 +143,7 @@ export class PageTitle extends React.Component<Props, State> {
                     <div className="modal-dialog modal-sm" role="document">
                         <div className="modal-content">
                             <div className="row error-message">
-                                <div className="col-xs-12">
+                                <div className="col-12">
                                     <br />
                                     <h4>Unable to connect to server</h4>
                                     <p>{this.state.errorText ? "Error: " + this.state.errorText : null}</p>
