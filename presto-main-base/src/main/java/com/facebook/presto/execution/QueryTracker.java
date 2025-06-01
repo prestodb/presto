@@ -41,6 +41,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.facebook.presto.SystemSessionProperties.getQueryClientTimeout;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxExecutionTime;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxRunTime;
 import static com.facebook.presto.execution.QueryLimit.Source.QUERY;
@@ -74,8 +75,6 @@ public class QueryTracker<T extends TrackedQuery>
     private final ConcurrentMap<QueryId, T> queries = new ConcurrentHashMap<>();
     private final Queue<T> expirationQueue = new LinkedBlockingQueue<>();
 
-    private final Duration clientTimeout;
-
     private final ScheduledExecutorService queryManagementExecutor;
 
     @GuardedBy("this")
@@ -88,7 +87,6 @@ public class QueryTracker<T extends TrackedQuery>
         requireNonNull(queryManagerConfig, "queryManagerConfig is null");
         this.minQueryExpireAge = queryManagerConfig.getMinQueryExpireAge();
         this.maxQueryHistory = queryManagerConfig.getMaxQueryHistory();
-        this.clientTimeout = queryManagerConfig.getClientTimeout();
         this.maxTotalRunningTaskCountToKillQuery = queryManagerConfig.getMaxTotalRunningTaskCountToKillQuery();
         this.maxQueryRunningTaskCount = queryManagerConfig.getMaxQueryRunningTaskCount();
 
@@ -384,7 +382,8 @@ public class QueryTracker<T extends TrackedQuery>
 
     private boolean isAbandoned(T query)
     {
-        long oldestAllowedHeartbeatInMillis = currentTimeMillis() - clientTimeout.toMillis();
+        Duration queryClientTimeout = getQueryClientTimeout(query.getSession());
+        long oldestAllowedHeartbeatInMillis = currentTimeMillis() - queryClientTimeout.toMillis();
         long lastHeartbeat = query.getLastHeartbeatInMillis();
 
         return lastHeartbeat > 0 && lastHeartbeat < oldestAllowedHeartbeatInMillis;

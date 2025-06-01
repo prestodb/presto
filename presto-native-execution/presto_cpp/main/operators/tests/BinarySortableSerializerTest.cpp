@@ -52,7 +52,7 @@ class BinarySortableSerializerTest : public ::testing::Test,
                                      public velox::test::VectorTestBase {
  protected:
   static void SetUpTestCase() {
-    velox::memory::MemoryManager::testingSetInstance(velox::memory::MemoryManagerOptions{});
+    velox::memory::MemoryManager::testingSetInstance(velox::memory::MemoryManager::Options{});
   }
 
   int compareRowVector(
@@ -142,7 +142,7 @@ class BinarySortableSerializerFuzzerTest : public ::testing::Test,
                                            public velox::test::VectorTestBase {
  protected:
   static void SetUpTestCase() {
-    velox::memory::MemoryManager::testingSetInstance(velox::memory::MemoryManagerOptions{});
+    velox::memory::MemoryManager::testingSetInstance(velox::memory::MemoryManager::Options{});
   }
 
   void runFuzzerTest(const velox::RowTypePtr& rowType) {

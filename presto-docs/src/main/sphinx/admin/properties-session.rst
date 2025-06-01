@@ -406,3 +406,16 @@ Setting a duration controls how long to cache data.
 
 The value represents the max background fetch threads for refreshing metadata.
 
+Query Manager Properties
+------------------------
+
+``query_client_timeout``
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``Duration``
+* **Default value:** ``5m``
+
+This property can be used to configure how long a query runs without contact
+from the client application, such as the CLI, before it's abandoned.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`query.client.timeout\`\``.

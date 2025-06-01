@@ -14,6 +14,7 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.dispatcher.DispatchManager;
@@ -63,6 +64,7 @@ import static com.facebook.presto.execution.TestQueryRunnerUtil.createQuery;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.waitForQueryState;
 import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.getSimpleQueryRunner;
 import static com.facebook.presto.operator.BlockedReason.WAITING_FOR_MEMORY;
+import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_QUERY;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_CPU_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_GLOBAL_MEMORY_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_OUTPUT_POSITIONS_LIMIT;
@@ -270,6 +272,26 @@ public class TestQueryManager
             assertEquals(queryInfo.getErrorCode(), EXCEEDED_OUTPUT_SIZE_LIMIT.toErrorCode());
             assertEquals(queryManager.getQuerySession(queryId).getAccessControlContext().getSchema(), TEST_SESSION.getSchema());
             assertEquals(queryManager.getQuerySession(queryId).getAccessControlContext().getCatalog(), TEST_SESSION.getCatalog());
+        }
+    }
+
+    @Test(timeOut = 60_000L)
+    public void testQueryClientTimeoutExceeded()
+            throws Exception
+    {
+        Session session = Session.builder(TEST_SESSION)
+                .setSystemProperty(SystemSessionProperties.QUERY_CLIENT_TIMEOUT, "1s")
+                .build();
+
+        try (DistributedQueryRunner queryRunner = builder().setSingleExtraProperty("query.client.timeout", "3m").build()) {
+            QueryId queryId = createQuery(queryRunner, session, "SELECT COUNT(*) FROM lineitem");
+            waitForQueryState(queryRunner, queryId, FAILED);
+            QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
+            BasicQueryInfo queryInfo = queryManager.getQueryInfo(queryId);
+            assertEquals(queryInfo.getState(), FAILED);
+            assertEquals(queryInfo.getErrorCode(), ABANDONED_QUERY.toErrorCode());
+            assertEquals(queryManager.getQuerySession(queryId).getAccessControlContext().getSchema(), session.getSchema());
+            assertEquals(queryManager.getQuerySession(queryId).getAccessControlContext().getCatalog(), session.getCatalog());
         }
     }
 

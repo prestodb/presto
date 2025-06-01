@@ -34,7 +34,7 @@ class HttpJwtTestSuite : public ::testing::TestWithParam<bool> {
 
  protected:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance(memory::MemoryManagerOptions{});
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
   std::unique_ptr<config::ConfigBase> jwtSystemConfig(

@@ -154,28 +154,4 @@ public class TestIcebergMetadataListing
         assertQuerySucceeds("SELECT * FROM iceberg.test_schema.iceberg_table1");
         assertQueryFails("SELECT * FROM iceberg.test_schema.hive_table", "Not an Iceberg table: test_schema.hive_table");
     }
-
-    @Test
-    public void testRenameView()
-    {
-        assertQuerySucceeds("CREATE SCHEMA iceberg.test_rename_view_schema");
-        assertQuerySucceeds("CREATE TABLE iceberg.test_rename_view_schema.iceberg_test_table (_string VARCHAR, _integer INTEGER)");
-        assertUpdate("CREATE VIEW iceberg.test_rename_view_schema.test_view_to_be_renamed AS SELECT * FROM iceberg.test_rename_view_schema.iceberg_test_table");
-        assertUpdate("ALTER VIEW IF EXISTS iceberg.test_rename_view_schema.test_view_to_be_renamed RENAME TO iceberg.test_rename_view_schema.test_view_renamed");
-        assertUpdate("CREATE VIEW iceberg.test_rename_view_schema.test_view2_to_be_renamed AS SELECT * FROM iceberg.test_rename_view_schema.iceberg_test_table");
-        assertUpdate("ALTER VIEW iceberg.test_rename_view_schema.test_view2_to_be_renamed RENAME TO iceberg.test_rename_view_schema.test_view2_renamed");
-        assertQuerySucceeds("SELECT * FROM iceberg.test_rename_view_schema.test_view_renamed");
-        assertQuerySucceeds("SELECT * FROM iceberg.test_rename_view_schema.test_view2_renamed");
-        assertUpdate("DROP VIEW iceberg.test_rename_view_schema.test_view_renamed");
-        assertUpdate("DROP VIEW iceberg.test_rename_view_schema.test_view2_renamed");
-        assertUpdate("DROP TABLE iceberg.test_rename_view_schema.iceberg_test_table");
-        assertQuerySucceeds("DROP SCHEMA IF EXISTS iceberg.test_rename_view_schema");
-    }
-
-    @Test
-    public void testRenameViewIfNotExists()
-    {
-        assertQueryFails("ALTER VIEW iceberg.test_schema.test_rename_view_not_exist RENAME TO iceberg.test_schema.test_renamed_view_not_exist", "line 1:1: View 'iceberg.test_schema.test_rename_view_not_exist' does not exist");
-        assertQuerySucceeds("ALTER VIEW IF EXISTS iceberg.test_schema.test_rename_view_not_exist RENAME TO iceberg.test_schema.test_renamed_view_not_exist");
-    }
 }

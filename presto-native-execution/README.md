@@ -84,10 +84,10 @@ To enable Parquet and S3 support, set `PRESTO_ENABLE_PARQUET = "ON"`,
 `PRESTO_ENABLE_S3 = "ON"` in the environment.
 
 S3 support needs the [AWS SDK C++](https://github.com/aws/aws-sdk-cpp) library.
-This dependency can be installed by running the script below from the
-`presto/presto-native-execution` directory.
+This dependency can be installed by running the target platform build script
+from the `presto/presto-native-execution` directory.
 
-`./velox/scripts/setup-adapters.sh aws`
+`./velox/scripts/setup-centos9.sh install_aws`
 
 #### JWT Authentication
 To enable JWT authentication support, set `PRESTO_ENABLE_JWT = "ON"` in

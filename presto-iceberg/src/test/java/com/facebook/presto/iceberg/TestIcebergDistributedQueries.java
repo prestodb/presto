@@ -184,4 +184,31 @@ public abstract class TestIcebergDistributedQueries
         assertQuery("SELECT count(*) FROM test_varcharn_filter WHERE shipmode = 'AIR            '", "VALUES (0)");
         assertQuery("SELECT count(*) FROM test_varcharn_filter WHERE shipmode = 'NONEXIST'", "VALUES (0)");
     }
+
+    @Test
+    public void testRenameView()
+    {
+        skipTestUnless(supportsViews());
+        assertQuerySucceeds("CREATE TABLE iceberg_test_table (_string VARCHAR, _integer INTEGER)");
+        assertUpdate("CREATE VIEW test_view_to_be_renamed AS SELECT * FROM iceberg_test_table");
+        assertUpdate("ALTER VIEW IF EXISTS test_view_to_be_renamed RENAME TO test_view_renamed");
+        assertUpdate("CREATE VIEW test_view2_to_be_renamed AS SELECT * FROM iceberg_test_table");
+        assertUpdate("ALTER VIEW test_view2_to_be_renamed RENAME TO test_view2_renamed");
+        assertQuerySucceeds("SELECT * FROM test_view_renamed");
+        assertQuerySucceeds("SELECT * FROM test_view2_renamed");
+        assertUpdate("DROP VIEW test_view_renamed");
+        assertUpdate("DROP VIEW test_view2_renamed");
+        assertUpdate("DROP TABLE iceberg_test_table");
+    }
+
+    @Test
+    public void testRenameViewIfNotExists()
+    {
+        String catalog = getSession().getCatalog().get();
+        String schema = getSession().getSchema().get();
+        skipTestUnless(supportsViews());
+        assertQueryFails("ALTER VIEW test_rename_view_not_exist RENAME TO test_renamed_view_not_exist",
+                format("line 1:1: View '%s.%s.test_rename_view_not_exist' does not exist", catalog, schema));
+        assertQuerySucceeds("ALTER VIEW IF EXISTS test_rename_view_not_exist RENAME TO test_renamed_view_not_exist");
+    }
 }

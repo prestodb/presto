@@ -1091,3 +1091,15 @@ system will keep logs for the past 15 days.
 * **Default value:** ``100MB``
 
 The maximum file size for the log file of the HTTP server.
+
+Query Manager Properties
+------------------------
+
+``query.client.timeout``
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``Duration``
+* **Default value:** ``5m``
+
+This property can be used to configure how long a query runs without contact
+from the client application, such as the CLI, before it's abandoned.

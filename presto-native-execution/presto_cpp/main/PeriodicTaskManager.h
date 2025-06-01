@@ -16,7 +16,6 @@
 #include <folly/experimental/FunctionScheduler.h>
 #include <folly/executors/ThreadedRepeatingFunctionRunner.h>
 #include "velox/common/memory/Memory.h"
-#include "velox/exec/Task.h"
 
 namespace folly {
 class CPUThreadPoolExecutor;

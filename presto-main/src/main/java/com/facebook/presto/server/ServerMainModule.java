@@ -100,11 +100,14 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.metadata.SchemaPropertyManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.metadata.SessionPropertyProviderConfig;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.metadata.StaticCatalogStore;
 import com.facebook.presto.metadata.StaticCatalogStoreConfig;
 import com.facebook.presto.metadata.StaticFunctionNamespaceStore;
 import com.facebook.presto.metadata.StaticFunctionNamespaceStoreConfig;
+import com.facebook.presto.metadata.StaticTypeManagerStore;
+import com.facebook.presto.metadata.StaticTypeManagerStoreConfig;
 import com.facebook.presto.metadata.TablePropertyManager;
 import com.facebook.presto.nodeManager.PluginNodeManager;
 import com.facebook.presto.operator.ExchangeClientConfig;
@@ -644,6 +647,9 @@ public class ServerMainModule
         configBinder(binder).bindConfig(StaticCatalogStoreConfig.class);
         binder.bind(StaticFunctionNamespaceStore.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(StaticFunctionNamespaceStoreConfig.class);
+        binder.bind(StaticTypeManagerStore.class).in(Scopes.SINGLETON);
+        configBinder(binder).bindConfig(StaticTypeManagerStoreConfig.class);
+        configBinder(binder).bindConfig(SessionPropertyProviderConfig.class);
         binder.bind(FunctionAndTypeManager.class).in(Scopes.SINGLETON);
         binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
 

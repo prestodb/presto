@@ -86,11 +86,8 @@ public class SafeEventLoopGroup
         public void execute(Runnable task, Consumer<Throwable> failureHandler, SchedulerStatsTracker statsTracker, String methodSignature)
         {
             requireNonNull(task, "task is null");
-
-            long initialGCTime = getTotalGCTime();
-            long start = THREAD_MX_BEAN.getCurrentThreadCpuTime();
-
             this.execute(() -> {
+                long start = THREAD_MX_BEAN.getCurrentThreadCpuTime();
                 try {
                     task.run();
                 }
@@ -101,9 +98,7 @@ public class SafeEventLoopGroup
                     }
                 }
                 finally {
-                    long currentGCTime = getTotalGCTime();
-                    long cpuTimeInNanos = THREAD_MX_BEAN.getCurrentThreadCpuTime() - start - (currentGCTime - initialGCTime);
-
+                    long cpuTimeInNanos = THREAD_MX_BEAN.getCurrentThreadCpuTime() - start;
                     statsTracker.recordEventLoopMethodExecutionCpuTime(cpuTimeInNanos);
                     if (slowMethodThresholdOnEventLoopInNanos > 0 && cpuTimeInNanos > slowMethodThresholdOnEventLoopInNanos) {
                         log.warn("Slow method execution on event loop: %s took %s milliseconds", methodSignature, NANOSECONDS.toMillis(cpuTimeInNanos));
@@ -130,10 +125,5 @@ public class SafeEventLoopGroup
                 }
             });
         }
-    }
-
-    private long getTotalGCTime()
-    {
-        return gcBeans.stream().mapToLong(GarbageCollectorMXBean::getCollectionTime).sum();
     }
 }

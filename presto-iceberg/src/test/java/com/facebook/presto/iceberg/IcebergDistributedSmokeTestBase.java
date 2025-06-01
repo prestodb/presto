@@ -1588,6 +1588,9 @@ public abstract class IcebergDistributedSmokeTestBase
     {
         String schemaName = getSession().getSchema().get();
         String tableName = "register";
+        // Create a `noise` table in the same schema to test that the `getLocation` method finds and returns the right metadata location.
+        String noiseTableName = "register1";
+        assertUpdate("CREATE TABLE " + noiseTableName + " (id integer, value integer)");
         assertUpdate("CREATE TABLE " + tableName + " (id integer, value integer)");
         assertUpdate("INSERT INTO " + tableName + " VALUES(1, 1)", 1);
 
@@ -1599,6 +1602,7 @@ public abstract class IcebergDistributedSmokeTestBase
 
         unregisterTable(schemaName, newTableName);
         dropTable(getSession(), tableName);
+        dropTable(getSession(), noiseTableName);
     }
 
     @Test

@@ -56,6 +56,7 @@ import static com.facebook.presto.iceberg.procedure.RegisterTableProcedure.getFi
 import static com.google.common.io.Files.createTempDir;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.TableProperties.DELETE_MODE;
 import static org.apache.iceberg.TableProperties.WRITE_DATA_LOCATION;
 import static org.apache.iceberg.TableProperties.WRITE_METADATA_LOCATION;
 import static org.testng.Assert.assertEquals;
@@ -131,6 +132,8 @@ public abstract class TestRemoveOrphanFilesProcedureBase
             assertUpdate(session, format("create table %s (a int, b varchar)", tableName));
             assertUpdate(session, format("insert into %s values(1, '1001'), (2, '1002')", tableName), 2);
             assertUpdate(session, format("insert into %s values(3, '1003'), (4, '1004')", tableName), 2);
+            assertUpdate(session, format("insert into %s values(5, '1005'), (6, '1006')", tableName), 2);
+            assertUpdate(session, format("delete from %s where a between 5 and 6", tableName), 2);
             assertQuery(session, "select * from " + tableName, "values(1, '1001'), (2, '1002'), (3, '1003'), (4, '1004')");
 
             Table table = loadTable(tableName);
@@ -185,12 +188,15 @@ public abstract class TestRemoveOrphanFilesProcedureBase
 
         // Create an iceberg table using specified table properties
         Table table = createTable(tempTableName, tableTargetPath,
-                ImmutableMap.of(WRITE_METADATA_LOCATION, specifiedMetadataPath));
+                ImmutableMap.of(WRITE_METADATA_LOCATION, specifiedMetadataPath,
+                                DELETE_MODE, "merge-on-read"));
         assertNotNull(table.properties().get(WRITE_METADATA_LOCATION));
         assertEquals(table.properties().get(WRITE_METADATA_LOCATION), specifiedMetadataPath);
 
         assertUpdate(session, format("CALL system.register_table('%s', '%s', '%s')", TEST_SCHEMA, tableName, metadataLocation(table)));
         assertUpdate(session, "insert into " + tableName + " values(1, '1001'), (2, '1002')", 2);
+        assertUpdate(session, "insert into " + tableName + " values(3, '1003'), (4, '1004')", 2);
+        assertUpdate(session, "delete from " + tableName + " where a between 3 and 4", 2);
         assertQuery(session, "select * from " + tableName, "values(1, '1001'), (2, '1002')");
 
         int metadataFilesCountBefore = allMetadataFilesCount(session, table);
@@ -236,12 +242,15 @@ public abstract class TestRemoveOrphanFilesProcedureBase
 
         // Create an iceberg table using specified table properties
         Table table = createTable(tempTableName, tableTargetPath,
-                ImmutableMap.of(WRITE_DATA_LOCATION, specifiedDataPath));
+                ImmutableMap.of(WRITE_DATA_LOCATION, specifiedDataPath,
+                                DELETE_MODE, "merge-on-read"));
         assertNotNull(table.properties().get(WRITE_DATA_LOCATION));
         assertEquals(table.properties().get(WRITE_DATA_LOCATION), specifiedDataPath);
 
         assertUpdate(session, format("CALL system.register_table('%s', '%s', '%s')", TEST_SCHEMA, tableName, metadataLocation(table)));
         assertUpdate(session, "insert into " + tableName + " values(1, '1001'), (2, '1002')", 2);
+        assertUpdate(session, "insert into " + tableName + " values(3, '1003'), (4, '1004')", 2);
+        assertUpdate(session, "delete from " + tableName + " where a between 3 and 4", 2);
         assertQuery(session, "select * from " + tableName, "values(1, '1001'), (2, '1002')");
 
         int metadataFilesCountBefore = allMetadataFilesCount(session, table);

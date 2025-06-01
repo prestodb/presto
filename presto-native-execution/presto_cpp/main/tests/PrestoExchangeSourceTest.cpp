@@ -496,7 +496,7 @@ struct Params {
 class PrestoExchangeSourceTest : public ::testing::TestWithParam<Params> {
  public:
   static void SetUpTestCase() {
-    MemoryManagerOptions options;
+    MemoryManager::Options options;
     options.allocatorCapacity = 1L << 30;
     options.useMmapAllocator = true;
     MemoryManager::testingSetInstance(options);

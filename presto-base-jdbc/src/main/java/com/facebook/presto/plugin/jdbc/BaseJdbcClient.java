@@ -117,6 +117,7 @@ public class BaseJdbcClient
     protected final boolean caseInsensitiveNameMatching;
     protected final Cache<JdbcIdentity, Map<String, String>> remoteSchemaNames;
     protected final Cache<RemoteTableNameCacheKey, Map<String, String>> remoteTableNames;
+    protected final Set<String> listSchemasIgnoredSchemas;
 
     public BaseJdbcClient(JdbcConnectorId connectorId, BaseJdbcConfig config, String identifierQuote, ConnectionFactory connectionFactory)
     {
@@ -130,6 +131,7 @@ public class BaseJdbcClient
                 .expireAfterWrite(config.getCaseInsensitiveNameMatchingCacheTtl().toMillis(), MILLISECONDS);
         this.remoteSchemaNames = remoteNamesCacheBuilder.build();
         this.remoteTableNames = remoteNamesCacheBuilder.build();
+        this.listSchemasIgnoredSchemas = config.getlistSchemasIgnoredSchemas();
     }
 
     @PreDestroy
@@ -165,7 +167,7 @@ public class BaseJdbcClient
             while (resultSet.next()) {
                 String schemaName = resultSet.getString("TABLE_SCHEM");
                 // skip internal schemas
-                if (!schemaName.equalsIgnoreCase("information_schema")) {
+                if (!listSchemasIgnoredSchemas.contains(schemaName.toLowerCase(ENGLISH))) {
                     schemaNames.add(schemaName);
                 }
             }

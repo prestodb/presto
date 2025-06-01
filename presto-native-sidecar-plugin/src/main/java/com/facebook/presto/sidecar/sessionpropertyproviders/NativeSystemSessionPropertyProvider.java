@@ -77,7 +77,7 @@ public class NativeSystemSessionPropertyProvider
         this.nativeSessionPropertiesJsonCodec = requireNonNull(nativeSessionPropertiesJsonCodec, "nativeSessionPropertiesJsonCodec is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.httpClient = requireNonNull(httpClient, "typeManager is null");
+        this.httpClient = requireNonNull(httpClient, "httpClient is null");
         requireNonNull(config, "config is null");
         this.memoizedSessionPropertiesSupplier =
                 Suppliers.memoizeWithExpiration(this::fetchSessionProperties, config.getSessionPropertiesCacheExpiration().toMillis(), MILLISECONDS);
