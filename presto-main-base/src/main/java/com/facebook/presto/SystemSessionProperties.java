@@ -331,6 +331,7 @@ public final class SystemSessionProperties
     public static final String EXPRESSION_OPTIMIZER_NAME = "expression_optimizer_name";
     public static final String ADD_EXCHANGE_BELOW_PARTIAL_AGGREGATION_OVER_GROUP_ID = "add_exchange_below_partial_aggregation_over_group_id";
     public static final String QUERY_CLIENT_TIMEOUT = "query_client_timeout";
+    public static final String REWRITE_MIN_MAX_BY_TO_TOP_N = "rewrite_min_max_by_to_top_n";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_AGGREGATION_SPILL_ALL = "native_aggregation_spill_all";
@@ -1875,6 +1876,11 @@ public final class SystemSessionProperties
                         "Enable single node execution",
                         featuresConfig.isSingleNodeExecutionEnabled(),
                         false),
+                booleanProperty(
+                        REWRITE_MIN_MAX_BY_TO_TOP_N,
+                        "rewrite min_by/max_by to top n",
+                        featuresConfig.isRewriteMinMaxByToTopNEnabled(),
+                        false),
                 booleanProperty(NATIVE_EXECUTION_SCALE_WRITER_THREADS_ENABLED,
                         "Enable automatic scaling of writer threads",
                         featuresConfig.isNativeExecutionScaleWritersThreadsEnabled(),
@@ -2350,6 +2356,11 @@ public final class SystemSessionProperties
     public static boolean isSingleNodeExecutionEnabled(Session session)
     {
         return session.getSystemProperty(SINGLE_NODE_EXECUTION_ENABLED, Boolean.class);
+    }
+
+    public static boolean isRewriteMinMaxByToTopNEnabled(Session session)
+    {
+        return session.getSystemProperty(REWRITE_MIN_MAX_BY_TO_TOP_N, Boolean.class);
     }
 
     public static boolean isPushAggregationThroughJoin(Session session)

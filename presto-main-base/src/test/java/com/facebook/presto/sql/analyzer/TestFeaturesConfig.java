@@ -259,6 +259,7 @@ public class TestFeaturesConfig
                 .setAddExchangeBelowPartialAggregationOverGroupId(false)
                 .setInnerJoinPushdownEnabled(false)
                 .setInEqualityJoinPushdownEnabled(false)
+                .setRewriteMinMaxByToTopNEnabled(false)
                 .setPrestoSparkExecutionEnvironment(false));
     }
 
@@ -458,6 +459,7 @@ public class TestFeaturesConfig
                 .put("eager-plan-validation-thread-pool-size", "2")
                 .put("optimizer.inner-join-pushdown-enabled", "true")
                 .put("optimizer.inequality-join-pushdown-enabled", "true")
+                .put("optimizer.rewrite-minBy-maxBy-to-topN-enabled", "true")
                 .put("presto-spark-execution-environment", "true")
                 .put("single-node-execution-enabled", "true")
                 .put("native-execution-scale-writer-threads-enabled", "true")
@@ -669,6 +671,7 @@ public class TestFeaturesConfig
                 .setExcludeInvalidWorkerSessionProperties(true)
                 .setAddExchangeBelowPartialAggregationOverGroupId(true)
                 .setInEqualityJoinPushdownEnabled(true)
+                .setRewriteMinMaxByToTopNEnabled(true)
                 .setInnerJoinPushdownEnabled(true)
                 .setPrestoSparkExecutionEnvironment(true);
         assertFullMapping(properties, expected);

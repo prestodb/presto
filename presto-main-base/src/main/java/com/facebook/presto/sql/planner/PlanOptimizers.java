@@ -59,6 +59,7 @@ import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithDistinct;
 import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithSort;
 import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithTopN;
 import com.facebook.presto.sql.planner.iterative.rule.MergeLimits;
+import com.facebook.presto.sql.planner.iterative.rule.MinMaxByToWindowFunction;
 import com.facebook.presto.sql.planner.iterative.rule.MultipleDistinctAggregationToMarkDistinct;
 import com.facebook.presto.sql.planner.iterative.rule.PickTableLayout;
 import com.facebook.presto.sql.planner.iterative.rule.PlanRemoteProjections;
@@ -653,6 +654,12 @@ public class PlanOptimizers
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new SimplifyCountOverConstant(metadata.getFunctionAndTypeManager()))),
+                new IterativeOptimizer(
+                        metadata,
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.of(new MinMaxByToWindowFunction(metadata.getFunctionAndTypeManager()))),
                 new LimitPushDown(), // Run LimitPushDown before WindowFilterPushDown
                 new WindowFilterPushDown(metadata), // This must run after PredicatePushDown and LimitPushDown so that it squashes any successive filter nodes and limits
                 prefilterForLimitingAggregation,
