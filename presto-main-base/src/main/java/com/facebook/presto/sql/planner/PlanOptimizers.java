@@ -733,6 +733,14 @@ public class PlanOptimizers
         builder.add(new SimplifyPlanWithEmptyInput(),
                 new PruneUnreferencedOutputs());
 
+        // Run columnPruningRules one more time to optimize the ProjectNode generated in SimplifyPlanWithEmptyInput.
+        builder.add(new IterativeOptimizer(
+                metadata,
+                ruleStats,
+                statsCalculator,
+                estimatedExchangesCostCalculator,
+                columnPruningRules));
+
         builder.add(new IterativeOptimizer(
                         metadata,
                         ruleStats,
@@ -886,6 +894,7 @@ public class PlanOptimizers
                         // Run RemoveEmptyDelete and EliminateEmptyJoins after table scan is removed by PickTableLayout/AddExchanges
                         ImmutableSet.of(new RemoveEmptyDelete())));
         builder.add(predicatePushDown); // Run predicate push down one more time in case we can leverage new information from layouts' effective predicate
+        builder.add(new WindowFilterPushDown(metadata));
         builder.add(new RemoveUnsupportedDynamicFilters(metadata.getFunctionAndTypeManager()));
         builder.add(simplifyRowExpressionOptimizer); // Should be always run after PredicatePushDown
         builder.add(projectionPushDown);
