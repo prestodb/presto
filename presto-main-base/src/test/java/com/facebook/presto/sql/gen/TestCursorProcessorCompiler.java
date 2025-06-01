@@ -169,6 +169,72 @@ public class TestCursorProcessorCompiler
         checkPageEqual(pageFromCSE, pageFromNoCSE);
     }
 
+    @Test
+    public void testLargeProjectionBatching()
+    {
+        PageFunctionCompiler functionCompiler = new PageFunctionCompiler(METADATA, 0);
+        ExpressionCompiler expressionCompiler = new ExpressionCompiler(METADATA, functionCompiler);
+
+        int projectionCount = 1500;
+        List<RowExpression> projections = IntStream.range(0, projectionCount)
+                .mapToObj(i -> field(i % 2, BIGINT))
+                .collect(toImmutableList());
+
+        Supplier<CursorProcessor> cursorProcessorSupplier = expressionCompiler.compileCursorProcessor(
+                SESSION.getSqlFunctionProperties(),
+                Optional.empty(), // No filter
+                projections,
+                "testLargeProjection",
+                false);
+
+        CursorProcessor processor = cursorProcessorSupplier.get();
+        assertTrue(processor != null, "CursorProcessor should be created successfully for large projections");
+
+        Page input = createLongBlockPage(2, 1L, 2L, 3L, 4L, 5L);
+        List<Type> types = ImmutableList.of(BIGINT, BIGINT);
+        PageBuilder pageBuilder = new PageBuilder(projections.stream().map(RowExpression::getType).collect(toList()));
+        RecordSet recordSet = new PageRecordSet(types, input);
+
+        processor.process(SESSION.getSqlFunctionProperties(), new DriverYieldSignal(), recordSet.cursor(), pageBuilder);
+        Page result = pageBuilder.build();
+
+        assertEquals(result.getChannelCount(), projectionCount, "Result should have all projected columns");
+        assertEquals(result.getPositionCount(), input.getPositionCount(), "Result should have same number of rows as input");
+    }
+
+    @Test
+    public void testProjectionBatchBoundary()
+    {
+        PageFunctionCompiler functionCompiler = new PageFunctionCompiler(METADATA, 0);
+        ExpressionCompiler expressionCompiler = new ExpressionCompiler(METADATA, functionCompiler);
+
+        int projectionCount = 1000;
+        List<RowExpression> projections = IntStream.range(0, projectionCount)
+                .mapToObj(i -> field(i % 2, BIGINT))
+                .collect(toImmutableList());
+
+        Supplier<CursorProcessor> cursorProcessorSupplier = expressionCompiler.compileCursorProcessor(
+                SESSION.getSqlFunctionProperties(),
+                Optional.empty(),
+                projections,
+                "testBatchBoundary",
+                false);
+
+        CursorProcessor processor = cursorProcessorSupplier.get();
+        assertTrue(processor != null, "CursorProcessor should be created successfully at batch boundary");
+
+        Page input = createLongBlockPage(2, 10L, 20L);
+        List<Type> types = ImmutableList.of(BIGINT, BIGINT);
+        PageBuilder pageBuilder = new PageBuilder(projections.stream().map(RowExpression::getType).collect(toList()));
+        RecordSet recordSet = new PageRecordSet(types, input);
+
+        processor.process(SESSION.getSqlFunctionProperties(), new DriverYieldSignal(), recordSet.cursor(), pageBuilder);
+        Page result = pageBuilder.build();
+
+        assertEquals(result.getChannelCount(), projectionCount);
+        assertEquals(result.getPositionCount(), input.getPositionCount());
+    }
+
     private static Page createLongBlockPage(int blockCount, long... values)
     {
         Block[] blocks = new Block[blockCount];
