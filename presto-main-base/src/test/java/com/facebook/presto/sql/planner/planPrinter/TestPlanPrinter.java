@@ -316,6 +316,10 @@ public class TestPlanPrinter
                 0,
                 0,
                 0,
+                0,
+                0,
+                0,
+                0,
 
                 0.0,
                 0.0,

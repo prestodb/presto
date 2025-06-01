@@ -823,10 +823,28 @@ void PrestoTask::updateExecutionInfoLocked(
   prestoTaskStats.outputPositions = 0;
   prestoTaskStats.outputDataSizeInBytes = 0;
 
-  prestoTaskStats.totalDrivers = veloxTaskStats.numTotalDrivers;
-  prestoTaskStats.queuedDrivers = veloxTaskStats.numQueuedDrivers;
+  // NOTE: This logic is implemented in a backwards-compatible way because
+  // the coordinator and worker may not be upgraded at the same time.
+  //
+  // To ensure safe rollout:
+  // - We are introducing new fields (e.g., `totalNewDrivers`) instead of modifying or
+  //   removing existing ones.
+  // - The worker is updated first to populate both old and new fields.
+  // - The coordinator continues to use the old fields until it is updated to handle
+  //   the new ones.
+  //
+  // Once both coordinator and worker support the new fields, we can safely remove
+  // the legacy fields in a follow-up cleanup PR.
+
+  prestoTaskStats.totalDrivers = veloxTaskStats.numTotalSplits;
+  prestoTaskStats.queuedDrivers = veloxTaskStats.numQueuedSplits;
   prestoTaskStats.runningDrivers = veloxTaskStats.numRunningDrivers;
-  prestoTaskStats.completedDrivers = veloxTaskStats.numCompletedDrivers;
+  prestoTaskStats.completedDrivers = veloxTaskStats.numFinishedSplits;
+
+  prestoTaskStats.totalNewDrivers = veloxTaskStats.numTotalDrivers;
+  prestoTaskStats.queuedNewDrivers = veloxTaskStats.numQueuedDrivers;
+  prestoTaskStats.runningNewDrivers = veloxTaskStats.numRunningDrivers;
+  prestoTaskStats.completedNewDrivers = veloxTaskStats.numCompletedDrivers;
 
   prestoTaskStats.totalSplits = veloxTaskStats.numTotalSplits;
   prestoTaskStats.queuedSplits = veloxTaskStats.numQueuedSplits;

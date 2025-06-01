@@ -52,6 +52,11 @@ public class TaskStats
     private final int blockedDrivers;
     private final int completedDrivers;
 
+    private final int totalNewDrivers;
+    private final int queuedNewDrivers;
+    private final int runningNewDrivers;
+    private final int completedNewDrivers;
+
     private final int totalSplits;
     private final int queuedSplits;
     private final int runningSplits;
@@ -116,6 +121,10 @@ public class TaskStats
                 0,
                 0,
                 0,
+                0,
+                0,
+                0,
+                0,
                 0.0,
                 0.0,
                 0L,
@@ -159,6 +168,10 @@ public class TaskStats
                 0,
                 0,
                 0L,
+                0,
+                0,
+                0,
+                0,
                 0,
                 0,
                 0,
@@ -212,6 +225,11 @@ public class TaskStats
             @JsonProperty("runningPartitionedSplitsWeight") long runningPartitionedSplitsWeight,
             @JsonProperty("blockedDrivers") int blockedDrivers,
             @JsonProperty("completedDrivers") int completedDrivers,
+
+            @JsonProperty("totalNewDrivers") int totalNewDrivers,
+            @JsonProperty("queuedNewDrivers") int queuedNewDrivers,
+            @JsonProperty("runningNewDrivers") int runningNewDrivers,
+            @JsonProperty("completedNewDrivers") int completedNewDrivers,
 
             @JsonProperty("totalSplits") int totalSplits,
             @JsonProperty("queuedSplits") int queuedSplits,
@@ -284,6 +302,18 @@ public class TaskStats
 
         checkArgument(completedDrivers >= 0, "completedDrivers is negative");
         this.completedDrivers = completedDrivers;
+
+        checkArgument(totalNewDrivers >= 0, "totalNewDrivers is negative");
+        this.totalNewDrivers = totalNewDrivers;
+
+        checkArgument(queuedNewDrivers >= 0, "queuedNewDrivers is negative");
+        this.queuedNewDrivers = queuedNewDrivers;
+
+        checkArgument(runningNewDrivers >= 0, "runningNewDrivers is negative");
+        this.runningNewDrivers = runningNewDrivers;
+
+        checkArgument(completedNewDrivers >= 0, "completedNewDrivers is negative");
+        this.completedNewDrivers = completedNewDrivers;
 
         checkArgument(totalSplits >= 0, "totalSplits is negative");
         this.totalSplits = totalSplits;
@@ -677,6 +707,34 @@ public class TaskStats
         return completedSplits;
     }
 
+    @JsonProperty
+    @ThriftField(46)
+    public int getTotalNewDrivers()
+    {
+        return totalNewDrivers;
+    }
+
+    @JsonProperty
+    @ThriftField(47)
+    public int getQueuedNewDrivers()
+    {
+        return queuedNewDrivers;
+    }
+
+    @JsonProperty
+    @ThriftField(48)
+    public int getRunningNewDrivers()
+    {
+        return runningNewDrivers;
+    }
+
+    @JsonProperty
+    @ThriftField(49)
+    public int getCompletedNewDrivers()
+    {
+        return completedNewDrivers;
+    }
+
     public TaskStats summarize()
     {
         return new TaskStats(
@@ -696,6 +754,10 @@ public class TaskStats
                 runningPartitionedSplitsWeight,
                 blockedDrivers,
                 completedDrivers,
+                totalNewDrivers,
+                queuedNewDrivers,
+                runningNewDrivers,
+                completedNewDrivers,
                 totalSplits,
                 queuedSplits,
                 runningSplits,
@@ -746,6 +808,10 @@ public class TaskStats
                 runningPartitionedSplitsWeight,
                 blockedDrivers,
                 completedDrivers,
+                totalNewDrivers,
+                queuedNewDrivers,
+                runningNewDrivers,
+                completedNewDrivers,
                 totalSplits,
                 queuedSplits,
                 runningSplits,

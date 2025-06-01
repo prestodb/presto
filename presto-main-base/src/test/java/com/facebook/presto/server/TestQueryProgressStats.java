@@ -51,6 +51,9 @@ public class TestQueryProgressStats
                 1000,
                 1200,
                 1100,
+                1000,
+                1200,
+                1100,
                 1000);
         JsonCodec<QueryProgressStats> codec = JsonCodec.jsonCodec(QueryProgressStats.class);
 

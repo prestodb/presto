@@ -113,6 +113,11 @@ public class StageExecutionInfo
                 taskStatsAggregator.blockedDrivers,
                 taskStatsAggregator.completedDrivers,
 
+                taskStatsAggregator.totalNewDrivers,
+                taskStatsAggregator.queuedNewDrivers,
+                taskStatsAggregator.runningNewDrivers,
+                taskStatsAggregator.completedNewDrivers,
+
                 taskStatsAggregator.totalSplits,
                 taskStatsAggregator.queuedSplits,
                 taskStatsAggregator.runningSplits,
@@ -251,6 +256,11 @@ public class StageExecutionInfo
         private int blockedDrivers;
         private int completedDrivers;
 
+        private int totalNewDrivers;
+        private int queuedNewDrivers;
+        private int runningNewDrivers;
+        private int completedNewDrivers;
+
         private int totalSplits;
         private int queuedSplits;
         private int runningSplits;
@@ -300,6 +310,11 @@ public class StageExecutionInfo
             runningDrivers += taskStats.getRunningDrivers();
             blockedDrivers += taskStats.getBlockedDrivers();
             completedDrivers += taskStats.getCompletedDrivers();
+
+            totalNewDrivers += taskStats.getTotalNewDrivers();
+            queuedNewDrivers += taskStats.getQueuedNewDrivers();
+            runningNewDrivers += taskStats.getRunningNewDrivers();
+            completedNewDrivers += taskStats.getCompletedNewDrivers();
 
             totalSplits += taskStats.getTotalSplits();
             queuedSplits += taskStats.getQueuedSplits();

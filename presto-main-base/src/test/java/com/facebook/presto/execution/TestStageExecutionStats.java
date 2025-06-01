@@ -49,6 +49,10 @@ public class TestStageExecutionStats
             8,
             10,
             11,
+            7,
+            8,
+            10,
+            11,
 
             12.0,
             27.0,

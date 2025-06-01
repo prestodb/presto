@@ -346,6 +346,9 @@ public class TestThriftResourceGroupInfo
                 FAKE_COMPLETED_DRIVERS,
                 FAKE_QUEUED_DRIVERS,
                 FAKE_RUNNING_DRIVERS,
+                FAKE_COMPLETED_DRIVERS,
+                FAKE_QUEUED_DRIVERS,
+                FAKE_RUNNING_DRIVERS,
                 FAKE_COMPLETED_DRIVERS));
         queryProgressStats.add(new QueryProgressStats(
                 FAKE_ELAPSED_TIME_MILLIS,
@@ -364,6 +367,9 @@ public class TestThriftResourceGroupInfo
                 FAKE_BLOCKED,
                 Optional.empty(),
                 FAKE_PROGRESS_PERCENTAGE_2,
+                FAKE_QUEUED_DRIVERS,
+                FAKE_RUNNING_DRIVERS,
+                FAKE_COMPLETED_DRIVERS,
                 FAKE_QUEUED_DRIVERS,
                 FAKE_RUNNING_DRIVERS,
                 FAKE_COMPLETED_DRIVERS,

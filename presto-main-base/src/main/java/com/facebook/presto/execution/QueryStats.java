@@ -78,6 +78,11 @@ public class QueryStats
     private final int blockedDrivers;
     private final int completedDrivers;
 
+    private final int totalNewDrivers;
+    private final int queuedNewDrivers;
+    private final int runningNewDrivers;
+    private final int completedNewDrivers;
+
     private final int totalSplits;
     private final int queuedSplits;
     private final int runningSplits;
@@ -156,6 +161,11 @@ public class QueryStats
             int runningDrivers,
             int blockedDrivers,
             int completedDrivers,
+
+            int totalNewDrivers,
+            int queuedNewDrivers,
+            int runningNewDrivers,
+            int completedNewDrivers,
 
             int totalSplits,
             int queuedSplits,
@@ -244,6 +254,14 @@ public class QueryStats
         this.blockedDrivers = blockedDrivers;
         checkArgument(completedDrivers >= 0, "completedDrivers is negative");
         this.completedDrivers = completedDrivers;
+        checkArgument( totalNewDrivers >= 0, "totalNewDrivers is negative");
+        this.totalNewDrivers = totalNewDrivers;
+        checkArgument(queuedNewDrivers >= 0, "queuedNewDrivers is negative");
+        this.queuedNewDrivers = queuedNewDrivers;
+        checkArgument(runningNewDrivers >= 0, "runningNewDrivers is negative");
+        this.runningNewDrivers = runningNewDrivers;
+        checkArgument(completedNewDrivers >= 0, "completedNewDrivers is negative");
+        this.completedNewDrivers = completedNewDrivers;
         checkArgument(totalSplits >= 0, "totalSplits is negative");
         this.totalSplits = totalSplits;
         checkArgument(queuedSplits >= 0, "queuedSplits is negative");
@@ -332,6 +350,11 @@ public class QueryStats
             @JsonProperty("blockedDrivers") int blockedDrivers,
             @JsonProperty("completedDrivers") int completedDrivers,
 
+            @JsonProperty("totalNewDrivers") int totalNewDrivers,
+            @JsonProperty("queuedNewDrivers") int queuedNewDrivers,
+            @JsonProperty("runningNewDrivers") int runningNewDrivers,
+            @JsonProperty("completedNewDrivers") int completedNewDrivers,
+
             @JsonProperty("totalSplits") int totalSplits,
             @JsonProperty("queuedSplits") int queuedSplits,
             @JsonProperty("runningSplits") int runningSplits,
@@ -409,6 +432,11 @@ public class QueryStats
                 blockedDrivers,
                 completedDrivers,
 
+                totalNewDrivers,
+                queuedNewDrivers,
+                runningNewDrivers,
+                completedNewDrivers,
+
                 totalSplits,
                 queuedSplits,
                 runningSplits,
@@ -480,6 +508,11 @@ public class QueryStats
         int blockedDrivers = 0;
         int completedDrivers = 0;
 
+        int totalNewDrivers = 0;
+        int queuedNewDrivers = 0;
+        int runningNewDrivers = 0;
+        int completedNewDrivers = 0;
+
         int totalSplits = 0;
         int queuedSplits = 0;
         int runningSplits = 0;
@@ -533,6 +566,11 @@ public class QueryStats
             runningDrivers += stageExecutionStats.getRunningDrivers();
             blockedDrivers += stageExecutionStats.getBlockedDrivers();
             completedDrivers += stageExecutionStats.getCompletedDrivers();
+
+            totalNewDrivers += stageExecutionStats.getTotalNewDrivers();
+            queuedNewDrivers += stageExecutionStats.getQueuedNewDrivers();
+            runningNewDrivers += stageExecutionStats.getRunningNewDrivers();
+            completedNewDrivers += stageExecutionStats.getCompletedNewDrivers();
 
             totalSplits += stageExecutionStats.getTotalSplits();
             queuedSplits += stageExecutionStats.getQueuedSplits();
@@ -638,6 +676,11 @@ public class QueryStats
                 blockedDrivers,
                 completedDrivers,
 
+                totalNewDrivers,
+                queuedNewDrivers,
+                runningNewDrivers,
+                completedNewDrivers,
+
                 totalSplits,
                 queuedSplits,
                 runningSplits,
@@ -713,6 +756,10 @@ public class QueryStats
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
+                0,
+                0,
+                0,
+                0,
                 0,
                 0,
                 0,
@@ -923,6 +970,30 @@ public class QueryStats
     public int getCompletedDrivers()
     {
         return completedDrivers;
+    }
+
+    @JsonProperty
+    public  int getTotalNewDrivers()
+    {
+        return totalNewDrivers;
+    }
+
+    @JsonProperty
+    public int getQueuedNewDrivers()
+    {
+        return queuedNewDrivers;
+    }
+
+    @JsonProperty
+    public int getRunningNewDrivers()
+    {
+        return runningNewDrivers;
+    }
+
+    @JsonProperty
+    public int getCompletedNewDrivers()
+    {
+        return completedNewDrivers;
     }
 
     @JsonProperty

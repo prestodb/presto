@@ -40,6 +40,10 @@ public class BasicStageExecutionStats
             0,
             0,
             0,
+            0,
+            0,
+            0,
+            0,
 
             0L,
             0,
@@ -64,6 +68,10 @@ public class BasicStageExecutionStats
     private final int queuedDrivers;
     private final int runningDrivers;
     private final int completedDrivers;
+    private final int totalNewDrivers;
+    private final int queuedNewDrivers;
+    private final int runningNewDrivers;
+    private final int completedNewDrivers;
     private final int totalSplits;
     private final int queuedSplits;
     private final int runningSplits;
@@ -88,6 +96,11 @@ public class BasicStageExecutionStats
             int queuedDrivers,
             int runningDrivers,
             int completedDrivers,
+
+            int totalNewDrivers,
+            int queuedNewDrivers,
+            int runningNewDrivers,
+            int completedNewDrivers,
 
             int totalSplits,
             int queuedSplits,
@@ -117,6 +130,10 @@ public class BasicStageExecutionStats
         this.queuedDrivers = queuedDrivers;
         this.runningDrivers = runningDrivers;
         this.completedDrivers = completedDrivers;
+        this.totalNewDrivers = totalNewDrivers;
+        this.queuedNewDrivers = queuedNewDrivers;
+        this.runningNewDrivers = runningNewDrivers;
+        this.completedNewDrivers = completedNewDrivers;
         this.totalSplits = totalSplits;
         this.queuedSplits = queuedSplits;
         this.runningSplits = runningSplits;
@@ -162,6 +179,26 @@ public class BasicStageExecutionStats
     public int getCompletedDrivers()
     {
         return completedDrivers;
+    }
+
+    public int getTotalNewDrivers()
+    {
+        return totalNewDrivers;
+    }
+
+    public int getQueuedNewDrivers()
+    {
+        return queuedNewDrivers;
+    }
+
+    public int getRunningNewDrivers()
+    {
+        return runningNewDrivers;
+    }
+
+    public int getCompletedNewDrivers()
+    {
+        return completedNewDrivers;
     }
 
     public int getTotalSplits()
@@ -251,6 +288,11 @@ public class BasicStageExecutionStats
         int runningDrivers = 0;
         int completedDrivers = 0;
 
+        int totalNewDrivers = 0;
+        int queuedNewDrivers = 0;
+        int runningNewDrivers = 0;
+        int completedNewDrivers = 0;
+
         int totalSplits = 0;
         int queuedSplits = 0;
         int runningSplits = 0;
@@ -279,6 +321,11 @@ public class BasicStageExecutionStats
             queuedDrivers += stageStats.getQueuedDrivers();
             runningDrivers += stageStats.getRunningDrivers();
             completedDrivers += stageStats.getCompletedDrivers();
+
+            totalNewDrivers += stageStats.getTotalNewDrivers();
+            queuedNewDrivers += stageStats.getQueuedNewDrivers();
+            runningNewDrivers += stageStats.getRunningNewDrivers();
+            completedNewDrivers += stageStats.getCompletedNewDrivers();
 
             totalSplits += stageStats.getTotalSplits();
             queuedSplits += stageStats.getQueuedSplits();
@@ -316,6 +363,11 @@ public class BasicStageExecutionStats
                 queuedDrivers,
                 runningDrivers,
                 completedDrivers,
+
+                totalNewDrivers,
+                queuedNewDrivers,
+                runningNewDrivers,
+                completedNewDrivers,
 
                 totalSplits,
                 queuedSplits,
