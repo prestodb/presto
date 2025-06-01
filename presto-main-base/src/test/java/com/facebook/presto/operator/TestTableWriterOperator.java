@@ -76,7 +76,6 @@ import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
-import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -185,15 +184,15 @@ public class TestTableWriterOperator
         List<Page> pages = rowPagesBuilder.build();
 
         long peakMemoryUsage = 0;
-        long validationCpuNanos = 0;
+        long validationCpuMillis = 0;
         for (int i = 0; i < pages.size(); i++) {
             Page page = pages.get(i);
             peakMemoryUsage += page.getRetainedSizeInBytes();
-            validationCpuNanos += page.getPositionCount();
+            validationCpuMillis += page.getPositionCount();
             tableWriterOperator.addInput(page);
             TableWriterInfo info = tableWriterOperator.getInfo();
             assertEquals(info.getPageSinkPeakMemoryUsage(), peakMemoryUsage);
-            assertEquals((long) (info.getValidationCpuTime().getValue(NANOSECONDS)), validationCpuNanos);
+            assertEquals((long) (info.getValidationCpuTimeInMillis()), validationCpuMillis);
         }
         tableWriterOperator.finish();
         while (!tableWriterOperator.isFinished()) {
@@ -261,8 +260,8 @@ public class TestTableWriterOperator
         assertMemoryIsReleased(operator);
 
         TableWriterInfo info = operator.getInfo();
-        assertThat(info.getStatisticsWallTime().getValue(NANOSECONDS)).isGreaterThan(0);
-        assertThat(info.getStatisticsCpuTime().getValue(NANOSECONDS)).isGreaterThan(0);
+        assertThat(info.getStatisticsWallTimeInMillis()).isGreaterThan(0);
+        assertThat(info.getStatisticsCpuTimeInMillis()).isGreaterThan(0);
     }
 
     private static Slice getTableCommitContext(boolean lastPage)

@@ -43,8 +43,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.wrappedBuffer;
-import static io.airlift.units.Duration.succinctNanos;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class TableWriterMergeOperator
         implements Operator
@@ -351,7 +351,7 @@ public class TableWriterMergeOperator
     {
         requireNonNull(statisticsTiming, "statisticsTiming is null");
         return () -> new TableWriterMergeInfo(
-                succinctNanos(statisticsTiming.getWallNanos()),
-                succinctNanos(statisticsTiming.getCpuNanos()));
+                NANOSECONDS.toMillis(statisticsTiming.getWallNanos()),
+                NANOSECONDS.toMillis(statisticsTiming.getCpuNanos()));
     }
 }
