@@ -26,11 +26,9 @@ public class NativeQueryRunnerUtils
 {
     private NativeQueryRunnerUtils() {}
 
-    public static Map<String, String> getNativeWorkerHiveProperties(String storageFormat)
+    public static Map<String, String> getNativeWorkerHiveProperties()
     {
-        return ImmutableMap.of("hive.storage-format", storageFormat,
-                "hive.pushdown-filter-enabled", "true",
-                "hive.parquet.pushdown-filter-enabled", "true",
+        return ImmutableMap.of("hive.parquet.pushdown-filter-enabled", "true",
                 "hive.orc-compression-codec", "ZSTD");
     }
 

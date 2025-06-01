@@ -24,12 +24,17 @@ public class TestPrestoNativeIcebergTpchQueriesOrcUsingThrift
     @Override
     protected QueryRunner createQueryRunner() throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createNativeIcebergQueryRunner(true, storageFormat);
+        return PrestoNativeQueryRunnerUtils.nativeIcebergQueryRunnerBuilder()
+                .setStorageFormat(storageFormat)
+                .setUseThrift(true)
+                .build();
     }
 
     @Override
     protected ExpectedQueryRunner createExpectedQueryRunner() throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createJavaIcebergQueryRunner(storageFormat);
+        return PrestoNativeQueryRunnerUtils.javaIcebergQueryRunnerBuilder()
+                .setStorageFormat(storageFormat)
+                .build();
     }
 }

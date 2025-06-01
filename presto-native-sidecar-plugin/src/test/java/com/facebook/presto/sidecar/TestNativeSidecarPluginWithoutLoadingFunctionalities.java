@@ -39,7 +39,9 @@ public class TestNativeSidecarPluginWithoutLoadingFunctionalities
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.createQueryRunner(true, false, false, false);
+        DistributedQueryRunner queryRunner = (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder()
+                .setAddStorageFormatToPath(true)
+                .build();
         // Installing the native sidecar plugin on a native cluster does not load the plugin functionalities because
         // we aren't loading the individual functionalities.
         queryRunner.installCoordinatorPlugin(new NativeSidecarPlugin());
@@ -50,7 +52,9 @@ public class TestNativeSidecarPluginWithoutLoadingFunctionalities
     protected QueryRunner createExpectedQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.createJavaQueryRunner();
+        DistributedQueryRunner queryRunner = (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.javaHiveQueryRunnerBuilder()
+                .setAddStorageFormatToPath(true)
+                .build();
         // Installing the native sidecar plugin on a Java cluster, does not load the plugin functionalities because
         // we aren't loading the individual functionalities.
         queryRunner.installCoordinatorPlugin(new NativeSidecarPlugin());

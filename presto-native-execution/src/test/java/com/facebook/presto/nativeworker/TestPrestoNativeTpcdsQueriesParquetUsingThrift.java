@@ -25,7 +25,11 @@ public class TestPrestoNativeTpcdsQueriesParquetUsingThrift
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(true, "PARQUET");
+        return PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder()
+                .setStorageFormat("PARQUET")
+                .setAddStorageFormatToPath(true)
+                .setUseThrift(true)
+                .build();
     }
 
     @Override
@@ -33,6 +37,9 @@ public class TestPrestoNativeTpcdsQueriesParquetUsingThrift
             throws Exception
     {
         this.storageFormat = "PARQUET";
-        return PrestoNativeQueryRunnerUtils.createJavaQueryRunner("PARQUET");
+        return PrestoNativeQueryRunnerUtils.javaHiveQueryRunnerBuilder()
+                .setStorageFormat(this.storageFormat)
+                .setAddStorageFormatToPath(true)
+                .build();
     }
 }

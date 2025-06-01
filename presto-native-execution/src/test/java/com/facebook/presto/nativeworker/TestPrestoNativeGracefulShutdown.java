@@ -14,7 +14,6 @@
 package com.facebook.presto.nativeworker;
 
 import com.facebook.presto.spi.NodeState;
-import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import org.testng.annotations.Test;
 
@@ -26,8 +25,10 @@ public class TestPrestoNativeGracefulShutdown
     @Test
     public void testGracefulShutdown() throws Exception
     {
-        QueryRunner queryRunner = PrestoNativeQueryRunnerUtils.createNativeQueryRunner(true);
-        DistributedQueryRunner distributedQueryRunner = (DistributedQueryRunner) queryRunner;
+        DistributedQueryRunner distributedQueryRunner = (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder()
+                .setAddStorageFormatToPath(true)
+                .setUseThrift(true)
+                .build();
 
         int responseCode = distributedQueryRunner.sendWorkerRequest(0, "INVALID_BODY");
         assertEquals(responseCode, 400, "Expected a 400 Bad Request response for invalid body");
@@ -40,6 +41,6 @@ public class TestPrestoNativeGracefulShutdown
         NodeState state = distributedQueryRunner.getWorkerInfoState(0);
         assertEquals(state.getValue(), SHUTTING_DOWN.getValue());
 
-        queryRunner.close();
+        distributedQueryRunner.close();
     }
 }

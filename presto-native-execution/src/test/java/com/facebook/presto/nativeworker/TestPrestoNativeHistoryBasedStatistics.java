@@ -55,7 +55,10 @@ public class TestPrestoNativeHistoryBasedStatistics
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        QueryRunner queryRunner = PrestoNativeQueryRunnerUtils.createNativeQueryRunner(true);
+        QueryRunner queryRunner = PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder()
+                .setAddStorageFormatToPath(true)
+                .setUseThrift(true)
+                .build();
         queryRunner.installPlugin(new Plugin()
         {
             @Override
@@ -71,7 +74,9 @@ public class TestPrestoNativeHistoryBasedStatistics
     protected ExpectedQueryRunner createExpectedQueryRunner()
             throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createJavaQueryRunner();
+        return PrestoNativeQueryRunnerUtils.javaHiveQueryRunnerBuilder()
+                .setAddStorageFormatToPath(true)
+                .build();
     }
 
     @BeforeMethod(alwaysRun = true)

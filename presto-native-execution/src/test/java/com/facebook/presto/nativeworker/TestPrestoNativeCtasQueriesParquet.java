@@ -21,17 +21,26 @@ import org.testng.annotations.Test;
 public class TestPrestoNativeCtasQueriesParquet
         extends AbstractTestNativeCtasQueries
 {
+    private final String storageFormat = "PARQUET";
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(true, "PARQUET");
+        return PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder()
+                .setStorageFormat(storageFormat)
+                .setAddStorageFormatToPath(true)
+                .setUseThrift(true)
+                .build();
     }
 
     @Override
     protected ExpectedQueryRunner createExpectedQueryRunner()
             throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createJavaQueryRunner("PARQUET");
+        return PrestoNativeQueryRunnerUtils.javaHiveQueryRunnerBuilder()
+                .setStorageFormat(storageFormat)
+                .setAddStorageFormatToPath(true)
+                .build();
     }
 }
