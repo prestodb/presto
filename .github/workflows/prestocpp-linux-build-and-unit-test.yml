@@ -172,6 +172,7 @@ jobs:
       fail-fast: false
       matrix:
         storage-format: [ "PARQUET", "DWRF" ]
+        enable-sidecar: [ "true", "false" ]
     container:
       image: prestodb/presto-native-dependency:0.293-20250522140509-484b00e
     env:
@@ -235,6 +236,7 @@ jobs:
             ${MAVEN_TEST} \
             -pl 'presto-native-tests' \
             -DstorageFormat=${{ matrix.storage-format }} \
+            -DsidecarEnabled=${{ matrix.enable-sidecar }} \
             -Dtest="${TESTCLASSES}" \
             -DPRESTO_SERVER=${PRESTO_SERVER_PATH} \
             -DDATA_DIR=${RUNNER_TEMP} \
