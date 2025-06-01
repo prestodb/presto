@@ -37,6 +37,7 @@ import java.io.IOException;
 import java.net.URI;
 
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
+import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.container.IcebergMinIODataLake.ACCESS_KEY;
 import static com.facebook.presto.iceberg.container.IcebergMinIODataLake.SECRET_KEY;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
@@ -130,7 +131,7 @@ public class TestIcebergDistributedOnS3Hadoop
     protected Table loadTable(String tableName)
     {
         Configuration configuration = getHdfsEnvironment().getConfiguration(new HdfsContext(SESSION), getCatalogDataDirectory());
-        Catalog catalog = CatalogUtil.loadCatalog(HADOOP.getCatalogImpl(), "test-hive", getProperties(), configuration);
+        Catalog catalog = CatalogUtil.loadCatalog(HADOOP.getCatalogImpl(), ICEBERG_CATALOG, getProperties(), configuration);
         return catalog.loadTable(TableIdentifier.of("tpch", tableName));
     }
 }

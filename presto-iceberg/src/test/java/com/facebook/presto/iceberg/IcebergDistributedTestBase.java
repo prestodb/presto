@@ -636,6 +636,21 @@ public abstract class IcebergDistributedTestBase
     }
 
     @Test
+    protected void testCreateTableAndValidateIcebergTableName()
+    {
+        String tableName = "test_create_table_for_validate_name";
+        Session session = getSession();
+        assertUpdate(session, format("CREATE TABLE %s (col1 INTEGER, aDate DATE)", tableName));
+        Table icebergTable = loadTable(tableName);
+
+        String catalog = session.getCatalog().get();
+        String schemaName = session.getSchema().get();
+        assertEquals(icebergTable.name(), catalog + "." + schemaName + "." + tableName);
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+    }
+
+    @Test
     public void testPartitionedByTimeType()
     {
         // create iceberg table partitioned by column of TimestampType, and insert some data
@@ -2533,7 +2548,7 @@ public abstract class IcebergDistributedTestBase
 
     protected Table loadTable(String tableName)
     {
-        Catalog catalog = CatalogUtil.loadCatalog(catalogType.getCatalogImpl(), "test-hive", getProperties(), new Configuration());
+        Catalog catalog = CatalogUtil.loadCatalog(catalogType.getCatalogImpl(), ICEBERG_CATALOG, getProperties(), new Configuration());
         return catalog.loadTable(TableIdentifier.of("tpch", tableName));
     }
 
