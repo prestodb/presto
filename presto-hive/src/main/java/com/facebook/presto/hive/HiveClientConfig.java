@@ -222,6 +222,8 @@ public class HiveClientConfig
     private int parquetQuickStatsMaxConcurrentCalls = 500;
     private int quickStatsMaxConcurrentCalls = 100;
     private boolean legacyTimestampBucketing;
+    private boolean optimizeParsingOfPartitionValues;
+    private int optimizeParsingOfPartitionValuesThreshold = 500;
 
     @Min(0)
     public int getMaxInitialSplits()
@@ -1830,5 +1832,32 @@ public class HiveClientConfig
     {
         this.legacyTimestampBucketing = legacyTimestampBucketing;
         return this;
+    }
+
+    @Config("hive.optimize-parsing-of-partition-values-enabled")
+    @ConfigDescription("Enables optimization of parsing partition values when number of candidate partitions is large")
+    public HiveClientConfig setOptimizeParsingOfPartitionValues(boolean optimizeParsingOfPartitionValues)
+    {
+        this.optimizeParsingOfPartitionValues = optimizeParsingOfPartitionValues;
+        return this;
+    }
+
+    public boolean isOptimizeParsingOfPartitionValues()
+    {
+        return optimizeParsingOfPartitionValues;
+    }
+
+    @Config("hive.optimize-parsing-of-partition-values-threshold")
+    @ConfigDescription("Enables optimization of parsing partition values when number of candidate partitions exceed the threshold set here")
+    public HiveClientConfig setOptimizeParsingOfPartitionValuesThreshold(int optimizeParsingOfPartitionValuesThreshold)
+    {
+        this.optimizeParsingOfPartitionValuesThreshold = optimizeParsingOfPartitionValuesThreshold;
+        return this;
+    }
+
+    @Min(1)
+    public int getOptimizeParsingOfPartitionValuesThreshold()
+    {
+        return optimizeParsingOfPartitionValuesThreshold;
     }
 }
