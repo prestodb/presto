@@ -19,6 +19,7 @@ import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.spi.RecordCursor;
 
 public interface CursorProcessor
+        extends CursorProcessors
 {
     CursorProcessorOutput process(SqlFunctionProperties properties, DriverYieldSignal yieldSignal, RecordCursor cursor, PageBuilder pageBuilder);
 }
