@@ -97,6 +97,20 @@ If set to ``true``, disables the optimization in expression evaluation to delay 
 
 This should only be used for debugging purposes.
 
+``native_debug_lambda_function_evaluation_batch_size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``10000``
+
+Some lambda functions over arrays and maps are evaluated in batches of the underlying elements that comprise the
+arrays/maps. This is done to make the batch size manageable as array vectors can have thousands of elements each
+and hit scaling limits as implementations typically expect BaseVectors to a couple of thousand entries. This
+lets up tune those batch sizes. Setting this to zero is setting unlimited batch size. Setting this to zero will
+set an unlimited batch size. Default is 10,000.
+
+This should only be used for debugging purposes.
+
 ``native_execution_type_rewrite_enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
