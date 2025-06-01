@@ -77,7 +77,7 @@ public final class CteConsumerNode
     {
         // this function expects a new instance
         checkArgument(newChildren.size() == 0, "expected newChildren to contain 0 node");
-        return new CteConsumerNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), originalOutputVariables, cteId, originalSource);
+        return this;
     }
 
     @Override
