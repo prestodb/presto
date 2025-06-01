@@ -254,7 +254,7 @@ public class QueryStats
         this.blockedDrivers = blockedDrivers;
         checkArgument(completedDrivers >= 0, "completedDrivers is negative");
         this.completedDrivers = completedDrivers;
-        checkArgument( totalNewDrivers >= 0, "totalNewDrivers is negative");
+        checkArgument(totalNewDrivers >= 0, "totalNewDrivers is negative");
         this.totalNewDrivers = totalNewDrivers;
         checkArgument(queuedNewDrivers >= 0, "queuedNewDrivers is negative");
         this.queuedNewDrivers = queuedNewDrivers;
@@ -973,7 +973,7 @@ public class QueryStats
     }
 
     @JsonProperty
-    public  int getTotalNewDrivers()
+    public int getTotalNewDrivers()
     {
         return totalNewDrivers;
     }
