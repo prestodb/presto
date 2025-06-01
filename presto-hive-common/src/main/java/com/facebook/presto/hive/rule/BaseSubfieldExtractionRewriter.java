@@ -345,7 +345,8 @@ public abstract class BaseSubfieldExtractionRewriter
             RowExpression deterministicPredicate = logicalRowExpressions.filterDeterministicConjuncts(decomposedFilter.getRemainingExpression());
             if (!TRUE_CONSTANT.equals(deterministicPredicate)) {
                 ConstraintEvaluator evaluator = new ConstraintEvaluator(rowExpressionService, session, columnHandles, deterministicPredicate);
-                constraint = new Constraint<>(entireColumnDomain, evaluator::isCandidate);
+                List<ColumnHandle> predicateInputs = ImmutableList.<ColumnHandle>builder().addAll(evaluator.getArguments()).build();
+                constraint = new Constraint<>(entireColumnDomain, Optional.of(evaluator::isCandidate), Optional.of(predicateInputs));
             }
         }
         return constraint;
@@ -415,6 +416,11 @@ public abstract class BaseSubfieldExtractionRewriter
                     .map(VariableReferenceExpression::getName)
                     .map(assignments::get)
                     .collect(toImmutableSet());
+        }
+
+        public Set<ColumnHandle> getArguments()
+        {
+            return arguments;
         }
 
         private boolean isCandidate(Map<ColumnHandle, NullableValue> bindings)
