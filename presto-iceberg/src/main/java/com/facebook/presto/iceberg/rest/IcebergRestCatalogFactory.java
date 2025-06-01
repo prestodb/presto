@@ -14,6 +14,7 @@
 package com.facebook.presto.iceberg.rest;
 
 import com.facebook.presto.hive.NodeVersion;
+import com.facebook.presto.hive.azure.AzureConfigurationInitializer;
 import com.facebook.presto.hive.gcs.GcsConfigurationInitializer;
 import com.facebook.presto.hive.s3.S3ConfigurationUpdater;
 import com.facebook.presto.iceberg.IcebergCatalogName;
@@ -68,9 +69,10 @@ public class IcebergRestCatalogFactory
             IcebergCatalogName catalogName,
             S3ConfigurationUpdater s3ConfigurationUpdater,
             GcsConfigurationInitializer gcsConfigurationInitialize,
+            AzureConfigurationInitializer azureConfigurationInitialize,
             NodeVersion nodeVersion)
     {
-        super(config, catalogName, s3ConfigurationUpdater, gcsConfigurationInitialize);
+        super(config, catalogName, s3ConfigurationUpdater, gcsConfigurationInitialize, azureConfigurationInitialize);
         this.catalogConfig = requireNonNull(catalogConfig, "catalogConfig is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.catalogName = requireNonNull(catalogName, "catalogName is null").getCatalogName();
