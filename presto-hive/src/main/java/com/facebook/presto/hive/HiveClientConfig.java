@@ -222,6 +222,8 @@ public class HiveClientConfig
     private int parquetQuickStatsMaxConcurrentCalls = 500;
     private int quickStatsMaxConcurrentCalls = 100;
     private boolean legacyTimestampBucketing;
+    private List<String> readFormats = ImmutableList.of();
+    private String writeFormats;
 
     @Min(0)
     public int getMaxInitialSplits()
@@ -464,7 +466,7 @@ public class HiveClientConfig
     @Config("hive.config.resources")
     public HiveClientConfig setResourceConfigFiles(String files)
     {
-        this.resourceConfigFiles = Splitter.on(',').trimResults().omitEmptyStrings().splitToList(files);
+        this.resourceConfigFiles = SPLITTER.splitToList(files);
         return this;
     }
 
@@ -1830,5 +1832,31 @@ public class HiveClientConfig
     {
         this.legacyTimestampBucketing = legacyTimestampBucketing;
         return this;
+    }
+
+    @Config("hive.read-formats")
+    @ConfigDescription("File formats supported for read operation.")
+    public HiveClientConfig setReadFormats(String formats)
+    {
+        this.readFormats = SPLITTER.splitToList(formats);
+        return this;
+    }
+
+    public List<String> getReadFormats()
+    {
+        return readFormats;
+    }
+
+    @Config("hive.write-formats")
+    @ConfigDescription("File formats supported for write operation.")
+    public HiveClientConfig setWriteFormats(String formats)
+    {
+        this.writeFormats = formats;
+        return this;
+    }
+
+    public String getWriteFormats()
+    {
+        return writeFormats;
     }
 }

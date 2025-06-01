@@ -199,7 +199,8 @@ public class S3SelectTestHelper
                 config.getRecursiveDirWalkerEnabled(),
                 new ConfigBasedCacheQuotaRequirementProvider(cacheConfig),
                 new HiveEncryptionInformationProvider(ImmutableSet.of()),
-                new HivePartitionSkippabilityChecker());
+                new HivePartitionSkippabilityChecker(),
+                ImmutableList.of());
         pageSourceProvider = new HivePageSourceProvider(
                 config,
                 hdfsEnvironment,
