@@ -24,9 +24,9 @@ import org.testng.annotations.Test;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.nativeworker.NativeApiEndpointUtils.fetchScalarLongMetrics;
+import static com.facebook.presto.nativeworker.NativeApiEndpointUtils.getWorkerNodes;
 import static com.facebook.presto.nativeworker.NativeApiEndpointUtils.sendWorkerRequest;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createCustomer;
 import static org.testng.Assert.assertEquals;
@@ -167,22 +167,6 @@ public class TestPrestoNativeAsyncDataCacheCleanupAPI
             this.ssdCacheWriteEntries = ssdCacheWriteEntries;
             this.ssdCacheCachedEntries = ssdCacheCachedEntries;
         }
-    }
-
-    private boolean isCoordinator(DistributedQueryRunner distributedQueryRunner, InternalNode node)
-    {
-        return distributedQueryRunner.getCoordinator().getNodeManager().getCoordinators().contains(node);
-    }
-
-    private Set<InternalNode> getWorkerNodes(DistributedQueryRunner queryRunner)
-    {
-        return queryRunner.getCoordinator()
-                .getNodeManager()
-                .getAllNodes()
-                .getActiveNodes()
-                .stream()
-                .filter(node -> !isCoordinator(queryRunner, node))
-                .collect(Collectors.toSet());
     }
 
     @Test(groups = {"async_data_cache"})

@@ -133,6 +133,9 @@ class PrestoServer {
   virtual std::vector<std::string> registerVeloxConnectors(
       const fs::path& configDirectoryPath);
 
+  virtual std::string registerCatalog(
+      const fs::path& configPath);
+
   /// Invoked to register the required dwio data sinks which are used by
   /// connectors.
   virtual void registerFileSinks();
@@ -207,6 +210,12 @@ class PrestoServer {
   void handleGracefulShutdown(
       const std::vector<std::unique_ptr<folly::IOBuf>>& body,
       proxygen::ResponseHandler* downstream);
+
+  void registerCatalogFromJson(
+      proxygen::HTTPMessage* message,
+      const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+      proxygen::ResponseHandler* downstream,
+      std::vector<std::string>& catalogNames);
 
   protocol::NodeStatus fetchNodeStatus();
 

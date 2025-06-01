@@ -13,14 +13,19 @@
  */
 package com.facebook.presto.nativeworker;
 
+import com.facebook.presto.metadata.InternalNode;
+import com.facebook.presto.tests.DistributedQueryRunner;
+
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public final class NativeApiEndpointUtils
 {
@@ -68,5 +73,21 @@ public final class NativeApiEndpointUtils
             e.printStackTrace();
             return 500;
         }
+    }
+
+    private static boolean isCoordinator(DistributedQueryRunner distributedQueryRunner, InternalNode node)
+    {
+        return distributedQueryRunner.getCoordinator().getNodeManager().getCoordinators().contains(node);
+    }
+
+    public static Set<InternalNode> getWorkerNodes(DistributedQueryRunner queryRunner)
+    {
+        return queryRunner.getCoordinator()
+                .getNodeManager()
+                .getAllNodes()
+                .getActiveNodes()
+                .stream()
+                .filter(node -> !isCoordinator(queryRunner, node))
+                .collect(Collectors.toSet());
     }
 }

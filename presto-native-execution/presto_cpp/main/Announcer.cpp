@@ -109,7 +109,20 @@ Announcer::Announcer(
           announcementRequest(address, port, nodeId, announcementBody_)) {}
 
 std::tuple<proxygen::HTTPMessage, std::string> Announcer::httpRequest() {
+  std::lock_guard<std::mutex> lock(announcementMutex_);
   return {announcementRequest_, announcementBody_};
+}
+
+void Announcer::updateConnectorIds(const std::vector<std::string>& catalogNames) {
+  std::lock_guard<std::mutex> lock(announcementMutex_);
+  // Replace connectorIds with the new list of catalogs
+  auto json = nlohmann::json::parse(announcementBody_);
+  json["services"][0]["properties"]["connectorIds"] = folly::join(',', catalogNames);
+  announcementBody_ = json.dump();
+
+  // Adjust HTTP_HEADER_CONTENT_LENGTH to account for the additional catalogs
+  announcementRequest_.getHeaders().set(
+      proxygen::HTTP_HEADER_CONTENT_LENGTH, std::to_string(announcementBody_.size()));
 }
 
 } // namespace facebook::presto
