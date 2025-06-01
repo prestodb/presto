@@ -44,7 +44,7 @@ public class ArrowSplitManager
     {
         ArrowTableLayoutHandle tableLayoutHandle = (ArrowTableLayoutHandle) layout;
         ArrowTableHandle tableHandle = tableLayoutHandle.getTable();
-        FlightInfo flightInfo = clientHandler.getFlightInfoForTableScan(tableLayoutHandle, session);
+        FlightInfo flightInfo = clientHandler.getFlightInfoForTableScan(session, tableLayoutHandle);
         List<ArrowSplit> splits = flightInfo.getEndpoints()
                 .stream()
                 .map(info -> new ArrowSplit(
