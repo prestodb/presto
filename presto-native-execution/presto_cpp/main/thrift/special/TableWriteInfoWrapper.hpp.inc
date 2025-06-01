@@ -12,8 +12,7 @@
  * limitations under the License.
  */
 
-namespace facebook::presto::protocol {
-
-using HostAddress = std::string;
-
-} // namespace facebook::presto::protocol
+void toThrift(const facebook::presto::protocol::TableWriteInfo& tableWriteInfo, TableWriteInfoWrapper& thriftTableWriteInfoWrapper);
+void toThrift(const facebook::presto::protocol::TableWriteInfo& tableWriteInfo, std::string& thriftTableWriteInfo);
+void fromThrift(const TableWriteInfoWrapper& thriftTableWriteInfoWrapper, facebook::presto::protocol::TableWriteInfo& tableWriteInfo);
+void fromThrift(const std::string& thriftTableWriteInfo, facebook::presto::protocol::TableWriteInfo& tableWriteInfo);
