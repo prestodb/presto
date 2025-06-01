@@ -56,8 +56,6 @@ public class RouterModule
 
     private static final String QUERY_TRACKER = "query-tracker";
     private static final String QUERY_PREDICTOR = "query-predictor";
-    private static final String UI_PATH = "/ui";
-    private static final String ROUTER_UI = "router_ui";
     private static final String INDEX_HTML = "index.html";
     private final Optional<CustomSchedulerManager> customSchedulerManager;
 
@@ -69,10 +67,12 @@ public class RouterModule
     @Override
     protected void setup(Binder binder)
     {
+        webUIBinder(binder, "/ui/router", "webapp/router").withWelcomeFile(INDEX_HTML);
+        webUIBinder(binder, "/ui", "webapp").withWelcomeFile(INDEX_HTML);
+
         ServerConfig serverConfig = buildConfigObject(ServerConfig.class);
 
         binder.bind(RouterPluginManager.class).in(Scopes.SINGLETON);
-        webUIBinder(binder, UI_PATH, ROUTER_UI).withWelcomeFile(INDEX_HTML);
         configBinder(binder).bindConfig(RouterConfig.class);
 
         if (customSchedulerManager.isPresent()) {
