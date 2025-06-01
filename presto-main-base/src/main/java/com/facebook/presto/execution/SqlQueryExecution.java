@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.airlift.concurrent.SetThreadName;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.InvalidFunctionArgumentException;
 import com.facebook.presto.common.analyzer.PreparedQuery;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.cost.CostCalculator;
@@ -97,6 +98,7 @@ import static com.facebook.presto.execution.QueryStateMachine.pruneHistogramsFro
 import static com.facebook.presto.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createSpoolingOutputBuffers;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED;
 import static com.facebook.presto.sql.planner.PlanNodeCanonicalInfo.getCanonicalInfo;
@@ -619,6 +621,9 @@ public class SqlQueryExecution
         }
         catch (StackOverflowError e) {
             throw new PrestoException(NOT_SUPPORTED, "statement is too large (stack overflow during analysis)", e);
+        }
+        catch (InvalidFunctionArgumentException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e.getMessage(), e);
         }
     }
 
