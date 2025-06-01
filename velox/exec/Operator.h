@@ -698,15 +698,13 @@ class SourceOperator : public Operator {
       RowTypePtr outputType,
       int32_t operatorId,
       const std::string& planNodeId,
-      const std::string& operatorType,
-      const std::optional<common::SpillConfig>& spillConfig = std::nullopt)
+      const std::string& operatorType)
       : Operator(
             driverCtx,
             std::move(outputType),
             operatorId,
             planNodeId,
-            operatorType,
-            spillConfig) {}
+            operatorType) {}
 
   bool needsInput() const override {
     return false;
