@@ -166,6 +166,8 @@ public class TestHiveClientConfig
                 .setMaxConcurrentParquetQuickStatsCalls(500)
                 .setCteVirtualBucketCount(128)
                 .setSkipEmptyFilesEnabled(false)
+                .setOptimizeParsingOfPartitionValues(false)
+                .setOptimizeParsingOfPartitionValuesThreshold(500)
                 .setLegacyTimestampBucketing(false));
     }
 
@@ -292,6 +294,8 @@ public class TestHiveClientConfig
                 .put("hive.quick-stats.max-concurrent-calls", "101")
                 .put("hive.cte-virtual-bucket-count", "256")
                 .put("hive.skip-empty-files", "true")
+                .put("hive.optimize-parsing-of-partition-values-enabled", "true")
+                .put("hive.optimize-parsing-of-partition-values-threshold", "100")
                 .put("hive.legacy-timestamp-bucketing", "true")
                 .build();
 
@@ -414,6 +418,8 @@ public class TestHiveClientConfig
                 .setMaxConcurrentQuickStatsCalls(101)
                 .setSkipEmptyFilesEnabled(true)
                 .setCteVirtualBucketCount(256)
+                .setOptimizeParsingOfPartitionValues(true)
+                .setOptimizeParsingOfPartitionValuesThreshold(100)
                 .setLegacyTimestampBucketing(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
