@@ -29,6 +29,10 @@ using namespace facebook::velox::dwio::catalog::fbhive;
 class HivePartitionUtilTest : public ::testing::Test,
                               public velox::test::VectorTestBase {
  protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
+  }
+
   template <typename T>
   VectorPtr makeDictionary(const std::vector<T>& data) {
     auto base = makeFlatVector(data);
