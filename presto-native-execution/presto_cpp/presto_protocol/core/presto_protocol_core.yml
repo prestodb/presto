@@ -205,6 +205,12 @@ AbstractClasses:
       - { name: DescriptorArgumentSpecification,       key: descriptor }
       - { name: NativeScalarArgumentSpecification,     key: scalar }
       - { name: TableArgumentSpecification,            key: table }
+
+  Argument:
+    super: JsonEncodedSubclass
+    subclasses:
+      - { name: DescriptorArgument,  key: descriptor }
+      - { name: TableArgument,       key: table }
   
   ReturnTypeSpecification:
     super: JsonEncodedSubclass
@@ -372,3 +378,8 @@ JavaClasses:
   - presto-spi/src/main/java/com/facebook/presto/spi/function/table/OnlyPassThroughReturnTypeSpecification.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/DataOrganizationSpecification.java
   - presto-spi/src/main/java/com/facebook/presto/spi/function/table/AbstractConnectorTableFunction.java
+  - presto-native-tvf/src/main/java/com/facebook/presto/tvf/ConnectorTableMetadata1.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/function/table/Argument.java
+  - presto-common/src/main/java/com/facebook/presto/common/type/RowType.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/function/table/TableArgument.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/function/table/DescriptorArgument.java

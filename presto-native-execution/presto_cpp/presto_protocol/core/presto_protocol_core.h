@@ -305,6 +305,21 @@ void to_json(json& j, const std::shared_ptr<ConnectorTransactionHandle>& p);
 void from_json(const json& j, std::shared_ptr<ConnectorTransactionHandle>& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+<<<<<<< HEAD
+=======
+struct Argument : public JsonEncodedSubclass {
+  String name = {};
+};
+void to_json(json& j, const std::shared_ptr<Argument>& p);
+void from_json(const json& j, std::shared_ptr<Argument>& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct ConnectorTableLayoutHandle : public JsonEncodedSubclass {};
+void to_json(json& j, const std::shared_ptr<ConnectorTableLayoutHandle>& p);
+void from_json(const json& j, std::shared_ptr<ConnectorTableLayoutHandle>& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+>>>>>>> 59a7ff6a5c (Test, rever)
 struct ExecutionWriterTarget : public JsonEncodedSubclass {};
 void to_json(json& j, const std::shared_ptr<ExecutionWriterTarget>& p);
 void from_json(const json& j, std::shared_ptr<ExecutionWriterTarget>& p);
@@ -528,6 +543,15 @@ struct AnalyzeTableHandle {
 };
 void to_json(json& j, const AnalyzeTableHandle& p);
 void from_json(const json& j, AnalyzeTableHandle& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct Argument : public JsonEncodedSubclass {
+  String name = {};
+
+  Argument() noexcept;
+};
+void to_json(json& j, const Argument& p);
+void from_json(const json& j, Argument& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 struct AssignUniqueId : public PlanNode {
@@ -885,6 +909,30 @@ void to_json(json& j, const Column& p);
 void from_json(const json& j, Column& p);
 
 } // namespace facebook::presto::protocol
+<<<<<<< HEAD
+=======
+namespace facebook::presto::protocol {
+struct ConnectorTableMetadata1 {
+  String name = {};
+  Map<String, Argument> arguments = {};
+};
+void to_json(json& j, const ConnectorTableMetadata1& p);
+void from_json(const json& j, ConnectorTableMetadata1& p);
+} // namespace facebook::presto::protocol
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+>>>>>>> 59a7ff6a5c (Test, rever)
 namespace facebook::presto::protocol {
 
 struct Block {
@@ -995,6 +1043,15 @@ struct DescribedTableReturnTypeSpecification : public ReturnTypeSpecification {
 };
 void to_json(json& j, const DescribedTableReturnTypeSpecification& p);
 void from_json(const json& j, DescribedTableReturnTypeSpecification& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct DescriptorArgument : public Argument {
+  std::shared_ptr<Descriptor> descriptor = {};
+
+  DescriptorArgument() noexcept;
+};
+void to_json(json& j, const DescriptorArgument& p);
+void from_json(const json& j, DescriptorArgument& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 struct DescriptorArgumentSpecification : public ArgumentSpecification {
@@ -2091,6 +2148,13 @@ void to_json(json& j, const RowNumberNode& p);
 void from_json(const json& j, RowNumberNode& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+struct RowType {
+  List<Field> fields = {};
+};
+void to_json(json& j, const RowType& p);
+void from_json(const json& j, RowType& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 enum class RuntimeUnit { NONE, NANO, BYTE };
 extern void to_json(json& j, const RuntimeUnit& e);
 extern void from_json(const json& j, RuntimeUnit& e);
@@ -2313,6 +2377,17 @@ struct SystemTransactionHandle : public ConnectorTransactionHandle {
 };
 void to_json(json& j, const SystemTransactionHandle& p);
 void from_json(const json& j, SystemTransactionHandle& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct TableArgument : public Argument {
+  RowType rowType = {};
+  List<String> partitionBy = {};
+  List<String> orderBy = {};
+
+  TableArgument() noexcept;
+};
+void to_json(json& j, const TableArgument& p);
+void from_json(const json& j, TableArgument& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 struct TableArgumentSpecification : public ArgumentSpecification {

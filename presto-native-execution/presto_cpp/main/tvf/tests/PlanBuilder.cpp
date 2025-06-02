@@ -32,8 +32,7 @@ addTvfNode(
       }
     }
 
-    QueryConfig c{{}};
-    auto analysis = TableFunction::analyze(name, args, c);
+    auto analysis = TableFunction::analyze(name, args);
     VELOX_CHECK(analysis);
     VELOX_CHECK(analysis->tableFunctionHandle());
 

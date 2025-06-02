@@ -90,11 +90,10 @@ std::unique_ptr<TableFunction> TableFunction::create(
 
 std::unique_ptr<TableFunctionAnalysis> TableFunction::analyze(
     const std::string& name,
-    const std::unordered_map<std::string, std::shared_ptr<Argument>>& args,
-    const core::QueryConfig& config) {
+    const std::unordered_map<std::string, std::shared_ptr<Argument>>& args) {
   // Lookup the function in the new registry first.
   if (auto func = getTableFunctionEntry(name)) {
-    return func.value()->analyzer(args, config);
+    return func.value()->analyzer(args);
   }
 
   VELOX_USER_FAIL("Table function not registered: {}", name);

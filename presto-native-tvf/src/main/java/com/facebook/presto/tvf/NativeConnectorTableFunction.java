@@ -45,8 +45,7 @@ public class NativeConnectorTableFunction
     private final HttpClient httpClient;
     private final NodeManager nodeManager;
     private static final String TVF_ANALYZE_ENDPOINT = "/v1/tvf/analyze";
-    private static final JsonCodec<Map<String, Argument>> jsonCodecMap =
-            JsonCodec.mapJsonCodec(String.class, Argument.class);
+    private static final JsonCodec<ConnectorTableMetadata1> connectorTableMetadataJsonCodec = JsonCodec.jsonCodec(ConnectorTableMetadata1.class);
     private static final JsonCodec<TableFunctionAnalysis> tableFunctionAnalysisJsonCodec =
             JsonCodec.jsonCodec(TableFunctionAnalysis.class);
 
@@ -81,7 +80,8 @@ public class NativeConnectorTableFunction
     {
         return preparePost()
                 .setUri(getWorkerLocation(nodeManager, TVF_ANALYZE_ENDPOINT))
-                .setBodyGenerator(jsonBodyGenerator(jsonCodecMap, arguments))
+                .setBodyGenerator(
+                        jsonBodyGenerator(connectorTableMetadataJsonCodec, new ConnectorTableMetadata1(getName(), arguments)))
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
                 .setHeader(ACCEPT, JSON_UTF_8.toString())
                 .build();

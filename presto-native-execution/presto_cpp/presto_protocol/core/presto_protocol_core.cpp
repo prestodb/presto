@@ -1343,6 +1343,66 @@ void from_json(const json& j, AnalyzeTableHandle& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+Argument::Argument() noexcept {
+  _type = "";
+}
+
+void to_json(json& j, const Argument& p) {
+  j = json::object();
+  j["@type"] = "";
+  to_json_key(j, "name", p.name, "Argument", "String", "name");
+}
+
+void from_json(const json& j, Argument& p) {
+  p._type = j["@type"];
+  from_json_key(j, "name", p.name, "Argument", "String", "name");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+void to_json(json& j, const std::shared_ptr<Argument>& p) {
+  if (p == nullptr) {
+    return;
+  }
+  String type = p->_type;
+
+  if (type == "descriptor") {
+    j = *std::static_pointer_cast<DescriptorArgument>(p);
+    return;
+  }
+  if (type == "table") {
+    j = *std::static_pointer_cast<TableArgument>(p);
+    return;
+  }
+
+  throw TypeError(type + " no abstract type Argument ");
+}
+
+void from_json(const json& j, std::shared_ptr<Argument>& p) {
+  String type;
+  try {
+    type = p->getSubclassKey(j);
+  } catch (json::parse_error& e) {
+    throw ParseError(std::string(e.what()) + " Argument  Argument");
+  }
+
+  if (type == "descriptor") {
+    std::shared_ptr<DescriptorArgument> k =
+        std::make_shared<DescriptorArgument>();
+    j.get_to(*k);
+    p = std::static_pointer_cast<Argument>(k);
+    return;
+  }
+  if (type == "table") {
+    std::shared_ptr<TableArgument> k = std::make_shared<TableArgument>();
+    j.get_to(*k);
+    p = std::static_pointer_cast<Argument>(k);
+    return;
+  }
+
+  throw TypeError(type + " no abstract type Argument ");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 AssignUniqueId::AssignUniqueId() noexcept {
   _type = "com.facebook.presto.sql.planner.plan.AssignUniqueId";
 }
@@ -3039,6 +3099,47 @@ void from_json(const json& j, Column& p) {
   from_json_key(j, "type", p.type, "Column", "String", "type");
 }
 } // namespace facebook::presto::protocol
+<<<<<<< HEAD
+=======
+namespace facebook::presto::protocol {
+
+void to_json(json& j, const ConnectorTableMetadata1& p) {
+  j = json::object();
+  to_json_key(j, "name", p.name, "ConnectorTableMetadata1", "String", "name");
+  to_json_key(
+      j,
+      "arguments",
+      p.arguments,
+      "ConnectorTableMetadata1",
+      "Map<String, Argument>",
+      "arguments");
+}
+
+void from_json(const json& j, ConnectorTableMetadata1& p) {
+  from_json_key(j, "name", p.name, "ConnectorTableMetadata1", "String", "name");
+  from_json_key(
+      j,
+      "arguments",
+      p.arguments,
+      "ConnectorTableMetadata1",
+      "Map<String, Argument>",
+      "arguments");
+}
+} // namespace facebook::presto::protocol
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+>>>>>>> 59a7ff6a5c (Test, rever)
 namespace facebook::presto::protocol {
 
 void to_json(json& j, const Block& p) {
@@ -3497,6 +3598,34 @@ void from_json(const json& j, DescribedTableReturnTypeSpecification& p) {
       "descriptor",
       p.descriptor,
       "DescribedTableReturnTypeSpecification",
+      "Descriptor",
+      "descriptor");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+DescriptorArgument::DescriptorArgument() noexcept {
+  _type = "descriptor";
+}
+
+void to_json(json& j, const DescriptorArgument& p) {
+  j = json::object();
+  j["@type"] = "descriptor";
+  to_json_key(
+      j,
+      "descriptor",
+      p.descriptor,
+      "DescriptorArgument",
+      "Descriptor",
+      "descriptor");
+}
+
+void from_json(const json& j, DescriptorArgument& p) {
+  p._type = j["@type"];
+  from_json_key(
+      j,
+      "descriptor",
+      p.descriptor,
+      "DescriptorArgument",
       "Descriptor",
       "descriptor");
 }
@@ -9204,6 +9333,17 @@ void from_json(const json& j, RowNumberNode& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+
+void to_json(json& j, const RowType& p) {
+  j = json::object();
+  to_json_key(j, "fields", p.fields, "RowType", "List<Field>", "fields");
+}
+
+void from_json(const json& j, RowType& p) {
+  from_json_key(j, "fields", p.fields, "RowType", "List<Field>", "fields");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 // Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
@@ -10183,6 +10323,40 @@ void from_json(const json& j, SystemTransactionHandle& p) {
       "SystemTransactionHandle",
       "ConnectorTransactionHandle",
       "connectorTransactionHandle");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+TableArgument::TableArgument() noexcept {
+  _type = "table";
+}
+
+void to_json(json& j, const TableArgument& p) {
+  j = json::object();
+  j["@type"] = "table";
+  to_json_key(j, "rowType", p.rowType, "TableArgument", "RowType", "rowType");
+  to_json_key(
+      j,
+      "partitionBy",
+      p.partitionBy,
+      "TableArgument",
+      "List<String>",
+      "partitionBy");
+  to_json_key(
+      j, "orderBy", p.orderBy, "TableArgument", "List<String>", "orderBy");
+}
+
+void from_json(const json& j, TableArgument& p) {
+  p._type = j["@type"];
+  from_json_key(j, "rowType", p.rowType, "TableArgument", "RowType", "rowType");
+  from_json_key(
+      j,
+      "partitionBy",
+      p.partitionBy,
+      "TableArgument",
+      "List<String>",
+      "partitionBy");
+  from_json_key(
+      j, "orderBy", p.orderBy, "TableArgument", "List<String>", "orderBy");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {

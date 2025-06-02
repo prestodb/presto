@@ -41,6 +41,7 @@ public class TableArgument
             @JsonProperty("partitionBy") List<String> partitionBy,
             @JsonProperty("orderBy") List<String> orderBy)
     {
+        super("");
         this.rowType = requireNonNull(rowType, "rowType is null");
         this.partitionBy = requireNonNull(partitionBy, "partitionBy is null");
         this.orderBy = requireNonNull(orderBy, "orderBy is null");

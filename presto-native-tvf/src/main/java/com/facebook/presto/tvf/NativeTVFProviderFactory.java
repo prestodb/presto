@@ -31,7 +31,7 @@ public class NativeTVFProviderFactory
         implements TVFProviderFactory
 {
     // Change this to "native" when enabling sidecar is the default behaviour
-    public static final String NAME = "presto";
+    private static final String NAME = "system";
 
     @Override
     public String getName()
