@@ -257,6 +257,7 @@ public class TestFeaturesConfig
                 .setExpressionOptimizerName("default")
                 .setExcludeInvalidWorkerSessionProperties(false)
                 .setAddExchangeBelowPartialAggregationOverGroupId(false)
+                .setAddDistinctBelowSemiJoinBuild(false)
                 .setInnerJoinPushdownEnabled(false)
                 .setInEqualityJoinPushdownEnabled(false)
                 .setRewriteMinMaxByToTopNEnabled(false)
@@ -467,6 +468,7 @@ public class TestFeaturesConfig
                 .put("enhanced-cte-scheduling-enabled", "false")
                 .put("expression-optimizer-name", "custom")
                 .put("exclude-invalid-worker-session-properties", "true")
+                .put("optimizer.add-distinct-below-semi-join-build", "true")
                 .put("optimizer.add-exchange-below-partial-aggregation-over-group-id", "true")
                 .build();
 
@@ -670,6 +672,7 @@ public class TestFeaturesConfig
                 .setExpressionOptimizerName("custom")
                 .setExcludeInvalidWorkerSessionProperties(true)
                 .setAddExchangeBelowPartialAggregationOverGroupId(true)
+                .setAddDistinctBelowSemiJoinBuild(true)
                 .setInEqualityJoinPushdownEnabled(true)
                 .setRewriteMinMaxByToTopNEnabled(true)
                 .setInnerJoinPushdownEnabled(true)
