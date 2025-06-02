@@ -868,7 +868,8 @@ public class AddLocalExchanges
                     parentPreferences.constrainTo(node.getSource().getOutputVariables()).withDefaultParallelism(session));
 
             // this filter source consumes the input completely, so we do not pass through parent preferences
-            PlanWithProperties filteringSource = planAndEnforce(node.getFilteringSource(), singleStream(), singleStream());
+            StreamPreferredProperties filteringPreference = nativeExecution ? defaultParallelism(session) : singleStream();
+            PlanWithProperties filteringSource = planAndEnforce(node.getFilteringSource(), filteringPreference, filteringPreference);
 
             return rebaseAndDeriveProperties(node, ImmutableList.of(source, filteringSource));
         }

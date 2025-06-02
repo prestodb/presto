@@ -14,8 +14,10 @@
 package com.facebook.presto.nativeworker;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -28,6 +30,13 @@ import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrde
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrdersEx;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPartitionedNation;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createRegion;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.semiJoin;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 
 public abstract class AbstractTestNativeJoinQueries
         extends AbstractTestQueryFramework
@@ -45,6 +54,12 @@ public abstract class AbstractTestNativeJoinQueries
         createRegion(queryRunner);
         createCustomer(queryRunner);
         createBucketedCustomer(queryRunner);
+    }
+
+    @Override
+    protected FeaturesConfig createFeaturesConfig()
+    {
+        return new FeaturesConfig().setNativeExecutionEnabled(true);
     }
 
     @Test(dataProvider = "joinTypeProvider")
@@ -65,6 +80,35 @@ public abstract class AbstractTestNativeJoinQueries
                 "WHERE b.name=c.name AND \"$bucket\" IN (2, 5, 8)");
         assertQuery(joinTypeSession, "SELECT * FROM customer_bucketed b, customer c " +
                 "WHERE b.name=c.name AND \"$bucket\" = 5");
+    }
+
+    @Test
+    public void testSemiJoinPlan()
+    {
+        String sql = "SELECT orderkey FROM orders WHERE orderdate IN (SELECT shipdate FROM lineitem)";
+        assertPlan(
+                partitionedJoin(),
+                sql,
+                anyTree(
+                        semiJoin("orderdate", "shipdate", "orderkey_1",
+                                exchange(REMOTE_STREAMING, REPARTITION,
+                                        tableScan("orders", ImmutableMap.of(
+                                                "orderkey", "orderkey",
+                                                "orderdate", "orderdate"))),
+                                exchange(REMOTE_STREAMING, REPARTITION,
+                                        tableScan("lineitem", ImmutableMap.of(
+                                                "shipdate", "shipdate"))))));
+        assertPlan(
+                broadcastJoin(),
+                sql,
+                anyTree(
+                        semiJoin("orderdate", "shipdate", "orderkey_1",
+                                tableScan("orders", ImmutableMap.of(
+                                        "orderkey", "orderkey",
+                                        "orderdate", "orderdate")),
+                                exchange(REMOTE_STREAMING, REPLICATE,
+                                        tableScan("lineitem", ImmutableMap.of(
+                                                "shipdate", "shipdate"))))));
     }
 
     @Test(dataProvider = "joinTypeProvider")
