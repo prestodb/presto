@@ -127,6 +127,7 @@ int main(int argc, char** argv) {
       "array_join(array(double),varchar,varchar) -> varchar",
       // https://github.com/facebookincubator/velox/issues/13047
       "inverse_poisson_cdf",
+      "map_subset", // https://github.com/facebookincubator/velox/issues/12654
       // Geometry functions don't yet have a ValuesGenerator
       "st_geometryfromtext",
       "st_geomfrombinary",
