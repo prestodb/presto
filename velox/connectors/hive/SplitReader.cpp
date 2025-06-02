@@ -223,7 +223,7 @@ uint64_t SplitReader::next(uint64_t size, VectorPtr& output) {
     mutation.randomSkip = baseReaderOpts_.randomSkip().get();
     numScanned = baseRowReader_->next(size, output, &mutation);
   }
-  if (partitionFunction_) {
+  if (numScanned > 0 && partitionFunction_) {
     applyBucketConversion(
         output, bucketConversionRows(*output->asChecked<RowVector>()));
   }
