@@ -19,6 +19,18 @@
 #include "velox/vector/FlatVector.h"
 
 namespace facebook::velox::exec {
+namespace {
+#ifndef NDEBUG
+void debugCheckOutput(const RowVectorPtr& output) {
+  for (auto i = 0; i < output->childrenSize(); ++i) {
+    VELOX_CHECK_EQ(output->size(), output->childAt(i)->size());
+  }
+}
+#else
+void debugCheckOutput(const RowVectorPtr& output) {}
+#endif
+} // namespace
+
 Unnest::Unnest(
     int32_t operatorId,
     DriverCtx* driverCtx,
@@ -150,6 +162,7 @@ RowVectorPtr Unnest::getOutput() {
     input_ = nullptr;
     nextInputRow_ = 0;
   }
+  debugCheckOutput(output);
   return output;
 }
 
@@ -252,13 +265,12 @@ const Unnest::UnnestChannelEncoding Unnest::generateEncodingForChannel(
           }
 
           for (auto i = std::max(start, currentUnnestSize); i < end; ++i) {
-            bits::setNull(rawNulls, index++, bits::kNotNull);
+            bits::setNull(rawNulls, index++, true);
           }
         } else if (size > 0) {
           identityMapping = false;
-
           for (auto i = start; i < end; ++i) {
-            bits::setNull(rawNulls, index++, bits::kNotNull);
+            bits::setNull(rawNulls, index++, true);
           }
         }
       },
@@ -334,7 +346,11 @@ VectorPtr Unnest::UnnestChannelEncoding::wrap(
     const VectorPtr& base,
     vector_size_t wrapSize) const {
   if (identityMapping) {
-    return base;
+    if (wrapSize == base->size()) {
+      return base;
+    }
+    auto* rawIndices = indices->asMutable<vector_size_t>();
+    return base->slice(rawIndices[0], wrapSize);
   }
 
   const auto result =
