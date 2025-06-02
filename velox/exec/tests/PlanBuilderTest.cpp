@@ -301,4 +301,73 @@ TEST_F(PlanBuilderTest, projectExpressions) {
       "-- Project[1][expressions: (p0:VARCHAR, \"c0\"[\"field0\"])] -> p0:VARCHAR\n");
 }
 
+TEST_F(PlanBuilderTest, commitStrategyParameter) {
+  auto data = makeRowVector({makeFlatVector<int64_t>(10, folly::identity)});
+  auto directory = "/some/test/directory";
+
+  // Lambda to create a plan with given commitStrategy and verify it
+  auto testCommitStrategy =
+      [&](std::optional<connector::CommitStrategy> commitStrategy,
+          connector::CommitStrategy expectedStrategy) {
+        std::shared_ptr<const core::PlanNode> plan;
+
+        // Create a plan with or without commitStrategy based on whether it has
+        // a value
+        if (commitStrategy.has_value()) {
+          plan = PlanBuilder()
+                     .values({data})
+                     .tableWrite(
+                         directory,
+                         {},
+                         0,
+                         {},
+                         {},
+                         dwio::common::FileFormat::DWRF,
+                         {},
+                         PlanBuilder::kHiveDefaultConnectorId,
+                         {},
+                         nullptr,
+                         "",
+                         common::CompressionKind_NONE,
+                         nullptr,
+                         false,
+                         commitStrategy.value())
+                     .planNode();
+        } else {
+          plan = PlanBuilder()
+                     .values({data})
+                     .tableWrite(
+                         directory,
+                         {},
+                         0,
+                         {},
+                         {},
+                         dwio::common::FileFormat::DWRF,
+                         {},
+                         PlanBuilder::kHiveDefaultConnectorId,
+                         {},
+                         nullptr,
+                         "",
+                         common::CompressionKind_NONE,
+                         nullptr,
+                         false)
+                     .planNode();
+        }
+
+        // Verify the plan node has the correct commit strategy
+        auto tableWriteNode =
+            std::dynamic_pointer_cast<const core::TableWriteNode>(plan);
+        ASSERT_NE(tableWriteNode, nullptr);
+        ASSERT_EQ(tableWriteNode->commitStrategy(), expectedStrategy);
+      };
+
+  // Test with explicit task commit strategy
+  testCommitStrategy(
+      connector::CommitStrategy::kTaskCommit,
+      connector::CommitStrategy::kTaskCommit);
+
+  // Test with no explicit commit strategy (should default to kNoCommit)
+  testCommitStrategy(std::nullopt, connector::CommitStrategy::kNoCommit);
+}
+
 } // namespace facebook::velox::exec::test

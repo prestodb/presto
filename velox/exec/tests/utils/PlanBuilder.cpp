@@ -384,7 +384,7 @@ core::PlanNodePtr PlanBuilder::TableWriterBuilder::build(core::PlanNodeId id) {
       insertHandle_,
       false,
       TableWriteTraits::outputType(aggregationNode),
-      connector::CommitStrategy::kNoCommit,
+      commitStrategy_,
       upstreamNode);
   VELOX_CHECK(!writeNode->supportsBarrier());
   return writeNode;
@@ -624,7 +624,8 @@ PlanBuilder& PlanBuilder::tableWrite(
     const std::string& outputFileName,
     const common::CompressionKind compressionKind,
     const RowTypePtr& schema,
-    const bool ensureFiles) {
+    const bool ensureFiles,
+    const connector::CommitStrategy commitStrategy) {
   return TableWriterBuilder(*this)
       .outputDirectoryPath(outputDirectoryPath)
       .outputFileName(outputFileName)
@@ -640,6 +641,7 @@ PlanBuilder& PlanBuilder::tableWrite(
       .options(options)
       .compressionKind(compressionKind)
       .ensureFiles(ensureFiles)
+      .commitStrategy(commitStrategy)
       .endTableWriter();
 }
 

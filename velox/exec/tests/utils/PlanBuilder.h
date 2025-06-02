@@ -471,6 +471,15 @@ class PlanBuilder {
       return *this;
     }
 
+    /// Specifies commitStrategy for writing to the connector.
+    /// @param commitStrategy The commit strategy to use for the table write
+    /// operation.
+    TableWriterBuilder& commitStrategy(
+        connector::CommitStrategy commitStrategy) {
+      commitStrategy_ = commitStrategy;
+      return *this;
+    }
+
     /// Stop the TableWriterBuilder.
     PlanBuilder& endTableWriter() {
       planBuilder_.planNode_ = build(planBuilder_.nextPlanNodeId());
@@ -502,6 +511,8 @@ class PlanBuilder {
     common::CompressionKind compressionKind_{common::CompressionKind_NONE};
 
     bool ensureFiles_{false};
+    connector::CommitStrategy commitStrategy_{
+        connector::CommitStrategy::kNoCommit};
   };
 
   /// Start a TableWriterBuilder.
@@ -720,7 +731,9 @@ class PlanBuilder {
       const std::string& outputFileName = "",
       const common::CompressionKind = common::CompressionKind_NONE,
       const RowTypePtr& schema = nullptr,
-      const bool ensureFiles = false);
+      const bool ensureFiles = false,
+      const connector::CommitStrategy commitStrategy =
+          connector::CommitStrategy::kNoCommit);
 
   /// Add a TableWriteMergeNode.
   PlanBuilder& tableWriteMerge(
