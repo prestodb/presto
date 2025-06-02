@@ -768,6 +768,18 @@ std::unique_ptr<dwio::common::BufferedInput> createBufferedInput(
         executor,
         readerOpts);
   }
+  if (readerOpts.fileFormat() == dwio::common::FileFormat::NIMBLE) {
+    // Nimble streams (in case of single chunk) are compressed as whole and need
+    // to be fully fetched in order to do decompression, so there is no point to
+    // fetch them by quanta.  Just use BufferedInput to fetch streams as whole
+    // to reduce memory footprint.
+    return std::make_unique<dwio::common::BufferedInput>(
+        fileHandle.file,
+        readerOpts.memoryPool(),
+        dwio::common::MetricsLog::voidLog(),
+        ioStats.get(),
+        fsStats.get());
+  }
   return std::make_unique<dwio::common::DirectBufferedInput>(
       fileHandle.file,
       dwio::common::MetricsLog::voidLog(),
